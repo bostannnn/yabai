@@ -102,8 +102,12 @@ class LocalDocumentRepository(
             uri = uri,
             persistedUri = persistedUri,
         ) ?: return null
+        val existingRecord = recordsById.value[record.id]
+        val recordWithAddedAt = record.copy(
+            addedAtEpochMillis = existingRecord?.addedAtEpochMillis ?: record.addedAtEpochMillis,
+        )
         val recordWithCover = coverMutationMutex.withLock {
-            val refreshedRecord = attachLocalCover(record, forceRefresh = true)
+            val refreshedRecord = attachLocalCover(recordWithAddedAt, forceRefresh = true)
             withContext(Dispatchers.IO) {
                 importedComicArchiveDao.insertOrReplace(refreshedRecord.toEntity())
             }
@@ -386,6 +390,7 @@ class LocalDocumentRepository(
             pageCount = record.pageCount.takeIf { it > 0 },
             description = formatSpec.buildDescription(record),
             coverUrl = record.coverUri,
+            addedAtEpochMillis = record.addedAtEpochMillis,
             bookMetadata = record.author?.let(::BookMetadata),
             comicMetadata = if (
                 record.series != null ||
@@ -435,6 +440,7 @@ class LocalDocumentRepository(
             issueTitle = entity.issueTitle,
             volume = entity.volume,
             issueNumber = entity.issueNumber,
+            addedAtEpochMillis = entity.updatedAtEpochMillis,
         )
     }
 
@@ -641,7 +647,7 @@ internal fun LocalDocumentRecord.toEntity(): ImportedComicArchiveEntity = Import
     issueTitle = issueTitle,
     volume = volume,
     issueNumber = issueNumber,
-    updatedAtEpochMillis = System.currentTimeMillis(),
+    updatedAtEpochMillis = addedAtEpochMillis,
 )
 
 internal data class LocalDocumentRecord(
@@ -660,6 +666,7 @@ internal data class LocalDocumentRecord(
     val volume: String? = null,
     val issueNumber: String? = null,
     val epubCoverEntryName: String? = null,
+    val addedAtEpochMillis: Long = System.currentTimeMillis(),
 )
 
 private fun LocalDocumentRecord.isSupportedLocalFormat(): Boolean = when (format) {

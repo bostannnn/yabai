@@ -61,6 +61,7 @@ class ReaderStateBootstrapper(
                                     percent = null,
                                     isFinished = false,
                                     syncState = SyncState.CLEAN.name,
+                                    updatedAtEpochMillis = 0L,
                                 ),
                             )
                         }

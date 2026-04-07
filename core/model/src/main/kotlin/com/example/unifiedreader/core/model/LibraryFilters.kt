@@ -22,6 +22,14 @@ data class LibraryFilterFacets(
             series.isEmpty()
 }
 
+enum class LibrarySortMode {
+    DATE_ADDED,
+    LAST_READ,
+    AUTHOR,
+    TITLE,
+    SERIES,
+}
+
 fun applyLibraryFilters(
     items: List<ReadableItem>,
     filters: LibraryFilterState,
@@ -32,6 +40,40 @@ fun applyLibraryFilters(
             filters.authors.matches(item.normalizedAuthor()) &&
             filters.series.matches(item.normalizedSeries())
     }
+}
+
+fun applyLibrarySort(
+    items: List<ReadableItem>,
+    sortMode: LibrarySortMode,
+    lastReadAtEpochMillisByItemId: Map<String, Long> = emptyMap(),
+): List<ReadableItem> {
+    return items
+        .withIndex()
+        .sortedWith(sortComparator(sortMode, lastReadAtEpochMillisByItemId))
+        .map { it.value }
+}
+
+private fun sortComparator(
+    sortMode: LibrarySortMode,
+    lastReadAtEpochMillisByItemId: Map<String, Long>,
+): Comparator<IndexedValue<ReadableItem>> = when (sortMode) {
+    LibrarySortMode.DATE_ADDED -> compareByDescending<IndexedValue<ReadableItem>> {
+        it.value.addedAtEpochMillis ?: Long.MIN_VALUE
+    }
+        .thenBy { it.index }
+
+    LibrarySortMode.LAST_READ -> compareByDescending<IndexedValue<ReadableItem>> {
+        lastReadAtEpochMillisByItemId[it.value.id] ?: Long.MIN_VALUE
+    }
+        .thenBy { it.index }
+
+    LibrarySortMode.AUTHOR,
+    LibrarySortMode.TITLE,
+    LibrarySortMode.SERIES -> compareBy<IndexedValue<ReadableItem>, String>(String.CASE_INSENSITIVE_ORDER) {
+        it.value.librarySortKey(sortMode)
+    }
+        .thenBy(String.CASE_INSENSITIVE_ORDER) { it.value.title }
+        .thenBy { it.index }
 }
 
 fun buildLibraryFilterFacets(
@@ -49,6 +91,20 @@ private fun ReadableItem.normalizedAuthor(): String? =
 
 private fun ReadableItem.normalizedSeries(): String? =
     comicMetadata?.series?.trim()?.takeIf(String::isNotEmpty)
+
+fun ReadableItem.libraryAlphabetKey(
+    sortMode: LibrarySortMode,
+): String? = when (sortMode) {
+    LibrarySortMode.DATE_ADDED -> null
+    LibrarySortMode.LAST_READ -> null
+    LibrarySortMode.AUTHOR -> normalizedAuthor()?.authorFacetKey() ?: libraryDisplayLabel()
+    LibrarySortMode.TITLE -> title.trim().takeIf(String::isNotEmpty)
+    LibrarySortMode.SERIES -> normalizedSeries() ?: libraryPrimaryText()
+}
+
+private fun ReadableItem.librarySortKey(
+    sortMode: LibrarySortMode,
+): String = libraryAlphabetKey(sortMode).orEmpty()
 
 private inline fun <reified T : Enum<T>> List<T>.distinctByEnumOrder(): List<T> =
     distinct().sortedBy { it.ordinal }

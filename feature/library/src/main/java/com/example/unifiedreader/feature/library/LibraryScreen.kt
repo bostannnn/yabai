@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -41,6 +42,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
@@ -66,10 +68,12 @@ import com.example.unifiedreader.core.model.ComicMetadata
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.LibraryFilterFacets
 import com.example.unifiedreader.core.model.LibraryFilterState
+import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.authorFacetKey
+import com.example.unifiedreader.core.model.libraryAlphabetKey
 import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.core.model.librarySecondaryText
@@ -84,19 +88,49 @@ fun LibraryScreen(
     libraryMessage: String? = null,
     filterState: LibraryFilterState = LibraryFilterState(),
     filterFacets: LibraryFilterFacets = LibraryFilterFacets(),
+    sortMode: LibrarySortMode = LibrarySortMode.DATE_ADDED,
     onFilterStateChanged: (LibraryFilterState) -> Unit = {},
     onClearFilters: () -> Unit = {},
+    onSortModeChanged: (LibrarySortMode) -> Unit = {},
     onItemSelected: (ReadableItem) -> Unit,
     onDeleteImportedItem: (ReadableItem) -> Unit = {},
 ) {
     var deleteCandidate by remember { mutableStateOf<ReadableItem?>(null) }
     var openFilterPanel by rememberSaveable { mutableStateOf<LibraryFilterPanel?>(null) }
+    var selectedSortLetter by rememberSaveable(sortMode) { mutableStateOf<String?>(null) }
+    val alphabetRailVisible = sortMode.usesAlphabetRail && items.isNotEmpty()
+    val sortLetters = remember(items, sortMode) {
+        if (!sortMode.usesAlphabetRail) {
+            emptyList()
+        } else {
+            items.mapNotNull { item -> item.sortFilterLetter(sortMode) }
+                .distinct()
+                .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it })
+        }
+    }
+    val effectiveSortLetter = selectedSortLetter?.takeIf { it in sortLetters }
+    val visibleItems = remember(items, sortMode, effectiveSortLetter) {
+        effectiveSortLetter?.let { letter ->
+            items.filter { item -> item.sortFilterLetter(sortMode) == letter }
+        } ?: items
+    }
+
+    LaunchedEffect(selectedSortLetter, effectiveSortLetter) {
+        if (selectedSortLetter != effectiveSortLetter) {
+            selectedSortLetter = effectiveSortLetter
+        }
+    }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         LazyVerticalGrid(
             columns = viewMode.gridCells(maxWidth = maxWidth),
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                top = 16.dp,
+                end = if (alphabetRailVisible) 56.dp else 16.dp,
+                bottom = 16.dp,
+            ),
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -106,18 +140,21 @@ fun LibraryScreen(
                 }
             }
 
-            if (!filterFacets.isEmpty || !filterState.isEmpty) {
-                item(span = { GridItemSpan(maxLineSpan) }) {
-                    LibraryFilterSummary(
-                        filterState = filterState,
-                        filterFacets = filterFacets,
-                        onOpenFilterPanel = { openFilterPanel = it },
-                        onClearFilters = onClearFilters,
-                    )
-                }
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                LibraryFilterSummary(
+                    filterState = filterState,
+                    filterFacets = filterFacets,
+                    sortMode = sortMode,
+                    onOpenFilterPanel = { openFilterPanel = it },
+                    onClearFilters = onClearFilters,
+                    onSortModeChanged = {
+                        selectedSortLetter = null
+                        onSortModeChanged(it)
+                    },
+                )
             }
 
-            if (items.isEmpty()) {
+            if (visibleItems.isEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     EmptyLibraryState(
                         selectedSource = selectedSource,
@@ -125,7 +162,7 @@ fun LibraryScreen(
                     )
                 }
             } else {
-                items(items, key = { it.id }) { item ->
+                items(visibleItems, key = { it.id }) { item ->
                     when (viewMode) {
                         LibraryViewMode.Detailed -> DetailedItemCard(
                             item = item,
@@ -140,6 +177,26 @@ fun LibraryScreen(
                         )
                     }
                 }
+            }
+        }
+        if (alphabetRailVisible) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 8.dp),
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+                tonalElevation = 2.dp,
+                shadowElevation = 2.dp,
+            ) {
+                AlphabetRail(
+                    letters = sortLetters,
+                    selectedLetter = effectiveSortLetter,
+                    onLetterSelected = { letter ->
+                        selectedSortLetter = if (effectiveSortLetter == letter) null else letter
+                    },
+                    modifier = Modifier.padding(vertical = 6.dp),
+                )
             }
         }
     }
@@ -207,37 +264,94 @@ private fun EmptyLibraryState(
 private fun LibraryFilterSummary(
     filterState: LibraryFilterState,
     filterFacets: LibraryFilterFacets,
+    sortMode: LibrarySortMode,
     onOpenFilterPanel: (LibraryFilterPanel) -> Unit,
     onClearFilters: () -> Unit,
+    onSortModeChanged: (LibrarySortMode) -> Unit,
 ) {
     Row(
         modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        LibraryFacetChip(
-            label = "Format",
-            count = filterState.formats.size,
-            enabled = filterFacets.formats.isNotEmpty() || filterState.formats.isNotEmpty(),
-            onClick = { onOpenFilterPanel(LibraryFilterPanel.Format) },
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            LibraryFacetChip(
+                label = "Format",
+                count = filterState.formats.size,
+                enabled = filterFacets.formats.isNotEmpty() || filterState.formats.isNotEmpty(),
+                onClick = { onOpenFilterPanel(LibraryFilterPanel.Format) },
+            )
+            LibraryFacetChip(
+                label = "Author",
+                count = filterState.authors.size,
+                enabled = filterFacets.authors.isNotEmpty() || filterState.authors.isNotEmpty(),
+                onClick = { onOpenFilterPanel(LibraryFilterPanel.Author) },
+            )
+            LibraryFacetChip(
+                label = "Series",
+                count = filterState.series.size,
+                enabled = filterFacets.series.isNotEmpty() || filterState.series.isNotEmpty(),
+                onClick = { onOpenFilterPanel(LibraryFilterPanel.Series) },
+            )
+            if (!filterState.isEmpty) {
+                TextButton(onClick = onClearFilters) {
+                    Text(text = "Clear")
+                }
+            }
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        LibrarySortSelector(
+            sortMode = sortMode,
+            onSortModeChanged = onSortModeChanged,
         )
-        LibraryFacetChip(
-            label = "Author",
-            count = filterState.authors.size,
-            enabled = filterFacets.authors.isNotEmpty() || filterState.authors.isNotEmpty(),
-            onClick = { onOpenFilterPanel(LibraryFilterPanel.Author) },
+    }
+}
+
+@Composable
+private fun LibrarySortSelector(
+    sortMode: LibrarySortMode,
+    onSortModeChanged: (LibrarySortMode) -> Unit,
+) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    Box {
+        FilterChip(
+            selected = sortMode != LibrarySortMode.DATE_ADDED,
+            onClick = { expanded = true },
+            label = {
+                Text(
+                    text = "Sort: ${sortMode.label}",
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            },
         )
-        LibraryFacetChip(
-            label = "Series",
-            count = filterState.series.size,
-            enabled = filterFacets.series.isNotEmpty() || filterState.series.isNotEmpty(),
-            onClick = { onOpenFilterPanel(LibraryFilterPanel.Series) },
-        )
-        if (!filterState.isEmpty) {
-            TextButton(onClick = onClearFilters) {
-                Text(text = "Clear")
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            LibrarySortMode.entries.forEach { mode ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = mode.label,
+                            fontWeight = if (mode == sortMode) {
+                                FontWeight.SemiBold
+                            } else {
+                                FontWeight.Normal
+                            },
+                        )
+                    },
+                    onClick = {
+                        expanded = false
+                        onSortModeChanged(mode)
+                    },
+                )
             }
         }
     }
@@ -507,9 +621,10 @@ private fun AlphabetRail(
     letters: List<String>,
     selectedLetter: String?,
     onLetterSelected: (String?) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     LazyColumn(
-        modifier = Modifier
+        modifier = modifier
             .width(28.dp)
             .heightIn(max = 420.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -850,6 +965,7 @@ data class ItemProgressSummary(
     val fraction: Float,
     val currentPage: Int? = null,
     val pageCount: Int? = null,
+    val lastReadAtEpochMillis: Long = 0L,
 ) {
     val percentLabel: String
         get() = "${(fraction.coerceIn(0f, 1f) * 100f).toInt()}%"
@@ -988,6 +1104,28 @@ private fun SourceType.displayName(): String = when (this) {
     SourceType.GRIMMORY -> "Grimmory"
     SourceType.LOCAL -> "Local"
 }
+
+private val LibrarySortMode.label: String
+    get() = when (this) {
+        LibrarySortMode.DATE_ADDED -> "Date added"
+        LibrarySortMode.LAST_READ -> "Last read"
+        LibrarySortMode.AUTHOR -> "Author"
+        LibrarySortMode.TITLE -> "Title"
+        LibrarySortMode.SERIES -> "Series"
+    }
+
+private val LibrarySortMode.usesAlphabetRail: Boolean
+    get() = when (this) {
+        LibrarySortMode.AUTHOR,
+        LibrarySortMode.TITLE,
+        LibrarySortMode.SERIES -> true
+        LibrarySortMode.DATE_ADDED,
+        LibrarySortMode.LAST_READ -> false
+    }
+
+private fun ReadableItem.sortFilterLetter(
+    sortMode: LibrarySortMode,
+): String? = libraryAlphabetKey(sortMode)?.filterLetter { it }
 
 private fun formatBadgeText(formatType: FormatType): String = when (formatType) {
     FormatType.CBZ -> "CBZ"

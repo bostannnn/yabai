@@ -12,10 +12,12 @@ import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.LibraryFilterFacets
 import com.example.unifiedreader.core.model.LibraryFilterState
+import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.applyLibraryFilters
+import com.example.unifiedreader.core.model.applyLibrarySort
 import com.example.unifiedreader.core.model.buildLibraryFilterFacets
 import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.data.repository.LibraryRepository
@@ -85,6 +87,12 @@ class AppViewModel @Inject constructor(
         if (uiState.selectedLibraryFilters.isEmpty) return
         uiState = uiState.copy(
             libraryFiltersBySource = uiState.libraryFiltersBySource - uiState.selectedSource,
+        )
+    }
+
+    fun onLibrarySortModeChanged(sortMode: LibrarySortMode) {
+        uiState = uiState.copy(
+            librarySortsBySource = uiState.librarySortsBySource + (uiState.selectedSource to sortMode),
         )
     }
 
@@ -255,17 +263,20 @@ class AppViewModel @Inject constructor(
                 buildItemProgressSummary(
                     pageIndex = pageIndex,
                     pageCount = pageCount,
+                    lastReadAtEpochMillis = progress.updatedAtEpochMillis,
                 )
             }
 
             LocatorType.PERCENT -> buildPercentProgressSummary(
                 percent = progress.percent,
                 pageCount = sessionPageCount,
+                lastReadAtEpochMillis = progress.updatedAtEpochMillis,
             )
             LocatorType.CFI -> buildSavedLocationProgressSummary(
                 percent = progress.percent,
                 page = progress.page,
                 pageCount = sessionPageCount,
+                lastReadAtEpochMillis = progress.updatedAtEpochMillis,
             )
         } ?: return@associateNotNull null
         item.id to summary
@@ -288,6 +299,7 @@ data class AppUiState(
     val libraries: List<Library> = emptyList(),
     val items: List<ReadableItem> = emptyList(),
     val libraryFiltersBySource: Map<SourceType, LibraryFilterState> = emptyMap(),
+    val librarySortsBySource: Map<SourceType, LibrarySortMode> = emptyMap(),
     val progressByItemId: Map<String, ItemProgressSummary> = emptyMap(),
     val libraryMessage: String? = null,
     val themeMode: ThemeMode = ThemeMode.System,
@@ -301,8 +313,17 @@ data class AppUiState(
     val selectedLibraryFilterFacets: LibraryFilterFacets
         get() = buildLibraryFilterFacets(sourceItems)
 
+    val selectedLibrarySortMode: LibrarySortMode
+        get() = librarySortsBySource[selectedSource] ?: LibrarySortMode.DATE_ADDED
+
     val visibleItems: List<ReadableItem>
-        get() = applyLibraryFilters(sourceItems, selectedLibraryFilters)
+        get() = applyLibrarySort(
+            items = applyLibraryFilters(sourceItems, selectedLibraryFilters),
+            sortMode = selectedLibrarySortMode,
+            lastReadAtEpochMillisByItemId = progressByItemId.mapValues { (_, progress) ->
+                progress.lastReadAtEpochMillis
+            },
+        )
 
     val selectedItem: ReadableItem?
         get() = items.firstOrNull { it.id == selectedItemId }
@@ -334,6 +355,7 @@ enum class TopLevelDestination {
 private fun buildItemProgressSummary(
     pageIndex: Int,
     pageCount: Int,
+    lastReadAtEpochMillis: Long = 0L,
 ): ItemProgressSummary? {
     if (pageCount <= 0) return null
     val clampedPageIndex = pageIndex.coerceIn(0, pageCount - 1)
@@ -342,12 +364,14 @@ private fun buildItemProgressSummary(
         fraction = (clampedPageIndex + 1) / pageCount.toFloat(),
         currentPage = clampedPageIndex + 1,
         pageCount = pageCount,
+        lastReadAtEpochMillis = lastReadAtEpochMillis,
     )
 }
 
 private fun buildPercentProgressSummary(
     percent: Double?,
     pageCount: Int? = null,
+    lastReadAtEpochMillis: Long = 0L,
 ): ItemProgressSummary? {
     val normalizedPercent = percent?.coerceIn(0.0, 1.0) ?: return null
     val percentLabel = (normalizedPercent * 100).toInt()
@@ -355,6 +379,7 @@ private fun buildPercentProgressSummary(
         label = "Resume at $percentLabel%",
         fraction = normalizedPercent.toFloat(),
         pageCount = pageCount,
+        lastReadAtEpochMillis = lastReadAtEpochMillis,
     )
 }
 
@@ -362,11 +387,13 @@ private fun buildSavedLocationProgressSummary(
     percent: Double?,
     page: Int? = null,
     pageCount: Int? = null,
+    lastReadAtEpochMillis: Long = 0L,
 ): ItemProgressSummary = ItemProgressSummary(
     label = "Resume from saved location",
     fraction = (percent ?: 0.0).coerceIn(0.0, 1.0).toFloat(),
     currentPage = page?.takeIf { it > 0 },
     pageCount = pageCount,
+    lastReadAtEpochMillis = lastReadAtEpochMillis,
 )
 
 @VisibleForTesting(otherwise = VisibleForTesting.NONE)

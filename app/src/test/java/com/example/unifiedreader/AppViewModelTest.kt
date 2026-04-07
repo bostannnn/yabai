@@ -9,6 +9,7 @@ import com.example.unifiedreader.core.model.ComicMetadata
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.LibraryFilterState
+import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
@@ -431,6 +432,80 @@ class AppViewModelTest {
 
         assertEquals(listOf(localBook), viewModel.uiState.visibleItems)
         assertTrue(viewModel.uiState.selectedLibraryFilters.isEmpty)
+    }
+
+    @Test
+    fun `library sort modes order filtered visible items`() {
+        val neuromancer = sampleItem(
+            id = "neuromancer",
+            title = "Neuromancer",
+            format = FormatType.EPUB,
+            isLocalImport = true,
+        ).copy(
+            addedAtEpochMillis = 100L,
+            bookMetadata = BookMetadata(author = "William Gibson"),
+        )
+        val leftHand = sampleItem(
+            id = "left-hand",
+            title = "The Left Hand of Darkness",
+            format = FormatType.EPUB,
+            isLocalImport = true,
+        ).copy(
+            addedAtEpochMillis = 300L,
+            bookMetadata = BookMetadata(author = "Ursula K. Le Guin"),
+        )
+        val akira = sampleItem(
+            id = "akira",
+            title = "Akira 001",
+            format = FormatType.CBZ,
+            isLocalImport = true,
+        ).copy(
+            addedAtEpochMillis = 200L,
+            comicMetadata = ComicMetadata(series = "Akira", issueTitle = "The Bike Chase"),
+        )
+        val readerSessionStore = FakeReaderSessionStore().apply {
+            seedProgress(
+                com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot(
+                    itemId = leftHand.id,
+                    locatorType = LocatorType.PERCENT,
+                    percent = 0.2,
+                    updatedAtEpochMillis = 1_000L,
+                ),
+            )
+            seedProgress(
+                com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot(
+                    itemId = akira.id,
+                    locatorType = LocatorType.PERCENT,
+                    percent = 0.4,
+                    updatedAtEpochMillis = 3_000L,
+                ),
+            )
+        }
+        val viewModel = createViewModel(
+            importedRepository = FakeLocalDocumentRepository(
+                importedItems = mutableListOf(neuromancer, leftHand, akira),
+            ),
+            readerSessionStore = readerSessionStore,
+        )
+        viewModel.onSourceSelected(SourceType.LOCAL)
+
+        assertEquals(listOf(leftHand, akira, neuromancer), viewModel.uiState.visibleItems)
+
+        viewModel.onLibrarySortModeChanged(LibrarySortMode.LAST_READ)
+
+        assertEquals(listOf(akira, leftHand, neuromancer), viewModel.uiState.visibleItems)
+
+        viewModel.onLibrarySortModeChanged(LibrarySortMode.AUTHOR)
+
+        assertEquals(listOf(akira, neuromancer, leftHand), viewModel.uiState.visibleItems)
+
+        viewModel.onLibrarySortModeChanged(LibrarySortMode.TITLE)
+
+        assertEquals(listOf(akira, neuromancer, leftHand), viewModel.uiState.visibleItems)
+
+        viewModel.onLibrarySortModeChanged(LibrarySortMode.SERIES)
+
+        assertEquals(listOf(akira, neuromancer, leftHand), viewModel.uiState.visibleItems)
     }
 
     @Test

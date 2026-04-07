@@ -1,6 +1,7 @@
 package com.example.unifiedreader.core.database.entity
 
 import androidx.room.Entity
+import androidx.room.ColumnInfo
 import androidx.room.PrimaryKey
 
 @Entity(tableName = "servers")
@@ -27,6 +28,7 @@ data class ReadingProgressEntity(
     val percent: Double?,
     val isFinished: Boolean,
     val syncState: String,
+    @ColumnInfo(defaultValue = "0") val updatedAtEpochMillis: Long,
 )
 
 @Entity(tableName = "imported_comic_archives")

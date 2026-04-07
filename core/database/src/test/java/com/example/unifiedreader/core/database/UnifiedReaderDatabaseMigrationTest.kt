@@ -227,6 +227,55 @@ class UnifiedReaderDatabaseMigrationTest {
             ApplicationProvider.getApplicationContext<Context>().deleteDatabase(databaseName)
         }
     }
+
+    @Test
+    fun `room migrates 7 to 8 and validates reading progress timestamp schema`() {
+        val databaseName = "migration-7-8-${System.nanoTime()}"
+        createTestDatabase(
+            name = databaseName,
+            version = 7,
+        ) { database ->
+            createVersion1Schema(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_1_2.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_2_3.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_3_4.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_4_5.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_5_6.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_6_7.migrate(database)
+            database.execSQL(
+                """
+                INSERT INTO reading_progress (
+                    itemId,
+                    locatorType,
+                    page,
+                    cfi,
+                    percent,
+                    isFinished,
+                    syncState
+                ) VALUES (
+                    'book-1',
+                    'PERCENT',
+                    NULL,
+                    NULL,
+                    0.5,
+                    0,
+                    'CLEAN'
+                )
+                """.trimIndent(),
+            )
+        }.use { _ -> Unit }
+
+        val migratedDatabase = openRoomDatabase(databaseName)
+        try {
+            val migratedRow = checkNotNull(
+                migratedDatabase.readingProgressDao().getByItemId("book-1"),
+            )
+            assertEquals(0L, migratedRow.updatedAtEpochMillis)
+        } finally {
+            migratedDatabase.close()
+            ApplicationProvider.getApplicationContext<Context>().deleteDatabase(databaseName)
+        }
+    }
 }
 
 private fun createVersion1Schema(database: SupportSQLiteDatabase) {
@@ -332,6 +381,7 @@ private fun openRoomDatabase(
         UnifiedReaderDatabaseMigrations.MIGRATION_4_5,
         UnifiedReaderDatabaseMigrations.MIGRATION_5_6,
         UnifiedReaderDatabaseMigrations.MIGRATION_6_7,
+        UnifiedReaderDatabaseMigrations.MIGRATION_7_8,
     )
     .build()
 

@@ -23,7 +23,7 @@ import com.example.unifiedreader.core.database.entity.ServerEntity
         ImportedComicArchiveEntity::class,
         ReaderSessionStateEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = false,
 )
 abstract class UnifiedReaderDatabase : RoomDatabase() {
@@ -141,6 +141,17 @@ object UnifiedReaderDatabaseMigrations {
             )
         }
     }
+
+    val MIGRATION_7_8 = object : Migration(7, 8) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL(
+                """
+                ALTER TABLE reading_progress
+                ADD COLUMN updatedAtEpochMillis INTEGER NOT NULL DEFAULT 0
+                """.trimIndent(),
+            )
+        }
+    }
 }
 
 object UnifiedReaderDatabaseFactory {
@@ -158,6 +169,7 @@ object UnifiedReaderDatabaseFactory {
             UnifiedReaderDatabaseMigrations.MIGRATION_4_5,
             UnifiedReaderDatabaseMigrations.MIGRATION_5_6,
             UnifiedReaderDatabaseMigrations.MIGRATION_6_7,
+            UnifiedReaderDatabaseMigrations.MIGRATION_7_8,
         )
         .build()
 }

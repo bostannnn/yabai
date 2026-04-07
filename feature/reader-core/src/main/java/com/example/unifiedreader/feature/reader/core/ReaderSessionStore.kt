@@ -13,6 +13,7 @@ data class ReaderProgressSnapshot(
     val percent: Double? = null,
     val isFinished: Boolean = false,
     val syncState: SyncState = SyncState.CLEAN,
+    val updatedAtEpochMillis: Long = System.currentTimeMillis(),
 )
 
 data class ReaderSessionSnapshot(

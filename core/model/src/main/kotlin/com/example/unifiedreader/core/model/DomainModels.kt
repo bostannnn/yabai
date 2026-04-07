@@ -50,6 +50,7 @@ data class ReadableItem(
     val pageCount: Int? = null,
     val coverUrl: String? = null,
     val description: String? = null,
+    val addedAtEpochMillis: Long? = null,
     val bookMetadata: BookMetadata? = null,
     val comicMetadata: ComicMetadata? = null,
 )
