@@ -50,9 +50,9 @@ class UnifiedReaderAppFlowTest {
     fun import_opens_reader_and_reopens_on_last_page() {
         val importedItem = ReadableItem(
             id = "imported-akira",
-            serverId = "local-kavita",
-            sourceType = SourceType.KAVITA,
-            libraryId = "k-comics",
+            serverId = "local-device",
+            sourceType = SourceType.LOCAL,
+            libraryId = "local-imports",
             isLocalImport = true,
             title = "Imported Akira",
             format = FormatType.CBZ,
@@ -132,9 +132,9 @@ class UnifiedReaderAppFlowTest {
     fun imported_item_can_be_removed_from_overflow_menu() {
         val importedItem = ReadableItem(
             id = "imported-akira",
-            serverId = "local-kavita",
-            sourceType = SourceType.KAVITA,
-            libraryId = "k-comics",
+            serverId = "local-device",
+            sourceType = SourceType.LOCAL,
+            libraryId = "local-imports",
             isLocalImport = true,
             title = "Imported Akira",
             format = FormatType.CBZ,

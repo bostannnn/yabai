@@ -74,8 +74,8 @@ class ImportedComicArchiveRepositoryTest {
 
         assertNotNull(imported)
         assertEquals(FormatType.EPUB, imported?.format)
-        assertEquals(SourceType.GRIMMORY, imported?.sourceType)
-        assertEquals(LOCAL_GRIMMORY_LIBRARY_ID, imported?.libraryId)
+        assertEquals(SourceType.LOCAL, imported?.sourceType)
+        assertEquals(LOCAL_LIBRARY_ID, imported?.libraryId)
         assertEquals("The Dispossessed", imported?.title)
         assertEquals("Ursula K. Le Guin", imported?.bookMetadata?.author)
         assertEquals("Imported local EPUB book.", imported?.description)
@@ -111,6 +111,8 @@ class ImportedComicArchiveRepositoryTest {
 
         assertNotNull(imported)
         assertEquals(FormatType.CBZ, imported?.format)
+        assertEquals(SourceType.LOCAL, imported?.sourceType)
+        assertEquals(LOCAL_LIBRARY_ID, imported?.libraryId)
         assertEquals("akira-001", imported?.title)
         assertEquals(2, imported?.pageCount)
         assertEquals(

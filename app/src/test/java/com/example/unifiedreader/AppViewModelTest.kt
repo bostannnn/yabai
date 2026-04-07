@@ -72,6 +72,7 @@ class AppViewModelTest {
 
         assertEquals(importedItem.id, viewModel.uiState.selectedItemId)
         assertEquals(FormatType.CBZ, viewModel.uiState.activeReader)
+        assertEquals(SourceType.LOCAL, viewModel.uiState.selectedSource)
         assertEquals("Imported Imported Akira (CBZ)", viewModel.uiState.libraryMessage)
         assertEquals(listOf(importedItem), viewModel.uiState.items)
     }
@@ -105,12 +106,12 @@ class AppViewModelTest {
     }
 
     @Test
-    fun `imported epub opens grimmory reader and sets success status`() = runBlocking {
+    fun `imported epub opens local reader and sets success status`() = runBlocking {
         val importedItem = ReadableItem(
             id = "document-abcd",
-            serverId = "local-grimmory",
-            sourceType = SourceType.GRIMMORY,
-            libraryId = "g-books",
+            serverId = "local-device",
+            sourceType = SourceType.LOCAL,
+            libraryId = "local-imports",
             isLocalImport = true,
             title = "The Dispossessed",
             format = FormatType.EPUB,
@@ -131,7 +132,8 @@ class AppViewModelTest {
 
         assertEquals(importedItem.id, viewModel.uiState.selectedItemId)
         assertEquals(FormatType.EPUB, viewModel.uiState.activeReader)
-        assertEquals(SourceType.GRIMMORY, viewModel.uiState.selectedItem?.sourceType)
+        assertEquals(SourceType.LOCAL, viewModel.uiState.selectedSource)
+        assertEquals(SourceType.LOCAL, viewModel.uiState.selectedItem?.sourceType)
         assertEquals("Imported The Dispossessed (EPUB)", viewModel.uiState.libraryMessage)
     }
 
@@ -623,9 +625,9 @@ private fun sampleItem(
     isLocalImport: Boolean = false,
 ): ReadableItem = ReadableItem(
     id = id,
-    serverId = "local-kavita",
-    sourceType = SourceType.KAVITA,
-    libraryId = "k-comics",
+    serverId = if (isLocalImport) "local-device" else "local-kavita",
+    sourceType = if (isLocalImport) SourceType.LOCAL else SourceType.KAVITA,
+    libraryId = if (isLocalImport) "local-imports" else "k-comics",
     isLocalImport = isLocalImport,
     title = title,
     format = format,

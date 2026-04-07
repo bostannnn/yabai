@@ -525,6 +525,7 @@ private fun buildComicVolumeIssueLabel(
 private fun SourceType.displayName(): String = when (this) {
     SourceType.KAVITA -> "Kavita"
     SourceType.GRIMMORY -> "Grimmory"
+    SourceType.LOCAL -> "Local"
 }
 
 private fun formatBadgeText(formatType: FormatType): String = when (formatType) {

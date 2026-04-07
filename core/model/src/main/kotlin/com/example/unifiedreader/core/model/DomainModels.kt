@@ -3,6 +3,7 @@ package com.example.unifiedreader.core.model
 enum class SourceType {
     KAVITA,
     GRIMMORY,
+    LOCAL,
 }
 
 enum class FormatType {

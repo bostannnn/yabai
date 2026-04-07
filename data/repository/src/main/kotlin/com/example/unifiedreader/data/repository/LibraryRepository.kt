@@ -21,25 +21,31 @@ interface ReadableItemRepository {
 class SampleCatalogRepository : LibraryRepository, ReadableItemRepository {
     private val librariesState = MutableStateFlow(
         listOf(
-        Library(
-            id = "k-comics",
-            serverId = "local-kavita",
-            sourceType = SourceType.KAVITA,
-            title = "Comics",
-        ),
-        Library(
-            id = "k-magazines",
-            serverId = "local-kavita",
-            sourceType = SourceType.KAVITA,
-            title = "Magazines",
-        ),
-        Library(
-            id = "g-books",
-            serverId = "local-grimmory",
-            sourceType = SourceType.GRIMMORY,
-            title = "Books",
-        ),
-    )
+            Library(
+                id = "k-comics",
+                serverId = "local-kavita",
+                sourceType = SourceType.KAVITA,
+                title = "Comics",
+            ),
+            Library(
+                id = "k-magazines",
+                serverId = "local-kavita",
+                sourceType = SourceType.KAVITA,
+                title = "Magazines",
+            ),
+            Library(
+                id = "g-books",
+                serverId = "local-grimmory",
+                sourceType = SourceType.GRIMMORY,
+                title = "Books",
+            ),
+            Library(
+                id = "local-imports",
+                serverId = "local-device",
+                sourceType = SourceType.LOCAL,
+                title = "Local imports",
+            ),
+        )
     )
 
     private val itemsState = MutableStateFlow(emptyList<ReadableItem>())

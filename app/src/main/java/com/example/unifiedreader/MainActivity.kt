@@ -314,4 +314,5 @@ internal fun importDocumentIntoApp(
 private fun SourceType.displayName(): String = when (this) {
     SourceType.KAVITA -> "Kavita"
     SourceType.GRIMMORY -> "Grimmory"
+    SourceType.LOCAL -> "Local"
 }

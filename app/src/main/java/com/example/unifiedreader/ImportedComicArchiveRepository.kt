@@ -623,10 +623,8 @@ private fun File.isValidCoverFileFor(
     !name.endsWith(".tmp") &&
     length() > 0L
 
-internal const val LOCAL_KAVITA_LIBRARY_ID = "k-comics"
-internal const val LOCAL_GRIMMORY_LIBRARY_ID = "g-books"
-internal const val LOCAL_KAVITA_SERVER_ID = "local-kavita"
-internal const val LOCAL_GRIMMORY_SERVER_ID = "local-grimmory"
+internal const val LOCAL_LIBRARY_ID = "local-imports"
+internal const val LOCAL_SERVER_ID = "local-device"
 internal const val IMPORTED_EPUB_MIMETYPE = "application/epub+zip"
 
 internal fun LocalDocumentRecord.toEntity(): ImportedComicArchiveEntity = ImportedComicArchiveEntity(
@@ -732,17 +730,17 @@ private data class LocalImportFormatSpec(
 
 private val ComicLocalImportFormatSpec = LocalImportFormatSpec(
     idPrefix = "comic",
-    libraryId = LOCAL_KAVITA_LIBRARY_ID,
-    sourceType = SourceType.KAVITA,
-    serverId = LOCAL_KAVITA_SERVER_ID,
+    libraryId = LOCAL_LIBRARY_ID,
+    sourceType = SourceType.LOCAL,
+    serverId = LOCAL_SERVER_ID,
     buildDescription = { record -> "Imported local ${record.format.name} with ${record.pageCount} pages." },
 )
 
 private val EpubLocalImportFormatSpec = LocalImportFormatSpec(
     idPrefix = "document",
-    libraryId = LOCAL_GRIMMORY_LIBRARY_ID,
-    sourceType = SourceType.GRIMMORY,
-    serverId = LOCAL_GRIMMORY_SERVER_ID,
+    libraryId = LOCAL_LIBRARY_ID,
+    sourceType = SourceType.LOCAL,
+    serverId = LOCAL_SERVER_ID,
     buildDescription = { "Imported local EPUB book." },
 )
 
