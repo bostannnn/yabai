@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -32,6 +33,7 @@ fun ReaderBottomProgressBar(
     pageLabel: String,
     modifier: Modifier = Modifier,
     chapterMarks: List<Float> = emptyList(),
+    leadingAction: (@Composable RowScope.() -> Unit)? = null,
     onProgressSelected: ((Float) -> Unit)? = null,
 ) {
     val clampedProgress = progress.coerceIn(0f, 1f)
@@ -45,6 +47,7 @@ fun ReaderBottomProgressBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        leadingAction?.invoke(this)
         Text(
             text = percentLabel,
             style = MaterialTheme.typography.labelMedium,
