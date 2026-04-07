@@ -3,6 +3,7 @@ package com.example.unifiedreader.feature.reader.epub
 import android.content.Context
 import android.net.Uri
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
 import androidx.compose.foundation.background
@@ -474,8 +475,8 @@ private fun ReadiumEpubNavigatorHost(
     val fragmentTag = remember(item.id) { "readium-epub-${item.id}" }
     val latestOnLocationChanged = rememberUpdatedState(onLocationChanged)
     val latestOnSurfaceTap = rememberUpdatedState(onSurfaceTap)
-    val viewportVerticalPaddingPx = with(LocalDensity.current) {
-        EpubViewportVerticalPadding.roundToPx()
+    val viewportVerticalInsetPx = with(LocalDensity.current) {
+        EpubViewportVerticalInset.roundToPx()
     }
     val fragmentManager = activity.supportFragmentManager
     val surfaceBackground = remember(preferences.theme) {
@@ -498,18 +499,32 @@ private fun ReadiumEpubNavigatorHost(
             .fillMaxSize()
             .testTag(EpubReaderSurfaceTag),
         factory = { context ->
-            FragmentContainerView(context).apply {
-                id = containerId
+            FrameLayout(context).apply {
                 setBackgroundColor(surfaceBackground.toArgb())
                 layoutParams = FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT,
                     FrameLayout.LayoutParams.MATCH_PARENT,
                     Gravity.CENTER,
                 )
+                addView(
+                    FragmentContainerView(context).apply {
+                        id = containerId
+                        setBackgroundColor(surfaceBackground.toArgb())
+                    },
+                    epubNavigatorContainerLayoutParams(viewportVerticalInsetPx),
+                )
             }
         },
         update = { container ->
             container.setBackgroundColor(surfaceBackground.toArgb())
+            container.updateEpubNavigatorContainer(
+                verticalInsetPx = viewportVerticalInsetPx,
+                backgroundColor = surfaceBackground.toArgb(),
+            )
+            container.updateEpubGutterTapListener(
+                verticalInsetPx = viewportVerticalInsetPx,
+                onSurfaceTap = latestOnSurfaceTap.value,
+            )
         },
     )
 
@@ -540,7 +555,7 @@ private fun ReadiumEpubNavigatorHost(
                             applyEpubViewportPadding(
                                 navigator = fragment,
                                 publication = publication,
-                                paddingPx = viewportVerticalPaddingPx,
+                                paddingPx = 0,
                             )
                         }
                     }
@@ -593,7 +608,7 @@ private fun ReadiumEpubNavigatorHost(
             applyEpubViewportPadding(
                 navigator = it,
                 publication = publication,
-                paddingPx = viewportVerticalPaddingPx,
+                paddingPx = 0,
             )
         }
     }
@@ -639,7 +654,76 @@ private enum class EpubOverlayPanel {
     Layout,
 }
 
-private val EpubViewportVerticalPadding = 20.dp
+private val EpubViewportVerticalInset = 32.dp
+
+private fun epubNavigatorContainerLayoutParams(
+    verticalInsetPx: Int,
+): FrameLayout.LayoutParams = FrameLayout.LayoutParams(
+    FrameLayout.LayoutParams.MATCH_PARENT,
+    FrameLayout.LayoutParams.MATCH_PARENT,
+    Gravity.CENTER,
+).apply {
+    topMargin = verticalInsetPx
+    bottomMargin = verticalInsetPx
+}
+
+private fun FrameLayout.updateEpubNavigatorContainer(
+    verticalInsetPx: Int,
+    backgroundColor: Int,
+) {
+    val child = getChildAt(0) ?: return
+    child.setBackgroundColor(backgroundColor)
+    val current = child.layoutParams as? FrameLayout.LayoutParams
+    val updated = epubNavigatorContainerLayoutParams(verticalInsetPx)
+    if (
+        current == null ||
+        current.topMargin != updated.topMargin ||
+        current.bottomMargin != updated.bottomMargin
+    ) {
+        child.layoutParams = updated
+    }
+}
+
+private fun FrameLayout.updateEpubGutterTapListener(
+    verticalInsetPx: Int,
+    onSurfaceTap: () -> Unit,
+) {
+    var isTrackingGutterTap = false
+    setOnTouchListener { view, event ->
+        if (verticalInsetPx <= 0) return@setOnTouchListener false
+
+        fun isCenterGutterTap(): Boolean {
+            val isVerticalGutterTap = event.y < verticalInsetPx ||
+                event.y > view.height - verticalInsetPx
+            if (!isVerticalGutterTap) return false
+
+            val sideZoneWidth = view.width * 0.25f
+            return event.x > sideZoneWidth &&
+                event.x < view.width - sideZoneWidth
+        }
+
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                isTrackingGutterTap = isCenterGutterTap()
+                isTrackingGutterTap
+            }
+
+            MotionEvent.ACTION_UP -> {
+                if (!isTrackingGutterTap) return@setOnTouchListener false
+                isTrackingGutterTap = false
+                onSurfaceTap()
+                true
+            }
+
+            MotionEvent.ACTION_CANCEL -> {
+                isTrackingGutterTap = false
+                false
+            }
+
+            else -> isTrackingGutterTap
+        }
+    }
+}
 
 private fun epubReaderSurfaceBackground(
     theme: EpubReaderTheme,
@@ -653,7 +737,7 @@ internal suspend fun applyEpubViewportPadding(
     publication: Publication,
     paddingPx: Int,
 ) {
-    if (paddingPx <= 0 || publication.metadata.presentation.layout == EpubLayout.FIXED) return
+    if (publication.metadata.presentation.layout == EpubLayout.FIXED) return
     navigator.evaluateJavascript(buildEpubViewportPaddingScript(paddingPx))
 }
 
