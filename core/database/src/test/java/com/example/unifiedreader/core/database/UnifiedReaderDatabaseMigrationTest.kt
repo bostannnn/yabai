@@ -1,0 +1,357 @@
+package com.example.unifiedreader.core.database
+
+import android.content.Context
+import androidx.room.Room
+import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.sqlite.db.SupportSQLiteOpenHelper
+import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
+import androidx.test.core.app.ApplicationProvider
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+
+@RunWith(RobolectricTestRunner::class)
+class UnifiedReaderDatabaseMigrationTest {
+    @Test
+    fun `migration 1 to 2 creates reader session state table`() {
+        createTestDatabase(
+            name = "migration-1-2-${System.nanoTime()}",
+            version = 1,
+        ) { database ->
+            createVersion1Schema(database)
+        }.use { database ->
+            UnifiedReaderDatabaseMigrations.MIGRATION_1_2.migrate(database)
+
+            assertTrue(tableExists(database, "reader_session_state"))
+        }
+    }
+
+    @Test
+    fun `migration 2 to 3 creates imported comic archives table`() {
+        createTestDatabase(
+            name = "migration-2-3-${System.nanoTime()}",
+            version = 2,
+        ) { database ->
+            createVersion1Schema(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_1_2.migrate(database)
+        }.use { database ->
+            UnifiedReaderDatabaseMigrations.MIGRATION_2_3.migrate(database)
+
+            assertTrue(tableExists(database, "imported_comic_archives"))
+        }
+    }
+
+    @Test
+    fun `migration 3 to 4 adds spread mode to reader session state`() {
+        createTestDatabase(
+            name = "migration-3-4-${System.nanoTime()}",
+            version = 3,
+        ) { database ->
+            createVersion1Schema(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_1_2.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_2_3.migrate(database)
+        }.use { database ->
+            UnifiedReaderDatabaseMigrations.MIGRATION_3_4.migrate(database)
+
+            assertEquals(
+                "Auto",
+                querySpreadModeDefault(database),
+            )
+        }
+    }
+
+    @Test
+    fun `room migrates 4 to 5 and validates reader session state schema`() {
+        val databaseName = "migration-4-5-${System.nanoTime()}"
+        createTestDatabase(
+            name = databaseName,
+            version = 4,
+        ) { database ->
+            createVersion1Schema(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_1_2.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_2_3.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_3_4.migrate(database)
+            database.execSQL(
+                """
+                INSERT INTO reader_session_state (
+                    itemId,
+                    page,
+                    pageCount,
+                    readingDirection,
+                    pageFitMode,
+                    updatedAtEpochMillis,
+                    spreadMode
+                ) VALUES (
+                    'comic-1',
+                    7,
+                    24,
+                    'RTL',
+                    'FitWidth',
+                    123456789,
+                    'Double'
+                )
+                """.trimIndent(),
+            )
+        }.use { _ -> Unit }
+
+        val migratedDatabase = openRoomDatabase(databaseName)
+        try {
+            val migratedRow = checkNotNull(
+                migratedDatabase.readerSessionStateDao().getByItemId("comic-1"),
+            )
+            assertEquals(7, migratedRow.page)
+            assertEquals(24, migratedRow.pageCount)
+            assertEquals("RTL", migratedRow.readingDirection)
+            assertEquals("FitWidth", migratedRow.pageFitMode)
+            assertEquals("Double", migratedRow.spreadMode)
+            assertEquals("{}", migratedRow.preferencesJson)
+            assertEquals(123456789L, migratedRow.updatedAtEpochMillis)
+        } finally {
+            migratedDatabase.close()
+            ApplicationProvider.getApplicationContext<Context>().deleteDatabase(databaseName)
+        }
+    }
+
+    @Test
+    fun `room migrates 5 to 6 and validates imported metadata schema`() {
+        val databaseName = "migration-5-6-${System.nanoTime()}"
+        createTestDatabase(
+            name = databaseName,
+            version = 5,
+        ) { database ->
+            createVersion1Schema(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_1_2.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_2_3.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_3_4.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_4_5.migrate(database)
+            database.execSQL(
+                """
+                INSERT INTO imported_comic_archives (
+                    itemId,
+                    documentUri,
+                    displayName,
+                    format,
+                    pageCount,
+                    pageEntryNamesJson,
+                    updatedAtEpochMillis
+                ) VALUES (
+                    'comic-1',
+                    'content://imports/comic-1.cbz',
+                    'Akira 001.cbz',
+                    'CBZ',
+                    24,
+                    '[""page-001.jpg""]',
+                    123456789
+                )
+                """.trimIndent(),
+            )
+        }.use { _ -> Unit }
+
+        val migratedDatabase = openRoomDatabase(databaseName)
+        try {
+            val migratedRow = checkNotNull(
+                migratedDatabase.importedComicArchiveDao().getByItemId("comic-1"),
+            )
+            assertEquals("Akira 001.cbz", migratedRow.displayName)
+            assertEquals("", migratedRow.title)
+            assertEquals(null, migratedRow.author)
+            assertEquals(null, migratedRow.series)
+            assertEquals(null, migratedRow.issueTitle)
+            assertEquals(null, migratedRow.volume)
+            assertEquals(null, migratedRow.issueNumber)
+            assertEquals(null, migratedRow.coverFileName)
+        } finally {
+            migratedDatabase.close()
+            ApplicationProvider.getApplicationContext<Context>().deleteDatabase(databaseName)
+        }
+    }
+
+    @Test
+    fun `room migrates 6 to 7 and validates imported cover schema`() {
+        val databaseName = "migration-6-7-${System.nanoTime()}"
+        createTestDatabase(
+            name = databaseName,
+            version = 6,
+        ) { database ->
+            createVersion1Schema(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_1_2.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_2_3.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_3_4.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_4_5.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_5_6.migrate(database)
+            database.execSQL(
+                """
+                INSERT INTO imported_comic_archives (
+                    itemId,
+                    documentUri,
+                    displayName,
+                    title,
+                    format,
+                    pageCount,
+                    pageEntryNamesJson,
+                    author,
+                    series,
+                    issueTitle,
+                    volume,
+                    issueNumber,
+                    updatedAtEpochMillis
+                ) VALUES (
+                    'book-1',
+                    'content://imports/book-1.epub',
+                    'Book 1.epub',
+                    'Book 1',
+                    'EPUB',
+                    0,
+                    '[]',
+                    'Author',
+                    NULL,
+                    NULL,
+                    NULL,
+                    NULL,
+                    123456789
+                )
+                """.trimIndent(),
+            )
+        }.use { _ -> Unit }
+
+        val migratedDatabase = openRoomDatabase(databaseName)
+        try {
+            val migratedRow = checkNotNull(
+                migratedDatabase.importedComicArchiveDao().getByItemId("book-1"),
+            )
+            assertEquals(null, migratedRow.coverFileName)
+        } finally {
+            migratedDatabase.close()
+            ApplicationProvider.getApplicationContext<Context>().deleteDatabase(databaseName)
+        }
+    }
+}
+
+private fun createVersion1Schema(database: SupportSQLiteDatabase) {
+    database.execSQL(
+        """
+        CREATE TABLE IF NOT EXISTS servers (
+            id TEXT NOT NULL PRIMARY KEY,
+            displayName TEXT NOT NULL,
+            baseUrl TEXT NOT NULL,
+            sourceType TEXT NOT NULL
+        )
+        """.trimIndent(),
+    )
+    database.execSQL(
+        """
+        CREATE TABLE IF NOT EXISTS libraries (
+            id TEXT NOT NULL PRIMARY KEY,
+            serverId TEXT NOT NULL,
+            title TEXT NOT NULL
+        )
+        """.trimIndent(),
+    )
+    database.execSQL(
+        """
+        CREATE TABLE IF NOT EXISTS reading_progress (
+            itemId TEXT NOT NULL PRIMARY KEY,
+            locatorType TEXT NOT NULL,
+            page INTEGER,
+            cfi TEXT,
+            percent REAL,
+            isFinished INTEGER NOT NULL,
+            syncState TEXT NOT NULL
+        )
+        """.trimIndent(),
+    )
+}
+
+private fun tableExists(
+    database: SupportSQLiteDatabase,
+    tableName: String,
+): Boolean = database.query(
+    "SELECT name FROM sqlite_master WHERE type = ? AND name = ?",
+    arrayOf("table", tableName),
+).use { cursor ->
+    cursor.moveToFirst()
+}
+
+private fun querySpreadModeDefault(
+    database: SupportSQLiteDatabase,
+): String = database.query(
+    "PRAGMA table_info(reader_session_state)",
+).use { cursor ->
+    val nameIndex = cursor.getColumnIndexOrThrow("name")
+    val defaultIndex = cursor.getColumnIndexOrThrow("dflt_value")
+    while (cursor.moveToNext()) {
+        if (cursor.getString(nameIndex) == "spreadMode") {
+            return cursor.getString(defaultIndex).trim('\'')
+        }
+    }
+    error("spreadMode column not found")
+}
+
+private fun createTestDatabase(
+    name: String,
+    version: Int,
+    onCreate: (SupportSQLiteDatabase) -> Unit,
+): CloseableSupportDatabase {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    context.deleteDatabase(name)
+    val helper = FrameworkSQLiteOpenHelperFactory().create(
+        SupportSQLiteOpenHelper.Configuration.builder(context)
+            .name(name)
+            .callback(
+                object : SupportSQLiteOpenHelper.Callback(version) {
+                    override fun onCreate(db: SupportSQLiteDatabase) {
+                        onCreate(db)
+                    }
+
+                    override fun onUpgrade(
+                        db: SupportSQLiteDatabase,
+                        oldVersion: Int,
+                        newVersion: Int,
+                    ) = Unit
+                },
+            )
+            .build(),
+    )
+    return CloseableSupportDatabase(helper)
+}
+
+private fun openRoomDatabase(
+    name: String,
+): UnifiedReaderDatabase = Room.databaseBuilder(
+    ApplicationProvider.getApplicationContext(),
+    UnifiedReaderDatabase::class.java,
+    name,
+)
+    .allowMainThreadQueries()
+    .addMigrations(
+        UnifiedReaderDatabaseMigrations.MIGRATION_1_2,
+        UnifiedReaderDatabaseMigrations.MIGRATION_2_3,
+        UnifiedReaderDatabaseMigrations.MIGRATION_3_4,
+        UnifiedReaderDatabaseMigrations.MIGRATION_4_5,
+        UnifiedReaderDatabaseMigrations.MIGRATION_5_6,
+        UnifiedReaderDatabaseMigrations.MIGRATION_6_7,
+    )
+    .build()
+
+private class CloseableSupportDatabase(
+    private val helper: SupportSQLiteOpenHelper,
+) : AutoCloseable {
+    private val database: SupportSQLiteDatabase
+        get() = helper.writableDatabase
+
+    fun use(
+        block: (SupportSQLiteDatabase) -> Unit,
+    ) {
+        try {
+            block(database)
+        } finally {
+            close()
+        }
+    }
+
+    override fun close() {
+        helper.close()
+    }
+}
