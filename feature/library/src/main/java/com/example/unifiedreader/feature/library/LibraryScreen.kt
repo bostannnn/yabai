@@ -58,6 +58,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -624,14 +628,16 @@ private fun SearchableTextFacetDialog(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.Top,
             ) {
-                LazyColumn(
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = 180.dp),
                     modifier = Modifier
                         .weight(1f)
                         .heightIn(max = 360.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
                     if (visibleValues.isEmpty()) {
-                        item {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
                             Text(
                                 text = "No matches",
                                 style = MaterialTheme.typography.bodyMedium,
@@ -1049,12 +1055,44 @@ private fun ItemOverflowMenu(
     actions: List<ItemMenuAction>,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
+    val menuButtonShape = RoundedCornerShape(10.dp)
     Box(modifier = modifier) {
-        IconButton(onClick = { expanded = true }) {
-            Icon(
-                imageVector = Icons.Default.MoreVert,
-                contentDescription = "More actions",
-            )
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .semantics {
+                    contentDescription = "More actions"
+                    role = Role.Button
+                }
+                .clickable(onClick = { expanded = true }),
+            contentAlignment = Alignment.TopEnd,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .shadow(
+                        elevation = 3.dp,
+                        shape = menuButtonShape,
+                        clip = false,
+                        ambientColor = Color.Black.copy(alpha = 0.18f),
+                        spotColor = Color.Black.copy(alpha = 0.22f),
+                    )
+                    .clip(menuButtonShape)
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.88f))
+                    .border(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f),
+                        shape = menuButtonShape,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
         }
         DropdownMenu(
             expanded = expanded,
