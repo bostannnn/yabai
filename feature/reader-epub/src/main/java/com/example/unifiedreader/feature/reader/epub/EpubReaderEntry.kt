@@ -2,22 +2,29 @@ package com.example.unifiedreader.feature.reader.epub
 
 import android.content.Context
 import android.net.Uri
+import android.text.Html
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
+import java.io.ByteArrayInputStream
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Arrangement
@@ -26,8 +33,12 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
@@ -51,11 +62,13 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
@@ -83,8 +96,10 @@ import com.example.unifiedreader.feature.reader.core.findContextAncestor
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayPanelState
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.readium.r2.navigator.HyperlinkNavigator
 import org.readium.r2.navigator.epub.EpubDefaults
 import org.readium.r2.navigator.epub.EpubNavigatorFactory
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
@@ -100,11 +115,15 @@ import org.readium.r2.shared.publication.presentation.presentation
 import org.readium.r2.shared.publication.services.locateProgression
 import org.readium.r2.shared.publication.services.positionsByReadingOrder
 import org.readium.r2.shared.util.asset.AssetRetriever
+import org.readium.r2.shared.util.AbsoluteUrl
 import org.readium.r2.shared.util.format.FormatHints
 import org.readium.r2.shared.util.http.DefaultHttpClient
 import org.readium.r2.shared.util.mediatype.MediaType
 import org.readium.r2.streamer.PublicationOpener
 import org.readium.r2.streamer.parser.DefaultPublicationParser
+import org.w3c.dom.Element
+import org.w3c.dom.Node
+import javax.xml.parsers.DocumentBuilderFactory
 import kotlin.math.roundToInt
 
 @Composable
@@ -155,6 +174,7 @@ fun EpubReaderScreen(
     var seekRequestId by remember { mutableIntStateOf(0) }
     var navigationRequest by remember { mutableStateOf<EpubNavigationRequest?>(null) }
     var isTocDrawerOpen by rememberSaveable(item.id) { mutableStateOf(false) }
+    var footnoteContent by remember(item.id) { mutableStateOf<EpubFootnoteContent?>(null) }
     val overlayState = rememberReaderOverlayState(
         key = "epub-overlay-${item.id}",
         initiallyVisible = true,
@@ -302,6 +322,8 @@ fun EpubReaderScreen(
                             theme = theme,
                             layoutMode = layoutMode,
                         ),
+                        currentHref = currentHref,
+                        currentProgress = currentProgress,
                         onLocationChanged = { locator, pageIndex, _ ->
                             currentHref = locator.href.removeFragment().toString()
                             val bookPageCount = bookProgress.pageCount
@@ -336,6 +358,11 @@ fun EpubReaderScreen(
                             )
                         },
                         onSurfaceTap = overlayState::toggle,
+                        onFootnoteActivated = { footnote ->
+                            isTocDrawerOpen = false
+                            footnoteContent = footnote
+                            overlayState.show()
+                        },
                         navigationRequest = navigationRequest,
                         onNavigationRequestConsumed = {
                             navigationRequest = null
@@ -420,6 +447,12 @@ fun EpubReaderScreen(
                                     id = seekRequestId++,
                                     progress = selectedProgress,
                                 )
+                            },
+                        )
+                        EpubFootnotePopup(
+                            footnote = footnoteContent,
+                            onDismissRequest = {
+                                footnoteContent = null
                             },
                         )
                     }
@@ -704,6 +737,110 @@ private fun EpubTableOfContentsRow(
 }
 
 @Composable
+private fun EpubFootnotePopup(
+    footnote: EpubFootnoteContent?,
+    onDismissRequest: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var renderedFootnote by remember { mutableStateOf<EpubFootnoteContent?>(null) }
+    LaunchedEffect(footnote) {
+        if (footnote != null) {
+            renderedFootnote = footnote
+        }
+    }
+
+    BackHandler(enabled = footnote != null) {
+        onDismissRequest()
+    }
+
+    AnimatedVisibility(
+        visible = footnote != null && renderedFootnote != null,
+        enter = fadeIn() + scaleIn(initialScale = 0.96f),
+        exit = fadeOut() + scaleOut(targetScale = 0.98f),
+        modifier = modifier
+            .fillMaxSize()
+            .zIndex(3f),
+    ) {
+        val note = renderedFootnote ?: return@AnimatedVisibility
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(16.dp)
+                .clickable(onClick = onDismissRequest),
+        ) {
+            val popupWidth = when {
+                maxWidth < 360.dp -> maxWidth
+                maxWidth < 520.dp -> maxWidth * 0.86f
+                else -> 420.dp
+            }
+            val popupMaxHeight = when {
+                maxHeight < 360.dp -> maxHeight * 0.72f
+                else -> 260.dp
+            }
+            val popupShape = RoundedCornerShape(8.dp)
+            Column(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .width(popupWidth)
+                    .heightIn(max = popupMaxHeight)
+                    .shadow(
+                        elevation = 18.dp,
+                        shape = popupShape,
+                    )
+                    .background(
+                        color = Color(0xFFF8FAFC),
+                        shape = popupShape,
+                    )
+                    .border(
+                        width = 1.dp,
+                        color = Color(0xFFE2E8F0),
+                        shape = popupShape,
+                    )
+                    .clickable(
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() },
+                        onClick = {},
+                    )
+                    .padding(horizontal = 18.dp, vertical = 14.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = note.title,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF475569),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = onDismissRequest) {
+                        Text(
+                            text = "Close",
+                            color = Color(0xFF2563EB),
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = note.body.ifBlank { "No footnote text" },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color(0xFF111827),
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .verticalScroll(rememberScrollState()),
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun EpubReaderMessage(
     title: String,
     body: String,
@@ -743,8 +880,11 @@ private fun ReadiumEpubNavigatorHost(
     publication: Publication,
     initialLocator: Locator?,
     preferences: EpubReaderPreferences,
+    currentHref: String?,
+    currentProgress: Double,
     onLocationChanged: (Locator, Int, Int?) -> Unit,
     onSurfaceTap: () -> Unit,
+    onFootnoteActivated: (EpubFootnoteContent) -> Unit,
     navigationRequest: EpubNavigationRequest?,
     onNavigationRequestConsumed: () -> Unit,
     modifier: Modifier = Modifier,
@@ -753,6 +893,10 @@ private fun ReadiumEpubNavigatorHost(
     val fragmentTag = remember(item.id) { "readium-epub-${item.id}" }
     val latestOnLocationChanged = rememberUpdatedState(onLocationChanged)
     val latestOnSurfaceTap = rememberUpdatedState(onSurfaceTap)
+    val latestOnFootnoteActivated = rememberUpdatedState(onFootnoteActivated)
+    val latestCurrentHref = rememberUpdatedState(currentHref)
+    val latestCurrentProgress = rememberUpdatedState(currentProgress)
+    val footnoteNavigationScope = rememberCoroutineScope()
     val viewportVerticalInsetPx = with(LocalDensity.current) {
         EpubViewportVerticalInset.roundToPx()
     }
@@ -815,9 +959,61 @@ private fun ReadiumEpubNavigatorHost(
         initialLocator,
     ) {
         var navigatorFragment: EpubNavigatorFragment? = null
+        val footnoteNavigationJobs = mutableSetOf<Job>()
         val fragmentFactory = navigatorFactory.createFragmentFactory(
             initialLocator = initialLocator,
             initialPreferences = preferences.toNavigatorPreferences(),
+            listener = object : EpubNavigatorFragment.Listener {
+                override fun shouldFollowInternalLink(
+                    link: Link,
+                    context: HyperlinkNavigator.LinkContext?,
+                ): Boolean {
+                    val footnoteContext = context as? HyperlinkNavigator.FootnoteContext
+                    if (footnoteContext != null) {
+                        latestOnFootnoteActivated.value(
+                            EpubFootnoteContent(
+                                title = link.title?.takeIf(String::isNotBlank) ?: "Footnote",
+                                body = htmlFootnoteToPlainText(footnoteContext.noteContent),
+                            ),
+                        )
+                        return false
+                    }
+                    val hasFragment = link.url().fragment != null
+                    if (!hasFragment) return true
+                    val forceFootnote = link.isLikelyEpubFootnoteLink(
+                        publication = publication,
+                        currentHref = latestCurrentHref.value,
+                        currentProgress = latestCurrentProgress.value,
+                    )
+                    footnoteNavigationJobs.toList().forEach { job -> job.cancel() }
+                    footnoteNavigationJobs.clear()
+                    val job = footnoteNavigationScope.launch {
+                        val footnote = withContext(Dispatchers.IO) {
+                            publication.extractEpubFootnoteOrNull(
+                                link = link,
+                                forceFootnote = forceFootnote,
+                            )
+                        }
+                        val activeNavigator =
+                            fragmentManager.findFragmentByTag(fragmentTag) as? EpubNavigatorFragment
+                        if (activeNavigator !== navigatorFragment || activeNavigator?.isAdded != true) {
+                            return@launch
+                        }
+                        if (footnote != null) {
+                            latestOnFootnoteActivated.value(footnote)
+                        } else {
+                            activeNavigator.go(link, animated = false)
+                        }
+                    }
+                    footnoteNavigationJobs += job
+                    job.invokeOnCompletion {
+                        footnoteNavigationJobs -= job
+                    }
+                    return false
+                }
+
+                override fun onExternalLinkActivated(url: AbsoluteUrl) = Unit
+            },
             paginationListener = object : EpubNavigatorFragment.PaginationListener {
                 override fun onPageChanged(
                     pageIndex: Int,
@@ -882,6 +1078,8 @@ private fun ReadiumEpubNavigatorHost(
             .commitNowAllowingStateLoss()
 
         onDispose {
+            footnoteNavigationJobs.toList().forEach { job -> job.cancel() }
+            footnoteNavigationJobs.clear()
             val navigator = fragmentManager.findFragmentByTag(fragmentTag) as? EpubNavigatorFragment
             navigator?.let {
                 it.removeInputListener(tapZoneListener)
@@ -1149,10 +1347,25 @@ private data class EpubTocEntry(
     val link: Link,
 )
 
+private data class EpubFootnoteContent(
+    val title: String,
+    val body: String,
+)
+
 private val EpubViewportVerticalInset = 32.dp
 private val EpubTocDrawerMaxWidth = 320.dp
 private const val EpubTocProgressEpsilon = 0.0005
 private const val EpubNavigationZoneFraction = 0.25f
+private val EpubFootnoteLinkHints = listOf(
+    "edn",
+    "enote",
+    "footnote",
+    "endnote",
+    "note",
+    "noteref",
+    "fn",
+    "ftn",
+)
 
 private fun epubNavigatorContainerLayoutParams(
     verticalInsetPx: Int,
@@ -1257,3 +1470,174 @@ internal fun buildEpubViewportPaddingScript(
         })();
     """.trimIndent()
 }
+
+private fun htmlFootnoteToPlainText(
+    html: String,
+): String = Html.fromHtml(html, Html.FROM_HTML_MODE_COMPACT)
+    .toString()
+    .replace(Regex("\\n{3,}"), "\n\n")
+    .trim()
+
+private fun Link.isLikelyEpubFootnoteLink(
+    publication: Publication,
+    currentHref: String?,
+    currentProgress: Double,
+): Boolean {
+    val url = url()
+    val fragment = url.fragment ?: return false
+    val text = listOf(
+        url.toString(),
+        fragment,
+        title.orEmpty(),
+        rels.joinToString(" "),
+    ).joinToString(" ").lowercase()
+    if (EpubFootnoteLinkHints.any { hint -> hint in text }) return true
+    if (title.orEmpty().trim().matches(Regex("""[\[(]?\d{1,3}[\])]?\.?"""))) return true
+
+    val targetHref = url.removeFragment().toString()
+    val currentIndex = currentHref?.let { href ->
+        publication.readingOrder.indexOfFirst { entry ->
+            entry.url().removeFragment().toString() == href
+        }.takeUnless { it < 0 }
+    }
+    val targetIndex = publication.readingOrder.indexOfFirst { entry ->
+        entry.url().removeFragment().toString() == targetHref
+    }.takeUnless { it < 0 }
+    val finalBandStart = publication.readingOrder.size
+        .minus((publication.readingOrder.size / 5).coerceAtLeast(1))
+        .coerceAtLeast(0)
+    if (
+        currentIndex != null &&
+        targetIndex != null &&
+        targetIndex > currentIndex &&
+        targetIndex >= finalBandStart
+    ) {
+        return true
+    }
+
+    val targetProgress = publication.locatorFromLink(this)?.locations?.totalProgression
+    return targetProgress != null &&
+        targetProgress > 0.80 &&
+        targetProgress > currentProgress + 0.10
+}
+
+private suspend fun Publication.extractEpubFootnoteOrNull(
+    link: Link,
+    forceFootnote: Boolean,
+): EpubFootnoteContent? {
+    val url = link.url()
+    val fragment = url.fragment ?: return null
+    val html = get(link)?.read()
+        ?.getOrNull()
+        ?.toString(Charsets.UTF_8)
+        .orEmpty()
+    val semanticText = runCatching {
+        extractFootnoteTextById(
+            html = html,
+            targetId = fragment,
+            forceFootnote = forceFootnote,
+        )
+    }.getOrNull()
+    val fallbackText = if (forceFootnote) {
+        extractElementHtmlById(html = html, targetId = fragment)
+            ?.let(::htmlFootnoteToPlainText)
+            ?.takeIf(String::isNotBlank)
+    } else {
+        null
+    }
+    val body = semanticText
+        ?.takeIf(String::isNotBlank)
+        ?: fallbackText
+        ?: return null
+    return EpubFootnoteContent(
+        title = link.title?.takeIf(String::isNotBlank) ?: "Footnote",
+        body = body,
+    )
+}
+
+private fun extractElementHtmlById(
+    html: String,
+    targetId: String,
+): String? {
+    if (html.isBlank()) return null
+    val escapedTargetId = Regex.escape(targetId)
+    val pattern = Regex(
+        pattern = """<([A-Za-z][A-Za-z0-9:_-]*)(?=[^>]*(?:\sid|xml:id)\s*=\s*["']$escapedTargetId["'])[^>]*>.*?</\1>""",
+        options = setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+    )
+    return pattern.find(html)?.value
+}
+
+private fun extractFootnoteTextById(
+    html: String,
+    targetId: String,
+    forceFootnote: Boolean,
+): String? {
+    if (html.isBlank()) return null
+    val document = secureDocumentBuilderFactory()
+        .newDocumentBuilder()
+        .parse(ByteArrayInputStream(html.toByteArray()))
+    document.documentElement?.normalize()
+    val element = document.documentElement?.findElementById(targetId) ?: return null
+    val container = element.findEpubFootnoteContainer()
+        ?: element.takeIf { forceFootnote || it.isEpubFootnoteElement() }
+        ?: return null
+    return container.textContent
+        ?.replace(Regex("\\s+"), " ")
+        ?.trim()
+        ?.takeIf(String::isNotBlank)
+}
+
+private fun Element.findElementById(
+    targetId: String,
+): Element? {
+    if (
+        getAttribute("id") == targetId ||
+        getAttribute("xml:id") == targetId
+    ) {
+        return this
+    }
+    val children = childNodes
+    for (index in 0 until children.length) {
+        val child = children.item(index)
+        if (child.nodeType != Node.ELEMENT_NODE) continue
+        val match = (child as Element).findElementById(targetId)
+        if (match != null) return match
+    }
+    return null
+}
+
+private fun Element.findEpubFootnoteContainer(): Element? {
+    var current: Element? = this
+    while (current != null) {
+        if (current.isEpubFootnoteElement()) return current
+        val parent = current.parentNode as? Element
+        current = parent?.takeUnless { it.tagName.equals("body", ignoreCase = true) }
+    }
+    return null
+}
+
+private fun Element.isEpubFootnoteElement(): Boolean {
+    val text = listOf(
+        tagName,
+        getAttribute("id"),
+        getAttribute("xml:id"),
+        getAttribute("class"),
+        getAttribute("epub:type"),
+        getAttribute("role"),
+    ).joinToString(" ").lowercase()
+    return EpubFootnoteLinkHints.any { hint -> hint in text } ||
+        "doc-footnote" in text ||
+        "doc-endnote" in text
+}
+
+private fun secureDocumentBuilderFactory(): DocumentBuilderFactory =
+    DocumentBuilderFactory.newInstance().apply {
+        isNamespaceAware = true
+        isXIncludeAware = false
+        isExpandEntityReferences = false
+        setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
+        setFeature("http://xml.org/sax/features/external-general-entities", false)
+        setFeature("http://xml.org/sax/features/external-parameter-entities", false)
+        setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
+    }
