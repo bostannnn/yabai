@@ -79,6 +79,7 @@ class AppViewModelTest {
         assertEquals(FormatType.CBZ, viewModel.uiState.activeReader)
         assertEquals(SourceType.LOCAL, viewModel.uiState.selectedSource)
         assertEquals("Imported Imported Akira (CBZ)", viewModel.uiState.libraryMessage)
+        assertNull(viewModel.uiState.visibleLibraryErrorMessage)
         assertEquals(listOf(importedItem), viewModel.uiState.items)
     }
 
@@ -93,6 +94,10 @@ class AppViewModelTest {
         assertNull(viewModel.uiState.selectedItemId)
         assertNull(viewModel.uiState.activeReader)
         assertEquals("Unable to import that file as a supported local document.", viewModel.uiState.libraryMessage)
+        assertEquals(
+            "Unable to import that file as a supported local document.",
+            viewModel.uiState.visibleLibraryErrorMessage,
+        )
     }
 
     @Test
@@ -108,6 +113,10 @@ class AppViewModelTest {
         assertNull(viewModel.uiState.selectedItemId)
         assertNull(viewModel.uiState.activeReader)
         assertEquals("Unable to import that file as a supported local document.", viewModel.uiState.libraryMessage)
+        assertEquals(
+            "Unable to import that file as a supported local document.",
+            viewModel.uiState.visibleLibraryErrorMessage,
+        )
     }
 
     @Test
@@ -140,6 +149,7 @@ class AppViewModelTest {
         assertEquals(SourceType.LOCAL, viewModel.uiState.selectedSource)
         assertEquals(SourceType.LOCAL, viewModel.uiState.selectedItem?.sourceType)
         assertEquals("Imported The Dispossessed (EPUB)", viewModel.uiState.libraryMessage)
+        assertNull(viewModel.uiState.visibleLibraryErrorMessage)
     }
 
     @Test
@@ -167,6 +177,7 @@ class AppViewModelTest {
         viewModel.importDocument(Uri.parse("content://imports/carmilla-03.cbz"))
 
         assertEquals("Imported Carmilla: The Eternal (CBZ)", viewModel.uiState.libraryMessage)
+        assertNull(viewModel.uiState.visibleLibraryErrorMessage)
     }
 
     @Test
@@ -437,6 +448,59 @@ class AppViewModelTest {
     }
 
     @Test
+    fun `library search matches item metadata and is scoped per source`() {
+        val remoteComic = sampleItem(
+            id = "remote-comic",
+            title = "Remote Comic",
+            format = FormatType.CBZ,
+        ).copy(
+            comicMetadata = ComicMetadata(series = "Akira"),
+        )
+        val russianBook = sampleItem(
+            id = "russian-book",
+            title = "Некрополи Петербурга",
+            format = FormatType.EPUB,
+        ).copy(
+            bookMetadata = BookMetadata(author = "Маргарита Николаева"),
+        )
+        val localBook = sampleItem(
+            id = "local-book",
+            title = "Local Book",
+            format = FormatType.EPUB,
+            isLocalImport = true,
+        ).copy(
+            bookMetadata = BookMetadata(author = "Ursula K. Le Guin"),
+        )
+        val viewModel = createViewModel(
+            sampleItems = listOf(remoteComic, russianBook),
+            importedRepository = FakeLocalDocumentRepository(
+                importedItems = mutableListOf(localBook),
+            ),
+        )
+
+        viewModel.onLibrarySearchQueryChanged("akira")
+
+        assertEquals(listOf(remoteComic), viewModel.uiState.visibleItems)
+
+        viewModel.onLibrarySearchQueryChanged("петербурга")
+
+        assertEquals(listOf(russianBook), viewModel.uiState.visibleItems)
+
+        viewModel.onLibrarySearchQueryChanged("МАРГАРИТА")
+
+        assertEquals(listOf(russianBook), viewModel.uiState.visibleItems)
+
+        viewModel.onSourceSelected(SourceType.LOCAL)
+
+        assertEquals(listOf(localBook), viewModel.uiState.visibleItems)
+        assertEquals("", viewModel.uiState.selectedLibrarySearchQuery)
+
+        viewModel.onLibrarySearchQueryChanged("le guin")
+
+        assertEquals(listOf(localBook), viewModel.uiState.visibleItems)
+    }
+
+    @Test
     fun `library sort modes order filtered visible items`() {
         val neuromancer = sampleItem(
             id = "neuromancer",
@@ -560,6 +624,7 @@ class AppViewModelTest {
         assertEquals(TopLevelDestination.Library, viewModel.uiState.topLevel)
         assertEquals(SourceType.GRIMMORY, viewModel.uiState.selectedSource)
         assertEquals("Synced 12 Grimmory books from 2 libraries.", viewModel.uiState.libraryMessage)
+        assertNull(viewModel.uiState.visibleLibraryErrorMessage)
         assertEquals("", viewModel.uiState.grimmoryConnection.password)
         assertEquals(true, viewModel.uiState.grimmoryConnection.hasStoredSession)
         assertEquals(false, viewModel.uiState.grimmoryConnection.isError)
@@ -632,6 +697,7 @@ class AppViewModelTest {
         assertEquals("saved-refresh-token", syncer.lastRequest?.refreshToken)
         assertEquals(SourceType.GRIMMORY, viewModel.uiState.selectedSource)
         assertEquals("Synced 9 Grimmory books from 1 libraries.", viewModel.uiState.libraryMessage)
+        assertNull(viewModel.uiState.visibleLibraryErrorMessage)
         assertEquals("Grimmory library synced.", viewModel.uiState.grimmoryConnection.message)
     }
 
@@ -680,6 +746,7 @@ class AppViewModelTest {
 
         assertEquals(setOf(remoteBook.id), viewModel.uiState.downloadedGrimmoryItemIds)
         assertEquals("Downloaded Remote Book for local reading.", viewModel.uiState.libraryMessage)
+        assertNull(viewModel.uiState.visibleLibraryErrorMessage)
         assertEquals(
             listOf(LibraryFileLocation.LOCAL),
             viewModel.uiState.selectedLibraryFilterFacets.fileLocations,
@@ -688,6 +755,33 @@ class AppViewModelTest {
             LibraryFilterState(fileLocations = setOf(LibraryFileLocation.LOCAL)),
         )
         assertEquals(listOf(remoteBook), viewModel.uiState.visibleItems)
+    }
+
+    @Test
+    fun `download grimmory failure is visible as library error`() {
+        val remoteBook = sampleItem(
+            id = "grimmory-epub",
+            title = "Remote Book",
+            format = FormatType.EPUB,
+        ).copy(
+            sourceType = SourceType.GRIMMORY,
+            serverId = "grimmory-home",
+            libraryId = "grimmory-books",
+        )
+        val viewModel = createViewModel(
+            sampleItems = listOf(remoteBook),
+            grimmoryContentRepository = FakeGrimmoryContentRepository(
+                downloadFailure = IllegalStateException("Disk full"),
+            ),
+        )
+        viewModel.onSourceSelected(SourceType.GRIMMORY)
+
+        viewModel.onDownloadGrimmoryItem(remoteBook)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        val expectedMessage = "Unable to download Remote Book: Disk full"
+        assertEquals(expectedMessage, viewModel.uiState.libraryMessage)
+        assertEquals(expectedMessage, viewModel.uiState.visibleLibraryErrorMessage)
     }
 
     @Test
@@ -718,6 +812,7 @@ class AppViewModelTest {
 
         assertTrue(viewModel.uiState.downloadedGrimmoryItemIds.isEmpty())
         assertEquals("Deleted local file for Remote Book.", viewModel.uiState.libraryMessage)
+        assertNull(viewModel.uiState.visibleLibraryErrorMessage)
         assertEquals(
             listOf(LibraryFileLocation.SERVER),
             viewModel.uiState.selectedLibraryFilterFacets.fileLocations,
@@ -758,6 +853,7 @@ class AppViewModelTest {
         assertNull(viewModel.uiState.selectedItemId)
         assertNull(viewModel.uiState.activeReader)
         assertEquals("Removed Imported Akira.", viewModel.uiState.libraryMessage)
+        assertNull(viewModel.uiState.visibleLibraryErrorMessage)
         assertNull(readerSessionStore.getProgress(importedItem))
         assertNull(readerSessionStore.getSession(importedItem))
     }

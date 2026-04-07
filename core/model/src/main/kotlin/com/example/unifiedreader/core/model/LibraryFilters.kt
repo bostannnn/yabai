@@ -1,5 +1,8 @@
 package com.example.unifiedreader.core.model
 
+import java.text.Normalizer
+import java.util.Locale
+
 data class LibraryFilterState(
     val formats: Set<FormatType> = emptySet(),
     val fileLocations: Set<LibraryFileLocation> = emptySet(),
@@ -50,6 +53,22 @@ fun applyLibraryFilters(
             filters.fileLocations.matches(item.fileLocation(downloadedRemoteItemIds)) &&
             filters.authors.matches(item.normalizedAuthor()) &&
             filters.series.matches(item.normalizedSeries())
+    }
+}
+
+fun applyLibrarySearch(
+    items: List<ReadableItem>,
+    query: String,
+): List<ReadableItem> {
+    val tokens = query.normalizedSearchText()
+        .split(Regex("\\s+"))
+        .filter(String::isNotBlank)
+    if (tokens.isEmpty()) return items
+    return items.filter { item ->
+        val searchableValues = item.librarySearchValues()
+        tokens.all { token ->
+            searchableValues.any { value -> value.normalizedSearchText().contains(token) }
+        }
     }
 }
 
@@ -104,6 +123,25 @@ private fun ReadableItem.normalizedAuthor(): String? =
 
 private fun ReadableItem.normalizedSeries(): String? =
     comicMetadata?.series?.trim()?.takeIf(String::isNotEmpty)
+
+private fun ReadableItem.librarySearchValues(): List<String> = listOfNotNull(
+    title,
+    libraryDisplayLabel(),
+    libraryPrimaryText(),
+    librarySecondaryText(),
+    description,
+    format.name,
+    bookMetadata?.author,
+    comicMetadata?.series,
+    comicMetadata?.issueTitle,
+    comicMetadata?.volume,
+    comicMetadata?.issueNumber,
+)
+
+private fun String.normalizedSearchText(): String =
+    Normalizer.normalize(trim(), Normalizer.Form.NFKC)
+        .lowercase(Locale.ROOT)
+        .replace('ё', 'е')
 
 private fun ReadableItem.fileLocation(
     downloadedRemoteItemIds: Set<String>,

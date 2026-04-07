@@ -19,6 +19,7 @@ import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.applyLibraryFilters
+import com.example.unifiedreader.core.model.applyLibrarySearch
 import com.example.unifiedreader.core.model.applyLibrarySort
 import com.example.unifiedreader.core.model.buildLibraryFilterFacets
 import com.example.unifiedreader.core.model.libraryDisplayLabel
@@ -100,6 +101,12 @@ class AppViewModel @Inject constructor(
         )
     }
 
+    fun onLibrarySearchQueryChanged(query: String) {
+        uiState = uiState.copy(
+            librarySearchQueriesBySource = uiState.librarySearchQueriesBySource + (uiState.selectedSource to query),
+        )
+    }
+
     fun clearLibraryFilters() {
         if (uiState.selectedLibraryFilters.isEmpty) return
         uiState = uiState.copy(
@@ -147,7 +154,10 @@ class AppViewModel @Inject constructor(
                 val message = "Unable to load Grimmory covers: ${throwable.userFacingMessage()}"
                 if (lastGrimmoryCoverErrorMessage != message) {
                     lastGrimmoryCoverErrorMessage = message
-                    uiState = uiState.copy(libraryMessage = message)
+                    uiState = uiState.copy(
+                        libraryMessage = message,
+                        libraryMessageSeverity = LibraryMessageSeverity.Error,
+                    )
                 }
             }.also {
                 pendingGrimmoryCoverIds -= item.id
@@ -196,6 +206,7 @@ class AppViewModel @Inject constructor(
         uiState = uiState.copy(
             downloadingGrimmoryItemIds = uiState.downloadingGrimmoryItemIds + item.id,
             libraryMessage = "Downloading ${item.libraryDisplayLabel()}.",
+            libraryMessageSeverity = LibraryMessageSeverity.Info,
         )
         viewModelScope.launch {
             runCatching {
@@ -209,10 +220,16 @@ class AppViewModel @Inject constructor(
                     } else {
                         "Unable to download ${item.libraryDisplayLabel()}."
                     },
+                    libraryMessageSeverity = if (downloadedUri != null) {
+                        LibraryMessageSeverity.Info
+                    } else {
+                        LibraryMessageSeverity.Error
+                    },
                 )
             }.onFailure { throwable ->
                 uiState = uiState.copy(
                     libraryMessage = "Unable to download ${item.libraryDisplayLabel()}: ${throwable.userFacingMessage()}",
+                    libraryMessageSeverity = LibraryMessageSeverity.Error,
                 )
             }
             uiState = uiState.copy(
@@ -232,6 +249,11 @@ class AppViewModel @Inject constructor(
                     "Deleted local file for ${item.libraryDisplayLabel()}."
                 } else {
                     "No local file found for ${item.libraryDisplayLabel()}."
+                },
+                libraryMessageSeverity = if (deleted) {
+                    LibraryMessageSeverity.Info
+                } else {
+                    LibraryMessageSeverity.Error
                 },
             )
         }
@@ -367,6 +389,7 @@ class AppViewModel @Inject constructor(
         if (savedSession == null) {
             uiState = uiState.copy(
                 libraryMessage = "Connect to Grimmory before syncing the library.",
+                libraryMessageSeverity = LibraryMessageSeverity.Error,
                 grimmoryConnection = uiState.grimmoryConnection.copy(
                     message = "Connect to Grimmory before syncing the library.",
                     isError = true,
@@ -392,6 +415,7 @@ class AppViewModel @Inject constructor(
                 isError = false,
             ),
             libraryMessage = "Syncing Grimmory library.",
+            libraryMessageSeverity = LibraryMessageSeverity.Info,
         )
         startGrimmorySync(
             request = request,
@@ -435,6 +459,7 @@ class AppViewModel @Inject constructor(
                     selectedItemId = null,
                     activeReader = null,
                     libraryMessage = "Synced ${result.itemCount} Grimmory books from ${result.libraryCount} libraries.",
+                    libraryMessageSeverity = LibraryMessageSeverity.Info,
                     grimmoryConnection = activeConnection.copy(
                         password = "",
                         hasStoredSession = true,
@@ -446,6 +471,7 @@ class AppViewModel @Inject constructor(
             }.onFailure { throwable ->
                 uiState = uiState.copy(
                     libraryMessage = "$failurePrefix: ${throwable.userFacingMessage()}",
+                    libraryMessageSeverity = LibraryMessageSeverity.Error,
                     grimmoryConnection = activeConnection.copy(
                         isConnecting = false,
                         message = "$failurePrefix: ${throwable.userFacingMessage()}",
@@ -468,6 +494,11 @@ class AppViewModel @Inject constructor(
             } else {
                 "Unable to import that file as a supported local document."
             },
+            libraryMessageSeverity = if (importedItem != null) {
+                LibraryMessageSeverity.Info
+            } else {
+                LibraryMessageSeverity.Error
+            },
         )
     }
 
@@ -480,12 +511,20 @@ class AppViewModel @Inject constructor(
             selectedItemId = if (isDeletedSelection) null else uiState.selectedItemId,
             activeReader = if (isDeletedSelection) null else uiState.activeReader,
             libraryMessage = deletionMessage(item, outcome),
+            libraryMessageSeverity = if (removed) {
+                LibraryMessageSeverity.Info
+            } else {
+                LibraryMessageSeverity.Error
+            },
         )
     }
 
     fun clearLibraryMessage() {
         if (uiState.libraryMessage != null) {
-            uiState = uiState.copy(libraryMessage = null)
+            uiState = uiState.copy(
+                libraryMessage = null,
+                libraryMessageSeverity = LibraryMessageSeverity.Info,
+            )
         }
     }
 
@@ -495,6 +534,7 @@ class AppViewModel @Inject constructor(
         selectedItemId: String? = uiState.selectedItemId,
         activeReader: FormatType? = uiState.activeReader,
         libraryMessage: String? = uiState.libraryMessage,
+        libraryMessageSeverity: LibraryMessageSeverity = uiState.libraryMessageSeverity,
         themeMode: ThemeMode = uiState.themeMode,
     ) {
         val items = catalogItems + localDocumentRepository.getImportedItems()
@@ -511,6 +551,7 @@ class AppViewModel @Inject constructor(
                 sessionByItemId = readerSessionStore.sessionByItemIdFlow.value,
             ),
             libraryMessage = libraryMessage,
+            libraryMessageSeverity = libraryMessageSeverity,
             themeMode = themeMode,
         )
         refreshDownloadedGrimmoryItemIdsAsync(items)
@@ -673,6 +714,11 @@ private data class AppCatalogSnapshot(
     val themeMode: ThemeMode,
 )
 
+enum class LibraryMessageSeverity {
+    Info,
+    Error,
+}
+
 data class AppUiState(
     val topLevel: TopLevelDestination = TopLevelDestination.Library,
     val selectedSource: SourceType = SourceType.KAVITA,
@@ -681,11 +727,13 @@ data class AppUiState(
     val libraries: List<Library> = emptyList(),
     val items: List<ReadableItem> = emptyList(),
     val libraryFiltersBySource: Map<SourceType, LibraryFilterState> = emptyMap(),
+    val librarySearchQueriesBySource: Map<SourceType, String> = emptyMap(),
     val librarySortsBySource: Map<SourceType, LibrarySortMode> = emptyMap(),
     val progressByItemId: Map<String, ItemProgressSummary> = emptyMap(),
     val downloadedGrimmoryItemIds: Set<String> = emptySet(),
     val downloadingGrimmoryItemIds: Set<String> = emptySet(),
     val libraryMessage: String? = null,
+    val libraryMessageSeverity: LibraryMessageSeverity = LibraryMessageSeverity.Info,
     val themeMode: ThemeMode = ThemeMode.System,
     val grimmoryConnection: GrimmoryConnectionUiState = GrimmoryConnectionUiState(),
 ) {
@@ -695,6 +743,12 @@ data class AppUiState(
     val selectedLibraryFilters: LibraryFilterState
         get() = libraryFiltersBySource[selectedSource] ?: LibraryFilterState()
 
+    val selectedLibrarySearchQuery: String
+        get() = librarySearchQueriesBySource[selectedSource].orEmpty()
+
+    val visibleLibraryErrorMessage: String?
+        get() = libraryMessage.takeIf { libraryMessageSeverity == LibraryMessageSeverity.Error }
+
     val selectedLibraryFilterFacets: LibraryFilterFacets
         get() = buildLibraryFilterFacets(sourceItems, downloadedGrimmoryItemIds)
 
@@ -703,7 +757,10 @@ data class AppUiState(
 
     val visibleItems: List<ReadableItem>
         get() = applyLibrarySort(
-            items = applyLibraryFilters(sourceItems, selectedLibraryFilters, downloadedGrimmoryItemIds),
+            items = applyLibrarySearch(
+                items = applyLibraryFilters(sourceItems, selectedLibraryFilters, downloadedGrimmoryItemIds),
+                query = selectedLibrarySearchQuery,
+            ),
             sortMode = selectedLibrarySortMode,
             lastReadAtEpochMillisByItemId = progressByItemId.mapValues { (_, progress) ->
                 progress.lastReadAtEpochMillis

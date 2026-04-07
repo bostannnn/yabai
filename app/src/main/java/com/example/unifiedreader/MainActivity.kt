@@ -9,16 +9,25 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -39,6 +48,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.Lifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -142,10 +152,12 @@ fun UnifiedReaderAppContent(
                             selectedSource = uiState.selectedSource,
                             topLevel = uiState.topLevel,
                             libraryViewMode = libraryViewMode,
+                            searchQuery = uiState.selectedLibrarySearchQuery,
                             onSourceSelected = { source ->
                                 viewModel.onTopLevelSelected(TopLevelDestination.Library)
                                 viewModel.onSourceSelected(source)
                             },
+                            onSearchQueryChanged = viewModel::onLibrarySearchQueryChanged,
                             onLibraryViewModeChanged = { libraryViewMode = it },
                             onSettingsClick = {
                                 viewModel.onTopLevelSelected(TopLevelDestination.Settings)
@@ -205,62 +217,211 @@ private fun MainTopBar(
     selectedSource: SourceType,
     topLevel: TopLevelDestination,
     libraryViewMode: LibraryViewMode,
+    searchQuery: String,
     onSourceSelected: (SourceType) -> Unit,
+    onSearchQueryChanged: (String) -> Unit,
     onLibraryViewModeChanged: (LibraryViewMode) -> Unit,
     onSettingsClick: () -> Unit,
     onImportLocalFileClick: () -> Unit,
 ) {
-    Row(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
     ) {
-        ScrollableTabRow(
-            selectedTabIndex = selectedSource.ordinal,
-            modifier = Modifier.weight(1f),
-            edgePadding = 0.dp,
-        ) {
-            SourceType.entries.forEach { source ->
-                Tab(
-                    selected = topLevel == TopLevelDestination.Library && source == selectedSource,
-                    onClick = { onSourceSelected(source) },
-                    text = { Text(text = source.displayName()) },
+        val searchVisible = topLevel == TopLevelDestination.Library
+        val compactToolbar = maxWidth < 760.dp
+        if (compactToolbar && searchVisible) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SourceTabs(
+                        selectedSource = selectedSource,
+                        topLevel = topLevel,
+                        onSourceSelected = onSourceSelected,
+                        modifier = Modifier.weight(1f),
+                    )
+                    LibraryToolbarActions(
+                        libraryViewMode = libraryViewMode,
+                        topLevel = topLevel,
+                        onLibraryViewModeChanged = onLibraryViewModeChanged,
+                        onSettingsClick = onSettingsClick,
+                        onImportLocalFileClick = onImportLocalFileClick,
+                    )
+                }
+                LibrarySearchField(
+                    query = searchQuery,
+                    onQueryChanged = onSearchQueryChanged,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        } else {
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                SourceTabs(
+                    selectedSource = selectedSource,
+                    topLevel = topLevel,
+                    onSourceSelected = onSourceSelected,
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .widthIn(max = 260.dp),
+                )
+                if (searchVisible) {
+                    LibrarySearchField(
+                        query = searchQuery,
+                        onQueryChanged = onSearchQueryChanged,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .widthIn(min = 280.dp, max = 340.dp),
+                    )
+                }
+                LibraryToolbarActions(
+                    libraryViewMode = libraryViewMode,
+                    topLevel = topLevel,
+                    onLibraryViewModeChanged = onLibraryViewModeChanged,
+                    onSettingsClick = onSettingsClick,
+                    onImportLocalFileClick = onImportLocalFileClick,
+                    modifier = Modifier.align(Alignment.CenterEnd),
                 )
             }
         }
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            ViewModeButton(
-                mode = LibraryViewMode.Detailed,
-                selectedMode = libraryViewMode,
-                onLibraryViewModeChanged = onLibraryViewModeChanged,
+    }
+}
+
+@Composable
+private fun SourceTabs(
+    selectedSource: SourceType,
+    topLevel: TopLevelDestination,
+    onSourceSelected: (SourceType) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    ScrollableTabRow(
+        selectedTabIndex = selectedSource.ordinal,
+        modifier = modifier,
+        edgePadding = 0.dp,
+    ) {
+        SourceType.entries.forEach { source ->
+            Tab(
+                selected = topLevel == TopLevelDestination.Library && source == selectedSource,
+                onClick = { onSourceSelected(source) },
+                text = { Text(text = source.displayName()) },
             )
-            ViewModeButton(
-                mode = LibraryViewMode.Grid,
-                selectedMode = libraryViewMode,
-                onLibraryViewModeChanged = onLibraryViewModeChanged,
+        }
+    }
+}
+
+@Composable
+private fun LibrarySearchField(
+    query: String,
+    onQueryChanged: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = MaterialTheme.colorScheme
+    BasicTextField(
+        value = query,
+        onValueChange = onQueryChanged,
+        modifier = modifier.height(40.dp),
+        singleLine = true,
+        textStyle = MaterialTheme.typography.bodyMedium.copy(color = colors.onSurface),
+        cursorBrush = SolidColor(colors.primary),
+        decorationBox = { innerTextField ->
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                shape = RoundedCornerShape(12.dp),
+                color = colors.surfaceVariant.copy(alpha = 0.18f),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(start = 12.dp, end = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = null,
+                        tint = colors.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Box(
+                        modifier = Modifier.weight(1f),
+                        contentAlignment = Alignment.CenterStart,
+                    ) {
+                        if (query.isEmpty()) {
+                            Text(
+                                text = "Search",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = colors.onSurfaceVariant,
+                            )
+                        }
+                        innerTextField()
+                    }
+                    if (query.isNotEmpty()) {
+                        IconButton(
+                            onClick = { onQueryChanged("") },
+                            modifier = Modifier.size(36.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Clear search",
+                                tint = colors.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun LibraryToolbarActions(
+    libraryViewMode: LibraryViewMode,
+    topLevel: TopLevelDestination,
+    onLibraryViewModeChanged: (LibraryViewMode) -> Unit,
+    onSettingsClick: () -> Unit,
+    onImportLocalFileClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ViewModeButton(
+            mode = LibraryViewMode.Detailed,
+            selectedMode = libraryViewMode,
+            onLibraryViewModeChanged = onLibraryViewModeChanged,
+        )
+        ViewModeButton(
+            mode = LibraryViewMode.Grid,
+            selectedMode = libraryViewMode,
+            onLibraryViewModeChanged = onLibraryViewModeChanged,
+        )
+        IconButton(onClick = onSettingsClick) {
+            Icon(
+                imageVector = Icons.Default.Settings,
+                contentDescription = "Settings",
+                tint = if (topLevel == TopLevelDestination.Settings) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
             )
-            IconButton(onClick = onSettingsClick) {
-                Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = "Settings",
-                    tint = if (topLevel == TopLevelDestination.Settings) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                )
-            }
-            IconButton(onClick = onImportLocalFileClick) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Import local file",
-                )
-            }
+        }
+        IconButton(onClick = onImportLocalFileClick) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "Import local file",
+            )
         }
     }
 }
@@ -319,9 +480,10 @@ private fun LibraryFlow(
             progressByItemId = uiState.progressByItemId,
             downloadedItemIds = uiState.downloadedGrimmoryItemIds,
             downloadingItemIds = uiState.downloadingGrimmoryItemIds,
-            libraryMessage = uiState.libraryMessage,
+            libraryErrorMessage = uiState.visibleLibraryErrorMessage,
             filterState = uiState.selectedLibraryFilters,
             filterFacets = uiState.selectedLibraryFilterFacets,
+            searchQuery = uiState.selectedLibrarySearchQuery,
             sortMode = uiState.selectedLibrarySortMode,
             coverImageUrlProvider = coverImageUrlProvider,
             onCoverVisible = onCoverVisible,

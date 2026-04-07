@@ -96,9 +96,10 @@ fun LibraryScreen(
     progressByItemId: Map<String, ItemProgressSummary> = emptyMap(),
     downloadedItemIds: Set<String> = emptySet(),
     downloadingItemIds: Set<String> = emptySet(),
-    libraryMessage: String? = null,
+    libraryErrorMessage: String? = null,
     filterState: LibraryFilterState = LibraryFilterState(),
     filterFacets: LibraryFilterFacets = LibraryFilterFacets(),
+    searchQuery: String = "",
     sortMode: LibrarySortMode = LibrarySortMode.DATE_ADDED,
     coverImageUrlProvider: (ReadableItem) -> String? = { it.coverUrl },
     onCoverVisible: (ReadableItem) -> Unit = {},
@@ -140,7 +141,7 @@ fun LibraryScreen(
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         LazyVerticalGrid(
-            columns = viewMode.gridCells(maxWidth = maxWidth),
+            columns = viewMode.gridCells(maxWidth = maxWidth, maxHeight = maxHeight),
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
                 start = 16.dp,
@@ -151,9 +152,9 @@ fun LibraryScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            libraryMessage?.let { message ->
+            libraryErrorMessage?.let { message ->
                 item(span = { GridItemSpan(maxLineSpan) }) {
-                    LibraryStatusMessage(message = message)
+                    LibraryErrorMessage(message = message)
                 }
             }
 
@@ -179,6 +180,7 @@ fun LibraryScreen(
                     EmptyLibraryState(
                         selectedSource = selectedSource,
                         filtersActive = !filterState.isEmpty,
+                        searchActive = searchQuery.isNotBlank(),
                     )
                 }
             } else {
@@ -293,6 +295,7 @@ fun LibraryScreen(
 private fun EmptyLibraryState(
     selectedSource: SourceType,
     filtersActive: Boolean,
+    searchActive: Boolean,
 ) {
     Box(
         modifier = Modifier
@@ -301,10 +304,11 @@ private fun EmptyLibraryState(
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = if (filtersActive) {
-                "No items match these filters"
-            } else {
-                "No items yet for ${selectedSource.displayName()}"
+            text = when {
+                searchActive && filtersActive -> "No items match this search and these filters"
+                searchActive -> "No items match this search"
+                filtersActive -> "No items match these filters"
+                else -> "No items yet for ${selectedSource.displayName()}"
             },
         )
     }
@@ -832,14 +836,22 @@ private fun FilterToggleChip(
 }
 
 @Composable
-private fun LibraryStatusMessage(
+private fun LibraryErrorMessage(
     message: String,
 ) {
-    Text(
-        text = message,
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.errorContainer,
+        tonalElevation = 1.dp,
+    ) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onErrorContainer,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+        )
+    }
 }
 
 private fun itemDeleteRequest(
@@ -955,9 +967,18 @@ private fun DetailedItemCard(
                 .padding(10.dp),
         ) {
             val coverWidth = (maxWidth * 0.36f).coerceIn(72.dp, 104.dp)
+            val menuActions = itemMenuActions(
+                isDownloading = isDownloading,
+                onDeleteRequested = onDeleteRequested,
+                onDownloadRequested = onDownloadRequested,
+                onDeleteDownloadedRequested = onDeleteDownloadedRequested,
+            )
+            val menuSpace = if (menuActions.isNotEmpty()) 48.dp else 0.dp
             Box(modifier = Modifier.fillMaxWidth()) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(end = menuSpace),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.Top,
                 ) {
@@ -974,27 +995,9 @@ private fun DetailedItemCard(
                         item = item,
                         progress = progress,
                         modifier = Modifier
-                            .weight(1f)
-                            .padding(
-                                end = if (
-                                    onDeleteRequested != null ||
-                                    onDownloadRequested != null ||
-                                    onDeleteDownloadedRequested != null ||
-                                    isDownloading
-                                ) {
-                                    28.dp
-                                } else {
-                                    0.dp
-                                },
-                            ),
+                            .weight(1f),
                     )
                 }
-                val menuActions = itemMenuActions(
-                    isDownloading = isDownloading,
-                    onDeleteRequested = onDeleteRequested,
-                    onDownloadRequested = onDownloadRequested,
-                    onDeleteDownloadedRequested = onDeleteDownloadedRequested,
-                )
                 if (menuActions.isNotEmpty()) {
                     ItemOverflowMenu(
                         modifier = Modifier.align(Alignment.TopEnd),
@@ -1272,9 +1275,12 @@ enum class LibraryViewMode {
     Detailed,
     Grid;
 
-    fun gridCells(maxWidth: androidx.compose.ui.unit.Dp): GridCells = when (this) {
-        Detailed -> if (maxWidth < 700.dp) {
-            GridCells.Fixed(1)
+    fun gridCells(
+        maxWidth: androidx.compose.ui.unit.Dp,
+        maxHeight: androidx.compose.ui.unit.Dp,
+    ): GridCells = when (this) {
+        Detailed -> if (maxWidth > maxHeight) {
+            GridCells.Fixed(3)
         } else {
             GridCells.Fixed(2)
         }
