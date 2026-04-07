@@ -8,18 +8,16 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -53,26 +51,23 @@ import coil.compose.AsyncImage
 import com.example.unifiedreader.core.model.BookMetadata
 import com.example.unifiedreader.core.model.ComicMetadata
 import com.example.unifiedreader.core.model.FormatType
-import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.core.model.librarySecondaryText
-import androidx.compose.foundation.layout.aspectRatio
 
 @Composable
 fun LibraryScreen(
     selectedSource: SourceType,
-    libraries: List<Library>,
     items: List<ReadableItem>,
+    viewMode: LibraryViewMode,
     progressByItemId: Map<String, ItemProgressSummary> = emptyMap(),
     libraryMessage: String? = null,
     onItemSelected: (ReadableItem) -> Unit,
     onDeleteImportedItem: (ReadableItem) -> Unit = {},
 ) {
-    var viewMode by rememberSaveable { mutableStateOf(LibraryViewMode.Detailed) }
     var deleteCandidate by remember { mutableStateOf<ReadableItem?>(null) }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
@@ -83,14 +78,10 @@ fun LibraryScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                LibraryHeader(
-                    libraries = libraries,
-                    selectedSource = selectedSource,
-                    libraryMessage = libraryMessage,
-                    viewMode = viewMode,
-                    onViewModeChanged = { viewMode = it },
-                )
+            libraryMessage?.let { message ->
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    LibraryStatusMessage(message = message)
+                }
             }
 
             if (items.isEmpty()) {
@@ -160,49 +151,14 @@ private fun EmptyLibraryState(
 }
 
 @Composable
-private fun LibraryHeader(
-    libraries: List<Library>,
-    selectedSource: SourceType,
-    libraryMessage: String?,
-    viewMode: LibraryViewMode,
-    onViewModeChanged: (LibraryViewMode) -> Unit,
+private fun LibraryStatusMessage(
+    message: String,
 ) {
-    val count = libraries.count { it.sourceType == selectedSource }
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.Top,
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Text(
-                    text = selectedSource.displayName(),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text = "$count local libraries",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                ViewModeToggle(
-                    selectedMode = viewMode,
-                    onViewModeChanged = onViewModeChanged,
-                )
-            }
-        }
-        libraryMessage?.let {
-            Text(
-                text = it,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 6.dp),
-            )
-        }
-    }
+    Text(
+        text = message,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 private fun itemDeleteRequest(
@@ -361,33 +317,6 @@ private fun LibraryCover(
 }
 
 @Composable
-private fun ViewModeToggle(
-    selectedMode: LibraryViewMode,
-    onViewModeChanged: (LibraryViewMode) -> Unit,
-) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        LibraryViewMode.entries.forEach { mode ->
-            AssistChip(
-                onClick = { onViewModeChanged(mode) },
-                label = { Text(text = mode.label) },
-                leadingIcon = if (mode == selectedMode) {
-                    {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary),
-                        )
-                    }
-                } else {
-                    null
-                },
-            )
-        }
-    }
-}
-
-@Composable
 private fun ProgressSummary(
     progress: ItemProgressSummary,
 ) {
@@ -407,11 +336,9 @@ data class ItemProgressSummary(
     val pageCount: Int? = null,
 )
 
-private enum class LibraryViewMode(
-    val label: String,
-) {
-    Detailed("Detailed"),
-    Grid("Grid");
+enum class LibraryViewMode {
+    Detailed,
+    Grid;
 
     fun gridCells(maxWidth: androidx.compose.ui.unit.Dp): GridCells = when (this) {
         Detailed -> if (maxWidth < 700.dp) {

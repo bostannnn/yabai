@@ -15,8 +15,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -28,6 +30,10 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.Lifecycle
@@ -38,6 +44,7 @@ import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.feature.library.LibraryViewMode
 import com.example.unifiedreader.feature.library.LibraryScreen
 import com.example.unifiedreader.feature.reader.core.ReaderHost
 import com.example.unifiedreader.feature.settings.SettingsScreen
@@ -90,6 +97,7 @@ fun UnifiedReaderAppContent(
 ) {
     val uiState = viewModel.uiState
     val lifecycleOwner = LocalLifecycleOwner.current
+    var libraryViewMode by rememberSaveable { mutableStateOf(LibraryViewMode.Detailed) }
 
     DisposableEffect(lifecycleOwner, viewModel) {
         val observer = LifecycleEventObserver { _, event ->
@@ -131,10 +139,12 @@ fun UnifiedReaderAppContent(
                         MainTopBar(
                             selectedSource = uiState.selectedSource,
                             topLevel = uiState.topLevel,
+                            libraryViewMode = libraryViewMode,
                             onSourceSelected = { source ->
                                 viewModel.onTopLevelSelected(TopLevelDestination.Library)
                                 viewModel.onSourceSelected(source)
                             },
+                            onLibraryViewModeChanged = { libraryViewMode = it },
                             onSettingsClick = {
                                 viewModel.onTopLevelSelected(TopLevelDestination.Settings)
                             },
@@ -144,6 +154,7 @@ fun UnifiedReaderAppContent(
                             TopLevelDestination.Library -> {
                                 LibraryFlow(
                                     uiState = uiState,
+                                    viewMode = libraryViewMode,
                                     onItemSelected = viewModel::onItemSelected,
                                     onDeleteImportedItem = viewModel::onDeleteImportedItem,
                                     modifier = Modifier.weight(1f),
@@ -175,7 +186,9 @@ fun UnifiedReaderAppContent(
 private fun MainTopBar(
     selectedSource: SourceType,
     topLevel: TopLevelDestination,
+    libraryViewMode: LibraryViewMode,
     onSourceSelected: (SourceType) -> Unit,
+    onLibraryViewModeChanged: (LibraryViewMode) -> Unit,
     onSettingsClick: () -> Unit,
     onImportLocalFileClick: () -> Unit,
 ) {
@@ -203,6 +216,16 @@ private fun MainTopBar(
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            ViewModeButton(
+                mode = LibraryViewMode.Detailed,
+                selectedMode = libraryViewMode,
+                onLibraryViewModeChanged = onLibraryViewModeChanged,
+            )
+            ViewModeButton(
+                mode = LibraryViewMode.Grid,
+                selectedMode = libraryViewMode,
+                onLibraryViewModeChanged = onLibraryViewModeChanged,
+            )
             IconButton(onClick = onSettingsClick) {
                 Icon(
                     imageVector = Icons.Default.Settings,
@@ -225,8 +248,35 @@ private fun MainTopBar(
 }
 
 @Composable
+private fun ViewModeButton(
+    mode: LibraryViewMode,
+    selectedMode: LibraryViewMode,
+    onLibraryViewModeChanged: (LibraryViewMode) -> Unit,
+) {
+    val isSelected = mode == selectedMode
+    IconButton(onClick = { onLibraryViewModeChanged(mode) }) {
+        Icon(
+            imageVector = when (mode) {
+                LibraryViewMode.Detailed -> Icons.AutoMirrored.Filled.ViewList
+                LibraryViewMode.Grid -> Icons.Default.GridView
+            },
+            contentDescription = when (mode) {
+                LibraryViewMode.Detailed -> "Detailed view"
+                LibraryViewMode.Grid -> "Grid view"
+            },
+            tint = if (isSelected) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        )
+    }
+}
+
+@Composable
 private fun LibraryFlow(
     uiState: AppUiState,
+    viewMode: LibraryViewMode,
     onItemSelected: (ReadableItem) -> Unit,
     onDeleteImportedItem: (ReadableItem) -> Unit,
     modifier: Modifier = Modifier,
@@ -237,8 +287,8 @@ private fun LibraryFlow(
     ) {
         LibraryScreen(
             selectedSource = uiState.selectedSource,
-            libraries = uiState.visibleLibraries,
             items = uiState.visibleItems,
+            viewMode = viewMode,
             progressByItemId = uiState.progressByItemId,
             libraryMessage = uiState.libraryMessage,
             onItemSelected = onItemSelected,

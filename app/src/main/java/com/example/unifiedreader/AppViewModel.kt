@@ -273,9 +273,6 @@ data class AppUiState(
     val libraryMessage: String? = null,
     val themeMode: ThemeMode = ThemeMode.System,
 ) {
-    val visibleLibraries: List<Library>
-        get() = libraries.filter { it.sourceType == selectedSource }
-
     val visibleItems: List<ReadableItem>
         get() = items.filter { it.sourceType == selectedSource }
 
