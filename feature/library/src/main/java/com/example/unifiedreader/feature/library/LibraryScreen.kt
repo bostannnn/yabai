@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.library
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -39,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -233,7 +235,6 @@ private fun GridCoverCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
             .clickable(onClick = onClick),
     ) {
         LibraryCover(
@@ -286,9 +287,19 @@ private fun LibraryCover(
     item: ReadableItem,
     modifier: Modifier = Modifier,
 ) {
+    val coverShape = RoundedCornerShape(4.dp)
+    val coverBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)
+
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(18.dp))
+            .shadow(
+                elevation = 8.dp,
+                shape = coverShape,
+                clip = false,
+                ambientColor = Color.Black.copy(alpha = 0.22f),
+                spotColor = Color.Black.copy(alpha = 0.28f),
+            )
+            .clip(coverShape)
             .background(
                 brush = Brush.linearGradient(
                     listOf(
@@ -296,6 +307,11 @@ private fun LibraryCover(
                         Color(0xFF141A20),
                     ),
                 ),
+            )
+            .border(
+                width = 1.dp,
+                color = coverBorderColor,
+                shape = coverShape,
             ),
         contentAlignment = Alignment.Center,
     ) {
@@ -314,6 +330,36 @@ private fun LibraryCover(
                 fontWeight = FontWeight.Bold,
             )
         }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    brush = Brush.horizontalGradient(
+                        colorStops = arrayOf(
+                            0.00f to Color.Black.copy(alpha = 0.22f),
+                            0.04f to Color.White.copy(alpha = 0.08f),
+                            0.11f to Color.Transparent,
+                            0.88f to Color.Transparent,
+                            1.00f to Color.Black.copy(alpha = 0.08f),
+                        ),
+                    ),
+                ),
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    brush = Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0.00f to Color.White.copy(alpha = 0.12f),
+                            0.20f to Color.Transparent,
+                            0.82f to Color.Transparent,
+                            1.00f to Color.Black.copy(alpha = 0.10f),
+                        ),
+                    ),
+                ),
+        )
     }
 }
 
