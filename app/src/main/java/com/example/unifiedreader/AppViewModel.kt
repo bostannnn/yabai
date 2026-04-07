@@ -247,6 +247,7 @@ class AppViewModel @Inject constructor(
             )
             LocatorType.CFI -> buildSavedLocationProgressSummary(
                 percent = progress.percent,
+                page = progress.page,
                 pageCount = sessionPageCount,
             )
         } ?: return@associateNotNull null
@@ -312,6 +313,7 @@ private fun buildItemProgressSummary(
     return ItemProgressSummary(
         label = "Resume on page ${clampedPageIndex + 1} of $pageCount",
         fraction = (clampedPageIndex + 1) / pageCount.toFloat(),
+        currentPage = clampedPageIndex + 1,
         pageCount = pageCount,
     )
 }
@@ -331,10 +333,12 @@ private fun buildPercentProgressSummary(
 
 private fun buildSavedLocationProgressSummary(
     percent: Double?,
+    page: Int? = null,
     pageCount: Int? = null,
 ): ItemProgressSummary = ItemProgressSummary(
     label = "Resume from saved location",
     fraction = (percent ?: 0.0).coerceIn(0.0, 1.0).toFloat(),
+    currentPage = page?.takeIf { it > 0 },
     pageCount = pageCount,
 )
 

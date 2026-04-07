@@ -85,8 +85,10 @@ internal fun ReaderProgressSnapshot.toReadiumLocator(): Locator? {
 
 internal fun buildReaderLocator(
     locator: Locator,
+    page: Int? = locator.locations.position,
 ): ReaderLocator = ReaderLocator(
     locatorType = LocatorType.CFI,
+    page = page,
     cfi = locator.toJSON().toString(),
     percent = locator.locations.totalProgression ?: locator.locations.progression,
 )

@@ -15,7 +15,6 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.zIndex
 import kotlinx.coroutines.delay
@@ -97,7 +96,7 @@ fun ImmersiveReaderOverlay(
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier
-                .align(Alignment.TopCenter)
+                .fillMaxSize()
                 .zIndex(1f),
         ) {
             overlay()

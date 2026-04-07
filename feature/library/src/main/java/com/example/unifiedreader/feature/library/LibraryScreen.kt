@@ -57,6 +57,7 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.core.model.librarySecondaryText
+import kotlin.math.roundToInt
 
 @Composable
 fun LibraryScreen(
@@ -321,6 +322,13 @@ private fun ProgressSummary(
     progress: ItemProgressSummary,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = progress.detailLabel,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
         LinearProgressIndicator(
             progress = { progress.fraction.coerceIn(0f, 1f) },
             modifier = Modifier
@@ -333,8 +341,24 @@ private fun ProgressSummary(
 data class ItemProgressSummary(
     val label: String,
     val fraction: Float,
+    val currentPage: Int? = null,
     val pageCount: Int? = null,
-)
+) {
+    val percentLabel: String
+        get() = "${(fraction.coerceIn(0f, 1f) * 100f).toInt()}%"
+
+    val pageProgressLabel: String?
+        get() = pageCount?.takeIf { it > 0 }?.let { count ->
+            val page = currentPage
+                ?: (fraction.coerceIn(0f, 1f) * count)
+                    .roundToInt()
+                    .coerceIn(1, count)
+            "${page.coerceIn(1, count)}/$count"
+        }
+
+    val detailLabel: String
+        get() = listOfNotNull(percentLabel, pageProgressLabel).joinToString(" · ")
+}
 
 enum class LibraryViewMode {
     Detailed,

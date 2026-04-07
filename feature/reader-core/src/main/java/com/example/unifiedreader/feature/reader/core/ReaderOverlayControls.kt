@@ -23,7 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-private val ReaderOverlayButtonShape = RoundedCornerShape(12.dp)
+private val ReaderOverlayButtonShape = RoundedCornerShape(8.dp)
 
 @Composable
 fun ReaderOverlayIconButton(
@@ -36,10 +36,10 @@ fun ReaderOverlayIconButton(
         onClick = onClick,
         modifier = modifier
             .background(
-                if (isActive) Color(0x33F5F7FA) else Color.Transparent,
+                if (isActive) Color(0x29F5F7FA) else Color.Transparent,
                 ReaderOverlayButtonShape,
             )
-            .sizeIn(minWidth = 52.dp, minHeight = 36.dp),
+            .sizeIn(minWidth = 44.dp, minHeight = 36.dp),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -60,7 +60,7 @@ fun ReaderOverlayDropdownMenu(
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismissRequest,
-        modifier = modifier.background(Color(0xEE11161B)),
+        modifier = modifier.background(Color(0xF2111418)),
     ) {
         content()
     }

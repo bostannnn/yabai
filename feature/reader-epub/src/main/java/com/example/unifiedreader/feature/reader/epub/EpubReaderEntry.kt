@@ -52,7 +52,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.feature.reader.core.CompactReaderOverlayFrame
 import com.example.unifiedreader.feature.reader.core.ImmersiveReaderOverlay
-import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
+import com.example.unifiedreader.feature.reader.core.ReaderBottomProgressBar
 import com.example.unifiedreader.feature.reader.core.ReaderOverlayBackButton
 import com.example.unifiedreader.feature.reader.core.ReaderOverlayDropdownItem
 import com.example.unifiedreader.feature.reader.core.ReaderOverlayMenuAction
@@ -69,16 +69,20 @@ import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.navigator.input.InputListener
 import org.readium.r2.navigator.input.TapEvent
 import org.readium.r2.shared.ExperimentalReadiumApi
+import org.readium.r2.shared.publication.Link
 import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.publication.Publication
 import org.readium.r2.shared.publication.epub.EpubLayout
 import org.readium.r2.shared.publication.presentation.presentation
+import org.readium.r2.shared.publication.services.locateProgression
+import org.readium.r2.shared.publication.services.positionsByReadingOrder
 import org.readium.r2.shared.util.asset.AssetRetriever
 import org.readium.r2.shared.util.format.FormatHints
 import org.readium.r2.shared.util.http.DefaultHttpClient
 import org.readium.r2.shared.util.mediatype.MediaType
 import org.readium.r2.streamer.PublicationOpener
 import org.readium.r2.streamer.parser.DefaultPublicationParser
+import kotlin.math.roundToInt
 
 @Composable
 fun EpubReaderScreen(
@@ -111,6 +115,19 @@ fun EpubReaderScreen(
     var layoutMode by rememberSaveable(item.id) { mutableStateOf(restoredPreferences.layoutMode) }
     var restoredSessionState by rememberSaveable(item.id) { mutableStateOf(false) }
     var pageCount by rememberSaveable(item.id) { mutableIntStateOf(sessionSnapshot?.pageCount ?: 0) }
+    var currentPage by rememberSaveable(item.id) {
+        mutableIntStateOf(progressSnapshot?.page ?: initialLocator?.locations?.position ?: 0)
+    }
+    var currentProgress by rememberSaveable(item.id) {
+        mutableDoubleStateOf(
+            progressSnapshot?.percent
+                ?: initialLocator?.locations?.totalProgression
+                ?: initialLocator?.locations?.progression
+                ?: 0.0,
+        )
+    }
+    var seekRequestId by remember { mutableIntStateOf(0) }
+    var seekRequest by remember { mutableStateOf<EpubProgressSeekRequest?>(null) }
     val overlayState = rememberReaderOverlayState(
         key = "epub-overlay-${item.id}",
         initiallyVisible = true,
@@ -206,6 +223,22 @@ fun EpubReaderScreen(
                     state.publication.close()
                 }
             }
+            val bookProgress by produceState(
+                initialValue = EpubBookProgress(
+                    pageCount = 0,
+                    chapterMarks = emptyList(),
+                ),
+                key1 = state.publication,
+            ) {
+                value = withContext(Dispatchers.IO) {
+                    state.publication.buildEpubBookProgress()
+                }
+            }
+            LaunchedEffect(bookProgress.pageCount) {
+                if (bookProgress.pageCount > 0) {
+                    pageCount = bookProgress.pageCount
+                }
+            }
 
             LaunchedEffect(item.id, hydrated, restoredSessionState, fontSize, lineHeight, theme, layoutMode, pageCount) {
                 if (!hydrated || !restoredSessionState) return@LaunchedEffect
@@ -241,52 +274,94 @@ fun EpubReaderScreen(
                             theme = theme,
                             layoutMode = layoutMode,
                         ),
-                        onLocationChanged = { locator, totalPages ->
-                            if (totalPages != null) {
-                                pageCount = totalPages
+                        onLocationChanged = { locator, pageIndex, _ ->
+                            val bookPageCount = bookProgress.pageCount
+                                .takeIf { it > 0 }
+                                ?: state.publication.readingOrder.size.takeIf { it > 0 }
+                            if (bookPageCount != null) {
+                                pageCount = bookPageCount
                             }
+                            val reportedPage = locator.locations.position
+                                ?: state.publication.readingOrderPositionFor(locator)
+                                ?: pageIndex + 1
+                            if (reportedPage > 0) {
+                                currentPage = reportedPage
+                            }
+                            currentProgress = (
+                                locator.locations.totalProgression
+                                    ?: locator.locations.progression
+                                    ?: bookPageCount?.let { pages ->
+                                        reportedPage.toDouble() / pages.toDouble()
+                                    }
+                                    ?: currentProgress
+                                ).coerceIn(0.0, 1.0)
                             sessionStore.saveProgress(
                                 item = item,
-                                locator = buildReaderLocator(locator),
-                                isFinished = totalPages?.let { pages ->
-                                    (locator.locations.position ?: 0) >= pages
-                                } ?: false,
+                                locator = buildReaderLocator(
+                                    locator = locator,
+                                    page = reportedPage.takeIf { it > 0 },
+                                ),
+                                isFinished = bookPageCount?.let { reportedPage >= it } ?: false,
                                 syncState = SyncState.DIRTY,
-                                pageCount = totalPages ?: pageCount.takeIf { it > 0 },
+                                pageCount = bookPageCount ?: pageCount.takeIf { it > 0 },
                             )
                         },
                         onSurfaceTap = overlayState::toggle,
+                        seekRequest = seekRequest,
+                        onSeekRequestConsumed = {
+                            seekRequest = null
+                        },
                         modifier = Modifier.fillMaxSize(),
                     )
                 },
                 overlay = {
-                    EpubReaderOverlay(
-                        itemId = item.id,
-                        title = item.title,
-                        progressLabel = buildEpubProgressLabel(
-                            progressSnapshot = progressSnapshot,
-                            pageCount = pageCount,
-                        ),
-                        fontSize = fontSize,
-                        lineHeight = lineHeight,
-                        theme = theme,
-                        layoutMode = layoutMode,
-                        overlayVisible = overlayState.isVisible,
-                        onBack = onBack,
-                        onFontSizeChanged = {
-                            fontSize = it
-                        },
-                        onLineHeightChanged = {
-                            lineHeight = it
-                        },
-                        onThemeChanged = {
-                            theme = it
-                        },
-                        onLayoutModeChanged = {
-                            layoutMode = it
-                        },
-                        modifier = Modifier.testTag(EpubReaderOverlayTag),
-                    )
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        EpubReaderOverlay(
+                            itemId = item.id,
+                            title = item.title,
+                            progressLabel = buildEpubProgressLabel(
+                                progress = currentProgress,
+                                position = currentPage,
+                                pageCount = pageCount,
+                            ),
+                            fontSize = fontSize,
+                            lineHeight = lineHeight,
+                            theme = theme,
+                            layoutMode = layoutMode,
+                            overlayVisible = overlayState.isVisible,
+                            onBack = onBack,
+                            onFontSizeChanged = {
+                                fontSize = it
+                            },
+                            onLineHeightChanged = {
+                                lineHeight = it
+                            },
+                            onThemeChanged = {
+                                theme = it
+                            },
+                            onLayoutModeChanged = {
+                                layoutMode = it
+                            },
+                            modifier = Modifier.testTag(EpubReaderOverlayTag),
+                        )
+                        ReaderBottomProgressBar(
+                            progress = currentProgress.toFloat(),
+                            percentLabel = buildEpubPercentLabel(currentProgress),
+                            pageLabel = buildEpubPageProgressLabel(
+                                position = currentPage,
+                                pageCount = pageCount,
+                            ),
+                            chapterMarks = bookProgress.chapterMarks,
+                            modifier = Modifier.align(Alignment.BottomCenter),
+                            onProgressSelected = { selectedProgress ->
+                                currentProgress = selectedProgress.toDouble()
+                                seekRequest = EpubProgressSeekRequest(
+                                    id = seekRequestId++,
+                                    progress = selectedProgress,
+                                )
+                            },
+                        )
+                    }
                 },
             )
         }
@@ -467,8 +542,10 @@ private fun ReadiumEpubNavigatorHost(
     publication: Publication,
     initialLocator: Locator?,
     preferences: EpubReaderPreferences,
-    onLocationChanged: (Locator, Int?) -> Unit,
+    onLocationChanged: (Locator, Int, Int?) -> Unit,
     onSurfaceTap: () -> Unit,
+    seekRequest: EpubProgressSeekRequest?,
+    onSeekRequestConsumed: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val containerId = remember(item.id) { View.generateViewId() }
@@ -546,7 +623,7 @@ private fun ReadiumEpubNavigatorHost(
                     totalPages: Int,
                     locator: Locator,
                 ) {
-                    latestOnLocationChanged.value(locator, totalPages)
+                    latestOnLocationChanged.value(locator, pageIndex, totalPages)
                 }
 
                 override fun onPageLoaded() {
@@ -591,7 +668,7 @@ private fun ReadiumEpubNavigatorHost(
             val navigator = fragmentManager.findFragmentByTag(fragmentTag) as? EpubNavigatorFragment
             navigator?.let {
                 it.removeInputListener(centerTapListener)
-                latestOnLocationChanged.value(it.currentLocator.value, null)
+                latestOnLocationChanged.value(it.currentLocator.value, 0, null)
             }
             fragmentManager.findFragmentByTag(fragmentTag)?.let { existing ->
                 fragmentManager.beginTransaction()
@@ -612,20 +689,101 @@ private fun ReadiumEpubNavigatorHost(
             )
         }
     }
+
+    LaunchedEffect(seekRequest, fragmentTag, publication) {
+        val request = seekRequest ?: return@LaunchedEffect
+        val navigator = fragmentManager.findFragmentByTag(fragmentTag) as? EpubNavigatorFragment
+        if (navigator == null) {
+            onSeekRequestConsumed()
+            return@LaunchedEffect
+        }
+        val locator = withContext(Dispatchers.IO) {
+            publication.locateProgression(request.progress.toDouble())
+        }
+        locator?.let { navigator.go(it, animated = false) }
+        onSeekRequestConsumed()
+    }
 }
 
 private fun buildEpubProgressLabel(
-    progressSnapshot: ReaderProgressSnapshot?,
+    progress: Double,
+    position: Int,
     pageCount: Int,
 ): String = when {
-    progressSnapshot?.percent != null -> {
-        val percent = ((progressSnapshot.percent ?: 0.0) * 100).toInt().coerceIn(0, 100)
-        if (pageCount > 0) "$percent% read · $pageCount locations" else "$percent% read"
+    position > 0 && pageCount > 0 -> {
+        "${buildEpubPercentLabel(progress)} read · $position/$pageCount"
     }
 
+    progress > 0.0 -> "${buildEpubPercentLabel(progress)} read"
     pageCount > 0 -> "$pageCount locations"
     else -> "Saved location"
 }
+
+private fun buildEpubPercentLabel(
+    progress: Double,
+): String = "${((progress.coerceIn(0.0, 1.0) * 100.0).roundToInt()).coerceIn(0, 100)}%"
+
+private fun buildEpubPageProgressLabel(
+    position: Int,
+    pageCount: Int,
+): String = when {
+    position > 0 && pageCount > 0 -> "$position/$pageCount"
+    pageCount > 0 -> "?/$pageCount"
+    position > 0 -> "$position"
+    else -> "?/?"
+}
+
+private suspend fun Publication.buildEpubBookProgress(): EpubBookProgress {
+    val positionsByReadingOrder = positionsByReadingOrder()
+    val positionCount = positionsByReadingOrder.flatten().size
+    val pageCount = positionCount.takeIf { it > 0 } ?: readingOrder.size
+    val positionProgressionByHref = positionsByReadingOrder
+        .mapNotNull { positions ->
+            val position = positions.firstOrNull() ?: return@mapNotNull null
+            val progression = position.locations.totalProgression ?: return@mapNotNull null
+            position.href.removeFragment().toString() to progression
+        }
+        .toMap()
+
+    val tocMarks = tableOfContents
+        .flatMap { it.flattenEpubTocLinks() }
+        .mapNotNull { link ->
+            val locator = locatorFromLink(link)
+            val href = (locator?.href ?: link.url()).removeFragment().toString()
+            positionProgressionByHref[href] ?: locator?.locations?.totalProgression
+        }
+        .toChapterMarks()
+
+    val chapterMarks = tocMarks.ifEmpty {
+        readingOrder
+            .indices
+            .map { index -> index.toDouble() / readingOrder.size.toDouble() }
+            .toChapterMarks()
+    }
+    return EpubBookProgress(
+        pageCount = pageCount,
+        chapterMarks = chapterMarks,
+    )
+}
+
+private fun Link.flattenEpubTocLinks(): List<Link> =
+    listOf(this) + children.flatMap { it.flattenEpubTocLinks() }
+
+private fun Publication.readingOrderPositionFor(
+    locator: Locator,
+): Int? {
+    val href = locator.href.removeFragment().toString()
+    return readingOrder
+        .indexOfFirst { link -> link.url().removeFragment().toString() == href }
+        .takeUnless { it < 0 }
+        ?.plus(1)
+}
+
+private fun List<Double>.toChapterMarks(): List<Float> =
+    map { it.coerceIn(0.0, 1.0).toFloat() }
+        .filter { it > 0f && it < 1f }
+        .distinct()
+        .sorted()
 
 internal const val EpubReaderSurfaceTag = "epub-reader-surface"
 internal const val EpubReaderOverlayTag = "epub-reader-overlay"
@@ -653,6 +811,16 @@ private enum class EpubOverlayPanel {
     Theme,
     Layout,
 }
+
+private data class EpubBookProgress(
+    val pageCount: Int,
+    val chapterMarks: List<Float>,
+)
+
+private data class EpubProgressSeekRequest(
+    val id: Int,
+    val progress: Float,
+)
 
 private val EpubViewportVerticalInset = 32.dp
 

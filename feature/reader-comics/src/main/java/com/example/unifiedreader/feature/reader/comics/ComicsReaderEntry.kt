@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.reader.comics
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -26,7 +27,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.reader.core.ImmersiveReaderOverlay
+import com.example.unifiedreader.feature.reader.core.ReaderBottomProgressBar
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
+import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -65,6 +68,7 @@ fun ComicsReaderScreen(
             preferencesStore.loadSpreadMode(item)
         },
     )
+    val currentPageProgress = (readerState.currentPage + 1).toFloat() / pages.size.toFloat()
     val lifecycleOwner = LocalLifecycleOwner.current
     val coroutineScope = rememberCoroutineScope()
     var progressRestoreCompleted by remember(item.id) { mutableStateOf(false) }
@@ -252,19 +256,33 @@ fun ComicsReaderScreen(
             }
         },
         overlay = {
-            ReaderOverlayBar(
-                itemId = item.id,
-                title = item.title,
-                progressLabel = "${readerState.currentPage + 1} / ${pages.size}",
-                readingDirection = readerState.readingDirection,
-                pageFitMode = readerState.pageFitMode,
-                spreadMode = readerState.spreadMode,
-                overlayVisible = overlayState.isVisible,
-                onBack = onBack,
-                onReadingDirectionChanged = readerState::onReadingDirectionChanged,
-                onPageFitModeChanged = readerState::onPageFitModeChanged,
-                onSpreadModeChanged = readerState::onSpreadModeChanged,
-            )
+            Box(modifier = Modifier.fillMaxSize()) {
+                ReaderOverlayBar(
+                    itemId = item.id,
+                    title = item.title,
+                    progressLabel = "${readerState.currentPage + 1} / ${pages.size}",
+                    readingDirection = readerState.readingDirection,
+                    pageFitMode = readerState.pageFitMode,
+                    spreadMode = readerState.spreadMode,
+                    overlayVisible = overlayState.isVisible,
+                    onBack = onBack,
+                    onReadingDirectionChanged = readerState::onReadingDirectionChanged,
+                    onPageFitModeChanged = readerState::onPageFitModeChanged,
+                    onSpreadModeChanged = readerState::onSpreadModeChanged,
+                )
+                ReaderBottomProgressBar(
+                    progress = currentPageProgress,
+                    percentLabel = "${(currentPageProgress * 100f).roundToInt()}%",
+                    pageLabel = "${readerState.currentPage + 1}/${pages.size}",
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                    onProgressSelected = { selectedProgress ->
+                        val targetPage = (selectedProgress * (pages.size - 1))
+                            .roundToInt()
+                            .coerceIn(0, pages.lastIndex)
+                        readerState.onPageSettled(targetPage)
+                    },
+                )
+            }
         },
     )
 }

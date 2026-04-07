@@ -1,8 +1,8 @@
 package com.example.unifiedreader.feature.reader.core
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -20,6 +20,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
+private val ReaderControlBarShape = RoundedCornerShape(8.dp)
+
 @Composable
 fun CompactReaderOverlayFrame(
     title: String,
@@ -32,52 +34,59 @@ fun CompactReaderOverlayFrame(
         modifier = modifier
             .fillMaxWidth()
             .safeGesturesPadding()
-            .padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 12.dp),
+            .padding(start = 10.dp, end = 10.dp, top = 10.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        ReaderActionGroup(
-            content = leadingActions,
-        )
-        Column(
+        Box(
             modifier = Modifier
-                .weight(1f)
-                .background(Color(0xAA11161B), RoundedCornerShape(18.dp))
-                .border(1.dp, Color(0x3AF5F7FA), RoundedCornerShape(18.dp))
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+                .fillMaxWidth()
+                .defaultMinSize(minHeight = 44.dp)
+                .background(Color(0xF2111418), ReaderControlBarShape)
+                .padding(horizontal = 4.dp, vertical = 3.dp),
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-                color = Color(0xFFF5F7FA),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+            ReaderActionRow(
+                modifier = Modifier.align(Alignment.CenterStart),
+                content = leadingActions,
             )
-            Text(
-                text = progressLabel,
-                style = MaterialTheme.typography.labelMedium,
-                color = Color(0xFFB7C4CE),
+            Column(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .fillMaxWidth(0.42f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(1.dp),
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color(0xFFF5F7FA),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = progressLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0xFFB7C4CE),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            ReaderActionRow(
+                modifier = Modifier.align(Alignment.CenterEnd),
+                content = trailingActions,
             )
         }
-        ReaderActionGroup(
-            content = trailingActions,
-        )
     }
 }
 
 @Composable
-private fun ReaderActionGroup(
+private fun ReaderActionRow(
+    modifier: Modifier = Modifier,
     content: @Composable RowScope.() -> Unit,
 ) {
     Row(
-        modifier = Modifier
-            .defaultMinSize(minHeight = 48.dp)
-            .background(Color(0xAA11161B), RoundedCornerShape(18.dp))
-            .border(1.dp, Color(0x3AF5F7FA), RoundedCornerShape(18.dp))
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+        modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
         content = content,
     )
 }
