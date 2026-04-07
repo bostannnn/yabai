@@ -26,6 +26,7 @@ class RoomReaderSessionStore(
     private val readerSessionStateDao: ReaderSessionStateDao,
     private val writeScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ) : ReaderSessionStore {
+    private val progressWriteMutex = Mutex()
     private val sessionWriteMutex = Mutex()
     private val hydrationState = MutableStateFlow(false)
     override val isHydratedFlow: StateFlow<Boolean> = hydrationState.asStateFlow()
@@ -58,6 +59,7 @@ class RoomReaderSessionStore(
         isFinished: Boolean,
         syncState: SyncState,
         pageCount: Int?,
+        updatedAtEpochMillis: Long,
     ) {
         val snapshot = ReaderProgressSnapshot(
             itemId = item.id,
@@ -67,10 +69,15 @@ class RoomReaderSessionStore(
             percent = locator.percent,
             isFinished = isFinished,
             syncState = syncState,
+            updatedAtEpochMillis = updatedAtEpochMillis,
         )
         progressState.value = progressState.value + (item.id to snapshot)
         writeScope.launch {
-            readingProgressDao.insertOrReplace(snapshot.toEntity())
+            progressWriteMutex.withLock {
+                progressState.value[item.id]
+                    ?.toEntity()
+                    ?.let(readingProgressDao::insertOrReplace)
+            }
         }
         if (pageCount != null) {
             updateSession(item = item, pageCount = pageCount)
@@ -98,11 +105,21 @@ class RoomReaderSessionStore(
         }
     }
 
-    override fun clearItem(itemId: String) {
+    override fun clearProgress(itemId: String) {
         progressState.update { it - itemId }
+        writeScope.launch {
+            progressWriteMutex.withLock {
+                if (itemId !in progressState.value) {
+                    readingProgressDao.deleteByItemId(itemId)
+                }
+            }
+        }
+    }
+
+    override fun clearItem(itemId: String) {
+        clearProgress(itemId)
         sessionState.update { it - itemId }
         writeScope.launch {
-            readingProgressDao.deleteByItemId(itemId)
             sessionWriteMutex.withLock {
                 readerSessionStateDao.deleteByItemId(itemId)
             }

@@ -44,6 +44,7 @@ interface ReaderSessionStore {
         isFinished: Boolean = false,
         syncState: SyncState = SyncState.CLEAN,
         pageCount: Int? = null,
+        updatedAtEpochMillis: Long = System.currentTimeMillis(),
     )
 
     fun getSession(item: ReadableItem): ReaderSessionSnapshot?
@@ -53,6 +54,8 @@ interface ReaderSessionStore {
         pageCount: Int? = null,
         preferences: Map<String, String> = emptyMap(),
     )
+
+    fun clearProgress(itemId: String)
 
     fun clearItem(itemId: String)
 }

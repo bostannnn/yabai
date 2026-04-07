@@ -113,7 +113,6 @@ class GrimmoryCatalogSyncService(
     ) {
         val store = readerSessionStore ?: return
         entries.forEach { entry ->
-            val progress = entry.progress ?: return@forEach
             val existing = store.getProgress(entry.item)
             if (
                 existing?.syncState == SyncState.DIRTY ||
@@ -122,12 +121,20 @@ class GrimmoryCatalogSyncService(
             ) {
                 return@forEach
             }
+            val progress = entry.progress
+            if (progress == null) {
+                if (existing?.syncState == SyncState.CLEAN) {
+                    store.clearProgress(entry.item.id)
+                }
+                return@forEach
+            }
             store.saveProgress(
                 item = entry.item,
                 locator = progress.toReaderLocator(),
                 isFinished = progress.isFinished,
                 syncState = SyncState.CLEAN,
                 pageCount = entry.item.pageCount,
+                updatedAtEpochMillis = progress.updatedAtEpochMillis ?: nowEpochMillis(),
             )
         }
     }
@@ -170,6 +177,7 @@ class GrimmoryCatalogSyncService(
                 isFinished = progress.isFinished,
                 syncState = SyncState.SYNCING,
                 pageCount = store.getSession(item)?.pageCount,
+                updatedAtEpochMillis = progress.updatedAtEpochMillis,
             )
             runCatching {
                 api.runWithTokenRefresh(
@@ -191,6 +199,7 @@ class GrimmoryCatalogSyncService(
                     isFinished = progress.isFinished,
                     syncState = SyncState.CLEAN,
                     pageCount = store.getSession(item)?.pageCount,
+                    updatedAtEpochMillis = progress.updatedAtEpochMillis,
                 )
             }.onFailure {
                 store.saveProgress(
@@ -199,6 +208,7 @@ class GrimmoryCatalogSyncService(
                     isFinished = progress.isFinished,
                     syncState = SyncState.FAILED,
                     pageCount = store.getSession(item)?.pageCount,
+                    updatedAtEpochMillis = progress.updatedAtEpochMillis,
                 )
             }
         }

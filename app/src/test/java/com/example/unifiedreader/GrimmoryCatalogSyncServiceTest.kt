@@ -285,6 +285,65 @@ class GrimmoryCatalogSyncServiceTest {
 
         assertEquals(null, readerSessionStore.getProgress(legacyItem))
     }
+
+    @Test
+    fun `sync clears clean progress when grimmory marks book unread`() = runBlocking {
+        val writer = RecordingRemoteCatalogWriter()
+        val readerSessionStore = GrimmoryTestReaderSessionStore()
+        val item = ReadableItem(
+            id = "42",
+            serverId = "grimmory-1",
+            sourceType = SourceType.GRIMMORY,
+            libraryId = "g-books",
+            title = "Remote EPUB",
+            format = FormatType.EPUB,
+        )
+        readerSessionStore.saveProgress(
+            item = item,
+            locator = ReaderLocator(
+                locatorType = LocatorType.PERCENT,
+                percent = 0.75,
+            ),
+            syncState = com.example.unifiedreader.core.model.SyncState.CLEAN,
+        )
+        readerSessionStore.updateSession(
+            item = item,
+            pageCount = 321,
+            preferences = mapOf("theme" to "dark"),
+        )
+        val api = FakeGrimmoryApi(
+            libraries = listOf(
+                Library(
+                    id = "g-books",
+                    serverId = "grimmory-1",
+                    sourceType = SourceType.GRIMMORY,
+                    title = "Books",
+                ),
+            ),
+            booksByLibraryId = mapOf("g-books" to listOf(item)),
+        )
+        val service = GrimmoryCatalogSyncService(
+            grimmoryApiFactory = GrimmoryApiFactory { _, _ -> api },
+            remoteCatalogWriter = writer,
+            readerSessionStore = readerSessionStore,
+        )
+
+        service.sync(
+            GrimmoryCatalogSyncRequest(
+                serverId = "grimmory-1",
+                displayName = "Grimmory",
+                baseUrl = "https://grimmory.example/",
+                username = "user",
+                accessToken = "saved-access-token",
+            ),
+        )
+
+        assertEquals(null, readerSessionStore.getProgress(item))
+        val session = readerSessionStore.getSession(item)
+        assertEquals(321, session?.pageCount)
+        assertEquals("dark", session?.preferences?.get("theme"))
+        assertEquals(emptyList<GrimmoryProgressUpdate>(), api.progressUpdates)
+    }
 }
 
 private class RecordingRemoteCatalogWriter : RemoteCatalogWriter {
@@ -403,6 +462,7 @@ private class GrimmoryTestReaderSessionStore : ReaderSessionStore {
         isFinished: Boolean,
         syncState: com.example.unifiedreader.core.model.SyncState,
         pageCount: Int?,
+        updatedAtEpochMillis: Long,
     ) {
         progressByItemId.value = progressByItemId.value + (
             item.id to ReaderProgressSnapshot(
@@ -413,6 +473,7 @@ private class GrimmoryTestReaderSessionStore : ReaderSessionStore {
                 percent = locator.percent,
                 isFinished = isFinished,
                 syncState = syncState,
+                updatedAtEpochMillis = updatedAtEpochMillis,
             )
         )
         if (pageCount != null) {
@@ -436,8 +497,12 @@ private class GrimmoryTestReaderSessionStore : ReaderSessionStore {
         )
     }
 
-    override fun clearItem(itemId: String) {
+    override fun clearProgress(itemId: String) {
         progressByItemId.value = progressByItemId.value - itemId
+    }
+
+    override fun clearItem(itemId: String) {
+        clearProgress(itemId)
         sessionByItemId.value = sessionByItemId.value - itemId
     }
 }

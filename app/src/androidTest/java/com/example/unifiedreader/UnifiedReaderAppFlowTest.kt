@@ -371,6 +371,7 @@ private class FakeReaderSessionStore(
         isFinished: Boolean,
         syncState: SyncState,
         pageCount: Int?,
+        updatedAtEpochMillis: Long,
     ) {
         progressState.value = progressState.value + (
             item.id to ReaderProgressSnapshot(
@@ -381,6 +382,7 @@ private class FakeReaderSessionStore(
                 percent = locator.percent,
                 isFinished = isFinished,
                 syncState = syncState,
+                updatedAtEpochMillis = updatedAtEpochMillis,
             )
         )
         if (pageCount != null) {
@@ -404,8 +406,12 @@ private class FakeReaderSessionStore(
         )
     }
 
-    override fun clearItem(itemId: String) {
+    override fun clearProgress(itemId: String) {
         progressState.value = progressState.value - itemId
+    }
+
+    override fun clearItem(itemId: String) {
+        clearProgress(itemId)
         sessionState.value = sessionState.value - itemId
     }
 }

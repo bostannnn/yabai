@@ -40,7 +40,6 @@ internal class GrimmoryStoredSessionRequestRunner(
     private val credentialStore: GrimmoryCredentialStore,
 ) {
     private val tokenRefreshMutex = Mutex()
-    private var lastRefreshFailure: GrimmoryStoredSessionRefreshFailure? = null
 
     suspend fun <T> run(
         api: GrimmoryApi,
@@ -67,17 +66,10 @@ internal class GrimmoryStoredSessionRequestRunner(
         if (currentSession.accessToken != session.accessToken) {
             return@withLock currentSession
         }
-        lastRefreshFailure?.takeIf { failure ->
-            failure.serverId == currentSession.serverId &&
-                failure.refreshToken == currentSession.refreshToken
-        }?.let { failure ->
-            throw failure.throwable
-        }
         runCatching {
             api.refreshSession(currentSession.refreshToken)
         }.fold(
             onSuccess = { refreshedSession ->
-                lastRefreshFailure = null
                 currentSession.copy(
                     accessToken = refreshedSession.accessToken,
                     refreshToken = refreshedSession.refreshToken,
@@ -86,19 +78,8 @@ internal class GrimmoryStoredSessionRequestRunner(
                 }
             },
             onFailure = { throwable ->
-                lastRefreshFailure = GrimmoryStoredSessionRefreshFailure(
-                    serverId = currentSession.serverId,
-                    refreshToken = currentSession.refreshToken,
-                    throwable = throwable,
-                )
                 throw throwable
             },
         )
     }
 }
-
-private data class GrimmoryStoredSessionRefreshFailure(
-    val serverId: String,
-    val refreshToken: String,
-    val throwable: Throwable,
-)

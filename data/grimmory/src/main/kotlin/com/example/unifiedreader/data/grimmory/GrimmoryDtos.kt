@@ -218,14 +218,24 @@ internal fun GrimmoryBookDto.toCatalogEntry(
 
 private fun GrimmoryBookDto.toReadingProgress(
     item: ReadableItem,
-): ReadingProgress? = when (item.format) {
-    FormatType.EPUB -> epubProgress?.toReadingProgress(item.id)
-    FormatType.PDF -> pdfProgress?.toReadingProgress(item.id)
-    else -> null
+): ReadingProgress? {
+    val updatedAtEpochMillis = lastReadTime?.toEpochMillisOrNull()
+    return when (item.format) {
+        FormatType.EPUB -> epubProgress?.toReadingProgress(
+            itemId = item.id,
+            updatedAtEpochMillis = updatedAtEpochMillis,
+        )
+        FormatType.PDF -> pdfProgress?.toReadingProgress(
+            itemId = item.id,
+            updatedAtEpochMillis = updatedAtEpochMillis,
+        )
+        else -> null
+    }
 }
 
 private fun GrimmoryEpubProgressDto.toReadingProgress(
     itemId: String,
+    updatedAtEpochMillis: Long?,
 ): ReadingProgress? {
     val localPercent = percentage.toLocalProgressPercent()
     val locatorType = if (cfi.isNullOrBlank()) LocatorType.PERCENT else LocatorType.CFI
@@ -238,11 +248,13 @@ private fun GrimmoryEpubProgressDto.toReadingProgress(
             percent = localPercent,
         ),
         percent = localPercent,
+        updatedAtEpochMillis = updatedAtEpochMillis,
     )
 }
 
 private fun GrimmoryPdfProgressDto.toReadingProgress(
     itemId: String,
+    updatedAtEpochMillis: Long?,
 ): ReadingProgress? {
     val localPercent = percentage.toLocalProgressPercent()
     val pageIndex = page?.let { (it - 1).coerceAtLeast(0) }
@@ -252,6 +264,7 @@ private fun GrimmoryPdfProgressDto.toReadingProgress(
         locatorType = if (pageIndex == null) LocatorType.PERCENT else LocatorType.PAGE,
         page = pageIndex,
         percent = localPercent,
+        updatedAtEpochMillis = updatedAtEpochMillis,
     )
 }
 

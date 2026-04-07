@@ -76,6 +76,7 @@ data class ReadingProgress(
     val percent: Double? = null,
     val isFinished: Boolean = false,
     val syncState: SyncState = SyncState.CLEAN,
+    val updatedAtEpochMillis: Long? = null,
 )
 
 fun ReadableItem.libraryPrimaryText(): String = when (kind) {

@@ -914,6 +914,7 @@ private class FakeReaderSessionStore : ReaderSessionStore {
         isFinished: Boolean,
         syncState: com.example.unifiedreader.core.model.SyncState,
         pageCount: Int?,
+        updatedAtEpochMillis: Long,
     ) {
         progressByItemId.value = progressByItemId.value + (
             item.id to com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot(
@@ -924,6 +925,7 @@ private class FakeReaderSessionStore : ReaderSessionStore {
                 percent = locator.percent,
                 isFinished = isFinished,
                 syncState = syncState,
+                updatedAtEpochMillis = updatedAtEpochMillis,
             )
         )
         if (pageCount != null) {
@@ -948,8 +950,12 @@ private class FakeReaderSessionStore : ReaderSessionStore {
         )
     }
 
-    override fun clearItem(itemId: String) {
+    override fun clearProgress(itemId: String) {
         progressByItemId.value = progressByItemId.value - itemId
+    }
+
+    override fun clearItem(itemId: String) {
+        clearProgress(itemId)
         sessionByItemId.value = sessionByItemId.value - itemId
     }
 

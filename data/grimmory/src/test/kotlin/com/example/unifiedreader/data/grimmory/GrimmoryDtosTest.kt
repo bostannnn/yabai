@@ -198,6 +198,7 @@ class GrimmoryDtosTest {
                 bookType = "EPUB",
                 extension = "epub",
             ),
+            lastReadTime = "2026-04-01T12:30:00Z",
             epubProgress = GrimmoryEpubProgressDto(
                 percentage = 1f,
             ),
@@ -208,5 +209,6 @@ class GrimmoryDtosTest {
 
         requireNotNull(item)
         assertEquals(0.01, item.progress?.percent ?: 0.0, 0.0001)
+        assertEquals(1775046600000L, item.progress?.updatedAtEpochMillis)
     }
 }
