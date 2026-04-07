@@ -51,6 +51,7 @@ class AppViewModel @Inject constructor(
     private val grimmoryCatalogSyncer: GrimmoryCatalogSyncer,
     private val grimmoryCredentialStore: GrimmoryCredentialStore,
     private val grimmoryCoverRepository: GrimmoryCoverDataSource,
+    private val grimmoryContentRepository: GrimmoryContentDataSource,
     val comicPageSource: ComicPageSource,
     val comicReaderProgressStore: ComicReaderProgressStore,
     val comicReaderPreferencesStore: ComicReaderPreferencesStore,
@@ -174,6 +175,7 @@ class AppViewModel @Inject constructor(
                 sessionByItemId = readerSessionStore.sessionByItemIdFlow.value,
             ),
         )
+        refreshDownloadedGrimmoryItemIdsAsync(uiState.items)
     }
 
     fun onDocumentImported(uri: Uri) {
@@ -185,6 +187,53 @@ class AppViewModel @Inject constructor(
     fun onDeleteImportedItem(item: ReadableItem) {
         viewModelScope.launch {
             deleteImportedItem(item)
+        }
+    }
+
+    fun onDownloadGrimmoryItem(item: ReadableItem) {
+        if (item.sourceType != SourceType.GRIMMORY) return
+        if (item.id in uiState.downloadingGrimmoryItemIds) return
+        uiState = uiState.copy(
+            downloadingGrimmoryItemIds = uiState.downloadingGrimmoryItemIds + item.id,
+            libraryMessage = "Downloading ${item.libraryDisplayLabel()}.",
+        )
+        viewModelScope.launch {
+            runCatching {
+                grimmoryContentRepository.downloadToLocalStorage(item)
+            }.onSuccess { downloadedUri ->
+                val downloadedIds = loadDownloadedGrimmoryItemIds(uiState.items)
+                uiState = uiState.copy(
+                    downloadedGrimmoryItemIds = downloadedIds,
+                    libraryMessage = if (downloadedUri != null) {
+                        "Downloaded ${item.libraryDisplayLabel()} for local reading."
+                    } else {
+                        "Unable to download ${item.libraryDisplayLabel()}."
+                    },
+                )
+            }.onFailure { throwable ->
+                uiState = uiState.copy(
+                    libraryMessage = "Unable to download ${item.libraryDisplayLabel()}: ${throwable.userFacingMessage()}",
+                )
+            }
+            uiState = uiState.copy(
+                downloadingGrimmoryItemIds = uiState.downloadingGrimmoryItemIds - item.id,
+            )
+        }
+    }
+
+    fun onDeleteGrimmoryLocalFile(item: ReadableItem) {
+        if (item.sourceType != SourceType.GRIMMORY) return
+        viewModelScope.launch {
+            val deleted = grimmoryContentRepository.deleteStoredDocument(item)
+            val downloadedIds = loadDownloadedGrimmoryItemIds(uiState.items)
+            uiState = uiState.copy(
+                downloadedGrimmoryItemIds = downloadedIds,
+                libraryMessage = if (deleted) {
+                    "Deleted local file for ${item.libraryDisplayLabel()}."
+                } else {
+                    "No local file found for ${item.libraryDisplayLabel()}."
+                },
+            )
         }
     }
 
@@ -464,6 +513,7 @@ class AppViewModel @Inject constructor(
             libraryMessage = libraryMessage,
             themeMode = themeMode,
         )
+        refreshDownloadedGrimmoryItemIdsAsync(items)
     }
 
     private fun observeAppState() {
@@ -493,6 +543,7 @@ class AppViewModel @Inject constructor(
                         libraries = libraries,
                         catalogItems = catalogItems,
                         items = items,
+                        downloadedGrimmoryItemIds = loadDownloadedGrimmoryItemIds(items),
                         progressByItemId = loadProgressSummaries(
                             items = items,
                             progressByItemId = progressByItemId,
@@ -514,11 +565,31 @@ class AppViewModel @Inject constructor(
                     libraries = snapshot.libraries,
                     items = snapshot.items,
                     progressByItemId = snapshot.progressByItemId,
+                    downloadedGrimmoryItemIds = snapshot.downloadedGrimmoryItemIds,
                     themeMode = snapshot.themeMode,
                 )
             }
         }
     }
+
+    private fun refreshDownloadedGrimmoryItemIdsAsync(
+        items: List<ReadableItem>,
+    ) {
+        val requestedItemIds = items.mapTo(mutableSetOf(), ReadableItem::id)
+        viewModelScope.launch {
+            val downloadedIds = loadDownloadedGrimmoryItemIds(items)
+            val currentItemIds = uiState.items.mapTo(mutableSetOf(), ReadableItem::id)
+            if (currentItemIds == requestedItemIds) {
+                uiState = uiState.copy(
+                    downloadedGrimmoryItemIds = downloadedIds,
+                )
+            }
+        }
+    }
+
+    private suspend fun loadDownloadedGrimmoryItemIds(
+        items: List<ReadableItem>,
+    ): Set<String> = grimmoryContentRepository.storedDocumentItemIds(items)
 
     private fun matchingStoredGrimmorySession(
         serverId: String,
@@ -597,6 +668,7 @@ private data class AppCatalogSnapshot(
     val libraries: List<Library>,
     val catalogItems: List<ReadableItem>,
     val items: List<ReadableItem>,
+    val downloadedGrimmoryItemIds: Set<String>,
     val progressByItemId: Map<String, ItemProgressSummary>,
     val themeMode: ThemeMode,
 )
@@ -611,6 +683,8 @@ data class AppUiState(
     val libraryFiltersBySource: Map<SourceType, LibraryFilterState> = emptyMap(),
     val librarySortsBySource: Map<SourceType, LibrarySortMode> = emptyMap(),
     val progressByItemId: Map<String, ItemProgressSummary> = emptyMap(),
+    val downloadedGrimmoryItemIds: Set<String> = emptySet(),
+    val downloadingGrimmoryItemIds: Set<String> = emptySet(),
     val libraryMessage: String? = null,
     val themeMode: ThemeMode = ThemeMode.System,
     val grimmoryConnection: GrimmoryConnectionUiState = GrimmoryConnectionUiState(),
@@ -622,14 +696,14 @@ data class AppUiState(
         get() = libraryFiltersBySource[selectedSource] ?: LibraryFilterState()
 
     val selectedLibraryFilterFacets: LibraryFilterFacets
-        get() = buildLibraryFilterFacets(sourceItems)
+        get() = buildLibraryFilterFacets(sourceItems, downloadedGrimmoryItemIds)
 
     val selectedLibrarySortMode: LibrarySortMode
         get() = librarySortsBySource[selectedSource] ?: LibrarySortMode.DATE_ADDED
 
     val visibleItems: List<ReadableItem>
         get() = applyLibrarySort(
-            items = applyLibraryFilters(sourceItems, selectedLibraryFilters),
+            items = applyLibraryFilters(sourceItems, selectedLibraryFilters, downloadedGrimmoryItemIds),
             sortMode = selectedLibrarySortMode,
             lastReadAtEpochMillisByItemId = progressByItemId.mapValues { (_, progress) ->
                 progress.lastReadAtEpochMillis

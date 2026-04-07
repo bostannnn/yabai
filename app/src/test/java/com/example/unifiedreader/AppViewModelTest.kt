@@ -8,6 +8,7 @@ import com.example.unifiedreader.core.model.BookMetadata
 import com.example.unifiedreader.core.model.ComicMetadata
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
+import com.example.unifiedreader.core.model.LibraryFileLocation
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.LocatorType
@@ -657,6 +658,73 @@ class AppViewModelTest {
     }
 
     @Test
+    fun `download grimmory item marks it local and enables location filter`() {
+        val remoteBook = sampleItem(
+            id = "grimmory-epub",
+            title = "Remote Book",
+            format = FormatType.EPUB,
+        ).copy(
+            sourceType = SourceType.GRIMMORY,
+            serverId = "grimmory-home",
+            libraryId = "grimmory-books",
+        )
+        val grimmoryContentRepository = FakeGrimmoryContentRepository()
+        val viewModel = createViewModel(
+            sampleItems = listOf(remoteBook),
+            grimmoryContentRepository = grimmoryContentRepository,
+        )
+        viewModel.onSourceSelected(SourceType.GRIMMORY)
+
+        viewModel.onDownloadGrimmoryItem(remoteBook)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(setOf(remoteBook.id), viewModel.uiState.downloadedGrimmoryItemIds)
+        assertEquals("Downloaded Remote Book for local reading.", viewModel.uiState.libraryMessage)
+        assertEquals(
+            listOf(LibraryFileLocation.LOCAL),
+            viewModel.uiState.selectedLibraryFilterFacets.fileLocations,
+        )
+        viewModel.onLibraryFiltersChanged(
+            LibraryFilterState(fileLocations = setOf(LibraryFileLocation.LOCAL)),
+        )
+        assertEquals(listOf(remoteBook), viewModel.uiState.visibleItems)
+    }
+
+    @Test
+    fun `delete grimmory local file removes downloaded state`() {
+        val remoteBook = sampleItem(
+            id = "grimmory-epub",
+            title = "Remote Book",
+            format = FormatType.EPUB,
+        ).copy(
+            sourceType = SourceType.GRIMMORY,
+            serverId = "grimmory-home",
+            libraryId = "grimmory-books",
+        )
+        val grimmoryContentRepository = FakeGrimmoryContentRepository(
+            storedItemIds = mutableSetOf(remoteBook.id),
+        )
+        val viewModel = createViewModel(
+            sampleItems = listOf(remoteBook),
+            grimmoryContentRepository = grimmoryContentRepository,
+        )
+        viewModel.onSourceSelected(SourceType.GRIMMORY)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(setOf(remoteBook.id), viewModel.uiState.downloadedGrimmoryItemIds)
+
+        viewModel.onDeleteGrimmoryLocalFile(remoteBook)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertTrue(viewModel.uiState.downloadedGrimmoryItemIds.isEmpty())
+        assertEquals("Deleted local file for Remote Book.", viewModel.uiState.libraryMessage)
+        assertEquals(
+            listOf(LibraryFileLocation.SERVER),
+            viewModel.uiState.selectedLibraryFilterFacets.fileLocations,
+        )
+    }
+
+    @Test
     fun `delete imported item removes it clears selection and clears reader state`() = runBlocking {
         val importedItem = sampleItem(
             id = "imported-cbz",
@@ -705,6 +773,7 @@ class AppViewModelTest {
         grimmoryCatalogSyncer: GrimmoryCatalogSyncer = FakeGrimmoryCatalogSyncer(),
         grimmoryCredentialStore: GrimmoryCredentialStore = FakeGrimmoryCredentialStore(),
         grimmoryCoverRepository: GrimmoryCoverDataSource = FakeGrimmoryCoverRepository(),
+        grimmoryContentRepository: GrimmoryContentDataSource = FakeGrimmoryContentRepository(),
         libraryRepository: FakeLibraryRepository = FakeLibraryRepository(
             libraries = listOf(
                 Library(
@@ -729,6 +798,7 @@ class AppViewModelTest {
         grimmoryCatalogSyncer = grimmoryCatalogSyncer,
         grimmoryCredentialStore = grimmoryCredentialStore,
         grimmoryCoverRepository = grimmoryCoverRepository,
+        grimmoryContentRepository = grimmoryContentRepository,
         comicPageSource = pageSource,
         comicReaderProgressStore = progressStore,
         comicReaderPreferencesStore = preferencesStore,
@@ -782,6 +852,34 @@ private class FakeGrimmoryCoverRepository : GrimmoryCoverDataSource {
     override suspend fun clearCachedCovers(
         serverId: String,
     ) = Unit
+}
+
+private class FakeGrimmoryContentRepository(
+    private val storedItemIds: MutableSet<String> = mutableSetOf(),
+    private val downloadFailure: Throwable? = null,
+) : GrimmoryContentDataSource {
+    override suspend fun getDocumentUri(
+        item: ReadableItem,
+    ): Uri? = downloadToLocalStorage(item)
+
+    override suspend fun downloadToLocalStorage(
+        item: ReadableItem,
+    ): Uri? {
+        downloadFailure?.let { throw it }
+        if (item.sourceType != SourceType.GRIMMORY) return null
+        storedItemIds += item.id
+        return Uri.parse("file:///downloads/${item.id}.${item.format.name.lowercase()}")
+    }
+
+    override suspend fun storedDocumentItemIds(
+        items: List<ReadableItem>,
+    ): Set<String> = items
+        .filter { item -> item.id in storedItemIds }
+        .mapTo(mutableSetOf(), ReadableItem::id)
+
+    override suspend fun deleteStoredDocument(
+        item: ReadableItem,
+    ): Boolean = storedItemIds.remove(item.id)
 }
 
 private class FakeLibraryRepository(

@@ -104,6 +104,11 @@ object AppModule {
     )
 
     @Provides
+    fun provideGrimmoryContentDataSource(
+        repository: GrimmoryContentRepository,
+    ): GrimmoryContentDataSource = repository
+
+    @Provides
     @Singleton
     fun provideGrimmoryCoverRepository(
         @ApplicationContext context: Context,

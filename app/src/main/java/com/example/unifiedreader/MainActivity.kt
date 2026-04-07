@@ -161,6 +161,8 @@ fun UnifiedReaderAppContent(
                                     onCoverVisible = viewModel::ensureCoverCached,
                                     onItemSelected = viewModel::onItemSelected,
                                     onDeleteImportedItem = viewModel::onDeleteImportedItem,
+                                    onDownloadGrimmoryItem = viewModel::onDownloadGrimmoryItem,
+                                    onDeleteGrimmoryLocalFile = viewModel::onDeleteGrimmoryLocalFile,
                                     onFilterStateChanged = viewModel::onLibraryFiltersChanged,
                                     onClearFilters = viewModel::clearLibraryFilters,
                                     onSortModeChanged = viewModel::onLibrarySortModeChanged,
@@ -297,6 +299,8 @@ private fun LibraryFlow(
     onCoverVisible: (ReadableItem) -> Unit,
     onItemSelected: (ReadableItem) -> Unit,
     onDeleteImportedItem: (ReadableItem) -> Unit,
+    onDownloadGrimmoryItem: (ReadableItem) -> Unit,
+    onDeleteGrimmoryLocalFile: (ReadableItem) -> Unit,
     onFilterStateChanged: (LibraryFilterState) -> Unit,
     onClearFilters: () -> Unit,
     onSortModeChanged: (LibrarySortMode) -> Unit,
@@ -313,6 +317,8 @@ private fun LibraryFlow(
             items = uiState.visibleItems,
             viewMode = viewMode,
             progressByItemId = uiState.progressByItemId,
+            downloadedItemIds = uiState.downloadedGrimmoryItemIds,
+            downloadingItemIds = uiState.downloadingGrimmoryItemIds,
             libraryMessage = uiState.libraryMessage,
             filterState = uiState.selectedLibraryFilters,
             filterFacets = uiState.selectedLibraryFilterFacets,
@@ -326,6 +332,8 @@ private fun LibraryFlow(
             isRefreshingSource = isRefreshingSource,
             onItemSelected = onItemSelected,
             onDeleteImportedItem = onDeleteImportedItem,
+            onDownloadItem = onDownloadGrimmoryItem,
+            onDeleteDownloadedItem = onDeleteGrimmoryLocalFile,
         )
     }
 }

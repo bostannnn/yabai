@@ -2,24 +2,33 @@ package com.example.unifiedreader.core.model
 
 data class LibraryFilterState(
     val formats: Set<FormatType> = emptySet(),
+    val fileLocations: Set<LibraryFileLocation> = emptySet(),
     val authors: Set<String> = emptySet(),
     val series: Set<String> = emptySet(),
 ) {
     val isEmpty: Boolean
         get() = formats.isEmpty() &&
+            fileLocations.isEmpty() &&
             authors.isEmpty() &&
             series.isEmpty()
 }
 
 data class LibraryFilterFacets(
     val formats: List<FormatType> = emptyList(),
+    val fileLocations: List<LibraryFileLocation> = emptyList(),
     val authors: List<String> = emptyList(),
     val series: List<String> = emptyList(),
 ) {
     val isEmpty: Boolean
         get() = formats.isEmpty() &&
+            fileLocations.isEmpty() &&
             authors.isEmpty() &&
             series.isEmpty()
+}
+
+enum class LibraryFileLocation {
+    SERVER,
+    LOCAL,
 }
 
 enum class LibrarySortMode {
@@ -33,10 +42,12 @@ enum class LibrarySortMode {
 fun applyLibraryFilters(
     items: List<ReadableItem>,
     filters: LibraryFilterState,
+    downloadedRemoteItemIds: Set<String> = emptySet(),
 ): List<ReadableItem> {
     if (filters.isEmpty) return items
     return items.filter { item ->
         filters.formats.matches(item.format) &&
+            filters.fileLocations.matches(item.fileLocation(downloadedRemoteItemIds)) &&
             filters.authors.matches(item.normalizedAuthor()) &&
             filters.series.matches(item.normalizedSeries())
     }
@@ -78,8 +89,10 @@ private fun sortComparator(
 
 fun buildLibraryFilterFacets(
     items: List<ReadableItem>,
+    downloadedRemoteItemIds: Set<String> = emptySet(),
 ): LibraryFilterFacets = LibraryFilterFacets(
     formats = items.map(ReadableItem::format).distinctByEnumOrder(),
+    fileLocations = items.map { item -> item.fileLocation(downloadedRemoteItemIds) }.distinctByEnumOrder(),
     authors = items.mapNotNull(ReadableItem::normalizedAuthor).distinctByAuthorOrder(),
     series = items.mapNotNull(ReadableItem::normalizedSeries).distinctByTextOrder(),
 )
@@ -91,6 +104,17 @@ private fun ReadableItem.normalizedAuthor(): String? =
 
 private fun ReadableItem.normalizedSeries(): String? =
     comicMetadata?.series?.trim()?.takeIf(String::isNotEmpty)
+
+private fun ReadableItem.fileLocation(
+    downloadedRemoteItemIds: Set<String>,
+): LibraryFileLocation = if (
+    isLocalImport ||
+    (sourceType == SourceType.GRIMMORY && id in downloadedRemoteItemIds)
+) {
+    LibraryFileLocation.LOCAL
+} else {
+    LibraryFileLocation.SERVER
+}
 
 fun ReadableItem.libraryAlphabetKey(
     sortMode: LibrarySortMode,

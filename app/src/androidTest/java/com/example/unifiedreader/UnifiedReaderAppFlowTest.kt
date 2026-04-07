@@ -90,6 +90,7 @@ class UnifiedReaderAppFlowTest {
             grimmoryCatalogSyncer = FakeGrimmoryCatalogSyncer(),
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
             grimmoryCoverRepository = FakeGrimmoryCoverRepository(),
+            grimmoryContentRepository = FakeGrimmoryContentRepository(),
             comicPageSource = pageSource,
             comicReaderProgressStore = comicsSessionAdapter,
             comicReaderPreferencesStore = comicsSessionAdapter,
@@ -166,6 +167,7 @@ class UnifiedReaderAppFlowTest {
             grimmoryCatalogSyncer = FakeGrimmoryCatalogSyncer(),
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
             grimmoryCoverRepository = FakeGrimmoryCoverRepository(),
+            grimmoryContentRepository = FakeGrimmoryContentRepository(),
             comicPageSource = pageSource,
             comicReaderProgressStore = comicsSessionAdapter,
             comicReaderPreferencesStore = comicsSessionAdapter,
@@ -195,7 +197,7 @@ class UnifiedReaderAppFlowTest {
         composeRule.onNodeWithContentDescription("Import local file").performClick()
         composeRule.waitForText("Imported Akira")
         composeRule.onNodeWithContentDescription("More actions").performClick()
-        composeRule.onNodeWithText("Remove imported file").performClick()
+        composeRule.onNodeWithText("Remove local file").performClick()
         composeRule.onNodeWithText("Remove").performClick()
 
         composeRule.waitForText("Removed Imported Akira.")
@@ -284,6 +286,24 @@ private class FakeGrimmoryCoverRepository : GrimmoryCoverDataSource {
     override suspend fun clearCachedCovers(
         serverId: String,
     ) = Unit
+}
+
+private class FakeGrimmoryContentRepository : GrimmoryContentDataSource {
+    override suspend fun getDocumentUri(
+        item: ReadableItem,
+    ): Uri? = null
+
+    override suspend fun downloadToLocalStorage(
+        item: ReadableItem,
+    ): Uri? = null
+
+    override suspend fun storedDocumentItemIds(
+        items: List<ReadableItem>,
+    ): Set<String> = emptySet()
+
+    override suspend fun deleteStoredDocument(
+        item: ReadableItem,
+    ): Boolean = false
 }
 
 private class FakeAppPreferencesStore : AppPreferencesStore {

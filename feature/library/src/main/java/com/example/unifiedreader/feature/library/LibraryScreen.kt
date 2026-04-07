@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -63,11 +64,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Sync
 import coil.compose.AsyncImage
 import com.example.unifiedreader.core.model.ComicMetadata
 import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.LibraryFileLocation
 import com.example.unifiedreader.core.model.LibraryFilterFacets
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
@@ -87,6 +90,8 @@ fun LibraryScreen(
     items: List<ReadableItem>,
     viewMode: LibraryViewMode,
     progressByItemId: Map<String, ItemProgressSummary> = emptyMap(),
+    downloadedItemIds: Set<String> = emptySet(),
+    downloadingItemIds: Set<String> = emptySet(),
     libraryMessage: String? = null,
     filterState: LibraryFilterState = LibraryFilterState(),
     filterFacets: LibraryFilterFacets = LibraryFilterFacets(),
@@ -100,6 +105,8 @@ fun LibraryScreen(
     isRefreshingSource: Boolean = false,
     onItemSelected: (ReadableItem) -> Unit,
     onDeleteImportedItem: (ReadableItem) -> Unit = {},
+    onDownloadItem: (ReadableItem) -> Unit = {},
+    onDeleteDownloadedItem: (ReadableItem) -> Unit = {},
 ) {
     var deleteCandidate by remember { mutableStateOf<ReadableItem?>(null) }
     var openFilterPanel by rememberSaveable { mutableStateOf<LibraryFilterPanel?>(null) }
@@ -176,17 +183,43 @@ fun LibraryScreen(
                         LibraryViewMode.Detailed -> DetailedItemCard(
                             item = item,
                             progress = progressByItemId[item.id],
+                            isDownloaded = item.isDownloaded(downloadedItemIds),
+                            isDownloading = item.id in downloadingItemIds,
                             coverImageUrlProvider = coverImageUrlProvider,
                             onCoverVisible = onCoverVisible,
                             onClick = { onItemSelected(item) },
                             onDeleteRequested = itemDeleteRequest(item) { deleteCandidate = it },
+                            onDownloadRequested = itemDownloadRequest(
+                                item = item,
+                                downloadedItemIds = downloadedItemIds,
+                                downloadingItemIds = downloadingItemIds,
+                                onDownloadItem = onDownloadItem,
+                            ),
+                            onDeleteDownloadedRequested = itemDownloadedDeleteRequest(
+                                item = item,
+                                downloadedItemIds = downloadedItemIds,
+                                onDeleteDownloadedItem = onDeleteDownloadedItem,
+                            ),
                         )
                         LibraryViewMode.Grid -> GridCoverCard(
                             item = item,
+                            isDownloaded = item.isDownloaded(downloadedItemIds),
+                            isDownloading = item.id in downloadingItemIds,
                             coverImageUrlProvider = coverImageUrlProvider,
                             onCoverVisible = onCoverVisible,
                             onClick = { onItemSelected(item) },
                             onDeleteRequested = itemDeleteRequest(item) { deleteCandidate = it },
+                            onDownloadRequested = itemDownloadRequest(
+                                item = item,
+                                downloadedItemIds = downloadedItemIds,
+                                downloadingItemIds = downloadingItemIds,
+                                onDownloadItem = onDownloadItem,
+                            ),
+                            onDeleteDownloadedRequested = itemDownloadedDeleteRequest(
+                                item = item,
+                                downloadedItemIds = downloadedItemIds,
+                                onDeleteDownloadedItem = onDeleteDownloadedItem,
+                            ),
                         )
                     }
                 }
@@ -217,7 +250,7 @@ fun LibraryScreen(
     deleteCandidate?.let { item ->
         AlertDialog(
             onDismissRequest = { deleteCandidate = null },
-            title = { Text(text = "Remove imported file?") },
+            title = { Text(text = "Remove local file?") },
             text = {
                 Text(
                     text = "This removes ${item.libraryDisplayLabel()} from your library and clears local reading state.",
@@ -302,6 +335,12 @@ private fun LibraryFilterSummary(
                 count = filterState.formats.size,
                 enabled = filterFacets.formats.isNotEmpty() || filterState.formats.isNotEmpty(),
                 onClick = { onOpenFilterPanel(LibraryFilterPanel.Format) },
+            )
+            LibraryFacetChip(
+                label = "Location",
+                count = filterState.fileLocations.size,
+                enabled = filterFacets.fileLocations.isNotEmpty() || filterState.fileLocations.isNotEmpty(),
+                onClick = { onOpenFilterPanel(LibraryFilterPanel.Location) },
             )
             LibraryFacetChip(
                 label = "Author",
@@ -436,6 +475,29 @@ private fun LibraryFilterPanelDialog(
                         onFilterStateChanged(
                             filterState.copy(
                                 formats = filterState.formats.toggle(format),
+                            ),
+                        )
+                    },
+                )
+            }
+        }
+
+        LibraryFilterPanel.Location -> CompactFacetDialog(
+            title = "Location",
+            hasActiveFilters = filterState.fileLocations.isNotEmpty(),
+            onClearFilters = {
+                onFilterStateChanged(filterState.copy(fileLocations = emptySet()))
+            },
+            onDismiss = onDismiss,
+        ) {
+            filterFacets.fileLocations.forEach { location ->
+                FilterToggleChip(
+                    label = location.label,
+                    selected = location in filterState.fileLocations,
+                    onClick = {
+                        onFilterStateChanged(
+                            filterState.copy(
+                                fileLocations = filterState.fileLocations.toggle(location),
                             ),
                         )
                     },
@@ -739,6 +801,7 @@ private fun TextFacetRow(
 
 private enum class LibraryFilterPanel {
     Format,
+    Location,
     Author,
     Series,
 }
@@ -782,14 +845,94 @@ private fun itemDeleteRequest(
     null
 }
 
+private fun ReadableItem.isDownloaded(
+    downloadedItemIds: Set<String>,
+): Boolean = sourceType == SourceType.GRIMMORY && id in downloadedItemIds
+
+private fun itemDownloadRequest(
+    item: ReadableItem,
+    downloadedItemIds: Set<String>,
+    downloadingItemIds: Set<String>,
+    onDownloadItem: (ReadableItem) -> Unit,
+): (() -> Unit)? = if (
+    item.sourceType == SourceType.GRIMMORY &&
+    item.id !in downloadedItemIds &&
+    item.id !in downloadingItemIds
+) {
+    { onDownloadItem(item) }
+} else {
+    null
+}
+
+private fun itemDownloadedDeleteRequest(
+    item: ReadableItem,
+    downloadedItemIds: Set<String>,
+    onDeleteDownloadedItem: (ReadableItem) -> Unit,
+): (() -> Unit)? = if (item.sourceType == SourceType.GRIMMORY && item.id in downloadedItemIds) {
+    { onDeleteDownloadedItem(item) }
+} else {
+    null
+}
+
+private data class ItemMenuAction(
+    val label: String,
+    val enabled: Boolean = true,
+    val onClick: () -> Unit,
+)
+
+private fun itemMenuActions(
+    isDownloading: Boolean,
+    onDeleteRequested: (() -> Unit)?,
+    onDownloadRequested: (() -> Unit)?,
+    onDeleteDownloadedRequested: (() -> Unit)?,
+): List<ItemMenuAction> = buildList {
+    if (isDownloading) {
+        add(
+            ItemMenuAction(
+                label = "Downloading...",
+                enabled = false,
+                onClick = {},
+            ),
+        )
+    }
+    onDownloadRequested?.let { request ->
+        add(
+            ItemMenuAction(
+                label = "Download file",
+                onClick = request,
+            ),
+        )
+    }
+    onDeleteDownloadedRequested?.let { request ->
+        add(
+            ItemMenuAction(
+                label = "Delete local file",
+                onClick = request,
+            ),
+        )
+    }
+    onDeleteRequested?.let { request ->
+        add(
+            ItemMenuAction(
+                label = "Remove local file",
+                onClick = request,
+            ),
+        )
+    }
+}
+
 @Composable
 private fun DetailedItemCard(
     item: ReadableItem,
     progress: ItemProgressSummary?,
+    isDownloaded: Boolean,
+    isDownloading: Boolean,
     coverImageUrlProvider: (ReadableItem) -> String?,
     onCoverVisible: (ReadableItem) -> Unit,
     onClick: () -> Unit,
     onDeleteRequested: (() -> Unit)?,
+    onDownloadRequested: (() -> Unit)?,
+    onDeleteDownloadedRequested: (() -> Unit)?,
 ) {
     Card(
         onClick = onClick,
@@ -815,6 +958,7 @@ private fun DetailedItemCard(
                     LibraryCover(
                         item = item,
                         coverUrl = coverImageUrlProvider(item),
+                        isDownloaded = isDownloaded,
                         onCoverVisible = onCoverVisible,
                         modifier = Modifier
                             .width(coverWidth)
@@ -825,13 +969,30 @@ private fun DetailedItemCard(
                         progress = progress,
                         modifier = Modifier
                             .weight(1f)
-                            .padding(end = if (onDeleteRequested != null) 28.dp else 0.dp),
+                            .padding(
+                                end = if (
+                                    onDeleteRequested != null ||
+                                    onDownloadRequested != null ||
+                                    onDeleteDownloadedRequested != null ||
+                                    isDownloading
+                                ) {
+                                    28.dp
+                                } else {
+                                    0.dp
+                                },
+                            ),
                     )
                 }
-                onDeleteRequested?.let {
+                val menuActions = itemMenuActions(
+                    isDownloading = isDownloading,
+                    onDeleteRequested = onDeleteRequested,
+                    onDownloadRequested = onDownloadRequested,
+                    onDeleteDownloadedRequested = onDeleteDownloadedRequested,
+                )
+                if (menuActions.isNotEmpty()) {
                     ItemOverflowMenu(
                         modifier = Modifier.align(Alignment.TopEnd),
-                        onDeleteRequested = it,
+                        actions = menuActions,
                     )
                 }
             }
@@ -842,10 +1003,14 @@ private fun DetailedItemCard(
 @Composable
 private fun GridCoverCard(
     item: ReadableItem,
+    isDownloaded: Boolean,
+    isDownloading: Boolean,
     coverImageUrlProvider: (ReadableItem) -> String?,
     onCoverVisible: (ReadableItem) -> Unit,
     onClick: () -> Unit,
     onDeleteRequested: (() -> Unit)?,
+    onDownloadRequested: (() -> Unit)?,
+    onDeleteDownloadedRequested: (() -> Unit)?,
 ) {
     Box(
         modifier = Modifier
@@ -855,17 +1020,24 @@ private fun GridCoverCard(
         LibraryCover(
             item = item,
             coverUrl = coverImageUrlProvider(item),
+            isDownloaded = isDownloaded,
             onCoverVisible = onCoverVisible,
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f),
         )
-        onDeleteRequested?.let {
+        val menuActions = itemMenuActions(
+            isDownloading = isDownloading,
+            onDeleteRequested = onDeleteRequested,
+            onDownloadRequested = onDownloadRequested,
+            onDeleteDownloadedRequested = onDeleteDownloadedRequested,
+        )
+        if (menuActions.isNotEmpty()) {
             ItemOverflowMenu(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(6.dp),
-                onDeleteRequested = it,
+                actions = menuActions,
             )
         }
     }
@@ -874,7 +1046,7 @@ private fun GridCoverCard(
 @Composable
 private fun ItemOverflowMenu(
     modifier: Modifier = Modifier,
-    onDeleteRequested: () -> Unit,
+    actions: List<ItemMenuAction>,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     Box(modifier = modifier) {
@@ -888,13 +1060,16 @@ private fun ItemOverflowMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
-            DropdownMenuItem(
-                text = { Text(text = "Remove imported file") },
-                onClick = {
-                    expanded = false
-                    onDeleteRequested()
-                },
-            )
+            actions.forEach { action ->
+                DropdownMenuItem(
+                    text = { Text(text = action.label) },
+                    enabled = action.enabled,
+                    onClick = {
+                        expanded = false
+                        action.onClick()
+                    },
+                )
+            }
         }
     }
 }
@@ -903,6 +1078,7 @@ private fun ItemOverflowMenu(
 private fun LibraryCover(
     item: ReadableItem,
     coverUrl: String? = item.coverUrl,
+    isDownloaded: Boolean = false,
     onCoverVisible: (ReadableItem) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -988,6 +1164,25 @@ private fun LibraryCover(
                     ),
                 ),
         )
+        if (isDownloaded) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(6.dp),
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.94f),
+                tonalElevation = 2.dp,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.DownloadDone,
+                    contentDescription = "Downloaded",
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier
+                        .padding(4.dp)
+                        .size(16.dp),
+                )
+            }
+        }
     }
 }
 
@@ -1173,6 +1368,12 @@ private val LibrarySortMode.usesAlphabetRail: Boolean
         LibrarySortMode.SERIES -> true
         LibrarySortMode.DATE_ADDED,
         LibrarySortMode.LAST_READ -> false
+    }
+
+private val LibraryFileLocation.label: String
+    get() = when (this) {
+        LibraryFileLocation.SERVER -> "Server"
+        LibraryFileLocation.LOCAL -> "Local"
     }
 
 private fun ReadableItem.sortFilterLetter(
