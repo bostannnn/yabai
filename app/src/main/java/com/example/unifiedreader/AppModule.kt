@@ -3,6 +3,8 @@ package com.example.unifiedreader
 import android.content.Context
 import com.example.unifiedreader.core.database.UnifiedReaderDatabase
 import com.example.unifiedreader.core.database.UnifiedReaderDatabaseFactory
+import com.example.unifiedreader.core.network.buildHttpClient
+import com.example.unifiedreader.data.grimmory.KtorGrimmoryApi
 import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
 import com.example.unifiedreader.data.repository.SampleCatalogRepository
@@ -20,6 +22,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import io.ktor.client.HttpClient
 import javax.inject.Singleton
 import kotlin.jvm.JvmSuppressWildcards
 
@@ -34,22 +37,102 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideGrimmoryCredentialStore(
+        @ApplicationContext context: Context,
+    ): GrimmoryCredentialStore = SharedPreferencesGrimmoryCredentialStore(context)
+
+    @Provides
+    @Singleton
     fun provideDatabase(
         @ApplicationContext context: Context,
     ): UnifiedReaderDatabase = UnifiedReaderDatabaseFactory.create(context)
 
     @Provides
     @Singleton
+    fun provideHttpClient(): HttpClient = buildHttpClient()
+
+    @Provides
+    @Singleton
     fun provideSampleCatalogRepository(): SampleCatalogRepository = SampleCatalogRepository()
 
     @Provides
+    @Singleton
+    fun provideRoomRemoteCatalogRepository(
+        database: UnifiedReaderDatabase,
+    ): RoomRemoteCatalogRepository = RoomRemoteCatalogRepository(
+        remoteCatalogDao = database.remoteCatalogDao(),
+    )
+
+    @Provides
+    fun provideRemoteCatalogWriter(
+        repository: RoomRemoteCatalogRepository,
+    ): RemoteCatalogWriter = repository
+
+    @Provides
+    fun provideGrimmoryApiFactory(
+        httpClient: HttpClient,
+    ): GrimmoryApiFactory = GrimmoryApiFactory { baseUrl, serverId ->
+        KtorGrimmoryApi(
+            httpClient = httpClient,
+            baseUrl = baseUrl,
+            serverId = serverId,
+        )
+    }
+
+    @Provides
+    @Singleton
+    fun provideGrimmoryCatalogSyncService(
+        grimmoryApiFactory: GrimmoryApiFactory,
+        remoteCatalogWriter: RemoteCatalogWriter,
+        readerSessionStore: ReaderSessionStore,
+    ): GrimmoryCatalogSyncer = GrimmoryCatalogSyncService(
+        grimmoryApiFactory = grimmoryApiFactory,
+        remoteCatalogWriter = remoteCatalogWriter,
+        readerSessionStore = readerSessionStore,
+    )
+
+    @Provides
+    @Singleton
+    fun provideGrimmoryContentRepository(
+        @ApplicationContext context: Context,
+        grimmoryApiFactory: GrimmoryApiFactory,
+        grimmoryCredentialStore: GrimmoryCredentialStore,
+    ): GrimmoryContentRepository = GrimmoryContentRepository(
+        context = context.applicationContext,
+        grimmoryApiFactory = grimmoryApiFactory,
+        grimmoryCredentialStore = grimmoryCredentialStore,
+    )
+
+    @Provides
+    @Singleton
+    fun provideGrimmoryCoverRepository(
+        @ApplicationContext context: Context,
+        grimmoryApiFactory: GrimmoryApiFactory,
+        grimmoryCredentialStore: GrimmoryCredentialStore,
+    ): GrimmoryCoverDataSource = GrimmoryCoverRepository(
+        context = context.applicationContext,
+        grimmoryApiFactory = grimmoryApiFactory,
+        grimmoryCredentialStore = grimmoryCredentialStore,
+    )
+
+    @Provides
+    @Singleton
+    fun provideCompositeCatalogRepository(
+        sampleCatalogRepository: SampleCatalogRepository,
+        remoteCatalogRepository: RoomRemoteCatalogRepository,
+    ): CompositeCatalogRepository = CompositeCatalogRepository(
+        sampleCatalogRepository = sampleCatalogRepository,
+        remoteCatalogRepository = remoteCatalogRepository,
+    )
+
+    @Provides
     fun provideLibraryRepository(
-        repository: SampleCatalogRepository,
+        repository: CompositeCatalogRepository,
     ): LibraryRepository = repository
 
     @Provides
     fun provideReadableItemRepository(
-        repository: SampleCatalogRepository,
+        repository: CompositeCatalogRepository,
     ): ReadableItemRepository = repository
 
     @Provides
@@ -134,6 +217,7 @@ object AppModule {
         adapter: ComicsReaderSessionAdapter,
         readerSessionStore: ReaderSessionStore,
         localDocumentRepository: LocalDocumentRepository,
+        grimmoryContentRepository: GrimmoryContentRepository,
     ): List<@JvmSuppressWildcards ReaderScreenFactory> = listOf(
         comicsReaderFactory(
             pageSource = comicPageSource,
@@ -142,10 +226,16 @@ object AppModule {
         ),
         epubReaderFactory(
             sessionStore = readerSessionStore,
-            documentUriProvider = localDocumentRepository::getDocumentUri,
+            documentUriProvider = { item ->
+                localDocumentRepository.getDocumentUri(item)
+                    ?: grimmoryContentRepository.getDocumentUri(item)
+            },
         ),
         pdfReaderFactory(
-            documentUriProvider = localDocumentRepository::getDocumentUri,
+            documentUriProvider = { item ->
+                localDocumentRepository.getDocumentUri(item)
+                    ?: grimmoryContentRepository.getDocumentUri(item)
+            },
         ),
     )
 }

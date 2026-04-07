@@ -87,6 +87,9 @@ class UnifiedReaderAppFlowTest {
                 localDocumentDataSource = localDocumentRepository,
                 readerSessionStore = readerSessionStore,
             ),
+            grimmoryCatalogSyncer = FakeGrimmoryCatalogSyncer(),
+            grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            grimmoryCoverRepository = FakeGrimmoryCoverRepository(),
             comicPageSource = pageSource,
             comicReaderProgressStore = comicsSessionAdapter,
             comicReaderPreferencesStore = comicsSessionAdapter,
@@ -160,6 +163,9 @@ class UnifiedReaderAppFlowTest {
                 localDocumentDataSource = localDocumentRepository,
                 readerSessionStore = readerSessionStore,
             ),
+            grimmoryCatalogSyncer = FakeGrimmoryCatalogSyncer(),
+            grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            grimmoryCoverRepository = FakeGrimmoryCoverRepository(),
             comicPageSource = pageSource,
             comicReaderProgressStore = comicsSessionAdapter,
             comicReaderPreferencesStore = comicsSessionAdapter,
@@ -242,6 +248,42 @@ private class FakeReadableItemRepository : ReadableItemRepository {
     override fun getItems(): List<ReadableItem> = itemsState.value
 
     override fun observeItems(): Flow<List<ReadableItem>> = itemsState
+}
+
+private class FakeGrimmoryCatalogSyncer : GrimmoryCatalogSyncer {
+    override suspend fun sync(
+        request: GrimmoryCatalogSyncRequest,
+    ): GrimmoryCatalogSyncResult = GrimmoryCatalogSyncResult(
+        libraryCount = 0,
+        itemCount = 0,
+        supportedFormatCounts = emptyMap(),
+    )
+}
+
+private class FakeGrimmoryCredentialStore : GrimmoryCredentialStore {
+    private val sessionState = MutableStateFlow<GrimmoryStoredSession?>(null)
+
+    override val sessionFlow: StateFlow<GrimmoryStoredSession?> = sessionState
+
+    override suspend fun save(
+        session: GrimmoryStoredSession,
+    ) {
+        sessionState.value = session
+    }
+
+    override suspend fun clear() {
+        sessionState.value = null
+    }
+}
+
+private class FakeGrimmoryCoverRepository : GrimmoryCoverDataSource {
+    override suspend fun getCoverUri(
+        item: ReadableItem,
+    ): Uri? = null
+
+    override suspend fun clearCachedCovers(
+        serverId: String,
+    ) = Unit
 }
 
 private class FakeAppPreferencesStore : AppPreferencesStore {

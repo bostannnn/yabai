@@ -56,6 +56,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -63,6 +64,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Sync
 import coil.compose.AsyncImage
 import com.example.unifiedreader.core.model.ComicMetadata
 import com.example.unifiedreader.core.model.FormatType
@@ -89,9 +91,13 @@ fun LibraryScreen(
     filterState: LibraryFilterState = LibraryFilterState(),
     filterFacets: LibraryFilterFacets = LibraryFilterFacets(),
     sortMode: LibrarySortMode = LibrarySortMode.DATE_ADDED,
+    coverImageUrlProvider: (ReadableItem) -> String? = { it.coverUrl },
+    onCoverVisible: (ReadableItem) -> Unit = {},
     onFilterStateChanged: (LibraryFilterState) -> Unit = {},
     onClearFilters: () -> Unit = {},
     onSortModeChanged: (LibrarySortMode) -> Unit = {},
+    onRefreshSource: (() -> Unit)? = null,
+    isRefreshingSource: Boolean = false,
     onItemSelected: (ReadableItem) -> Unit,
     onDeleteImportedItem: (ReadableItem) -> Unit = {},
 ) {
@@ -142,11 +148,14 @@ fun LibraryScreen(
 
             item(span = { GridItemSpan(maxLineSpan) }) {
                 LibraryFilterSummary(
+                    selectedSource = selectedSource,
                     filterState = filterState,
                     filterFacets = filterFacets,
                     sortMode = sortMode,
                     onOpenFilterPanel = { openFilterPanel = it },
                     onClearFilters = onClearFilters,
+                    onRefreshSource = onRefreshSource,
+                    isRefreshingSource = isRefreshingSource,
                     onSortModeChanged = {
                         selectedSortLetter = null
                         onSortModeChanged(it)
@@ -167,11 +176,15 @@ fun LibraryScreen(
                         LibraryViewMode.Detailed -> DetailedItemCard(
                             item = item,
                             progress = progressByItemId[item.id],
+                            coverImageUrlProvider = coverImageUrlProvider,
+                            onCoverVisible = onCoverVisible,
                             onClick = { onItemSelected(item) },
                             onDeleteRequested = itemDeleteRequest(item) { deleteCandidate = it },
                         )
                         LibraryViewMode.Grid -> GridCoverCard(
                             item = item,
+                            coverImageUrlProvider = coverImageUrlProvider,
+                            onCoverVisible = onCoverVisible,
                             onClick = { onItemSelected(item) },
                             onDeleteRequested = itemDeleteRequest(item) { deleteCandidate = it },
                         )
@@ -262,11 +275,14 @@ private fun EmptyLibraryState(
 
 @Composable
 private fun LibraryFilterSummary(
+    selectedSource: SourceType,
     filterState: LibraryFilterState,
     filterFacets: LibraryFilterFacets,
     sortMode: LibrarySortMode,
     onOpenFilterPanel: (LibraryFilterPanel) -> Unit,
     onClearFilters: () -> Unit,
+    onRefreshSource: (() -> Unit)?,
+    isRefreshingSource: Boolean,
     onSortModeChanged: (LibrarySortMode) -> Unit,
 ) {
     Row(
@@ -306,6 +322,23 @@ private fun LibraryFilterSummary(
             }
         }
         Spacer(modifier = Modifier.width(8.dp))
+        if (selectedSource == SourceType.GRIMMORY && onRefreshSource != null) {
+            IconButton(
+                onClick = onRefreshSource,
+                enabled = !isRefreshingSource,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Sync,
+                    contentDescription = "Re-sync Grimmory library",
+                    tint = if (isRefreshingSource) {
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
+            Spacer(modifier = Modifier.width(4.dp))
+        }
         LibrarySortSelector(
             sortMode = sortMode,
             onSortModeChanged = onSortModeChanged,
@@ -753,6 +786,8 @@ private fun itemDeleteRequest(
 private fun DetailedItemCard(
     item: ReadableItem,
     progress: ItemProgressSummary?,
+    coverImageUrlProvider: (ReadableItem) -> String?,
+    onCoverVisible: (ReadableItem) -> Unit,
     onClick: () -> Unit,
     onDeleteRequested: (() -> Unit)?,
 ) {
@@ -779,6 +814,8 @@ private fun DetailedItemCard(
                 ) {
                     LibraryCover(
                         item = item,
+                        coverUrl = coverImageUrlProvider(item),
+                        onCoverVisible = onCoverVisible,
                         modifier = Modifier
                             .width(coverWidth)
                             .aspectRatio(2f / 3f),
@@ -805,6 +842,8 @@ private fun DetailedItemCard(
 @Composable
 private fun GridCoverCard(
     item: ReadableItem,
+    coverImageUrlProvider: (ReadableItem) -> String?,
+    onCoverVisible: (ReadableItem) -> Unit,
     onClick: () -> Unit,
     onDeleteRequested: (() -> Unit)?,
 ) {
@@ -815,6 +854,8 @@ private fun GridCoverCard(
     ) {
         LibraryCover(
             item = item,
+            coverUrl = coverImageUrlProvider(item),
+            onCoverVisible = onCoverVisible,
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f),
@@ -861,10 +902,21 @@ private fun ItemOverflowMenu(
 @Composable
 private fun LibraryCover(
     item: ReadableItem,
+    coverUrl: String? = item.coverUrl,
+    onCoverVisible: (ReadableItem) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val coverShape = RoundedCornerShape(4.dp)
     val coverBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)
+
+    LaunchedEffect(item.id, item.sourceType, coverUrl) {
+        if (
+            item.sourceType == SourceType.GRIMMORY &&
+            !coverUrl.orEmpty().startsWith("file:", ignoreCase = true)
+        ) {
+            onCoverVisible(item)
+        }
+    }
 
     Box(
         modifier = modifier
@@ -891,9 +943,9 @@ private fun LibraryCover(
             ),
         contentAlignment = Alignment.Center,
     ) {
-        if (item.coverUrl != null) {
+        if (coverUrl != null) {
             AsyncImage(
-                model = item.coverUrl,
+                model = coverUrl,
                 contentDescription = item.title,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),

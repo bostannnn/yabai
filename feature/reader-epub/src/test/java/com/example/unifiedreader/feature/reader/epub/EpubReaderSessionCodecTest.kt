@@ -6,6 +6,7 @@ import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -47,6 +48,19 @@ class EpubReaderSessionCodecTest {
         assertEquals(locator.mediaType, restored?.mediaType)
         assertEquals(locator.locations.fragments, restored?.locations?.fragments)
         assertEquals(locator.locations.totalProgression, restored?.locations?.totalProgression)
+    }
+
+    @Test
+    fun `bare cfi does not synthesize invalid readium href`() {
+        val restored = ReaderProgressSnapshot(
+            itemId = "epub-1",
+            locatorType = LocatorType.CFI,
+            cfi = "epubcfi(/6/2[chapter-1]!/4/2/14)",
+            page = 3,
+            percent = 0.42,
+        ).toReadiumLocator()
+
+        assertNull(restored)
     }
 
     @Test

@@ -99,7 +99,7 @@ fun UnifiedReaderAppContent(
 ) {
     val uiState = viewModel.uiState
     val lifecycleOwner = LocalLifecycleOwner.current
-    var libraryViewMode by rememberSaveable { mutableStateOf(LibraryViewMode.Detailed) }
+    var libraryViewMode by rememberSaveable { mutableStateOf(LibraryViewMode.Grid) }
 
     DisposableEffect(lifecycleOwner, viewModel) {
         val observer = LifecycleEventObserver { _, event ->
@@ -157,11 +157,16 @@ fun UnifiedReaderAppContent(
                                 LibraryFlow(
                                     uiState = uiState,
                                     viewMode = libraryViewMode,
+                                    coverImageUrlProvider = viewModel::coverImageUrlFor,
+                                    onCoverVisible = viewModel::ensureCoverCached,
                                     onItemSelected = viewModel::onItemSelected,
                                     onDeleteImportedItem = viewModel::onDeleteImportedItem,
                                     onFilterStateChanged = viewModel::onLibraryFiltersChanged,
                                     onClearFilters = viewModel::clearLibraryFilters,
                                     onSortModeChanged = viewModel::onLibrarySortModeChanged,
+                                    onRefreshSource = viewModel::refreshGrimmoryLibrary,
+                                    isRefreshingSource = uiState.selectedSource == SourceType.GRIMMORY &&
+                                        uiState.grimmoryConnection.isConnecting,
                                     modifier = Modifier.weight(1f),
                                 )
                             }
@@ -175,7 +180,13 @@ fun UnifiedReaderAppContent(
                                 ) {
                                     SettingsScreen(
                                         themeMode = uiState.themeMode,
+                                        grimmoryConnection = uiState.grimmoryConnection,
                                         onThemeModeSelected = viewModel::onThemeModeSelected,
+                                        onGrimmoryDisplayNameChanged = viewModel::onGrimmoryDisplayNameChanged,
+                                        onGrimmoryBaseUrlChanged = viewModel::onGrimmoryBaseUrlChanged,
+                                        onGrimmoryUsernameChanged = viewModel::onGrimmoryUsernameChanged,
+                                        onGrimmoryPasswordChanged = viewModel::onGrimmoryPasswordChanged,
+                                        onConnectGrimmory = viewModel::connectGrimmoryServer,
                                     )
                                 }
                             }
@@ -282,11 +293,15 @@ private fun ViewModeButton(
 private fun LibraryFlow(
     uiState: AppUiState,
     viewMode: LibraryViewMode,
+    coverImageUrlProvider: (ReadableItem) -> String?,
+    onCoverVisible: (ReadableItem) -> Unit,
     onItemSelected: (ReadableItem) -> Unit,
     onDeleteImportedItem: (ReadableItem) -> Unit,
     onFilterStateChanged: (LibraryFilterState) -> Unit,
     onClearFilters: () -> Unit,
     onSortModeChanged: (LibrarySortMode) -> Unit,
+    onRefreshSource: () -> Unit,
+    isRefreshingSource: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -302,9 +317,13 @@ private fun LibraryFlow(
             filterState = uiState.selectedLibraryFilters,
             filterFacets = uiState.selectedLibraryFilterFacets,
             sortMode = uiState.selectedLibrarySortMode,
+            coverImageUrlProvider = coverImageUrlProvider,
+            onCoverVisible = onCoverVisible,
             onFilterStateChanged = onFilterStateChanged,
             onClearFilters = onClearFilters,
             onSortModeChanged = onSortModeChanged,
+            onRefreshSource = onRefreshSource,
+            isRefreshingSource = isRefreshingSource,
             onItemSelected = onItemSelected,
             onDeleteImportedItem = onDeleteImportedItem,
         )

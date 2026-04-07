@@ -10,7 +10,7 @@ import com.example.unifiedreader.feature.reader.core.formatReaderFactory
 
 fun epubReaderFactory(
     sessionStore: ReaderSessionStore,
-    documentUriProvider: (ReadableItem) -> Uri? = { null },
+    documentUriProvider: suspend (ReadableItem) -> Uri? = { null },
 ): ReaderScreenFactory = formatReaderFactory(
     FormatType.EPUB,
     chrome = ReaderChrome.Immersive,
@@ -18,7 +18,7 @@ fun epubReaderFactory(
         EpubReaderScreen(
             item = item,
             sessionStore = sessionStore,
-            documentUri = documentUriProvider(item),
+            documentUriProvider = documentUriProvider,
             onBack = onBack,
         )
 }

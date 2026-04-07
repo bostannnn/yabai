@@ -2,9 +2,11 @@ package com.example.unifiedreader
 
 import android.app.Application
 import android.net.Uri
+import android.util.Log
 import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -22,14 +24,17 @@ import com.example.unifiedreader.core.model.buildLibraryFilterFacets
 import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
+import com.example.unifiedreader.data.grimmory.GrimmorySession
 import com.example.unifiedreader.feature.library.ItemProgressSummary
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesStore
 import com.example.unifiedreader.feature.reader.comics.ComicReaderProgressStore
 import com.example.unifiedreader.feature.reader.core.ReaderScreenFactory
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
+import com.example.unifiedreader.feature.settings.GrimmoryConnectionUiState
 import com.example.unifiedreader.feature.settings.ThemeMode
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
@@ -43,6 +48,9 @@ class AppViewModel @Inject constructor(
     private val readableItemRepository: ReadableItemRepository,
     private val localDocumentRepository: LocalDocumentDataSource,
     private val importedItemDeletionService: ImportedItemDeletionService,
+    private val grimmoryCatalogSyncer: GrimmoryCatalogSyncer,
+    private val grimmoryCredentialStore: GrimmoryCredentialStore,
+    private val grimmoryCoverRepository: GrimmoryCoverDataSource,
     val comicPageSource: ComicPageSource,
     val comicReaderProgressStore: ComicReaderProgressStore,
     val comicReaderPreferencesStore: ComicReaderPreferencesStore,
@@ -51,12 +59,20 @@ class AppViewModel @Inject constructor(
 ) : AndroidViewModel(application) {
     private var catalogLibraries: List<Library> = libraryRepository.getLibraries()
     private var catalogItems: List<ReadableItem> = readableItemRepository.getItems()
+    private val grimmoryCoverUrisByItemId = mutableStateMapOf<String, String>()
+    private val pendingGrimmoryCoverIds = mutableSetOf<String>()
+    private var lastGrimmoryCoverErrorMessage: String? = null
 
     var uiState by mutableStateOf(AppUiState())
         private set
 
     init {
-        uiState = uiState.copy(themeMode = appPreferencesStore.preferencesFlow.value.themeMode)
+        uiState = uiState.copy(
+            themeMode = appPreferencesStore.preferencesFlow.value.themeMode,
+            grimmoryConnection = uiState.grimmoryConnection.withStoredSession(
+                grimmoryCredentialStore.sessionFlow.value,
+            ),
+        )
         refreshLibraryState()
         observeAppState()
     }
@@ -104,6 +120,40 @@ class AppViewModel @Inject constructor(
         refreshProgress()
     }
 
+    fun coverImageUrlFor(item: ReadableItem): String? {
+        return grimmoryCoverUrisByItemId[item.id] ?: item.coverUrl
+    }
+
+    fun ensureCoverCached(item: ReadableItem) {
+        if (item.sourceType != SourceType.GRIMMORY) return
+        if (item.id in pendingGrimmoryCoverIds) return
+        val currentCoverUrl = grimmoryCoverUrisByItemId[item.id]
+        if (currentCoverUrl?.startsWith("file:", ignoreCase = true) == true) return
+        pendingGrimmoryCoverIds += item.id
+        viewModelScope.launch {
+            runCatching {
+                grimmoryCoverRepository.getCoverUri(item)?.toString()
+            }.onSuccess { cachedUri ->
+                if (!cachedUri.isNullOrBlank()) {
+                    Log.d(LOG_TAG, "Cached Grimmory cover for ${item.id}: $cachedUri")
+                    grimmoryCoverUrisByItemId[item.id] = cachedUri
+                    lastGrimmoryCoverErrorMessage = null
+                } else {
+                    Log.w(LOG_TAG, "Grimmory cover cache returned no URI for ${item.id}.")
+                }
+            }.onFailure { throwable ->
+                Log.w(LOG_TAG, "Unable to cache Grimmory cover for ${item.id}.", throwable)
+                val message = "Unable to load Grimmory covers: ${throwable.userFacingMessage()}"
+                if (lastGrimmoryCoverErrorMessage != message) {
+                    lastGrimmoryCoverErrorMessage = message
+                    uiState = uiState.copy(libraryMessage = message)
+                }
+            }.also {
+                pendingGrimmoryCoverIds -= item.id
+            }
+        }
+    }
+
     fun onBackPressed() {
         uiState = when {
             uiState.activeReader != null -> uiState.copy(
@@ -143,6 +193,217 @@ class AppViewModel @Inject constructor(
         uiState = uiState.copy(themeMode = themeMode)
         viewModelScope.launch {
             appPreferencesStore.setThemeMode(themeMode)
+        }
+    }
+
+    fun onGrimmoryDisplayNameChanged(displayName: String) {
+        uiState = uiState.copy(
+            grimmoryConnection = refreshedGrimmoryConnectionState(
+                uiState.grimmoryConnection.copy(
+                    displayName = displayName,
+                    message = null,
+                    isError = false,
+                ),
+            ),
+        )
+    }
+
+    fun onGrimmoryBaseUrlChanged(baseUrl: String) {
+        uiState = uiState.copy(
+            grimmoryConnection = refreshedGrimmoryConnectionState(
+                uiState.grimmoryConnection.copy(
+                    baseUrl = baseUrl,
+                    message = null,
+                    isError = false,
+                ),
+            ),
+        )
+    }
+
+    fun onGrimmoryUsernameChanged(username: String) {
+        uiState = uiState.copy(
+            grimmoryConnection = refreshedGrimmoryConnectionState(
+                uiState.grimmoryConnection.copy(
+                    username = username,
+                    message = null,
+                    isError = false,
+                ),
+            ),
+        )
+    }
+
+    fun onGrimmoryPasswordChanged(password: String) {
+        uiState = uiState.copy(
+            grimmoryConnection = uiState.grimmoryConnection.copy(
+                password = password,
+                message = null,
+                isError = false,
+            ),
+        )
+    }
+
+    fun connectGrimmoryServer() {
+        val connection = uiState.grimmoryConnection
+        val normalizedBaseUrl = normalizeServerBaseUrl(connection.baseUrl)
+        if (normalizedBaseUrl == null) {
+            uiState = uiState.copy(
+                grimmoryConnection = connection.copy(
+                    message = "Enter a server URL that starts with http:// or https://.",
+                    isError = true,
+                ),
+            )
+            return
+        }
+        val displayName = connection.displayName.trim()
+        val username = connection.username.trim()
+        if (displayName.isBlank() || username.isBlank()) {
+            uiState = uiState.copy(
+                grimmoryConnection = connection.copy(
+                    message = "Fill in the Grimmory server name and username.",
+                    isError = true,
+                ),
+            )
+            return
+        }
+        val serverId = serverIdForBaseUrl(normalizedBaseUrl)
+        val savedSession = matchingStoredGrimmorySession(
+            serverId = serverId,
+            baseUrl = normalizedBaseUrl,
+            username = username,
+        ).takeIf { connection.password.isBlank() }
+        val password = connection.password.takeIf(String::isNotBlank)
+        if (password == null && savedSession == null) {
+            uiState = uiState.copy(
+                grimmoryConnection = connection.copy(
+                    message = "Enter the Grimmory password or use the saved server details.",
+                    isError = true,
+                ),
+            )
+            return
+        }
+        val request = GrimmoryCatalogSyncRequest(
+            serverId = serverId,
+            displayName = displayName,
+            baseUrl = normalizedBaseUrl,
+            username = username,
+            password = password,
+            accessToken = savedSession?.accessToken,
+            refreshToken = savedSession?.refreshToken,
+        )
+
+        uiState = uiState.copy(
+            grimmoryConnection = connection.copy(
+                isConnecting = true,
+                message = "Connecting to Grimmory.",
+                isError = false,
+            ),
+        )
+        startGrimmorySync(
+            request = request,
+            activeConnection = connection.copy(
+                baseUrl = normalizedBaseUrl,
+            ),
+            fallbackSession = savedSession?.copy(
+                displayName = displayName,
+                baseUrl = normalizedBaseUrl,
+                username = username,
+            ),
+            successConnectionMessage = "Connected to Grimmory.",
+            failurePrefix = "Unable to connect to Grimmory",
+        )
+    }
+
+    fun refreshGrimmoryLibrary() {
+        val savedSession = grimmoryCredentialStore.sessionFlow.value
+        if (savedSession == null) {
+            uiState = uiState.copy(
+                libraryMessage = "Connect to Grimmory before syncing the library.",
+                grimmoryConnection = uiState.grimmoryConnection.copy(
+                    message = "Connect to Grimmory before syncing the library.",
+                    isError = true,
+                ),
+            )
+            return
+        }
+        val request = GrimmoryCatalogSyncRequest(
+            serverId = savedSession.serverId,
+            displayName = savedSession.displayName,
+            baseUrl = savedSession.baseUrl,
+            username = savedSession.username,
+            accessToken = savedSession.accessToken,
+            refreshToken = savedSession.refreshToken,
+        )
+        val connection = refreshedGrimmoryConnectionState(
+            uiState.grimmoryConnection.withStoredSession(savedSession),
+        )
+        uiState = uiState.copy(
+            grimmoryConnection = connection.copy(
+                isConnecting = true,
+                message = "Syncing Grimmory library.",
+                isError = false,
+            ),
+            libraryMessage = "Syncing Grimmory library.",
+        )
+        startGrimmorySync(
+            request = request,
+            activeConnection = connection,
+            fallbackSession = savedSession,
+            successConnectionMessage = "Grimmory library synced.",
+            failurePrefix = "Unable to sync Grimmory",
+        )
+    }
+
+    private fun startGrimmorySync(
+        request: GrimmoryCatalogSyncRequest,
+        activeConnection: GrimmoryConnectionUiState,
+        fallbackSession: GrimmoryStoredSession?,
+        successConnectionMessage: String,
+        failurePrefix: String,
+    ) {
+        viewModelScope.launch {
+            runCatching {
+                val result = grimmoryCatalogSyncer.sync(request)
+                val storedSession = result.session?.toStoredSession(
+                    serverId = request.serverId,
+                    displayName = request.displayName,
+                    baseUrl = request.baseUrl,
+                    username = request.username,
+                ) ?: fallbackSession?.copy(
+                    displayName = request.displayName,
+                    baseUrl = request.baseUrl,
+                    username = request.username,
+                )
+                if (storedSession != null) {
+                    grimmoryCredentialStore.save(storedSession)
+                }
+                clearGrimmoryCoverState()
+                grimmoryCoverRepository.clearCachedCovers(request.serverId)
+                result
+            }.onSuccess { result ->
+                uiState = uiState.copy(
+                    topLevel = TopLevelDestination.Library,
+                    selectedSource = SourceType.GRIMMORY,
+                    selectedItemId = null,
+                    activeReader = null,
+                    libraryMessage = "Synced ${result.itemCount} Grimmory books from ${result.libraryCount} libraries.",
+                    grimmoryConnection = activeConnection.copy(
+                        password = "",
+                        hasStoredSession = true,
+                        isConnecting = false,
+                        message = successConnectionMessage,
+                        isError = false,
+                    ),
+                )
+            }.onFailure { throwable ->
+                uiState = uiState.copy(
+                    libraryMessage = "$failurePrefix: ${throwable.userFacingMessage()}",
+                    grimmoryConnection = activeConnection.copy(
+                        isConnecting = false,
+                        message = "$failurePrefix: ${throwable.userFacingMessage()}",
+                        isError = true,
+                    ),
+                )
+            }
         }
     }
 
@@ -207,6 +468,17 @@ class AppViewModel @Inject constructor(
 
     private fun observeAppState() {
         viewModelScope.launch {
+            grimmoryCredentialStore.sessionFlow.collect { session ->
+                if (!uiState.grimmoryConnection.isConnecting) {
+                    uiState = uiState.copy(
+                        grimmoryConnection = refreshedGrimmoryConnectionState(
+                            uiState.grimmoryConnection.withStoredSession(session),
+                        ),
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
             combine(
                 appPreferencesStore.preferencesFlow,
                 combine(
@@ -234,6 +506,10 @@ class AppViewModel @Inject constructor(
             }.collect { snapshot ->
                 catalogLibraries = snapshot.libraries
                 catalogItems = snapshot.catalogItems
+                val activeItemIds = snapshot.items.mapTo(mutableSetOf(), ReadableItem::id)
+                grimmoryCoverUrisByItemId.keys
+                    .filterNot(activeItemIds::contains)
+                    .forEach(grimmoryCoverUrisByItemId::remove)
                 uiState = uiState.copy(
                     libraries = snapshot.libraries,
                     items = snapshot.items,
@@ -242,6 +518,40 @@ class AppViewModel @Inject constructor(
                 )
             }
         }
+    }
+
+    private fun matchingStoredGrimmorySession(
+        serverId: String,
+        baseUrl: String,
+        username: String,
+    ): GrimmoryStoredSession? = grimmoryCredentialStore.sessionFlow.value?.takeIf { session ->
+        session.serverId == serverId &&
+            session.baseUrl == baseUrl &&
+            session.username == username
+    }
+
+    private fun refreshedGrimmoryConnectionState(
+        connection: GrimmoryConnectionUiState,
+    ): GrimmoryConnectionUiState {
+        val normalizedBaseUrl = normalizeServerBaseUrl(connection.baseUrl) ?: return connection.copy(
+            hasStoredSession = false,
+        )
+        val username = connection.username.trim()
+        if (username.isBlank()) {
+            return connection.copy(hasStoredSession = false)
+        }
+        val matchingSession = matchingStoredGrimmorySession(
+            serverId = serverIdForBaseUrl(normalizedBaseUrl),
+            baseUrl = normalizedBaseUrl,
+            username = username,
+        )
+        return connection.copy(hasStoredSession = matchingSession != null)
+    }
+
+    private fun clearGrimmoryCoverState() {
+        grimmoryCoverUrisByItemId.clear()
+        pendingGrimmoryCoverIds.clear()
+        lastGrimmoryCoverErrorMessage = null
     }
 
     private fun loadProgressSummaries(
@@ -303,6 +613,7 @@ data class AppUiState(
     val progressByItemId: Map<String, ItemProgressSummary> = emptyMap(),
     val libraryMessage: String? = null,
     val themeMode: ThemeMode = ThemeMode.System,
+    val grimmoryConnection: GrimmoryConnectionUiState = GrimmoryConnectionUiState(),
 ) {
     val sourceItems: List<ReadableItem>
         get() = items.filter { it.sourceType == selectedSource }
@@ -337,6 +648,54 @@ private fun deletionMessage(
     ImportedItemDeletionOutcome.NotImportedItem -> "Only imported files can be removed from the library."
     ImportedItemDeletionOutcome.NotFound -> "Unable to remove ${item.libraryDisplayLabel()}."
 }
+
+private fun normalizeServerBaseUrl(
+    baseUrl: String,
+): String? {
+    val trimmed = baseUrl.trim().trimEnd('/')
+    if (trimmed.isBlank()) return null
+    val lower = trimmed.lowercase(Locale.US)
+    if (!lower.startsWith("http://") && !lower.startsWith("https://")) return null
+    return trimmed
+}
+
+private fun serverIdForBaseUrl(
+    baseUrl: String,
+): String = "grimmory-${Integer.toHexString(baseUrl.hashCode())}"
+
+private fun GrimmoryConnectionUiState.withStoredSession(
+    session: GrimmoryStoredSession?,
+): GrimmoryConnectionUiState = if (session == null) {
+    copy(hasStoredSession = false)
+} else {
+    copy(
+        displayName = session.displayName,
+        baseUrl = session.baseUrl,
+        username = session.username,
+        password = "",
+        hasStoredSession = true,
+        isError = false,
+    )
+}
+
+private fun GrimmorySession.toStoredSession(
+    serverId: String,
+    displayName: String,
+    baseUrl: String,
+    username: String,
+): GrimmoryStoredSession = GrimmoryStoredSession(
+    serverId = serverId,
+    displayName = displayName,
+    baseUrl = baseUrl,
+    username = username,
+    accessToken = accessToken,
+    refreshToken = refreshToken,
+)
+
+private fun Throwable.userFacingMessage(): String =
+    message?.takeIf(String::isNotBlank) ?: this::class.simpleName ?: "unknown error"
+
+private const val LOG_TAG = "UnifiedReader"
 
 private inline fun <T, R> Iterable<T>.associateNotNull(
     transform: (T) -> Pair<String, R>?,

@@ -31,25 +31,52 @@ import kotlinx.coroutines.withContext
 fun PdfReaderScreen(
     item: ReadableItem,
     documentUri: Uri? = null,
+    documentUriProvider: (suspend (ReadableItem) -> Uri?)? = null,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val renderedPage by produceState<PdfRenderState>(
-        initialValue = if (documentUri == null) {
-            PdfRenderState.Empty
+    val documentUriState by produceState<ReaderDocumentUriState>(
+        initialValue = if (documentUri != null || documentUriProvider == null) {
+            ReaderDocumentUriState.Ready(documentUri)
         } else {
-            PdfRenderState.Loading
+            ReaderDocumentUriState.Loading
         },
         key1 = item.id,
         key2 = documentUri?.toString(),
+        key3 = documentUriProvider,
     ) {
-        value = if (documentUri == null) {
-            PdfRenderState.Empty
+        if (documentUri != null || documentUriProvider == null) {
+            value = ReaderDocumentUriState.Ready(documentUri)
         } else {
-            withContext(Dispatchers.IO) {
-                renderPdfPreview(
-                    context = context.applicationContext,
-                    documentUri = documentUri,
-                )
+            value = withContext(Dispatchers.IO) {
+                runCatching {
+                    ReaderDocumentUriState.Ready(documentUriProvider(item))
+                }.getOrElse { throwable ->
+                    ReaderDocumentUriState.Error(
+                        throwable.message ?: "Failed to prepare PDF content.",
+                    )
+                }
+            }
+        }
+    }
+    val renderedPage by produceState<PdfRenderState>(
+        initialValue = PdfRenderState.Loading,
+        key1 = item.id,
+        key2 = documentUriState.cacheKey,
+    ) {
+        value = when (val uriState = documentUriState) {
+            ReaderDocumentUriState.Loading -> PdfRenderState.Loading
+            is ReaderDocumentUriState.Error -> PdfRenderState.Error(uriState.message)
+            is ReaderDocumentUriState.Ready -> {
+                if (uriState.uri == null) {
+                    PdfRenderState.Empty
+                } else {
+                    withContext(Dispatchers.IO) {
+                        renderPdfPreview(
+                            context = context.applicationContext,
+                            documentUri = uriState.uri,
+                        )
+                    }
+                }
             }
         }
     }
@@ -165,4 +192,24 @@ private sealed interface PdfRenderState {
     data object Loading : PdfRenderState
     data class Ready(val bitmap: Bitmap) : PdfRenderState
     data class Error(val message: String) : PdfRenderState
+}
+
+private sealed interface ReaderDocumentUriState {
+    val cacheKey: String
+
+    data object Loading : ReaderDocumentUriState {
+        override val cacheKey: String = "loading"
+    }
+
+    data class Ready(
+        val uri: Uri?,
+    ) : ReaderDocumentUriState {
+        override val cacheKey: String = uri?.toString() ?: "empty"
+    }
+
+    data class Error(
+        val message: String,
+    ) : ReaderDocumentUriState {
+        override val cacheKey: String = "error:$message"
+    }
 }

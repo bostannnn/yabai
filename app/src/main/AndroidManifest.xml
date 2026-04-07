@@ -7,6 +7,7 @@
         android:name=".UnifiedReaderApp"
         android:allowBackup="true"
         android:label="@string/app_name"
+        android:usesCleartextTraffic="true"
         android:supportsRtl="true"
         android:theme="@style/Theme.UnifiedReader">
         <activity

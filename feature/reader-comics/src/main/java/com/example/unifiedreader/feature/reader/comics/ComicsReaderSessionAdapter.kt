@@ -2,6 +2,8 @@ package com.example.unifiedreader.feature.reader.comics
 
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.feature.reader.core.ReaderLocator
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import kotlinx.coroutines.flow.StateFlow
@@ -58,6 +60,11 @@ class ComicsReaderSessionAdapter(
                 page = safePageIndex,
             ),
             isFinished = pageCount > 0 && safePageIndex >= pageCount - 1,
+            syncState = if (item.sourceType == SourceType.GRIMMORY) {
+                SyncState.DIRTY
+            } else {
+                SyncState.CLEAN
+            },
             pageCount = pageCount.coerceAtLeast(0),
         )
     }

@@ -16,6 +16,7 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
+import com.example.unifiedreader.data.grimmory.GrimmorySession
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesStore
 import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesSnapshot
@@ -523,6 +524,139 @@ class AppViewModelTest {
     }
 
     @Test
+    fun `connect grimmory syncs catalog and switches to grimmory library`() {
+        val syncer = FakeGrimmoryCatalogSyncer(
+            result = GrimmoryCatalogSyncResult(
+                libraryCount = 2,
+                itemCount = 12,
+                supportedFormatCounts = mapOf(FormatType.EPUB to 12),
+                session = GrimmorySession(
+                    accessToken = "access-token",
+                    refreshToken = "refresh-token",
+                ),
+            ),
+        )
+        val credentialStore = FakeGrimmoryCredentialStore()
+        val viewModel = createViewModel(
+            grimmoryCatalogSyncer = syncer,
+            grimmoryCredentialStore = credentialStore,
+        )
+
+        viewModel.onGrimmoryDisplayNameChanged("Home Grimmory")
+        viewModel.onGrimmoryBaseUrlChanged("https://grimmory.example/")
+        viewModel.onGrimmoryUsernameChanged("reader")
+        viewModel.onGrimmoryPasswordChanged("secret")
+        viewModel.connectGrimmoryServer()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals("Home Grimmory", syncer.lastRequest?.displayName)
+        assertEquals("https://grimmory.example", syncer.lastRequest?.baseUrl)
+        assertEquals("reader", syncer.lastRequest?.username)
+        assertEquals("secret", syncer.lastRequest?.password)
+        assertNull(syncer.lastRequest?.accessToken)
+        assertEquals("access-token", credentialStore.sessionFlow.value?.accessToken)
+        assertEquals("refresh-token", credentialStore.sessionFlow.value?.refreshToken)
+        assertEquals(TopLevelDestination.Library, viewModel.uiState.topLevel)
+        assertEquals(SourceType.GRIMMORY, viewModel.uiState.selectedSource)
+        assertEquals("Synced 12 Grimmory books from 2 libraries.", viewModel.uiState.libraryMessage)
+        assertEquals("", viewModel.uiState.grimmoryConnection.password)
+        assertEquals(true, viewModel.uiState.grimmoryConnection.hasStoredSession)
+        assertEquals(false, viewModel.uiState.grimmoryConnection.isError)
+    }
+
+    @Test
+    fun `connect grimmory reuses saved token when password is blank`() {
+        val credentialStore = FakeGrimmoryCredentialStore(
+            GrimmoryStoredSession(
+                serverId = "grimmory-8811d83",
+                displayName = "Home Grimmory",
+                baseUrl = "https://grimmory.example",
+                username = "reader",
+                accessToken = "saved-access-token",
+                refreshToken = "saved-refresh-token",
+            ),
+        )
+        val syncer = FakeGrimmoryCatalogSyncer(
+            result = GrimmoryCatalogSyncResult(
+                libraryCount = 1,
+                itemCount = 4,
+                supportedFormatCounts = mapOf(FormatType.EPUB to 4),
+            ),
+        )
+        val viewModel = createViewModel(
+            grimmoryCatalogSyncer = syncer,
+            grimmoryCredentialStore = credentialStore,
+        )
+
+        viewModel.connectGrimmoryServer()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertNull(syncer.lastRequest?.password)
+        assertEquals("saved-access-token", syncer.lastRequest?.accessToken)
+        assertEquals("saved-refresh-token", syncer.lastRequest?.refreshToken)
+        assertEquals("Home Grimmory", credentialStore.sessionFlow.value?.displayName)
+        assertEquals("Connected to Grimmory.", viewModel.uiState.grimmoryConnection.message)
+        assertEquals(true, viewModel.uiState.grimmoryConnection.hasStoredSession)
+    }
+
+    @Test
+    fun `refresh grimmory library uses stored session and keeps source on grimmory`() {
+        val credentialStore = FakeGrimmoryCredentialStore(
+            GrimmoryStoredSession(
+                serverId = "grimmory-8811d83",
+                displayName = "Home Grimmory",
+                baseUrl = "https://grimmory.example",
+                username = "reader",
+                accessToken = "saved-access-token",
+                refreshToken = "saved-refresh-token",
+            ),
+        )
+        val syncer = FakeGrimmoryCatalogSyncer(
+            result = GrimmoryCatalogSyncResult(
+                libraryCount = 1,
+                itemCount = 9,
+                supportedFormatCounts = mapOf(FormatType.EPUB to 9),
+            ),
+        )
+        val viewModel = createViewModel(
+            grimmoryCatalogSyncer = syncer,
+            grimmoryCredentialStore = credentialStore,
+        )
+
+        viewModel.refreshGrimmoryLibrary()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertNull(syncer.lastRequest?.password)
+        assertEquals("saved-access-token", syncer.lastRequest?.accessToken)
+        assertEquals("saved-refresh-token", syncer.lastRequest?.refreshToken)
+        assertEquals(SourceType.GRIMMORY, viewModel.uiState.selectedSource)
+        assertEquals("Synced 9 Grimmory books from 1 libraries.", viewModel.uiState.libraryMessage)
+        assertEquals("Grimmory library synced.", viewModel.uiState.grimmoryConnection.message)
+    }
+
+    @Test
+    fun `connect grimmory validates server url before syncing`() {
+        val syncer = FakeGrimmoryCatalogSyncer()
+        val viewModel = createViewModel(
+            grimmoryCatalogSyncer = syncer,
+        )
+
+        viewModel.onGrimmoryDisplayNameChanged("Home Grimmory")
+        viewModel.onGrimmoryBaseUrlChanged("grimmory.example")
+        viewModel.onGrimmoryUsernameChanged("reader")
+        viewModel.onGrimmoryPasswordChanged("secret")
+        viewModel.connectGrimmoryServer()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertNull(syncer.lastRequest)
+        assertEquals(true, viewModel.uiState.grimmoryConnection.isError)
+        assertEquals(
+            "Enter a server URL that starts with http:// or https://.",
+            viewModel.uiState.grimmoryConnection.message,
+        )
+    }
+
+    @Test
     fun `delete imported item removes it clears selection and clears reader state`() = runBlocking {
         val importedItem = sampleItem(
             id = "imported-cbz",
@@ -568,6 +702,9 @@ class AppViewModelTest {
         preferencesStore: ComicReaderPreferencesStore = FakeComicReaderPreferencesStore(),
         appPreferencesStore: AppPreferencesStore = FakeAppPreferencesStore(),
         readerSessionStore: FakeReaderSessionStore = FakeReaderSessionStore(),
+        grimmoryCatalogSyncer: GrimmoryCatalogSyncer = FakeGrimmoryCatalogSyncer(),
+        grimmoryCredentialStore: GrimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+        grimmoryCoverRepository: GrimmoryCoverDataSource = FakeGrimmoryCoverRepository(),
         libraryRepository: FakeLibraryRepository = FakeLibraryRepository(
             libraries = listOf(
                 Library(
@@ -589,12 +726,62 @@ class AppViewModelTest {
             localDocumentDataSource = importedRepository,
             readerSessionStore = readerSessionStore,
         ),
+        grimmoryCatalogSyncer = grimmoryCatalogSyncer,
+        grimmoryCredentialStore = grimmoryCredentialStore,
+        grimmoryCoverRepository = grimmoryCoverRepository,
         comicPageSource = pageSource,
         comicReaderProgressStore = progressStore,
         comicReaderPreferencesStore = preferencesStore,
         readerSessionStore = readerSessionStore,
         readerFactories = emptyList(),
     )
+}
+
+private class FakeGrimmoryCatalogSyncer(
+    private val result: GrimmoryCatalogSyncResult = GrimmoryCatalogSyncResult(
+        libraryCount = 0,
+        itemCount = 0,
+        supportedFormatCounts = emptyMap(),
+    ),
+    private val failure: Throwable? = null,
+) : GrimmoryCatalogSyncer {
+    var lastRequest: GrimmoryCatalogSyncRequest? = null
+
+    override suspend fun sync(
+        request: GrimmoryCatalogSyncRequest,
+    ): GrimmoryCatalogSyncResult {
+        lastRequest = request
+        failure?.let { throw it }
+        return result
+    }
+}
+
+private class FakeGrimmoryCredentialStore(
+    initialSession: GrimmoryStoredSession? = null,
+) : GrimmoryCredentialStore {
+    private val sessionState = MutableStateFlow(initialSession)
+
+    override val sessionFlow: StateFlow<GrimmoryStoredSession?> = sessionState
+
+    override suspend fun save(
+        session: GrimmoryStoredSession,
+    ) {
+        sessionState.value = session
+    }
+
+    override suspend fun clear() {
+        sessionState.value = null
+    }
+}
+
+private class FakeGrimmoryCoverRepository : GrimmoryCoverDataSource {
+    override suspend fun getCoverUri(
+        item: ReadableItem,
+    ): Uri? = null
+
+    override suspend fun clearCachedCovers(
+        serverId: String,
+    ) = Unit
 }
 
 private class FakeLibraryRepository(

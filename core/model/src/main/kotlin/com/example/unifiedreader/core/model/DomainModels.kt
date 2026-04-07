@@ -44,6 +44,8 @@ data class ReadableItem(
     val sourceType: SourceType,
     val libraryId: String,
     val isLocalImport: Boolean = false,
+    val remoteFileId: String? = null,
+    val remoteFileType: String? = null,
     val title: String,
     val format: FormatType,
     val kind: ReadableItemKind = format.defaultReadableItemKind(),

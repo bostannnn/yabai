@@ -8,13 +8,13 @@ import com.example.unifiedreader.feature.reader.core.ReaderScreenFactory
 import com.example.unifiedreader.feature.reader.core.formatReaderFactory
 
 fun pdfReaderFactory(
-    documentUriProvider: (ReadableItem) -> Uri? = { null },
+    documentUriProvider: suspend (ReadableItem) -> Uri? = { null },
 ): ReaderScreenFactory = formatReaderFactory(
     FormatType.PDF,
     chrome = ReaderChrome.Standard,
 ) { item, _ ->
         PdfReaderScreen(
             item = item,
-            documentUri = documentUriProvider(item),
+            documentUriProvider = documentUriProvider,
         )
 }

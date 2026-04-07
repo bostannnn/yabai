@@ -2,6 +2,7 @@ package com.example.unifiedreader.core.database.entity
 
 import androidx.room.Entity
 import androidx.room.ColumnInfo
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(tableName = "servers")
@@ -16,7 +17,39 @@ data class ServerEntity(
 data class LibraryEntity(
     @PrimaryKey val id: String,
     val serverId: String,
+    @ColumnInfo(defaultValue = "KAVITA") val sourceType: String,
     val title: String,
+)
+
+@Entity(
+    tableName = "readable_items",
+    indices = [
+        Index(value = ["serverId"]),
+        Index(value = ["libraryId"]),
+        Index(value = ["sourceType"]),
+    ],
+)
+data class ReadableItemEntity(
+    @PrimaryKey val id: String,
+    val serverId: String,
+    val sourceType: String,
+    val libraryId: String,
+    val isLocalImport: Boolean,
+    val remoteFileId: String?,
+    val remoteFileType: String?,
+    val title: String,
+    val format: String,
+    val kind: String,
+    val pageCount: Int?,
+    val coverUrl: String?,
+    val description: String?,
+    val addedAtEpochMillis: Long?,
+    val bookAuthor: String?,
+    val comicSeries: String?,
+    val comicIssueTitle: String?,
+    val comicVolume: String?,
+    val comicIssueNumber: String?,
+    val updatedAtEpochMillis: Long,
 )
 
 @Entity(tableName = "reading_progress")

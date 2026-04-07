@@ -1,3 +1,350 @@
 package com.example.unifiedreader.data.grimmory
 
-interface GrimmoryApi
+import com.example.unifiedreader.core.model.Library
+import com.example.unifiedreader.core.model.ReadableItem
+import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.plugins.ClientRequestException
+import io.ktor.client.request.bearerAuth
+import io.ktor.client.request.get
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsChannel
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.URLBuilder
+import io.ktor.http.Url
+import io.ktor.http.contentType
+import io.ktor.http.isSuccess
+import io.ktor.utils.io.readAvailable
+import java.io.File
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+
+interface GrimmoryApi {
+    suspend fun login(
+        username: String,
+        password: String,
+    ): GrimmorySession
+
+    suspend fun refreshSession(
+        refreshToken: String,
+    ): GrimmorySession = error("Refreshing Grimmory sessions is not implemented.")
+
+    suspend fun getLibraries(
+        accessToken: String,
+    ): List<Library>
+
+    suspend fun getBooks(
+        accessToken: String,
+        libraryId: String,
+    ): List<ReadableItem>
+
+    suspend fun getBookEntries(
+        accessToken: String,
+        libraryId: String,
+    ): List<GrimmoryBookCatalogEntry> = getBooks(
+        accessToken = accessToken,
+        libraryId = libraryId,
+    ).map { item ->
+        GrimmoryBookCatalogEntry(
+            item = item,
+            progress = null,
+        )
+    }
+
+    fun bookContentUrl(
+        bookId: String,
+        bookType: String? = null,
+    ): String
+
+    fun bookCoverUrl(
+        bookId: String,
+    ): String
+
+    suspend fun updateEpubProgress(
+        accessToken: String,
+        progress: GrimmoryEpubProgressUpdate,
+    ) {
+        updateProgress(
+            accessToken = accessToken,
+            progress = progress.toGenericProgressUpdate(),
+        )
+    }
+
+    suspend fun updateProgress(
+        accessToken: String,
+        progress: GrimmoryProgressUpdate,
+    ): Unit = error("Updating Grimmory progress is not implemented.")
+
+    suspend fun downloadBookContent(
+        accessToken: String,
+        bookId: String,
+        destination: File,
+        bookType: String? = null,
+    ): Unit = error("Downloading Grimmory book content is not implemented.")
+
+    suspend fun downloadBookCover(
+        accessToken: String,
+        bookId: String,
+        coverUrl: String? = null,
+    ): ByteArray = error("Downloading Grimmory book covers is not implemented.")
+}
+
+data class GrimmorySession(
+    val accessToken: String,
+    val refreshToken: String,
+    val isDefaultPassword: Boolean = false,
+)
+
+data class GrimmoryEpubProgressUpdate(
+    val bookId: String,
+    val bookFileId: String?,
+    val cfi: String,
+    val href: String? = null,
+    val percent: Double,
+    val ttsPositionCfi: String? = null,
+)
+
+data class GrimmoryProgressUpdate(
+    val bookId: String,
+    val bookFileId: String?,
+    val bookType: String?,
+    val positionData: String,
+    val positionHref: String? = null,
+    val percent: Double,
+    val ttsPositionCfi: String? = null,
+)
+
+data class GrimmoryBookCatalogEntry(
+    val item: ReadableItem,
+    val progress: com.example.unifiedreader.core.model.ReadingProgress?,
+)
+
+class GrimmoryUnauthorizedException : RuntimeException("Grimmory access token expired.")
+
+class KtorGrimmoryApi(
+    private val httpClient: HttpClient,
+    baseUrl: String,
+    private val serverId: String,
+) : GrimmoryApi {
+    private val normalizedBaseUrl = baseUrl.trimEnd('/')
+
+    override suspend fun login(
+        username: String,
+        password: String,
+    ): GrimmorySession {
+        val response = httpClient.post("$normalizedBaseUrl/api/v1/auth/login") {
+            contentType(ContentType.Application.Json)
+            setBody(GrimmoryLoginRequestDto(username = username, password = password))
+        }
+        val responseBody = response.bodyAsText()
+        if (!response.status.isSuccess()) {
+            error(responseBody.toGrimmoryErrorMessage(response.status.description))
+        }
+        return Json.decodeFromString<JsonObject>(responseBody).toLoginSession()
+    }
+
+    override suspend fun refreshSession(
+        refreshToken: String,
+    ): GrimmorySession {
+        val response = httpClient.post("$normalizedBaseUrl/api/v1/auth/refresh") {
+            contentType(ContentType.Application.Json)
+            setBody(GrimmoryRefreshTokenRequestDto(refreshToken = refreshToken))
+        }
+        val responseBody = response.bodyAsText()
+        if (!response.status.isSuccess()) {
+            error(responseBody.toGrimmoryErrorMessage(response.status.description))
+        }
+        return Json.decodeFromString<JsonObject>(responseBody).toLoginSession()
+    }
+
+    override suspend fun getLibraries(
+        accessToken: String,
+    ): List<Library> = authenticatedRequest {
+        val response = httpClient.get("$normalizedBaseUrl/api/v1/libraries") {
+            bearerAuth(accessToken)
+        }
+        response.throwIfGrimmoryError()
+        response.body<List<GrimmoryLibraryDto>>()
+            .mapNotNull { library -> library.toDomain(serverId = serverId) }
+    }
+
+    override suspend fun getBooks(
+        accessToken: String,
+        libraryId: String,
+    ): List<ReadableItem> = getBookEntries(
+        accessToken = accessToken,
+        libraryId = libraryId,
+    ).map(GrimmoryBookCatalogEntry::item)
+
+    override suspend fun getBookEntries(
+        accessToken: String,
+        libraryId: String,
+    ): List<GrimmoryBookCatalogEntry> = authenticatedRequest {
+        val response = httpClient.get("$normalizedBaseUrl/api/v1/libraries/$libraryId/book") {
+            bearerAuth(accessToken)
+        }
+        response.throwIfGrimmoryError()
+        response.body<List<GrimmoryBookDto>>()
+            .mapNotNull { book ->
+                book.toCatalogEntry(
+                    serverId = serverId,
+                    baseUrl = normalizedBaseUrl,
+                )
+            }
+    }
+
+    override fun bookContentUrl(
+        bookId: String,
+        bookType: String?,
+    ): String = buildString {
+        append(normalizedBaseUrl)
+        append("/api/v1/books/")
+        append(bookId)
+        append("/content")
+        if (!bookType.isNullOrBlank()) {
+            append("?bookType=")
+            append(bookType)
+        }
+    }
+
+    override fun bookCoverUrl(
+        bookId: String,
+    ): String = "$normalizedBaseUrl/api/v1/media/book/$bookId/thumbnail"
+
+    override suspend fun updateEpubProgress(
+        accessToken: String,
+        progress: GrimmoryEpubProgressUpdate,
+    ) {
+        updateProgress(
+            accessToken = accessToken,
+            progress = progress.toGenericProgressUpdate(),
+        )
+    }
+
+    override suspend fun updateProgress(
+        accessToken: String,
+        progress: GrimmoryProgressUpdate,
+    ) {
+        authenticatedRequest {
+            val response = httpClient.post("$normalizedBaseUrl/api/v1/books/progress") {
+                bearerAuth(accessToken)
+                contentType(ContentType.Application.Json)
+                setBody(progress.toRequestDto())
+            }
+            if (!response.status.isSuccess()) {
+                response.throwIfGrimmoryError()
+            }
+        }
+    }
+
+    override suspend fun downloadBookContent(
+        accessToken: String,
+        bookId: String,
+        destination: File,
+        bookType: String?,
+    ) {
+        authenticatedRequest {
+            val response = httpClient.get(bookContentUrl(bookId = bookId, bookType = bookType)) {
+                bearerAuth(accessToken)
+            }
+            response.throwIfGrimmoryError()
+            response.writeBodyTo(destination)
+        }
+    }
+
+    private suspend fun HttpResponse.writeBodyTo(
+        destination: File,
+    ) {
+        val channel = bodyAsChannel()
+        val buffer = ByteArray(DEFAULT_DOWNLOAD_BUFFER_SIZE)
+        destination.outputStream().use { output ->
+            while (true) {
+                val bytesRead = channel.readAvailable(buffer, 0, buffer.size)
+                if (bytesRead == -1) break
+                if (bytesRead > 0) {
+                    output.write(buffer, 0, bytesRead)
+                }
+            }
+        }
+    }
+
+    override suspend fun downloadBookCover(
+        accessToken: String,
+        bookId: String,
+        coverUrl: String?,
+    ): ByteArray = authenticatedRequest {
+        val response = httpClient.get(
+            coverUrl.toGrimmoryCoverRequestUrl(bookId = bookId)
+                .withGrimmoryMediaToken(accessToken),
+        )
+        response.throwIfGrimmoryError()
+        response.body<ByteArray>()
+    }
+
+    private fun String?.toGrimmoryCoverRequestUrl(
+        bookId: String,
+    ): String {
+        val requestedUrl = this?.takeIf(String::isNotBlank)
+            ?: return bookCoverUrl(bookId = bookId)
+        return runCatching {
+            val parsedUrl = Url(requestedUrl)
+            val serverUrl = Url(normalizedBaseUrl)
+            if (
+                parsedUrl.protocol == serverUrl.protocol &&
+                parsedUrl.host == serverUrl.host &&
+                parsedUrl.port == serverUrl.port
+            ) {
+                requestedUrl
+            } else {
+                bookCoverUrl(bookId = bookId)
+            }
+        }.getOrElse {
+            bookCoverUrl(bookId = bookId)
+        }
+    }
+
+    private fun String.withGrimmoryMediaToken(
+        accessToken: String,
+    ): String = URLBuilder(this).apply {
+        parameters.append("token", accessToken)
+    }.buildString()
+}
+
+private val grimmoryJson = Json {
+    ignoreUnknownKeys = true
+    explicitNulls = false
+}
+
+private const val DEFAULT_DOWNLOAD_BUFFER_SIZE = 8 * 1024
+
+private fun String.toGrimmoryErrorMessage(
+    statusDescription: String,
+): String = runCatching {
+    grimmoryJson.decodeFromString<GrimmoryApiErrorDto>(this).toUserMessage(statusDescription)
+}.getOrElse {
+    takeIf(String::isNotBlank) ?: statusDescription
+}
+
+private suspend fun <T> authenticatedRequest(
+    block: suspend () -> T,
+): T = try {
+    block()
+} catch (exception: ClientRequestException) {
+    if (exception.response.status == HttpStatusCode.Unauthorized) {
+        throw GrimmoryUnauthorizedException()
+    }
+    throw exception
+}
+
+private suspend fun HttpResponse.throwIfGrimmoryError() {
+    if (status == HttpStatusCode.Unauthorized) {
+        throw GrimmoryUnauthorizedException()
+    }
+    if (!status.isSuccess()) {
+        error(bodyAsText().toGrimmoryErrorMessage(status.description))
+    }
+}

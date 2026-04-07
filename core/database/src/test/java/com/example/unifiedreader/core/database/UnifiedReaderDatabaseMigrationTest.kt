@@ -2,6 +2,9 @@ package com.example.unifiedreader.core.database
 
 import android.content.Context
 import androidx.room.Room
+import com.example.unifiedreader.core.database.entity.LibraryEntity
+import com.example.unifiedreader.core.database.entity.ReadableItemEntity
+import com.example.unifiedreader.core.database.entity.ServerEntity
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
@@ -276,6 +279,209 @@ class UnifiedReaderDatabaseMigrationTest {
             ApplicationProvider.getApplicationContext<Context>().deleteDatabase(databaseName)
         }
     }
+
+    @Test
+    fun `room migrates 8 to 9 and validates remote catalog schema`() {
+        val databaseName = "migration-8-9-${System.nanoTime()}"
+        createTestDatabase(
+            name = databaseName,
+            version = 8,
+        ) { database ->
+            createVersion1Schema(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_1_2.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_2_3.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_3_4.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_4_5.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_5_6.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_6_7.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_7_8.migrate(database)
+            database.execSQL(
+                """
+                INSERT INTO servers (
+                    id,
+                    displayName,
+                    baseUrl,
+                    sourceType
+                ) VALUES (
+                    'grimmory-1',
+                    'Grimmory',
+                    'https://grimmory.example',
+                    'GRIMMORY'
+                )
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                INSERT INTO libraries (
+                    id,
+                    serverId,
+                    title
+                ) VALUES (
+                    'books',
+                    'grimmory-1',
+                    'Books'
+                )
+                """.trimIndent(),
+            )
+        }.use { _ -> Unit }
+
+        val migratedDatabase = openRoomDatabase(databaseName)
+        try {
+            val libraries = migratedDatabase.remoteCatalogDao().getLibraries()
+            assertEquals(1, libraries.size)
+            assertEquals("GRIMMORY", migratedDatabase.remoteCatalogDao().getServers().single().sourceType)
+            assertEquals("KAVITA", libraries.single().sourceType)
+            assertTrue(migratedDatabase.remoteCatalogDao().getItems().isEmpty())
+        } finally {
+            migratedDatabase.close()
+            ApplicationProvider.getApplicationContext<Context>().deleteDatabase(databaseName)
+        }
+    }
+
+    @Test
+    fun `room migrates 9 to 10 and validates remote file metadata schema`() {
+        val databaseName = "migration-9-10-${System.nanoTime()}"
+        createTestDatabase(
+            name = databaseName,
+            version = 9,
+        ) { database ->
+            createVersion1Schema(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_1_2.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_2_3.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_3_4.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_4_5.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_5_6.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_6_7.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_7_8.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_8_9.migrate(database)
+            database.execSQL(
+                """
+                INSERT INTO readable_items (
+                    id,
+                    serverId,
+                    sourceType,
+                    libraryId,
+                    isLocalImport,
+                    title,
+                    format,
+                    kind,
+                    pageCount,
+                    coverUrl,
+                    description,
+                    addedAtEpochMillis,
+                    bookAuthor,
+                    comicSeries,
+                    comicIssueTitle,
+                    comicVolume,
+                    comicIssueNumber,
+                    updatedAtEpochMillis
+                ) VALUES (
+                    'book-1',
+                    'grimmory-1',
+                    'GRIMMORY',
+                    'books',
+                    0,
+                    'Book 1',
+                    'EPUB',
+                    'BOOK',
+                    300,
+                    NULL,
+                    NULL,
+                    NULL,
+                    NULL,
+                    NULL,
+                    NULL,
+                    NULL,
+                    NULL,
+                    1775046600000
+                )
+                """.trimIndent(),
+            )
+        }.use { _ -> Unit }
+
+        val migratedDatabase = openRoomDatabase(databaseName)
+        try {
+            val item = migratedDatabase.remoteCatalogDao().getItems().single()
+            assertEquals(null, item.remoteFileId)
+            assertEquals(null, item.remoteFileType)
+        } finally {
+            migratedDatabase.close()
+            ApplicationProvider.getApplicationContext<Context>().deleteDatabase(databaseName)
+        }
+    }
+
+
+    @Test
+    fun `remote catalog dao replaces server catalog atomically`() {
+        val database = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            UnifiedReaderDatabase::class.java,
+        )
+            .allowMainThreadQueries()
+            .build()
+
+        try {
+            val dao = database.remoteCatalogDao()
+            val server = ServerEntity(
+                id = "grimmory-1",
+                displayName = "Grimmory",
+                baseUrl = "https://grimmory.example",
+                sourceType = "GRIMMORY",
+            )
+            dao.replaceServerCatalog(
+                server = server,
+                libraries = listOf(
+                    LibraryEntity(
+                        id = "g-books",
+                        serverId = server.id,
+                        sourceType = "GRIMMORY",
+                        title = "Books",
+                    ),
+                ),
+                items = listOf(
+                    ReadableItemEntity(
+                        id = "book-1",
+                        serverId = server.id,
+                        sourceType = "GRIMMORY",
+                        libraryId = "g-books",
+                        isLocalImport = false,
+                        remoteFileId = "99",
+                        remoteFileType = "EPUB",
+                        title = "Book 1",
+                        format = "EPUB",
+                        kind = "BOOK",
+                        pageCount = 300,
+                        coverUrl = "https://grimmory.example/api/v1/media/book/1/thumbnail",
+                        description = "Description",
+                        addedAtEpochMillis = 1775046600000L,
+                        bookAuthor = "Author",
+                        comicSeries = null,
+                        comicIssueTitle = null,
+                        comicVolume = null,
+                        comicIssueNumber = null,
+                        updatedAtEpochMillis = 1775046600000L,
+                    ),
+                ),
+            )
+            dao.replaceServerCatalog(
+                server = server,
+                libraries = listOf(
+                    LibraryEntity(
+                        id = "g-new",
+                        serverId = server.id,
+                        sourceType = "GRIMMORY",
+                        title = "New",
+                    ),
+                ),
+                items = emptyList(),
+            )
+
+            assertEquals(listOf("g-new"), dao.getLibraries().map { it.id })
+            assertTrue(dao.getItemsForServer(server.id).isEmpty())
+        } finally {
+            database.close()
+        }
+    }
 }
 
 private fun createVersion1Schema(database: SupportSQLiteDatabase) {
@@ -382,6 +588,8 @@ private fun openRoomDatabase(
         UnifiedReaderDatabaseMigrations.MIGRATION_5_6,
         UnifiedReaderDatabaseMigrations.MIGRATION_6_7,
         UnifiedReaderDatabaseMigrations.MIGRATION_7_8,
+        UnifiedReaderDatabaseMigrations.MIGRATION_8_9,
+        UnifiedReaderDatabaseMigrations.MIGRATION_9_10,
     )
     .build()
 

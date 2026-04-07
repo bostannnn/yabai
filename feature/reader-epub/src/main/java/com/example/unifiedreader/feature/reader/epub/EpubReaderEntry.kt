@@ -91,6 +91,7 @@ import com.example.unifiedreader.feature.reader.core.ReaderOverlayBackButton
 import com.example.unifiedreader.feature.reader.core.ReaderOverlayDropdownItem
 import com.example.unifiedreader.feature.reader.core.ReaderOverlayIconButton
 import com.example.unifiedreader.feature.reader.core.ReaderOverlayMenuAction
+import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import com.example.unifiedreader.feature.reader.core.findContextAncestor
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayPanelState
@@ -131,6 +132,7 @@ fun EpubReaderScreen(
     item: ReadableItem,
     sessionStore: ReaderSessionStore,
     documentUri: Uri? = null,
+    documentUriProvider: (suspend (ReadableItem) -> Uri?)? = null,
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -149,27 +151,37 @@ fun EpubReaderScreen(
     val sessionByItemId by sessionStore.sessionByItemIdFlow.collectAsState()
     val progressSnapshot = progressByItemId[item.id]
     val sessionSnapshot = sessionByItemId[item.id]
-    val initialLocator = remember(progressSnapshot) { progressSnapshot?.toReadiumLocator() }
-    val restoredPreferences = remember(sessionSnapshot) { restoreEpubPreferences(sessionSnapshot) }
+    if (!hydrated) {
+        EpubReaderMessage(
+            title = item.title,
+            body = "Restoring EPUB state…",
+            onBack = onBack,
+        )
+        return
+    }
+    val restoreProgressSnapshot = remember(item.id) { progressSnapshot }
+    val restoreSessionSnapshot = remember(item.id) { sessionSnapshot }
+    val serializedInitialLocator = remember(item.id) { restoreProgressSnapshot?.toReadiumLocator() }
+    val restoredPreferences = remember(item.id) { restoreEpubPreferences(restoreSessionSnapshot) }
     var fontSize by rememberSaveable(item.id) { mutableDoubleStateOf(restoredPreferences.fontSize) }
     var lineHeight by rememberSaveable(item.id) { mutableDoubleStateOf(restoredPreferences.lineHeight) }
     var theme by rememberSaveable(item.id) { mutableStateOf(restoredPreferences.theme) }
     var layoutMode by rememberSaveable(item.id) { mutableStateOf(restoredPreferences.layoutMode) }
     var restoredSessionState by rememberSaveable(item.id) { mutableStateOf(false) }
-    var pageCount by rememberSaveable(item.id) { mutableIntStateOf(sessionSnapshot?.pageCount ?: 0) }
+    var pageCount by rememberSaveable(item.id) { mutableIntStateOf(restoreSessionSnapshot?.pageCount ?: 0) }
     var currentPage by rememberSaveable(item.id) {
-        mutableIntStateOf(progressSnapshot?.page ?: initialLocator?.locations?.position ?: 0)
+        mutableIntStateOf(restoreProgressSnapshot?.page ?: serializedInitialLocator?.locations?.position ?: 0)
     }
     var currentProgress by rememberSaveable(item.id) {
         mutableDoubleStateOf(
-            progressSnapshot?.percent
-                ?: initialLocator?.locations?.totalProgression
-                ?: initialLocator?.locations?.progression
+            restoreProgressSnapshot?.percent
+                ?: serializedInitialLocator?.locations?.totalProgression
+                ?: serializedInitialLocator?.locations?.progression
                 ?: 0.0,
         )
     }
     var currentHref by rememberSaveable(item.id) {
-        mutableStateOf(initialLocator?.href?.removeFragment()?.toString())
+        mutableStateOf(serializedInitialLocator?.href?.removeFragment()?.toString())
     }
     var seekRequestId by remember { mutableIntStateOf(0) }
     var navigationRequest by remember { mutableStateOf<EpubNavigationRequest?>(null) }
@@ -179,6 +191,30 @@ fun EpubReaderScreen(
         key = "epub-overlay-${item.id}",
         initiallyVisible = true,
     )
+    val documentUriState by produceState<ReaderDocumentUriState>(
+        initialValue = if (documentUri != null || documentUriProvider == null) {
+            ReaderDocumentUriState.Ready(documentUri)
+        } else {
+            ReaderDocumentUriState.Loading
+        },
+        key1 = item.id,
+        key2 = documentUri?.toString(),
+        key3 = documentUriProvider,
+    ) {
+        if (documentUri != null || documentUriProvider == null) {
+            value = ReaderDocumentUriState.Ready(documentUri)
+        } else {
+            value = withContext(Dispatchers.IO) {
+                runCatching {
+                    ReaderDocumentUriState.Ready(documentUriProvider(item))
+                }.getOrElse { throwable ->
+                    ReaderDocumentUriState.Error(
+                        throwable.message ?: "Failed to prepare EPUB content.",
+                    )
+                }
+            }
+        }
+    }
 
     LaunchedEffect(hydrated, restoredPreferences) {
         if (!hydrated || restoredSessionState) return@LaunchedEffect
@@ -192,11 +228,14 @@ fun EpubReaderScreen(
     val publicationState by produceState<EpubPublicationState>(
         initialValue = EpubPublicationState.Loading,
         key1 = item.id,
-        key2 = documentUri?.toString(),
+        key2 = documentUriState.cacheKey,
     ) {
-        value = withContext(Dispatchers.IO) {
+        value = when (val uriState = documentUriState) {
+            ReaderDocumentUriState.Loading -> EpubPublicationState.Loading
+            is ReaderDocumentUriState.Error -> EpubPublicationState.Error(uriState.message)
+            is ReaderDocumentUriState.Ready -> withContext(Dispatchers.IO) {
             runCatching {
-                val publicationFile = documentUri?.let { importedUri ->
+                val publicationFile = uriState.uri?.let { importedUri ->
                     prepareImportedEpubFile(
                         context = context.applicationContext,
                         item = item,
@@ -248,6 +287,7 @@ fun EpubReaderScreen(
                     throwable.message ?: "Failed to open EPUB publication.",
                 )
             }
+            }
         }
     }
 
@@ -265,6 +305,22 @@ fun EpubReaderScreen(
         )
 
         is EpubPublicationState.Ready -> {
+            val initialLocatorState by produceState<EpubInitialLocatorState>(
+                initialValue = if (restoreProgressSnapshot.needsEpubProgressionLocator(serializedInitialLocator)) {
+                    EpubInitialLocatorState.Loading
+                } else {
+                    EpubInitialLocatorState.Ready(serializedInitialLocator)
+                },
+                key1 = state.publication,
+                key2 = restoreProgressSnapshot,
+                key3 = serializedInitialLocator,
+            ) {
+                value = EpubInitialLocatorState.Ready(
+                    serializedInitialLocator ?: withContext(Dispatchers.IO) {
+                        restoreProgressSnapshot?.toProgressionFallbackLocator(state.publication)
+                    },
+                )
+            }
             DisposableEffect(state.publication) {
                 onDispose {
                     state.publication.close()
@@ -304,6 +360,18 @@ fun EpubReaderScreen(
                 )
             }
 
+            val resolvedInitialLocator = when (val locatorState = initialLocatorState) {
+                EpubInitialLocatorState.Loading -> {
+                    EpubReaderMessage(
+                        title = item.title,
+                        body = "Restoring EPUB position…",
+                        onBack = onBack,
+                    )
+                    return
+                }
+                is EpubInitialLocatorState.Ready -> locatorState.locator
+            }
+
             ImmersiveReaderOverlay(
                 overlayState = overlayState,
                 autoHideDelayMillis = 0L,
@@ -315,7 +383,7 @@ fun EpubReaderScreen(
                         activity = activity,
                         item = item,
                         publication = state.publication,
-                        initialLocator = initialLocator,
+                        initialLocator = resolvedInitialLocator,
                         preferences = EpubReaderPreferences(
                             fontSize = fontSize,
                             lineHeight = lineHeight,
@@ -956,7 +1024,6 @@ private fun ReadiumEpubNavigatorHost(
         navigatorFactory,
         containerId,
         fragmentTag,
-        initialLocator,
     ) {
         var navigatorFragment: EpubNavigatorFragment? = null
         val footnoteNavigationJobs = mutableSetOf<Job>()
@@ -1309,6 +1376,47 @@ private sealed interface EpubPublicationState {
     data class Error(
         val message: String,
     ) : EpubPublicationState
+}
+
+private sealed interface EpubInitialLocatorState {
+    data object Loading : EpubInitialLocatorState
+
+    data class Ready(
+        val locator: Locator?,
+    ) : EpubInitialLocatorState
+}
+
+private fun ReaderProgressSnapshot?.needsEpubProgressionLocator(
+    serializedLocator: Locator?,
+): Boolean = this != null &&
+    serializedLocator == null &&
+    percent != null
+
+private suspend fun ReaderProgressSnapshot.toProgressionFallbackLocator(
+    publication: Publication,
+): Locator? {
+    val progress = percent ?: return null
+    return publication.locateProgression(progress.coerceIn(0.0, 1.0))
+}
+
+private sealed interface ReaderDocumentUriState {
+    val cacheKey: String
+
+    data object Loading : ReaderDocumentUriState {
+        override val cacheKey: String = "loading"
+    }
+
+    data class Ready(
+        val uri: Uri?,
+    ) : ReaderDocumentUriState {
+        override val cacheKey: String = uri?.toString() ?: "fallback"
+    }
+
+    data class Error(
+        val message: String,
+    ) : ReaderDocumentUriState {
+        override val cacheKey: String = "error:$message"
+    }
 }
 
 private enum class EpubOverlayPanel {

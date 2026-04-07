@@ -48,7 +48,9 @@ android {
 
 dependencies {
     implementation(project(":core:model"))
+    implementation(project(":core:network"))
     implementation(project(":core:database"))
+    implementation(project(":data:grimmory"))
     implementation(project(":data:repository"))
     implementation(project(":feature:library"))
     implementation(project(":feature:settings"))
@@ -74,6 +76,7 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.junrar)
     implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.ktor.client.core)
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)
     coreLibraryDesugaring(libs.android.desugar.jdk.libs)
