@@ -9,23 +9,35 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.Lifecycle
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.library.LibraryScreen
 import com.example.unifiedreader.feature.reader.core.ReaderHost
 import com.example.unifiedreader.feature.settings.SettingsScreen
@@ -110,46 +122,46 @@ fun UnifiedReaderAppContent(
             } else {
                 Scaffold(
                     containerColor = MaterialTheme.colorScheme.background,
-                    bottomBar = {
-                        NavigationBar(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        ) {
-                            TopLevelDestination.entries.forEach { destination ->
-                                NavigationBarItem(
-                                    selected = uiState.topLevel == destination,
-                                    onClick = { viewModel.onTopLevelSelected(destination) },
-                                    icon = {
-                                        Text(text = destination.shortLabel)
-                                    },
-                                    label = { Text(destination.label) },
+                ) { innerPadding ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding),
+                    ) {
+                        MainTopBar(
+                            selectedSource = uiState.selectedSource,
+                            topLevel = uiState.topLevel,
+                            onSourceSelected = { source ->
+                                viewModel.onTopLevelSelected(TopLevelDestination.Library)
+                                viewModel.onSourceSelected(source)
+                            },
+                            onSettingsClick = {
+                                viewModel.onTopLevelSelected(TopLevelDestination.Settings)
+                            },
+                            onImportLocalFileClick = onImportLocalFileClick,
+                        )
+                        when (uiState.topLevel) {
+                            TopLevelDestination.Library -> {
+                                LibraryFlow(
+                                    uiState = uiState,
+                                    onItemSelected = viewModel::onItemSelected,
+                                    onDeleteImportedItem = viewModel::onDeleteImportedItem,
+                                    modifier = Modifier.weight(1f),
                                 )
                             }
-                        }
-                    },
-                ) { innerPadding ->
-                    when (uiState.topLevel) {
-                        TopLevelDestination.Library -> {
-                            LibraryFlow(
-                                uiState = uiState,
-                                onImportLocalFileClick = onImportLocalFileClick,
-                                onSourceSelected = viewModel::onSourceSelected,
-                                onItemSelected = viewModel::onItemSelected,
-                                onDeleteImportedItem = viewModel::onDeleteImportedItem,
-                                modifier = Modifier.padding(innerPadding),
-                            )
-                        }
 
-                        TopLevelDestination.Settings -> {
-                            Surface(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(innerPadding),
-                                color = MaterialTheme.colorScheme.background,
-                            ) {
-                                SettingsScreen(
-                                    themeMode = uiState.themeMode,
-                                    onThemeModeSelected = viewModel::onThemeModeSelected,
-                                )
+                            TopLevelDestination.Settings -> {
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f),
+                                    color = MaterialTheme.colorScheme.background,
+                                ) {
+                                    SettingsScreen(
+                                        themeMode = uiState.themeMode,
+                                        onThemeModeSelected = viewModel::onThemeModeSelected,
+                                    )
+                                }
                             }
                         }
                     }
@@ -160,10 +172,61 @@ fun UnifiedReaderAppContent(
 }
 
 @Composable
+private fun MainTopBar(
+    selectedSource: SourceType,
+    topLevel: TopLevelDestination,
+    onSourceSelected: (SourceType) -> Unit,
+    onSettingsClick: () -> Unit,
+    onImportLocalFileClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ScrollableTabRow(
+            selectedTabIndex = selectedSource.ordinal,
+            modifier = Modifier.weight(1f),
+            edgePadding = 0.dp,
+        ) {
+            SourceType.entries.forEach { source ->
+                Tab(
+                    selected = topLevel == TopLevelDestination.Library && source == selectedSource,
+                    onClick = { onSourceSelected(source) },
+                    text = { Text(text = source.displayName()) },
+                )
+            }
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onSettingsClick) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings",
+                    tint = if (topLevel == TopLevelDestination.Settings) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
+            IconButton(onClick = onImportLocalFileClick) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Import local file",
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun LibraryFlow(
     uiState: AppUiState,
-    onImportLocalFileClick: () -> Unit,
-    onSourceSelected: (com.example.unifiedreader.core.model.SourceType) -> Unit,
     onItemSelected: (ReadableItem) -> Unit,
     onDeleteImportedItem: (ReadableItem) -> Unit,
     modifier: Modifier = Modifier,
@@ -178,8 +241,6 @@ private fun LibraryFlow(
             items = uiState.visibleItems,
             progressByItemId = uiState.progressByItemId,
             libraryMessage = uiState.libraryMessage,
-            onImportLocalFileClick = onImportLocalFileClick,
-            onSourceSelected = onSourceSelected,
             onItemSelected = onItemSelected,
             onDeleteImportedItem = onDeleteImportedItem,
         )
@@ -198,4 +259,9 @@ internal fun importDocumentIntoApp(
         )
     }
     viewModel.onDocumentImported(uri)
+}
+
+private fun SourceType.displayName(): String = when (this) {
+    SourceType.KAVITA -> "Kavita"
+    SourceType.GRIMMORY -> "Grimmory"
 }

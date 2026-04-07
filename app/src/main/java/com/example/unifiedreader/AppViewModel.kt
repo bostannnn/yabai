@@ -124,6 +124,7 @@ class AppViewModel @Inject constructor(
     internal suspend fun importDocument(uri: Uri) {
         val importedItem = localDocumentRepository.import(uri)
         refreshLibraryState(
+            topLevel = TopLevelDestination.Library,
             selectedSource = importedItem?.sourceType ?: uiState.selectedSource,
             selectedItemId = importedItem?.id,
             activeReader = importedItem?.format,
@@ -154,6 +155,7 @@ class AppViewModel @Inject constructor(
     }
 
     private fun refreshLibraryState(
+        topLevel: TopLevelDestination = uiState.topLevel,
         selectedSource: SourceType = uiState.selectedSource,
         selectedItemId: String? = uiState.selectedItemId,
         activeReader: FormatType? = uiState.activeReader,
@@ -162,6 +164,7 @@ class AppViewModel @Inject constructor(
     ) {
         val items = catalogItems + localDocumentRepository.getImportedItems()
         uiState = uiState.copy(
+            topLevel = topLevel,
             selectedSource = selectedSource,
             libraries = catalogLibraries,
             items = items,
@@ -298,12 +301,9 @@ private inline fun <T, R> Iterable<T>.associateNotNull(
     }
 }
 
-enum class TopLevelDestination(
-    val label: String,
-    val shortLabel: String,
-) {
-    Library("Library", "Lib"),
-    Settings("Settings", "Set"),
+enum class TopLevelDestination {
+    Library,
+    Settings,
 }
 
 private fun buildItemProgressSummary(

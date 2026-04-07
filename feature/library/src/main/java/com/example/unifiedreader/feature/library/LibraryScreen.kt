@@ -29,8 +29,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ScrollableTabRow
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -50,7 +48,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
 import coil.compose.AsyncImage
 import com.example.unifiedreader.core.model.BookMetadata
@@ -72,63 +69,48 @@ fun LibraryScreen(
     items: List<ReadableItem>,
     progressByItemId: Map<String, ItemProgressSummary> = emptyMap(),
     libraryMessage: String? = null,
-    onImportLocalFileClick: () -> Unit = {},
-    onSourceSelected: (SourceType) -> Unit,
     onItemSelected: (ReadableItem) -> Unit,
     onDeleteImportedItem: (ReadableItem) -> Unit = {},
 ) {
     var viewMode by rememberSaveable { mutableStateOf(LibraryViewMode.Detailed) }
     var deleteCandidate by remember { mutableStateOf<ReadableItem?>(null) }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        ScrollableTabRow(selectedTabIndex = selectedSource.ordinal) {
-            SourceType.entries.forEach { source ->
-                Tab(
-                    selected = source == selectedSource,
-                    onClick = { onSourceSelected(source) },
-                    text = { Text(text = source.displayName()) },
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        LazyVerticalGrid(
+            columns = viewMode.gridCells(maxWidth = maxWidth),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                LibraryHeader(
+                    libraries = libraries,
+                    selectedSource = selectedSource,
+                    libraryMessage = libraryMessage,
+                    viewMode = viewMode,
+                    onViewModeChanged = { viewMode = it },
                 )
             }
-        }
 
-        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            LazyVerticalGrid(
-                columns = viewMode.gridCells(maxWidth = maxWidth),
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
+            if (items.isEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
-                    LibraryHeader(
-                        libraries = libraries,
-                        selectedSource = selectedSource,
-                        libraryMessage = libraryMessage,
-                        viewMode = viewMode,
-                        onViewModeChanged = { viewMode = it },
-                        onImportLocalFileClick = onImportLocalFileClick,
-                    )
+                    EmptyLibraryState(selectedSource = selectedSource)
                 }
-
-                if (items.isEmpty()) {
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        EmptyLibraryState(selectedSource = selectedSource)
-                    }
-                } else {
-                    items(items, key = { it.id }) { item ->
-                        when (viewMode) {
-                            LibraryViewMode.Detailed -> DetailedItemCard(
-                                item = item,
-                                progress = progressByItemId[item.id],
-                                onClick = { onItemSelected(item) },
-                                onDeleteRequested = itemDeleteRequest(item) { deleteCandidate = it },
-                            )
-                            LibraryViewMode.Grid -> GridCoverCard(
-                                item = item,
-                                onClick = { onItemSelected(item) },
-                                onDeleteRequested = itemDeleteRequest(item) { deleteCandidate = it },
-                            )
-                        }
+            } else {
+                items(items, key = { it.id }) { item ->
+                    when (viewMode) {
+                        LibraryViewMode.Detailed -> DetailedItemCard(
+                            item = item,
+                            progress = progressByItemId[item.id],
+                            onClick = { onItemSelected(item) },
+                            onDeleteRequested = itemDeleteRequest(item) { deleteCandidate = it },
+                        )
+                        LibraryViewMode.Grid -> GridCoverCard(
+                            item = item,
+                            onClick = { onItemSelected(item) },
+                            onDeleteRequested = itemDeleteRequest(item) { deleteCandidate = it },
+                        )
                     }
                 }
             }
@@ -184,7 +166,6 @@ private fun LibraryHeader(
     libraryMessage: String?,
     viewMode: LibraryViewMode,
     onViewModeChanged: (LibraryViewMode) -> Unit,
-    onImportLocalFileClick: () -> Unit,
 ) {
     val count = libraries.count { it.sourceType == selectedSource }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -211,26 +192,6 @@ private fun LibraryHeader(
                     selectedMode = viewMode,
                     onViewModeChanged = onViewModeChanged,
                 )
-            }
-            if (selectedSource == SourceType.KAVITA || selectedSource == SourceType.GRIMMORY) {
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    ),
-                    onClick = onImportLocalFileClick,
-                ) {
-                    Box(
-                        modifier = Modifier.padding(12.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "Import local file",
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                        )
-                    }
-                }
             }
         }
         libraryMessage?.let {

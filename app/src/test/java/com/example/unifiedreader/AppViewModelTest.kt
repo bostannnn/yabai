@@ -90,6 +90,21 @@ class AppViewModelTest {
     }
 
     @Test
+    fun `import failure from settings returns to library to show error status`() = runBlocking {
+        val viewModel = createViewModel(
+            importedRepository = FakeLocalDocumentRepository(importResult = null),
+        )
+        viewModel.onTopLevelSelected(TopLevelDestination.Settings)
+
+        viewModel.importDocument(Uri.parse("content://imports/bad-file.bin"))
+
+        assertEquals(TopLevelDestination.Library, viewModel.uiState.topLevel)
+        assertNull(viewModel.uiState.selectedItemId)
+        assertNull(viewModel.uiState.activeReader)
+        assertEquals("Unable to import that file as a supported local document.", viewModel.uiState.libraryMessage)
+    }
+
+    @Test
     fun `imported epub opens grimmory reader and sets success status`() = runBlocking {
         val importedItem = ReadableItem(
             id = "document-abcd",
