@@ -90,6 +90,7 @@ import org.readium.r2.navigator.epub.EpubNavigatorFactory
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.navigator.input.InputListener
 import org.readium.r2.navigator.input.TapEvent
+import org.readium.r2.navigator.preferences.ReadingProgression
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Link
 import org.readium.r2.shared.publication.Locator
@@ -847,19 +848,35 @@ private fun ReadiumEpubNavigatorHost(
             EpubNavigatorFragment::class.java.name,
         ) as EpubNavigatorFragment
         navigatorFragment = fragment
-        val centerTapListener = object : InputListener {
+        val tapZoneListener = object : InputListener {
             override fun onTap(event: TapEvent): Boolean {
                 val viewWidth = fragment.publicationView.width.toFloat()
                 if (viewWidth <= 0f) return false
-                val sideZoneWidth = viewWidth * 0.25f
-                val isCenterTap = event.point.x > sideZoneWidth &&
-                    event.point.x < viewWidth - sideZoneWidth
-                if (!isCenterTap) return false
-                latestOnSurfaceTap.value()
-                return true
+                return when (
+                    resolveEpubTapAction(
+                        tapX = event.point.x,
+                        containerWidth = viewWidth,
+                        readingProgression = fragment.settings.value.readingProgression,
+                    )
+                ) {
+                    EpubTapAction.Previous -> {
+                        fragment.goBackward(animated = true)
+                        true
+                    }
+
+                    EpubTapAction.Next -> {
+                        fragment.goForward(animated = true)
+                        true
+                    }
+
+                    EpubTapAction.ToggleOverlay -> {
+                        latestOnSurfaceTap.value()
+                        true
+                    }
+                }
             }
         }
-        fragment.addInputListener(centerTapListener)
+        fragment.addInputListener(tapZoneListener)
         fragmentManager.beginTransaction()
             .replace(containerId, fragment, fragmentTag)
             .commitNowAllowingStateLoss()
@@ -867,7 +884,7 @@ private fun ReadiumEpubNavigatorHost(
         onDispose {
             val navigator = fragmentManager.findFragmentByTag(fragmentTag) as? EpubNavigatorFragment
             navigator?.let {
-                it.removeInputListener(centerTapListener)
+                it.removeInputListener(tapZoneListener)
                 latestOnLocationChanged.value(it.currentLocator.value, 0, null)
             }
             fragmentManager.findFragmentByTag(fragmentTag)?.let { existing ->
@@ -939,6 +956,31 @@ private fun buildEpubPageProgressLabel(
     pageCount > 0 -> "?/$pageCount"
     position > 0 -> "$position"
     else -> "?/?"
+}
+
+internal enum class EpubTapAction {
+    Previous,
+    Next,
+    ToggleOverlay,
+}
+
+internal fun resolveEpubTapAction(
+    tapX: Float,
+    containerWidth: Float,
+    readingProgression: ReadingProgression,
+): EpubTapAction {
+    if (containerWidth <= 0f) {
+        return EpubTapAction.ToggleOverlay
+    }
+    val isLeftZone = tapX <= containerWidth * EpubNavigationZoneFraction
+    val isRightZone = tapX >= containerWidth * (1f - EpubNavigationZoneFraction)
+    return when {
+        isLeftZone && readingProgression == ReadingProgression.RTL -> EpubTapAction.Next
+        isLeftZone -> EpubTapAction.Previous
+        isRightZone && readingProgression == ReadingProgression.RTL -> EpubTapAction.Previous
+        isRightZone -> EpubTapAction.Next
+        else -> EpubTapAction.ToggleOverlay
+    }
 }
 
 private suspend fun Publication.buildEpubBookProgress(): EpubBookProgress {
@@ -1110,6 +1152,7 @@ private data class EpubTocEntry(
 private val EpubViewportVerticalInset = 32.dp
 private val EpubTocDrawerMaxWidth = 320.dp
 private const val EpubTocProgressEpsilon = 0.0005
+private const val EpubNavigationZoneFraction = 0.25f
 
 private fun epubNavigatorContainerLayoutParams(
     verticalInsetPx: Int,

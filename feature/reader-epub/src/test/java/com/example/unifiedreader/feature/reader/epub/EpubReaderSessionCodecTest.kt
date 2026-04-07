@@ -9,6 +9,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.readium.r2.navigator.preferences.ReadingProgression
 import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.util.Url
 import org.readium.r2.shared.util.mediatype.MediaType
@@ -80,5 +81,53 @@ class EpubReaderSessionCodecTest {
         val script = buildEpubViewportPaddingScript(-8)
 
         assertTrue(script.contains("var padding = '0px';"))
+    }
+
+    @Test
+    fun `tap action uses edge zones for ltr reading`() {
+        assertEquals(
+            EpubTapAction.Previous,
+            resolveEpubTapAction(
+                tapX = 10f,
+                containerWidth = 100f,
+                readingProgression = ReadingProgression.LTR,
+            ),
+        )
+        assertEquals(
+            EpubTapAction.ToggleOverlay,
+            resolveEpubTapAction(
+                tapX = 50f,
+                containerWidth = 100f,
+                readingProgression = ReadingProgression.LTR,
+            ),
+        )
+        assertEquals(
+            EpubTapAction.Next,
+            resolveEpubTapAction(
+                tapX = 95f,
+                containerWidth = 100f,
+                readingProgression = ReadingProgression.LTR,
+            ),
+        )
+    }
+
+    @Test
+    fun `tap action mirrors edge zones for rtl reading`() {
+        assertEquals(
+            EpubTapAction.Next,
+            resolveEpubTapAction(
+                tapX = 10f,
+                containerWidth = 100f,
+                readingProgression = ReadingProgression.RTL,
+            ),
+        )
+        assertEquals(
+            EpubTapAction.Previous,
+            resolveEpubTapAction(
+                tapX = 95f,
+                containerWidth = 100f,
+                readingProgression = ReadingProgression.RTL,
+            ),
+        )
     }
 }
