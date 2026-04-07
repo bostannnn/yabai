@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.library.LibraryViewMode
 import com.example.unifiedreader.feature.library.LibraryScreen
@@ -157,6 +158,8 @@ fun UnifiedReaderAppContent(
                                     viewMode = libraryViewMode,
                                     onItemSelected = viewModel::onItemSelected,
                                     onDeleteImportedItem = viewModel::onDeleteImportedItem,
+                                    onFilterStateChanged = viewModel::onLibraryFiltersChanged,
+                                    onClearFilters = viewModel::clearLibraryFilters,
                                     modifier = Modifier.weight(1f),
                                 )
                             }
@@ -279,6 +282,8 @@ private fun LibraryFlow(
     viewMode: LibraryViewMode,
     onItemSelected: (ReadableItem) -> Unit,
     onDeleteImportedItem: (ReadableItem) -> Unit,
+    onFilterStateChanged: (LibraryFilterState) -> Unit,
+    onClearFilters: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -291,6 +296,10 @@ private fun LibraryFlow(
             viewMode = viewMode,
             progressByItemId = uiState.progressByItemId,
             libraryMessage = uiState.libraryMessage,
+            filterState = uiState.selectedLibraryFilters,
+            filterFacets = uiState.selectedLibraryFilterFacets,
+            onFilterStateChanged = onFilterStateChanged,
+            onClearFilters = onClearFilters,
             onItemSelected = onItemSelected,
             onDeleteImportedItem = onDeleteImportedItem,
         )

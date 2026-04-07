@@ -2,10 +2,13 @@ package com.example.unifiedreader
 
 import android.app.Application
 import android.net.Uri
+import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
+import com.example.unifiedreader.core.model.BookMetadata
 import com.example.unifiedreader.core.model.ComicMetadata
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
+import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
@@ -31,7 +34,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
-import android.os.Looper
 
 @RunWith(RobolectricTestRunner::class)
 class AppViewModelTest {
@@ -344,6 +346,91 @@ class AppViewModelTest {
 
         assertEquals(listOf(updatedLibrary), viewModel.uiState.libraries)
         assertEquals(listOf(updatedItem), viewModel.uiState.items)
+    }
+
+    @Test
+    fun `library filters combine groups with and and values with or`() {
+        val akira = sampleItem(
+            id = "akira-1",
+            title = "Akira 1",
+            format = FormatType.CBZ,
+            isLocalImport = true,
+        ).copy(
+            comicMetadata = ComicMetadata(series = "Akira"),
+        )
+        val dune = sampleItem(
+            id = "dune",
+            title = "Dune",
+            format = FormatType.EPUB,
+            isLocalImport = true,
+        ).copy(
+            bookMetadata = BookMetadata(author = "Frank Herbert"),
+        )
+        val leftHand = sampleItem(
+            id = "left-hand",
+            title = "The Left Hand of Darkness",
+            format = FormatType.EPUB,
+            isLocalImport = true,
+        ).copy(
+            bookMetadata = BookMetadata(author = "Ursula K. Le Guin"),
+        )
+        val viewModel = createViewModel(
+            importedRepository = FakeLocalDocumentRepository(
+                importedItems = mutableListOf(akira, dune, leftHand),
+            ),
+        )
+        viewModel.onSourceSelected(SourceType.LOCAL)
+
+        viewModel.onLibraryFiltersChanged(
+            LibraryFilterState(
+                formats = setOf(FormatType.EPUB),
+                authors = setOf("Frank Herbert", "Ursula K. Le Guin"),
+            ),
+        )
+
+        assertEquals(listOf(dune, leftHand), viewModel.uiState.visibleItems)
+
+        viewModel.onLibraryFiltersChanged(
+            LibraryFilterState(
+                formats = setOf(FormatType.EPUB),
+                authors = setOf("Frank Herbert"),
+            ),
+        )
+
+        assertEquals(listOf(dune), viewModel.uiState.visibleItems)
+        assertEquals(listOf(FormatType.CBZ, FormatType.EPUB), viewModel.uiState.selectedLibraryFilterFacets.formats)
+        assertEquals(listOf("Frank Herbert", "Ursula K. Le Guin"), viewModel.uiState.selectedLibraryFilterFacets.authors)
+        assertEquals(listOf("Akira"), viewModel.uiState.selectedLibraryFilterFacets.series)
+    }
+
+    @Test
+    fun `library filters are scoped per source`() {
+        val remoteComic = sampleItem(
+            id = "remote-comic",
+            title = "Remote Comic",
+            format = FormatType.CBZ,
+        )
+        val localBook = sampleItem(
+            id = "local-book",
+            title = "Local Book",
+            format = FormatType.EPUB,
+            isLocalImport = true,
+        )
+        val viewModel = createViewModel(
+            sampleItems = listOf(remoteComic),
+            importedRepository = FakeLocalDocumentRepository(
+                importedItems = mutableListOf(localBook),
+            ),
+        )
+
+        viewModel.onLibraryFiltersChanged(LibraryFilterState(formats = setOf(FormatType.EPUB)))
+
+        assertTrue(viewModel.uiState.visibleItems.isEmpty())
+
+        viewModel.onSourceSelected(SourceType.LOCAL)
+
+        assertEquals(listOf(localBook), viewModel.uiState.visibleItems)
+        assertTrue(viewModel.uiState.selectedLibraryFilters.isEmpty)
     }
 
     @Test

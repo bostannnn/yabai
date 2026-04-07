@@ -10,9 +10,13 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
+import com.example.unifiedreader.core.model.LibraryFilterFacets
+import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.applyLibraryFilters
+import com.example.unifiedreader.core.model.buildLibraryFilterFacets
 import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
@@ -69,6 +73,19 @@ class AppViewModel @Inject constructor(
             activeReader = null,
         )
         refreshProgress()
+    }
+
+    fun onLibraryFiltersChanged(filters: LibraryFilterState) {
+        uiState = uiState.copy(
+            libraryFiltersBySource = uiState.libraryFiltersBySource + (uiState.selectedSource to filters),
+        )
+    }
+
+    fun clearLibraryFilters() {
+        if (uiState.selectedLibraryFilters.isEmpty) return
+        uiState = uiState.copy(
+            libraryFiltersBySource = uiState.libraryFiltersBySource - uiState.selectedSource,
+        )
     }
 
     fun onItemSelected(item: ReadableItem) {
@@ -270,12 +287,22 @@ data class AppUiState(
     val activeReader: FormatType? = null,
     val libraries: List<Library> = emptyList(),
     val items: List<ReadableItem> = emptyList(),
+    val libraryFiltersBySource: Map<SourceType, LibraryFilterState> = emptyMap(),
     val progressByItemId: Map<String, ItemProgressSummary> = emptyMap(),
     val libraryMessage: String? = null,
     val themeMode: ThemeMode = ThemeMode.System,
 ) {
-    val visibleItems: List<ReadableItem>
+    val sourceItems: List<ReadableItem>
         get() = items.filter { it.sourceType == selectedSource }
+
+    val selectedLibraryFilters: LibraryFilterState
+        get() = libraryFiltersBySource[selectedSource] ?: LibraryFilterState()
+
+    val selectedLibraryFilterFacets: LibraryFilterFacets
+        get() = buildLibraryFilterFacets(sourceItems)
+
+    val visibleItems: List<ReadableItem>
+        get() = applyLibraryFilters(sourceItems, selectedLibraryFilters)
 
     val selectedItem: ReadableItem?
         get() = items.firstOrNull { it.id == selectedItemId }

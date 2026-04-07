@@ -3,6 +3,7 @@ package com.example.unifiedreader.feature.library
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -12,22 +13,31 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -47,15 +57,19 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import coil.compose.AsyncImage
-import com.example.unifiedreader.core.model.BookMetadata
 import com.example.unifiedreader.core.model.ComicMetadata
 import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.LibraryFilterFacets
+import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.authorFacetKey
 import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.core.model.librarySecondaryText
@@ -68,10 +82,15 @@ fun LibraryScreen(
     viewMode: LibraryViewMode,
     progressByItemId: Map<String, ItemProgressSummary> = emptyMap(),
     libraryMessage: String? = null,
+    filterState: LibraryFilterState = LibraryFilterState(),
+    filterFacets: LibraryFilterFacets = LibraryFilterFacets(),
+    onFilterStateChanged: (LibraryFilterState) -> Unit = {},
+    onClearFilters: () -> Unit = {},
     onItemSelected: (ReadableItem) -> Unit,
     onDeleteImportedItem: (ReadableItem) -> Unit = {},
 ) {
     var deleteCandidate by remember { mutableStateOf<ReadableItem?>(null) }
+    var openFilterPanel by rememberSaveable { mutableStateOf<LibraryFilterPanel?>(null) }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         LazyVerticalGrid(
@@ -87,9 +106,23 @@ fun LibraryScreen(
                 }
             }
 
+            if (!filterFacets.isEmpty || !filterState.isEmpty) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    LibraryFilterSummary(
+                        filterState = filterState,
+                        filterFacets = filterFacets,
+                        onOpenFilterPanel = { openFilterPanel = it },
+                        onClearFilters = onClearFilters,
+                    )
+                }
+            }
+
             if (items.isEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
-                    EmptyLibraryState(selectedSource = selectedSource)
+                    EmptyLibraryState(
+                        selectedSource = selectedSource,
+                        filtersActive = !filterState.isEmpty,
+                    )
                 }
             } else {
                 items(items, key = { it.id }) { item ->
@@ -137,11 +170,22 @@ fun LibraryScreen(
             },
         )
     }
+
+    openFilterPanel?.let { panel ->
+        LibraryFilterPanelDialog(
+            panel = panel,
+            filterState = filterState,
+            filterFacets = filterFacets,
+            onFilterStateChanged = onFilterStateChanged,
+            onDismiss = { openFilterPanel = null },
+        )
+    }
 }
 
 @Composable
 private fun EmptyLibraryState(
     selectedSource: SourceType,
+    filtersActive: Boolean,
 ) {
     Box(
         modifier = Modifier
@@ -149,8 +193,425 @@ private fun EmptyLibraryState(
             .padding(vertical = 48.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text = "No items yet for ${selectedSource.displayName()}")
+        Text(
+            text = if (filtersActive) {
+                "No items match these filters"
+            } else {
+                "No items yet for ${selectedSource.displayName()}"
+            },
+        )
     }
+}
+
+@Composable
+private fun LibraryFilterSummary(
+    filterState: LibraryFilterState,
+    filterFacets: LibraryFilterFacets,
+    onOpenFilterPanel: (LibraryFilterPanel) -> Unit,
+    onClearFilters: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        LibraryFacetChip(
+            label = "Format",
+            count = filterState.formats.size,
+            enabled = filterFacets.formats.isNotEmpty() || filterState.formats.isNotEmpty(),
+            onClick = { onOpenFilterPanel(LibraryFilterPanel.Format) },
+        )
+        LibraryFacetChip(
+            label = "Author",
+            count = filterState.authors.size,
+            enabled = filterFacets.authors.isNotEmpty() || filterState.authors.isNotEmpty(),
+            onClick = { onOpenFilterPanel(LibraryFilterPanel.Author) },
+        )
+        LibraryFacetChip(
+            label = "Series",
+            count = filterState.series.size,
+            enabled = filterFacets.series.isNotEmpty() || filterState.series.isNotEmpty(),
+            onClick = { onOpenFilterPanel(LibraryFilterPanel.Series) },
+        )
+        if (!filterState.isEmpty) {
+            TextButton(onClick = onClearFilters) {
+                Text(text = "Clear")
+            }
+        }
+    }
+}
+
+@Composable
+private fun LibraryFacetChip(
+    label: String,
+    count: Int,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    FilterChip(
+        selected = count > 0,
+        enabled = enabled,
+        onClick = onClick,
+        label = {
+            Text(
+                text = if (count > 0) "$label ($count)" else label,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        },
+    )
+}
+
+@Composable
+private fun LibraryFilterPanelDialog(
+    panel: LibraryFilterPanel,
+    filterState: LibraryFilterState,
+    filterFacets: LibraryFilterFacets,
+    onFilterStateChanged: (LibraryFilterState) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    when (panel) {
+        LibraryFilterPanel.Format -> CompactFacetDialog(
+            title = "Format",
+            hasActiveFilters = filterState.formats.isNotEmpty(),
+            onClearFilters = {
+                onFilterStateChanged(filterState.copy(formats = emptySet()))
+            },
+            onDismiss = onDismiss,
+        ) {
+            filterFacets.formats.forEach { format ->
+                FilterToggleChip(
+                    label = format.name,
+                    selected = format in filterState.formats,
+                    onClick = {
+                        onFilterStateChanged(
+                            filterState.copy(
+                                formats = filterState.formats.toggle(format),
+                            ),
+                        )
+                    },
+                )
+            }
+        }
+
+        LibraryFilterPanel.Author -> SearchableTextFacetDialog(
+            title = "Authors",
+            values = filterFacets.authors,
+            selectedValues = filterState.authors,
+            onToggleValue = { author ->
+                onFilterStateChanged(
+                    filterState.copy(authors = filterState.authors.toggle(author)),
+                )
+            },
+            hasActiveFilters = filterState.authors.isNotEmpty(),
+            onClearFilters = {
+                onFilterStateChanged(filterState.copy(authors = emptySet()))
+            },
+            letterKey = String::authorFacetKey,
+            onDismiss = onDismiss,
+        )
+
+        LibraryFilterPanel.Series -> SearchableTextFacetDialog(
+            title = "Series",
+            values = filterFacets.series,
+            selectedValues = filterState.series,
+            onToggleValue = { series ->
+                onFilterStateChanged(
+                    filterState.copy(series = filterState.series.toggle(series)),
+                )
+            },
+            hasActiveFilters = filterState.series.isNotEmpty(),
+            onClearFilters = {
+                onFilterStateChanged(filterState.copy(series = emptySet()))
+            },
+            letterKey = { it },
+            onDismiss = onDismiss,
+        )
+    }
+}
+
+@Composable
+private fun CompactFacetDialog(
+    title: String,
+    hasActiveFilters: Boolean,
+    onClearFilters: () -> Unit,
+    onDismiss: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    FilterDialogScaffold(
+        title = title,
+        hasActiveFilters = hasActiveFilters,
+        onClearFilters = onClearFilters,
+        onDismiss = onDismiss,
+        modifier = Modifier
+            .widthIn(max = 360.dp)
+            .fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            content()
+        }
+    }
+}
+
+@Composable
+private fun SearchableTextFacetDialog(
+    title: String,
+    values: List<String>,
+    selectedValues: Set<String>,
+    onToggleValue: (String) -> Unit,
+    hasActiveFilters: Boolean,
+    onClearFilters: () -> Unit,
+    letterKey: (String) -> String,
+    onDismiss: () -> Unit,
+) {
+    var query by rememberSaveable(title) { mutableStateOf("") }
+    var selectedLetter by rememberSaveable(title) { mutableStateOf<String?>(null) }
+    val searchedValues = remember(values, query) {
+        val normalizedQuery = query.trim()
+        if (normalizedQuery.isEmpty()) {
+            values
+        } else {
+            values.filter { it.contains(normalizedQuery, ignoreCase = true) }
+        }
+    }
+    val availableLetters = remember(searchedValues, letterKey) {
+        searchedValues
+            .mapNotNull { it.filterLetter(letterKey) }
+            .distinct()
+            .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it })
+    }
+    val effectiveLetter = selectedLetter?.takeIf { it in availableLetters }
+    val visibleValues = remember(searchedValues, effectiveLetter, letterKey) {
+        effectiveLetter?.let { letter ->
+            searchedValues.filter { it.filterLetter(letterKey) == letter }
+        } ?: searchedValues
+    }
+    FilterDialogScaffold(
+        title = title,
+        hasActiveFilters = hasActiveFilters,
+        onClearFilters = onClearFilters,
+        onDismiss = onDismiss,
+        modifier = Modifier
+            .widthIn(max = 560.dp)
+            .fillMaxWidth(),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = {
+                    query = it
+                    selectedLetter = null
+                },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text(text = "Search $title") },
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.Top,
+            ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(max = 360.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    if (visibleValues.isEmpty()) {
+                        item {
+                            Text(
+                                text = "No matches",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(vertical = 12.dp),
+                            )
+                        }
+                    }
+                    items(visibleValues, key = { it }) { value ->
+                        TextFacetRow(
+                            value = value,
+                            selected = value in selectedValues,
+                            onClick = { onToggleValue(value) },
+                        )
+                    }
+                }
+                AlphabetRail(
+                    letters = availableLetters,
+                    selectedLetter = effectiveLetter,
+                    onLetterSelected = { letter ->
+                        selectedLetter = if (effectiveLetter == letter) null else letter
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FilterDialogScaffold(
+    title: String,
+    hasActiveFilters: Boolean,
+    onClearFilters: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Surface(
+            modifier = Modifier
+                .padding(24.dp)
+                .then(modifier),
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp,
+            shadowElevation = 12.dp,
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                content()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (hasActiveFilters) {
+                        TextButton(onClick = onClearFilters) {
+                            Text(text = "Clear")
+                        }
+                    }
+                    TextButton(onClick = onDismiss) {
+                        Text(text = "Done")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AlphabetRail(
+    letters: List<String>,
+    selectedLetter: String?,
+    onLetterSelected: (String?) -> Unit,
+) {
+    LazyColumn(
+        modifier = Modifier
+            .width(28.dp)
+            .heightIn(max = 420.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        item(key = "all") {
+            AlphabetRailItem(
+                label = "All",
+                selected = selectedLetter == null,
+                onClick = { onLetterSelected(null) },
+            )
+        }
+        items(letters, key = { it }) { letter ->
+            AlphabetRailItem(
+                label = letter,
+                selected = selectedLetter == letter,
+                onClick = { onLetterSelected(letter) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun AlphabetRailItem(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val backgroundColor = if (selected) {
+        MaterialTheme.colorScheme.primaryContainer
+    } else {
+        Color.Transparent
+    }
+    val textColor = if (selected) {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    } else {
+        MaterialTheme.colorScheme.primary
+    }
+    Text(
+        text = label,
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .background(backgroundColor)
+            .padding(horizontal = 4.dp, vertical = 2.dp),
+        style = MaterialTheme.typography.labelSmall,
+        color = textColor,
+        maxLines = 1,
+    )
+}
+
+@Composable
+private fun TextFacetRow(
+    value: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 6.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Checkbox(
+            checked = selected,
+            onCheckedChange = { onClick() },
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+private enum class LibraryFilterPanel {
+    Format,
+    Author,
+    Series,
+}
+
+@Composable
+private fun FilterToggleChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = {
+            Text(
+                text = label,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        },
+    )
 }
 
 @Composable
@@ -533,4 +994,18 @@ private fun formatBadgeText(formatType: FormatType): String = when (formatType) 
     FormatType.CBR -> "CBR"
     FormatType.EPUB -> "EPUB"
     FormatType.PDF -> ""
+}
+
+private fun <T> Set<T>.toggle(value: T): Set<T> =
+    if (value in this) this - value else this + value
+
+private fun String.filterLetter(
+    letterKey: (String) -> String,
+): String? {
+    val first = letterKey(this).trim().firstOrNull() ?: return null
+    return if (first.isLetterOrDigit()) {
+        first.uppercaseChar().toString()
+    } else {
+        "#"
+    }
 }
