@@ -322,6 +322,17 @@ class LocalDocumentRepository(
                 epubCoverEntryName = metadata?.coverEntryName,
             )
         }
+        if (isPdfDocument(displayName, contentType) && isValidPdfDocument(uri)) {
+            return LocalDocumentRecord(
+                id = buildItemId(uri, FormatType.PDF),
+                uri = persistedUri,
+                displayName = displayName,
+                title = displayName.removeSuffixIgnoreCase(".pdf"),
+                format = FormatType.PDF,
+                pageCount = 0,
+                pageEntryNames = emptyList(),
+            )
+        }
         val archive = resolveCodec(displayName, uri)
         if (archive != null) {
             val pageEntryNames = archive.pageEntryNames
@@ -372,6 +383,19 @@ class LocalDocumentRepository(
         } ?: false
     }.getOrElse { throwable ->
         Log.w(LOG_TAG, "Failed to validate EPUB import for $uri", throwable)
+        false
+    }
+
+    private fun isValidPdfDocument(
+        uri: Uri,
+    ): Boolean = runCatching {
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            val signature = ByteArray(PDF_SIGNATURE.size)
+            val bytesRead = input.read(signature)
+            bytesRead == PDF_SIGNATURE.size && signature.contentEquals(PDF_SIGNATURE)
+        } ?: false
+    }.getOrElse { throwable ->
+        Log.w(LOG_TAG, "Failed to validate PDF import for $uri", throwable)
         false
     }
 
@@ -630,6 +654,8 @@ private fun File.isValidCoverFileFor(
 
 internal const val LOCAL_LIBRARY_ID = "local-imports"
 internal const val IMPORTED_EPUB_MIMETYPE = "application/epub+zip"
+internal const val IMPORTED_PDF_MIMETYPE = "application/pdf"
+private val PDF_SIGNATURE = "%PDF-".encodeToByteArray()
 
 internal fun LocalDocumentRecord.toEntity(): ImportedComicArchiveEntity = ImportedComicArchiveEntity(
     itemId = id,
@@ -670,8 +696,8 @@ internal data class LocalDocumentRecord(
 private fun LocalDocumentRecord.isSupportedLocalFormat(): Boolean = when (format) {
     FormatType.CBZ,
     FormatType.CBR,
-    FormatType.EPUB -> true
-    FormatType.PDF -> false
+    FormatType.EPUB,
+    FormatType.PDF -> true
 }
 
 internal object NaturalPageOrderComparator : Comparator<String> {
@@ -746,11 +772,18 @@ private val EpubLocalImportFormatSpec = LocalImportFormatSpec(
     buildDescription = { "Imported local EPUB book." },
 )
 
+private val PdfLocalImportFormatSpec = LocalImportFormatSpec(
+    idPrefix = "document",
+    libraryId = LOCAL_LIBRARY_ID,
+    sourceType = SourceType.LOCAL,
+    buildDescription = { "Imported local PDF document." },
+)
+
 private fun FormatType.localImportFormatSpec(): LocalImportFormatSpec = when (this) {
     FormatType.CBZ,
     FormatType.CBR -> ComicLocalImportFormatSpec
     FormatType.EPUB -> EpubLocalImportFormatSpec
-    FormatType.PDF -> error("PDF is not a supported local import format.")
+    FormatType.PDF -> PdfLocalImportFormatSpec
 }
 
 internal fun FormatType.localImportTitleFallback(
@@ -759,7 +792,7 @@ internal fun FormatType.localImportTitleFallback(
     FormatType.CBZ,
     FormatType.CBR -> displayName.comicArchiveTitle()
     FormatType.EPUB -> displayName.removeSuffixIgnoreCase(".epub")
-    FormatType.PDF -> displayName
+    FormatType.PDF -> displayName.removeSuffixIgnoreCase(".pdf")
 }
 
 private fun isEpubDocument(
@@ -767,6 +800,12 @@ private fun isEpubDocument(
     contentType: String?,
 ): Boolean = displayName.endsWith(".epub", ignoreCase = true) ||
     (contentType?.equals(IMPORTED_EPUB_MIMETYPE, ignoreCase = true) == true)
+
+private fun isPdfDocument(
+    displayName: String,
+    contentType: String?,
+): Boolean = displayName.endsWith(".pdf", ignoreCase = true) ||
+    (contentType?.equals(IMPORTED_PDF_MIMETYPE, ignoreCase = true) == true)
 
 private fun String.removeSuffixIgnoreCase(
     suffix: String,

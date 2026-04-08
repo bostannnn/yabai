@@ -618,6 +618,24 @@ class AppViewModelTest {
     }
 
     @Test
+    fun `selected source hydration reflects remote catalog readiness`() {
+        val remoteCatalogReadiness = FakeRemoteCatalogReadiness(initialHydrated = false)
+        val viewModel = createViewModel(
+            remoteCatalogReadiness = remoteCatalogReadiness,
+        )
+
+        viewModel.onSourceSelected(SourceType.GRIMMORY)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(false, viewModel.uiState.isSelectedSourceHydrated)
+
+        remoteCatalogReadiness.emit(true)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(true, viewModel.uiState.isSelectedSourceHydrated)
+    }
+
+    @Test
     fun `connect grimmory syncs catalog and switches to grimmory library`() {
         val syncer = FakeGrimmoryCatalogSyncer(
             result = GrimmoryCatalogSyncResult(
@@ -897,6 +915,7 @@ class AppViewModelTest {
         grimmoryCredentialStore: GrimmoryCredentialStore = FakeGrimmoryCredentialStore(),
         grimmoryCoverRepository: GrimmoryCoverDataSource = FakeGrimmoryCoverRepository(),
         grimmoryContentRepository: GrimmoryContentDataSource = FakeGrimmoryContentRepository(),
+        remoteCatalogReadiness: RemoteCatalogReadiness = FakeRemoteCatalogReadiness(),
         sourceProgressSyncs: List<SourceProgressSync> = emptyList(),
         libraryRepository: FakeLibraryRepository = FakeLibraryRepository(
             libraries = listOf(
@@ -919,7 +938,12 @@ class AppViewModelTest {
             localDocumentDataSource = importedRepository,
             readerSessionStore = readerSessionStore,
         ),
-        grimmoryCatalogSyncer = grimmoryCatalogSyncer,
+        grimmoryCoordinator = AppGrimmoryCoordinator(
+            grimmoryCatalogSyncer = grimmoryCatalogSyncer,
+            grimmoryCredentialStore = grimmoryCredentialStore,
+            grimmoryCoverRepository = grimmoryCoverRepository,
+        ),
+        remoteCatalogReadiness = remoteCatalogReadiness,
         grimmoryCredentialStore = grimmoryCredentialStore,
         grimmoryCoverRepository = grimmoryCoverRepository,
         grimmoryContentRepository = grimmoryContentRepository,
@@ -948,6 +972,19 @@ private class FakeGrimmoryCatalogSyncer(
         lastRequest = request
         failure?.let { throw it }
         return result
+    }
+}
+
+private class FakeRemoteCatalogReadiness(
+    initialHydrated: Boolean = true,
+) : RemoteCatalogReadiness {
+    private val hydrationState = MutableStateFlow(initialHydrated)
+    override val isHydratedFlow: StateFlow<Boolean> = hydrationState
+
+    fun emit(
+        hydrated: Boolean,
+    ) {
+        hydrationState.value = hydrated
     }
 }
 

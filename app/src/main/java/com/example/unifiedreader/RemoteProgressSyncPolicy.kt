@@ -38,24 +38,19 @@ internal fun decideRemoteProgressSync(
         }
     }
 
-    if (local == null || local.syncState == SyncState.CLEAN) {
-        return RemoteProgressSyncDecision.ApplyRemote(
-            locator = remote.toReaderLocator(),
-            isFinished = remote.isFinished,
+    if (local == null) {
+        return remote.toApplyRemoteDecision(
             updatedAtEpochMillis = remote.updatedAtEpochMillis ?: nowEpochMillis,
         )
     }
 
     val remoteUpdatedAtEpochMillis = remote.updatedAtEpochMillis
-    return if (
-        remoteUpdatedAtEpochMillis != null &&
-        remoteUpdatedAtEpochMillis > local.updatedAtEpochMillis
-    ) {
-        RemoteProgressSyncDecision.ApplyRemote(
-            locator = remote.toReaderLocator(),
-            isFinished = remote.isFinished,
-            updatedAtEpochMillis = remoteUpdatedAtEpochMillis,
-        )
+    if (remoteUpdatedAtEpochMillis == null) {
+        return RemoteProgressSyncDecision.KeepLocal
+    }
+
+    return if (remoteUpdatedAtEpochMillis > local.updatedAtEpochMillis) {
+        remote.toApplyRemoteDecision(updatedAtEpochMillis = remoteUpdatedAtEpochMillis)
     } else {
         RemoteProgressSyncDecision.KeepLocal
     }
@@ -86,4 +81,12 @@ internal fun ReadingProgress.toReaderLocator(): ReaderLocator = ReaderLocator(
     page = page,
     cfi = cfi,
     percent = percent,
+)
+
+private fun ReadingProgress.toApplyRemoteDecision(
+    updatedAtEpochMillis: Long,
+): RemoteProgressSyncDecision.ApplyRemote = RemoteProgressSyncDecision.ApplyRemote(
+    locator = toReaderLocator(),
+    isFinished = isFinished,
+    updatedAtEpochMillis = updatedAtEpochMillis,
 )

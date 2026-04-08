@@ -146,7 +146,31 @@ class ImportedComicArchiveRepositoryTest {
     }
 
     @Test
-    fun `legacy persisted pdf rows are ignored during hydration`() = runBlocking {
+    fun `pdf import creates local readable item`() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val repository = LocalDocumentRepository(
+            context = context,
+            importedComicArchiveDao = RepositoryImportedComicArchiveDao(),
+            scope = kotlinx.coroutines.CoroutineScope(Dispatchers.Unconfined),
+        )
+        val pdfFile = createFile(
+            name = "left-hand-of-darkness.pdf",
+            bytes = "%PDF-1.7\nmock pdf".encodeToByteArray(),
+        )
+
+        val imported = repository.import(Uri.fromFile(pdfFile))
+
+        assertNotNull(imported)
+        assertEquals(FormatType.PDF, imported?.format)
+        assertEquals(SourceType.LOCAL, imported?.sourceType)
+        assertEquals(LOCAL_LIBRARY_ID, imported?.libraryId)
+        assertEquals("left-hand-of-darkness", imported?.title)
+        assertEquals("Imported local PDF document.", imported?.description)
+        assertEquals(null, imported?.coverUrl)
+    }
+
+    @Test
+    fun `persisted pdf rows are hydrated as local items`() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Application>()
         val dao = RepositoryImportedComicArchiveDao().apply {
             insertOrReplace(
@@ -176,7 +200,11 @@ class ImportedComicArchiveRepositoryTest {
         )
         repository.isHydratedFlow.first { it }
 
-        assertTrue(repository.getImportedItems().isEmpty())
+        val hydrated = repository.getImportedItems().single()
+        assertEquals("pdf-legacy", hydrated.id)
+        assertEquals(FormatType.PDF, hydrated.format)
+        assertEquals("Legacy PDF", hydrated.title)
+        assertEquals(SourceType.LOCAL, hydrated.sourceType)
     }
 
     @Test

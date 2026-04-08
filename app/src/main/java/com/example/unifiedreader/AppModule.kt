@@ -69,6 +69,11 @@ object AppModule {
     ): RemoteCatalogWriter = repository
 
     @Provides
+    fun provideRemoteCatalogReadiness(
+        repository: RoomRemoteCatalogRepository,
+    ): RemoteCatalogReadiness = repository
+
+    @Provides
     fun provideGrimmoryApiFactory(
         httpClient: HttpClient,
     ): GrimmoryApiFactory = GrimmoryApiFactory { baseUrl ->

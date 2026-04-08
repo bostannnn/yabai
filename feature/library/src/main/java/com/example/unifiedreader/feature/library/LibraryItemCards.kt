@@ -1,0 +1,476 @@
+package com.example.unifiedreader.feature.library
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DownloadDone
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.SourceType
+
+internal fun itemDeleteRequest(
+    item: ReadableItem,
+    onDeleteCandidateSelected: (ReadableItem) -> Unit,
+): (() -> Unit)? = if (item.isLocalImport) {
+    { onDeleteCandidateSelected(item) }
+} else {
+    null
+}
+
+internal fun ReadableItem.isDownloaded(
+    downloadedItemIds: Set<String>,
+): Boolean = sourceType == SourceType.GRIMMORY && id in downloadedItemIds
+
+internal fun itemDownloadRequest(
+    item: ReadableItem,
+    downloadedItemIds: Set<String>,
+    downloadingItemIds: Set<String>,
+    onDownloadItem: (ReadableItem) -> Unit,
+): (() -> Unit)? = if (
+    item.sourceType == SourceType.GRIMMORY &&
+    item.id !in downloadedItemIds &&
+    item.id !in downloadingItemIds
+) {
+    { onDownloadItem(item) }
+} else {
+    null
+}
+
+internal fun itemDownloadedDeleteRequest(
+    item: ReadableItem,
+    downloadedItemIds: Set<String>,
+    onDeleteDownloadedItem: (ReadableItem) -> Unit,
+): (() -> Unit)? = if (item.sourceType == SourceType.GRIMMORY && item.id in downloadedItemIds) {
+    { onDeleteDownloadedItem(item) }
+} else {
+    null
+}
+
+private data class ItemMenuAction(
+    val label: String,
+    val enabled: Boolean = true,
+    val onClick: () -> Unit,
+)
+
+private fun itemMenuActions(
+    isDownloading: Boolean,
+    onDeleteRequested: (() -> Unit)?,
+    onDownloadRequested: (() -> Unit)?,
+    onDeleteDownloadedRequested: (() -> Unit)?,
+): List<ItemMenuAction> = buildList {
+    if (isDownloading) {
+        add(ItemMenuAction(label = "Downloading...", enabled = false, onClick = {}))
+    }
+    onDownloadRequested?.let { add(ItemMenuAction(label = "Download file", onClick = it)) }
+    onDeleteDownloadedRequested?.let { add(ItemMenuAction(label = "Delete local file", onClick = it)) }
+    onDeleteRequested?.let { add(ItemMenuAction(label = "Remove local file", onClick = it)) }
+}
+
+@Composable
+internal fun DetailedItemCard(
+    item: ReadableItem,
+    progress: ItemProgressSummary?,
+    isDownloaded: Boolean,
+    isDownloading: Boolean,
+    coverImageUrlProvider: (ReadableItem) -> String?,
+    onCoverVisible: (ReadableItem) -> Unit,
+    onClick: () -> Unit,
+    onDeleteRequested: (() -> Unit)?,
+    onDownloadRequested: (() -> Unit)?,
+    onDeleteDownloadedRequested: (() -> Unit)?,
+) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("library-detailed-card-${item.id}"),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+        ) {
+            val coverWidth = (maxWidth * 0.36f).coerceIn(72.dp, 104.dp)
+            val menuActions = itemMenuActions(
+                isDownloading = isDownloading,
+                onDeleteRequested = onDeleteRequested,
+                onDownloadRequested = onDownloadRequested,
+                onDeleteDownloadedRequested = onDeleteDownloadedRequested,
+            )
+            val menuSpace = if (menuActions.isNotEmpty()) 48.dp else 0.dp
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(end = menuSpace),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    LibraryCover(
+                        item = item,
+                        coverUrl = coverImageUrlProvider(item),
+                        isDownloaded = isDownloaded,
+                        onCoverVisible = onCoverVisible,
+                        modifier = Modifier
+                            .width(coverWidth)
+                            .aspectRatio(2f / 3f),
+                    )
+                    DetailedItemTextBlock(
+                        item = item,
+                        progress = progress,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                if (menuActions.isNotEmpty()) {
+                    ItemOverflowMenu(
+                        modifier = Modifier.align(Alignment.TopEnd),
+                        actions = menuActions,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun GridCoverCard(
+    item: ReadableItem,
+    isDownloaded: Boolean,
+    isDownloading: Boolean,
+    coverImageUrlProvider: (ReadableItem) -> String?,
+    onCoverVisible: (ReadableItem) -> Unit,
+    onClick: () -> Unit,
+    onDeleteRequested: (() -> Unit)?,
+    onDownloadRequested: (() -> Unit)?,
+    onDeleteDownloadedRequested: (() -> Unit)?,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("library-grid-card-${item.id}")
+            .clickable(onClick = onClick),
+    ) {
+        LibraryCover(
+            item = item,
+            coverUrl = coverImageUrlProvider(item),
+            isDownloaded = isDownloaded,
+            onCoverVisible = onCoverVisible,
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(2f / 3f),
+        )
+        val menuActions = itemMenuActions(
+            isDownloading = isDownloading,
+            onDeleteRequested = onDeleteRequested,
+            onDownloadRequested = onDownloadRequested,
+            onDeleteDownloadedRequested = onDeleteDownloadedRequested,
+        )
+        if (menuActions.isNotEmpty()) {
+            ItemOverflowMenu(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(6.dp),
+                actions = menuActions,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ItemOverflowMenu(
+    modifier: Modifier = Modifier,
+    actions: List<ItemMenuAction>,
+) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val menuButtonShape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
+    Box(modifier = modifier) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .semantics {
+                    contentDescription = "More actions"
+                    role = Role.Button
+                }
+                .clickable(onClick = { expanded = true }),
+            contentAlignment = Alignment.TopEnd,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .shadow(
+                        elevation = 3.dp,
+                        shape = menuButtonShape,
+                        clip = false,
+                        ambientColor = Color.Black.copy(alpha = 0.18f),
+                        spotColor = Color.Black.copy(alpha = 0.22f),
+                    )
+                    .clip(menuButtonShape)
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.88f))
+                    .border(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f),
+                        shape = menuButtonShape,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            actions.forEach { action ->
+                DropdownMenuItem(
+                    text = { Text(text = action.label) },
+                    enabled = action.enabled,
+                    onClick = {
+                        expanded = false
+                        action.onClick()
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LibraryCover(
+    item: ReadableItem,
+    coverUrl: String? = item.coverUrl,
+    isDownloaded: Boolean = false,
+    onCoverVisible: (ReadableItem) -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
+    val coverShape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+    val coverBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)
+
+    LaunchedEffect(item.id, item.sourceType, coverUrl) {
+        if (
+            item.sourceType == SourceType.GRIMMORY &&
+            !coverUrl.orEmpty().startsWith("file:", ignoreCase = true)
+        ) {
+            onCoverVisible(item)
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .shadow(
+                elevation = 8.dp,
+                shape = coverShape,
+                clip = false,
+                ambientColor = Color.Black.copy(alpha = 0.22f),
+                spotColor = Color.Black.copy(alpha = 0.28f),
+            )
+            .clip(coverShape)
+            .background(
+                brush = Brush.linearGradient(listOf(Color(0xFF425E6B), Color(0xFF141A20))),
+            )
+            .border(
+                width = 1.dp,
+                color = coverBorderColor,
+                shape = coverShape,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (coverUrl != null) {
+            AsyncImage(
+                model = coverUrl,
+                contentDescription = item.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            Text(
+                text = formatBadgeText(item.format),
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    brush = Brush.horizontalGradient(
+                        colorStops = arrayOf(
+                            0.00f to Color.Black.copy(alpha = 0.22f),
+                            0.04f to Color.White.copy(alpha = 0.08f),
+                            0.11f to Color.Transparent,
+                            0.88f to Color.Transparent,
+                            1.00f to Color.Black.copy(alpha = 0.08f),
+                        ),
+                    ),
+                ),
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    brush = Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0.00f to Color.White.copy(alpha = 0.12f),
+                            0.20f to Color.Transparent,
+                            0.82f to Color.Transparent,
+                            1.00f to Color.Black.copy(alpha = 0.10f),
+                        ),
+                    ),
+                ),
+        )
+        if (isDownloaded) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(6.dp),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.94f),
+                tonalElevation = 2.dp,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.DownloadDone,
+                    contentDescription = "Downloaded",
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier
+                        .padding(4.dp)
+                        .size(16.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProgressSummary(
+    progress: ItemProgressSummary,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = progress.detailLabel,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        LinearProgressIndicator(
+            progress = { progress.fraction.coerceIn(0f, 1f) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .alpha(0.92f),
+        )
+    }
+}
+
+@Composable
+private fun DetailedItemTextBlock(
+    item: ReadableItem,
+    progress: ItemProgressSummary?,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        val primaryText = itemPrimaryText(item)
+        val secondaryText = itemSecondaryText(item)
+        val tertiaryText = itemTertiaryText(item)
+        val pageCountText = itemPageCountText(item, progress)
+
+        Text(
+            text = primaryText,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = itemPrimaryMaxLines(item),
+            overflow = TextOverflow.Ellipsis,
+        )
+
+        secondaryText?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+
+        tertiaryText?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+
+        pageCountText?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+
+        progress?.let {
+            Box(modifier = Modifier.padding(top = 2.dp)) {
+                ProgressSummary(progress = it)
+            }
+        }
+    }
+}

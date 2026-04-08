@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import android.util.Log
 import com.example.unifiedreader.core.database.dao.RemoteCatalogDao
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
@@ -10,11 +11,17 @@ import com.example.unifiedreader.data.repository.ReadableItemRepository
 import com.example.unifiedreader.data.repository.SampleCatalogRepository
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.ReadableItem
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 interface RemoteCatalogWriter {
@@ -29,23 +36,62 @@ interface RemoteCatalogWriter {
     )
 }
 
+interface RemoteCatalogReadiness {
+    val isHydratedFlow: StateFlow<Boolean>
+}
+
 class RoomRemoteCatalogRepository(
     private val remoteCatalogDao: RemoteCatalogDao,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
-) : LibraryRepository, ReadableItemRepository, RemoteCatalogWriter {
-    override fun getLibraries(): List<Library> = emptyList()
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + ioDispatcher),
+) : LibraryRepository, ReadableItemRepository, RemoteCatalogWriter, RemoteCatalogReadiness {
+    private val librariesState = MutableStateFlow<List<Library>>(emptyList())
+    private val itemsState = MutableStateFlow<List<ReadableItem>>(emptyList())
+    private val hydrationState = MutableStateFlow(false)
+    override val isHydratedFlow: StateFlow<Boolean> = hydrationState.asStateFlow()
 
-    override fun observeLibraries(): Flow<List<Library>> =
-        remoteCatalogDao.observeLibraries().map { libraries ->
-            libraries.map(LibraryEntity::toDomain)
+    init {
+        scope.launch {
+            try {
+                runCatching {
+                    remoteCatalogDao.getLibraries()
+                        .map(LibraryEntity::toDomain)
+                }.onSuccess { libraries ->
+                    librariesState.value = libraries
+                }.onFailure { throwable ->
+                    logSeedFailure("Unable to seed remote catalog libraries.", throwable)
+                }
+                runCatching {
+                    remoteCatalogDao.getItems()
+                        .map(ReadableItemEntity::toDomain)
+                }.onSuccess { items ->
+                    itemsState.value = items
+                }.onFailure { throwable ->
+                    logSeedFailure("Unable to seed remote catalog items.", throwable)
+                }
+            } finally {
+                hydrationState.value = true
+            }
         }
-
-    override fun getItems(): List<ReadableItem> = emptyList()
-
-    override fun observeItems(): Flow<List<ReadableItem>> =
-        remoteCatalogDao.observeItems().map { items ->
-            items.map(ReadableItemEntity::toDomain)
+        scope.launch {
+            remoteCatalogDao.observeLibraries().collect { libraries ->
+                librariesState.value = libraries.map(LibraryEntity::toDomain)
+            }
         }
+        scope.launch {
+            remoteCatalogDao.observeItems().collect { items ->
+                itemsState.value = items.map(ReadableItemEntity::toDomain)
+            }
+        }
+    }
+
+    override fun getLibraries(): List<Library> = librariesState.value
+
+    override fun observeLibraries(): Flow<List<Library>> = librariesState.asStateFlow()
+
+    override fun getItems(): List<ReadableItem> = itemsState.value
+
+    override fun observeItems(): Flow<List<ReadableItem>> = itemsState.asStateFlow()
 
     override suspend fun getItemsForSourceType(
         sourceType: SourceType,
@@ -91,3 +137,14 @@ class CompositeCatalogRepository(
         sampleItems + remoteItems
     }
 }
+
+private fun logSeedFailure(
+    message: String,
+    throwable: Throwable,
+) {
+    runCatching {
+        Log.w(LOG_TAG, message, throwable)
+    }
+}
+
+private const val LOG_TAG = "RemoteCatalogRepo"

@@ -92,11 +92,15 @@ private fun ReaderWindowEffect(
 
     DisposableEffect(activity, isImmersive) {
         val window = activity.window
-        WindowCompat.setDecorFitsSystemWindows(window, true)
+        WindowCompat.setDecorFitsSystemWindows(window, !isImmersive)
         val controller = WindowInsetsControllerCompat(window, view)
         controller.systemBarsBehavior =
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        controller.show(WindowInsetsCompat.Type.systemBars())
+        if (isImmersive) {
+            controller.hide(WindowInsetsCompat.Type.systemBars())
+        } else {
+            controller.show(WindowInsetsCompat.Type.systemBars())
+        }
         onDispose {
             WindowCompat.setDecorFitsSystemWindows(window, true)
             controller.show(WindowInsetsCompat.Type.systemBars())

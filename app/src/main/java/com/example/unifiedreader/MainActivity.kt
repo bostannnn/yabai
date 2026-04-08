@@ -484,6 +484,7 @@ private fun LibraryFlow(
             downloadedItemIds = uiState.downloadedGrimmoryItemIds,
             downloadingItemIds = uiState.downloadingGrimmoryItemIds,
             libraryErrorMessage = uiState.visibleLibraryErrorMessage,
+            isLoadingSource = !uiState.isSelectedSourceHydrated,
             filterState = uiState.selectedLibraryFilters,
             filterFacets = uiState.selectedLibraryFilterFacets,
             searchQuery = uiState.selectedLibrarySearchQuery,
