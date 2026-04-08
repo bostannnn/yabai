@@ -68,6 +68,105 @@ class KavitaDtosTest {
     }
 
     @Test
+    fun `series detail merges unique volume chapters and ignores duplicates`() {
+        val series = KavitaSeriesDto(
+            id = 12,
+            name = "Saga",
+            libraryId = 5,
+            format = 1,
+        ).toEntry(
+            baseUrl = "https://kavita.example",
+            apiKey = "secret",
+        ) ?: error("Expected series entry.")
+
+        val entries = KavitaSeriesDetailDto(
+            chapters = listOf(
+                KavitaChapterDto(
+                    id = 21,
+                    range = "1",
+                    title = "Opening Shot",
+                    pages = 28,
+                    volumeId = 7,
+                ),
+            ),
+            specials = listOf(
+                KavitaChapterDto(
+                    id = 21,
+                    range = "1",
+                    title = "Opening Shot",
+                    pages = 28,
+                    volumeId = 7,
+                ),
+            ),
+            volumes = listOf(
+                KavitaVolumeDto(
+                    id = 7,
+                    name = "1",
+                    chapters = listOf(
+                        KavitaChapterDto(
+                            id = 21,
+                            range = "1",
+                            title = "Opening Shot",
+                            pages = 28,
+                            volumeId = 7,
+                        ),
+                        KavitaChapterDto(
+                            id = 22,
+                            range = "2",
+                            title = "Second Shot",
+                            pages = 30,
+                            volumeId = 7,
+                        ),
+                    ),
+                ),
+            ),
+        ).toCatalogEntries(
+            series = series,
+        )
+
+        assertEquals(2, entries.size)
+        assertEquals(listOf("21", "22"), entries.map { it.item.remoteId })
+        assertEquals(listOf("1", "1"), entries.map { it.item.comicMetadata?.volume })
+    }
+
+    @Test
+    fun `series detail dedupes repeated top level chapter ids`() {
+        val series = KavitaSeriesDto(
+            id = 12,
+            name = "Saga",
+            libraryId = 5,
+            format = 1,
+        ).toEntry(
+            baseUrl = "https://kavita.example",
+            apiKey = "secret",
+        ) ?: error("Expected series entry.")
+
+        val entries = KavitaSeriesDetailDto(
+            chapters = listOf(
+                KavitaChapterDto(
+                    id = 21,
+                    range = "1",
+                    title = "Opening Shot",
+                    pages = 28,
+                ),
+            ),
+            storylineChapters = listOf(
+                KavitaChapterDto(
+                    id = 21,
+                    range = "1",
+                    title = "Opening Shot",
+                    pages = 28,
+                ),
+            ),
+        ).toCatalogEntries(
+            series = series,
+        )
+
+        assertEquals(1, entries.size)
+        assertEquals("21", entries.single().item.remoteId)
+    }
+
+    @Test
     fun `zero page progress is treated as unread`() {
         val progress = KavitaProgressDto(
             chapterId = 21,

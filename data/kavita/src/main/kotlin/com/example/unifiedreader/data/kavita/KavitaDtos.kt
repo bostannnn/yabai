@@ -215,7 +215,8 @@ internal fun KavitaSeriesDetailDto.toCatalogEntries(
         .mapNotNull { chapter ->
             chapter.toCatalogEntry(
                 series = series,
-                volumeName = chapter.volumeId?.toString()?.let(volumeNamesById::get),
+                volumeName = chapter.volumeTitle?.takeIf(String::isNotBlank)
+                    ?: chapter.volumeId?.toString()?.let(volumeNamesById::get),
                 baseUrl = baseUrl,
                 apiKey = apiKey,
             )
