@@ -2,7 +2,9 @@ package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.libraryDisplayLabel
+import com.example.unifiedreader.data.kavita.KavitaSession
 import com.example.unifiedreader.data.grimmory.GrimmorySession
+import com.example.unifiedreader.feature.settings.KavitaConnectionUiState
 import com.example.unifiedreader.feature.settings.GrimmoryConnectionUiState
 import java.util.Locale
 
@@ -40,6 +42,27 @@ internal fun GrimmoryConnectionUiState.withStoredSession(
     )
 }
 
+internal fun KavitaConnectionUiState.withStoredSession(
+    session: KavitaStoredSession?,
+): KavitaConnectionUiState = if (session == null) {
+    copy(
+        hasStoredSession = false,
+        syncProgressFraction = null,
+        syncProgressLabel = null,
+    )
+} else {
+    copy(
+        displayName = session.displayName,
+        baseUrl = session.baseUrl,
+        username = session.username,
+        password = "",
+        hasStoredSession = true,
+        syncProgressFraction = null,
+        syncProgressLabel = null,
+        isError = false,
+    )
+}
+
 internal fun GrimmorySession.toStoredSession(
     displayName: String,
     baseUrl: String,
@@ -50,6 +73,19 @@ internal fun GrimmorySession.toStoredSession(
     username = username,
     accessToken = accessToken,
     refreshToken = refreshToken,
+)
+
+internal fun KavitaSession.toStoredSession(
+    displayName: String,
+    baseUrl: String,
+    username: String,
+): KavitaStoredSession = KavitaStoredSession(
+    displayName = displayName,
+    baseUrl = baseUrl,
+    username = username,
+    accessToken = accessToken,
+    refreshToken = refreshToken,
+    apiKey = apiKey,
 )
 
 internal fun Throwable.userFacingMessage(): String =

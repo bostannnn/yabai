@@ -19,11 +19,11 @@ internal fun buildProgressSummaries(
     val summary = when (progress.locatorType) {
         LocatorType.PAGE -> {
             val pageIndex = progress.page ?: return@associateNotNull null
-            val pageCount = sessionPageCount ?: when (item.format) {
+            val pageCount = sessionPageCount ?: item.pageCount ?: when (item.format) {
                 FormatType.CBZ,
                 FormatType.CBR -> localPageCountProvider(item)
                 FormatType.EPUB -> 0
-                FormatType.PDF -> return@associateNotNull null
+                FormatType.PDF -> 0
             }
             buildItemProgressSummary(
                 pageIndex = pageIndex,

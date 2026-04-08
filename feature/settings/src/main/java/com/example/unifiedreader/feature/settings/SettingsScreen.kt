@@ -14,6 +14,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
@@ -37,8 +38,14 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun SettingsScreen(
     themeMode: ThemeMode,
+    kavitaConnection: KavitaConnectionUiState,
     grimmoryConnection: GrimmoryConnectionUiState,
     onThemeModeSelected: (ThemeMode) -> Unit,
+    onKavitaDisplayNameChanged: (String) -> Unit,
+    onKavitaBaseUrlChanged: (String) -> Unit,
+    onKavitaUsernameChanged: (String) -> Unit,
+    onKavitaPasswordChanged: (String) -> Unit,
+    onConnectKavita: () -> Unit,
     onGrimmoryDisplayNameChanged: (String) -> Unit,
     onGrimmoryBaseUrlChanged: (String) -> Unit,
     onGrimmoryUsernameChanged: (String) -> Unit,
@@ -104,11 +111,31 @@ fun SettingsScreen(
 
         item {
             SettingsCard(
+                title = "Kavita",
+                body = "Connect a Kavita server and sync comic libraries into the Kavita tab.",
+            ) {
+                ServerConnectionForm(
+                    state = kavitaConnection.toFormState(),
+                    connectLabel = "Connect Kavita",
+                    syncLabel = "Sync Kavita",
+                    onDisplayNameChanged = onKavitaDisplayNameChanged,
+                    onBaseUrlChanged = onKavitaBaseUrlChanged,
+                    onUsernameChanged = onKavitaUsernameChanged,
+                    onPasswordChanged = onKavitaPasswordChanged,
+                    onConnect = onConnectKavita,
+                )
+            }
+        }
+
+        item {
+            SettingsCard(
                 title = "Grimmory",
                 body = "Connect a Grimmory server and sync book libraries into the Grimmory tab.",
             ) {
-                GrimmoryConnectionForm(
-                    state = grimmoryConnection,
+                ServerConnectionForm(
+                    state = grimmoryConnection.toFormState(),
+                    connectLabel = "Connect Grimmory",
+                    syncLabel = "Sync Grimmory",
                     onDisplayNameChanged = onGrimmoryDisplayNameChanged,
                     onBaseUrlChanged = onGrimmoryBaseUrlChanged,
                     onUsernameChanged = onGrimmoryUsernameChanged,
@@ -136,9 +163,25 @@ fun SettingsScreen(
     }
 }
 
+private data class ServerConnectionFormState(
+    val displayName: String,
+    val baseUrl: String,
+    val username: String,
+    val password: String,
+    val hasStoredSession: Boolean,
+    val isConnecting: Boolean,
+    val syncProgressFraction: Float?,
+    val syncProgressLabel: String?,
+    val message: String?,
+    val isError: Boolean,
+    val canSubmit: Boolean,
+)
+
 @Composable
-private fun GrimmoryConnectionForm(
-    state: GrimmoryConnectionUiState,
+private fun ServerConnectionForm(
+    state: ServerConnectionFormState,
+    connectLabel: String,
+    syncLabel: String,
     onDisplayNameChanged: (String) -> Unit,
     onBaseUrlChanged: (String) -> Unit,
     onUsernameChanged: (String) -> Unit,
@@ -204,10 +247,21 @@ private fun GrimmoryConnectionForm(
             if (state.isConnecting) {
                 CircularProgressIndicator()
             } else if (state.hasStoredSession && state.password.isBlank()) {
-                Text("Sync Grimmory")
+                Text(syncLabel)
             } else {
-                Text("Connect Grimmory")
+                Text(connectLabel)
             }
+        }
+        if (state.isConnecting && state.syncProgressLabel != null) {
+            LinearProgressIndicator(
+                progress = { state.syncProgressFraction ?: 0f },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                text = state.syncProgressLabel,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         state.message?.let { message ->
             Text(
@@ -268,3 +322,51 @@ data class GrimmoryConnectionUiState(
             username.isNotBlank() &&
             (password.isNotBlank() || hasStoredSession)
 }
+
+data class KavitaConnectionUiState(
+    val displayName: String = "Kavita",
+    val baseUrl: String = "",
+    val username: String = "",
+    val password: String = "",
+    val hasStoredSession: Boolean = false,
+    val isConnecting: Boolean = false,
+    val syncProgressFraction: Float? = null,
+    val syncProgressLabel: String? = null,
+    val message: String? = null,
+    val isError: Boolean = false,
+) {
+    val canSubmit: Boolean
+        get() = !isConnecting &&
+            displayName.isNotBlank() &&
+            baseUrl.isNotBlank() &&
+            username.isNotBlank() &&
+            (password.isNotBlank() || hasStoredSession)
+}
+
+private fun GrimmoryConnectionUiState.toFormState(): ServerConnectionFormState = ServerConnectionFormState(
+    displayName = displayName,
+    baseUrl = baseUrl,
+    username = username,
+    password = password,
+    hasStoredSession = hasStoredSession,
+    isConnecting = isConnecting,
+    syncProgressFraction = null,
+    syncProgressLabel = null,
+    message = message,
+    isError = isError,
+    canSubmit = canSubmit,
+)
+
+private fun KavitaConnectionUiState.toFormState(): ServerConnectionFormState = ServerConnectionFormState(
+    displayName = displayName,
+    baseUrl = baseUrl,
+    username = username,
+    password = password,
+    hasStoredSession = hasStoredSession,
+    isConnecting = isConnecting,
+    syncProgressFraction = syncProgressFraction,
+    syncProgressLabel = syncProgressLabel,
+    message = message,
+    isError = isError,
+    canSubmit = canSubmit,
+)

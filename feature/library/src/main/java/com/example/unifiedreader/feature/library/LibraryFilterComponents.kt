@@ -99,6 +99,7 @@ internal fun LibraryFilterSummary(
     selectedSource: SourceType,
     filterState: LibraryFilterState,
     filterFacets: LibraryFilterFacets,
+    libraryTitlesById: Map<String, String>,
     sortMode: LibrarySortMode,
     onOpenFilterPanel: (LibraryFilterPanel) -> Unit,
     onClearFilters: () -> Unit,
@@ -122,6 +123,13 @@ internal fun LibraryFilterSummary(
                 count = filterState.formats.size,
                 enabled = filterFacets.formats.isNotEmpty() || filterState.formats.isNotEmpty(),
                 onClick = { onOpenFilterPanel(LibraryFilterPanel.Format) },
+            )
+            LibraryFacetChip(
+                label = "Library",
+                count = filterState.libraries.size,
+                enabled = libraryTitlesById.isNotEmpty() &&
+                    (filterFacets.libraries.isNotEmpty() || filterState.libraries.isNotEmpty()),
+                onClick = { onOpenFilterPanel(LibraryFilterPanel.Library) },
             )
             LibraryFacetChip(
                 label = "Location",
@@ -148,14 +156,14 @@ internal fun LibraryFilterSummary(
             }
         }
         Spacer(modifier = Modifier.width(8.dp))
-        if (selectedSource == SourceType.GRIMMORY && onRefreshSource != null) {
+        if (selectedSource != SourceType.LOCAL && onRefreshSource != null) {
             IconButton(
                 onClick = onRefreshSource,
                 enabled = !isRefreshingSource,
             ) {
                 Icon(
                     imageVector = Icons.Default.Sync,
-                    contentDescription = "Re-sync Grimmory library",
+                    contentDescription = "Re-sync ${selectedSource.displayName()} library",
                     tint = if (isRefreshingSource) {
                         MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                     } else {
@@ -238,6 +246,7 @@ internal fun LibraryFilterPanelDialog(
     panel: LibraryFilterPanel,
     filterState: LibraryFilterState,
     filterFacets: LibraryFilterFacets,
+    libraryTitlesById: Map<String, String>,
     onFilterStateChanged: (LibraryFilterState) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -258,6 +267,20 @@ internal fun LibraryFilterPanelDialog(
                 )
             }
         }
+
+        LibraryFilterPanel.Library -> SearchableTextFacetDialog(
+            title = "Libraries",
+            values = filterFacets.libraries,
+            selectedValues = filterState.libraries,
+            valueLabel = { libraryId -> libraryTitlesById[libraryId] ?: libraryId },
+            onToggleValue = { libraryId ->
+                onFilterStateChanged(filterState.copy(libraries = filterState.libraries.toggle(libraryId)))
+            },
+            hasActiveFilters = filterState.libraries.isNotEmpty(),
+            onClearFilters = { onFilterStateChanged(filterState.copy(libraries = emptySet())) },
+            letterKey = { libraryId -> libraryTitlesById[libraryId] ?: libraryId },
+            onDismiss = onDismiss,
+        )
 
         LibraryFilterPanel.Location -> CompactFacetDialog(
             title = "Location",
@@ -337,6 +360,7 @@ private fun SearchableTextFacetDialog(
     title: String,
     values: List<String>,
     selectedValues: Set<String>,
+    valueLabel: (String) -> String = { it },
     onToggleValue: (String) -> Unit,
     hasActiveFilters: Boolean,
     onClearFilters: () -> Unit,
@@ -345,20 +369,24 @@ private fun SearchableTextFacetDialog(
 ) {
     var query by rememberSaveable(title) { mutableStateOf("") }
     var selectedLetter by rememberSaveable(title) { mutableStateOf<String?>(null) }
-    val searchedValues = remember(values, query) {
+    val searchedValues = remember(values, query, valueLabel) {
         val normalizedQuery = query.trim()
-        if (normalizedQuery.isEmpty()) values else values.filter { it.contains(normalizedQuery, ignoreCase = true) }
+        if (normalizedQuery.isEmpty()) {
+            values
+        } else {
+            values.filter { value -> valueLabel(value).contains(normalizedQuery, ignoreCase = true) }
+        }
     }
-    val availableLetters = remember(searchedValues, letterKey) {
+    val availableLetters = remember(searchedValues, letterKey, valueLabel) {
         searchedValues
-            .mapNotNull { it.filterLetter(letterKey) }
+            .mapNotNull { value -> valueLabel(value).filterLetter(letterKey) }
             .distinct()
             .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it })
     }
     val effectiveLetter = selectedLetter?.takeIf { it in availableLetters }
-    val visibleValues = remember(searchedValues, effectiveLetter, letterKey) {
+    val visibleValues = remember(searchedValues, effectiveLetter, letterKey, valueLabel) {
         effectiveLetter?.let { letter ->
-            searchedValues.filter { it.filterLetter(letterKey) == letter }
+            searchedValues.filter { value -> valueLabel(value).filterLetter(letterKey) == letter }
         } ?: searchedValues
     }
     FilterDialogScaffold(
@@ -405,7 +433,7 @@ private fun SearchableTextFacetDialog(
                     }
                     items(visibleValues, key = { it }) { value ->
                         TextFacetRow(
-                            value = value,
+                            value = valueLabel(value),
                             selected = value in selectedValues,
                             onClick = { onToggleValue(value) },
                         )
@@ -554,6 +582,7 @@ private fun TextFacetRow(
 
 internal enum class LibraryFilterPanel {
     Format,
+    Library,
     Location,
     Author,
     Series,

@@ -4,6 +4,7 @@ import android.content.Context
 import com.example.unifiedreader.core.database.UnifiedReaderDatabase
 import com.example.unifiedreader.core.database.UnifiedReaderDatabaseFactory
 import com.example.unifiedreader.core.network.buildHttpClient
+import com.example.unifiedreader.data.kavita.KtorKavitaApi
 import com.example.unifiedreader.data.grimmory.KtorGrimmoryApi
 import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
@@ -40,6 +41,12 @@ object AppModule {
     fun provideGrimmoryCredentialStore(
         @ApplicationContext context: Context,
     ): GrimmoryCredentialStore = SharedPreferencesGrimmoryCredentialStore(context)
+
+    @Provides
+    @Singleton
+    fun provideKavitaCredentialStore(
+        @ApplicationContext context: Context,
+    ): KavitaCredentialStore = SharedPreferencesKavitaCredentialStore(context)
 
     @Provides
     @Singleton
@@ -82,6 +89,28 @@ object AppModule {
             baseUrl = baseUrl,
         )
     }
+
+    @Provides
+    fun provideKavitaApiFactory(
+        httpClient: HttpClient,
+    ): KavitaApiFactory = KavitaApiFactory { baseUrl ->
+        KtorKavitaApi(
+            httpClient = httpClient,
+            baseUrl = baseUrl,
+        )
+    }
+
+    @Provides
+    @Singleton
+    fun provideKavitaCatalogSyncService(
+        kavitaApiFactory: KavitaApiFactory,
+        remoteCatalogWriter: RemoteCatalogWriter,
+        readerSessionStore: ReaderSessionStore,
+    ): KavitaCatalogSyncer = KavitaCatalogSyncService(
+        kavitaApiFactory = kavitaApiFactory,
+        remoteCatalogWriter = remoteCatalogWriter,
+        readerSessionStore = readerSessionStore,
+    )
 
     @Provides
     @Singleton
@@ -137,9 +166,23 @@ object AppModule {
     )
 
     @Provides
+    @Singleton
+    fun provideKavitaProgressSyncService(
+        kavitaApiFactory: KavitaApiFactory,
+        kavitaCredentialStore: KavitaCredentialStore,
+        readerSessionStore: ReaderSessionStore,
+    ): KavitaProgressSyncService = KavitaProgressSyncService(
+        kavitaApiFactory = kavitaApiFactory,
+        kavitaCredentialStore = kavitaCredentialStore,
+        readerSessionStore = readerSessionStore,
+    )
+
+    @Provides
     fun provideSourceProgressSyncs(
+        kavitaProgressSyncService: KavitaProgressSyncService,
         grimmoryProgressSyncService: GrimmoryProgressSyncService,
     ): List<@JvmSuppressWildcards SourceProgressSync> = listOf(
+        kavitaProgressSyncService,
         grimmoryProgressSyncService,
     )
 
@@ -220,7 +263,27 @@ object AppModule {
     @Singleton
     fun provideComicPageSource(
         repository: LocalDocumentRepository,
-    ): ComicPageSource = LocalComicPageSource(repository)
+    ): LocalComicPageSource = LocalComicPageSource(repository)
+
+    @Provides
+    @Singleton
+    fun provideKavitaPageSource(
+        kavitaApiFactory: KavitaApiFactory,
+        kavitaCredentialStore: KavitaCredentialStore,
+    ): KavitaPageSource = KavitaPageSource(
+        kavitaApiFactory = kavitaApiFactory,
+        kavitaCredentialStore = kavitaCredentialStore,
+    )
+
+    @Provides
+    @Singleton
+    fun provideCompositeComicPageSource(
+        localComicPageSource: LocalComicPageSource,
+        kavitaPageSource: KavitaPageSource,
+    ): ComicPageSource = CompositeComicPageSource(
+        localComicPageSource = localComicPageSource,
+        kavitaPageSource = kavitaPageSource,
+    )
 
     @Provides
     @Singleton

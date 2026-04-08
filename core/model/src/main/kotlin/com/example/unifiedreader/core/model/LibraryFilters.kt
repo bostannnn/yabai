@@ -5,12 +5,14 @@ import java.util.Locale
 
 data class LibraryFilterState(
     val formats: Set<FormatType> = emptySet(),
+    val libraries: Set<String> = emptySet(),
     val fileLocations: Set<LibraryFileLocation> = emptySet(),
     val authors: Set<String> = emptySet(),
     val series: Set<String> = emptySet(),
 ) {
     val isEmpty: Boolean
         get() = formats.isEmpty() &&
+            libraries.isEmpty() &&
             fileLocations.isEmpty() &&
             authors.isEmpty() &&
             series.isEmpty()
@@ -18,12 +20,14 @@ data class LibraryFilterState(
 
 data class LibraryFilterFacets(
     val formats: List<FormatType> = emptyList(),
+    val libraries: List<String> = emptyList(),
     val fileLocations: List<LibraryFileLocation> = emptyList(),
     val authors: List<String> = emptyList(),
     val series: List<String> = emptyList(),
 ) {
     val isEmpty: Boolean
         get() = formats.isEmpty() &&
+            libraries.isEmpty() &&
             fileLocations.isEmpty() &&
             authors.isEmpty() &&
             series.isEmpty()
@@ -50,6 +54,7 @@ fun applyLibraryFilters(
     if (filters.isEmpty) return items
     return items.filter { item ->
         filters.formats.matches(item.format) &&
+            filters.libraries.matches(item.libraryId) &&
             filters.fileLocations.matches(item.fileLocation(downloadedRemoteItemIds)) &&
             filters.authors.matches(item.normalizedAuthor()) &&
             filters.series.matches(item.normalizedSeries())
@@ -111,6 +116,7 @@ fun buildLibraryFilterFacets(
     downloadedRemoteItemIds: Set<String> = emptySet(),
 ): LibraryFilterFacets = LibraryFilterFacets(
     formats = items.map(ReadableItem::format).distinctByEnumOrder(),
+    libraries = items.map(ReadableItem::libraryId).distinctByTextOrder(),
     fileLocations = items.map { item -> item.fileLocation(downloadedRemoteItemIds) }.distinctByEnumOrder(),
     authors = items.mapNotNull(ReadableItem::normalizedAuthor).distinctByAuthorOrder(),
     series = items.mapNotNull(ReadableItem::normalizedSeries).distinctByTextOrder(),
@@ -147,7 +153,7 @@ private fun ReadableItem.fileLocation(
     downloadedRemoteItemIds: Set<String>,
 ): LibraryFileLocation = if (
     isLocalImport ||
-    (sourceType == SourceType.GRIMMORY && id in downloadedRemoteItemIds)
+    id in downloadedRemoteItemIds
 ) {
     LibraryFileLocation.LOCAL
 } else {

@@ -63,7 +63,7 @@ internal fun itemDeleteRequest(
 
 internal fun ReadableItem.isDownloaded(
     downloadedItemIds: Set<String>,
-): Boolean = sourceType == SourceType.GRIMMORY && id in downloadedItemIds
+): Boolean = id in downloadedItemIds
 
 internal fun itemDownloadRequest(
     item: ReadableItem,
@@ -71,7 +71,7 @@ internal fun itemDownloadRequest(
     downloadingItemIds: Set<String>,
     onDownloadItem: (ReadableItem) -> Unit,
 ): (() -> Unit)? = if (
-    item.sourceType == SourceType.GRIMMORY &&
+    item.supportsOfflineDownload() &&
     item.id !in downloadedItemIds &&
     item.id !in downloadingItemIds
 ) {
@@ -84,10 +84,16 @@ internal fun itemDownloadedDeleteRequest(
     item: ReadableItem,
     downloadedItemIds: Set<String>,
     onDeleteDownloadedItem: (ReadableItem) -> Unit,
-): (() -> Unit)? = if (item.sourceType == SourceType.GRIMMORY && item.id in downloadedItemIds) {
+): (() -> Unit)? = if (item.supportsOfflineDownload() && item.id in downloadedItemIds) {
     { onDeleteDownloadedItem(item) }
 } else {
     null
+}
+
+private fun ReadableItem.supportsOfflineDownload(): Boolean = when (sourceType) {
+    SourceType.GRIMMORY -> true
+    SourceType.KAVITA -> false
+    SourceType.LOCAL -> false
 }
 
 private data class ItemMenuAction(

@@ -5,6 +5,7 @@ import android.content.ContentResolver
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import androidx.activity.compose.BackHandler
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -22,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -130,6 +132,10 @@ fun UnifiedReaderAppContent(
             onDispose { }
         }
         val isReaderMode = uiState.activeReader != null && uiState.selectedItem != null
+        BackHandler(
+            enabled = isReaderMode || uiState.selectedKavitaSeriesKey != null,
+            onBack = viewModel::onBackPressed,
+        )
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background,
@@ -154,6 +160,8 @@ fun UnifiedReaderAppContent(
                             topLevel = uiState.topLevel,
                             libraryViewMode = libraryViewMode,
                             searchQuery = uiState.selectedLibrarySearchQuery,
+                            kavitaSeriesTitle = uiState.selectedKavitaSeriesTitle
+                                ?.takeIf { uiState.topLevel == TopLevelDestination.Library },
                             onSourceSelected = { source ->
                                 viewModel.onTopLevelSelected(TopLevelDestination.Library)
                                 viewModel.onSourceSelected(source)
@@ -164,6 +172,7 @@ fun UnifiedReaderAppContent(
                                 viewModel.onTopLevelSelected(TopLevelDestination.Settings)
                             },
                             onImportLocalFileClick = onImportLocalFileClick,
+                            onLeaveKavitaSeries = viewModel::onBackPressed,
                         )
                         when (uiState.topLevel) {
                             TopLevelDestination.Library -> {
@@ -174,14 +183,17 @@ fun UnifiedReaderAppContent(
                                     onCoverVisible = viewModel::ensureCoverCached,
                                     onItemSelected = viewModel::onItemSelected,
                                     onDeleteImportedItem = viewModel::onDeleteImportedItem,
-                                    onDownloadGrimmoryItem = viewModel::onDownloadGrimmoryItem,
-                                    onDeleteGrimmoryLocalFile = viewModel::onDeleteGrimmoryLocalFile,
+                                    onDownloadRemoteItem = viewModel::onDownloadRemoteItem,
+                                    onDeleteRemoteLocalFile = viewModel::onDeleteRemoteLocalFile,
                                     onFilterStateChanged = viewModel::onLibraryFiltersChanged,
                                     onClearFilters = viewModel::clearLibraryFilters,
                                     onSortModeChanged = viewModel::onLibrarySortModeChanged,
-                                    onRefreshSource = viewModel::refreshGrimmoryLibrary,
-                                    isRefreshingSource = uiState.selectedSource == SourceType.GRIMMORY &&
-                                        uiState.grimmoryConnection.isConnecting,
+                                    onRefreshSource = viewModel::refreshSelectedRemoteLibrary,
+                                    isRefreshingSource = when (uiState.selectedSource) {
+                                        SourceType.KAVITA -> uiState.kavitaConnection.isConnecting
+                                        SourceType.GRIMMORY -> uiState.grimmoryConnection.isConnecting
+                                        SourceType.LOCAL -> false
+                                    },
                                     modifier = Modifier.weight(1f),
                                 )
                             }
@@ -195,8 +207,14 @@ fun UnifiedReaderAppContent(
                                 ) {
                                     SettingsScreen(
                                         themeMode = uiState.themeMode,
+                                        kavitaConnection = uiState.kavitaConnection,
                                         grimmoryConnection = uiState.grimmoryConnection,
                                         onThemeModeSelected = viewModel::onThemeModeSelected,
+                                        onKavitaDisplayNameChanged = viewModel::onKavitaDisplayNameChanged,
+                                        onKavitaBaseUrlChanged = viewModel::onKavitaBaseUrlChanged,
+                                        onKavitaUsernameChanged = viewModel::onKavitaUsernameChanged,
+                                        onKavitaPasswordChanged = viewModel::onKavitaPasswordChanged,
+                                        onConnectKavita = viewModel::connectKavitaServer,
                                         onGrimmoryDisplayNameChanged = viewModel::onGrimmoryDisplayNameChanged,
                                         onGrimmoryBaseUrlChanged = viewModel::onGrimmoryBaseUrlChanged,
                                         onGrimmoryUsernameChanged = viewModel::onGrimmoryUsernameChanged,
@@ -219,11 +237,13 @@ private fun MainTopBar(
     topLevel: TopLevelDestination,
     libraryViewMode: LibraryViewMode,
     searchQuery: String,
+    kavitaSeriesTitle: String?,
     onSourceSelected: (SourceType) -> Unit,
     onSearchQueryChanged: (String) -> Unit,
     onLibraryViewModeChanged: (LibraryViewMode) -> Unit,
     onSettingsClick: () -> Unit,
     onImportLocalFileClick: () -> Unit,
+    onLeaveKavitaSeries: () -> Unit,
 ) {
     BoxWithConstraints(
         modifier = Modifier
@@ -241,12 +261,20 @@ private fun MainTopBar(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    SourceTabs(
-                        selectedSource = selectedSource,
-                        topLevel = topLevel,
-                        onSourceSelected = onSourceSelected,
-                        modifier = Modifier.weight(1f),
-                    )
+                    if (kavitaSeriesTitle != null) {
+                        SeriesContextHeader(
+                            title = kavitaSeriesTitle,
+                            onBack = onLeaveKavitaSeries,
+                            modifier = Modifier.weight(1f),
+                        )
+                    } else {
+                        SourceTabs(
+                            selectedSource = selectedSource,
+                            topLevel = topLevel,
+                            onSourceSelected = onSourceSelected,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                     LibraryToolbarActions(
                         libraryViewMode = libraryViewMode,
                         topLevel = topLevel,
@@ -266,14 +294,24 @@ private fun MainTopBar(
                 modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.Center,
             ) {
-                SourceTabs(
-                    selectedSource = selectedSource,
-                    topLevel = topLevel,
-                    onSourceSelected = onSourceSelected,
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .widthIn(max = 260.dp),
-                )
+                if (kavitaSeriesTitle != null) {
+                    SeriesContextHeader(
+                        title = kavitaSeriesTitle,
+                        onBack = onLeaveKavitaSeries,
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .widthIn(max = 320.dp),
+                    )
+                } else {
+                    SourceTabs(
+                        selectedSource = selectedSource,
+                        topLevel = topLevel,
+                        onSourceSelected = onSourceSelected,
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .widthIn(max = 260.dp),
+                    )
+                }
                 if (searchVisible) {
                     LibrarySearchField(
                         query = searchQuery,
@@ -293,6 +331,34 @@ private fun MainTopBar(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun SeriesContextHeader(
+    title: String,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(
+            onClick = onBack,
+            modifier = Modifier.size(36.dp),
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Back to Kavita series list",
+            )
+        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            maxLines = 1,
+        )
     }
 }
 
@@ -463,8 +529,8 @@ private fun LibraryFlow(
     onCoverVisible: (ReadableItem) -> Unit,
     onItemSelected: (ReadableItem) -> Unit,
     onDeleteImportedItem: (ReadableItem) -> Unit,
-    onDownloadGrimmoryItem: (ReadableItem) -> Unit,
-    onDeleteGrimmoryLocalFile: (ReadableItem) -> Unit,
+    onDownloadRemoteItem: (ReadableItem) -> Unit,
+    onDeleteRemoteLocalFile: (ReadableItem) -> Unit,
     onFilterStateChanged: (LibraryFilterState) -> Unit,
     onClearFilters: () -> Unit,
     onSortModeChanged: (LibrarySortMode) -> Unit,
@@ -480,13 +546,14 @@ private fun LibraryFlow(
             selectedSource = uiState.selectedSource,
             items = uiState.visibleItems,
             viewMode = viewMode,
-            progressByItemId = uiState.progressByItemId,
-            downloadedItemIds = uiState.downloadedGrimmoryItemIds,
-            downloadingItemIds = uiState.downloadingGrimmoryItemIds,
+            progressByItemId = uiState.displayProgressByItemId,
+            downloadedItemIds = uiState.downloadedRemoteItemIds,
+            downloadingItemIds = uiState.downloadingRemoteItemIds,
             libraryErrorMessage = uiState.visibleLibraryErrorMessage,
             isLoadingSource = !uiState.isSelectedSourceHydrated,
             filterState = uiState.selectedLibraryFilters,
             filterFacets = uiState.selectedLibraryFilterFacets,
+            libraryTitlesById = uiState.selectedSourceLibraryTitlesById,
             searchQuery = uiState.selectedLibrarySearchQuery,
             sortMode = uiState.selectedLibrarySortMode,
             coverImageUrlProvider = coverImageUrlProvider,
@@ -498,8 +565,8 @@ private fun LibraryFlow(
             isRefreshingSource = isRefreshingSource,
             onItemSelected = onItemSelected,
             onDeleteImportedItem = onDeleteImportedItem,
-            onDownloadItem = onDownloadGrimmoryItem,
-            onDeleteDownloadedItem = onDeleteGrimmoryLocalFile,
+            onDownloadItem = onDownloadRemoteItem,
+            onDeleteDownloadedItem = onDeleteRemoteLocalFile,
         )
     }
 }

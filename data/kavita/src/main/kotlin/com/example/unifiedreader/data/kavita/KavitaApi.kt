@@ -1,3 +1,300 @@
 package com.example.unifiedreader.data.kavita
 
-interface KavitaApi
+import com.example.unifiedreader.core.model.Library
+import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.plugins.ClientRequestException
+import io.ktor.client.request.bearerAuth
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
+import io.ktor.http.isSuccess
+
+interface KavitaApi {
+    suspend fun login(
+        username: String,
+        password: String,
+    ): KavitaSession
+
+    suspend fun refreshSession(
+        refreshToken: String,
+        accessToken: String? = null,
+        apiKey: String? = null,
+    ): KavitaSession
+
+    suspend fun getLibraries(
+        accessToken: String,
+    ): List<Library>
+
+    suspend fun getSeries(
+        accessToken: String,
+        apiKey: String? = null,
+    ): List<KavitaSeriesEntry>
+
+    suspend fun getSeriesDetail(
+        accessToken: String,
+        series: KavitaSeriesEntry,
+    ): List<KavitaChapterCatalogEntry>
+
+    suspend fun getProgress(
+        accessToken: String,
+        chapterId: String,
+    ): KavitaProgressDto
+
+    suspend fun getChapterInfo(
+        accessToken: String,
+        chapterId: String,
+        includeDimensions: Boolean = false,
+    ): KavitaChapterInfoDto
+
+    suspend fun updateProgress(
+        accessToken: String,
+        progress: KavitaProgressUpdate,
+    )
+
+    suspend fun downloadPageImage(
+        accessToken: String,
+        chapterId: String,
+        pageIndex: Int,
+        apiKey: String?,
+    ): ByteArray
+}
+
+data class KavitaSession(
+    val accessToken: String,
+    val refreshToken: String?,
+    val apiKey: String?,
+)
+
+data class KavitaSeriesEntry(
+    val id: String,
+    val libraryId: String,
+    val title: String,
+    val format: com.example.unifiedreader.core.model.FormatType,
+    val addedAtEpochMillis: Long?,
+    val coverUrl: String?,
+)
+
+data class KavitaChapterCatalogEntry(
+    val item: com.example.unifiedreader.core.model.ReadableItem,
+    val progress: com.example.unifiedreader.core.model.ReadingProgress?,
+    val isExplicitUnreadReset: Boolean = false,
+)
+
+data class KavitaProgressUpdate(
+    val libraryId: Int,
+    val seriesId: Int,
+    val volumeId: Int,
+    val chapterId: Int,
+    val pageNum: Int,
+    val updatedAtEpochMillis: Long,
+)
+
+class KavitaUnauthorizedException : RuntimeException("Kavita access token expired.")
+
+class KtorKavitaApi(
+    private val httpClient: HttpClient,
+    baseUrl: String,
+) : KavitaApi {
+    private val normalizedBaseUrl = baseUrl.trimEnd('/')
+    private var activeApiKey: String? = null
+
+    override suspend fun login(
+        username: String,
+        password: String,
+    ): KavitaSession {
+        val response = httpClient.post("$normalizedBaseUrl/api/Account/login") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                KavitaLoginRequestDto(
+                    username = username,
+                    password = password,
+                ),
+            )
+        }
+        response.throwIfKavitaError()
+        return response.body<KavitaUserDto>().toSession().also { session ->
+            activeApiKey = session.apiKey
+        }
+    }
+
+    override suspend fun refreshSession(
+        refreshToken: String,
+        accessToken: String?,
+        apiKey: String?,
+    ): KavitaSession {
+        val response = httpClient.post("$normalizedBaseUrl/api/Account/refresh-token") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                KavitaTokenRequestDto(
+                    token = accessToken,
+                    refreshToken = refreshToken,
+                ),
+            )
+        }
+        response.throwIfKavitaError()
+        return response.body<KavitaTokenRequestDto>().toSession(
+            apiKey = apiKey ?: activeApiKey,
+        ).also { session ->
+            activeApiKey = session.apiKey
+        }
+    }
+
+    override suspend fun getLibraries(
+        accessToken: String,
+    ): List<Library> = authenticatedRequest {
+        val response = httpClient.get("$normalizedBaseUrl/api/Library/libraries") {
+            bearerAuth(accessToken)
+        }
+        response.throwIfKavitaError()
+        response.body<List<KavitaLibraryDto>>()
+            .mapNotNull(KavitaLibraryDto::toDomain)
+    }
+
+    override suspend fun getSeries(
+        accessToken: String,
+        apiKey: String?,
+    ): List<KavitaSeriesEntry> = authenticatedRequest {
+        val resolvedApiKey = apiKey?.takeIf(String::isNotBlank) ?: activeApiKey
+        if (!resolvedApiKey.isNullOrBlank()) {
+            activeApiKey = resolvedApiKey
+        }
+        val response = httpClient.post("$normalizedBaseUrl/api/Series/all-v2") {
+            bearerAuth(accessToken)
+            contentType(ContentType.Application.Json)
+            url {
+                parameters.append("PageNumber", "0")
+                parameters.append("PageSize", "10000")
+                parameters.append("context", "1")
+            }
+            setBody(KavitaFilterV2Dto())
+        }
+        response.throwIfKavitaError()
+        response.body<List<KavitaSeriesDto>>()
+            .mapNotNull { series ->
+                series.toEntry(
+                    baseUrl = normalizedBaseUrl,
+                    apiKey = resolvedApiKey,
+                )
+            }
+    }
+
+    override suspend fun getSeriesDetail(
+        accessToken: String,
+        series: KavitaSeriesEntry,
+    ): List<KavitaChapterCatalogEntry> = authenticatedRequest {
+        val response = httpClient.get("$normalizedBaseUrl/api/Series/series-detail") {
+            bearerAuth(accessToken)
+            url {
+                parameters.append("seriesId", series.id)
+            }
+        }
+        response.throwIfKavitaError()
+        response.body<KavitaSeriesDetailDto>().toCatalogEntries(
+            series = series,
+        )
+    }
+
+    override suspend fun getProgress(
+        accessToken: String,
+        chapterId: String,
+    ): KavitaProgressDto = authenticatedRequest {
+        val response = httpClient.get("$normalizedBaseUrl/api/Reader/get-progress") {
+            bearerAuth(accessToken)
+            url {
+                parameters.append("chapterId", chapterId)
+            }
+        }
+        response.throwIfKavitaError()
+        response.body()
+    }
+
+    override suspend fun getChapterInfo(
+        accessToken: String,
+        chapterId: String,
+        includeDimensions: Boolean,
+    ): KavitaChapterInfoDto = authenticatedRequest {
+        val response = httpClient.get("$normalizedBaseUrl/api/Reader/chapter-info") {
+            bearerAuth(accessToken)
+            url {
+                parameters.append("chapterId", chapterId)
+                parameters.append("includeDimensions", includeDimensions.toString())
+            }
+        }
+        response.throwIfKavitaError()
+        response.body()
+    }
+
+    override suspend fun updateProgress(
+        accessToken: String,
+        progress: KavitaProgressUpdate,
+    ) {
+        authenticatedRequest {
+            val response = httpClient.post("$normalizedBaseUrl/api/Reader/progress") {
+                bearerAuth(accessToken)
+                contentType(ContentType.Application.Json)
+                setBody(
+                    KavitaProgressDto(
+                        libraryId = progress.libraryId,
+                        seriesId = progress.seriesId,
+                        volumeId = progress.volumeId,
+                        chapterId = progress.chapterId,
+                        pageNum = progress.pageNum,
+                        lastModifiedUtc = java.time.Instant.ofEpochMilli(progress.updatedAtEpochMillis).toString(),
+                    ),
+                )
+            }
+            response.throwIfKavitaError()
+        }
+    }
+
+    override suspend fun downloadPageImage(
+        accessToken: String,
+        chapterId: String,
+        pageIndex: Int,
+        apiKey: String?,
+    ): ByteArray = authenticatedRequest {
+        val response = httpClient.get("$normalizedBaseUrl/api/Reader/image") {
+            bearerAuth(accessToken)
+            apiKey?.takeIf(String::isNotBlank)?.let { key ->
+                header("x-api-key", key)
+            }
+            url {
+                parameters.append("chapterId", chapterId)
+                parameters.append("page", pageIndex.toString())
+                apiKey?.takeIf(String::isNotBlank)?.let { key ->
+                    parameters.append("apiKey", key)
+                }
+            }
+        }
+        response.throwIfKavitaError()
+        response.body()
+    }
+
+}
+
+private suspend fun <T> authenticatedRequest(
+    block: suspend () -> T,
+): T = try {
+    block()
+} catch (exception: ClientRequestException) {
+    if (exception.response.status == HttpStatusCode.Unauthorized) {
+        throw KavitaUnauthorizedException()
+    }
+    throw exception
+}
+
+private suspend fun HttpResponse.throwIfKavitaError() {
+    if (status == HttpStatusCode.Unauthorized) {
+        throw KavitaUnauthorizedException()
+    }
+    if (!status.isSuccess()) {
+        error(bodyAsText().ifBlank { status.description })
+    }
+}

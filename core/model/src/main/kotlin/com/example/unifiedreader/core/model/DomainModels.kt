@@ -114,3 +114,74 @@ fun SourceType.remoteLibraryId(
 fun SourceType.remoteItemId(
     remoteId: String,
 ): String = "${name.lowercase()}:item:$remoteId"
+
+fun kavitaSeriesContainerId(
+    seriesKey: String,
+): String = "kavita:series:$seriesKey"
+
+fun ReadableItem.isKavitaSeriesContainer(): Boolean =
+    sourceType == SourceType.KAVITA && id.startsWith("kavita:series:")
+
+fun ReadableItem.kavitaSeriesGroupKey(): String? {
+    if (sourceType != SourceType.KAVITA || kind != ReadableItemKind.COMIC || isKavitaSeriesContainer()) {
+        return null
+    }
+    val seriesKey = remoteFileType?.takeIf(String::isNotBlank)
+        ?: comicMetadata?.series?.takeIf(String::isNotBlank)
+        ?: title.takeIf(String::isNotBlank)
+        ?: return null
+    return "$libraryId::$seriesKey"
+}
+
+fun ReadableItem.belongsToKavitaSeries(
+    seriesKey: String,
+): Boolean = kavitaSeriesGroupKey() == seriesKey
+
+fun buildKavitaSeriesContainer(
+    seriesKey: String,
+    issues: List<ReadableItem>,
+): ReadableItem {
+    val firstIssue = issues.first()
+    val seriesTitle = issues.firstNotNullOfOrNull { issue ->
+        issue.comicMetadata?.series?.takeIf(String::isNotBlank)
+    } ?: firstIssue.title
+    val issueCount = issues.size
+    return ReadableItem(
+        id = kavitaSeriesContainerId(seriesKey),
+        sourceType = SourceType.KAVITA,
+        libraryId = firstIssue.libraryId,
+        remoteId = seriesKey,
+        title = seriesTitle,
+        format = firstIssue.format,
+        kind = ReadableItemKind.COMIC,
+        coverUrl = firstIssue.kavitaSeriesCoverUrl() ?: firstIssue.coverUrl,
+        description = issues.firstNotNullOfOrNull { issue ->
+            issue.description?.takeIf(String::isNotBlank)
+        },
+        addedAtEpochMillis = issues.mapNotNull(ReadableItem::addedAtEpochMillis).maxOrNull(),
+        comicMetadata = ComicMetadata(
+            series = seriesTitle,
+            issueTitle = if (issueCount == 1) "1 issue" else "$issueCount issues",
+        ),
+    )
+}
+
+private fun ReadableItem.kavitaSeriesCoverUrl(): String? {
+    val seriesId = remoteFileType?.takeIf(String::isNotBlank) ?: return null
+    val existingCoverUrl = coverUrl?.takeIf(String::isNotBlank) ?: return null
+    val baseUrl = existingCoverUrl.substringBefore("/api/Image/", missingDelimiterValue = "")
+        .takeIf(String::isNotBlank)
+        ?: return null
+    val apiKey = existingCoverUrl.substringAfter("apiKey=", missingDelimiterValue = "")
+        .substringBefore('&')
+        .takeIf(String::isNotBlank)
+    return buildString {
+        append(baseUrl.trimEnd('/'))
+        append("/api/Image/series-cover?seriesId=")
+        append(seriesId)
+        apiKey?.let { key ->
+            append("&apiKey=")
+            append(key)
+        }
+    }
+}

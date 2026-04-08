@@ -42,6 +42,7 @@ fun LibraryScreen(
     isLoadingSource: Boolean = false,
     filterState: LibraryFilterState = LibraryFilterState(),
     filterFacets: LibraryFilterFacets = LibraryFilterFacets(),
+    libraryTitlesById: Map<String, String> = emptyMap(),
     searchQuery: String = "",
     sortMode: LibrarySortMode = LibrarySortMode.DATE_ADDED,
     coverImageUrlProvider: (ReadableItem) -> String? = { it.coverUrl },
@@ -106,6 +107,7 @@ fun LibraryScreen(
                     selectedSource = selectedSource,
                     filterState = filterState,
                     filterFacets = filterFacets,
+                    libraryTitlesById = libraryTitlesById,
                     sortMode = sortMode,
                     onOpenFilterPanel = { openFilterPanel = it },
                     onClearFilters = onClearFilters,
@@ -232,6 +234,7 @@ fun LibraryScreen(
             panel = panel,
             filterState = filterState,
             filterFacets = filterFacets,
+            libraryTitlesById = libraryTitlesById,
             onFilterStateChanged = onFilterStateChanged,
             onDismiss = { openFilterPanel = null },
         )

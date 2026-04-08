@@ -50,6 +50,7 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:network"))
     implementation(project(":core:database"))
+    implementation(project(":data:kavita"))
     implementation(project(":data:grimmory"))
     implementation(project(":data:repository"))
     implementation(project(":feature:library"))

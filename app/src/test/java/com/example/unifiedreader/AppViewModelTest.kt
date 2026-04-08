@@ -15,6 +15,7 @@ import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
+import com.example.unifiedreader.core.model.isKavitaSeriesContainer
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
 import com.example.unifiedreader.data.repository.LibraryRepository
@@ -477,6 +478,64 @@ class AppViewModelTest {
     }
 
     @Test
+    fun `library filter narrows kavita items by selected remote library`() {
+        val comicsIssue = sampleItem(
+            id = "comics-1",
+            title = "Saga 001",
+            format = FormatType.CBZ,
+        ).copy(
+            libraryId = SourceType.KAVITA.remoteLibraryId("k-comics"),
+            remoteFileType = "series-1",
+            comicMetadata = ComicMetadata(series = "Saga", issueTitle = "Issue 1"),
+        )
+        val mangaIssue = sampleItem(
+            id = "manga-1",
+            title = "Berserk 001",
+            format = FormatType.CBZ,
+        ).copy(
+            libraryId = SourceType.KAVITA.remoteLibraryId("k-manga"),
+            remoteFileType = "series-2",
+            comicMetadata = ComicMetadata(series = "Berserk", issueTitle = "Episode 1"),
+        )
+        val viewModel = createViewModel(
+            sampleItems = listOf(comicsIssue, mangaIssue),
+            libraryRepository = FakeLibraryRepository(
+                libraries = listOf(
+                    Library(
+                        id = SourceType.KAVITA.remoteLibraryId("k-comics"),
+                        sourceType = SourceType.KAVITA,
+                        title = "Comics",
+                        remoteId = "k-comics",
+                    ),
+                    Library(
+                        id = SourceType.KAVITA.remoteLibraryId("k-manga"),
+                        sourceType = SourceType.KAVITA,
+                        title = "Manga",
+                        remoteId = "k-manga",
+                    ),
+                ),
+            ),
+        )
+
+        assertEquals(
+            listOf(
+                SourceType.KAVITA.remoteLibraryId("k-comics"),
+                SourceType.KAVITA.remoteLibraryId("k-manga"),
+            ),
+            viewModel.uiState.selectedLibraryFilterFacets.libraries,
+        )
+
+        viewModel.onLibraryFiltersChanged(
+            LibraryFilterState(
+                libraries = setOf(SourceType.KAVITA.remoteLibraryId("k-manga")),
+            ),
+        )
+
+        assertEquals(1, viewModel.uiState.visibleItems.size)
+        assertEquals("Berserk", viewModel.uiState.visibleItems.single().title)
+    }
+
+    @Test
     fun `library search matches item metadata and is scoped per source`() {
         val remoteComic = sampleItem(
             id = "remote-comic",
@@ -509,7 +568,9 @@ class AppViewModelTest {
 
         viewModel.onLibrarySearchQueryChanged("akira")
 
-        assertEquals(listOf(remoteComic), viewModel.uiState.visibleItems)
+        assertEquals(1, viewModel.uiState.visibleItems.size)
+        assertTrue(viewModel.uiState.visibleItems.single().isKavitaSeriesContainer())
+        assertEquals("Akira", viewModel.uiState.visibleItems.single().title)
 
         viewModel.onLibrarySearchQueryChanged("петербурга")
 
@@ -604,6 +665,150 @@ class AppViewModelTest {
     }
 
     @Test
+    fun `kavita comics are grouped by series on top level and open issue list on tap`() {
+        val firstIssue = sampleItem(
+            id = "chapter-1",
+            title = "Akira 001",
+            format = FormatType.CBZ,
+        ).copy(
+            remoteId = "chapter-1",
+            remoteFileType = "series-7",
+            comicMetadata = ComicMetadata(series = "Akira", issueTitle = "Issue 1"),
+        )
+        val secondIssue = sampleItem(
+            id = "chapter-2",
+            title = "Akira 002",
+            format = FormatType.CBZ,
+        ).copy(
+            remoteId = "chapter-2",
+            remoteFileType = "series-7",
+            comicMetadata = ComicMetadata(series = "Akira", issueTitle = "Issue 2"),
+        )
+        val viewModel = createViewModel(
+            sampleItems = listOf(firstIssue, secondIssue),
+        )
+
+        assertEquals(1, viewModel.uiState.visibleItems.size)
+        val seriesItem = viewModel.uiState.visibleItems.single()
+        assertTrue(seriesItem.isKavitaSeriesContainer())
+        assertEquals("Akira", seriesItem.title)
+        assertNull(viewModel.uiState.activeReader)
+
+        viewModel.onItemSelected(seriesItem)
+
+        assertEquals("Akira", viewModel.uiState.selectedKavitaSeriesTitle)
+        assertEquals(listOf(firstIssue, secondIssue), viewModel.uiState.visibleItems)
+        assertNull(viewModel.uiState.activeReader)
+
+        viewModel.onBackPressed()
+
+        assertEquals(1, viewModel.uiState.visibleItems.size)
+        assertTrue(viewModel.uiState.visibleItems.single().isKavitaSeriesContainer())
+    }
+
+    @Test
+    fun `kavita series progress uses total issue count and avoids continue on finished issue`() {
+        val firstIssue = sampleItem(
+            id = "chapter-1",
+            title = "Akira 001",
+            format = FormatType.CBZ,
+        ).copy(
+            remoteId = "chapter-1",
+            remoteFileType = "series-7",
+            pageCount = 10,
+            comicMetadata = ComicMetadata(series = "Akira", issueTitle = "Issue 1"),
+        )
+        val secondIssue = sampleItem(
+            id = "chapter-2",
+            title = "Akira 002",
+            format = FormatType.CBZ,
+        ).copy(
+            remoteId = "chapter-2",
+            remoteFileType = "series-7",
+            pageCount = 10,
+            comicMetadata = ComicMetadata(series = "Akira", issueTitle = "Issue 2"),
+        )
+        val readerSessionStore = FakeReaderSessionStore().apply {
+            saveProgress(
+                item = firstIssue,
+                locator = com.example.unifiedreader.feature.reader.core.ReaderLocator(
+                    locatorType = LocatorType.PAGE,
+                    page = 9,
+                ),
+                isFinished = true,
+                pageCount = 10,
+                updatedAtEpochMillis = 1_000L,
+            )
+        }
+        val viewModel = createViewModel(
+            sampleItems = listOf(firstIssue, secondIssue),
+            readerSessionStore = readerSessionStore,
+        )
+
+        val seriesItem = viewModel.uiState.visibleItems.single()
+        val progress = viewModel.uiState.displayProgressByItemId[seriesItem.id]
+
+        assertEquals(true, seriesItem.isKavitaSeriesContainer())
+        assertEquals("Read 1 of 2 issues", progress?.label)
+        assertEquals(0.5f, progress?.fraction ?: -1f, 0.001f)
+    }
+
+    @Test
+    fun `kavita series progress keeps last read timestamp from latest issue activity`() {
+        val firstIssue = sampleItem(
+            id = "chapter-1",
+            title = "Akira 001",
+            format = FormatType.CBZ,
+        ).copy(
+            remoteId = "chapter-1",
+            remoteFileType = "series-7",
+            pageCount = 10,
+            comicMetadata = ComicMetadata(series = "Akira", issueTitle = "Issue 1"),
+        )
+        val secondIssue = sampleItem(
+            id = "chapter-2",
+            title = "Akira 002",
+            format = FormatType.CBZ,
+        ).copy(
+            remoteId = "chapter-2",
+            remoteFileType = "series-7",
+            pageCount = 10,
+            comicMetadata = ComicMetadata(series = "Akira", issueTitle = "Issue 2"),
+        )
+        val readerSessionStore = FakeReaderSessionStore().apply {
+            saveProgress(
+                item = firstIssue,
+                locator = com.example.unifiedreader.feature.reader.core.ReaderLocator(
+                    locatorType = LocatorType.PAGE,
+                    page = 3,
+                ),
+                pageCount = 10,
+                updatedAtEpochMillis = 1_000L,
+            )
+            saveProgress(
+                item = secondIssue,
+                locator = com.example.unifiedreader.feature.reader.core.ReaderLocator(
+                    locatorType = LocatorType.PAGE,
+                    page = 9,
+                ),
+                isFinished = true,
+                pageCount = 10,
+                updatedAtEpochMillis = 2_000L,
+            )
+        }
+        val viewModel = createViewModel(
+            sampleItems = listOf(firstIssue, secondIssue),
+            readerSessionStore = readerSessionStore,
+        )
+
+        val seriesItem = viewModel.uiState.visibleItems.single()
+        val progress = viewModel.uiState.displayProgressByItemId[seriesItem.id]
+
+        assertEquals("Continue Issue 1", progress?.label)
+        assertEquals(2_000L, progress?.lastReadAtEpochMillis)
+    }
+
+    @Test
     fun `theme mode selection updates ui state`() {
         val preferencesStore = FakeAppPreferencesStore()
         val viewModel = createViewModel(
@@ -633,6 +838,126 @@ class AppViewModelTest {
         shadowOf(Looper.getMainLooper()).idle()
 
         assertEquals(true, viewModel.uiState.isSelectedSourceHydrated)
+    }
+
+    @Test
+    fun `connect kavita authenticates quickly and waits for explicit sync`() {
+        val syncer = FakeKavitaCatalogSyncer(
+            connectionResult = KavitaCatalogConnectionResult(
+                libraryCount = 2,
+                session = com.example.unifiedreader.data.kavita.KavitaSession(
+                    accessToken = "access-token",
+                    refreshToken = "refresh-token",
+                    apiKey = "api-key",
+                ),
+            ),
+        )
+        val credentialStore = FakeKavitaCredentialStore()
+        val viewModel = createViewModel(
+            kavitaCatalogSyncer = syncer,
+            kavitaCredentialStore = credentialStore,
+        )
+
+        viewModel.onKavitaDisplayNameChanged("Home Kavita")
+        viewModel.onKavitaBaseUrlChanged("https://kavita.example/")
+        viewModel.onKavitaUsernameChanged("reader")
+        viewModel.onKavitaPasswordChanged("secret")
+        viewModel.connectKavitaServer()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals("Home Kavita", syncer.lastConnectRequest?.displayName)
+        assertEquals("https://kavita.example", syncer.lastConnectRequest?.baseUrl)
+        assertEquals("reader", syncer.lastConnectRequest?.username)
+        assertEquals("secret", syncer.lastConnectRequest?.password)
+        assertNull(syncer.lastSyncRequest)
+        assertEquals("access-token", credentialStore.sessionFlow.value?.accessToken)
+        assertEquals("refresh-token", credentialStore.sessionFlow.value?.refreshToken)
+        assertEquals("api-key", credentialStore.sessionFlow.value?.apiKey)
+        assertEquals(TopLevelDestination.Library, viewModel.uiState.topLevel)
+        assertEquals(
+            "Connected to Kavita. 2 libraries available to sync.",
+            viewModel.uiState.libraryMessage,
+        )
+        assertEquals(
+            "Connected to Kavita. Tap Sync Kavita to import the library.",
+            viewModel.uiState.kavitaConnection.message,
+        )
+        assertEquals(true, viewModel.uiState.kavitaConnection.hasStoredSession)
+        assertEquals(false, viewModel.uiState.kavitaConnection.isError)
+        assertEquals("", viewModel.uiState.kavitaConnection.password)
+    }
+
+    @Test
+    fun `connect kavita with stored session runs full sync`() {
+        val credentialStore = FakeKavitaCredentialStore(
+            KavitaStoredSession(
+                displayName = "Home Kavita",
+                baseUrl = "https://kavita.example",
+                username = "reader",
+                accessToken = "saved-access-token",
+                refreshToken = "saved-refresh-token",
+                apiKey = "saved-api-key",
+            ),
+        )
+        val syncer = FakeKavitaCatalogSyncer(
+            result = KavitaCatalogSyncResult(
+                libraryCount = 2,
+                itemCount = 12,
+                supportedFormatCounts = mapOf(FormatType.CBZ to 12),
+            ),
+        )
+        val viewModel = createViewModel(
+            kavitaCatalogSyncer = syncer,
+            kavitaCredentialStore = credentialStore,
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+
+        viewModel.connectKavitaServer()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertNull(syncer.lastConnectRequest)
+        assertNull(syncer.lastSyncRequest?.password)
+        assertEquals("saved-access-token", syncer.lastSyncRequest?.accessToken)
+        assertEquals("saved-refresh-token", syncer.lastSyncRequest?.refreshToken)
+        assertEquals("saved-api-key", syncer.lastSyncRequest?.apiKey)
+        assertEquals(SourceType.KAVITA, viewModel.uiState.selectedSource)
+        assertEquals("Synced 12 Kavita items from 2 libraries.", viewModel.uiState.libraryMessage)
+        assertEquals("Kavita library synced.", viewModel.uiState.kavitaConnection.message)
+    }
+
+    @Test
+    fun `refresh kavita requires password when stored session has no api key`() {
+        val credentialStore = FakeKavitaCredentialStore(
+            KavitaStoredSession(
+                displayName = "Home Kavita",
+                baseUrl = "https://kavita.example",
+                username = "reader",
+                accessToken = "saved-access-token",
+                refreshToken = "saved-refresh-token",
+                apiKey = null,
+            ),
+        )
+        val syncer = FakeKavitaCatalogSyncer()
+        val viewModel = createViewModel(
+            kavitaCatalogSyncer = syncer,
+            kavitaCredentialStore = credentialStore,
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+
+        viewModel.connectKavitaServer()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertNull(syncer.lastConnectRequest)
+        assertNull(syncer.lastSyncRequest)
+        assertEquals(
+            "Re-enter the Kavita password once to refresh the API key for covers and reading.",
+            viewModel.uiState.kavitaConnection.message,
+        )
+        assertEquals(
+            "Re-enter the Kavita password once to refresh the API key for covers and reading.",
+            viewModel.uiState.libraryMessage,
+        )
+        assertEquals(true, viewModel.uiState.kavitaConnection.isError)
     }
 
     @Test
@@ -786,10 +1111,10 @@ class AppViewModelTest {
         )
         viewModel.onSourceSelected(SourceType.GRIMMORY)
 
-        viewModel.onDownloadGrimmoryItem(remoteBook)
+        viewModel.onDownloadRemoteItem(remoteBook)
         shadowOf(Looper.getMainLooper()).idle()
 
-        assertEquals(setOf(remoteBook.id), viewModel.uiState.downloadedGrimmoryItemIds)
+        assertEquals(setOf(remoteBook.id), viewModel.uiState.downloadedRemoteItemIds)
         assertEquals("Downloaded Remote Book for local reading.", viewModel.uiState.libraryMessage)
         assertNull(viewModel.uiState.visibleLibraryErrorMessage)
         assertEquals(
@@ -821,7 +1146,7 @@ class AppViewModelTest {
         )
         viewModel.onSourceSelected(SourceType.GRIMMORY)
 
-        viewModel.onDownloadGrimmoryItem(remoteBook)
+        viewModel.onDownloadRemoteItem(remoteBook)
         shadowOf(Looper.getMainLooper()).idle()
 
         val expectedMessage = "Unable to download Remote Book: Disk full"
@@ -850,12 +1175,12 @@ class AppViewModelTest {
         viewModel.onSourceSelected(SourceType.GRIMMORY)
         shadowOf(Looper.getMainLooper()).idle()
 
-        assertEquals(setOf(remoteBook.id), viewModel.uiState.downloadedGrimmoryItemIds)
+        assertEquals(setOf(remoteBook.id), viewModel.uiState.downloadedRemoteItemIds)
 
-        viewModel.onDeleteGrimmoryLocalFile(remoteBook)
+        viewModel.onDeleteRemoteLocalFile(remoteBook)
         shadowOf(Looper.getMainLooper()).idle()
 
-        assertTrue(viewModel.uiState.downloadedGrimmoryItemIds.isEmpty())
+        assertTrue(viewModel.uiState.downloadedRemoteItemIds.isEmpty())
         assertEquals("Deleted local file for Remote Book.", viewModel.uiState.libraryMessage)
         assertNull(viewModel.uiState.visibleLibraryErrorMessage)
         assertEquals(
@@ -911,6 +1236,8 @@ class AppViewModelTest {
         preferencesStore: ComicReaderPreferencesStore = FakeComicReaderPreferencesStore(),
         appPreferencesStore: AppPreferencesStore = FakeAppPreferencesStore(),
         readerSessionStore: FakeReaderSessionStore = FakeReaderSessionStore(),
+        kavitaCatalogSyncer: KavitaCatalogSyncer = FakeKavitaCatalogSyncer(),
+        kavitaCredentialStore: KavitaCredentialStore = FakeKavitaCredentialStore(),
         grimmoryCatalogSyncer: GrimmoryCatalogSyncer = FakeGrimmoryCatalogSyncer(),
         grimmoryCredentialStore: GrimmoryCredentialStore = FakeGrimmoryCredentialStore(),
         grimmoryCoverRepository: GrimmoryCoverDataSource = FakeGrimmoryCoverRepository(),
@@ -938,12 +1265,17 @@ class AppViewModelTest {
             localDocumentDataSource = importedRepository,
             readerSessionStore = readerSessionStore,
         ),
+        kavitaCoordinator = AppKavitaCoordinator(
+            kavitaCatalogSyncer = kavitaCatalogSyncer,
+            kavitaCredentialStore = kavitaCredentialStore,
+        ),
         grimmoryCoordinator = AppGrimmoryCoordinator(
             grimmoryCatalogSyncer = grimmoryCatalogSyncer,
             grimmoryCredentialStore = grimmoryCredentialStore,
             grimmoryCoverRepository = grimmoryCoverRepository,
         ),
         remoteCatalogReadiness = remoteCatalogReadiness,
+        kavitaCredentialStore = kavitaCredentialStore,
         grimmoryCredentialStore = grimmoryCredentialStore,
         grimmoryCoverRepository = grimmoryCoverRepository,
         grimmoryContentRepository = grimmoryContentRepository,
@@ -954,6 +1286,38 @@ class AppViewModelTest {
         sourceProgressSyncs = sourceProgressSyncs,
         readerFactories = emptyList(),
     )
+}
+
+private class FakeKavitaCatalogSyncer(
+    private val connectionResult: KavitaCatalogConnectionResult = KavitaCatalogConnectionResult(
+        libraryCount = 0,
+    ),
+    private val result: KavitaCatalogSyncResult = KavitaCatalogSyncResult(
+        libraryCount = 0,
+        itemCount = 0,
+        supportedFormatCounts = emptyMap(),
+    ),
+    private val failure: Throwable? = null,
+) : KavitaCatalogSyncer {
+    var lastConnectRequest: KavitaCatalogSyncRequest? = null
+    var lastSyncRequest: KavitaCatalogSyncRequest? = null
+
+    override suspend fun connect(
+        request: KavitaCatalogSyncRequest,
+    ): KavitaCatalogConnectionResult {
+        lastConnectRequest = request
+        failure?.let { throw it }
+        return connectionResult
+    }
+
+    override suspend fun sync(
+        request: KavitaCatalogSyncRequest,
+        onProgress: (KavitaSyncProgress) -> Unit,
+    ): KavitaCatalogSyncResult {
+        lastSyncRequest = request
+        failure?.let { throw it }
+        return result
+    }
 }
 
 private class FakeGrimmoryCatalogSyncer(
@@ -997,6 +1361,24 @@ private class FakeGrimmoryCredentialStore(
 
     override suspend fun save(
         session: GrimmoryStoredSession,
+    ) {
+        sessionState.value = session
+    }
+
+    override suspend fun clear() {
+        sessionState.value = null
+    }
+}
+
+private class FakeKavitaCredentialStore(
+    initialSession: KavitaStoredSession? = null,
+) : KavitaCredentialStore {
+    private val sessionState = MutableStateFlow(initialSession)
+
+    override val sessionFlow: StateFlow<KavitaStoredSession?> = sessionState
+
+    override suspend fun save(
+        session: KavitaStoredSession,
     ) {
         sessionState.value = session
     }

@@ -60,10 +60,10 @@ class ComicsReaderSessionAdapter(
                 page = safePageIndex,
             ),
             isFinished = pageCount > 0 && safePageIndex >= pageCount - 1,
-            syncState = if (item.sourceType == SourceType.GRIMMORY) {
-                SyncState.DIRTY
-            } else {
+            syncState = if (item.sourceType == SourceType.LOCAL) {
                 SyncState.CLEAN
+            } else {
+                SyncState.DIRTY
             },
             pageCount = pageCount.coerceAtLeast(0),
         )

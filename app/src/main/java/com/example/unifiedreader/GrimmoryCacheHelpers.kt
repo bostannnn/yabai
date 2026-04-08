@@ -5,16 +5,18 @@ import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-internal fun String.toGrimmoryFileSegment(): String = replace(Regex("[^A-Za-z0-9._-]"), "_")
+internal fun String.toSafeFileSegment(): String = replace(Regex("[^A-Za-z0-9._-]"), "_")
+
+internal fun String.toGrimmoryFileSegment(): String = toSafeFileSegment()
 
 internal fun ReadableItem.grimmoryCacheFileName(
     extension: String,
 ): String = listOfNotNull(
-    id.toGrimmoryFileSegment(),
-    remoteFileId?.toGrimmoryFileSegment(),
+    id.toSafeFileSegment(),
+    remoteFileId?.toSafeFileSegment(),
 ).joinToString(separator = "-").plus(".$extension")
 
-internal suspend fun writeGrimmoryCacheFile(
+internal suspend fun writeCachedFile(
     destination: File,
     targetDescription: String,
     writeTemporaryFile: suspend (File) -> Unit,
@@ -35,3 +37,13 @@ internal suspend fun writeGrimmoryCacheFile(
         throw throwable
     }
 }
+
+internal suspend fun writeGrimmoryCacheFile(
+    destination: File,
+    targetDescription: String,
+    writeTemporaryFile: suspend (File) -> Unit,
+) = writeCachedFile(
+    destination = destination,
+    targetDescription = targetDescription,
+    writeTemporaryFile = writeTemporaryFile,
+)
