@@ -93,6 +93,7 @@ internal fun itemDownloadedDeleteRequest(
 private fun ReadableItem.supportsOfflineDownload(): Boolean = when (sourceType) {
     SourceType.GRIMMORY -> true
     SourceType.KAVITA -> false
+    SourceType.STUMP -> false
     SourceType.LOCAL -> false
 }
 
@@ -305,7 +306,7 @@ private fun LibraryCover(
 
     LaunchedEffect(item.id, item.sourceType, coverUrl) {
         if (
-            item.sourceType == SourceType.GRIMMORY &&
+            item.sourceType in setOf(SourceType.GRIMMORY, SourceType.STUMP) &&
             !coverUrl.orEmpty().startsWith("file:", ignoreCase = true)
         ) {
             onCoverVisible(item)

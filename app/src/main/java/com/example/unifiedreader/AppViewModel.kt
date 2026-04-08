@@ -15,17 +15,20 @@ import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.belongsToKavitaSeries
+import com.example.unifiedreader.core.model.belongsToStumpSeries
 import com.example.unifiedreader.core.model.isKavitaSeriesContainer
+import com.example.unifiedreader.core.model.isStumpSeriesContainer
 import com.example.unifiedreader.core.model.libraryDisplayLabel
-import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
+import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesStore
 import com.example.unifiedreader.feature.reader.comics.ComicReaderProgressStore
 import com.example.unifiedreader.feature.reader.core.ReaderScreenFactory
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
-import com.example.unifiedreader.feature.settings.KavitaConnectionUiState
 import com.example.unifiedreader.feature.settings.GrimmoryConnectionUiState
+import com.example.unifiedreader.feature.settings.KavitaConnectionUiState
+import com.example.unifiedreader.feature.settings.StumpConnectionUiState
 import com.example.unifiedreader.feature.settings.ThemeMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -50,9 +53,12 @@ class AppViewModel @Inject constructor(
     private val downloadRemoteItemUseCase: DownloadRemoteItemUseCase,
     private val deleteRemoteLocalFileUseCase: DeleteRemoteLocalFileUseCase,
     private val kavitaCoordinator: AppKavitaCoordinator,
+    private val stumpCoordinator: AppStumpCoordinator,
     private val grimmoryCoordinator: AppGrimmoryCoordinator,
     private val kavitaCredentialStore: KavitaCredentialStore,
+    private val stumpCredentialStore: StumpCredentialStore,
     private val grimmoryCredentialStore: GrimmoryCredentialStore,
+    private val stumpCoverCacheController: StumpCoverCacheController,
     private val grimmoryCoverCacheController: GrimmoryCoverCacheController,
     val comicPageSource: ComicPageSource,
     val comicReaderProgressStore: ComicReaderProgressStore,
@@ -71,6 +77,9 @@ class AppViewModel @Inject constructor(
     init {
         updateKavitaConnection { connection ->
             connection.withStoredSession(kavitaCredentialStore.sessionFlow.value)
+        }
+        updateStumpConnection { connection ->
+            connection.withStoredSession(stumpCredentialStore.sessionFlow.value)
         }
         updateGrimmoryConnection { connection ->
             connection.withStoredSession(grimmoryCredentialStore.sessionFlow.value)
@@ -98,6 +107,7 @@ class AppViewModel @Inject constructor(
                 selectedItemId = null,
                 activeReader = null,
                 selectedKavitaSeriesKey = null,
+                selectedStumpSeriesKey = null,
             )
         }
         refreshProgress()
@@ -141,6 +151,19 @@ class AppViewModel @Inject constructor(
             updateUiState { state ->
                 state.copy(
                     selectedKavitaSeriesKey = item.remoteId,
+                    selectedStumpSeriesKey = null,
+                    selectedItemId = null,
+                    activeReader = null,
+                )
+            }
+            refreshProgress()
+            return
+        }
+        if (item.isStumpSeriesContainer()) {
+            updateUiState { state ->
+                state.copy(
+                    selectedStumpSeriesKey = item.remoteId,
+                    selectedKavitaSeriesKey = null,
                     selectedItemId = null,
                     activeReader = null,
                 )
@@ -171,20 +194,39 @@ class AppViewModel @Inject constructor(
     }
 
     fun coverImageUrlFor(item: ReadableItem): String? {
-        return grimmoryCoverCacheController.coverImageUrlFor(item)
+        return when (item.sourceType) {
+            SourceType.STUMP -> stumpCoverCacheController.coverImageUrlFor(item)
+            SourceType.GRIMMORY -> grimmoryCoverCacheController.coverImageUrlFor(item)
+            SourceType.KAVITA,
+            SourceType.LOCAL -> item.coverUrl
+        }
     }
 
     fun ensureCoverCached(item: ReadableItem) {
-        grimmoryCoverCacheController.ensureCoverCached(
-            item = item,
-            scope = viewModelScope,
-            onError = { message ->
-                updateLibraryMessage(
-                    message = message,
-                    severity = LibraryMessageSeverity.Error,
-                )
-            },
-        )
+        when (item.sourceType) {
+            SourceType.STUMP -> stumpCoverCacheController.ensureCoverCached(
+                item = item,
+                scope = viewModelScope,
+                onError = { message ->
+                    updateLibraryMessage(
+                        message = message,
+                        severity = LibraryMessageSeverity.Error,
+                    )
+                },
+            )
+            SourceType.GRIMMORY -> grimmoryCoverCacheController.ensureCoverCached(
+                item = item,
+                scope = viewModelScope,
+                onError = { message ->
+                    updateLibraryMessage(
+                        message = message,
+                        severity = LibraryMessageSeverity.Error,
+                    )
+                },
+            )
+            SourceType.KAVITA,
+            SourceType.LOCAL -> Unit
+        }
     }
 
     fun onBackPressed() {
@@ -198,6 +240,9 @@ class AppViewModel @Inject constructor(
                 )
                 state.selectedKavitaSeriesKey != null -> state.copy(
                     selectedKavitaSeriesKey = null,
+                )
+                state.selectedStumpSeriesKey != null -> state.copy(
+                    selectedStumpSeriesKey = null,
                 )
                 state.selectedItemId != null -> state.copy(selectedItemId = null)
                 else -> state
@@ -319,6 +364,34 @@ class AppViewModel @Inject constructor(
         }
     }
 
+    fun onStumpDisplayNameChanged(displayName: String) {
+        updateStumpConnectionInput { connection ->
+            connection.copy(displayName = displayName)
+        }
+    }
+
+    fun onStumpBaseUrlChanged(baseUrl: String) {
+        updateStumpConnectionInput { connection ->
+            connection.copy(baseUrl = baseUrl)
+        }
+    }
+
+    fun onStumpUsernameChanged(username: String) {
+        updateStumpConnectionInput { connection ->
+            connection.copy(username = username)
+        }
+    }
+
+    fun onStumpPasswordChanged(password: String) {
+        updateStumpConnection { connection ->
+            connection.copy(
+                password = password,
+                message = null,
+                isError = false,
+            )
+        }
+    }
+
     fun onGrimmoryDisplayNameChanged(displayName: String) {
         updateGrimmoryConnectionInput { connection ->
             connection.copy(displayName = displayName)
@@ -374,6 +447,33 @@ class AppViewModel @Inject constructor(
         }
     }
 
+    fun connectStumpServer() {
+        if (uiState.stumpConnection.hasStoredSession && uiState.stumpConnection.password.isBlank()) {
+            refreshStumpLibrary()
+            return
+        }
+        when (val preparation = stumpCoordinator.prepareConnect(uiState.stumpConnection)) {
+            is StumpSyncPreparation.Invalid -> {
+                updateUiState { state -> state.copy(stumpConnection = preparation.connection) }
+            }
+            StumpSyncPreparation.MissingSession -> Unit
+            is StumpSyncPreparation.Ready -> {
+                updateUiState { state ->
+                    state.copy(
+                        stumpConnection = preparation.activeConnection.copy(
+                            isConnecting = true,
+                            syncProgressFraction = null,
+                            syncProgressLabel = null,
+                            message = "Connecting to Stump.",
+                            isError = false,
+                        ),
+                    )
+                }
+                startStumpConnect(preparation)
+            }
+        }
+    }
+
     fun connectGrimmoryServer() {
         when (val preparation = grimmoryCoordinator.prepareConnect(uiState.grimmoryConnection)) {
             is GrimmorySyncPreparation.Invalid -> {
@@ -398,6 +498,7 @@ class AppViewModel @Inject constructor(
     fun refreshSelectedRemoteLibrary() {
         when (uiState.selectedSource) {
             SourceType.KAVITA -> refreshKavitaLibrary()
+            SourceType.STUMP -> refreshStumpLibrary()
             SourceType.GRIMMORY -> refreshGrimmoryLibrary()
             SourceType.LOCAL -> Unit
         }
@@ -441,6 +542,48 @@ class AppViewModel @Inject constructor(
                     )
                 }
                 startKavitaSync(preparation)
+            }
+        }
+    }
+
+    fun refreshStumpLibrary() {
+        when (val preparation = stumpCoordinator.prepareRefresh(uiState.stumpConnection)) {
+            StumpSyncPreparation.MissingSession -> {
+                updateUiState { state ->
+                    state.copy(
+                        libraryMessage = "Connect to Stump before syncing the library.",
+                        libraryMessageSeverity = LibraryMessageSeverity.Error,
+                        stumpConnection = state.stumpConnection.copy(
+                            message = "Connect to Stump before syncing the library.",
+                            isError = true,
+                        ),
+                    )
+                }
+            }
+            is StumpSyncPreparation.Invalid -> {
+                updateUiState { state ->
+                    state.copy(
+                        libraryMessage = preparation.connection.message,
+                        libraryMessageSeverity = LibraryMessageSeverity.Error,
+                        stumpConnection = preparation.connection,
+                    )
+                }
+            }
+            is StumpSyncPreparation.Ready -> {
+                updateUiState { state ->
+                    state.copy(
+                        stumpConnection = preparation.activeConnection.copy(
+                            isConnecting = true,
+                            syncProgressFraction = 0f,
+                            syncProgressLabel = "Preparing Stump sync...",
+                            message = "Syncing Stump library.",
+                            isError = false,
+                        ),
+                        libraryMessage = "Syncing Stump library.",
+                        libraryMessageSeverity = LibraryMessageSeverity.Info,
+                    )
+                }
+                startStumpSync(preparation)
             }
         }
     }
@@ -557,6 +700,88 @@ class AppViewModel @Inject constructor(
         }
     }
 
+    private fun startStumpSync(
+        preparation: StumpSyncPreparation.Ready,
+    ) {
+        viewModelScope.launch {
+            when (
+                val result = stumpCoordinator.executeSync(
+                    preparation = preparation,
+                    clearCoverState = ::clearStumpCoverState,
+                    onProgress = { progress ->
+                        updateUiState { state ->
+                            state.copy(
+                                stumpConnection = state.stumpConnection.copy(
+                                    isConnecting = true,
+                                    syncProgressFraction = progress.fraction.coerceIn(0f, 1f),
+                                    syncProgressLabel = progress.message,
+                                    message = "Syncing Stump library.",
+                                    isError = false,
+                                ),
+                                libraryMessage = progress.message,
+                                libraryMessageSeverity = LibraryMessageSeverity.Info,
+                            )
+                        }
+                    },
+                )
+            ) {
+                is StumpSyncExecutionResult.Success -> {
+                    clearStumpPageCache()
+                    updateUiState { state ->
+                        state.copy(
+                            topLevel = TopLevelDestination.Library,
+                            selectedSource = SourceType.STUMP,
+                            selectedItemId = null,
+                            activeReader = null,
+                            selectedKavitaSeriesKey = null,
+                            selectedStumpSeriesKey = null,
+                            libraryMessage = "Synced ${result.itemCount} Stump items from ${result.libraryCount} libraries.",
+                            libraryMessageSeverity = LibraryMessageSeverity.Info,
+                            stumpConnection = result.connection,
+                        )
+                    }
+                }
+                is StumpSyncExecutionResult.Failure -> {
+                    updateUiState { state ->
+                        state.copy(
+                            libraryMessage = result.message,
+                            libraryMessageSeverity = LibraryMessageSeverity.Error,
+                            stumpConnection = result.connection,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun startStumpConnect(
+        preparation: StumpSyncPreparation.Ready,
+    ) {
+        viewModelScope.launch {
+            when (val result = stumpCoordinator.executeConnect(preparation)) {
+                is StumpConnectExecutionResult.Success -> {
+                    clearStumpPageCache()
+                    updateUiState { state ->
+                        state.copy(
+                            libraryMessage = "Connected to Stump. ${result.libraryCount} libraries available to sync.",
+                            libraryMessageSeverity = LibraryMessageSeverity.Info,
+                            stumpConnection = result.connection,
+                        )
+                    }
+                }
+                is StumpConnectExecutionResult.Failure -> {
+                    updateUiState { state ->
+                        state.copy(
+                            libraryMessage = result.message,
+                            libraryMessageSeverity = LibraryMessageSeverity.Error,
+                            stumpConnection = result.connection,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     private fun startGrimmorySync(
         preparation: GrimmorySyncPreparation.Ready,
     ) {
@@ -637,6 +862,7 @@ class AppViewModel @Inject constructor(
         libraryMessageSeverity: LibraryMessageSeverity = uiState.libraryMessageSeverity,
         themeMode: ThemeMode = uiState.themeMode,
         selectedKavitaSeriesKey: String? = uiState.selectedKavitaSeriesKey,
+        selectedStumpSeriesKey: String? = uiState.selectedStumpSeriesKey,
     ) {
         val items = catalogItems + localDocumentRepository.getImportedItems()
         updateUiState { state ->
@@ -649,6 +875,9 @@ class AppViewModel @Inject constructor(
                 activeReader = activeReader,
                 selectedKavitaSeriesKey = selectedKavitaSeriesKey?.takeIf { seriesKey ->
                     selectedSource == SourceType.KAVITA && items.any { item -> item.belongsToKavitaSeries(seriesKey) }
+                },
+                selectedStumpSeriesKey = selectedStumpSeriesKey?.takeIf { seriesKey ->
+                    selectedSource == SourceType.STUMP && items.any { item -> item.belongsToStumpSeries(seriesKey) }
                 },
                 progressByItemId = libraryStateAssembler.buildProgressSummaries(
                     items = items,
@@ -670,6 +899,17 @@ class AppViewModel @Inject constructor(
                 if (!uiState.kavitaConnection.isConnecting) {
                     updateKavitaConnection { connection ->
                         kavitaCoordinator.refreshedConnectionState(
+                            connection.withStoredSession(session),
+                        )
+                    }
+                }
+            }
+        }
+        viewModelScope.launch {
+            stumpCredentialStore.sessionFlow.collect { session ->
+                if (!uiState.stumpConnection.isConnecting) {
+                    updateStumpConnection { connection ->
+                        stumpCoordinator.refreshedConnectionState(
                             connection.withStoredSession(session),
                         )
                     }
@@ -712,6 +952,7 @@ class AppViewModel @Inject constructor(
                 catalogLibraries = snapshot.libraries
                 catalogItems = snapshot.catalogItems
                 val activeItemIds = snapshot.items.mapTo(mutableSetOf(), ReadableItem::id)
+                stumpCoverCacheController.removeMissingItems(activeItemIds)
                 grimmoryCoverCacheController.removeMissingItems(activeItemIds)
                 updateUiState { state ->
                     state.copy(
@@ -724,6 +965,10 @@ class AppViewModel @Inject constructor(
                         selectedKavitaSeriesKey = state.selectedKavitaSeriesKey?.takeIf { seriesKey ->
                             state.selectedSource == SourceType.KAVITA &&
                                 snapshot.items.any { item -> item.belongsToKavitaSeries(seriesKey) }
+                        },
+                        selectedStumpSeriesKey = state.selectedStumpSeriesKey?.takeIf { seriesKey ->
+                            state.selectedSource == SourceType.STUMP &&
+                                snapshot.items.any { item -> item.belongsToStumpSeries(seriesKey) }
                         },
                     )
                 }
@@ -812,6 +1057,29 @@ class AppViewModel @Inject constructor(
         }
     }
 
+    private inline fun updateStumpConnection(
+        transform: (StumpConnectionUiState) -> StumpConnectionUiState,
+    ) {
+        updateUiState { state ->
+            state.copy(
+                stumpConnection = transform(state.stumpConnection),
+            )
+        }
+    }
+
+    private inline fun updateStumpConnectionInput(
+        transform: (StumpConnectionUiState) -> StumpConnectionUiState,
+    ) {
+        updateStumpConnection { connection ->
+            stumpCoordinator.refreshedConnectionState(
+                transform(connection).copy(
+                    message = null,
+                    isError = false,
+                ),
+            )
+        }
+    }
+
     private suspend fun flushPendingRemoteProgress() {
         val remoteItems = catalogItems
         sourceProgressSyncs.forEach { sync ->
@@ -823,12 +1091,20 @@ class AppViewModel @Inject constructor(
         }
     }
 
+    private fun clearStumpCoverState() {
+        stumpCoverCacheController.clear()
+    }
+
     private fun clearGrimmoryCoverState() {
         grimmoryCoverCacheController.clear()
     }
 
     private fun clearKavitaPageCache() {
         (comicPageSource as? CompositeComicPageSource)?.clearKavitaCache()
+    }
+
+    private fun clearStumpPageCache() {
+        (comicPageSource as? CompositeComicPageSource)?.clearStumpCache()
     }
 }
 

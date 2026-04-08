@@ -2,6 +2,7 @@ package com.example.unifiedreader.core.model
 
 enum class SourceType {
     KAVITA,
+    STUMP,
     GRIMMORY,
     LOCAL,
 }
@@ -119,8 +120,15 @@ fun kavitaSeriesContainerId(
     seriesKey: String,
 ): String = "kavita:series:$seriesKey"
 
+fun stumpSeriesContainerId(
+    seriesKey: String,
+): String = "stump:series:$seriesKey"
+
 fun ReadableItem.isKavitaSeriesContainer(): Boolean =
     sourceType == SourceType.KAVITA && id.startsWith("kavita:series:")
+
+fun ReadableItem.isStumpSeriesContainer(): Boolean =
+    sourceType == SourceType.STUMP && id.startsWith("stump:series:")
 
 fun ReadableItem.kavitaSeriesGroupKey(): String? {
     if (sourceType != SourceType.KAVITA || kind != ReadableItemKind.COMIC || isKavitaSeriesContainer()) {
@@ -133,9 +141,24 @@ fun ReadableItem.kavitaSeriesGroupKey(): String? {
     return "$libraryId::$seriesKey"
 }
 
+fun ReadableItem.stumpSeriesGroupKey(): String? {
+    if (sourceType != SourceType.STUMP || kind != ReadableItemKind.COMIC || isStumpSeriesContainer()) {
+        return null
+    }
+    val seriesKey = remoteFileType?.takeIf(String::isNotBlank)
+        ?: comicMetadata?.series?.takeIf(String::isNotBlank)
+        ?: title.takeIf(String::isNotBlank)
+        ?: return null
+    return "$libraryId::$seriesKey"
+}
+
 fun ReadableItem.belongsToKavitaSeries(
     seriesKey: String,
 ): Boolean = kavitaSeriesGroupKey() == seriesKey
+
+fun ReadableItem.belongsToStumpSeries(
+    seriesKey: String,
+): Boolean = stumpSeriesGroupKey() == seriesKey
 
 fun buildKavitaSeriesContainer(
     seriesKey: String,
@@ -155,6 +178,37 @@ fun buildKavitaSeriesContainer(
         format = firstIssue.format,
         kind = ReadableItemKind.COMIC,
         coverUrl = firstIssue.kavitaSeriesCoverUrl() ?: firstIssue.coverUrl,
+        description = issues.firstNotNullOfOrNull { issue ->
+            issue.description?.takeIf(String::isNotBlank)
+        },
+        addedAtEpochMillis = issues.mapNotNull(ReadableItem::addedAtEpochMillis).maxOrNull(),
+        comicMetadata = ComicMetadata(
+            series = seriesTitle,
+            issueTitle = if (issueCount == 1) "1 issue" else "$issueCount issues",
+        ),
+    )
+}
+
+fun buildStumpSeriesContainer(
+    seriesKey: String,
+    issues: List<ReadableItem>,
+): ReadableItem {
+    val firstIssue = issues.first()
+    val seriesTitle = issues.firstNotNullOfOrNull { issue ->
+        issue.comicMetadata?.series?.takeIf(String::isNotBlank)
+    } ?: firstIssue.title
+    val issueCount = issues.size
+    return ReadableItem(
+        id = stumpSeriesContainerId(seriesKey),
+        sourceType = SourceType.STUMP,
+        libraryId = firstIssue.libraryId,
+        remoteId = seriesKey,
+        remoteFileId = firstIssue.remoteFileType,
+        title = seriesTitle,
+        format = firstIssue.format,
+        kind = ReadableItemKind.COMIC,
+        // Series containers should fetch the series thumbnail via the series id.
+        coverUrl = null,
         description = issues.firstNotNullOfOrNull { issue ->
             issue.description?.takeIf(String::isNotBlank)
         },

@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 fun SettingsScreen(
     themeMode: ThemeMode,
     kavitaConnection: KavitaConnectionUiState,
+    stumpConnection: StumpConnectionUiState,
     grimmoryConnection: GrimmoryConnectionUiState,
     onThemeModeSelected: (ThemeMode) -> Unit,
     onKavitaDisplayNameChanged: (String) -> Unit,
@@ -46,6 +47,11 @@ fun SettingsScreen(
     onKavitaUsernameChanged: (String) -> Unit,
     onKavitaPasswordChanged: (String) -> Unit,
     onConnectKavita: () -> Unit,
+    onStumpDisplayNameChanged: (String) -> Unit,
+    onStumpBaseUrlChanged: (String) -> Unit,
+    onStumpUsernameChanged: (String) -> Unit,
+    onStumpPasswordChanged: (String) -> Unit,
+    onConnectStump: () -> Unit,
     onGrimmoryDisplayNameChanged: (String) -> Unit,
     onGrimmoryBaseUrlChanged: (String) -> Unit,
     onGrimmoryUsernameChanged: (String) -> Unit,
@@ -141,6 +147,24 @@ fun SettingsScreen(
                     onUsernameChanged = onGrimmoryUsernameChanged,
                     onPasswordChanged = onGrimmoryPasswordChanged,
                     onConnect = onConnectGrimmory,
+                )
+            }
+        }
+
+        item {
+            SettingsCard(
+                title = "Stump",
+                body = "Connect a Stump server and sync comics or manga grouped by series into the Stump tab.",
+            ) {
+                ServerConnectionForm(
+                    state = stumpConnection.toFormState(),
+                    connectLabel = "Connect Stump",
+                    syncLabel = "Sync Stump",
+                    onDisplayNameChanged = onStumpDisplayNameChanged,
+                    onBaseUrlChanged = onStumpBaseUrlChanged,
+                    onUsernameChanged = onStumpUsernameChanged,
+                    onPasswordChanged = onStumpPasswordChanged,
+                    onConnect = onConnectStump,
                 )
             }
         }
@@ -343,6 +367,26 @@ data class KavitaConnectionUiState(
             (password.isNotBlank() || hasStoredSession)
 }
 
+data class StumpConnectionUiState(
+    val displayName: String = "Stump",
+    val baseUrl: String = "",
+    val username: String = "",
+    val password: String = "",
+    val hasStoredSession: Boolean = false,
+    val isConnecting: Boolean = false,
+    val syncProgressFraction: Float? = null,
+    val syncProgressLabel: String? = null,
+    val message: String? = null,
+    val isError: Boolean = false,
+) {
+    val canSubmit: Boolean
+        get() = !isConnecting &&
+            displayName.isNotBlank() &&
+            baseUrl.isNotBlank() &&
+            username.isNotBlank() &&
+            (password.isNotBlank() || hasStoredSession)
+}
+
 private fun GrimmoryConnectionUiState.toFormState(): ServerConnectionFormState = ServerConnectionFormState(
     displayName = displayName,
     baseUrl = baseUrl,
@@ -358,6 +402,20 @@ private fun GrimmoryConnectionUiState.toFormState(): ServerConnectionFormState =
 )
 
 private fun KavitaConnectionUiState.toFormState(): ServerConnectionFormState = ServerConnectionFormState(
+    displayName = displayName,
+    baseUrl = baseUrl,
+    username = username,
+    password = password,
+    hasStoredSession = hasStoredSession,
+    isConnecting = isConnecting,
+    syncProgressFraction = syncProgressFraction,
+    syncProgressLabel = syncProgressLabel,
+    message = message,
+    isError = isError,
+    canSubmit = canSubmit,
+)
+
+private fun StumpConnectionUiState.toFormState(): ServerConnectionFormState = ServerConnectionFormState(
     displayName = displayName,
     baseUrl = baseUrl,
     username = username,

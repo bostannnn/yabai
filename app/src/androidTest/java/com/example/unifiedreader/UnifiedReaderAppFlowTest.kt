@@ -77,25 +77,12 @@ class UnifiedReaderAppFlowTest {
             importUri = importUri,
             pageCount = 3,
         )
-        val viewModel = AppViewModel(
-            application = ApplicationProvider.getApplicationContext<Application>(),
-            appPreferencesStore = FakeAppPreferencesStore(),
-            libraryRepository = FakeLibraryRepository(),
-            readableItemRepository = FakeReadableItemRepository(),
+        val viewModel = createViewModel(
             localDocumentRepository = localDocumentRepository,
-            importedItemDeletionService = DefaultImportedItemDeletionService(
-                localDocumentDataSource = localDocumentRepository,
-                readerSessionStore = readerSessionStore,
-            ),
-            grimmoryCatalogSyncer = FakeGrimmoryCatalogSyncer(),
-            grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
-            grimmoryCoverRepository = FakeGrimmoryCoverRepository(),
-            grimmoryContentRepository = FakeGrimmoryContentRepository(),
-            comicPageSource = pageSource,
-            comicReaderProgressStore = comicsSessionAdapter,
-            comicReaderPreferencesStore = comicsSessionAdapter,
+            pageSource = pageSource,
+            progressStore = comicsSessionAdapter,
+            preferencesStore = comicsSessionAdapter,
             readerSessionStore = readerSessionStore,
-            sourceProgressSyncs = emptyList(),
             readerFactories = listOf(
                 comicsReaderFactory(
                     pageSource = pageSource,
@@ -154,25 +141,12 @@ class UnifiedReaderAppFlowTest {
             importUri = importUri,
             pageCount = 3,
         )
-        val viewModel = AppViewModel(
-            application = ApplicationProvider.getApplicationContext<Application>(),
-            appPreferencesStore = FakeAppPreferencesStore(),
-            libraryRepository = FakeLibraryRepository(),
-            readableItemRepository = FakeReadableItemRepository(),
+        val viewModel = createViewModel(
             localDocumentRepository = localDocumentRepository,
-            importedItemDeletionService = DefaultImportedItemDeletionService(
-                localDocumentDataSource = localDocumentRepository,
-                readerSessionStore = readerSessionStore,
-            ),
-            grimmoryCatalogSyncer = FakeGrimmoryCatalogSyncer(),
-            grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
-            grimmoryCoverRepository = FakeGrimmoryCoverRepository(),
-            grimmoryContentRepository = FakeGrimmoryContentRepository(),
-            comicPageSource = pageSource,
-            comicReaderProgressStore = comicsSessionAdapter,
-            comicReaderPreferencesStore = comicsSessionAdapter,
+            pageSource = pageSource,
+            progressStore = comicsSessionAdapter,
+            preferencesStore = comicsSessionAdapter,
             readerSessionStore = readerSessionStore,
-            sourceProgressSyncs = emptyList(),
             readerFactories = listOf(
                 comicsReaderFactory(
                     pageSource = pageSource,
@@ -230,10 +204,7 @@ class UnifiedReaderAppFlowTest {
         )
         val readerSessionStore = FakeReaderSessionStore()
         val comicsSessionAdapter = ComicsReaderSessionAdapter(readerSessionStore)
-        val viewModel = AppViewModel(
-            application = ApplicationProvider.getApplicationContext<Application>(),
-            appPreferencesStore = FakeAppPreferencesStore(),
-            libraryRepository = FakeLibraryRepository(),
+        val viewModel = createViewModel(
             readableItemRepository = FakeReadableItemRepository(
                 items = listOf(russianBook, englishBook),
             ),
@@ -246,28 +217,10 @@ class UnifiedReaderAppFlowTest {
                 importUri = Uri.parse("content://imports/unused.cbz"),
                 pageCount = 1,
             ),
-            importedItemDeletionService = DefaultImportedItemDeletionService(
-                localDocumentDataSource = FakeLocalDocumentRepository(
-                    importedItem = englishBook.copy(
-                        id = "unused-import",
-                        sourceType = SourceType.LOCAL,
-                        isLocalImport = true,
-                    ),
-                    importUri = Uri.parse("content://imports/unused.cbz"),
-                    pageCount = 1,
-                ),
-                readerSessionStore = readerSessionStore,
-            ),
-            grimmoryCatalogSyncer = FakeGrimmoryCatalogSyncer(),
-            grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
-            grimmoryCoverRepository = FakeGrimmoryCoverRepository(),
-            grimmoryContentRepository = FakeGrimmoryContentRepository(),
             comicPageSource = FakeComicPageSource(pageCount = 1),
-            comicReaderProgressStore = comicsSessionAdapter,
-            comicReaderPreferencesStore = comicsSessionAdapter,
             readerSessionStore = readerSessionStore,
-            sourceProgressSyncs = emptyList(),
-            readerFactories = emptyList(),
+            progressStore = comicsSessionAdapter,
+            preferencesStore = comicsSessionAdapter,
         )
 
         composeRule.setContent {
@@ -307,26 +260,12 @@ class UnifiedReaderAppFlowTest {
             importUri = importUri,
             pageCount = 3,
         )
-        val viewModel = AppViewModel(
-            application = ApplicationProvider.getApplicationContext<Application>(),
-            appPreferencesStore = FakeAppPreferencesStore(),
-            libraryRepository = FakeLibraryRepository(),
-            readableItemRepository = FakeReadableItemRepository(),
+        val viewModel = createViewModel(
             localDocumentRepository = localDocumentRepository,
-            importedItemDeletionService = DefaultImportedItemDeletionService(
-                localDocumentDataSource = localDocumentRepository,
-                readerSessionStore = readerSessionStore,
-            ),
-            grimmoryCatalogSyncer = FakeGrimmoryCatalogSyncer(),
-            grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
-            grimmoryCoverRepository = FakeGrimmoryCoverRepository(),
-            grimmoryContentRepository = FakeGrimmoryContentRepository(),
             comicPageSource = FakeComicPageSource(pageCount = 3),
-            comicReaderProgressStore = comicsSessionAdapter,
-            comicReaderPreferencesStore = comicsSessionAdapter,
+            progressStore = comicsSessionAdapter,
+            preferencesStore = comicsSessionAdapter,
             readerSessionStore = readerSessionStore,
-            sourceProgressSyncs = emptyList(),
-            readerFactories = emptyList(),
         )
 
         composeRule.setContent {
@@ -359,10 +298,7 @@ class UnifiedReaderAppFlowTest {
         )
         val readerSessionStore = FakeReaderSessionStore()
         val comicsSessionAdapter = ComicsReaderSessionAdapter(readerSessionStore)
-        val viewModel = AppViewModel(
-            application = ApplicationProvider.getApplicationContext<Application>(),
-            appPreferencesStore = FakeAppPreferencesStore(),
-            libraryRepository = FakeLibraryRepository(),
+        val viewModel = createViewModel(
             readableItemRepository = FakeReadableItemRepository(items = listOf(item)),
             localDocumentRepository = FakeLocalDocumentRepository(
                 importedItem = item.copy(
@@ -373,28 +309,10 @@ class UnifiedReaderAppFlowTest {
                 importUri = Uri.parse("content://imports/unused.cbz"),
                 pageCount = 1,
             ),
-            importedItemDeletionService = DefaultImportedItemDeletionService(
-                localDocumentDataSource = FakeLocalDocumentRepository(
-                    importedItem = item.copy(
-                        id = "unused-import",
-                        sourceType = SourceType.LOCAL,
-                        isLocalImport = true,
-                    ),
-                    importUri = Uri.parse("content://imports/unused.cbz"),
-                    pageCount = 1,
-                ),
-                readerSessionStore = readerSessionStore,
-            ),
-            grimmoryCatalogSyncer = FakeGrimmoryCatalogSyncer(),
-            grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
-            grimmoryCoverRepository = FakeGrimmoryCoverRepository(),
-            grimmoryContentRepository = FakeGrimmoryContentRepository(),
             comicPageSource = FakeComicPageSource(pageCount = 1),
-            comicReaderProgressStore = comicsSessionAdapter,
-            comicReaderPreferencesStore = comicsSessionAdapter,
+            progressStore = comicsSessionAdapter,
+            preferencesStore = comicsSessionAdapter,
             readerSessionStore = readerSessionStore,
-            sourceProgressSyncs = emptyList(),
-            readerFactories = emptyList(),
         )
 
         composeRule.setContent {
@@ -414,6 +332,87 @@ class UnifiedReaderAppFlowTest {
         composeRule.onNodeWithTag("library-grid-card-catalog-book").fetchSemanticsNode()
         composeRule.waitForTextGone("Catalog Book")
     }
+}
+
+private fun createViewModel(
+    localDocumentRepository: FakeLocalDocumentRepository = FakeLocalDocumentRepository(),
+    readableItemRepository: FakeReadableItemRepository = FakeReadableItemRepository(),
+    libraryRepository: FakeLibraryRepository = FakeLibraryRepository(),
+    comicPageSource: ComicPageSource = FakeComicPageSource(pageCount = 1),
+    pageSource: ComicPageSource = comicPageSource,
+    progressStore: com.example.unifiedreader.feature.reader.comics.ComicReaderProgressStore,
+    preferencesStore: com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesStore,
+    appPreferencesStore: AppPreferencesStore = FakeAppPreferencesStore(),
+    readerSessionStore: FakeReaderSessionStore = FakeReaderSessionStore(),
+    remoteCatalogReadiness: RemoteCatalogReadiness = FakeRemoteCatalogReadiness(),
+    kavitaCatalogSyncer: KavitaCatalogSyncer = FakeKavitaCatalogSyncer(),
+    kavitaCredentialStore: KavitaCredentialStore = FakeKavitaCredentialStore(),
+    grimmoryCatalogSyncer: GrimmoryCatalogSyncer = FakeGrimmoryCatalogSyncer(),
+    grimmoryCredentialStore: GrimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+    grimmoryCoverRepository: GrimmoryCoverDataSource = FakeGrimmoryCoverRepository(),
+    grimmoryContentRepository: GrimmoryContentDataSource = FakeGrimmoryContentRepository(),
+    sourceProgressSyncs: List<SourceProgressSync> = emptyList(),
+    readerFactories: List<com.example.unifiedreader.feature.reader.core.ReaderScreenFactory> = emptyList(),
+): AppViewModel {
+    val libraryStateAssembler = AppLibraryStateAssembler(
+        localDocumentRepository = localDocumentRepository,
+        grimmoryContentRepository = grimmoryContentRepository,
+    )
+    return AppViewModel(
+        application = ApplicationProvider.getApplicationContext<Application>(),
+        appPreferencesStore = appPreferencesStore,
+        libraryRepository = libraryRepository,
+        readableItemRepository = readableItemRepository,
+        localDocumentRepository = localDocumentRepository,
+        libraryStateAssembler = libraryStateAssembler,
+        observeAppCatalogSnapshotsUseCase = ObserveAppCatalogSnapshotsUseCase(
+            appPreferencesStore = appPreferencesStore,
+            libraryRepository = libraryRepository,
+            readableItemRepository = readableItemRepository,
+            remoteCatalogReadiness = remoteCatalogReadiness,
+            localDocumentRepository = localDocumentRepository,
+            readerSessionStore = readerSessionStore,
+            libraryStateAssembler = libraryStateAssembler,
+        ),
+        importDocumentUseCase = ImportDocumentUseCase(
+            localDocumentRepository = localDocumentRepository,
+        ),
+        deleteImportedItemUseCase = DeleteImportedItemUseCase(
+            importedItemDeletionService = DefaultImportedItemDeletionService(
+                localDocumentDataSource = localDocumentRepository,
+                readerSessionStore = readerSessionStore,
+            ),
+        ),
+        downloadRemoteItemUseCase = DownloadRemoteItemUseCase(
+            grimmoryContentRepository = grimmoryContentRepository,
+            libraryStateAssembler = libraryStateAssembler,
+            sourceProgressSyncs = sourceProgressSyncs,
+        ),
+        deleteRemoteLocalFileUseCase = DeleteRemoteLocalFileUseCase(
+            grimmoryContentRepository = grimmoryContentRepository,
+            libraryStateAssembler = libraryStateAssembler,
+        ),
+        kavitaCoordinator = AppKavitaCoordinator(
+            kavitaCatalogSyncer = kavitaCatalogSyncer,
+            kavitaCredentialStore = kavitaCredentialStore,
+        ),
+        grimmoryCoordinator = AppGrimmoryCoordinator(
+            grimmoryCatalogSyncer = grimmoryCatalogSyncer,
+            grimmoryCredentialStore = grimmoryCredentialStore,
+            grimmoryCoverRepository = grimmoryCoverRepository,
+        ),
+        kavitaCredentialStore = kavitaCredentialStore,
+        grimmoryCredentialStore = grimmoryCredentialStore,
+        grimmoryCoverCacheController = GrimmoryCoverCacheController(
+            grimmoryCoverRepository = grimmoryCoverRepository,
+        ),
+        comicPageSource = pageSource,
+        comicReaderProgressStore = progressStore,
+        comicReaderPreferencesStore = preferencesStore,
+        readerSessionStore = readerSessionStore,
+        sourceProgressSyncs = sourceProgressSyncs,
+        readerFactories = readerFactories,
+    )
 }
 
 private fun androidx.compose.ui.test.junit4.AndroidComposeTestRule<*, *>.waitForText(
@@ -475,6 +474,43 @@ private class FakeGrimmoryCatalogSyncer : GrimmoryCatalogSyncer {
     )
 }
 
+private class FakeKavitaCatalogSyncer : KavitaCatalogSyncer {
+    override suspend fun connect(
+        request: KavitaCatalogSyncRequest,
+    ): KavitaCatalogConnectionResult = KavitaCatalogConnectionResult(
+        libraryCount = 0,
+    )
+
+    override suspend fun sync(
+        request: KavitaCatalogSyncRequest,
+        onProgress: (KavitaSyncProgress) -> Unit,
+    ): KavitaCatalogSyncResult = KavitaCatalogSyncResult(
+        libraryCount = 0,
+        itemCount = 0,
+        supportedFormatCounts = emptyMap(),
+    )
+}
+
+private class FakeRemoteCatalogReadiness : RemoteCatalogReadiness {
+    override val isHydratedFlow: StateFlow<Boolean> = MutableStateFlow(true)
+}
+
+private class FakeKavitaCredentialStore : KavitaCredentialStore {
+    private val sessionState = MutableStateFlow<KavitaStoredSession?>(null)
+
+    override val sessionFlow: StateFlow<KavitaStoredSession?> = sessionState
+
+    override suspend fun save(
+        session: KavitaStoredSession,
+    ) {
+        sessionState.value = session
+    }
+
+    override suspend fun clear() {
+        sessionState.value = null
+    }
+}
+
 private class FakeGrimmoryCredentialStore : GrimmoryCredentialStore {
     private val sessionState = MutableStateFlow<GrimmoryStoredSession?>(null)
 
@@ -528,9 +564,9 @@ private class FakeAppPreferencesStore : AppPreferencesStore {
 }
 
 private class FakeLocalDocumentRepository(
-    private val importedItem: ReadableItem,
-    private val importUri: Uri,
-    private val pageCount: Int,
+    private val importedItem: ReadableItem? = null,
+    private val importUri: Uri? = null,
+    private val pageCount: Int = 0,
 ) : LocalDocumentDataSource {
     override val isHydratedFlow: StateFlow<Boolean> = MutableStateFlow(true)
     private val importedItemsState = MutableStateFlow(emptyList<ReadableItem>())
@@ -539,20 +575,21 @@ private class FakeLocalDocumentRepository(
     override fun getImportedItems(): List<ReadableItem> = importedItemsState.value
 
     override suspend fun import(uri: Uri): ReadableItem? {
+        val item = importedItem ?: return null
         if (uri != importUri) return null
-        importedItemsState.value = listOf(importedItem)
-        return importedItem
+        importedItemsState.value = listOf(item)
+        return item
     }
 
     override suspend fun removeById(itemId: String): Boolean {
-        if (itemId != importedItem.id) return false
+        if (itemId != importedItem?.id) return false
         importedItemsState.value = emptyList()
         return true
     }
 
-    override fun getPageCount(item: ReadableItem): Int = if (item.id == importedItem.id) pageCount else 0
+    override fun getPageCount(item: ReadableItem): Int = if (item.id == importedItem?.id) pageCount else 0
 
-    override fun getDocumentUri(item: ReadableItem): Uri? = if (item.id == importedItem.id) importUri else null
+    override fun getDocumentUri(item: ReadableItem): Uri? = if (item.id == importedItem?.id) importUri else null
 }
 
 private class FakeComicPageSource(

@@ -11,14 +11,20 @@ import com.example.unifiedreader.core.model.applyLibraryFilters
 import com.example.unifiedreader.core.model.applyLibrarySearch
 import com.example.unifiedreader.core.model.applyLibrarySort
 import com.example.unifiedreader.core.model.belongsToKavitaSeries
+import com.example.unifiedreader.core.model.belongsToStumpSeries
 import com.example.unifiedreader.core.model.buildKavitaSeriesContainer
+import com.example.unifiedreader.core.model.buildStumpSeriesContainer
 import com.example.unifiedreader.core.model.buildLibraryFilterFacets
 import com.example.unifiedreader.core.model.isKavitaSeriesContainer
+import com.example.unifiedreader.core.model.isStumpSeriesContainer
 import com.example.unifiedreader.core.model.kavitaSeriesContainerId
 import com.example.unifiedreader.core.model.kavitaSeriesGroupKey
+import com.example.unifiedreader.core.model.stumpSeriesContainerId
+import com.example.unifiedreader.core.model.stumpSeriesGroupKey
 import com.example.unifiedreader.feature.library.ItemProgressSummary
 import com.example.unifiedreader.feature.settings.KavitaConnectionUiState
 import com.example.unifiedreader.feature.settings.GrimmoryConnectionUiState
+import com.example.unifiedreader.feature.settings.StumpConnectionUiState
 import com.example.unifiedreader.feature.settings.ThemeMode
 
 internal data class AppCatalogSnapshot(
@@ -59,23 +65,42 @@ data class AppUiState(
     val hydratedSources: Set<SourceType> = setOf(SourceType.KAVITA),
     val themeMode: ThemeMode = ThemeMode.System,
     val kavitaConnection: KavitaConnectionUiState = KavitaConnectionUiState(),
+    val stumpConnection: StumpConnectionUiState = StumpConnectionUiState(),
     val grimmoryConnection: GrimmoryConnectionUiState = GrimmoryConnectionUiState(),
     val selectedKavitaSeriesKey: String? = null,
+    val selectedStumpSeriesKey: String? = null,
 ) {
     val sourceItems: List<ReadableItem>
         get() {
             val selectedItems = items.filter { it.sourceType == selectedSource }
-            if (selectedSource != SourceType.KAVITA) return selectedItems
-            val seriesKey = selectedKavitaSeriesKey
-            if (seriesKey != null) {
-                return selectedItems.filter { item -> item.belongsToKavitaSeries(seriesKey) }
+            when (selectedSource) {
+                SourceType.KAVITA -> {
+                    val seriesKey = selectedKavitaSeriesKey
+                    if (seriesKey != null) {
+                        return selectedItems.filter { item -> item.belongsToKavitaSeries(seriesKey) }
+                    }
+                    val comicIssues = selectedItems.filter { item -> item.kavitaSeriesGroupKey() != null }
+                    val directItems = selectedItems.filterNot { item -> item.kavitaSeriesGroupKey() != null }
+                    val seriesItems = comicIssues
+                        .groupBy { issue -> issue.kavitaSeriesGroupKey()!! }
+                        .map { (key, issues) -> buildKavitaSeriesContainer(key, issues) }
+                    return directItems + seriesItems
+                }
+                SourceType.STUMP -> {
+                    val seriesKey = selectedStumpSeriesKey
+                    if (seriesKey != null) {
+                        return selectedItems.filter { item -> item.belongsToStumpSeries(seriesKey) }
+                    }
+                    val comicIssues = selectedItems.filter { item -> item.stumpSeriesGroupKey() != null }
+                    val directItems = selectedItems.filterNot { item -> item.stumpSeriesGroupKey() != null }
+                    val seriesItems = comicIssues
+                        .groupBy { issue -> issue.stumpSeriesGroupKey()!! }
+                        .map { (key, issues) -> buildStumpSeriesContainer(key, issues) }
+                    return directItems + seriesItems
+                }
+                SourceType.GRIMMORY,
+                SourceType.LOCAL -> return selectedItems
             }
-            val comicIssues = selectedItems.filter { item -> item.kavitaSeriesGroupKey() != null }
-            val directItems = selectedItems.filterNot { item -> item.kavitaSeriesGroupKey() != null }
-            val seriesItems = comicIssues
-                .groupBy { issue -> issue.kavitaSeriesGroupKey()!! }
-                .map { (key, issues) -> buildKavitaSeriesContainer(key, issues) }
-            return directItems + seriesItems
         }
 
     val selectedLibraryFilters: LibraryFilterState
@@ -96,10 +121,12 @@ data class AppUiState(
             .associate { library -> library.id to library.title }
 
     val displayProgressByItemId: Map<String, ItemProgressSummary>
-        get() = if (selectedSource == SourceType.KAVITA && selectedKavitaSeriesKey == null) {
-            progressByItemId + buildKavitaSeriesProgressByItemId(items, progressByItemId)
-        } else {
-            progressByItemId
+        get() = when {
+            selectedSource == SourceType.KAVITA && selectedKavitaSeriesKey == null ->
+                progressByItemId + buildKavitaSeriesProgressByItemId(items, progressByItemId)
+            selectedSource == SourceType.STUMP && selectedStumpSeriesKey == null ->
+                progressByItemId + buildStumpSeriesProgressByItemId(items, progressByItemId)
+            else -> progressByItemId
         }
 
     val selectedLibrarySortMode: LibrarySortMode
@@ -128,6 +155,21 @@ data class AppUiState(
             items.firstOrNull { item -> item.belongsToKavitaSeries(seriesKey) }?.let { item ->
                 item.comicMetadata?.series?.takeIf(String::isNotBlank) ?: item.title
             }
+        }
+
+    val selectedStumpSeriesTitle: String?
+        get() = selectedStumpSeriesKey?.let { seriesKey ->
+            items.firstOrNull { item -> item.belongsToStumpSeries(seriesKey) }?.let { item ->
+                item.comicMetadata?.series?.takeIf(String::isNotBlank) ?: item.title
+            }
+        }
+
+    val selectedSeriesTitle: String?
+        get() = when (selectedSource) {
+            SourceType.KAVITA -> selectedKavitaSeriesTitle
+            SourceType.STUMP -> selectedStumpSeriesTitle
+            SourceType.GRIMMORY,
+            SourceType.LOCAL -> null
         }
 }
 
@@ -168,6 +210,54 @@ private fun buildKavitaSeriesProgressByItemId(
         val latestIssueLabel = latestDisplayProgress.first.comicMetadata?.issueTitle?.takeIf(String::isNotBlank)
             ?: latestDisplayProgress.first.title
         kavitaSeriesContainerId(seriesKey) to ItemProgressSummary(
+            label = when {
+                completedCount == issues.size -> "Finished all ${issues.size} issues"
+                latestInProgress != null && latestIssueLabel.isNotBlank() -> "Continue $latestIssueLabel"
+                else -> "Read $completedCount of ${issues.size} issues"
+            },
+            fraction = averageFraction,
+            lastReadAtEpochMillis = latestActivityProgress.second.lastReadAtEpochMillis,
+        )
+    }
+    .toMap()
+
+private fun buildStumpSeriesProgressByItemId(
+    items: List<ReadableItem>,
+    progressByItemId: Map<String, ItemProgressSummary>,
+): Map<String, ItemProgressSummary> = items
+    .filter { item ->
+        item.sourceType == SourceType.STUMP &&
+            item.stumpSeriesGroupKey() != null &&
+            !item.isStumpSeriesContainer()
+    }
+    .groupBy { item -> item.stumpSeriesGroupKey()!! }
+    .mapNotNull { (seriesKey, issues) ->
+        val issueProgress = issues.mapNotNull { issue ->
+            progressByItemId[issue.id]?.let { progress -> issue to progress }
+        }
+        if (issueProgress.isEmpty()) return@mapNotNull null
+        val latestInProgress = issueProgress
+            .filter { (_, progress) -> progress.fraction < 0.999f }
+            .maxByOrNull { (_, progress) -> progress.lastReadAtEpochMillis }
+        val latestDisplayProgress = latestInProgress
+            ?: issueProgress.maxByOrNull { (_, progress) -> progress.lastReadAtEpochMillis }
+            ?: return@mapNotNull null
+        val latestActivityProgress = issueProgress.maxByOrNull { (_, progress) ->
+            progress.lastReadAtEpochMillis
+        } ?: return@mapNotNull null
+        val progressByIssueId = issueProgress.associate { (issue, progress) ->
+            issue.id to progress
+        }
+        val averageFraction = issues
+            .map { issue -> progressByIssueId[issue.id]?.fraction?.coerceIn(0f, 1f) ?: 0f }
+            .average()
+            .toFloat()
+        val completedCount = issues.count { issue ->
+            (progressByIssueId[issue.id]?.fraction ?: 0f) >= 0.999f
+        }
+        val latestIssueLabel = latestDisplayProgress.first.comicMetadata?.issueTitle?.takeIf(String::isNotBlank)
+            ?: latestDisplayProgress.first.title
+        stumpSeriesContainerId(seriesKey) to ItemProgressSummary(
             label = when {
                 completedCount == issues.size -> "Finished all ${issues.size} issues"
                 latestInProgress != null && latestIssueLabel.isNotBlank() -> "Continue $latestIssueLabel"

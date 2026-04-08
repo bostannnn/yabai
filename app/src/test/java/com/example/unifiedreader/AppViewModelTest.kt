@@ -1264,6 +1264,9 @@ class AppViewModelTest {
         readerSessionStore: FakeReaderSessionStore = FakeReaderSessionStore(),
         kavitaCatalogSyncer: KavitaCatalogSyncer = FakeKavitaCatalogSyncer(),
         kavitaCredentialStore: KavitaCredentialStore = FakeKavitaCredentialStore(),
+        stumpCatalogSyncer: StumpCatalogSyncer = FakeStumpCatalogSyncer(),
+        stumpCredentialStore: StumpCredentialStore = FakeStumpCredentialStore(),
+        stumpCoverRepository: StumpCoverDataSource = FakeStumpCoverRepository(),
         grimmoryCatalogSyncer: GrimmoryCatalogSyncer = FakeGrimmoryCatalogSyncer(),
         grimmoryCredentialStore: GrimmoryCredentialStore = FakeGrimmoryCredentialStore(),
         grimmoryCoverRepository: GrimmoryCoverDataSource = FakeGrimmoryCoverRepository(),
@@ -1324,13 +1327,22 @@ class AppViewModelTest {
                 kavitaCatalogSyncer = kavitaCatalogSyncer,
                 kavitaCredentialStore = kavitaCredentialStore,
             ),
+            stumpCoordinator = AppStumpCoordinator(
+                stumpCatalogSyncer = stumpCatalogSyncer,
+                stumpCredentialStore = stumpCredentialStore,
+                stumpCoverRepository = stumpCoverRepository,
+            ),
             grimmoryCoordinator = AppGrimmoryCoordinator(
                 grimmoryCatalogSyncer = grimmoryCatalogSyncer,
                 grimmoryCredentialStore = grimmoryCredentialStore,
                 grimmoryCoverRepository = grimmoryCoverRepository,
             ),
             kavitaCredentialStore = kavitaCredentialStore,
+            stumpCredentialStore = stumpCredentialStore,
             grimmoryCredentialStore = grimmoryCredentialStore,
+            stumpCoverCacheController = StumpCoverCacheController(
+                stumpCoverRepository = stumpCoverRepository,
+            ),
             grimmoryCoverCacheController = GrimmoryCoverCacheController(
                 grimmoryCoverRepository = grimmoryCoverRepository,
             ),
@@ -1370,6 +1382,38 @@ private class FakeKavitaCatalogSyncer(
         request: KavitaCatalogSyncRequest,
         onProgress: (KavitaSyncProgress) -> Unit,
     ): KavitaCatalogSyncResult {
+        lastSyncRequest = request
+        failure?.let { throw it }
+        return result
+    }
+}
+
+private class FakeStumpCatalogSyncer(
+    private val connectionResult: StumpCatalogConnectionResult = StumpCatalogConnectionResult(
+        libraryCount = 0,
+    ),
+    private val result: StumpCatalogSyncResult = StumpCatalogSyncResult(
+        libraryCount = 0,
+        itemCount = 0,
+        supportedFormatCounts = emptyMap(),
+    ),
+    private val failure: Throwable? = null,
+) : StumpCatalogSyncer {
+    var lastConnectRequest: StumpCatalogSyncRequest? = null
+    var lastSyncRequest: StumpCatalogSyncRequest? = null
+
+    override suspend fun connect(
+        request: StumpCatalogSyncRequest,
+    ): StumpCatalogConnectionResult {
+        lastConnectRequest = request
+        failure?.let { throw it }
+        return connectionResult
+    }
+
+    override suspend fun sync(
+        request: StumpCatalogSyncRequest,
+        onProgress: (StumpSyncProgress) -> Unit,
+    ): StumpCatalogSyncResult {
         lastSyncRequest = request
         failure?.let { throw it }
         return result
@@ -1442,6 +1486,32 @@ private class FakeKavitaCredentialStore(
     override suspend fun clear() {
         sessionState.value = null
     }
+}
+
+private class FakeStumpCredentialStore(
+    initialSession: StumpStoredSession? = null,
+) : StumpCredentialStore {
+    private val sessionState = MutableStateFlow(initialSession)
+
+    override val sessionFlow: StateFlow<StumpStoredSession?> = sessionState
+
+    override suspend fun save(
+        session: StumpStoredSession,
+    ) {
+        sessionState.value = session
+    }
+
+    override suspend fun clear() {
+        sessionState.value = null
+    }
+}
+
+private class FakeStumpCoverRepository : StumpCoverDataSource {
+    override suspend fun getCoverUri(
+        item: ReadableItem,
+    ): Uri? = null
+
+    override suspend fun clearCachedCovers() = Unit
 }
 
 private class FakeGrimmoryCoverRepository : GrimmoryCoverDataSource {

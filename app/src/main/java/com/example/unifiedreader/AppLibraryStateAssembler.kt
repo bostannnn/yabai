@@ -54,6 +54,7 @@ class AppLibraryStateAssembler @Inject constructor(
             hydratedSources = buildSet {
                 add(SourceType.KAVITA)
                 if (isRemoteCatalogHydrated) {
+                    add(SourceType.STUMP)
                     add(SourceType.GRIMMORY)
                 }
                 if (isLocalCatalogHydrated) {

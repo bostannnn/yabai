@@ -4,8 +4,9 @@ import android.content.Context
 import com.example.unifiedreader.core.database.UnifiedReaderDatabase
 import com.example.unifiedreader.core.database.UnifiedReaderDatabaseFactory
 import com.example.unifiedreader.core.network.buildHttpClient
-import com.example.unifiedreader.data.kavita.KtorKavitaApi
 import com.example.unifiedreader.data.grimmory.KtorGrimmoryApi
+import com.example.unifiedreader.data.kavita.KtorKavitaApi
+import com.example.unifiedreader.data.stump.KtorStumpApi
 import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
 import com.example.unifiedreader.data.repository.SampleCatalogRepository
@@ -47,6 +48,12 @@ object AppModule {
     fun provideKavitaCredentialStore(
         @ApplicationContext context: Context,
     ): KavitaCredentialStore = SharedPreferencesKavitaCredentialStore(context)
+
+    @Provides
+    @Singleton
+    fun provideStumpCredentialStore(
+        @ApplicationContext context: Context,
+    ): StumpCredentialStore = SharedPreferencesStumpCredentialStore(context)
 
     @Provides
     @Singleton
@@ -101,6 +108,16 @@ object AppModule {
     }
 
     @Provides
+    fun provideStumpApiFactory(
+        httpClient: HttpClient,
+    ): StumpApiFactory = StumpApiFactory { baseUrl ->
+        KtorStumpApi(
+            httpClient = httpClient,
+            baseUrl = baseUrl,
+        )
+    }
+
+    @Provides
     @Singleton
     fun provideKavitaCatalogSyncService(
         kavitaApiFactory: KavitaApiFactory,
@@ -120,6 +137,18 @@ object AppModule {
         readerSessionStore: ReaderSessionStore,
     ): GrimmoryCatalogSyncer = GrimmoryCatalogSyncService(
         grimmoryApiFactory = grimmoryApiFactory,
+        remoteCatalogWriter = remoteCatalogWriter,
+        readerSessionStore = readerSessionStore,
+    )
+
+    @Provides
+    @Singleton
+    fun provideStumpCatalogSyncService(
+        stumpApiFactory: StumpApiFactory,
+        remoteCatalogWriter: RemoteCatalogWriter,
+        readerSessionStore: ReaderSessionStore,
+    ): StumpCatalogSyncer = StumpCatalogSyncService(
+        stumpApiFactory = stumpApiFactory,
         remoteCatalogWriter = remoteCatalogWriter,
         readerSessionStore = readerSessionStore,
     )
@@ -155,6 +184,18 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideStumpCoverRepository(
+        @ApplicationContext context: Context,
+        stumpApiFactory: StumpApiFactory,
+        stumpCredentialStore: StumpCredentialStore,
+    ): StumpCoverDataSource = StumpCoverRepository(
+        context = context.applicationContext,
+        stumpApiFactory = stumpApiFactory,
+        stumpCredentialStore = stumpCredentialStore,
+    )
+
+    @Provides
+    @Singleton
     fun provideGrimmoryProgressSyncService(
         grimmoryApiFactory: GrimmoryApiFactory,
         grimmoryCredentialStore: GrimmoryCredentialStore,
@@ -162,6 +203,18 @@ object AppModule {
     ): GrimmoryProgressSyncService = GrimmoryProgressSyncService(
         grimmoryApiFactory = grimmoryApiFactory,
         grimmoryCredentialStore = grimmoryCredentialStore,
+        readerSessionStore = readerSessionStore,
+    )
+
+    @Provides
+    @Singleton
+    fun provideStumpProgressSyncService(
+        stumpApiFactory: StumpApiFactory,
+        stumpCredentialStore: StumpCredentialStore,
+        readerSessionStore: ReaderSessionStore,
+    ): StumpProgressSyncService = StumpProgressSyncService(
+        stumpApiFactory = stumpApiFactory,
+        stumpCredentialStore = stumpCredentialStore,
         readerSessionStore = readerSessionStore,
     )
 
@@ -180,9 +233,11 @@ object AppModule {
     @Provides
     fun provideSourceProgressSyncs(
         kavitaProgressSyncService: KavitaProgressSyncService,
+        stumpProgressSyncService: StumpProgressSyncService,
         grimmoryProgressSyncService: GrimmoryProgressSyncService,
     ): List<@JvmSuppressWildcards SourceProgressSync> = listOf(
         kavitaProgressSyncService,
+        stumpProgressSyncService,
         grimmoryProgressSyncService,
     )
 
@@ -228,6 +283,11 @@ object AppModule {
     ): LocalDocumentDataSource = repository
 
     @Provides
+    fun provideLocalComicDocumentDataSource(
+        repository: LocalDocumentRepository,
+    ): LocalComicDocumentDataSource = repository
+
+    @Provides
     @Singleton
     fun provideImportedItemDeletionService(
         localDocumentDataSource: LocalDocumentDataSource,
@@ -262,8 +322,8 @@ object AppModule {
     @Provides
     @Singleton
     fun provideComicPageSource(
-        repository: LocalDocumentRepository,
-    ): LocalComicPageSource = LocalComicPageSource(repository)
+        localComicDocumentDataSource: LocalComicDocumentDataSource,
+    ): LocalComicPageSource = LocalComicPageSource(localComicDocumentDataSource)
 
     @Provides
     @Singleton
@@ -277,12 +337,24 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideStumpPageSource(
+        stumpApiFactory: StumpApiFactory,
+        stumpCredentialStore: StumpCredentialStore,
+    ): StumpPageSource = StumpPageSource(
+        stumpApiFactory = stumpApiFactory,
+        stumpCredentialStore = stumpCredentialStore,
+    )
+
+    @Provides
+    @Singleton
     fun provideCompositeComicPageSource(
         localComicPageSource: LocalComicPageSource,
         kavitaPageSource: KavitaPageSource,
+        stumpPageSource: StumpPageSource,
     ): ComicPageSource = CompositeComicPageSource(
         localComicPageSource = localComicPageSource,
         kavitaPageSource = kavitaPageSource,
+        stumpPageSource = stumpPageSource,
     )
 
     @Provides

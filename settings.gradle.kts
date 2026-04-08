@@ -26,6 +26,7 @@ include(
     ":core:network",
     ":core:database",
     ":data:kavita",
+    ":data:stump",
     ":data:grimmory",
     ":data:repository",
     ":feature:library",

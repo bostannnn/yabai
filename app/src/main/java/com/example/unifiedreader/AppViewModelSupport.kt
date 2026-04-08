@@ -4,8 +4,10 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.data.kavita.KavitaSession
 import com.example.unifiedreader.data.grimmory.GrimmorySession
+import com.example.unifiedreader.data.stump.StumpSession
 import com.example.unifiedreader.feature.settings.KavitaConnectionUiState
 import com.example.unifiedreader.feature.settings.GrimmoryConnectionUiState
+import com.example.unifiedreader.feature.settings.StumpConnectionUiState
 import java.util.Locale
 
 internal fun deletionMessage(
@@ -63,6 +65,27 @@ internal fun KavitaConnectionUiState.withStoredSession(
     )
 }
 
+internal fun StumpConnectionUiState.withStoredSession(
+    session: StumpStoredSession?,
+): StumpConnectionUiState = if (session == null) {
+    copy(
+        hasStoredSession = false,
+        syncProgressFraction = null,
+        syncProgressLabel = null,
+    )
+} else {
+    copy(
+        displayName = session.displayName,
+        baseUrl = session.baseUrl,
+        username = session.username,
+        password = "",
+        hasStoredSession = true,
+        syncProgressFraction = null,
+        syncProgressLabel = null,
+        isError = false,
+    )
+}
+
 internal fun GrimmorySession.toStoredSession(
     displayName: String,
     baseUrl: String,
@@ -86,6 +109,18 @@ internal fun KavitaSession.toStoredSession(
     accessToken = accessToken,
     refreshToken = refreshToken,
     apiKey = apiKey,
+)
+
+internal fun StumpSession.toStoredSession(
+    displayName: String,
+    baseUrl: String,
+    username: String,
+): StumpStoredSession = StumpStoredSession(
+    displayName = displayName,
+    baseUrl = baseUrl,
+    username = username,
+    accessToken = accessToken,
+    refreshToken = refreshToken,
 )
 
 internal fun Throwable.userFacingMessage(): String =

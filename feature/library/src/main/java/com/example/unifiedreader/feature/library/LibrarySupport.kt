@@ -97,6 +97,7 @@ internal fun buildComicVolumeIssueLabel(
 
 internal fun SourceType.displayName(): String = when (this) {
     SourceType.KAVITA -> "Kavita"
+    SourceType.STUMP -> "Stump"
     SourceType.GRIMMORY -> "Grimmory"
     SourceType.LOCAL -> "Local"
 }

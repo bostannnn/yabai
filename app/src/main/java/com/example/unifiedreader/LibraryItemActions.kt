@@ -66,6 +66,7 @@ class DownloadRemoteItemUseCase @Inject constructor(
         val downloadedUri = when (item.sourceType) {
             SourceType.GRIMMORY -> grimmoryContentRepository.downloadToLocalStorage(item)
             SourceType.KAVITA -> null
+            SourceType.STUMP -> null
             SourceType.LOCAL -> null
         }
         runCatching {
@@ -115,6 +116,7 @@ class DeleteRemoteLocalFileUseCase @Inject constructor(
         val deleted = when (item.sourceType) {
             SourceType.GRIMMORY -> grimmoryContentRepository.deleteStoredDocument(item)
             SourceType.KAVITA -> false
+            SourceType.STUMP -> false
             SourceType.LOCAL -> false
         }
         return DeleteRemoteLocalFileResult(

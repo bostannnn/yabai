@@ -120,10 +120,7 @@ class KavitaPageSource(
             }
             scope.launch {
                 try {
-                    val result = loadPageImage(item, page)
-                    if (result is ComicPageLoadResult.Success) {
-                        pageBitmapCache.put(cacheKey, result)
-                    }
+                    loadPageImage(item, page)
                 } finally {
                     synchronized(prefetchLock) {
                         prefetchInFlight.remove(cacheKey)
@@ -151,12 +148,14 @@ class KavitaPageSource(
 class CompositeComicPageSource(
     private val localComicPageSource: LocalComicPageSource,
     private val kavitaPageSource: KavitaPageSource,
+    private val stumpPageSource: StumpPageSource,
 ) : ComicPageSource {
     override fun getPages(
         item: ReadableItem,
     ): List<ComicPageSpec> = when (item.sourceType) {
         SourceType.LOCAL -> localComicPageSource.getPages(item)
         SourceType.KAVITA -> kavitaPageSource.getPages(item)
+        SourceType.STUMP -> stumpPageSource.getPages(item)
         SourceType.GRIMMORY -> emptyList()
     }
 
@@ -166,6 +165,7 @@ class CompositeComicPageSource(
     ): ComicPageLoadResult = when (item.sourceType) {
         SourceType.LOCAL -> localComicPageSource.loadPageImage(item, page)
         SourceType.KAVITA -> kavitaPageSource.loadPageImage(item, page)
+        SourceType.STUMP -> stumpPageSource.loadPageImage(item, page)
         SourceType.GRIMMORY -> ComicPageLoadResult.Failure("Unsupported source.")
     }
 
@@ -177,11 +177,16 @@ class CompositeComicPageSource(
         when (item.sourceType) {
             SourceType.LOCAL -> localComicPageSource.prefetchAround(item, settledPageIndex, pageCount)
             SourceType.KAVITA -> kavitaPageSource.prefetchAround(item, settledPageIndex, pageCount)
+            SourceType.STUMP -> stumpPageSource.prefetchAround(item, settledPageIndex, pageCount)
             SourceType.GRIMMORY -> Unit
         }
     }
 
     fun clearKavitaCache() {
         kavitaPageSource.clear()
+    }
+
+    fun clearStumpCache() {
+        stumpPageSource.clear()
     }
 }
