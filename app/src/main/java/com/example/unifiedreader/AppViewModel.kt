@@ -502,6 +502,7 @@ class AppViewModel @Inject constructor(
                 )
             ) {
                 is KavitaSyncExecutionResult.Success -> {
+                    clearKavitaPageCache()
                     updateUiState { state ->
                         state.copy(
                             topLevel = TopLevelDestination.Library,
@@ -534,6 +535,7 @@ class AppViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = kavitaCoordinator.executeConnect(preparation)) {
                 is KavitaConnectExecutionResult.Success -> {
+                    clearKavitaPageCache()
                     updateUiState { state ->
                         state.copy(
                             libraryMessage = "Connected to Kavita. ${result.libraryCount} libraries available to sync.",
@@ -823,6 +825,10 @@ class AppViewModel @Inject constructor(
 
     private fun clearGrimmoryCoverState() {
         grimmoryCoverCacheController.clear()
+    }
+
+    private fun clearKavitaPageCache() {
+        (comicPageSource as? CompositeComicPageSource)?.clearKavitaCache()
     }
 }
 
