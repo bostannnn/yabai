@@ -74,6 +74,22 @@ Why this matters:
 - the library should communicate reading state without opening item details
 - better progress visibility makes shelves and continue-reading flows feel more connected
 
+### 5. Refactoring and deduplication
+
+Reduce repeated logic and UI patterns so future feature work is easier to ship and maintain.
+
+- identify duplicate code paths across library, reader, download, and source-specific flows
+- extract shared logic where the duplication is already proven, not preemptively
+- simplify state handling where multiple code paths represent the same concept
+- standardize common UI elements for progress, actions, and item status
+- keep refactors incremental and tied to real feature work when possible
+
+Why this matters:
+
+- duplicated logic makes new features slower and riskier to implement
+- shared behavior should stay consistent across books, comics, local items, and remote items
+- targeted cleanup now prevents larger regressions later
+
 ## Next Ideas
 
 ### Library and discovery
@@ -110,11 +126,12 @@ Why this matters:
 2. Mark read and unread
 3. Read-state filters and sorting updates
 4. Improve library progress visuals
-5. Local comic downloads
-6. Series details screen
-7. Download queue and storage management
-8. PDF and EPUB reader polish
-9. Sync conflict visibility and recovery UX
+5. Refactoring and deduplication
+6. Local comic downloads
+7. Series details screen
+8. Download queue and storage management
+9. PDF and EPUB reader polish
+10. Sync conflict visibility and recovery UX
 
 ## Delivery Notes
 
