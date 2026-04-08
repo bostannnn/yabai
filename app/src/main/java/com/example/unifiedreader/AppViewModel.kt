@@ -5,7 +5,6 @@ import android.net.Uri
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -31,7 +30,6 @@ import com.example.unifiedreader.feature.settings.ThemeMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -45,14 +43,17 @@ class AppViewModel @Inject constructor(
     private val libraryRepository: LibraryRepository,
     private val readableItemRepository: ReadableItemRepository,
     private val localDocumentRepository: LocalDocumentDataSource,
-    private val importedItemDeletionService: ImportedItemDeletionService,
+    private val libraryStateAssembler: AppLibraryStateAssembler,
+    private val observeAppCatalogSnapshotsUseCase: ObserveAppCatalogSnapshotsUseCase,
+    private val importDocumentUseCase: ImportDocumentUseCase,
+    private val deleteImportedItemUseCase: DeleteImportedItemUseCase,
+    private val downloadRemoteItemUseCase: DownloadRemoteItemUseCase,
+    private val deleteRemoteLocalFileUseCase: DeleteRemoteLocalFileUseCase,
     private val kavitaCoordinator: AppKavitaCoordinator,
     private val grimmoryCoordinator: AppGrimmoryCoordinator,
-    private val remoteCatalogReadiness: RemoteCatalogReadiness,
     private val kavitaCredentialStore: KavitaCredentialStore,
     private val grimmoryCredentialStore: GrimmoryCredentialStore,
-    private val grimmoryCoverRepository: GrimmoryCoverDataSource,
-    private val grimmoryContentRepository: GrimmoryContentDataSource,
+    private val grimmoryCoverCacheController: GrimmoryCoverCacheController,
     val comicPageSource: ComicPageSource,
     val comicReaderProgressStore: ComicReaderProgressStore,
     val comicReaderPreferencesStore: ComicReaderPreferencesStore,
@@ -62,9 +63,6 @@ class AppViewModel @Inject constructor(
 ) : AndroidViewModel(application) {
     private var catalogLibraries: List<Library> = libraryRepository.getLibraries()
     private var catalogItems: List<ReadableItem> = readableItemRepository.getItems()
-    private val grimmoryCoverUrisByItemId = mutableStateMapOf<String, String>()
-    private val pendingGrimmoryCoverIds = mutableSetOf<String>()
-    private var lastGrimmoryCoverErrorMessage: String? = null
     private var readerSelectionRequestId: Int = 0
 
     var uiState by mutableStateOf(AppUiState())
@@ -77,73 +75,87 @@ class AppViewModel @Inject constructor(
         updateGrimmoryConnection { connection ->
             connection.withStoredSession(grimmoryCredentialStore.sessionFlow.value)
         }
-        uiState = uiState.copy(
-            themeMode = appPreferencesStore.preferencesFlow.value.themeMode,
-        )
-        refreshLibraryState()
+        updateUiState { state ->
+            state.copy(
+                themeMode = appPreferencesStore.preferencesFlow.value.themeMode,
+            )
+        }
+        updateLibraryState()
         observeAppState()
     }
 
     fun onTopLevelSelected(destination: TopLevelDestination) {
         readerSelectionRequestId++
-        uiState = uiState.copy(
-            topLevel = destination,
-        )
+        updateUiState { state -> state.copy(topLevel = destination) }
         refreshProgress()
     }
 
     fun onSourceSelected(sourceType: SourceType) {
         readerSelectionRequestId++
-        uiState = uiState.copy(
-            selectedSource = sourceType,
-            selectedItemId = null,
-            activeReader = null,
-            selectedKavitaSeriesKey = null,
-        )
+        updateUiState { state ->
+            state.copy(
+                selectedSource = sourceType,
+                selectedItemId = null,
+                activeReader = null,
+                selectedKavitaSeriesKey = null,
+            )
+        }
         refreshProgress()
     }
 
     fun onLibraryFiltersChanged(filters: LibraryFilterState) {
-        uiState = uiState.copy(
-            libraryFiltersBySource = uiState.libraryFiltersBySource + (uiState.selectedSource to filters),
-        )
+        updateUiState { state ->
+            state.copy(
+                libraryFiltersBySource = state.libraryFiltersBySource + (state.selectedSource to filters),
+            )
+        }
     }
 
     fun onLibrarySearchQueryChanged(query: String) {
-        uiState = uiState.copy(
-            librarySearchQueriesBySource = uiState.librarySearchQueriesBySource + (uiState.selectedSource to query),
-        )
+        updateUiState { state ->
+            state.copy(
+                librarySearchQueriesBySource = state.librarySearchQueriesBySource + (state.selectedSource to query),
+            )
+        }
     }
 
     fun clearLibraryFilters() {
         if (uiState.selectedLibraryFilters.isEmpty) return
-        uiState = uiState.copy(
-            libraryFiltersBySource = uiState.libraryFiltersBySource - uiState.selectedSource,
-        )
+        updateUiState { state ->
+            state.copy(
+                libraryFiltersBySource = state.libraryFiltersBySource - state.selectedSource,
+            )
+        }
     }
 
     fun onLibrarySortModeChanged(sortMode: LibrarySortMode) {
-        uiState = uiState.copy(
-            librarySortsBySource = uiState.librarySortsBySource + (uiState.selectedSource to sortMode),
-        )
+        updateUiState { state ->
+            state.copy(
+                librarySortsBySource = state.librarySortsBySource + (state.selectedSource to sortMode),
+            )
+        }
     }
 
     fun onItemSelected(item: ReadableItem) {
         if (item.isKavitaSeriesContainer()) {
-            uiState = uiState.copy(
-                selectedKavitaSeriesKey = item.remoteId,
-                selectedItemId = null,
-                activeReader = null,
-            )
+            updateUiState { state ->
+                state.copy(
+                    selectedKavitaSeriesKey = item.remoteId,
+                    selectedItemId = null,
+                    activeReader = null,
+                )
+            }
             refreshProgress()
             return
         }
         val progressSync = sourceProgressSyncs.firstOrNull { sync -> sync.supports(item) }
         val requestId = ++readerSelectionRequestId
-        uiState = uiState.copy(
-            selectedItemId = item.id,
-            activeReader = item.format,
-        )
+        updateUiState { state ->
+            state.copy(
+                selectedItemId = item.id,
+                activeReader = item.format,
+            )
+        }
         refreshProgress()
         if (progressSync != null) {
             viewModelScope.launch {
@@ -159,55 +171,37 @@ class AppViewModel @Inject constructor(
     }
 
     fun coverImageUrlFor(item: ReadableItem): String? {
-        return grimmoryCoverUrisByItemId[item.id] ?: item.coverUrl
+        return grimmoryCoverCacheController.coverImageUrlFor(item)
     }
 
     fun ensureCoverCached(item: ReadableItem) {
-        if (item.sourceType != SourceType.GRIMMORY) return
-        if (item.id in pendingGrimmoryCoverIds) return
-        val currentCoverUrl = grimmoryCoverUrisByItemId[item.id]
-        if (currentCoverUrl?.startsWith("file:", ignoreCase = true) == true) return
-        pendingGrimmoryCoverIds += item.id
-        viewModelScope.launch {
-            runCatching {
-                grimmoryCoverRepository.getCoverUri(item)?.toString()
-            }.onSuccess { cachedUri ->
-                if (!cachedUri.isNullOrBlank()) {
-                    Log.d(LOG_TAG, "Cached Grimmory cover for ${item.id}: $cachedUri")
-                    grimmoryCoverUrisByItemId[item.id] = cachedUri
-                    lastGrimmoryCoverErrorMessage = null
-                } else {
-                    Log.w(LOG_TAG, "Grimmory cover cache returned no URI for ${item.id}.")
-                }
-            }.onFailure { throwable ->
-                Log.w(LOG_TAG, "Unable to cache Grimmory cover for ${item.id}.", throwable)
-                val message = "Unable to load Grimmory covers: ${throwable.userFacingMessage()}"
-                if (lastGrimmoryCoverErrorMessage != message) {
-                    lastGrimmoryCoverErrorMessage = message
-                    uiState = uiState.copy(
-                        libraryMessage = message,
-                        libraryMessageSeverity = LibraryMessageSeverity.Error,
-                    )
-                }
-            }.also {
-                pendingGrimmoryCoverIds -= item.id
-            }
-        }
+        grimmoryCoverCacheController.ensureCoverCached(
+            item = item,
+            scope = viewModelScope,
+            onError = { message ->
+                updateLibraryMessage(
+                    message = message,
+                    severity = LibraryMessageSeverity.Error,
+                )
+            },
+        )
     }
 
     fun onBackPressed() {
         readerSelectionRequestId++
         val wasReaderOpen = uiState.activeReader != null && uiState.selectedItem != null
-        uiState = when {
-            uiState.activeReader != null -> uiState.copy(
-                activeReader = null,
-                selectedItemId = null,
-            )
-            uiState.selectedKavitaSeriesKey != null -> uiState.copy(
-                selectedKavitaSeriesKey = null,
-            )
-            uiState.selectedItemId != null -> uiState.copy(selectedItemId = null)
-            else -> uiState
+        updateUiState { state ->
+            when {
+                state.activeReader != null -> state.copy(
+                    activeReader = null,
+                    selectedItemId = null,
+                )
+                state.selectedKavitaSeriesKey != null -> state.copy(
+                    selectedKavitaSeriesKey = null,
+                )
+                state.selectedItemId != null -> state.copy(selectedItemId = null)
+                else -> state
+            }
         }
         if (wasReaderOpen) {
             viewModelScope.launch {
@@ -218,14 +212,15 @@ class AppViewModel @Inject constructor(
     }
 
     fun refreshProgress() {
-        uiState = uiState.copy(
-            progressByItemId = buildProgressSummaries(
-                items = uiState.items,
-                progressByItemId = readerSessionStore.progressByItemIdFlow.value,
-                sessionByItemId = readerSessionStore.sessionByItemIdFlow.value,
-                localPageCountProvider = localDocumentRepository::getPageCount,
-            ),
-        )
+        updateUiState { state ->
+            state.copy(
+                progressByItemId = libraryStateAssembler.buildProgressSummaries(
+                    items = state.items,
+                    progressByItemId = readerSessionStore.progressByItemIdFlow.value,
+                    sessionByItemId = readerSessionStore.sessionByItemIdFlow.value,
+                ),
+            )
+        }
         refreshDownloadedRemoteItemIdsAsync(uiState.items)
     }
 
@@ -243,73 +238,54 @@ class AppViewModel @Inject constructor(
 
     fun onDownloadRemoteItem(item: ReadableItem) {
         if (item.id in uiState.downloadingRemoteItemIds) return
-        uiState = uiState.copy(
-            downloadingRemoteItemIds = uiState.downloadingRemoteItemIds + item.id,
-            libraryMessage = "Downloading ${item.libraryDisplayLabel()}.",
-            libraryMessageSeverity = LibraryMessageSeverity.Info,
-        )
+        updateUiState { state ->
+            state.copy(
+                downloadingRemoteItemIds = state.downloadingRemoteItemIds + item.id,
+                libraryMessage = "Downloading ${item.libraryDisplayLabel()}.",
+                libraryMessageSeverity = LibraryMessageSeverity.Info,
+            )
+        }
         viewModelScope.launch {
             runCatching {
-                when (item.sourceType) {
-                    SourceType.GRIMMORY -> grimmoryContentRepository.downloadToLocalStorage(item)
-                    SourceType.KAVITA -> null
-                    SourceType.LOCAL -> null
+                downloadRemoteItemUseCase(item, uiState.items)
+            }.onSuccess { result ->
+                updateUiState { state ->
+                    state.copy(
+                        downloadedRemoteItemIds = result.downloadedRemoteItemIds,
+                        libraryMessage = result.libraryMessage,
+                        libraryMessageSeverity = result.libraryMessageSeverity,
+                    )
                 }
-            }.onSuccess { downloadedUri ->
-                syncItemProgressIfSupported(item)
-                val downloadedIds = loadDownloadedRemoteItemIds(uiState.items)
-                uiState = uiState.copy(
-                    downloadedRemoteItemIds = downloadedIds,
-                    libraryMessage = if (downloadedUri != null) {
-                        "Downloaded ${item.libraryDisplayLabel()} for local reading."
-                    } else {
-                        "Unable to download ${item.libraryDisplayLabel()}."
-                    },
-                    libraryMessageSeverity = if (downloadedUri != null) {
-                        LibraryMessageSeverity.Info
-                    } else {
-                        LibraryMessageSeverity.Error
-                    },
-                )
             }.onFailure { throwable ->
-                uiState = uiState.copy(
-                    libraryMessage = "Unable to download ${item.libraryDisplayLabel()}: ${throwable.userFacingMessage()}",
-                    libraryMessageSeverity = LibraryMessageSeverity.Error,
+                updateLibraryMessage(
+                    message = "Unable to download ${item.libraryDisplayLabel()}: ${throwable.userFacingMessage()}",
+                    severity = LibraryMessageSeverity.Error,
                 )
             }
-            uiState = uiState.copy(
-                downloadingRemoteItemIds = uiState.downloadingRemoteItemIds - item.id,
-            )
+            updateUiState { state ->
+                state.copy(
+                    downloadingRemoteItemIds = state.downloadingRemoteItemIds - item.id,
+                )
+            }
         }
     }
 
     fun onDeleteRemoteLocalFile(item: ReadableItem) {
         viewModelScope.launch {
-            val deleted = when (item.sourceType) {
-                SourceType.GRIMMORY -> grimmoryContentRepository.deleteStoredDocument(item)
-                SourceType.KAVITA -> false
-                SourceType.LOCAL -> false
+            val result = deleteRemoteLocalFileUseCase(item, uiState.items)
+            updateUiState { state ->
+                state.copy(
+                    downloadedRemoteItemIds = result.downloadedRemoteItemIds,
+                    libraryMessage = result.libraryMessage,
+                    libraryMessageSeverity = result.libraryMessageSeverity,
+                )
             }
-            val downloadedIds = loadDownloadedRemoteItemIds(uiState.items)
-            uiState = uiState.copy(
-                downloadedRemoteItemIds = downloadedIds,
-                libraryMessage = if (deleted) {
-                    "Deleted local file for ${item.libraryDisplayLabel()}."
-                } else {
-                    "No local file found for ${item.libraryDisplayLabel()}."
-                },
-                libraryMessageSeverity = if (deleted) {
-                    LibraryMessageSeverity.Info
-                } else {
-                    LibraryMessageSeverity.Error
-                },
-            )
         }
     }
 
     fun onThemeModeSelected(themeMode: ThemeMode) {
         if (uiState.themeMode == themeMode) return
-        uiState = uiState.copy(themeMode = themeMode)
+        updateUiState { state -> state.copy(themeMode = themeMode) }
         viewModelScope.launch {
             appPreferencesStore.setThemeMode(themeMode)
         }
@@ -378,19 +354,21 @@ class AppViewModel @Inject constructor(
         }
         when (val preparation = kavitaCoordinator.prepareConnect(uiState.kavitaConnection)) {
             is KavitaSyncPreparation.Invalid -> {
-                uiState = uiState.copy(kavitaConnection = preparation.connection)
+                updateUiState { state -> state.copy(kavitaConnection = preparation.connection) }
             }
             KavitaSyncPreparation.MissingSession -> Unit
             is KavitaSyncPreparation.Ready -> {
-                uiState = uiState.copy(
-                    kavitaConnection = preparation.activeConnection.copy(
-                        isConnecting = true,
-                        syncProgressFraction = null,
-                        syncProgressLabel = null,
-                        message = "Connecting to Kavita.",
-                        isError = false,
-                    ),
-                )
+                updateUiState { state ->
+                    state.copy(
+                        kavitaConnection = preparation.activeConnection.copy(
+                            isConnecting = true,
+                            syncProgressFraction = null,
+                            syncProgressLabel = null,
+                            message = "Connecting to Kavita.",
+                            isError = false,
+                        ),
+                    )
+                }
                 startKavitaConnect(preparation)
             }
         }
@@ -399,17 +377,19 @@ class AppViewModel @Inject constructor(
     fun connectGrimmoryServer() {
         when (val preparation = grimmoryCoordinator.prepareConnect(uiState.grimmoryConnection)) {
             is GrimmorySyncPreparation.Invalid -> {
-                uiState = uiState.copy(grimmoryConnection = preparation.connection)
+                updateUiState { state -> state.copy(grimmoryConnection = preparation.connection) }
             }
             GrimmorySyncPreparation.MissingSession -> Unit
             is GrimmorySyncPreparation.Ready -> {
-                uiState = uiState.copy(
-                    grimmoryConnection = preparation.activeConnection.copy(
-                        isConnecting = true,
-                        message = "Connecting to Grimmory.",
-                        isError = false,
-                    ),
-                )
+                updateUiState { state ->
+                    state.copy(
+                        grimmoryConnection = preparation.activeConnection.copy(
+                            isConnecting = true,
+                            message = "Connecting to Grimmory.",
+                            isError = false,
+                        ),
+                    )
+                }
                 startGrimmorySync(preparation)
             }
         }
@@ -426,34 +406,40 @@ class AppViewModel @Inject constructor(
     fun refreshKavitaLibrary() {
         when (val preparation = kavitaCoordinator.prepareRefresh(uiState.kavitaConnection)) {
             KavitaSyncPreparation.MissingSession -> {
-                uiState = uiState.copy(
-                    libraryMessage = "Connect to Kavita before syncing the library.",
-                    libraryMessageSeverity = LibraryMessageSeverity.Error,
-                    kavitaConnection = uiState.kavitaConnection.copy(
-                        message = "Connect to Kavita before syncing the library.",
-                        isError = true,
-                    ),
-                )
+                updateUiState { state ->
+                    state.copy(
+                        libraryMessage = "Connect to Kavita before syncing the library.",
+                        libraryMessageSeverity = LibraryMessageSeverity.Error,
+                        kavitaConnection = state.kavitaConnection.copy(
+                            message = "Connect to Kavita before syncing the library.",
+                            isError = true,
+                        ),
+                    )
+                }
             }
             is KavitaSyncPreparation.Invalid -> {
-                uiState = uiState.copy(
-                    libraryMessage = preparation.connection.message,
-                    libraryMessageSeverity = LibraryMessageSeverity.Error,
-                    kavitaConnection = preparation.connection,
-                )
+                updateUiState { state ->
+                    state.copy(
+                        libraryMessage = preparation.connection.message,
+                        libraryMessageSeverity = LibraryMessageSeverity.Error,
+                        kavitaConnection = preparation.connection,
+                    )
+                }
             }
             is KavitaSyncPreparation.Ready -> {
-                uiState = uiState.copy(
-                    kavitaConnection = preparation.activeConnection.copy(
-                        isConnecting = true,
-                        syncProgressFraction = 0f,
-                        syncProgressLabel = "Preparing Kavita sync...",
-                        message = "Syncing Kavita library.",
-                        isError = false,
-                    ),
-                    libraryMessage = "Syncing Kavita library.",
-                    libraryMessageSeverity = LibraryMessageSeverity.Info,
-                )
+                updateUiState { state ->
+                    state.copy(
+                        kavitaConnection = preparation.activeConnection.copy(
+                            isConnecting = true,
+                            syncProgressFraction = 0f,
+                            syncProgressLabel = "Preparing Kavita sync...",
+                            message = "Syncing Kavita library.",
+                            isError = false,
+                        ),
+                        libraryMessage = "Syncing Kavita library.",
+                        libraryMessageSeverity = LibraryMessageSeverity.Info,
+                    )
+                }
                 startKavitaSync(preparation)
             }
         }
@@ -462,26 +448,30 @@ class AppViewModel @Inject constructor(
     fun refreshGrimmoryLibrary() {
         when (val preparation = grimmoryCoordinator.prepareRefresh(uiState.grimmoryConnection)) {
             GrimmorySyncPreparation.MissingSession -> {
-                uiState = uiState.copy(
-                    libraryMessage = "Connect to Grimmory before syncing the library.",
-                    libraryMessageSeverity = LibraryMessageSeverity.Error,
-                    grimmoryConnection = uiState.grimmoryConnection.copy(
-                        message = "Connect to Grimmory before syncing the library.",
-                        isError = true,
-                    ),
-                )
+                updateUiState { state ->
+                    state.copy(
+                        libraryMessage = "Connect to Grimmory before syncing the library.",
+                        libraryMessageSeverity = LibraryMessageSeverity.Error,
+                        grimmoryConnection = state.grimmoryConnection.copy(
+                            message = "Connect to Grimmory before syncing the library.",
+                            isError = true,
+                        ),
+                    )
+                }
             }
             is GrimmorySyncPreparation.Invalid -> Unit
             is GrimmorySyncPreparation.Ready -> {
-                uiState = uiState.copy(
-                    grimmoryConnection = preparation.activeConnection.copy(
-                        isConnecting = true,
-                        message = "Syncing Grimmory library.",
-                        isError = false,
-                    ),
-                    libraryMessage = "Syncing Grimmory library.",
-                    libraryMessageSeverity = LibraryMessageSeverity.Info,
-                )
+                updateUiState { state ->
+                    state.copy(
+                        grimmoryConnection = preparation.activeConnection.copy(
+                            isConnecting = true,
+                            message = "Syncing Grimmory library.",
+                            isError = false,
+                        ),
+                        libraryMessage = "Syncing Grimmory library.",
+                        libraryMessageSeverity = LibraryMessageSeverity.Info,
+                    )
+                }
                 startGrimmorySync(preparation)
             }
         }
@@ -495,38 +485,44 @@ class AppViewModel @Inject constructor(
                 val result = kavitaCoordinator.executeSync(
                     preparation = preparation,
                     onProgress = { progress ->
-                        uiState = uiState.copy(
-                            kavitaConnection = uiState.kavitaConnection.copy(
-                                isConnecting = true,
-                                syncProgressFraction = progress.fraction.coerceIn(0f, 1f),
-                                syncProgressLabel = progress.message,
-                                message = "Syncing Kavita library.",
-                                isError = false,
-                            ),
-                            libraryMessage = progress.message,
-                            libraryMessageSeverity = LibraryMessageSeverity.Info,
-                        )
+                        updateUiState { state ->
+                            state.copy(
+                                kavitaConnection = state.kavitaConnection.copy(
+                                    isConnecting = true,
+                                    syncProgressFraction = progress.fraction.coerceIn(0f, 1f),
+                                    syncProgressLabel = progress.message,
+                                    message = "Syncing Kavita library.",
+                                    isError = false,
+                                ),
+                                libraryMessage = progress.message,
+                                libraryMessageSeverity = LibraryMessageSeverity.Info,
+                            )
+                        }
                     },
                 )
             ) {
                 is KavitaSyncExecutionResult.Success -> {
-                    uiState = uiState.copy(
-                        topLevel = TopLevelDestination.Library,
-                        selectedSource = SourceType.KAVITA,
-                        selectedItemId = null,
-                        activeReader = null,
-                        selectedKavitaSeriesKey = null,
-                        libraryMessage = "Synced ${result.itemCount} Kavita items from ${result.libraryCount} libraries.",
-                        libraryMessageSeverity = LibraryMessageSeverity.Info,
-                        kavitaConnection = result.connection,
-                    )
+                    updateUiState { state ->
+                        state.copy(
+                            topLevel = TopLevelDestination.Library,
+                            selectedSource = SourceType.KAVITA,
+                            selectedItemId = null,
+                            activeReader = null,
+                            selectedKavitaSeriesKey = null,
+                            libraryMessage = "Synced ${result.itemCount} Kavita items from ${result.libraryCount} libraries.",
+                            libraryMessageSeverity = LibraryMessageSeverity.Info,
+                            kavitaConnection = result.connection,
+                        )
+                    }
                 }
                 is KavitaSyncExecutionResult.Failure -> {
-                    uiState = uiState.copy(
-                        libraryMessage = result.message,
-                        libraryMessageSeverity = LibraryMessageSeverity.Error,
-                        kavitaConnection = result.connection,
-                    )
+                    updateUiState { state ->
+                        state.copy(
+                            libraryMessage = result.message,
+                            libraryMessageSeverity = LibraryMessageSeverity.Error,
+                            kavitaConnection = result.connection,
+                        )
+                    }
                 }
             }
         }
@@ -538,18 +534,22 @@ class AppViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = kavitaCoordinator.executeConnect(preparation)) {
                 is KavitaConnectExecutionResult.Success -> {
-                    uiState = uiState.copy(
-                        libraryMessage = "Connected to Kavita. ${result.libraryCount} libraries available to sync.",
-                        libraryMessageSeverity = LibraryMessageSeverity.Info,
-                        kavitaConnection = result.connection,
-                    )
+                    updateUiState { state ->
+                        state.copy(
+                            libraryMessage = "Connected to Kavita. ${result.libraryCount} libraries available to sync.",
+                            libraryMessageSeverity = LibraryMessageSeverity.Info,
+                            kavitaConnection = result.connection,
+                        )
+                    }
                 }
                 is KavitaConnectExecutionResult.Failure -> {
-                    uiState = uiState.copy(
-                        libraryMessage = result.message,
-                        libraryMessageSeverity = LibraryMessageSeverity.Error,
-                        kavitaConnection = result.connection,
-                    )
+                    updateUiState { state ->
+                        state.copy(
+                            libraryMessage = result.message,
+                            libraryMessageSeverity = LibraryMessageSeverity.Error,
+                            kavitaConnection = result.connection,
+                        )
+                    }
                 }
             }
         }
@@ -561,56 +561,52 @@ class AppViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = grimmoryCoordinator.executeSync(preparation, ::clearGrimmoryCoverState)) {
                 is GrimmorySyncExecutionResult.Success -> {
-                    uiState = uiState.copy(
-                        topLevel = TopLevelDestination.Library,
-                        selectedSource = SourceType.GRIMMORY,
-                        selectedItemId = null,
-                        activeReader = null,
-                        libraryMessage = "Synced ${result.itemCount} Grimmory books from ${result.libraryCount} libraries.",
-                        libraryMessageSeverity = LibraryMessageSeverity.Info,
-                        grimmoryConnection = result.connection,
-                    )
+                    updateUiState { state ->
+                        state.copy(
+                            topLevel = TopLevelDestination.Library,
+                            selectedSource = SourceType.GRIMMORY,
+                            selectedItemId = null,
+                            activeReader = null,
+                            libraryMessage = "Synced ${result.itemCount} Grimmory books from ${result.libraryCount} libraries.",
+                            libraryMessageSeverity = LibraryMessageSeverity.Info,
+                            grimmoryConnection = result.connection,
+                        )
+                    }
                 }
                 is GrimmorySyncExecutionResult.Failure -> {
-                    uiState = uiState.copy(
-                        libraryMessage = result.message,
-                        libraryMessageSeverity = LibraryMessageSeverity.Error,
-                        grimmoryConnection = result.connection,
-                    )
+                    updateUiState { state ->
+                        state.copy(
+                            libraryMessage = result.message,
+                            libraryMessageSeverity = LibraryMessageSeverity.Error,
+                            grimmoryConnection = result.connection,
+                        )
+                    }
                 }
             }
         }
     }
 
     internal suspend fun importDocument(uri: Uri) {
-        val importedItem = localDocumentRepository.import(uri)
-        refreshLibraryState(
+        val result = importDocumentUseCase(uri)
+        updateLibraryState(
             topLevel = TopLevelDestination.Library,
-            selectedSource = importedItem?.sourceType ?: uiState.selectedSource,
-            selectedItemId = importedItem?.id,
-            activeReader = importedItem?.format,
-            libraryMessage = if (importedItem != null) {
-                "Imported ${importedItem.libraryDisplayLabel()} (${importedItem.format.name})"
-            } else {
-                "Unable to import that file as a supported local document."
-            },
-            libraryMessageSeverity = if (importedItem != null) {
-                LibraryMessageSeverity.Info
-            } else {
-                LibraryMessageSeverity.Error
-            },
+            selectedSource = result.importedItem?.sourceType ?: uiState.selectedSource,
+            selectedItemId = result.importedItem?.id,
+            activeReader = result.importedItem?.format,
+            libraryMessage = result.libraryMessage,
+            libraryMessageSeverity = result.libraryMessageSeverity,
         )
     }
 
     internal suspend fun deleteImportedItem(item: ReadableItem) {
-        val outcome = importedItemDeletionService.delete(item)
-        val removed = outcome == ImportedItemDeletionOutcome.Removed
+        val result = deleteImportedItemUseCase(item)
+        val removed = result.removed
         val isDeletedSelection = removed && uiState.selectedItemId == item.id
-        refreshLibraryState(
+        updateLibraryState(
             selectedSource = uiState.selectedSource,
             selectedItemId = if (isDeletedSelection) null else uiState.selectedItemId,
             activeReader = if (isDeletedSelection) null else uiState.activeReader,
-            libraryMessage = deletionMessage(item, outcome),
+            libraryMessage = deletionMessage(item, result.outcome),
             libraryMessageSeverity = if (removed) {
                 LibraryMessageSeverity.Info
             } else {
@@ -621,14 +617,16 @@ class AppViewModel @Inject constructor(
 
     fun clearLibraryMessage() {
         if (uiState.libraryMessage != null) {
-            uiState = uiState.copy(
-                libraryMessage = null,
-                libraryMessageSeverity = LibraryMessageSeverity.Info,
-            )
+            updateUiState { state ->
+                state.copy(
+                    libraryMessage = null,
+                    libraryMessageSeverity = LibraryMessageSeverity.Info,
+                )
+            }
         }
     }
 
-    private fun refreshLibraryState(
+    private fun updateLibraryState(
         topLevel: TopLevelDestination = uiState.topLevel,
         selectedSource: SourceType = uiState.selectedSource,
         selectedItemId: String? = uiState.selectedItemId,
@@ -639,26 +637,27 @@ class AppViewModel @Inject constructor(
         selectedKavitaSeriesKey: String? = uiState.selectedKavitaSeriesKey,
     ) {
         val items = catalogItems + localDocumentRepository.getImportedItems()
-        uiState = uiState.copy(
-            topLevel = topLevel,
-            selectedSource = selectedSource,
-            libraries = catalogLibraries,
-            items = items,
-            selectedItemId = selectedItemId,
-            activeReader = activeReader,
-            selectedKavitaSeriesKey = selectedKavitaSeriesKey?.takeIf { seriesKey ->
-                selectedSource == SourceType.KAVITA && items.any { item -> item.belongsToKavitaSeries(seriesKey) }
-            },
-            progressByItemId = buildProgressSummaries(
+        updateUiState { state ->
+            state.copy(
+                topLevel = topLevel,
+                selectedSource = selectedSource,
+                libraries = catalogLibraries,
                 items = items,
-                progressByItemId = readerSessionStore.progressByItemIdFlow.value,
-                sessionByItemId = readerSessionStore.sessionByItemIdFlow.value,
-                localPageCountProvider = localDocumentRepository::getPageCount,
-            ),
-            libraryMessage = libraryMessage,
-            libraryMessageSeverity = libraryMessageSeverity,
-            themeMode = themeMode,
-        )
+                selectedItemId = selectedItemId,
+                activeReader = activeReader,
+                selectedKavitaSeriesKey = selectedKavitaSeriesKey?.takeIf { seriesKey ->
+                    selectedSource == SourceType.KAVITA && items.any { item -> item.belongsToKavitaSeries(seriesKey) }
+                },
+                progressByItemId = libraryStateAssembler.buildProgressSummaries(
+                    items = items,
+                    progressByItemId = readerSessionStore.progressByItemIdFlow.value,
+                    sessionByItemId = readerSessionStore.sessionByItemIdFlow.value,
+                ),
+                libraryMessage = libraryMessage,
+                libraryMessageSeverity = libraryMessageSeverity,
+                themeMode = themeMode,
+            )
+        }
         refreshDownloadedRemoteItemIdsAsync(items)
     }
 
@@ -707,72 +706,25 @@ class AppViewModel @Inject constructor(
                 }
         }
         viewModelScope.launch {
-            combine(
-                appPreferencesStore.preferencesFlow,
-                combine(
-                    libraryRepository.observeLibraries(),
-                    readableItemRepository.observeItems(),
-                    combine(
-                        remoteCatalogReadiness.isHydratedFlow,
-                        localDocumentRepository.isHydratedFlow,
-                        localDocumentRepository.importedItemsFlow,
-                        readerSessionStore.progressByItemIdFlow,
-                        readerSessionStore.sessionByItemIdFlow,
-                    ) { isRemoteCatalogHydrated, isLocalCatalogHydrated, importedItems, progressByItemId, sessionByItemId ->
-                        AppCatalogObservation(
-                            isRemoteCatalogHydrated = isRemoteCatalogHydrated,
-                            isLocalCatalogHydrated = isLocalCatalogHydrated,
-                            importedItems = importedItems,
-                            progressByItemId = progressByItemId,
-                            sessionByItemId = sessionByItemId,
-                        )
-                    },
-                ) { libraries, catalogItems, observation ->
-                    val items = catalogItems + observation.importedItems
-                    AppCatalogSnapshot(
-                        libraries = libraries,
-                        catalogItems = catalogItems,
-                        items = items,
-                        downloadedRemoteItemIds = loadDownloadedRemoteItemIds(items),
-                        progressByItemId = buildProgressSummaries(
-                            items = items,
-                            progressByItemId = observation.progressByItemId,
-                            sessionByItemId = observation.sessionByItemId,
-                            localPageCountProvider = localDocumentRepository::getPageCount,
-                        ),
-                        hydratedSources = buildSet {
-                            add(SourceType.KAVITA)
-                            if (observation.isRemoteCatalogHydrated) {
-                                add(SourceType.GRIMMORY)
-                            }
-                            if (observation.isLocalCatalogHydrated) {
-                                add(SourceType.LOCAL)
-                            }
-                        },
-                        themeMode = uiState.themeMode,
-                    )
-                },
-            ) { preferences, snapshot ->
-                snapshot.copy(themeMode = preferences.themeMode)
-            }.collect { snapshot ->
+            observeAppCatalogSnapshotsUseCase.observe().collect { snapshot ->
                 catalogLibraries = snapshot.libraries
                 catalogItems = snapshot.catalogItems
                 val activeItemIds = snapshot.items.mapTo(mutableSetOf(), ReadableItem::id)
-                grimmoryCoverUrisByItemId.keys
-                    .filterNot(activeItemIds::contains)
-                    .forEach(grimmoryCoverUrisByItemId::remove)
-                uiState = uiState.copy(
-                    libraries = snapshot.libraries,
-                    items = snapshot.items,
-                    progressByItemId = snapshot.progressByItemId,
-                    downloadedRemoteItemIds = snapshot.downloadedRemoteItemIds,
-                    hydratedSources = snapshot.hydratedSources,
-                    themeMode = snapshot.themeMode,
-                    selectedKavitaSeriesKey = uiState.selectedKavitaSeriesKey?.takeIf { seriesKey ->
-                        uiState.selectedSource == SourceType.KAVITA &&
-                            snapshot.items.any { item -> item.belongsToKavitaSeries(seriesKey) }
-                    },
-                )
+                grimmoryCoverCacheController.removeMissingItems(activeItemIds)
+                updateUiState { state ->
+                    state.copy(
+                        libraries = snapshot.libraries,
+                        items = snapshot.items,
+                        progressByItemId = snapshot.progressByItemId,
+                        downloadedRemoteItemIds = snapshot.downloadedRemoteItemIds,
+                        hydratedSources = snapshot.hydratedSources,
+                        themeMode = snapshot.themeMode,
+                        selectedKavitaSeriesKey = state.selectedKavitaSeriesKey?.takeIf { seriesKey ->
+                            state.selectedSource == SourceType.KAVITA &&
+                                snapshot.items.any { item -> item.belongsToKavitaSeries(seriesKey) }
+                        },
+                    )
+                }
             }
         }
     }
@@ -782,22 +734,44 @@ class AppViewModel @Inject constructor(
     ) {
         val requestedItemIds = items.mapTo(mutableSetOf(), ReadableItem::id)
         viewModelScope.launch {
-            val downloadedIds = loadDownloadedRemoteItemIds(items)
+            val downloadedIds = libraryStateAssembler.loadDownloadedRemoteItemIds(items)
             val currentItemIds = uiState.items.mapTo(mutableSetOf(), ReadableItem::id)
             if (currentItemIds == requestedItemIds) {
-                uiState = uiState.copy(
-                    downloadedRemoteItemIds = downloadedIds,
-                )
+                updateUiState { state ->
+                    state.copy(
+                        downloadedRemoteItemIds = downloadedIds,
+                    )
+                }
             }
+        }
+    }
+
+    private inline fun updateUiState(
+        transform: (AppUiState) -> AppUiState,
+    ) {
+        uiState = transform(uiState)
+    }
+
+    private fun updateLibraryMessage(
+        message: String?,
+        severity: LibraryMessageSeverity,
+    ) {
+        updateUiState { state ->
+            state.copy(
+                libraryMessage = message,
+                libraryMessageSeverity = severity,
+            )
         }
     }
 
     private inline fun updateKavitaConnection(
         transform: (KavitaConnectionUiState) -> KavitaConnectionUiState,
     ) {
-        uiState = uiState.copy(
-            kavitaConnection = transform(uiState.kavitaConnection),
-        )
+        updateUiState { state ->
+            state.copy(
+                kavitaConnection = transform(state.kavitaConnection),
+            )
+        }
     }
 
     private inline fun updateKavitaConnectionInput(
@@ -816,9 +790,11 @@ class AppViewModel @Inject constructor(
     private inline fun updateGrimmoryConnection(
         transform: (GrimmoryConnectionUiState) -> GrimmoryConnectionUiState,
     ) {
-        uiState = uiState.copy(
-            grimmoryConnection = transform(uiState.grimmoryConnection),
-        )
+        updateUiState { state ->
+            state.copy(
+                grimmoryConnection = transform(state.grimmoryConnection),
+            )
+        }
     }
 
     private inline fun updateGrimmoryConnectionInput(
@@ -834,25 +810,6 @@ class AppViewModel @Inject constructor(
         }
     }
 
-    private suspend fun loadDownloadedRemoteItemIds(
-        items: List<ReadableItem>,
-    ): Set<String> = buildSet {
-        addAll(grimmoryContentRepository.storedDocumentItemIds(items))
-    }
-
-    private suspend fun syncItemProgressIfSupported(
-        item: ReadableItem,
-    ) {
-        sourceProgressSyncs.firstOrNull { sync -> sync.supports(item) }
-            ?.let { sync ->
-                runCatching {
-                    sync.syncItem(item)
-                }.onFailure { throwable ->
-                    Log.w(LOG_TAG, "Unable to sync progress for ${item.id}.", throwable)
-                }
-            }
-    }
-
     private suspend fun flushPendingRemoteProgress() {
         val remoteItems = catalogItems
         sourceProgressSyncs.forEach { sync ->
@@ -865,18 +822,8 @@ class AppViewModel @Inject constructor(
     }
 
     private fun clearGrimmoryCoverState() {
-        grimmoryCoverUrisByItemId.clear()
-        pendingGrimmoryCoverIds.clear()
-        lastGrimmoryCoverErrorMessage = null
+        grimmoryCoverCacheController.clear()
     }
 }
-
-private data class AppCatalogObservation(
-    val isRemoteCatalogHydrated: Boolean,
-    val isLocalCatalogHydrated: Boolean,
-    val importedItems: List<ReadableItem>,
-    val progressByItemId: Map<String, com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot>,
-    val sessionByItemId: Map<String, com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot>,
-)
 
 private const val LOG_TAG = "UnifiedReader"

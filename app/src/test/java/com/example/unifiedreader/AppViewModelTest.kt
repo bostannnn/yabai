@@ -1155,6 +1155,32 @@ class AppViewModelTest {
     }
 
     @Test
+    fun `download grimmory success remains successful when progress sync fails`() {
+        val remoteBook = sampleItem(
+            id = "grimmory-epub",
+            title = "Remote Book",
+            format = FormatType.EPUB,
+        ).copy(
+            sourceType = SourceType.GRIMMORY,
+            libraryId = SourceType.GRIMMORY.remoteLibraryId("grimmory-books"),
+            remoteId = "grimmory-epub",
+        )
+        val viewModel = createViewModel(
+            sampleItems = listOf(remoteBook),
+            grimmoryContentRepository = FakeGrimmoryContentRepository(),
+            sourceProgressSyncs = listOf(FailingSourceProgressSync(sourceType = SourceType.GRIMMORY)),
+        )
+        viewModel.onSourceSelected(SourceType.GRIMMORY)
+
+        viewModel.onDownloadRemoteItem(remoteBook)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(setOf(remoteBook.id), viewModel.uiState.downloadedRemoteItemIds)
+        assertEquals("Downloaded Remote Book for local reading.", viewModel.uiState.libraryMessage)
+        assertNull(viewModel.uiState.visibleLibraryErrorMessage)
+    }
+
+    @Test
     fun `delete grimmory local file removes downloaded state`() {
         val remoteBook = sampleItem(
             id = "grimmory-epub",
@@ -1255,37 +1281,67 @@ class AppViewModelTest {
             ),
         ),
         readableItemRepository: FakeReadableItemRepository = FakeReadableItemRepository(items = sampleItems),
-    ): AppViewModel = AppViewModel(
-        application = ApplicationProvider.getApplicationContext<Application>(),
-        appPreferencesStore = appPreferencesStore,
-        libraryRepository = libraryRepository,
-        readableItemRepository = readableItemRepository,
-        localDocumentRepository = importedRepository,
-        importedItemDeletionService = DefaultImportedItemDeletionService(
-            localDocumentDataSource = importedRepository,
-            readerSessionStore = readerSessionStore,
-        ),
-        kavitaCoordinator = AppKavitaCoordinator(
-            kavitaCatalogSyncer = kavitaCatalogSyncer,
+    ): AppViewModel {
+        val libraryStateAssembler = AppLibraryStateAssembler(
+            localDocumentRepository = importedRepository,
+            grimmoryContentRepository = grimmoryContentRepository,
+        )
+        return AppViewModel(
+            application = ApplicationProvider.getApplicationContext<Application>(),
+            appPreferencesStore = appPreferencesStore,
+            libraryRepository = libraryRepository,
+            readableItemRepository = readableItemRepository,
+            localDocumentRepository = importedRepository,
+            libraryStateAssembler = libraryStateAssembler,
+            observeAppCatalogSnapshotsUseCase = ObserveAppCatalogSnapshotsUseCase(
+                appPreferencesStore = appPreferencesStore,
+                libraryRepository = libraryRepository,
+                readableItemRepository = readableItemRepository,
+                remoteCatalogReadiness = remoteCatalogReadiness,
+                localDocumentRepository = importedRepository,
+                readerSessionStore = readerSessionStore,
+                libraryStateAssembler = libraryStateAssembler,
+            ),
+            importDocumentUseCase = ImportDocumentUseCase(
+                localDocumentRepository = importedRepository,
+            ),
+            deleteImportedItemUseCase = DeleteImportedItemUseCase(
+                importedItemDeletionService = DefaultImportedItemDeletionService(
+                    localDocumentDataSource = importedRepository,
+                    readerSessionStore = readerSessionStore,
+                ),
+            ),
+            downloadRemoteItemUseCase = DownloadRemoteItemUseCase(
+                grimmoryContentRepository = grimmoryContentRepository,
+                libraryStateAssembler = libraryStateAssembler,
+                sourceProgressSyncs = sourceProgressSyncs,
+            ),
+            deleteRemoteLocalFileUseCase = DeleteRemoteLocalFileUseCase(
+                grimmoryContentRepository = grimmoryContentRepository,
+                libraryStateAssembler = libraryStateAssembler,
+            ),
+            kavitaCoordinator = AppKavitaCoordinator(
+                kavitaCatalogSyncer = kavitaCatalogSyncer,
+                kavitaCredentialStore = kavitaCredentialStore,
+            ),
+            grimmoryCoordinator = AppGrimmoryCoordinator(
+                grimmoryCatalogSyncer = grimmoryCatalogSyncer,
+                grimmoryCredentialStore = grimmoryCredentialStore,
+                grimmoryCoverRepository = grimmoryCoverRepository,
+            ),
             kavitaCredentialStore = kavitaCredentialStore,
-        ),
-        grimmoryCoordinator = AppGrimmoryCoordinator(
-            grimmoryCatalogSyncer = grimmoryCatalogSyncer,
             grimmoryCredentialStore = grimmoryCredentialStore,
-            grimmoryCoverRepository = grimmoryCoverRepository,
-        ),
-        remoteCatalogReadiness = remoteCatalogReadiness,
-        kavitaCredentialStore = kavitaCredentialStore,
-        grimmoryCredentialStore = grimmoryCredentialStore,
-        grimmoryCoverRepository = grimmoryCoverRepository,
-        grimmoryContentRepository = grimmoryContentRepository,
-        comicPageSource = pageSource,
-        comicReaderProgressStore = progressStore,
-        comicReaderPreferencesStore = preferencesStore,
-        readerSessionStore = readerSessionStore,
-        sourceProgressSyncs = sourceProgressSyncs,
-        readerFactories = emptyList(),
-    )
+            grimmoryCoverCacheController = GrimmoryCoverCacheController(
+                grimmoryCoverRepository = grimmoryCoverRepository,
+            ),
+            comicPageSource = pageSource,
+            comicReaderProgressStore = progressStore,
+            comicReaderPreferencesStore = preferencesStore,
+            readerSessionStore = readerSessionStore,
+            sourceProgressSyncs = sourceProgressSyncs,
+            readerFactories = emptyList(),
+        )
+    }
 }
 
 private class FakeKavitaCatalogSyncer(
@@ -1633,6 +1689,20 @@ private class BlockingSourceProgressSync(
     fun allowCompletion() {
         completionGate.complete(Unit)
     }
+}
+
+private class FailingSourceProgressSync(
+    override val sourceType: SourceType,
+) : SourceProgressSync {
+    override suspend fun syncItem(
+        item: ReadableItem,
+    ) {
+        error("Sync unavailable")
+    }
+
+    override suspend fun pushPendingProgress(
+        items: List<ReadableItem>,
+    ) = Unit
 }
 
 private fun sampleItem(
