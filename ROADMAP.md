@@ -1,282 +1,133 @@
 # Unified Reader Roadmap
 
-## Goal
+This file is the product backlog for future app work. It should stay focused on user-facing improvements, not only technical milestones.
 
-Build a production-ready Android reader for CBZ, PDF, and ePub with:
+## Product Direction
 
-- Kavita integration for comics and PDF
-- Grimmory integration for books and ePub
-- native REST APIs only
-- local-first UI backed by Room
+Build a reader that feels strong in three areas:
 
-## Guiding Principles
+- library browsing that helps users pick what to read next
+- local and offline reading that works reliably
+- progress and state management that stays correct across sources
 
-- prioritize stable module boundaries over fast hacks
-- keep readers isolated from the rest of the app
-- keep API DTOs isolated inside source-specific modules
-- treat sync correctness and reader performance as top priorities
-- ship the smallest valuable vertical slices first
-- build the core reading experience before remote integrations
+## Current Priorities
 
-## Delivery Rules
+### 1. Shelves on every main screen
 
-For ongoing feature work, the default workflow is:
+Add lightweight shelves that make the app feel alive and reduce taps.
 
-1. implement one small vertical slice
-2. review it immediately
-3. add or update the smallest useful automated tests
-4. run terminal verification
-5. do a short manual pass only for interaction feel or visual polish
+- `In Progress` shelf for books and comics
+- `Next In Series` shelf for comics
+- show these on each relevant source/home screen, not only in one place
+- opening a shelf item should resume directly into the reader when possible
+- shelf ordering should be driven by recent activity and unfinished status
 
-Testing expectations:
+Why this matters:
 
-- unit tests for logic, repositories, migrations, and ViewModel state
-- smoke or instrumentation tests for real app flows such as import, navigation, restore, and persistence
-- manual testing only for gestures, animation feel, and device-specific UX behavior
+- gives users an immediate "what should I read now?" entry point
+- makes the library feel personalized instead of purely browse-based
+- surfaces series continuity for comics without needing manual search
 
-Do not batch many features before adding tests. Each feature should leave the codebase with at least one meaningful automated check.
+### 2. Local downloading for comics
 
-## Phase 0: Foundation
+Bring comics downloads to parity with the book flow.
 
-Deliverables:
+- allow remote comics to be downloaded for offline reading
+- store download state clearly in the library UI
+- support deleting the local copy without losing the remote item
+- keep local reading progress when switching between streamed and downloaded copies
+- handle interrupted downloads and retry cleanly
 
-- Android project scaffold
-- module graph
-- dependency management
-- base app theme and navigation shell
-- DI setup
+Why this matters:
 
-Exit criteria:
+- comics are a primary use case and need first-class offline support
+- users should not have to re-import files manually just to read offline
 
-- app builds
-- emulator launches the shell app
-- module dependencies are enforced
+### 3. Mark items as read or unread
 
-## Phase 1: Domain and Persistence
+Add explicit read-state controls beyond inferred progress.
 
-Deliverables:
+- action on book/comic cards and details views
+- allow both `Mark as read` and `Mark as unread`
+- update local progress immediately
+- sync the read-state change back to connected servers when supported
+- use the read state in shelves, filters, and sorting
 
-- canonical domain models
-- Room schema
-- DAOs for servers, libraries, items, progress, offline assets
-- repository contracts
+Why this matters:
 
-Exit criteria:
+- users often want to manage their library manually
+- read/unread is needed before building better shelves and discovery
 
-- Room migrations planned from version 1
-- repositories can expose fake data from local DB
+### 4. Improve library progress visuals
 
-## Phase 2: Local UI Shell
+Make files with progress much easier to recognize directly in the library UI.
 
-Deliverables:
+- add stronger visual indicators for items that are in progress
+- show progress consistently in both grid and detailed library views
+- surface useful status at a glance, such as page, percent, or finished state
+- make active reading items stand out without overwhelming unread items
+- ensure the visual treatment works for books and comics
 
-- app navigation shell
-- source tabs and placeholder library screens
-- details screen shell
-- reader entry points
-- settings screen shell
-- fake/sample local data providers
+Why this matters:
 
-Exit criteria:
+- users should be able to spot partially read items immediately
+- the library should communicate reading state without opening item details
+- better progress visibility makes shelves and continue-reading flows feel more connected
 
-- user can move through the app end-to-end without network integration
-- UI state flows from Room or fake repositories, not hardcoded composables
+## Next Ideas
 
-## Phase 3: Comics Reader
+### Library and discovery
 
-Deliverables:
+- add a series details screen with issue order, progress badges, and quick jump to the next unread issue
+- add filters for `Unread`, `Finished`, `In Progress`, and `Downloaded`
+- add search improvements such as series-first matching for comics and author-first matching for books
+- add a dedicated `Recently Added` shelf per source
+- add a `Downloaded` shelf so offline content is easy to reach
 
-- CBZ reader shell
-- horizontal paging
-- zoom and pan
-- loupe
-- page prefetch
-- local progress checkpointing
-- local sample CBZ loading
+### Reader quality
 
-Exit criteria:
+- finish the real PDF reader experience beyond the current placeholder path
+- keep improving EPUB polish, including typography presets and theme control
+- add per-format reader settings that are easier to discover from the library flow
+- improve restore behavior after backgrounding, process death, and source refresh
 
-- large pages remain smooth on mid-range hardware
-- page progress persists locally without jank
+### Offline and sync
 
-## Phase 4: ePub Reader
+- add a download queue screen with progress, failures, retry, and storage visibility
+- show sync state more clearly when progress is pending upload or has failed
+- define conflict behavior for explicit unread resets vs. remote progress updates
+- support batch download actions for a full comic series or selected items
 
-Deliverables:
+### Source integrations
 
-- Readium integration
-- typography controls
-- theme overrides
-- immersive mode
-- local sample ePub loading
-
-Exit criteria:
-
-- resume position is accurate
-- font and theme settings apply consistently
-
-## Phase 5: PDF Reader
-
-Deliverables:
-
-- Pdfium rendering pipeline
-- zoom and pan
-- page persistence
-- adjacent page pre-rendering
-- local sample PDF loading
-
-Exit criteria:
-
-- heavy PDFs are readable without major frame drops
-
-## Phase 6: Local Library Experience
-
-Deliverables:
-
-- source-separated home tabs
-- local library list
-- detail screens
-- cover loading
-- metadata caching
-- continue reading rails from local state
-
-Exit criteria:
-
-- app feels coherent and usable with only local/sample content
-
-## Phase 7: Server Connections
-
-Deliverables:
-
-- Kavita auth and API client
-- Grimmory auth and API client
-- source-specific DTOs and mappers
-- server management UI
-- remote library ingest into Room
-
-Exit criteria:
-
-- user can connect at least one Kavita server and one Grimmory server
-- remote content populates existing local-first UI and readers without major refactors
-
-## Phase 8: Sync and Offline
-
-Deliverables:
-
-- progress upload worker
-- progress pull worker
-- download worker
-- offline asset storage
-- conflict resolution rules
-- Kavita page progress sync
-- Grimmory CFI and percent sync
-
-Exit criteria:
-
-- read progress survives offline gaps and reconnects safely
-- downloads are resumable or at least recover cleanly
-
-## Phase 9: Hardening
-
-Deliverables:
-
-- error states
-- retry and backoff
-- telemetry/logging hooks
-- cache cleanup
-- performance profiling
-- test coverage expansion
-
-Exit criteria:
-
-- libraries with large datasets stay responsive
-- reader sessions are stable under app backgrounding and restore
-
-## Suggested Milestone Order
-
-1. Build the project shell and module graph
-2. Add canonical models and Room
-3. Build app navigation and local sample-data flows
-4. Ship the comics reader
-5. Ship the ePub reader
-6. Ship the PDF reader
-7. Polish the local library UX
-8. Integrate Kavita and Grimmory
-9. Add offline and sync hardening
-
-## Testing Plan
-
-### Unit tests
-
-Test:
-
-- DTO to domain mapping
-- sync conflict rules
-- progress normalization
-- repository decisions
-- reader preference persistence
-- migration and bootstrap behavior
-
-### Integration tests
-
-Test:
-
-- Room plus repository behavior
-- refresh flows
-- offline/download state handling
-- WorkManager-driven sync paths
-- Room-backed local archive import and reader restore
-
-### UI tests
-
-Test:
-
-- source tabs
-- library rendering
-- navigation into readers
-- direct book-to-reader flow
-- import action and resulting local library update
-- reader restore after reopen/background
-
-### Manual testing
-
-Test on emulator and real device:
-
-- huge comic pages
-- large libraries
-- heavy PDFs
-- app background and restore
-- unstable network
-- offline mode
-
-## Tooling
-
-Use Android Studio as the primary environment for:
-
-- emulator management
-- profiling
-- debugging
-- Compose inspection
-- instrumentation tests
-
-Command-line Gradle should be used for CI and fast local verification.
-
-## Current Completion Snapshot
-
-Completed:
-
-- Phase 0 foundation
-- Phase 1 basic domain and persistence scaffold
-- Phase 2 local UI shell
-- initial Phase 6 local library UX scaffold
-
-In place now:
-
-- app launches on emulator
-- fake repository and `ViewModel` drive the shell UI
-- placeholder readers for CBZ, PDF, and EPUB are wired and navigable
-- terminal build command is validated:
-  - `./gradlew :app:assembleDebug`
-
-Next recommended milestone:
-
-- Phase 3 Comics Reader
+- improve remote source onboarding with clearer connection health and error states
+- add stronger series grouping and navigation for comics across supported servers
+- make remote metadata refresh more visible and user-triggerable
+
+## Suggested Order
+
+1. Shelves on every main screen
+2. Mark read and unread
+3. Read-state filters and sorting updates
+4. Improve library progress visuals
+5. Local comic downloads
+6. Series details screen
+7. Download queue and storage management
+8. PDF and EPUB reader polish
+9. Sync conflict visibility and recovery UX
+
+## Delivery Notes
+
+When implementing roadmap items, keep using small vertical slices:
+
+1. ship the narrowest useful version first
+2. add the smallest meaningful automated test coverage
+3. verify the real user flow from library to reader and back
+4. avoid broad refactors unless the feature is blocked without them
+
+## Open Questions
+
+- should shelves live on the unified library screen, each source tab, or both?
+- should `Next In Series` be based only on remote series metadata, local progress, or a hybrid model?
+- when marking an item unread, should local reader session preferences stay intact or be cleared?
+- should downloaded comics appear as one merged item or as separate local/remote states behind one card?
