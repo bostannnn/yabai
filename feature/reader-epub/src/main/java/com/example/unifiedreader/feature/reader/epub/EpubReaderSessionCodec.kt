@@ -15,13 +15,17 @@ import org.readium.r2.shared.publication.Locator
 internal const val EpubFontSizeKey = "epub.fontSize"
 internal const val EpubLineHeightKey = "epub.lineHeight"
 internal const val EpubThemeKey = "epub.theme"
+internal const val EpubThemeOverrideKey = "epub.themeOverride"
 internal const val EpubLayoutModeKey = "epub.layoutMode"
+internal const val EpubLayoutOverrideKey = "epub.layoutOverride"
 
 internal data class EpubReaderPreferences(
     val fontSize: Double = 1.0,
     val lineHeight: Double = 1.5,
     val theme: EpubReaderTheme = EpubReaderTheme.Light,
+    val themeOverride: Boolean = false,
     val layoutMode: EpubReaderLayoutMode = EpubReaderLayoutMode.Scroll,
+    val layoutModeOverride: Boolean = false,
 )
 
 internal fun restoreEpubPreferences(
@@ -40,9 +44,15 @@ internal fun restoreEpubPreferences(
         theme = preferences[EpubThemeKey]
             ?.enumValueOrNull<EpubReaderTheme>()
             ?: EpubReaderTheme.Light,
+        themeOverride = preferences[EpubThemeOverrideKey]
+            ?.toBooleanStrictOrNull()
+            ?: false,
         layoutMode = preferences[EpubLayoutModeKey]
             ?.enumValueOrNull<EpubReaderLayoutMode>()
             ?: EpubReaderLayoutMode.Scroll,
+        layoutModeOverride = preferences[EpubLayoutOverrideKey]
+            ?.toBooleanStrictOrNull()
+            ?: false,
     )
 }
 
@@ -52,7 +62,9 @@ internal fun buildEpubPreferencesMap(
     EpubFontSizeKey to preferences.fontSize.toString(),
     EpubLineHeightKey to preferences.lineHeight.toString(),
     EpubThemeKey to preferences.theme.name,
+    EpubThemeOverrideKey to preferences.themeOverride.toString(),
     EpubLayoutModeKey to preferences.layoutMode.name,
+    EpubLayoutOverrideKey to preferences.layoutModeOverride.toString(),
 )
 
 internal fun EpubReaderPreferences.toNavigatorPreferences(): EpubPreferences = EpubPreferences(

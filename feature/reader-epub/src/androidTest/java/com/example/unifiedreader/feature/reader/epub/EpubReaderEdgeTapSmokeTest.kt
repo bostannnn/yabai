@@ -1,10 +1,15 @@
 package com.example.unifiedreader.feature.reader.epub
 
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.fragment.app.FragmentActivity
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -56,11 +61,13 @@ class EpubReaderEdgeTapSmokeTest {
         val item = sampleEpubItem(id = "epub-edge-bottom")
 
         composeRule.setContent {
-            EpubReaderScreen(
-                item = item,
-                sessionStore = sessionStore,
-                onBack = {},
-            )
+            LightThemeTestSurface {
+                EpubReaderScreen(
+                    item = item,
+                    sessionStore = sessionStore,
+                    onBack = {},
+                )
+            }
         }
 
         waitForReaderReady(sessionStore, item.id)
@@ -71,6 +78,78 @@ class EpubReaderEdgeTapSmokeTest {
             composeRule.onAllNodesWithTag(EpubReaderOverlayTag).fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithTag(EpubReaderOverlayTag).assertExists()
+    }
+
+    @Test
+    fun followAppThemeClearsPersistedThemeOverride() {
+        val item = sampleEpubItem(id = "epub-theme-reset")
+        val sessionStore = FakeReaderSessionStore(
+            initialSessions = mapOf(
+                item.id to ReaderSessionSnapshot(
+                    itemId = item.id,
+                    preferences = mapOf(
+                        EpubThemeKey to EpubReaderTheme.Dark.name,
+                        EpubThemeOverrideKey to true.toString(),
+                    ),
+                ),
+            ),
+        )
+
+        composeRule.setContent {
+            LightThemeTestSurface {
+                EpubReaderScreen(
+                    item = item,
+                    sessionStore = sessionStore,
+                    onBack = {},
+                )
+            }
+        }
+
+        waitForReaderReady(sessionStore, item.id)
+        openThemeMenu()
+        composeRule.onNodeWithText("Follow app theme").performClick()
+
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            val preferences = sessionStore.sessionByItemIdFlow.value[item.id]?.preferences.orEmpty()
+            preferences[EpubThemeOverrideKey] == "false" &&
+                preferences[EpubThemeKey] == EpubReaderTheme.Light.name
+        }
+    }
+
+    @Test
+    fun autoLayoutClearsPersistedLayoutOverride() {
+        val item = sampleEpubItem(id = "epub-layout-reset")
+        val sessionStore = FakeReaderSessionStore(
+            initialSessions = mapOf(
+                item.id to ReaderSessionSnapshot(
+                    itemId = item.id,
+                    preferences = mapOf(
+                        EpubLayoutModeKey to EpubReaderLayoutMode.DoublePage.name,
+                        EpubLayoutOverrideKey to true.toString(),
+                    ),
+                ),
+            ),
+        )
+
+        composeRule.setContent {
+            LightThemeTestSurface {
+                EpubReaderScreen(
+                    item = item,
+                    sessionStore = sessionStore,
+                    onBack = {},
+                )
+            }
+        }
+
+        waitForReaderReady(sessionStore, item.id)
+        openLayoutMenu()
+        composeRule.onNodeWithText("Auto (portrait: Page, landscape: Spread)").performClick()
+
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            val preferences = sessionStore.sessionByItemIdFlow.value[item.id]?.preferences.orEmpty()
+            preferences[EpubLayoutOverrideKey] == "false" &&
+                preferences[EpubLayoutModeKey] == EpubReaderLayoutMode.SinglePage.name
+        }
     }
 
     private fun waitForReaderReady(
@@ -136,6 +215,26 @@ class EpubReaderEdgeTapSmokeTest {
         }
         composeRule.waitForIdle()
     }
+
+    private fun openThemeMenu() {
+        composeRule.onNodeWithContentDescription("Reader theme").performClick()
+        composeRule.onNodeWithText("Follow app theme").assertExists()
+    }
+
+    private fun openLayoutMenu() {
+        composeRule.onNodeWithContentDescription("Page layout").performClick()
+        composeRule.onNodeWithText("Auto (portrait: Page, landscape: Spread)").assertExists()
+    }
+}
+
+@androidx.compose.runtime.Composable
+private fun LightThemeTestSurface(
+    content: @androidx.compose.runtime.Composable () -> Unit,
+) {
+    MaterialTheme(
+        colorScheme = lightColorScheme(),
+        content = content,
+    )
 }
 
 private fun sampleEpubItem(
@@ -153,6 +252,12 @@ private fun sampleEpubItem(
 )
 
 private class FakeReaderSessionStore : ReaderSessionStore {
+    constructor(
+        initialSessions: Map<String, ReaderSessionSnapshot> = emptyMap(),
+    ) {
+        sessionState.value = initialSessions
+    }
+
     override val isHydratedFlow: StateFlow<Boolean> = MutableStateFlow(true)
     private val progressState = MutableStateFlow<Map<String, ReaderProgressSnapshot>>(emptyMap())
     override val progressByItemIdFlow: StateFlow<Map<String, ReaderProgressSnapshot>> = progressState

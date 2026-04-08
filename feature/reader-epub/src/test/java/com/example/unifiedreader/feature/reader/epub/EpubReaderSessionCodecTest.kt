@@ -80,6 +80,103 @@ class EpubReaderSessionCodecTest {
     }
 
     @Test
+    fun `legacy theme value does not imply explicit override in stored preferences`() {
+        val restored = restoreEpubPreferences(
+            ReaderSessionSnapshot(
+                itemId = "epub-1",
+                preferences = mapOf(
+                    EpubThemeKey to EpubReaderTheme.Dark.name,
+                ),
+            ),
+        )
+
+        assertEquals(EpubReaderTheme.Dark, restored.theme)
+        assertFalse(restored.themeOverride)
+    }
+
+    @Test
+    fun `legacy layout value does not imply explicit override`() {
+        val restored = restoreEpubPreferences(
+            ReaderSessionSnapshot(
+                itemId = "epub-1",
+                preferences = mapOf(
+                    EpubLayoutModeKey to EpubReaderLayoutMode.DoublePage.name,
+                ),
+            ),
+        )
+
+        assertEquals(EpubReaderLayoutMode.DoublePage, restored.layoutMode)
+        assertFalse(restored.layoutModeOverride)
+    }
+
+    @Test
+    fun `legacy theme matching app theme is preserved as override`() {
+        val selection = resolveRestoredThemeSelection(
+            restoredPreferences = EpubReaderPreferences(
+                theme = EpubReaderTheme.Dark,
+                themeOverride = false,
+            ),
+            rawPreferences = mapOf(EpubThemeKey to EpubReaderTheme.Dark.name),
+            appReaderTheme = EpubReaderTheme.Dark,
+        )
+
+        assertEquals(EpubReaderTheme.Dark, selection.theme)
+        assertFalse(selection.useAppThemeDefault)
+    }
+
+    @Test
+    fun `legacy theme differing from app theme is preserved as override`() {
+        val selection = resolveRestoredThemeSelection(
+            restoredPreferences = EpubReaderPreferences(
+                theme = EpubReaderTheme.Light,
+                themeOverride = false,
+            ),
+            rawPreferences = mapOf(EpubThemeKey to EpubReaderTheme.Light.name),
+            appReaderTheme = EpubReaderTheme.Dark,
+        )
+
+        assertEquals(EpubReaderTheme.Light, selection.theme)
+        assertFalse(selection.useAppThemeDefault)
+    }
+
+    @Test
+    fun `explicit theme and layout overrides are restored`() {
+        val restored = restoreEpubPreferences(
+            ReaderSessionSnapshot(
+                itemId = "epub-1",
+                preferences = mapOf(
+                    EpubThemeKey to EpubReaderTheme.Dark.name,
+                    EpubThemeOverrideKey to true.toString(),
+                    EpubLayoutModeKey to EpubReaderLayoutMode.DoublePage.name,
+                    EpubLayoutOverrideKey to true.toString(),
+                ),
+            ),
+        )
+
+        assertEquals(EpubReaderTheme.Dark, restored.theme)
+        assertTrue(restored.themeOverride)
+        assertEquals(EpubReaderLayoutMode.DoublePage, restored.layoutMode)
+        assertTrue(restored.layoutModeOverride)
+    }
+
+    @Test
+    fun `preferences map persists override flags`() {
+        val preferences = buildEpubPreferencesMap(
+            EpubReaderPreferences(
+                fontSize = 1.2,
+                lineHeight = 1.7,
+                theme = EpubReaderTheme.Dark,
+                themeOverride = true,
+                layoutMode = EpubReaderLayoutMode.DoublePage,
+                layoutModeOverride = true,
+            ),
+        )
+
+        assertEquals("true", preferences[EpubThemeOverrideKey])
+        assertEquals("true", preferences[EpubLayoutOverrideKey])
+    }
+
+    @Test
     fun `viewport padding script applies vertical body padding inside navigator`() {
         val script = buildEpubViewportPaddingScript(32)
 
