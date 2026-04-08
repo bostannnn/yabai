@@ -17,23 +17,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 data class GrimmoryStoredSession(
-    val serverId: String,
-    val displayName: String,
-    val baseUrl: String,
-    val username: String,
+    override val displayName: String,
+    override val baseUrl: String,
+    override val username: String,
     val accessToken: String,
     val refreshToken: String,
-)
-
-interface GrimmoryCredentialStore {
-    val sessionFlow: StateFlow<GrimmoryStoredSession?>
-
-    suspend fun save(
-        session: GrimmoryStoredSession,
-    )
-
-    suspend fun clear()
+) : StoredSourceSession {
+    override val sourceType = com.example.unifiedreader.core.model.SourceType.GRIMMORY
 }
+
+interface GrimmoryCredentialStore : SourceSessionStore<GrimmoryStoredSession>
 
 class SharedPreferencesGrimmoryCredentialStore @VisibleForTesting internal constructor(
     private val preferences: SharedPreferences,
@@ -68,7 +61,6 @@ class SharedPreferencesGrimmoryCredentialStore @VisibleForTesting internal const
         session: GrimmoryStoredSession,
     ) {
         val committed = preferences.edit()
-            .putString(GrimmoryCredentialKeys.ServerId, cipher.encrypt(session.serverId))
             .putString(GrimmoryCredentialKeys.DisplayName, cipher.encrypt(session.displayName))
             .putString(GrimmoryCredentialKeys.BaseUrl, cipher.encrypt(session.baseUrl))
             .putString(GrimmoryCredentialKeys.Username, cipher.encrypt(session.username))
@@ -92,7 +84,6 @@ class SharedPreferencesGrimmoryCredentialStore @VisibleForTesting internal const
     private fun loadStoredSession(): GrimmoryStoredSession? {
         return try {
             GrimmoryStoredSession(
-                serverId = decrypt(GrimmoryCredentialKeys.ServerId) ?: return null,
                 displayName = decrypt(GrimmoryCredentialKeys.DisplayName) ?: return null,
                 baseUrl = decrypt(GrimmoryCredentialKeys.BaseUrl) ?: return null,
                 username = decrypt(GrimmoryCredentialKeys.Username) ?: return null,
@@ -175,7 +166,6 @@ internal class AndroidKeystoreGrimmoryCredentialCipher : GrimmoryCredentialCiphe
 }
 
 private object GrimmoryCredentialKeys {
-    const val ServerId = "server_id"
     const val DisplayName = "display_name"
     const val BaseUrl = "base_url"
     const val Username = "username"

@@ -51,7 +51,6 @@ class UnifiedReaderAppFlowTest {
     fun import_opens_reader_and_reopens_on_last_page() {
         val importedItem = ReadableItem(
             id = "imported-akira",
-            serverId = "local-device",
             sourceType = SourceType.LOCAL,
             libraryId = "local-imports",
             isLocalImport = true,
@@ -138,7 +137,6 @@ class UnifiedReaderAppFlowTest {
     fun imported_item_can_be_removed_from_overflow_menu() {
         val importedItem = ReadableItem(
             id = "imported-akira",
-            serverId = "local-device",
             sourceType = SourceType.LOCAL,
             libraryId = "local-imports",
             isLocalImport = true,
@@ -214,18 +212,18 @@ class UnifiedReaderAppFlowTest {
     fun library_search_filters_cyrillic_catalog_items_from_toolbar() {
         val russianBook = ReadableItem(
             id = "russian-book",
-            serverId = "local-kavita",
             sourceType = SourceType.KAVITA,
             libraryId = "k-comics",
+            remoteId = "russian-book",
             title = "Некрополи Петербурга",
             format = FormatType.EPUB,
             coverUrl = null,
         )
         val englishBook = ReadableItem(
             id = "english-book",
-            serverId = "local-kavita",
             sourceType = SourceType.KAVITA,
             libraryId = "k-comics",
+            remoteId = "english-book",
             title = "Remote Book",
             format = FormatType.EPUB,
             coverUrl = null,
@@ -293,7 +291,6 @@ class UnifiedReaderAppFlowTest {
     fun library_error_messages_render() {
         val importedItem = ReadableItem(
             id = "imported-akira",
-            serverId = "local-device",
             sourceType = SourceType.LOCAL,
             libraryId = "local-imports",
             isLocalImport = true,
@@ -353,9 +350,9 @@ class UnifiedReaderAppFlowTest {
     fun library_view_mode_buttons_switch_between_grid_and_detailed_cards() {
         val item = ReadableItem(
             id = "catalog-book",
-            serverId = "local-kavita",
             sourceType = SourceType.KAVITA,
             libraryId = "k-comics",
+            remoteId = "catalog-book",
             title = "Catalog Book",
             format = FormatType.EPUB,
             coverUrl = null,
@@ -444,13 +441,13 @@ private fun comicGestureSurfaceTag(
 private class FakeLibraryRepository : LibraryRepository {
     private val librariesState = MutableStateFlow(
         listOf(
-        Library(
-            id = "k-comics",
-            serverId = "local-kavita",
-            sourceType = SourceType.KAVITA,
-            title = "Comics",
+            Library(
+                id = "k-comics",
+                sourceType = SourceType.KAVITA,
+                title = "Comics",
+                remoteId = "k-comics",
+            ),
         ),
-    )
     )
 
     override fun getLibraries(): List<Library> = librariesState.value
@@ -499,9 +496,7 @@ private class FakeGrimmoryCoverRepository : GrimmoryCoverDataSource {
         item: ReadableItem,
     ): Uri? = null
 
-    override suspend fun clearCachedCovers(
-        serverId: String,
-    ) = Unit
+    override suspend fun clearCachedCovers() = Unit
 }
 
 private class FakeGrimmoryContentRepository : GrimmoryContentDataSource {

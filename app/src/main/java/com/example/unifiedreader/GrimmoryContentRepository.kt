@@ -45,12 +45,11 @@ class GrimmoryContentRepository(
             if (file.isFile && file.length() > 0L) {
                 return@withLock
             }
-            val session = grimmoryCredentialStore.sessionFlow.value?.takeIf { storedSession ->
-                storedSession.serverId == item.serverId
-            } ?: error("Connect to Grimmory before opening remote books.")
+            val session = grimmoryCredentialStore.activeSessionFor(item)
+                ?: error("Connect to the active Grimmory server before opening remote books.")
+            val remoteItemId = item.remoteId ?: error("Unable to resolve Grimmory book id.")
             val api = grimmoryApiFactory.create(
                 baseUrl = session.baseUrl,
-                serverId = session.serverId,
             )
             sessionRequestRunner.run(
                 api = api,
@@ -59,6 +58,7 @@ class GrimmoryContentRepository(
                 download(
                     api = api,
                     accessToken = accessToken,
+                    remoteItemId = remoteItemId,
                     item = item,
                     destination = file,
                 )
@@ -94,6 +94,7 @@ class GrimmoryContentRepository(
     private suspend fun download(
         api: GrimmoryApi,
         accessToken: String,
+        remoteItemId: String,
         item: ReadableItem,
         destination: File,
     ) = writeGrimmoryCacheFile(
@@ -102,7 +103,7 @@ class GrimmoryContentRepository(
     ) { temporaryFile ->
         api.downloadBookContent(
             accessToken = accessToken,
-            bookId = item.id,
+            bookId = remoteItemId,
             bookType = item.remoteFileType ?: item.format.name,
             destination = temporaryFile,
         )
@@ -113,7 +114,7 @@ class GrimmoryContentRepository(
     ): File {
         val extension = item.format.name.lowercase()
         return File(
-            File(context.applicationContext.filesDir, "grimmory-documents/${item.serverId.toGrimmoryFileSegment()}"),
+            File(context.applicationContext.filesDir, "grimmory-documents"),
             item.grimmoryCacheFileName(extension),
         )
     }

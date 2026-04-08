@@ -71,11 +71,10 @@ object AppModule {
     @Provides
     fun provideGrimmoryApiFactory(
         httpClient: HttpClient,
-    ): GrimmoryApiFactory = GrimmoryApiFactory { baseUrl, serverId ->
+    ): GrimmoryApiFactory = GrimmoryApiFactory { baseUrl ->
         KtorGrimmoryApi(
             httpClient = httpClient,
             baseUrl = baseUrl,
-            serverId = serverId,
         )
     }
 
@@ -118,6 +117,25 @@ object AppModule {
         context = context.applicationContext,
         grimmoryApiFactory = grimmoryApiFactory,
         grimmoryCredentialStore = grimmoryCredentialStore,
+    )
+
+    @Provides
+    @Singleton
+    fun provideGrimmoryProgressSyncService(
+        grimmoryApiFactory: GrimmoryApiFactory,
+        grimmoryCredentialStore: GrimmoryCredentialStore,
+        readerSessionStore: ReaderSessionStore,
+    ): GrimmoryProgressSyncService = GrimmoryProgressSyncService(
+        grimmoryApiFactory = grimmoryApiFactory,
+        grimmoryCredentialStore = grimmoryCredentialStore,
+        readerSessionStore = readerSessionStore,
+    )
+
+    @Provides
+    fun provideSourceProgressSyncs(
+        grimmoryProgressSyncService: GrimmoryProgressSyncService,
+    ): List<@JvmSuppressWildcards SourceProgressSync> = listOf(
+        grimmoryProgressSyncService,
     )
 
     @Provides

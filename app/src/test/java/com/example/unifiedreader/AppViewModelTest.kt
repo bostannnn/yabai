@@ -15,6 +15,8 @@ import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
+import com.example.unifiedreader.core.model.remoteItemId
+import com.example.unifiedreader.core.model.remoteLibraryId
 import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
 import com.example.unifiedreader.data.grimmory.GrimmorySession
@@ -26,6 +28,7 @@ import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 import com.example.unifiedreader.feature.reader.comics.ComicReaderProgressStore
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import com.example.unifiedreader.feature.settings.ThemeMode
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -54,6 +57,32 @@ class AppViewModelTest {
         viewModel.onBackPressed()
         assertNull(viewModel.uiState.selectedItemId)
         assertNull(viewModel.uiState.activeReader)
+    }
+
+    @Test
+    fun `on item selected opens reader immediately while remote progress sync runs in background`() {
+        val remoteBook = sampleItem(
+            id = "grimmory-epub",
+            title = "Remote Book",
+            format = FormatType.EPUB,
+        ).copy(
+            sourceType = SourceType.GRIMMORY,
+            libraryId = SourceType.GRIMMORY.remoteLibraryId("grimmory-books"),
+            remoteId = "grimmory-epub",
+        )
+        val progressSync = BlockingSourceProgressSync(sourceType = SourceType.GRIMMORY)
+        val viewModel = createViewModel(
+            sampleItems = listOf(remoteBook),
+            sourceProgressSyncs = listOf(progressSync),
+        )
+
+        viewModel.onItemSelected(remoteBook)
+
+        assertEquals(remoteBook.id, viewModel.uiState.selectedItemId)
+        assertEquals(FormatType.EPUB, viewModel.uiState.activeReader)
+        progressSync.allowCompletion()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(1, progressSync.syncItemCalls)
     }
 
     @Test
@@ -123,7 +152,6 @@ class AppViewModelTest {
     fun `imported epub opens local reader and sets success status`() = runBlocking {
         val importedItem = ReadableItem(
             id = "document-abcd",
-            serverId = "local-device",
             sourceType = SourceType.LOCAL,
             libraryId = "local-imports",
             isLocalImport = true,
@@ -338,10 +366,10 @@ class AppViewModelTest {
         )
 
         val updatedLibrary = Library(
-            id = "g-books",
-            serverId = "local-grimmory",
+            id = SourceType.GRIMMORY.remoteLibraryId("g-books"),
             sourceType = SourceType.GRIMMORY,
             title = "Books",
+            remoteId = "g-books",
         )
         val updatedItem = sampleItem(
             id = "epub-live",
@@ -349,9 +377,10 @@ class AppViewModelTest {
             format = FormatType.EPUB,
             description = "Added through repository flow.",
         ).copy(
+            id = SourceType.GRIMMORY.remoteItemId("epub-live"),
             sourceType = SourceType.GRIMMORY,
-            libraryId = "g-books",
-            serverId = "local-grimmory",
+            libraryId = SourceType.GRIMMORY.remoteLibraryId("g-books"),
+            remoteId = "epub-live",
         )
 
         libraryRepository.emitLibraries(listOf(updatedLibrary))
@@ -634,7 +663,6 @@ class AppViewModelTest {
     fun `connect grimmory reuses saved token when password is blank`() {
         val credentialStore = FakeGrimmoryCredentialStore(
             GrimmoryStoredSession(
-                serverId = "grimmory-8811d83",
                 displayName = "Home Grimmory",
                 baseUrl = "https://grimmory.example",
                 username = "reader",
@@ -669,7 +697,6 @@ class AppViewModelTest {
     fun `refresh grimmory library uses stored session and keeps source on grimmory`() {
         val credentialStore = FakeGrimmoryCredentialStore(
             GrimmoryStoredSession(
-                serverId = "grimmory-8811d83",
                 displayName = "Home Grimmory",
                 baseUrl = "https://grimmory.example",
                 username = "reader",
@@ -731,8 +758,8 @@ class AppViewModelTest {
             format = FormatType.EPUB,
         ).copy(
             sourceType = SourceType.GRIMMORY,
-            serverId = "grimmory-home",
-            libraryId = "grimmory-books",
+            libraryId = SourceType.GRIMMORY.remoteLibraryId("grimmory-books"),
+            remoteId = "grimmory-epub",
         )
         val grimmoryContentRepository = FakeGrimmoryContentRepository()
         val viewModel = createViewModel(
@@ -765,8 +792,8 @@ class AppViewModelTest {
             format = FormatType.EPUB,
         ).copy(
             sourceType = SourceType.GRIMMORY,
-            serverId = "grimmory-home",
-            libraryId = "grimmory-books",
+            libraryId = SourceType.GRIMMORY.remoteLibraryId("grimmory-books"),
+            remoteId = "grimmory-epub",
         )
         val viewModel = createViewModel(
             sampleItems = listOf(remoteBook),
@@ -792,8 +819,8 @@ class AppViewModelTest {
             format = FormatType.EPUB,
         ).copy(
             sourceType = SourceType.GRIMMORY,
-            serverId = "grimmory-home",
-            libraryId = "grimmory-books",
+            libraryId = SourceType.GRIMMORY.remoteLibraryId("grimmory-books"),
+            remoteId = "grimmory-epub",
         )
         val grimmoryContentRepository = FakeGrimmoryContentRepository(
             storedItemIds = mutableSetOf(remoteBook.id),
@@ -870,13 +897,14 @@ class AppViewModelTest {
         grimmoryCredentialStore: GrimmoryCredentialStore = FakeGrimmoryCredentialStore(),
         grimmoryCoverRepository: GrimmoryCoverDataSource = FakeGrimmoryCoverRepository(),
         grimmoryContentRepository: GrimmoryContentDataSource = FakeGrimmoryContentRepository(),
+        sourceProgressSyncs: List<SourceProgressSync> = emptyList(),
         libraryRepository: FakeLibraryRepository = FakeLibraryRepository(
             libraries = listOf(
                 Library(
-                    id = "k-comics",
-                    serverId = "local-kavita",
+                    id = SourceType.KAVITA.remoteLibraryId("k-comics"),
                     sourceType = SourceType.KAVITA,
                     title = "Comics",
+                    remoteId = "k-comics",
                 ),
             ),
         ),
@@ -899,6 +927,7 @@ class AppViewModelTest {
         comicReaderProgressStore = progressStore,
         comicReaderPreferencesStore = preferencesStore,
         readerSessionStore = readerSessionStore,
+        sourceProgressSyncs = sourceProgressSyncs,
         readerFactories = emptyList(),
     )
 }
@@ -945,9 +974,7 @@ private class FakeGrimmoryCoverRepository : GrimmoryCoverDataSource {
         item: ReadableItem,
     ): Uri? = null
 
-    override suspend fun clearCachedCovers(
-        serverId: String,
-    ) = Unit
+    override suspend fun clearCachedCovers() = Unit
 }
 
 private class FakeGrimmoryContentRepository(
@@ -1166,6 +1193,29 @@ private class FakeReaderSessionStore : ReaderSessionStore {
     }
 }
 
+private class BlockingSourceProgressSync(
+    override val sourceType: SourceType,
+) : SourceProgressSync {
+    private val completionGate = CompletableDeferred<Unit>()
+    var syncItemCalls: Int = 0
+        private set
+
+    override suspend fun syncItem(
+        item: ReadableItem,
+    ) {
+        syncItemCalls += 1
+        completionGate.await()
+    }
+
+    override suspend fun pushPendingProgress(
+        items: List<ReadableItem>,
+    ) = Unit
+
+    fun allowCompletion() {
+        completionGate.complete(Unit)
+    }
+}
+
 private fun sampleItem(
     id: String = "sample-item",
     title: String = "Sample Item",
@@ -1174,9 +1224,13 @@ private fun sampleItem(
     isLocalImport: Boolean = false,
 ): ReadableItem = ReadableItem(
     id = id,
-    serverId = if (isLocalImport) "local-device" else "local-kavita",
     sourceType = if (isLocalImport) SourceType.LOCAL else SourceType.KAVITA,
-    libraryId = if (isLocalImport) "local-imports" else "k-comics",
+    libraryId = if (isLocalImport) {
+        "local-imports"
+    } else {
+        SourceType.KAVITA.remoteLibraryId("k-comics")
+    },
+    remoteId = if (isLocalImport) null else id,
     isLocalImport = isLocalImport,
     title = title,
     format = format,

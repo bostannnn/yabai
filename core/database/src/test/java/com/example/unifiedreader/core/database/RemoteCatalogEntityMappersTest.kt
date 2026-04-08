@@ -8,6 +8,8 @@ import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.remoteItemId
+import com.example.unifiedreader.core.model.remoteLibraryId
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -15,10 +17,10 @@ class RemoteCatalogEntityMappersTest {
     @Test
     fun `maps library domain model through entity`() {
         val library = Library(
-            id = "g-books",
-            serverId = "grimmory-1",
+            id = SourceType.GRIMMORY.remoteLibraryId("g-books"),
             sourceType = SourceType.GRIMMORY,
             title = "Books",
+            remoteId = "g-books",
         )
 
         assertEquals(library, library.toEntity().toDomain())
@@ -27,10 +29,10 @@ class RemoteCatalogEntityMappersTest {
     @Test
     fun `maps readable item domain model through entity`() {
         val item = ReadableItem(
-            id = "book-1",
-            serverId = "grimmory-1",
+            id = SourceType.GRIMMORY.remoteItemId("book-1"),
             sourceType = SourceType.GRIMMORY,
-            libraryId = "g-books",
+            libraryId = SourceType.GRIMMORY.remoteLibraryId("g-books"),
+            remoteId = "book-1",
             title = "Book 1",
             format = FormatType.EPUB,
             kind = ReadableItemKind.BOOK,

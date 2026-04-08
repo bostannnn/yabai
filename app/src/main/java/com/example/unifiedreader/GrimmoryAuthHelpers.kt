@@ -37,7 +37,7 @@ internal suspend fun <T> GrimmoryApi.runWithTokenRefresh(
 }
 
 internal class GrimmoryStoredSessionRequestRunner(
-    private val credentialStore: GrimmoryCredentialStore,
+    private val credentialStore: SourceSessionStore<GrimmoryStoredSession>,
 ) {
     private val tokenRefreshMutex = Mutex()
 
@@ -60,9 +60,7 @@ internal class GrimmoryStoredSessionRequestRunner(
         api: GrimmoryApi,
         session: GrimmoryStoredSession,
     ): GrimmoryStoredSession = tokenRefreshMutex.withLock {
-        val currentSession = credentialStore.sessionFlow.value
-            ?.takeIf { storedSession -> storedSession.serverId == session.serverId }
-            ?: session
+        val currentSession = credentialStore.sessionFlow.value ?: session
         if (currentSession.accessToken != session.accessToken) {
             return@withLock currentSession
         }

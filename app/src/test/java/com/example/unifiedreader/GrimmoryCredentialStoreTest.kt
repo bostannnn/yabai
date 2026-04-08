@@ -20,7 +20,6 @@ class GrimmoryCredentialStoreTest {
             .getSharedPreferences("grimmory_credentials_test_${System.nanoTime()}", Context.MODE_PRIVATE)
         preferences.edit().clear().commit()
         val session = GrimmoryStoredSession(
-            serverId = "grimmory-1",
             displayName = "Home Grimmory",
             baseUrl = "https://grimmory.example",
             username = "reader",
@@ -58,7 +57,6 @@ class GrimmoryCredentialStoreTest {
             cipher = PrefixCredentialCipher(),
         ).save(
             GrimmoryStoredSession(
-                serverId = "grimmory-1",
                 displayName = "Home Grimmory",
                 baseUrl = "https://grimmory.example",
                 username = "reader",

@@ -16,9 +16,7 @@ interface GrimmoryCoverDataSource {
         item: ReadableItem,
     ): Uri?
 
-    suspend fun clearCachedCovers(
-        serverId: String,
-    )
+    suspend fun clearCachedCovers()
 }
 
 class GrimmoryCoverRepository(
@@ -41,12 +39,10 @@ class GrimmoryCoverRepository(
             if (cachedFile.isFile && cachedFile.length() > 0L) {
                 return@withLock
             }
-            val session = grimmoryCredentialStore.sessionFlow.value?.takeIf { storedSession ->
-                storedSession.serverId == item.serverId
-            } ?: error("Connect to Grimmory before loading remote covers.")
+            val session = grimmoryCredentialStore.activeSessionFor(item)
+                ?: error("Connect to the active Grimmory server before loading remote covers.")
             val api = grimmoryApiFactory.create(
                 baseUrl = session.baseUrl,
-                serverId = session.serverId,
             )
             downloadWithTokenRefresh(
                 api = api,
@@ -58,12 +54,9 @@ class GrimmoryCoverRepository(
         return Uri.fromFile(cachedFile)
     }
 
-    override suspend fun clearCachedCovers(
-        serverId: String,
-    ) {
+    override suspend fun clearCachedCovers() {
         withContext(Dispatchers.IO) {
-            val serverDirectory = File(coverStorageDirectory(), serverId.toGrimmoryFileSegment())
-            serverDirectory.deleteRecursively()
+            coverStorageDirectory().deleteRecursively()
         }
     }
 
@@ -95,9 +88,10 @@ class GrimmoryCoverRepository(
         destination = destination,
         targetDescription = "cached Grimmory cover for ${item.title}",
     ) { temporaryFile ->
+        val remoteItemId = item.remoteId ?: error("Unable to resolve Grimmory book id.")
         val bytes = api.downloadBookCover(
             accessToken = accessToken,
-            bookId = item.id,
+            bookId = remoteItemId,
             coverUrl = item.coverUrl,
         )
         temporaryFile.writeBytes(bytes)
@@ -106,7 +100,7 @@ class GrimmoryCoverRepository(
     private fun cacheFileFor(
         item: ReadableItem,
     ): File = File(
-        File(coverStorageDirectory(), item.serverId.toGrimmoryFileSegment()),
+        coverStorageDirectory(),
         item.grimmoryCacheFileName("cover"),
     )
 

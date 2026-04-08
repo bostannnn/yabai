@@ -3,6 +3,8 @@ package com.example.unifiedreader.data.grimmory
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.remoteItemId
+import com.example.unifiedreader.core.model.remoteLibraryId
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
@@ -47,11 +49,11 @@ class GrimmoryDtosTest {
         val library = GrimmoryLibraryDto(
             id = 42,
             name = "Books",
-        ).toDomain(serverId = "server-1")
+        ).toDomain()
 
         requireNotNull(library)
-        assertEquals("42", library.id)
-        assertEquals("server-1", library.serverId)
+        assertEquals(SourceType.GRIMMORY.remoteLibraryId("42"), library.id)
+        assertEquals("42", library.remoteId)
         assertEquals(SourceType.GRIMMORY, library.sourceType)
         assertEquals("Books", library.title)
     }
@@ -76,13 +78,13 @@ class GrimmoryDtosTest {
                 authors = listOf("Ada Author"),
             ),
         ).toDomain(
-            serverId = "server-1",
             baseUrl = "https://grimmory.example",
         )
 
         requireNotNull(item)
-        assertEquals("12", item.id)
-        assertEquals("4", item.libraryId)
+        assertEquals(SourceType.GRIMMORY.remoteItemId("12"), item.id)
+        assertEquals("12", item.remoteId)
+        assertEquals(SourceType.GRIMMORY.remoteLibraryId("4"), item.libraryId)
         assertEquals(SourceType.GRIMMORY, item.sourceType)
         assertEquals(FormatType.EPUB, item.format)
         assertEquals(ReadableItemKind.BOOK, item.kind)
@@ -106,7 +108,6 @@ class GrimmoryDtosTest {
                 thumbnailUrl = "/api/v1/media/book/12/thumbnail?size=large",
             ),
         ).toDomain(
-            serverId = "server-1",
             baseUrl = "https://grimmory.example",
         )
 
@@ -132,7 +133,6 @@ class GrimmoryDtosTest {
                 seriesNumber = 3f,
             ),
         ).toDomain(
-            serverId = "server-1",
             baseUrl = "https://grimmory.example",
         )
 
@@ -149,7 +149,6 @@ class GrimmoryDtosTest {
                 extension = "mobi",
             ),
         ).toDomain(
-            serverId = "server-1",
             baseUrl = "https://grimmory.example",
         )
 
@@ -203,12 +202,32 @@ class GrimmoryDtosTest {
                 percentage = 1f,
             ),
         ).toCatalogEntry(
-            serverId = "server-1",
             baseUrl = "https://grimmory.example",
         )
 
         requireNotNull(item)
         assertEquals(0.01, item.progress?.percent ?: 0.0, 0.0001)
         assertEquals(1775046600000L, item.progress?.updatedAtEpochMillis)
+    }
+
+    @Test
+    fun unreadBookDoesNotInferExplicitReset() {
+        val item = GrimmoryBookDto(
+            id = 12,
+            libraryId = 4,
+            primaryFile = GrimmoryBookFileDto(
+                bookType = "EPUB",
+                extension = "epub",
+            ),
+            lastReadTime = null,
+            epubProgress = null,
+            pdfProgress = null,
+        ).toCatalogEntry(
+            baseUrl = "https://grimmory.example",
+        )
+
+        requireNotNull(item)
+        assertNull(item.progress)
+        assertEquals(false, item.isExplicitUnreadReset)
     }
 }

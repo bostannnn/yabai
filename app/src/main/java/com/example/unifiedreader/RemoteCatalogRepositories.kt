@@ -3,7 +3,6 @@ package com.example.unifiedreader
 import com.example.unifiedreader.core.database.dao.RemoteCatalogDao
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
-import com.example.unifiedreader.core.database.entity.ServerEntity
 import com.example.unifiedreader.core.database.entity.toDomain
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.data.repository.LibraryRepository
@@ -23,8 +22,8 @@ interface RemoteCatalogWriter {
         sourceType: SourceType,
     ): List<ReadableItem>
 
-    suspend fun replaceServerCatalog(
-        server: ServerEntity,
+    suspend fun replaceSourceCatalog(
+        sourceType: SourceType,
         libraries: List<LibraryEntity>,
         items: List<ReadableItemEntity>,
     )
@@ -55,13 +54,13 @@ class RoomRemoteCatalogRepository(
             .map(ReadableItemEntity::toDomain)
     }
 
-    override suspend fun replaceServerCatalog(
-        server: ServerEntity,
+    override suspend fun replaceSourceCatalog(
+        sourceType: SourceType,
         libraries: List<LibraryEntity>,
         items: List<ReadableItemEntity>,
     ) = withContext(ioDispatcher) {
-        remoteCatalogDao.replaceServerCatalog(
-            server = server,
+        remoteCatalogDao.replaceSourceCatalog(
+            sourceType = sourceType.name,
             libraries = libraries,
             items = items,
         )

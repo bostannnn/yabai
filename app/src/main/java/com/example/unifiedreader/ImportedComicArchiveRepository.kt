@@ -381,7 +381,6 @@ class LocalDocumentRepository(
         val formatSpec = record.format.localImportFormatSpec()
         return ReadableItem(
             id = record.id,
-            serverId = formatSpec.serverId,
             sourceType = formatSpec.sourceType,
             libraryId = formatSpec.libraryId,
             isLocalImport = true,
@@ -630,7 +629,6 @@ private fun File.isValidCoverFileFor(
     length() > 0L
 
 internal const val LOCAL_LIBRARY_ID = "local-imports"
-internal const val LOCAL_SERVER_ID = "local-device"
 internal const val IMPORTED_EPUB_MIMETYPE = "application/epub+zip"
 
 internal fun LocalDocumentRecord.toEntity(): ImportedComicArchiveEntity = ImportedComicArchiveEntity(
@@ -731,7 +729,6 @@ private data class LocalImportFormatSpec(
     val idPrefix: String,
     val libraryId: String,
     val sourceType: SourceType,
-    val serverId: String,
     val buildDescription: (LocalDocumentRecord) -> String,
 )
 
@@ -739,7 +736,6 @@ private val ComicLocalImportFormatSpec = LocalImportFormatSpec(
     idPrefix = "comic",
     libraryId = LOCAL_LIBRARY_ID,
     sourceType = SourceType.LOCAL,
-    serverId = LOCAL_SERVER_ID,
     buildDescription = { record -> "Imported local ${record.format.name} with ${record.pageCount} pages." },
 )
 
@@ -747,7 +743,6 @@ private val EpubLocalImportFormatSpec = LocalImportFormatSpec(
     idPrefix = "document",
     libraryId = LOCAL_LIBRARY_ID,
     sourceType = SourceType.LOCAL,
-    serverId = LOCAL_SERVER_ID,
     buildDescription = { "Imported local EPUB book." },
 )
 

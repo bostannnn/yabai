@@ -159,10 +159,21 @@ fun EpubReaderScreen(
         )
         return
     }
-    val restoreProgressSnapshot = remember(item.id) { progressSnapshot }
-    val restoreSessionSnapshot = remember(item.id) { sessionSnapshot }
-    val serializedInitialLocator = remember(item.id) { restoreProgressSnapshot?.toReadiumLocator() }
-    val restoredPreferences = remember(item.id) { restoreEpubPreferences(restoreSessionSnapshot) }
+    var initialRestoreLocked by rememberSaveable(item.id) { mutableStateOf(false) }
+    var restoreProgressSnapshot by remember(item.id) {
+        mutableStateOf(progressSnapshot)
+    }
+    var restoreSessionSnapshot by remember(item.id) {
+        mutableStateOf(sessionSnapshot)
+    }
+    LaunchedEffect(progressSnapshot, sessionSnapshot, initialRestoreLocked) {
+        if (!initialRestoreLocked) {
+            restoreProgressSnapshot = progressSnapshot
+            restoreSessionSnapshot = sessionSnapshot
+        }
+    }
+    val serializedInitialLocator = restoreProgressSnapshot?.toReadiumLocator()
+    val restoredPreferences = restoreEpubPreferences(restoreSessionSnapshot)
     var fontSize by rememberSaveable(item.id) { mutableDoubleStateOf(restoredPreferences.fontSize) }
     var lineHeight by rememberSaveable(item.id) { mutableDoubleStateOf(restoredPreferences.lineHeight) }
     var theme by rememberSaveable(item.id) { mutableStateOf(restoredPreferences.theme) }
@@ -223,6 +234,16 @@ fun EpubReaderScreen(
         theme = restoredPreferences.theme
         layoutMode = restoredPreferences.layoutMode
         restoredSessionState = true
+    }
+    LaunchedEffect(initialRestoreLocked, restoreProgressSnapshot, restoreSessionSnapshot, serializedInitialLocator) {
+        if (initialRestoreLocked) return@LaunchedEffect
+        pageCount = restoreSessionSnapshot?.pageCount ?: pageCount
+        currentPage = restoreProgressSnapshot?.page ?: serializedInitialLocator?.locations?.position ?: currentPage
+        currentProgress = restoreProgressSnapshot?.percent
+            ?: serializedInitialLocator?.locations?.totalProgression
+            ?: serializedInitialLocator?.locations?.progression
+            ?: currentProgress
+        currentHref = serializedInitialLocator?.href?.removeFragment()?.toString()
     }
 
     val publicationState by produceState<EpubPublicationState>(
@@ -393,6 +414,9 @@ fun EpubReaderScreen(
                         currentHref = currentHref,
                         currentProgress = currentProgress,
                         onLocationChanged = { locator, pageIndex, _ ->
+                            if (!initialRestoreLocked) {
+                                initialRestoreLocked = true
+                            }
                             currentHref = locator.href.removeFragment().toString()
                             val bookPageCount = bookProgress.pageCount
                                 .takeIf { it > 0 }

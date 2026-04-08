@@ -237,9 +237,9 @@ private class SmokeComicPageSource(
 
 private fun smokeTestItem(): ReadableItem = ReadableItem(
     id = "smoke-comic",
-    serverId = "local-kavita",
     sourceType = SourceType.KAVITA,
     libraryId = "k-comics",
+    remoteId = "smoke-comic",
     title = "Smoke Test Comic",
     format = FormatType.CBZ,
     description = "Reader restore smoke test",

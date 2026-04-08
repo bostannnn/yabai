@@ -37,7 +37,11 @@ import com.example.unifiedreader.feature.settings.ThemeMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.Locale
 import javax.inject.Inject
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.jvm.JvmSuppressWildcards
 
@@ -57,6 +61,7 @@ class AppViewModel @Inject constructor(
     val comicReaderProgressStore: ComicReaderProgressStore,
     val comicReaderPreferencesStore: ComicReaderPreferencesStore,
     val readerSessionStore: ReaderSessionStore,
+    private val sourceProgressSyncs: List<@JvmSuppressWildcards SourceProgressSync>,
     val readerFactories: List<@JvmSuppressWildcards ReaderScreenFactory>,
 ) : AndroidViewModel(application) {
     private var catalogLibraries: List<Library> = libraryRepository.getLibraries()
@@ -64,6 +69,7 @@ class AppViewModel @Inject constructor(
     private val grimmoryCoverUrisByItemId = mutableStateMapOf<String, String>()
     private val pendingGrimmoryCoverIds = mutableSetOf<String>()
     private var lastGrimmoryCoverErrorMessage: String? = null
+    private var readerSelectionRequestId: Int = 0
 
     var uiState by mutableStateOf(AppUiState())
         private set
@@ -80,6 +86,7 @@ class AppViewModel @Inject constructor(
     }
 
     fun onTopLevelSelected(destination: TopLevelDestination) {
+        readerSelectionRequestId++
         uiState = uiState.copy(
             topLevel = destination,
         )
@@ -87,6 +94,7 @@ class AppViewModel @Inject constructor(
     }
 
     fun onSourceSelected(sourceType: SourceType) {
+        readerSelectionRequestId++
         uiState = uiState.copy(
             selectedSource = sourceType,
             selectedItemId = null,
@@ -121,11 +129,24 @@ class AppViewModel @Inject constructor(
     }
 
     fun onItemSelected(item: ReadableItem) {
+        val progressSync = sourceProgressSyncs.firstOrNull { sync -> sync.supports(item) }
+        val requestId = ++readerSelectionRequestId
         uiState = uiState.copy(
             selectedItemId = item.id,
             activeReader = item.format,
         )
         refreshProgress()
+        if (progressSync != null) {
+            viewModelScope.launch {
+                runCatching {
+                    progressSync.syncItem(item)
+                }.onFailure { throwable ->
+                    Log.w(LOG_TAG, "Unable to sync progress before opening ${item.id}.", throwable)
+                }
+                if (readerSelectionRequestId != requestId) return@launch
+                refreshProgress()
+            }
+        }
     }
 
     fun coverImageUrlFor(item: ReadableItem): String? {
@@ -166,6 +187,8 @@ class AppViewModel @Inject constructor(
     }
 
     fun onBackPressed() {
+        readerSelectionRequestId++
+        val wasReaderOpen = uiState.activeReader != null && uiState.selectedItem != null
         uiState = when {
             uiState.activeReader != null -> uiState.copy(
                 activeReader = null,
@@ -173,6 +196,11 @@ class AppViewModel @Inject constructor(
             )
             uiState.selectedItemId != null -> uiState.copy(selectedItemId = null)
             else -> uiState
+        }
+        if (wasReaderOpen) {
+            viewModelScope.launch {
+                flushPendingRemoteProgress()
+            }
         }
         refreshProgress()
     }
@@ -212,6 +240,7 @@ class AppViewModel @Inject constructor(
             runCatching {
                 grimmoryContentRepository.downloadToLocalStorage(item)
             }.onSuccess { downloadedUri ->
+                syncItemProgressIfSupported(item)
                 val downloadedIds = loadDownloadedGrimmoryItemIds(uiState.items)
                 uiState = uiState.copy(
                     downloadedGrimmoryItemIds = downloadedIds,
@@ -336,9 +365,7 @@ class AppViewModel @Inject constructor(
             )
             return
         }
-        val serverId = serverIdForBaseUrl(normalizedBaseUrl)
         val savedSession = matchingStoredGrimmorySession(
-            serverId = serverId,
             baseUrl = normalizedBaseUrl,
             username = username,
         ).takeIf { connection.password.isBlank() }
@@ -353,7 +380,6 @@ class AppViewModel @Inject constructor(
             return
         }
         val request = GrimmoryCatalogSyncRequest(
-            serverId = serverId,
             displayName = displayName,
             baseUrl = normalizedBaseUrl,
             username = username,
@@ -398,7 +424,6 @@ class AppViewModel @Inject constructor(
             return
         }
         val request = GrimmoryCatalogSyncRequest(
-            serverId = savedSession.serverId,
             displayName = savedSession.displayName,
             baseUrl = savedSession.baseUrl,
             username = savedSession.username,
@@ -437,7 +462,6 @@ class AppViewModel @Inject constructor(
             runCatching {
                 val result = grimmoryCatalogSyncer.sync(request)
                 val storedSession = result.session?.toStoredSession(
-                    serverId = request.serverId,
                     displayName = request.displayName,
                     baseUrl = request.baseUrl,
                     username = request.username,
@@ -450,7 +474,7 @@ class AppViewModel @Inject constructor(
                     grimmoryCredentialStore.save(storedSession)
                 }
                 clearGrimmoryCoverState()
-                grimmoryCoverRepository.clearCachedCovers(request.serverId)
+                grimmoryCoverRepository.clearCachedCovers()
                 result
             }.onSuccess { result ->
                 uiState = uiState.copy(
@@ -557,6 +581,7 @@ class AppViewModel @Inject constructor(
         refreshDownloadedGrimmoryItemIdsAsync(items)
     }
 
+    @OptIn(FlowPreview::class)
     private fun observeAppState() {
         viewModelScope.launch {
             grimmoryCredentialStore.sessionFlow.collect { session ->
@@ -568,6 +593,26 @@ class AppViewModel @Inject constructor(
                     )
                 }
             }
+        }
+        viewModelScope.launch {
+            readerSessionStore.progressByItemIdFlow
+                .map { progressByItemId ->
+                    progressByItemId.values
+                        .filter { progress ->
+                            progress.syncState == com.example.unifiedreader.core.model.SyncState.DIRTY
+                        }
+                        .sortedBy(com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot::itemId)
+                        .map { progress ->
+                            "${progress.itemId}:${progress.syncState.name}:${progress.updatedAtEpochMillis}"
+                        }
+                }
+                .distinctUntilChanged()
+                .debounce(1500L)
+                .collect { dirtyProgressKeys ->
+                    if (dirtyProgressKeys.isNotEmpty()) {
+                        flushPendingRemoteProgress()
+                    }
+                }
         }
         viewModelScope.launch {
             combine(
@@ -632,13 +677,35 @@ class AppViewModel @Inject constructor(
         items: List<ReadableItem>,
     ): Set<String> = grimmoryContentRepository.storedDocumentItemIds(items)
 
+    private suspend fun syncItemProgressIfSupported(
+        item: ReadableItem,
+    ) {
+        sourceProgressSyncs.firstOrNull { sync -> sync.supports(item) }
+            ?.let { sync ->
+                runCatching {
+                    sync.syncItem(item)
+                }.onFailure { throwable ->
+                    Log.w(LOG_TAG, "Unable to sync progress for ${item.id}.", throwable)
+                }
+            }
+    }
+
+    private suspend fun flushPendingRemoteProgress() {
+        val remoteItems = catalogItems
+        sourceProgressSyncs.forEach { sync ->
+            runCatching {
+                sync.pushPendingProgress(remoteItems)
+            }.onFailure { throwable ->
+                Log.w(LOG_TAG, "Unable to push pending remote progress.", throwable)
+            }
+        }
+    }
+
     private fun matchingStoredGrimmorySession(
-        serverId: String,
         baseUrl: String,
         username: String,
     ): GrimmoryStoredSession? = grimmoryCredentialStore.sessionFlow.value?.takeIf { session ->
-        session.serverId == serverId &&
-            session.baseUrl == baseUrl &&
+        session.baseUrl == baseUrl &&
             session.username == username
     }
 
@@ -653,7 +720,6 @@ class AppViewModel @Inject constructor(
             return connection.copy(hasStoredSession = false)
         }
         val matchingSession = matchingStoredGrimmorySession(
-            serverId = serverIdForBaseUrl(normalizedBaseUrl),
             baseUrl = normalizedBaseUrl,
             username = username,
         )
@@ -790,10 +856,6 @@ private fun normalizeServerBaseUrl(
     return trimmed
 }
 
-private fun serverIdForBaseUrl(
-    baseUrl: String,
-): String = "grimmory-${Integer.toHexString(baseUrl.hashCode())}"
-
 private fun GrimmoryConnectionUiState.withStoredSession(
     session: GrimmoryStoredSession?,
 ): GrimmoryConnectionUiState = if (session == null) {
@@ -810,12 +872,10 @@ private fun GrimmoryConnectionUiState.withStoredSession(
 }
 
 private fun GrimmorySession.toStoredSession(
-    serverId: String,
     displayName: String,
     baseUrl: String,
     username: String,
 ): GrimmoryStoredSession = GrimmoryStoredSession(
-    serverId = serverId,
     displayName = displayName,
     baseUrl = baseUrl,
     username = username,

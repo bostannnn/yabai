@@ -127,9 +127,9 @@ private class RecordingReaderSessionStateDao : ReaderSessionStateDao {
 private fun testItem(): com.example.unifiedreader.core.model.ReadableItem =
     com.example.unifiedreader.core.model.ReadableItem(
         id = "comic-1",
-        serverId = "local-kavita",
         sourceType = SourceType.KAVITA,
-        libraryId = "k-comics",
+        libraryId = "kavita:library:k-comics",
+        remoteId = "comic-1",
         title = "Akira",
         format = FormatType.CBZ,
         coverUrl = null,

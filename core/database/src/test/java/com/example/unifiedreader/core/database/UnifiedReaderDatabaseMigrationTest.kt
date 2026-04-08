@@ -4,11 +4,11 @@ import android.content.Context
 import androidx.room.Room
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
-import com.example.unifiedreader.core.database.entity.ServerEntity
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.core.app.ApplicationProvider
+import com.example.unifiedreader.core.model.SourceType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -329,8 +329,9 @@ class UnifiedReaderDatabaseMigrationTest {
         try {
             val libraries = migratedDatabase.remoteCatalogDao().getLibraries()
             assertEquals(1, libraries.size)
-            assertEquals("GRIMMORY", migratedDatabase.remoteCatalogDao().getServers().single().sourceType)
-            assertEquals("KAVITA", libraries.single().sourceType)
+            assertEquals("GRIMMORY", libraries.single().sourceType)
+            assertEquals("grimmory:library:books", libraries.single().id)
+            assertEquals("books", libraries.single().remoteId)
             assertTrue(migratedDatabase.remoteCatalogDao().getItems().isEmpty())
         } finally {
             migratedDatabase.close()
@@ -354,6 +355,36 @@ class UnifiedReaderDatabaseMigrationTest {
             UnifiedReaderDatabaseMigrations.MIGRATION_6_7.migrate(database)
             UnifiedReaderDatabaseMigrations.MIGRATION_7_8.migrate(database)
             UnifiedReaderDatabaseMigrations.MIGRATION_8_9.migrate(database)
+            database.execSQL(
+                """
+                INSERT INTO servers (
+                    id,
+                    displayName,
+                    baseUrl,
+                    sourceType
+                ) VALUES (
+                    'grimmory-1',
+                    'Grimmory',
+                    'https://grimmory.example',
+                    'GRIMMORY'
+                )
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                INSERT INTO libraries (
+                    id,
+                    serverId,
+                    title,
+                    sourceType
+                ) VALUES (
+                    'books',
+                    'grimmory-1',
+                    'Books',
+                    'KAVITA'
+                )
+                """.trimIndent(),
+            )
             database.execSQL(
                 """
                 INSERT INTO readable_items (
@@ -397,13 +428,78 @@ class UnifiedReaderDatabaseMigrationTest {
                 )
                 """.trimIndent(),
             )
+            database.execSQL(
+                """
+                INSERT INTO reading_progress (
+                    itemId,
+                    locatorType,
+                    page,
+                    cfi,
+                    percent,
+                    isFinished,
+                    syncState,
+                    updatedAtEpochMillis
+                ) VALUES (
+                    'book-1',
+                    'PERCENT',
+                    NULL,
+                    NULL,
+                    0.5,
+                    0,
+                    'CLEAN',
+                    1775046600000
+                )
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                INSERT INTO reader_session_state (
+                    itemId,
+                    page,
+                    pageCount,
+                    readingDirection,
+                    pageFitMode,
+                    updatedAtEpochMillis,
+                    spreadMode,
+                    preferencesJson
+                ) VALUES (
+                    'book-1',
+                    NULL,
+                    300,
+                    'LTR',
+                    'FitPage',
+                    1775046600000,
+                    'Auto',
+                    '{}'
+                )
+                """.trimIndent(),
+            )
         }.use { _ -> Unit }
 
         val migratedDatabase = openRoomDatabase(databaseName)
         try {
+            val library = migratedDatabase.remoteCatalogDao().getLibraries().single()
+            assertEquals("GRIMMORY", library.sourceType)
+            assertEquals("grimmory:library:books", library.id)
+            assertEquals("books", library.remoteId)
             val item = migratedDatabase.remoteCatalogDao().getItems().single()
+            assertEquals("grimmory:item:book-1", item.id)
+            assertEquals("grimmory:library:books", item.libraryId)
+            assertEquals("book-1", item.remoteId)
             assertEquals(null, item.remoteFileId)
             assertEquals(null, item.remoteFileType)
+            assertEquals(
+                "grimmory:item:book-1",
+                checkNotNull(
+                    migratedDatabase.readingProgressDao().getByItemId("grimmory:item:book-1"),
+                ).itemId,
+            )
+            assertEquals(
+                "grimmory:item:book-1",
+                checkNotNull(
+                    migratedDatabase.readerSessionStateDao().getByItemId("grimmory:item:book-1"),
+                ).itemId,
+            )
         } finally {
             migratedDatabase.close()
             ApplicationProvider.getApplicationContext<Context>().deleteDatabase(databaseName)
@@ -412,7 +508,7 @@ class UnifiedReaderDatabaseMigrationTest {
 
 
     @Test
-    fun `remote catalog dao replaces server catalog atomically`() {
+    fun `remote catalog dao replaces source catalog atomically`() {
         val database = Room.inMemoryDatabaseBuilder(
             ApplicationProvider.getApplicationContext(),
             UnifiedReaderDatabase::class.java,
@@ -422,28 +518,22 @@ class UnifiedReaderDatabaseMigrationTest {
 
         try {
             val dao = database.remoteCatalogDao()
-            val server = ServerEntity(
-                id = "grimmory-1",
-                displayName = "Grimmory",
-                baseUrl = "https://grimmory.example",
+            dao.replaceSourceCatalog(
                 sourceType = "GRIMMORY",
-            )
-            dao.replaceServerCatalog(
-                server = server,
                 libraries = listOf(
                     LibraryEntity(
-                        id = "g-books",
-                        serverId = server.id,
+                        id = "grimmory:library:g-books",
                         sourceType = "GRIMMORY",
                         title = "Books",
+                        remoteId = "g-books",
                     ),
                 ),
                 items = listOf(
                     ReadableItemEntity(
-                        id = "book-1",
-                        serverId = server.id,
+                        id = "grimmory:item:book-1",
                         sourceType = "GRIMMORY",
-                        libraryId = "g-books",
+                        libraryId = "grimmory:library:g-books",
+                        remoteId = "book-1",
                         isLocalImport = false,
                         remoteFileId = "99",
                         remoteFileType = "EPUB",
@@ -463,21 +553,21 @@ class UnifiedReaderDatabaseMigrationTest {
                     ),
                 ),
             )
-            dao.replaceServerCatalog(
-                server = server,
+            dao.replaceSourceCatalog(
+                sourceType = "GRIMMORY",
                 libraries = listOf(
                     LibraryEntity(
-                        id = "g-new",
-                        serverId = server.id,
+                        id = "grimmory:library:g-new",
                         sourceType = "GRIMMORY",
                         title = "New",
+                        remoteId = "g-new",
                     ),
                 ),
                 items = emptyList(),
             )
 
-            assertEquals(listOf("g-new"), dao.getLibraries().map { it.id })
-            assertTrue(dao.getItemsForServer(server.id).isEmpty())
+            assertEquals(listOf("grimmory:library:g-new"), dao.getLibraries().map { it.id })
+            assertTrue(dao.getItemsForSourceType(SourceType.GRIMMORY.name).isEmpty())
         } finally {
             database.close()
         }
@@ -590,6 +680,7 @@ private fun openRoomDatabase(
         UnifiedReaderDatabaseMigrations.MIGRATION_7_8,
         UnifiedReaderDatabaseMigrations.MIGRATION_8_9,
         UnifiedReaderDatabaseMigrations.MIGRATION_9_10,
+        UnifiedReaderDatabaseMigrations.MIGRATION_10_11,
     )
     .build()
 

@@ -142,9 +142,9 @@ private fun sampleEpubItem(
     id: String = "epub-edge-top",
 ): ReadableItem = ReadableItem(
     id = id,
-    serverId = "local-epub",
     sourceType = SourceType.KAVITA,
     libraryId = "epub",
+    remoteId = id,
     isLocalImport = false,
     title = "EPUB Edge Test",
     format = FormatType.EPUB,

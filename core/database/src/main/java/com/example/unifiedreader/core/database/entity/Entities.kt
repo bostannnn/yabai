@@ -5,35 +5,26 @@ import androidx.room.ColumnInfo
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "servers")
-data class ServerEntity(
-    @PrimaryKey val id: String,
-    val displayName: String,
-    val baseUrl: String,
-    val sourceType: String,
-)
-
 @Entity(tableName = "libraries")
 data class LibraryEntity(
     @PrimaryKey val id: String,
-    val serverId: String,
-    @ColumnInfo(defaultValue = "KAVITA") val sourceType: String,
+    val sourceType: String,
     val title: String,
+    val remoteId: String?,
 )
 
 @Entity(
     tableName = "readable_items",
     indices = [
-        Index(value = ["serverId"]),
         Index(value = ["libraryId"]),
         Index(value = ["sourceType"]),
     ],
 )
 data class ReadableItemEntity(
     @PrimaryKey val id: String,
-    val serverId: String,
     val sourceType: String,
     val libraryId: String,
+    val remoteId: String?,
     val isLocalImport: Boolean,
     val remoteFileId: String?,
     val remoteFileType: String?,

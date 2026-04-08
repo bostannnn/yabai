@@ -33,16 +33,16 @@ enum class SyncState {
 
 data class Library(
     val id: String,
-    val serverId: String,
     val sourceType: SourceType,
     val title: String,
+    val remoteId: String? = null,
 )
 
 data class ReadableItem(
     val id: String,
-    val serverId: String,
     val sourceType: SourceType,
     val libraryId: String,
+    val remoteId: String? = null,
     val isLocalImport: Boolean = false,
     val remoteFileId: String? = null,
     val remoteFileType: String? = null,
@@ -106,3 +106,11 @@ private fun FormatType.defaultReadableItemKind(): ReadableItemKind = when (this)
     FormatType.EPUB,
     FormatType.PDF -> ReadableItemKind.BOOK
 }
+
+fun SourceType.remoteLibraryId(
+    remoteId: String,
+): String = "${name.lowercase()}:library:$remoteId"
+
+fun SourceType.remoteItemId(
+    remoteId: String,
+): String = "${name.lowercase()}:item:$remoteId"

@@ -8,6 +8,8 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.ReadingProgress
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.remoteItemId
+import com.example.unifiedreader.core.model.remoteLibraryId
 import java.time.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -158,28 +160,23 @@ private fun JsonObject.optionalString(
     key: String,
 ): String? = this[key]?.jsonPrimitive?.content?.takeIf(String::isNotBlank)
 
-internal fun GrimmoryLibraryDto.toDomain(
-    serverId: String,
-): Library? {
+internal fun GrimmoryLibraryDto.toDomain(): Library? {
     val libraryId = id?.toString() ?: return null
     return Library(
-        id = libraryId,
-        serverId = serverId,
+        id = SourceType.GRIMMORY.remoteLibraryId(libraryId),
         sourceType = SourceType.GRIMMORY,
         title = name?.takeIf(String::isNotBlank) ?: "Library $libraryId",
+        remoteId = libraryId,
     )
 }
 
 internal fun GrimmoryBookDto.toDomain(
-    serverId: String,
     baseUrl: String,
 ): ReadableItem? = toCatalogEntry(
-    serverId = serverId,
     baseUrl = baseUrl,
 )?.item
 
 internal fun GrimmoryBookDto.toCatalogEntry(
-    serverId: String,
     baseUrl: String,
 ): GrimmoryBookCatalogEntry? {
     val bookId = id?.toString() ?: return null
@@ -190,10 +187,10 @@ internal fun GrimmoryBookDto.toCatalogEntry(
         ?: primaryFile?.fileName?.takeIf(String::isNotBlank)
     val itemTitle = metadataTitle ?: fallbackTitle ?: "Book $bookId"
     val item = ReadableItem(
-        id = bookId,
-        serverId = serverId,
+        id = SourceType.GRIMMORY.remoteItemId(bookId),
         sourceType = SourceType.GRIMMORY,
-        libraryId = libraryId,
+        libraryId = SourceType.GRIMMORY.remoteLibraryId(libraryId),
+        remoteId = bookId,
         remoteFileId = primaryFile?.id?.toString(),
         remoteFileType = primaryFile?.bookType?.takeIf(String::isNotBlank) ?: format.name,
         title = itemTitle,

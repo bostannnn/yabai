@@ -55,6 +55,15 @@ interface GrimmoryApi {
         )
     }
 
+    suspend fun getAllBookEntries(
+        accessToken: String,
+    ): List<GrimmoryBookCatalogEntry> = error("Fetching Grimmory books with progress is not implemented.")
+
+    suspend fun getBookEntry(
+        accessToken: String,
+        bookId: String,
+    ): GrimmoryBookCatalogEntry? = error("Fetching a Grimmory book with progress is not implemented.")
+
     fun bookContentUrl(
         bookId: String,
         bookType: String? = null,
@@ -121,6 +130,7 @@ data class GrimmoryProgressUpdate(
 data class GrimmoryBookCatalogEntry(
     val item: ReadableItem,
     val progress: com.example.unifiedreader.core.model.ReadingProgress?,
+    val isExplicitUnreadReset: Boolean = false,
 )
 
 class GrimmoryUnauthorizedException : RuntimeException("Grimmory access token expired.")
@@ -128,7 +138,6 @@ class GrimmoryUnauthorizedException : RuntimeException("Grimmory access token ex
 class KtorGrimmoryApi(
     private val httpClient: HttpClient,
     baseUrl: String,
-    private val serverId: String,
 ) : GrimmoryApi {
     private val normalizedBaseUrl = baseUrl.trimEnd('/')
 
@@ -169,7 +178,7 @@ class KtorGrimmoryApi(
         }
         response.throwIfGrimmoryError()
         response.body<List<GrimmoryLibraryDto>>()
-            .mapNotNull { library -> library.toDomain(serverId = serverId) }
+            .mapNotNull(GrimmoryLibraryDto::toDomain)
     }
 
     override suspend fun getBooks(
@@ -188,13 +197,47 @@ class KtorGrimmoryApi(
             bearerAuth(accessToken)
         }
         response.throwIfGrimmoryError()
+            response.body<List<GrimmoryBookDto>>()
+                .mapNotNull { book ->
+                    book.toCatalogEntry(
+                        baseUrl = normalizedBaseUrl,
+                    )
+                }
+    }
+
+    override suspend fun getAllBookEntries(
+        accessToken: String,
+    ): List<GrimmoryBookCatalogEntry> = authenticatedRequest {
+        val response = httpClient.get("$normalizedBaseUrl/api/v1/books") {
+            bearerAuth(accessToken)
+            url {
+                parameters.append("withDescription", "false")
+                parameters.append("stripForListView", "true")
+            }
+        }
+        response.throwIfGrimmoryError()
         response.body<List<GrimmoryBookDto>>()
             .mapNotNull { book ->
                 book.toCatalogEntry(
-                    serverId = serverId,
                     baseUrl = normalizedBaseUrl,
                 )
             }
+    }
+
+    override suspend fun getBookEntry(
+        accessToken: String,
+        bookId: String,
+    ): GrimmoryBookCatalogEntry? = authenticatedRequest {
+        val response = httpClient.get("$normalizedBaseUrl/api/v1/books/$bookId") {
+            bearerAuth(accessToken)
+            url {
+                parameters.append("withDescription", "false")
+            }
+        }
+        response.throwIfGrimmoryError()
+        response.body<GrimmoryBookDto>().toCatalogEntry(
+            baseUrl = normalizedBaseUrl,
+        )
     }
 
     override fun bookContentUrl(

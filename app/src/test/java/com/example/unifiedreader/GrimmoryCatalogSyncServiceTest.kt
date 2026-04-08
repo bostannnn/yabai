@@ -2,14 +2,16 @@ package com.example.unifiedreader
 
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
-import com.example.unifiedreader.core.database.entity.ServerEntity
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.ReadingProgress
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.remoteItemId
+import com.example.unifiedreader.core.model.remoteLibraryId
 import com.example.unifiedreader.data.grimmory.GrimmoryApi
-import com.example.unifiedreader.data.grimmory.GrimmoryEpubProgressUpdate
+import com.example.unifiedreader.data.grimmory.GrimmoryBookCatalogEntry
 import com.example.unifiedreader.data.grimmory.GrimmoryProgressUpdate
 import com.example.unifiedreader.data.grimmory.GrimmorySession
 import com.example.unifiedreader.data.grimmory.GrimmoryUnauthorizedException
@@ -21,43 +23,27 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GrimmoryCatalogSyncServiceTest {
     @Test
     fun `sync fetches grimmory catalog and writes remote room entities`() = runBlocking {
         val writer = RecordingRemoteCatalogWriter()
+        val library = grimmoryLibrary("g-books")
+        val item = grimmoryItem(remoteId = "book-1", libraryRemoteId = "g-books")
         val api = FakeGrimmoryApi(
-            libraries = listOf(
-                Library(
-                    id = "g-books",
-                    serverId = "grimmory-1",
-                    sourceType = SourceType.GRIMMORY,
-                    title = "Books",
-                ),
-            ),
-            booksByLibraryId = mapOf(
-                "g-books" to listOf(
-                    ReadableItem(
-                        id = "book-1",
-                        serverId = "grimmory-1",
-                        sourceType = SourceType.GRIMMORY,
-                        libraryId = "g-books",
-                        title = "Book 1",
-                        format = FormatType.EPUB,
-                    ),
-                ),
-            ),
+            libraries = listOf(library),
+            allBookEntries = listOf(GrimmoryBookCatalogEntry(item = item, progress = null)),
         )
         val service = GrimmoryCatalogSyncService(
-            grimmoryApiFactory = GrimmoryApiFactory { _, _ -> api },
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
             remoteCatalogWriter = writer,
             nowEpochMillis = { 1775046600000L },
         )
 
         val result = service.sync(
             GrimmoryCatalogSyncRequest(
-                serverId = "grimmory-1",
                 displayName = "Grimmory",
                 baseUrl = "https://grimmory.example/",
                 username = "user",
@@ -71,34 +57,25 @@ class GrimmoryCatalogSyncServiceTest {
         assertEquals(mapOf(FormatType.EPUB to 1), result.supportedFormatCounts)
         assertEquals("access-token", result.session?.accessToken)
         assertEquals("refresh-token", result.session?.refreshToken)
-        assertEquals("https://grimmory.example", writer.server?.baseUrl)
-        assertEquals(listOf("g-books"), writer.libraries.map { it.id })
-        assertEquals(listOf("book-1"), writer.items.map { it.id })
+        assertEquals(SourceType.GRIMMORY, writer.replacedSourceType)
+        assertEquals(listOf(SourceType.GRIMMORY.remoteLibraryId("g-books")), writer.libraries.map(LibraryEntity::id))
+        assertEquals(listOf(SourceType.GRIMMORY.remoteItemId("book-1")), writer.items.map(ReadableItemEntity::id))
         assertEquals(1775046600000L, writer.items.single().updatedAtEpochMillis)
     }
 
     @Test
     fun `sync can reuse saved access token without logging in`() = runBlocking {
-        val writer = RecordingRemoteCatalogWriter()
         val api = FakeGrimmoryApi(
-            libraries = listOf(
-                Library(
-                    id = "g-books",
-                    serverId = "grimmory-1",
-                    sourceType = SourceType.GRIMMORY,
-                    title = "Books",
-                ),
-            ),
-            booksByLibraryId = mapOf("g-books" to emptyList()),
+            libraries = listOf(grimmoryLibrary("g-books")),
+            allBookEntries = emptyList(),
         )
         val service = GrimmoryCatalogSyncService(
-            grimmoryApiFactory = GrimmoryApiFactory { _, _ -> api },
-            remoteCatalogWriter = writer,
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
+            remoteCatalogWriter = RecordingRemoteCatalogWriter(),
         )
 
         val result = service.sync(
             GrimmoryCatalogSyncRequest(
-                serverId = "grimmory-1",
                 displayName = "Grimmory",
                 baseUrl = "https://grimmory.example/",
                 username = "user",
@@ -115,17 +92,9 @@ class GrimmoryCatalogSyncServiceTest {
 
     @Test
     fun `sync refreshes saved token when catalog fetch is unauthorized`() = runBlocking {
-        val writer = RecordingRemoteCatalogWriter()
         val api = FakeGrimmoryApi(
-            libraries = listOf(
-                Library(
-                    id = "g-books",
-                    serverId = "grimmory-1",
-                    sourceType = SourceType.GRIMMORY,
-                    title = "Books",
-                ),
-            ),
-            booksByLibraryId = mapOf("g-books" to emptyList()),
+            libraries = listOf(grimmoryLibrary("g-books")),
+            allBookEntries = emptyList(),
         ).apply {
             unauthorizedLibraryTokens += "expired-access-token"
             refreshedSession = GrimmorySession(
@@ -134,13 +103,12 @@ class GrimmoryCatalogSyncServiceTest {
             )
         }
         val service = GrimmoryCatalogSyncService(
-            grimmoryApiFactory = GrimmoryApiFactory { _, _ -> api },
-            remoteCatalogWriter = writer,
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
+            remoteCatalogWriter = RecordingRemoteCatalogWriter(),
         )
 
         val result = service.sync(
             GrimmoryCatalogSyncRequest(
-                serverId = "grimmory-1",
                 displayName = "Grimmory",
                 baseUrl = "https://grimmory.example/",
                 username = "user",
@@ -158,18 +126,15 @@ class GrimmoryCatalogSyncServiceTest {
 
     @Test
     fun `sync refreshes saved token when progress upload is unauthorized`() = runBlocking {
-        val writer = RecordingRemoteCatalogWriter()
         val readerSessionStore = GrimmoryTestReaderSessionStore()
-        val item = ReadableItem(
-            id = "42",
-            serverId = "grimmory-1",
-            sourceType = SourceType.GRIMMORY,
-            libraryId = "g-books",
+        val item = grimmoryItem(
+            remoteId = "42",
+            libraryRemoteId = "g-books",
+            format = FormatType.PDF,
             remoteFileId = "77",
             remoteFileType = "PDF",
-            title = "Remote PDF",
-            format = FormatType.PDF,
             pageCount = 120,
+            title = "Remote PDF",
         )
         readerSessionStore.saveProgress(
             item = item,
@@ -182,15 +147,19 @@ class GrimmoryCatalogSyncServiceTest {
             pageCount = item.pageCount,
         )
         val api = FakeGrimmoryApi(
-            libraries = listOf(
-                Library(
-                    id = "g-books",
-                    serverId = "grimmory-1",
-                    sourceType = SourceType.GRIMMORY,
-                    title = "Books",
+            libraries = listOf(grimmoryLibrary("g-books")),
+            allBookEntries = listOf(
+                GrimmoryBookCatalogEntry(
+                    item = item,
+                    progress = ReadingProgress(
+                        itemId = item.id,
+                        locatorType = LocatorType.PAGE,
+                        page = 9,
+                        percent = 0.4,
+                        updatedAtEpochMillis = 1L,
+                    ),
                 ),
             ),
-            booksByLibraryId = mapOf("g-books" to listOf(item)),
         ).apply {
             unauthorizedProgressTokens += "expired-access-token"
             refreshedSession = GrimmorySession(
@@ -199,14 +168,13 @@ class GrimmoryCatalogSyncServiceTest {
             )
         }
         val service = GrimmoryCatalogSyncService(
-            grimmoryApiFactory = GrimmoryApiFactory { _, _ -> api },
-            remoteCatalogWriter = writer,
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
+            remoteCatalogWriter = RecordingRemoteCatalogWriter(),
             readerSessionStore = readerSessionStore,
         )
 
         val result = service.sync(
             GrimmoryCatalogSyncRequest(
-                serverId = "grimmory-1",
                 displayName = "Grimmory",
                 baseUrl = "https://grimmory.example/",
                 username = "user",
@@ -231,18 +199,58 @@ class GrimmoryCatalogSyncServiceTest {
     }
 
     @Test
-    fun `sync clears progress for previously active grimmory server`() = runBlocking {
+    fun `sync pulls remote progress from grimmory books endpoint`() = runBlocking {
+        val readerSessionStore = GrimmoryTestReaderSessionStore()
+        val item = grimmoryItem(
+            remoteId = "42",
+            libraryRemoteId = "g-books",
+            remoteFileId = "77",
+            remoteFileType = "EPUB",
+            pageCount = 321,
+            title = "Remote EPUB",
+        )
+        val api = FakeGrimmoryApi(
+            libraries = listOf(grimmoryLibrary("g-books")),
+            allBookEntries = listOf(
+                GrimmoryBookCatalogEntry(
+                    item = item,
+                    progress = ReadingProgress(
+                        itemId = item.id,
+                        locatorType = LocatorType.PERCENT,
+                        percent = 0.42,
+                        updatedAtEpochMillis = 1_775_046_600_000L,
+                    ),
+                ),
+            ),
+        )
+        val service = GrimmoryCatalogSyncService(
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
+            remoteCatalogWriter = RecordingRemoteCatalogWriter(),
+            readerSessionStore = readerSessionStore,
+        )
+
+        service.sync(
+            GrimmoryCatalogSyncRequest(
+                displayName = "Grimmory",
+                baseUrl = "https://grimmory.example/",
+                username = "user",
+                accessToken = "saved-access-token",
+            ),
+        )
+
+        val syncedProgress = readerSessionStore.getProgress(item)
+        assertEquals(listOf("saved-access-token"), api.bookAccessTokens)
+        assertEquals(LocatorType.PERCENT, syncedProgress?.locatorType)
+        assertEquals(0.42, syncedProgress?.percent)
+        assertEquals(com.example.unifiedreader.core.model.SyncState.CLEAN, syncedProgress?.syncState)
+    }
+
+    @Test
+    fun `sync clears progress for grimmory item no longer in catalog`() = runBlocking {
         val writer = RecordingRemoteCatalogWriter().apply {
             sourceItems = mapOf(
                 SourceType.GRIMMORY to listOf(
-                    ReadableItem(
-                        id = "legacy-book",
-                        serverId = "grimmory-old",
-                        sourceType = SourceType.GRIMMORY,
-                        libraryId = "legacy-library",
-                        title = "Legacy Book",
-                        format = FormatType.EPUB,
-                    ),
+                    grimmoryItem(remoteId = "legacy-book", libraryRemoteId = "legacy-library", title = "Legacy Book"),
                 ),
             )
         }
@@ -250,32 +258,21 @@ class GrimmoryCatalogSyncServiceTest {
         val legacyItem = writer.sourceItems.getValue(SourceType.GRIMMORY).single()
         readerSessionStore.saveProgress(
             item = legacyItem,
-            locator = ReaderLocator(
-                locatorType = LocatorType.PERCENT,
-                percent = 0.75,
-            ),
+            locator = ReaderLocator(locatorType = LocatorType.PERCENT, percent = 0.75),
             syncState = com.example.unifiedreader.core.model.SyncState.CLEAN,
         )
         val api = FakeGrimmoryApi(
-            libraries = listOf(
-                Library(
-                    id = "g-books",
-                    serverId = "grimmory-new",
-                    sourceType = SourceType.GRIMMORY,
-                    title = "Books",
-                ),
-            ),
-            booksByLibraryId = mapOf("g-books" to emptyList()),
+            libraries = listOf(grimmoryLibrary("g-books")),
+            allBookEntries = emptyList(),
         )
         val service = GrimmoryCatalogSyncService(
-            grimmoryApiFactory = GrimmoryApiFactory { _, _ -> api },
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
             remoteCatalogWriter = writer,
             readerSessionStore = readerSessionStore,
         )
 
         service.sync(
             GrimmoryCatalogSyncRequest(
-                serverId = "grimmory-new",
                 displayName = "New Grimmory",
                 baseUrl = "https://grimmory.example/",
                 username = "user",
@@ -287,23 +284,12 @@ class GrimmoryCatalogSyncServiceTest {
     }
 
     @Test
-    fun `sync clears clean progress when grimmory marks book unread`() = runBlocking {
-        val writer = RecordingRemoteCatalogWriter()
+    fun `sync keeps clean progress when grimmory omits book progress`() = runBlocking {
         val readerSessionStore = GrimmoryTestReaderSessionStore()
-        val item = ReadableItem(
-            id = "42",
-            serverId = "grimmory-1",
-            sourceType = SourceType.GRIMMORY,
-            libraryId = "g-books",
-            title = "Remote EPUB",
-            format = FormatType.EPUB,
-        )
+        val item = grimmoryItem(remoteId = "42", libraryRemoteId = "g-books", title = "Remote EPUB")
         readerSessionStore.saveProgress(
             item = item,
-            locator = ReaderLocator(
-                locatorType = LocatorType.PERCENT,
-                percent = 0.75,
-            ),
+            locator = ReaderLocator(locatorType = LocatorType.PERCENT, percent = 0.75),
             syncState = com.example.unifiedreader.core.model.SyncState.CLEAN,
         )
         readerSessionStore.updateSession(
@@ -312,25 +298,60 @@ class GrimmoryCatalogSyncServiceTest {
             preferences = mapOf("theme" to "dark"),
         )
         val api = FakeGrimmoryApi(
-            libraries = listOf(
-                Library(
-                    id = "g-books",
-                    serverId = "grimmory-1",
-                    sourceType = SourceType.GRIMMORY,
-                    title = "Books",
-                ),
-            ),
-            booksByLibraryId = mapOf("g-books" to listOf(item)),
+            libraries = listOf(grimmoryLibrary("g-books")),
+            allBookEntries = listOf(GrimmoryBookCatalogEntry(item = item, progress = null)),
         )
         val service = GrimmoryCatalogSyncService(
-            grimmoryApiFactory = GrimmoryApiFactory { _, _ -> api },
-            remoteCatalogWriter = writer,
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
+            remoteCatalogWriter = RecordingRemoteCatalogWriter(),
             readerSessionStore = readerSessionStore,
         )
 
         service.sync(
             GrimmoryCatalogSyncRequest(
-                serverId = "grimmory-1",
+                displayName = "Grimmory",
+                baseUrl = "https://grimmory.example/",
+                username = "user",
+                accessToken = "saved-access-token",
+            ),
+        )
+
+        val progress = readerSessionStore.getProgress(item)
+        assertEquals(0.75, progress?.percent)
+        assertEquals(com.example.unifiedreader.core.model.SyncState.CLEAN, progress?.syncState)
+        val session = readerSessionStore.getSession(item)
+        assertEquals(321, session?.pageCount)
+        assertEquals("dark", session?.preferences?.get("theme"))
+        assertEquals(emptyList<GrimmoryProgressUpdate>(), api.progressUpdates)
+    }
+
+    @Test
+    fun `sync clears clean progress when grimmory marks book unread`() = runBlocking {
+        val readerSessionStore = GrimmoryTestReaderSessionStore()
+        val item = grimmoryItem(remoteId = "42", libraryRemoteId = "g-books", title = "Remote EPUB")
+        readerSessionStore.saveProgress(
+            item = item,
+            locator = ReaderLocator(locatorType = LocatorType.PERCENT, percent = 0.75),
+            syncState = com.example.unifiedreader.core.model.SyncState.CLEAN,
+        )
+        val api = FakeGrimmoryApi(
+            libraries = listOf(grimmoryLibrary("g-books")),
+            allBookEntries = listOf(
+                GrimmoryBookCatalogEntry(
+                    item = item,
+                    progress = null,
+                    isExplicitUnreadReset = true,
+                ),
+            ),
+        )
+        val service = GrimmoryCatalogSyncService(
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
+            remoteCatalogWriter = RecordingRemoteCatalogWriter(),
+            readerSessionStore = readerSessionStore,
+        )
+
+        service.sync(
+            GrimmoryCatalogSyncRequest(
                 displayName = "Grimmory",
                 baseUrl = "https://grimmory.example/",
                 username = "user",
@@ -339,15 +360,114 @@ class GrimmoryCatalogSyncServiceTest {
         )
 
         assertEquals(null, readerSessionStore.getProgress(item))
-        val session = readerSessionStore.getSession(item)
-        assertEquals(321, session?.pageCount)
-        assertEquals("dark", session?.preferences?.get("theme"))
+        assertEquals(emptyList<GrimmoryProgressUpdate>(), api.progressUpdates)
+    }
+
+    @Test
+    fun `sync keeps dirty progress when grimmory omits book progress`() = runBlocking {
+        val readerSessionStore = GrimmoryTestReaderSessionStore()
+        val item = grimmoryItem(remoteId = "42", libraryRemoteId = "g-books", title = "Remote EPUB")
+        readerSessionStore.saveProgress(
+            item = item,
+            locator = ReaderLocator(locatorType = LocatorType.PERCENT, percent = 0.75),
+            syncState = com.example.unifiedreader.core.model.SyncState.DIRTY,
+        )
+        val api = FakeGrimmoryApi(
+            libraries = listOf(grimmoryLibrary("g-books")),
+            allBookEntries = listOf(GrimmoryBookCatalogEntry(item = item, progress = null)),
+        )
+        val service = GrimmoryCatalogSyncService(
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
+            remoteCatalogWriter = RecordingRemoteCatalogWriter(),
+            readerSessionStore = readerSessionStore,
+        )
+
+        service.sync(
+            GrimmoryCatalogSyncRequest(
+                displayName = "Grimmory",
+                baseUrl = "https://grimmory.example/",
+                username = "user",
+                accessToken = "saved-access-token",
+            ),
+        )
+
+        val progress = readerSessionStore.getProgress(item)
+        assertEquals(0.75, progress?.percent)
+        assertEquals(com.example.unifiedreader.core.model.SyncState.CLEAN, progress?.syncState)
+        assertEquals(1, api.progressUpdates.size)
+    }
+
+    @Test
+    fun `sync clears dirty progress when grimmory marks book unread`() = runBlocking {
+        val readerSessionStore = GrimmoryTestReaderSessionStore()
+        val item = grimmoryItem(remoteId = "42", libraryRemoteId = "g-books", title = "Remote EPUB")
+        readerSessionStore.saveProgress(
+            item = item,
+            locator = ReaderLocator(locatorType = LocatorType.PERCENT, percent = 0.75),
+            syncState = com.example.unifiedreader.core.model.SyncState.DIRTY,
+        )
+        val api = FakeGrimmoryApi(
+            libraries = listOf(grimmoryLibrary("g-books")),
+            allBookEntries = listOf(
+                GrimmoryBookCatalogEntry(
+                    item = item,
+                    progress = null,
+                    isExplicitUnreadReset = true,
+                ),
+            ),
+        )
+        val service = GrimmoryCatalogSyncService(
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
+            remoteCatalogWriter = RecordingRemoteCatalogWriter(),
+            readerSessionStore = readerSessionStore,
+        )
+
+        service.sync(
+            GrimmoryCatalogSyncRequest(
+                displayName = "Grimmory",
+                baseUrl = "https://grimmory.example/",
+                username = "user",
+                accessToken = "saved-access-token",
+            ),
+        )
+
+        assertEquals(null, readerSessionStore.getProgress(item))
         assertEquals(emptyList<GrimmoryProgressUpdate>(), api.progressUpdates)
     }
 }
 
+private fun grimmoryLibrary(
+    remoteId: String,
+    title: String = "Books",
+): Library = Library(
+    id = SourceType.GRIMMORY.remoteLibraryId(remoteId),
+    sourceType = SourceType.GRIMMORY,
+    title = title,
+    remoteId = remoteId,
+)
+
+private fun grimmoryItem(
+    remoteId: String,
+    libraryRemoteId: String,
+    format: FormatType = FormatType.EPUB,
+    remoteFileId: String? = null,
+    remoteFileType: String? = format.name,
+    pageCount: Int? = null,
+    title: String = "Book",
+): ReadableItem = ReadableItem(
+    id = SourceType.GRIMMORY.remoteItemId(remoteId),
+    sourceType = SourceType.GRIMMORY,
+    libraryId = SourceType.GRIMMORY.remoteLibraryId(libraryRemoteId),
+    remoteId = remoteId,
+    remoteFileId = remoteFileId,
+    remoteFileType = remoteFileType,
+    title = title,
+    format = format,
+    pageCount = pageCount,
+)
+
 private class RecordingRemoteCatalogWriter : RemoteCatalogWriter {
-    var server: ServerEntity? = null
+    var replacedSourceType: SourceType? = null
     var libraries: List<LibraryEntity> = emptyList()
     var items: List<ReadableItemEntity> = emptyList()
     var sourceItems: Map<SourceType, List<ReadableItem>> = emptyMap()
@@ -356,12 +476,12 @@ private class RecordingRemoteCatalogWriter : RemoteCatalogWriter {
         sourceType: SourceType,
     ): List<ReadableItem> = sourceItems[sourceType].orEmpty()
 
-    override suspend fun replaceServerCatalog(
-        server: ServerEntity,
+    override suspend fun replaceSourceCatalog(
+        sourceType: SourceType,
         libraries: List<LibraryEntity>,
         items: List<ReadableItemEntity>,
     ) {
-        this.server = server
+        replacedSourceType = sourceType
         this.libraries = libraries
         this.items = items
     }
@@ -369,7 +489,7 @@ private class RecordingRemoteCatalogWriter : RemoteCatalogWriter {
 
 private class FakeGrimmoryApi(
     private val libraries: List<Library>,
-    private val booksByLibraryId: Map<String, List<ReadableItem>>,
+    private val allBookEntries: List<GrimmoryBookCatalogEntry>,
 ) : GrimmoryApi {
     var lastLogin: Pair<String, String>? = null
     var refreshedSession = GrimmorySession(
@@ -417,7 +537,24 @@ private class FakeGrimmoryApi(
         libraryId: String,
     ): List<ReadableItem> {
         bookAccessTokens += accessToken
-        return booksByLibraryId.getValue(libraryId)
+        return allBookEntries
+            .map(GrimmoryBookCatalogEntry::item)
+            .filter { item -> item.libraryId == SourceType.GRIMMORY.remoteLibraryId(libraryId) }
+    }
+
+    override suspend fun getAllBookEntries(
+        accessToken: String,
+    ): List<GrimmoryBookCatalogEntry> {
+        bookAccessTokens += accessToken
+        return allBookEntries
+    }
+
+    override suspend fun getBookEntry(
+        accessToken: String,
+        bookId: String,
+    ): GrimmoryBookCatalogEntry? {
+        bookAccessTokens += accessToken
+        return allBookEntries.firstOrNull { entry -> entry.item.remoteId == bookId }
     }
 
     override fun bookContentUrl(
@@ -428,11 +565,6 @@ private class FakeGrimmoryApi(
     override fun bookCoverUrl(
         bookId: String,
     ): String = error("Not used")
-
-    override suspend fun updateEpubProgress(
-        accessToken: String,
-        progress: GrimmoryEpubProgressUpdate,
-    ) = error("Not used")
 
     override suspend fun updateProgress(
         accessToken: String,

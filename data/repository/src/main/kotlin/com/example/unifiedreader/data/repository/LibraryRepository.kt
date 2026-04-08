@@ -3,6 +3,7 @@ package com.example.unifiedreader.data.repository
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.remoteLibraryId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -22,26 +23,25 @@ class SampleCatalogRepository : LibraryRepository, ReadableItemRepository {
     private val librariesState = MutableStateFlow(
         listOf(
             Library(
-                id = "k-comics",
-                serverId = "local-kavita",
+                id = SourceType.KAVITA.remoteLibraryId("comics"),
                 sourceType = SourceType.KAVITA,
                 title = "Comics",
+                remoteId = "comics",
             ),
             Library(
-                id = "k-magazines",
-                serverId = "local-kavita",
+                id = SourceType.KAVITA.remoteLibraryId("magazines"),
                 sourceType = SourceType.KAVITA,
                 title = "Magazines",
+                remoteId = "magazines",
             ),
             Library(
-                id = "g-books",
-                serverId = "local-grimmory",
+                id = SourceType.GRIMMORY.remoteLibraryId("books"),
                 sourceType = SourceType.GRIMMORY,
                 title = "Books",
+                remoteId = "books",
             ),
             Library(
                 id = "local-imports",
-                serverId = "local-device",
                 sourceType = SourceType.LOCAL,
                 title = "Local imports",
             ),

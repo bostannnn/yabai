@@ -15,18 +15,16 @@ import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
 import com.example.unifiedreader.core.database.entity.ReaderSessionStateEntity
 import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
-import com.example.unifiedreader.core.database.entity.ServerEntity
 
 @Database(
     entities = [
-        ServerEntity::class,
         LibraryEntity::class,
         ReadableItemEntity::class,
         ReadingProgressEntity::class,
         ImportedComicArchiveEntity::class,
         ReaderSessionStateEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = false,
 )
 abstract class UnifiedReaderDatabase : RoomDatabase() {
@@ -211,6 +209,204 @@ object UnifiedReaderDatabaseMigrations {
             )
         }
     }
+
+    val MIGRATION_10_11 = object : Migration(10, 11) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS libraries_new (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    sourceType TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    remoteId TEXT
+                )
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                INSERT INTO libraries_new (id, sourceType, title, remoteId)
+                SELECT
+                    lower(
+                        COALESCE(
+                            (
+                                SELECT servers.sourceType
+                                FROM servers
+                                WHERE servers.id = libraries.serverId
+                            ),
+                            libraries.sourceType
+                        )
+                    ) || ':library:' || libraries.id,
+                    COALESCE(
+                        (
+                            SELECT servers.sourceType
+                            FROM servers
+                            WHERE servers.id = libraries.serverId
+                        ),
+                        libraries.sourceType
+                    ),
+                    libraries.title,
+                    libraries.id
+                FROM libraries
+                """.trimIndent(),
+            )
+            database.execSQL("DROP TABLE libraries")
+            database.execSQL("ALTER TABLE libraries_new RENAME TO libraries")
+
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS readable_items_new (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    sourceType TEXT NOT NULL,
+                    libraryId TEXT NOT NULL,
+                    remoteId TEXT,
+                    isLocalImport INTEGER NOT NULL,
+                    remoteFileId TEXT,
+                    remoteFileType TEXT,
+                    title TEXT NOT NULL,
+                    format TEXT NOT NULL,
+                    kind TEXT NOT NULL,
+                    pageCount INTEGER,
+                    coverUrl TEXT,
+                    description TEXT,
+                    addedAtEpochMillis INTEGER,
+                    bookAuthor TEXT,
+                    comicSeries TEXT,
+                    comicIssueTitle TEXT,
+                    comicVolume TEXT,
+                    comicIssueNumber TEXT,
+                    updatedAtEpochMillis INTEGER NOT NULL
+                )
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                INSERT INTO readable_items_new (
+                    id,
+                    sourceType,
+                    libraryId,
+                    remoteId,
+                    isLocalImport,
+                    remoteFileId,
+                    remoteFileType,
+                    title,
+                    format,
+                    kind,
+                    pageCount,
+                    coverUrl,
+                    description,
+                    addedAtEpochMillis,
+                    bookAuthor,
+                    comicSeries,
+                    comicIssueTitle,
+                    comicVolume,
+                    comicIssueNumber,
+                    updatedAtEpochMillis
+                )
+                SELECT
+                    lower(
+                        COALESCE(
+                            (
+                                SELECT servers.sourceType
+                                FROM servers
+                                WHERE servers.id = readable_items.serverId
+                            ),
+                            readable_items.sourceType
+                        )
+                    ) || ':item:' || readable_items.id,
+                    COALESCE(
+                        (
+                            SELECT servers.sourceType
+                            FROM servers
+                            WHERE servers.id = readable_items.serverId
+                        ),
+                        readable_items.sourceType
+                    ),
+                    lower(
+                        COALESCE(
+                            (
+                                SELECT servers.sourceType
+                                FROM servers
+                                WHERE servers.id = readable_items.serverId
+                            ),
+                            readable_items.sourceType
+                        )
+                    ) || ':library:' || readable_items.libraryId,
+                    readable_items.id,
+                    isLocalImport,
+                    remoteFileId,
+                    remoteFileType,
+                    readable_items.title,
+                    readable_items.format,
+                    readable_items.kind,
+                    readable_items.pageCount,
+                    readable_items.coverUrl,
+                    readable_items.description,
+                    readable_items.addedAtEpochMillis,
+                    readable_items.bookAuthor,
+                    readable_items.comicSeries,
+                    readable_items.comicIssueTitle,
+                    readable_items.comicVolume,
+                    readable_items.comicIssueNumber,
+                    readable_items.updatedAtEpochMillis
+                FROM readable_items
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                UPDATE reading_progress
+                SET itemId = (
+                    SELECT lower(
+                        COALESCE(
+                            (
+                                SELECT servers.sourceType
+                                FROM servers
+                                WHERE servers.id = readable_items.serverId
+                            ),
+                            readable_items.sourceType
+                        )
+                    ) || ':item:' || readable_items.id
+                    FROM readable_items
+                    WHERE readable_items.id = reading_progress.itemId
+                )
+                WHERE EXISTS (
+                    SELECT 1
+                    FROM readable_items
+                    WHERE readable_items.id = reading_progress.itemId
+                )
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                UPDATE reader_session_state
+                SET itemId = (
+                    SELECT lower(
+                        COALESCE(
+                            (
+                                SELECT servers.sourceType
+                                FROM servers
+                                WHERE servers.id = readable_items.serverId
+                            ),
+                            readable_items.sourceType
+                        )
+                    ) || ':item:' || readable_items.id
+                    FROM readable_items
+                    WHERE readable_items.id = reader_session_state.itemId
+                )
+                WHERE EXISTS (
+                    SELECT 1
+                    FROM readable_items
+                    WHERE readable_items.id = reader_session_state.itemId
+                )
+                """.trimIndent(),
+            )
+            database.execSQL("DROP TABLE readable_items")
+            database.execSQL("ALTER TABLE readable_items_new RENAME TO readable_items")
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_readable_items_libraryId ON readable_items (libraryId)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_readable_items_sourceType ON readable_items (sourceType)")
+
+            database.execSQL("DROP TABLE IF EXISTS servers")
+        }
+    }
 }
 
 object UnifiedReaderDatabaseFactory {
@@ -231,6 +427,7 @@ object UnifiedReaderDatabaseFactory {
             UnifiedReaderDatabaseMigrations.MIGRATION_7_8,
             UnifiedReaderDatabaseMigrations.MIGRATION_8_9,
             UnifiedReaderDatabaseMigrations.MIGRATION_9_10,
+            UnifiedReaderDatabaseMigrations.MIGRATION_10_11,
         )
         .build()
 }

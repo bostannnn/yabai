@@ -10,25 +10,25 @@ import com.example.unifiedreader.core.model.SourceType
 
 fun Library.toEntity(): LibraryEntity = LibraryEntity(
     id = id,
-    serverId = serverId,
     sourceType = sourceType.name,
     title = title,
+    remoteId = remoteId,
 )
 
 fun LibraryEntity.toDomain(): Library = Library(
     id = id,
-    serverId = serverId,
     sourceType = sourceType.toSourceType(),
     title = title,
+    remoteId = remoteId,
 )
 
 fun ReadableItem.toEntity(
     updatedAtEpochMillis: Long,
 ): ReadableItemEntity = ReadableItemEntity(
     id = id,
-    serverId = serverId,
     sourceType = sourceType.name,
     libraryId = libraryId,
+    remoteId = remoteId,
     isLocalImport = isLocalImport,
     remoteFileId = remoteFileId,
     remoteFileType = remoteFileType,
@@ -49,9 +49,9 @@ fun ReadableItem.toEntity(
 
 fun ReadableItemEntity.toDomain(): ReadableItem = ReadableItem(
     id = id,
-    serverId = serverId,
     sourceType = sourceType.toSourceType(),
     libraryId = libraryId,
+    remoteId = remoteId,
     isLocalImport = isLocalImport,
     remoteFileId = remoteFileId,
     remoteFileType = remoteFileType,
