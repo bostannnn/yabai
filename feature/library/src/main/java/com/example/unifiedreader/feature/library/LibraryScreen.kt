@@ -58,6 +58,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -954,7 +955,9 @@ private fun DetailedItemCard(
 ) {
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("library-detailed-card-${item.id}"),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,
@@ -1024,6 +1027,7 @@ private fun GridCoverCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .testTag("library-grid-card-${item.id}")
             .clickable(onClick = onClick),
     ) {
         LibraryCover(

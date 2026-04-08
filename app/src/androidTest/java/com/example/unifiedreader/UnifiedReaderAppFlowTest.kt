@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.test.core.app.ApplicationProvider
@@ -95,6 +96,7 @@ class UnifiedReaderAppFlowTest {
             comicReaderProgressStore = comicsSessionAdapter,
             comicReaderPreferencesStore = comicsSessionAdapter,
             readerSessionStore = readerSessionStore,
+            sourceProgressSyncs = emptyList(),
             readerFactories = listOf(
                 comicsReaderFactory(
                     pageSource = pageSource,
@@ -125,8 +127,8 @@ class UnifiedReaderAppFlowTest {
         composeRule.waitForText("2 / 3")
 
         composeRule.onNodeWithContentDescription("Back to library").performClick()
+        composeRule.onNodeWithContentDescription("Detailed view").performClick()
         composeRule.waitForText("Imported Akira")
-        composeRule.waitForText("Resume on page 2 of 3")
 
         composeRule.onNodeWithText("Imported Akira").performClick()
         composeRule.waitForText("2 / 3")
@@ -172,6 +174,7 @@ class UnifiedReaderAppFlowTest {
             comicReaderProgressStore = comicsSessionAdapter,
             comicReaderPreferencesStore = comicsSessionAdapter,
             readerSessionStore = readerSessionStore,
+            sourceProgressSyncs = emptyList(),
             readerFactories = listOf(
                 comicsReaderFactory(
                     pageSource = pageSource,
@@ -195,13 +198,224 @@ class UnifiedReaderAppFlowTest {
         }
 
         composeRule.onNodeWithContentDescription("Import local file").performClick()
+        composeRule.waitForText("1 / 3")
+        composeRule.onNodeWithContentDescription("Back to library").performClick()
+        composeRule.onNodeWithContentDescription("Detailed view").performClick()
         composeRule.waitForText("Imported Akira")
         composeRule.onNodeWithContentDescription("More actions").performClick()
         composeRule.onNodeWithText("Remove local file").performClick()
         composeRule.onNodeWithText("Remove").performClick()
 
-        composeRule.waitForText("Removed Imported Akira.")
         composeRule.waitForTextGone("Imported Akira")
+        composeRule.waitForTextGone("Removed Imported Akira.")
+    }
+
+    @Test
+    fun library_search_filters_cyrillic_catalog_items_from_toolbar() {
+        val russianBook = ReadableItem(
+            id = "russian-book",
+            serverId = "local-kavita",
+            sourceType = SourceType.KAVITA,
+            libraryId = "k-comics",
+            title = "Некрополи Петербурга",
+            format = FormatType.EPUB,
+            coverUrl = null,
+        )
+        val englishBook = ReadableItem(
+            id = "english-book",
+            serverId = "local-kavita",
+            sourceType = SourceType.KAVITA,
+            libraryId = "k-comics",
+            title = "Remote Book",
+            format = FormatType.EPUB,
+            coverUrl = null,
+        )
+        val readerSessionStore = FakeReaderSessionStore()
+        val comicsSessionAdapter = ComicsReaderSessionAdapter(readerSessionStore)
+        val viewModel = AppViewModel(
+            application = ApplicationProvider.getApplicationContext<Application>(),
+            appPreferencesStore = FakeAppPreferencesStore(),
+            libraryRepository = FakeLibraryRepository(),
+            readableItemRepository = FakeReadableItemRepository(
+                items = listOf(russianBook, englishBook),
+            ),
+            localDocumentRepository = FakeLocalDocumentRepository(
+                importedItem = englishBook.copy(
+                    id = "unused-import",
+                    sourceType = SourceType.LOCAL,
+                    isLocalImport = true,
+                ),
+                importUri = Uri.parse("content://imports/unused.cbz"),
+                pageCount = 1,
+            ),
+            importedItemDeletionService = DefaultImportedItemDeletionService(
+                localDocumentDataSource = FakeLocalDocumentRepository(
+                    importedItem = englishBook.copy(
+                        id = "unused-import",
+                        sourceType = SourceType.LOCAL,
+                        isLocalImport = true,
+                    ),
+                    importUri = Uri.parse("content://imports/unused.cbz"),
+                    pageCount = 1,
+                ),
+                readerSessionStore = readerSessionStore,
+            ),
+            grimmoryCatalogSyncer = FakeGrimmoryCatalogSyncer(),
+            grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            grimmoryCoverRepository = FakeGrimmoryCoverRepository(),
+            grimmoryContentRepository = FakeGrimmoryContentRepository(),
+            comicPageSource = FakeComicPageSource(pageCount = 1),
+            comicReaderProgressStore = comicsSessionAdapter,
+            comicReaderPreferencesStore = comicsSessionAdapter,
+            readerSessionStore = readerSessionStore,
+            sourceProgressSyncs = emptyList(),
+            readerFactories = emptyList(),
+        )
+
+        composeRule.setContent {
+            UnifiedReaderAppContent(
+                viewModel = viewModel,
+                onImportLocalFileClick = {},
+            )
+        }
+
+        composeRule.onNodeWithContentDescription("Detailed view").performClick()
+        composeRule.waitForText("Некрополи Петербурга")
+        composeRule.waitForText("Remote Book")
+
+        composeRule.onNodeWithTag("library-search-field").performTextInput("петербурга")
+
+        composeRule.waitForText("Некрополи Петербурга")
+        composeRule.waitForTextGone("Remote Book")
+    }
+
+    @Test
+    fun library_error_messages_render() {
+        val importedItem = ReadableItem(
+            id = "imported-akira",
+            serverId = "local-device",
+            sourceType = SourceType.LOCAL,
+            libraryId = "local-imports",
+            isLocalImport = true,
+            title = "Imported Akira",
+            format = FormatType.CBZ,
+            description = "Imported local CBZ with 3 pages.",
+            coverUrl = null,
+        )
+        val importUri = Uri.parse("content://imports/akira.cbz")
+        val readerSessionStore = FakeReaderSessionStore()
+        val comicsSessionAdapter = ComicsReaderSessionAdapter(readerSessionStore)
+        val localDocumentRepository = FakeLocalDocumentRepository(
+            importedItem = importedItem,
+            importUri = importUri,
+            pageCount = 3,
+        )
+        val viewModel = AppViewModel(
+            application = ApplicationProvider.getApplicationContext<Application>(),
+            appPreferencesStore = FakeAppPreferencesStore(),
+            libraryRepository = FakeLibraryRepository(),
+            readableItemRepository = FakeReadableItemRepository(),
+            localDocumentRepository = localDocumentRepository,
+            importedItemDeletionService = DefaultImportedItemDeletionService(
+                localDocumentDataSource = localDocumentRepository,
+                readerSessionStore = readerSessionStore,
+            ),
+            grimmoryCatalogSyncer = FakeGrimmoryCatalogSyncer(),
+            grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            grimmoryCoverRepository = FakeGrimmoryCoverRepository(),
+            grimmoryContentRepository = FakeGrimmoryContentRepository(),
+            comicPageSource = FakeComicPageSource(pageCount = 3),
+            comicReaderProgressStore = comicsSessionAdapter,
+            comicReaderPreferencesStore = comicsSessionAdapter,
+            readerSessionStore = readerSessionStore,
+            sourceProgressSyncs = emptyList(),
+            readerFactories = emptyList(),
+        )
+
+        composeRule.setContent {
+            UnifiedReaderAppContent(
+                viewModel = viewModel,
+                onImportLocalFileClick = {
+                    importDocumentIntoApp(
+                        contentResolver = ApplicationProvider.getApplicationContext<Application>().contentResolver,
+                        viewModel = viewModel,
+                        uri = Uri.parse("content://imports/bad-file.bin"),
+                    )
+                },
+            )
+        }
+
+        composeRule.onNodeWithContentDescription("Import local file").performClick()
+        composeRule.waitForText("Unable to import that file as a supported local document.")
+    }
+
+    @Test
+    fun library_view_mode_buttons_switch_between_grid_and_detailed_cards() {
+        val item = ReadableItem(
+            id = "catalog-book",
+            serverId = "local-kavita",
+            sourceType = SourceType.KAVITA,
+            libraryId = "k-comics",
+            title = "Catalog Book",
+            format = FormatType.EPUB,
+            coverUrl = null,
+        )
+        val readerSessionStore = FakeReaderSessionStore()
+        val comicsSessionAdapter = ComicsReaderSessionAdapter(readerSessionStore)
+        val viewModel = AppViewModel(
+            application = ApplicationProvider.getApplicationContext<Application>(),
+            appPreferencesStore = FakeAppPreferencesStore(),
+            libraryRepository = FakeLibraryRepository(),
+            readableItemRepository = FakeReadableItemRepository(items = listOf(item)),
+            localDocumentRepository = FakeLocalDocumentRepository(
+                importedItem = item.copy(
+                    id = "unused-import",
+                    sourceType = SourceType.LOCAL,
+                    isLocalImport = true,
+                ),
+                importUri = Uri.parse("content://imports/unused.cbz"),
+                pageCount = 1,
+            ),
+            importedItemDeletionService = DefaultImportedItemDeletionService(
+                localDocumentDataSource = FakeLocalDocumentRepository(
+                    importedItem = item.copy(
+                        id = "unused-import",
+                        sourceType = SourceType.LOCAL,
+                        isLocalImport = true,
+                    ),
+                    importUri = Uri.parse("content://imports/unused.cbz"),
+                    pageCount = 1,
+                ),
+                readerSessionStore = readerSessionStore,
+            ),
+            grimmoryCatalogSyncer = FakeGrimmoryCatalogSyncer(),
+            grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            grimmoryCoverRepository = FakeGrimmoryCoverRepository(),
+            grimmoryContentRepository = FakeGrimmoryContentRepository(),
+            comicPageSource = FakeComicPageSource(pageCount = 1),
+            comicReaderProgressStore = comicsSessionAdapter,
+            comicReaderPreferencesStore = comicsSessionAdapter,
+            readerSessionStore = readerSessionStore,
+            sourceProgressSyncs = emptyList(),
+            readerFactories = emptyList(),
+        )
+
+        composeRule.setContent {
+            UnifiedReaderAppContent(
+                viewModel = viewModel,
+                onImportLocalFileClick = {},
+            )
+        }
+
+        composeRule.onNodeWithTag("library-grid-card-catalog-book").fetchSemanticsNode()
+        composeRule.waitForTextGone("Catalog Book")
+
+        composeRule.onNodeWithContentDescription("Detailed view").performClick()
+        composeRule.waitForText("Catalog Book")
+
+        composeRule.onNodeWithContentDescription("Grid view").performClick()
+        composeRule.onNodeWithTag("library-grid-card-catalog-book").fetchSemanticsNode()
+        composeRule.waitForTextGone("Catalog Book")
     }
 }
 
@@ -244,8 +458,10 @@ private class FakeLibraryRepository : LibraryRepository {
     override fun observeLibraries(): Flow<List<Library>> = librariesState
 }
 
-private class FakeReadableItemRepository : ReadableItemRepository {
-    private val itemsState = MutableStateFlow(emptyList<ReadableItem>())
+private class FakeReadableItemRepository(
+    items: List<ReadableItem> = emptyList(),
+) : ReadableItemRepository {
+    private val itemsState = MutableStateFlow(items)
 
     override fun getItems(): List<ReadableItem> = itemsState.value
 

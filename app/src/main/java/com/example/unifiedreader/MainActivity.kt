@@ -49,6 +49,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -327,7 +328,9 @@ private fun LibrarySearchField(
     BasicTextField(
         value = query,
         onValueChange = onQueryChanged,
-        modifier = modifier.height(40.dp),
+        modifier = modifier
+            .height(40.dp)
+            .testTag(LibrarySearchFieldTag),
         singleLine = true,
         textStyle = MaterialTheme.typography.bodyMedium.copy(color = colors.onSurface),
         cursorBrush = SolidColor(colors.primary),
@@ -519,3 +522,5 @@ private fun SourceType.displayName(): String = when (this) {
     SourceType.GRIMMORY -> "Grimmory"
     SourceType.LOCAL -> "Local"
 }
+
+private const val LibrarySearchFieldTag = "library-search-field"
