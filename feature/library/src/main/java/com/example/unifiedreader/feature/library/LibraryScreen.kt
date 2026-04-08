@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -20,6 +21,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -29,10 +31,12 @@ import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.libraryDisplayLabel
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 @Composable
 fun LibraryScreen(
     selectedSource: SourceType,
+    browseContextKey: String,
     items: List<ReadableItem>,
     viewMode: LibraryViewMode,
     progressByItemId: Map<String, ItemProgressSummary> = emptyMap(),
@@ -52,6 +56,8 @@ fun LibraryScreen(
     onSortModeChanged: (LibrarySortMode) -> Unit = {},
     onRefreshSource: (() -> Unit)? = null,
     isRefreshingSource: Boolean = false,
+    initialScrollPosition: LibraryScrollPosition = LibraryScrollPosition(),
+    onScrollPositionChanged: (LibraryScrollPosition) -> Unit = {},
     onItemSelected: (ReadableItem) -> Unit,
     onDeleteImportedItem: (ReadableItem) -> Unit = {},
     onDownloadItem: (ReadableItem) -> Unit = {},
@@ -76,6 +82,12 @@ fun LibraryScreen(
             items.filter { item -> item.sortFilterLetter(sortMode) == letter }
         } ?: items
     }
+    val gridState = remember(browseContextKey) {
+        LazyGridState(
+            firstVisibleItemIndex = initialScrollPosition.index,
+            firstVisibleItemScrollOffset = initialScrollPosition.offset,
+        )
+    }
 
     LaunchedEffect(selectedSortLetter, effectiveSortLetter) {
         if (selectedSortLetter != effectiveSortLetter) {
@@ -83,9 +95,21 @@ fun LibraryScreen(
         }
     }
 
+    LaunchedEffect(browseContextKey, gridState) {
+        snapshotFlow {
+            LibraryScrollPosition(
+                index = gridState.firstVisibleItemIndex,
+                offset = gridState.firstVisibleItemScrollOffset,
+            )
+        }
+            .distinctUntilChanged()
+            .collect(onScrollPositionChanged)
+    }
+
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         LazyVerticalGrid(
             columns = viewMode.gridCells(maxWidth = maxWidth, maxHeight = maxHeight),
+            state = gridState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
                 start = 16.dp,

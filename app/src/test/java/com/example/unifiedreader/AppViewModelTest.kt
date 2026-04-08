@@ -28,6 +28,7 @@ import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 import com.example.unifiedreader.feature.reader.comics.ComicReaderProgressStore
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
+import com.example.unifiedreader.feature.library.LibraryScrollPosition
 import com.example.unifiedreader.feature.settings.ThemeMode
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
@@ -704,6 +705,125 @@ class AppViewModelTest {
 
         assertEquals(1, viewModel.uiState.visibleItems.size)
         assertTrue(viewModel.uiState.visibleItems.single().isKavitaSeriesContainer())
+    }
+
+    @Test
+    fun `library scroll positions are kept per browse context when entering and leaving kavita series`() {
+        val firstIssue = sampleItem(
+            id = "chapter-1",
+            title = "Akira 001",
+            format = FormatType.CBZ,
+        ).copy(
+            remoteId = "chapter-1",
+            remoteFileType = "series-7",
+            comicMetadata = ComicMetadata(series = "Akira", issueTitle = "Issue 1"),
+        )
+        val secondIssue = sampleItem(
+            id = "chapter-2",
+            title = "Akira 002",
+            format = FormatType.CBZ,
+        ).copy(
+            remoteId = "chapter-2",
+            remoteFileType = "series-7",
+            comicMetadata = ComicMetadata(series = "Akira", issueTitle = "Issue 2"),
+        )
+        val viewModel = createViewModel(
+            sampleItems = listOf(firstIssue, secondIssue),
+        )
+        val rootKey = viewModel.uiState.libraryBrowseContextKey
+        val seriesItem = viewModel.uiState.visibleItems.single()
+
+        viewModel.onLibraryScrollPositionChanged(
+            contextKey = rootKey,
+            position = LibraryScrollPosition(index = 9, offset = 24),
+        )
+        viewModel.onItemSelected(seriesItem)
+
+        val seriesKey = viewModel.uiState.libraryBrowseContextKey
+        assertTrue(seriesKey.startsWith("kavita:series:"))
+        assertTrue(seriesKey != rootKey)
+        assertEquals(LibraryScrollPosition(index = 9, offset = 24), viewModel.libraryScrollPositionFor(rootKey))
+        assertEquals(LibraryScrollPosition(), viewModel.libraryScrollPositionFor(seriesKey))
+
+        viewModel.onLibraryScrollPositionChanged(
+            contextKey = seriesKey,
+            position = LibraryScrollPosition(index = 1, offset = 12),
+        )
+        viewModel.onBackPressed()
+
+        assertEquals(rootKey, viewModel.uiState.libraryBrowseContextKey)
+        assertEquals(LibraryScrollPosition(index = 9, offset = 24), viewModel.libraryScrollPositionFor(rootKey))
+        assertEquals(LibraryScrollPosition(index = 1, offset = 12), viewModel.libraryScrollPositionFor(seriesKey))
+    }
+
+    @Test
+    fun `changing search in a series creates a fresh root browse context`() {
+        val firstIssue = sampleItem(
+            id = "chapter-1",
+            title = "Akira 001",
+            format = FormatType.CBZ,
+        ).copy(
+            remoteId = "chapter-1",
+            remoteFileType = "series-7",
+            comicMetadata = ComicMetadata(series = "Akira", issueTitle = "Issue 1"),
+        )
+        val secondIssue = sampleItem(
+            id = "chapter-2",
+            title = "Akira 002",
+            format = FormatType.CBZ,
+        ).copy(
+            remoteId = "chapter-2",
+            remoteFileType = "series-7",
+            comicMetadata = ComicMetadata(series = "Akira", issueTitle = "Issue 2"),
+        )
+        val viewModel = createViewModel(
+            sampleItems = listOf(firstIssue, secondIssue),
+        )
+        val originalRootKey = viewModel.uiState.libraryBrowseContextKey
+        val seriesItem = viewModel.uiState.visibleItems.single()
+        viewModel.onLibraryScrollPositionChanged(
+            contextKey = originalRootKey,
+            position = LibraryScrollPosition(index = 9, offset = 24),
+        )
+
+        viewModel.onItemSelected(seriesItem)
+        viewModel.onLibrarySearchQueryChanged("issue 2")
+        viewModel.onBackPressed()
+
+        val filteredRootKey = viewModel.uiState.libraryBrowseContextKey
+        assertTrue(filteredRootKey != originalRootKey)
+        assertEquals(LibraryScrollPosition(), viewModel.libraryScrollPositionFor(filteredRootKey))
+        assertEquals(LibraryScrollPosition(index = 9, offset = 24), viewModel.libraryScrollPositionFor(originalRootKey))
+    }
+
+    @Test
+    fun `library scroll position cache evicts oldest contexts`() {
+        val viewModel = createViewModel()
+
+        repeat(65) { index ->
+            viewModel.onLibraryScrollPositionChanged(
+                contextKey = "context-$index",
+                position = LibraryScrollPosition(index = index, offset = index),
+            )
+        }
+
+        assertEquals(LibraryScrollPosition(), viewModel.libraryScrollPositionFor("context-0"))
+        assertEquals(LibraryScrollPosition(index = 64, offset = 64), viewModel.libraryScrollPositionFor("context-64"))
+    }
+
+    @Test
+    fun `browse context key distinguishes delimiter heavy filter values`() {
+        val firstViewModel = createViewModel()
+        firstViewModel.onLibraryFiltersChanged(
+            LibraryFilterState(authors = setOf("A,B", "C")),
+        )
+
+        val secondViewModel = createViewModel()
+        secondViewModel.onLibraryFiltersChanged(
+            LibraryFilterState(authors = setOf("A", "B,C")),
+        )
+
+        assertTrue(firstViewModel.uiState.libraryBrowseContextKey != secondViewModel.uiState.libraryBrowseContextKey)
     }
 
     @Test

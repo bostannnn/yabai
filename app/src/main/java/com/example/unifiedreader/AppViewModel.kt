@@ -26,6 +26,7 @@ import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesSto
 import com.example.unifiedreader.feature.reader.comics.ComicReaderProgressStore
 import com.example.unifiedreader.feature.reader.core.ReaderScreenFactory
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
+import com.example.unifiedreader.feature.library.LibraryScrollPosition
 import com.example.unifiedreader.feature.settings.GrimmoryConnectionUiState
 import com.example.unifiedreader.feature.settings.KavitaConnectionUiState
 import com.example.unifiedreader.feature.settings.StumpConnectionUiState
@@ -70,6 +71,12 @@ class AppViewModel @Inject constructor(
     private var catalogLibraries: List<Library> = libraryRepository.getLibraries()
     private var catalogItems: List<ReadableItem> = readableItemRepository.getItems()
     private var readerSelectionRequestId: Int = 0
+    private val libraryScrollPositionByContext =
+        object : LinkedHashMap<String, LibraryScrollPosition>(LIBRARY_SCROLL_POSITION_CACHE_LIMIT, 0.75f, true) {
+            override fun removeEldestEntry(
+                eldest: MutableMap.MutableEntry<String, LibraryScrollPosition>,
+            ): Boolean = size > LIBRARY_SCROLL_POSITION_CACHE_LIMIT
+        }
 
     var uiState by mutableStateOf(AppUiState())
         private set
@@ -191,6 +198,18 @@ class AppViewModel @Inject constructor(
                 refreshProgress()
             }
         }
+    }
+
+    fun libraryScrollPositionFor(contextKey: String): LibraryScrollPosition {
+        return libraryScrollPositionByContext[contextKey] ?: LibraryScrollPosition()
+    }
+
+    fun onLibraryScrollPositionChanged(
+        contextKey: String,
+        position: LibraryScrollPosition,
+    ) {
+        if (libraryScrollPositionByContext[contextKey] == position) return
+        libraryScrollPositionByContext[contextKey] = position
     }
 
     fun coverImageUrlFor(item: ReadableItem): String? {
@@ -1108,4 +1127,5 @@ class AppViewModel @Inject constructor(
     }
 }
 
+private const val LIBRARY_SCROLL_POSITION_CACHE_LIMIT = 64
 private const val LOG_TAG = "UnifiedReader"

@@ -15,6 +15,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.library.LibraryScreen
 import com.example.unifiedreader.feature.library.LibraryViewMode
+import com.example.unifiedreader.feature.library.LibraryScrollPosition
 import com.example.unifiedreader.feature.settings.SettingsScreen
 
 @Composable
@@ -70,8 +71,16 @@ fun UnifiedReaderScaffold(
                 TopLevelDestination.Library -> LibraryRoute(
                     uiState = uiState,
                     viewMode = libraryViewMode,
+                    browseContextKey = uiState.libraryBrowseContextKey,
+                    initialScrollPosition = viewModel.libraryScrollPositionFor(uiState.libraryBrowseContextKey),
                     coverImageUrlProvider = viewModel::coverImageUrlFor,
                     onCoverVisible = viewModel::ensureCoverCached,
+                    onScrollPositionChanged = { position ->
+                        viewModel.onLibraryScrollPositionChanged(
+                            contextKey = uiState.libraryBrowseContextKey,
+                            position = position,
+                        )
+                    },
                     onItemSelected = viewModel::onItemSelected,
                     onDeleteImportedItem = viewModel::onDeleteImportedItem,
                     onDownloadRemoteItem = viewModel::onDownloadRemoteItem,
@@ -118,8 +127,11 @@ fun UnifiedReaderScaffold(
 private fun LibraryRoute(
     uiState: AppUiState,
     viewMode: LibraryViewMode,
+    browseContextKey: String,
+    initialScrollPosition: LibraryScrollPosition,
     coverImageUrlProvider: (ReadableItem) -> String?,
     onCoverVisible: (ReadableItem) -> Unit,
+    onScrollPositionChanged: (LibraryScrollPosition) -> Unit,
     onItemSelected: (ReadableItem) -> Unit,
     onDeleteImportedItem: (ReadableItem) -> Unit,
     onDownloadRemoteItem: (ReadableItem) -> Unit,
@@ -137,6 +149,7 @@ private fun LibraryRoute(
     ) {
         LibraryScreen(
             selectedSource = uiState.selectedSource,
+            browseContextKey = browseContextKey,
             items = uiState.visibleItems,
             viewMode = viewMode,
             progressByItemId = uiState.displayProgressByItemId,
@@ -156,6 +169,8 @@ private fun LibraryRoute(
             onSortModeChanged = onSortModeChanged,
             onRefreshSource = onRefreshSource,
             isRefreshingSource = isRefreshingSource,
+            initialScrollPosition = initialScrollPosition,
+            onScrollPositionChanged = onScrollPositionChanged,
             onItemSelected = onItemSelected,
             onDeleteImportedItem = onDeleteImportedItem,
             onDownloadItem = onDownloadRemoteItem,

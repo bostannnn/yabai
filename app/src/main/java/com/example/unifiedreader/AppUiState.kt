@@ -4,6 +4,7 @@ import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.LibraryFilterFacets
 import com.example.unifiedreader.core.model.LibraryFilterState
+import com.example.unifiedreader.core.model.LibraryFileLocation
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
@@ -26,6 +27,7 @@ import com.example.unifiedreader.feature.settings.KavitaConnectionUiState
 import com.example.unifiedreader.feature.settings.GrimmoryConnectionUiState
 import com.example.unifiedreader.feature.settings.StumpConnectionUiState
 import com.example.unifiedreader.feature.settings.ThemeMode
+import java.util.Base64
 
 internal data class AppCatalogSnapshot(
     val libraries: List<Library>,
@@ -171,7 +173,45 @@ data class AppUiState(
             SourceType.GRIMMORY,
             SourceType.LOCAL -> null
         }
+
+    val libraryBrowseContextKey: String
+        get() = when (selectedSource) {
+            SourceType.KAVITA -> selectedKavitaSeriesKey?.let { seriesKey ->
+                "kavita:series:${seriesKey.keyComponent()}:${libraryBrowseStateKeySuffix()}"
+            } ?: "kavita:root:${libraryBrowseStateKeySuffix()}"
+            SourceType.STUMP -> selectedStumpSeriesKey?.let { seriesKey ->
+                "stump:series:${seriesKey.keyComponent()}:${libraryBrowseStateKeySuffix()}"
+            } ?: "stump:root:${libraryBrowseStateKeySuffix()}"
+            SourceType.GRIMMORY -> "grimmory:root:${libraryBrowseStateKeySuffix()}"
+            SourceType.LOCAL -> "local:root:${libraryBrowseStateKeySuffix()}"
+        }
 }
+
+private fun AppUiState.libraryBrowseStateKeySuffix(): String = buildString {
+    append("query=")
+    append(selectedLibrarySearchQuery.keyComponent())
+    append("|sort=")
+    append(selectedLibrarySortMode.name)
+    append("|filters=")
+    append(selectedLibraryFilters.keyFragment())
+}
+
+private fun LibraryFilterState.keyFragment(): String = buildString {
+    append("formats=")
+    append(formats.map(FormatType::name).sorted().joinToString(","))
+    append(";libraries=")
+    append(libraries.sortedWith(String.CASE_INSENSITIVE_ORDER).joinToString(",") { value -> value.keyComponent() })
+    append(";locations=")
+    append(fileLocations.map { location -> location.name }.sorted().joinToString(","))
+    append(";authors=")
+    append(authors.sortedWith(String.CASE_INSENSITIVE_ORDER).joinToString(",") { value -> value.keyComponent() })
+    append(";series=")
+    append(series.sortedWith(String.CASE_INSENSITIVE_ORDER).joinToString(",") { value -> value.keyComponent() })
+}
+
+private fun String.keyComponent(): String = Base64.getUrlEncoder()
+    .withoutPadding()
+    .encodeToString(toByteArray(Charsets.UTF_8))
 
 private fun buildKavitaSeriesProgressByItemId(
     items: List<ReadableItem>,
