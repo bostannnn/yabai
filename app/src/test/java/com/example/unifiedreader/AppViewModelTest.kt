@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -1082,6 +1083,115 @@ class AppViewModelTest {
     }
 
     @Test
+    fun `connect stump authenticates quickly and waits for explicit sync`() {
+        val syncer = FakeStumpCatalogSyncer(
+            connectionResult = StumpCatalogConnectionResult(
+                libraryCount = 3,
+                session = com.example.unifiedreader.data.stump.StumpSession(
+                    accessToken = "access-token",
+                    refreshToken = "refresh-token",
+                ),
+            ),
+        )
+        val credentialStore = FakeStumpCredentialStore()
+        val viewModel = createViewModel(
+            stumpCatalogSyncer = syncer,
+            stumpCredentialStore = credentialStore,
+        )
+
+        viewModel.onStumpDisplayNameChanged("Home Stump")
+        viewModel.onStumpBaseUrlChanged("https://stump.example/")
+        viewModel.onStumpUsernameChanged("reader")
+        viewModel.onStumpPasswordChanged("secret")
+        viewModel.connectStumpServer()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals("Home Stump", syncer.lastConnectRequest?.displayName)
+        assertEquals("https://stump.example", syncer.lastConnectRequest?.baseUrl)
+        assertEquals("reader", syncer.lastConnectRequest?.username)
+        assertEquals("secret", syncer.lastConnectRequest?.password)
+        assertNull(syncer.lastSyncRequest)
+        assertEquals("access-token", credentialStore.sessionFlow.value?.accessToken)
+        assertEquals("refresh-token", credentialStore.sessionFlow.value?.refreshToken)
+        assertEquals(
+            "Connected to Stump. 3 libraries available to sync.",
+            viewModel.uiState.libraryMessage,
+        )
+        assertEquals(
+            "Connected to Stump. Tap Sync Stump to import the library.",
+            viewModel.uiState.stumpConnection.message,
+        )
+        assertTrue(viewModel.uiState.stumpConnection.hasStoredSession)
+        assertFalse(viewModel.uiState.stumpConnection.isError)
+        assertEquals("", viewModel.uiState.stumpConnection.password)
+    }
+
+    @Test
+    fun `refresh stump uses stored session and clears stump caches`() {
+        val credentialStore = FakeStumpCredentialStore(
+            StumpStoredSession(
+                displayName = "Home Stump",
+                baseUrl = "https://stump.example",
+                username = "reader",
+                accessToken = "saved-access-token",
+                refreshToken = "saved-refresh-token",
+            ),
+        )
+        val syncer = FakeStumpCatalogSyncer(
+            result = StumpCatalogSyncResult(
+                libraryCount = 2,
+                itemCount = 7,
+                supportedFormatCounts = mapOf(FormatType.CBZ to 7),
+                session = com.example.unifiedreader.data.stump.StumpSession(
+                    accessToken = "refreshed-access-token",
+                    refreshToken = "refreshed-refresh-token",
+                ),
+            ),
+        )
+        val stumpCoverRepository = FakeStumpCoverRepository(
+            coverUri = Uri.parse("file:///tmp/stump-cover.png"),
+        )
+        val pageCacheController = FakeComicPageSourceCacheController()
+        val stumpItem = sampleItem(
+            id = "stump-issue-1",
+            title = "Stump Issue",
+            format = FormatType.CBZ,
+        ).copy(
+            sourceType = SourceType.STUMP,
+            libraryId = SourceType.STUMP.remoteLibraryId("stump-library"),
+            remoteId = "stump-issue-1",
+        )
+        val viewModel = createViewModel(
+            sampleItems = listOf(stumpItem),
+            stumpCatalogSyncer = syncer,
+            stumpCredentialStore = credentialStore,
+            stumpCoverRepository = stumpCoverRepository,
+            comicPageSourceCacheController = pageCacheController,
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+
+        viewModel.ensureCoverCached(stumpItem)
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals("file:///tmp/stump-cover.png", viewModel.coverImageUrlFor(stumpItem))
+
+        viewModel.refreshStumpLibrary()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertNull(syncer.lastConnectRequest)
+        assertNull(syncer.lastSyncRequest?.password)
+        assertEquals("saved-access-token", syncer.lastSyncRequest?.accessToken)
+        assertEquals("saved-refresh-token", syncer.lastSyncRequest?.refreshToken)
+        assertEquals("refreshed-access-token", credentialStore.sessionFlow.value?.accessToken)
+        assertEquals("refreshed-refresh-token", credentialStore.sessionFlow.value?.refreshToken)
+        assertEquals(SourceType.STUMP, viewModel.uiState.selectedSource)
+        assertEquals("Synced 7 Stump items from 2 libraries.", viewModel.uiState.libraryMessage)
+        assertEquals("Stump library synced.", viewModel.uiState.stumpConnection.message)
+        assertEquals(listOf(SourceType.STUMP), pageCacheController.clearedSourceTypes)
+        assertEquals(1, stumpCoverRepository.clearCachedCoversCalls)
+        assertNull(viewModel.coverImageUrlFor(stumpItem))
+    }
+
+    @Test
     fun `connect grimmory syncs catalog and switches to grimmory library`() {
         val syncer = FakeGrimmoryCatalogSyncer(
             result = GrimmoryCatalogSyncResult(
@@ -1480,9 +1590,13 @@ class AppViewModelTest {
 }
 
 private class FakeComicPageSourceCacheController : ComicPageSourceCacheController {
+    val clearedSourceTypes = mutableListOf<SourceType>()
+
     override fun clearSourcePageCache(
         sourceType: SourceType,
-    ) = Unit
+    ) {
+        clearedSourceTypes += sourceType
+    }
 }
 
 private class FakeKavitaCatalogSyncer(
@@ -1636,11 +1750,23 @@ private class FakeStumpCredentialStore(
 }
 
 private class FakeStumpCoverRepository : StumpCoverDataSource {
+    var clearCachedCoversCalls: Int = 0
+
+    constructor(
+        coverUri: Uri? = null,
+    ) {
+        this.coverUri = coverUri
+    }
+
+    private var coverUri: Uri? = null
+
     override suspend fun getCoverUri(
         item: ReadableItem,
-    ): Uri? = null
+    ): Uri? = coverUri
 
-    override suspend fun clearCachedCovers() = Unit
+    override suspend fun clearCachedCovers() {
+        clearCachedCoversCalls += 1
+    }
 }
 
 private class FakeGrimmoryCoverRepository : GrimmoryCoverDataSource {

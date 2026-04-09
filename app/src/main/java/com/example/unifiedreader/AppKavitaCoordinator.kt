@@ -10,112 +10,120 @@ class AppKavitaCoordinator @Inject constructor(
 ) {
     fun refreshedConnectionState(
         connection: KavitaConnectionUiState,
-    ): KavitaConnectionUiState {
-        val normalizedBaseUrl = normalizeServerBaseUrl(connection.baseUrl) ?: return connection.copy(
-            hasStoredSession = false,
-        )
-        val username = connection.username.trim()
-        if (username.isBlank()) {
-            return connection.copy(hasStoredSession = false)
-        }
-        val matchingSession = matchingStoredSession(
-            baseUrl = normalizedBaseUrl,
-            username = username,
-        )
-        return connection.copy(hasStoredSession = matchingSession != null)
-    }
+    ): KavitaConnectionUiState = refreshedRemoteConnectionState(
+        connection = connection,
+        baseUrl = connection.baseUrl,
+        username = connection.username,
+        copyHasStoredSession = { currentConnection, hasStoredSession ->
+            currentConnection.copy(hasStoredSession = hasStoredSession)
+        },
+        matchingStoredSession = ::matchingStoredSession,
+    )
 
     internal fun prepareConnect(
         connection: KavitaConnectionUiState,
     ): KavitaSyncPreparation {
-        val normalizedBaseUrl = normalizeServerBaseUrl(connection.baseUrl)
-            ?: return KavitaSyncPreparation.Invalid(
-                connection = connection.copy(
-                    message = "Enter a server URL that starts with http:// or https://.",
-                    isError = true,
-                ),
+        return when (
+            val connectInput = prepareRemoteConnectInput(
+                connection = connection,
+                displayName = connection.displayName,
+                baseUrl = connection.baseUrl,
+                username = connection.username,
+                password = connection.password,
+                invalidConnection = { message ->
+                    connection.copy(
+                        message = message,
+                        isError = true,
+                    )
+                },
+                matchingStoredSession = ::matchingStoredSession,
+                missingRequiredFieldsMessage = "Fill in the Kavita server name and username.",
+                missingCredentialMessage = "Enter the Kavita password or use the saved server details.",
+                validateSavedSession = { savedSession, password ->
+                    if (password == null && savedSession?.apiKey.isNullOrBlank()) {
+                        "Re-enter the Kavita password once to refresh the API key for covers and reading."
+                    } else {
+                        null
+                    }
+                },
             )
-        val displayName = connection.displayName.trim()
-        val username = connection.username.trim()
-        if (displayName.isBlank() || username.isBlank()) {
-            return KavitaSyncPreparation.Invalid(
-                connection = connection.copy(
-                    message = "Fill in the Kavita server name and username.",
-                    isError = true,
-                ),
+        ) {
+            is RemoteConnectionInputPreparation.Invalid -> KavitaSyncPreparation.Invalid(
+                connection = connectInput.connection,
             )
+            is RemoteConnectionInputPreparation.Ready -> {
+                val input = connectInput.input
+                KavitaSyncPreparation.Ready(
+                    request = KavitaCatalogSyncRequest(
+                        displayName = input.displayName,
+                        baseUrl = input.baseUrl,
+                        username = input.username,
+                        password = input.password,
+                        accessToken = input.savedSession?.accessToken,
+                        refreshToken = input.savedSession?.refreshToken,
+                        apiKey = input.savedSession?.apiKey,
+                    ),
+                    activeConnection = connection.copy(baseUrl = input.baseUrl),
+                    fallbackSession = input.savedSession?.copy(
+                        displayName = input.displayName,
+                        baseUrl = input.baseUrl,
+                        username = input.username,
+                    ),
+                    successConnectionMessage = "Connected to Kavita.",
+                    failurePrefix = "Unable to connect to Kavita",
+                )
+            }
         }
-        val savedSession = matchingStoredSession(
-            baseUrl = normalizedBaseUrl,
-            username = username,
-        ).takeIf { connection.password.isBlank() }
-        val password = connection.password.takeIf(String::isNotBlank)
-        if (password == null && savedSession == null) {
-            return KavitaSyncPreparation.Invalid(
-                connection = connection.copy(
-                    message = "Enter the Kavita password or use the saved server details.",
-                    isError = true,
-                ),
-            )
-        }
-        if (password == null && savedSession?.apiKey.isNullOrBlank()) {
-            return KavitaSyncPreparation.Invalid(
-                connection = connection.copy(
-                    message = "Re-enter the Kavita password once to refresh the API key for covers and reading.",
-                    isError = true,
-                ),
-            )
-        }
-
-        return KavitaSyncPreparation.Ready(
-            request = KavitaCatalogSyncRequest(
-                displayName = displayName,
-                baseUrl = normalizedBaseUrl,
-                username = username,
-                password = password,
-                accessToken = savedSession?.accessToken,
-                refreshToken = savedSession?.refreshToken,
-                apiKey = savedSession?.apiKey,
-            ),
-            activeConnection = connection.copy(baseUrl = normalizedBaseUrl),
-            fallbackSession = savedSession?.copy(
-                displayName = displayName,
-                baseUrl = normalizedBaseUrl,
-                username = username,
-            ),
-            successConnectionMessage = "Connected to Kavita.",
-            failurePrefix = "Unable to connect to Kavita",
-        )
     }
 
     internal fun prepareRefresh(
         connection: KavitaConnectionUiState,
     ): KavitaSyncPreparation {
-        val savedSession = kavitaCredentialStore.sessionFlow.value
-            ?: return KavitaSyncPreparation.MissingSession
-        if (savedSession.apiKey.isNullOrBlank()) {
-            return KavitaSyncPreparation.Invalid(
-                connection = connection.withStoredSession(savedSession).copy(
-                    message = "Re-enter the Kavita password once to refresh the API key for covers and reading.",
-                    isError = true,
-                ),
+        return when (
+            val refreshInput = prepareRemoteRefreshInput(
+                connection = connection,
+                storedSession = kavitaCredentialStore.sessionFlow.value,
+                restoreConnection = { currentConnection, session ->
+                    currentConnection.withStoredSession(session)
+                },
+                refreshedConnectionState = ::refreshedConnectionState,
+                invalidConnection = { currentConnection, message ->
+                    currentConnection.copy(
+                        message = message,
+                        isError = true,
+                    )
+                },
+                validateStoredSession = { session ->
+                    if (session.apiKey.isNullOrBlank()) {
+                        "Re-enter the Kavita password once to refresh the API key for covers and reading."
+                    } else {
+                        null
+                    }
+                },
             )
+        ) {
+            StoredSessionRefreshInputPreparation.MissingSession -> KavitaSyncPreparation.MissingSession
+            is StoredSessionRefreshInputPreparation.Invalid -> KavitaSyncPreparation.Invalid(
+                connection = refreshInput.connection,
+            )
+            is StoredSessionRefreshInputPreparation.Ready -> {
+                val savedSession = refreshInput.session
+                KavitaSyncPreparation.Ready(
+                    request = KavitaCatalogSyncRequest(
+                        displayName = savedSession.displayName,
+                        baseUrl = savedSession.baseUrl,
+                        username = savedSession.username,
+                        accessToken = savedSession.accessToken,
+                        refreshToken = savedSession.refreshToken,
+                        apiKey = savedSession.apiKey,
+                    ),
+                    activeConnection = refreshInput.connection,
+                    fallbackSession = savedSession,
+                    successConnectionMessage = "Kavita library synced.",
+                    failurePrefix = "Unable to sync Kavita",
+                )
+            }
         }
-        val refreshedConnection = refreshedConnectionState(connection.withStoredSession(savedSession))
-        return KavitaSyncPreparation.Ready(
-            request = KavitaCatalogSyncRequest(
-                displayName = savedSession.displayName,
-                baseUrl = savedSession.baseUrl,
-                username = savedSession.username,
-                accessToken = savedSession.accessToken,
-                refreshToken = savedSession.refreshToken,
-                apiKey = savedSession.apiKey,
-            ),
-            activeConnection = refreshedConnection,
-            fallbackSession = savedSession,
-            successConnectionMessage = "Kavita library synced.",
-            failurePrefix = "Unable to sync Kavita",
-        )
     }
 
     internal suspend fun executeSync(
@@ -202,18 +210,28 @@ class AppKavitaCoordinator @Inject constructor(
         preparation: KavitaSyncPreparation.Ready,
         session: com.example.unifiedreader.data.kavita.KavitaSession?,
     ) {
-        val storedSession = session?.toStoredSession(
+        persistRemoteSession(
+            sessionStore = kavitaCredentialStore,
+            session = session,
+            fallbackSession = preparation.fallbackSession,
             displayName = preparation.request.displayName,
             baseUrl = preparation.request.baseUrl,
             username = preparation.request.username,
-        ) ?: preparation.fallbackSession?.copy(
-            displayName = preparation.request.displayName,
-            baseUrl = preparation.request.baseUrl,
-            username = preparation.request.username,
+            toStoredSession = { activeSession, displayName, baseUrl, username ->
+                activeSession.toStoredSession(
+                    displayName = displayName,
+                    baseUrl = baseUrl,
+                    username = username,
+                )
+            },
+            restoreFallbackSession = { savedSession, displayName, baseUrl, username ->
+                savedSession.copy(
+                    displayName = displayName,
+                    baseUrl = baseUrl,
+                    username = username,
+                )
+            },
         )
-        if (storedSession != null) {
-            kavitaCredentialStore.save(storedSession)
-        }
     }
 }
 

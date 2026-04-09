@@ -12,94 +12,104 @@ class AppGrimmoryCoordinator @Inject constructor(
 ) {
     fun refreshedConnectionState(
         connection: GrimmoryConnectionUiState,
-    ): GrimmoryConnectionUiState {
-        val normalizedBaseUrl = normalizeServerBaseUrl(connection.baseUrl) ?: return connection.copy(
-            hasStoredSession = false,
-        )
-        val username = connection.username.trim()
-        if (username.isBlank()) {
-            return connection.copy(hasStoredSession = false)
-        }
-        val matchingSession = matchingStoredSession(
-            baseUrl = normalizedBaseUrl,
-            username = username,
-        )
-        return connection.copy(hasStoredSession = matchingSession != null)
-    }
+    ): GrimmoryConnectionUiState = refreshedRemoteConnectionState(
+        connection = connection,
+        baseUrl = connection.baseUrl,
+        username = connection.username,
+        copyHasStoredSession = { currentConnection, hasStoredSession ->
+            currentConnection.copy(hasStoredSession = hasStoredSession)
+        },
+        matchingStoredSession = ::matchingStoredSession,
+    )
 
     internal fun prepareConnect(
         connection: GrimmoryConnectionUiState,
     ): GrimmorySyncPreparation {
-        val normalizedBaseUrl = normalizeServerBaseUrl(connection.baseUrl)
-            ?: return GrimmorySyncPreparation.Invalid(
-                connection = connection.copy(
-                    message = "Enter a server URL that starts with http:// or https://.",
-                    isError = true,
-                ),
+        return when (
+            val connectInput = prepareRemoteConnectInput(
+                connection = connection,
+                displayName = connection.displayName,
+                baseUrl = connection.baseUrl,
+                username = connection.username,
+                password = connection.password,
+                invalidConnection = { message ->
+                    connection.copy(
+                        message = message,
+                        isError = true,
+                    )
+                },
+                matchingStoredSession = ::matchingStoredSession,
+                missingRequiredFieldsMessage = "Fill in the Grimmory server name and username.",
+                missingCredentialMessage = "Enter the Grimmory password or use the saved server details.",
             )
-        val displayName = connection.displayName.trim()
-        val username = connection.username.trim()
-        if (displayName.isBlank() || username.isBlank()) {
-            return GrimmorySyncPreparation.Invalid(
-                connection = connection.copy(
-                    message = "Fill in the Grimmory server name and username.",
-                    isError = true,
-                ),
+        ) {
+            is RemoteConnectionInputPreparation.Invalid -> GrimmorySyncPreparation.Invalid(
+                connection = connectInput.connection,
             )
+            is RemoteConnectionInputPreparation.Ready -> {
+                val input = connectInput.input
+                GrimmorySyncPreparation.Ready(
+                    request = GrimmoryCatalogSyncRequest(
+                        displayName = input.displayName,
+                        baseUrl = input.baseUrl,
+                        username = input.username,
+                        password = input.password,
+                        accessToken = input.savedSession?.accessToken,
+                        refreshToken = input.savedSession?.refreshToken,
+                    ),
+                    activeConnection = connection.copy(baseUrl = input.baseUrl),
+                    fallbackSession = input.savedSession?.copy(
+                        displayName = input.displayName,
+                        baseUrl = input.baseUrl,
+                        username = input.username,
+                    ),
+                    successConnectionMessage = "Connected to Grimmory.",
+                    failurePrefix = "Unable to connect to Grimmory",
+                )
+            }
         }
-        val savedSession = matchingStoredSession(
-            baseUrl = normalizedBaseUrl,
-            username = username,
-        ).takeIf { connection.password.isBlank() }
-        val password = connection.password.takeIf(String::isNotBlank)
-        if (password == null && savedSession == null) {
-            return GrimmorySyncPreparation.Invalid(
-                connection = connection.copy(
-                    message = "Enter the Grimmory password or use the saved server details.",
-                    isError = true,
-                ),
-            )
-        }
-
-        return GrimmorySyncPreparation.Ready(
-            request = GrimmoryCatalogSyncRequest(
-                displayName = displayName,
-                baseUrl = normalizedBaseUrl,
-                username = username,
-                password = password,
-                accessToken = savedSession?.accessToken,
-                refreshToken = savedSession?.refreshToken,
-            ),
-            activeConnection = connection.copy(baseUrl = normalizedBaseUrl),
-            fallbackSession = savedSession?.copy(
-                displayName = displayName,
-                baseUrl = normalizedBaseUrl,
-                username = username,
-            ),
-            successConnectionMessage = "Connected to Grimmory.",
-            failurePrefix = "Unable to connect to Grimmory",
-        )
     }
 
     internal fun prepareRefresh(
         connection: GrimmoryConnectionUiState,
     ): GrimmorySyncPreparation {
-        val savedSession = grimmoryCredentialStore.sessionFlow.value
-            ?: return GrimmorySyncPreparation.MissingSession
-        val refreshedConnection = refreshedConnectionState(connection.withStoredSession(savedSession))
-        return GrimmorySyncPreparation.Ready(
-            request = GrimmoryCatalogSyncRequest(
-                displayName = savedSession.displayName,
-                baseUrl = savedSession.baseUrl,
-                username = savedSession.username,
-                accessToken = savedSession.accessToken,
-                refreshToken = savedSession.refreshToken,
-            ),
-            activeConnection = refreshedConnection,
-            fallbackSession = savedSession,
-            successConnectionMessage = "Grimmory library synced.",
-            failurePrefix = "Unable to sync Grimmory",
-        )
+        return when (
+            val refreshInput = prepareRemoteRefreshInput(
+                connection = connection,
+                storedSession = grimmoryCredentialStore.sessionFlow.value,
+                restoreConnection = { currentConnection, session ->
+                    currentConnection.withStoredSession(session)
+                },
+                refreshedConnectionState = ::refreshedConnectionState,
+                invalidConnection = { currentConnection, message ->
+                    currentConnection.copy(
+                        message = message,
+                        isError = true,
+                    )
+                },
+            )
+        ) {
+            StoredSessionRefreshInputPreparation.MissingSession -> GrimmorySyncPreparation.MissingSession
+            is StoredSessionRefreshInputPreparation.Invalid -> GrimmorySyncPreparation.Invalid(
+                connection = refreshInput.connection,
+            )
+            is StoredSessionRefreshInputPreparation.Ready -> {
+                val savedSession = refreshInput.session
+                GrimmorySyncPreparation.Ready(
+                    request = GrimmoryCatalogSyncRequest(
+                        displayName = savedSession.displayName,
+                        baseUrl = savedSession.baseUrl,
+                        username = savedSession.username,
+                        accessToken = savedSession.accessToken,
+                        refreshToken = savedSession.refreshToken,
+                    ),
+                    activeConnection = refreshInput.connection,
+                    fallbackSession = savedSession,
+                    successConnectionMessage = "Grimmory library synced.",
+                    failurePrefix = "Unable to sync Grimmory",
+                )
+            }
+        }
     }
 
     internal suspend fun executeSync(
@@ -107,18 +117,28 @@ class AppGrimmoryCoordinator @Inject constructor(
         clearCoverState: () -> Unit,
     ): GrimmorySyncExecutionResult = runCatching {
         val result = grimmoryCatalogSyncer.sync(preparation.request)
-        val storedSession = result.session?.toStoredSession(
+        persistRemoteSession(
+            sessionStore = grimmoryCredentialStore,
+            session = result.session,
+            fallbackSession = preparation.fallbackSession,
             displayName = preparation.request.displayName,
             baseUrl = preparation.request.baseUrl,
             username = preparation.request.username,
-        ) ?: preparation.fallbackSession?.copy(
-            displayName = preparation.request.displayName,
-            baseUrl = preparation.request.baseUrl,
-            username = preparation.request.username,
+            toStoredSession = { activeSession, displayName, baseUrl, username ->
+                activeSession.toStoredSession(
+                    displayName = displayName,
+                    baseUrl = baseUrl,
+                    username = username,
+                )
+            },
+            restoreFallbackSession = { savedSession, displayName, baseUrl, username ->
+                savedSession.copy(
+                    displayName = displayName,
+                    baseUrl = baseUrl,
+                    username = username,
+                )
+            },
         )
-        if (storedSession != null) {
-            grimmoryCredentialStore.save(storedSession)
-        }
         clearCoverState()
         grimmoryCoverRepository.clearCachedCovers()
         GrimmorySyncExecutionResult.Success(

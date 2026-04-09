@@ -11,94 +11,104 @@ class AppStumpCoordinator @Inject constructor(
 ) {
     fun refreshedConnectionState(
         connection: StumpConnectionUiState,
-    ): StumpConnectionUiState {
-        val normalizedBaseUrl = normalizeServerBaseUrl(connection.baseUrl) ?: return connection.copy(
-            hasStoredSession = false,
-        )
-        val username = connection.username.trim()
-        if (username.isBlank()) {
-            return connection.copy(hasStoredSession = false)
-        }
-        val matchingSession = matchingStoredSession(
-            baseUrl = normalizedBaseUrl,
-            username = username,
-        )
-        return connection.copy(hasStoredSession = matchingSession != null)
-    }
+    ): StumpConnectionUiState = refreshedRemoteConnectionState(
+        connection = connection,
+        baseUrl = connection.baseUrl,
+        username = connection.username,
+        copyHasStoredSession = { currentConnection, hasStoredSession ->
+            currentConnection.copy(hasStoredSession = hasStoredSession)
+        },
+        matchingStoredSession = ::matchingStoredSession,
+    )
 
     internal fun prepareConnect(
         connection: StumpConnectionUiState,
     ): StumpSyncPreparation {
-        val normalizedBaseUrl = normalizeServerBaseUrl(connection.baseUrl)
-            ?: return StumpSyncPreparation.Invalid(
-                connection = connection.copy(
-                    message = "Enter a server URL that starts with http:// or https://.",
-                    isError = true,
-                ),
+        return when (
+            val connectInput = prepareRemoteConnectInput(
+                connection = connection,
+                displayName = connection.displayName,
+                baseUrl = connection.baseUrl,
+                username = connection.username,
+                password = connection.password,
+                invalidConnection = { message ->
+                    connection.copy(
+                        message = message,
+                        isError = true,
+                    )
+                },
+                matchingStoredSession = ::matchingStoredSession,
+                missingRequiredFieldsMessage = "Fill in the Stump server name and username.",
+                missingCredentialMessage = "Enter the Stump password or use the saved server details.",
             )
-        val displayName = connection.displayName.trim()
-        val username = connection.username.trim()
-        if (displayName.isBlank() || username.isBlank()) {
-            return StumpSyncPreparation.Invalid(
-                connection = connection.copy(
-                    message = "Fill in the Stump server name and username.",
-                    isError = true,
-                ),
+        ) {
+            is RemoteConnectionInputPreparation.Invalid -> StumpSyncPreparation.Invalid(
+                connection = connectInput.connection,
             )
+            is RemoteConnectionInputPreparation.Ready -> {
+                val input = connectInput.input
+                StumpSyncPreparation.Ready(
+                    request = StumpCatalogSyncRequest(
+                        displayName = input.displayName,
+                        baseUrl = input.baseUrl,
+                        username = input.username,
+                        password = input.password,
+                        accessToken = input.savedSession?.accessToken,
+                        refreshToken = input.savedSession?.refreshToken,
+                    ),
+                    activeConnection = connection.copy(baseUrl = input.baseUrl),
+                    fallbackSession = input.savedSession?.copy(
+                        displayName = input.displayName,
+                        baseUrl = input.baseUrl,
+                        username = input.username,
+                    ),
+                    successConnectionMessage = "Connected to Stump.",
+                    failurePrefix = "Unable to connect to Stump",
+                )
+            }
         }
-        val savedSession = matchingStoredSession(
-            baseUrl = normalizedBaseUrl,
-            username = username,
-        ).takeIf { connection.password.isBlank() }
-        val password = connection.password.takeIf(String::isNotBlank)
-        if (password == null && savedSession == null) {
-            return StumpSyncPreparation.Invalid(
-                connection = connection.copy(
-                    message = "Enter the Stump password or use the saved server details.",
-                    isError = true,
-                ),
-            )
-        }
-
-        return StumpSyncPreparation.Ready(
-            request = StumpCatalogSyncRequest(
-                displayName = displayName,
-                baseUrl = normalizedBaseUrl,
-                username = username,
-                password = password,
-                accessToken = savedSession?.accessToken,
-                refreshToken = savedSession?.refreshToken,
-            ),
-            activeConnection = connection.copy(baseUrl = normalizedBaseUrl),
-            fallbackSession = savedSession?.copy(
-                displayName = displayName,
-                baseUrl = normalizedBaseUrl,
-                username = username,
-            ),
-            successConnectionMessage = "Connected to Stump.",
-            failurePrefix = "Unable to connect to Stump",
-        )
     }
 
     internal fun prepareRefresh(
         connection: StumpConnectionUiState,
     ): StumpSyncPreparation {
-        val savedSession = stumpCredentialStore.sessionFlow.value
-            ?: return StumpSyncPreparation.MissingSession
-        val refreshedConnection = refreshedConnectionState(connection.withStoredSession(savedSession))
-        return StumpSyncPreparation.Ready(
-            request = StumpCatalogSyncRequest(
-                displayName = savedSession.displayName,
-                baseUrl = savedSession.baseUrl,
-                username = savedSession.username,
-                accessToken = savedSession.accessToken,
-                refreshToken = savedSession.refreshToken,
-            ),
-            activeConnection = refreshedConnection,
-            fallbackSession = savedSession,
-            successConnectionMessage = "Stump library synced.",
-            failurePrefix = "Unable to sync Stump",
-        )
+        return when (
+            val refreshInput = prepareRemoteRefreshInput(
+                connection = connection,
+                storedSession = stumpCredentialStore.sessionFlow.value,
+                restoreConnection = { currentConnection, session ->
+                    currentConnection.withStoredSession(session)
+                },
+                refreshedConnectionState = ::refreshedConnectionState,
+                invalidConnection = { currentConnection, message ->
+                    currentConnection.copy(
+                        message = message,
+                        isError = true,
+                    )
+                },
+            )
+        ) {
+            StoredSessionRefreshInputPreparation.MissingSession -> StumpSyncPreparation.MissingSession
+            is StoredSessionRefreshInputPreparation.Invalid -> StumpSyncPreparation.Invalid(
+                connection = refreshInput.connection,
+            )
+            is StoredSessionRefreshInputPreparation.Ready -> {
+                val savedSession = refreshInput.session
+                StumpSyncPreparation.Ready(
+                    request = StumpCatalogSyncRequest(
+                        displayName = savedSession.displayName,
+                        baseUrl = savedSession.baseUrl,
+                        username = savedSession.username,
+                        accessToken = savedSession.accessToken,
+                        refreshToken = savedSession.refreshToken,
+                    ),
+                    activeConnection = refreshInput.connection,
+                    fallbackSession = savedSession,
+                    successConnectionMessage = "Stump library synced.",
+                    failurePrefix = "Unable to sync Stump",
+                )
+            }
+        }
     }
 
     internal suspend fun executeSync(
@@ -110,18 +120,28 @@ class AppStumpCoordinator @Inject constructor(
             request = preparation.request,
             onProgress = onProgress,
         )
-        val storedSession = result.session?.toStoredSession(
+        persistRemoteSession(
+            sessionStore = stumpCredentialStore,
+            session = result.session,
+            fallbackSession = preparation.fallbackSession,
             displayName = preparation.request.displayName,
             baseUrl = preparation.request.baseUrl,
             username = preparation.request.username,
-        ) ?: preparation.fallbackSession?.copy(
-            displayName = preparation.request.displayName,
-            baseUrl = preparation.request.baseUrl,
-            username = preparation.request.username,
+            toStoredSession = { activeSession, displayName, baseUrl, username ->
+                activeSession.toStoredSession(
+                    displayName = displayName,
+                    baseUrl = baseUrl,
+                    username = username,
+                )
+            },
+            restoreFallbackSession = { savedSession, displayName, baseUrl, username ->
+                savedSession.copy(
+                    displayName = displayName,
+                    baseUrl = baseUrl,
+                    username = username,
+                )
+            },
         )
-        if (storedSession != null) {
-            stumpCredentialStore.save(storedSession)
-        }
         clearCoverState()
         stumpCoverRepository.clearCachedCovers()
         StumpSyncExecutionResult.Success(
@@ -155,18 +175,28 @@ class AppStumpCoordinator @Inject constructor(
         preparation: StumpSyncPreparation.Ready,
     ): StumpConnectExecutionResult = runCatching {
         val result = stumpCatalogSyncer.connect(preparation.request)
-        val storedSession = result.session?.toStoredSession(
+        persistRemoteSession(
+            sessionStore = stumpCredentialStore,
+            session = result.session,
+            fallbackSession = preparation.fallbackSession,
             displayName = preparation.request.displayName,
             baseUrl = preparation.request.baseUrl,
             username = preparation.request.username,
-        ) ?: preparation.fallbackSession?.copy(
-            displayName = preparation.request.displayName,
-            baseUrl = preparation.request.baseUrl,
-            username = preparation.request.username,
+            toStoredSession = { activeSession, displayName, baseUrl, username ->
+                activeSession.toStoredSession(
+                    displayName = displayName,
+                    baseUrl = baseUrl,
+                    username = username,
+                )
+            },
+            restoreFallbackSession = { savedSession, displayName, baseUrl, username ->
+                savedSession.copy(
+                    displayName = displayName,
+                    baseUrl = baseUrl,
+                    username = username,
+                )
+            },
         )
-        if (storedSession != null) {
-            stumpCredentialStore.save(storedSession)
-        }
         StumpConnectExecutionResult.Success(
             libraryCount = result.libraryCount,
             connection = preparation.activeConnection.copy(
