@@ -24,8 +24,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,7 +41,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -101,6 +98,7 @@ internal fun LibraryFilterSummary(
     filterFacets: LibraryFilterFacets,
     libraryTitlesById: Map<String, String>,
     sortMode: LibrarySortMode,
+    showSortControl: Boolean,
     onOpenFilterPanel: (LibraryFilterPanel) -> Unit,
     onClearFilters: () -> Unit,
     onRefreshSource: (() -> Unit)?,
@@ -173,49 +171,11 @@ internal fun LibraryFilterSummary(
             }
             Spacer(modifier = Modifier.width(4.dp))
         }
-        LibrarySortSelector(
-            sortMode = sortMode,
-            onSortModeChanged = onSortModeChanged,
-        )
-    }
-}
-
-@Composable
-private fun LibrarySortSelector(
-    sortMode: LibrarySortMode,
-    onSortModeChanged: (LibrarySortMode) -> Unit,
-) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
-    Box {
-        FilterChip(
-            selected = sortMode != defaultLibrarySortMode,
-            onClick = { expanded = true },
-            label = {
-                Text(
-                    text = "Sort: ${sortMode.label}",
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            },
-        )
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
-            LibrarySortMode.entries.forEach { mode ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = mode.label,
-                            fontWeight = if (mode == sortMode) FontWeight.SemiBold else FontWeight.Normal,
-                        )
-                    },
-                    onClick = {
-                        expanded = false
-                        onSortModeChanged(mode)
-                    },
-                )
-            }
+        if (showSortControl) {
+            LibrarySortSelector(
+                sortMode = sortMode,
+                onSortModeChanged = onSortModeChanged,
+            )
         }
     }
 }

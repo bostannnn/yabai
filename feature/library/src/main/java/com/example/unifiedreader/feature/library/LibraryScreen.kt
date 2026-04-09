@@ -49,6 +49,7 @@ fun LibraryScreen(
     libraryTitlesById: Map<String, String> = emptyMap(),
     searchQuery: String = "",
     sortMode: LibrarySortMode = defaultLibrarySortMode,
+    showSortControl: Boolean = true,
     coverImageUrlProvider: (ReadableItem) -> String? = { it.coverUrl },
     onCoverVisible: (ReadableItem) -> Unit = {},
     onFilterStateChanged: (LibraryFilterState) -> Unit = {},
@@ -66,7 +67,7 @@ fun LibraryScreen(
     var deleteCandidate by remember { mutableStateOf<ReadableItem?>(null) }
     var openFilterPanel by rememberSaveable { mutableStateOf<LibraryFilterPanel?>(null) }
     var selectedSortLetter by rememberSaveable(sortMode) { mutableStateOf<String?>(null) }
-    val alphabetRailVisible = sortMode.usesAlphabetRail && items.isNotEmpty()
+    val alphabetRailVisible = showSortControl && sortMode.usesAlphabetRail && items.isNotEmpty()
     val sortLetters = remember(items, sortMode) {
         if (!sortMode.usesAlphabetRail) {
             emptyList()
@@ -76,7 +77,7 @@ fun LibraryScreen(
                 .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it })
         }
     }
-    val effectiveSortLetter = selectedSortLetter?.takeIf { it in sortLetters }
+    val effectiveSortLetter = selectedSortLetter?.takeIf { showSortControl && it in sortLetters }
     val visibleItems = remember(items, sortMode, effectiveSortLetter) {
         effectiveSortLetter?.let { letter ->
             items.filter { item -> item.sortFilterLetter(sortMode) == letter }
@@ -133,6 +134,7 @@ fun LibraryScreen(
                     filterFacets = filterFacets,
                     libraryTitlesById = libraryTitlesById,
                     sortMode = sortMode,
+                    showSortControl = showSortControl,
                     onOpenFilterPanel = { openFilterPanel = it },
                     onClearFilters = onClearFilters,
                     onRefreshSource = onRefreshSource,

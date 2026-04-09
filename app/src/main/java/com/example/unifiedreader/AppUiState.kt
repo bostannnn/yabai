@@ -8,9 +8,6 @@ import com.example.unifiedreader.core.model.LibraryFileLocation
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
-import com.example.unifiedreader.core.model.applyLibraryFilters
-import com.example.unifiedreader.core.model.applyLibrarySearch
-import com.example.unifiedreader.core.model.applyLibrarySort
 import com.example.unifiedreader.core.model.belongsToKavitaSeries
 import com.example.unifiedreader.core.model.belongsToStumpSeries
 import com.example.unifiedreader.core.model.buildKavitaSeriesContainer
@@ -22,6 +19,7 @@ import com.example.unifiedreader.core.model.kavitaSeriesContainerId
 import com.example.unifiedreader.core.model.kavitaSeriesGroupKey
 import com.example.unifiedreader.core.model.stumpSeriesContainerId
 import com.example.unifiedreader.core.model.stumpSeriesGroupKey
+import com.example.unifiedreader.feature.library.buildVisibleLibraryItems
 import com.example.unifiedreader.feature.library.ItemProgressSummary
 import com.example.unifiedreader.feature.library.defaultLibrarySortMode
 import com.example.unifiedreader.feature.settings.KavitaConnectionUiState
@@ -94,6 +92,14 @@ data class AppUiState(
     val isSelectedSourceHydrated: Boolean
         get() = selectedSource in hydratedSources
 
+    val isSeriesBrowseActive: Boolean
+        get() = when (selectedSource) {
+            SourceType.KAVITA -> selectedKavitaSeriesKey != null
+            SourceType.STUMP -> selectedStumpSeriesKey != null
+            SourceType.GRIMMORY,
+            SourceType.LOCAL -> false
+        }
+
     val selectedItem: ReadableItem?
         get() = items.firstOrNull { it.id == selectedItemId }
 
@@ -142,13 +148,14 @@ internal fun AppUiState.withDerivedLibraryState(
     val lastReadAtEpochMillisByItemId = displayProgressByItemId.mapValues { (_, progress) ->
         progress.lastReadAtEpochMillis
     }
-    val visibleItems = applyLibrarySort(
-        items = applyLibrarySearch(
-            items = applyLibraryFilters(sourceItems, selectedLibraryFilters, downloadedRemoteItemIds),
-            query = selectedLibrarySearchQuery,
-        ),
+    val visibleItems = buildVisibleLibraryItems(
+        sourceItems = sourceItems,
+        filterState = selectedLibraryFilters,
+        searchQuery = selectedLibrarySearchQuery,
         sortMode = selectedLibrarySortMode,
+        downloadedRemoteItemIds = downloadedRemoteItemIds,
         lastReadAtEpochMillisByItemId = lastReadAtEpochMillisByItemId,
+        forceSeriesIssueOrder = isSeriesBrowseActive,
     )
 
     return copy(

@@ -95,6 +95,7 @@ fun UnifiedReaderScaffold(
                         SourceType.GRIMMORY -> uiState.grimmoryConnection.isConnecting
                         SourceType.LOCAL -> false
                     },
+                    showSortControl = !uiState.isSeriesBrowseActive,
                     modifier = Modifier.weight(1f),
                 )
 
@@ -141,6 +142,7 @@ private fun LibraryRoute(
     onSortModeChanged: (LibrarySortMode) -> Unit,
     onRefreshSource: () -> Unit,
     isRefreshingSource: Boolean,
+    showSortControl: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -162,6 +164,7 @@ private fun LibraryRoute(
             libraryTitlesById = uiState.selectedSourceLibraryTitlesById,
             searchQuery = uiState.selectedLibrarySearchQuery,
             sortMode = uiState.selectedLibrarySortMode,
+            showSortControl = showSortControl,
             coverImageUrlProvider = coverImageUrlProvider,
             onCoverVisible = onCoverVisible,
             onFilterStateChanged = onFilterStateChanged,
