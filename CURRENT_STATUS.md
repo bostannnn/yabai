@@ -81,6 +81,11 @@ Practical rule of thumb:
 
 Avoid broad cleanup or architecture refactors unless they are required by the feature being implemented.
 
+For repository-specific architecture guardrails and Codex prompting rules, also follow:
+
+- [ARCHITECTURE_RULES.md](/Users/andrewbostan/Documents/yabai/ARCHITECTURE_RULES.md)
+- [CODEX_PROMPT_TEMPLATE.md](/Users/andrewbostan/Documents/yabai/CODEX_PROMPT_TEMPLATE.md)
+
 ## Known Good Build/Test Workflow
 
 Use terminal builds instead of screenshot-based debugging whenever possible.

@@ -9,6 +9,7 @@
 .gradle/
 build/
 **/build/
+app/release/
 
 # Kotlin
 .kotlin/
