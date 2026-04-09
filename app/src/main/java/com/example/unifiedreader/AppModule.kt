@@ -13,6 +13,8 @@ import com.example.unifiedreader.data.stump.KtorStumpApi
 import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
 import com.example.unifiedreader.data.repository.SampleCatalogRepository
+import com.example.unifiedreader.feature.library.DataStoreLibraryBrowsePreferencesStore
+import com.example.unifiedreader.feature.library.LibraryBrowsePreferencesStore
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesStore
 import com.example.unifiedreader.feature.reader.comics.ComicReaderProgressStore
@@ -39,6 +41,12 @@ object AppModule {
     fun provideAppPreferencesStore(
         @ApplicationContext context: Context,
     ): AppPreferencesStore = DataStoreAppPreferencesStore(context)
+
+    @Provides
+    @Singleton
+    fun provideLibraryBrowsePreferencesStore(
+        @ApplicationContext context: Context,
+    ): LibraryBrowsePreferencesStore = DataStoreLibraryBrowsePreferencesStore(context)
 
     @Provides
     @Singleton

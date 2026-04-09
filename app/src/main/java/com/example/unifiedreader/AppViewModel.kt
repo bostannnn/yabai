@@ -11,7 +11,9 @@ import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.libraryDisplayLabel
+import com.example.unifiedreader.feature.library.LibraryBrowsePreferencesStore
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
+import com.example.unifiedreader.feature.library.defaultLibrarySortMode
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesStore
 import com.example.unifiedreader.feature.reader.comics.ComicReaderProgressStore
@@ -26,6 +28,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class AppViewModel @Inject constructor(
     private val appPreferencesStore: AppPreferencesStore,
+    private val libraryBrowsePreferencesStore: LibraryBrowsePreferencesStore,
     private val appStateHydrator: AppStateHydrator,
     private val catalogStateCoordinator: AppCatalogStateCoordinator,
     private val libraryActionsCoordinator: AppLibraryActionsCoordinator,
@@ -48,6 +51,8 @@ class AppViewModel @Inject constructor(
         updateUiState { state ->
             state.copy(
                 themeMode = appPreferencesStore.preferencesFlow.value.themeMode,
+                libraryFiltersBySource = libraryBrowsePreferencesStore.preferencesFlow.value.filtersBySource,
+                librarySortsBySource = libraryBrowsePreferencesStore.preferencesFlow.value.sortsBySource,
             )
         }
         catalogStateCoordinator.updateLibraryState(
@@ -74,9 +79,20 @@ class AppViewModel @Inject constructor(
     }
 
     fun onLibraryFiltersChanged(filters: LibraryFilterState) {
+        val sourceType = uiState.selectedSource
         updateUiState { state ->
             state.copy(
-                libraryFiltersBySource = state.libraryFiltersBySource + (state.selectedSource to filters),
+                libraryFiltersBySource = if (filters.isEmpty) {
+                    state.libraryFiltersBySource - sourceType
+                } else {
+                    state.libraryFiltersBySource + (sourceType to filters)
+                },
+            )
+        }
+        viewModelScope.launch {
+            libraryBrowsePreferencesStore.setFilters(
+                sourceType = sourceType,
+                filters = filters,
             )
         }
     }
@@ -91,17 +107,35 @@ class AppViewModel @Inject constructor(
 
     fun clearLibraryFilters() {
         if (uiState.selectedLibraryFilters.isEmpty) return
+        val sourceType = uiState.selectedSource
         updateUiState { state ->
             state.copy(
-                libraryFiltersBySource = state.libraryFiltersBySource - state.selectedSource,
+                libraryFiltersBySource = state.libraryFiltersBySource - sourceType,
+            )
+        }
+        viewModelScope.launch {
+            libraryBrowsePreferencesStore.setFilters(
+                sourceType = sourceType,
+                filters = LibraryFilterState(),
             )
         }
     }
 
     fun onLibrarySortModeChanged(sortMode: LibrarySortMode) {
+        val sourceType = uiState.selectedSource
         updateUiState { state ->
             state.copy(
-                librarySortsBySource = state.librarySortsBySource + (state.selectedSource to sortMode),
+                librarySortsBySource = if (sortMode == defaultLibrarySortMode) {
+                    state.librarySortsBySource - sourceType
+                } else {
+                    state.librarySortsBySource + (sourceType to sortMode)
+                },
+            )
+        }
+        viewModelScope.launch {
+            libraryBrowsePreferencesStore.setSortMode(
+                sourceType = sourceType,
+                sortMode = sortMode,
             )
         }
     }

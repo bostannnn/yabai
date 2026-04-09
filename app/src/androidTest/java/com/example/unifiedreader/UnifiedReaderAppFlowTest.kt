@@ -344,6 +344,7 @@ private fun createViewModel(
     progressStore: com.example.unifiedreader.feature.reader.comics.ComicReaderProgressStore,
     preferencesStore: com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesStore,
     appPreferencesStore: AppPreferencesStore = FakeAppPreferencesStore(),
+    libraryBrowsePreferencesStore: com.example.unifiedreader.feature.library.LibraryBrowsePreferencesStore = FakeLibraryBrowsePreferencesStore(),
     readerSessionStore: FakeReaderSessionStore = FakeReaderSessionStore(),
     remoteCatalogReadiness: RemoteCatalogReadiness = FakeRemoteCatalogReadiness(),
     kavitaCatalogSyncer: KavitaCatalogSyncer = FakeKavitaCatalogSyncer(),
@@ -401,6 +402,7 @@ private fun createViewModel(
     }
     return AppViewModel(
         appPreferencesStore = appPreferencesStore,
+        libraryBrowsePreferencesStore = libraryBrowsePreferencesStore,
         appStateHydrator = AppStateHydrator(
             localDocumentHydrator = localDocumentRepository,
             readerSessionHydrator = readerSessionStore,
@@ -632,6 +634,38 @@ private class FakeAppPreferencesStore : AppPreferencesStore {
 
     override suspend fun setThemeMode(themeMode: ThemeMode) {
         state.value = AppPreferences(themeMode = themeMode)
+    }
+}
+
+private class FakeLibraryBrowsePreferencesStore : com.example.unifiedreader.feature.library.LibraryBrowsePreferencesStore {
+    private val state = MutableStateFlow(com.example.unifiedreader.feature.library.LibraryBrowsePreferences())
+
+    override val preferencesFlow: StateFlow<com.example.unifiedreader.feature.library.LibraryBrowsePreferences> = state
+
+    override suspend fun setFilters(
+        sourceType: SourceType,
+        filters: com.example.unifiedreader.core.model.LibraryFilterState,
+    ) {
+        state.value = state.value.copy(
+            filtersBySource = if (filters.isEmpty) {
+                state.value.filtersBySource - sourceType
+            } else {
+                state.value.filtersBySource + (sourceType to filters)
+            },
+        )
+    }
+
+    override suspend fun setSortMode(
+        sourceType: SourceType,
+        sortMode: com.example.unifiedreader.core.model.LibrarySortMode,
+    ) {
+        state.value = state.value.copy(
+            sortsBySource = if (sortMode == com.example.unifiedreader.feature.library.defaultLibrarySortMode) {
+                state.value.sortsBySource - sourceType
+            } else {
+                state.value.sortsBySource + (sourceType to sortMode)
+            },
+        )
     }
 }
 

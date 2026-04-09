@@ -48,7 +48,7 @@ fun LibraryScreen(
     filterFacets: LibraryFilterFacets = LibraryFilterFacets(),
     libraryTitlesById: Map<String, String> = emptyMap(),
     searchQuery: String = "",
-    sortMode: LibrarySortMode = LibrarySortMode.DATE_ADDED,
+    sortMode: LibrarySortMode = defaultLibrarySortMode,
     coverImageUrlProvider: (ReadableItem) -> String? = { it.coverUrl },
     onCoverVisible: (ReadableItem) -> Unit = {},
     onFilterStateChanged: (LibraryFilterState) -> Unit = {},

@@ -21,6 +21,7 @@ import com.example.unifiedreader.core.model.remoteLibraryId
 import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
 import com.example.unifiedreader.data.grimmory.GrimmorySession
+import com.example.unifiedreader.feature.library.LibraryBrowsePreferences
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesStore
@@ -594,6 +595,85 @@ class AppViewModelTest {
     }
 
     @Test
+    fun `library browse preferences restore persisted filters and sort per source`() {
+        val localBook = sampleItem(
+            id = "local-book",
+            title = "A Wizard of Earthsea",
+            format = FormatType.EPUB,
+            isLocalImport = true,
+        ).copy(
+            bookMetadata = BookMetadata(author = "Ursula K. Le Guin"),
+        )
+        val localComic = sampleItem(
+            id = "local-comic",
+            title = "Akira 001",
+            format = FormatType.CBZ,
+            isLocalImport = true,
+        )
+        val browsePreferencesStore = FakeLibraryBrowsePreferencesStore(
+            initialPreferences = LibraryBrowsePreferences(
+                filtersBySource = mapOf(
+                    SourceType.LOCAL to LibraryFilterState(formats = setOf(FormatType.EPUB)),
+                ),
+                sortsBySource = mapOf(
+                    SourceType.LOCAL to LibrarySortMode.TITLE,
+                ),
+            ),
+        )
+        val viewModel = createViewModel(
+            importedRepository = FakeLocalDocumentRepository(
+                importedItems = mutableListOf(localComic, localBook),
+            ),
+            libraryBrowsePreferencesStore = browsePreferencesStore,
+        )
+
+        viewModel.onSourceSelected(SourceType.LOCAL)
+
+        assertEquals(LibrarySortMode.TITLE, viewModel.uiState.selectedLibrarySortMode)
+        assertEquals(setOf(FormatType.EPUB), viewModel.uiState.selectedLibraryFilters.formats)
+        assertEquals(listOf(localBook), viewModel.uiState.visibleItems)
+    }
+
+    @Test
+    fun `library browse changes persist into preferences store`() {
+        val localBook = sampleItem(
+            id = "local-book",
+            title = "A Wizard of Earthsea",
+            format = FormatType.EPUB,
+            isLocalImport = true,
+        )
+        val browsePreferencesStore = FakeLibraryBrowsePreferencesStore()
+        val viewModel = createViewModel(
+            importedRepository = FakeLocalDocumentRepository(
+                importedItems = mutableListOf(localBook),
+            ),
+            libraryBrowsePreferencesStore = browsePreferencesStore,
+        )
+
+        viewModel.onSourceSelected(SourceType.LOCAL)
+        viewModel.onLibraryFiltersChanged(
+            LibraryFilterState(
+                formats = setOf(FormatType.EPUB),
+                authors = setOf("Ursula K. Le Guin"),
+            ),
+        )
+        viewModel.onLibrarySortModeChanged(LibrarySortMode.TITLE)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(
+            LibraryFilterState(
+                formats = setOf(FormatType.EPUB),
+                authors = setOf("Ursula K. Le Guin"),
+            ),
+            browsePreferencesStore.preferencesFlow.value.filtersBySource[SourceType.LOCAL],
+        )
+        assertEquals(
+            LibrarySortMode.TITLE,
+            browsePreferencesStore.preferencesFlow.value.sortsBySource[SourceType.LOCAL],
+        )
+    }
+
+    @Test
     fun `library sort modes order filtered visible items`() {
         val neuromancer = sampleItem(
             id = "neuromancer",
@@ -648,7 +728,8 @@ class AppViewModelTest {
         )
         viewModel.onSourceSelected(SourceType.LOCAL)
 
-        assertEquals(listOf(leftHand, akira, neuromancer), viewModel.uiState.visibleItems)
+        assertEquals(LibrarySortMode.LAST_READ, viewModel.uiState.selectedLibrarySortMode)
+        assertEquals(listOf(akira, leftHand, neuromancer), viewModel.uiState.visibleItems)
 
         viewModel.onLibrarySortModeChanged(LibrarySortMode.LAST_READ)
 

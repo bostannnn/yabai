@@ -8,6 +8,8 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.remoteLibraryId
 import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
+import com.example.unifiedreader.feature.library.LibraryBrowsePreferences
+import com.example.unifiedreader.feature.library.LibraryBrowsePreferencesStore
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
@@ -29,6 +31,7 @@ internal fun createViewModel(
     progressStore: ComicReaderProgressStore = FakeComicReaderProgressStore(),
     preferencesStore: ComicReaderPreferencesStore = FakeComicReaderPreferencesStore(),
     appPreferencesStore: AppPreferencesStore = FakeAppPreferencesStore(),
+    libraryBrowsePreferencesStore: LibraryBrowsePreferencesStore = FakeLibraryBrowsePreferencesStore(),
     readerSessionStore: FakeReaderSessionStore = FakeReaderSessionStore(),
     kavitaCatalogSyncer: KavitaCatalogSyncer = FakeKavitaCatalogSyncer(),
     kavitaCredentialStore: KavitaCredentialStore = FakeKavitaCredentialStore(),
@@ -66,6 +69,7 @@ internal fun createViewModel(
     )
     return AppViewModel(
         appPreferencesStore = appPreferencesStore,
+        libraryBrowsePreferencesStore = libraryBrowsePreferencesStore,
         appStateHydrator = AppStateHydrator(
             localDocumentHydrator = importedRepository,
             readerSessionHydrator = readerSessionStore,
@@ -483,6 +487,40 @@ class FakeAppPreferencesStore(
 
     override suspend fun setThemeMode(themeMode: ThemeMode) {
         mutablePreferencesFlow.value = AppPreferences(themeMode = themeMode)
+    }
+}
+
+class FakeLibraryBrowsePreferencesStore(
+    initialPreferences: LibraryBrowsePreferences = LibraryBrowsePreferences(),
+) : LibraryBrowsePreferencesStore {
+    private val mutablePreferencesFlow = MutableStateFlow(initialPreferences)
+
+    override val preferencesFlow: StateFlow<LibraryBrowsePreferences> = mutablePreferencesFlow
+
+    override suspend fun setFilters(
+        sourceType: SourceType,
+        filters: com.example.unifiedreader.core.model.LibraryFilterState,
+    ) {
+        mutablePreferencesFlow.value = mutablePreferencesFlow.value.copy(
+            filtersBySource = if (filters.isEmpty) {
+                mutablePreferencesFlow.value.filtersBySource - sourceType
+            } else {
+                mutablePreferencesFlow.value.filtersBySource + (sourceType to filters)
+            },
+        )
+    }
+
+    override suspend fun setSortMode(
+        sourceType: SourceType,
+        sortMode: com.example.unifiedreader.core.model.LibrarySortMode,
+    ) {
+        mutablePreferencesFlow.value = mutablePreferencesFlow.value.copy(
+            sortsBySource = if (sortMode == com.example.unifiedreader.feature.library.defaultLibrarySortMode) {
+                mutablePreferencesFlow.value.sortsBySource - sourceType
+            } else {
+                mutablePreferencesFlow.value.sortsBySource + (sourceType to sortMode)
+            },
+        )
     }
 }
 

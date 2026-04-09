@@ -188,7 +188,7 @@ private fun LibrarySortSelector(
     var expanded by rememberSaveable { mutableStateOf(false) }
     Box {
         FilterChip(
-            selected = sortMode != LibrarySortMode.DATE_ADDED,
+            selected = sortMode != defaultLibrarySortMode,
             onClick = { expanded = true },
             label = {
                 Text(

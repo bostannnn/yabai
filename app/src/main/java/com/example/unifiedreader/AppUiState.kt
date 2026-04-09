@@ -23,6 +23,7 @@ import com.example.unifiedreader.core.model.kavitaSeriesGroupKey
 import com.example.unifiedreader.core.model.stumpSeriesContainerId
 import com.example.unifiedreader.core.model.stumpSeriesGroupKey
 import com.example.unifiedreader.feature.library.ItemProgressSummary
+import com.example.unifiedreader.feature.library.defaultLibrarySortMode
 import com.example.unifiedreader.feature.settings.KavitaConnectionUiState
 import com.example.unifiedreader.feature.settings.GrimmoryConnectionUiState
 import com.example.unifiedreader.feature.settings.StumpConnectionUiState
@@ -88,7 +89,7 @@ data class AppUiState(
         get() = libraryMessage.takeIf { libraryMessageSeverity == LibraryMessageSeverity.Error }
 
     val selectedLibrarySortMode: LibrarySortMode
-        get() = librarySortsBySource[selectedSource] ?: LibrarySortMode.DATE_ADDED
+        get() = librarySortsBySource[selectedSource] ?: defaultLibrarySortMode
 
     val isSelectedSourceHydrated: Boolean
         get() = selectedSource in hydratedSources
