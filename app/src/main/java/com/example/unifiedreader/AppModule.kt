@@ -3,6 +3,9 @@ package com.example.unifiedreader
 import android.content.Context
 import com.example.unifiedreader.core.database.UnifiedReaderDatabase
 import com.example.unifiedreader.core.database.UnifiedReaderDatabaseFactory
+import com.example.unifiedreader.core.database.dao.ImportedComicArchiveDao
+import com.example.unifiedreader.core.database.dao.ReadingProgressDao
+import com.example.unifiedreader.core.database.dao.ReaderSessionStateDao
 import com.example.unifiedreader.core.network.buildHttpClient
 import com.example.unifiedreader.data.grimmory.KtorGrimmoryApi
 import com.example.unifiedreader.data.kavita.KtorKavitaApi
@@ -60,6 +63,35 @@ object AppModule {
     fun provideDatabase(
         @ApplicationContext context: Context,
     ): UnifiedReaderDatabase = UnifiedReaderDatabaseFactory.create(context)
+
+    @Provides
+    fun provideImportedComicArchiveDao(
+        database: UnifiedReaderDatabase,
+    ): ImportedComicArchiveDao = database.importedComicArchiveDao()
+
+    @Provides
+    fun provideReadingProgressDao(
+        database: UnifiedReaderDatabase,
+    ): ReadingProgressDao = database.readingProgressDao()
+
+    @Provides
+    fun provideReaderSessionStateDao(
+        database: UnifiedReaderDatabase,
+    ): ReaderSessionStateDao = database.readerSessionStateDao()
+
+    @Provides
+    @Singleton
+    fun provideAppStartupInitializer(
+        @ApplicationContext context: Context,
+        importedComicArchiveDao: ImportedComicArchiveDao,
+        readingProgressDao: ReadingProgressDao,
+        readerSessionStateDao: ReaderSessionStateDao,
+    ): AppStartupInitializer = AppStartupInitializer(
+        context = context,
+        importedComicArchiveDao = importedComicArchiveDao,
+        readingProgressDao = readingProgressDao,
+        readerSessionStateDao = readerSessionStateDao,
+    )
 
     @Provides
     @Singleton
@@ -265,15 +297,11 @@ object AppModule {
     @Singleton
     fun provideLocalDocumentRepository(
         @ApplicationContext context: Context,
-        database: UnifiedReaderDatabase,
+        importedComicArchiveDao: ImportedComicArchiveDao,
     ): LocalDocumentRepository {
-        LocalDocumentBootstrapper(
-            context = context,
-            importedComicArchiveDao = database.importedComicArchiveDao(),
-        ).bootstrapIfNeeded()
         return LocalDocumentRepository(
             context = context,
-            importedComicArchiveDao = database.importedComicArchiveDao(),
+            importedComicArchiveDao = importedComicArchiveDao,
         )
     }
 
@@ -300,19 +328,12 @@ object AppModule {
     @Provides
     @Singleton
     fun provideReaderSessionStore(
-        @ApplicationContext context: Context,
-        database: UnifiedReaderDatabase,
-    ): RoomReaderSessionStore {
-        ReaderStateBootstrapper(
-            context = context,
-            readingProgressDao = database.readingProgressDao(),
-            readerSessionStateDao = database.readerSessionStateDao(),
-        ).bootstrapIfNeeded()
-        return RoomReaderSessionStore(
-            readingProgressDao = database.readingProgressDao(),
-            readerSessionStateDao = database.readerSessionStateDao(),
-        )
-    }
+        readingProgressDao: ReadingProgressDao,
+        readerSessionStateDao: ReaderSessionStateDao,
+    ): RoomReaderSessionStore = RoomReaderSessionStore(
+        readingProgressDao = readingProgressDao,
+        readerSessionStateDao = readerSessionStateDao,
+    )
 
     @Provides
     fun provideReaderSessionStoreContract(

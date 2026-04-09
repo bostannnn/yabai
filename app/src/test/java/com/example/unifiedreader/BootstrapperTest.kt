@@ -111,6 +111,65 @@ class BootstrapperTest {
                 .getBoolean("reader_state_room_bootstrap_v1", false),
         )
     }
+
+    @Test
+    fun `app startup initializer runs room bootstraps before repositories are created`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.getSharedPreferences("unified_reader_imported_cbz", Context.MODE_PRIVATE)
+            .edit()
+            .putStringSet(
+                "records",
+                linkedSetOf(
+                    legacyImportedArchiveRecord(
+                        id = "comic-3",
+                        uri = "content://imports/nausicaa.cbz",
+                        displayName = "Nausicaa.cbz",
+                        format = FormatType.CBZ,
+                        pageCount = 2,
+                        pageEntryNames = listOf("001.jpg", "002.jpg"),
+                    ),
+                ),
+            )
+            .apply()
+        context.getSharedPreferences("unified_reader_local_progress", Context.MODE_PRIVATE)
+            .edit()
+            .putInt("reader.cbz.comic-3.page", 4)
+            .apply()
+        context.getSharedPreferences("unified_reader_reader_preferences", Context.MODE_PRIVATE)
+            .edit()
+            .putString("reader.cbz.comic-3.direction", ComicReadingDirection.RTL.name)
+            .putString("reader.cbz.comic-3.fit_mode", ComicPageFitMode.FitWidth.name)
+            .apply()
+        context.getSharedPreferences("unified_reader_bootstrap_state", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .apply()
+
+        val archiveDao = FakeImportedComicArchiveDao()
+        val progressDao = FakeReadingProgressDao()
+        val sessionDao = FakeReaderSessionStateDao()
+
+        AppStartupInitializer(
+            context = context,
+            importedComicArchiveDao = archiveDao,
+            readingProgressDao = progressDao,
+            readerSessionStateDao = sessionDao,
+        ).initialize()
+
+        assertEquals(1, archiveDao.entities.size)
+        assertEquals("comic-3", archiveDao.entities.first().itemId)
+        assertEquals(1, progressDao.entities.size)
+        assertEquals(4, progressDao.entities.first().page)
+        assertEquals(1, sessionDao.entities.size)
+        assertTrue(
+            context.getSharedPreferences("unified_reader_bootstrap_state", Context.MODE_PRIVATE)
+                .getBoolean("imported_archives_room_bootstrap_v1", false),
+        )
+        assertTrue(
+            context.getSharedPreferences("unified_reader_bootstrap_state", Context.MODE_PRIVATE)
+                .getBoolean("reader_state_room_bootstrap_v1", false),
+        )
+    }
 }
 
 private class FakeImportedComicArchiveDao : ImportedComicArchiveDao {
