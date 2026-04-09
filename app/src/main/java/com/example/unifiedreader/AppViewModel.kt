@@ -36,7 +36,7 @@ class AppViewModel @Inject constructor(
     val readerSessionStore: ReaderSessionStore,
     val readerFactories: List<@JvmSuppressWildcards ReaderScreenFactory>,
 ) : ViewModel() {
-    var uiState by mutableStateOf(AppUiState())
+    var uiState by mutableStateOf(AppUiState().withDerivedLibraryState())
         private set
 
     init {
@@ -438,7 +438,8 @@ class AppViewModel @Inject constructor(
     private inline fun updateUiState(
         transform: (AppUiState) -> AppUiState,
     ) {
-        uiState = transform(uiState)
+        val previousState = uiState
+        uiState = transform(previousState).withDerivedLibraryState(previousState)
     }
 
     private fun updateLibraryMessage(

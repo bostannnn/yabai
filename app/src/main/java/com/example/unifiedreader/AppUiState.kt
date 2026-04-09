@@ -71,40 +71,13 @@ data class AppUiState(
     val grimmoryConnection: GrimmoryConnectionUiState = GrimmoryConnectionUiState(),
     val selectedKavitaSeriesKey: String? = null,
     val selectedStumpSeriesKey: String? = null,
+    val sourceItems: List<ReadableItem> = emptyList(),
+    val selectedLibraryFilterFacets: LibraryFilterFacets = LibraryFilterFacets(),
+    val selectedSourceLibraryTitlesById: Map<String, String> = emptyMap(),
+    val displayProgressByItemId: Map<String, ItemProgressSummary> = emptyMap(),
+    val visibleItems: List<ReadableItem> = emptyList(),
+    val libraryBrowseContextKey: String = "",
 ) {
-    val sourceItems: List<ReadableItem>
-        get() {
-            val selectedItems = items.filter { it.sourceType == selectedSource }
-            when (selectedSource) {
-                SourceType.KAVITA -> {
-                    val seriesKey = selectedKavitaSeriesKey
-                    if (seriesKey != null) {
-                        return selectedItems.filter { item -> item.belongsToKavitaSeries(seriesKey) }
-                    }
-                    val comicIssues = selectedItems.filter { item -> item.kavitaSeriesGroupKey() != null }
-                    val directItems = selectedItems.filterNot { item -> item.kavitaSeriesGroupKey() != null }
-                    val seriesItems = comicIssues
-                        .groupBy { issue -> issue.kavitaSeriesGroupKey()!! }
-                        .map { (key, issues) -> buildKavitaSeriesContainer(key, issues) }
-                    return directItems + seriesItems
-                }
-                SourceType.STUMP -> {
-                    val seriesKey = selectedStumpSeriesKey
-                    if (seriesKey != null) {
-                        return selectedItems.filter { item -> item.belongsToStumpSeries(seriesKey) }
-                    }
-                    val comicIssues = selectedItems.filter { item -> item.stumpSeriesGroupKey() != null }
-                    val directItems = selectedItems.filterNot { item -> item.stumpSeriesGroupKey() != null }
-                    val seriesItems = comicIssues
-                        .groupBy { issue -> issue.stumpSeriesGroupKey()!! }
-                        .map { (key, issues) -> buildStumpSeriesContainer(key, issues) }
-                    return directItems + seriesItems
-                }
-                SourceType.GRIMMORY,
-                SourceType.LOCAL -> return selectedItems
-            }
-        }
-
     val selectedLibraryFilters: LibraryFilterState
         get() = libraryFiltersBySource[selectedSource] ?: LibraryFilterState()
 
@@ -114,40 +87,11 @@ data class AppUiState(
     val visibleLibraryErrorMessage: String?
         get() = libraryMessage.takeIf { libraryMessageSeverity == LibraryMessageSeverity.Error }
 
-    val selectedLibraryFilterFacets: LibraryFilterFacets
-        get() = buildLibraryFilterFacets(sourceItems, downloadedRemoteItemIds)
-
-    val selectedSourceLibraryTitlesById: Map<String, String>
-        get() = libraries
-            .filter { library -> library.sourceType == selectedSource }
-            .associate { library -> library.id to library.title }
-
-    val displayProgressByItemId: Map<String, ItemProgressSummary>
-        get() = when {
-            selectedSource == SourceType.KAVITA && selectedKavitaSeriesKey == null ->
-                progressByItemId + buildKavitaSeriesProgressByItemId(items, progressByItemId)
-            selectedSource == SourceType.STUMP && selectedStumpSeriesKey == null ->
-                progressByItemId + buildStumpSeriesProgressByItemId(items, progressByItemId)
-            else -> progressByItemId
-        }
-
     val selectedLibrarySortMode: LibrarySortMode
         get() = librarySortsBySource[selectedSource] ?: LibrarySortMode.DATE_ADDED
 
     val isSelectedSourceHydrated: Boolean
         get() = selectedSource in hydratedSources
-
-    val visibleItems: List<ReadableItem>
-        get() = applyLibrarySort(
-            items = applyLibrarySearch(
-                items = applyLibraryFilters(sourceItems, selectedLibraryFilters, downloadedRemoteItemIds),
-                query = selectedLibrarySearchQuery,
-            ),
-            sortMode = selectedLibrarySortMode,
-            lastReadAtEpochMillisByItemId = displayProgressByItemId.mapValues { (_, progress) ->
-                progress.lastReadAtEpochMillis
-            },
-        )
 
     val selectedItem: ReadableItem?
         get() = items.firstOrNull { it.id == selectedItemId }
@@ -173,21 +117,134 @@ data class AppUiState(
             SourceType.GRIMMORY,
             SourceType.LOCAL -> null
         }
-
-    val libraryBrowseContextKey: String
-        get() = when (selectedSource) {
-            SourceType.KAVITA -> selectedKavitaSeriesKey?.let { seriesKey ->
-                "kavita:series:${seriesKey.keyComponent()}:${libraryBrowseStateKeySuffix()}"
-            } ?: "kavita:root:${libraryBrowseStateKeySuffix()}"
-            SourceType.STUMP -> selectedStumpSeriesKey?.let { seriesKey ->
-                "stump:series:${seriesKey.keyComponent()}:${libraryBrowseStateKeySuffix()}"
-            } ?: "stump:root:${libraryBrowseStateKeySuffix()}"
-            SourceType.GRIMMORY -> "grimmory:root:${libraryBrowseStateKeySuffix()}"
-            SourceType.LOCAL -> "local:root:${libraryBrowseStateKeySuffix()}"
-        }
 }
 
-private fun AppUiState.libraryBrowseStateKeySuffix(): String = buildString {
+internal fun AppUiState.withDerivedLibraryState(
+    previousState: AppUiState? = null,
+): AppUiState {
+    if (previousState != null && hasSameDerivedLibraryInputReferencesAs(previousState)) {
+        return copy(
+            sourceItems = previousState.sourceItems,
+            selectedLibraryFilterFacets = previousState.selectedLibraryFilterFacets,
+            selectedSourceLibraryTitlesById = previousState.selectedSourceLibraryTitlesById,
+            displayProgressByItemId = previousState.displayProgressByItemId,
+            visibleItems = previousState.visibleItems,
+            libraryBrowseContextKey = previousState.libraryBrowseContextKey,
+        )
+    }
+
+    val selectedLibraryFilters = selectedLibraryFilters
+    val selectedLibrarySearchQuery = selectedLibrarySearchQuery
+    val selectedLibrarySortMode = selectedLibrarySortMode
+    val sourceItems = buildSourceItems()
+    val displayProgressByItemId = buildDisplayProgressByItemId()
+    val lastReadAtEpochMillisByItemId = displayProgressByItemId.mapValues { (_, progress) ->
+        progress.lastReadAtEpochMillis
+    }
+    val visibleItems = applyLibrarySort(
+        items = applyLibrarySearch(
+            items = applyLibraryFilters(sourceItems, selectedLibraryFilters, downloadedRemoteItemIds),
+            query = selectedLibrarySearchQuery,
+        ),
+        sortMode = selectedLibrarySortMode,
+        lastReadAtEpochMillisByItemId = lastReadAtEpochMillisByItemId,
+    )
+
+    return copy(
+        sourceItems = sourceItems,
+        selectedLibraryFilterFacets = buildLibraryFilterFacets(sourceItems, downloadedRemoteItemIds),
+        selectedSourceLibraryTitlesById = libraries
+            .filter { library -> library.sourceType == selectedSource }
+            .associate { library -> library.id to library.title },
+        displayProgressByItemId = displayProgressByItemId,
+        visibleItems = visibleItems,
+        libraryBrowseContextKey = buildLibraryBrowseContextKey(
+            selectedLibrarySearchQuery = selectedLibrarySearchQuery,
+            selectedLibrarySortMode = selectedLibrarySortMode,
+            selectedLibraryFilters = selectedLibraryFilters,
+        ),
+    )
+}
+
+private fun AppUiState.hasSameDerivedLibraryInputReferencesAs(
+    other: AppUiState,
+): Boolean = selectedSource == other.selectedSource &&
+    items === other.items &&
+    libraries === other.libraries &&
+    downloadedRemoteItemIds === other.downloadedRemoteItemIds &&
+    progressByItemId === other.progressByItemId &&
+    selectedKavitaSeriesKey == other.selectedKavitaSeriesKey &&
+    selectedStumpSeriesKey == other.selectedStumpSeriesKey &&
+    libraryFiltersBySource === other.libraryFiltersBySource &&
+    librarySearchQueriesBySource === other.librarySearchQueriesBySource &&
+    librarySortsBySource === other.librarySortsBySource
+
+private fun AppUiState.buildSourceItems(): List<ReadableItem> {
+    val selectedItems = items.filter { it.sourceType == selectedSource }
+    return when (selectedSource) {
+        SourceType.KAVITA -> {
+            val seriesKey = selectedKavitaSeriesKey
+            if (seriesKey != null) {
+                return selectedItems.filter { item -> item.belongsToKavitaSeries(seriesKey) }
+            }
+            val comicIssues = selectedItems.filter { item -> item.kavitaSeriesGroupKey() != null }
+            val directItems = selectedItems.filterNot { item -> item.kavitaSeriesGroupKey() != null }
+            val seriesItems = comicIssues
+                .groupBy { issue -> issue.kavitaSeriesGroupKey()!! }
+                .map { (key, issues) -> buildKavitaSeriesContainer(key, issues) }
+            directItems + seriesItems
+        }
+
+        SourceType.STUMP -> {
+            val seriesKey = selectedStumpSeriesKey
+            if (seriesKey != null) {
+                return selectedItems.filter { item -> item.belongsToStumpSeries(seriesKey) }
+            }
+            val comicIssues = selectedItems.filter { item -> item.stumpSeriesGroupKey() != null }
+            val directItems = selectedItems.filterNot { item -> item.stumpSeriesGroupKey() != null }
+            val seriesItems = comicIssues
+                .groupBy { issue -> issue.stumpSeriesGroupKey()!! }
+                .map { (key, issues) -> buildStumpSeriesContainer(key, issues) }
+            directItems + seriesItems
+        }
+
+        SourceType.GRIMMORY,
+        SourceType.LOCAL -> selectedItems
+    }
+}
+
+private fun AppUiState.buildDisplayProgressByItemId(): Map<String, ItemProgressSummary> = when {
+    selectedSource == SourceType.KAVITA && selectedKavitaSeriesKey == null ->
+        progressByItemId + buildKavitaSeriesProgressByItemId(items, progressByItemId)
+
+    selectedSource == SourceType.STUMP && selectedStumpSeriesKey == null ->
+        progressByItemId + buildStumpSeriesProgressByItemId(items, progressByItemId)
+
+    else -> progressByItemId
+}
+
+private fun AppUiState.buildLibraryBrowseContextKey(
+    selectedLibrarySearchQuery: String,
+    selectedLibrarySortMode: LibrarySortMode,
+    selectedLibraryFilters: LibraryFilterState,
+): String = when (selectedSource) {
+    SourceType.KAVITA -> selectedKavitaSeriesKey?.let { seriesKey ->
+        "kavita:series:${seriesKey.keyComponent()}:${libraryBrowseStateKeySuffix(selectedLibrarySearchQuery, selectedLibrarySortMode, selectedLibraryFilters)}"
+    } ?: "kavita:root:${libraryBrowseStateKeySuffix(selectedLibrarySearchQuery, selectedLibrarySortMode, selectedLibraryFilters)}"
+
+    SourceType.STUMP -> selectedStumpSeriesKey?.let { seriesKey ->
+        "stump:series:${seriesKey.keyComponent()}:${libraryBrowseStateKeySuffix(selectedLibrarySearchQuery, selectedLibrarySortMode, selectedLibraryFilters)}"
+    } ?: "stump:root:${libraryBrowseStateKeySuffix(selectedLibrarySearchQuery, selectedLibrarySortMode, selectedLibraryFilters)}"
+
+    SourceType.GRIMMORY -> "grimmory:root:${libraryBrowseStateKeySuffix(selectedLibrarySearchQuery, selectedLibrarySortMode, selectedLibraryFilters)}"
+    SourceType.LOCAL -> "local:root:${libraryBrowseStateKeySuffix(selectedLibrarySearchQuery, selectedLibrarySortMode, selectedLibraryFilters)}"
+}
+
+private fun libraryBrowseStateKeySuffix(
+    selectedLibrarySearchQuery: String,
+    selectedLibrarySortMode: LibrarySortMode,
+    selectedLibraryFilters: LibraryFilterState,
+): String = buildString {
     append("query=")
     append(selectedLibrarySearchQuery.keyComponent())
     append("|sort=")
