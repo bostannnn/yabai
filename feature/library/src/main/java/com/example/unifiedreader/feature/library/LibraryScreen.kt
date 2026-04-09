@@ -182,6 +182,7 @@ fun LibraryScreen(
                         )
                         LibraryViewMode.Grid -> GridCoverCard(
                             item = item,
+                            progress = progressByItemId[item.id],
                             isDownloaded = item.isDownloaded(downloadedItemIds),
                             isDownloading = item.id in downloadingItemIds,
                             coverImageUrlProvider = coverImageUrlProvider,

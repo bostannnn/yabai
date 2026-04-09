@@ -22,7 +22,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -34,7 +33,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -189,6 +187,7 @@ internal fun DetailedItemCard(
 @Composable
 internal fun GridCoverCard(
     item: ReadableItem,
+    progress: ItemProgressSummary?,
     isDownloaded: Boolean,
     isDownloading: Boolean,
     coverImageUrlProvider: (ReadableItem) -> String?,
@@ -198,6 +197,8 @@ internal fun GridCoverCard(
     onDownloadRequested: (() -> Unit)?,
     onDeleteDownloadedRequested: (() -> Unit)?,
 ) {
+    val showCoverProgress = progress?.shouldShowCoverProgress == true
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -208,11 +209,20 @@ internal fun GridCoverCard(
             item = item,
             coverUrl = coverImageUrlProvider(item),
             isDownloaded = isDownloaded,
+            downloadBadgeBottomInset = if (showCoverProgress) 2.dp else 0.dp,
             onCoverVisible = onCoverVisible,
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f),
         )
+        progress?.takeIf { showCoverProgress }?.let { summary ->
+            LibraryCoverProgressBar(
+                progress = summary,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth(),
+            )
+        }
         val menuActions = itemMenuActions(
             isDownloading = isDownloading,
             onDeleteRequested = onDeleteRequested,
@@ -298,6 +308,7 @@ private fun LibraryCover(
     item: ReadableItem,
     coverUrl: String? = item.coverUrl,
     isDownloaded: Boolean = false,
+    downloadBadgeBottomInset: androidx.compose.ui.unit.Dp = 0.dp,
     onCoverVisible: (ReadableItem) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -382,7 +393,7 @@ private fun LibraryCover(
             Surface(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(6.dp),
+                    .padding(end = 6.dp, bottom = 6.dp + downloadBadgeBottomInset),
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
                 color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.94f),
                 tonalElevation = 2.dp,
@@ -397,27 +408,6 @@ private fun LibraryCover(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun ProgressSummary(
-    progress: ItemProgressSummary,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            text = progress.detailLabel,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        LinearProgressIndicator(
-            progress = { progress.fraction.coerceIn(0f, 1f) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .alpha(0.92f),
-        )
     }
 }
 
