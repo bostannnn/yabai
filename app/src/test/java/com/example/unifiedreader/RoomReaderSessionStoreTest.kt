@@ -32,7 +32,8 @@ class RoomReaderSessionStoreTest {
         )
         val item = testItem()
 
-        advanceUntilIdle()
+        assertTrue(!store.isHydratedFlow.value)
+        store.hydrate()
         store.updateSession(
             item = item,
             preferences = mapOf("readingDirection" to ComicReadingDirection.RTL.name),
@@ -68,7 +69,7 @@ class RoomReaderSessionStoreTest {
         )
         val item = testItem()
 
-        advanceUntilIdle()
+        store.hydrate()
         store.saveProgress(
             item = item,
             locator = com.example.unifiedreader.feature.reader.core.ReaderLocator(

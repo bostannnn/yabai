@@ -66,6 +66,10 @@ internal fun createViewModel(
     )
     return AppViewModel(
         appPreferencesStore = appPreferencesStore,
+        appStateHydrator = AppStateHydrator(
+            localDocumentHydrator = importedRepository,
+            readerSessionHydrator = readerSessionStore,
+        ),
         catalogStateCoordinator = AppCatalogStateCoordinator(
             libraryRepository = libraryRepository,
             readableItemRepository = readableItemRepository,
@@ -112,26 +116,33 @@ internal fun createViewModel(
             sourceProgressSyncs = sourceProgressSyncs,
         ),
         remoteSourcesCoordinator = AppRemoteSourcesCoordinator(
-            kavitaCoordinator = AppKavitaCoordinator(
-                kavitaCatalogSyncer = kavitaCatalogSyncer,
+            kavitaController = AppKavitaRemoteSourceController(
+                kavitaCoordinator = AppKavitaCoordinator(
+                    kavitaCatalogSyncer = kavitaCatalogSyncer,
+                    kavitaCredentialStore = kavitaCredentialStore,
+                ),
                 kavitaCredentialStore = kavitaCredentialStore,
+                comicPageSourceCacheController = comicPageSourceCacheController,
             ),
-            stumpCoordinator = AppStumpCoordinator(
-                stumpCatalogSyncer = stumpCatalogSyncer,
+            stumpController = AppStumpRemoteSourceController(
+                stumpCoordinator = AppStumpCoordinator(
+                    stumpCatalogSyncer = stumpCatalogSyncer,
+                    stumpCredentialStore = stumpCredentialStore,
+                    stumpCoverRepository = stumpCoverRepository,
+                ),
                 stumpCredentialStore = stumpCredentialStore,
-                stumpCoverRepository = stumpCoverRepository,
+                stumpCoverCacheController = stumpCoverCacheController,
+                comicPageSourceCacheController = comicPageSourceCacheController,
             ),
-            grimmoryCoordinator = AppGrimmoryCoordinator(
-                grimmoryCatalogSyncer = grimmoryCatalogSyncer,
+            grimmoryController = AppGrimmoryRemoteSourceController(
+                grimmoryCoordinator = AppGrimmoryCoordinator(
+                    grimmoryCatalogSyncer = grimmoryCatalogSyncer,
+                    grimmoryCredentialStore = grimmoryCredentialStore,
+                    grimmoryCoverRepository = grimmoryCoverRepository,
+                ),
                 grimmoryCredentialStore = grimmoryCredentialStore,
-                grimmoryCoverRepository = grimmoryCoverRepository,
+                grimmoryCoverCacheController = grimmoryCoverCacheController,
             ),
-            kavitaCredentialStore = kavitaCredentialStore,
-            stumpCredentialStore = stumpCredentialStore,
-            grimmoryCredentialStore = grimmoryCredentialStore,
-            stumpCoverCacheController = stumpCoverCacheController,
-            grimmoryCoverCacheController = grimmoryCoverCacheController,
-            comicPageSourceCacheController = comicPageSourceCacheController,
         ),
         comicPageSource = pageSource,
         comicReaderProgressStore = progressStore,
@@ -390,12 +401,14 @@ class FakeLocalDocumentRepository(
     private val importedItems: MutableList<ReadableItem> = mutableListOf(),
     val pageCounts: MutableMap<String, Int> = mutableMapOf(),
     val importedDocumentUris: MutableMap<String, Uri> = mutableMapOf(),
-) : LocalDocumentDataSource {
+) : LocalDocumentDataSource, LocalDocumentHydrator {
     override val isHydratedFlow: StateFlow<Boolean> = MutableStateFlow(true)
     private val importedItemsState = MutableStateFlow(importedItems.toList())
     override val importedItemsFlow: StateFlow<List<ReadableItem>> = importedItemsState
 
     override fun getImportedItems(): List<ReadableItem> = importedItems.toList()
+
+    override suspend fun hydrate() = Unit
 
     override suspend fun import(uri: Uri): ReadableItem? = importResult?.also { item ->
         importedItems.removeAll { existing -> existing.id == item.id }
@@ -473,7 +486,7 @@ class FakeAppPreferencesStore(
     }
 }
 
-class FakeReaderSessionStore : ReaderSessionStore {
+class FakeReaderSessionStore : ReaderSessionStore, ReaderSessionHydrator {
     private val progressByItemId = MutableStateFlow<Map<String, com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot>>(emptyMap())
     private val sessionByItemId = MutableStateFlow<Map<String, com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot>>(emptyMap())
     override val isHydratedFlow: StateFlow<Boolean> = MutableStateFlow(true)
@@ -483,6 +496,8 @@ class FakeReaderSessionStore : ReaderSessionStore {
         sessionByItemId
 
     override fun getProgress(item: ReadableItem) = progressByItemId.value[item.id]
+
+    override suspend fun hydrate() = Unit
 
     override fun saveProgress(
         item: ReadableItem,

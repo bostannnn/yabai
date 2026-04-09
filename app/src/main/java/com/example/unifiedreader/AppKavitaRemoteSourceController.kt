@@ -1,0 +1,272 @@
+package com.example.unifiedreader
+
+import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.feature.settings.KavitaConnectionUiState
+import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+
+class AppKavitaRemoteSourceController @Inject constructor(
+    private val kavitaCoordinator: AppKavitaCoordinator,
+    private val kavitaCredentialStore: KavitaCredentialStore,
+    private val comicPageSourceCacheController: ComicPageSourceCacheController,
+) {
+    fun initialize(
+        updateState: AppUiStateUpdater,
+    ) {
+        updateState { state ->
+            state.copy(
+                kavitaConnection = state.kavitaConnection.withStoredSession(kavitaCredentialStore.sessionFlow.value),
+            )
+        }
+    }
+
+    fun onDisplayNameChanged(
+        displayName: String,
+        updateState: AppUiStateUpdater,
+    ) {
+        updateConnectionInput(updateState) { connection ->
+            connection.copy(displayName = displayName)
+        }
+    }
+
+    fun onBaseUrlChanged(
+        baseUrl: String,
+        updateState: AppUiStateUpdater,
+    ) {
+        updateConnectionInput(updateState) { connection ->
+            connection.copy(baseUrl = baseUrl)
+        }
+    }
+
+    fun onUsernameChanged(
+        username: String,
+        updateState: AppUiStateUpdater,
+    ) {
+        updateConnectionInput(updateState) { connection ->
+            connection.copy(username = username)
+        }
+    }
+
+    fun onPasswordChanged(
+        password: String,
+        updateState: AppUiStateUpdater,
+    ) {
+        updateConnection(updateState) { connection ->
+            connection.copy(
+                password = password,
+                message = null,
+                isError = false,
+            )
+        }
+    }
+
+    fun connect(
+        stateProvider: AppUiStateProvider,
+        updateState: AppUiStateUpdater,
+        scope: CoroutineScope,
+    ) {
+        val state = stateProvider()
+        if (state.kavitaConnection.hasStoredSession && state.kavitaConnection.password.isBlank()) {
+            refresh(stateProvider, updateState, scope)
+            return
+        }
+        when (val preparation = kavitaCoordinator.prepareConnect(state.kavitaConnection)) {
+            is KavitaSyncPreparation.Invalid -> {
+                updateState { current -> current.copy(kavitaConnection = preparation.connection) }
+            }
+            KavitaSyncPreparation.MissingSession -> Unit
+            is KavitaSyncPreparation.Ready -> {
+                updateState { current ->
+                    current.copy(
+                        kavitaConnection = preparation.activeConnection.copy(
+                            isConnecting = true,
+                            syncProgressFraction = null,
+                            syncProgressLabel = null,
+                            message = "Connecting to Kavita.",
+                            isError = false,
+                        ),
+                    )
+                }
+                startConnect(preparation, updateState, scope)
+            }
+        }
+    }
+
+    fun observeStoredSession(
+        scope: CoroutineScope,
+        stateProvider: AppUiStateProvider,
+        updateState: AppUiStateUpdater,
+    ) {
+        scope.launch {
+            kavitaCredentialStore.sessionFlow.collect { session ->
+                if (!stateProvider().kavitaConnection.isConnecting) {
+                    updateConnection(updateState) { connection ->
+                        kavitaCoordinator.refreshedConnectionState(
+                            connection.withStoredSession(session),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun refresh(
+        stateProvider: AppUiStateProvider,
+        updateState: AppUiStateUpdater,
+        scope: CoroutineScope,
+    ) {
+        when (val preparation = kavitaCoordinator.prepareRefresh(stateProvider().kavitaConnection)) {
+            KavitaSyncPreparation.MissingSession -> {
+                updateState { state ->
+                    state.copy(
+                        libraryMessage = "Connect to Kavita before syncing the library.",
+                        libraryMessageSeverity = LibraryMessageSeverity.Error,
+                        kavitaConnection = state.kavitaConnection.copy(
+                            message = "Connect to Kavita before syncing the library.",
+                            isError = true,
+                        ),
+                    )
+                }
+            }
+            is KavitaSyncPreparation.Invalid -> {
+                updateState { state ->
+                    state.copy(
+                        libraryMessage = preparation.connection.message,
+                        libraryMessageSeverity = LibraryMessageSeverity.Error,
+                        kavitaConnection = preparation.connection,
+                    )
+                }
+            }
+            is KavitaSyncPreparation.Ready -> {
+                updateState { state ->
+                    state.copy(
+                        kavitaConnection = preparation.activeConnection.copy(
+                            isConnecting = true,
+                            syncProgressFraction = 0f,
+                            syncProgressLabel = "Preparing Kavita sync...",
+                            message = "Syncing Kavita library.",
+                            isError = false,
+                        ),
+                        libraryMessage = "Syncing Kavita library.",
+                        libraryMessageSeverity = LibraryMessageSeverity.Info,
+                    )
+                }
+                startSync(preparation, updateState, scope)
+            }
+        }
+    }
+
+    private fun startSync(
+        preparation: KavitaSyncPreparation.Ready,
+        updateState: AppUiStateUpdater,
+        scope: CoroutineScope,
+    ) {
+        scope.launch {
+            when (
+                val result = kavitaCoordinator.executeSync(
+                    preparation = preparation,
+                    onProgress = { progress ->
+                        updateState { state ->
+                            state.copy(
+                                kavitaConnection = state.kavitaConnection.copy(
+                                    isConnecting = true,
+                                    syncProgressFraction = progress.fraction.coerceIn(0f, 1f),
+                                    syncProgressLabel = progress.message,
+                                    message = "Syncing Kavita library.",
+                                    isError = false,
+                                ),
+                                libraryMessage = progress.message,
+                                libraryMessageSeverity = LibraryMessageSeverity.Info,
+                            )
+                        }
+                    },
+                )
+            ) {
+                is KavitaSyncExecutionResult.Success -> {
+                    clearPageCache()
+                    updateState { state ->
+                        state.copy(
+                            topLevel = TopLevelDestination.Library,
+                            selectedSource = SourceType.KAVITA,
+                            selectedItemId = null,
+                            activeReader = null,
+                            selectedKavitaSeriesKey = null,
+                            libraryMessage = "Synced ${result.itemCount} Kavita items from ${result.libraryCount} libraries.",
+                            libraryMessageSeverity = LibraryMessageSeverity.Info,
+                            kavitaConnection = result.connection,
+                        )
+                    }
+                }
+                is KavitaSyncExecutionResult.Failure -> {
+                    updateState { state ->
+                        state.copy(
+                            libraryMessage = result.message,
+                            libraryMessageSeverity = LibraryMessageSeverity.Error,
+                            kavitaConnection = result.connection,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun startConnect(
+        preparation: KavitaSyncPreparation.Ready,
+        updateState: AppUiStateUpdater,
+        scope: CoroutineScope,
+    ) {
+        scope.launch {
+            when (val result = kavitaCoordinator.executeConnect(preparation)) {
+                is KavitaConnectExecutionResult.Success -> {
+                    clearPageCache()
+                    updateState { state ->
+                        state.copy(
+                            libraryMessage = "Connected to Kavita. ${result.libraryCount} libraries available to sync.",
+                            libraryMessageSeverity = LibraryMessageSeverity.Info,
+                            kavitaConnection = result.connection,
+                        )
+                    }
+                }
+                is KavitaConnectExecutionResult.Failure -> {
+                    updateState { state ->
+                        state.copy(
+                            libraryMessage = result.message,
+                            libraryMessageSeverity = LibraryMessageSeverity.Error,
+                            kavitaConnection = result.connection,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun clearPageCache() {
+        comicPageSourceCacheController.clearSourcePageCache(SourceType.KAVITA)
+    }
+
+    private fun updateConnection(
+        updateState: AppUiStateUpdater,
+        transform: (KavitaConnectionUiState) -> KavitaConnectionUiState,
+    ) {
+        updateState { state ->
+            state.copy(
+                kavitaConnection = transform(state.kavitaConnection),
+            )
+        }
+    }
+
+    private fun updateConnectionInput(
+        updateState: AppUiStateUpdater,
+        transform: (KavitaConnectionUiState) -> KavitaConnectionUiState,
+    ) {
+        updateConnection(updateState) { connection ->
+            kavitaCoordinator.refreshedConnectionState(
+                transform(connection).copy(
+                    message = null,
+                    isError = false,
+                ),
+            )
+        }
+    }
+}

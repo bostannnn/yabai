@@ -29,6 +29,10 @@ interface LocalDocumentDataSource {
     fun getDocumentUri(item: ReadableItem): android.net.Uri?
 }
 
+interface LocalDocumentHydrator {
+    suspend fun hydrate()
+}
+
 interface LocalComicDocumentDataSource {
     fun getPages(item: ReadableItem): List<ComicPageSpec>
 

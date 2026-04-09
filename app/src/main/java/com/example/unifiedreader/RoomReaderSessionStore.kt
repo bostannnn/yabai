@@ -20,14 +20,16 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 class RoomReaderSessionStore(
     private val readingProgressDao: ReadingProgressDao,
     private val readerSessionStateDao: ReaderSessionStateDao,
     private val writeScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
-) : ReaderSessionStore {
+) : ReaderSessionStore, ReaderSessionHydrator {
     private val progressWriteMutex = Mutex()
     private val sessionWriteMutex = Mutex()
+    private val hydrationMutex = Mutex()
     private val hydrationState = MutableStateFlow(false)
     override val isHydratedFlow: StateFlow<Boolean> = hydrationState.asStateFlow()
     private val progressState = MutableStateFlow<Map<String, ReaderProgressSnapshot>>(emptyMap())
@@ -35,17 +37,23 @@ class RoomReaderSessionStore(
     private val sessionState = MutableStateFlow<Map<String, ReaderSessionSnapshot>>(emptyMap())
     override val sessionByItemIdFlow: StateFlow<Map<String, ReaderSessionSnapshot>> = sessionState.asStateFlow()
 
-    init {
-        writeScope.launch {
-            progressState.update { existing ->
+    override suspend fun hydrate() {
+        if (isHydratedFlow.value) return
+        hydrationMutex.withLock {
+            if (isHydratedFlow.value) return
+            val persistedProgress = withContext(Dispatchers.IO) {
                 readingProgressDao.getAll()
                     .map(ReadingProgressEntity::toSnapshot)
-                    .associateBy(ReaderProgressSnapshot::itemId) + existing
             }
-            sessionState.update { existing ->
+            val persistedSessions = withContext(Dispatchers.IO) {
                 readerSessionStateDao.getAll()
                     .map(ReaderSessionStateEntity::toSnapshot)
-                    .associateBy(ReaderSessionSnapshot::itemId) + existing
+            }
+            progressState.update { existing ->
+                persistedProgress.associateBy(ReaderProgressSnapshot::itemId) + existing
+            }
+            sessionState.update { existing ->
+                persistedSessions.associateBy(ReaderSessionSnapshot::itemId) + existing
             }
             hydrationState.value = true
         }

@@ -198,7 +198,7 @@ class ImportedComicArchiveRepositoryTest {
             importedComicArchiveDao = dao,
             scope = kotlinx.coroutines.CoroutineScope(Dispatchers.Unconfined),
         )
-        repository.isHydratedFlow.first { it }
+        repository.hydrate()
 
         val hydrated = repository.getImportedItems().single()
         assertEquals("pdf-legacy", hydrated.id)
@@ -254,7 +254,7 @@ class ImportedComicArchiveRepositoryTest {
             importedComicArchiveDao = dao,
             scope = kotlinx.coroutines.CoroutineScope(Dispatchers.Unconfined),
         )
-        repository.isHydratedFlow.first { it }
+        repository.hydrate()
 
         assertEquals(
             listOf("A Fire Upon the Deep", "Zorba the Greek"),
@@ -348,7 +348,7 @@ class ImportedComicArchiveRepositoryTest {
             importedComicArchiveDao = dao,
             scope = kotlinx.coroutines.CoroutineScope(Dispatchers.Unconfined),
         )
-        restartedRepository.isHydratedFlow.first { it }
+        restartedRepository.hydrate()
 
         val hydrated = restartedRepository.getImportedItems().single()
         assertEquals(imported.coverUrl, hydrated.coverUrl)
@@ -457,7 +457,7 @@ class ImportedComicArchiveRepositoryTest {
                 importedComicArchiveDao = dao,
                 scope = restartedScope,
             )
-            restartedRepository.isHydratedFlow.first { it }
+            restartedRepository.hydrate()
             val hydratedItems = withTimeoutOrNull(5_000) {
                 restartedRepository.importedItemsFlow.first { items ->
                     items.singleOrNull()?.coverUrl?.let { coverUrl ->
@@ -510,7 +510,7 @@ class ImportedComicArchiveRepositoryTest {
                 importedComicArchiveDao = dao,
                 scope = restartedScope,
             )
-            restartedRepository.isHydratedFlow.first { it }
+            restartedRepository.hydrate()
             val hydratedItems = withTimeoutOrNull(5_000) {
                 restartedRepository.importedItemsFlow.first { items ->
                     items.singleOrNull()?.coverUrl?.let { coverUrl ->

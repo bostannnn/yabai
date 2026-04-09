@@ -26,6 +26,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class AppViewModel @Inject constructor(
     private val appPreferencesStore: AppPreferencesStore,
+    private val appStateHydrator: AppStateHydrator,
     private val catalogStateCoordinator: AppCatalogStateCoordinator,
     private val libraryActionsCoordinator: AppLibraryActionsCoordinator,
     private val readerCoordinator: AppReaderCoordinator,
@@ -40,6 +41,9 @@ class AppViewModel @Inject constructor(
         private set
 
     init {
+        viewModelScope.launch {
+            appStateHydrator.hydrate()
+        }
         remoteSourcesCoordinator.initialize(::updateUiState)
         updateUiState { state ->
             state.copy(

@@ -23,9 +23,10 @@ class LocalDocumentRepository(
     private val context: Context,
     importedComicArchiveDao: ImportedComicArchiveDao,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
-) : LocalDocumentDataSource, LocalComicDocumentDataSource {
+) : LocalDocumentDataSource, LocalComicDocumentDataSource, LocalDocumentHydrator {
     private val coverWarmupSemaphore = Semaphore(permits = 3)
     private val coverMutationMutex = Mutex()
+    private val hydrationMutex = Mutex()
     private val comicArchiveCodecs: List<ComicArchiveCodec> = listOf(
         ZipComicArchiveCodec,
         RarComicArchiveCodec(context),
@@ -41,14 +42,16 @@ class LocalDocumentRepository(
     override val isHydratedFlow = store.isHydratedFlow
     override val importedItemsFlow = store.importedItemsFlow
 
-    init {
-        scope.launch {
+    override fun getImportedItems(): List<ReadableItem> = store.getImportedItems()
+
+    override suspend fun hydrate() {
+        if (isHydratedFlow.value) return
+        hydrationMutex.withLock {
+            if (isHydratedFlow.value) return
             val persistedRecords = store.hydrate()
             warmImportedCovers(persistedRecords.map(LocalDocumentRecord::id))
         }
     }
-
-    override fun getImportedItems(): List<ReadableItem> = store.getImportedItems()
 
     override suspend fun import(uri: Uri): ReadableItem? {
         val record = importProbe.probe(uri) ?: return null

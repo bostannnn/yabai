@@ -316,6 +316,11 @@ object AppModule {
     ): LocalComicDocumentDataSource = repository
 
     @Provides
+    fun provideLocalDocumentHydrator(
+        repository: LocalDocumentRepository,
+    ): LocalDocumentHydrator = repository
+
+    @Provides
     @Singleton
     fun provideImportedItemDeletionService(
         localDocumentDataSource: LocalDocumentDataSource,
@@ -339,6 +344,11 @@ object AppModule {
     fun provideReaderSessionStoreContract(
         store: RoomReaderSessionStore,
     ): ReaderSessionStore = store
+
+    @Provides
+    fun provideReaderSessionHydrator(
+        store: RoomReaderSessionStore,
+    ): ReaderSessionHydrator = store
 
     @Provides
     @Singleton

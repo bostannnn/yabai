@@ -21,14 +21,16 @@ internal class LocalDocumentStore(
     val importedItemsFlow: StateFlow<List<ReadableItem>> = importedItemsState.asStateFlow()
 
     suspend fun hydrate(): List<LocalDocumentRecord> {
-        val persistedRecords = importedComicArchiveDao.getAll()
-            .map { entity ->
-                entityToRecord(
-                    entity = entity,
-                    coverUri = persistedCoverUriResolver(entity.itemId, entity.coverFileName),
-                )
-            }
-            .filter(LocalDocumentRecord::isSupportedLocalFormat)
+        val persistedRecords = withContext(Dispatchers.IO) {
+            importedComicArchiveDao.getAll()
+                .map { entity ->
+                    entityToRecord(
+                        entity = entity,
+                        coverUri = persistedCoverUriResolver(entity.itemId, entity.coverFileName),
+                    )
+                }
+                .filter(LocalDocumentRecord::isSupportedLocalFormat)
+        }
         recordsById.update { existingRecords ->
             buildMap {
                 persistedRecords.forEach { put(it.id, it) }
