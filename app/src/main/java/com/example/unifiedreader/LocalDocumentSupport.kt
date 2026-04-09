@@ -6,7 +6,9 @@ import com.example.unifiedreader.core.model.ComicMetadata
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
+import com.example.unifiedreader.feature.reader.comics.ComicPageMetadata
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 import kotlinx.coroutines.flow.StateFlow
 import org.json.JSONArray
@@ -30,9 +32,15 @@ interface LocalDocumentDataSource {
 interface LocalComicDocumentDataSource {
     fun getPages(item: ReadableItem): List<ComicPageSpec>
 
+    suspend fun loadPageMetadata(
+        item: ReadableItem,
+        page: ComicPageSpec,
+    ): ComicPageMetadata?
+
     suspend fun loadPageImage(
         item: ReadableItem,
         page: ComicPageSpec,
+        priority: ComicPageLoadPriority,
     ): ComicPageLoadResult
 
     fun prefetchAround(

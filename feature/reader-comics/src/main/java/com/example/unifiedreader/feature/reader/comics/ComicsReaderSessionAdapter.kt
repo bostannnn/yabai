@@ -51,6 +51,7 @@ class ComicsReaderSessionAdapter(
         item: ReadableItem,
         pageIndex: Int,
         pageCount: Int,
+        isFinished: Boolean,
     ) {
         val safePageIndex = pageIndex.coerceIn(0, (pageCount - 1).coerceAtLeast(0))
         sessionStore.saveProgress(
@@ -59,7 +60,7 @@ class ComicsReaderSessionAdapter(
                 locatorType = LocatorType.PAGE,
                 page = safePageIndex,
             ),
-            isFinished = pageCount > 0 && safePageIndex >= pageCount - 1,
+            isFinished = isFinished,
             syncState = if (item.sourceType == SourceType.LOCAL) {
                 SyncState.CLEAN
             } else {
@@ -116,6 +117,39 @@ class ComicsReaderSessionAdapter(
             item = item,
             preferences = buildComicReaderPreferencesPatch(
                 spreadMode = spreadMode,
+            ),
+        )
+    }
+
+    override fun loadSplitWidePages(item: ReadableItem): Boolean =
+        restoreComicReaderPreferences(sessionStore.getSession(item))
+            ?.splitWidePages
+            ?: false
+
+    override fun saveSplitWidePages(
+        item: ReadableItem,
+        enabled: Boolean,
+    ) {
+        sessionStore.updateSession(
+            item = item,
+            preferences = buildComicReaderPreferencesPatch(
+                splitWidePages = enabled,
+            ),
+        )
+    }
+
+    override fun loadResumeSegment(item: ReadableItem): ComicPageSegment? =
+        restoreComicReaderPreferences(sessionStore.getSession(item))
+            ?.resumeSegment
+
+    override fun saveResumeSegment(
+        item: ReadableItem,
+        segment: ComicPageSegment?,
+    ) {
+        sessionStore.updateSession(
+            item = item,
+            preferences = mapOf(
+                ComicsResumeSegmentKey to segment?.name.orEmpty(),
             ),
         )
     }

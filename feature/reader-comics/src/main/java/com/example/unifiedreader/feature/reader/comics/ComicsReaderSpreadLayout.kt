@@ -1,6 +1,6 @@
 package com.example.unifiedreader.feature.reader.comics
 
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -27,17 +26,26 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
 import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.roundToInt
 import kotlin.math.sqrt
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 
 internal const val SpreadModeAutoMinWidthDp = 700
 private val StitchedSpreadOverlap = 1.dp
@@ -108,11 +116,24 @@ private fun ComicSpreadSurface(
         key1 = item.id,
         key2 = spread.id,
     ) {
-        value = spread.pages.associate { page ->
-            page.id to pageSource.loadPageImage(item, page)
+        value = coroutineScope {
+            spread.pages
+                .map(ComicSpreadPage::spec)
+                .distinctBy(ComicPageSpec::id)
+                .map { page ->
+                    async {
+                        page.id to pageSource.loadPageImage(
+                            item = item,
+                            page = page,
+                            priority = ComicPageLoadPriority.Visible,
+                        )
+                    }
+                }
+                .awaitAll()
+                .toMap()
         }
     }
-    val imageSize = remember(pageLoadResults, spread.pageIndexes) {
+    val imageSize = remember(pageLoadResults, spread.pages) {
         compositeImageSize(
             spread = spread,
             pageLoadResults = pageLoadResults,
@@ -190,8 +211,8 @@ private fun SpreadContent(
             (result as? ComicPageLoadResult.Success)?.image
         }
     }
-    val useFitSpread = isDoublePage && pageFitMode == ComicPageFitMode.FitPage
-    val likelyStitchedSpread = remember(loadedImagesByPageId, spread.pageIndexes) {
+    val useFitSpread = isDoublePage && pageFitMode == ComicPageFitMode.FitPage && spread.pages.all { it.segment == ComicPageSegment.Full }
+    val likelyStitchedSpread = remember(loadedImagesByPageId, spread.pages) {
         spread.isLikelyStitchedSpread(loadedImagesByPageId)
     }
     if (useFitSpread) {
@@ -204,12 +225,7 @@ private fun SpreadContent(
         return
     }
     Row(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(
-                horizontal = if (spread.isSoloCover) 0.dp else 0.dp,
-                vertical = 0.dp,
-            ),
+        modifier = Modifier.fillMaxSize(),
         horizontalArrangement = if (isDoublePage) Arrangement.spacedBy(0.dp) else Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -219,7 +235,7 @@ private fun SpreadContent(
                     .then(
                         if (isDoublePage) {
                             Modifier
-                                .weight(1f)
+                                .weight(page.layoutWeight(loadedImagesByPageId))
                                 .fillMaxHeight()
                         } else {
                             Modifier.fillMaxSize()
@@ -235,19 +251,11 @@ private fun SpreadContent(
                     .background(Color(0xFF0B0F13)),
                 contentAlignment = Alignment.Center,
             ) {
-                when (val result = pageLoadResults[page.id]) {
-                    is ComicPageLoadResult.Success -> {
-                        Image(
-                            bitmap = result.image,
-                            contentDescription = page.contentDescription,
-                            contentScale = pageFitMode.contentScale(),
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
-
-                    is ComicPageLoadResult.Failure -> ReaderPageMessage(message = result.message)
-                    null -> ReaderPageMessage(message = "Loading page...")
-                }
+                PageResultContent(
+                    page = page,
+                    result = pageLoadResults[page.spec.id],
+                    pageFitMode = pageFitMode,
+                )
             }
         }
     }
@@ -260,18 +268,18 @@ private fun FitSpreadContent(
     loadedImagesByPageId: Map<String, ImageBitmap?>,
     stitchedOverlap: Dp,
 ) {
-    val pageAspectRatios = remember(loadedImagesByPageId, spread.pageIndexes) {
+    val pageAspectRatios = remember(loadedImagesByPageId, spread.pages) {
         spread.pages.map { page ->
-            loadedImagesByPageId[page.id]?.safeAspectRatio() ?: 1f
+            page.adjustedAspectRatio(loadedImagesByPageId[page.spec.id]).coerceAtLeast(0.5f)
         }
     }
-    val compositeSize = remember(pageLoadResults, spread.pageIndexes) {
+    val compositeSize = remember(pageLoadResults, spread.pages) {
         compositeImageSize(
             spread = spread,
             pageLoadResults = pageLoadResults,
         )
     }
-    val combinedAspectRatio = remember(compositeSize) {
+    val combinedAspectRatio = remember(compositeSize, pageAspectRatios) {
         if (compositeSize.width > 0 && compositeSize.height > 0) {
             compositeSize.width / compositeSize.height.toFloat()
         } else {
@@ -320,22 +328,73 @@ private fun FitSpreadContent(
                         .background(Color(0xFF0B0F13)),
                     contentAlignment = Alignment.Center,
                 ) {
-                    when (val result = pageLoadResults[page.id]) {
-                        is ComicPageLoadResult.Success -> {
-                            Image(
-                                bitmap = result.image,
-                                contentDescription = page.contentDescription,
-                                contentScale = ContentScale.Fit,
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        }
-
-                        is ComicPageLoadResult.Failure -> ReaderPageMessage(message = result.message)
-                        null -> ReaderPageMessage(message = "Loading page...")
-                    }
+                    PageResultContent(
+                        page = page,
+                        result = pageLoadResults[page.spec.id],
+                        pageFitMode = ComicPageFitMode.FitPage,
+                    )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PageResultContent(
+    page: ComicSpreadPage,
+    result: ComicPageLoadResult?,
+    pageFitMode: ComicPageFitMode,
+) {
+    when (result) {
+        is ComicPageLoadResult.Success -> ComicPageBitmap(
+            bitmap = result.image,
+            page = page,
+            pageFitMode = pageFitMode,
+        )
+
+        is ComicPageLoadResult.Failure -> ReaderPageMessage(message = result.message)
+        null -> ReaderPageMessage(message = "Loading page...")
+    }
+}
+
+@Composable
+private fun ComicPageBitmap(
+    bitmap: ImageBitmap,
+    page: ComicSpreadPage,
+    pageFitMode: ComicPageFitMode,
+) {
+    Canvas(
+        modifier = Modifier
+            .fillMaxSize()
+            .semantics {
+                contentDescription = page.contentDescription
+            },
+    ) {
+        val crop = page.segment.sourceWindow(
+            imageWidth = bitmap.width,
+            imageHeight = bitmap.height,
+        )
+        val widthScale = size.width / crop.width.toFloat()
+        val heightScale = size.height / crop.height.toFloat()
+        val drawScale = when (pageFitMode) {
+            ComicPageFitMode.FitPage -> minOf(widthScale, heightScale)
+            ComicPageFitMode.FitWidth -> widthScale
+            ComicPageFitMode.FitHeight -> heightScale
+        }
+        val drawWidth = max(1, (crop.width * drawScale).roundToInt())
+        val drawHeight = max(1, (crop.height * drawScale).roundToInt())
+        val drawOffset = IntOffset(
+            x = ((size.width - drawWidth) / 2f).roundToInt(),
+            y = ((size.height - drawHeight) / 2f).roundToInt(),
+        )
+        drawImage(
+            image = bitmap,
+            srcOffset = IntOffset(crop.offsetX, 0),
+            srcSize = IntSize(crop.width, crop.height),
+            dstOffset = drawOffset,
+            dstSize = IntSize(drawWidth, drawHeight),
+            filterQuality = FilterQuality.High,
+        )
     }
 }
 
@@ -381,70 +440,159 @@ internal fun buildComicPageSpreads(
     pages: List<ComicPageSpec>,
     readingDirection: ComicReadingDirection,
     useDoublePageSpreads: Boolean,
+    pageMetadataById: Map<String, ComicPageMetadata>,
+    splitWidePages: Boolean,
 ): List<ComicPageSpread> {
-    if (!useDoublePageSpreads) {
-        return pages.mapIndexed { index, page ->
-            ComicPageSpread(
-                id = "spread-$index",
-                pages = listOf(page),
-                pageIndexes = listOf(index),
-                resumePageIndex = index,
-                progressLabel = "${index + 1} / ${pages.size}",
+    if (pages.isEmpty()) return emptyList()
+    return if (useDoublePageSpreads) {
+        buildDoublePageSpreads(
+            pages = pages,
+            readingDirection = readingDirection,
+            pageMetadataById = pageMetadataById,
+        )
+    } else {
+        buildSinglePageSpreads(
+            pages = pages,
+            readingDirection = readingDirection,
+            pageMetadataById = pageMetadataById,
+            splitWidePages = splitWidePages,
+        )
+    }
+}
+
+private fun buildSinglePageSpreads(
+    pages: List<ComicPageSpec>,
+    readingDirection: ComicReadingDirection,
+    pageMetadataById: Map<String, ComicPageMetadata>,
+    splitWidePages: Boolean,
+): List<ComicPageSpread> = buildList {
+    pages.forEach { page ->
+        val metadata = pageMetadataById[page.id]
+        val shouldSplitPage = splitWidePages && metadata?.isWide() == true
+        val segments = if (shouldSplitPage) {
+            when (readingDirection) {
+                ComicReadingDirection.LTR -> listOf(ComicPageSegment.LeftHalf, ComicPageSegment.RightHalf)
+                ComicReadingDirection.RTL -> listOf(ComicPageSegment.RightHalf, ComicPageSegment.LeftHalf)
+            }
+        } else {
+            listOf(ComicPageSegment.Full)
+        }
+        segments.forEach { segment ->
+            val spreadPage = ComicSpreadPage(
+                spec = page,
+                segment = segment,
+                metadata = metadata,
+            )
+            add(
+                ComicPageSpread(
+                    id = "spread-${page.pageIndex}-${segment.idSuffix}",
+                    pages = listOf(spreadPage),
+                    pageIndexes = listOf(page.pageIndex),
+                    resumePageIndex = page.pageIndex,
+                    progressLabel = "${page.pageIndex + 1} / ${pages.size}",
+                ),
             )
         }
     }
+}
 
+private fun buildDoublePageSpreads(
+    pages: List<ComicPageSpec>,
+    readingDirection: ComicReadingDirection,
+    pageMetadataById: Map<String, ComicPageMetadata>,
+): List<ComicPageSpread> {
     val spreads = mutableListOf<ComicPageSpread>()
     spreads += ComicPageSpread(
         id = "spread-cover",
-        pages = listOf(pages.first()),
+        pages = listOf(
+            ComicSpreadPage(
+                spec = pages.first(),
+                metadata = pageMetadataById[pages.first().id],
+            ),
+        ),
         pageIndexes = listOf(0),
         resumePageIndex = 0,
         progressLabel = "1 / ${pages.size}",
     )
     var pageIndex = 1
     while (pageIndex < pages.size) {
-        val nextPageIndex = (pageIndex + 1).takeIf { it < pages.size }
-        val displayPageIndexes = when (readingDirection) {
-            ComicReadingDirection.LTR -> listOfNotNull(pageIndex, nextPageIndex)
-            ComicReadingDirection.RTL -> listOfNotNull(nextPageIndex, pageIndex)
+        val currentPage = pages[pageIndex]
+        val nextPage = pages.getOrNull(pageIndex + 1)
+        val currentWide = pageMetadataById[currentPage.id]?.isWide() == true
+        val nextWide = nextPage?.let { pageMetadataById[it.id]?.isWide() == true } == true
+        when {
+            currentWide || nextPage == null || nextWide -> {
+                spreads += ComicPageSpread(
+                    id = "spread-${currentPage.pageIndex}",
+                    pages = listOf(
+                        ComicSpreadPage(
+                            spec = currentPage,
+                            metadata = pageMetadataById[currentPage.id],
+                        ),
+                    ),
+                    pageIndexes = listOf(currentPage.pageIndex),
+                    resumePageIndex = currentPage.pageIndex,
+                    progressLabel = "${currentPage.pageIndex + 1} / ${pages.size}",
+                )
+                pageIndex += 1
+            }
+
+            else -> {
+                val pair = when (readingDirection) {
+                    ComicReadingDirection.LTR -> listOf(currentPage, nextPage)
+                    ComicReadingDirection.RTL -> listOf(nextPage, currentPage)
+                }.map { page ->
+                    ComicSpreadPage(
+                        spec = page,
+                        metadata = pageMetadataById[page.id],
+                    )
+                }
+                spreads += ComicPageSpread(
+                    id = "spread-${currentPage.pageIndex}",
+                    pages = pair,
+                    pageIndexes = pair.map(ComicSpreadPage::pageIndex),
+                    resumePageIndex = currentPage.pageIndex,
+                    progressLabel = "${currentPage.pageIndex + 1}-${nextPage.pageIndex + 1} / ${pages.size}",
+                )
+                pageIndex += 2
+            }
         }
-        val label = if (nextPageIndex != null) {
-            "${pageIndex + 1}-${nextPageIndex + 1} / ${pages.size}"
-        } else {
-            "${pageIndex + 1} / ${pages.size}"
-        }
-        spreads += ComicPageSpread(
-            id = "spread-$pageIndex",
-            pages = displayPageIndexes.map(pages::get),
-            pageIndexes = displayPageIndexes,
-            resumePageIndex = pageIndex,
-            progressLabel = label,
-        )
-        pageIndex += 2
     }
     return spreads
 }
 
 internal fun List<ComicPageSpread>.indexOfPage(
     pageIndex: Int,
-): Int = indexOfFirst { spread -> pageIndex in spread.pageIndexes }
-    .takeIf { it >= 0 }
-    ?: 0
+    segment: ComicPageSegment? = null,
+): Int {
+    if (segment != null) {
+        indexOfFirst { spread -> spread.matchesPosition(pageIndex, segment) }
+            .takeIf { it >= 0 }
+            ?.let { return it }
+    }
+    return indexOfFirst { spread -> pageIndex in spread.pageIndexes }
+        .takeIf { it >= 0 }
+        ?: 0
+}
 
 private fun compositeImageSize(
     spread: ComicPageSpread,
     pageLoadResults: Map<String, ComicPageLoadResult?>,
 ): IntSize {
-    val loadedImages = spread.pages.mapNotNull { page ->
-        (pageLoadResults[page.id] as? ComicPageLoadResult.Success)?.image
+    val loadedImageSizes = spread.pages.mapNotNull { page ->
+        (pageLoadResults[page.spec.id] as? ComicPageLoadResult.Success)?.image?.let { image ->
+            IntSize(
+                width = max(1, (image.width * page.segment.widthFraction).roundToInt()),
+                height = image.height,
+            )
+        }
     }
-    if (loadedImages.isEmpty()) {
+    if (loadedImageSizes.isEmpty()) {
         return IntSize.Zero
     }
     return IntSize(
-        width = loadedImages.sumOf(ImageBitmap::width),
-        height = loadedImages.maxOf(ImageBitmap::height),
+        width = loadedImageSizes.sumOf(IntSize::width),
+        height = loadedImageSizes.maxOf(IntSize::height),
     )
 }
 
@@ -454,9 +602,9 @@ private val ComicPageSpread.isSoloCover: Boolean
 private fun ComicPageSpread.isLikelyStitchedSpread(
     loadedImagesByPageId: Map<String, ImageBitmap?>,
 ): Boolean {
-    if (pages.size != 2) return false
-    val leftImage = loadedImagesByPageId[pages[0].id] ?: return false
-    val rightImage = loadedImagesByPageId[pages[1].id] ?: return false
+    if (pages.size != 2 || pages.any { it.segment != ComicPageSegment.Full }) return false
+    val leftImage = loadedImagesByPageId[pages[0].spec.id] ?: return false
+    val rightImage = loadedImagesByPageId[pages[1].spec.id] ?: return false
     val heightsAreAligned = abs(leftImage.height - rightImage.height) <=
         maxOf(leftImage.height, rightImage.height) * StitchedSpreadMaxDimensionDeltaFraction
     val widthsAreAligned = abs(leftImage.width - rightImage.width) <=
@@ -488,6 +636,17 @@ private fun ComicPageSpread.isLikelyStitchedSpread(
     return averageDistance <= StitchedSpreadMaxAverageEdgeDistance
 }
 
+private fun ComicSpreadPage.layoutWeight(
+    loadedImagesByPageId: Map<String, ImageBitmap?>,
+): Float = adjustedAspectRatio(loadedImagesByPageId[spec.id]).coerceAtLeast(0.5f)
+
+private fun ComicSpreadPage.adjustedAspectRatio(
+    image: ImageBitmap?,
+): Float {
+    val baseAspectRatio = image?.safeAspectRatio() ?: metadata?.aspectRatio ?: 1f
+    return baseAspectRatio * segment.widthFraction
+}
+
 private fun ImageBitmap.safeAspectRatio(): Float = if (height > 0) {
     width / height.toFloat()
 } else {
@@ -503,13 +662,84 @@ private fun Color.distanceTo(
     return sqrt((redDelta * redDelta) + (greenDelta * greenDelta) + (blueDelta * blueDelta))
 }
 
+enum class ComicPageSegment(
+    val idSuffix: String,
+    val widthFraction: Float,
+) {
+    Full("full", 1f),
+    LeftHalf("left", 0.5f),
+    RightHalf("right", 0.5f);
+
+    internal fun sourceWindow(
+        imageWidth: Int,
+        imageHeight: Int,
+    ): ComicPageSourceWindow = when (this) {
+        Full -> ComicPageSourceWindow(
+            offsetX = 0,
+            width = imageWidth.coerceAtLeast(1),
+            height = imageHeight.coerceAtLeast(1),
+        )
+
+        LeftHalf -> ComicPageSourceWindow(
+            offsetX = 0,
+            width = max(1, imageWidth - rightHalfWidth(imageWidth)),
+            height = imageHeight.coerceAtLeast(1),
+        )
+
+        RightHalf -> {
+            val halfWidth = rightHalfWidth(imageWidth)
+            ComicPageSourceWindow(
+                offsetX = (imageWidth - halfWidth).coerceAtLeast(0),
+                width = halfWidth,
+                height = imageHeight.coerceAtLeast(1),
+            )
+        }
+    }
+
+    private fun rightHalfWidth(
+        imageWidth: Int,
+    ): Int = max(1, imageWidth / 2)
+}
+
+internal data class ComicPageSourceWindow(
+    val offsetX: Int,
+    val width: Int,
+    val height: Int,
+)
+
+internal data class ComicSpreadPage(
+    val spec: ComicPageSpec,
+    val segment: ComicPageSegment = ComicPageSegment.Full,
+    val metadata: ComicPageMetadata? = null,
+) {
+    val pageIndex: Int
+        get() = spec.pageIndex
+
+    val contentDescription: String
+        get() = when (segment) {
+            ComicPageSegment.Full -> spec.contentDescription
+            ComicPageSegment.LeftHalf -> "${spec.contentDescription} (left half)"
+            ComicPageSegment.RightHalf -> "${spec.contentDescription} (right half)"
+        }
+}
+
 internal data class ComicPageSpread(
     val id: String,
-    val pages: List<ComicPageSpec>,
+    val pages: List<ComicSpreadPage>,
     val pageIndexes: List<Int>,
     val resumePageIndex: Int,
     val progressLabel: String,
-)
+) {
+    val resumeSegment: ComicPageSegment?
+        get() = pages.singleOrNull()
+            ?.takeIf { it.pageIndex == resumePageIndex && it.segment != ComicPageSegment.Full }
+            ?.segment
+
+    fun matchesPosition(
+        pageIndex: Int,
+        segment: ComicPageSegment?,
+    ): Boolean = pageIndex in pageIndexes && (segment == null || resumeSegment == segment)
+}
 
 internal fun comicGestureSurfaceTag(
     spreadId: String,

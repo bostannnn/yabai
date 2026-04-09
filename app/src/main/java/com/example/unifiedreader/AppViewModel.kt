@@ -61,6 +61,7 @@ class AppViewModel @Inject constructor(
     private val grimmoryCredentialStore: GrimmoryCredentialStore,
     private val stumpCoverCacheController: StumpCoverCacheController,
     private val grimmoryCoverCacheController: GrimmoryCoverCacheController,
+    private val comicPageSourceCacheController: ComicPageSourceCacheController,
     val comicPageSource: ComicPageSource,
     val comicReaderProgressStore: ComicReaderProgressStore,
     val comicReaderPreferencesStore: ComicReaderPreferencesStore,
@@ -1119,11 +1120,11 @@ class AppViewModel @Inject constructor(
     }
 
     private fun clearKavitaPageCache() {
-        (comicPageSource as? CompositeComicPageSource)?.clearKavitaCache()
+        comicPageSourceCacheController.clearSourcePageCache(SourceType.KAVITA)
     }
 
     private fun clearStumpPageCache() {
-        (comicPageSource as? CompositeComicPageSource)?.clearStumpCache()
+        comicPageSourceCacheController.clearSourcePageCache(SourceType.STUMP)
     }
 }
 

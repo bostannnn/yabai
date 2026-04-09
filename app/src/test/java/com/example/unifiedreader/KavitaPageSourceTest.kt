@@ -12,6 +12,7 @@ import com.example.unifiedreader.data.kavita.KavitaProgressDto
 import com.example.unifiedreader.data.kavita.KavitaProgressUpdate
 import com.example.unifiedreader.data.kavita.KavitaSeriesEntry
 import com.example.unifiedreader.data.kavita.KavitaSession
+import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -29,6 +30,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import kotlin.coroutines.ContinuationInterceptor
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -38,18 +40,18 @@ class KavitaPageSourceTest {
         val item = sampleKavitaComic(pageCount = 12)
         val api = RecordingKavitaPageApi()
         val pageSource = createPageSource(api, this)
-        val page = ComicPageSpec(id = "3", contentDescription = "Page 4")
+        val page = ComicPageSpec(id = "3", pageIndex = 3, contentDescription = "Page 4")
 
-        val firstResult = pageSource.loadPageImage(item, page)
-        val secondResult = pageSource.loadPageImage(item, page)
+        val firstResult = pageSource.loadPageImage(item, page, ComicPageLoadPriority.Visible)
+        val secondResult = pageSource.loadPageImage(item, page, ComicPageLoadPriority.Visible)
 
         assertTrue(firstResult is com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult.Success)
         assertTrue(secondResult is com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult.Success)
-        assertEquals(listOf(3), api.requestedPageIndexes)
+        assertEquals(1, api.requestedPageIndexes.count { it == 3 })
     }
 
     @Test
-    fun `prefetch around requests plus four and minus four pages for kavita comics`() = runTest {
+    fun `prefetch around requests nearest surrounding pages for kavita comics`() = runTest {
         val item = sampleKavitaComic(pageCount = 12)
         val api = RecordingKavitaPageApi()
         val dispatcher = StandardTestDispatcher(testScheduler)
@@ -63,7 +65,7 @@ class KavitaPageSourceTest {
         )
         scope.advanceUntilIdle()
 
-        assertEquals(listOf(6, 7, 8, 9, 4, 3, 2, 1), api.requestedPageIndexes)
+        assertEquals(listOf(6, 7, 4, 3), api.requestedPageIndexes)
     }
 
     @Test
@@ -71,11 +73,11 @@ class KavitaPageSourceTest {
         val item = sampleKavitaComic(pageCount = 12)
         val api = RecordingKavitaPageApi()
         val pageSource = createPageSource(api, this)
-        val page = ComicPageSpec(id = "3", contentDescription = "Page 4")
+        val page = ComicPageSpec(id = "3", pageIndex = 3, contentDescription = "Page 4")
 
-        pageSource.loadPageImage(item, page)
+        pageSource.loadPageImage(item, page, ComicPageLoadPriority.Visible)
         pageSource.clear()
-        pageSource.loadPageImage(item, page)
+        pageSource.loadPageImage(item, page, ComicPageLoadPriority.Visible)
 
         assertEquals(listOf(3, 3), api.requestedPageIndexes)
     }
@@ -85,19 +87,100 @@ class KavitaPageSourceTest {
         val item = sampleKavitaComic(pageCount = 12)
         val api = RecordingKavitaPageApi()
         val pageSource = createPageSource(api, this)
-        val page = ComicPageSpec(id = "3", contentDescription = "Page 4")
+        val page = ComicPageSpec(id = "3", pageIndex = 3, contentDescription = "Page 4")
         api.beginBlockingRequests()
 
         val inFlightLoad = async(UnconfinedTestDispatcher(testScheduler)) {
-            pageSource.loadPageImage(item, page)
+            pageSource.loadPageImage(item, page, ComicPageLoadPriority.Visible)
         }
         api.awaitBlockedRequest()
         pageSource.clear()
         api.releaseBlockedRequests()
         inFlightLoad.await()
-        pageSource.loadPageImage(item, page)
+        pageSource.loadPageImage(item, page, ComicPageLoadPriority.Visible)
 
         assertEquals(listOf(3, 3), api.requestedPageIndexes)
+    }
+
+    @Test
+    fun `metadata warmup shares in flight page request with visible load`() = runTest {
+        val item = sampleKavitaComic(pageCount = 12)
+        val api = RecordingKavitaPageApi()
+        val pageSource = createPageSource(api, this)
+        val page = ComicPageSpec(id = "3", pageIndex = 3, contentDescription = "Page 4")
+        api.beginBlockingRequests()
+
+        val metadataLoad = async(UnconfinedTestDispatcher(testScheduler)) {
+            pageSource.loadPageMetadata(item, page)
+        }
+        api.awaitBlockedRequest()
+        val imageLoad = async(UnconfinedTestDispatcher(testScheduler)) {
+            pageSource.loadPageImage(item, page, ComicPageLoadPriority.Visible)
+        }
+        runCurrent()
+        api.releaseBlockedRequests()
+
+        metadataLoad.await()
+        imageLoad.await()
+
+        assertEquals(1, api.requestedPageIndexes.count { it == 3 })
+    }
+
+    @Test
+    fun `visible load reuses in flight prefetched page request`() = runTest {
+        val item = sampleKavitaComic(pageCount = 12)
+        val api = RecordingKavitaPageApi()
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val scope = TestScope(dispatcher)
+        val pageSource = createPageSource(api, scope)
+        val page = ComicPageSpec(id = "3", pageIndex = 3, contentDescription = "Page 4")
+        api.beginBlockingRequests()
+
+        pageSource.prefetchAround(
+            item = item,
+            settledPageIndex = 2,
+            pageCount = 12,
+        )
+        scope.runCurrent()
+        api.awaitBlockedRequest()
+
+        val visibleLoad = async(UnconfinedTestDispatcher(testScheduler)) {
+            pageSource.loadPageImage(item, page, ComicPageLoadPriority.Visible)
+        }
+        runCurrent()
+        api.releaseBlockedRequests()
+        visibleLoad.await()
+        scope.advanceUntilIdle()
+
+        assertEquals(1, api.requestedPageIndexes.count { it == 3 })
+    }
+
+    @Test
+    fun `completed metadata request warms byte cache before later visible load`() = runTest {
+        val item = sampleKavitaComic(pageCount = 12)
+        val api = RecordingKavitaPageApi()
+        val fetchScope = TestScope(StandardTestDispatcher(testScheduler))
+        val pageSource = createPageSource(api, fetchScope)
+        val page = ComicPageSpec(id = "3", pageIndex = 3, contentDescription = "Page 4")
+        api.beginBlockingRequests()
+
+        val metadataLoad = async(UnconfinedTestDispatcher(testScheduler)) {
+            pageSource.loadPageMetadata(item, page)
+        }
+        fetchScope.runCurrent()
+        api.awaitBlockedRequest()
+        api.releaseBlockedRequests()
+        fetchScope.runCurrent()
+
+        val imageLoad = async(UnconfinedTestDispatcher(testScheduler)) {
+            pageSource.loadPageImage(item, page, ComicPageLoadPriority.Visible)
+        }
+        runCurrent()
+
+        metadataLoad.await()
+        imageLoad.await()
+
+        assertEquals(1, api.requestedPageIndexes.count { it == 3 })
     }
 }
 
@@ -116,6 +199,7 @@ private fun createPageSource(
             apiKey = "api-key",
         ),
     ),
+    ioDispatcher = scope.coroutineContext[ContinuationInterceptor] as kotlinx.coroutines.CoroutineDispatcher,
     scope = scope,
 )
 

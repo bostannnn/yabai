@@ -14,6 +14,8 @@ class ComicsReaderInteractionTest {
             pages = pages,
             readingDirection = ComicReadingDirection.LTR,
             useDoublePageSpreads = true,
+            pageMetadataById = emptyMap(),
+            splitWidePages = false,
         )
 
         assertEquals(listOf(0), spreads[0].pageIndexes)
@@ -31,12 +33,126 @@ class ComicsReaderInteractionTest {
             pages = pages,
             readingDirection = ComicReadingDirection.RTL,
             useDoublePageSpreads = true,
+            pageMetadataById = emptyMap(),
+            splitWidePages = false,
         )
 
         assertEquals(listOf(2, 1), spreads[1].pageIndexes)
         assertEquals(1, spreads[1].resumePageIndex)
         assertEquals(1, spreads.indexOfPage(1))
         assertEquals(1, spreads.indexOfPage(2))
+    }
+
+    @Test
+    fun `spread builder isolates wide pages in double page mode`() {
+        val pages = samplePages(count = 5)
+
+        val spreads = buildComicPageSpreads(
+            pages = pages,
+            readingDirection = ComicReadingDirection.LTR,
+            useDoublePageSpreads = true,
+            pageMetadataById = mapOf(
+                pages[1].id to ComicPageMetadata(width = 2400, height = 1200),
+            ),
+            splitWidePages = false,
+        )
+
+        assertEquals(listOf(0), spreads[0].pageIndexes)
+        assertEquals(listOf(1), spreads[1].pageIndexes)
+        assertEquals(listOf(2, 3), spreads[2].pageIndexes)
+        assertEquals(listOf(4), spreads[3].pageIndexes)
+    }
+
+    @Test
+    fun `single page mode can split wide pages into ordered halves`() {
+        val pages = samplePages(count = 2)
+
+        val spreads = buildComicPageSpreads(
+            pages = pages,
+            readingDirection = ComicReadingDirection.RTL,
+            useDoublePageSpreads = false,
+            pageMetadataById = mapOf(
+                pages[0].id to ComicPageMetadata(width = 2400, height = 1200),
+            ),
+            splitWidePages = true,
+        )
+
+        assertEquals(listOf(0), spreads[0].pageIndexes)
+        assertEquals("spread-0-right", spreads[0].id)
+        assertEquals(listOf(0), spreads[1].pageIndexes)
+        assertEquals("spread-0-left", spreads[1].id)
+        assertEquals(listOf(1), spreads[2].pageIndexes)
+    }
+
+    @Test
+    fun `split wide page resume resolves to matching half`() {
+        val pages = samplePages(count = 1)
+
+        val spreads = buildComicPageSpreads(
+            pages = pages,
+            readingDirection = ComicReadingDirection.LTR,
+            useDoublePageSpreads = false,
+            pageMetadataById = mapOf(
+                pages[0].id to ComicPageMetadata(width = 2400, height = 1200),
+            ),
+            splitWidePages = true,
+        )
+
+        assertEquals(1, spreads.indexOfPage(pageIndex = 0, segment = ComicPageSegment.RightHalf))
+    }
+
+    @Test
+    fun `odd width split windows cover the full source image`() {
+        val leftWindow = ComicPageSegment.LeftHalf.sourceWindow(
+            imageWidth = 5,
+            imageHeight = 10,
+        )
+        val rightWindow = ComicPageSegment.RightHalf.sourceWindow(
+            imageWidth = 5,
+            imageHeight = 10,
+        )
+
+        assertEquals(0, leftWindow.offsetX)
+        assertEquals(3, leftWindow.width)
+        assertEquals(3, rightWindow.offsetX)
+        assertEquals(2, rightWindow.width)
+        assertEquals(5, leftWindow.width + rightWindow.width)
+    }
+
+    @Test
+    fun `split last page only finishes on terminal half`() {
+        assertFalse(
+            isComicProgressFinished(
+                pageIndex = 4,
+                pageCount = 5,
+                segment = ComicPageSegment.LeftHalf,
+                readingDirection = ComicReadingDirection.LTR,
+            ),
+        )
+        assertTrue(
+            isComicProgressFinished(
+                pageIndex = 4,
+                pageCount = 5,
+                segment = ComicPageSegment.RightHalf,
+                readingDirection = ComicReadingDirection.LTR,
+            ),
+        )
+        assertFalse(
+            isComicProgressFinished(
+                pageIndex = 4,
+                pageCount = 5,
+                segment = ComicPageSegment.RightHalf,
+                readingDirection = ComicReadingDirection.RTL,
+            ),
+        )
+        assertTrue(
+            isComicProgressFinished(
+                pageIndex = 4,
+                pageCount = 5,
+                segment = ComicPageSegment.LeftHalf,
+                readingDirection = ComicReadingDirection.RTL,
+            ),
+        )
     }
 
     @Test
@@ -148,6 +264,7 @@ private fun samplePages(
 ): List<ComicPageSpec> = List(count) { index ->
     ComicPageSpec(
         id = "page-$index",
+        pageIndex = index,
         contentDescription = "Page ${index + 1}",
     )
 }

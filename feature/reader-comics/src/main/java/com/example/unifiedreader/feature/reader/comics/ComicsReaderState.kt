@@ -15,8 +15,25 @@ import kotlinx.coroutines.flow.StateFlow
 
 data class ComicPageSpec(
     val id: String,
+    val pageIndex: Int,
     val contentDescription: String,
 )
+
+data class ComicPageMetadata(
+    val width: Int,
+    val height: Int,
+) {
+    val aspectRatio: Float
+        get() = if (height > 0) width / height.toFloat() else 1f
+
+    fun isWide(
+        threshold: Float = DefaultWidePageAspectRatioThreshold,
+    ): Boolean = width > 0 && height > 0 && aspectRatio >= threshold
+
+    companion object {
+        const val DefaultWidePageAspectRatioThreshold = 1.15f
+    }
+}
 
 sealed interface ComicPageLoadResult {
     data class Success(
@@ -32,7 +49,14 @@ data class ComicReaderPreferencesSnapshot(
     val readingDirection: ComicReadingDirection,
     val pageFitMode: ComicPageFitMode,
     val spreadMode: ComicSpreadMode,
+    val splitWidePages: Boolean,
+    val resumeSegment: ComicPageSegment?,
 )
+
+enum class ComicPageLoadPriority {
+    Visible,
+    Prefetch,
+}
 
 interface ComicReaderProgressStore {
     val isHydratedFlow: StateFlow<Boolean>
@@ -45,6 +69,7 @@ interface ComicReaderProgressStore {
         item: ReadableItem,
         pageIndex: Int,
         pageCount: Int,
+        isFinished: Boolean = pageCount > 0 && pageIndex >= pageCount - 1,
     )
 }
 
@@ -79,14 +104,38 @@ interface ComicReaderPreferencesStore {
         item: ReadableItem,
         spreadMode: ComicSpreadMode,
     ) = Unit
+
+    fun loadSplitWidePages(
+        item: ReadableItem,
+    ): Boolean = false
+
+    fun saveSplitWidePages(
+        item: ReadableItem,
+        enabled: Boolean,
+    ) = Unit
+
+    fun loadResumeSegment(
+        item: ReadableItem,
+    ): ComicPageSegment? = null
+
+    fun saveResumeSegment(
+        item: ReadableItem,
+        segment: ComicPageSegment?,
+    ) = Unit
 }
 
 interface ComicPageSource {
     fun getPages(item: ReadableItem): List<ComicPageSpec>
 
+    suspend fun loadPageMetadata(
+        item: ReadableItem,
+        page: ComicPageSpec,
+    ): ComicPageMetadata? = null
+
     suspend fun loadPageImage(
         item: ReadableItem,
         page: ComicPageSpec,
+        priority: ComicPageLoadPriority = ComicPageLoadPriority.Visible,
     ): ComicPageLoadResult
 
     fun prefetchAround(
@@ -103,6 +152,8 @@ class ComicsReaderState internal constructor(
     initialReadingDirection: ComicReadingDirection,
     initialPageFitMode: ComicPageFitMode,
     initialSpreadMode: ComicSpreadMode,
+    initialSplitWidePages: Boolean,
+    initialResumeSegment: ComicPageSegment?,
 ) {
     var currentPage by mutableIntStateOf(initialPage)
         private set
@@ -119,6 +170,12 @@ class ComicsReaderState internal constructor(
     var spreadMode by mutableStateOf(initialSpreadMode)
         private set
 
+    var splitWidePages by mutableStateOf(initialSplitWidePages)
+        private set
+
+    var resumeSegment by mutableStateOf(initialResumeSegment)
+        private set
+
     private var hasUserNavigated by mutableStateOf(false)
 
     private var hasExplicitReadingDirection by mutableStateOf(false)
@@ -127,14 +184,23 @@ class ComicsReaderState internal constructor(
 
     private var hasExplicitSpreadMode by mutableStateOf(false)
 
+    private var hasExplicitSplitWidePages by mutableStateOf(false)
+
+    private var hasRestoredResumeSegment by mutableStateOf(initialResumeSegment != null)
+
     val progressLabel: String
         get() = "${currentPage + 1} / $pageCount"
 
-    fun onPageSettled(pageIndex: Int) {
+    fun onPageSettled(
+        pageIndex: Int,
+        segment: ComicPageSegment? = null,
+    ) {
         if (pageIndex != currentPage) {
             hasUserNavigated = true
         }
         currentPage = pageIndex
+        resumeSegment = segment
+        hasRestoredResumeSegment = segment != null
     }
 
     fun onCurrentPageZoomChanged(isZoomed: Boolean) {
@@ -154,6 +220,11 @@ class ComicsReaderState internal constructor(
     fun onSpreadModeChanged(spreadMode: ComicSpreadMode) {
         hasExplicitSpreadMode = true
         this.spreadMode = spreadMode
+    }
+
+    fun onSplitWidePagesChanged(enabled: Boolean) {
+        hasExplicitSplitWidePages = true
+        splitWidePages = enabled
     }
 
     fun restorePageIfUnchanged(pageIndex: Int): Boolean {
@@ -181,6 +252,19 @@ class ComicsReaderState internal constructor(
         return true
     }
 
+    fun restoreSplitWidePagesIfUnchanged(enabled: Boolean): Boolean {
+        if (hasExplicitSplitWidePages || splitWidePages == enabled) return false
+        splitWidePages = enabled
+        return true
+    }
+
+    fun restoreResumeSegmentIfUnchanged(segment: ComicPageSegment?): Boolean {
+        if (hasUserNavigated || hasRestoredResumeSegment || resumeSegment == segment) return false
+        resumeSegment = segment
+        hasRestoredResumeSegment = segment != null
+        return true
+    }
+
     companion object {
         fun saver(pageCount: Int): Saver<ComicsReaderState, *> = listSaver(
             save = {
@@ -190,10 +274,14 @@ class ComicsReaderState internal constructor(
                     it.readingDirection.name,
                     it.pageFitMode.name,
                     it.spreadMode.name,
+                    if (it.splitWidePages) 1 else 0,
+                    it.resumeSegment?.name.orEmpty(),
                     if (it.hasUserNavigated) 1 else 0,
                     if (it.hasExplicitReadingDirection) 1 else 0,
                     if (it.hasExplicitPageFitMode) 1 else 0,
                     if (it.hasExplicitSpreadMode) 1 else 0,
+                    if (it.hasExplicitSplitWidePages) 1 else 0,
+                    if (it.hasRestoredResumeSegment) 1 else 0,
                 )
             },
             restore = { restored ->
@@ -206,12 +294,18 @@ class ComicsReaderState internal constructor(
                         .let(ComicPageFitMode::valueOf),
                     initialSpreadMode = (restored[4] as String)
                         .let(ComicSpreadMode::valueOf),
+                    initialSplitWidePages = (restored.getOrNull(5) as? Int) == 1,
+                    initialResumeSegment = (restored.getOrNull(6) as? String)
+                        ?.takeIf(String::isNotBlank)
+                        ?.let(ComicPageSegment::valueOf),
                 ).also { state ->
                     state.onCurrentPageZoomChanged((restored[1] as Int) == 1)
-                    state.hasUserNavigated = (restored.getOrNull(5) as? Int) == 1
-                    state.hasExplicitReadingDirection = (restored.getOrNull(6) as? Int) == 1
-                    state.hasExplicitPageFitMode = (restored.getOrNull(7) as? Int) == 1
-                    state.hasExplicitSpreadMode = (restored.getOrNull(8) as? Int) == 1
+                    state.hasUserNavigated = (restored.getOrNull(7) as? Int) == 1
+                    state.hasExplicitReadingDirection = (restored.getOrNull(8) as? Int) == 1
+                    state.hasExplicitPageFitMode = (restored.getOrNull(9) as? Int) == 1
+                    state.hasExplicitSpreadMode = (restored.getOrNull(10) as? Int) == 1
+                    state.hasExplicitSplitWidePages = (restored.getOrNull(11) as? Int) == 1
+                    state.hasRestoredResumeSegment = (restored.getOrNull(12) as? Int) == 1
                 }
             },
         )
@@ -226,6 +320,8 @@ fun rememberComicsReaderState(
     initialReadingDirection: ComicReadingDirection = ComicReadingDirection.LTR,
     initialPageFitMode: ComicPageFitMode = ComicPageFitMode.FitPage,
     initialSpreadMode: ComicSpreadMode = ComicSpreadMode.Auto,
+    initialSplitWidePages: Boolean = false,
+    initialResumeSegment: ComicPageSegment? = null,
 ): ComicsReaderState {
     val safePageCount = pageCount.coerceAtLeast(1)
     val safeInitialPage = initialPage.coerceIn(0, safePageCount - 1)
@@ -240,7 +336,26 @@ fun rememberComicsReaderState(
             initialReadingDirection = initialReadingDirection,
             initialPageFitMode = initialPageFitMode,
             initialSpreadMode = initialSpreadMode,
+            initialSplitWidePages = initialSplitWidePages,
+            initialResumeSegment = initialResumeSegment,
         )
+    }
+}
+
+internal fun isComicProgressFinished(
+    pageIndex: Int,
+    pageCount: Int,
+    segment: ComicPageSegment?,
+    readingDirection: ComicReadingDirection,
+): Boolean {
+    if (pageCount <= 0) return false
+    val lastPageIndex = pageCount - 1
+    if (pageIndex < lastPageIndex) return false
+    if (pageIndex > lastPageIndex) return true
+    return when (segment ?: ComicPageSegment.Full) {
+        ComicPageSegment.Full -> true
+        ComicPageSegment.LeftHalf -> readingDirection == ComicReadingDirection.RTL
+        ComicPageSegment.RightHalf -> readingDirection == ComicReadingDirection.LTR
     }
 }
 

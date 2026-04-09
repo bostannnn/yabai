@@ -21,6 +21,7 @@ import com.example.unifiedreader.core.model.remoteLibraryId
 import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
 import com.example.unifiedreader.data.grimmory.GrimmorySession
+import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesStore
 import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesSnapshot
@@ -1391,6 +1392,7 @@ class AppViewModelTest {
         grimmoryCredentialStore: GrimmoryCredentialStore = FakeGrimmoryCredentialStore(),
         grimmoryCoverRepository: GrimmoryCoverDataSource = FakeGrimmoryCoverRepository(),
         grimmoryContentRepository: GrimmoryContentDataSource = FakeGrimmoryContentRepository(),
+        comicPageSourceCacheController: ComicPageSourceCacheController = FakeComicPageSourceCacheController(),
         remoteCatalogReadiness: RemoteCatalogReadiness = FakeRemoteCatalogReadiness(),
         sourceProgressSyncs: List<SourceProgressSync> = emptyList(),
         libraryRepository: FakeLibraryRepository = FakeLibraryRepository(
@@ -1466,6 +1468,7 @@ class AppViewModelTest {
             grimmoryCoverCacheController = GrimmoryCoverCacheController(
                 grimmoryCoverRepository = grimmoryCoverRepository,
             ),
+            comicPageSourceCacheController = comicPageSourceCacheController,
             comicPageSource = pageSource,
             comicReaderProgressStore = progressStore,
             comicReaderPreferencesStore = preferencesStore,
@@ -1474,6 +1477,12 @@ class AppViewModelTest {
             readerFactories = emptyList(),
         )
     }
+}
+
+private class FakeComicPageSourceCacheController : ComicPageSourceCacheController {
+    override fun clearSourcePageCache(
+        sourceType: SourceType,
+    ) = Unit
 }
 
 private class FakeKavitaCatalogSyncer(
@@ -1737,6 +1746,7 @@ private class FakeComicPageSource(
     override fun getPages(item: ReadableItem): List<ComicPageSpec> = List(pageCounts[item.id] ?: 0) { index ->
         ComicPageSpec(
             id = "${item.id}-$index",
+            pageIndex = index,
             contentDescription = "${item.title} page ${index + 1}",
         )
     }
@@ -1744,6 +1754,7 @@ private class FakeComicPageSource(
     override suspend fun loadPageImage(
         item: ReadableItem,
         page: ComicPageSpec,
+        priority: ComicPageLoadPriority,
     ): ComicPageLoadResult = ComicPageLoadResult.Failure("Not needed for AppViewModel tests.")
 }
 
@@ -1758,6 +1769,7 @@ private class FakeComicReaderProgressStore : ComicReaderProgressStore {
         item: ReadableItem,
         pageIndex: Int,
         pageCount: Int,
+        isFinished: Boolean,
     ) {
         val safePage = pageIndex.coerceIn(0, (pageCount - 1).coerceAtLeast(0))
         pagesByItemId[item.id] = safePage

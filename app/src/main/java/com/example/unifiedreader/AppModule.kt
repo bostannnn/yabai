@@ -351,11 +351,21 @@ object AppModule {
         localComicPageSource: LocalComicPageSource,
         kavitaPageSource: KavitaPageSource,
         stumpPageSource: StumpPageSource,
-    ): ComicPageSource = CompositeComicPageSource(
+    ): CompositeComicPageSource = CompositeComicPageSource(
         localComicPageSource = localComicPageSource,
         kavitaPageSource = kavitaPageSource,
         stumpPageSource = stumpPageSource,
     )
+
+    @Provides
+    fun provideComicPageSource(
+        compositeComicPageSource: CompositeComicPageSource,
+    ): ComicPageSource = compositeComicPageSource
+
+    @Provides
+    fun provideComicPageSourceCacheController(
+        compositeComicPageSource: CompositeComicPageSource,
+    ): ComicPageSourceCacheController = compositeComicPageSource
 
     @Provides
     @Singleton

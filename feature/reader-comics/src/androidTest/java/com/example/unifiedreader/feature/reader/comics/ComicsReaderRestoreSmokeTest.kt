@@ -185,6 +185,7 @@ private class SmokeProgressStore(
         item: ReadableItem,
         pageIndex: Int,
         pageCount: Int,
+        isFinished: Boolean,
     ) {
         if (!persistenceEnabled) return
         persistedPages[item.id] = pageIndex.coerceIn(0, pageCount - 1)
@@ -223,6 +224,7 @@ private class SmokeComicPageSource(
     override fun getPages(item: ReadableItem): List<ComicPageSpec> = List(pageCount) { index ->
         ComicPageSpec(
             id = "page-$index",
+            pageIndex = index,
             contentDescription = "${item.title} page ${index + 1}",
         )
     }
@@ -230,6 +232,7 @@ private class SmokeComicPageSource(
     override suspend fun loadPageImage(
         item: ReadableItem,
         page: ComicPageSpec,
+        priority: ComicPageLoadPriority,
     ): ComicPageLoadResult = ComicPageLoadResult.Success(
         image = imagesById.getValue(page.id),
     )

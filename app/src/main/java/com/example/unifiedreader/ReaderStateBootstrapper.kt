@@ -84,6 +84,8 @@ class ReaderStateBootstrapper(
                                         readingDirection = direction,
                                         pageFitMode = fitMode,
                                         spreadMode = ComicSpreadMode.Auto,
+                                        splitWidePages = false,
+                                        resumeSegment = null,
                                     ),
                                 ),
                             ).toEntity(),

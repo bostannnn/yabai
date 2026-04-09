@@ -21,6 +21,8 @@ class ComicsReaderSessionCodecTest {
         assertEquals(ComicReadingDirection.RTL, restored.readingDirection)
         assertEquals(ComicPageFitMode.FitPage, restored.pageFitMode)
         assertEquals(ComicSpreadMode.Auto, restored.spreadMode)
+        assertEquals(false, restored.splitWidePages)
+        assertNull(restored.resumeSegment)
     }
 
     @Test

@@ -5,7 +5,9 @@ import android.content.Intent
 import android.net.Uri
 import com.example.unifiedreader.core.database.dao.ImportedComicArchiveDao
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
+import com.example.unifiedreader.feature.reader.comics.ComicPageMetadata
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 import kotlinx.coroutines.CoroutineScope
@@ -87,14 +89,28 @@ class LocalDocumentRepository(
         return record.pageEntryNames.mapIndexed { index, entryName ->
             ComicPageSpec(
                 id = entryName,
+                pageIndex = index,
                 contentDescription = "${item.title} page ${index + 1}",
             )
         }
     }
 
+    override suspend fun loadPageMetadata(
+        item: ReadableItem,
+        page: ComicPageSpec,
+    ): ComicPageMetadata? {
+        val record = store.findRecord(item.id) ?: return null
+        return comicPageLoader.loadPageMetadata(
+            item = item,
+            record = record,
+            entryName = page.id,
+        )
+    }
+
     override suspend fun loadPageImage(
         item: ReadableItem,
         page: ComicPageSpec,
+        priority: ComicPageLoadPriority,
     ): ComicPageLoadResult {
         val record = store.findRecord(item.id)
             ?: return ComicPageLoadResult.Failure("Unable to find imported archive.")
@@ -102,6 +118,7 @@ class LocalDocumentRepository(
             item = item,
             record = record,
             entryName = page.id,
+            priority = priority,
         )
     }
 

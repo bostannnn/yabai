@@ -610,6 +610,7 @@ private class FakeComicPageSource(
     override fun getPages(item: ReadableItem): List<ComicPageSpec> = List(pageCount) { index ->
         ComicPageSpec(
             id = "page-$index",
+            pageIndex = index,
             contentDescription = "${item.title} page ${index + 1}",
         )
     }
@@ -617,6 +618,7 @@ private class FakeComicPageSource(
     override suspend fun loadPageImage(
         item: ReadableItem,
         page: ComicPageSpec,
+        priority: ComicPageLoadPriority,
     ): ComicPageLoadResult = ComicPageLoadResult.Success(
         image = imagesById.getValue(page.id),
     )

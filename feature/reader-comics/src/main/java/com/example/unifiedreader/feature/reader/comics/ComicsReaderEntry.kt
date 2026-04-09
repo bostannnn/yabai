@@ -30,6 +30,9 @@ import com.example.unifiedreader.feature.reader.core.ImmersiveReaderOverlay
 import com.example.unifiedreader.feature.reader.core.ReaderBottomProgressBar
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
 import kotlin.math.roundToInt
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -67,7 +70,14 @@ fun ComicsReaderScreen(
         initialSpreadMode = remember(item.id, preferencesStore) {
             preferencesStore.loadSpreadMode(item)
         },
+        initialSplitWidePages = remember(item.id, preferencesStore) {
+            preferencesStore.loadSplitWidePages(item)
+        },
+        initialResumeSegment = remember(item.id, preferencesStore) {
+            preferencesStore.loadResumeSegment(item)
+        },
     )
+    var pageMetadataById by remember(item.id) { mutableStateOf<Map<String, ComicPageMetadata>>(emptyMap()) }
     val currentPageProgress = (readerState.currentPage + 1).toFloat() / pages.size.toFloat()
     val lifecycleOwner = LocalLifecycleOwner.current
     val coroutineScope = rememberCoroutineScope()
@@ -87,6 +97,12 @@ fun ComicsReaderScreen(
                 item = item,
                 pageIndex = readerState.currentPage,
                 pageCount = pages.size,
+                isFinished = isComicProgressFinished(
+                    pageIndex = readerState.currentPage,
+                    pageCount = pages.size,
+                    segment = readerState.resumeSegment,
+                    readingDirection = readerState.readingDirection,
+                ),
             )
         },
     )
@@ -95,6 +111,8 @@ fun ComicsReaderScreen(
             preferencesStore.saveReadingDirection(item, readerState.readingDirection)
             preferencesStore.savePageFitMode(item, readerState.pageFitMode)
             preferencesStore.saveSpreadMode(item, readerState.spreadMode)
+            preferencesStore.saveSplitWidePages(item, readerState.splitWidePages)
+            preferencesStore.saveResumeSegment(item, readerState.resumeSegment)
         },
     )
     val restoredPage = savedPagesByItemId[item.id]
@@ -118,8 +136,38 @@ fun ComicsReaderScreen(
             readerState.restoreReadingDirectionIfUnchanged(preferences.readingDirection)
             readerState.restorePageFitModeIfUnchanged(preferences.pageFitMode)
             readerState.restoreSpreadModeIfUnchanged(preferences.spreadMode)
+            readerState.restoreSplitWidePagesIfUnchanged(preferences.splitWidePages)
+            readerState.restoreResumeSegmentIfUnchanged(preferences.resumeSegment)
         }
         preferencesRestoreCompleted = true
+    }
+
+    LaunchedEffect(
+        item.id,
+        readerState.currentPage,
+        readerState.readingDirection,
+        readerState.spreadMode,
+        readerState.splitWidePages,
+        pages,
+    ) {
+        val targetIndexes = metadataRequestIndexes(
+            currentPage = readerState.currentPage,
+            pageCount = pages.size,
+        ).filter { index -> pages[index].id !in pageMetadataById }
+        if (targetIndexes.isEmpty()) return@LaunchedEffect
+        val loadedMetadata = coroutineScope {
+            targetIndexes.map { index ->
+                async {
+                    val page = pages[index]
+                    page.id to pageSource.loadPageMetadata(item, page)
+                }
+            }.awaitAll()
+        }.mapNotNull { (pageId, metadata) ->
+            metadata?.let { pageId to it }
+        }.toMap()
+        if (loadedMetadata.isNotEmpty()) {
+            pageMetadataById = pageMetadataById + loadedMetadata
+        }
     }
 
     LaunchedEffect(
@@ -127,6 +175,8 @@ fun ComicsReaderScreen(
         progressHydrated,
         progressRestoreCompleted,
         readerState.currentPage,
+        readerState.resumeSegment,
+        readerState.readingDirection,
         pages.size,
     ) {
         if (!progressHydrated || !progressRestoreCompleted) return@LaunchedEffect
@@ -141,6 +191,8 @@ fun ComicsReaderScreen(
         readerState.readingDirection,
         readerState.pageFitMode,
         readerState.spreadMode,
+        readerState.splitWidePages,
+        readerState.resumeSegment,
     ) {
         if (!preferencesHydrated || !preferencesRestoreCompleted) return@LaunchedEffect
         persistReaderPreferences()
@@ -189,23 +241,27 @@ fun ComicsReaderScreen(
                     pages,
                     readerState.readingDirection,
                     useDoublePageSpreads,
+                    pageMetadataById,
+                    readerState.splitWidePages,
                 ) {
                     buildComicPageSpreads(
                         pages = pages,
                         readingDirection = readerState.readingDirection,
                         useDoublePageSpreads = useDoublePageSpreads,
+                        pageMetadataById = pageMetadataById,
+                        splitWidePages = readerState.splitWidePages,
                     )
                 }
                 val pagerState = rememberPagerState(
-                    initialPage = spreads.indexOfPage(readerState.currentPage),
+                    initialPage = spreads.indexOfPage(readerState.currentPage, readerState.resumeSegment),
                     pageCount = { spreads.size },
                 )
                 val currentSpread = spreads.getOrNull(pagerState.currentPage) ?: spreads.first()
 
-                LaunchedEffect(spreads, readerState.currentPage) {
-                    val targetSpreadIndex = spreads.indexOfPage(readerState.currentPage)
+                LaunchedEffect(spreads, readerState.currentPage, readerState.resumeSegment) {
+                    val targetSpreadIndex = spreads.indexOfPage(readerState.currentPage, readerState.resumeSegment)
                     if (pagerState.currentPage != targetSpreadIndex &&
-                        readerState.currentPage !in currentSpread.pageIndexes
+                        !currentSpread.matchesPosition(readerState.currentPage, readerState.resumeSegment)
                     ) {
                         pagerState.scrollToPage(targetSpreadIndex)
                     }
@@ -217,7 +273,10 @@ fun ComicsReaderScreen(
                         readerState.currentPage in settledSpread.pageIndexes -> readerState.currentPage
                         else -> settledSpread.resumePageIndex
                     }
-                    readerState.onPageSettled(settledPageIndex)
+                    readerState.onPageSettled(
+                        pageIndex = settledPageIndex,
+                        segment = settledSpread.resumeSegment,
+                    )
                     pageSource.prefetchAround(
                         item = item,
                         settledPageIndex = settledPageIndex,
@@ -264,11 +323,13 @@ fun ComicsReaderScreen(
                     readingDirection = readerState.readingDirection,
                     pageFitMode = readerState.pageFitMode,
                     spreadMode = readerState.spreadMode,
+                    splitWidePages = readerState.splitWidePages,
                     overlayVisible = overlayState.isVisible,
                     onBack = onBack,
                     onReadingDirectionChanged = readerState::onReadingDirectionChanged,
                     onPageFitModeChanged = readerState::onPageFitModeChanged,
                     onSpreadModeChanged = readerState::onSpreadModeChanged,
+                    onSplitWidePagesChanged = readerState::onSplitWidePagesChanged,
                 )
                 ReaderBottomProgressBar(
                     progress = currentPageProgress,
@@ -286,6 +347,19 @@ fun ComicsReaderScreen(
         },
     )
 }
+
+private fun metadataRequestIndexes(
+    currentPage: Int,
+    pageCount: Int,
+    radius: Int = 2,
+): List<Int> = buildList {
+    if (pageCount <= 0) return@buildList
+    add(currentPage.coerceIn(0, pageCount - 1))
+    for (offset in 1..radius) {
+        add((currentPage + offset).coerceIn(0, pageCount - 1))
+        add((currentPage - offset).coerceIn(0, pageCount - 1))
+    }
+}.distinct()
 
 @Composable
 private fun EmptyComicsReader(item: ReadableItem) {
