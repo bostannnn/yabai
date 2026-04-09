@@ -10,6 +10,9 @@ import com.example.unifiedreader.feature.settings.GrimmoryConnectionUiState
 import com.example.unifiedreader.feature.settings.StumpConnectionUiState
 import java.util.Locale
 
+internal typealias AppUiStateProvider = () -> AppUiState
+internal typealias AppUiStateUpdater = ((AppUiState) -> AppUiState) -> Unit
+
 internal fun deletionMessage(
     item: ReadableItem,
     outcome: ImportedItemDeletionOutcome,

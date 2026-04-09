@@ -1,6 +1,5 @@
 package com.example.unifiedreader
 
-import android.app.Application
 import android.content.ContentResolver
 import android.content.Intent
 import android.net.Uri
@@ -16,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -29,12 +29,13 @@ import com.example.unifiedreader.ui.theme.applyAndroidThemeMode
 @Composable
 fun UnifiedReaderRoute() {
     val viewModel: AppViewModel = hiltViewModel()
+    val context = LocalContext.current
     val localFileImportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
     ) { uri ->
         if (uri != null) {
             importDocumentIntoApp(
-                contentResolver = viewModel.getApplication<Application>().contentResolver,
+                contentResolver = context.contentResolver,
                 viewModel = viewModel,
                 uri = uri,
             )

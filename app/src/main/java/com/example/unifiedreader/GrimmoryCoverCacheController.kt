@@ -4,10 +4,12 @@ import android.util.Log
 import androidx.compose.runtime.mutableStateMapOf
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import dagger.hilt.android.scopes.ViewModelScoped
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
+@ViewModelScoped
 class GrimmoryCoverCacheController @Inject constructor(
     private val grimmoryCoverRepository: GrimmoryCoverDataSource,
 ) {

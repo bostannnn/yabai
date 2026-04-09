@@ -24,6 +24,7 @@ import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
+import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicSpreadMode
 import com.example.unifiedreader.feature.reader.comics.ComicsSpreadModeKey
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
@@ -358,59 +359,119 @@ private fun createViewModel(
         localDocumentRepository = localDocumentRepository,
         grimmoryContentRepository = grimmoryContentRepository,
     )
+    val stumpCatalogSyncer = object : StumpCatalogSyncer {
+        override suspend fun connect(
+            request: StumpCatalogSyncRequest,
+        ): StumpCatalogConnectionResult = StumpCatalogConnectionResult(libraryCount = 0)
+
+        override suspend fun sync(
+            request: StumpCatalogSyncRequest,
+            onProgress: (StumpSyncProgress) -> Unit,
+        ): StumpCatalogSyncResult = StumpCatalogSyncResult(
+            libraryCount = 0,
+            itemCount = 0,
+            supportedFormatCounts = emptyMap(),
+        )
+    }
+    val stumpCredentialStore = object : StumpCredentialStore {
+        private val sessionState = MutableStateFlow<StumpStoredSession?>(null)
+        override val sessionFlow: StateFlow<StumpStoredSession?> = sessionState
+
+        override suspend fun save(session: StumpStoredSession) {
+            sessionState.value = session
+        }
+
+        override suspend fun clear() {
+            sessionState.value = null
+        }
+    }
+    val stumpCoverRepository = object : StumpCoverDataSource {
+        override suspend fun getCoverUri(item: ReadableItem): Uri? = null
+
+        override suspend fun clearCachedCovers() = Unit
+    }
+    val stumpCoverCacheController = StumpCoverCacheController(
+        stumpCoverRepository = stumpCoverRepository,
+    )
+    val grimmoryCoverCacheController = GrimmoryCoverCacheController(
+        grimmoryCoverRepository = grimmoryCoverRepository,
+    )
+    val comicPageSourceCacheController = object : ComicPageSourceCacheController {
+        override fun clearSourcePageCache(sourceType: SourceType) = Unit
+    }
     return AppViewModel(
-        application = ApplicationProvider.getApplicationContext<Application>(),
         appPreferencesStore = appPreferencesStore,
-        libraryRepository = libraryRepository,
-        readableItemRepository = readableItemRepository,
-        localDocumentRepository = localDocumentRepository,
-        libraryStateAssembler = libraryStateAssembler,
-        observeAppCatalogSnapshotsUseCase = ObserveAppCatalogSnapshotsUseCase(
-            appPreferencesStore = appPreferencesStore,
+        catalogStateCoordinator = AppCatalogStateCoordinator(
             libraryRepository = libraryRepository,
             readableItemRepository = readableItemRepository,
-            remoteCatalogReadiness = remoteCatalogReadiness,
             localDocumentRepository = localDocumentRepository,
-            readerSessionStore = readerSessionStore,
             libraryStateAssembler = libraryStateAssembler,
-        ),
-        importDocumentUseCase = ImportDocumentUseCase(
-            localDocumentRepository = localDocumentRepository,
-        ),
-        deleteImportedItemUseCase = DeleteImportedItemUseCase(
-            importedItemDeletionService = DefaultImportedItemDeletionService(
-                localDocumentDataSource = localDocumentRepository,
+            observeAppCatalogSnapshotsUseCase = ObserveAppCatalogSnapshotsUseCase(
+                appPreferencesStore = appPreferencesStore,
+                libraryRepository = libraryRepository,
+                readableItemRepository = readableItemRepository,
+                remoteCatalogReadiness = remoteCatalogReadiness,
+                localDocumentRepository = localDocumentRepository,
                 readerSessionStore = readerSessionStore,
+                libraryStateAssembler = libraryStateAssembler,
             ),
+            readerSessionStore = readerSessionStore,
+            stumpCoverCacheController = stumpCoverCacheController,
+            grimmoryCoverCacheController = grimmoryCoverCacheController,
         ),
-        downloadRemoteItemUseCase = DownloadRemoteItemUseCase(
-            grimmoryContentRepository = grimmoryContentRepository,
+        libraryActionsCoordinator = AppLibraryActionsCoordinator(
+            importDocumentUseCase = ImportDocumentUseCase(
+                localDocumentRepository = localDocumentRepository,
+            ),
+            deleteImportedItemUseCase = DeleteImportedItemUseCase(
+                importedItemDeletionService = DefaultImportedItemDeletionService(
+                    localDocumentDataSource = localDocumentRepository,
+                    readerSessionStore = readerSessionStore,
+                ),
+            ),
+            downloadRemoteItemUseCase = DownloadRemoteItemUseCase(
+                grimmoryContentRepository = grimmoryContentRepository,
+                libraryStateAssembler = libraryStateAssembler,
+                sourceProgressSyncs = sourceProgressSyncs,
+            ),
+            deleteRemoteLocalFileUseCase = DeleteRemoteLocalFileUseCase(
+                grimmoryContentRepository = grimmoryContentRepository,
+                libraryStateAssembler = libraryStateAssembler,
+            ),
+            stumpCoverCacheController = stumpCoverCacheController,
+            grimmoryCoverCacheController = grimmoryCoverCacheController,
+        ),
+        readerCoordinator = AppReaderCoordinator(
             libraryStateAssembler = libraryStateAssembler,
+            readerSessionStore = readerSessionStore,
             sourceProgressSyncs = sourceProgressSyncs,
         ),
-        deleteRemoteLocalFileUseCase = DeleteRemoteLocalFileUseCase(
-            grimmoryContentRepository = grimmoryContentRepository,
-            libraryStateAssembler = libraryStateAssembler,
-        ),
-        kavitaCoordinator = AppKavitaCoordinator(
-            kavitaCatalogSyncer = kavitaCatalogSyncer,
+        remoteSourcesCoordinator = AppRemoteSourcesCoordinator(
+            kavitaCoordinator = AppKavitaCoordinator(
+                kavitaCatalogSyncer = kavitaCatalogSyncer,
+                kavitaCredentialStore = kavitaCredentialStore,
+            ),
+            stumpCoordinator = AppStumpCoordinator(
+                stumpCatalogSyncer = stumpCatalogSyncer,
+                stumpCredentialStore = stumpCredentialStore,
+                stumpCoverRepository = stumpCoverRepository,
+            ),
+            grimmoryCoordinator = AppGrimmoryCoordinator(
+                grimmoryCatalogSyncer = grimmoryCatalogSyncer,
+                grimmoryCredentialStore = grimmoryCredentialStore,
+                grimmoryCoverRepository = grimmoryCoverRepository,
+            ),
             kavitaCredentialStore = kavitaCredentialStore,
-        ),
-        grimmoryCoordinator = AppGrimmoryCoordinator(
-            grimmoryCatalogSyncer = grimmoryCatalogSyncer,
+            stumpCredentialStore = stumpCredentialStore,
             grimmoryCredentialStore = grimmoryCredentialStore,
-            grimmoryCoverRepository = grimmoryCoverRepository,
-        ),
-        kavitaCredentialStore = kavitaCredentialStore,
-        grimmoryCredentialStore = grimmoryCredentialStore,
-        grimmoryCoverCacheController = GrimmoryCoverCacheController(
-            grimmoryCoverRepository = grimmoryCoverRepository,
+            stumpCoverCacheController = stumpCoverCacheController,
+            grimmoryCoverCacheController = grimmoryCoverCacheController,
+            comicPageSourceCacheController = comicPageSourceCacheController,
         ),
         comicPageSource = pageSource,
         comicReaderProgressStore = progressStore,
         comicReaderPreferencesStore = preferencesStore,
         readerSessionStore = readerSessionStore,
-        sourceProgressSyncs = sourceProgressSyncs,
         readerFactories = readerFactories,
     )
 }
