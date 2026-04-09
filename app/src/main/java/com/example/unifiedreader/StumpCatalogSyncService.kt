@@ -1,6 +1,5 @@
 package com.example.unifiedreader
 
-import com.example.unifiedreader.core.database.entity.toEntity
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
@@ -9,12 +8,6 @@ import com.example.unifiedreader.data.stump.StumpMediaCatalogEntry
 import com.example.unifiedreader.data.stump.StumpSeriesEntry
 import com.example.unifiedreader.data.stump.StumpSession
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
-import java.util.concurrent.atomic.AtomicInteger
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 
 fun interface StumpApiFactory {
     fun create(
@@ -98,7 +91,7 @@ class StumpCatalogSyncService(
                 series = series,
                 onProgress = onProgress,
             )
-            StumpSyncFetch(
+            RemoteCatalogFetch(
                 libraries = libraries,
                 entries = entries,
             )
@@ -106,68 +99,39 @@ class StumpCatalogSyncService(
         activeAccessToken = fetchResult.accessToken
         activeRefreshToken = fetchResult.refreshToken
         latestSession = fetchResult.refreshedSession ?: latestSession
-        val libraries = fetchResult.value.libraries
-        val entries = fetchResult.value.entries
-        val items = entries.map(StumpMediaCatalogEntry::item)
-        val updatedAtEpochMillis = nowEpochMillis()
-        clearStaleStumpProgress(
-            incomingItemIds = items.mapTo(mutableSetOf(), ReadableItem::id),
-        )
-        onProgress(StumpSyncProgress(message = "Saving Stump catalog...", fraction = 0.92f))
-        remoteCatalogWriter.replaceSourceCatalog(
+        val syncOutcome = finalizeRemoteCatalogSync(
             sourceType = SourceType.STUMP,
-            libraries = libraries.map { library -> library.toEntity() },
-            items = items.map { item ->
-                item.toEntity(updatedAtEpochMillis = updatedAtEpochMillis)
+            fetch = fetchResult.value,
+            remoteCatalogWriter = remoteCatalogWriter,
+            readerSessionStore = readerSessionStore,
+            nowEpochMillis = nowEpochMillis(),
+            onProgress = { message, fraction ->
+                onProgress(StumpSyncProgress(message = message, fraction = fraction))
             },
-        )
-        onProgress(StumpSyncProgress(message = "Applying Stump progress...", fraction = 0.97f))
-        pullProgress(entries)
-        val progressSync = pushDirtyProgress(
-            api = api,
-            initialAccessToken = activeAccessToken,
-            initialRefreshToken = activeRefreshToken,
-            items = items,
-        )
-        latestSession = progressSync.refreshedSession ?: latestSession
+            savingMessage = "Saving Stump catalog...",
+            applyingProgressMessage = "Applying Stump progress...",
+            itemOf = StumpMediaCatalogEntry::item,
+            progressOf = StumpMediaCatalogEntry::progress,
+            missingRemoteClearsLocal = { false },
+            remoteClearOverridesLocal = { false },
+        ) { items ->
+            val progressSync = pushDirtyProgress(
+                api = api,
+                initialAccessToken = activeAccessToken,
+                initialRefreshToken = activeRefreshToken,
+                items = items,
+            )
+            activeAccessToken = progressSync.accessToken
+            activeRefreshToken = progressSync.refreshToken
+            progressSync.refreshedSession
+        }
+        latestSession = syncOutcome.session ?: latestSession
         return StumpCatalogSyncResult(
-            libraryCount = libraries.size,
-            itemCount = items.size,
-            supportedFormatCounts = items.groupingBy(ReadableItem::format).eachCount(),
+            libraryCount = syncOutcome.libraryCount,
+            itemCount = syncOutcome.itemCount,
+            supportedFormatCounts = syncOutcome.supportedFormatCounts,
             session = latestSession,
         )
-    }
-
-    private fun pullProgress(
-        entries: List<StumpMediaCatalogEntry>,
-    ) {
-        val store = readerSessionStore ?: return
-        entries.forEach { entry ->
-            applyRemoteProgressSyncDecision(
-                store = store,
-                item = entry.item,
-                pageCount = entry.item.pageCount,
-                decision = decideRemoteProgressSync(
-                    local = store.getProgress(entry.item),
-                    remote = entry.progress,
-                    nowEpochMillis = nowEpochMillis(),
-                    missingRemoteClearsLocal = false,
-                    remoteClearOverridesLocal = false,
-                ),
-            )
-        }
-    }
-
-    private suspend fun clearStaleStumpProgress(
-        incomingItemIds: Set<String>,
-    ) {
-        val store = readerSessionStore ?: return
-        remoteCatalogWriter.getItemsForSourceType(SourceType.STUMP)
-            .asSequence()
-            .map(ReadableItem::id)
-            .filterNot(incomingItemIds::contains)
-            .distinct()
-            .forEach(store::clearItem)
     }
 
     private suspend fun pushDirtyProgress(
@@ -196,67 +160,21 @@ class StumpCatalogSyncService(
         accessToken: String,
         series: List<StumpSeriesEntry>,
         onProgress: (StumpSyncProgress) -> Unit,
-    ): List<StumpMediaCatalogEntry> = coroutineScope {
-        if (series.isEmpty()) {
-            onProgress(StumpSyncProgress(message = "No Stump series to import.", fraction = 0.85f))
-            return@coroutineScope emptyList()
+    ): List<StumpMediaCatalogEntry> = fetchSeriesEntriesWithProgress(
+        sourceLabel = "Stump",
+        series = series,
+        onProgress = { message, fraction ->
+            onProgress(StumpSyncProgress(message = message, fraction = fraction))
+        },
+    ) { seriesEntry ->
+        api.getSeriesDetail(
+            accessToken = accessToken,
+            series = seriesEntry,
+        ).filter { entry ->
+            entry.item.format in STUMP_SUPPORTED_SYNC_FORMATS
         }
-        val detailRequestLimiter = Semaphore(STUMP_SERIES_DETAIL_REQUEST_CONCURRENCY)
-        val completedSeriesCount = AtomicInteger(0)
-        val reportedSeriesCount = AtomicInteger(0)
-        onProgress(
-            StumpSyncProgress(
-                message = "Loading Stump series 0/${series.size}...",
-                fraction = 0.2f,
-            ),
-        )
-        series.map { seriesEntry ->
-            async {
-                detailRequestLimiter.withPermit {
-                    api.getSeriesDetail(
-                        accessToken = accessToken,
-                        series = seriesEntry,
-                    ).also {
-                        val completed = completedSeriesCount.incrementAndGet()
-                        if (shouldReportStumpSeriesProgress(completed, series.size, reportedSeriesCount)) {
-                            val detailFraction = 0.2f + (0.65f * completed.toFloat() / series.size.toFloat())
-                            onProgress(
-                                StumpSyncProgress(
-                                    message = "Loading Stump series $completed/${series.size}...",
-                                    fraction = detailFraction.coerceIn(0f, 0.85f),
-                                ),
-                            )
-                        }
-                    }
-                }
-            }
-        }.awaitAll().flatten()
     }
 }
-
-private fun shouldReportStumpSeriesProgress(
-    completed: Int,
-    total: Int,
-    reportedSeriesCount: AtomicInteger,
-): Boolean {
-    if (completed <= 0 || total <= 0) return false
-    if (completed >= total) {
-        reportedSeriesCount.set(completed)
-        return true
-    }
-    val minReportStep = (total / STUMP_PROGRESS_REPORT_STEPS).coerceAtLeast(1)
-    val lastReported = reportedSeriesCount.get()
-    val shouldReport = completed == 1 || completed - lastReported >= minReportStep
-    if (shouldReport) {
-        reportedSeriesCount.set(completed)
-    }
-    return shouldReport
-}
-
-private data class StumpSyncFetch(
-    val libraries: List<com.example.unifiedreader.core.model.Library>,
-    val entries: List<StumpMediaCatalogEntry>,
-)
 
 data class StumpCatalogSyncRequest(
     val displayName: String,
@@ -284,5 +202,7 @@ data class StumpCatalogSyncResult(
     val session: StumpSession? = null,
 )
 
-private const val STUMP_SERIES_DETAIL_REQUEST_CONCURRENCY = 6
-private const val STUMP_PROGRESS_REPORT_STEPS = 24
+private val STUMP_SUPPORTED_SYNC_FORMATS = setOf(
+    FormatType.CBZ,
+    FormatType.CBR,
+)

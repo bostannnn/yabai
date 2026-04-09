@@ -321,7 +321,7 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideComicPageSource(
+    fun provideLocalComicPageSource(
         localComicDocumentDataSource: LocalComicDocumentDataSource,
     ): LocalComicPageSource = LocalComicPageSource(localComicDocumentDataSource)
 
@@ -358,7 +358,7 @@ object AppModule {
     )
 
     @Provides
-    fun provideComicPageSource(
+    fun provideCompositeComicPageSourceAsComicPageSource(
         compositeComicPageSource: CompositeComicPageSource,
     ): ComicPageSource = compositeComicPageSource
 

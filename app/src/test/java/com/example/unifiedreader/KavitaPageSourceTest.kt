@@ -13,6 +13,7 @@ import com.example.unifiedreader.data.kavita.KavitaProgressUpdate
 import com.example.unifiedreader.data.kavita.KavitaSeriesEntry
 import com.example.unifiedreader.data.kavita.KavitaSession
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
+import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -65,7 +66,7 @@ class KavitaPageSourceTest {
         )
         scope.advanceUntilIdle()
 
-        assertEquals(listOf(6, 7, 4, 3), api.requestedPageIndexes)
+        assertEquals(listOf(6, 7, 8, 9, 4, 3, 2, 1), api.requestedPageIndexes)
     }
 
     @Test
@@ -182,14 +183,46 @@ class KavitaPageSourceTest {
 
         assertEquals(1, api.requestedPageIndexes.count { it == 3 })
     }
+
+    @Test
+    fun `load aborts when kavita session is cleared before deferred byte fetch starts`() = runTest {
+        val item = sampleKavitaComic(pageCount = 12)
+        val api = RecordingKavitaPageApi()
+        val fetchScope = TestScope(StandardTestDispatcher(testScheduler))
+        val credentialStore = TestKavitaCredentialStore(
+            KavitaStoredSession(
+                displayName = "Kavita",
+                baseUrl = "https://kavita.example",
+                username = "reader",
+                accessToken = "access-token",
+                refreshToken = "refresh-token",
+                apiKey = "api-key",
+            ),
+        )
+        val pageSource = createPageSource(
+            api = api,
+            scope = fetchScope,
+            credentialStore = credentialStore,
+        )
+        val page = ComicPageSpec(id = "3", pageIndex = 3, contentDescription = "Page 4")
+
+        val imageLoad = async(UnconfinedTestDispatcher(testScheduler)) {
+            pageSource.loadPageImage(item, page, ComicPageLoadPriority.Visible)
+        }
+        credentialStore.clear()
+        fetchScope.runCurrent()
+
+        val result = imageLoad.await()
+
+        assertTrue(result is ComicPageLoadResult.Failure)
+        assertEquals(emptyList<Int>(), api.requestedPageIndexes)
+    }
 }
 
 private fun createPageSource(
     api: RecordingKavitaPageApi,
     scope: TestScope,
-): KavitaPageSource = KavitaPageSource(
-    kavitaApiFactory = KavitaApiFactory { _ -> api },
-    kavitaCredentialStore = TestKavitaCredentialStore(
+    credentialStore: KavitaCredentialStore = TestKavitaCredentialStore(
         KavitaStoredSession(
             displayName = "Kavita",
             baseUrl = "https://kavita.example",
@@ -199,6 +232,9 @@ private fun createPageSource(
             apiKey = "api-key",
         ),
     ),
+): KavitaPageSource = KavitaPageSource(
+    kavitaApiFactory = KavitaApiFactory { _ -> api },
+    kavitaCredentialStore = credentialStore,
     ioDispatcher = scope.coroutineContext[ContinuationInterceptor] as kotlinx.coroutines.CoroutineDispatcher,
     scope = scope,
 )

@@ -63,7 +63,7 @@ class StumpPageSourceTest {
         )
         scope.advanceUntilIdle()
 
-        assertEquals(listOf(6, 7, 4, 3), api.requestedPageIndexes)
+        assertEquals(listOf(6, 7, 8, 9, 4, 3, 2, 1), api.requestedPageIndexes)
     }
 
     @Test
@@ -179,14 +179,45 @@ class StumpPageSourceTest {
 
         assertEquals(1, api.requestedPageIndexes.count { it == 3 })
     }
+
+    @Test
+    fun `load aborts when stump session is cleared before deferred byte fetch starts`() = runTest {
+        val item = sampleStumpComic(pageCount = 12)
+        val api = RecordingStumpPageApi()
+        val fetchScope = TestScope(StandardTestDispatcher(testScheduler))
+        val credentialStore = TestStumpCredentialStore(
+            StumpStoredSession(
+                displayName = "Stump",
+                baseUrl = "https://stump.example",
+                username = "reader",
+                accessToken = "access-token",
+                refreshToken = "refresh-token",
+            ),
+        )
+        val pageSource = createPageSource(
+            api = api,
+            scope = fetchScope,
+            credentialStore = credentialStore,
+        )
+        val page = ComicPageSpec(id = "3", pageIndex = 3, contentDescription = "Page 4")
+
+        val imageLoad = async(UnconfinedTestDispatcher(testScheduler)) {
+            pageSource.loadPageImage(item, page, ComicPageLoadPriority.Visible)
+        }
+        credentialStore.clear()
+        fetchScope.runCurrent()
+
+        val result = imageLoad.await()
+
+        assertTrue(result is ComicPageLoadResult.Failure)
+        assertEquals(emptyList<Int>(), api.requestedPageIndexes)
+    }
 }
 
 private fun createPageSource(
     api: RecordingStumpPageApi,
     scope: TestScope,
-): StumpPageSource = StumpPageSource(
-    stumpApiFactory = StumpApiFactory { _ -> api },
-    stumpCredentialStore = TestStumpCredentialStore(
+    credentialStore: StumpCredentialStore = TestStumpCredentialStore(
         StumpStoredSession(
             displayName = "Stump",
             baseUrl = "https://stump.example",
@@ -195,6 +226,9 @@ private fun createPageSource(
             refreshToken = "refresh-token",
         ),
     ),
+): StumpPageSource = StumpPageSource(
+    stumpApiFactory = StumpApiFactory { _ -> api },
+    stumpCredentialStore = credentialStore,
     ioDispatcher = scope.coroutineContext[ContinuationInterceptor] as kotlinx.coroutines.CoroutineDispatcher,
     scope = scope,
 )

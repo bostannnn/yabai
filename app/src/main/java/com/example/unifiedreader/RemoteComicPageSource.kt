@@ -23,7 +23,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 
-internal abstract class RemoteComicPageSource<Session : StoredSourceSession>(
+abstract class RemoteComicPageSource<Session : StoredSourceSession>(
     private val sourceType: SourceType,
     private val supportedFormats: Set<FormatType>,
     private val missingSessionMessage: String,
@@ -145,10 +145,10 @@ internal abstract class RemoteComicPageSource<Session : StoredSourceSession>(
         val session = activeSessionFor(item) ?: return
         val pages = getPages(item)
         val candidateIndexes = buildList {
-            for (offset in 1..2) {
+            for (offset in 1..4) {
                 add(settledPageIndex + offset)
             }
-            for (offset in 1..2) {
+            for (offset in 1..4) {
                 add(settledPageIndex - offset)
             }
         }.filter { it in 0 until minOf(pageCount, pages.size) }
@@ -233,7 +233,7 @@ internal abstract class RemoteComicPageSource<Session : StoredSourceSession>(
             }
             inFlightByteRequests[requestKey] ?: scope.async {
                 val bytes = runCatching {
-                    val activeSession = activeSessionFor(item) ?: session
+                    val activeSession = activeSessionFor(item) ?: return@runCatching null
                     downloadPageBytes(
                         session = activeSession,
                         item = item,

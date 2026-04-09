@@ -1,6 +1,5 @@
 package com.example.unifiedreader
 
-import com.example.unifiedreader.core.database.entity.toEntity
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
@@ -9,12 +8,6 @@ import com.example.unifiedreader.data.kavita.KavitaChapterCatalogEntry
 import com.example.unifiedreader.data.kavita.KavitaSession
 import com.example.unifiedreader.data.kavita.KavitaSeriesEntry
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
-import java.util.concurrent.atomic.AtomicInteger
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 
 fun interface KavitaApiFactory {
     fun create(
@@ -99,7 +92,7 @@ class KavitaCatalogSyncService(
                 series = series,
                 onProgress = onProgress,
             )
-            KavitaSyncFetch(
+            RemoteCatalogFetch(
                 libraries = libraries,
                 entries = entries,
             )
@@ -108,69 +101,41 @@ class KavitaCatalogSyncService(
         activeRefreshToken = fetchResult.refreshToken
         activeApiKey = fetchResult.refreshedSession?.apiKey ?: activeApiKey
         latestSession = fetchResult.refreshedSession ?: latestSession
-        val libraries = fetchResult.value.libraries
-        val entries = fetchResult.value.entries
-        val items = entries.map(KavitaChapterCatalogEntry::item)
-        val updatedAtEpochMillis = nowEpochMillis()
-        clearStaleKavitaProgress(
-            incomingItemIds = items.mapTo(mutableSetOf(), ReadableItem::id),
-        )
-        onProgress(KavitaSyncProgress(message = "Saving Kavita catalog...", fraction = 0.92f))
-        remoteCatalogWriter.replaceSourceCatalog(
+        val syncOutcome = finalizeRemoteCatalogSync(
             sourceType = SourceType.KAVITA,
-            libraries = libraries.map { library -> library.toEntity() },
-            items = items.map { item ->
-                item.toEntity(updatedAtEpochMillis = updatedAtEpochMillis)
+            fetch = fetchResult.value,
+            remoteCatalogWriter = remoteCatalogWriter,
+            readerSessionStore = readerSessionStore,
+            nowEpochMillis = nowEpochMillis(),
+            onProgress = { message, fraction ->
+                onProgress(KavitaSyncProgress(message = message, fraction = fraction))
             },
-        )
-        onProgress(KavitaSyncProgress(message = "Applying Kavita progress...", fraction = 0.97f))
-        pullProgress(entries)
-        val progressSync = pushDirtyProgress(
-            api = api,
-            initialAccessToken = activeAccessToken,
-            initialRefreshToken = activeRefreshToken,
-            initialApiKey = activeApiKey,
-            items = items,
-        )
-        latestSession = progressSync.refreshedSession ?: latestSession
+            savingMessage = "Saving Kavita catalog...",
+            applyingProgressMessage = "Applying Kavita progress...",
+            itemOf = KavitaChapterCatalogEntry::item,
+            progressOf = KavitaChapterCatalogEntry::progress,
+            missingRemoteClearsLocal = KavitaChapterCatalogEntry::isExplicitUnreadReset,
+            remoteClearOverridesLocal = { false },
+        ) { items ->
+            val progressSync = pushDirtyProgress(
+                api = api,
+                initialAccessToken = activeAccessToken,
+                initialRefreshToken = activeRefreshToken,
+                initialApiKey = activeApiKey,
+                items = items,
+            )
+            activeAccessToken = progressSync.accessToken
+            activeRefreshToken = progressSync.refreshToken
+            activeApiKey = progressSync.refreshedSession?.apiKey ?: activeApiKey
+            progressSync.refreshedSession
+        }
+        latestSession = syncOutcome.session ?: latestSession
         return KavitaCatalogSyncResult(
-            libraryCount = libraries.size,
-            itemCount = items.size,
-            supportedFormatCounts = items.groupingBy(ReadableItem::format).eachCount(),
+            libraryCount = syncOutcome.libraryCount,
+            itemCount = syncOutcome.itemCount,
+            supportedFormatCounts = syncOutcome.supportedFormatCounts,
             session = latestSession,
         )
-    }
-
-    private fun pullProgress(
-        entries: List<KavitaChapterCatalogEntry>,
-    ) {
-        val store = readerSessionStore ?: return
-        entries.forEach { entry ->
-            applyRemoteProgressSyncDecision(
-                store = store,
-                item = entry.item,
-                pageCount = entry.item.pageCount,
-                decision = decideRemoteProgressSync(
-                    local = store.getProgress(entry.item),
-                    remote = entry.progress,
-                    nowEpochMillis = nowEpochMillis(),
-                    missingRemoteClearsLocal = entry.isExplicitUnreadReset,
-                    remoteClearOverridesLocal = false,
-                ),
-            )
-        }
-    }
-
-    private suspend fun clearStaleKavitaProgress(
-        incomingItemIds: Set<String>,
-    ) {
-        val store = readerSessionStore ?: return
-        remoteCatalogWriter.getItemsForSourceType(SourceType.KAVITA)
-            .asSequence()
-            .map(ReadableItem::id)
-            .filterNot(incomingItemIds::contains)
-            .distinct()
-            .forEach(store::clearItem)
     }
 
     private suspend fun pushDirtyProgress(
@@ -201,67 +166,19 @@ class KavitaCatalogSyncService(
         accessToken: String,
         series: List<KavitaSeriesEntry>,
         onProgress: (KavitaSyncProgress) -> Unit,
-    ): List<KavitaChapterCatalogEntry> = coroutineScope {
-        if (series.isEmpty()) {
-            onProgress(KavitaSyncProgress(message = "No Kavita series to import.", fraction = 0.85f))
-            return@coroutineScope emptyList()
-        }
-        val detailRequestLimiter = Semaphore(KAVITA_SERIES_DETAIL_REQUEST_CONCURRENCY)
-        val completedSeriesCount = AtomicInteger(0)
-        val reportedSeriesCount = AtomicInteger(0)
-        onProgress(
-            KavitaSyncProgress(
-                message = "Loading Kavita series 0/${series.size}...",
-                fraction = 0.2f,
-            ),
+    ): List<KavitaChapterCatalogEntry> = fetchSeriesEntriesWithProgress(
+        sourceLabel = "Kavita",
+        series = series,
+        onProgress = { message, fraction ->
+            onProgress(KavitaSyncProgress(message = message, fraction = fraction))
+        },
+    ) { seriesEntry ->
+        api.getSeriesDetail(
+            accessToken = accessToken,
+            series = seriesEntry,
         )
-        series.map { seriesEntry ->
-            async {
-                detailRequestLimiter.withPermit {
-                    api.getSeriesDetail(
-                        accessToken = accessToken,
-                        series = seriesEntry,
-                    ).also {
-                        val completed = completedSeriesCount.incrementAndGet()
-                        if (shouldReportSeriesProgress(completed, series.size, reportedSeriesCount)) {
-                            val detailFraction = 0.2f + (0.65f * completed.toFloat() / series.size.toFloat())
-                            onProgress(
-                                KavitaSyncProgress(
-                                    message = "Loading Kavita series $completed/${series.size}...",
-                                    fraction = detailFraction.coerceIn(0f, 0.85f),
-                                ),
-                            )
-                        }
-                    }
-                }
-            }
-        }.awaitAll().flatten()
     }
 }
-
-private fun shouldReportSeriesProgress(
-    completed: Int,
-    total: Int,
-    reportedSeriesCount: AtomicInteger,
-): Boolean {
-    if (completed <= 0 || total <= 0) return false
-    if (completed >= total) {
-        reportedSeriesCount.set(completed)
-        return true
-    }
-    val minReportStep = (total / KAVITA_PROGRESS_REPORT_STEPS).coerceAtLeast(1)
-    val lastReported = reportedSeriesCount.get()
-    val shouldReport = completed == 1 || completed - lastReported >= minReportStep
-    if (shouldReport) {
-        reportedSeriesCount.set(completed)
-    }
-    return shouldReport
-}
-
-private data class KavitaSyncFetch(
-    val libraries: List<com.example.unifiedreader.core.model.Library>,
-    val entries: List<KavitaChapterCatalogEntry>,
-)
 
 data class KavitaCatalogSyncRequest(
     val displayName: String,
@@ -289,6 +206,3 @@ data class KavitaCatalogSyncResult(
     val supportedFormatCounts: Map<FormatType, Int>,
     val session: KavitaSession? = null,
 )
-
-private const val KAVITA_SERIES_DETAIL_REQUEST_CONCURRENCY = 6
-private const val KAVITA_PROGRESS_REPORT_STEPS = 24
