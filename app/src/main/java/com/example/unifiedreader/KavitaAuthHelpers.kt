@@ -3,8 +3,6 @@ package com.example.unifiedreader
 import com.example.unifiedreader.data.kavita.KavitaApi
 import com.example.unifiedreader.data.kavita.KavitaSession
 import com.example.unifiedreader.data.kavita.KavitaUnauthorizedException
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 
 internal data class KavitaTokenRefreshResult<T>(
     val value: T,
@@ -44,44 +42,33 @@ internal suspend fun <T> KavitaApi.runWithTokenRefresh(
 internal class KavitaStoredSessionRequestRunner(
     private val credentialStore: SourceSessionStore<KavitaStoredSession>,
 ) {
-    private val tokenRefreshMutex = Mutex()
+    private val requestRunner = AccessTokenSessionRequestRunner<KavitaStoredSession, KavitaApi>(
+        credentialStore = credentialStore,
+        isUnauthorized = { throwable -> throwable is KavitaUnauthorizedException },
+        refreshSession = { api: KavitaApi, session: KavitaStoredSession ->
+            val refreshToken = session.refreshToken?.takeIf(String::isNotBlank)
+                ?: throw KavitaUnauthorizedException()
+            val refreshedSession = api.refreshSession(
+                refreshToken = refreshToken,
+                accessToken = session.accessToken,
+                apiKey = session.apiKey,
+            )
+            session.copy(
+                accessToken = refreshedSession.accessToken,
+                refreshToken = refreshedSession.refreshToken,
+                apiKey = refreshedSession.apiKey ?: session.apiKey,
+            )
+        },
+    )
 
     suspend fun <T> run(
         api: KavitaApi,
         session: KavitaStoredSession,
         block: suspend (accessToken: String, apiKey: String?) -> T,
-    ): T = runCatching {
-        block(session.accessToken, session.apiKey)
-    }.recoverCatching { throwable ->
-        if (throwable !is KavitaUnauthorizedException) throw throwable
-        val refreshedSession = refreshSessionAfterUnauthorized(
-            api = api,
-            session = session,
-        )
-        block(refreshedSession.accessToken, refreshedSession.apiKey)
-    }.getOrThrow()
-
-    private suspend fun refreshSessionAfterUnauthorized(
-        api: KavitaApi,
-        session: KavitaStoredSession,
-    ): KavitaStoredSession = tokenRefreshMutex.withLock {
-        val currentSession = credentialStore.sessionFlow.value ?: session
-        if (currentSession.accessToken != session.accessToken) {
-            return@withLock currentSession
-        }
-        val refreshToken = currentSession.refreshToken?.takeIf(String::isNotBlank)
-            ?: throw KavitaUnauthorizedException()
-        val refreshedSession = api.refreshSession(
-            refreshToken = refreshToken,
-            accessToken = currentSession.accessToken,
-            apiKey = currentSession.apiKey,
-        )
-        val storedSession = currentSession.copy(
-            accessToken = refreshedSession.accessToken,
-            refreshToken = refreshedSession.refreshToken,
-            apiKey = refreshedSession.apiKey ?: currentSession.apiKey,
-        )
-        credentialStore.save(storedSession)
-        storedSession
+    ): T = requestRunner.run(
+        api = api,
+        session = session,
+    ) { activeSession ->
+        block(activeSession.accessToken, activeSession.apiKey)
     }
 }

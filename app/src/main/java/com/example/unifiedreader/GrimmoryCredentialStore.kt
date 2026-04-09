@@ -7,22 +7,20 @@ import android.security.keystore.KeyProperties
 import android.util.Base64
 import androidx.annotation.VisibleForTesting
 import dagger.hilt.android.qualifiers.ApplicationContext
-import java.io.IOException
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 data class GrimmoryStoredSession(
     override val displayName: String,
     override val baseUrl: String,
     override val username: String,
-    val accessToken: String,
-    val refreshToken: String,
-) : StoredSourceSession {
+    override val accessToken: String,
+    override val refreshToken: String,
+) : AccessTokenStoredSession {
     override val sourceType = com.example.unifiedreader.core.model.SourceType.GRIMMORY
 }
 
@@ -52,53 +50,39 @@ class SharedPreferencesGrimmoryCredentialStore @VisibleForTesting internal const
         ),
         cipher = cipher,
     )
-    private val _sessionFlow: MutableStateFlow<GrimmoryStoredSession?> = MutableStateFlow(loadStoredSession())
+    private val sessionStore = EncryptedSourceSessionStore(
+        preferences = preferences,
+        cipher = cipher,
+        saveErrorMessage = "Unable to save Grimmory credentials.",
+        clearErrorMessage = "Unable to clear Grimmory credentials.",
+        readSession = readSession@{ decrypt ->
+            GrimmoryStoredSession(
+                displayName = decrypt(GrimmoryCredentialKeys.DisplayName) ?: return@readSession null,
+                baseUrl = decrypt(GrimmoryCredentialKeys.BaseUrl) ?: return@readSession null,
+                username = decrypt(GrimmoryCredentialKeys.Username) ?: return@readSession null,
+                accessToken = decrypt(GrimmoryCredentialKeys.AccessToken) ?: return@readSession null,
+                refreshToken = decrypt(GrimmoryCredentialKeys.RefreshToken) ?: return@readSession null,
+            )
+        },
+        writeSession = { session ->
+            mapOf(
+                GrimmoryCredentialKeys.DisplayName to session.displayName,
+                GrimmoryCredentialKeys.BaseUrl to session.baseUrl,
+                GrimmoryCredentialKeys.Username to session.username,
+                GrimmoryCredentialKeys.AccessToken to session.accessToken,
+                GrimmoryCredentialKeys.RefreshToken to session.refreshToken,
+            )
+        },
+    )
 
     override val sessionFlow: StateFlow<GrimmoryStoredSession?>
-        get() = _sessionFlow
+        get() = sessionStore.sessionFlow
 
     override suspend fun save(
         session: GrimmoryStoredSession,
-    ) {
-        val committed = preferences.edit()
-            .putString(GrimmoryCredentialKeys.DisplayName, cipher.encrypt(session.displayName))
-            .putString(GrimmoryCredentialKeys.BaseUrl, cipher.encrypt(session.baseUrl))
-            .putString(GrimmoryCredentialKeys.Username, cipher.encrypt(session.username))
-            .putString(GrimmoryCredentialKeys.AccessToken, cipher.encrypt(session.accessToken))
-            .putString(GrimmoryCredentialKeys.RefreshToken, cipher.encrypt(session.refreshToken))
-            .commit()
-        if (!committed) {
-            throw IOException("Unable to save Grimmory credentials.")
-        }
-        _sessionFlow.value = session
-    }
+    ) = sessionStore.save(session)
 
-    override suspend fun clear() {
-        val committed = preferences.edit().clear().commit()
-        if (!committed) {
-            throw IOException("Unable to clear Grimmory credentials.")
-        }
-        _sessionFlow.value = null
-    }
-
-    private fun loadStoredSession(): GrimmoryStoredSession? {
-        return try {
-            GrimmoryStoredSession(
-                displayName = decrypt(GrimmoryCredentialKeys.DisplayName) ?: return null,
-                baseUrl = decrypt(GrimmoryCredentialKeys.BaseUrl) ?: return null,
-                username = decrypt(GrimmoryCredentialKeys.Username) ?: return null,
-                accessToken = decrypt(GrimmoryCredentialKeys.AccessToken) ?: return null,
-                refreshToken = decrypt(GrimmoryCredentialKeys.RefreshToken) ?: return null,
-            )
-        } catch (_: Exception) {
-            preferences.edit().clear().apply()
-            null
-        }
-    }
-
-    private fun decrypt(
-        key: String,
-    ): String? = preferences.getString(key, null)?.let(cipher::decrypt)
+    override suspend fun clear() = sessionStore.clear()
 }
 
 internal interface GrimmoryCredentialCipher {

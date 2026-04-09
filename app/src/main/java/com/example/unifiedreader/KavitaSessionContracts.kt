@@ -6,10 +6,10 @@ data class KavitaStoredSession(
     override val displayName: String,
     override val baseUrl: String,
     override val username: String,
-    val accessToken: String,
-    val refreshToken: String?,
+    override val accessToken: String,
+    override val refreshToken: String?,
     val apiKey: String?,
-) : StoredSourceSession {
+) : AccessTokenStoredSession {
     override val sourceType: SourceType = SourceType.KAVITA
 }
 

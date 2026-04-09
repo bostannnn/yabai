@@ -4,8 +4,6 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.annotation.VisibleForTesting
 import dagger.hilt.android.qualifiers.ApplicationContext
-import java.io.IOException
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 class SharedPreferencesKavitaCredentialStore @VisibleForTesting internal constructor(
@@ -32,56 +30,41 @@ class SharedPreferencesKavitaCredentialStore @VisibleForTesting internal constru
         ),
         cipher = cipher,
     )
-
-    private val sessionState = MutableStateFlow(loadStoredSession())
-
-    override val sessionFlow: StateFlow<KavitaStoredSession?>
-        get() = sessionState
-
-    override suspend fun save(
-        session: KavitaStoredSession,
-    ) {
-        val committed = preferences.edit()
-            .putString(KavitaCredentialKeys.DisplayName, cipher.encrypt(session.displayName))
-            .putString(KavitaCredentialKeys.BaseUrl, cipher.encrypt(session.baseUrl))
-            .putString(KavitaCredentialKeys.Username, cipher.encrypt(session.username))
-            .putString(KavitaCredentialKeys.AccessToken, cipher.encrypt(session.accessToken))
-            .putString(KavitaCredentialKeys.RefreshToken, session.refreshToken?.let(cipher::encrypt))
-            .putString(KavitaCredentialKeys.ApiKey, session.apiKey?.let(cipher::encrypt))
-            .commit()
-        if (!committed) {
-            throw IOException("Unable to save Kavita credentials.")
-        }
-        sessionState.value = session
-    }
-
-    override suspend fun clear() {
-        val committed = preferences.edit().clear().commit()
-        if (!committed) {
-            throw IOException("Unable to clear Kavita credentials.")
-        }
-        sessionState.value = null
-    }
-
-    private fun loadStoredSession(): KavitaStoredSession? {
-        return try {
+    private val sessionStore = EncryptedSourceSessionStore(
+        preferences = preferences,
+        cipher = cipher,
+        saveErrorMessage = "Unable to save Kavita credentials.",
+        clearErrorMessage = "Unable to clear Kavita credentials.",
+        readSession = readSession@{ decrypt ->
             KavitaStoredSession(
-                displayName = decrypt(KavitaCredentialKeys.DisplayName) ?: return null,
-                baseUrl = decrypt(KavitaCredentialKeys.BaseUrl) ?: return null,
-                username = decrypt(KavitaCredentialKeys.Username) ?: return null,
-                accessToken = decrypt(KavitaCredentialKeys.AccessToken) ?: return null,
+                displayName = decrypt(KavitaCredentialKeys.DisplayName) ?: return@readSession null,
+                baseUrl = decrypt(KavitaCredentialKeys.BaseUrl) ?: return@readSession null,
+                username = decrypt(KavitaCredentialKeys.Username) ?: return@readSession null,
+                accessToken = decrypt(KavitaCredentialKeys.AccessToken) ?: return@readSession null,
                 refreshToken = decrypt(KavitaCredentialKeys.RefreshToken),
                 apiKey = decrypt(KavitaCredentialKeys.ApiKey),
             )
-        } catch (_: Exception) {
-            preferences.edit().clear().apply()
-            null
-        }
-    }
+        },
+        writeSession = { session ->
+            mapOf(
+                KavitaCredentialKeys.DisplayName to session.displayName,
+                KavitaCredentialKeys.BaseUrl to session.baseUrl,
+                KavitaCredentialKeys.Username to session.username,
+                KavitaCredentialKeys.AccessToken to session.accessToken,
+                KavitaCredentialKeys.RefreshToken to session.refreshToken,
+                KavitaCredentialKeys.ApiKey to session.apiKey,
+            )
+        },
+    )
 
-    private fun decrypt(
-        key: String,
-    ): String? = preferences.getString(key, null)?.let(cipher::decrypt)
+    override val sessionFlow: StateFlow<KavitaStoredSession?>
+        get() = sessionStore.sessionFlow
+
+    override suspend fun save(
+        session: KavitaStoredSession,
+    ) = sessionStore.save(session)
+
+    override suspend fun clear() = sessionStore.clear()
 }
 
 private object KavitaCredentialKeys {

@@ -3,8 +3,6 @@ package com.example.unifiedreader
 import com.example.unifiedreader.data.grimmory.GrimmoryApi
 import com.example.unifiedreader.data.grimmory.GrimmorySession
 import com.example.unifiedreader.data.grimmory.GrimmoryUnauthorizedException
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 
 internal data class GrimmoryTokenRefreshResult<T>(
     val value: T,
@@ -39,45 +37,26 @@ internal suspend fun <T> GrimmoryApi.runWithTokenRefresh(
 internal class GrimmoryStoredSessionRequestRunner(
     private val credentialStore: SourceSessionStore<GrimmoryStoredSession>,
 ) {
-    private val tokenRefreshMutex = Mutex()
+    private val requestRunner = AccessTokenSessionRequestRunner<GrimmoryStoredSession, GrimmoryApi>(
+        credentialStore = credentialStore,
+        isUnauthorized = { throwable -> throwable is GrimmoryUnauthorizedException },
+        refreshSession = { api: GrimmoryApi, session: GrimmoryStoredSession ->
+            val refreshedSession = api.refreshSession(session.refreshToken)
+            session.copy(
+                accessToken = refreshedSession.accessToken,
+                refreshToken = refreshedSession.refreshToken,
+            )
+        },
+    )
 
     suspend fun <T> run(
         api: GrimmoryApi,
         session: GrimmoryStoredSession,
         block: suspend (accessToken: String) -> T,
-    ): T = runCatching {
-        block(session.accessToken)
-    }.recoverCatching { throwable ->
-        if (throwable !is GrimmoryUnauthorizedException) throw throwable
-        val refreshedSession = refreshSessionAfterUnauthorized(
-            api = api,
-            session = session,
-        )
-        block(refreshedSession.accessToken)
-    }.getOrThrow()
-
-    private suspend fun refreshSessionAfterUnauthorized(
-        api: GrimmoryApi,
-        session: GrimmoryStoredSession,
-    ): GrimmoryStoredSession = tokenRefreshMutex.withLock {
-        val currentSession = credentialStore.sessionFlow.value ?: session
-        if (currentSession.accessToken != session.accessToken) {
-            return@withLock currentSession
-        }
-        runCatching {
-            api.refreshSession(currentSession.refreshToken)
-        }.fold(
-            onSuccess = { refreshedSession ->
-                currentSession.copy(
-                    accessToken = refreshedSession.accessToken,
-                    refreshToken = refreshedSession.refreshToken,
-                ).also { storedSession ->
-                    credentialStore.save(storedSession)
-                }
-            },
-            onFailure = { throwable ->
-                throw throwable
-            },
-        )
+    ): T = requestRunner.run(
+        api = api,
+        session = session,
+    ) { activeSession ->
+        block(activeSession.accessToken)
     }
 }

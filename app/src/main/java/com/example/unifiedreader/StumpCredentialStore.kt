@@ -4,8 +4,6 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.annotation.VisibleForTesting
 import dagger.hilt.android.qualifiers.ApplicationContext
-import java.io.IOException
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 class SharedPreferencesStumpCredentialStore @VisibleForTesting internal constructor(
@@ -32,54 +30,39 @@ class SharedPreferencesStumpCredentialStore @VisibleForTesting internal construc
         ),
         cipher = cipher,
     )
-
-    private val sessionState = MutableStateFlow(loadStoredSession())
+    private val sessionStore = EncryptedSourceSessionStore(
+        preferences = preferences,
+        cipher = cipher,
+        saveErrorMessage = "Unable to save Stump credentials.",
+        clearErrorMessage = "Unable to clear Stump credentials.",
+        readSession = readSession@{ decrypt ->
+            StumpStoredSession(
+                displayName = decrypt(StumpCredentialKeys.DisplayName) ?: return@readSession null,
+                baseUrl = decrypt(StumpCredentialKeys.BaseUrl) ?: return@readSession null,
+                username = decrypt(StumpCredentialKeys.Username) ?: return@readSession null,
+                accessToken = decrypt(StumpCredentialKeys.AccessToken) ?: return@readSession null,
+                refreshToken = decrypt(StumpCredentialKeys.RefreshToken),
+            )
+        },
+        writeSession = { session ->
+            mapOf(
+                StumpCredentialKeys.DisplayName to session.displayName,
+                StumpCredentialKeys.BaseUrl to session.baseUrl,
+                StumpCredentialKeys.Username to session.username,
+                StumpCredentialKeys.AccessToken to session.accessToken,
+                StumpCredentialKeys.RefreshToken to session.refreshToken,
+            )
+        },
+    )
 
     override val sessionFlow: StateFlow<StumpStoredSession?>
-        get() = sessionState
+        get() = sessionStore.sessionFlow
 
     override suspend fun save(
         session: StumpStoredSession,
-    ) {
-        val committed = preferences.edit()
-            .putString(StumpCredentialKeys.DisplayName, cipher.encrypt(session.displayName))
-            .putString(StumpCredentialKeys.BaseUrl, cipher.encrypt(session.baseUrl))
-            .putString(StumpCredentialKeys.Username, cipher.encrypt(session.username))
-            .putString(StumpCredentialKeys.AccessToken, cipher.encrypt(session.accessToken))
-            .putString(StumpCredentialKeys.RefreshToken, session.refreshToken?.let(cipher::encrypt))
-            .commit()
-        if (!committed) {
-            throw IOException("Unable to save Stump credentials.")
-        }
-        sessionState.value = session
-    }
+    ) = sessionStore.save(session)
 
-    override suspend fun clear() {
-        val committed = preferences.edit().clear().commit()
-        if (!committed) {
-            throw IOException("Unable to clear Stump credentials.")
-        }
-        sessionState.value = null
-    }
-
-    private fun loadStoredSession(): StumpStoredSession? {
-        return try {
-            StumpStoredSession(
-                displayName = decrypt(StumpCredentialKeys.DisplayName) ?: return null,
-                baseUrl = decrypt(StumpCredentialKeys.BaseUrl) ?: return null,
-                username = decrypt(StumpCredentialKeys.Username) ?: return null,
-                accessToken = decrypt(StumpCredentialKeys.AccessToken) ?: return null,
-                refreshToken = decrypt(StumpCredentialKeys.RefreshToken),
-            )
-        } catch (_: Exception) {
-            preferences.edit().clear().apply()
-            null
-        }
-    }
-
-    private fun decrypt(
-        key: String,
-    ): String? = preferences.getString(key, null)?.let(cipher::decrypt)
+    override suspend fun clear() = sessionStore.clear()
 }
 
 private object StumpCredentialKeys {

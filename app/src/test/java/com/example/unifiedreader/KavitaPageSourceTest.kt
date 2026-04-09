@@ -13,6 +13,7 @@ import com.example.unifiedreader.data.kavita.KavitaProgressUpdate
 import com.example.unifiedreader.data.kavita.KavitaSeriesEntry
 import com.example.unifiedreader.data.kavita.KavitaSession
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -85,14 +86,13 @@ class KavitaPageSourceTest {
         val api = RecordingKavitaPageApi()
         val pageSource = createPageSource(api, this)
         val page = ComicPageSpec(id = "3", contentDescription = "Page 4")
-        api.blockRequests = true
+        api.beginBlockingRequests()
 
         val inFlightLoad = async(UnconfinedTestDispatcher(testScheduler)) {
             pageSource.loadPageImage(item, page)
         }
-        runCurrent()
+        api.awaitBlockedRequest()
         pageSource.clear()
-        api.blockRequests = false
         api.releaseBlockedRequests()
         inFlightLoad.await()
         pageSource.loadPageImage(item, page)
@@ -159,7 +159,8 @@ private class RecordingKavitaPageApi : KavitaApi {
     val requestedPageIndexes = mutableListOf<Int>()
     var blockRequests: Boolean = false
     private var blockedRequestCount = 0
-    private var releaseBlockedRequests = false
+    private var blockedRequestStarted = CompletableDeferred<Unit>()
+    private var releaseBlockedRequests = CompletableDeferred<Unit>()
 
     override suspend fun login(
         username: String,
@@ -211,16 +212,26 @@ private class RecordingKavitaPageApi : KavitaApi {
         requestedPageIndexes += pageIndex
         if (blockRequests) {
             blockedRequestCount += 1
-            while (!releaseBlockedRequests) {
-                kotlinx.coroutines.yield()
-            }
+            blockedRequestStarted.complete(Unit)
+            releaseBlockedRequests.await()
             blockedRequestCount -= 1
         }
         return TEST_PNG_BYTES
     }
 
+    fun beginBlockingRequests() {
+        blockRequests = true
+        blockedRequestStarted = CompletableDeferred()
+        releaseBlockedRequests = CompletableDeferred()
+    }
+
+    suspend fun awaitBlockedRequest() {
+        blockedRequestStarted.await()
+    }
+
     fun releaseBlockedRequests() {
-        releaseBlockedRequests = true
+        blockRequests = false
+        releaseBlockedRequests.complete(Unit)
     }
 }
 

@@ -3,8 +3,6 @@ package com.example.unifiedreader
 import com.example.unifiedreader.data.stump.StumpApi
 import com.example.unifiedreader.data.stump.StumpSession
 import com.example.unifiedreader.data.stump.StumpUnauthorizedException
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 
 internal data class StumpTokenRefreshResult<T>(
     val value: T,
@@ -39,39 +37,28 @@ internal suspend fun <T> StumpApi.runWithTokenRefresh(
 internal class StumpStoredSessionRequestRunner(
     private val credentialStore: SourceSessionStore<StumpStoredSession>,
 ) {
-    private val tokenRefreshMutex = Mutex()
+    private val requestRunner = AccessTokenSessionRequestRunner<StumpStoredSession, StumpApi>(
+        credentialStore = credentialStore,
+        isUnauthorized = { throwable -> throwable is StumpUnauthorizedException },
+        refreshSession = { api: StumpApi, session: StumpStoredSession ->
+            val refreshToken = session.refreshToken?.takeIf(String::isNotBlank)
+                ?: throw StumpUnauthorizedException()
+            val refreshedSession = api.refreshSession(refreshToken)
+            session.copy(
+                accessToken = refreshedSession.accessToken,
+                refreshToken = refreshedSession.refreshToken,
+            )
+        },
+    )
 
     suspend fun <T> run(
         api: StumpApi,
         session: StumpStoredSession,
         block: suspend (accessToken: String) -> T,
-    ): T = runCatching {
-        block(session.accessToken)
-    }.recoverCatching { throwable ->
-        if (throwable !is StumpUnauthorizedException) throw throwable
-        val refreshedSession = refreshSessionAfterUnauthorized(
-            api = api,
-            session = session,
-        )
-        block(refreshedSession.accessToken)
-    }.getOrThrow()
-
-    private suspend fun refreshSessionAfterUnauthorized(
-        api: StumpApi,
-        session: StumpStoredSession,
-    ): StumpStoredSession = tokenRefreshMutex.withLock {
-        val currentSession = credentialStore.sessionFlow.value ?: session
-        if (currentSession.accessToken != session.accessToken) {
-            return@withLock currentSession
-        }
-        val refreshToken = currentSession.refreshToken?.takeIf(String::isNotBlank)
-            ?: throw StumpUnauthorizedException()
-        val refreshedSession = api.refreshSession(refreshToken)
-        val storedSession = currentSession.copy(
-            accessToken = refreshedSession.accessToken,
-            refreshToken = refreshedSession.refreshToken,
-        )
-        credentialStore.save(storedSession)
-        storedSession
+    ): T = requestRunner.run(
+        api = api,
+        session = session,
+    ) { activeSession ->
+        block(activeSession.accessToken)
     }
 }

@@ -6,9 +6,9 @@ data class StumpStoredSession(
     override val displayName: String,
     override val baseUrl: String,
     override val username: String,
-    val accessToken: String,
-    val refreshToken: String?,
-) : StoredSourceSession {
+    override val accessToken: String,
+    override val refreshToken: String?,
+) : AccessTokenStoredSession {
     override val sourceType: SourceType = SourceType.STUMP
 }
 
