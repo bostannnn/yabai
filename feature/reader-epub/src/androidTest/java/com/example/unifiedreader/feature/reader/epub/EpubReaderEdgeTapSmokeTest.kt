@@ -152,6 +152,27 @@ class EpubReaderEdgeTapSmokeTest {
         }
     }
 
+    @Test
+    fun tableOfContentsButtonShowsBottomSheet() {
+        val sessionStore = FakeReaderSessionStore()
+        val item = sampleEpubItem(id = "epub-toc-sheet")
+
+        composeRule.setContent {
+            LightThemeTestSurface {
+                EpubReaderScreen(
+                    item = item,
+                    sessionStore = sessionStore,
+                    onBack = {},
+                )
+            }
+        }
+
+        waitForReaderReady(sessionStore, item.id)
+        composeRule.onNodeWithContentDescription("Table of contents").performClick()
+        composeRule.onNodeWithTag(EpubTocSheetTag).assertExists()
+        composeRule.onNodeWithText("Contents").assertExists()
+    }
+
     private fun waitForReaderReady(
         sessionStore: FakeReaderSessionStore,
         itemId: String,

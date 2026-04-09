@@ -16,14 +16,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.background
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -31,8 +27,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.heightIn
@@ -74,6 +68,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -140,6 +135,7 @@ fun EpubReaderScreen(
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
+    val density = LocalDensity.current
     val configuration = LocalConfiguration.current
     val activity = remember(context) { context.findContextAncestor<FragmentActivity>() }
     val isLandscape = remember(
@@ -243,7 +239,15 @@ fun EpubReaderScreen(
     }
     var seekRequestId by remember { mutableIntStateOf(0) }
     var navigationRequest by remember { mutableStateOf<EpubNavigationRequest?>(null) }
-    var isTocDrawerOpen by rememberSaveable(item.id) { mutableStateOf(false) }
+    var isTocSheetOpen by rememberSaveable(item.id) { mutableStateOf(false) }
+    var bottomProgressBarHeightPx by remember { mutableIntStateOf(0) }
+    val tocBottomAnchorHeight = if (bottomProgressBarHeightPx > 0) {
+        with(density) {
+            bottomProgressBarHeightPx.toDp()
+        }
+    } else {
+        EpubTocBottomAnchorFallbackHeight
+    }
     var footnoteContent by remember(item.id) { mutableStateOf<EpubFootnoteContent?>(null) }
     val overlayState = rememberReaderOverlayState(
         key = "epub-overlay-${item.id}",
@@ -528,7 +532,7 @@ fun EpubReaderScreen(
                         },
                         onSurfaceTap = overlayState::toggle,
                         onFootnoteActivated = { footnote ->
-                            isTocDrawerOpen = false
+                            isTocSheetOpen = false
                             footnoteContent = footnote
                             overlayState.show()
                         },
@@ -581,17 +585,18 @@ fun EpubReaderScreen(
                             },
                             modifier = Modifier.testTag(EpubReaderOverlayTag),
                         )
-                        EpubTableOfContentsDrawer(
+                        EpubTableOfContentsSheet(
                             title = item.title,
                             entries = bookProgress.tocEntries,
-                            currentProgress = currentProgress,
                             currentHref = currentHref,
-                            isOpen = isTocDrawerOpen,
+                            currentProgress = currentProgress,
+                            isOpen = isTocSheetOpen,
+                            bottomAnchorHeight = tocBottomAnchorHeight,
                             onDismissRequest = {
-                                isTocDrawerOpen = false
+                                isTocSheetOpen = false
                             },
                             onEntrySelected = { entry ->
-                                isTocDrawerOpen = false
+                                isTocSheetOpen = false
                                 navigationRequest = EpubTocNavigationRequest(
                                     id = seekRequestId++,
                                     link = entry.link,
@@ -606,13 +611,17 @@ fun EpubReaderScreen(
                                 pageCount = pageCount,
                             ),
                             chapterMarks = bookProgress.chapterMarks,
-                            modifier = Modifier.align(Alignment.BottomCenter),
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .onGloballyPositioned { coordinates ->
+                                    bottomProgressBarHeightPx = coordinates.size.height
+                                },
                             leadingAction = {
                                 ReaderOverlayIconButton(
-                                    isActive = isTocDrawerOpen,
+                                    isActive = isTocSheetOpen,
                                     onClick = {
                                         overlayState.show()
-                                        isTocDrawerOpen = true
+                                        isTocSheetOpen = true
                                     },
                                 ) {
                                     Icon(
@@ -804,146 +813,6 @@ private fun EpubReaderOverlay(
                 }
             }
         },
-    )
-}
-
-@Composable
-private fun EpubTableOfContentsDrawer(
-    title: String,
-    entries: List<EpubTocEntry>,
-    currentProgress: Double,
-    currentHref: String?,
-    isOpen: Boolean,
-    onDismissRequest: () -> Unit,
-    onEntrySelected: (EpubTocEntry) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    BackHandler(enabled = isOpen) {
-        onDismissRequest()
-    }
-    val activeEntry = remember(entries, currentProgress, currentHref) {
-        entries.activeEpubTocEntry(
-            currentProgress = currentProgress,
-            currentHref = currentHref,
-        )
-    }
-    AnimatedVisibility(
-        visible = isOpen,
-        enter = fadeIn(),
-        exit = fadeOut(),
-        modifier = modifier
-            .fillMaxSize()
-            .zIndex(2f),
-    ) {
-        BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0x99000000))
-                .clickable(onClick = onDismissRequest),
-        ) {
-            val drawerWidth = when {
-                maxWidth < EpubTocDrawerMaxWidth -> maxWidth * 0.86f
-                else -> EpubTocDrawerMaxWidth
-            }
-            AnimatedVisibility(
-                visible = isOpen,
-                enter = slideInHorizontally(initialOffsetX = { -it }),
-                exit = slideOutHorizontally(targetOffsetX = { -it }),
-                modifier = Modifier.align(Alignment.CenterStart),
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .width(drawerWidth)
-                        .background(Color(0xF2111418))
-                        .statusBarsPadding()
-                        .navigationBarsPadding()
-                        .clickable(
-                            indication = null,
-                            interactionSource = remember { MutableInteractionSource() },
-                            onClick = {},
-                        )
-                        .padding(top = 20.dp, bottom = 12.dp),
-                ) {
-                    Text(
-                        text = "Contents",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFFF5F7FA),
-                        modifier = Modifier.padding(horizontal = 20.dp),
-                    )
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color(0xFFB7C4CE),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
-                    )
-                    if (entries.isEmpty()) {
-                        Text(
-                            text = "No table of contents",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color(0xFFD6E0E8),
-                            modifier = Modifier.padding(20.dp),
-                        )
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.weight(1f),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-                            verticalArrangement = Arrangement.spacedBy(2.dp),
-                        ) {
-                            items(
-                                items = entries,
-                                key = { entry -> entry.id },
-                            ) { entry ->
-                                EpubTableOfContentsRow(
-                                    entry = entry,
-                                    selected = entry.id == activeEntry?.id,
-                                    onClick = {
-                                        onEntrySelected(entry)
-                                    },
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun EpubTableOfContentsRow(
-    entry: EpubTocEntry,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    val startPadding = 12.dp + (entry.depth * 14).dp
-    Text(
-        text = entry.title,
-        style = if (selected) {
-            MaterialTheme.typography.labelLarge
-        } else {
-            MaterialTheme.typography.bodyMedium
-        },
-        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-        color = if (selected) Color(0xFFF5F7FA) else Color(0xFFD6E0E8),
-        maxLines = 2,
-        overflow = TextOverflow.Ellipsis,
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                color = if (selected) Color(0x29F5F7FA) else Color.Transparent,
-                shape = RoundedCornerShape(8.dp),
-            )
-            .clickable(onClick = onClick)
-            .padding(
-                start = startPadding,
-                end = 12.dp,
-                top = 10.dp,
-                bottom = 10.dp,
-            ),
     )
 }
 
@@ -1404,79 +1273,6 @@ internal fun resolveEpubTapAction(
     }
 }
 
-private suspend fun Publication.buildEpubBookProgress(): EpubBookProgress {
-    val positionsByReadingOrder = positionsByReadingOrder()
-    val positionCount = positionsByReadingOrder.flatten().size
-    val pageCount = positionCount.takeIf { it > 0 } ?: readingOrder.size
-    val positionProgressionByHref = positionsByReadingOrder
-        .mapNotNull { positions ->
-            val position = positions.firstOrNull() ?: return@mapNotNull null
-            val progression = position.locations.totalProgression ?: return@mapNotNull null
-            position.href.removeFragment().toString() to progression
-        }
-        .toMap()
-
-    val tocMarks = tableOfContents
-        .flatMap { it.flattenEpubTocLinks() }
-        .mapNotNull { link ->
-            val locator = locatorFromLink(link)
-            val href = (locator?.href ?: link.url()).removeFragment().toString()
-            locator?.locations?.totalProgression
-                ?: positionProgressionByHref[href]
-        }
-        .toChapterMarks()
-    val tocEntries = buildEpubTocEntries(positionProgressionByHref)
-
-    return EpubBookProgress(
-        pageCount = pageCount,
-        chapterMarks = tocMarks,
-        tocEntries = tocEntries,
-    )
-}
-
-private fun Publication.buildEpubTocEntries(
-    positionProgressionByHref: Map<String, Double>,
-): List<EpubTocEntry> = tableOfContents.flatMapIndexed { index, link ->
-    buildEpubTocEntries(
-        link = link,
-        path = index.toString(),
-        depth = 0,
-        positionProgressionByHref = positionProgressionByHref,
-    )
-}
-
-private fun Publication.buildEpubTocEntries(
-    link: Link,
-    path: String,
-    depth: Int,
-    positionProgressionByHref: Map<String, Double>,
-): List<EpubTocEntry> {
-    val locator = locatorFromLink(link)
-    val href = (locator?.href ?: link.url()).removeFragment().toString()
-    val title = link.title?.takeIf(String::isNotBlank)
-        ?: "Section ${path.substringAfterLast('.').toIntOrNull()?.plus(1) ?: 1}"
-    val entry = EpubTocEntry(
-        id = "$path:$href:$title",
-        title = title,
-        depth = depth,
-        href = href,
-        progression = locator?.locations?.totalProgression
-            ?: positionProgressionByHref[href],
-        link = link,
-    )
-    return listOf(entry) + link.children.flatMapIndexed { index, child ->
-        buildEpubTocEntries(
-            link = child,
-            path = "$path.$index",
-            depth = depth + 1,
-            positionProgressionByHref = positionProgressionByHref,
-        )
-    }
-}
-
-private fun Link.flattenEpubTocLinks(): List<Link> =
-    listOf(this) + children.flatMap { it.flattenEpubTocLinks() }
-
 private fun Publication.readingOrderPositionFor(
     locator: Locator,
 ): Int? {
@@ -1485,27 +1281,6 @@ private fun Publication.readingOrderPositionFor(
         .indexOfFirst { link -> link.url().removeFragment().toString() == href }
         .takeUnless { it < 0 }
         ?.plus(1)
-}
-
-private fun List<Double>.toChapterMarks(): List<Float> =
-    map { it.coerceIn(0.0, 1.0).toFloat() }
-        .filter { it > 0f && it < 1f }
-        .distinct()
-        .sorted()
-
-private fun List<EpubTocEntry>.activeEpubTocEntry(
-    currentProgress: Double,
-    currentHref: String?,
-): EpubTocEntry? {
-    val clampedProgress = currentProgress.coerceIn(0.0, 1.0)
-    return currentHref?.let { href ->
-        lastOrNull { entry -> entry.href == href }
-    } ?: asSequence()
-        .filter { entry ->
-            entry.progression != null &&
-                entry.progression <= clampedProgress + EpubTocProgressEpsilon
-        }
-        .maxByOrNull { entry -> entry.progression ?: 0.0 }
 }
 
 internal const val EpubReaderSurfaceTag = "epub-reader-surface"
@@ -1576,12 +1351,6 @@ private enum class EpubOverlayPanel {
     Layout,
 }
 
-private data class EpubBookProgress(
-    val pageCount: Int,
-    val chapterMarks: List<Float>,
-    val tocEntries: List<EpubTocEntry>,
-)
-
 private sealed interface EpubNavigationRequest {
     val id: Int
 }
@@ -1596,23 +1365,13 @@ private data class EpubTocNavigationRequest(
     val link: Link,
 ) : EpubNavigationRequest
 
-private data class EpubTocEntry(
-    val id: String,
-    val title: String,
-    val depth: Int,
-    val href: String,
-    val progression: Double?,
-    val link: Link,
-)
-
 private data class EpubFootnoteContent(
     val title: String,
     val body: String,
 )
 
-private val EpubTocDrawerMaxWidth = 320.dp
-private const val EpubTocProgressEpsilon = 0.0005
 private const val EpubNavigationZoneFraction = 0.25f
+private val EpubTocBottomAnchorFallbackHeight = 74.dp
 private val EpubFootnoteLinkHints = listOf(
     "edn",
     "enote",
