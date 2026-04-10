@@ -22,6 +22,7 @@ import kotlinx.coroutines.sync.withPermit
 class LocalDocumentRepository(
     private val context: Context,
     importedComicArchiveDao: ImportedComicArchiveDao,
+    appStartupTasks: AppStartupTasks = AppStartupTasks {},
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ) : LocalDocumentDataSource, LocalComicDocumentDataSource, LocalDocumentHydrator {
     private val coverWarmupSemaphore = Semaphore(permits = 3)
@@ -34,6 +35,7 @@ class LocalDocumentRepository(
     private val importProbe = LocalDocumentImportProbe(context, comicArchiveCodecs)
     private val coverCache = LocalCoverCache(context, comicArchiveCodecs)
     private val store = LocalDocumentStore(
+        appStartupTasks = appStartupTasks,
         importedComicArchiveDao = importedComicArchiveDao,
         persistedCoverUriResolver = coverCache::resolvePersistedCoverUri,
     )

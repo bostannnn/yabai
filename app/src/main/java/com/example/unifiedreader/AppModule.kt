@@ -116,7 +116,7 @@ object AppModule {
         importedComicArchiveDao: ImportedComicArchiveDao,
         readingProgressDao: ReadingProgressDao,
         readerSessionStateDao: ReaderSessionStateDao,
-    ): AppStartupInitializer = AppStartupInitializer(
+    ): AppStartupTasks = AppStartupInitializer(
         context = context,
         importedComicArchiveDao = importedComicArchiveDao,
         readingProgressDao = readingProgressDao,
@@ -341,10 +341,12 @@ object AppModule {
     fun provideLocalDocumentRepository(
         @ApplicationContext context: Context,
         importedComicArchiveDao: ImportedComicArchiveDao,
+        appStartupTasks: AppStartupTasks,
     ): LocalDocumentRepository {
         return LocalDocumentRepository(
             context = context,
             importedComicArchiveDao = importedComicArchiveDao,
+            appStartupTasks = appStartupTasks,
         )
     }
 
@@ -378,9 +380,11 @@ object AppModule {
     fun provideReaderSessionStore(
         readingProgressDao: ReadingProgressDao,
         readerSessionStateDao: ReaderSessionStateDao,
+        appStartupTasks: AppStartupTasks,
     ): RoomReaderSessionStore = RoomReaderSessionStore(
         readingProgressDao = readingProgressDao,
         readerSessionStateDao = readerSessionStateDao,
+        appStartupTasks = appStartupTasks,
     )
 
     @Provides

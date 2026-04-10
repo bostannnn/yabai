@@ -8,7 +8,6 @@ import com.example.unifiedreader.data.stump.StumpSession
 import com.example.unifiedreader.feature.settings.KavitaConnectionUiState
 import com.example.unifiedreader.feature.settings.GrimmoryConnectionUiState
 import com.example.unifiedreader.feature.settings.StumpConnectionUiState
-import java.util.Locale
 
 internal typealias AppUiStateProvider = () -> AppUiState
 internal typealias AppUiStateUpdater = ((AppUiState) -> AppUiState) -> Unit
@@ -20,16 +19,6 @@ internal fun deletionMessage(
     ImportedItemDeletionOutcome.Removed -> "Removed ${item.libraryDisplayLabel()}."
     ImportedItemDeletionOutcome.NotImportedItem -> "Only imported files can be removed from the library."
     ImportedItemDeletionOutcome.NotFound -> "Unable to remove ${item.libraryDisplayLabel()}."
-}
-
-internal fun normalizeServerBaseUrl(
-    baseUrl: String,
-): String? {
-    val trimmed = baseUrl.trim().trimEnd('/')
-    if (trimmed.isBlank()) return null
-    val lower = trimmed.lowercase(Locale.US)
-    if (!lower.startsWith("http://") && !lower.startsWith("https://")) return null
-    return trimmed
 }
 
 internal fun GrimmoryConnectionUiState.withStoredSession(

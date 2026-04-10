@@ -12,6 +12,9 @@ public interface ReadingProgressDao {
     @Query("SELECT * FROM reading_progress")
     java.util.List<ReadingProgressEntity> getAll();
 
+    @Query("SELECT EXISTS(SELECT 1 FROM reading_progress LIMIT 1)")
+    boolean hasAny();
+
     @Query("SELECT * FROM reading_progress WHERE itemId = :itemId")
     ReadingProgressEntity getByItemId(String itemId);
 

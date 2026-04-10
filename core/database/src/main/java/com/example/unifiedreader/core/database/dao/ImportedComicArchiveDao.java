@@ -14,6 +14,9 @@ public interface ImportedComicArchiveDao {
     @Query("SELECT * FROM imported_comic_archives ORDER BY CASE WHEN title = '' THEN displayName ELSE title END COLLATE NOCASE ASC, displayName COLLATE NOCASE ASC")
     List<ImportedComicArchiveEntity> getAll();
 
+    @Query("SELECT EXISTS(SELECT 1 FROM imported_comic_archives LIMIT 1)")
+    boolean hasAny();
+
     @Query("SELECT * FROM imported_comic_archives WHERE itemId = :itemId")
     ImportedComicArchiveEntity getByItemId(String itemId);
 

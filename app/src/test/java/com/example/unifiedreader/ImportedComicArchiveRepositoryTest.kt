@@ -170,6 +170,31 @@ class ImportedComicArchiveRepositoryTest {
     }
 
     @Test
+    fun `import initializes startup tasks before persisting room data`() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        var initialized = false
+        val dao = RepositoryImportedComicArchiveDao().apply {
+            beforeInsert = {
+                assertTrue(initialized)
+            }
+        }
+        val repository = LocalDocumentRepository(
+            context = context,
+            importedComicArchiveDao = dao,
+            appStartupTasks = AppStartupTasks { initialized = true },
+            scope = kotlinx.coroutines.CoroutineScope(Dispatchers.Unconfined),
+        )
+        val pdfFile = createFile(
+            name = "bootstrap-guard.pdf",
+            bytes = "%PDF-1.7\nmock pdf".encodeToByteArray(),
+        )
+
+        repository.import(Uri.fromFile(pdfFile))
+
+        assertTrue(initialized)
+    }
+
+    @Test
     fun `persisted pdf rows are hydrated as local items`() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Application>()
         val dao = RepositoryImportedComicArchiveDao().apply {
@@ -585,8 +610,11 @@ private fun singlePixelPngBytes(
 
 private class RepositoryImportedComicArchiveDao : ImportedComicArchiveDao {
     private val storedEntities = linkedMapOf<String, ImportedComicArchiveEntity>()
+    var beforeInsert: (() -> Unit)? = null
 
     override fun getAll(): List<ImportedComicArchiveEntity> = storedEntities.values.toList()
+
+    override fun hasAny(): Boolean = storedEntities.isNotEmpty()
 
     override fun getByItemId(itemId: String): ImportedComicArchiveEntity? = storedEntities[itemId]
 
@@ -595,6 +623,7 @@ private class RepositoryImportedComicArchiveDao : ImportedComicArchiveDao {
     }
 
     override fun insertOrReplace(entity: ImportedComicArchiveEntity) {
+        beforeInsert?.invoke()
         storedEntities[entity.itemId] = entity
     }
 

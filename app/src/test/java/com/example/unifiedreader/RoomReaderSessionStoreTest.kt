@@ -88,12 +88,44 @@ class RoomReaderSessionStoreTest {
         assertTrue(progressDao.entities.isEmpty())
         assertTrue(sessionDao.entities.isEmpty())
     }
+
+    @Test
+    fun `save progress initializes startup tasks before persisting room data`() = runTest {
+        var initialized = false
+        val progressDao = FakeReadingProgressDaoForStore().apply {
+            beforeInsert = {
+                assertTrue(initialized)
+            }
+        }
+        val store = RoomReaderSessionStore(
+            readingProgressDao = progressDao,
+            readerSessionStateDao = RecordingReaderSessionStateDao(),
+            appStartupTasks = AppStartupTasks { initialized = true },
+            writeScope = CoroutineScope(coroutineContext),
+        )
+
+        store.saveProgress(
+            item = testItem(),
+            locator = com.example.unifiedreader.feature.reader.core.ReaderLocator(
+                locatorType = com.example.unifiedreader.core.model.LocatorType.PAGE,
+                page = 1,
+            ),
+            pageCount = 8,
+        )
+        advanceUntilIdle()
+
+        assertTrue(initialized)
+        assertEquals(1, progressDao.entities.size)
+    }
 }
 
 private class FakeReadingProgressDaoForStore : ReadingProgressDao {
     val entities = mutableListOf<ReadingProgressEntity>()
+    var beforeInsert: (() -> Unit)? = null
 
     override fun getAll(): MutableList<ReadingProgressEntity> = entities.toMutableList()
+
+    override fun hasAny(): Boolean = entities.isNotEmpty()
 
     override fun getByItemId(itemId: String): ReadingProgressEntity? = null
 
@@ -102,6 +134,7 @@ private class FakeReadingProgressDaoForStore : ReadingProgressDao {
     }
 
     override fun insertOrReplace(entity: ReadingProgressEntity) {
+        beforeInsert?.invoke()
         entities.removeAll { it.itemId == entity.itemId }
         entities += entity
     }
@@ -111,6 +144,8 @@ private class RecordingReaderSessionStateDao : ReaderSessionStateDao {
     val entities = mutableListOf<ReaderSessionStateEntity>()
 
     override fun getAll(): MutableList<ReaderSessionStateEntity> = entities.toMutableList()
+
+    override fun hasAny(): Boolean = entities.isNotEmpty()
 
     override fun getByItemId(itemId: String): ReaderSessionStateEntity? =
         entities.firstOrNull { it.itemId == itemId }

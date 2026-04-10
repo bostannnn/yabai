@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 
 internal class LocalDocumentStore(
+    private val appStartupTasks: AppStartupTasks = AppStartupTasks {},
     private val importedComicArchiveDao: ImportedComicArchiveDao,
     private val persistedCoverUriResolver: (itemId: String, coverFileName: String?) -> String? = { _, _ -> null },
 ) {
@@ -21,6 +22,7 @@ internal class LocalDocumentStore(
     val importedItemsFlow: StateFlow<List<ReadableItem>> = importedItemsState.asStateFlow()
 
     suspend fun hydrate(): List<LocalDocumentRecord> {
+        appStartupTasks.initialize()
         val persistedRecords = withContext(Dispatchers.IO) {
             importedComicArchiveDao.getAll()
                 .map { entity ->
@@ -47,6 +49,7 @@ internal class LocalDocumentStore(
     fun findRecord(itemId: String): LocalDocumentRecord? = recordsById.value[itemId]
 
     suspend fun upsert(record: LocalDocumentRecord) {
+        appStartupTasks.initialize()
         withContext(Dispatchers.IO) {
             importedComicArchiveDao.insertOrReplace(record.toEntity())
         }
@@ -55,6 +58,7 @@ internal class LocalDocumentStore(
 
     suspend fun remove(itemId: String): LocalDocumentRecord? {
         val record = recordsById.value[itemId] ?: return null
+        appStartupTasks.initialize()
         withContext(Dispatchers.IO) {
             importedComicArchiveDao.deleteByItemId(itemId)
         }

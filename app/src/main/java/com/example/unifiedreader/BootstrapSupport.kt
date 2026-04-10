@@ -2,32 +2,28 @@ package com.example.unifiedreader
 
 import android.content.SharedPreferences
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 
-internal fun runRoomBootstrap(
+internal suspend fun runRoomBootstrap(
     bootstrapPreferences: SharedPreferences,
     bootstrappedKey: String,
     hasExistingRoomData: suspend () -> Boolean,
     migrateLegacyData: suspend () -> Unit,
     clearLegacyState: () -> Unit,
-) {
-    if (bootstrapPreferences.getBoolean(bootstrappedKey, false)) return
+) = withContext(Dispatchers.IO) {
+    if (bootstrapPreferences.getBoolean(bootstrappedKey, false)) return@withContext
 
-    val shouldSkipMigration = runBlocking(Dispatchers.IO) {
-        hasExistingRoomData()
-    }
+    val shouldSkipMigration = hasExistingRoomData()
     if (shouldSkipMigration) {
         clearLegacyState()
         markBootstrapped(
             bootstrapPreferences = bootstrapPreferences,
             bootstrappedKey = bootstrappedKey,
         )
-        return
+        return@withContext
     }
 
-    runBlocking(Dispatchers.IO) {
-        migrateLegacyData()
-    }
+    migrateLegacyData()
     clearLegacyState()
     markBootstrapped(
         bootstrapPreferences = bootstrapPreferences,

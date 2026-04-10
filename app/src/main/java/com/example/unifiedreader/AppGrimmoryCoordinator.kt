@@ -63,7 +63,10 @@ class AppGrimmoryCoordinator @Inject constructor(
                         baseUrl = input.baseUrl,
                         username = input.username,
                     ),
-                    successConnectionMessage = "Connected to Grimmory.",
+                    successConnectionMessage = connectionSuccessMessage(
+                        message = "Connected to Grimmory.",
+                        cleartextWarningMessage = input.cleartextWarningMessage,
+                    ),
                     failurePrefix = "Unable to connect to Grimmory",
                 )
             }

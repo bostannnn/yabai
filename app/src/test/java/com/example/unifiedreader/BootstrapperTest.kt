@@ -13,6 +13,7 @@ import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.feature.reader.comics.ComicPageFitMode
 import com.example.unifiedreader.feature.reader.comics.ComicReadingDirection
 import com.example.unifiedreader.feature.reader.comics.ComicSpreadMode
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -24,7 +25,7 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class BootstrapperTest {
     @Test
-    fun `local document bootstrapper migrates legacy records into dao and clears prefs`() {
+    fun `local document bootstrapper migrates legacy records into dao and clears prefs`() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences("unified_reader_imported_cbz", Context.MODE_PRIVATE)
             .edit()
@@ -67,7 +68,7 @@ class BootstrapperTest {
     }
 
     @Test
-    fun `reader state bootstrapper migrates page and preferences into room daos and clears prefs`() {
+    fun `reader state bootstrapper migrates page and preferences into room daos and clears prefs`() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences("unified_reader_local_progress", Context.MODE_PRIVATE)
             .edit()
@@ -113,7 +114,7 @@ class BootstrapperTest {
     }
 
     @Test
-    fun `app startup initializer runs room bootstraps before repositories are created`() {
+    fun `app startup initializer runs room bootstraps before repositories are created`() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences("unified_reader_imported_cbz", Context.MODE_PRIVATE)
             .edit()
@@ -177,6 +178,8 @@ private class FakeImportedComicArchiveDao : ImportedComicArchiveDao {
 
     override fun getAll(): MutableList<ImportedComicArchiveEntity> = entities.toMutableList()
 
+    override fun hasAny(): Boolean = entities.isNotEmpty()
+
     override fun getByItemId(itemId: String): ImportedComicArchiveEntity? =
         entities.firstOrNull { it.itemId == itemId }
 
@@ -199,6 +202,8 @@ private class FakeReadingProgressDao : ReadingProgressDao {
 
     override fun getAll(): MutableList<ReadingProgressEntity> = entities.toMutableList()
 
+    override fun hasAny(): Boolean = entities.isNotEmpty()
+
     override fun getByItemId(itemId: String): ReadingProgressEntity? =
         entities.firstOrNull { it.itemId == itemId }
 
@@ -216,6 +221,8 @@ private class FakeReaderSessionStateDao : ReaderSessionStateDao {
     val entities = mutableListOf<ReaderSessionStateEntity>()
 
     override fun getAll(): MutableList<ReaderSessionStateEntity> = entities.toMutableList()
+
+    override fun hasAny(): Boolean = entities.isNotEmpty()
 
     override fun getByItemId(itemId: String): ReaderSessionStateEntity? =
         entities.firstOrNull { it.itemId == itemId }

@@ -1462,6 +1462,28 @@ class AppViewModelTest {
     }
 
     @Test
+    fun `connect grimmory blocks public http server url`() {
+        val syncer = FakeGrimmoryCatalogSyncer()
+        val viewModel = createViewModel(
+            grimmoryCatalogSyncer = syncer,
+        )
+
+        viewModel.onGrimmoryDisplayNameChanged("Home Grimmory")
+        viewModel.onGrimmoryBaseUrlChanged("http://grimmory.example")
+        viewModel.onGrimmoryUsernameChanged("reader")
+        viewModel.onGrimmoryPasswordChanged("secret")
+        viewModel.connectGrimmoryServer()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertNull(syncer.lastRequest)
+        assertEquals(true, viewModel.uiState.grimmoryConnection.isError)
+        assertEquals(
+            LOCAL_HTTP_ONLY_MESSAGE,
+            viewModel.uiState.grimmoryConnection.message,
+        )
+    }
+
+    @Test
     fun `delete imported item removes it clears selection and clears reader state`() = runBlocking {
         val importedItem = sampleItem(
             id = "imported-cbz",

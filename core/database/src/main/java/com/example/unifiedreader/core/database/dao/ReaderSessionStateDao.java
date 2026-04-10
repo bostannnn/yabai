@@ -12,6 +12,9 @@ public interface ReaderSessionStateDao {
     @Query("SELECT * FROM reader_session_state")
     java.util.List<ReaderSessionStateEntity> getAll();
 
+    @Query("SELECT EXISTS(SELECT 1 FROM reader_session_state LIMIT 1)")
+    boolean hasAny();
+
     @Query("SELECT * FROM reader_session_state WHERE itemId = :itemId")
     ReaderSessionStateEntity getByItemId(String itemId);
 

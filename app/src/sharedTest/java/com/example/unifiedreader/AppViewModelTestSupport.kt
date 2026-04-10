@@ -60,6 +60,7 @@ internal fun createViewModel(
     comicPageSourceCacheController: ComicPageSourceCacheController = FakeComicPageSourceCacheController(),
     remoteCatalogReadiness: RemoteCatalogReadiness = FakeRemoteCatalogReadiness(),
     sourceProgressSyncs: List<SourceProgressSync> = emptyList(),
+    appStartupTasks: AppStartupTasks = AppStartupTasks {},
     readerFactories: List<@JvmSuppressWildcards ReaderScreenFactory> = emptyList(),
     libraryRepository: FakeLibraryRepository = FakeLibraryRepository(
         libraries = listOf(
@@ -131,6 +132,7 @@ internal fun createViewModel(
             remoteDownloadStateCoordinator = remoteDownloadStateCoordinator,
         ),
         appStateHydrator = AppStateHydrator(
+            appStartupTasks = appStartupTasks,
             localDocumentHydrator = importedRepository,
             readerSessionHydrator = readerSessionStore,
         ),

@@ -69,7 +69,10 @@ class AppKavitaCoordinator @Inject constructor(
                         baseUrl = input.baseUrl,
                         username = input.username,
                     ),
-                    successConnectionMessage = "Connected to Kavita.",
+                    successConnectionMessage = connectionSuccessMessage(
+                        message = "Connected to Kavita. Tap Sync Kavita to import the library.",
+                        cleartextWarningMessage = input.cleartextWarningMessage,
+                    ),
                     failurePrefix = "Unable to connect to Kavita",
                 )
             }
@@ -181,7 +184,7 @@ class AppKavitaCoordinator @Inject constructor(
                 isConnecting = false,
                 syncProgressFraction = null,
                 syncProgressLabel = null,
-                message = "Connected to Kavita. Tap Sync Kavita to import the library.",
+                message = preparation.successConnectionMessage,
                 isError = false,
             ),
         )

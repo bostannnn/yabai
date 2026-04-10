@@ -4,19 +4,26 @@ import android.content.Context
 import com.example.unifiedreader.core.database.dao.ImportedComicArchiveDao
 import com.example.unifiedreader.core.database.dao.ReadingProgressDao
 import com.example.unifiedreader.core.database.dao.ReaderSessionStateDao
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+
+fun interface AppStartupTasks {
+    suspend fun initialize()
+}
 
 class AppStartupInitializer(
     private val context: Context,
     private val importedComicArchiveDao: ImportedComicArchiveDao,
     private val readingProgressDao: ReadingProgressDao,
     private val readerSessionStateDao: ReaderSessionStateDao,
-) {
+) : AppStartupTasks {
     @Volatile
     private var initialized = false
+    private val initializationMutex = Mutex()
 
-    fun initialize() {
+    override suspend fun initialize() {
         if (initialized) return
-        synchronized(this) {
+        initializationMutex.withLock {
             if (initialized) return
             LocalDocumentBootstrapper(
                 context = context,

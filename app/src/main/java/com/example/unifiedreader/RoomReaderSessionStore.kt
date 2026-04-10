@@ -25,6 +25,7 @@ import kotlinx.coroutines.withContext
 class RoomReaderSessionStore(
     private val readingProgressDao: ReadingProgressDao,
     private val readerSessionStateDao: ReaderSessionStateDao,
+    private val appStartupTasks: AppStartupTasks = AppStartupTasks {},
     private val writeScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ) : ReaderSessionStore, ReaderSessionHydrator {
     private val progressWriteMutex = Mutex()
@@ -41,6 +42,7 @@ class RoomReaderSessionStore(
         if (isHydratedFlow.value) return
         hydrationMutex.withLock {
             if (isHydratedFlow.value) return
+            appStartupTasks.initialize()
             val persistedProgress = withContext(Dispatchers.IO) {
                 readingProgressDao.getAll()
                     .map(ReadingProgressEntity::toSnapshot)
@@ -81,6 +83,7 @@ class RoomReaderSessionStore(
         )
         progressState.value = progressState.value + (item.id to snapshot)
         writeScope.launch {
+            appStartupTasks.initialize()
             progressWriteMutex.withLock {
                 progressState.value[item.id]
                     ?.toEntity()
@@ -106,6 +109,7 @@ class RoomReaderSessionStore(
         )
         sessionState.value = sessionState.value + (item.id to next)
         writeScope.launch {
+            appStartupTasks.initialize()
             sessionWriteMutex.withLock {
                 val latest = sessionState.value[item.id] ?: ReaderSessionSnapshot(itemId = item.id)
                 readerSessionStateDao.insertOrReplace(latest.toEntity())
@@ -116,6 +120,7 @@ class RoomReaderSessionStore(
     override fun clearProgress(itemId: String) {
         progressState.update { it - itemId }
         writeScope.launch {
+            appStartupTasks.initialize()
             progressWriteMutex.withLock {
                 if (itemId !in progressState.value) {
                     readingProgressDao.deleteByItemId(itemId)
@@ -128,6 +133,7 @@ class RoomReaderSessionStore(
         clearProgress(itemId)
         sessionState.update { it - itemId }
         writeScope.launch {
+            appStartupTasks.initialize()
             sessionWriteMutex.withLock {
                 readerSessionStateDao.deleteByItemId(itemId)
             }

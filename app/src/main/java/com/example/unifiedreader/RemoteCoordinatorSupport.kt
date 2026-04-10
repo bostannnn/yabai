@@ -6,6 +6,7 @@ internal data class RemoteConnectionInput<Session : StoredSourceSession>(
     val username: String,
     val password: String?,
     val savedSession: Session?,
+    val cleartextWarningMessage: String?,
 )
 
 internal sealed interface RemoteConnectionInputPreparation<out Connection, out Session : StoredSourceSession> {
@@ -61,10 +62,14 @@ internal fun <Connection, Session : StoredSourceSession> prepareRemoteConnectInp
     missingCredentialMessage: String,
     validateSavedSession: (savedSession: Session?, password: String?) -> String? = { _, _ -> null },
 ): RemoteConnectionInputPreparation<Connection, Session> {
-    val normalizedBaseUrl = normalizeServerBaseUrl(baseUrl)
-        ?: return RemoteConnectionInputPreparation.Invalid(
-            connection = invalidConnection("Enter a server URL that starts with http:// or https://."),
-        )
+    val validatedBaseUrl = when (val validation = validateServerBaseUrl(baseUrl)) {
+        is ServerBaseUrlValidation.Valid -> validation
+        is ServerBaseUrlValidation.Invalid -> {
+            return RemoteConnectionInputPreparation.Invalid(
+                connection = invalidConnection(validation.message),
+            )
+        }
+    }
     val normalizedDisplayName = displayName.trim()
     val normalizedUsername = username.trim()
     if (normalizedDisplayName.isBlank() || normalizedUsername.isBlank()) {
@@ -74,7 +79,7 @@ internal fun <Connection, Session : StoredSourceSession> prepareRemoteConnectInp
     }
     val normalizedPassword = password.takeIf(String::isNotBlank)
     val savedSession = matchingStoredSession(
-        normalizedBaseUrl,
+        validatedBaseUrl.normalizedBaseUrl,
         normalizedUsername,
     ).takeIf { normalizedPassword == null }
     if (normalizedPassword == null && savedSession == null) {
@@ -91,13 +96,19 @@ internal fun <Connection, Session : StoredSourceSession> prepareRemoteConnectInp
     return RemoteConnectionInputPreparation.Ready(
         input = RemoteConnectionInput(
             displayName = normalizedDisplayName,
-            baseUrl = normalizedBaseUrl,
+            baseUrl = validatedBaseUrl.normalizedBaseUrl,
             username = normalizedUsername,
             password = normalizedPassword,
             savedSession = savedSession,
+            cleartextWarningMessage = validatedBaseUrl.cleartextWarningMessage,
         ),
     )
 }
+
+internal fun connectionSuccessMessage(
+    message: String,
+    cleartextWarningMessage: String?,
+): String = listOfNotNull(message, cleartextWarningMessage).joinToString(" ")
 
 internal fun <Connection, Session : StoredSourceSession> prepareRemoteRefreshInput(
     connection: Connection,
@@ -109,6 +120,12 @@ internal fun <Connection, Session : StoredSourceSession> prepareRemoteRefreshInp
 ): StoredSessionRefreshInputPreparation<Connection, Session> {
     val session = storedSession ?: return StoredSessionRefreshInputPreparation.MissingSession
     val restoredConnection = restoreConnection(connection, session)
+    val baseUrlValidation = validateServerBaseUrl(session.baseUrl)
+    if (baseUrlValidation is ServerBaseUrlValidation.Invalid) {
+        return StoredSessionRefreshInputPreparation.Invalid(
+            connection = invalidConnection(restoredConnection, baseUrlValidation.message),
+        )
+    }
     val validationMessage = validateStoredSession(session)
     if (validationMessage != null) {
         return StoredSessionRefreshInputPreparation.Invalid(

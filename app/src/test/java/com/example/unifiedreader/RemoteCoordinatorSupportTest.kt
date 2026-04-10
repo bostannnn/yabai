@@ -97,6 +97,71 @@ class RemoteCoordinatorSupportTest {
     }
 
     @Test
+    fun `prepare remote connect input allows local http with cleartext warning`() {
+        val connection = TestConnection(
+            displayName = " Home Server ",
+            baseUrl = "http://192.168.1.20:8080/",
+            username = " reader ",
+        )
+
+        val result = prepareRemoteConnectInput(
+            connection = connection,
+            displayName = connection.displayName,
+            baseUrl = connection.baseUrl,
+            username = connection.username,
+            password = "secret",
+            invalidConnection = { message ->
+                connection.copy(message = message, isError = true)
+            },
+            matchingStoredSession = { _, _ -> null },
+            missingRequiredFieldsMessage = "Missing required fields.",
+            missingCredentialMessage = "Missing credentials.",
+        )
+
+        val ready = result as RemoteConnectionInputPreparation.Ready
+        assertEquals("http://192.168.1.20:8080", ready.input.baseUrl)
+        assertEquals(LOCAL_HTTP_WARNING_MESSAGE, ready.input.cleartextWarningMessage)
+    }
+
+    @Test
+    fun `prepare remote connect input blocks public http`() {
+        val connection = TestConnection(
+            displayName = "Public Server",
+            baseUrl = "http://example.com",
+            username = "reader",
+        )
+
+        val result = prepareRemoteConnectInput(
+            connection = connection,
+            displayName = connection.displayName,
+            baseUrl = connection.baseUrl,
+            username = connection.username,
+            password = "secret",
+            invalidConnection = { message ->
+                connection.copy(message = message, isError = true)
+            },
+            matchingStoredSession = { _, _ -> null },
+            missingRequiredFieldsMessage = "Missing required fields.",
+            missingCredentialMessage = "Missing credentials.",
+        )
+
+        val invalid = result as RemoteConnectionInputPreparation.Invalid
+        assertEquals(LOCAL_HTTP_ONLY_MESSAGE, invalid.connection.message)
+        assertTrue(invalid.connection.isError)
+    }
+
+    @Test
+    fun `connection success message includes cleartext warning`() {
+        assertEquals(
+            "Connected. $LOCAL_HTTP_WARNING_MESSAGE",
+            connectionSuccessMessage(
+                message = "Connected.",
+                cleartextWarningMessage = LOCAL_HTTP_WARNING_MESSAGE,
+            ),
+        )
+    }
+
+    @Test
     fun `prepare remote connect input surfaces saved session validation failure`() {
         val connection = TestConnection(
             displayName = "Server",
@@ -181,6 +246,44 @@ class RemoteCoordinatorSupportTest {
         assertEquals("reader", invalid.connection.username)
         assertTrue(invalid.connection.hasStoredSession)
         assertEquals("Saved session needs refresh.", invalid.connection.message)
+    }
+
+    @Test
+    fun `prepare remote refresh input blocks stored public http session`() {
+        val connection = TestConnection()
+        val savedSession = TestStoredSession(
+            displayName = "Saved",
+            baseUrl = "http://example.com",
+            username = "reader",
+            accessToken = "saved-access-token",
+            apiKey = "saved-api-key",
+        )
+
+        val result = prepareRemoteRefreshInput(
+            connection = connection,
+            storedSession = savedSession,
+            restoreConnection = { currentConnection, session ->
+                currentConnection.copy(
+                    displayName = session.displayName,
+                    baseUrl = session.baseUrl,
+                    username = session.username,
+                    hasStoredSession = true,
+                )
+            },
+            refreshedConnectionState = { restoredConnection ->
+                restoredConnection.copy(message = "Refreshed")
+            },
+            invalidConnection = { currentConnection, message ->
+                currentConnection.copy(message = message, isError = true)
+            },
+        )
+
+        val invalid = result as StoredSessionRefreshInputPreparation.Invalid
+        assertEquals("Saved", invalid.connection.displayName)
+        assertEquals("http://example.com", invalid.connection.baseUrl)
+        assertEquals("reader", invalid.connection.username)
+        assertTrue(invalid.connection.hasStoredSession)
+        assertEquals(LOCAL_HTTP_ONLY_MESSAGE, invalid.connection.message)
     }
 
     @Test

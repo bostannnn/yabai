@@ -32,12 +32,12 @@ class ReaderStateBootstrapper(
         Context.MODE_PRIVATE,
     )
 
-    fun bootstrapIfNeeded() {
+    suspend fun bootstrapIfNeeded() {
         runRoomBootstrap(
             bootstrapPreferences = bootstrapPreferences,
             bootstrappedKey = READER_STATE_BOOTSTRAPPED_KEY,
             hasExistingRoomData = {
-                readingProgressDao.getAll().isNotEmpty() || readerSessionStateDao.getAll().isNotEmpty()
+                readingProgressDao.hasAny() || readerSessionStateDao.hasAny()
             },
             migrateLegacyData = {
                 val itemIds = buildSet {

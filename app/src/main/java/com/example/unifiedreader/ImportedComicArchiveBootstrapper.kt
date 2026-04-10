@@ -18,12 +18,12 @@ class LocalDocumentBootstrapper(
         Context.MODE_PRIVATE,
     )
 
-    fun bootstrapIfNeeded() {
+    suspend fun bootstrapIfNeeded() {
         runRoomBootstrap(
             bootstrapPreferences = bootstrapPreferences,
             bootstrappedKey = IMPORTED_ARCHIVES_BOOTSTRAPPED_KEY,
             hasExistingRoomData = {
-                importedComicArchiveDao.getAll().isNotEmpty()
+                importedComicArchiveDao.hasAny()
             },
             migrateLegacyData = {
                 val legacyRecords = loadLegacyRecords()
