@@ -14,7 +14,9 @@ import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
 import com.example.unifiedreader.data.repository.SampleCatalogRepository
 import com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
+import com.example.unifiedreader.feature.downloads.RemoteDownloadStateCoordinator
 import com.example.unifiedreader.feature.library.DataStoreLibraryBrowsePreferencesStore
+import com.example.unifiedreader.feature.library.LibraryBrowseStateCoordinator
 import com.example.unifiedreader.feature.library.LibraryBrowsePreferencesStore
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesStore
@@ -25,6 +27,9 @@ import com.example.unifiedreader.feature.reader.core.ReaderScreenFactory
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import com.example.unifiedreader.feature.reader.epub.epubReaderFactory
 import com.example.unifiedreader.feature.reader.pdf.pdfReaderFactory
+import com.example.unifiedreader.feature.settings.DataStoreSettingsPreferencesStore
+import com.example.unifiedreader.feature.settings.SettingsPreferencesStore
+import com.example.unifiedreader.feature.settings.SettingsStateCoordinator
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -39,15 +44,31 @@ import kotlin.jvm.JvmSuppressWildcards
 object AppModule {
     @Provides
     @Singleton
-    fun provideAppPreferencesStore(
+    fun provideSettingsPreferencesStore(
         @ApplicationContext context: Context,
-    ): AppPreferencesStore = DataStoreAppPreferencesStore(context)
+    ): SettingsPreferencesStore = DataStoreSettingsPreferencesStore(context)
+
+    @Provides
+    @Singleton
+    fun provideSettingsStateCoordinator(
+        settingsPreferencesStore: SettingsPreferencesStore,
+    ): SettingsStateCoordinator = SettingsStateCoordinator(settingsPreferencesStore)
 
     @Provides
     @Singleton
     fun provideLibraryBrowsePreferencesStore(
         @ApplicationContext context: Context,
     ): LibraryBrowsePreferencesStore = DataStoreLibraryBrowsePreferencesStore(context)
+
+    @Provides
+    @Singleton
+    fun provideLibraryBrowseStateCoordinator(
+        libraryBrowsePreferencesStore: LibraryBrowsePreferencesStore,
+    ): LibraryBrowseStateCoordinator = LibraryBrowseStateCoordinator(libraryBrowsePreferencesStore)
+
+    @Provides
+    @Singleton
+    fun provideRemoteDownloadStateCoordinator(): RemoteDownloadStateCoordinator = RemoteDownloadStateCoordinator()
 
     @Provides
     @Singleton

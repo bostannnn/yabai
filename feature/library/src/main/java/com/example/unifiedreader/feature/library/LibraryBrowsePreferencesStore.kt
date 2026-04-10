@@ -134,22 +134,20 @@ private fun LibraryBrowsePreferences.withFilters(
     sourceType: SourceType,
     filters: LibraryFilterState,
 ): LibraryBrowsePreferences = copy(
-    filtersBySource = if (filters.isEmpty) {
-        filtersBySource - sourceType
-    } else {
-        filtersBySource + (sourceType to filters)
-    },
+    filtersBySource = filtersBySource.updatedFilters(
+        sourceType = sourceType,
+        filters = filters,
+    ),
 )
 
 private fun LibraryBrowsePreferences.withSortMode(
     sourceType: SourceType,
     sortMode: LibrarySortMode,
 ): LibraryBrowsePreferences = copy(
-    sortsBySource = if (sortMode == defaultLibrarySortMode) {
-        sortsBySource - sourceType
-    } else {
-        sortsBySource + (sourceType to sortMode)
-    },
+    sortsBySource = sortsBySource.updatedSortMode(
+        sourceType = sourceType,
+        sortMode = sortMode,
+    ),
 )
 
 internal const val LIBRARY_BROWSE_PREFERENCES_DATASTORE_NAME = "unified_reader_library_browse_preferences"

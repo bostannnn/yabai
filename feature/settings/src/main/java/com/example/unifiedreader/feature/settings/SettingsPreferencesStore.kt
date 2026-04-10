@@ -1,15 +1,14 @@
-package com.example.unifiedreader
+package com.example.unifiedreader.feature.settings
 
 import android.content.Context
 import android.content.SharedPreferences
-import androidx.annotation.VisibleForTesting
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.SharedPreferencesMigration
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.example.unifiedreader.feature.settings.ThemeMode
+import java.io.IOException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -20,29 +19,28 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.flow.stateIn
-import java.io.IOException
 
-data class AppPreferences(
+data class SettingsPreferences(
     val themeMode: ThemeMode = ThemeMode.System,
 )
 
-interface AppPreferencesStore {
-    val preferencesFlow: StateFlow<AppPreferences>
+interface SettingsPreferencesStore {
+    val preferencesFlow: StateFlow<SettingsPreferences>
 
     suspend fun setThemeMode(themeMode: ThemeMode)
 }
 
-class DataStoreAppPreferencesStore(
+class DataStoreSettingsPreferencesStore(
     private val appContext: Context,
     private val dataStore: DataStore<Preferences>,
     private val startupPreferences: SharedPreferences,
     private val ioRetryDelayMillis: Long = DATASTORE_IO_RETRY_DELAY_MILLIS,
-) : AppPreferencesStore {
+) : SettingsPreferencesStore {
     constructor(
         context: Context,
     ) : this(
         appContext = context.applicationContext,
-        dataStore = context.applicationContext.appPreferencesDataStore,
+        dataStore = context.applicationContext.settingsPreferencesDataStore,
         startupPreferences = context.applicationContext.startupPreferences,
     )
 
@@ -51,22 +49,22 @@ class DataStoreAppPreferencesStore(
         LEGACY_SHARED_PREFERENCES_NAME,
         Context.MODE_PRIVATE,
     )
-    private val startupSnapshot = loadStartupAppPreferences(
+    private val startupSnapshot = loadStartupSettingsPreferences(
         startupPreferences = startupPreferences,
         legacyPreferences = legacyPreferences,
     )
 
-    override val preferencesFlow: StateFlow<AppPreferences> = dataStore.data
+    override val preferencesFlow: StateFlow<SettingsPreferences> = dataStore.data
         .map { preferences ->
-            CachedAppPreferences(
-                preferences = toAppPreferences(preferences),
+            CachedSettingsPreferences(
+                preferences = toSettingsPreferences(preferences),
                 shouldWriteStartupCache = true,
             )
         }
         .retryWhen { error, _ ->
             if (error is IOException) {
                 emit(
-                    CachedAppPreferences(
+                    CachedSettingsPreferences(
                         preferences = loadCurrentStartupPreferences(),
                         shouldWriteStartupCache = false,
                     ),
@@ -91,31 +89,31 @@ class DataStoreAppPreferencesStore(
         dataStore.edit { preferences ->
             preferences[Keys.ThemeMode] = themeMode.storageValue
         }
-        writeStartupPreferences(AppPreferences(themeMode = themeMode))
+        writeStartupPreferences(SettingsPreferences(themeMode = themeMode))
     }
 
     private fun writeStartupPreferences(
-        preferences: AppPreferences,
+        preferences: SettingsPreferences,
     ) {
         startupPreferences.edit()
             .putString(KEY_THEME_MODE, preferences.themeMode.storageValue)
             .commit()
     }
 
-    private fun loadCurrentStartupPreferences(): AppPreferences = loadStartupAppPreferences(
+    private fun loadCurrentStartupPreferences(): SettingsPreferences = loadStartupSettingsPreferences(
         startupPreferences = startupPreferences,
         legacyPreferences = legacyPreferences,
     )
 }
 
-private data class CachedAppPreferences(
-    val preferences: AppPreferences,
+private data class CachedSettingsPreferences(
+    val preferences: SettingsPreferences,
     val shouldWriteStartupCache: Boolean,
 )
 
-fun loadStartupAppPreferences(
+fun loadStartupSettingsPreferences(
     context: Context,
-): AppPreferences = AppPreferences(
+): SettingsPreferences = SettingsPreferences(
     themeMode = readStartupThemeMode(
         startupPreferences = context.applicationContext.startupPreferences,
         legacyPreferences = context.applicationContext.getSharedPreferences(
@@ -125,8 +123,8 @@ fun loadStartupAppPreferences(
     ),
 )
 
-private val Context.appPreferencesDataStore: DataStore<Preferences> by preferencesDataStore(
-    name = APP_PREFERENCES_DATASTORE_NAME,
+private val Context.settingsPreferencesDataStore: DataStore<Preferences> by preferencesDataStore(
+    name = SETTINGS_PREFERENCES_DATASTORE_NAME,
     produceMigrations = { appContext ->
         listOf(
             SharedPreferencesMigration(appContext, LEGACY_SHARED_PREFERENCES_NAME),
@@ -134,19 +132,19 @@ private val Context.appPreferencesDataStore: DataStore<Preferences> by preferenc
     },
 )
 
-private fun toAppPreferences(
+private fun toSettingsPreferences(
     preferences: Preferences,
-): AppPreferences = AppPreferences(
+): SettingsPreferences = SettingsPreferences(
     themeMode = ThemeMode.fromStorageValue(preferences[Keys.ThemeMode]),
 )
 
 private val Context.startupPreferences: SharedPreferences
     get() = getSharedPreferences(STARTUP_SHARED_PREFERENCES_NAME, Context.MODE_PRIVATE)
 
-private fun loadStartupAppPreferences(
+private fun loadStartupSettingsPreferences(
     startupPreferences: SharedPreferences,
     legacyPreferences: SharedPreferences,
-): AppPreferences = AppPreferences(
+): SettingsPreferences = SettingsPreferences(
     themeMode = readStartupThemeMode(
         startupPreferences = startupPreferences,
         legacyPreferences = legacyPreferences,
@@ -169,14 +167,13 @@ private object Keys {
     val ThemeMode = stringPreferencesKey(KEY_THEME_MODE)
 }
 
-internal const val APP_PREFERENCES_DATASTORE_NAME = "unified_reader_app_preferences"
+internal const val SETTINGS_PREFERENCES_DATASTORE_NAME = "unified_reader_app_preferences"
 internal const val LEGACY_SHARED_PREFERENCES_NAME = "unified_reader_app_preferences"
 internal const val STARTUP_SHARED_PREFERENCES_NAME = "unified_reader_startup_preferences"
 internal const val KEY_THEME_MODE = "theme_mode"
 internal const val DATASTORE_IO_RETRY_DELAY_MILLIS = 1_000L
 
-@VisibleForTesting(otherwise = VisibleForTesting.NONE)
-internal object AppPreferencesStoreTestAccess {
+internal object SettingsPreferencesStoreTestAccess {
     const val legacySharedPreferencesName: String = LEGACY_SHARED_PREFERENCES_NAME
     const val startupSharedPreferencesName: String = STARTUP_SHARED_PREFERENCES_NAME
     const val themeModeKey: String = KEY_THEME_MODE
@@ -184,7 +181,7 @@ internal object AppPreferencesStoreTestAccess {
     fun loadStartupPreferences(
         startupPreferences: SharedPreferences,
         legacyPreferences: SharedPreferences,
-    ): AppPreferences = loadStartupAppPreferences(
+    ): SettingsPreferences = loadStartupSettingsPreferences(
         startupPreferences = startupPreferences,
         legacyPreferences = legacyPreferences,
     )

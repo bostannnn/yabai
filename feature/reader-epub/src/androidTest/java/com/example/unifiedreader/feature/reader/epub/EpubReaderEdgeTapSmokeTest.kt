@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.reader.epub
 
+import android.content.res.Configuration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.geometry.Offset
@@ -145,10 +146,11 @@ class EpubReaderEdgeTapSmokeTest {
         openLayoutMenu()
         composeRule.onNodeWithText("Auto (portrait: Page, landscape: Spread)").performClick()
 
+        val expectedDefaultLayoutMode = expectedDefaultLayoutMode()
         composeRule.waitUntil(timeoutMillis = 10_000) {
             val preferences = sessionStore.sessionByItemIdFlow.value[item.id]?.preferences.orEmpty()
             preferences[EpubLayoutOverrideKey] == "false" &&
-                preferences[EpubLayoutModeKey] == EpubReaderLayoutMode.SinglePage.name
+                preferences[EpubLayoutModeKey] == expectedDefaultLayoutMode.name
         }
     }
 
@@ -245,6 +247,20 @@ class EpubReaderEdgeTapSmokeTest {
     private fun openLayoutMenu() {
         composeRule.onNodeWithContentDescription("Page layout").performClick()
         composeRule.onNodeWithText("Auto (portrait: Page, landscape: Spread)").assertExists()
+    }
+
+    private fun expectedDefaultLayoutMode(): EpubReaderLayoutMode {
+        val configuration = composeRule.activity.resources.configuration
+        val isLandscape = when (configuration.orientation) {
+            Configuration.ORIENTATION_LANDSCAPE -> true
+            Configuration.ORIENTATION_PORTRAIT -> false
+            else -> configuration.screenWidthDp > configuration.screenHeightDp
+        }
+        return if (isLandscape) {
+            EpubReaderLayoutMode.DoublePage
+        } else {
+            EpubReaderLayoutMode.SinglePage
+        }
     }
 }
 

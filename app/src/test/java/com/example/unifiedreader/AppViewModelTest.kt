@@ -1069,9 +1069,9 @@ class AppViewModelTest {
 
     @Test
     fun `theme mode selection updates ui state`() {
-        val preferencesStore = FakeAppPreferencesStore()
+        val preferencesStore = FakeSettingsPreferencesStore()
         val viewModel = createViewModel(
-            appPreferencesStore = preferencesStore,
+            settingsPreferencesStore = preferencesStore,
         )
 
         viewModel.onThemeModeSelected(ThemeMode.Dark)

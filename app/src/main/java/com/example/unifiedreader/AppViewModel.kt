@@ -10,11 +10,7 @@ import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
-import com.example.unifiedreader.core.model.libraryDisplayLabel
-import com.example.unifiedreader.core.model.trackedRemoteDownloadItemIds
-import com.example.unifiedreader.feature.library.LibraryBrowsePreferencesStore
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
-import com.example.unifiedreader.feature.library.defaultLibrarySortMode
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesStore
 import com.example.unifiedreader.feature.reader.comics.ComicReaderProgressStore
@@ -24,13 +20,13 @@ import com.example.unifiedreader.feature.settings.ThemeMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlin.jvm.JvmSuppressWildcards
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 @HiltViewModel
 class AppViewModel @Inject constructor(
-    private val appPreferencesStore: AppPreferencesStore,
-    private val libraryBrowsePreferencesStore: LibraryBrowsePreferencesStore,
+    private val libraryBrowseController: AppLibraryBrowseController,
+    private val settingsController: AppSettingsController,
+    private val remoteDownloadController: AppRemoteDownloadController,
     private val appStateHydrator: AppStateHydrator,
     private val catalogStateCoordinator: AppCatalogStateCoordinator,
     private val libraryActionsCoordinator: AppLibraryActionsCoordinator,
@@ -50,13 +46,8 @@ class AppViewModel @Inject constructor(
             appStateHydrator.hydrate()
         }
         remoteSourcesCoordinator.initialize(::updateUiState)
-        updateUiState { state ->
-            state.copy(
-                themeMode = appPreferencesStore.preferencesFlow.value.themeMode,
-                libraryFiltersBySource = libraryBrowsePreferencesStore.preferencesFlow.value.filtersBySource,
-                librarySortsBySource = libraryBrowsePreferencesStore.preferencesFlow.value.sortsBySource,
-            )
-        }
+        settingsController.restoreState(updateState = ::updateUiState)
+        libraryBrowseController.restoreState(updateState = ::updateUiState)
         catalogStateCoordinator.updateLibraryState(
             currentState = uiState,
             updateState = ::updateUiState,
@@ -81,65 +72,38 @@ class AppViewModel @Inject constructor(
     }
 
     fun onLibraryFiltersChanged(filters: LibraryFilterState) {
-        val sourceType = uiState.selectedSource
-        updateUiState { state ->
-            state.copy(
-                libraryFiltersBySource = if (filters.isEmpty) {
-                    state.libraryFiltersBySource - sourceType
-                } else {
-                    state.libraryFiltersBySource + (sourceType to filters)
-                },
-            )
-        }
-        viewModelScope.launch {
-            libraryBrowsePreferencesStore.setFilters(
-                sourceType = sourceType,
-                filters = filters,
-            )
-        }
+        libraryBrowseController.onLibraryFiltersChanged(
+            currentState = uiState,
+            updateState = ::updateUiState,
+            scope = viewModelScope,
+            filters = filters,
+        )
     }
 
     fun onLibrarySearchQueryChanged(query: String) {
-        updateUiState { state ->
-            state.copy(
-                librarySearchQueriesBySource = state.librarySearchQueriesBySource + (state.selectedSource to query),
-            )
-        }
+        libraryBrowseController.onLibrarySearchQueryChanged(
+            currentState = uiState,
+            updateState = ::updateUiState,
+            query = query,
+        )
     }
 
     fun clearLibraryFilters() {
         if (uiState.selectedLibraryFilters.isEmpty) return
-        val sourceType = uiState.selectedSource
-        updateUiState { state ->
-            state.copy(
-                libraryFiltersBySource = state.libraryFiltersBySource - sourceType,
-            )
-        }
-        viewModelScope.launch {
-            libraryBrowsePreferencesStore.setFilters(
-                sourceType = sourceType,
-                filters = LibraryFilterState(),
-            )
-        }
+        libraryBrowseController.clearLibraryFilters(
+            currentState = uiState,
+            updateState = ::updateUiState,
+            scope = viewModelScope,
+        )
     }
 
     fun onLibrarySortModeChanged(sortMode: LibrarySortMode) {
-        val sourceType = uiState.selectedSource
-        updateUiState { state ->
-            state.copy(
-                librarySortsBySource = if (sortMode == defaultLibrarySortMode) {
-                    state.librarySortsBySource - sourceType
-                } else {
-                    state.librarySortsBySource + (sourceType to sortMode)
-                },
-            )
-        }
-        viewModelScope.launch {
-            libraryBrowsePreferencesStore.setSortMode(
-                sourceType = sourceType,
-                sortMode = sortMode,
-            )
-        }
+        libraryBrowseController.onLibrarySortModeChanged(
+            currentState = uiState,
+            updateState = ::updateUiState,
+            scope = viewModelScope,
+            sortMode = sortMode,
+        )
     }
 
     fun onItemSelected(item: ReadableItem) {
@@ -220,66 +184,30 @@ class AppViewModel @Inject constructor(
     }
 
     fun onDownloadRemoteItem(item: ReadableItem) {
-        val trackedItemIds = trackedRemoteDownloadItemIds(item, uiState.items)
-        if (trackedItemIds.any(uiState.downloadingRemoteItemIds::contains)) {
-            return
-        }
-        updateUiState { state ->
-            state.copy(
-                downloadingRemoteItemIds = state.downloadingRemoteItemIds + trackedItemIds,
-                libraryMessage = "Downloading ${item.libraryDisplayLabel()}.",
-                libraryMessageSeverity = LibraryMessageSeverity.Info,
-            )
-        }
-        viewModelScope.launch {
-            try {
-                val result = libraryActionsCoordinator.downloadRemoteItem(item, uiState.items)
-                updateUiState { state ->
-                    state.copy(
-                        downloadedRemoteItemIds = result.downloadedRemoteItemIds,
-                        locallyAvailableRemoteItemIds = result.locallyAvailableRemoteItemIds,
-                        libraryMessage = result.libraryMessage,
-                        libraryMessageSeverity = result.libraryMessageSeverity,
-                    )
-                }
-            } catch (throwable: Throwable) {
-                if (throwable is CancellationException) {
-                    throw throwable
-                }
-                updateLibraryMessage(
-                    message = "Unable to download ${item.libraryDisplayLabel()}: ${throwable.userFacingMessage()}",
-                    severity = LibraryMessageSeverity.Error,
-                )
-            } finally {
-                updateUiState { state ->
-                    state.copy(
-                        downloadingRemoteItemIds = state.downloadingRemoteItemIds - trackedItemIds,
-                    )
-                }
-            }
-        }
+        remoteDownloadController.onDownloadRemoteItem(
+            stateProvider = { uiState },
+            updateState = ::updateUiState,
+            scope = viewModelScope,
+            item = item,
+        )
     }
 
     fun onDeleteRemoteLocalFile(item: ReadableItem) {
-        viewModelScope.launch {
-            val result = libraryActionsCoordinator.deleteRemoteLocalFile(item, uiState.items)
-            updateUiState { state ->
-                state.copy(
-                    downloadedRemoteItemIds = result.downloadedRemoteItemIds,
-                    locallyAvailableRemoteItemIds = result.locallyAvailableRemoteItemIds,
-                    libraryMessage = result.libraryMessage,
-                    libraryMessageSeverity = result.libraryMessageSeverity,
-                )
-            }
-        }
+        remoteDownloadController.onDeleteRemoteLocalFile(
+            stateProvider = { uiState },
+            updateState = ::updateUiState,
+            scope = viewModelScope,
+            item = item,
+        )
     }
 
     fun onThemeModeSelected(themeMode: ThemeMode) {
-        if (uiState.themeMode == themeMode) return
-        updateUiState { state -> state.copy(themeMode = themeMode) }
-        viewModelScope.launch {
-            appPreferencesStore.setThemeMode(themeMode)
-        }
+        settingsController.onThemeModeSelected(
+            currentState = uiState,
+            updateState = ::updateUiState,
+            scope = viewModelScope,
+            themeMode = themeMode,
+        )
     }
 
     fun onKavitaDisplayNameChanged(displayName: String) {
@@ -501,4 +429,5 @@ class AppViewModel @Inject constructor(
             )
         }
     }
+
 }

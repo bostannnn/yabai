@@ -1,4 +1,4 @@
-package com.example.unifiedreader
+package com.example.unifiedreader.feature.settings
 
 import android.app.Application
 import android.content.Context
@@ -11,7 +11,6 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.mutablePreferencesOf
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.test.core.app.ApplicationProvider
-import com.example.unifiedreader.feature.settings.ThemeMode
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
@@ -32,7 +31,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
-class AppPreferencesStoreTest {
+class SettingsPreferencesStoreTest {
     @Test
     fun `data store persists theme mode for startup cache reads`() = runBlocking {
         val fixture = createTestStoreFixture()
@@ -45,7 +44,7 @@ class AppPreferencesStoreTest {
         )
         assertEquals(
             ThemeMode.Dark,
-            AppPreferencesStoreTestAccess.loadStartupPreferences(
+            SettingsPreferencesStoreTestAccess.loadStartupPreferences(
                 startupPreferences = fixture.startupPreferences,
                 legacyPreferences = fixture.legacyPreferences,
             ).themeMode,
@@ -63,7 +62,7 @@ class AppPreferencesStoreTest {
         assertEquals(ThemeMode.Dark, migratedThemeMode)
         assertEquals(
             ThemeMode.Dark,
-            AppPreferencesStoreTestAccess.loadStartupPreferences(
+            SettingsPreferencesStoreTestAccess.loadStartupPreferences(
                 startupPreferences = fixture.startupPreferences,
                 legacyPreferences = fixture.legacyPreferences,
             ).themeMode,
@@ -75,18 +74,18 @@ class AppPreferencesStoreTest {
         val context = ApplicationProvider.getApplicationContext<Application>()
         val suffix = System.nanoTime().toString()
         val startupPreferences = context.getSharedPreferences(
-            "${AppPreferencesStoreTestAccess.startupSharedPreferencesName}_test_$suffix",
+            "${SettingsPreferencesStoreTestAccess.startupSharedPreferencesName}_test_$suffix",
             Context.MODE_PRIVATE,
         )
         val legacyPreferences = context.getSharedPreferences(
-            "${AppPreferencesStoreTestAccess.legacySharedPreferencesName}_test_$suffix",
+            "${SettingsPreferencesStoreTestAccess.legacySharedPreferencesName}_test_$suffix",
             Context.MODE_PRIVATE,
         )
         startupPreferences.edit()
-            .putString(AppPreferencesStoreTestAccess.themeModeKey, ThemeMode.Dark.storageValue)
+            .putString(SettingsPreferencesStoreTestAccess.themeModeKey, ThemeMode.Dark.storageValue)
             .commit()
         val failingDataStore = RecoveringPreferencesDataStore(initialThemeMode = ThemeMode.Light)
-        val store = DataStoreAppPreferencesStore(
+        val store = DataStoreSettingsPreferencesStore(
             appContext = context,
             dataStore = failingDataStore,
             startupPreferences = startupPreferences,
@@ -96,7 +95,7 @@ class AppPreferencesStoreTest {
         assertEquals(ThemeMode.Dark, store.preferencesFlow.value.themeMode)
         failingDataStore.awaitCollection()
         startupPreferences.edit()
-            .putString(AppPreferencesStoreTestAccess.themeModeKey, ThemeMode.Light.storageValue)
+            .putString(SettingsPreferencesStoreTestAccess.themeModeKey, ThemeMode.Light.storageValue)
             .commit()
         failingDataStore.fail()
         assertEquals(
@@ -112,7 +111,7 @@ class AppPreferencesStoreTest {
 }
 
 private data class TestStoreFixture(
-    val store: DataStoreAppPreferencesStore,
+    val store: DataStoreSettingsPreferencesStore,
     val startupPreferences: SharedPreferences,
     val legacyPreferences: SharedPreferences,
 )
@@ -122,13 +121,13 @@ private fun createTestStoreFixture(
 ): TestStoreFixture {
     val context = ApplicationProvider.getApplicationContext<Application>()
     val suffix = System.nanoTime().toString()
-    val legacyPreferencesName = "${AppPreferencesStoreTestAccess.legacySharedPreferencesName}_test_$suffix"
-    val startupPreferencesName = "${AppPreferencesStoreTestAccess.startupSharedPreferencesName}_test_$suffix"
+    val legacyPreferencesName = "${SettingsPreferencesStoreTestAccess.legacySharedPreferencesName}_test_$suffix"
+    val startupPreferencesName = "${SettingsPreferencesStoreTestAccess.startupSharedPreferencesName}_test_$suffix"
     val startupPreferences = context.getSharedPreferences(startupPreferencesName, Context.MODE_PRIVATE)
     val legacyPreferences = context.getSharedPreferences(legacyPreferencesName, Context.MODE_PRIVATE)
     if (legacyThemeMode != null) {
         legacyPreferences.edit()
-            .putString(AppPreferencesStoreTestAccess.themeModeKey, legacyThemeMode.storageValue)
+            .putString(SettingsPreferencesStoreTestAccess.themeModeKey, legacyThemeMode.storageValue)
             .commit()
     }
     val dataStore = PreferenceDataStoreFactory.create(
@@ -137,14 +136,14 @@ private fun createTestStoreFixture(
         ),
         scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
         produceFile = {
-            File(context.filesDir, "datastore/app-preferences-test-$suffix.preferences_pb").apply {
+            File(context.filesDir, "datastore/settings-preferences-test-$suffix.preferences_pb").apply {
                 parentFile?.mkdirs()
             }
         },
     )
 
     return TestStoreFixture(
-        store = DataStoreAppPreferencesStore(
+        store = DataStoreSettingsPreferencesStore(
             appContext = context,
             dataStore = dataStore,
             startupPreferences = startupPreferences,
@@ -163,9 +162,9 @@ private class RecoveringPreferencesDataStore(
     private val preferencesState = MutableStateFlow<Preferences>(
         initialThemeMode?.let { themeMode ->
             mutablePreferencesOf(
-                stringPreferencesKey(AppPreferencesStoreTestAccess.themeModeKey) to themeMode.storageValue,
+                stringPreferencesKey(SettingsPreferencesStoreTestAccess.themeModeKey) to themeMode.storageValue,
             )
-        } ?: emptyPreferences()
+        } ?: emptyPreferences(),
     )
 
     override val data: Flow<Preferences> = flow {
@@ -189,7 +188,7 @@ private class RecoveringPreferencesDataStore(
 
     fun setThemeMode(themeMode: ThemeMode) {
         preferencesState.value = mutablePreferencesOf(
-            stringPreferencesKey(AppPreferencesStoreTestAccess.themeModeKey) to themeMode.storageValue,
+            stringPreferencesKey(SettingsPreferencesStoreTestAccess.themeModeKey) to themeMode.storageValue,
         )
     }
 

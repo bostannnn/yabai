@@ -6,11 +6,13 @@ import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.remoteLibraryId
-import com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
 import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
+import com.example.unifiedreader.feature.downloads.RemoteDownloadStateCoordinator
+import com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
 import com.example.unifiedreader.feature.library.LibraryBrowsePreferences
 import com.example.unifiedreader.feature.library.LibraryBrowsePreferencesStore
+import com.example.unifiedreader.feature.library.LibraryBrowseStateCoordinator
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
@@ -18,8 +20,13 @@ import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesSnapshot
 import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesStore
 import com.example.unifiedreader.feature.reader.comics.ComicReaderProgressStore
+import com.example.unifiedreader.feature.reader.core.ReaderScreenFactory
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
+import com.example.unifiedreader.feature.settings.SettingsPreferences
+import com.example.unifiedreader.feature.settings.SettingsPreferencesStore
+import com.example.unifiedreader.feature.settings.SettingsStateCoordinator
 import com.example.unifiedreader.feature.settings.ThemeMode
+import kotlin.jvm.JvmSuppressWildcards
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
@@ -32,8 +39,13 @@ internal fun createViewModel(
     pageSource: ComicPageSource = FakeComicPageSource(),
     progressStore: ComicReaderProgressStore = FakeComicReaderProgressStore(),
     preferencesStore: ComicReaderPreferencesStore = FakeComicReaderPreferencesStore(),
-    appPreferencesStore: AppPreferencesStore = FakeAppPreferencesStore(),
+    settingsPreferencesStore: SettingsPreferencesStore = FakeSettingsPreferencesStore(),
+    settingsStateCoordinator: SettingsStateCoordinator = SettingsStateCoordinator(settingsPreferencesStore),
+    settingsController: AppSettingsController = AppSettingsController(settingsStateCoordinator),
+    remoteDownloadStateCoordinator: RemoteDownloadStateCoordinator = RemoteDownloadStateCoordinator(),
     libraryBrowsePreferencesStore: LibraryBrowsePreferencesStore = FakeLibraryBrowsePreferencesStore(),
+    libraryBrowseStateCoordinator: LibraryBrowseStateCoordinator = LibraryBrowseStateCoordinator(libraryBrowsePreferencesStore),
+    libraryBrowseController: AppLibraryBrowseController = AppLibraryBrowseController(libraryBrowseStateCoordinator),
     readerSessionStore: FakeReaderSessionStore = FakeReaderSessionStore(),
     kavitaCatalogSyncer: KavitaCatalogSyncer = FakeKavitaCatalogSyncer(),
     kavitaCredentialStore: KavitaCredentialStore = FakeKavitaCredentialStore(),
@@ -48,6 +60,7 @@ internal fun createViewModel(
     comicPageSourceCacheController: ComicPageSourceCacheController = FakeComicPageSourceCacheController(),
     remoteCatalogReadiness: RemoteCatalogReadiness = FakeRemoteCatalogReadiness(),
     sourceProgressSyncs: List<SourceProgressSync> = emptyList(),
+    readerFactories: List<@JvmSuppressWildcards ReaderScreenFactory> = emptyList(),
     libraryRepository: FakeLibraryRepository = FakeLibraryRepository(
         libraries = listOf(
             Library(
@@ -70,53 +83,59 @@ internal fun createViewModel(
     val grimmoryCoverCacheController = GrimmoryCoverCacheController(
         grimmoryCoverRepository = grimmoryCoverRepository,
     )
+    val libraryActionsCoordinator = AppLibraryActionsCoordinator(
+        importDocumentUseCase = ImportDocumentUseCase(
+            localDocumentRepository = importedRepository,
+        ),
+        deleteImportedItemUseCase = DeleteImportedItemUseCase(
+            importedItemDeletionService = DefaultImportedItemDeletionService(
+                localDocumentDataSource = importedRepository,
+                readerSessionStore = readerSessionStore,
+            ),
+        ),
+        downloadRemoteItemUseCase = DownloadRemoteItemUseCase(
+            remoteDownloadDataSources = remoteDownloadDataSources,
+            libraryStateAssembler = libraryStateAssembler,
+            sourceProgressSyncs = sourceProgressSyncs,
+        ),
+        deleteRemoteLocalFileUseCase = DeleteRemoteLocalFileUseCase(
+            remoteDownloadDataSources = remoteDownloadDataSources,
+            libraryStateAssembler = libraryStateAssembler,
+        ),
+        stumpCoverCacheController = stumpCoverCacheController,
+        grimmoryCoverCacheController = grimmoryCoverCacheController,
+    )
+    val catalogStateCoordinator = AppCatalogStateCoordinator(
+        libraryRepository = libraryRepository,
+        readableItemRepository = readableItemRepository,
+        localDocumentRepository = importedRepository,
+        libraryStateAssembler = libraryStateAssembler,
+        observeAppCatalogSnapshotsUseCase = ObserveAppCatalogSnapshotsUseCase(
+            settingsPreferencesStore = settingsPreferencesStore,
+            libraryRepository = libraryRepository,
+            readableItemRepository = readableItemRepository,
+            remoteCatalogReadiness = remoteCatalogReadiness,
+            localDocumentRepository = importedRepository,
+            readerSessionStore = readerSessionStore,
+            libraryStateAssembler = libraryStateAssembler,
+        ),
+        readerSessionStore = readerSessionStore,
+        stumpCoverCacheController = stumpCoverCacheController,
+        grimmoryCoverCacheController = grimmoryCoverCacheController,
+    )
     return AppViewModel(
-        appPreferencesStore = appPreferencesStore,
-        libraryBrowsePreferencesStore = libraryBrowsePreferencesStore,
+        libraryBrowseController = libraryBrowseController,
+        settingsController = settingsController,
+        remoteDownloadController = AppRemoteDownloadController(
+            libraryActionsCoordinator = libraryActionsCoordinator,
+            remoteDownloadStateCoordinator = remoteDownloadStateCoordinator,
+        ),
         appStateHydrator = AppStateHydrator(
             localDocumentHydrator = importedRepository,
             readerSessionHydrator = readerSessionStore,
         ),
-        catalogStateCoordinator = AppCatalogStateCoordinator(
-            libraryRepository = libraryRepository,
-            readableItemRepository = readableItemRepository,
-            localDocumentRepository = importedRepository,
-            libraryStateAssembler = libraryStateAssembler,
-            observeAppCatalogSnapshotsUseCase = ObserveAppCatalogSnapshotsUseCase(
-                appPreferencesStore = appPreferencesStore,
-                libraryRepository = libraryRepository,
-                readableItemRepository = readableItemRepository,
-                remoteCatalogReadiness = remoteCatalogReadiness,
-                localDocumentRepository = importedRepository,
-                readerSessionStore = readerSessionStore,
-                libraryStateAssembler = libraryStateAssembler,
-            ),
-            readerSessionStore = readerSessionStore,
-            stumpCoverCacheController = stumpCoverCacheController,
-            grimmoryCoverCacheController = grimmoryCoverCacheController,
-        ),
-        libraryActionsCoordinator = AppLibraryActionsCoordinator(
-            importDocumentUseCase = ImportDocumentUseCase(
-                localDocumentRepository = importedRepository,
-            ),
-            deleteImportedItemUseCase = DeleteImportedItemUseCase(
-                importedItemDeletionService = DefaultImportedItemDeletionService(
-                    localDocumentDataSource = importedRepository,
-                    readerSessionStore = readerSessionStore,
-                ),
-            ),
-            downloadRemoteItemUseCase = DownloadRemoteItemUseCase(
-                remoteDownloadDataSources = remoteDownloadDataSources,
-                libraryStateAssembler = libraryStateAssembler,
-                sourceProgressSyncs = sourceProgressSyncs,
-            ),
-            deleteRemoteLocalFileUseCase = DeleteRemoteLocalFileUseCase(
-                remoteDownloadDataSources = remoteDownloadDataSources,
-                libraryStateAssembler = libraryStateAssembler,
-            ),
-            stumpCoverCacheController = stumpCoverCacheController,
-            grimmoryCoverCacheController = grimmoryCoverCacheController,
-        ),
+        catalogStateCoordinator = catalogStateCoordinator,
+        libraryActionsCoordinator = libraryActionsCoordinator,
         readerCoordinator = AppReaderCoordinator(
             libraryStateAssembler = libraryStateAssembler,
             readerSessionStore = readerSessionStore,
@@ -155,7 +174,7 @@ internal fun createViewModel(
         comicReaderProgressStore = progressStore,
         comicReaderPreferencesStore = preferencesStore,
         readerSessionStore = readerSessionStore,
-        readerFactories = emptyList(),
+        readerFactories = readerFactories,
     )
 }
 
@@ -491,6 +510,7 @@ class FakeLocalDocumentRepository(
     private val importedItems: MutableList<ReadableItem> = mutableListOf(),
     val pageCounts: MutableMap<String, Int> = mutableMapOf(),
     val importedDocumentUris: MutableMap<String, Uri> = mutableMapOf(),
+    private val expectedImportUri: Uri? = null,
 ) : LocalDocumentDataSource, LocalDocumentHydrator {
     override val isHydratedFlow: StateFlow<Boolean> = MutableStateFlow(true)
     private val importedItemsState = MutableStateFlow(importedItems.toList())
@@ -500,11 +520,14 @@ class FakeLocalDocumentRepository(
 
     override suspend fun hydrate() = Unit
 
-    override suspend fun import(uri: Uri): ReadableItem? = importResult?.also { item ->
-        importedItems.removeAll { existing -> existing.id == item.id }
-        importedItems += item
-        importedDocumentUris[item.id] = uri
-        importedItemsState.value = importedItems.toList()
+    override suspend fun import(uri: Uri): ReadableItem? {
+        if (expectedImportUri != null && uri != expectedImportUri) return null
+        return importResult?.also { item ->
+            importedItems.removeAll { existing -> existing.id == item.id }
+            importedItems += item
+            importedDocumentUris[item.id] = uri
+            importedItemsState.value = importedItems.toList()
+        }
     }
 
     override suspend fun removeById(itemId: String): Boolean {
@@ -564,15 +587,15 @@ class FakeComicReaderPreferencesStore : ComicReaderPreferencesStore {
         MutableStateFlow(emptyMap())
 }
 
-class FakeAppPreferencesStore(
-    initialPreferences: AppPreferences = AppPreferences(),
-) : AppPreferencesStore {
+class FakeSettingsPreferencesStore(
+    initialPreferences: SettingsPreferences = SettingsPreferences(),
+) : SettingsPreferencesStore {
     private val mutablePreferencesFlow = MutableStateFlow(initialPreferences)
 
-    override val preferencesFlow: StateFlow<AppPreferences> = mutablePreferencesFlow
+    override val preferencesFlow: StateFlow<SettingsPreferences> = mutablePreferencesFlow
 
     override suspend fun setThemeMode(themeMode: ThemeMode) {
-        mutablePreferencesFlow.value = AppPreferences(themeMode = themeMode)
+        mutablePreferencesFlow.value = SettingsPreferences(themeMode = themeMode)
     }
 }
 
@@ -610,9 +633,14 @@ class FakeLibraryBrowsePreferencesStore(
     }
 }
 
-class FakeReaderSessionStore : ReaderSessionStore, ReaderSessionHydrator {
-    private val progressByItemId = MutableStateFlow<Map<String, com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot>>(emptyMap())
-    private val sessionByItemId = MutableStateFlow<Map<String, com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot>>(emptyMap())
+class FakeReaderSessionStore(
+    initialProgress: Map<String, com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot> = emptyMap(),
+    initialSessions: Map<String, com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot> = emptyMap(),
+) : ReaderSessionStore, ReaderSessionHydrator {
+    private val progressByItemId =
+        MutableStateFlow<Map<String, com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot>>(initialProgress)
+    private val sessionByItemId =
+        MutableStateFlow<Map<String, com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot>>(initialSessions)
     override val isHydratedFlow: StateFlow<Boolean> = MutableStateFlow(true)
     override val progressByItemIdFlow: StateFlow<Map<String, com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot>> =
         progressByItemId

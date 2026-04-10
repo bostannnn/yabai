@@ -44,6 +44,11 @@ android {
     buildFeatures {
         compose = true
     }
+
+    sourceSets {
+        getByName("test").java.setSrcDirs(listOf("src/test/java", "src/sharedTest/java"))
+        getByName("androidTest").java.setSrcDirs(listOf("src/androidTest/java", "src/sharedTest/java"))
+    }
 }
 
 dependencies {

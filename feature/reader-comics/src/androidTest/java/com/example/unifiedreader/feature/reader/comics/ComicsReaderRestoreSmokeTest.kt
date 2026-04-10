@@ -55,7 +55,7 @@ class ComicsReaderRestoreSmokeTest {
         )
 
         composeRule.waitForText("2 / 3")
-        composeRule.onNodeWithTag(comicGestureSurfaceTag("spread-1"))
+        composeRule.onNodeWithTag(comicGestureSurfaceTag("spread-1-full"))
             .performTouchInput { swipeLeft() }
         composeRule.waitForText("3 / 3")
         assertEquals(null, progressStore.persistedPages[item.id])
@@ -86,7 +86,7 @@ class ComicsReaderRestoreSmokeTest {
         )
 
         composeRule.waitForText("2 / 3")
-        composeRule.onNodeWithTag(comicGestureSurfaceTag("spread-1"))
+        composeRule.onNodeWithTag(comicGestureSurfaceTag("spread-1-full"))
             .performTouchInput { swipeLeft() }
         composeRule.waitForText("3 / 3")
         assertEquals(null, progressStore.persistedPages[item.id])
