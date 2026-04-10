@@ -23,6 +23,7 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
+import com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicSpreadMode
@@ -353,12 +354,13 @@ private fun createViewModel(
     grimmoryCredentialStore: GrimmoryCredentialStore = FakeGrimmoryCredentialStore(),
     grimmoryCoverRepository: GrimmoryCoverDataSource = FakeGrimmoryCoverRepository(),
     grimmoryContentRepository: GrimmoryContentDataSource = FakeGrimmoryContentRepository(),
+    remoteDownloadDataSources: List<RemoteItemDownloadDataSource> = listOf(grimmoryContentRepository),
     sourceProgressSyncs: List<SourceProgressSync> = emptyList(),
     readerFactories: List<com.example.unifiedreader.feature.reader.core.ReaderScreenFactory> = emptyList(),
 ): AppViewModel {
     val libraryStateAssembler = AppLibraryStateAssembler(
         localDocumentRepository = localDocumentRepository,
-        grimmoryContentRepository = grimmoryContentRepository,
+        remoteDownloadDataSources = remoteDownloadDataSources,
     )
     val stumpCatalogSyncer = object : StumpCatalogSyncer {
         override suspend fun connect(
@@ -436,12 +438,12 @@ private fun createViewModel(
                 ),
             ),
             downloadRemoteItemUseCase = DownloadRemoteItemUseCase(
-                grimmoryContentRepository = grimmoryContentRepository,
+                remoteDownloadDataSources = remoteDownloadDataSources,
                 libraryStateAssembler = libraryStateAssembler,
                 sourceProgressSyncs = sourceProgressSyncs,
             ),
             deleteRemoteLocalFileUseCase = DeleteRemoteLocalFileUseCase(
-                grimmoryContentRepository = grimmoryContentRepository,
+                remoteDownloadDataSources = remoteDownloadDataSources,
                 libraryStateAssembler = libraryStateAssembler,
             ),
             stumpCoverCacheController = stumpCoverCacheController,
@@ -610,6 +612,12 @@ private class FakeGrimmoryCoverRepository : GrimmoryCoverDataSource {
 }
 
 private class FakeGrimmoryContentRepository : GrimmoryContentDataSource {
+    override val sourceType: SourceType = SourceType.GRIMMORY
+
+    override fun storedDocumentUri(
+        item: ReadableItem,
+    ): Uri? = null
+
     override suspend fun getDocumentUri(
         item: ReadableItem,
     ): Uri? = null
