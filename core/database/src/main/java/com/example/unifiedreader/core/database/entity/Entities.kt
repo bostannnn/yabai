@@ -84,3 +84,27 @@ data class ReaderSessionStateEntity(
     val preferencesJson: String,
     val updatedAtEpochMillis: Long,
 )
+
+@Entity(
+    tableName = "download_queue_entries",
+    indices = [
+        Index(value = ["status"]),
+        Index(value = ["createdAtEpochMillis"]),
+    ],
+)
+data class DownloadQueueEntryEntity(
+    @PrimaryKey val id: String,
+    val selectedItemId: String,
+    val selectedItemTitle: String,
+    val sourceType: String,
+    val actionItemsEncoded: String,
+    val trackedItemIdsEncoded: String,
+    val completedItemIdsEncoded: String,
+    val status: String,
+    val currentItemId: String?,
+    val currentItemTitle: String?,
+    val errorMessage: String?,
+    val createdAtEpochMillis: Long,
+    val updatedAtEpochMillis: Long,
+    val completedAtEpochMillis: Long?,
+)

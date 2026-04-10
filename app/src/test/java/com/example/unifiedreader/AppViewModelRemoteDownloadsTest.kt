@@ -13,6 +13,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -39,10 +40,12 @@ class AppViewModelRemoteDownloadsTest {
         viewModel.onSourceSelected(SourceType.GRIMMORY)
 
         viewModel.onDownloadRemoteItem(remoteBook)
-        shadowOf(Looper.getMainLooper()).idle()
+        waitForUiState {
+            remoteBook.id in viewModel.uiState.downloadedRemoteItemIds
+        }
 
         assertEquals(setOf(remoteBook.id), viewModel.uiState.downloadedRemoteItemIds)
-        assertEquals("Downloaded Remote Book for local reading.", viewModel.uiState.libraryMessage)
+        assertEquals("Queued Remote Book for download.", viewModel.uiState.libraryMessage)
         assertNull(viewModel.uiState.visibleLibraryErrorMessage)
         assertEquals(
             listOf(LibraryFileLocation.LOCAL),
@@ -74,7 +77,9 @@ class AppViewModelRemoteDownloadsTest {
         viewModel.onSourceSelected(SourceType.GRIMMORY)
 
         viewModel.onDownloadRemoteItem(remoteBook)
-        shadowOf(Looper.getMainLooper()).idle()
+        waitForUiState {
+            viewModel.uiState.visibleLibraryErrorMessage == "Unable to download Remote Book: Disk full"
+        }
 
         val expectedMessage = "Unable to download Remote Book: Disk full"
         assertEquals(expectedMessage, viewModel.uiState.libraryMessage)
@@ -100,10 +105,12 @@ class AppViewModelRemoteDownloadsTest {
         viewModel.onSourceSelected(SourceType.GRIMMORY)
 
         viewModel.onDownloadRemoteItem(remoteBook)
-        shadowOf(Looper.getMainLooper()).idle()
+        waitForUiState {
+            remoteBook.id in viewModel.uiState.downloadedRemoteItemIds
+        }
 
         assertEquals(setOf(remoteBook.id), viewModel.uiState.downloadedRemoteItemIds)
-        assertEquals("Downloaded Remote Book for local reading.", viewModel.uiState.libraryMessage)
+        assertEquals("Queued Remote Book for download.", viewModel.uiState.libraryMessage)
         assertNull(viewModel.uiState.visibleLibraryErrorMessage)
     }
 
@@ -129,11 +136,13 @@ class AppViewModelRemoteDownloadsTest {
         viewModel.onSourceSelected(SourceType.KAVITA)
 
         viewModel.onDownloadRemoteItem(remoteComic)
-        shadowOf(Looper.getMainLooper()).idle()
+        waitForUiState {
+            remoteComic.id in viewModel.uiState.downloadedRemoteItemIds
+        }
 
         assertTrue(remoteComic.id in viewModel.uiState.downloadedRemoteItemIds)
         assertTrue(remoteComic.id in viewModel.uiState.locallyAvailableRemoteItemIds)
-        assertEquals("Downloaded Remote Comic for local reading.", viewModel.uiState.libraryMessage)
+        assertEquals("Queued Remote Comic for download.", viewModel.uiState.libraryMessage)
         assertNull(viewModel.uiState.visibleLibraryErrorMessage)
         viewModel.onLibraryFiltersChanged(
             LibraryFilterState(fileLocations = setOf(LibraryFileLocation.LOCAL)),
@@ -493,5 +502,18 @@ class AppViewModelRemoteDownloadsTest {
             listOf(LibraryFileLocation.SERVER),
             viewModel.uiState.selectedLibraryFilterFacets.fileLocations,
         )
+    }
+
+    private fun waitForUiState(
+        condition: () -> Boolean,
+    ) {
+        repeat(50) {
+            shadowOf(Looper.getMainLooper()).idle()
+            Thread.sleep(10L)
+            if (condition()) {
+                return
+            }
+        }
+        fail("Timed out waiting for AppViewModel state to settle.")
     }
 }

@@ -13,6 +13,7 @@ import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.feature.downloads.DownloadsSheet
 import com.example.unifiedreader.feature.library.LibraryScreen
 import com.example.unifiedreader.feature.library.LibraryViewMode
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
@@ -46,6 +47,8 @@ fun UnifiedReaderScaffold(
                     },
                     onSearchQueryChanged = viewModel::onLibrarySearchQueryChanged,
                     onLibraryViewModeChanged = onLibraryViewModeChanged,
+                    downloadBadgeCount = viewModel.downloadsSnapshot.badgeCount,
+                    onDownloadsClick = viewModel::showDownloadsSheet,
                     onSettingsClick = {
                         viewModel.onTopLevelSelected(TopLevelDestination.Settings)
                     },
@@ -120,6 +123,16 @@ fun UnifiedReaderScaffold(
                     modifier = Modifier.weight(1f),
                 )
             }
+        }
+        if (viewModel.isDownloadsSheetVisible) {
+            DownloadsSheet(
+                snapshot = viewModel.downloadsSnapshot,
+                onDismiss = viewModel::hideDownloadsSheet,
+                onCancel = viewModel::cancelDownload,
+                onRetry = viewModel::retryDownload,
+                onClearCompleted = viewModel::clearCompletedDownloads,
+                onOpenEntry = viewModel::openDownloadedEntry,
+            )
         }
     }
 }

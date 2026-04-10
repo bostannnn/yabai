@@ -1,8 +1,10 @@
 package com.example.unifiedreader
 
 import android.content.Context
+import androidx.work.WorkManager
 import com.example.unifiedreader.core.database.UnifiedReaderDatabase
 import com.example.unifiedreader.core.database.UnifiedReaderDatabaseFactory
+import com.example.unifiedreader.core.database.dao.DownloadQueueDao
 import com.example.unifiedreader.core.database.dao.ImportedComicArchiveDao
 import com.example.unifiedreader.core.database.dao.ReadingProgressDao
 import com.example.unifiedreader.core.database.dao.ReaderSessionStateDao
@@ -13,8 +15,12 @@ import com.example.unifiedreader.data.stump.KtorStumpApi
 import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
 import com.example.unifiedreader.data.repository.SampleCatalogRepository
+import com.example.unifiedreader.feature.downloads.DownloadCompletionSideEffect
+import com.example.unifiedreader.feature.downloads.DownloadQueueStore
 import com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
-import com.example.unifiedreader.feature.downloads.RemoteDownloadStateCoordinator
+import com.example.unifiedreader.feature.downloads.RemoteDownloadQueueController
+import com.example.unifiedreader.feature.downloads.RemoteDownloadWorkerRunner
+import com.example.unifiedreader.feature.downloads.RoomDownloadQueueStore
 import com.example.unifiedreader.feature.library.DataStoreLibraryBrowsePreferencesStore
 import com.example.unifiedreader.feature.library.LibraryBrowseStateCoordinator
 import com.example.unifiedreader.feature.library.LibraryBrowsePreferencesStore
@@ -68,10 +74,6 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideRemoteDownloadStateCoordinator(): RemoteDownloadStateCoordinator = RemoteDownloadStateCoordinator()
-
-    @Provides
-    @Singleton
     fun provideGrimmoryCredentialStore(
         @ApplicationContext context: Context,
     ): GrimmoryCredentialStore = SharedPreferencesGrimmoryCredentialStore(context)
@@ -100,6 +102,11 @@ object AppModule {
     ): ImportedComicArchiveDao = database.importedComicArchiveDao()
 
     @Provides
+    fun provideDownloadQueueDao(
+        database: UnifiedReaderDatabase,
+    ): DownloadQueueDao = database.downloadQueueDao()
+
+    @Provides
     fun provideReadingProgressDao(
         database: UnifiedReaderDatabase,
     ): ReadingProgressDao = database.readingProgressDao()
@@ -114,13 +121,64 @@ object AppModule {
     fun provideAppStartupInitializer(
         @ApplicationContext context: Context,
         importedComicArchiveDao: ImportedComicArchiveDao,
+        remoteDownloadQueueController: RemoteDownloadQueueController,
         readingProgressDao: ReadingProgressDao,
         readerSessionStateDao: ReaderSessionStateDao,
     ): AppStartupTasks = AppStartupInitializer(
         context = context,
         importedComicArchiveDao = importedComicArchiveDao,
+        remoteDownloadQueueController = remoteDownloadQueueController,
         readingProgressDao = readingProgressDao,
         readerSessionStateDao = readerSessionStateDao,
+    )
+
+    @Provides
+    @Singleton
+    fun provideWorkManager(
+        @ApplicationContext context: Context,
+    ): WorkManager = WorkManager.getInstance(context)
+
+    @Provides
+    @Singleton
+    fun provideDownloadQueueStore(
+        downloadQueueDao: DownloadQueueDao,
+    ): DownloadQueueStore = RoomDownloadQueueStore(downloadQueueDao)
+
+    @Provides
+    @Singleton
+    fun provideDownloadWorkScheduler(
+        workManager: WorkManager,
+    ): com.example.unifiedreader.feature.downloads.DownloadWorkScheduler = WorkManagerDownloadScheduler(workManager)
+
+    @Provides
+    fun provideDownloadCompletionSideEffects(
+        sourceProgressSyncs: List<@JvmSuppressWildcards SourceProgressSync>,
+    ): List<@JvmSuppressWildcards DownloadCompletionSideEffect> = listOf(
+        SourceProgressSyncDownloadCompletionSideEffect(sourceProgressSyncs),
+    )
+
+    @Provides
+    @Singleton
+    fun provideRemoteDownloadQueueController(
+        store: DownloadQueueStore,
+        scheduler: com.example.unifiedreader.feature.downloads.DownloadWorkScheduler,
+        remoteDownloadDataSources: List<@JvmSuppressWildcards RemoteItemDownloadDataSource>,
+    ): RemoteDownloadQueueController = RemoteDownloadQueueController(
+        store = store,
+        scheduler = scheduler,
+        remoteDownloadDataSources = remoteDownloadDataSources,
+    )
+
+    @Provides
+    @Singleton
+    fun provideRemoteDownloadWorkerRunner(
+        store: DownloadQueueStore,
+        remoteDownloadDataSources: List<@JvmSuppressWildcards RemoteItemDownloadDataSource>,
+        completionSideEffects: List<@JvmSuppressWildcards DownloadCompletionSideEffect>,
+    ): RemoteDownloadWorkerRunner = RemoteDownloadWorkerRunner(
+        store = store,
+        remoteDownloadDataSources = remoteDownloadDataSources,
+        completionSideEffects = completionSideEffects,
     )
 
     @Provides

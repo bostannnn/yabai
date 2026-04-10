@@ -58,6 +58,7 @@ data class AppUiState(
     val activeReader: FormatType? = null,
     val libraries: List<Library> = emptyList(),
     val items: List<ReadableItem> = emptyList(),
+    val selectedReaderItem: ReadableItem? = null,
     val libraryFiltersBySource: Map<SourceType, LibraryFilterState> = emptyMap(),
     val librarySearchQueriesBySource: Map<SourceType, String> = emptyMap(),
     val librarySortsBySource: Map<SourceType, LibrarySortMode> = emptyMap(),
@@ -106,7 +107,9 @@ data class AppUiState(
         }
 
     val selectedItem: ReadableItem?
-        get() = items.firstOrNull { it.id == selectedItemId }
+        get() = items.firstOrNull { it.id == selectedItemId } ?: selectedReaderItem?.takeIf { item ->
+            item.id == selectedItemId
+        }
 
     val selectedKavitaSeriesTitle: String?
         get() = selectedKavitaSeriesKey?.let { seriesKey ->

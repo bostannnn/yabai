@@ -10,6 +10,7 @@ import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.feature.downloads.DownloadEntriesSnapshot
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesStore
@@ -40,6 +41,11 @@ class AppViewModel @Inject constructor(
 ) : ViewModel() {
     var uiState by mutableStateOf(AppUiState().withDerivedLibraryState())
         private set
+    var downloadsSnapshot by mutableStateOf(DownloadEntriesSnapshot(emptyList()))
+        private set
+    var isDownloadsSheetVisible by mutableStateOf(false)
+        private set
+    private var lastDownloadedAvailabilitySignature: Set<String>? = null
 
     init {
         viewModelScope.launch {
@@ -112,6 +118,7 @@ class AppViewModel @Inject constructor(
             updateState = ::updateUiState,
             scope = viewModelScope,
             refreshProgress = ::refreshProgress,
+            selectedReaderItem = null,
         )
     }
 
@@ -199,6 +206,47 @@ class AppViewModel @Inject constructor(
             scope = viewModelScope,
             item = item,
         )
+    }
+
+    fun showDownloadsSheet() {
+        isDownloadsSheetVisible = true
+    }
+
+    fun hideDownloadsSheet() {
+        isDownloadsSheetVisible = false
+    }
+
+    fun cancelDownload(entryId: String) {
+        remoteDownloadController.cancelDownload(
+            scope = viewModelScope,
+            entryId = entryId,
+        )
+    }
+
+    fun retryDownload(entryId: String) {
+        remoteDownloadController.retryDownload(
+            scope = viewModelScope,
+            entryId = entryId,
+        )
+    }
+
+    fun clearCompletedDownloads() {
+        remoteDownloadController.clearCompletedDownloads(viewModelScope)
+    }
+
+    fun openDownloadedEntry(entryId: String) {
+        viewModelScope.launch {
+            val item = remoteDownloadController.resolveOpenItem(entryId) ?: return@launch
+            val catalogItem = uiState.items.firstOrNull { catalogEntry -> catalogEntry.id == item.id }
+            hideDownloadsSheet()
+            readerCoordinator.onItemSelected(
+                item = catalogItem ?: item,
+                updateState = ::updateUiState,
+                scope = viewModelScope,
+                refreshProgress = ::refreshProgress,
+                selectedReaderItem = item.takeIf { catalogItem == null },
+            )
+        }
     }
 
     fun onThemeModeSelected(themeMode: ThemeMode) {
@@ -403,12 +451,34 @@ class AppViewModel @Inject constructor(
         readerCoordinator.observeDirtyProgress(
             scope = viewModelScope,
             catalogItemsProvider = catalogStateCoordinator::catalogItems,
+            stateProvider = { uiState },
         )
         catalogStateCoordinator.observeCatalog(
             scope = viewModelScope,
             stateProvider = { uiState },
             updateState = ::updateUiState,
         )
+        viewModelScope.launch {
+            remoteDownloadController.observeEntries().collect { snapshot ->
+                downloadsSnapshot = snapshot
+                updateUiState { state ->
+                    state.copy(
+                        downloadingRemoteItemIds = snapshot.activeTrackedItemIds,
+                    )
+                }
+                val availabilitySignature = snapshot.entries
+                    .flatMapTo(linkedSetOf()) { entry -> entry.completedItemIds }
+                if (lastDownloadedAvailabilitySignature != availabilitySignature) {
+                    lastDownloadedAvailabilitySignature = availabilitySignature
+                    catalogStateCoordinator.refreshDownloadedRemoteItemIdsAsync(
+                        scope = viewModelScope,
+                        stateProvider = { uiState },
+                        updateState = ::updateUiState,
+                        items = uiState.items,
+                    )
+                }
+            }
+        }
     }
 
     private inline fun updateUiState(

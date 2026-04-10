@@ -4,6 +4,8 @@ import com.example.unifiedreader.core.model.ComicMetadata
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.buildKavitaSeriesContainer
+import com.example.unifiedreader.feature.downloads.RemoteDownloadQueueController
+import com.example.unifiedreader.feature.downloads.RemoteDownloadWorkerRunner
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -11,7 +13,7 @@ import org.junit.Test
 
 class LibraryItemActionsTest {
     @Test
-    fun `download use case stops batch when coroutine is cancelled`() = runTest {
+    fun `download queue runner stops batch when queued work is cancelled`() = runTest {
         val firstIssue = sampleItem(
             id = "chapter-1",
             title = "Akira 001",
@@ -31,13 +33,18 @@ class LibraryItemActionsTest {
             comicMetadata = ComicMetadata(series = "Akira", issueTitle = "Issue 2"),
         )
         val dataSource = BlockingRemoteDownloadDataSource(sourceType = SourceType.KAVITA)
-        val useCase = DownloadRemoteItemUseCase(
+        val store = TestDownloadQueueStore()
+        val scheduler = ImmediateDownloadWorkScheduler(this)
+        val runner = RemoteDownloadWorkerRunner(
+            store = store,
             remoteDownloadDataSources = listOf(dataSource),
-            libraryStateAssembler = AppLibraryStateAssembler(
-                localDocumentRepository = FakeLocalDocumentRepository(),
-                remoteDownloadDataSources = listOf(dataSource),
-            ),
-            sourceProgressSyncs = emptyList(),
+            completionSideEffects = emptyList(),
+        )
+        scheduler.runner = runner
+        val controller = RemoteDownloadQueueController(
+            store = store,
+            scheduler = scheduler,
+            remoteDownloadDataSources = listOf(dataSource),
         )
         val seriesItem = buildKavitaSeriesContainer(
             seriesKey = "kavita:library:k-comics::series-7",
@@ -45,15 +52,14 @@ class LibraryItemActionsTest {
         )
 
         val job = backgroundScope.launch {
-            useCase(
+            controller.enqueue(
                 item = seriesItem,
                 items = listOf(firstIssue, secondIssue),
             )
         }
         dataSource.awaitFirstDownloadStarted()
 
-        job.cancel()
-        dataSource.cancelFirstDownload()
+        controller.cancel(store.entries.single().id)
         job.join()
 
         assertEquals(listOf(firstIssue.id), dataSource.startedItemIds())

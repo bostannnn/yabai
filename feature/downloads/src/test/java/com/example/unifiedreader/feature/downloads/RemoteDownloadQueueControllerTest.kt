@@ -1,0 +1,716 @@
+package com.example.unifiedreader.feature.downloads
+
+import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.SourceType
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+
+@RunWith(RobolectricTestRunner::class)
+class RemoteDownloadQueueControllerTest {
+    @Test
+    fun `enqueue stores queued entry and schedules work`() = runTest {
+        val store = InMemoryDownloadQueueStore()
+        val scheduler = RecordingDownloadWorkScheduler()
+        val controller = RemoteDownloadQueueController(
+            store = store,
+            scheduler = scheduler,
+            remoteDownloadDataSources = listOf(TestRemoteItemDownloadDataSource()),
+        )
+        val item = testReadableItem("book-1")
+
+        val result = controller.enqueue(item = item, items = listOf(item))
+
+        assertFalse(result.isError)
+        assertEquals("Queued book-1 for download.", result.message)
+        assertEquals(1, store.entries.size)
+        assertEquals(DownloadEntryStatus.Queued, store.entries.single().status)
+        assertEquals(listOf(store.entries.single().id), scheduler.scheduledEntryIds)
+    }
+
+    @Test
+    fun `enqueue rejects overlapping active entries`() = runTest {
+        val store = InMemoryDownloadQueueStore(
+            initialEntries = listOf(
+                DownloadEntry(
+                    id = "entry-1",
+                    selectedItemId = "book-1",
+                    selectedItemTitle = "book-1",
+                    sourceType = SourceType.KAVITA,
+                    actionItems = listOf(testQueuedItem("book-1")),
+                    trackedItemIds = setOf("book-1"),
+                    completedItemIds = emptySet(),
+                    status = DownloadEntryStatus.Running,
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L,
+                ),
+            ),
+        )
+        val controller = RemoteDownloadQueueController(
+            store = store,
+            scheduler = RecordingDownloadWorkScheduler(),
+            remoteDownloadDataSources = listOf(TestRemoteItemDownloadDataSource()),
+        )
+
+        val result = controller.enqueue(
+            item = testReadableItem("book-1"),
+            items = listOf(testReadableItem("book-1")),
+        )
+
+        assertTrue(result.isError)
+        assertEquals(1, store.entries.size)
+    }
+
+    @Test
+    fun `enqueue uses atomic overlap guard in store`() = runTest {
+        val store = InMemoryDownloadQueueStore()
+        val controller = RemoteDownloadQueueController(
+            store = store,
+            scheduler = RecordingDownloadWorkScheduler(),
+            remoteDownloadDataSources = listOf(TestRemoteItemDownloadDataSource()),
+        )
+
+        val first = controller.enqueue(
+            item = testReadableItem("book-1"),
+            items = listOf(testReadableItem("book-1")),
+        )
+        val second = controller.enqueue(
+            item = testReadableItem("book-1"),
+            items = listOf(testReadableItem("book-1")),
+        )
+
+        assertFalse(first.isError)
+        assertTrue(second.isError)
+        assertEquals(1, store.entries.size)
+    }
+
+    @Test
+    fun `cancel marks running entry as canceling until worker stops`() = runTest {
+        val store = InMemoryDownloadQueueStore(
+            initialEntries = listOf(
+                DownloadEntry(
+                    id = "entry-1",
+                    selectedItemId = "book-1",
+                    selectedItemTitle = "book-1",
+                    sourceType = SourceType.KAVITA,
+                    actionItems = listOf(testQueuedItem("book-1")),
+                    trackedItemIds = setOf("book-1"),
+                    completedItemIds = emptySet(),
+                    status = DownloadEntryStatus.Running,
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L,
+                ),
+            ),
+        )
+        val scheduler = RecordingDownloadWorkScheduler()
+        val controller = RemoteDownloadQueueController(
+            store = store,
+            scheduler = scheduler,
+            remoteDownloadDataSources = listOf(TestRemoteItemDownloadDataSource()),
+        )
+
+        controller.cancel("entry-1")
+
+        assertEquals(DownloadEntryStatus.Canceling, store.entries.single().status)
+        assertEquals(listOf("entry-1"), scheduler.canceledEntryIds)
+    }
+
+    @Test
+    fun `resolve open item returns completed stored item`() = runTest {
+        val store = InMemoryDownloadQueueStore(
+            initialEntries = listOf(
+                DownloadEntry(
+                    id = "entry-1",
+                    selectedItemId = "series-1",
+                    selectedItemTitle = "Series",
+                    sourceType = SourceType.KAVITA,
+                    actionItems = listOf(
+                        testQueuedItem("chapter-1"),
+                        testQueuedItem("chapter-2"),
+                    ),
+                    trackedItemIds = setOf("series-1", "chapter-1", "chapter-2"),
+                    completedItemIds = setOf("chapter-1", "chapter-2"),
+                    status = DownloadEntryStatus.Completed,
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L,
+                ),
+            ),
+        )
+        val dataSource = TestRemoteItemDownloadDataSource(
+            storedItemIds = mutableSetOf("chapter-1", "chapter-2"),
+        )
+        val controller = RemoteDownloadQueueController(
+            store = store,
+            scheduler = RecordingDownloadWorkScheduler(),
+            remoteDownloadDataSources = listOf(dataSource),
+        )
+
+        val item = controller.resolveOpenItem("entry-1")
+
+        assertEquals("chapter-1", item?.id)
+    }
+
+    @Test
+    fun `ensure scheduled finalizes canceling entries and only schedules queued work`() = runTest {
+        val store = InMemoryDownloadQueueStore(
+            initialEntries = listOf(
+                DownloadEntry(
+                    id = "canceling-entry",
+                    selectedItemId = "book-1",
+                    selectedItemTitle = "book-1",
+                    sourceType = SourceType.KAVITA,
+                    actionItems = listOf(testQueuedItem("book-1")),
+                    trackedItemIds = setOf("book-1"),
+                    completedItemIds = emptySet(),
+                    status = DownloadEntryStatus.Canceling,
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L,
+                ),
+                DownloadEntry(
+                    id = "queued-entry",
+                    selectedItemId = "book-2",
+                    selectedItemTitle = "book-2",
+                    sourceType = SourceType.KAVITA,
+                    actionItems = listOf(testQueuedItem("book-2")),
+                    trackedItemIds = setOf("book-2"),
+                    completedItemIds = emptySet(),
+                    status = DownloadEntryStatus.Queued,
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L,
+                ),
+            ),
+        )
+        val scheduler = RecordingDownloadWorkScheduler()
+        val controller = RemoteDownloadQueueController(
+            store = store,
+            scheduler = scheduler,
+            remoteDownloadDataSources = listOf(TestRemoteItemDownloadDataSource()),
+        )
+
+        val scheduledCount = controller.ensureScheduled()
+
+        assertEquals(1, scheduledCount)
+        assertEquals(listOf("queued-entry"), scheduler.scheduledEntryIds)
+        assertEquals(
+            DownloadEntryStatus.Canceled,
+            store.entries.first { entry -> entry.id == "canceling-entry" }.status,
+        )
+    }
+}
+
+@RunWith(RobolectricTestRunner::class)
+class RemoteDownloadWorkerRunnerTest {
+    @Test
+    fun `run entry marks download completed and triggers side effects`() = runTest {
+        val item = testReadableItem("book-1")
+        val store = InMemoryDownloadQueueStore(
+            initialEntries = listOf(
+                DownloadEntry(
+                    id = "entry-1",
+                    selectedItemId = item.id,
+                    selectedItemTitle = item.title,
+                    sourceType = item.sourceType,
+                    actionItems = listOf(testQueuedItem(item.id)),
+                    trackedItemIds = setOf(item.id),
+                    completedItemIds = emptySet(),
+                    status = DownloadEntryStatus.Queued,
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L,
+                ),
+            ),
+        )
+        val dataSource = TestRemoteItemDownloadDataSource()
+        val sideEffect = RecordingDownloadCompletionSideEffect()
+        val runner = RemoteDownloadWorkerRunner(
+            store = store,
+            remoteDownloadDataSources = listOf(dataSource),
+            completionSideEffects = listOf(sideEffect),
+        )
+
+        val outcome = runner.runEntry("entry-1")
+        val entry = checkNotNull(store.entries.singleOrNull())
+
+        assertEquals(RemoteDownloadWorkerOutcome.Success, outcome)
+        assertEquals(DownloadEntryStatus.Completed, entry.status)
+        assertEquals(setOf(item.id), entry.completedItemIds)
+        assertEquals(listOf(item.id), dataSource.downloadedItemIds)
+        assertEquals(listOf(item.id), sideEffect.completedItemIds)
+    }
+
+    @Test
+    fun `run entry stays completed when side effect fails after local download`() = runTest {
+        val item = testReadableItem("book-1")
+        val store = InMemoryDownloadQueueStore(
+            initialEntries = listOf(
+                DownloadEntry(
+                    id = "entry-1",
+                    selectedItemId = item.id,
+                    selectedItemTitle = item.title,
+                    sourceType = item.sourceType,
+                    actionItems = listOf(testQueuedItem(item.id)),
+                    trackedItemIds = setOf(item.id),
+                    completedItemIds = emptySet(),
+                    status = DownloadEntryStatus.Queued,
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L,
+                ),
+            ),
+        )
+        val dataSource = TestRemoteItemDownloadDataSource()
+        val runner = RemoteDownloadWorkerRunner(
+            store = store,
+            remoteDownloadDataSources = listOf(dataSource),
+            completionSideEffects = listOf(FailingDownloadCompletionSideEffect()),
+        )
+
+        val outcome = runner.runEntry("entry-1")
+        val entry = checkNotNull(store.entries.singleOrNull())
+
+        assertEquals(RemoteDownloadWorkerOutcome.Success, outcome)
+        assertEquals(DownloadEntryStatus.Completed, entry.status)
+        assertEquals(setOf(item.id), entry.completedItemIds)
+        assertEquals(listOf(item.id), dataSource.downloadedItemIds)
+    }
+
+    @Test
+    fun `run entry cancels when side effect is cancelled`() = runTest {
+        val item = testReadableItem("book-1")
+        val store = InMemoryDownloadQueueStore(
+            initialEntries = listOf(
+                DownloadEntry(
+                    id = "entry-1",
+                    selectedItemId = item.id,
+                    selectedItemTitle = item.title,
+                    sourceType = item.sourceType,
+                    actionItems = listOf(testQueuedItem(item.id)),
+                    trackedItemIds = setOf(item.id),
+                    completedItemIds = emptySet(),
+                    status = DownloadEntryStatus.Queued,
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L,
+                ),
+            ),
+        )
+        val runner = RemoteDownloadWorkerRunner(
+            store = store,
+            remoteDownloadDataSources = listOf(TestRemoteItemDownloadDataSource()),
+            completionSideEffects = listOf(CancelingDownloadCompletionSideEffect()),
+        )
+
+        val outcome = runner.runEntry("entry-1")
+        val entry = checkNotNull(store.entries.singleOrNull())
+
+        assertEquals(RemoteDownloadWorkerOutcome.Canceled, outcome)
+        assertEquals(DownloadEntryStatus.Canceled, entry.status)
+    }
+
+    @Test
+    fun `run entry honors cancel persisted after load and before running`() = runTest {
+        val item = testReadableItem("book-1")
+        val store = InMemoryDownloadQueueStore(
+            initialEntries = listOf(
+                DownloadEntry(
+                    id = "entry-1",
+                    selectedItemId = item.id,
+                    selectedItemTitle = item.title,
+                    sourceType = item.sourceType,
+                    actionItems = listOf(testQueuedItem(item.id)),
+                    trackedItemIds = setOf(item.id),
+                    completedItemIds = emptySet(),
+                    status = DownloadEntryStatus.Queued,
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L,
+                ),
+            ),
+            onGetEntry = { entryId, callCount, storeRef ->
+                if (entryId == "entry-1" && callCount == 1) {
+                    storeRef.updateStatus(
+                        entryId = entryId,
+                        status = DownloadEntryStatus.Canceled,
+                        completedAtEpochMillis = 2L,
+                    )
+                }
+            },
+        )
+        val dataSource = TestRemoteItemDownloadDataSource()
+        val runner = RemoteDownloadWorkerRunner(
+            store = store,
+            remoteDownloadDataSources = listOf(dataSource),
+            completionSideEffects = emptyList(),
+        )
+
+        val outcome = runner.runEntry("entry-1")
+        val entry = checkNotNull(store.entries.singleOrNull())
+
+        assertEquals(RemoteDownloadWorkerOutcome.Canceled, outcome)
+        assertEquals(DownloadEntryStatus.Canceled, entry.status)
+        assertTrue(dataSource.downloadedItemIds.isEmpty())
+    }
+
+    @Test
+    fun `run entry does not overwrite canceled status with completed`() = runTest {
+        val item = testReadableItem("book-1")
+        lateinit var store: InMemoryDownloadQueueStore
+        store = InMemoryDownloadQueueStore(
+            initialEntries = listOf(
+                DownloadEntry(
+                    id = "entry-1",
+                    selectedItemId = item.id,
+                    selectedItemTitle = item.title,
+                    sourceType = item.sourceType,
+                    actionItems = listOf(testQueuedItem(item.id)),
+                    trackedItemIds = setOf(item.id),
+                    completedItemIds = emptySet(),
+                    status = DownloadEntryStatus.Queued,
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L,
+                ),
+            ),
+        )
+        val dataSource = TestRemoteItemDownloadDataSource(
+            onDownload = { downloadedItem ->
+                if (downloadedItem.id == item.id) {
+                    store.updateStatus(
+                        entryId = "entry-1",
+                        status = DownloadEntryStatus.Canceled,
+                        completedAtEpochMillis = 2L,
+                    )
+                }
+            },
+        )
+        val runner = RemoteDownloadWorkerRunner(
+            store = store,
+            remoteDownloadDataSources = listOf(dataSource),
+            completionSideEffects = emptyList(),
+        )
+
+        val outcome = runner.runEntry("entry-1")
+        val entry = checkNotNull(store.entries.singleOrNull())
+
+        assertEquals(RemoteDownloadWorkerOutcome.Canceled, outcome)
+        assertEquals(DownloadEntryStatus.Canceled, entry.status)
+        assertEquals(setOf(item.id), entry.completedItemIds)
+    }
+
+    @Test
+    fun `run entry finalizes canceling entry as canceled`() = runTest {
+        val item = testReadableItem("book-1")
+        val store = InMemoryDownloadQueueStore(
+            initialEntries = listOf(
+                DownloadEntry(
+                    id = "entry-1",
+                    selectedItemId = item.id,
+                    selectedItemTitle = item.title,
+                    sourceType = item.sourceType,
+                    actionItems = listOf(testQueuedItem(item.id)),
+                    trackedItemIds = setOf(item.id),
+                    completedItemIds = emptySet(),
+                    status = DownloadEntryStatus.Canceling,
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L,
+                ),
+            ),
+        )
+        val runner = RemoteDownloadWorkerRunner(
+            store = store,
+            remoteDownloadDataSources = listOf(TestRemoteItemDownloadDataSource()),
+            completionSideEffects = emptyList(),
+        )
+
+        val outcome = runner.runEntry("entry-1")
+        val entry = checkNotNull(store.entries.singleOrNull())
+
+        assertEquals(RemoteDownloadWorkerOutcome.Canceled, outcome)
+        assertEquals(DownloadEntryStatus.Canceled, entry.status)
+    }
+
+    @Test
+    fun `clear completed keeps canceling entries until cancellation is finalized`() = runTest {
+        val store = InMemoryDownloadQueueStore(
+            initialEntries = listOf(
+                DownloadEntry(
+                    id = "canceling-entry",
+                    selectedItemId = "book-1",
+                    selectedItemTitle = "book-1",
+                    sourceType = SourceType.KAVITA,
+                    actionItems = listOf(testQueuedItem("book-1")),
+                    trackedItemIds = setOf("book-1"),
+                    completedItemIds = emptySet(),
+                    status = DownloadEntryStatus.Canceling,
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L,
+                ),
+                DownloadEntry(
+                    id = "completed-entry",
+                    selectedItemId = "book-2",
+                    selectedItemTitle = "book-2",
+                    sourceType = SourceType.KAVITA,
+                    actionItems = listOf(testQueuedItem("book-2")),
+                    trackedItemIds = setOf("book-2"),
+                    completedItemIds = setOf("book-2"),
+                    status = DownloadEntryStatus.Completed,
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L,
+                    completedAtEpochMillis = 2L,
+                ),
+            ),
+        )
+
+        val removedCount = store.clearCompletedEntries()
+
+        assertEquals(1, removedCount)
+        assertEquals(listOf("canceling-entry"), store.entries.map(DownloadEntry::id))
+        assertEquals(DownloadEntryStatus.Canceling, store.entries.single().status)
+    }
+
+    @Test
+    fun `resolve open item returns null when completed files are missing locally`() = runTest {
+        val store = InMemoryDownloadQueueStore(
+            initialEntries = listOf(
+                DownloadEntry(
+                    id = "entry-1",
+                    selectedItemId = "series-1",
+                    selectedItemTitle = "Series",
+                    sourceType = SourceType.KAVITA,
+                    actionItems = listOf(testQueuedItem("chapter-1")),
+                    trackedItemIds = setOf("series-1", "chapter-1"),
+                    completedItemIds = setOf("chapter-1"),
+                    status = DownloadEntryStatus.Completed,
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L,
+                ),
+            ),
+        )
+        val controller = RemoteDownloadQueueController(
+            store = store,
+            scheduler = RecordingDownloadWorkScheduler(),
+            remoteDownloadDataSources = listOf(TestRemoteItemDownloadDataSource()),
+        )
+
+        val item = controller.resolveOpenItem("entry-1")
+
+        assertNull(item)
+    }
+}
+
+private class InMemoryDownloadQueueStore(
+    initialEntries: List<DownloadEntry> = emptyList(),
+    private val onGetEntry: (suspend (entryId: String, callCount: Int, store: InMemoryDownloadQueueStore) -> Unit)? = null,
+) : DownloadQueueStore {
+    private val state = MutableStateFlow(initialEntries)
+    private val enqueueMutex = Mutex()
+    private var getEntryCallCount: Int = 0
+
+    val entries: List<DownloadEntry>
+        get() = state.value
+
+    override fun observeEntries(): Flow<DownloadEntriesSnapshot> = MutableStateFlow(
+        DownloadEntriesSnapshot(state.value),
+    )
+
+    override suspend fun getEntries(): List<DownloadEntry> = state.value
+
+    override suspend fun getEntry(entryId: String): DownloadEntry? {
+        val entry = state.value.firstOrNull { it.id == entryId }
+        getEntryCallCount += 1
+        onGetEntry?.invoke(entryId, getEntryCallCount, this)
+        return entry
+    }
+
+    override suspend fun putEntry(entry: DownloadEntry) {
+        state.value = state.value.filterNot { it.id == entry.id } + entry
+    }
+
+    override suspend fun putEntryIfNoActiveTrackedItems(
+        entry: DownloadEntry,
+    ): Boolean = enqueueMutex.withLock {
+        val hasOverlap = state.value.any { existingEntry ->
+            (existingEntry.status == DownloadEntryStatus.Queued ||
+                existingEntry.status == DownloadEntryStatus.Running) &&
+                existingEntry.trackedItemIds.any(entry.trackedItemIds::contains)
+        }
+        if (hasOverlap) {
+            false
+        } else {
+            state.value = state.value.filterNot { existing -> existing.id == entry.id } + entry
+            true
+        }
+    }
+
+    override suspend fun updateStatus(
+        entryId: String,
+        status: DownloadEntryStatus,
+        currentItemId: String?,
+        currentItemTitle: String?,
+        errorMessage: String?,
+        completedAtEpochMillis: Long?,
+    ) {
+        state.value = state.value.map { entry ->
+            if (entry.id != entryId) return@map entry
+            entry.copy(
+                status = status,
+                currentItemId = currentItemId,
+                currentItemTitle = currentItemTitle,
+                errorMessage = errorMessage,
+                completedAtEpochMillis = completedAtEpochMillis,
+            )
+        }
+    }
+
+    override suspend fun updateStatusIfCurrentStatusIn(
+        entryId: String,
+        expectedStatuses: Set<DownloadEntryStatus>,
+        status: DownloadEntryStatus,
+        currentItemId: String?,
+        currentItemTitle: String?,
+        errorMessage: String?,
+        completedAtEpochMillis: Long?,
+    ): Boolean {
+        var updated = false
+        state.value = state.value.map { entry ->
+            if (entry.id != entryId || entry.status !in expectedStatuses) return@map entry
+            updated = true
+            entry.copy(
+                status = status,
+                currentItemId = currentItemId,
+                currentItemTitle = currentItemTitle,
+                errorMessage = errorMessage,
+                completedAtEpochMillis = completedAtEpochMillis,
+            )
+        }
+        return updated
+    }
+
+    override suspend fun updateProgress(
+        entryId: String,
+        completedItemIds: Set<String>,
+        currentItemId: String?,
+        currentItemTitle: String?,
+    ) {
+        state.value = state.value.map { entry ->
+            if (entry.id != entryId) return@map entry
+            entry.copy(
+                completedItemIds = completedItemIds,
+                currentItemId = currentItemId,
+                currentItemTitle = currentItemTitle,
+            )
+        }
+    }
+
+    override suspend fun clearCompletedEntries(): Int {
+        val previousSize = state.value.size
+        state.value = state.value.filterNot { entry ->
+            entry.status == DownloadEntryStatus.Completed || entry.status == DownloadEntryStatus.Canceled
+        }
+        return previousSize - state.value.size
+    }
+
+    override suspend fun deleteEntry(entryId: String): Int {
+        val previousSize = state.value.size
+        state.value = state.value.filterNot { entry -> entry.id == entryId }
+        return previousSize - state.value.size
+    }
+}
+
+private class RecordingDownloadWorkScheduler : DownloadWorkScheduler {
+    val scheduledEntryIds = mutableListOf<String>()
+    val canceledEntryIds = mutableListOf<String>()
+
+    override fun scheduleEntry(entryId: String) {
+        scheduledEntryIds += entryId
+    }
+
+    override fun cancelEntry(entryId: String) {
+        canceledEntryIds += entryId
+    }
+}
+
+private class TestRemoteItemDownloadDataSource : RemoteItemDownloadDataSource {
+    override val sourceType: SourceType = SourceType.KAVITA
+    val downloadedItemIds = mutableListOf<String>()
+    private val storedItemIds: MutableSet<String>
+    private val onDownload: suspend (ReadableItem) -> Unit
+
+    constructor(
+        storedItemIds: MutableSet<String> = mutableSetOf(),
+        onDownload: suspend (ReadableItem) -> Unit = {},
+    ) {
+        this.storedItemIds = storedItemIds
+        this.onDownload = onDownload
+    }
+
+    override fun storedDocumentUri(item: ReadableItem) = item.id.takeIf(storedItemIds::contains)?.let {
+        android.net.Uri.parse("file://$it")
+    }
+
+    override suspend fun downloadToLocalStorage(item: ReadableItem) = android.net.Uri.parse("file://${item.id}").also {
+        downloadedItemIds += item.id
+        storedItemIds += item.id
+        onDownload(item)
+    }
+
+    override suspend fun storedDocumentItemIds(items: List<ReadableItem>): Set<String> = emptySet()
+
+    override suspend fun deleteStoredDocument(item: ReadableItem): Boolean = false
+}
+
+private class RecordingDownloadCompletionSideEffect : DownloadCompletionSideEffect {
+    val completedItemIds = mutableListOf<String>()
+
+    override fun supports(item: ReadableItem): Boolean = true
+
+    override suspend fun onDownloadCompleted(item: ReadableItem) {
+        completedItemIds += item.id
+    }
+}
+
+private class FailingDownloadCompletionSideEffect : DownloadCompletionSideEffect {
+    override fun supports(item: ReadableItem): Boolean = true
+
+    override suspend fun onDownloadCompleted(item: ReadableItem) {
+        error("sync failed")
+    }
+}
+
+private class CancelingDownloadCompletionSideEffect : DownloadCompletionSideEffect {
+    override fun supports(item: ReadableItem): Boolean = true
+
+    override suspend fun onDownloadCompleted(item: ReadableItem) {
+        throw kotlinx.coroutines.CancellationException("cancelled during side effect")
+    }
+}
+
+private fun testReadableItem(
+    id: String,
+): ReadableItem = ReadableItem(
+    id = id,
+    sourceType = SourceType.KAVITA,
+    libraryId = "library",
+    remoteId = id,
+    title = id,
+    format = FormatType.CBZ,
+)
+
+private fun testQueuedItem(
+    id: String,
+): QueuedDownloadItem = QueuedDownloadItem(
+    id = id,
+    sourceType = SourceType.KAVITA,
+    libraryId = "library",
+    remoteId = id,
+    remoteFileId = null,
+    remoteFileType = null,
+    title = id,
+    formatName = FormatType.CBZ.name,
+    pageCount = null,
+)

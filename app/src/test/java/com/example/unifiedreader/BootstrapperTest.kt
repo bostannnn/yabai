@@ -10,9 +10,21 @@ import com.example.unifiedreader.core.database.entity.ImportedComicArchiveEntity
 import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
 import com.example.unifiedreader.core.database.entity.ReaderSessionStateEntity
 import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.feature.downloads.DownloadEntriesSnapshot
+import com.example.unifiedreader.feature.downloads.DownloadEntry
+import com.example.unifiedreader.feature.downloads.DownloadEntryStatus
+import com.example.unifiedreader.feature.downloads.DownloadQueueStore
+import com.example.unifiedreader.feature.downloads.DownloadWorkScheduler
+import com.example.unifiedreader.feature.downloads.QueuedDownloadItem
+import com.example.unifiedreader.feature.downloads.RemoteDownloadQueueController
+import com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
 import com.example.unifiedreader.feature.reader.comics.ComicPageFitMode
 import com.example.unifiedreader.feature.reader.comics.ComicReadingDirection
 import com.example.unifiedreader.feature.reader.comics.ComicSpreadMode
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -155,6 +167,11 @@ class BootstrapperTest {
             importedComicArchiveDao = archiveDao,
             readingProgressDao = progressDao,
             readerSessionStateDao = sessionDao,
+            remoteDownloadQueueController = RemoteDownloadQueueController(
+                store = BootstrapDownloadQueueStore(),
+                scheduler = BootstrapRecordingDownloadWorkScheduler(),
+                remoteDownloadDataSources = emptyList(),
+            ),
         ).initialize()
 
         assertEquals(1, archiveDao.entities.size)
@@ -169,6 +186,76 @@ class BootstrapperTest {
         assertTrue(
             context.getSharedPreferences("unified_reader_bootstrap_state", Context.MODE_PRIVATE)
                 .getBoolean("reader_state_room_bootstrap_v1", false),
+        )
+    }
+
+    @Test
+    fun `app startup initializer finalizes canceling downloads and reschedules active entries`() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val archiveDao = FakeImportedComicArchiveDao()
+        val progressDao = FakeReadingProgressDao()
+        val sessionDao = FakeReaderSessionStateDao()
+        val downloadStore = BootstrapDownloadQueueStore(
+            initialEntries = listOf(
+                DownloadEntry(
+                    id = "canceling-entry",
+                    selectedItemId = "book-1",
+                    selectedItemTitle = "book-1",
+                    sourceType = SourceType.KAVITA,
+                    actionItems = listOf(testQueuedDownloadItem("book-1")),
+                    trackedItemIds = setOf("book-1"),
+                    completedItemIds = emptySet(),
+                    status = DownloadEntryStatus.Canceling,
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L,
+                ),
+                DownloadEntry(
+                    id = "running-entry",
+                    selectedItemId = "book-2",
+                    selectedItemTitle = "book-2",
+                    sourceType = SourceType.KAVITA,
+                    actionItems = listOf(testQueuedDownloadItem("book-2")),
+                    trackedItemIds = setOf("book-2"),
+                    completedItemIds = emptySet(),
+                    status = DownloadEntryStatus.Running,
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L,
+                ),
+                DownloadEntry(
+                    id = "queued-entry",
+                    selectedItemId = "book-3",
+                    selectedItemTitle = "book-3",
+                    sourceType = SourceType.KAVITA,
+                    actionItems = listOf(testQueuedDownloadItem("book-3")),
+                    trackedItemIds = setOf("book-3"),
+                    completedItemIds = emptySet(),
+                    status = DownloadEntryStatus.Queued,
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L,
+                ),
+            ),
+        )
+        val scheduler = BootstrapRecordingDownloadWorkScheduler()
+
+        AppStartupInitializer(
+            context = context,
+            importedComicArchiveDao = archiveDao,
+            readingProgressDao = progressDao,
+            readerSessionStateDao = sessionDao,
+            remoteDownloadQueueController = RemoteDownloadQueueController(
+                store = downloadStore,
+                scheduler = scheduler,
+                remoteDownloadDataSources = listOf(BootstrapRemoteItemDownloadDataSource()),
+            ),
+        ).initialize()
+
+        assertEquals(
+            DownloadEntryStatus.Canceled,
+            downloadStore.entries.first { it.id == "canceling-entry" }.status,
+        )
+        assertEquals(
+            listOf("running-entry", "queued-entry"),
+            scheduler.scheduledEntryIds,
         )
     }
 }
@@ -236,6 +323,130 @@ private class FakeReaderSessionStateDao : ReaderSessionStateDao {
         entities += entity
     }
 }
+
+private class BootstrapDownloadQueueStore(
+    initialEntries: List<DownloadEntry> = emptyList(),
+) : DownloadQueueStore {
+    private val state = MutableStateFlow(initialEntries)
+
+    val entries: List<DownloadEntry>
+        get() = state.value
+
+    override fun observeEntries(): Flow<DownloadEntriesSnapshot> = MutableStateFlow(
+        DownloadEntriesSnapshot(state.value),
+    )
+
+    override suspend fun getEntries(): List<DownloadEntry> = state.value
+
+    override suspend fun getEntry(entryId: String): DownloadEntry? = state.value.firstOrNull { it.id == entryId }
+
+    override suspend fun putEntry(entry: DownloadEntry) {
+        state.value = state.value.filterNot { it.id == entry.id } + entry
+    }
+
+    override suspend fun putEntryIfNoActiveTrackedItems(entry: DownloadEntry): Boolean {
+        val hasOverlap = state.value.any { existingEntry ->
+            (existingEntry.status == DownloadEntryStatus.Queued ||
+                existingEntry.status == DownloadEntryStatus.Running ||
+                existingEntry.status == DownloadEntryStatus.Canceling) &&
+                existingEntry.trackedItemIds.any(entry.trackedItemIds::contains)
+        }
+        if (hasOverlap) return false
+        putEntry(entry)
+        return true
+    }
+
+    override suspend fun updateStatus(
+        entryId: String,
+        status: DownloadEntryStatus,
+        currentItemId: String?,
+        currentItemTitle: String?,
+        errorMessage: String?,
+        completedAtEpochMillis: Long?,
+    ) {
+        state.value = state.value.map { entry ->
+            if (entry.id != entryId) return@map entry
+            entry.copy(
+                status = status,
+                currentItemId = currentItemId,
+                currentItemTitle = currentItemTitle,
+                errorMessage = errorMessage,
+                completedAtEpochMillis = completedAtEpochMillis,
+            )
+        }
+    }
+
+    override suspend fun updateStatusIfCurrentStatusIn(
+        entryId: String,
+        expectedStatuses: Set<DownloadEntryStatus>,
+        status: DownloadEntryStatus,
+        currentItemId: String?,
+        currentItemTitle: String?,
+        errorMessage: String?,
+        completedAtEpochMillis: Long?,
+    ): Boolean {
+        var updated = false
+        state.value = state.value.map { entry ->
+            if (entry.id != entryId || entry.status !in expectedStatuses) return@map entry
+            updated = true
+            entry.copy(
+                status = status,
+                currentItemId = currentItemId,
+                currentItemTitle = currentItemTitle,
+                errorMessage = errorMessage,
+                completedAtEpochMillis = completedAtEpochMillis,
+            )
+        }
+        return updated
+    }
+
+    override suspend fun updateProgress(
+        entryId: String,
+        completedItemIds: Set<String>,
+        currentItemId: String?,
+        currentItemTitle: String?,
+    ) = Unit
+
+    override suspend fun clearCompletedEntries(): Int = 0
+
+    override suspend fun deleteEntry(entryId: String): Int = 0
+}
+
+private class BootstrapRecordingDownloadWorkScheduler : DownloadWorkScheduler {
+    val scheduledEntryIds = mutableListOf<String>()
+
+    override fun scheduleEntry(entryId: String) {
+        scheduledEntryIds += entryId
+    }
+
+    override fun cancelEntry(entryId: String) = Unit
+}
+
+private class BootstrapRemoteItemDownloadDataSource : RemoteItemDownloadDataSource {
+    override val sourceType: SourceType = SourceType.KAVITA
+
+    override fun storedDocumentUri(item: ReadableItem): Uri? = null
+
+    override suspend fun downloadToLocalStorage(item: ReadableItem): Uri? = null
+
+    override suspend fun storedDocumentItemIds(items: List<ReadableItem>): Set<String> = emptySet()
+
+    override suspend fun deleteStoredDocument(item: ReadableItem): Boolean = false
+}
+
+private fun testQueuedDownloadItem(
+    id: String,
+): QueuedDownloadItem = QueuedDownloadItem(
+    id = id,
+    sourceType = SourceType.KAVITA,
+    libraryId = "library",
+    remoteId = id,
+    remoteFileId = null,
+    remoteFileType = null,
+    title = id,
+    formatName = FormatType.CBZ.name,
+    pageCount = null,
+)
 
 private fun legacyImportedArchiveRecord(
     id: String,

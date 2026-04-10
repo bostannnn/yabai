@@ -572,6 +572,30 @@ class UnifiedReaderDatabaseMigrationTest {
             database.close()
         }
     }
+
+    @Test
+    fun `migration 11 to 12 creates download queue table`() {
+        createTestDatabase(
+            name = "migration-11-12-${System.nanoTime()}",
+            version = 11,
+        ) { database ->
+            createVersion1Schema(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_1_2.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_2_3.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_3_4.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_4_5.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_5_6.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_6_7.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_7_8.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_8_9.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_9_10.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_10_11.migrate(database)
+        }.use { database ->
+            UnifiedReaderDatabaseMigrations.MIGRATION_11_12.migrate(database)
+
+            assertTrue(tableExists(database, "download_queue_entries"))
+        }
+    }
 }
 
 private fun createVersion1Schema(database: SupportSQLiteDatabase) {
@@ -681,6 +705,7 @@ private fun openRoomDatabase(
         UnifiedReaderDatabaseMigrations.MIGRATION_8_9,
         UnifiedReaderDatabaseMigrations.MIGRATION_9_10,
         UnifiedReaderDatabaseMigrations.MIGRATION_10_11,
+        UnifiedReaderDatabaseMigrations.MIGRATION_11_12,
     )
     .build()
 

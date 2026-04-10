@@ -9,7 +9,6 @@ import kotlinx.coroutines.CoroutineScope
 class AppLibraryActionsCoordinator @Inject constructor(
     private val importDocumentUseCase: ImportDocumentUseCase,
     private val deleteImportedItemUseCase: DeleteImportedItemUseCase,
-    private val downloadRemoteItemUseCase: DownloadRemoteItemUseCase,
     private val deleteRemoteLocalFileUseCase: DeleteRemoteLocalFileUseCase,
     private val stumpCoverCacheController: StumpCoverCacheController,
     private val grimmoryCoverCacheController: GrimmoryCoverCacheController,
@@ -21,11 +20,6 @@ class AppLibraryActionsCoordinator @Inject constructor(
     suspend fun deleteImportedItem(
         item: ReadableItem,
     ): DeleteImportedItemResult = deleteImportedItemUseCase(item)
-
-    suspend fun downloadRemoteItem(
-        item: ReadableItem,
-        items: List<ReadableItem>,
-    ): DownloadRemoteItemResult = downloadRemoteItemUseCase(item, items)
 
     suspend fun deleteRemoteLocalFile(
         item: ReadableItem,

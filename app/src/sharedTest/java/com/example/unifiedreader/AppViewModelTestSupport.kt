@@ -8,7 +8,14 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.remoteLibraryId
 import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
-import com.example.unifiedreader.feature.downloads.RemoteDownloadStateCoordinator
+import com.example.unifiedreader.feature.downloads.DownloadCompletionSideEffect
+import com.example.unifiedreader.feature.downloads.DownloadEntriesSnapshot
+import com.example.unifiedreader.feature.downloads.DownloadEntry
+import com.example.unifiedreader.feature.downloads.DownloadEntryStatus
+import com.example.unifiedreader.feature.downloads.DownloadQueueStore
+import com.example.unifiedreader.feature.downloads.DownloadWorkScheduler
+import com.example.unifiedreader.feature.downloads.RemoteDownloadQueueController
+import com.example.unifiedreader.feature.downloads.RemoteDownloadWorkerRunner
 import com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
 import com.example.unifiedreader.feature.library.LibraryBrowsePreferences
 import com.example.unifiedreader.feature.library.LibraryBrowsePreferencesStore
@@ -29,9 +36,14 @@ import com.example.unifiedreader.feature.settings.ThemeMode
 import kotlin.jvm.JvmSuppressWildcards
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 internal fun createViewModel(
     sampleItems: List<ReadableItem> = emptyList(),
@@ -42,7 +54,6 @@ internal fun createViewModel(
     settingsPreferencesStore: SettingsPreferencesStore = FakeSettingsPreferencesStore(),
     settingsStateCoordinator: SettingsStateCoordinator = SettingsStateCoordinator(settingsPreferencesStore),
     settingsController: AppSettingsController = AppSettingsController(settingsStateCoordinator),
-    remoteDownloadStateCoordinator: RemoteDownloadStateCoordinator = RemoteDownloadStateCoordinator(),
     libraryBrowsePreferencesStore: LibraryBrowsePreferencesStore = FakeLibraryBrowsePreferencesStore(),
     libraryBrowseStateCoordinator: LibraryBrowseStateCoordinator = LibraryBrowseStateCoordinator(libraryBrowsePreferencesStore),
     libraryBrowseController: AppLibraryBrowseController = AppLibraryBrowseController(libraryBrowseStateCoordinator),
@@ -84,6 +95,22 @@ internal fun createViewModel(
     val grimmoryCoverCacheController = GrimmoryCoverCacheController(
         grimmoryCoverRepository = grimmoryCoverRepository,
     )
+    val downloadQueueStore = TestDownloadQueueStore()
+    val downloadScheduler = ImmediateDownloadWorkScheduler()
+    val completionSideEffects: List<DownloadCompletionSideEffect> = listOf(
+        SourceProgressSyncDownloadCompletionSideEffect(sourceProgressSyncs),
+    )
+    val remoteDownloadWorkerRunner = RemoteDownloadWorkerRunner(
+        store = downloadQueueStore,
+        remoteDownloadDataSources = remoteDownloadDataSources,
+        completionSideEffects = completionSideEffects,
+    )
+    downloadScheduler.runner = remoteDownloadWorkerRunner
+    val remoteDownloadQueueController = RemoteDownloadQueueController(
+        store = downloadQueueStore,
+        scheduler = downloadScheduler,
+        remoteDownloadDataSources = remoteDownloadDataSources,
+    )
     val libraryActionsCoordinator = AppLibraryActionsCoordinator(
         importDocumentUseCase = ImportDocumentUseCase(
             localDocumentRepository = importedRepository,
@@ -93,11 +120,6 @@ internal fun createViewModel(
                 localDocumentDataSource = importedRepository,
                 readerSessionStore = readerSessionStore,
             ),
-        ),
-        downloadRemoteItemUseCase = DownloadRemoteItemUseCase(
-            remoteDownloadDataSources = remoteDownloadDataSources,
-            libraryStateAssembler = libraryStateAssembler,
-            sourceProgressSyncs = sourceProgressSyncs,
         ),
         deleteRemoteLocalFileUseCase = DeleteRemoteLocalFileUseCase(
             remoteDownloadDataSources = remoteDownloadDataSources,
@@ -129,7 +151,7 @@ internal fun createViewModel(
         settingsController = settingsController,
         remoteDownloadController = AppRemoteDownloadController(
             libraryActionsCoordinator = libraryActionsCoordinator,
-            remoteDownloadStateCoordinator = remoteDownloadStateCoordinator,
+            remoteDownloadQueueController = remoteDownloadQueueController,
         ),
         appStateHydrator = AppStateHydrator(
             appStartupTasks = appStartupTasks,
@@ -187,6 +209,133 @@ class FakeComicPageSourceCacheController : ComicPageSourceCacheController {
         sourceType: SourceType,
     ) {
         clearedSourceTypes += sourceType
+    }
+}
+
+class TestDownloadQueueStore(
+    initialEntries: List<DownloadEntry> = emptyList(),
+) : DownloadQueueStore {
+    private val entriesFlow = MutableStateFlow(initialEntries)
+
+    val entries: List<DownloadEntry>
+        get() = entriesFlow.value
+
+    override fun observeEntries(): Flow<DownloadEntriesSnapshot> = entriesFlow.map(::DownloadEntriesSnapshot)
+
+    override suspend fun getEntries(): List<DownloadEntry> = entriesFlow.value
+
+    override suspend fun getEntry(entryId: String): DownloadEntry? = entriesFlow.value.firstOrNull { it.id == entryId }
+
+    override suspend fun putEntry(entry: DownloadEntry) {
+        entriesFlow.value = entriesFlow.value.filterNot { it.id == entry.id } + entry
+    }
+
+    override suspend fun putEntryIfNoActiveTrackedItems(entry: DownloadEntry): Boolean {
+        val hasOverlap = entriesFlow.value.any { existingEntry ->
+            (existingEntry.status == DownloadEntryStatus.Queued ||
+                existingEntry.status == DownloadEntryStatus.Running ||
+                existingEntry.status == DownloadEntryStatus.Canceling) &&
+                existingEntry.trackedItemIds.any(entry.trackedItemIds::contains)
+        }
+        if (hasOverlap) return false
+        putEntry(entry)
+        return true
+    }
+
+    override suspend fun updateStatus(
+        entryId: String,
+        status: DownloadEntryStatus,
+        currentItemId: String?,
+        currentItemTitle: String?,
+        errorMessage: String?,
+        completedAtEpochMillis: Long?,
+    ) {
+        entriesFlow.value = entriesFlow.value.map { entry ->
+            if (entry.id != entryId) return@map entry
+            entry.copy(
+                status = status,
+                currentItemId = currentItemId,
+                currentItemTitle = currentItemTitle,
+                errorMessage = errorMessage,
+                completedAtEpochMillis = completedAtEpochMillis,
+            )
+        }
+    }
+
+    override suspend fun updateStatusIfCurrentStatusIn(
+        entryId: String,
+        expectedStatuses: Set<DownloadEntryStatus>,
+        status: DownloadEntryStatus,
+        currentItemId: String?,
+        currentItemTitle: String?,
+        errorMessage: String?,
+        completedAtEpochMillis: Long?,
+    ): Boolean {
+        var updated = false
+        entriesFlow.value = entriesFlow.value.map { entry ->
+            if (entry.id != entryId || entry.status !in expectedStatuses) return@map entry
+            updated = true
+            entry.copy(
+                status = status,
+                currentItemId = currentItemId,
+                currentItemTitle = currentItemTitle,
+                errorMessage = errorMessage,
+                completedAtEpochMillis = completedAtEpochMillis,
+            )
+        }
+        return updated
+    }
+
+    override suspend fun updateProgress(
+        entryId: String,
+        completedItemIds: Set<String>,
+        currentItemId: String?,
+        currentItemTitle: String?,
+    ) {
+        entriesFlow.value = entriesFlow.value.map { entry ->
+            if (entry.id != entryId) return@map entry
+            entry.copy(
+                completedItemIds = completedItemIds,
+                currentItemId = currentItemId,
+                currentItemTitle = currentItemTitle,
+            )
+        }
+    }
+
+    override suspend fun clearCompletedEntries(): Int {
+        val previousSize = entriesFlow.value.size
+        entriesFlow.value = entriesFlow.value.filterNot { entry ->
+            entry.status == DownloadEntryStatus.Completed || entry.status == DownloadEntryStatus.Canceled
+        }
+        return previousSize - entriesFlow.value.size
+    }
+
+    override suspend fun deleteEntry(entryId: String): Int {
+        val previousSize = entriesFlow.value.size
+        entriesFlow.value = entriesFlow.value.filterNot { it.id == entryId }
+        return previousSize - entriesFlow.value.size
+    }
+}
+
+class ImmediateDownloadWorkScheduler(
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
+) : DownloadWorkScheduler {
+    lateinit var runner: RemoteDownloadWorkerRunner
+    private val jobsByEntryId = mutableMapOf<String, kotlinx.coroutines.Job>()
+
+    override fun scheduleEntry(entryId: String) {
+        jobsByEntryId[entryId]?.cancel()
+        jobsByEntryId[entryId] = scope.launch {
+            runner.runEntry(entryId)
+        }.also { job ->
+            job.invokeOnCompletion {
+                jobsByEntryId.remove(entryId)
+            }
+        }
+    }
+
+    override fun cancelEntry(entryId: String) {
+        jobsByEntryId.remove(entryId)?.cancel(CancellationException("Cancelled for test"))
     }
 }
 

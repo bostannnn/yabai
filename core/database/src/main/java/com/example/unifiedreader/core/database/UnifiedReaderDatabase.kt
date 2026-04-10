@@ -7,9 +7,11 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.unifiedreader.core.database.dao.ImportedComicArchiveDao
+import com.example.unifiedreader.core.database.dao.DownloadQueueDao
 import com.example.unifiedreader.core.database.dao.ReadingProgressDao
 import com.example.unifiedreader.core.database.dao.ReaderSessionStateDao
 import com.example.unifiedreader.core.database.dao.RemoteCatalogDao
+import com.example.unifiedreader.core.database.entity.DownloadQueueEntryEntity
 import com.example.unifiedreader.core.database.entity.ImportedComicArchiveEntity
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
@@ -23,12 +25,14 @@ import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
         ReadingProgressEntity::class,
         ImportedComicArchiveEntity::class,
         ReaderSessionStateEntity::class,
+        DownloadQueueEntryEntity::class,
     ],
-    version = 11,
+    version = 12,
     exportSchema = false,
 )
 abstract class UnifiedReaderDatabase : RoomDatabase() {
     abstract fun importedComicArchiveDao(): ImportedComicArchiveDao
+    abstract fun downloadQueueDao(): DownloadQueueDao
     abstract fun readingProgressDao(): ReadingProgressDao
     abstract fun readerSessionStateDao(): ReaderSessionStateDao
     abstract fun remoteCatalogDao(): RemoteCatalogDao
@@ -407,6 +411,37 @@ object UnifiedReaderDatabaseMigrations {
             database.execSQL("DROP TABLE IF EXISTS servers")
         }
     }
+
+    val MIGRATION_11_12 = object : Migration(11, 12) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS download_queue_entries (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    selectedItemId TEXT NOT NULL,
+                    selectedItemTitle TEXT NOT NULL,
+                    sourceType TEXT NOT NULL,
+                    actionItemsEncoded TEXT NOT NULL,
+                    trackedItemIdsEncoded TEXT NOT NULL,
+                    completedItemIdsEncoded TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    currentItemId TEXT,
+                    currentItemTitle TEXT,
+                    errorMessage TEXT,
+                    createdAtEpochMillis INTEGER NOT NULL,
+                    updatedAtEpochMillis INTEGER NOT NULL,
+                    completedAtEpochMillis INTEGER
+                )
+                """.trimIndent(),
+            )
+            database.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_download_queue_entries_status ON download_queue_entries (status)",
+            )
+            database.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_download_queue_entries_createdAtEpochMillis ON download_queue_entries (createdAtEpochMillis)",
+            )
+        }
+    }
 }
 
 object UnifiedReaderDatabaseFactory {
@@ -428,6 +463,7 @@ object UnifiedReaderDatabaseFactory {
             UnifiedReaderDatabaseMigrations.MIGRATION_8_9,
             UnifiedReaderDatabaseMigrations.MIGRATION_9_10,
             UnifiedReaderDatabaseMigrations.MIGRATION_10_11,
+            UnifiedReaderDatabaseMigrations.MIGRATION_11_12,
         )
         .build()
 }

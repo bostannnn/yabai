@@ -85,6 +85,7 @@ dependencies {
     implementation(libs.junrar)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.ktor.client.core)
+    implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)
     coreLibraryDesugaring(libs.android.desugar.jdk.libs)

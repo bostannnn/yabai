@@ -18,9 +18,12 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -46,6 +49,8 @@ fun LibraryTopBar(
     onSourceSelected: (SourceType) -> Unit,
     onSearchQueryChanged: (String) -> Unit,
     onLibraryViewModeChanged: (LibraryViewMode) -> Unit,
+    downloadBadgeCount: Int,
+    onDownloadsClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onImportLocalFileClick: () -> Unit,
     onLeaveSeries: () -> Unit,
@@ -83,6 +88,8 @@ fun LibraryTopBar(
                         libraryViewMode = libraryViewMode,
                         topLevel = TopLevelDestination.Library,
                         onLibraryViewModeChanged = onLibraryViewModeChanged,
+                        downloadBadgeCount = downloadBadgeCount,
+                        onDownloadsClick = onDownloadsClick,
                         onSettingsClick = onSettingsClick,
                         onImportLocalFileClick = onImportLocalFileClick,
                     )
@@ -127,6 +134,8 @@ fun LibraryTopBar(
                     libraryViewMode = libraryViewMode,
                     topLevel = TopLevelDestination.Library,
                     onLibraryViewModeChanged = onLibraryViewModeChanged,
+                    downloadBadgeCount = downloadBadgeCount,
+                    onDownloadsClick = onDownloadsClick,
                     onSettingsClick = onSettingsClick,
                     onImportLocalFileClick = onImportLocalFileClick,
                     modifier = Modifier.align(Alignment.CenterEnd),
@@ -296,6 +305,8 @@ private fun LibraryToolbarActions(
     libraryViewMode: LibraryViewMode,
     topLevel: TopLevelDestination,
     onLibraryViewModeChanged: (LibraryViewMode) -> Unit,
+    downloadBadgeCount: Int = 0,
+    onDownloadsClick: (() -> Unit)? = null,
     onSettingsClick: () -> Unit,
     onImportLocalFileClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -315,6 +326,25 @@ private fun LibraryToolbarActions(
             selectedMode = libraryViewMode,
             onLibraryViewModeChanged = onLibraryViewModeChanged,
         )
+        onDownloadsClick?.let { handler ->
+            IconButton(onClick = handler) {
+                BadgedBox(
+                    badge = {
+                        if (downloadBadgeCount > 0) {
+                            Badge {
+                                Text(text = downloadBadgeCount.toString())
+                            }
+                        }
+                    },
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Download,
+                        contentDescription = "Downloads",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
         IconButton(onClick = onSettingsClick) {
             Icon(
                 imageVector = Icons.Default.Settings,
