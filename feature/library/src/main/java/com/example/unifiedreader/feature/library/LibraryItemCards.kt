@@ -162,6 +162,7 @@ internal fun DetailedItemCard(
                         item = item,
                         coverUrl = coverImageUrlProvider(item),
                         isDownloaded = isDownloaded,
+                        isRead = progress?.isComplete == true,
                         onCoverVisible = onCoverVisible,
                         modifier = Modifier
                             .width(coverWidth)
@@ -209,6 +210,7 @@ internal fun GridCoverCard(
             item = item,
             coverUrl = coverImageUrlProvider(item),
             isDownloaded = isDownloaded,
+            isRead = progress?.isComplete == true,
             downloadBadgeBottomInset = if (showCoverProgress) 2.dp else 0.dp,
             onCoverVisible = onCoverVisible,
             modifier = Modifier
@@ -308,6 +310,7 @@ private fun LibraryCover(
     item: ReadableItem,
     coverUrl: String? = item.coverUrl,
     isDownloaded: Boolean = false,
+    isRead: Boolean = false,
     downloadBadgeBottomInset: androidx.compose.ui.unit.Dp = 0.dp,
     onCoverVisible: (ReadableItem) -> Unit = {},
     modifier: Modifier = Modifier,
@@ -389,6 +392,18 @@ private fun LibraryCover(
                     ),
                 ),
         )
+        if (isRead) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.12f)),
+            )
+            LibraryReadStatusBadge(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(6.dp),
+            )
+        }
         if (isDownloaded) {
             Surface(
                 modifier = Modifier

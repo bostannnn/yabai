@@ -18,16 +18,21 @@ internal fun buildProgressSummaries(
     val sessionPageCount = sessionByItemId[item.id]?.pageCount?.takeIf { it > 0 }
     val summary = when (progress.locatorType) {
         LocatorType.PAGE -> {
-            val pageIndex = progress.page ?: return@associateNotNull null
             val pageCount = sessionPageCount ?: item.pageCount ?: when (item.format) {
                 FormatType.CBZ,
                 FormatType.CBR -> localPageCountProvider(item)
                 FormatType.EPUB -> 0
                 FormatType.PDF -> 0
             }
+            val pageIndex = progress.page ?: if (progress.isFinished) {
+                (pageCount - 1).coerceAtLeast(0)
+            } else {
+                return@associateNotNull null
+            }
             buildItemProgressSummary(
                 pageIndex = pageIndex,
                 pageCount = pageCount,
+                isFinished = progress.isFinished,
                 lastReadAtEpochMillis = progress.updatedAtEpochMillis,
             )
         }
@@ -35,12 +40,14 @@ internal fun buildProgressSummaries(
         LocatorType.PERCENT -> buildPercentProgressSummary(
             percent = progress.percent,
             pageCount = sessionPageCount,
+            isFinished = progress.isFinished,
             lastReadAtEpochMillis = progress.updatedAtEpochMillis,
         )
         LocatorType.CFI -> buildSavedLocationProgressSummary(
             percent = progress.percent,
             page = progress.page,
             pageCount = sessionPageCount,
+            isFinished = progress.isFinished,
             lastReadAtEpochMillis = progress.updatedAtEpochMillis,
         )
     } ?: return@associateNotNull null
@@ -50,31 +57,50 @@ internal fun buildProgressSummaries(
 private fun buildItemProgressSummary(
     pageIndex: Int,
     pageCount: Int,
+    isFinished: Boolean = false,
     lastReadAtEpochMillis: Long = 0L,
 ): ItemProgressSummary? {
-    if (pageCount <= 0) return null
+    if (pageCount <= 0) {
+        return if (isFinished) {
+            ItemProgressSummary(
+                label = "Finished",
+                fraction = 1f,
+                lastReadAtEpochMillis = lastReadAtEpochMillis,
+                isFinished = true,
+            )
+        } else {
+            null
+        }
+    }
     val clampedPageIndex = pageIndex.coerceIn(0, pageCount - 1)
     return ItemProgressSummary(
-        label = "Resume on page ${clampedPageIndex + 1} of $pageCount",
-        fraction = (clampedPageIndex + 1) / pageCount.toFloat(),
-        currentPage = clampedPageIndex + 1,
+        label = if (isFinished) "Finished" else "Resume on page ${clampedPageIndex + 1} of $pageCount",
+        fraction = if (isFinished) 1f else (clampedPageIndex + 1) / pageCount.toFloat(),
+        currentPage = if (isFinished) pageCount else clampedPageIndex + 1,
         pageCount = pageCount,
         lastReadAtEpochMillis = lastReadAtEpochMillis,
+        isFinished = isFinished,
     )
 }
 
 private fun buildPercentProgressSummary(
     percent: Double?,
     pageCount: Int? = null,
+    isFinished: Boolean = false,
     lastReadAtEpochMillis: Long = 0L,
 ): ItemProgressSummary? {
-    val normalizedPercent = percent?.coerceIn(0.0, 1.0) ?: return null
+    val normalizedPercent = if (isFinished) {
+        1.0
+    } else {
+        percent?.coerceIn(0.0, 1.0) ?: return null
+    }
     val percentLabel = (normalizedPercent * 100).toInt()
     return ItemProgressSummary(
-        label = "Resume at $percentLabel%",
+        label = if (isFinished) "Finished" else "Resume at $percentLabel%",
         fraction = normalizedPercent.toFloat(),
         pageCount = pageCount,
         lastReadAtEpochMillis = lastReadAtEpochMillis,
+        isFinished = isFinished,
     )
 }
 
@@ -82,13 +108,15 @@ private fun buildSavedLocationProgressSummary(
     percent: Double?,
     page: Int? = null,
     pageCount: Int? = null,
+    isFinished: Boolean = false,
     lastReadAtEpochMillis: Long = 0L,
 ): ItemProgressSummary = ItemProgressSummary(
-    label = "Resume from saved location",
-    fraction = (percent ?: 0.0).coerceIn(0.0, 1.0).toFloat(),
-    currentPage = page?.takeIf { it > 0 },
+    label = if (isFinished) "Finished" else "Resume from saved location",
+    fraction = if (isFinished) 1f else (percent ?: 0.0).coerceIn(0.0, 1.0).toFloat(),
+    currentPage = if (isFinished) pageCount else page?.takeIf { it > 0 },
     pageCount = pageCount,
     lastReadAtEpochMillis = lastReadAtEpochMillis,
+    isFinished = isFinished,
 )
 
 @VisibleForTesting(otherwise = VisibleForTesting.NONE)

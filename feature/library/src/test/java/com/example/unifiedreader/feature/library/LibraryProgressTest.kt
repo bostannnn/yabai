@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.library
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -14,6 +15,7 @@ class LibraryProgressTest {
         )
 
         assertFalse(progress.shouldShowCoverProgress)
+        assertFalse(progress.shouldShowSummaryProgress)
     }
 
     @Test
@@ -24,6 +26,7 @@ class LibraryProgressTest {
         )
 
         assertTrue(progress.shouldShowCoverProgress)
+        assertTrue(progress.shouldShowSummaryProgress)
     }
 
     @Test
@@ -34,6 +37,30 @@ class LibraryProgressTest {
         )
 
         assertFalse(progress.shouldShowCoverProgress)
+        assertFalse(progress.shouldShowSummaryProgress)
+    }
+
+    @Test
+    fun `completed items use finished detail label`() {
+        val progress = ItemProgressSummary(
+            label = "Resume on page 24 of 24",
+            fraction = 1f,
+            currentPage = 24,
+            pageCount = 24,
+        )
+
+        assertEquals("Finished", progress.progressDetailLabel)
+    }
+
+    @Test
+    fun `finished series keeps its finished summary label`() {
+        val progress = ItemProgressSummary(
+            label = "Finished all 2 issues",
+            fraction = 1f,
+            isFinished = true,
+        )
+
+        assertEquals("Finished all 2 issues", progress.progressDetailLabel)
     }
 
     @Test
@@ -44,5 +71,6 @@ class LibraryProgressTest {
         )
 
         assertFalse(progress.shouldShowCoverProgress)
+        assertFalse(progress.shouldShowSummaryProgress)
     }
 }

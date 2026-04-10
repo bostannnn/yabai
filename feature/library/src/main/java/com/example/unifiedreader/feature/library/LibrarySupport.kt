@@ -20,6 +20,7 @@ data class ItemProgressSummary(
     val currentPage: Int? = null,
     val pageCount: Int? = null,
     val lastReadAtEpochMillis: Long = 0L,
+    val isFinished: Boolean = false,
 ) {
     val percentLabel: String
         get() = "${(fraction.coerceIn(0f, 1f) * 100f).toInt()}%"

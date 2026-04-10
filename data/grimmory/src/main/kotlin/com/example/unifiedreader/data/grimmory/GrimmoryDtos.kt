@@ -60,6 +60,9 @@ internal data class GrimmoryBookDto(
     val primaryFile: GrimmoryBookFileDto? = null,
     val title: String? = null,
     val lastReadTime: String? = null,
+    val dateFinished: String? = null,
+    @SerialName("date_finished")
+    val dateFinishedSnake: String? = null,
     val addedOn: String? = null,
     val metadata: GrimmoryBookMetadataDto? = null,
     val pdfProgress: GrimmoryPdfProgressDto? = null,
@@ -217,6 +220,16 @@ private fun GrimmoryBookDto.toReadingProgress(
     item: ReadableItem,
 ): ReadingProgress? {
     val updatedAtEpochMillis = lastReadTime?.toEpochMillisOrNull()
+    val finishedAtEpochMillis = (dateFinished ?: dateFinishedSnake)?.toEpochMillisOrNull()
+    if (finishedAtEpochMillis != null) {
+        return ReadingProgress(
+            itemId = item.id,
+            locatorType = LocatorType.PERCENT,
+            percent = 1.0,
+            isFinished = true,
+            updatedAtEpochMillis = finishedAtEpochMillis,
+        )
+    }
     return when (item.format) {
         FormatType.EPUB -> epubProgress?.toReadingProgress(
             itemId = item.id,

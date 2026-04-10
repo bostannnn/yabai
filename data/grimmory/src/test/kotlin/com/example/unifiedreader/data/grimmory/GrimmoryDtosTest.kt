@@ -9,6 +9,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GrimmoryDtosTest {
@@ -208,6 +209,26 @@ class GrimmoryDtosTest {
         requireNotNull(item)
         assertEquals(0.01, item.progress?.percent ?: 0.0, 0.0001)
         assertEquals(1775046600000L, item.progress?.updatedAtEpochMillis)
+    }
+
+    @Test
+    fun mapsFinishedBookStatusToFinishedProgress() {
+        val item = GrimmoryBookDto(
+            id = 12,
+            libraryId = 4,
+            primaryFile = GrimmoryBookFileDto(
+                bookType = "EPUB",
+                extension = "epub",
+            ),
+            dateFinished = "2026-04-02T12:00:00Z",
+        ).toCatalogEntry(
+            baseUrl = "https://grimmory.example",
+        )
+
+        requireNotNull(item)
+        assertEquals(1.0, item.progress?.percent ?: 0.0, 0.0001)
+        assertTrue(item.progress?.isFinished ?: false)
+        assertEquals(1775131200000L, item.progress?.updatedAtEpochMillis)
     }
 
     @Test

@@ -19,7 +19,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 internal val ItemProgressSummary.isComplete: Boolean
-    get() = fraction >= 0.999f
+    get() = isFinished || fraction >= 0.999f
 
 internal val ItemProgressSummary.hasStarted: Boolean
     get() = fraction > 0f
@@ -27,24 +27,36 @@ internal val ItemProgressSummary.hasStarted: Boolean
 internal val ItemProgressSummary.shouldShowCoverProgress: Boolean
     get() = hasStarted && !isComplete
 
+internal val ItemProgressSummary.shouldShowSummaryProgress: Boolean
+    get() = hasStarted && !isComplete
+
+internal val ItemProgressSummary.progressDetailLabel: String
+    get() = if (isComplete) {
+        label.takeIf { isFinished && it.startsWith("Finished") } ?: "Finished"
+    } else {
+        detailLabel
+    }
+
 @Composable
 internal fun ProgressSummary(
     progress: ItemProgressSummary,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
-            text = progress.detailLabel,
+            text = progress.progressDetailLabel,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        LinearProgressIndicator(
-            progress = { progress.fraction.coerceIn(0f, 1f) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .alpha(0.92f),
-        )
+        if (progress.shouldShowSummaryProgress) {
+            LinearProgressIndicator(
+                progress = { progress.fraction.coerceIn(0f, 1f) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .alpha(0.92f),
+            )
+        }
     }
 }
 

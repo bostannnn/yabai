@@ -16,6 +16,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.core.model.isKavitaSeriesContainer
+import com.example.unifiedreader.core.model.isStumpSeriesContainer
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
 import com.example.unifiedreader.data.repository.LibraryRepository
@@ -1009,6 +1010,61 @@ class AppViewModelTest {
 
         assertEquals("Continue Issue 1", progress?.label)
         assertEquals(2_000L, progress?.lastReadAtEpochMillis)
+    }
+
+    @Test
+    fun `stump series progress is marked finished when all issues are finished`() {
+        val firstIssue = sampleItem(
+            id = "stump-issue-1",
+            title = "Akira 001",
+            format = FormatType.CBZ,
+        ).copy(
+            sourceType = SourceType.STUMP,
+            remoteId = "stump-issue-1",
+            remoteFileType = "series-7",
+            pageCount = 10,
+            comicMetadata = ComicMetadata(series = "Akira", issueTitle = "Issue 1"),
+        )
+        val secondIssue = sampleItem(
+            id = "stump-issue-2",
+            title = "Akira 002",
+            format = FormatType.CBZ,
+        ).copy(
+            sourceType = SourceType.STUMP,
+            remoteId = "stump-issue-2",
+            remoteFileType = "series-7",
+            pageCount = 10,
+            comicMetadata = ComicMetadata(series = "Akira", issueTitle = "Issue 2"),
+        )
+        val readerSessionStore = FakeReaderSessionStore().apply {
+            listOf(firstIssue, secondIssue).forEachIndexed { index, issue ->
+                saveProgress(
+                    item = issue,
+                    locator = com.example.unifiedreader.feature.reader.core.ReaderLocator(
+                        locatorType = LocatorType.PAGE,
+                        page = 9,
+                    ),
+                    isFinished = true,
+                    pageCount = 10,
+                    updatedAtEpochMillis = 1_000L + index,
+                )
+            }
+        }
+        val viewModel = createViewModel(
+            sampleItems = listOf(firstIssue, secondIssue),
+            readerSessionStore = readerSessionStore,
+        )
+
+        viewModel.onSourceSelected(SourceType.STUMP)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        val seriesItem = viewModel.uiState.visibleItems.single()
+        val progress = viewModel.uiState.displayProgressByItemId[seriesItem.id]
+
+        assertTrue(seriesItem.isStumpSeriesContainer())
+        assertEquals("Finished all 2 issues", progress?.label)
+        assertEquals(1f, progress?.fraction ?: -1f, 0.001f)
+        assertTrue(progress?.isFinished ?: false)
     }
 
     @Test

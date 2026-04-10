@@ -281,61 +281,47 @@ private fun String.keyComponent(): String = Base64.getUrlEncoder()
 private fun buildKavitaSeriesProgressByItemId(
     items: List<ReadableItem>,
     progressByItemId: Map<String, ItemProgressSummary>,
-): Map<String, ItemProgressSummary> = items
-    .filter { item ->
-        item.sourceType == SourceType.KAVITA &&
-            item.kavitaSeriesGroupKey() != null &&
-            !item.isKavitaSeriesContainer()
-    }
-    .groupBy { item -> item.kavitaSeriesGroupKey()!! }
-    .mapNotNull { (seriesKey, issues) ->
-        val issueProgress = issues.mapNotNull { issue ->
-            progressByItemId[issue.id]?.let { progress -> issue to progress }
-        }
-        if (issueProgress.isEmpty()) return@mapNotNull null
-        val latestInProgress = issueProgress
-            .filter { (_, progress) -> progress.fraction < 0.999f }
-            .maxByOrNull { (_, progress) -> progress.lastReadAtEpochMillis }
-        val latestDisplayProgress = latestInProgress
-            ?: issueProgress.maxByOrNull { (_, progress) -> progress.lastReadAtEpochMillis }
-            ?: return@mapNotNull null
-        val latestActivityProgress = issueProgress.maxByOrNull { (_, progress) ->
-            progress.lastReadAtEpochMillis
-        } ?: return@mapNotNull null
-        val progressByIssueId = issueProgress.associate { (issue, progress) ->
-            issue.id to progress
-        }
-        val averageFraction = issues
-            .map { issue -> progressByIssueId[issue.id]?.fraction?.coerceIn(0f, 1f) ?: 0f }
-            .average()
-            .toFloat()
-        val completedCount = issues.count { issue ->
-            (progressByIssueId[issue.id]?.fraction ?: 0f) >= 0.999f
-        }
-        val latestIssueLabel = latestDisplayProgress.first.comicMetadata?.issueTitle?.takeIf(String::isNotBlank)
-            ?: latestDisplayProgress.first.title
-        kavitaSeriesContainerId(seriesKey) to ItemProgressSummary(
-            label = when {
-                completedCount == issues.size -> "Finished all ${issues.size} issues"
-                latestInProgress != null && latestIssueLabel.isNotBlank() -> "Continue $latestIssueLabel"
-                else -> "Read $completedCount of ${issues.size} issues"
-            },
-            fraction = averageFraction,
-            lastReadAtEpochMillis = latestActivityProgress.second.lastReadAtEpochMillis,
-        )
-    }
-    .toMap()
+): Map<String, ItemProgressSummary> = buildComicSeriesProgressByItemId(
+    items = items,
+    progressByItemId = progressByItemId,
+    sourceType = SourceType.KAVITA,
+    seriesGroupKey = ReadableItem::kavitaSeriesGroupKey,
+    isSeriesContainer = ReadableItem::isKavitaSeriesContainer,
+    seriesContainerId = ::kavitaSeriesContainerId,
+)
 
 private fun buildStumpSeriesProgressByItemId(
     items: List<ReadableItem>,
     progressByItemId: Map<String, ItemProgressSummary>,
+): Map<String, ItemProgressSummary> = buildComicSeriesProgressByItemId(
+    items = items,
+    progressByItemId = progressByItemId,
+    sourceType = SourceType.STUMP,
+    seriesGroupKey = ReadableItem::stumpSeriesGroupKey,
+    isSeriesContainer = ReadableItem::isStumpSeriesContainer,
+    seriesContainerId = ::stumpSeriesContainerId,
+)
+
+private fun buildComicSeriesProgressByItemId(
+    items: List<ReadableItem>,
+    progressByItemId: Map<String, ItemProgressSummary>,
+    sourceType: SourceType,
+    seriesGroupKey: (ReadableItem) -> String?,
+    isSeriesContainer: (ReadableItem) -> Boolean,
+    seriesContainerId: (String) -> String,
 ): Map<String, ItemProgressSummary> = items
-    .filter { item ->
-        item.sourceType == SourceType.STUMP &&
-            item.stumpSeriesGroupKey() != null &&
-            !item.isStumpSeriesContainer()
+    .mapNotNull { item ->
+        val seriesKey = seriesGroupKey(item)
+        if (item.sourceType == sourceType && seriesKey != null && !isSeriesContainer(item)) {
+            seriesKey to item
+        } else {
+            null
+        }
     }
-    .groupBy { item -> item.stumpSeriesGroupKey()!! }
+    .groupBy(
+        keySelector = { (seriesKey, _) -> seriesKey },
+        valueTransform = { (_, issue) -> issue },
+    )
     .mapNotNull { (seriesKey, issues) ->
         val issueProgress = issues.mapNotNull { issue ->
             progressByItemId[issue.id]?.let { progress -> issue to progress }
@@ -360,16 +346,18 @@ private fun buildStumpSeriesProgressByItemId(
         val completedCount = issues.count { issue ->
             (progressByIssueId[issue.id]?.fraction ?: 0f) >= 0.999f
         }
+        val isFinished = completedCount == issues.size
         val latestIssueLabel = latestDisplayProgress.first.comicMetadata?.issueTitle?.takeIf(String::isNotBlank)
             ?: latestDisplayProgress.first.title
-        stumpSeriesContainerId(seriesKey) to ItemProgressSummary(
+        seriesContainerId(seriesKey) to ItemProgressSummary(
             label = when {
-                completedCount == issues.size -> "Finished all ${issues.size} issues"
+                isFinished -> "Finished all ${issues.size} issues"
                 latestInProgress != null && latestIssueLabel.isNotBlank() -> "Continue $latestIssueLabel"
                 else -> "Read $completedCount of ${issues.size} issues"
             },
             fraction = averageFraction,
             lastReadAtEpochMillis = latestActivityProgress.second.lastReadAtEpochMillis,
+            isFinished = isFinished,
         )
     }
     .toMap()

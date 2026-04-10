@@ -197,37 +197,60 @@ internal fun StumpMediaProgressDto.toReadingProgress(
     itemId: String,
     pageCount: Int?,
 ): ReadingProgress? {
-    val activeProgress = readProgress
-    if (activeProgress != null) {
-        val resolvedPage = activeProgress.page
-            ?.minus(1)
-            ?.coerceAtLeast(0)
-        val resolvedPercent = activeProgress.percentageCompleted.asDoubleOrNull()
-            ?.div(100.0)
-            ?.coerceIn(0.0, 1.0)
-        return ReadingProgress(
-            itemId = itemId,
-            locatorType = LocatorType.PAGE,
-            page = resolvedPage,
-            percent = resolvedPercent,
-            isFinished = resolvedPercent?.let { it >= 0.999 } == true,
-            updatedAtEpochMillis = activeProgress.updatedAt.toEpochMillisOrNull(),
-        )
-    }
     val completedAtEpochMillis = readHistory.orEmpty()
         .mapNotNull(StumpFinishedReadingSessionDto::completedAt)
         .mapNotNull(String::toEpochMillisOrNull)
         .maxOrNull()
-        ?: return null
-    return ReadingProgress(
-        itemId = itemId,
-        locatorType = LocatorType.PAGE,
-        page = pageCount?.minus(1)?.coerceAtLeast(0),
-        percent = 1.0,
-        isFinished = true,
-        updatedAtEpochMillis = completedAtEpochMillis,
-    )
+    val activeProgress = readProgress
+    if (activeProgress != null) {
+        val activeUpdatedAtEpochMillis = activeProgress.updatedAt.toEpochMillisOrNull()
+        if (completedAtEpochMillis != null && activeUpdatedAtEpochMillis?.let { it > completedAtEpochMillis } != true) {
+            return finishedStumpProgress(
+                itemId = itemId,
+                pageCount = pageCount,
+                updatedAtEpochMillis = completedAtEpochMillis,
+            )
+        }
+        val resolvedPage = activeProgress.page
+            ?.minus(1)
+            ?.coerceAtLeast(0)
+        val resolvedPercent = activeProgress.percentageCompleted.asDoubleOrNull()
+            ?.toStumpProgressFraction(
+                activePage = activeProgress.page,
+                pageCount = pageCount,
+            )
+        val isFinished = resolvedPercent?.let { it >= 0.999 } == true ||
+            pageCount?.let { count -> count > 0 && (activeProgress.page ?: 0) >= count } == true
+        return ReadingProgress(
+            itemId = itemId,
+            locatorType = LocatorType.PAGE,
+            page = if (isFinished) pageCount?.minus(1)?.coerceAtLeast(0) ?: resolvedPage else resolvedPage,
+            percent = if (isFinished) 1.0 else resolvedPercent,
+            isFinished = isFinished,
+            updatedAtEpochMillis = activeUpdatedAtEpochMillis,
+        )
+    }
+    return completedAtEpochMillis?.let { completedAt ->
+        finishedStumpProgress(
+            itemId = itemId,
+            pageCount = pageCount,
+            updatedAtEpochMillis = completedAt,
+        )
+    }
 }
+
+private fun finishedStumpProgress(
+    itemId: String,
+    pageCount: Int?,
+    updatedAtEpochMillis: Long,
+): ReadingProgress = ReadingProgress(
+    itemId = itemId,
+    locatorType = LocatorType.PAGE,
+    page = pageCount?.minus(1)?.coerceAtLeast(0),
+    percent = 1.0,
+    isFinished = true,
+    updatedAtEpochMillis = updatedAtEpochMillis,
+)
 
 internal fun StumpMediaNodeDto.toCatalogEntry(
     baseUrl: String,
@@ -298,6 +321,20 @@ private fun JsonElement?.asDoubleOrNull(): Double? = when (this) {
     null -> null
     is JsonPrimitive -> content.toDoubleOrNull()
     else -> null
+}
+
+private fun Double.toStumpProgressFraction(
+    activePage: Int?,
+    pageCount: Int?,
+): Double {
+    val isConfirmedFinalPage = pageCount?.let { count ->
+        count > 0 && (activePage ?: 0) >= count
+    } == true
+    return when {
+        this > 1.0 -> div(100.0)
+        this == 1.0 && !isConfirmedFinalPage -> div(100.0)
+        else -> this
+    }.coerceIn(0.0, 1.0)
 }
 
 private fun JsonElement?.asDisplayString(): String? {
