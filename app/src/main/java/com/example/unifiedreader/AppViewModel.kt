@@ -11,6 +11,7 @@ import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.libraryDisplayLabel
+import com.example.unifiedreader.core.model.trackedRemoteDownloadItemIds
 import com.example.unifiedreader.feature.library.LibraryBrowsePreferencesStore
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
 import com.example.unifiedreader.feature.library.defaultLibrarySortMode
@@ -23,6 +24,7 @@ import com.example.unifiedreader.feature.settings.ThemeMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlin.jvm.JvmSuppressWildcards
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 @HiltViewModel
@@ -218,35 +220,42 @@ class AppViewModel @Inject constructor(
     }
 
     fun onDownloadRemoteItem(item: ReadableItem) {
-        if (item.id in uiState.downloadingRemoteItemIds) return
+        val trackedItemIds = trackedRemoteDownloadItemIds(item, uiState.items)
+        if (trackedItemIds.any(uiState.downloadingRemoteItemIds::contains)) {
+            return
+        }
         updateUiState { state ->
             state.copy(
-                downloadingRemoteItemIds = state.downloadingRemoteItemIds + item.id,
+                downloadingRemoteItemIds = state.downloadingRemoteItemIds + trackedItemIds,
                 libraryMessage = "Downloading ${item.libraryDisplayLabel()}.",
                 libraryMessageSeverity = LibraryMessageSeverity.Info,
             )
         }
         viewModelScope.launch {
-            runCatching {
-                libraryActionsCoordinator.downloadRemoteItem(item, uiState.items)
-            }.onSuccess { result ->
+            try {
+                val result = libraryActionsCoordinator.downloadRemoteItem(item, uiState.items)
                 updateUiState { state ->
                     state.copy(
                         downloadedRemoteItemIds = result.downloadedRemoteItemIds,
+                        locallyAvailableRemoteItemIds = result.locallyAvailableRemoteItemIds,
                         libraryMessage = result.libraryMessage,
                         libraryMessageSeverity = result.libraryMessageSeverity,
                     )
                 }
-            }.onFailure { throwable ->
+            } catch (throwable: Throwable) {
+                if (throwable is CancellationException) {
+                    throw throwable
+                }
                 updateLibraryMessage(
                     message = "Unable to download ${item.libraryDisplayLabel()}: ${throwable.userFacingMessage()}",
                     severity = LibraryMessageSeverity.Error,
                 )
-            }
-            updateUiState { state ->
-                state.copy(
-                    downloadingRemoteItemIds = state.downloadingRemoteItemIds - item.id,
-                )
+            } finally {
+                updateUiState { state ->
+                    state.copy(
+                        downloadingRemoteItemIds = state.downloadingRemoteItemIds - trackedItemIds,
+                    )
+                }
             }
         }
     }
@@ -257,6 +266,7 @@ class AppViewModel @Inject constructor(
             updateUiState { state ->
                 state.copy(
                     downloadedRemoteItemIds = result.downloadedRemoteItemIds,
+                    locallyAvailableRemoteItemIds = result.locallyAvailableRemoteItemIds,
                     libraryMessage = result.libraryMessage,
                     libraryMessageSeverity = result.libraryMessageSeverity,
                 )

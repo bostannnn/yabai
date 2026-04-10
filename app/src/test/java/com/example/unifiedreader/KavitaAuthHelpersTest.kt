@@ -9,6 +9,7 @@ import com.example.unifiedreader.data.kavita.KavitaSeriesEntry
 import com.example.unifiedreader.data.kavita.KavitaSession
 import com.example.unifiedreader.data.kavita.KavitaUnauthorizedException
 import com.example.unifiedreader.core.model.Library
+import java.io.File
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
@@ -130,4 +131,11 @@ private class FakeApi(
         pageIndex: Int,
         apiKey: String?,
     ): ByteArray = error("Not needed in test.")
+
+    override suspend fun downloadChapter(
+        accessToken: String,
+        chapterId: String,
+        apiKey: String?,
+        destination: File,
+    ) = error("Not needed in test.")
 }

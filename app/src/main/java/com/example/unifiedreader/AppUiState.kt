@@ -20,7 +20,9 @@ import com.example.unifiedreader.core.model.kavitaSeriesGroupKey
 import com.example.unifiedreader.core.model.stumpSeriesContainerId
 import com.example.unifiedreader.core.model.stumpSeriesGroupKey
 import com.example.unifiedreader.feature.library.buildVisibleLibraryItems
+import com.example.unifiedreader.feature.library.buildRemoteDownloadActionAvailability
 import com.example.unifiedreader.feature.library.ItemProgressSummary
+import com.example.unifiedreader.feature.library.RemoteDownloadActionAvailability
 import com.example.unifiedreader.feature.library.defaultLibrarySortMode
 import com.example.unifiedreader.feature.settings.KavitaConnectionUiState
 import com.example.unifiedreader.feature.settings.GrimmoryConnectionUiState
@@ -33,6 +35,7 @@ internal data class AppCatalogSnapshot(
     val catalogItems: List<ReadableItem>,
     val items: List<ReadableItem>,
     val downloadedRemoteItemIds: Set<String>,
+    val locallyAvailableRemoteItemIds: Set<String>,
     val progressByItemId: Map<String, ItemProgressSummary>,
     val hydratedSources: Set<SourceType>,
     val themeMode: ThemeMode,
@@ -60,6 +63,7 @@ data class AppUiState(
     val librarySortsBySource: Map<SourceType, LibrarySortMode> = emptyMap(),
     val progressByItemId: Map<String, ItemProgressSummary> = emptyMap(),
     val downloadedRemoteItemIds: Set<String> = emptySet(),
+    val locallyAvailableRemoteItemIds: Set<String> = emptySet(),
     val downloadingRemoteItemIds: Set<String> = emptySet(),
     val libraryMessage: String? = null,
     val libraryMessageSeverity: LibraryMessageSeverity = LibraryMessageSeverity.Info,
@@ -74,6 +78,7 @@ data class AppUiState(
     val selectedLibraryFilterFacets: LibraryFilterFacets = LibraryFilterFacets(),
     val selectedSourceLibraryTitlesById: Map<String, String> = emptyMap(),
     val displayProgressByItemId: Map<String, ItemProgressSummary> = emptyMap(),
+    val remoteDownloadActionAvailability: RemoteDownloadActionAvailability = RemoteDownloadActionAvailability(),
     val visibleItems: List<ReadableItem> = emptyList(),
     val libraryBrowseContextKey: String = "",
 ) {
@@ -135,6 +140,7 @@ internal fun AppUiState.withDerivedLibraryState(
             selectedLibraryFilterFacets = previousState.selectedLibraryFilterFacets,
             selectedSourceLibraryTitlesById = previousState.selectedSourceLibraryTitlesById,
             displayProgressByItemId = previousState.displayProgressByItemId,
+            remoteDownloadActionAvailability = previousState.remoteDownloadActionAvailability,
             visibleItems = previousState.visibleItems,
             libraryBrowseContextKey = previousState.libraryBrowseContextKey,
         )
@@ -145,6 +151,12 @@ internal fun AppUiState.withDerivedLibraryState(
     val selectedLibrarySortMode = selectedLibrarySortMode
     val sourceItems = buildSourceItems()
     val displayProgressByItemId = buildDisplayProgressByItemId()
+    val remoteDownloadActionAvailability = buildRemoteDownloadActionAvailability(
+        sourceItems = sourceItems,
+        allItems = items,
+        downloadedItemIds = downloadedRemoteItemIds,
+        downloadingItemIds = downloadingRemoteItemIds,
+    )
     val lastReadAtEpochMillisByItemId = displayProgressByItemId.mapValues { (_, progress) ->
         progress.lastReadAtEpochMillis
     }
@@ -153,18 +165,19 @@ internal fun AppUiState.withDerivedLibraryState(
         filterState = selectedLibraryFilters,
         searchQuery = selectedLibrarySearchQuery,
         sortMode = selectedLibrarySortMode,
-        downloadedRemoteItemIds = downloadedRemoteItemIds,
+        downloadedRemoteItemIds = locallyAvailableRemoteItemIds,
         lastReadAtEpochMillisByItemId = lastReadAtEpochMillisByItemId,
         forceSeriesIssueOrder = isSeriesBrowseActive,
     )
 
     return copy(
         sourceItems = sourceItems,
-        selectedLibraryFilterFacets = buildLibraryFilterFacets(sourceItems, downloadedRemoteItemIds),
+        selectedLibraryFilterFacets = buildLibraryFilterFacets(sourceItems, locallyAvailableRemoteItemIds),
         selectedSourceLibraryTitlesById = libraries
             .filter { library -> library.sourceType == selectedSource }
             .associate { library -> library.id to library.title },
         displayProgressByItemId = displayProgressByItemId,
+        remoteDownloadActionAvailability = remoteDownloadActionAvailability,
         visibleItems = visibleItems,
         libraryBrowseContextKey = buildLibraryBrowseContextKey(
             selectedLibrarySearchQuery = selectedLibrarySearchQuery,
@@ -180,6 +193,8 @@ private fun AppUiState.hasSameDerivedLibraryInputReferencesAs(
     items === other.items &&
     libraries === other.libraries &&
     downloadedRemoteItemIds === other.downloadedRemoteItemIds &&
+    locallyAvailableRemoteItemIds === other.locallyAvailableRemoteItemIds &&
+    downloadingRemoteItemIds === other.downloadingRemoteItemIds &&
     progressByItemId === other.progressByItemId &&
     selectedKavitaSeriesKey == other.selectedKavitaSeriesKey &&
     selectedStumpSeriesKey == other.selectedStumpSeriesKey &&

@@ -1,6 +1,7 @@
 package com.example.unifiedreader.data.stump
 
 import com.example.unifiedreader.core.model.Library
+import com.example.unifiedreader.core.network.writeBodyTo
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.bearerAuth
@@ -16,6 +17,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import java.net.URI
+import java.io.File
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -87,6 +89,12 @@ interface StumpApi {
         accessToken: String,
         url: String,
     ): ByteArray
+
+    suspend fun downloadMediaFile(
+        accessToken: String,
+        mediaId: String,
+        destination: File,
+    )
 }
 
 data class StumpSession(
@@ -399,6 +407,18 @@ class KtorStumpApi(
         }
         response.throwIfStumpError()
         return response.body()
+    }
+
+    override suspend fun downloadMediaFile(
+        accessToken: String,
+        mediaId: String,
+        destination: File,
+    ) {
+        val response = httpClient.get("$restBaseUrl/media/$mediaId/file") {
+            bearerAuth(accessToken)
+        }
+        response.throwIfStumpError()
+        response.writeBodyTo(destination)
     }
 
     private suspend fun graphQlRequest(

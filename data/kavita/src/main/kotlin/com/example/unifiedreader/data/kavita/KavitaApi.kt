@@ -1,6 +1,7 @@
 package com.example.unifiedreader.data.kavita
 
 import com.example.unifiedreader.core.model.Library
+import com.example.unifiedreader.core.network.writeBodyTo
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.ClientRequestException
@@ -15,6 +16,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import java.io.File
 
 interface KavitaApi {
     suspend fun login(
@@ -64,6 +66,13 @@ interface KavitaApi {
         pageIndex: Int,
         apiKey: String?,
     ): ByteArray
+
+    suspend fun downloadChapter(
+        accessToken: String,
+        chapterId: String,
+        apiKey: String?,
+        destination: File,
+    )
 }
 
 data class KavitaSession(
@@ -277,6 +286,29 @@ class KtorKavitaApi(
         response.body()
     }
 
+    override suspend fun downloadChapter(
+        accessToken: String,
+        chapterId: String,
+        apiKey: String?,
+        destination: File,
+    ) {
+        authenticatedRequest {
+            val response = httpClient.get("$normalizedBaseUrl/api/Download/chapter") {
+                bearerAuth(accessToken)
+                apiKey?.takeIf(String::isNotBlank)?.let { key ->
+                    header("x-api-key", key)
+                }
+                url {
+                    parameters.append("chapterId", chapterId)
+                    apiKey?.takeIf(String::isNotBlank)?.let { key ->
+                        parameters.append("apiKey", key)
+                    }
+                }
+            }
+            response.throwIfKavitaError()
+            response.writeBodyTo(destination)
+        }
+    }
 }
 
 private suspend fun <T> authenticatedRequest(

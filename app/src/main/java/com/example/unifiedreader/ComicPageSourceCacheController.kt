@@ -16,50 +16,32 @@ interface ComicPageSourceCacheController {
 
 class CompositeComicPageSource(
     private val localComicPageSource: LocalComicPageSource,
+    private val downloadedRemoteComicPageSource: DownloadedRemoteComicPageSource,
     private val kavitaPageSource: KavitaPageSource,
     private val stumpPageSource: StumpPageSource,
 ) : ComicPageSource, ComicPageSourceCacheController {
     override fun getPages(
         item: ReadableItem,
-    ): List<ComicPageSpec> = when (item.sourceType) {
-        SourceType.LOCAL -> localComicPageSource.getPages(item)
-        SourceType.KAVITA -> kavitaPageSource.getPages(item)
-        SourceType.STUMP -> stumpPageSource.getPages(item)
-        SourceType.GRIMMORY -> emptyList()
-    }
+    ): List<ComicPageSpec> = pageSourceFor(item)?.getPages(item).orEmpty()
 
     override suspend fun loadPageMetadata(
         item: ReadableItem,
         page: ComicPageSpec,
-    ): ComicPageMetadata? = when (item.sourceType) {
-        SourceType.LOCAL -> localComicPageSource.loadPageMetadata(item, page)
-        SourceType.KAVITA -> kavitaPageSource.loadPageMetadata(item, page)
-        SourceType.STUMP -> stumpPageSource.loadPageMetadata(item, page)
-        SourceType.GRIMMORY -> null
-    }
+    ): ComicPageMetadata? = pageSourceFor(item)?.loadPageMetadata(item, page)
 
     override suspend fun loadPageImage(
         item: ReadableItem,
         page: ComicPageSpec,
         priority: ComicPageLoadPriority,
-    ): ComicPageLoadResult = when (item.sourceType) {
-        SourceType.LOCAL -> localComicPageSource.loadPageImage(item, page, priority)
-        SourceType.KAVITA -> kavitaPageSource.loadPageImage(item, page, priority)
-        SourceType.STUMP -> stumpPageSource.loadPageImage(item, page, priority)
-        SourceType.GRIMMORY -> ComicPageLoadResult.Failure("Unsupported source.")
-    }
+    ): ComicPageLoadResult = pageSourceFor(item)?.loadPageImage(item, page, priority)
+        ?: ComicPageLoadResult.Failure("Unsupported source.")
 
     override fun prefetchAround(
         item: ReadableItem,
         settledPageIndex: Int,
         pageCount: Int,
     ) {
-        when (item.sourceType) {
-            SourceType.LOCAL -> localComicPageSource.prefetchAround(item, settledPageIndex, pageCount)
-            SourceType.KAVITA -> kavitaPageSource.prefetchAround(item, settledPageIndex, pageCount)
-            SourceType.STUMP -> stumpPageSource.prefetchAround(item, settledPageIndex, pageCount)
-            SourceType.GRIMMORY -> Unit
-        }
+        pageSourceFor(item)?.prefetchAround(item, settledPageIndex, pageCount)
     }
 
     override fun clearSourcePageCache(
@@ -70,5 +52,15 @@ class CompositeComicPageSource(
             SourceType.STUMP -> stumpPageSource.clear()
             SourceType.LOCAL, SourceType.GRIMMORY -> Unit
         }
+    }
+
+    private fun pageSourceFor(
+        item: ReadableItem,
+    ): ComicPageSource? = when {
+        item.sourceType == SourceType.LOCAL -> localComicPageSource
+        downloadedRemoteComicPageSource.hasStoredDocument(item) -> downloadedRemoteComicPageSource
+        item.sourceType == SourceType.KAVITA -> kavitaPageSource
+        item.sourceType == SourceType.STUMP -> stumpPageSource
+        else -> null
     }
 }

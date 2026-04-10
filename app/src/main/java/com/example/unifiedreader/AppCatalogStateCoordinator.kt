@@ -80,6 +80,7 @@ class AppCatalogStateCoordinator @Inject constructor(
                         items = snapshot.items,
                         progressByItemId = snapshot.progressByItemId,
                         downloadedRemoteItemIds = snapshot.downloadedRemoteItemIds,
+                        locallyAvailableRemoteItemIds = snapshot.locallyAvailableRemoteItemIds,
                         hydratedSources = snapshot.hydratedSources,
                         themeMode = snapshot.themeMode,
                         selectedKavitaSeriesKey = state.selectedKavitaSeriesKey?.takeIf { seriesKey ->
@@ -104,12 +105,13 @@ class AppCatalogStateCoordinator @Inject constructor(
     ) {
         val requestedItemIds = items.mapTo(mutableSetOf(), ReadableItem::id)
         scope.launch {
-            val downloadedIds = libraryStateAssembler.loadDownloadedRemoteItemIds(items)
+            val remoteItemLocalState = libraryStateAssembler.loadRemoteItemLocalState(items)
             val currentItemIds = stateProvider().items.mapTo(mutableSetOf(), ReadableItem::id)
             if (currentItemIds == requestedItemIds) {
                 updateState { state ->
                     state.copy(
-                        downloadedRemoteItemIds = downloadedIds,
+                        downloadedRemoteItemIds = remoteItemLocalState.downloadedItemIds,
+                        locallyAvailableRemoteItemIds = remoteItemLocalState.locallyAvailableItemIds,
                     )
                 }
             }

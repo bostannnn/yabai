@@ -60,6 +60,7 @@ dependencies {
     implementation(project(":feature:reader-comics"))
     implementation(project(":feature:reader-pdf"))
     implementation(project(":feature:reader-epub"))
+    implementation(project(":feature:downloads"))
 
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.core.ktx)

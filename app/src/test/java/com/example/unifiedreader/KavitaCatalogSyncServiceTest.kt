@@ -15,6 +15,7 @@ import com.example.unifiedreader.data.kavita.KavitaProgressUpdate
 import com.example.unifiedreader.data.kavita.KavitaSeriesEntry
 import com.example.unifiedreader.data.kavita.KavitaSession
 import com.example.unifiedreader.data.kavita.KavitaUnauthorizedException
+import java.io.File
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -264,4 +265,13 @@ private class FakeKavitaApi(
         pageIndex: Int,
         apiKey: String?,
     ): ByteArray = ByteArray(0)
+
+    override suspend fun downloadChapter(
+        accessToken: String,
+        chapterId: String,
+        apiKey: String?,
+        destination: File,
+    ) {
+        destination.writeBytes(ByteArray(0))
+    }
 }

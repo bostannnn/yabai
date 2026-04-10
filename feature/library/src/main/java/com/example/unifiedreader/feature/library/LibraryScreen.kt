@@ -40,7 +40,9 @@ fun LibraryScreen(
     items: List<ReadableItem>,
     viewMode: LibraryViewMode,
     progressByItemId: Map<String, ItemProgressSummary> = emptyMap(),
-    downloadedItemIds: Set<String> = emptySet(),
+    locallyAvailableItemIds: Set<String> = emptySet(),
+    downloadableItemIds: Set<String> = emptySet(),
+    deletableDownloadedItemIds: Set<String> = emptySet(),
     downloadingItemIds: Set<String> = emptySet(),
     libraryErrorMessage: String? = null,
     isLoadingSource: Boolean = false,
@@ -164,7 +166,7 @@ fun LibraryScreen(
                         LibraryViewMode.Detailed -> DetailedItemCard(
                             item = item,
                             progress = progressByItemId[item.id],
-                            isDownloaded = item.isDownloaded(downloadedItemIds),
+                            isDownloaded = item.isDownloaded(locallyAvailableItemIds),
                             isDownloading = item.id in downloadingItemIds,
                             coverImageUrlProvider = coverImageUrlProvider,
                             onCoverVisible = onCoverVisible,
@@ -172,20 +174,19 @@ fun LibraryScreen(
                             onDeleteRequested = itemDeleteRequest(item) { deleteCandidate = it },
                             onDownloadRequested = itemDownloadRequest(
                                 item = item,
-                                downloadedItemIds = downloadedItemIds,
-                                downloadingItemIds = downloadingItemIds,
+                                downloadableItemIds = downloadableItemIds,
                                 onDownloadItem = onDownloadItem,
                             ),
                             onDeleteDownloadedRequested = itemDownloadedDeleteRequest(
                                 item = item,
-                                downloadedItemIds = downloadedItemIds,
+                                deletableDownloadedItemIds = deletableDownloadedItemIds,
                                 onDeleteDownloadedItem = onDeleteDownloadedItem,
                             ),
                         )
                         LibraryViewMode.Grid -> GridCoverCard(
                             item = item,
                             progress = progressByItemId[item.id],
-                            isDownloaded = item.isDownloaded(downloadedItemIds),
+                            isDownloaded = item.isDownloaded(locallyAvailableItemIds),
                             isDownloading = item.id in downloadingItemIds,
                             coverImageUrlProvider = coverImageUrlProvider,
                             onCoverVisible = onCoverVisible,
@@ -193,13 +194,12 @@ fun LibraryScreen(
                             onDeleteRequested = itemDeleteRequest(item) { deleteCandidate = it },
                             onDownloadRequested = itemDownloadRequest(
                                 item = item,
-                                downloadedItemIds = downloadedItemIds,
-                                downloadingItemIds = downloadingItemIds,
+                                downloadableItemIds = downloadableItemIds,
                                 onDownloadItem = onDownloadItem,
                             ),
                             onDeleteDownloadedRequested = itemDownloadedDeleteRequest(
                                 item = item,
-                                downloadedItemIds = downloadedItemIds,
+                                deletableDownloadedItemIds = deletableDownloadedItemIds,
                                 onDeleteDownloadedItem = onDeleteDownloadedItem,
                             ),
                         )

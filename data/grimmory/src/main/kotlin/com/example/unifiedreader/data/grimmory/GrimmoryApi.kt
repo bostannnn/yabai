@@ -2,6 +2,7 @@ package com.example.unifiedreader.data.grimmory
 
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.network.writeBodyTo
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.ClientRequestException
@@ -10,7 +11,6 @@ import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
-import io.ktor.client.statement.bodyAsChannel
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
@@ -18,7 +18,6 @@ import io.ktor.http.URLBuilder
 import io.ktor.http.Url
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
-import io.ktor.utils.io.readAvailable
 import java.io.File
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -299,22 +298,6 @@ class KtorGrimmoryApi(
         }
     }
 
-    private suspend fun HttpResponse.writeBodyTo(
-        destination: File,
-    ) {
-        val channel = bodyAsChannel()
-        val buffer = ByteArray(DEFAULT_DOWNLOAD_BUFFER_SIZE)
-        destination.outputStream().use { output ->
-            while (true) {
-                val bytesRead = channel.readAvailable(buffer, 0, buffer.size)
-                if (bytesRead == -1) break
-                if (bytesRead > 0) {
-                    output.write(buffer, 0, bytesRead)
-                }
-            }
-        }
-    }
-
     override suspend fun downloadBookCover(
         accessToken: String,
         bookId: String,
@@ -361,8 +344,6 @@ private val grimmoryJson = Json {
     ignoreUnknownKeys = true
     explicitNulls = false
 }
-
-private const val DEFAULT_DOWNLOAD_BUFFER_SIZE = 8 * 1024
 
 private fun String.toGrimmoryErrorMessage(
     statusDescription: String,

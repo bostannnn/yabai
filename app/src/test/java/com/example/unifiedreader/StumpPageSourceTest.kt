@@ -12,6 +12,7 @@ import com.example.unifiedreader.data.stump.StumpSession
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
+import java.io.File
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -345,6 +346,12 @@ private class RecordingStumpPageApi : StumpApi {
         accessToken: String,
         url: String,
     ): ByteArray = error("Not needed in test.")
+
+    override suspend fun downloadMediaFile(
+        accessToken: String,
+        mediaId: String,
+        destination: File,
+    ) = error("Not needed in test.")
 
     fun beginBlockingRequests() {
         blockRequests = true

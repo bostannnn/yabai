@@ -15,6 +15,7 @@ import com.example.unifiedreader.data.kavita.KavitaSession
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
+import java.io.File
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -338,6 +339,13 @@ private class RecordingKavitaPageApi : KavitaApi {
         }
         return TEST_PNG_BYTES
     }
+
+    override suspend fun downloadChapter(
+        accessToken: String,
+        chapterId: String,
+        apiKey: String?,
+        destination: File,
+    ) = error("Not needed in test.")
 
     fun beginBlockingRequests() {
         blockRequests = true

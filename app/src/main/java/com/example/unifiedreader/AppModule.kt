@@ -13,6 +13,7 @@ import com.example.unifiedreader.data.stump.KtorStumpApi
 import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
 import com.example.unifiedreader.data.repository.SampleCatalogRepository
+import com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
 import com.example.unifiedreader.feature.library.DataStoreLibraryBrowsePreferencesStore
 import com.example.unifiedreader.feature.library.LibraryBrowsePreferencesStore
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
@@ -199,16 +200,29 @@ object AppModule {
         @ApplicationContext context: Context,
         grimmoryApiFactory: GrimmoryApiFactory,
         grimmoryCredentialStore: GrimmoryCredentialStore,
+        cacheInvalidationDispatcher: DownloadedRemoteComicCacheInvalidationDispatcher,
     ): GrimmoryContentRepository = GrimmoryContentRepository(
         context = context.applicationContext,
         grimmoryApiFactory = grimmoryApiFactory,
         grimmoryCredentialStore = grimmoryCredentialStore,
+        cacheInvalidationDispatcher = cacheInvalidationDispatcher,
     )
 
     @Provides
     fun provideGrimmoryContentDataSource(
         repository: GrimmoryContentRepository,
     ): GrimmoryContentDataSource = repository
+
+    @Provides
+    fun provideRemoteItemDownloadDataSources(
+        grimmoryContentRepository: GrimmoryContentRepository,
+        kavitaContentRepository: KavitaContentRepository,
+        stumpContentRepository: StumpContentRepository,
+    ): List<@JvmSuppressWildcards RemoteItemDownloadDataSource> = listOf(
+        grimmoryContentRepository,
+        kavitaContentRepository,
+        stumpContentRepository,
+    )
 
     @Provides
     @Singleton
@@ -388,10 +402,12 @@ object AppModule {
     @Singleton
     fun provideCompositeComicPageSource(
         localComicPageSource: LocalComicPageSource,
+        downloadedRemoteComicPageSource: DownloadedRemoteComicPageSource,
         kavitaPageSource: KavitaPageSource,
         stumpPageSource: StumpPageSource,
     ): CompositeComicPageSource = CompositeComicPageSource(
         localComicPageSource = localComicPageSource,
+        downloadedRemoteComicPageSource = downloadedRemoteComicPageSource,
         kavitaPageSource = kavitaPageSource,
         stumpPageSource = stumpPageSource,
     )
@@ -429,7 +445,7 @@ object AppModule {
         adapter: ComicsReaderSessionAdapter,
         readerSessionStore: ReaderSessionStore,
         localDocumentRepository: LocalDocumentRepository,
-        grimmoryContentRepository: GrimmoryContentRepository,
+        remoteDownloadDataSources: List<@JvmSuppressWildcards RemoteItemDownloadDataSource>,
     ): List<@JvmSuppressWildcards ReaderScreenFactory> = listOf(
         comicsReaderFactory(
             pageSource = comicPageSource,
@@ -440,13 +456,17 @@ object AppModule {
             sessionStore = readerSessionStore,
             documentUriProvider = { item ->
                 localDocumentRepository.getDocumentUri(item)
-                    ?: grimmoryContentRepository.getDocumentUri(item)
+                    ?: remoteDownloadDataSources.firstOrNull { dataSource ->
+                        dataSource.supports(item)
+                    }?.getDocumentUri(item)
             },
         ),
         pdfReaderFactory(
             documentUriProvider = { item ->
                 localDocumentRepository.getDocumentUri(item)
-                    ?: grimmoryContentRepository.getDocumentUri(item)
+                    ?: remoteDownloadDataSources.firstOrNull { dataSource ->
+                        dataSource.supports(item)
+                    }?.getDocumentUri(item)
             },
         ),
     )

@@ -13,6 +13,7 @@ import com.example.unifiedreader.data.stump.StumpMediaCatalogEntry
 import com.example.unifiedreader.data.stump.StumpSeriesEntry
 import com.example.unifiedreader.data.stump.StumpSession
 import com.example.unifiedreader.data.stump.StumpUnauthorizedException
+import java.io.File
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -316,4 +317,10 @@ private class FakeStumpCatalogApi(
         accessToken: String,
         url: String,
     ): ByteArray = error("Not needed in test.")
+
+    override suspend fun downloadMediaFile(
+        accessToken: String,
+        mediaId: String,
+        destination: File,
+    ) = error("Not needed in test.")
 }

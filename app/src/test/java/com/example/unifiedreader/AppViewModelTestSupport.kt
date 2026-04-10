@@ -6,6 +6,7 @@ import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.remoteLibraryId
+import com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
 import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
 import com.example.unifiedreader.feature.library.LibraryBrowsePreferences
@@ -20,6 +21,7 @@ import com.example.unifiedreader.feature.reader.comics.ComicReaderProgressStore
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import com.example.unifiedreader.feature.settings.ThemeMode
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -42,6 +44,7 @@ internal fun createViewModel(
     grimmoryCredentialStore: GrimmoryCredentialStore = FakeGrimmoryCredentialStore(),
     grimmoryCoverRepository: GrimmoryCoverDataSource = FakeGrimmoryCoverRepository(),
     grimmoryContentRepository: GrimmoryContentDataSource = FakeGrimmoryContentRepository(),
+    remoteDownloadDataSources: List<RemoteItemDownloadDataSource> = listOf(grimmoryContentRepository),
     comicPageSourceCacheController: ComicPageSourceCacheController = FakeComicPageSourceCacheController(),
     remoteCatalogReadiness: RemoteCatalogReadiness = FakeRemoteCatalogReadiness(),
     sourceProgressSyncs: List<SourceProgressSync> = emptyList(),
@@ -59,7 +62,7 @@ internal fun createViewModel(
 ): AppViewModel {
     val libraryStateAssembler = AppLibraryStateAssembler(
         localDocumentRepository = importedRepository,
-        grimmoryContentRepository = grimmoryContentRepository,
+        remoteDownloadDataSources = remoteDownloadDataSources,
     )
     val stumpCoverCacheController = StumpCoverCacheController(
         stumpCoverRepository = stumpCoverRepository,
@@ -103,12 +106,12 @@ internal fun createViewModel(
                 ),
             ),
             downloadRemoteItemUseCase = DownloadRemoteItemUseCase(
-                grimmoryContentRepository = grimmoryContentRepository,
+                remoteDownloadDataSources = remoteDownloadDataSources,
                 libraryStateAssembler = libraryStateAssembler,
                 sourceProgressSyncs = sourceProgressSyncs,
             ),
             deleteRemoteLocalFileUseCase = DeleteRemoteLocalFileUseCase(
-                grimmoryContentRepository = grimmoryContentRepository,
+                remoteDownloadDataSources = remoteDownloadDataSources,
                 libraryStateAssembler = libraryStateAssembler,
             ),
             stumpCoverCacheController = stumpCoverCacheController,
@@ -348,9 +351,15 @@ class FakeGrimmoryContentRepository(
     private val storedItemIds: MutableSet<String> = mutableSetOf(),
     private val downloadFailure: Throwable? = null,
 ) : GrimmoryContentDataSource {
-    override suspend fun getDocumentUri(
+    override val sourceType: SourceType = SourceType.GRIMMORY
+
+    override fun storedDocumentUri(
         item: ReadableItem,
-    ): Uri? = downloadToLocalStorage(item)
+    ): Uri? = if (item.id in storedItemIds) {
+        Uri.parse("file:///downloads/${item.id}.${item.format.name.lowercase()}")
+    } else {
+        null
+    }
 
     override suspend fun downloadToLocalStorage(
         item: ReadableItem,
@@ -370,6 +379,83 @@ class FakeGrimmoryContentRepository(
     override suspend fun deleteStoredDocument(
         item: ReadableItem,
     ): Boolean = storedItemIds.remove(item.id)
+}
+
+class FakeRemoteDownloadDataSource(
+    override val sourceType: SourceType,
+    private val storedItemIds: MutableSet<String> = mutableSetOf(),
+    private val downloadFailure: Throwable? = null,
+    private val failingItemIds: Set<String> = emptySet(),
+) : RemoteItemDownloadDataSource {
+    override fun storedDocumentUri(
+        item: ReadableItem,
+    ): Uri? = if (item.id in storedItemIds) {
+        Uri.parse("file:///downloads/${item.id}.${item.format.name.lowercase()}")
+    } else {
+        null
+    }
+
+    override suspend fun downloadToLocalStorage(
+        item: ReadableItem,
+    ): Uri? {
+        downloadFailure?.let { throw it }
+        if (!supports(item)) return null
+        if (item.id in failingItemIds) return null
+        storedItemIds += item.id
+        return storedDocumentUri(item)
+    }
+
+    override suspend fun storedDocumentItemIds(
+        items: List<ReadableItem>,
+    ): Set<String> = items
+        .filter { item -> item.id in storedItemIds }
+        .mapTo(mutableSetOf(), ReadableItem::id)
+
+    override suspend fun deleteStoredDocument(
+        item: ReadableItem,
+    ): Boolean = supports(item) && storedItemIds.remove(item.id)
+}
+
+class BlockingRemoteDownloadDataSource(
+    override val sourceType: SourceType,
+) : RemoteItemDownloadDataSource {
+    private val startedItemIds = mutableListOf<String>()
+    private val startedFirstDownload = CompletableDeferred<Unit>()
+    private val releaseFirstDownload = CompletableDeferred<Unit>()
+
+    fun startedItemIds(): List<String> = startedItemIds.toList()
+
+    suspend fun awaitFirstDownloadStarted() {
+        startedFirstDownload.await()
+    }
+
+    fun cancelFirstDownload() {
+        releaseFirstDownload.cancel(CancellationException("Cancelled for test"))
+    }
+
+    override fun storedDocumentUri(
+        item: ReadableItem,
+    ): Uri? = null
+
+    override suspend fun downloadToLocalStorage(
+        item: ReadableItem,
+    ): Uri? {
+        if (!supports(item)) return null
+        startedItemIds += item.id
+        if (!startedFirstDownload.isCompleted) {
+            startedFirstDownload.complete(Unit)
+            releaseFirstDownload.await()
+        }
+        return Uri.parse("file:///downloads/${item.id}.${item.format.name.lowercase()}")
+    }
+
+    override suspend fun storedDocumentItemIds(
+        items: List<ReadableItem>,
+    ): Set<String> = emptySet()
+
+    override suspend fun deleteStoredDocument(
+        item: ReadableItem,
+    ): Boolean = false
 }
 
 class FakeLibraryRepository(

@@ -3,9 +3,13 @@ package com.example.unifiedreader
 import android.net.Uri
 import android.util.Log
 import com.example.unifiedreader.core.model.ReadableItem
-import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.libraryDisplayLabel
+import com.example.unifiedreader.core.model.resolveRemoteDownloadActionItems
+import com.example.unifiedreader.feature.downloads.downloadDataSourceFor
+import com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
+import com.example.unifiedreader.feature.downloads.evaluateRemoteDownloadBatchOutcome
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlin.jvm.JvmSuppressWildcards
 
 data class ImportDocumentResult(
@@ -50,12 +54,13 @@ class DeleteImportedItemUseCase @Inject constructor(
 
 data class DownloadRemoteItemResult(
     val downloadedRemoteItemIds: Set<String>,
+    val locallyAvailableRemoteItemIds: Set<String>,
     val libraryMessage: String,
     val libraryMessageSeverity: LibraryMessageSeverity,
 )
 
 class DownloadRemoteItemUseCase @Inject constructor(
-    private val grimmoryContentRepository: GrimmoryContentDataSource,
+    private val remoteDownloadDataSources: List<@JvmSuppressWildcards RemoteItemDownloadDataSource>,
     private val libraryStateAssembler: AppLibraryStateAssembler,
     private val sourceProgressSyncs: List<@JvmSuppressWildcards SourceProgressSync>,
 ) {
@@ -63,29 +68,58 @@ class DownloadRemoteItemUseCase @Inject constructor(
         item: ReadableItem,
         items: List<ReadableItem>,
     ): DownloadRemoteItemResult {
-        val downloadedUri = when (item.sourceType) {
-            SourceType.GRIMMORY -> grimmoryContentRepository.downloadToLocalStorage(item)
-            SourceType.KAVITA -> null
-            SourceType.STUMP -> null
-            SourceType.LOCAL -> null
+        val actionItems = resolveRemoteDownloadActionItems(
+            selectedItem = item,
+            items = items,
+        )
+        val initialRemoteItemLocalState = libraryStateAssembler.loadRemoteItemLocalState(items)
+        var firstFailureMessage: String? = null
+        actionItems.forEach { actionItem ->
+            runCatching {
+                remoteDownloadDataSources.downloadDataSourceFor(actionItem)
+                    ?.downloadToLocalStorage(actionItem)
+            }.onFailure { throwable ->
+                if (throwable is CancellationException) {
+                    throw throwable
+                }
+                if (firstFailureMessage == null) {
+                    firstFailureMessage = throwable.userFacingMessage()
+                }
+                Log.w(LOG_TAG, "Unable to download ${actionItem.id}.", throwable)
+            }
         }
-        runCatching {
-            syncItemProgressIfSupported(item)
-        }.onFailure { throwable ->
-            Log.w(LOG_TAG, "Unable to sync progress for ${item.id}.", throwable)
+        val remoteItemLocalState = libraryStateAssembler.loadRemoteItemLocalState(items)
+        val batchOutcome = evaluateRemoteDownloadBatchOutcome(
+            requestedItems = actionItems,
+            initiallyDownloadedItemIds = initialRemoteItemLocalState.downloadedItemIds,
+            downloadedItemIdsAfterRequest = remoteItemLocalState.downloadedItemIds,
+        )
+        actionItems.forEach { actionItem ->
+            if (actionItem.id !in remoteItemLocalState.downloadedItemIds) return@forEach
+            runCatching {
+                syncItemProgressIfSupported(actionItem)
+            }.onFailure { throwable ->
+                if (throwable is CancellationException) {
+                    throw throwable
+                }
+                Log.w(LOG_TAG, "Unable to sync progress for ${actionItem.id}.", throwable)
+            }
         }
         return DownloadRemoteItemResult(
-            downloadedRemoteItemIds = libraryStateAssembler.loadDownloadedRemoteItemIds(items),
-            libraryMessage = if (downloadedUri != null) {
-                "Downloaded ${item.libraryDisplayLabel()} for local reading."
+            downloadedRemoteItemIds = remoteItemLocalState.downloadedItemIds,
+            locallyAvailableRemoteItemIds = remoteItemLocalState.locallyAvailableItemIds,
+            libraryMessage = if (
+                actionItems.size == 1 &&
+                batchOutcome.failedCount == 1 &&
+                batchOutcome.newlyDownloadedCount == 0 &&
+                batchOutcome.alreadyAvailableCount == 0 &&
+                firstFailureMessage != null
+            ) {
+                "Unable to download ${item.libraryDisplayLabel()}: $firstFailureMessage"
             } else {
-                "Unable to download ${item.libraryDisplayLabel()}."
+                batchOutcome.libraryMessage(item.libraryDisplayLabel())
             },
-            libraryMessageSeverity = if (downloadedUri != null) {
-                LibraryMessageSeverity.Info
-            } else {
-                LibraryMessageSeverity.Error
-            },
+            libraryMessageSeverity = if (batchOutcome.hasFailures) LibraryMessageSeverity.Error else LibraryMessageSeverity.Info,
         )
     }
 
@@ -101,32 +135,45 @@ private const val LOG_TAG = "UnifiedReader"
 
 data class DeleteRemoteLocalFileResult(
     val downloadedRemoteItemIds: Set<String>,
+    val locallyAvailableRemoteItemIds: Set<String>,
     val libraryMessage: String,
     val libraryMessageSeverity: LibraryMessageSeverity,
 )
 
 class DeleteRemoteLocalFileUseCase @Inject constructor(
-    private val grimmoryContentRepository: GrimmoryContentDataSource,
+    private val remoteDownloadDataSources: List<@JvmSuppressWildcards RemoteItemDownloadDataSource>,
     private val libraryStateAssembler: AppLibraryStateAssembler,
 ) {
     suspend operator fun invoke(
         item: ReadableItem,
         items: List<ReadableItem>,
     ): DeleteRemoteLocalFileResult {
-        val deleted = when (item.sourceType) {
-            SourceType.GRIMMORY -> grimmoryContentRepository.deleteStoredDocument(item)
-            SourceType.KAVITA -> false
-            SourceType.STUMP -> false
-            SourceType.LOCAL -> false
+        val actionItems = resolveRemoteDownloadActionItems(
+            selectedItem = item,
+            items = items,
+        )
+        val deletedCount = actionItems.count { actionItem ->
+            remoteDownloadDataSources.downloadDataSourceFor(actionItem)
+                ?.deleteStoredDocument(actionItem) == true
         }
+        val remoteItemLocalState = libraryStateAssembler.loadRemoteItemLocalState(items)
         return DeleteRemoteLocalFileResult(
-            downloadedRemoteItemIds = libraryStateAssembler.loadDownloadedRemoteItemIds(items),
-            libraryMessage = if (deleted) {
-                "Deleted local file for ${item.libraryDisplayLabel()}."
+            downloadedRemoteItemIds = remoteItemLocalState.downloadedItemIds,
+            locallyAvailableRemoteItemIds = remoteItemLocalState.locallyAvailableItemIds,
+            libraryMessage = if (deletedCount > 0) {
+                if (actionItems.size == 1) {
+                    "Deleted local file for ${item.libraryDisplayLabel()}."
+                } else {
+                    "Deleted $deletedCount local files."
+                }
             } else {
-                "No local file found for ${item.libraryDisplayLabel()}."
+                if (actionItems.size == 1) {
+                    "No local file found for ${item.libraryDisplayLabel()}."
+                } else {
+                    "No local files found for ${item.libraryDisplayLabel()}."
+                }
             },
-            libraryMessageSeverity = if (deleted) {
+            libraryMessageSeverity = if (deletedCount > 0) {
                 LibraryMessageSeverity.Info
             } else {
                 LibraryMessageSeverity.Error
