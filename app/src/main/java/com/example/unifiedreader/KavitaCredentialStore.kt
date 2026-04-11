@@ -39,6 +39,8 @@ class SharedPreferencesKavitaCredentialStore @VisibleForTesting internal constru
             KavitaStoredSession(
                 displayName = decrypt(KavitaCredentialKeys.DisplayName) ?: return@readSession null,
                 baseUrl = decrypt(KavitaCredentialKeys.BaseUrl) ?: return@readSession null,
+                backupBaseUrl = decrypt(KavitaCredentialKeys.BackupBaseUrl),
+                activeBaseUrl = decrypt(KavitaCredentialKeys.ActiveBaseUrl),
                 username = decrypt(KavitaCredentialKeys.Username) ?: return@readSession null,
                 accessToken = decrypt(KavitaCredentialKeys.AccessToken) ?: return@readSession null,
                 refreshToken = decrypt(KavitaCredentialKeys.RefreshToken),
@@ -49,6 +51,8 @@ class SharedPreferencesKavitaCredentialStore @VisibleForTesting internal constru
             mapOf(
                 KavitaCredentialKeys.DisplayName to session.displayName,
                 KavitaCredentialKeys.BaseUrl to session.baseUrl,
+                KavitaCredentialKeys.BackupBaseUrl to session.backupBaseUrl,
+                KavitaCredentialKeys.ActiveBaseUrl to session.activeBaseUrl,
                 KavitaCredentialKeys.Username to session.username,
                 KavitaCredentialKeys.AccessToken to session.accessToken,
                 KavitaCredentialKeys.RefreshToken to session.refreshToken,
@@ -70,6 +74,8 @@ class SharedPreferencesKavitaCredentialStore @VisibleForTesting internal constru
 private object KavitaCredentialKeys {
     const val DisplayName = "display_name"
     const val BaseUrl = "base_url"
+    const val BackupBaseUrl = "backup_base_url"
+    const val ActiveBaseUrl = "active_base_url"
     const val Username = "username"
     const val AccessToken = "access_token"
     const val RefreshToken = "refresh_token"

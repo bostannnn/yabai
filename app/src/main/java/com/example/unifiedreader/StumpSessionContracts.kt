@@ -5,6 +5,8 @@ import com.example.unifiedreader.core.model.SourceType
 data class StumpStoredSession(
     override val displayName: String,
     override val baseUrl: String,
+    override val backupBaseUrl: String? = null,
+    override val activeBaseUrl: String? = null,
     override val username: String,
     override val accessToken: String,
     override val refreshToken: String?,

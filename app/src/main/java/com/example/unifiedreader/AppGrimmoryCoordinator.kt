@@ -15,6 +15,7 @@ class AppGrimmoryCoordinator @Inject constructor(
     ): GrimmoryConnectionUiState = refreshedRemoteConnectionState(
         connection = connection,
         baseUrl = connection.baseUrl,
+        backupBaseUrl = connection.backupBaseUrl,
         username = connection.username,
         copyHasStoredSession = { currentConnection, hasStoredSession ->
             currentConnection.copy(hasStoredSession = hasStoredSession)
@@ -30,6 +31,7 @@ class AppGrimmoryCoordinator @Inject constructor(
                 connection = connection,
                 displayName = connection.displayName,
                 baseUrl = connection.baseUrl,
+                backupBaseUrl = connection.backupBaseUrl,
                 username = connection.username,
                 password = connection.password,
                 invalidConnection = { message ->
@@ -52,15 +54,22 @@ class AppGrimmoryCoordinator @Inject constructor(
                     request = GrimmoryCatalogSyncRequest(
                         displayName = input.displayName,
                         baseUrl = input.baseUrl,
+                        backupBaseUrl = input.backupBaseUrl,
+                        activeBaseUrl = input.activeBaseUrl,
                         username = input.username,
                         password = input.password,
                         accessToken = input.savedSession?.accessToken,
                         refreshToken = input.savedSession?.refreshToken,
                     ),
-                    activeConnection = connection.copy(baseUrl = input.baseUrl),
+                    activeConnection = connection.copy(
+                        baseUrl = input.baseUrl,
+                        backupBaseUrl = input.backupBaseUrl.orEmpty(),
+                    ),
                     fallbackSession = input.savedSession?.copy(
                         displayName = input.displayName,
                         baseUrl = input.baseUrl,
+                        backupBaseUrl = input.backupBaseUrl,
+                        activeBaseUrl = input.activeBaseUrl,
                         username = input.username,
                     ),
                     successConnectionMessage = connectionSuccessMessage(
@@ -102,13 +111,18 @@ class AppGrimmoryCoordinator @Inject constructor(
                     request = GrimmoryCatalogSyncRequest(
                         displayName = savedSession.displayName,
                         baseUrl = savedSession.baseUrl,
+                        backupBaseUrl = savedSession.backupBaseUrl,
+                        activeBaseUrl = savedSession.activeBaseUrl,
                         username = savedSession.username,
                         accessToken = savedSession.accessToken,
                         refreshToken = savedSession.refreshToken,
                     ),
                     activeConnection = refreshInput.connection,
                     fallbackSession = savedSession,
-                    successConnectionMessage = "Grimmory library synced.",
+                    successConnectionMessage = connectionSuccessMessage(
+                        message = "Grimmory library synced.",
+                        cleartextWarningMessage = refreshInput.cleartextWarningMessage,
+                    ),
                     failurePrefix = "Unable to sync Grimmory",
                 )
             }
@@ -126,18 +140,24 @@ class AppGrimmoryCoordinator @Inject constructor(
             fallbackSession = preparation.fallbackSession,
             displayName = preparation.request.displayName,
             baseUrl = preparation.request.baseUrl,
+            backupBaseUrl = preparation.request.backupBaseUrl,
+            activeBaseUrl = result.activeBaseUrl ?: preparation.request.activeBaseUrl,
             username = preparation.request.username,
-            toStoredSession = { activeSession, displayName, baseUrl, username ->
+            toStoredSession = { activeSession, displayName, baseUrl, backupBaseUrl, activeBaseUrl, username ->
                 activeSession.toStoredSession(
                     displayName = displayName,
                     baseUrl = baseUrl,
+                    backupBaseUrl = backupBaseUrl,
+                    activeBaseUrl = activeBaseUrl,
                     username = username,
                 )
             },
-            restoreFallbackSession = { savedSession, displayName, baseUrl, username ->
+            restoreFallbackSession = { savedSession, displayName, baseUrl, backupBaseUrl, activeBaseUrl, username ->
                 savedSession.copy(
                     displayName = displayName,
                     baseUrl = baseUrl,
+                    backupBaseUrl = backupBaseUrl,
+                    activeBaseUrl = activeBaseUrl,
                     username = username,
                 )
             },
@@ -169,10 +189,14 @@ class AppGrimmoryCoordinator @Inject constructor(
 
     private fun matchingStoredSession(
         baseUrl: String,
+        backupBaseUrl: String?,
         username: String,
     ): GrimmoryStoredSession? = grimmoryCredentialStore.sessionFlow.value?.takeIf { session ->
-        session.baseUrl == baseUrl &&
-            session.username == username
+        session.matchesServerIdentity(
+            baseUrl = baseUrl,
+            backupBaseUrl = backupBaseUrl,
+            username = username,
+        )
     }
 }
 

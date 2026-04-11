@@ -31,6 +31,13 @@ class AppRemoteSourcesCoordinator @Inject constructor(
         kavitaController.onBaseUrlChanged(baseUrl, updateState)
     }
 
+    fun onKavitaBackupBaseUrlChanged(
+        backupBaseUrl: String,
+        updateState: AppUiStateUpdater,
+    ) {
+        kavitaController.onBackupBaseUrlChanged(backupBaseUrl, updateState)
+    }
+
     fun onKavitaUsernameChanged(
         username: String,
         updateState: AppUiStateUpdater,
@@ -59,6 +66,13 @@ class AppRemoteSourcesCoordinator @Inject constructor(
         stumpController.onBaseUrlChanged(baseUrl, updateState)
     }
 
+    fun onStumpBackupBaseUrlChanged(
+        backupBaseUrl: String,
+        updateState: AppUiStateUpdater,
+    ) {
+        stumpController.onBackupBaseUrlChanged(backupBaseUrl, updateState)
+    }
+
     fun onStumpUsernameChanged(
         username: String,
         updateState: AppUiStateUpdater,
@@ -85,6 +99,13 @@ class AppRemoteSourcesCoordinator @Inject constructor(
         updateState: AppUiStateUpdater,
     ) {
         grimmoryController.onBaseUrlChanged(baseUrl, updateState)
+    }
+
+    fun onGrimmoryBackupBaseUrlChanged(
+        backupBaseUrl: String,
+        updateState: AppUiStateUpdater,
+    ) {
+        grimmoryController.onBackupBaseUrlChanged(backupBaseUrl, updateState)
     }
 
     fun onGrimmoryUsernameChanged(

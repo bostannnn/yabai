@@ -33,17 +33,25 @@ class KavitaPageSource(
     ): ByteArray? {
         val chapterId = item.remoteId ?: return null
         val pageIndex = page.id.toIntOrNull() ?: return null
-        val api = kavitaApiFactory.create(session.baseUrl)
-        return sessionRequestRunner.run(
-            api = api,
+        return runWithStoredSessionAddressFailover(
+            sessionStore = kavitaCredentialStore,
             session = session,
-        ) { accessToken, apiKey ->
-            api.downloadPageImage(
-                accessToken = accessToken,
-                chapterId = chapterId,
-                pageIndex = pageIndex,
-                apiKey = apiKey,
-            )
+            createApi = kavitaApiFactory::create,
+            withActiveBaseUrl = { currentSession, activeBaseUrl ->
+                currentSession.copy(activeBaseUrl = activeBaseUrl)
+            },
+        ) { api, activeSession ->
+            sessionRequestRunner.run(
+                api = api,
+                session = activeSession,
+            ) { accessToken, apiKey ->
+                api.downloadPageImage(
+                    accessToken = accessToken,
+                    chapterId = chapterId,
+                    pageIndex = pageIndex,
+                    apiKey = apiKey,
+                )
+            }
         }
     }
 }

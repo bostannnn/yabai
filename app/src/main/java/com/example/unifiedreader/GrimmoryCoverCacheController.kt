@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 @ViewModelScoped
 class GrimmoryCoverCacheController @Inject constructor(
     private val grimmoryCoverRepository: GrimmoryCoverDataSource,
+    private val grimmoryCredentialStore: GrimmoryCredentialStore,
 ) {
     private val coverUrisByItemId = mutableStateMapOf<String, String>()
     private val pendingCoverIds = mutableSetOf<String>()
@@ -19,7 +20,10 @@ class GrimmoryCoverCacheController @Inject constructor(
 
     fun coverImageUrlFor(
         item: ReadableItem,
-    ): String? = coverUrisByItemId[item.id] ?: item.coverUrl
+    ): String? = coverUrisByItemId[item.id] ?: rewriteRemoteAssetUrlForActiveServer(
+        url = item.coverUrl,
+        session = grimmoryCredentialStore.activeSessionFor(item),
+    )
 
     fun ensureCoverCached(
         item: ReadableItem,

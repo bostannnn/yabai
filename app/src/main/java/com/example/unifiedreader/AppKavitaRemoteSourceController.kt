@@ -46,6 +46,18 @@ class AppKavitaRemoteSourceController @Inject constructor(
         }
     }
 
+    fun onBackupBaseUrlChanged(
+        backupBaseUrl: String,
+        updateState: AppUiStateUpdater,
+    ) {
+        updateConnectionInput(updateState) { connection ->
+            connection.copy(
+                backupBaseUrl = backupBaseUrl,
+                availableLibraries = emptyList(),
+            )
+        }
+    }
+
     fun onUsernameChanged(
         username: String,
         updateState: AppUiStateUpdater,
@@ -77,10 +89,6 @@ class AppKavitaRemoteSourceController @Inject constructor(
         scope: CoroutineScope,
     ) {
         val state = stateProvider()
-        if (state.kavitaConnection.hasStoredSession && state.kavitaConnection.password.isBlank()) {
-            refresh(stateProvider, updateState, scope)
-            return
-        }
         when (val preparation = kavitaCoordinator.prepareConnect(state.kavitaConnection)) {
             is KavitaSyncPreparation.Invalid -> {
                 updateState { current -> current.copy(kavitaConnection = preparation.connection) }

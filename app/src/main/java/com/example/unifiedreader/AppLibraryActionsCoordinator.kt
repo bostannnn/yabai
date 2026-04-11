@@ -12,6 +12,7 @@ class AppLibraryActionsCoordinator @Inject constructor(
     private val deleteRemoteLocalFileUseCase: DeleteRemoteLocalFileUseCase,
     private val stumpCoverCacheController: StumpCoverCacheController,
     private val grimmoryCoverCacheController: GrimmoryCoverCacheController,
+    private val kavitaCredentialStore: KavitaCredentialStore,
 ) {
     suspend fun importDocument(
         uri: Uri,
@@ -31,7 +32,10 @@ class AppLibraryActionsCoordinator @Inject constructor(
     ): String? = when (item.sourceType) {
         SourceType.STUMP -> stumpCoverCacheController.coverImageUrlFor(item)
         SourceType.GRIMMORY -> grimmoryCoverCacheController.coverImageUrlFor(item)
-        SourceType.KAVITA,
+        SourceType.KAVITA -> rewriteRemoteAssetUrlForActiveServer(
+            url = item.coverUrl,
+            session = kavitaCredentialStore.activeSessionFor(item),
+        )
         SourceType.LOCAL -> item.coverUrl
     }
 

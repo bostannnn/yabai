@@ -41,15 +41,21 @@ class GrimmoryCoverRepository(
             }
             val session = grimmoryCredentialStore.activeSessionFor(item)
                 ?: error("Connect to the active Grimmory server before loading remote covers.")
-            val api = grimmoryApiFactory.create(
-                baseUrl = session.baseUrl,
-            )
-            downloadWithTokenRefresh(
-                api = api,
+            runWithStoredSessionAddressFailover(
+                sessionStore = grimmoryCredentialStore,
                 session = session,
-                item = item,
-                destination = cachedFile,
-            )
+                createApi = grimmoryApiFactory::create,
+                withActiveBaseUrl = { currentSession, activeBaseUrl ->
+                    currentSession.copy(activeBaseUrl = activeBaseUrl)
+                },
+            ) { api, activeSession ->
+                downloadWithTokenRefresh(
+                    api = api,
+                    session = activeSession,
+                    item = item,
+                    destination = cachedFile,
+                )
+            }
         }
         return Uri.fromFile(cachedFile)
     }

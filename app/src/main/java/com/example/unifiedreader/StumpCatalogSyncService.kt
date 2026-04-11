@@ -36,105 +36,119 @@ class StumpCatalogSyncService(
     override suspend fun connect(
         request: StumpCatalogSyncRequest,
     ): StumpCatalogConnectionResult {
-        val api = stumpApiFactory.create(request.baseUrl)
-        val session = request.password?.takeIf(String::isNotBlank)?.let { password ->
-            api.login(
-                username = request.username,
-                password = password,
+        val result = runWithServerAddressFailover(
+            baseUrl = request.baseUrl,
+            backupBaseUrl = request.backupBaseUrl,
+            activeBaseUrl = request.activeBaseUrl,
+        ) { selectedBaseUrl ->
+            val api = stumpApiFactory.create(selectedBaseUrl)
+            val session = request.password?.takeIf(String::isNotBlank)?.let { password ->
+                api.login(
+                    username = request.username,
+                    password = password,
+                )
+            }
+            val accessToken = session?.accessToken ?: request.accessToken
+                ?: error("A Stump connection requires a password or saved access token.")
+            val refreshResult = api.runWithTokenRefresh(
+                initialAccessToken = accessToken,
+                initialRefreshToken = session?.refreshToken ?: request.refreshToken,
+            ) { token ->
+                api.getLibraries(token)
+            }
+            StumpCatalogConnectionResult(
+                libraryCount = refreshResult.value.size,
+                libraries = refreshResult.value,
+                session = refreshResult.refreshedSession ?: session,
             )
         }
-        val accessToken = session?.accessToken ?: request.accessToken
-            ?: error("A Stump connection requires a password or saved access token.")
-        val refreshResult = api.runWithTokenRefresh(
-            initialAccessToken = accessToken,
-            initialRefreshToken = session?.refreshToken ?: request.refreshToken,
-        ) { token ->
-            api.getLibraries(token)
-        }
-        return StumpCatalogConnectionResult(
-            libraryCount = refreshResult.value.size,
-            libraries = refreshResult.value,
-            session = refreshResult.refreshedSession ?: session,
-        )
+        return result.value.copy(activeBaseUrl = result.activeBaseUrl)
     }
 
     override suspend fun sync(
         request: StumpCatalogSyncRequest,
         onProgress: (StumpSyncProgress) -> Unit,
     ): StumpCatalogSyncResult {
-        val api = stumpApiFactory.create(request.baseUrl)
-        val session = request.password?.takeIf(String::isNotBlank)?.let { password ->
-            api.login(
-                username = request.username,
-                password = password,
-            )
-        }
-        val accessToken = session?.accessToken ?: request.accessToken
-            ?: error("A Stump sync requires a password or saved access token.")
-        var activeAccessToken = accessToken
-        var activeRefreshToken = session?.refreshToken ?: request.refreshToken
-        var latestSession: StumpSession? = session
-        val fetchResult = api.runWithTokenRefresh(
-            initialAccessToken = activeAccessToken,
-            initialRefreshToken = activeRefreshToken,
-        ) { token ->
-            onProgress(StumpSyncProgress(message = "Loading Stump libraries...", fraction = 0.05f))
-            val libraries = api.getLibraries(token)
-            onProgress(StumpSyncProgress(message = "Loading Stump series...", fraction = 0.15f))
-            val series = libraries.flatMap { library ->
-                api.getSeries(
-                    accessToken = token,
-                    libraryId = library.remoteId ?: return@flatMap emptyList(),
+        val result = runWithServerAddressFailover(
+            baseUrl = request.baseUrl,
+            backupBaseUrl = request.backupBaseUrl,
+            activeBaseUrl = request.activeBaseUrl,
+        ) { selectedBaseUrl ->
+            val api = stumpApiFactory.create(selectedBaseUrl)
+            val session = request.password?.takeIf(String::isNotBlank)?.let { password ->
+                api.login(
+                    username = request.username,
+                    password = password,
                 )
             }
-            val entries = fetchSeriesEntries(
-                api = api,
-                accessToken = token,
-                series = series,
-                onProgress = onProgress,
-            )
-            RemoteCatalogFetch(
-                libraries = libraries,
-                entries = entries,
-            )
-        }
-        activeAccessToken = fetchResult.accessToken
-        activeRefreshToken = fetchResult.refreshToken
-        latestSession = fetchResult.refreshedSession ?: latestSession
-        val syncOutcome = finalizeRemoteCatalogSync(
-            sourceType = SourceType.STUMP,
-            fetch = fetchResult.value,
-            remoteCatalogWriter = remoteCatalogWriter,
-            readerSessionStore = readerSessionStore,
-            nowEpochMillis = nowEpochMillis(),
-            onProgress = { message, fraction ->
-                onProgress(StumpSyncProgress(message = message, fraction = fraction))
-            },
-            savingMessage = "Saving Stump catalog...",
-            applyingProgressMessage = "Applying Stump progress...",
-            itemOf = StumpMediaCatalogEntry::item,
-            progressOf = StumpMediaCatalogEntry::progress,
-            missingRemoteClearsLocal = { false },
-            remoteClearOverridesLocal = { false },
-        ) { items ->
-            val progressSync = pushDirtyProgress(
-                api = api,
+            val accessToken = session?.accessToken ?: request.accessToken
+                ?: error("A Stump sync requires a password or saved access token.")
+            var activeAccessToken = accessToken
+            var activeRefreshToken = session?.refreshToken ?: request.refreshToken
+            var latestSession: StumpSession? = session
+            val fetchResult = api.runWithTokenRefresh(
                 initialAccessToken = activeAccessToken,
                 initialRefreshToken = activeRefreshToken,
-                items = items,
+            ) { token ->
+                onProgress(StumpSyncProgress(message = "Loading Stump libraries...", fraction = 0.05f))
+                val libraries = api.getLibraries(token)
+                onProgress(StumpSyncProgress(message = "Loading Stump series...", fraction = 0.15f))
+                val series = libraries.flatMap { library ->
+                    api.getSeries(
+                        accessToken = token,
+                        libraryId = library.remoteId ?: return@flatMap emptyList(),
+                    )
+                }
+                val entries = fetchSeriesEntries(
+                    api = api,
+                    accessToken = token,
+                    series = series,
+                    onProgress = onProgress,
+                )
+                RemoteCatalogFetch(
+                    libraries = libraries,
+                    entries = entries,
+                )
+            }
+            activeAccessToken = fetchResult.accessToken
+            activeRefreshToken = fetchResult.refreshToken
+            latestSession = fetchResult.refreshedSession ?: latestSession
+            val syncOutcome = finalizeRemoteCatalogSync(
+                sourceType = SourceType.STUMP,
+                fetch = fetchResult.value,
+                remoteCatalogWriter = remoteCatalogWriter,
+                readerSessionStore = readerSessionStore,
+                nowEpochMillis = nowEpochMillis(),
+                onProgress = { message, fraction ->
+                    onProgress(StumpSyncProgress(message = message, fraction = fraction))
+                },
+                savingMessage = "Saving Stump catalog...",
+                applyingProgressMessage = "Applying Stump progress...",
+                itemOf = StumpMediaCatalogEntry::item,
+                progressOf = StumpMediaCatalogEntry::progress,
+                missingRemoteClearsLocal = { false },
+                remoteClearOverridesLocal = { false },
+            ) { items ->
+                val progressSync = pushDirtyProgress(
+                    api = api,
+                    initialAccessToken = activeAccessToken,
+                    initialRefreshToken = activeRefreshToken,
+                    items = items,
+                )
+                activeAccessToken = progressSync.accessToken
+                activeRefreshToken = progressSync.refreshToken
+                progressSync.refreshedSession
+            }
+            latestSession = syncOutcome.session ?: latestSession
+            StumpCatalogSyncResult(
+                libraryCount = syncOutcome.libraryCount,
+                itemCount = syncOutcome.itemCount,
+                supportedFormatCounts = syncOutcome.supportedFormatCounts,
+                libraries = fetchResult.value.libraries,
+                session = latestSession,
             )
-            activeAccessToken = progressSync.accessToken
-            activeRefreshToken = progressSync.refreshToken
-            progressSync.refreshedSession
         }
-        latestSession = syncOutcome.session ?: latestSession
-        return StumpCatalogSyncResult(
-            libraryCount = syncOutcome.libraryCount,
-            itemCount = syncOutcome.itemCount,
-            supportedFormatCounts = syncOutcome.supportedFormatCounts,
-            libraries = fetchResult.value.libraries,
-            session = latestSession,
-        )
+        return result.value.copy(activeBaseUrl = result.activeBaseUrl)
     }
 
     private suspend fun pushDirtyProgress(
@@ -182,6 +196,8 @@ class StumpCatalogSyncService(
 data class StumpCatalogSyncRequest(
     val displayName: String,
     val baseUrl: String,
+    val backupBaseUrl: String? = null,
+    val activeBaseUrl: String? = null,
     val username: String,
     val password: String? = null,
     val accessToken: String? = null,
@@ -192,6 +208,7 @@ data class StumpCatalogConnectionResult(
     val libraryCount: Int,
     val libraries: List<Library> = emptyList(),
     val session: StumpSession? = null,
+    val activeBaseUrl: String? = null,
 )
 
 data class StumpSyncProgress(
@@ -205,6 +222,7 @@ data class StumpCatalogSyncResult(
     val supportedFormatCounts: Map<FormatType, Int>,
     val libraries: List<Library> = emptyList(),
     val session: StumpSession? = null,
+    val activeBaseUrl: String? = null,
 )
 
 private val STUMP_SUPPORTED_SYNC_FORMATS = setOf(

@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 @ViewModelScoped
 class StumpCoverCacheController @Inject constructor(
     private val stumpCoverRepository: StumpCoverDataSource,
+    private val stumpCredentialStore: StumpCredentialStore,
 ) {
     private val coverUrisByItemId = mutableStateMapOf<String, String>()
     private val pendingCoverIds = mutableSetOf<String>()
@@ -19,7 +20,10 @@ class StumpCoverCacheController @Inject constructor(
 
     fun coverImageUrlFor(
         item: ReadableItem,
-    ): String? = coverUrisByItemId[item.id] ?: item.coverUrl
+    ): String? = coverUrisByItemId[item.id] ?: rewriteRemoteAssetUrlForActiveServer(
+        url = item.coverUrl,
+        session = stumpCredentialStore.activeSessionFor(item),
+    )
 
     fun ensureCoverCached(
         item: ReadableItem,

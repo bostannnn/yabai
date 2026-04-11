@@ -33,16 +33,24 @@ class StumpPageSource(
     ): ByteArray? {
         val mediaId = item.remoteId ?: return null
         val pageIndex = page.id.toIntOrNull() ?: return null
-        val api = stumpApiFactory.create(session.baseUrl)
-        return sessionRequestRunner.run(
-            api = api,
+        return runWithStoredSessionAddressFailover(
+            sessionStore = stumpCredentialStore,
             session = session,
-        ) { accessToken ->
-            api.downloadPageImage(
-                accessToken = accessToken,
-                mediaId = mediaId,
-                pageIndex = pageIndex,
-            )
+            createApi = stumpApiFactory::create,
+            withActiveBaseUrl = { currentSession, activeBaseUrl ->
+                currentSession.copy(activeBaseUrl = activeBaseUrl)
+            },
+        ) { api, activeSession ->
+            sessionRequestRunner.run(
+                api = api,
+                session = activeSession,
+            ) { accessToken ->
+                api.downloadPageImage(
+                    accessToken = accessToken,
+                    mediaId = mediaId,
+                    pageIndex = pageIndex,
+                )
+            }
         }
     }
 }

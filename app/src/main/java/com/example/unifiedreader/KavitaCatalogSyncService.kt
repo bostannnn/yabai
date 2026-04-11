@@ -36,109 +36,123 @@ class KavitaCatalogSyncService(
     override suspend fun connect(
         request: KavitaCatalogSyncRequest,
     ): KavitaCatalogConnectionResult {
-        val api = kavitaApiFactory.create(request.baseUrl)
-        val session = request.password?.takeIf(String::isNotBlank)?.let { password ->
-            api.login(
-                username = request.username,
-                password = password,
+        val result = runWithServerAddressFailover(
+            baseUrl = request.baseUrl,
+            backupBaseUrl = request.backupBaseUrl,
+            activeBaseUrl = request.activeBaseUrl,
+        ) { selectedBaseUrl ->
+            val api = kavitaApiFactory.create(selectedBaseUrl)
+            val session = request.password?.takeIf(String::isNotBlank)?.let { password ->
+                api.login(
+                    username = request.username,
+                    password = password,
+                )
+            }
+            val accessToken = session?.accessToken ?: request.accessToken
+                ?: error("A Kavita connection requires a password or saved access token.")
+            val refreshResult = api.runWithTokenRefresh(
+                initialAccessToken = accessToken,
+                initialRefreshToken = session?.refreshToken ?: request.refreshToken,
+                initialApiKey = session?.apiKey ?: request.apiKey,
+            ) { token, _ ->
+                api.getLibraries(token)
+            }
+            KavitaCatalogConnectionResult(
+                libraryCount = refreshResult.value.size,
+                libraries = refreshResult.value,
+                session = refreshResult.refreshedSession ?: session,
             )
         }
-        val accessToken = session?.accessToken ?: request.accessToken
-            ?: error("A Kavita connection requires a password or saved access token.")
-        val refreshResult = api.runWithTokenRefresh(
-            initialAccessToken = accessToken,
-            initialRefreshToken = session?.refreshToken ?: request.refreshToken,
-            initialApiKey = session?.apiKey ?: request.apiKey,
-        ) { token, _ ->
-            api.getLibraries(token)
-        }
-        return KavitaCatalogConnectionResult(
-            libraryCount = refreshResult.value.size,
-            libraries = refreshResult.value,
-            session = refreshResult.refreshedSession ?: session,
-        )
+        return result.value.copy(activeBaseUrl = result.activeBaseUrl)
     }
 
     override suspend fun sync(
         request: KavitaCatalogSyncRequest,
         onProgress: (KavitaSyncProgress) -> Unit,
     ): KavitaCatalogSyncResult {
-        val api = kavitaApiFactory.create(request.baseUrl)
-        val session = request.password?.takeIf(String::isNotBlank)?.let { password ->
-            api.login(
-                username = request.username,
-                password = password,
-            )
-        }
-        val accessToken = session?.accessToken ?: request.accessToken
-            ?: error("A Kavita sync requires a password or saved access token.")
-        var activeAccessToken = accessToken
-        var activeRefreshToken = session?.refreshToken ?: request.refreshToken
-        var activeApiKey = session?.apiKey ?: request.apiKey
-        var latestSession: KavitaSession? = session
-        val fetchResult = api.runWithTokenRefresh(
-            initialAccessToken = activeAccessToken,
-            initialRefreshToken = activeRefreshToken,
-            initialApiKey = activeApiKey,
-        ) { token, apiKey ->
-            onProgress(KavitaSyncProgress(message = "Loading Kavita libraries...", fraction = 0.05f))
-            val libraries = api.getLibraries(token)
-            onProgress(KavitaSyncProgress(message = "Loading Kavita series...", fraction = 0.15f))
-            val series = api.getSeries(
-                accessToken = token,
-                apiKey = apiKey,
-            )
-            val entries = fetchSeriesEntries(
-                api = api,
-                accessToken = token,
-                series = series,
-                onProgress = onProgress,
-            )
-            RemoteCatalogFetch(
-                libraries = libraries,
-                entries = entries,
-            )
-        }
-        activeAccessToken = fetchResult.accessToken
-        activeRefreshToken = fetchResult.refreshToken
-        activeApiKey = fetchResult.refreshedSession?.apiKey ?: activeApiKey
-        latestSession = fetchResult.refreshedSession ?: latestSession
-        val syncOutcome = finalizeRemoteCatalogSync(
-            sourceType = SourceType.KAVITA,
-            fetch = fetchResult.value,
-            remoteCatalogWriter = remoteCatalogWriter,
-            readerSessionStore = readerSessionStore,
-            nowEpochMillis = nowEpochMillis(),
-            onProgress = { message, fraction ->
-                onProgress(KavitaSyncProgress(message = message, fraction = fraction))
-            },
-            savingMessage = "Saving Kavita catalog...",
-            applyingProgressMessage = "Applying Kavita progress...",
-            itemOf = KavitaChapterCatalogEntry::item,
-            progressOf = KavitaChapterCatalogEntry::progress,
-            missingRemoteClearsLocal = KavitaChapterCatalogEntry::isExplicitUnreadReset,
-            remoteClearOverridesLocal = { false },
-        ) { items ->
-            val progressSync = pushDirtyProgress(
-                api = api,
+        val result = runWithServerAddressFailover(
+            baseUrl = request.baseUrl,
+            backupBaseUrl = request.backupBaseUrl,
+            activeBaseUrl = request.activeBaseUrl,
+        ) { selectedBaseUrl ->
+            val api = kavitaApiFactory.create(selectedBaseUrl)
+            val session = request.password?.takeIf(String::isNotBlank)?.let { password ->
+                api.login(
+                    username = request.username,
+                    password = password,
+                )
+            }
+            val accessToken = session?.accessToken ?: request.accessToken
+                ?: error("A Kavita sync requires a password or saved access token.")
+            var activeAccessToken = accessToken
+            var activeRefreshToken = session?.refreshToken ?: request.refreshToken
+            var activeApiKey = session?.apiKey ?: request.apiKey
+            var latestSession: KavitaSession? = session
+            val fetchResult = api.runWithTokenRefresh(
                 initialAccessToken = activeAccessToken,
                 initialRefreshToken = activeRefreshToken,
                 initialApiKey = activeApiKey,
-                items = items,
+            ) { token, apiKey ->
+                onProgress(KavitaSyncProgress(message = "Loading Kavita libraries...", fraction = 0.05f))
+                val libraries = api.getLibraries(token)
+                onProgress(KavitaSyncProgress(message = "Loading Kavita series...", fraction = 0.15f))
+                val series = api.getSeries(
+                    accessToken = token,
+                    apiKey = apiKey,
+                )
+                val entries = fetchSeriesEntries(
+                    api = api,
+                    accessToken = token,
+                    series = series,
+                    onProgress = onProgress,
+                )
+                RemoteCatalogFetch(
+                    libraries = libraries,
+                    entries = entries,
+                )
+            }
+            activeAccessToken = fetchResult.accessToken
+            activeRefreshToken = fetchResult.refreshToken
+            activeApiKey = fetchResult.refreshedSession?.apiKey ?: activeApiKey
+            latestSession = fetchResult.refreshedSession ?: latestSession
+            val syncOutcome = finalizeRemoteCatalogSync(
+                sourceType = SourceType.KAVITA,
+                fetch = fetchResult.value,
+                remoteCatalogWriter = remoteCatalogWriter,
+                readerSessionStore = readerSessionStore,
+                nowEpochMillis = nowEpochMillis(),
+                onProgress = { message, fraction ->
+                    onProgress(KavitaSyncProgress(message = message, fraction = fraction))
+                },
+                savingMessage = "Saving Kavita catalog...",
+                applyingProgressMessage = "Applying Kavita progress...",
+                itemOf = KavitaChapterCatalogEntry::item,
+                progressOf = KavitaChapterCatalogEntry::progress,
+                missingRemoteClearsLocal = KavitaChapterCatalogEntry::isExplicitUnreadReset,
+                remoteClearOverridesLocal = { false },
+            ) { items ->
+                val progressSync = pushDirtyProgress(
+                    api = api,
+                    initialAccessToken = activeAccessToken,
+                    initialRefreshToken = activeRefreshToken,
+                    initialApiKey = activeApiKey,
+                    items = items,
+                )
+                activeAccessToken = progressSync.accessToken
+                activeRefreshToken = progressSync.refreshToken
+                activeApiKey = progressSync.refreshedSession?.apiKey ?: activeApiKey
+                progressSync.refreshedSession
+            }
+            latestSession = syncOutcome.session ?: latestSession
+            KavitaCatalogSyncResult(
+                libraryCount = syncOutcome.libraryCount,
+                itemCount = syncOutcome.itemCount,
+                supportedFormatCounts = syncOutcome.supportedFormatCounts,
+                libraries = fetchResult.value.libraries,
+                session = latestSession,
             )
-            activeAccessToken = progressSync.accessToken
-            activeRefreshToken = progressSync.refreshToken
-            activeApiKey = progressSync.refreshedSession?.apiKey ?: activeApiKey
-            progressSync.refreshedSession
         }
-        latestSession = syncOutcome.session ?: latestSession
-        return KavitaCatalogSyncResult(
-            libraryCount = syncOutcome.libraryCount,
-            itemCount = syncOutcome.itemCount,
-            supportedFormatCounts = syncOutcome.supportedFormatCounts,
-            libraries = fetchResult.value.libraries,
-            session = latestSession,
-        )
+        return result.value.copy(activeBaseUrl = result.activeBaseUrl)
     }
 
     private suspend fun pushDirtyProgress(
@@ -186,6 +200,8 @@ class KavitaCatalogSyncService(
 data class KavitaCatalogSyncRequest(
     val displayName: String,
     val baseUrl: String,
+    val backupBaseUrl: String? = null,
+    val activeBaseUrl: String? = null,
     val username: String,
     val password: String? = null,
     val accessToken: String? = null,
@@ -197,6 +213,7 @@ data class KavitaCatalogConnectionResult(
     val libraryCount: Int,
     val libraries: List<Library> = emptyList(),
     val session: KavitaSession? = null,
+    val activeBaseUrl: String? = null,
 )
 
 data class KavitaSyncProgress(
@@ -210,4 +227,5 @@ data class KavitaCatalogSyncResult(
     val supportedFormatCounts: Map<FormatType, Int>,
     val libraries: List<Library> = emptyList(),
     val session: KavitaSession? = null,
+    val activeBaseUrl: String? = null,
 )

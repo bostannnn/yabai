@@ -39,6 +39,15 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
         }
     }
 
+    fun onBackupBaseUrlChanged(
+        backupBaseUrl: String,
+        updateState: AppUiStateUpdater,
+    ) {
+        updateConnectionInput(updateState) { connection ->
+            connection.copy(backupBaseUrl = backupBaseUrl)
+        }
+    }
+
     fun onUsernameChanged(
         username: String,
         updateState: AppUiStateUpdater,

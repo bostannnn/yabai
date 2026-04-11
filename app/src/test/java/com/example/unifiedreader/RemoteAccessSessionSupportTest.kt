@@ -130,6 +130,8 @@ class RemoteAccessSessionSupportTest {
 private data class TestAccessTokenSession(
     override val displayName: String,
     override val baseUrl: String,
+    override val backupBaseUrl: String? = null,
+    override val activeBaseUrl: String? = null,
     override val username: String,
     override val accessToken: String,
     override val refreshToken: String?,

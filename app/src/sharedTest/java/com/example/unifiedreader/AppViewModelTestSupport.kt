@@ -99,9 +99,11 @@ internal fun createViewModel(
     )
     val stumpCoverCacheController = StumpCoverCacheController(
         stumpCoverRepository = stumpCoverRepository,
+        stumpCredentialStore = stumpCredentialStore,
     )
     val grimmoryCoverCacheController = GrimmoryCoverCacheController(
         grimmoryCoverRepository = grimmoryCoverRepository,
+        grimmoryCredentialStore = grimmoryCredentialStore,
     )
     val downloadQueueStore = TestDownloadQueueStore()
     val downloadScheduler = ImmediateDownloadWorkScheduler()
@@ -135,6 +137,7 @@ internal fun createViewModel(
         ),
         stumpCoverCacheController = stumpCoverCacheController,
         grimmoryCoverCacheController = grimmoryCoverCacheController,
+        kavitaCredentialStore = kavitaCredentialStore,
     )
     val catalogStateCoordinator = AppCatalogStateCoordinator(
         libraryRepository = libraryRepository,

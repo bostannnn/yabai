@@ -30,62 +30,69 @@ class GrimmoryCatalogSyncService(
     override suspend fun sync(
         request: GrimmoryCatalogSyncRequest,
     ): GrimmoryCatalogSyncResult {
-        val api = grimmoryApiFactory.create(
+        val result = runWithServerAddressFailover(
             baseUrl = request.baseUrl,
-        )
-        val session = request.password?.takeIf(String::isNotBlank)?.let { password ->
-            api.login(
-                username = request.username,
-                password = password,
+            backupBaseUrl = request.backupBaseUrl,
+            activeBaseUrl = request.activeBaseUrl,
+        ) { selectedBaseUrl ->
+            val api = grimmoryApiFactory.create(
+                baseUrl = selectedBaseUrl,
+            )
+            val session = request.password?.takeIf(String::isNotBlank)?.let { password ->
+                api.login(
+                    username = request.username,
+                    password = password,
+                )
+            }
+            val accessToken = session?.accessToken ?: request.accessToken
+                ?: error("A Grimmory sync requires a password or saved access token.")
+            var activeAccessToken = accessToken
+            var activeRefreshToken = session?.refreshToken ?: request.refreshToken
+            var latestSession: GrimmorySession? = session
+            val entries = api.runWithTokenRefresh(
+                initialRefreshToken = activeRefreshToken,
+                initialAccessToken = activeAccessToken,
+            ) { token ->
+                val libraries = api.getLibraries(accessToken = token)
+                val bookEntries = api.getAllBookEntries(accessToken = token)
+                GrimmorySyncFetch(
+                    libraries = libraries,
+                    entries = bookEntries,
+                )
+            }
+            activeAccessToken = entries.accessToken
+            activeRefreshToken = entries.refreshToken
+            latestSession = entries.refreshedSession ?: latestSession
+            val libraries = entries.value.libraries
+            val catalogEntries = entries.value.entries
+            val items = catalogEntries.map(GrimmoryBookCatalogEntry::item)
+            val updatedAtEpochMillis = nowEpochMillis()
+            clearStaleGrimmoryProgress(
+                incomingItemIds = items.mapTo(mutableSetOf(), ReadableItem::id),
+            )
+            remoteCatalogWriter.replaceSourceCatalog(
+                sourceType = SourceType.GRIMMORY,
+                libraries = libraries.map { library -> library.toEntity() },
+                items = items.map { item ->
+                    item.toEntity(updatedAtEpochMillis = updatedAtEpochMillis)
+                },
+            )
+            pullProgress(catalogEntries)
+            val progressSync = pushDirtyProgress(
+                api = api,
+                initialAccessToken = activeAccessToken,
+                initialRefreshToken = activeRefreshToken,
+                items = items,
+            )
+            latestSession = progressSync.refreshedSession ?: latestSession
+            GrimmoryCatalogSyncResult(
+                libraryCount = libraries.size,
+                itemCount = items.size,
+                supportedFormatCounts = items.groupingBy(ReadableItem::format).eachCount(),
+                session = latestSession,
             )
         }
-        val accessToken = session?.accessToken ?: request.accessToken
-            ?: error("A Grimmory sync requires a password or saved access token.")
-        var activeAccessToken = accessToken
-        var activeRefreshToken = session?.refreshToken ?: request.refreshToken
-        var latestSession: GrimmorySession? = session
-        val entries = api.runWithTokenRefresh(
-            initialRefreshToken = activeRefreshToken,
-            initialAccessToken = activeAccessToken,
-        ) { token ->
-            val libraries = api.getLibraries(accessToken = token)
-            val bookEntries = api.getAllBookEntries(accessToken = token)
-            GrimmorySyncFetch(
-                libraries = libraries,
-                entries = bookEntries,
-            )
-        }
-        activeAccessToken = entries.accessToken
-        activeRefreshToken = entries.refreshToken
-        latestSession = entries.refreshedSession ?: latestSession
-        val libraries = entries.value.libraries
-        val catalogEntries = entries.value.entries
-        val items = catalogEntries.map(GrimmoryBookCatalogEntry::item)
-        val updatedAtEpochMillis = nowEpochMillis()
-        clearStaleGrimmoryProgress(
-            incomingItemIds = items.mapTo(mutableSetOf(), ReadableItem::id),
-        )
-        remoteCatalogWriter.replaceSourceCatalog(
-            sourceType = SourceType.GRIMMORY,
-            libraries = libraries.map { library -> library.toEntity() },
-            items = items.map { item ->
-                item.toEntity(updatedAtEpochMillis = updatedAtEpochMillis)
-            },
-        )
-        pullProgress(catalogEntries)
-        val progressSync = pushDirtyProgress(
-            api = api,
-            initialAccessToken = activeAccessToken,
-            initialRefreshToken = activeRefreshToken,
-            items = items,
-        )
-        latestSession = progressSync.refreshedSession ?: latestSession
-        return GrimmoryCatalogSyncResult(
-            libraryCount = libraries.size,
-            itemCount = items.size,
-            supportedFormatCounts = items.groupingBy(ReadableItem::format).eachCount(),
-            session = latestSession,
-        )
+        return result.value.copy(activeBaseUrl = result.activeBaseUrl)
     }
 
     private fun pullProgress(
@@ -149,6 +156,8 @@ private data class GrimmorySyncFetch(
 data class GrimmoryCatalogSyncRequest(
     val displayName: String,
     val baseUrl: String,
+    val backupBaseUrl: String? = null,
+    val activeBaseUrl: String? = null,
     val username: String,
     val password: String? = null,
     val accessToken: String? = null,
@@ -160,4 +169,5 @@ data class GrimmoryCatalogSyncResult(
     val itemCount: Int,
     val supportedFormatCounts: Map<FormatType, Int>,
     val session: GrimmorySession? = null,
+    val activeBaseUrl: String? = null,
 )

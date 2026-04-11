@@ -21,17 +21,25 @@ class StumpProgressSyncService @Inject constructor(
         if (!supports(item)) return
         val session = stumpCredentialStore.activeSessionFor(item) ?: return
         val mediaId = item.remoteId ?: return
-        val api = stumpApiFactory.create(session.baseUrl)
-        val progress = sessionRequestRunner.run(
-            api = api,
+        val progress = runWithStoredSessionAddressFailover(
+            sessionStore = stumpCredentialStore,
             session = session,
-        ) { accessToken ->
-            api.getProgress(
-                accessToken = accessToken,
-                mediaId = mediaId,
-                itemId = item.id,
-                pageCount = item.pageCount,
-            )
+            createApi = stumpApiFactory::create,
+            withActiveBaseUrl = { currentSession, activeBaseUrl ->
+                currentSession.copy(activeBaseUrl = activeBaseUrl)
+            },
+        ) { api, activeSession ->
+            sessionRequestRunner.run(
+                api = api,
+                session = activeSession,
+            ) { accessToken ->
+                api.getProgress(
+                    accessToken = accessToken,
+                    mediaId = mediaId,
+                    itemId = item.id,
+                    pageCount = item.pageCount,
+                )
+            }
         }
         applyRemoteProgressSyncDecision(
             store = readerSessionStore,
@@ -53,21 +61,29 @@ class StumpProgressSyncService @Inject constructor(
         val session = stumpCredentialStore.sessionFlow.value ?: return
         val stumpItems = items.forSource(SourceType.STUMP)
         if (stumpItems.isEmpty()) return
-        val api = stumpApiFactory.create(session.baseUrl)
-        val result = pushDirtyStumpProgress(
-            api = api,
-            initialAccessToken = session.accessToken,
-            initialRefreshToken = session.refreshToken,
-            items = stumpItems,
-            readerSessionStore = readerSessionStore,
-        )
-        result.refreshedSession?.let { refreshedSession ->
-            stumpCredentialStore.save(
-                session.copy(
-                    accessToken = refreshedSession.accessToken,
-                    refreshToken = refreshedSession.refreshToken,
-                ),
+        runWithStoredSessionAddressFailover(
+            sessionStore = stumpCredentialStore,
+            session = session,
+            createApi = stumpApiFactory::create,
+            withActiveBaseUrl = { currentSession, activeBaseUrl ->
+                currentSession.copy(activeBaseUrl = activeBaseUrl)
+            },
+        ) { api, activeSession ->
+            val result = pushDirtyStumpProgress(
+                api = api,
+                initialAccessToken = activeSession.accessToken,
+                initialRefreshToken = activeSession.refreshToken,
+                items = stumpItems,
+                readerSessionStore = readerSessionStore,
             )
+            result.refreshedSession?.let { refreshedSession ->
+                stumpCredentialStore.save(
+                    activeSession.copy(
+                        accessToken = refreshedSession.accessToken,
+                        refreshToken = refreshedSession.refreshToken,
+                    ),
+                )
+            }
         }
     }
 }

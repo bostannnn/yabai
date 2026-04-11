@@ -21,17 +21,23 @@ class GrimmoryProgressSyncService @Inject constructor(
         if (!supports(item)) return
         val session = grimmoryCredentialStore.activeSessionFor(item) ?: return
         val remoteItemId = item.remoteId ?: return
-        val api = grimmoryApiFactory.create(
-            baseUrl = session.baseUrl,
-        )
-        val entry = sessionRequestRunner.run(
-            api = api,
+        val entry = runWithStoredSessionAddressFailover(
+            sessionStore = grimmoryCredentialStore,
             session = session,
-        ) { accessToken ->
-            api.getBookEntry(
-                accessToken = accessToken,
-                bookId = remoteItemId,
-            )
+            createApi = grimmoryApiFactory::create,
+            withActiveBaseUrl = { currentSession, activeBaseUrl ->
+                currentSession.copy(activeBaseUrl = activeBaseUrl)
+            },
+        ) { api, activeSession ->
+            sessionRequestRunner.run(
+                api = api,
+                session = activeSession,
+            ) { accessToken ->
+                api.getBookEntry(
+                    accessToken = accessToken,
+                    bookId = remoteItemId,
+                )
+            }
         } ?: return
         applyRemoteProgressSyncDecision(
             store = readerSessionStore,
@@ -52,23 +58,29 @@ class GrimmoryProgressSyncService @Inject constructor(
         val session = grimmoryCredentialStore.sessionFlow.value ?: return
         val grimmoryItems = items.forActiveGrimmoryServer(session)
         if (grimmoryItems.isEmpty()) return
-        val api = grimmoryApiFactory.create(
-            baseUrl = session.baseUrl,
-        )
-        val result = pushDirtyGrimmoryProgress(
-            api = api,
-            initialAccessToken = session.accessToken,
-            initialRefreshToken = session.refreshToken,
-            items = grimmoryItems,
-            readerSessionStore = readerSessionStore,
-        )
-        result.refreshedSession?.let { refreshedSession ->
-            grimmoryCredentialStore.save(
-                session.copy(
-                    accessToken = refreshedSession.accessToken,
-                    refreshToken = refreshedSession.refreshToken,
-                ),
+        runWithStoredSessionAddressFailover(
+            sessionStore = grimmoryCredentialStore,
+            session = session,
+            createApi = grimmoryApiFactory::create,
+            withActiveBaseUrl = { currentSession, activeBaseUrl ->
+                currentSession.copy(activeBaseUrl = activeBaseUrl)
+            },
+        ) { api, activeSession ->
+            val result = pushDirtyGrimmoryProgress(
+                api = api,
+                initialAccessToken = activeSession.accessToken,
+                initialRefreshToken = activeSession.refreshToken,
+                items = grimmoryItems,
+                readerSessionStore = readerSessionStore,
             )
+            result.refreshedSession?.let { refreshedSession ->
+                grimmoryCredentialStore.save(
+                    activeSession.copy(
+                        accessToken = refreshedSession.accessToken,
+                        refreshToken = refreshedSession.refreshToken,
+                    ),
+                )
+            }
         }
     }
 }

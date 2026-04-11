@@ -22,15 +22,23 @@ class KavitaProgressSyncService @Inject constructor(
         if (!supports(item)) return
         val session = kavitaCredentialStore.activeSessionFor(item) ?: return
         val chapterId = item.remoteId ?: return
-        val api = kavitaApiFactory.create(session.baseUrl)
-        val progressDto = sessionRequestRunner.run(
-            api = api,
+        val progressDto = runWithStoredSessionAddressFailover(
+            sessionStore = kavitaCredentialStore,
             session = session,
-        ) { accessToken, _ ->
-            api.getProgress(
-                accessToken = accessToken,
-                chapterId = chapterId,
-            )
+            createApi = kavitaApiFactory::create,
+            withActiveBaseUrl = { currentSession, activeBaseUrl ->
+                currentSession.copy(activeBaseUrl = activeBaseUrl)
+            },
+        ) { api, activeSession ->
+            sessionRequestRunner.run(
+                api = api,
+                session = activeSession,
+            ) { accessToken, _ ->
+                api.getProgress(
+                    accessToken = accessToken,
+                    chapterId = chapterId,
+                )
+            }
         }
         applyRemoteProgressSyncDecision(
             store = readerSessionStore,
@@ -55,23 +63,31 @@ class KavitaProgressSyncService @Inject constructor(
         val session = kavitaCredentialStore.sessionFlow.value ?: return
         val kavitaItems = items.forSource(SourceType.KAVITA)
         if (kavitaItems.isEmpty()) return
-        val api = kavitaApiFactory.create(session.baseUrl)
-        val result = pushDirtyKavitaProgress(
-            api = api,
-            initialAccessToken = session.accessToken,
-            initialRefreshToken = session.refreshToken,
-            initialApiKey = session.apiKey,
-            items = kavitaItems,
-            readerSessionStore = readerSessionStore,
-        )
-        result.refreshedSession?.let { refreshedSession ->
-            kavitaCredentialStore.save(
-                session.copy(
-                    accessToken = refreshedSession.accessToken,
-                    refreshToken = refreshedSession.refreshToken,
-                    apiKey = refreshedSession.apiKey ?: session.apiKey,
-                ),
+        runWithStoredSessionAddressFailover(
+            sessionStore = kavitaCredentialStore,
+            session = session,
+            createApi = kavitaApiFactory::create,
+            withActiveBaseUrl = { currentSession, activeBaseUrl ->
+                currentSession.copy(activeBaseUrl = activeBaseUrl)
+            },
+        ) { api, activeSession ->
+            val result = pushDirtyKavitaProgress(
+                api = api,
+                initialAccessToken = activeSession.accessToken,
+                initialRefreshToken = activeSession.refreshToken,
+                initialApiKey = activeSession.apiKey,
+                items = kavitaItems,
+                readerSessionStore = readerSessionStore,
             )
+            result.refreshedSession?.let { refreshedSession ->
+                kavitaCredentialStore.save(
+                    activeSession.copy(
+                        accessToken = refreshedSession.accessToken,
+                        refreshToken = refreshedSession.refreshToken,
+                        apiKey = refreshedSession.apiKey ?: activeSession.apiKey,
+                    ),
+                )
+            }
         }
     }
 }

@@ -11,7 +11,7 @@ import javax.inject.Inject
 class KavitaContentRepository @Inject constructor(
     @ApplicationContext context: Context,
     private val kavitaApiFactory: KavitaApiFactory,
-    kavitaCredentialStore: KavitaCredentialStore,
+    private val kavitaCredentialStore: KavitaCredentialStore,
     private val cacheInvalidationDispatcher: DownloadedRemoteComicCacheInvalidationDispatcher,
 ) : RemoteDocumentDownloadRepository<KavitaStoredSession>(
     context = context,
@@ -32,17 +32,25 @@ class KavitaContentRepository @Inject constructor(
         destination = destination,
         targetDescription = "downloaded Kavita file for ${item.title}",
     ) { temporaryFile ->
-        val api = kavitaApiFactory.create(session.baseUrl)
-        sessionRequestRunner.run(
-            api = api,
+        runWithStoredSessionAddressFailover(
+            sessionStore = kavitaCredentialStore,
             session = session,
-        ) { accessToken, apiKey ->
-            api.downloadChapter(
-                accessToken = accessToken,
-                chapterId = remoteItemId,
-                apiKey = apiKey,
-                destination = temporaryFile,
-            )
+            createApi = kavitaApiFactory::create,
+            withActiveBaseUrl = { currentSession, activeBaseUrl ->
+                currentSession.copy(activeBaseUrl = activeBaseUrl)
+            },
+        ) { api, activeSession ->
+            sessionRequestRunner.run(
+                api = api,
+                session = activeSession,
+            ) { accessToken, apiKey ->
+                api.downloadChapter(
+                    accessToken = accessToken,
+                    chapterId = remoteItemId,
+                    apiKey = apiKey,
+                    destination = temporaryFile,
+                )
+            }
         }
     }
 

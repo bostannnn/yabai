@@ -41,40 +41,57 @@ class StumpCoverRepository(
             }
             val session = stumpCredentialStore.activeSessionFor(item)
                 ?: error("Connect to the active Stump server before loading remote covers.")
-            val api = stumpApiFactory.create(session.baseUrl)
-            sessionRequestRunner.run(
-                api = api,
+            runWithStoredSessionAddressFailover(
+                sessionStore = stumpCredentialStore,
                 session = session,
-            ) { accessToken ->
-                writeCachedFile(
-                    destination = cachedFile,
-                    targetDescription = "cached Stump cover for ${item.title}",
-                ) { temporaryFile ->
-                    val coverBytes = when {
-                        item.isStumpSeriesContainer() -> {
-                            val seriesId = item.remoteFileId
-                                ?: error("Unable to resolve Stump series id.")
-                            api.downloadSeriesThumbnail(
-                                accessToken = accessToken,
-                                seriesId = seriesId,
-                            )
+                createApi = stumpApiFactory::create,
+                withActiveBaseUrl = { currentSession, activeBaseUrl ->
+                    currentSession.copy(activeBaseUrl = activeBaseUrl)
+                },
+            ) { api, activeSession ->
+                sessionRequestRunner.run(
+                    api = api,
+                    session = activeSession,
+                ) { accessToken ->
+                    writeCachedFile(
+                        destination = cachedFile,
+                        targetDescription = "cached Stump cover for ${item.title}",
+                    ) { temporaryFile ->
+                        val coverBytes = when {
+                            item.isStumpSeriesContainer() -> {
+                                val seriesId = item.remoteFileId
+                                    ?: error("Unable to resolve Stump series id.")
+                                api.downloadSeriesThumbnail(
+                                    accessToken = accessToken,
+                                    seriesId = seriesId,
+                                )
+                            }
+                            !item.coverUrl.isNullOrBlank() -> {
+                                runCatching {
+                                    api.downloadUrl(
+                                        accessToken = accessToken,
+                                        url = requireNotNull(item.coverUrl),
+                                    )
+                                }.getOrElse {
+                                    val mediaId = item.remoteId
+                                        ?: error("Unable to resolve Stump media id.")
+                                    api.downloadThumbnail(
+                                        accessToken = accessToken,
+                                        mediaId = mediaId,
+                                    )
+                                }
+                            }
+                            else -> {
+                                val mediaId = item.remoteId
+                                    ?: error("Unable to resolve Stump media id.")
+                                api.downloadThumbnail(
+                                    accessToken = accessToken,
+                                    mediaId = mediaId,
+                                )
+                            }
                         }
-                        !item.coverUrl.isNullOrBlank() -> {
-                            api.downloadUrl(
-                                accessToken = accessToken,
-                                url = requireNotNull(item.coverUrl),
-                            )
-                        }
-                        else -> {
-                            val mediaId = item.remoteId
-                                ?: error("Unable to resolve Stump media id.")
-                            api.downloadThumbnail(
-                                accessToken = accessToken,
-                                mediaId = mediaId,
-                            )
-                        }
+                        temporaryFile.writeBytes(coverBytes)
                     }
-                    temporaryFile.writeBytes(coverBytes)
                 }
             }
         }

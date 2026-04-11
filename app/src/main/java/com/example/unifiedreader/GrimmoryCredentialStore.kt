@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.StateFlow
 data class GrimmoryStoredSession(
     override val displayName: String,
     override val baseUrl: String,
+    override val backupBaseUrl: String? = null,
+    override val activeBaseUrl: String? = null,
     override val username: String,
     override val accessToken: String,
     override val refreshToken: String,
@@ -59,6 +61,8 @@ class SharedPreferencesGrimmoryCredentialStore @VisibleForTesting internal const
             GrimmoryStoredSession(
                 displayName = decrypt(GrimmoryCredentialKeys.DisplayName) ?: return@readSession null,
                 baseUrl = decrypt(GrimmoryCredentialKeys.BaseUrl) ?: return@readSession null,
+                backupBaseUrl = decrypt(GrimmoryCredentialKeys.BackupBaseUrl),
+                activeBaseUrl = decrypt(GrimmoryCredentialKeys.ActiveBaseUrl),
                 username = decrypt(GrimmoryCredentialKeys.Username) ?: return@readSession null,
                 accessToken = decrypt(GrimmoryCredentialKeys.AccessToken) ?: return@readSession null,
                 refreshToken = decrypt(GrimmoryCredentialKeys.RefreshToken) ?: return@readSession null,
@@ -68,6 +72,8 @@ class SharedPreferencesGrimmoryCredentialStore @VisibleForTesting internal const
             mapOf(
                 GrimmoryCredentialKeys.DisplayName to session.displayName,
                 GrimmoryCredentialKeys.BaseUrl to session.baseUrl,
+                GrimmoryCredentialKeys.BackupBaseUrl to session.backupBaseUrl,
+                GrimmoryCredentialKeys.ActiveBaseUrl to session.activeBaseUrl,
                 GrimmoryCredentialKeys.Username to session.username,
                 GrimmoryCredentialKeys.AccessToken to session.accessToken,
                 GrimmoryCredentialKeys.RefreshToken to session.refreshToken,
@@ -152,6 +158,8 @@ internal class AndroidKeystoreGrimmoryCredentialCipher : GrimmoryCredentialCiphe
 private object GrimmoryCredentialKeys {
     const val DisplayName = "display_name"
     const val BaseUrl = "base_url"
+    const val BackupBaseUrl = "backup_base_url"
+    const val ActiveBaseUrl = "active_base_url"
     const val Username = "username"
     const val AccessToken = "access_token"
     const val RefreshToken = "refresh_token"

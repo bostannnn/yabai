@@ -11,7 +11,7 @@ interface GrimmoryContentDataSource : com.example.unifiedreader.feature.download
 class GrimmoryContentRepository(
     context: Context,
     private val grimmoryApiFactory: GrimmoryApiFactory,
-    grimmoryCredentialStore: GrimmoryCredentialStore,
+    private val grimmoryCredentialStore: GrimmoryCredentialStore,
     private val cacheInvalidationDispatcher: DownloadedRemoteComicCacheInvalidationDispatcher,
 ) : RemoteDocumentDownloadRepository<GrimmoryStoredSession>(
     context = context,
@@ -32,19 +32,25 @@ class GrimmoryContentRepository(
         destination = destination,
         targetDescription = "downloaded Grimmory file for ${item.title}",
     ) { temporaryFile ->
-        val api = grimmoryApiFactory.create(
-            baseUrl = session.baseUrl,
-        )
-        sessionRequestRunner.run(
-            api = api,
+        runWithStoredSessionAddressFailover(
+            sessionStore = grimmoryCredentialStore,
             session = session,
-        ) { accessToken ->
-            api.downloadBookContent(
-                accessToken = accessToken,
-                bookId = remoteItemId,
-                bookType = item.remoteFileType ?: item.format.name,
-                destination = temporaryFile,
-            )
+            createApi = grimmoryApiFactory::create,
+            withActiveBaseUrl = { currentSession, activeBaseUrl ->
+                currentSession.copy(activeBaseUrl = activeBaseUrl)
+            },
+        ) { api, activeSession ->
+            sessionRequestRunner.run(
+                api = api,
+                session = activeSession,
+            ) { accessToken ->
+                api.downloadBookContent(
+                    accessToken = accessToken,
+                    bookId = remoteItemId,
+                    bookType = item.remoteFileType ?: item.format.name,
+                    destination = temporaryFile,
+                )
+            }
         }
     }
 

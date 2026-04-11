@@ -51,16 +51,19 @@ fun SettingsScreen(
     onLibraryDirectionSelected: (String, ComicReadingDirection) -> Unit,
     onKavitaDisplayNameChanged: (String) -> Unit,
     onKavitaBaseUrlChanged: (String) -> Unit,
+    onKavitaBackupBaseUrlChanged: (String) -> Unit,
     onKavitaUsernameChanged: (String) -> Unit,
     onKavitaPasswordChanged: (String) -> Unit,
     onConnectKavita: () -> Unit,
     onStumpDisplayNameChanged: (String) -> Unit,
     onStumpBaseUrlChanged: (String) -> Unit,
+    onStumpBackupBaseUrlChanged: (String) -> Unit,
     onStumpUsernameChanged: (String) -> Unit,
     onStumpPasswordChanged: (String) -> Unit,
     onConnectStump: () -> Unit,
     onGrimmoryDisplayNameChanged: (String) -> Unit,
     onGrimmoryBaseUrlChanged: (String) -> Unit,
+    onGrimmoryBackupBaseUrlChanged: (String) -> Unit,
     onGrimmoryUsernameChanged: (String) -> Unit,
     onGrimmoryPasswordChanged: (String) -> Unit,
     onConnectGrimmory: () -> Unit,
@@ -133,6 +136,7 @@ fun SettingsScreen(
                     syncLabel = "Sync Kavita",
                     onDisplayNameChanged = onKavitaDisplayNameChanged,
                     onBaseUrlChanged = onKavitaBaseUrlChanged,
+                    onBackupBaseUrlChanged = onKavitaBackupBaseUrlChanged,
                     onUsernameChanged = onKavitaUsernameChanged,
                     onPasswordChanged = onKavitaPasswordChanged,
                     onConnect = onConnectKavita,
@@ -155,6 +159,7 @@ fun SettingsScreen(
                     syncLabel = "Sync Grimmory",
                     onDisplayNameChanged = onGrimmoryDisplayNameChanged,
                     onBaseUrlChanged = onGrimmoryBaseUrlChanged,
+                    onBackupBaseUrlChanged = onGrimmoryBackupBaseUrlChanged,
                     onUsernameChanged = onGrimmoryUsernameChanged,
                     onPasswordChanged = onGrimmoryPasswordChanged,
                     onConnect = onConnectGrimmory,
@@ -173,6 +178,7 @@ fun SettingsScreen(
                     syncLabel = "Sync Stump",
                     onDisplayNameChanged = onStumpDisplayNameChanged,
                     onBaseUrlChanged = onStumpBaseUrlChanged,
+                    onBackupBaseUrlChanged = onStumpBackupBaseUrlChanged,
                     onUsernameChanged = onStumpUsernameChanged,
                     onPasswordChanged = onStumpPasswordChanged,
                     onConnect = onConnectStump,
@@ -205,6 +211,7 @@ fun SettingsScreen(
 private data class ServerConnectionFormState(
     val displayName: String,
     val baseUrl: String,
+    val backupBaseUrl: String,
     val username: String,
     val password: String,
     val hasStoredSession: Boolean,
@@ -214,6 +221,7 @@ private data class ServerConnectionFormState(
     val message: String?,
     val isError: Boolean,
     val canSubmit: Boolean,
+    val usesSyncLabelForStoredSessionAction: Boolean,
 )
 
 @Composable
@@ -223,6 +231,7 @@ private fun ServerConnectionForm(
     syncLabel: String,
     onDisplayNameChanged: (String) -> Unit,
     onBaseUrlChanged: (String) -> Unit,
+    onBackupBaseUrlChanged: (String) -> Unit,
     onUsernameChanged: (String) -> Unit,
     onPasswordChanged: (String) -> Unit,
     onConnect: () -> Unit,
@@ -247,6 +256,15 @@ private fun ServerConnectionForm(
             enabled = !state.isConnecting,
             singleLine = true,
             label = { Text("Server URL") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+        )
+        OutlinedTextField(
+            value = state.backupBaseUrl,
+            onValueChange = onBackupBaseUrlChanged,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !state.isConnecting,
+            singleLine = true,
+            label = { Text("Backup URL (optional)") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
         )
         OutlinedTextField(
@@ -285,7 +303,11 @@ private fun ServerConnectionForm(
         ) {
             if (state.isConnecting) {
                 CircularProgressIndicator()
-            } else if (state.hasStoredSession && state.password.isBlank()) {
+            } else if (
+                state.usesSyncLabelForStoredSessionAction &&
+                state.hasStoredSession &&
+                state.password.isBlank()
+            ) {
                 Text(syncLabel)
             } else {
                 Text(connectLabel)
@@ -347,6 +369,7 @@ private fun SettingsCard(
 data class GrimmoryConnectionUiState(
     val displayName: String = "Grimmory",
     val baseUrl: String = "",
+    val backupBaseUrl: String = "",
     val username: String = "",
     val password: String = "",
     val hasStoredSession: Boolean = false,
@@ -365,6 +388,7 @@ data class GrimmoryConnectionUiState(
 data class KavitaConnectionUiState(
     val displayName: String = "Kavita",
     val baseUrl: String = "",
+    val backupBaseUrl: String = "",
     val username: String = "",
     val password: String = "",
     val availableLibraries: List<Library> = emptyList(),
@@ -386,6 +410,7 @@ data class KavitaConnectionUiState(
 data class StumpConnectionUiState(
     val displayName: String = "Stump",
     val baseUrl: String = "",
+    val backupBaseUrl: String = "",
     val username: String = "",
     val password: String = "",
     val availableLibraries: List<Library> = emptyList(),
@@ -407,6 +432,7 @@ data class StumpConnectionUiState(
 private fun GrimmoryConnectionUiState.toFormState(): ServerConnectionFormState = ServerConnectionFormState(
     displayName = displayName,
     baseUrl = baseUrl,
+    backupBaseUrl = backupBaseUrl,
     username = username,
     password = password,
     hasStoredSession = hasStoredSession,
@@ -416,11 +442,13 @@ private fun GrimmoryConnectionUiState.toFormState(): ServerConnectionFormState =
     message = message,
     isError = isError,
     canSubmit = canSubmit,
+    usesSyncLabelForStoredSessionAction = true,
 )
 
 private fun KavitaConnectionUiState.toFormState(): ServerConnectionFormState = ServerConnectionFormState(
     displayName = displayName,
     baseUrl = baseUrl,
+    backupBaseUrl = backupBaseUrl,
     username = username,
     password = password,
     hasStoredSession = hasStoredSession,
@@ -430,11 +458,13 @@ private fun KavitaConnectionUiState.toFormState(): ServerConnectionFormState = S
     message = message,
     isError = isError,
     canSubmit = canSubmit,
+    usesSyncLabelForStoredSessionAction = false,
 )
 
 private fun StumpConnectionUiState.toFormState(): ServerConnectionFormState = ServerConnectionFormState(
     displayName = displayName,
     baseUrl = baseUrl,
+    backupBaseUrl = backupBaseUrl,
     username = username,
     password = password,
     hasStoredSession = hasStoredSession,
@@ -444,4 +474,5 @@ private fun StumpConnectionUiState.toFormState(): ServerConnectionFormState = Se
     message = message,
     isError = isError,
     canSubmit = canSubmit,
+    usesSyncLabelForStoredSessionAction = false,
 )

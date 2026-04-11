@@ -11,7 +11,7 @@ import javax.inject.Inject
 class StumpContentRepository @Inject constructor(
     @ApplicationContext context: Context,
     private val stumpApiFactory: StumpApiFactory,
-    stumpCredentialStore: StumpCredentialStore,
+    private val stumpCredentialStore: StumpCredentialStore,
     private val cacheInvalidationDispatcher: DownloadedRemoteComicCacheInvalidationDispatcher,
 ) : RemoteDocumentDownloadRepository<StumpStoredSession>(
     context = context,
@@ -32,16 +32,24 @@ class StumpContentRepository @Inject constructor(
         destination = destination,
         targetDescription = "downloaded Stump file for ${item.title}",
     ) { temporaryFile ->
-        val api = stumpApiFactory.create(session.baseUrl)
-        sessionRequestRunner.run(
-            api = api,
+        runWithStoredSessionAddressFailover(
+            sessionStore = stumpCredentialStore,
             session = session,
-        ) { accessToken ->
-            api.downloadMediaFile(
-                accessToken = accessToken,
-                mediaId = remoteItemId,
-                destination = temporaryFile,
-            )
+            createApi = stumpApiFactory::create,
+            withActiveBaseUrl = { currentSession, activeBaseUrl ->
+                currentSession.copy(activeBaseUrl = activeBaseUrl)
+            },
+        ) { api, activeSession ->
+            sessionRequestRunner.run(
+                api = api,
+                session = activeSession,
+            ) { accessToken ->
+                api.downloadMediaFile(
+                    accessToken = accessToken,
+                    mediaId = remoteItemId,
+                    destination = temporaryFile,
+                )
+            }
         }
     }
 

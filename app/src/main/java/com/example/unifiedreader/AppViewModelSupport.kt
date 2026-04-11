@@ -18,6 +18,7 @@ internal fun GrimmoryConnectionUiState.withStoredSession(
     copy(
         displayName = session.displayName,
         baseUrl = session.baseUrl,
+        backupBaseUrl = session.backupBaseUrl.orEmpty(),
         username = session.username,
         password = "",
         hasStoredSession = true,
@@ -38,6 +39,7 @@ internal fun KavitaConnectionUiState.withStoredSession(
     copy(
         displayName = session.displayName,
         baseUrl = session.baseUrl,
+        backupBaseUrl = session.backupBaseUrl.orEmpty(),
         username = session.username,
         password = "",
         availableLibraries = emptyList(),
@@ -61,6 +63,7 @@ internal fun StumpConnectionUiState.withStoredSession(
     copy(
         displayName = session.displayName,
         baseUrl = session.baseUrl,
+        backupBaseUrl = session.backupBaseUrl.orEmpty(),
         username = session.username,
         password = "",
         availableLibraries = emptyList(),
@@ -74,10 +77,14 @@ internal fun StumpConnectionUiState.withStoredSession(
 internal fun GrimmorySession.toStoredSession(
     displayName: String,
     baseUrl: String,
+    backupBaseUrl: String?,
+    activeBaseUrl: String?,
     username: String,
 ): GrimmoryStoredSession = GrimmoryStoredSession(
     displayName = displayName,
     baseUrl = baseUrl,
+    backupBaseUrl = backupBaseUrl,
+    activeBaseUrl = activeBaseUrl,
     username = username,
     accessToken = accessToken,
     refreshToken = refreshToken,
@@ -86,10 +93,14 @@ internal fun GrimmorySession.toStoredSession(
 internal fun KavitaSession.toStoredSession(
     displayName: String,
     baseUrl: String,
+    backupBaseUrl: String?,
+    activeBaseUrl: String?,
     username: String,
 ): KavitaStoredSession = KavitaStoredSession(
     displayName = displayName,
     baseUrl = baseUrl,
+    backupBaseUrl = backupBaseUrl,
+    activeBaseUrl = activeBaseUrl,
     username = username,
     accessToken = accessToken,
     refreshToken = refreshToken,
@@ -99,10 +110,14 @@ internal fun KavitaSession.toStoredSession(
 internal fun StumpSession.toStoredSession(
     displayName: String,
     baseUrl: String,
+    backupBaseUrl: String?,
+    activeBaseUrl: String?,
     username: String,
 ): StumpStoredSession = StumpStoredSession(
     displayName = displayName,
     baseUrl = baseUrl,
+    backupBaseUrl = backupBaseUrl,
+    activeBaseUrl = activeBaseUrl,
     username = username,
     accessToken = accessToken,
     refreshToken = refreshToken,

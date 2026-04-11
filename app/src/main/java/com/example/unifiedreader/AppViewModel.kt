@@ -318,6 +318,13 @@ class AppViewModel @Inject constructor(
         )
     }
 
+    fun onKavitaBackupBaseUrlChanged(backupBaseUrl: String) {
+        remoteSourcesCoordinator.onKavitaBackupBaseUrlChanged(
+            backupBaseUrl = backupBaseUrl,
+            updateState = ::updateUiState,
+        )
+    }
+
     fun onKavitaUsernameChanged(username: String) {
         remoteSourcesCoordinator.onKavitaUsernameChanged(
             username = username,
@@ -346,6 +353,13 @@ class AppViewModel @Inject constructor(
         )
     }
 
+    fun onStumpBackupBaseUrlChanged(backupBaseUrl: String) {
+        remoteSourcesCoordinator.onStumpBackupBaseUrlChanged(
+            backupBaseUrl = backupBaseUrl,
+            updateState = ::updateUiState,
+        )
+    }
+
     fun onStumpUsernameChanged(username: String) {
         remoteSourcesCoordinator.onStumpUsernameChanged(
             username = username,
@@ -370,6 +384,13 @@ class AppViewModel @Inject constructor(
     fun onGrimmoryBaseUrlChanged(baseUrl: String) {
         remoteSourcesCoordinator.onGrimmoryBaseUrlChanged(
             baseUrl = baseUrl,
+            updateState = ::updateUiState,
+        )
+    }
+
+    fun onGrimmoryBackupBaseUrlChanged(backupBaseUrl: String) {
+        remoteSourcesCoordinator.onGrimmoryBackupBaseUrlChanged(
+            backupBaseUrl = backupBaseUrl,
             updateState = ::updateUiState,
         )
     }

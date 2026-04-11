@@ -15,6 +15,7 @@ class AppStumpCoordinator @Inject constructor(
     ): StumpConnectionUiState = refreshedRemoteConnectionState(
         connection = connection,
         baseUrl = connection.baseUrl,
+        backupBaseUrl = connection.backupBaseUrl,
         username = connection.username,
         copyHasStoredSession = { currentConnection, hasStoredSession ->
             currentConnection.copy(hasStoredSession = hasStoredSession)
@@ -30,6 +31,7 @@ class AppStumpCoordinator @Inject constructor(
                 connection = connection,
                 displayName = connection.displayName,
                 baseUrl = connection.baseUrl,
+                backupBaseUrl = connection.backupBaseUrl,
                 username = connection.username,
                 password = connection.password,
                 invalidConnection = { message ->
@@ -52,15 +54,22 @@ class AppStumpCoordinator @Inject constructor(
                     request = StumpCatalogSyncRequest(
                         displayName = input.displayName,
                         baseUrl = input.baseUrl,
+                        backupBaseUrl = input.backupBaseUrl,
+                        activeBaseUrl = input.activeBaseUrl,
                         username = input.username,
                         password = input.password,
                         accessToken = input.savedSession?.accessToken,
                         refreshToken = input.savedSession?.refreshToken,
                     ),
-                    activeConnection = connection.copy(baseUrl = input.baseUrl),
+                    activeConnection = connection.copy(
+                        baseUrl = input.baseUrl,
+                        backupBaseUrl = input.backupBaseUrl.orEmpty(),
+                    ),
                     fallbackSession = input.savedSession?.copy(
                         displayName = input.displayName,
                         baseUrl = input.baseUrl,
+                        backupBaseUrl = input.backupBaseUrl,
+                        activeBaseUrl = input.activeBaseUrl,
                         username = input.username,
                     ),
                     successConnectionMessage = connectionSuccessMessage(
@@ -102,13 +111,18 @@ class AppStumpCoordinator @Inject constructor(
                     request = StumpCatalogSyncRequest(
                         displayName = savedSession.displayName,
                         baseUrl = savedSession.baseUrl,
+                        backupBaseUrl = savedSession.backupBaseUrl,
+                        activeBaseUrl = savedSession.activeBaseUrl,
                         username = savedSession.username,
                         accessToken = savedSession.accessToken,
                         refreshToken = savedSession.refreshToken,
                     ),
                     activeConnection = refreshInput.connection,
                     fallbackSession = savedSession,
-                    successConnectionMessage = "Stump library synced.",
+                    successConnectionMessage = connectionSuccessMessage(
+                        message = "Stump library synced.",
+                        cleartextWarningMessage = refreshInput.cleartextWarningMessage,
+                    ),
                     failurePrefix = "Unable to sync Stump",
                 )
             }
@@ -130,18 +144,24 @@ class AppStumpCoordinator @Inject constructor(
             fallbackSession = preparation.fallbackSession,
             displayName = preparation.request.displayName,
             baseUrl = preparation.request.baseUrl,
+            backupBaseUrl = preparation.request.backupBaseUrl,
+            activeBaseUrl = result.activeBaseUrl ?: preparation.request.activeBaseUrl,
             username = preparation.request.username,
-            toStoredSession = { activeSession, displayName, baseUrl, username ->
+            toStoredSession = { activeSession, displayName, baseUrl, backupBaseUrl, activeBaseUrl, username ->
                 activeSession.toStoredSession(
                     displayName = displayName,
                     baseUrl = baseUrl,
+                    backupBaseUrl = backupBaseUrl,
+                    activeBaseUrl = activeBaseUrl,
                     username = username,
                 )
             },
-            restoreFallbackSession = { savedSession, displayName, baseUrl, username ->
+            restoreFallbackSession = { savedSession, displayName, baseUrl, backupBaseUrl, activeBaseUrl, username ->
                 savedSession.copy(
                     displayName = displayName,
                     baseUrl = baseUrl,
+                    backupBaseUrl = backupBaseUrl,
+                    activeBaseUrl = activeBaseUrl,
                     username = username,
                 )
             },
@@ -186,18 +206,24 @@ class AppStumpCoordinator @Inject constructor(
             fallbackSession = preparation.fallbackSession,
             displayName = preparation.request.displayName,
             baseUrl = preparation.request.baseUrl,
+            backupBaseUrl = preparation.request.backupBaseUrl,
+            activeBaseUrl = result.activeBaseUrl ?: preparation.request.activeBaseUrl,
             username = preparation.request.username,
-            toStoredSession = { activeSession, displayName, baseUrl, username ->
+            toStoredSession = { activeSession, displayName, baseUrl, backupBaseUrl, activeBaseUrl, username ->
                 activeSession.toStoredSession(
                     displayName = displayName,
                     baseUrl = baseUrl,
+                    backupBaseUrl = backupBaseUrl,
+                    activeBaseUrl = activeBaseUrl,
                     username = username,
                 )
             },
-            restoreFallbackSession = { savedSession, displayName, baseUrl, username ->
+            restoreFallbackSession = { savedSession, displayName, baseUrl, backupBaseUrl, activeBaseUrl, username ->
                 savedSession.copy(
                     displayName = displayName,
                     baseUrl = baseUrl,
+                    backupBaseUrl = backupBaseUrl,
+                    activeBaseUrl = activeBaseUrl,
                     username = username,
                 )
             },
@@ -230,10 +256,14 @@ class AppStumpCoordinator @Inject constructor(
 
     private fun matchingStoredSession(
         baseUrl: String,
+        backupBaseUrl: String?,
         username: String,
     ): StumpStoredSession? = stumpCredentialStore.sessionFlow.value?.takeIf { session ->
-        session.baseUrl == baseUrl &&
-            session.username == username
+        session.matchesServerIdentity(
+            baseUrl = baseUrl,
+            backupBaseUrl = backupBaseUrl,
+            username = username,
+        )
     }
 
     internal suspend fun loadAvailableLibraries(
@@ -242,6 +272,8 @@ class AppStumpCoordinator @Inject constructor(
         request = StumpCatalogSyncRequest(
             displayName = session.displayName,
             baseUrl = session.baseUrl,
+            backupBaseUrl = session.backupBaseUrl,
+            activeBaseUrl = session.activeBaseUrl,
             username = session.username,
             accessToken = session.accessToken,
             refreshToken = session.refreshToken,

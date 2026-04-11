@@ -14,6 +14,7 @@ class AppKavitaCoordinator @Inject constructor(
     ): KavitaConnectionUiState = refreshedRemoteConnectionState(
         connection = connection,
         baseUrl = connection.baseUrl,
+        backupBaseUrl = connection.backupBaseUrl,
         username = connection.username,
         copyHasStoredSession = { currentConnection, hasStoredSession ->
             currentConnection.copy(hasStoredSession = hasStoredSession)
@@ -29,6 +30,7 @@ class AppKavitaCoordinator @Inject constructor(
                 connection = connection,
                 displayName = connection.displayName,
                 baseUrl = connection.baseUrl,
+                backupBaseUrl = connection.backupBaseUrl,
                 username = connection.username,
                 password = connection.password,
                 invalidConnection = { message ->
@@ -58,16 +60,23 @@ class AppKavitaCoordinator @Inject constructor(
                     request = KavitaCatalogSyncRequest(
                         displayName = input.displayName,
                         baseUrl = input.baseUrl,
+                        backupBaseUrl = input.backupBaseUrl,
+                        activeBaseUrl = input.activeBaseUrl,
                         username = input.username,
                         password = input.password,
                         accessToken = input.savedSession?.accessToken,
                         refreshToken = input.savedSession?.refreshToken,
                         apiKey = input.savedSession?.apiKey,
                     ),
-                    activeConnection = connection.copy(baseUrl = input.baseUrl),
+                    activeConnection = connection.copy(
+                        baseUrl = input.baseUrl,
+                        backupBaseUrl = input.backupBaseUrl.orEmpty(),
+                    ),
                     fallbackSession = input.savedSession?.copy(
                         displayName = input.displayName,
                         baseUrl = input.baseUrl,
+                        backupBaseUrl = input.backupBaseUrl,
+                        activeBaseUrl = input.activeBaseUrl,
                         username = input.username,
                     ),
                     successConnectionMessage = connectionSuccessMessage(
@@ -116,6 +125,8 @@ class AppKavitaCoordinator @Inject constructor(
                     request = KavitaCatalogSyncRequest(
                         displayName = savedSession.displayName,
                         baseUrl = savedSession.baseUrl,
+                        backupBaseUrl = savedSession.backupBaseUrl,
+                        activeBaseUrl = savedSession.activeBaseUrl,
                         username = savedSession.username,
                         accessToken = savedSession.accessToken,
                         refreshToken = savedSession.refreshToken,
@@ -123,7 +134,10 @@ class AppKavitaCoordinator @Inject constructor(
                     ),
                     activeConnection = refreshInput.connection,
                     fallbackSession = savedSession,
-                    successConnectionMessage = "Kavita library synced.",
+                    successConnectionMessage = connectionSuccessMessage(
+                        message = "Kavita library synced.",
+                        cleartextWarningMessage = refreshInput.cleartextWarningMessage,
+                    ),
                     failurePrefix = "Unable to sync Kavita",
                 )
             }
@@ -141,6 +155,7 @@ class AppKavitaCoordinator @Inject constructor(
         persistSession(
             preparation = preparation,
             session = result.session,
+            activeBaseUrl = result.activeBaseUrl,
         )
         KavitaSyncExecutionResult.Success(
             libraryCount = result.libraryCount,
@@ -177,6 +192,7 @@ class AppKavitaCoordinator @Inject constructor(
         persistSession(
             preparation = preparation,
             session = result.session,
+            activeBaseUrl = result.activeBaseUrl,
         )
         KavitaConnectExecutionResult.Success(
             libraryCount = result.libraryCount,
@@ -206,10 +222,14 @@ class AppKavitaCoordinator @Inject constructor(
 
     private fun matchingStoredSession(
         baseUrl: String,
+        backupBaseUrl: String?,
         username: String,
     ): KavitaStoredSession? = kavitaCredentialStore.sessionFlow.value?.takeIf { session ->
-        session.baseUrl == baseUrl &&
-            session.username == username
+        session.matchesServerIdentity(
+            baseUrl = baseUrl,
+            backupBaseUrl = backupBaseUrl,
+            username = username,
+        )
     }
 
     internal suspend fun loadAvailableLibraries(
@@ -218,6 +238,8 @@ class AppKavitaCoordinator @Inject constructor(
         request = KavitaCatalogSyncRequest(
             displayName = session.displayName,
             baseUrl = session.baseUrl,
+            backupBaseUrl = session.backupBaseUrl,
+            activeBaseUrl = session.activeBaseUrl,
             username = session.username,
             accessToken = session.accessToken,
             refreshToken = session.refreshToken,
@@ -228,6 +250,7 @@ class AppKavitaCoordinator @Inject constructor(
     private suspend fun persistSession(
         preparation: KavitaSyncPreparation.Ready,
         session: com.example.unifiedreader.data.kavita.KavitaSession?,
+        activeBaseUrl: String?,
     ) {
         persistRemoteSession(
             sessionStore = kavitaCredentialStore,
@@ -235,18 +258,24 @@ class AppKavitaCoordinator @Inject constructor(
             fallbackSession = preparation.fallbackSession,
             displayName = preparation.request.displayName,
             baseUrl = preparation.request.baseUrl,
+            backupBaseUrl = preparation.request.backupBaseUrl,
+            activeBaseUrl = activeBaseUrl ?: preparation.request.activeBaseUrl,
             username = preparation.request.username,
-            toStoredSession = { activeSession, displayName, baseUrl, username ->
+            toStoredSession = { activeSession, displayName, baseUrl, backupBaseUrl, activeBaseUrl, username ->
                 activeSession.toStoredSession(
                     displayName = displayName,
                     baseUrl = baseUrl,
+                    backupBaseUrl = backupBaseUrl,
+                    activeBaseUrl = activeBaseUrl,
                     username = username,
                 )
             },
-            restoreFallbackSession = { savedSession, displayName, baseUrl, username ->
+            restoreFallbackSession = { savedSession, displayName, baseUrl, backupBaseUrl, activeBaseUrl, username ->
                 savedSession.copy(
                     displayName = displayName,
                     baseUrl = baseUrl,
+                    backupBaseUrl = backupBaseUrl,
+                    activeBaseUrl = activeBaseUrl,
                     username = username,
                 )
             },

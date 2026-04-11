@@ -1153,7 +1153,7 @@ class AppViewModelTest {
     }
 
     @Test
-    fun `connect kavita with stored session runs full sync`() {
+    fun `connect kavita with stored session reuses saved credentials for quick connect`() {
         val credentialStore = FakeKavitaCredentialStore(
             KavitaStoredSession(
                 displayName = "Home Kavita",
@@ -1180,13 +1180,50 @@ class AppViewModelTest {
         viewModel.connectKavitaServer()
         shadowOf(Looper.getMainLooper()).idle()
 
-        assertNull(syncer.lastConnectRequest)
-        assertNull(syncer.lastSyncRequest?.password)
-        assertEquals("saved-access-token", syncer.lastSyncRequest?.accessToken)
-        assertEquals("saved-refresh-token", syncer.lastSyncRequest?.refreshToken)
-        assertEquals("saved-api-key", syncer.lastSyncRequest?.apiKey)
-        assertEquals(SourceType.KAVITA, viewModel.uiState.selectedSource)
-        assertEquals("Kavita library synced.", viewModel.uiState.kavitaConnection.message)
+        assertNull(syncer.lastSyncRequest)
+        assertNull(syncer.lastConnectRequest?.password)
+        assertEquals("saved-access-token", syncer.lastConnectRequest?.accessToken)
+        assertEquals("saved-refresh-token", syncer.lastConnectRequest?.refreshToken)
+        assertEquals("saved-api-key", syncer.lastConnectRequest?.apiKey)
+        assertEquals(
+            "Connected to Kavita. Tap Sync Kavita to import the library.",
+            viewModel.uiState.kavitaConnection.message,
+        )
+    }
+
+    @Test
+    fun `connect kavita with edited backup url uses saved session on connect path`() {
+        val credentialStore = FakeKavitaCredentialStore(
+            KavitaStoredSession(
+                displayName = "Home Kavita",
+                baseUrl = "https://kavita.example",
+                backupBaseUrl = "https://tailscale-old.example",
+                username = "reader",
+                accessToken = "saved-access-token",
+                refreshToken = "saved-refresh-token",
+                apiKey = "saved-api-key",
+            ),
+        )
+        val syncer = FakeKavitaCatalogSyncer(
+            connectionResult = KavitaCatalogConnectionResult(libraryCount = 1),
+        )
+        val viewModel = createViewModel(
+            kavitaCatalogSyncer = syncer,
+            kavitaCredentialStore = credentialStore,
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+
+        viewModel.onKavitaBackupBaseUrlChanged("https://tailscale-new.example")
+        viewModel.connectKavitaServer()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertNull(syncer.lastSyncRequest)
+        assertEquals("https://kavita.example", syncer.lastConnectRequest?.baseUrl)
+        assertEquals("https://tailscale-new.example", syncer.lastConnectRequest?.backupBaseUrl)
+        assertNull(syncer.lastConnectRequest?.activeBaseUrl)
+        assertEquals("saved-access-token", syncer.lastConnectRequest?.accessToken)
+        assertEquals("saved-refresh-token", syncer.lastConnectRequest?.refreshToken)
+        assertEquals("saved-api-key", syncer.lastConnectRequest?.apiKey)
     }
 
     @Test
@@ -1268,6 +1305,39 @@ class AppViewModelTest {
         assertFalse(viewModel.uiState.stumpConnection.isError)
         assertEquals("", viewModel.uiState.stumpConnection.password)
         assertEquals(1, viewModel.uiState.stumpConnection.availableLibraries.size)
+    }
+
+    @Test
+    fun `connect stump with stored session reuses saved credentials for quick connect`() {
+        val credentialStore = FakeStumpCredentialStore(
+            StumpStoredSession(
+                displayName = "Home Stump",
+                baseUrl = "https://stump.example",
+                username = "reader",
+                accessToken = "saved-access-token",
+                refreshToken = "saved-refresh-token",
+            ),
+        )
+        val syncer = FakeStumpCatalogSyncer(
+            connectionResult = StumpCatalogConnectionResult(libraryCount = 2),
+        )
+        val viewModel = createViewModel(
+            stumpCatalogSyncer = syncer,
+            stumpCredentialStore = credentialStore,
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+
+        viewModel.connectStumpServer()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertNull(syncer.lastSyncRequest)
+        assertNull(syncer.lastConnectRequest?.password)
+        assertEquals("saved-access-token", syncer.lastConnectRequest?.accessToken)
+        assertEquals("saved-refresh-token", syncer.lastConnectRequest?.refreshToken)
+        assertEquals(
+            "Connected to Stump. Tap Sync Stump to import the library.",
+            viewModel.uiState.stumpConnection.message,
+        )
     }
 
     @Test
@@ -1643,6 +1713,39 @@ class AppViewModelTest {
     }
 
     @Test
+    fun `refresh grimmory library shows http warning for stored backup url`() {
+        val credentialStore = FakeGrimmoryCredentialStore(
+            GrimmoryStoredSession(
+                displayName = "Home Grimmory",
+                baseUrl = "https://grimmory.example",
+                backupBaseUrl = "http://backup.example.com",
+                username = "reader",
+                accessToken = "saved-access-token",
+                refreshToken = "saved-refresh-token",
+            ),
+        )
+        val syncer = FakeGrimmoryCatalogSyncer(
+            result = GrimmoryCatalogSyncResult(
+                libraryCount = 1,
+                itemCount = 9,
+                supportedFormatCounts = mapOf(FormatType.EPUB to 9),
+            ),
+        )
+        val viewModel = createViewModel(
+            grimmoryCatalogSyncer = syncer,
+            grimmoryCredentialStore = credentialStore,
+        )
+
+        viewModel.refreshGrimmoryLibrary()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(
+            "Grimmory library synced. $HTTP_WARNING_MESSAGE",
+            viewModel.uiState.grimmoryConnection.message,
+        )
+    }
+
+    @Test
     fun `connect grimmory validates server url before syncing`() {
         val syncer = FakeGrimmoryCatalogSyncer()
         val viewModel = createViewModel(
@@ -1665,7 +1768,7 @@ class AppViewModelTest {
     }
 
     @Test
-    fun `connect grimmory blocks public http server url`() {
+    fun `connect grimmory allows public http server url`() {
         val syncer = FakeGrimmoryCatalogSyncer()
         val viewModel = createViewModel(
             grimmoryCatalogSyncer = syncer,
@@ -1678,10 +1781,10 @@ class AppViewModelTest {
         viewModel.connectGrimmoryServer()
         shadowOf(Looper.getMainLooper()).idle()
 
-        assertNull(syncer.lastRequest)
-        assertEquals(true, viewModel.uiState.grimmoryConnection.isError)
+        assertEquals("http://grimmory.example", syncer.lastRequest?.baseUrl)
+        assertEquals(false, viewModel.uiState.grimmoryConnection.isError)
         assertEquals(
-            LOCAL_HTTP_ONLY_MESSAGE,
+            "Connected to Grimmory. $HTTP_WARNING_MESSAGE",
             viewModel.uiState.grimmoryConnection.message,
         )
     }

@@ -95,6 +95,8 @@ private data class TestDownloadStoredSession(
     override val sourceType: SourceType,
     override val displayName: String,
     override val baseUrl: String,
+    override val backupBaseUrl: String? = null,
+    override val activeBaseUrl: String? = null,
     override val username: String,
 ) : StoredSourceSession
 

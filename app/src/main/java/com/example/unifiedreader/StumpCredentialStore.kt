@@ -39,6 +39,8 @@ class SharedPreferencesStumpCredentialStore @VisibleForTesting internal construc
             StumpStoredSession(
                 displayName = decrypt(StumpCredentialKeys.DisplayName) ?: return@readSession null,
                 baseUrl = decrypt(StumpCredentialKeys.BaseUrl) ?: return@readSession null,
+                backupBaseUrl = decrypt(StumpCredentialKeys.BackupBaseUrl),
+                activeBaseUrl = decrypt(StumpCredentialKeys.ActiveBaseUrl),
                 username = decrypt(StumpCredentialKeys.Username) ?: return@readSession null,
                 accessToken = decrypt(StumpCredentialKeys.AccessToken) ?: return@readSession null,
                 refreshToken = decrypt(StumpCredentialKeys.RefreshToken),
@@ -48,6 +50,8 @@ class SharedPreferencesStumpCredentialStore @VisibleForTesting internal construc
             mapOf(
                 StumpCredentialKeys.DisplayName to session.displayName,
                 StumpCredentialKeys.BaseUrl to session.baseUrl,
+                StumpCredentialKeys.BackupBaseUrl to session.backupBaseUrl,
+                StumpCredentialKeys.ActiveBaseUrl to session.activeBaseUrl,
                 StumpCredentialKeys.Username to session.username,
                 StumpCredentialKeys.AccessToken to session.accessToken,
                 StumpCredentialKeys.RefreshToken to session.refreshToken,
@@ -68,6 +72,8 @@ class SharedPreferencesStumpCredentialStore @VisibleForTesting internal construc
 private object StumpCredentialKeys {
     const val DisplayName = "display_name"
     const val BaseUrl = "base_url"
+    const val BackupBaseUrl = "backup_base_url"
+    const val ActiveBaseUrl = "active_base_url"
     const val Username = "username"
     const val AccessToken = "access_token"
     const val RefreshToken = "refresh_token"

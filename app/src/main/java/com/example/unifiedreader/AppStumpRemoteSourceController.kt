@@ -47,6 +47,18 @@ class AppStumpRemoteSourceController @Inject constructor(
         }
     }
 
+    fun onBackupBaseUrlChanged(
+        backupBaseUrl: String,
+        updateState: AppUiStateUpdater,
+    ) {
+        updateConnectionInput(updateState) { connection ->
+            connection.copy(
+                backupBaseUrl = backupBaseUrl,
+                availableLibraries = emptyList(),
+            )
+        }
+    }
+
     fun onUsernameChanged(
         username: String,
         updateState: AppUiStateUpdater,
@@ -78,10 +90,6 @@ class AppStumpRemoteSourceController @Inject constructor(
         scope: CoroutineScope,
     ) {
         val state = stateProvider()
-        if (state.stumpConnection.hasStoredSession && state.stumpConnection.password.isBlank()) {
-            refresh(stateProvider, updateState, scope)
-            return
-        }
         when (val preparation = stumpCoordinator.prepareConnect(state.stumpConnection)) {
             is StumpSyncPreparation.Invalid -> {
                 updateState { current -> current.copy(stumpConnection = preparation.connection) }
