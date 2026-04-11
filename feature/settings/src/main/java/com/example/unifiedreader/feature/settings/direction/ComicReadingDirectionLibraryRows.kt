@@ -1,7 +1,6 @@
 package com.example.unifiedreader.feature.settings.direction
 
 import com.example.unifiedreader.core.model.Library
-import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirectionPreferences
@@ -14,7 +13,6 @@ fun buildComicReadingDirectionLibraryRows(
     return availableLibraries
         .filter { library -> library.sourceType == sourceType }
         .asSequence()
-        .filter { library -> library.contentType == LibraryContentType.COMICS }
         .sortedBy { library -> library.title.lowercase() }
         .map { library ->
             ReadingDirectionLibraryUiState(
