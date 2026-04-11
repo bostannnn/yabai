@@ -9,26 +9,15 @@ import android.view.View
 import android.widget.FrameLayout
 import java.io.ByteArrayInputStream
 import java.util.Locale
-import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -63,7 +52,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
@@ -73,10 +61,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import androidx.fragment.app.FragmentActivity
 import androidx.fragment.app.FragmentContainerView
 import androidx.lifecycle.lifecycleScope
@@ -815,110 +801,6 @@ private fun EpubReaderOverlay(
 }
 
 @Composable
-private fun EpubFootnotePopup(
-    footnote: EpubFootnoteContent?,
-    onDismissRequest: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    var renderedFootnote by remember { mutableStateOf<EpubFootnoteContent?>(null) }
-    LaunchedEffect(footnote) {
-        if (footnote != null) {
-            renderedFootnote = footnote
-        }
-    }
-
-    BackHandler(enabled = footnote != null) {
-        onDismissRequest()
-    }
-
-    AnimatedVisibility(
-        visible = footnote != null && renderedFootnote != null,
-        enter = fadeIn() + scaleIn(initialScale = 0.96f),
-        exit = fadeOut() + scaleOut(targetScale = 0.98f),
-        modifier = modifier
-            .fillMaxSize()
-            .zIndex(3f),
-    ) {
-        val note = renderedFootnote ?: return@AnimatedVisibility
-        BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .padding(16.dp)
-                .clickable(onClick = onDismissRequest),
-        ) {
-            val popupWidth = when {
-                maxWidth < 360.dp -> maxWidth
-                maxWidth < 520.dp -> maxWidth * 0.86f
-                else -> 420.dp
-            }
-            val popupMaxHeight = when {
-                maxHeight < 360.dp -> maxHeight * 0.72f
-                else -> 260.dp
-            }
-            val popupShape = RoundedCornerShape(8.dp)
-            Column(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .width(popupWidth)
-                    .heightIn(max = popupMaxHeight)
-                    .shadow(
-                        elevation = 18.dp,
-                        shape = popupShape,
-                    )
-                    .background(
-                        color = Color(0xFFF8FAFC),
-                        shape = popupShape,
-                    )
-                    .border(
-                        width = 1.dp,
-                        color = Color(0xFFE2E8F0),
-                        shape = popupShape,
-                    )
-                    .clickable(
-                        indication = null,
-                        interactionSource = remember { MutableInteractionSource() },
-                        onClick = {},
-                    )
-                    .padding(horizontal = 18.dp, vertical = 14.dp),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(
-                        text = note.title,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF475569),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
-                    TextButton(onClick = onDismissRequest) {
-                        Text(
-                            text = "Close",
-                            color = Color(0xFF2563EB),
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = note.body.ifBlank { "No footnote text" },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF111827),
-                    modifier = Modifier
-                        .weight(1f, fill = false)
-                        .verticalScroll(rememberScrollState()),
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun EpubReaderMessage(
     title: String,
     body: String,
@@ -1362,11 +1244,6 @@ private data class EpubTocNavigationRequest(
     override val id: Int,
     val link: Link,
 ) : EpubNavigationRequest
-
-private data class EpubFootnoteContent(
-    val title: String,
-    val body: String,
-)
 
 private const val EpubNavigationZoneFraction = 0.25f
 private val EpubTocBottomAnchorFallbackHeight = 74.dp
