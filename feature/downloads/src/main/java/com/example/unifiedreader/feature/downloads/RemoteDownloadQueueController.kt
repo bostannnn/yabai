@@ -119,6 +119,49 @@ class RemoteDownloadQueueController(
         scheduler.scheduleEntry(entryId)
     }
 
+    suspend fun remove(
+        entryId: String,
+    ): Boolean {
+        val entry = store.getEntry(entryId) ?: return false
+        if (entry.status != DownloadEntryStatus.Failed && entry.status != DownloadEntryStatus.Canceled) {
+            return false
+        }
+        val completedItems = entry.actionItems
+            .asSequence()
+            .filter { actionItem -> actionItem.id in entry.completedItemIds }
+            .map(QueuedDownloadItem::toReadableItem)
+            .toList()
+        val remainingCompletedItemIds = entry.completedItemIds.toMutableSet()
+        for (item in completedItems) {
+            val dataSource = remoteDownloadDataSources.downloadDataSourceFor(item)
+            if (dataSource == null) {
+                store.updateProgress(
+                    entryId = entryId,
+                    completedItemIds = remainingCompletedItemIds,
+                    currentItemId = entry.currentItemId,
+                    currentItemTitle = entry.currentItemTitle,
+                )
+                return false
+            }
+            val storedDocumentUri = dataSource.storedDocumentUri(item)
+            if (storedDocumentUri == null) {
+                remainingCompletedItemIds -= item.id
+                continue
+            }
+            if (!dataSource.deleteStoredDocument(item)) {
+                store.updateProgress(
+                    entryId = entryId,
+                    completedItemIds = remainingCompletedItemIds,
+                    currentItemId = entry.currentItemId,
+                    currentItemTitle = entry.currentItemTitle,
+                )
+                return false
+            }
+            remainingCompletedItemIds -= item.id
+        }
+        return store.deleteEntry(entryId) > 0
+    }
+
     suspend fun clearCompleted(): Int = store.clearCompletedEntries()
 
     suspend fun resolveOpenItem(

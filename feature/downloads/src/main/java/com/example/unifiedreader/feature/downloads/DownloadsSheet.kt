@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.ErrorOutline
@@ -37,6 +38,7 @@ fun DownloadsSheet(
     snapshot: DownloadEntriesSnapshot,
     onDismiss: () -> Unit,
     onCancel: (String) -> Unit,
+    onRemove: (String) -> Unit,
     onRetry: (String) -> Unit,
     onClearCompleted: () -> Unit,
     onOpenEntry: (String) -> Unit,
@@ -112,6 +114,7 @@ fun DownloadsSheet(
                         title = "Active",
                         entries = snapshot.activeEntries,
                         onCancel = onCancel,
+                        onRemove = onRemove,
                         onRetry = onRetry,
                         onOpenEntry = onOpenEntry,
                     )
@@ -119,6 +122,7 @@ fun DownloadsSheet(
                         title = "Failed",
                         entries = snapshot.failedEntries,
                         onCancel = onCancel,
+                        onRemove = onRemove,
                         onRetry = onRetry,
                         onOpenEntry = onOpenEntry,
                     )
@@ -126,6 +130,7 @@ fun DownloadsSheet(
                         title = "History",
                         entries = snapshot.completedEntries,
                         onCancel = onCancel,
+                        onRemove = onRemove,
                         onRetry = onRetry,
                         onOpenEntry = onOpenEntry,
                     )
@@ -139,6 +144,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.downloadSection(
     title: String,
     entries: List<DownloadEntry>,
     onCancel: (String) -> Unit,
+    onRemove: (String) -> Unit,
     onRetry: (String) -> Unit,
     onOpenEntry: (String) -> Unit,
 ) {
@@ -158,6 +164,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.downloadSection(
         DownloadEntryCard(
             entry = entry,
             onCancel = onCancel,
+            onRemove = onRemove,
             onRetry = onRetry,
             onOpenEntry = onOpenEntry,
         )
@@ -168,6 +175,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.downloadSection(
 private fun DownloadEntryCard(
     entry: DownloadEntry,
     onCancel: (String) -> Unit,
+    onRemove: (String) -> Unit,
     onRetry: (String) -> Unit,
     onOpenEntry: (String) -> Unit,
 ) {
@@ -231,6 +239,14 @@ private fun DownloadEntryCard(
                             Icon(
                                 imageVector = Icons.Default.Refresh,
                                 contentDescription = "Retry download",
+                            )
+                        }
+                    }
+                    if (entry.canRemove) {
+                        IconButton(onClick = { onRemove(entry.id) }) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Remove download",
                             )
                         }
                     }

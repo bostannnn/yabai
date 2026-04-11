@@ -269,6 +269,13 @@ class AppViewModel @Inject constructor(
         )
     }
 
+    fun removeDownload(entryId: String) {
+        remoteDownloadController.removeDownload(
+            scope = viewModelScope,
+            entryId = entryId,
+        )
+    }
+
     fun clearCompletedDownloads() {
         remoteDownloadController.clearCompletedDownloads(viewModelScope)
     }

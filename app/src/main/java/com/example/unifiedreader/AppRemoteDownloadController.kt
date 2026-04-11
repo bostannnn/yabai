@@ -46,6 +46,15 @@ class AppRemoteDownloadController @Inject constructor(
         }
     }
 
+    fun removeDownload(
+        scope: CoroutineScope,
+        entryId: String,
+    ) {
+        scope.launch {
+            remoteDownloadQueueController.remove(entryId)
+        }
+    }
+
     fun clearCompletedDownloads(
         scope: CoroutineScope,
     ) {

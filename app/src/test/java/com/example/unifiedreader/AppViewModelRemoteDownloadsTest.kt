@@ -86,6 +86,40 @@ class AppViewModelRemoteDownloadsTest {
     }
 
     @Test
+    fun `remove failed download clears it from downloads snapshot`() {
+        val remoteBook = sampleItem(
+            id = "grimmory-epub",
+            title = "Remote Book",
+            format = FormatType.EPUB,
+        ).copy(
+            sourceType = SourceType.GRIMMORY,
+            libraryId = SourceType.GRIMMORY.remoteLibraryId("grimmory-books"),
+            remoteId = "grimmory-epub",
+        )
+        val viewModel = createViewModel(
+            sampleItems = listOf(remoteBook),
+            grimmoryContentRepository = FakeGrimmoryContentRepository(
+                downloadFailure = IllegalStateException("Disk full"),
+            ),
+        )
+        viewModel.onSourceSelected(SourceType.GRIMMORY)
+
+        viewModel.onDownloadRemoteItem(remoteBook)
+        waitForUiState {
+            viewModel.downloadsSnapshot.failedEntries.singleOrNull()?.errorMessage == "Disk full"
+        }
+
+        val failedEntryId = viewModel.downloadsSnapshot.failedEntries.single().id
+        viewModel.removeDownload(failedEntryId)
+        waitForUiState {
+            viewModel.downloadsSnapshot.entries.isEmpty()
+        }
+
+        assertTrue(viewModel.downloadsSnapshot.failedEntries.isEmpty())
+        assertTrue(viewModel.downloadsSnapshot.entries.isEmpty())
+    }
+
+    @Test
     fun `download grimmory success remains successful when progress sync fails`() {
         val remoteBook = sampleItem(
             id = "grimmory-epub",
@@ -287,6 +321,62 @@ class AppViewModelRemoteDownloadsTest {
             "Unable to download Akira: Issue 2.",
             viewModel.downloadsSnapshot.failedEntries.single().errorMessage,
         )
+    }
+
+    @Test
+    fun `remove failed partial series download clears downloaded local state`() {
+        val firstIssue = sampleItem(
+            id = "chapter-1",
+            title = "Akira 001",
+            format = FormatType.CBZ,
+        ).copy(
+            remoteId = "chapter-1",
+            remoteFileType = "series-7",
+            comicMetadata = ComicMetadata(series = "Akira", issueTitle = "Issue 1"),
+        )
+        val secondIssue = sampleItem(
+            id = "chapter-2",
+            title = "Akira 002",
+            format = FormatType.CBZ,
+        ).copy(
+            remoteId = "chapter-2",
+            remoteFileType = "series-7",
+            comicMetadata = ComicMetadata(series = "Akira", issueTitle = "Issue 2"),
+        )
+        val viewModel = createViewModel(
+            sampleItems = listOf(firstIssue, secondIssue),
+            remoteDownloadDataSources = listOf(
+                FakeGrimmoryContentRepository(),
+                FakeRemoteDownloadDataSource(
+                    sourceType = SourceType.KAVITA,
+                    failingItemIds = setOf(secondIssue.id),
+                ),
+            ),
+        )
+        val seriesItem = viewModel.uiState.visibleItems.single()
+
+        viewModel.onDownloadRemoteItem(seriesItem)
+        waitForUiState {
+            viewModel.downloadsSnapshot.failedEntries.singleOrNull()?.errorMessage == "Unable to download Akira: Issue 2."
+        }
+
+        assertEquals(setOf(firstIssue.id), viewModel.uiState.downloadedRemoteItemIds)
+        assertEquals(
+            setOf(firstIssue.id, seriesItem.id),
+            viewModel.uiState.locallyAvailableRemoteItemIds,
+        )
+
+        val failedEntryId = viewModel.downloadsSnapshot.failedEntries.single().id
+        viewModel.removeDownload(failedEntryId)
+        waitForUiState {
+            viewModel.downloadsSnapshot.entries.isEmpty() &&
+                viewModel.uiState.downloadedRemoteItemIds.isEmpty() &&
+                viewModel.uiState.locallyAvailableRemoteItemIds.isEmpty()
+        }
+
+        assertTrue(viewModel.downloadsSnapshot.entries.isEmpty())
+        assertTrue(viewModel.uiState.downloadedRemoteItemIds.isEmpty())
+        assertTrue(viewModel.uiState.locallyAvailableRemoteItemIds.isEmpty())
     }
 
     @Test

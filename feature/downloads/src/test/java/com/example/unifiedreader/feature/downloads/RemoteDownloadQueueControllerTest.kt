@@ -126,6 +126,156 @@ class RemoteDownloadQueueControllerTest {
     }
 
     @Test
+    fun `remove deletes failed entry`() = runTest {
+        val dataSource = TestRemoteItemDownloadDataSource(
+            storedItemIds = mutableSetOf("book-1"),
+        )
+        val store = InMemoryDownloadQueueStore(
+            initialEntries = listOf(
+                DownloadEntry(
+                    id = "entry-1",
+                    selectedItemId = "book-1",
+                    selectedItemTitle = "book-1",
+                    sourceType = SourceType.KAVITA,
+                    actionItems = listOf(testQueuedItem("book-1")),
+                    trackedItemIds = setOf("book-1"),
+                    completedItemIds = setOf("book-1"),
+                    status = DownloadEntryStatus.Failed,
+                    errorMessage = "Disk full",
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L,
+                ),
+            ),
+        )
+        val controller = RemoteDownloadQueueController(
+            store = store,
+            scheduler = RecordingDownloadWorkScheduler(),
+            remoteDownloadDataSources = listOf(dataSource),
+        )
+
+        val removed = controller.remove("entry-1")
+
+        assertTrue(removed)
+        assertTrue(store.entries.isEmpty())
+        assertNull(dataSource.storedDocumentUri(testReadableItem("book-1")))
+    }
+
+    @Test
+    fun `remove keeps failed entry when stored file cannot be deleted`() = runTest {
+        val dataSource = TestRemoteItemDownloadDataSource(
+            storedItemIds = mutableSetOf("book-1", "book-2"),
+            undeletableItemIds = setOf("book-2"),
+        )
+        val store = InMemoryDownloadQueueStore(
+            initialEntries = listOf(
+                DownloadEntry(
+                    id = "entry-1",
+                    selectedItemId = "book-1",
+                    selectedItemTitle = "book-1",
+                    sourceType = SourceType.KAVITA,
+                    actionItems = listOf(testQueuedItem("book-1"), testQueuedItem("book-2")),
+                    trackedItemIds = setOf("book-1", "book-2"),
+                    completedItemIds = setOf("book-1", "book-2"),
+                    status = DownloadEntryStatus.Failed,
+                    errorMessage = "Disk full",
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L,
+                ),
+            ),
+        )
+        val controller = RemoteDownloadQueueController(
+            store = store,
+            scheduler = RecordingDownloadWorkScheduler(),
+            remoteDownloadDataSources = listOf(dataSource),
+        )
+
+        val removed = controller.remove("entry-1")
+        val remainingEntry = checkNotNull(store.entries.singleOrNull())
+
+        assertFalse(removed)
+        assertEquals(listOf("entry-1"), store.entries.map(DownloadEntry::id))
+        assertEquals(setOf("book-2"), remainingEntry.completedItemIds)
+        assertNull(dataSource.storedDocumentUri(testReadableItem("book-1")))
+        assertEquals("file://book-2", dataSource.storedDocumentUri(testReadableItem("book-2")).toString())
+    }
+
+    @Test
+    fun `retry after partial cleanup re-downloads removed files`() = runTest {
+        val dataSource = TestRemoteItemDownloadDataSource(
+            storedItemIds = mutableSetOf("book-1", "book-2"),
+            undeletableItemIds = setOf("book-2"),
+        )
+        val store = InMemoryDownloadQueueStore(
+            initialEntries = listOf(
+                DownloadEntry(
+                    id = "entry-1",
+                    selectedItemId = "book-1",
+                    selectedItemTitle = "book-1",
+                    sourceType = SourceType.KAVITA,
+                    actionItems = listOf(testQueuedItem("book-1"), testQueuedItem("book-2")),
+                    trackedItemIds = setOf("book-1", "book-2"),
+                    completedItemIds = setOf("book-1", "book-2"),
+                    status = DownloadEntryStatus.Failed,
+                    errorMessage = "Disk full",
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L,
+                ),
+            ),
+        )
+        val controller = RemoteDownloadQueueController(
+            store = store,
+            scheduler = RecordingDownloadWorkScheduler(),
+            remoteDownloadDataSources = listOf(dataSource),
+        )
+        val runner = RemoteDownloadWorkerRunner(
+            store = store,
+            remoteDownloadDataSources = listOf(dataSource),
+            completionSideEffects = emptyList(),
+        )
+
+        assertFalse(controller.remove("entry-1"))
+
+        controller.retry("entry-1")
+        val outcome = runner.runEntry("entry-1")
+        val entry = checkNotNull(store.entries.singleOrNull())
+
+        assertEquals(RemoteDownloadWorkerOutcome.Success, outcome)
+        assertEquals(DownloadEntryStatus.Completed, entry.status)
+        assertEquals(setOf("book-1", "book-2"), entry.completedItemIds)
+        assertEquals(listOf("book-1"), dataSource.downloadedItemIds)
+    }
+
+    @Test
+    fun `remove ignores active entry`() = runTest {
+        val store = InMemoryDownloadQueueStore(
+            initialEntries = listOf(
+                DownloadEntry(
+                    id = "entry-1",
+                    selectedItemId = "book-1",
+                    selectedItemTitle = "book-1",
+                    sourceType = SourceType.KAVITA,
+                    actionItems = listOf(testQueuedItem("book-1")),
+                    trackedItemIds = setOf("book-1"),
+                    completedItemIds = emptySet(),
+                    status = DownloadEntryStatus.Running,
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L,
+                ),
+            ),
+        )
+        val controller = RemoteDownloadQueueController(
+            store = store,
+            scheduler = RecordingDownloadWorkScheduler(),
+            remoteDownloadDataSources = listOf(TestRemoteItemDownloadDataSource()),
+        )
+
+        val removed = controller.remove("entry-1")
+
+        assertFalse(removed)
+        assertEquals(listOf("entry-1"), store.entries.map(DownloadEntry::id))
+    }
+
+    @Test
     fun `resolve open item returns completed stored item`() = runTest {
         val store = InMemoryDownloadQueueStore(
             initialEntries = listOf(
@@ -639,13 +789,16 @@ private class TestRemoteItemDownloadDataSource : RemoteItemDownloadDataSource {
     override val sourceType: SourceType = SourceType.KAVITA
     val downloadedItemIds = mutableListOf<String>()
     private val storedItemIds: MutableSet<String>
+    private val undeletableItemIds: Set<String>
     private val onDownload: suspend (ReadableItem) -> Unit
 
     constructor(
         storedItemIds: MutableSet<String> = mutableSetOf(),
+        undeletableItemIds: Set<String> = emptySet(),
         onDownload: suspend (ReadableItem) -> Unit = {},
     ) {
         this.storedItemIds = storedItemIds
+        this.undeletableItemIds = undeletableItemIds
         this.onDownload = onDownload
     }
 
@@ -661,7 +814,10 @@ private class TestRemoteItemDownloadDataSource : RemoteItemDownloadDataSource {
 
     override suspend fun storedDocumentItemIds(items: List<ReadableItem>): Set<String> = emptySet()
 
-    override suspend fun deleteStoredDocument(item: ReadableItem): Boolean = false
+    override suspend fun deleteStoredDocument(item: ReadableItem): Boolean {
+        if (item.id in undeletableItemIds) return false
+        return storedItemIds.remove(item.id)
+    }
 }
 
 private class RecordingDownloadCompletionSideEffect : DownloadCompletionSideEffect {

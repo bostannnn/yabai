@@ -62,6 +62,9 @@ data class DownloadEntry(
     val canCancel: Boolean
         get() = status == DownloadEntryStatus.Queued || status == DownloadEntryStatus.Running
 
+    val canRemove: Boolean
+        get() = status == DownloadEntryStatus.Failed || status == DownloadEntryStatus.Canceled
+
     val canOpen: Boolean
         get() = status == DownloadEntryStatus.Completed
 }

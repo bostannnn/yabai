@@ -142,6 +142,7 @@ fun UnifiedReaderScaffold(
                 snapshot = viewModel.downloadsSnapshot,
                 onDismiss = viewModel::hideDownloadsSheet,
                 onCancel = viewModel::cancelDownload,
+                onRemove = viewModel::removeDownload,
                 onRetry = viewModel::retryDownload,
                 onClearCompleted = viewModel::clearCompletedDownloads,
                 onOpenEntry = viewModel::openDownloadedEntry,
