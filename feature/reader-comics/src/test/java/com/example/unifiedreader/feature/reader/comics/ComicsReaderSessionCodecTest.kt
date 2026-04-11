@@ -22,6 +22,7 @@ class ComicsReaderSessionCodecTest {
         assertEquals(ComicPageFitMode.FitPage, restored.pageFitMode)
         assertEquals(ComicSpreadMode.Auto, restored.spreadMode)
         assertEquals(false, restored.splitWidePages)
+        assertNull(restored.resumeAnchorPage)
         assertNull(restored.resumeSegment)
     }
 
@@ -35,5 +36,22 @@ class ComicsReaderSessionCodecTest {
         )
 
         assertNull(restored)
+    }
+
+    @Test
+    fun `restore comic reader preferences includes resume anchor page`() {
+        val restored = restoreComicReaderPreferences(
+            ReaderSessionSnapshot(
+                itemId = "comic-1",
+                preferences = mapOf(
+                    ComicsResumeAnchorPageKey to "12",
+                    ComicsResumeSegmentKey to ComicPageSegment.RightHalf.name,
+                ),
+            ),
+        )
+
+        requireNotNull(restored)
+        assertEquals(12, restored.resumeAnchorPage)
+        assertEquals(ComicPageSegment.RightHalf, restored.resumeSegment)
     }
 }

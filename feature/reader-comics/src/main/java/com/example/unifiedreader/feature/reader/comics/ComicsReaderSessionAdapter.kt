@@ -165,6 +165,22 @@ class ComicsReaderSessionAdapter(
         )
     }
 
+    override fun loadResumeAnchorPage(item: ReadableItem): Int? =
+        restoreComicReaderPreferences(sessionStore.getSession(item))
+            ?.resumeAnchorPage
+
+    override fun saveResumeAnchorPage(
+        item: ReadableItem,
+        pageIndex: Int?,
+    ) {
+        sessionStore.updateSession(
+            item = item,
+            preferences = mapOf(
+                ComicsResumeAnchorPageKey to pageIndex?.toString().orEmpty(),
+            ),
+        )
+    }
+
     override fun loadResumeSegment(item: ReadableItem): ComicPageSegment? =
         restoreComicReaderPreferences(sessionStore.getSession(item))
             ?.resumeSegment
@@ -192,6 +208,7 @@ private fun com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot?
             pageFitMode = ComicPageFitMode.FitPage,
             spreadMode = ComicSpreadMode.Auto,
             splitWidePages = false,
+            resumeAnchorPage = null,
             resumeSegment = null,
         )
     return restoredPreferences.copy(

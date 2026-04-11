@@ -53,6 +53,7 @@ data class ComicReaderPreferencesSnapshot(
     val pageFitMode: ComicPageFitMode,
     val spreadMode: ComicSpreadMode,
     val splitWidePages: Boolean,
+    val resumeAnchorPage: Int? = null,
     val resumeSegment: ComicPageSegment?,
 )
 
@@ -123,6 +124,15 @@ interface ComicReaderPreferencesStore {
         enabled: Boolean,
     ) = Unit
 
+    fun loadResumeAnchorPage(
+        item: ReadableItem,
+    ): Int? = null
+
+    fun saveResumeAnchorPage(
+        item: ReadableItem,
+        pageIndex: Int?,
+    ) = Unit
+
     fun loadResumeSegment(
         item: ReadableItem,
     ): ComicPageSegment? = null
@@ -162,6 +172,7 @@ class ComicsReaderState internal constructor(
     initialPageFitMode: ComicPageFitMode,
     initialSpreadMode: ComicSpreadMode,
     initialSplitWidePages: Boolean,
+    initialResumeAnchorPage: Int?,
     initialResumeSegment: ComicPageSegment?,
 ) {
     var currentPage by mutableIntStateOf(initialPage)
@@ -182,6 +193,9 @@ class ComicsReaderState internal constructor(
     var splitWidePages by mutableStateOf(initialSplitWidePages)
         private set
 
+    var resumeAnchorPage by mutableIntStateOf(initialResumeAnchorPage ?: initialPage)
+        private set
+
     var resumeSegment by mutableStateOf(initialResumeSegment)
         private set
 
@@ -195,6 +209,8 @@ class ComicsReaderState internal constructor(
 
     private var hasExplicitSplitWidePages by mutableStateOf(false)
 
+    private var hasRestoredResumeAnchor by mutableStateOf(initialResumeAnchorPage != null)
+
     private var hasRestoredResumeSegment by mutableStateOf(initialResumeSegment != null)
 
     val progressLabel: String
@@ -202,13 +218,16 @@ class ComicsReaderState internal constructor(
 
     fun onPageSettled(
         pageIndex: Int,
+        resumeAnchorPage: Int = pageIndex,
         segment: ComicPageSegment? = null,
     ) {
         if (pageIndex != currentPage) {
             hasUserNavigated = true
         }
         currentPage = pageIndex
+        this.resumeAnchorPage = resumeAnchorPage.coerceIn(0, pageCount - 1)
         resumeSegment = segment
+        hasRestoredResumeAnchor = true
         hasRestoredResumeSegment = segment != null
     }
 
@@ -240,6 +259,9 @@ class ComicsReaderState internal constructor(
         val safePageIndex = pageIndex.coerceIn(0, pageCount - 1)
         if (hasUserNavigated || currentPage == safePageIndex) return false
         currentPage = safePageIndex
+        if (!hasRestoredResumeAnchor) {
+            resumeAnchorPage = safePageIndex
+        }
         return true
     }
 
@@ -267,6 +289,14 @@ class ComicsReaderState internal constructor(
         return true
     }
 
+    fun restoreResumeAnchorIfUnchanged(pageIndex: Int?): Boolean {
+        val safePageIndex = pageIndex?.coerceIn(0, pageCount - 1) ?: return false
+        if (hasUserNavigated || hasRestoredResumeAnchor || resumeAnchorPage == safePageIndex) return false
+        resumeAnchorPage = safePageIndex
+        hasRestoredResumeAnchor = true
+        return true
+    }
+
     fun restoreResumeSegmentIfUnchanged(segment: ComicPageSegment?): Boolean {
         if (hasUserNavigated || hasRestoredResumeSegment || resumeSegment == segment) return false
         resumeSegment = segment
@@ -284,12 +314,14 @@ class ComicsReaderState internal constructor(
                     it.pageFitMode.name,
                     it.spreadMode.name,
                     if (it.splitWidePages) 1 else 0,
+                    it.resumeAnchorPage,
                     it.resumeSegment?.name.orEmpty(),
                     if (it.hasUserNavigated) 1 else 0,
                     if (it.hasExplicitReadingDirection) 1 else 0,
                     if (it.hasExplicitPageFitMode) 1 else 0,
                     if (it.hasExplicitSpreadMode) 1 else 0,
                     if (it.hasExplicitSplitWidePages) 1 else 0,
+                    if (it.hasRestoredResumeAnchor) 1 else 0,
                     if (it.hasRestoredResumeSegment) 1 else 0,
                 )
             },
@@ -304,17 +336,19 @@ class ComicsReaderState internal constructor(
                     initialSpreadMode = (restored[4] as String)
                         .let(ComicSpreadMode::valueOf),
                     initialSplitWidePages = (restored.getOrNull(5) as? Int) == 1,
-                    initialResumeSegment = (restored.getOrNull(6) as? String)
+                    initialResumeAnchorPage = (restored.getOrNull(6) as? Int),
+                    initialResumeSegment = (restored.getOrNull(7) as? String)
                         ?.takeIf(String::isNotBlank)
                         ?.let(ComicPageSegment::valueOf),
                 ).also { state ->
                     state.onCurrentPageZoomChanged((restored[1] as Int) == 1)
-                    state.hasUserNavigated = (restored.getOrNull(7) as? Int) == 1
-                    state.hasExplicitReadingDirection = (restored.getOrNull(8) as? Int) == 1
-                    state.hasExplicitPageFitMode = (restored.getOrNull(9) as? Int) == 1
-                    state.hasExplicitSpreadMode = (restored.getOrNull(10) as? Int) == 1
-                    state.hasExplicitSplitWidePages = (restored.getOrNull(11) as? Int) == 1
-                    state.hasRestoredResumeSegment = (restored.getOrNull(12) as? Int) == 1
+                    state.hasUserNavigated = (restored.getOrNull(8) as? Int) == 1
+                    state.hasExplicitReadingDirection = (restored.getOrNull(9) as? Int) == 1
+                    state.hasExplicitPageFitMode = (restored.getOrNull(10) as? Int) == 1
+                    state.hasExplicitSpreadMode = (restored.getOrNull(11) as? Int) == 1
+                    state.hasExplicitSplitWidePages = (restored.getOrNull(12) as? Int) == 1
+                    state.hasRestoredResumeAnchor = (restored.getOrNull(13) as? Int) == 1
+                    state.hasRestoredResumeSegment = (restored.getOrNull(14) as? Int) == 1
                 }
             },
         )
@@ -330,6 +364,7 @@ fun rememberComicsReaderState(
     initialPageFitMode: ComicPageFitMode = ComicPageFitMode.FitPage,
     initialSpreadMode: ComicSpreadMode = ComicSpreadMode.Auto,
     initialSplitWidePages: Boolean = false,
+    initialResumeAnchorPage: Int? = null,
     initialResumeSegment: ComicPageSegment? = null,
 ): ComicsReaderState {
     val safePageCount = pageCount.coerceAtLeast(1)
@@ -346,6 +381,7 @@ fun rememberComicsReaderState(
             initialPageFitMode = initialPageFitMode,
             initialSpreadMode = initialSpreadMode,
             initialSplitWidePages = initialSplitWidePages,
+            initialResumeAnchorPage = initialResumeAnchorPage,
             initialResumeSegment = initialResumeSegment,
         )
     }

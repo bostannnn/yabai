@@ -184,6 +184,32 @@ class ComicsReaderInteractionTest {
     }
 
     @Test
+    fun `double page metadata indexing builds stable prefix through lookahead window`() {
+        assertEquals(
+            listOf(0, 1, 2, 3, 4, 5, 6),
+            requiredMetadataIndexes(
+                currentPage = 2,
+                pageCount = 10,
+                useDoublePageSpreads = true,
+                splitWidePages = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `single page metadata indexing stays local when split wide pages disabled`() {
+        assertEquals(
+            listOf(4, 5, 3, 6, 2),
+            requiredMetadataIndexes(
+                currentPage = 4,
+                pageCount = 8,
+                useDoublePageSpreads = false,
+                splitWidePages = false,
+            ),
+        )
+    }
+
+    @Test
     fun `tap action uses edge zones for ltr reading`() {
         assertEquals(
             ReaderTapAction.Previous,

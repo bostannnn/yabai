@@ -8,6 +8,7 @@ const val ComicsReadingDirectionKey = "readingDirection"
 const val ComicsPageFitModeKey = "pageFitMode"
 const val ComicsSpreadModeKey = "spreadMode"
 const val ComicsSplitWidePagesKey = "splitWidePages"
+const val ComicsResumeAnchorPageKey = "resumeAnchorPage"
 const val ComicsResumeSegmentKey = "resumeSegment"
 
 fun restoreComicReaderPreferences(
@@ -23,6 +24,7 @@ fun restoreComicReaderPreferences(
         preferences.containsKey(ComicsPageFitModeKey) ||
         preferences.containsKey(ComicsSpreadModeKey) ||
         preferences.containsKey(ComicsSplitWidePagesKey) ||
+        preferences.containsKey(ComicsResumeAnchorPageKey) ||
         preferences.containsKey(ComicsResumeSegmentKey)
     if (!hasKnownPreference) return null
     return ComicReaderPreferencesSnapshot(
@@ -38,6 +40,8 @@ fun restoreComicReaderPreferences(
         splitWidePages = preferences[ComicsSplitWidePagesKey]
             ?.toBooleanStrictOrNull()
             ?: false,
+        resumeAnchorPage = preferences[ComicsResumeAnchorPageKey]
+            ?.toIntOrNull(),
         resumeSegment = preferences[ComicsResumeSegmentKey]
             ?.enumValueOrNull<ComicPageSegment>(),
     )
@@ -60,6 +64,7 @@ fun buildComicReaderPreferencesMap(
     ComicsPageFitModeKey to preferences.pageFitMode.name,
     ComicsSpreadModeKey to preferences.spreadMode.name,
     ComicsSplitWidePagesKey to preferences.splitWidePages.toString(),
+    ComicsResumeAnchorPageKey to preferences.resumeAnchorPage?.toString().orEmpty(),
     ComicsResumeSegmentKey to preferences.resumeSegment?.name.orEmpty(),
 )
 
@@ -68,12 +73,14 @@ fun buildComicReaderPreferencesPatch(
     pageFitMode: ComicPageFitMode? = null,
     spreadMode: ComicSpreadMode? = null,
     splitWidePages: Boolean? = null,
+    resumeAnchorPage: Int? = null,
     resumeSegment: ComicPageSegment? = null,
 ): Map<String, String> = buildMap {
     readingDirection?.let { put(ComicsReadingDirectionKey, it.name) }
     pageFitMode?.let { put(ComicsPageFitModeKey, it.name) }
     spreadMode?.let { put(ComicsSpreadModeKey, it.name) }
     splitWidePages?.let { put(ComicsSplitWidePagesKey, it.toString()) }
+    resumeAnchorPage?.let { put(ComicsResumeAnchorPageKey, it.toString()) }
     if (resumeSegment != null) {
         put(ComicsResumeSegmentKey, resumeSegment.name)
     }
