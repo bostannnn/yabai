@@ -41,11 +41,6 @@ internal data class AppCatalogSnapshot(
     val themeMode: ThemeMode,
 )
 
-enum class LibraryMessageSeverity {
-    Info,
-    Error,
-}
-
 enum class TopLevelDestination {
     Library,
     Settings,
@@ -66,8 +61,6 @@ data class AppUiState(
     val downloadedRemoteItemIds: Set<String> = emptySet(),
     val locallyAvailableRemoteItemIds: Set<String> = emptySet(),
     val downloadingRemoteItemIds: Set<String> = emptySet(),
-    val libraryMessage: String? = null,
-    val libraryMessageSeverity: LibraryMessageSeverity = LibraryMessageSeverity.Info,
     val hydratedSources: Set<SourceType> = setOf(SourceType.KAVITA),
     val themeMode: ThemeMode = ThemeMode.System,
     val kavitaConnection: KavitaConnectionUiState = KavitaConnectionUiState(),
@@ -88,9 +81,6 @@ data class AppUiState(
 
     val selectedLibrarySearchQuery: String
         get() = librarySearchQueriesBySource[selectedSource].orEmpty()
-
-    val visibleLibraryErrorMessage: String?
-        get() = libraryMessage.takeIf { libraryMessageSeverity == LibraryMessageSeverity.Error }
 
     val selectedLibrarySortMode: LibrarySortMode
         get() = librarySortsBySource[selectedSource] ?: defaultLibrarySortMode

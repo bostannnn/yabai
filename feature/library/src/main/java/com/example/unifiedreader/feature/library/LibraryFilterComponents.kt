@@ -22,11 +22,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -93,17 +90,16 @@ internal fun LoadingLibraryState(
 
 @Composable
 internal fun LibraryFilterSummary(
-    selectedSource: SourceType,
     filterState: LibraryFilterState,
     filterFacets: LibraryFilterFacets,
     libraryTitlesById: Map<String, String>,
     sortMode: LibrarySortMode,
+    viewMode: LibraryViewMode,
     showSortControl: Boolean,
     onOpenFilterPanel: (LibraryFilterPanel) -> Unit,
     onClearFilters: () -> Unit,
-    onRefreshSource: (() -> Unit)?,
-    isRefreshingSource: Boolean,
     onSortModeChanged: (LibrarySortMode) -> Unit,
+    onViewModeChanged: (LibraryViewMode) -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -154,29 +150,13 @@ internal fun LibraryFilterSummary(
             }
         }
         Spacer(modifier = Modifier.width(8.dp))
-        if (selectedSource != SourceType.LOCAL && onRefreshSource != null) {
-            IconButton(
-                onClick = onRefreshSource,
-                enabled = !isRefreshingSource,
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Sync,
-                    contentDescription = "Re-sync ${selectedSource.displayName()} library",
-                    tint = if (isRefreshingSource) {
-                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                )
-            }
-            Spacer(modifier = Modifier.width(4.dp))
-        }
-        if (showSortControl) {
-            LibrarySortSelector(
-                sortMode = sortMode,
-                onSortModeChanged = onSortModeChanged,
-            )
-        }
+        LibraryBrowseOptionsSelector(
+            sortMode = sortMode,
+            viewMode = viewMode,
+            showSortOptions = showSortControl,
+            onSortModeChanged = onSortModeChanged,
+            onViewModeChanged = onViewModeChanged,
+        )
     }
 }
 
@@ -565,23 +545,4 @@ private fun FilterToggleChip(
             )
         },
     )
-}
-
-@Composable
-internal fun LibraryErrorMessage(
-    message: String,
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.errorContainer,
-        tonalElevation = 1.dp,
-    ) {
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onErrorContainer,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-        )
-    }
 }

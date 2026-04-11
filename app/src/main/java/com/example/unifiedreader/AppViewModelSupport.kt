@@ -1,7 +1,5 @@
 package com.example.unifiedreader
 
-import com.example.unifiedreader.core.model.ReadableItem
-import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.data.kavita.KavitaSession
 import com.example.unifiedreader.data.grimmory.GrimmorySession
 import com.example.unifiedreader.data.stump.StumpSession
@@ -11,15 +9,6 @@ import com.example.unifiedreader.feature.settings.StumpConnectionUiState
 
 internal typealias AppUiStateProvider = () -> AppUiState
 internal typealias AppUiStateUpdater = ((AppUiState) -> AppUiState) -> Unit
-
-internal fun deletionMessage(
-    item: ReadableItem,
-    outcome: ImportedItemDeletionOutcome,
-): String = when (outcome) {
-    ImportedItemDeletionOutcome.Removed -> "Removed ${item.libraryDisplayLabel()}."
-    ImportedItemDeletionOutcome.NotImportedItem -> "Only imported files can be removed from the library."
-    ImportedItemDeletionOutcome.NotFound -> "Unable to remove ${item.libraryDisplayLabel()}."
-}
 
 internal fun GrimmoryConnectionUiState.withStoredSession(
     session: GrimmoryStoredSession?,

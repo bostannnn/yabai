@@ -21,20 +21,10 @@ class AppRemoteDownloadController @Inject constructor(
         item: ReadableItem,
     ) {
         scope.launch {
-            val result = remoteDownloadQueueController.enqueue(
+            remoteDownloadQueueController.enqueue(
                 item = item,
                 items = stateProvider().items,
             )
-            updateState { state ->
-                state.copy(
-                    libraryMessage = result.message,
-                    libraryMessageSeverity = if (result.isError) {
-                        LibraryMessageSeverity.Error
-                    } else {
-                        LibraryMessageSeverity.Info
-                    },
-                )
-            }
         }
     }
 
@@ -80,8 +70,6 @@ class AppRemoteDownloadController @Inject constructor(
                 state.copy(
                     downloadedRemoteItemIds = result.downloadedRemoteItemIds,
                     locallyAvailableRemoteItemIds = result.locallyAvailableRemoteItemIds,
-                    libraryMessage = result.libraryMessage,
-                    libraryMessageSeverity = result.libraryMessageSeverity,
                 )
             }
         }

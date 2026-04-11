@@ -12,11 +12,10 @@ import androidx.compose.ui.Modifier
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
-import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.downloads.DownloadsSheet
 import com.example.unifiedreader.feature.library.LibraryScreen
-import com.example.unifiedreader.feature.library.LibraryViewMode
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
+import com.example.unifiedreader.feature.library.LibraryViewMode
 import com.example.unifiedreader.feature.settings.SettingsScreen
 
 @Composable
@@ -38,7 +37,6 @@ fun UnifiedReaderScaffold(
             when (uiState.topLevel) {
                 TopLevelDestination.Library -> LibraryTopBar(
                     selectedSource = uiState.selectedSource,
-                    libraryViewMode = libraryViewMode,
                     searchQuery = uiState.selectedLibrarySearchQuery,
                     seriesTitle = uiState.selectedSeriesTitle,
                     onSourceSelected = { source ->
@@ -46,7 +44,6 @@ fun UnifiedReaderScaffold(
                         viewModel.onSourceSelected(source)
                     },
                     onSearchQueryChanged = viewModel::onLibrarySearchQueryChanged,
-                    onLibraryViewModeChanged = onLibraryViewModeChanged,
                     downloadBadgeCount = viewModel.downloadsSnapshot.badgeCount,
                     onDownloadsClick = viewModel::showDownloadsSheet,
                     onSettingsClick = {
@@ -58,12 +55,10 @@ fun UnifiedReaderScaffold(
 
                 TopLevelDestination.Settings -> SettingsTopBar(
                     selectedSource = uiState.selectedSource,
-                    libraryViewMode = libraryViewMode,
                     onSourceSelected = { source ->
                         viewModel.onTopLevelSelected(TopLevelDestination.Library)
                         viewModel.onSourceSelected(source)
                     },
-                    onLibraryViewModeChanged = onLibraryViewModeChanged,
                     onSettingsClick = {
                         viewModel.onTopLevelSelected(TopLevelDestination.Settings)
                     },
@@ -91,13 +86,7 @@ fun UnifiedReaderScaffold(
                     onFilterStateChanged = viewModel::onLibraryFiltersChanged,
                     onClearFilters = viewModel::clearLibraryFilters,
                     onSortModeChanged = viewModel::onLibrarySortModeChanged,
-                    onRefreshSource = viewModel::refreshSelectedRemoteLibrary,
-                    isRefreshingSource = when (uiState.selectedSource) {
-                        SourceType.KAVITA -> uiState.kavitaConnection.isConnecting
-                        SourceType.STUMP -> uiState.stumpConnection.isConnecting
-                        SourceType.GRIMMORY -> uiState.grimmoryConnection.isConnecting
-                        SourceType.LOCAL -> false
-                    },
+                    onViewModeChanged = onLibraryViewModeChanged,
                     showSortControl = !uiState.isSeriesBrowseActive,
                     modifier = Modifier.weight(1f),
                 )
@@ -153,8 +142,7 @@ private fun LibraryRoute(
     onFilterStateChanged: (LibraryFilterState) -> Unit,
     onClearFilters: () -> Unit,
     onSortModeChanged: (LibrarySortMode) -> Unit,
-    onRefreshSource: () -> Unit,
-    isRefreshingSource: Boolean,
+    onViewModeChanged: (LibraryViewMode) -> Unit,
     showSortControl: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -172,7 +160,6 @@ private fun LibraryRoute(
             downloadableItemIds = uiState.remoteDownloadActionAvailability.downloadableItemIds,
             deletableDownloadedItemIds = uiState.remoteDownloadActionAvailability.deletableDownloadedItemIds,
             downloadingItemIds = uiState.remoteDownloadActionAvailability.activeDownloadingItemIds,
-            libraryErrorMessage = uiState.visibleLibraryErrorMessage,
             isLoadingSource = !uiState.isSelectedSourceHydrated,
             filterState = uiState.selectedLibraryFilters,
             filterFacets = uiState.selectedLibraryFilterFacets,
@@ -185,8 +172,7 @@ private fun LibraryRoute(
             onFilterStateChanged = onFilterStateChanged,
             onClearFilters = onClearFilters,
             onSortModeChanged = onSortModeChanged,
-            onRefreshSource = onRefreshSource,
-            isRefreshingSource = isRefreshingSource,
+            onViewModeChanged = onViewModeChanged,
             initialScrollPosition = initialScrollPosition,
             onScrollPositionChanged = onScrollPositionChanged,
             onItemSelected = onItemSelected,

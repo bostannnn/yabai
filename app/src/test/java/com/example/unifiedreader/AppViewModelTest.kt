@@ -92,7 +92,7 @@ class AppViewModelTest {
     }
 
     @Test
-    fun `import success adds item opens reader and sets success status`() = runBlocking {
+    fun `import success adds item and opens reader`() = runBlocking {
         val importedItem = sampleItem(
             id = "imported-cbz",
             title = "Imported Akira",
@@ -113,13 +113,11 @@ class AppViewModelTest {
         assertEquals(importedItem.id, viewModel.uiState.selectedItemId)
         assertEquals(FormatType.CBZ, viewModel.uiState.activeReader)
         assertEquals(SourceType.LOCAL, viewModel.uiState.selectedSource)
-        assertEquals("Imported Imported Akira (CBZ)", viewModel.uiState.libraryMessage)
-        assertNull(viewModel.uiState.visibleLibraryErrorMessage)
         assertEquals(listOf(importedItem), viewModel.uiState.items)
     }
 
     @Test
-    fun `import failure leaves selection closed and sets error status`() = runBlocking {
+    fun `import failure leaves selection closed`() = runBlocking {
         val viewModel = createViewModel(
             importedRepository = FakeLocalDocumentRepository(importResult = null),
         )
@@ -128,15 +126,10 @@ class AppViewModelTest {
 
         assertNull(viewModel.uiState.selectedItemId)
         assertNull(viewModel.uiState.activeReader)
-        assertEquals("Unable to import that file as a supported local document.", viewModel.uiState.libraryMessage)
-        assertEquals(
-            "Unable to import that file as a supported local document.",
-            viewModel.uiState.visibleLibraryErrorMessage,
-        )
     }
 
     @Test
-    fun `import failure from settings returns to library to show error status`() = runBlocking {
+    fun `import failure from settings stays on settings`() = runBlocking {
         val viewModel = createViewModel(
             importedRepository = FakeLocalDocumentRepository(importResult = null),
         )
@@ -144,18 +137,13 @@ class AppViewModelTest {
 
         viewModel.importDocument(Uri.parse("content://imports/bad-file.bin"))
 
-        assertEquals(TopLevelDestination.Library, viewModel.uiState.topLevel)
+        assertEquals(TopLevelDestination.Settings, viewModel.uiState.topLevel)
         assertNull(viewModel.uiState.selectedItemId)
         assertNull(viewModel.uiState.activeReader)
-        assertEquals("Unable to import that file as a supported local document.", viewModel.uiState.libraryMessage)
-        assertEquals(
-            "Unable to import that file as a supported local document.",
-            viewModel.uiState.visibleLibraryErrorMessage,
-        )
     }
 
     @Test
-    fun `imported epub opens local reader and sets success status`() = runBlocking {
+    fun `imported epub opens local reader`() = runBlocking {
         val importedItem = ReadableItem(
             id = "document-abcd",
             sourceType = SourceType.LOCAL,
@@ -182,12 +170,10 @@ class AppViewModelTest {
         assertEquals(FormatType.EPUB, viewModel.uiState.activeReader)
         assertEquals(SourceType.LOCAL, viewModel.uiState.selectedSource)
         assertEquals(SourceType.LOCAL, viewModel.uiState.selectedItem?.sourceType)
-        assertEquals("Imported The Dispossessed (EPUB)", viewModel.uiState.libraryMessage)
-        assertNull(viewModel.uiState.visibleLibraryErrorMessage)
     }
 
     @Test
-    fun `import success uses comic metadata label in library message`() = runBlocking {
+    fun `import success preserves comic metadata on imported item`() = runBlocking {
         val importedItem = sampleItem(
             id = "imported-carmilla",
             title = "Carmilla 03 (2025) (Collection) (Dark Horse Comics) (Digital-HD) (LeDuch)",
@@ -210,8 +196,8 @@ class AppViewModelTest {
 
         viewModel.importDocument(Uri.parse("content://imports/carmilla-03.cbz"))
 
-        assertEquals("Imported Carmilla: The Eternal (CBZ)", viewModel.uiState.libraryMessage)
-        assertNull(viewModel.uiState.visibleLibraryErrorMessage)
+        assertEquals(importedItem.id, viewModel.uiState.selectedItemId)
+        assertEquals("Carmilla: The Eternal", viewModel.uiState.selectedItem?.comicMetadata?.series)
     }
 
     @Test
@@ -1134,10 +1120,6 @@ class AppViewModelTest {
         assertEquals("api-key", credentialStore.sessionFlow.value?.apiKey)
         assertEquals(TopLevelDestination.Library, viewModel.uiState.topLevel)
         assertEquals(
-            "Connected to Kavita. 2 libraries available to sync.",
-            viewModel.uiState.libraryMessage,
-        )
-        assertEquals(
             "Connected to Kavita. Tap Sync Kavita to import the library.",
             viewModel.uiState.kavitaConnection.message,
         )
@@ -1180,7 +1162,6 @@ class AppViewModelTest {
         assertEquals("saved-refresh-token", syncer.lastSyncRequest?.refreshToken)
         assertEquals("saved-api-key", syncer.lastSyncRequest?.apiKey)
         assertEquals(SourceType.KAVITA, viewModel.uiState.selectedSource)
-        assertEquals("Synced 12 Kavita items from 2 libraries.", viewModel.uiState.libraryMessage)
         assertEquals("Kavita library synced.", viewModel.uiState.kavitaConnection.message)
     }
 
@@ -1211,10 +1192,6 @@ class AppViewModelTest {
         assertEquals(
             "Re-enter the Kavita password once to refresh the API key for covers and reading.",
             viewModel.uiState.kavitaConnection.message,
-        )
-        assertEquals(
-            "Re-enter the Kavita password once to refresh the API key for covers and reading.",
-            viewModel.uiState.libraryMessage,
         )
         assertEquals(true, viewModel.uiState.kavitaConnection.isError)
     }
@@ -1250,10 +1227,6 @@ class AppViewModelTest {
         assertNull(syncer.lastSyncRequest)
         assertEquals("access-token", credentialStore.sessionFlow.value?.accessToken)
         assertEquals("refresh-token", credentialStore.sessionFlow.value?.refreshToken)
-        assertEquals(
-            "Connected to Stump. 3 libraries available to sync.",
-            viewModel.uiState.libraryMessage,
-        )
         assertEquals(
             "Connected to Stump. Tap Sync Stump to import the library.",
             viewModel.uiState.stumpConnection.message,
@@ -1321,7 +1294,6 @@ class AppViewModelTest {
         assertEquals("refreshed-access-token", credentialStore.sessionFlow.value?.accessToken)
         assertEquals("refreshed-refresh-token", credentialStore.sessionFlow.value?.refreshToken)
         assertEquals(SourceType.STUMP, viewModel.uiState.selectedSource)
-        assertEquals("Synced 7 Stump items from 2 libraries.", viewModel.uiState.libraryMessage)
         assertEquals("Stump library synced.", viewModel.uiState.stumpConnection.message)
         assertEquals(listOf(SourceType.STUMP), pageCacheController.clearedSourceTypes)
         assertEquals(1, stumpCoverRepository.clearCachedCoversCalls)
@@ -1363,8 +1335,6 @@ class AppViewModelTest {
         assertEquals("refresh-token", credentialStore.sessionFlow.value?.refreshToken)
         assertEquals(TopLevelDestination.Library, viewModel.uiState.topLevel)
         assertEquals(SourceType.GRIMMORY, viewModel.uiState.selectedSource)
-        assertEquals("Synced 12 Grimmory books from 2 libraries.", viewModel.uiState.libraryMessage)
-        assertNull(viewModel.uiState.visibleLibraryErrorMessage)
         assertEquals("", viewModel.uiState.grimmoryConnection.password)
         assertEquals(true, viewModel.uiState.grimmoryConnection.hasStoredSession)
         assertEquals(false, viewModel.uiState.grimmoryConnection.isError)
@@ -1434,8 +1404,6 @@ class AppViewModelTest {
         assertEquals("saved-access-token", syncer.lastRequest?.accessToken)
         assertEquals("saved-refresh-token", syncer.lastRequest?.refreshToken)
         assertEquals(SourceType.GRIMMORY, viewModel.uiState.selectedSource)
-        assertEquals("Synced 9 Grimmory books from 1 libraries.", viewModel.uiState.libraryMessage)
-        assertNull(viewModel.uiState.visibleLibraryErrorMessage)
         assertEquals("Grimmory library synced.", viewModel.uiState.grimmoryConnection.message)
     }
 
@@ -1516,8 +1484,6 @@ class AppViewModelTest {
         assertTrue(viewModel.uiState.items.none { it.id == importedItem.id })
         assertNull(viewModel.uiState.selectedItemId)
         assertNull(viewModel.uiState.activeReader)
-        assertEquals("Removed Imported Akira.", viewModel.uiState.libraryMessage)
-        assertNull(viewModel.uiState.visibleLibraryErrorMessage)
         assertNull(readerSessionStore.getProgress(importedItem))
         assertNull(readerSessionStore.getSession(importedItem))
     }

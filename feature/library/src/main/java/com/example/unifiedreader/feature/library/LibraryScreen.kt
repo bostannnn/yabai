@@ -44,7 +44,6 @@ fun LibraryScreen(
     downloadableItemIds: Set<String> = emptySet(),
     deletableDownloadedItemIds: Set<String> = emptySet(),
     downloadingItemIds: Set<String> = emptySet(),
-    libraryErrorMessage: String? = null,
     isLoadingSource: Boolean = false,
     filterState: LibraryFilterState = LibraryFilterState(),
     filterFacets: LibraryFilterFacets = LibraryFilterFacets(),
@@ -57,8 +56,7 @@ fun LibraryScreen(
     onFilterStateChanged: (LibraryFilterState) -> Unit = {},
     onClearFilters: () -> Unit = {},
     onSortModeChanged: (LibrarySortMode) -> Unit = {},
-    onRefreshSource: (() -> Unit)? = null,
-    isRefreshingSource: Boolean = false,
+    onViewModeChanged: (LibraryViewMode) -> Unit = {},
     initialScrollPosition: LibraryScrollPosition = LibraryScrollPosition(),
     onScrollPositionChanged: (LibraryScrollPosition) -> Unit = {},
     onItemSelected: (ReadableItem) -> Unit,
@@ -123,28 +121,21 @@ fun LibraryScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            libraryErrorMessage?.let { message ->
-                item(span = { GridItemSpan(maxLineSpan) }) {
-                    LibraryErrorMessage(message = message)
-                }
-            }
-
             item(span = { GridItemSpan(maxLineSpan) }) {
                 LibraryFilterSummary(
-                    selectedSource = selectedSource,
                     filterState = filterState,
                     filterFacets = filterFacets,
                     libraryTitlesById = libraryTitlesById,
                     sortMode = sortMode,
+                    viewMode = viewMode,
                     showSortControl = showSortControl,
                     onOpenFilterPanel = { openFilterPanel = it },
                     onClearFilters = onClearFilters,
-                    onRefreshSource = onRefreshSource,
-                    isRefreshingSource = isRefreshingSource,
                     onSortModeChanged = {
                         selectedSortLetter = null
                         onSortModeChanged(it)
                     },
+                    onViewModeChanged = onViewModeChanged,
                 )
             }
 

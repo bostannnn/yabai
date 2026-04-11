@@ -1,8 +1,10 @@
 package com.example.unifiedreader.feature.library
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -14,18 +16,26 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.example.unifiedreader.core.model.LibrarySortMode
 
 @Composable
-internal fun LibrarySortSelector(
+internal fun LibraryBrowseOptionsSelector(
     sortMode: LibrarySortMode,
+    viewMode: LibraryViewMode,
+    showSortOptions: Boolean,
     onSortModeChanged: (LibrarySortMode) -> Unit,
+    onViewModeChanged: (LibraryViewMode) -> Unit,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
-    androidx.compose.foundation.layout.Box {
+    Box {
         FilterChip(
-            selected = sortMode != defaultLibrarySortMode,
+            selected = viewMode != LibraryViewMode.Grid ||
+                (showSortOptions && sortMode != defaultLibrarySortMode),
             onClick = { expanded = true },
             label = {
                 Text(
-                    text = "Sort: ${sortMode.label}",
+                    text = if (showSortOptions) {
+                        "Browse: ${sortMode.label} · ${viewMode.label}"
+                    } else {
+                        "View: ${viewMode.label}"
+                    },
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -35,20 +45,55 @@ internal fun LibrarySortSelector(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
-            LibrarySortMode.entries.forEach { mode ->
+            if (showSortOptions) {
+                DropdownSectionHeader(text = "Sort")
+                LibrarySortMode.entries.forEach { mode ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = mode.label,
+                                fontWeight = if (mode == sortMode) FontWeight.SemiBold else FontWeight.Normal,
+                            )
+                        },
+                        onClick = {
+                            expanded = false
+                            onSortModeChanged(mode)
+                        },
+                    )
+                }
+                HorizontalDivider()
+            }
+            DropdownSectionHeader(text = "View")
+            LibraryViewMode.entries.forEach { mode ->
                 DropdownMenuItem(
                     text = {
                         Text(
                             text = mode.label,
-                            fontWeight = if (mode == sortMode) FontWeight.SemiBold else FontWeight.Normal,
+                            fontWeight = if (mode == viewMode) FontWeight.SemiBold else FontWeight.Normal,
                         )
                     },
                     onClick = {
                         expanded = false
-                        onSortModeChanged(mode)
+                        onViewModeChanged(mode)
                     },
                 )
             }
         }
     }
+}
+
+@Composable
+private fun DropdownSectionHeader(
+    text: String,
+) {
+    DropdownMenuItem(
+        text = {
+            Text(
+                text = text,
+                fontWeight = FontWeight.Medium,
+            )
+        },
+        onClick = {},
+        enabled = false,
+    )
 }

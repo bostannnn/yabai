@@ -121,8 +121,6 @@ class AppStumpRemoteSourceController @Inject constructor(
             StumpSyncPreparation.MissingSession -> {
                 updateState { state ->
                     state.copy(
-                        libraryMessage = "Connect to Stump before syncing the library.",
-                        libraryMessageSeverity = LibraryMessageSeverity.Error,
                         stumpConnection = state.stumpConnection.copy(
                             message = "Connect to Stump before syncing the library.",
                             isError = true,
@@ -133,8 +131,6 @@ class AppStumpRemoteSourceController @Inject constructor(
             is StumpSyncPreparation.Invalid -> {
                 updateState { state ->
                     state.copy(
-                        libraryMessage = preparation.connection.message,
-                        libraryMessageSeverity = LibraryMessageSeverity.Error,
                         stumpConnection = preparation.connection,
                     )
                 }
@@ -149,8 +145,6 @@ class AppStumpRemoteSourceController @Inject constructor(
                             message = "Syncing Stump library.",
                             isError = false,
                         ),
-                        libraryMessage = "Syncing Stump library.",
-                        libraryMessageSeverity = LibraryMessageSeverity.Info,
                     )
                 }
                 startSync(preparation, updateState, scope)
@@ -178,8 +172,6 @@ class AppStumpRemoteSourceController @Inject constructor(
                                     message = "Syncing Stump library.",
                                     isError = false,
                                 ),
-                                libraryMessage = progress.message,
-                                libraryMessageSeverity = LibraryMessageSeverity.Info,
                             )
                         }
                     },
@@ -195,8 +187,6 @@ class AppStumpRemoteSourceController @Inject constructor(
                             activeReader = null,
                             selectedKavitaSeriesKey = null,
                             selectedStumpSeriesKey = null,
-                            libraryMessage = "Synced ${result.itemCount} Stump items from ${result.libraryCount} libraries.",
-                            libraryMessageSeverity = LibraryMessageSeverity.Info,
                             stumpConnection = result.connection,
                         )
                     }
@@ -204,8 +194,6 @@ class AppStumpRemoteSourceController @Inject constructor(
                 is StumpSyncExecutionResult.Failure -> {
                     updateState { state ->
                         state.copy(
-                            libraryMessage = result.message,
-                            libraryMessageSeverity = LibraryMessageSeverity.Error,
                             stumpConnection = result.connection,
                         )
                     }
@@ -225,8 +213,6 @@ class AppStumpRemoteSourceController @Inject constructor(
                     clearPageCache()
                     updateState { state ->
                         state.copy(
-                            libraryMessage = "Connected to Stump. ${result.libraryCount} libraries available to sync.",
-                            libraryMessageSeverity = LibraryMessageSeverity.Info,
                             stumpConnection = result.connection,
                         )
                     }
@@ -234,8 +220,6 @@ class AppStumpRemoteSourceController @Inject constructor(
                 is StumpConnectExecutionResult.Failure -> {
                     updateState { state ->
                         state.copy(
-                            libraryMessage = result.message,
-                            libraryMessageSeverity = LibraryMessageSeverity.Error,
                             stumpConnection = result.connection,
                         )
                     }

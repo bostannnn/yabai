@@ -33,8 +33,6 @@ class AppCatalogStateCoordinator @Inject constructor(
         selectedSource: SourceType = currentState.selectedSource,
         selectedItemId: String? = currentState.selectedItemId,
         activeReader: FormatType? = currentState.activeReader,
-        libraryMessage: String? = currentState.libraryMessage,
-        libraryMessageSeverity: LibraryMessageSeverity = currentState.libraryMessageSeverity,
         themeMode: com.example.unifiedreader.feature.settings.ThemeMode = currentState.themeMode,
         selectedKavitaSeriesKey: String? = currentState.selectedKavitaSeriesKey,
         selectedStumpSeriesKey: String? = currentState.selectedStumpSeriesKey,
@@ -55,8 +53,6 @@ class AppCatalogStateCoordinator @Inject constructor(
                     selectedSource == SourceType.STUMP && items.any { item -> item.belongsToStumpSeries(seriesKey) }
                 },
                 progressByItemId = buildProgressSummaries(items),
-                libraryMessage = libraryMessage,
-                libraryMessageSeverity = libraryMessageSeverity,
                 themeMode = themeMode,
             )
         }

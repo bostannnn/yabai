@@ -120,8 +120,6 @@ class AppKavitaRemoteSourceController @Inject constructor(
             KavitaSyncPreparation.MissingSession -> {
                 updateState { state ->
                     state.copy(
-                        libraryMessage = "Connect to Kavita before syncing the library.",
-                        libraryMessageSeverity = LibraryMessageSeverity.Error,
                         kavitaConnection = state.kavitaConnection.copy(
                             message = "Connect to Kavita before syncing the library.",
                             isError = true,
@@ -132,8 +130,6 @@ class AppKavitaRemoteSourceController @Inject constructor(
             is KavitaSyncPreparation.Invalid -> {
                 updateState { state ->
                     state.copy(
-                        libraryMessage = preparation.connection.message,
-                        libraryMessageSeverity = LibraryMessageSeverity.Error,
                         kavitaConnection = preparation.connection,
                     )
                 }
@@ -148,8 +144,6 @@ class AppKavitaRemoteSourceController @Inject constructor(
                             message = "Syncing Kavita library.",
                             isError = false,
                         ),
-                        libraryMessage = "Syncing Kavita library.",
-                        libraryMessageSeverity = LibraryMessageSeverity.Info,
                     )
                 }
                 startSync(preparation, updateState, scope)
@@ -176,8 +170,6 @@ class AppKavitaRemoteSourceController @Inject constructor(
                                     message = "Syncing Kavita library.",
                                     isError = false,
                                 ),
-                                libraryMessage = progress.message,
-                                libraryMessageSeverity = LibraryMessageSeverity.Info,
                             )
                         }
                     },
@@ -192,8 +184,6 @@ class AppKavitaRemoteSourceController @Inject constructor(
                             selectedItemId = null,
                             activeReader = null,
                             selectedKavitaSeriesKey = null,
-                            libraryMessage = "Synced ${result.itemCount} Kavita items from ${result.libraryCount} libraries.",
-                            libraryMessageSeverity = LibraryMessageSeverity.Info,
                             kavitaConnection = result.connection,
                         )
                     }
@@ -201,8 +191,6 @@ class AppKavitaRemoteSourceController @Inject constructor(
                 is KavitaSyncExecutionResult.Failure -> {
                     updateState { state ->
                         state.copy(
-                            libraryMessage = result.message,
-                            libraryMessageSeverity = LibraryMessageSeverity.Error,
                             kavitaConnection = result.connection,
                         )
                     }
@@ -222,8 +210,6 @@ class AppKavitaRemoteSourceController @Inject constructor(
                     clearPageCache()
                     updateState { state ->
                         state.copy(
-                            libraryMessage = "Connected to Kavita. ${result.libraryCount} libraries available to sync.",
-                            libraryMessageSeverity = LibraryMessageSeverity.Info,
                             kavitaConnection = result.connection,
                         )
                     }
@@ -231,8 +217,6 @@ class AppKavitaRemoteSourceController @Inject constructor(
                 is KavitaConnectExecutionResult.Failure -> {
                     updateState { state ->
                         state.copy(
-                            libraryMessage = result.message,
-                            libraryMessageSeverity = LibraryMessageSeverity.Error,
                             kavitaConnection = result.connection,
                         )
                     }

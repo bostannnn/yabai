@@ -113,8 +113,6 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
             GrimmorySyncPreparation.MissingSession -> {
                 updateState { state ->
                     state.copy(
-                        libraryMessage = "Connect to Grimmory before syncing the library.",
-                        libraryMessageSeverity = LibraryMessageSeverity.Error,
                         grimmoryConnection = state.grimmoryConnection.copy(
                             message = "Connect to Grimmory before syncing the library.",
                             isError = true,
@@ -131,8 +129,6 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
                             message = "Syncing Grimmory library.",
                             isError = false,
                         ),
-                        libraryMessage = "Syncing Grimmory library.",
-                        libraryMessageSeverity = LibraryMessageSeverity.Info,
                     )
                 }
                 startSync(preparation, updateState, scope)
@@ -154,8 +150,6 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
                             selectedSource = SourceType.GRIMMORY,
                             selectedItemId = null,
                             activeReader = null,
-                            libraryMessage = "Synced ${result.itemCount} Grimmory books from ${result.libraryCount} libraries.",
-                            libraryMessageSeverity = LibraryMessageSeverity.Info,
                             grimmoryConnection = result.connection,
                         )
                     }
@@ -163,8 +157,6 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
                 is GrimmorySyncExecutionResult.Failure -> {
                     updateState { state ->
                         state.copy(
-                            libraryMessage = result.message,
-                            libraryMessageSeverity = LibraryMessageSeverity.Error,
                             grimmoryConnection = result.connection,
                         )
                     }

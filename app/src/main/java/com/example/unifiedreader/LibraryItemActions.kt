@@ -2,7 +2,6 @@ package com.example.unifiedreader
 
 import android.net.Uri
 import com.example.unifiedreader.core.model.ReadableItem
-import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.core.model.resolveRemoteDownloadActionItems
 import com.example.unifiedreader.feature.downloads.downloadDataSourceFor
 import com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
@@ -11,17 +10,7 @@ import kotlin.jvm.JvmSuppressWildcards
 
 data class ImportDocumentResult(
     val importedItem: ReadableItem?,
-) {
-    val libraryMessage: String =
-        if (importedItem != null) {
-            "Imported ${importedItem.libraryDisplayLabel()} (${importedItem.format.name})"
-        } else {
-            "Unable to import that file as a supported local document."
-        }
-
-    val libraryMessageSeverity: LibraryMessageSeverity =
-        if (importedItem != null) LibraryMessageSeverity.Info else LibraryMessageSeverity.Error
-}
+)
 
 class ImportDocumentUseCase @Inject constructor(
     private val localDocumentRepository: LocalDocumentDataSource,
@@ -52,8 +41,6 @@ class DeleteImportedItemUseCase @Inject constructor(
 data class DeleteRemoteLocalFileResult(
     val downloadedRemoteItemIds: Set<String>,
     val locallyAvailableRemoteItemIds: Set<String>,
-    val libraryMessage: String,
-    val libraryMessageSeverity: LibraryMessageSeverity,
 )
 
 class DeleteRemoteLocalFileUseCase @Inject constructor(
@@ -68,32 +55,14 @@ class DeleteRemoteLocalFileUseCase @Inject constructor(
             selectedItem = item,
             items = items,
         )
-        val deletedCount = actionItems.count { actionItem ->
+        actionItems.forEach { actionItem ->
             remoteDownloadDataSources.downloadDataSourceFor(actionItem)
-                ?.deleteStoredDocument(actionItem) == true
+                ?.deleteStoredDocument(actionItem)
         }
         val remoteItemLocalState = libraryStateAssembler.loadRemoteItemLocalState(items)
         return DeleteRemoteLocalFileResult(
             downloadedRemoteItemIds = remoteItemLocalState.downloadedItemIds,
             locallyAvailableRemoteItemIds = remoteItemLocalState.locallyAvailableItemIds,
-            libraryMessage = if (deletedCount > 0) {
-                if (actionItems.size == 1) {
-                    "Deleted local file for ${item.libraryDisplayLabel()}."
-                } else {
-                    "Deleted $deletedCount local files."
-                }
-            } else {
-                if (actionItems.size == 1) {
-                    "No local file found for ${item.libraryDisplayLabel()}."
-                } else {
-                    "No local files found for ${item.libraryDisplayLabel()}."
-                }
-            },
-            libraryMessageSeverity = if (deletedCount > 0) {
-                LibraryMessageSeverity.Info
-            } else {
-                LibraryMessageSeverity.Error
-            },
         )
     }
 }

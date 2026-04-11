@@ -15,11 +15,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Badge
@@ -38,17 +36,14 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.SourceType
-import com.example.unifiedreader.feature.library.LibraryViewMode
 
 @Composable
 fun LibraryTopBar(
     selectedSource: SourceType,
-    libraryViewMode: LibraryViewMode,
     searchQuery: String,
     seriesTitle: String?,
     onSourceSelected: (SourceType) -> Unit,
     onSearchQueryChanged: (String) -> Unit,
-    onLibraryViewModeChanged: (LibraryViewMode) -> Unit,
     downloadBadgeCount: Int,
     onDownloadsClick: () -> Unit,
     onSettingsClick: () -> Unit,
@@ -85,9 +80,7 @@ fun LibraryTopBar(
                         )
                     }
                     LibraryToolbarActions(
-                        libraryViewMode = libraryViewMode,
                         topLevel = TopLevelDestination.Library,
-                        onLibraryViewModeChanged = onLibraryViewModeChanged,
                         downloadBadgeCount = downloadBadgeCount,
                         onDownloadsClick = onDownloadsClick,
                         onSettingsClick = onSettingsClick,
@@ -131,9 +124,7 @@ fun LibraryTopBar(
                         .widthIn(min = 280.dp, max = 340.dp),
                 )
                 LibraryToolbarActions(
-                    libraryViewMode = libraryViewMode,
                     topLevel = TopLevelDestination.Library,
-                    onLibraryViewModeChanged = onLibraryViewModeChanged,
                     downloadBadgeCount = downloadBadgeCount,
                     onDownloadsClick = onDownloadsClick,
                     onSettingsClick = onSettingsClick,
@@ -148,9 +139,7 @@ fun LibraryTopBar(
 @Composable
 fun SettingsTopBar(
     selectedSource: SourceType,
-    libraryViewMode: LibraryViewMode,
     onSourceSelected: (SourceType) -> Unit,
-    onLibraryViewModeChanged: (LibraryViewMode) -> Unit,
     onSettingsClick: () -> Unit,
     onImportLocalFileClick: () -> Unit,
 ) {
@@ -172,9 +161,7 @@ fun SettingsTopBar(
                     .widthIn(max = 260.dp),
             )
             LibraryToolbarActions(
-                libraryViewMode = libraryViewMode,
                 topLevel = TopLevelDestination.Settings,
-                onLibraryViewModeChanged = onLibraryViewModeChanged,
                 onSettingsClick = onSettingsClick,
                 onImportLocalFileClick = onImportLocalFileClick,
                 modifier = Modifier.align(Alignment.CenterEnd),
@@ -302,9 +289,7 @@ private fun LibrarySearchField(
 
 @Composable
 private fun LibraryToolbarActions(
-    libraryViewMode: LibraryViewMode,
     topLevel: TopLevelDestination,
-    onLibraryViewModeChanged: (LibraryViewMode) -> Unit,
     downloadBadgeCount: Int = 0,
     onDownloadsClick: (() -> Unit)? = null,
     onSettingsClick: () -> Unit,
@@ -316,16 +301,6 @@ private fun LibraryToolbarActions(
         horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        ViewModeButton(
-            mode = LibraryViewMode.Detailed,
-            selectedMode = libraryViewMode,
-            onLibraryViewModeChanged = onLibraryViewModeChanged,
-        )
-        ViewModeButton(
-            mode = LibraryViewMode.Grid,
-            selectedMode = libraryViewMode,
-            onLibraryViewModeChanged = onLibraryViewModeChanged,
-        )
         onDownloadsClick?.let { handler ->
             IconButton(onClick = handler) {
                 BadgedBox(
@@ -362,32 +337,6 @@ private fun LibraryToolbarActions(
                 contentDescription = "Import local file",
             )
         }
-    }
-}
-
-@Composable
-private fun ViewModeButton(
-    mode: LibraryViewMode,
-    selectedMode: LibraryViewMode,
-    onLibraryViewModeChanged: (LibraryViewMode) -> Unit,
-) {
-    val isSelected = mode == selectedMode
-    IconButton(onClick = { onLibraryViewModeChanged(mode) }) {
-        Icon(
-            imageVector = when (mode) {
-                LibraryViewMode.Detailed -> Icons.AutoMirrored.Filled.ViewList
-                LibraryViewMode.Grid -> Icons.Default.GridView
-            },
-            contentDescription = when (mode) {
-                LibraryViewMode.Detailed -> "Detailed view"
-                LibraryViewMode.Grid -> "Grid view"
-            },
-            tint = if (isSelected) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
-        )
     }
 }
 

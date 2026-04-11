@@ -45,6 +45,8 @@ class AppViewModel @Inject constructor(
         private set
     var isDownloadsSheetVisible by mutableStateOf(false)
         private set
+    var isUnsupportedImportDialogVisible by mutableStateOf(false)
+        private set
     private var lastDownloadedAvailabilitySignature: Set<String>? = null
 
     init {
@@ -144,12 +146,7 @@ class AppViewModel @Inject constructor(
         libraryActionsCoordinator.ensureCoverCached(
             item = item,
             scope = viewModelScope,
-            onError = { message ->
-                updateLibraryMessage(
-                    message = message,
-                    severity = LibraryMessageSeverity.Error,
-                )
-            },
+            onError = {},
         )
     }
 
@@ -178,16 +175,23 @@ class AppViewModel @Inject constructor(
         )
     }
 
-    fun onDocumentImported(uri: Uri) {
-        viewModelScope.launch {
-            importDocument(uri)
-        }
-    }
-
     fun onDeleteImportedItem(item: ReadableItem) {
         viewModelScope.launch {
             deleteImportedItem(item)
         }
+    }
+
+    fun onDocumentImported(uri: Uri) {
+        viewModelScope.launch {
+            val imported = importDocument(uri)
+            if (!imported) {
+                isUnsupportedImportDialogVisible = true
+            }
+        }
+    }
+
+    fun dismissUnsupportedImportDialog() {
+        isUnsupportedImportDialogVisible = false
     }
 
     fun onDownloadRemoteItem(item: ReadableItem) {
@@ -398,18 +402,18 @@ class AppViewModel @Inject constructor(
         )
     }
 
-    internal suspend fun importDocument(uri: Uri) {
+    internal suspend fun importDocument(uri: Uri): Boolean {
         val result = libraryActionsCoordinator.importDocument(uri)
+        val importedItem = result.importedItem
         catalogStateCoordinator.updateLibraryState(
             currentState = uiState,
             updateState = ::updateUiState,
-            topLevel = TopLevelDestination.Library,
-            selectedSource = result.importedItem?.sourceType ?: uiState.selectedSource,
-            selectedItemId = result.importedItem?.id,
-            activeReader = result.importedItem?.format,
-            libraryMessage = result.libraryMessage,
-            libraryMessageSeverity = result.libraryMessageSeverity,
+            topLevel = if (importedItem != null) TopLevelDestination.Library else uiState.topLevel,
+            selectedSource = importedItem?.sourceType ?: uiState.selectedSource,
+            selectedItemId = importedItem?.id,
+            activeReader = importedItem?.format,
         )
+        return importedItem != null
     }
 
     internal suspend fun deleteImportedItem(item: ReadableItem) {
@@ -422,24 +426,7 @@ class AppViewModel @Inject constructor(
             selectedSource = uiState.selectedSource,
             selectedItemId = if (isDeletedSelection) null else uiState.selectedItemId,
             activeReader = if (isDeletedSelection) null else uiState.activeReader,
-            libraryMessage = deletionMessage(item, result.outcome),
-            libraryMessageSeverity = if (removed) {
-                LibraryMessageSeverity.Info
-            } else {
-                LibraryMessageSeverity.Error
-            },
         )
-    }
-
-    fun clearLibraryMessage() {
-        if (uiState.libraryMessage != null) {
-            updateUiState { state ->
-                state.copy(
-                    libraryMessage = null,
-                    libraryMessageSeverity = LibraryMessageSeverity.Info,
-                )
-            }
-        }
     }
 
     private fun observeAppState() {
@@ -486,18 +473,6 @@ class AppViewModel @Inject constructor(
     ) {
         val previousState = uiState
         uiState = transform(previousState).withDerivedLibraryState(previousState)
-    }
-
-    private fun updateLibraryMessage(
-        message: String?,
-        severity: LibraryMessageSeverity,
-    ) {
-        updateUiState { state ->
-            state.copy(
-                libraryMessage = message,
-                libraryMessageSeverity = severity,
-            )
-        }
     }
 
 }

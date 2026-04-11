@@ -5,7 +5,6 @@ import android.content.res.Configuration
 import android.net.Uri
 import android.text.Html
 import android.view.Gravity
-import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
 import java.io.ByteArrayInputStream
@@ -110,7 +109,6 @@ import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Link
 import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.publication.Publication
-import org.readium.r2.shared.publication.epub.EpubLayout
 import org.readium.r2.shared.publication.presentation.presentation
 import org.readium.r2.shared.publication.services.locateProgression
 import org.readium.r2.shared.publication.services.positionsByReadingOrder
@@ -1439,110 +1437,6 @@ internal fun resolveRestoredThemeSelection(
         theme = if (useAppThemeDefault) appReaderTheme else restoredPreferences.theme,
         useAppThemeDefault = useAppThemeDefault,
     )
-}
-
-private fun epubNavigatorContainerLayoutParams(
-    verticalInsetPx: Int,
-): FrameLayout.LayoutParams = FrameLayout.LayoutParams(
-    FrameLayout.LayoutParams.MATCH_PARENT,
-    FrameLayout.LayoutParams.MATCH_PARENT,
-    Gravity.CENTER,
-).apply {
-    topMargin = verticalInsetPx
-    bottomMargin = verticalInsetPx
-}
-
-private fun FrameLayout.updateEpubNavigatorContainer(
-    verticalInsetPx: Int,
-    backgroundColor: Int,
-) {
-    val child = getChildAt(0) ?: return
-    child.setBackgroundColor(backgroundColor)
-    val current = child.layoutParams as? FrameLayout.LayoutParams
-    val updated = epubNavigatorContainerLayoutParams(verticalInsetPx)
-    if (
-        current == null ||
-        current.topMargin != updated.topMargin ||
-        current.bottomMargin != updated.bottomMargin
-    ) {
-        child.layoutParams = updated
-    }
-}
-
-private fun FrameLayout.updateEpubGutterTapListener(
-    verticalInsetPx: Int,
-    onSurfaceTap: () -> Unit,
-) {
-    var isTrackingGutterTap = false
-    setOnTouchListener { view, event ->
-        if (verticalInsetPx <= 0) return@setOnTouchListener false
-
-        fun isCenterGutterTap(): Boolean {
-            val isVerticalGutterTap = event.y < verticalInsetPx ||
-                event.y > view.height - verticalInsetPx
-            if (!isVerticalGutterTap) return false
-
-            val sideZoneWidth = view.width * 0.25f
-            return event.x > sideZoneWidth &&
-                event.x < view.width - sideZoneWidth
-        }
-
-        when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN -> {
-                isTrackingGutterTap = isCenterGutterTap()
-                isTrackingGutterTap
-            }
-
-            MotionEvent.ACTION_UP -> {
-                if (!isTrackingGutterTap) return@setOnTouchListener false
-                isTrackingGutterTap = false
-                onSurfaceTap()
-                true
-            }
-
-            MotionEvent.ACTION_CANCEL -> {
-                isTrackingGutterTap = false
-                false
-            }
-
-            else -> isTrackingGutterTap
-        }
-    }
-}
-
-private fun epubReaderSurfaceBackground(
-    theme: EpubReaderTheme,
-): Color = when (theme) {
-    EpubReaderTheme.Light -> Color(0xFFFCFCFA)
-    EpubReaderTheme.Dark -> Color(0xFF121212)
-}
-
-internal suspend fun applyEpubViewportPadding(
-    navigator: EpubNavigatorFragment,
-    publication: Publication,
-    paddingPx: Int,
-) {
-    if (publication.metadata.presentation.layout == EpubLayout.FIXED) return
-    navigator.evaluateJavascript(buildEpubViewportPaddingScript(paddingPx))
-}
-
-internal fun buildEpubViewportPaddingScript(
-    paddingPx: Int,
-): String {
-    val clampedPaddingPx = paddingPx.coerceAtLeast(0)
-    return """
-        (function() {
-          var padding = '${clampedPaddingPx}px';
-          var root = document.documentElement;
-          var body = document.body;
-          if (!root || !body) return 'missing-root';
-          root.style.boxSizing = 'border-box';
-          body.style.boxSizing = 'border-box';
-          body.style.paddingTop = padding;
-          body.style.paddingBottom = padding;
-          return padding;
-        })();
-    """.trimIndent()
 }
 
 private fun htmlFootnoteToPlainText(

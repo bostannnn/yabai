@@ -55,6 +55,12 @@ enum class LibraryViewMode {
     }
 }
 
+internal val LibraryViewMode.label: String
+    get() = when (this) {
+        LibraryViewMode.Detailed -> "Details"
+        LibraryViewMode.Grid -> "Grid"
+    }
+
 internal fun itemPrimaryMaxLines(
     item: ReadableItem,
 ): Int = when (item.kind) {

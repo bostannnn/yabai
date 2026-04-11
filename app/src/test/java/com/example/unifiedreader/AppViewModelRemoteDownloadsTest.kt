@@ -9,6 +9,7 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.isKavitaSeriesContainer
 import com.example.unifiedreader.core.model.isStumpSeriesContainer
 import com.example.unifiedreader.core.model.remoteLibraryId
+import com.example.unifiedreader.feature.downloads.DownloadEntryStatus
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -45,8 +46,6 @@ class AppViewModelRemoteDownloadsTest {
         }
 
         assertEquals(setOf(remoteBook.id), viewModel.uiState.downloadedRemoteItemIds)
-        assertEquals("Queued Remote Book for download.", viewModel.uiState.libraryMessage)
-        assertNull(viewModel.uiState.visibleLibraryErrorMessage)
         assertEquals(
             listOf(LibraryFileLocation.LOCAL),
             viewModel.uiState.selectedLibraryFilterFacets.fileLocations,
@@ -58,7 +57,7 @@ class AppViewModelRemoteDownloadsTest {
     }
 
     @Test
-    fun `download grimmory failure is visible as library error`() {
+    fun `download grimmory failure is recorded in downloads snapshot`() {
         val remoteBook = sampleItem(
             id = "grimmory-epub",
             title = "Remote Book",
@@ -77,13 +76,13 @@ class AppViewModelRemoteDownloadsTest {
         viewModel.onSourceSelected(SourceType.GRIMMORY)
 
         viewModel.onDownloadRemoteItem(remoteBook)
+        val expectedMessage = "Disk full"
         waitForUiState {
-            viewModel.uiState.visibleLibraryErrorMessage == "Unable to download Remote Book: Disk full"
+            viewModel.downloadsSnapshot.failedEntries.singleOrNull()?.errorMessage == expectedMessage
         }
 
-        val expectedMessage = "Unable to download Remote Book: Disk full"
-        assertEquals(expectedMessage, viewModel.uiState.libraryMessage)
-        assertEquals(expectedMessage, viewModel.uiState.visibleLibraryErrorMessage)
+        assertEquals(DownloadEntryStatus.Failed, viewModel.downloadsSnapshot.failedEntries.single().status)
+        assertEquals(expectedMessage, viewModel.downloadsSnapshot.failedEntries.single().errorMessage)
     }
 
     @Test
@@ -110,8 +109,6 @@ class AppViewModelRemoteDownloadsTest {
         }
 
         assertEquals(setOf(remoteBook.id), viewModel.uiState.downloadedRemoteItemIds)
-        assertEquals("Queued Remote Book for download.", viewModel.uiState.libraryMessage)
-        assertNull(viewModel.uiState.visibleLibraryErrorMessage)
     }
 
     @Test
@@ -142,8 +139,6 @@ class AppViewModelRemoteDownloadsTest {
 
         assertTrue(remoteComic.id in viewModel.uiState.downloadedRemoteItemIds)
         assertTrue(remoteComic.id in viewModel.uiState.locallyAvailableRemoteItemIds)
-        assertEquals("Queued Remote Comic for download.", viewModel.uiState.libraryMessage)
-        assertNull(viewModel.uiState.visibleLibraryErrorMessage)
         viewModel.onLibraryFiltersChanged(
             LibraryFilterState(fileLocations = setOf(LibraryFileLocation.LOCAL)),
         )
@@ -194,8 +189,6 @@ class AppViewModelRemoteDownloadsTest {
         )
         assertTrue(seriesItem.id !in viewModel.uiState.remoteDownloadActionAvailability.downloadableItemIds)
         assertTrue(seriesItem.id in viewModel.uiState.remoteDownloadActionAvailability.deletableDownloadedItemIds)
-        assertEquals("Downloaded 2 files for local reading.", viewModel.uiState.libraryMessage)
-        assertNull(viewModel.uiState.visibleLibraryErrorMessage)
 
         viewModel.onLibraryFiltersChanged(
             LibraryFilterState(fileLocations = setOf(LibraryFileLocation.LOCAL)),
@@ -289,13 +282,10 @@ class AppViewModelRemoteDownloadsTest {
         shadowOf(Looper.getMainLooper()).idle()
 
         assertEquals(setOf(firstIssue.id), viewModel.uiState.downloadedRemoteItemIds)
+        assertEquals(DownloadEntryStatus.Failed, viewModel.downloadsSnapshot.failedEntries.single().status)
         assertEquals(
-            "1 file already available locally. 1 file failed to download.",
-            viewModel.uiState.libraryMessage,
-        )
-        assertEquals(
-            "1 file already available locally. 1 file failed to download.",
-            viewModel.uiState.visibleLibraryErrorMessage,
+            "Unable to download Akira: Issue 2.",
+            viewModel.downloadsSnapshot.failedEntries.single().errorMessage,
         )
     }
 
@@ -330,6 +320,7 @@ class AppViewModelRemoteDownloadsTest {
         val seriesItem = viewModel.uiState.visibleItems.single()
 
         viewModel.onDownloadRemoteItem(seriesItem)
+        shadowOf(Looper.getMainLooper()).idle()
         dataSource.awaitFirstDownloadStarted()
 
         assertEquals(
@@ -367,13 +358,14 @@ class AppViewModelRemoteDownloadsTest {
         )
 
         viewModel.onDownloadRemoteItem(remoteComic)
+        shadowOf(Looper.getMainLooper()).idle()
         dataSource.awaitFirstDownloadStarted()
 
         dataSource.cancelFirstDownload()
         shadowOf(Looper.getMainLooper()).idle()
 
         assertTrue(viewModel.uiState.downloadingRemoteItemIds.isEmpty())
-        assertNull(viewModel.uiState.visibleLibraryErrorMessage)
+        assertTrue(viewModel.downloadsSnapshot.failedEntries.isEmpty())
     }
 
     @Test
@@ -407,8 +399,6 @@ class AppViewModelRemoteDownloadsTest {
         shadowOf(Looper.getMainLooper()).idle()
 
         assertTrue(viewModel.uiState.downloadedRemoteItemIds.isEmpty())
-        assertEquals("Deleted local file for Remote Comic.", viewModel.uiState.libraryMessage)
-        assertNull(viewModel.uiState.visibleLibraryErrorMessage)
     }
 
     @Test
@@ -465,8 +455,6 @@ class AppViewModelRemoteDownloadsTest {
 
         assertTrue(viewModel.uiState.downloadedRemoteItemIds.isEmpty())
         assertTrue(viewModel.uiState.locallyAvailableRemoteItemIds.isEmpty())
-        assertEquals("Deleted 2 local files.", viewModel.uiState.libraryMessage)
-        assertNull(viewModel.uiState.visibleLibraryErrorMessage)
     }
 
     @Test
@@ -496,8 +484,6 @@ class AppViewModelRemoteDownloadsTest {
         shadowOf(Looper.getMainLooper()).idle()
 
         assertTrue(viewModel.uiState.downloadedRemoteItemIds.isEmpty())
-        assertEquals("Deleted local file for Remote Book.", viewModel.uiState.libraryMessage)
-        assertNull(viewModel.uiState.visibleLibraryErrorMessage)
         assertEquals(
             listOf(LibraryFileLocation.SERVER),
             viewModel.uiState.selectedLibraryFilterFacets.fileLocations,

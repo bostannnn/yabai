@@ -7,8 +7,11 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -50,6 +53,18 @@ fun UnifiedReaderRoute() {
             )
         },
     )
+    if (viewModel.isUnsupportedImportDialogVisible) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissUnsupportedImportDialog,
+            title = { Text(text = "Unsupported file") },
+            text = { Text(text = UnsupportedImportSelectionMessage) },
+            confirmButton = {
+                TextButton(onClick = viewModel::dismissUnsupportedImportDialog) {
+                    Text(text = "OK")
+                }
+            },
+        )
+    }
 }
 
 @Composable
@@ -121,3 +136,6 @@ internal fun importDocumentIntoApp(
     }
     viewModel.onDocumentImported(uri)
 }
+
+private const val UnsupportedImportSelectionMessage =
+    "Choose an EPUB, PDF, CBZ, or CBR file to import."
