@@ -3,6 +3,7 @@ package com.example.unifiedreader
 import android.net.Uri
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
+import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.remoteLibraryId
@@ -28,6 +29,9 @@ import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesSna
 import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesStore
 import com.example.unifiedreader.feature.reader.comics.ComicReaderProgressStore
 import com.example.unifiedreader.feature.reader.core.ReaderScreenFactory
+import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
+import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirectionPreferences
+import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirectionPreferencesStore
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import com.example.unifiedreader.feature.settings.SettingsPreferences
 import com.example.unifiedreader.feature.settings.SettingsPreferencesStore
@@ -51,6 +55,7 @@ internal fun createViewModel(
     pageSource: ComicPageSource = FakeComicPageSource(),
     progressStore: ComicReaderProgressStore = FakeComicReaderProgressStore(),
     preferencesStore: ComicReaderPreferencesStore = FakeComicReaderPreferencesStore(),
+    comicReadingDirectionPreferencesStore: ComicReadingDirectionPreferencesStore = FakeComicReadingDirectionPreferencesStore(),
     settingsPreferencesStore: SettingsPreferencesStore = FakeSettingsPreferencesStore(),
     settingsStateCoordinator: SettingsStateCoordinator = SettingsStateCoordinator(settingsPreferencesStore),
     settingsController: AppSettingsController = AppSettingsController(settingsStateCoordinator),
@@ -63,6 +68,7 @@ internal fun createViewModel(
     stumpCatalogSyncer: StumpCatalogSyncer = FakeStumpCatalogSyncer(),
     stumpCredentialStore: StumpCredentialStore = FakeStumpCredentialStore(),
     stumpCoverRepository: StumpCoverDataSource = FakeStumpCoverRepository(),
+    remoteLibraryCacheStore: RemoteLibraryCacheStore = FakeRemoteLibraryCacheStore(),
     grimmoryCatalogSyncer: GrimmoryCatalogSyncer = FakeGrimmoryCatalogSyncer(),
     grimmoryCredentialStore: GrimmoryCredentialStore = FakeGrimmoryCredentialStore(),
     grimmoryCoverRepository: GrimmoryCoverDataSource = FakeGrimmoryCoverRepository(),
@@ -80,6 +86,7 @@ internal fun createViewModel(
                 sourceType = SourceType.KAVITA,
                 title = "Comics",
                 remoteId = "k-comics",
+                contentType = LibraryContentType.COMICS,
             ),
         ),
     ),
@@ -160,6 +167,11 @@ internal fun createViewModel(
         ),
         catalogStateCoordinator = catalogStateCoordinator,
         libraryActionsCoordinator = libraryActionsCoordinator,
+        comicReadingDirectionController = AppComicReadingDirectionController(
+            preferencesStore = comicReadingDirectionPreferencesStore,
+            readerSessionStore = readerSessionStore,
+            readableItemRepository = readableItemRepository,
+        ),
         readerCoordinator = AppReaderCoordinator(
             libraryStateAssembler = libraryStateAssembler,
             readerSessionStore = readerSessionStore,
@@ -173,6 +185,7 @@ internal fun createViewModel(
                 ),
                 kavitaCredentialStore = kavitaCredentialStore,
                 comicPageSourceCacheController = comicPageSourceCacheController,
+                remoteLibraryCacheStore = remoteLibraryCacheStore,
             ),
             stumpController = AppStumpRemoteSourceController(
                 stumpCoordinator = AppStumpCoordinator(
@@ -183,6 +196,7 @@ internal fun createViewModel(
                 stumpCredentialStore = stumpCredentialStore,
                 stumpCoverCacheController = stumpCoverCacheController,
                 comicPageSourceCacheController = comicPageSourceCacheController,
+                remoteLibraryCacheStore = remoteLibraryCacheStore,
             ),
             grimmoryController = AppGrimmoryRemoteSourceController(
                 grimmoryCoordinator = AppGrimmoryCoordinator(
@@ -509,6 +523,25 @@ class FakeStumpCoverRepository : StumpCoverDataSource {
     }
 }
 
+class FakeRemoteLibraryCacheStore : RemoteLibraryCacheStore {
+    private val librariesByKey = mutableMapOf<Triple<SourceType, String, String>, List<Library>>()
+
+    override suspend fun getCachedLibraries(
+        sourceType: SourceType,
+        baseUrl: String,
+        username: String,
+    ): List<Library> = librariesByKey[Triple(sourceType, baseUrl, username)].orEmpty()
+
+    override suspend fun replaceCachedLibraries(
+        sourceType: SourceType,
+        baseUrl: String,
+        username: String,
+        libraries: List<Library>,
+    ) {
+        librariesByKey[Triple(sourceType, baseUrl, username)] = libraries
+    }
+}
+
 class FakeGrimmoryCoverRepository : GrimmoryCoverDataSource {
     override suspend fun getCoverUri(
         item: ReadableItem,
@@ -738,6 +771,35 @@ class FakeComicReaderPreferencesStore : ComicReaderPreferencesStore {
         MutableStateFlow(emptyMap())
 }
 
+class FakeComicReadingDirectionPreferencesStore : ComicReadingDirectionPreferencesStore {
+    private val mutablePreferencesFlow = MutableStateFlow(
+        ComicReadingDirectionPreferences(),
+    )
+    override val preferencesFlow: StateFlow<ComicReadingDirectionPreferences> = mutablePreferencesFlow
+
+    override suspend fun setLibraryDirection(
+        libraryId: String,
+        direction: ComicReadingDirection,
+    ) {
+        mutablePreferencesFlow.value = mutablePreferencesFlow.value.copy(
+            libraryDirectionsById = mutablePreferencesFlow.value.libraryDirectionsById + (libraryId to direction),
+        )
+    }
+
+    override suspend fun setSeriesDirectionOverride(
+        seriesKey: String,
+        direction: ComicReadingDirection?,
+    ) {
+        mutablePreferencesFlow.value = mutablePreferencesFlow.value.copy(
+            seriesDirectionsByKey = if (direction == null) {
+                mutablePreferencesFlow.value.seriesDirectionsByKey - seriesKey
+            } else {
+                mutablePreferencesFlow.value.seriesDirectionsByKey + (seriesKey to direction)
+            },
+        )
+    }
+}
+
 class FakeSettingsPreferencesStore(
     initialPreferences: SettingsPreferences = SettingsPreferences(),
 ) : SettingsPreferencesStore {
@@ -830,14 +892,14 @@ class FakeReaderSessionStore(
     override fun getSession(item: ReadableItem) = sessionByItemId.value[item.id]
 
     override fun updateSession(
-        item: ReadableItem,
+        itemId: String,
         pageCount: Int?,
         preferences: Map<String, String>,
     ) {
-        val current = sessionByItemId.value[item.id]
-            ?: com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot(itemId = item.id)
+        val current = sessionByItemId.value[itemId]
+            ?: com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot(itemId = itemId)
         sessionByItemId.value = sessionByItemId.value + (
-            item.id to current.copy(
+            itemId to current.copy(
                 pageCount = pageCount ?: current.pageCount,
                 preferences = current.preferences + preferences,
             )

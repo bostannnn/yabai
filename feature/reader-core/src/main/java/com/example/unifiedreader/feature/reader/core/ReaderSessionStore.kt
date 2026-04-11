@@ -50,9 +50,19 @@ interface ReaderSessionStore {
     fun getSession(item: ReadableItem): ReaderSessionSnapshot?
 
     fun updateSession(
+        itemId: String,
+        pageCount: Int? = null,
+        preferences: Map<String, String> = emptyMap(),
+    )
+
+    fun updateSession(
         item: ReadableItem,
         pageCount: Int? = null,
         preferences: Map<String, String> = emptyMap(),
+    ) = updateSession(
+        itemId = item.id,
+        pageCount = pageCount,
+        preferences = preferences,
     )
 
     fun clearProgress(itemId: String)

@@ -4,6 +4,7 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.settings.StumpConnectionUiState
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class AppStumpRemoteSourceController @Inject constructor(
@@ -11,6 +12,7 @@ class AppStumpRemoteSourceController @Inject constructor(
     private val stumpCredentialStore: StumpCredentialStore,
     private val stumpCoverCacheController: StumpCoverCacheController,
     private val comicPageSourceCacheController: ComicPageSourceCacheController,
+    private val remoteLibraryCacheStore: RemoteLibraryCacheStore,
 ) {
     fun initialize(
         updateState: AppUiStateUpdater,
@@ -36,7 +38,10 @@ class AppStumpRemoteSourceController @Inject constructor(
         updateState: AppUiStateUpdater,
     ) {
         updateConnectionInput(updateState) { connection ->
-            connection.copy(baseUrl = baseUrl)
+            connection.copy(
+                baseUrl = baseUrl,
+                availableLibraries = emptyList(),
+            )
         }
     }
 
@@ -45,7 +50,10 @@ class AppStumpRemoteSourceController @Inject constructor(
         updateState: AppUiStateUpdater,
     ) {
         updateConnectionInput(updateState) { connection ->
-            connection.copy(username = username)
+            connection.copy(
+                username = username,
+                availableLibraries = emptyList(),
+            )
         }
     }
 
@@ -100,12 +108,52 @@ class AppStumpRemoteSourceController @Inject constructor(
         updateState: AppUiStateUpdater,
     ) {
         scope.launch {
-            stumpCredentialStore.sessionFlow.collect { session ->
+            stumpCredentialStore.sessionFlow.collectLatest { session ->
                 if (!stateProvider().stumpConnection.isConnecting) {
                     updateConnection(updateState) { connection ->
                         stumpCoordinator.refreshedConnectionState(
                             connection.withStoredSession(session),
                         )
+                    }
+                }
+                if (session == null) return@collectLatest
+                val cachedLibraries = remoteLibraryCacheStore.getCachedLibraries(
+                    sourceType = SourceType.STUMP,
+                    baseUrl = session.baseUrl,
+                    username = session.username,
+                )
+                if (cachedLibraries.isNotEmpty()) {
+                    updateConnection(updateState) { connection ->
+                        if (
+                            connection.hasStoredSession &&
+                            connection.baseUrl == session.baseUrl &&
+                            connection.username == session.username
+                        ) {
+                            connection.copy(availableLibraries = cachedLibraries)
+                        } else {
+                            connection
+                        }
+                    }
+                }
+                if (stateProvider().stumpConnection.isConnecting) return@collectLatest
+                val libraries = runCatching {
+                    stumpCoordinator.loadAvailableLibraries(session)
+                }.getOrNull() ?: return@collectLatest
+                remoteLibraryCacheStore.replaceCachedLibraries(
+                    sourceType = SourceType.STUMP,
+                    baseUrl = session.baseUrl,
+                    username = session.username,
+                    libraries = libraries,
+                )
+                updateConnection(updateState) { connection ->
+                    if (
+                        connection.hasStoredSession &&
+                        connection.baseUrl == session.baseUrl &&
+                        connection.username == session.username
+                    ) {
+                        connection.copy(availableLibraries = libraries)
+                    } else {
+                        connection
                     }
                 }
             }
@@ -178,6 +226,12 @@ class AppStumpRemoteSourceController @Inject constructor(
                 )
             ) {
                 is StumpSyncExecutionResult.Success -> {
+                    remoteLibraryCacheStore.replaceCachedLibraries(
+                        sourceType = SourceType.STUMP,
+                        baseUrl = preparation.request.baseUrl,
+                        username = preparation.request.username,
+                        libraries = result.availableLibraries,
+                    )
                     clearPageCache()
                     updateState { state ->
                         state.copy(
@@ -187,7 +241,9 @@ class AppStumpRemoteSourceController @Inject constructor(
                             activeReader = null,
                             selectedKavitaSeriesKey = null,
                             selectedStumpSeriesKey = null,
-                            stumpConnection = result.connection,
+                            stumpConnection = result.connection.copy(
+                                availableLibraries = result.availableLibraries,
+                            ),
                         )
                     }
                 }
@@ -210,10 +266,18 @@ class AppStumpRemoteSourceController @Inject constructor(
         scope.launch {
             when (val result = stumpCoordinator.executeConnect(preparation)) {
                 is StumpConnectExecutionResult.Success -> {
+                    remoteLibraryCacheStore.replaceCachedLibraries(
+                        sourceType = SourceType.STUMP,
+                        baseUrl = preparation.request.baseUrl,
+                        username = preparation.request.username,
+                        libraries = result.availableLibraries,
+                    )
                     clearPageCache()
                     updateState { state ->
                         state.copy(
-                            stumpConnection = result.connection,
+                            stumpConnection = result.connection.copy(
+                                availableLibraries = result.availableLibraries,
+                            ),
                         )
                     }
                 }

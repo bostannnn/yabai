@@ -8,6 +8,7 @@ import com.example.unifiedreader.core.model.BookMetadata
 import com.example.unifiedreader.core.model.ComicMetadata
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
+import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.LibraryFileLocation
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
@@ -1090,6 +1091,15 @@ class AppViewModelTest {
         val syncer = FakeKavitaCatalogSyncer(
             connectionResult = KavitaCatalogConnectionResult(
                 libraryCount = 2,
+                libraries = listOf(
+                    Library(
+                        id = SourceType.KAVITA.remoteLibraryId("comics"),
+                        sourceType = SourceType.KAVITA,
+                        title = "Comics",
+                        remoteId = "comics",
+                        contentType = LibraryContentType.COMICS,
+                    ),
+                ),
                 session = com.example.unifiedreader.data.kavita.KavitaSession(
                     accessToken = "access-token",
                     refreshToken = "refresh-token",
@@ -1126,6 +1136,7 @@ class AppViewModelTest {
         assertEquals(true, viewModel.uiState.kavitaConnection.hasStoredSession)
         assertEquals(false, viewModel.uiState.kavitaConnection.isError)
         assertEquals("", viewModel.uiState.kavitaConnection.password)
+        assertEquals(1, viewModel.uiState.kavitaConnection.availableLibraries.size)
     }
 
     @Test
@@ -1201,6 +1212,15 @@ class AppViewModelTest {
         val syncer = FakeStumpCatalogSyncer(
             connectionResult = StumpCatalogConnectionResult(
                 libraryCount = 3,
+                libraries = listOf(
+                    Library(
+                        id = SourceType.STUMP.remoteLibraryId("comics"),
+                        sourceType = SourceType.STUMP,
+                        title = "Comics",
+                        remoteId = "comics",
+                        contentType = LibraryContentType.COMICS,
+                    ),
+                ),
                 session = com.example.unifiedreader.data.stump.StumpSession(
                     accessToken = "access-token",
                     refreshToken = "refresh-token",
@@ -1234,6 +1254,208 @@ class AppViewModelTest {
         assertTrue(viewModel.uiState.stumpConnection.hasStoredSession)
         assertFalse(viewModel.uiState.stumpConnection.isError)
         assertEquals("", viewModel.uiState.stumpConnection.password)
+        assertEquals(1, viewModel.uiState.stumpConnection.availableLibraries.size)
+    }
+
+    @Test
+    fun `stored kavita session restores cached libraries before live fetch`() {
+        val credentialStore = FakeKavitaCredentialStore(
+            KavitaStoredSession(
+                displayName = "Home Kavita",
+                baseUrl = "https://kavita.example",
+                username = "reader",
+                accessToken = "saved-access-token",
+                refreshToken = "saved-refresh-token",
+                apiKey = "saved-api-key",
+            ),
+        )
+        val cachedLibraries = listOf(
+            Library(
+                id = SourceType.KAVITA.remoteLibraryId("comics"),
+                sourceType = SourceType.KAVITA,
+                title = "Comics",
+                remoteId = "comics",
+                contentType = LibraryContentType.COMICS,
+            ),
+        )
+        val syncer = FakeKavitaCatalogSyncer(
+            failure = IllegalStateException("offline"),
+        )
+        val cacheStore = FakeRemoteLibraryCacheStore().apply {
+            runBlocking {
+                replaceCachedLibraries(
+                    sourceType = SourceType.KAVITA,
+                    baseUrl = "https://kavita.example",
+                    username = "reader",
+                    libraries = cachedLibraries,
+                )
+            }
+        }
+        val viewModel = createViewModel(
+            kavitaCatalogSyncer = syncer,
+            kavitaCredentialStore = credentialStore,
+            remoteLibraryCacheStore = cacheStore,
+            libraryRepository = FakeLibraryRepository(libraries = emptyList()),
+        )
+
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(cachedLibraries, viewModel.uiState.kavitaConnection.availableLibraries)
+    }
+
+    @Test
+    fun `stored kavita session does not hydrate libraries from unrelated legacy source snapshot`() {
+        val credentialStore = FakeKavitaCredentialStore(
+            KavitaStoredSession(
+                displayName = "Home Kavita",
+                baseUrl = "https://kavita.example",
+                username = "reader",
+                accessToken = "saved-access-token",
+                refreshToken = "saved-refresh-token",
+                apiKey = "saved-api-key",
+            ),
+        )
+        val syncer = FakeKavitaCatalogSyncer(
+            failure = IllegalStateException("offline"),
+        )
+        val cacheStore = FakeRemoteLibraryCacheStore()
+        val viewModel = createViewModel(
+            kavitaCatalogSyncer = syncer,
+            kavitaCredentialStore = credentialStore,
+            remoteLibraryCacheStore = cacheStore,
+            libraryRepository = FakeLibraryRepository(libraries = emptyList()),
+        )
+
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(emptyList<Library>(), viewModel.uiState.kavitaConnection.availableLibraries)
+        runBlocking {
+            assertEquals(
+                emptyList<Library>(),
+                cacheStore.getCachedLibraries(
+                    sourceType = SourceType.KAVITA,
+                    baseUrl = "https://kavita.example",
+                    username = "reader",
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun `stored kavita session clears cached libraries after successful empty live fetch`() {
+        val credentialStore = FakeKavitaCredentialStore(
+            KavitaStoredSession(
+                displayName = "Home Kavita",
+                baseUrl = "https://kavita.example",
+                username = "reader",
+                accessToken = "saved-access-token",
+                refreshToken = "saved-refresh-token",
+                apiKey = "saved-api-key",
+            ),
+        )
+        val cachedLibraries = listOf(
+            Library(
+                id = SourceType.KAVITA.remoteLibraryId("comics"),
+                sourceType = SourceType.KAVITA,
+                title = "Comics",
+                remoteId = "comics",
+                contentType = LibraryContentType.COMICS,
+            ),
+        )
+        val syncer = FakeKavitaCatalogSyncer(
+            connectionResult = KavitaCatalogConnectionResult(
+                libraryCount = 0,
+                libraries = emptyList(),
+            ),
+        )
+        val cacheStore = FakeRemoteLibraryCacheStore().apply {
+            runBlocking {
+                replaceCachedLibraries(
+                    sourceType = SourceType.KAVITA,
+                    baseUrl = "https://kavita.example",
+                    username = "reader",
+                    libraries = cachedLibraries,
+                )
+            }
+        }
+        val viewModel = createViewModel(
+            kavitaCatalogSyncer = syncer,
+            kavitaCredentialStore = credentialStore,
+            remoteLibraryCacheStore = cacheStore,
+            libraryRepository = FakeLibraryRepository(libraries = emptyList()),
+        )
+
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(emptyList<Library>(), viewModel.uiState.kavitaConnection.availableLibraries)
+        runBlocking {
+            assertEquals(
+                emptyList<Library>(),
+                cacheStore.getCachedLibraries(
+                    sourceType = SourceType.KAVITA,
+                    baseUrl = "https://kavita.example",
+                    username = "reader",
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun `stored stump session clears cached libraries after successful empty live fetch`() {
+        val credentialStore = FakeStumpCredentialStore(
+            StumpStoredSession(
+                displayName = "Home Stump",
+                baseUrl = "https://stump.example",
+                username = "reader",
+                accessToken = "saved-access-token",
+                refreshToken = "saved-refresh-token",
+            ),
+        )
+        val cachedLibraries = listOf(
+            Library(
+                id = SourceType.STUMP.remoteLibraryId("comics"),
+                sourceType = SourceType.STUMP,
+                title = "Comics",
+                remoteId = "comics",
+                contentType = LibraryContentType.COMICS,
+            ),
+        )
+        val syncer = FakeStumpCatalogSyncer(
+            connectionResult = StumpCatalogConnectionResult(
+                libraryCount = 0,
+                libraries = emptyList(),
+            ),
+        )
+        val cacheStore = FakeRemoteLibraryCacheStore().apply {
+            runBlocking {
+                replaceCachedLibraries(
+                    sourceType = SourceType.STUMP,
+                    baseUrl = "https://stump.example",
+                    username = "reader",
+                    libraries = cachedLibraries,
+                )
+            }
+        }
+        val viewModel = createViewModel(
+            stumpCatalogSyncer = syncer,
+            stumpCredentialStore = credentialStore,
+            remoteLibraryCacheStore = cacheStore,
+            libraryRepository = FakeLibraryRepository(libraries = emptyList()),
+        )
+
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(emptyList<Library>(), viewModel.uiState.stumpConnection.availableLibraries)
+        runBlocking {
+            assertEquals(
+                emptyList<Library>(),
+                cacheStore.getCachedLibraries(
+                    sourceType = SourceType.STUMP,
+                    baseUrl = "https://stump.example",
+                    username = "reader",
+                ),
+            )
+        }
     }
 
     @Test

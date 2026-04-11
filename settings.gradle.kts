@@ -30,6 +30,7 @@ include(
     ":data:grimmory",
     ":data:repository",
     ":feature:library",
+    ":feature:reader-preferences",
     ":feature:reader-core",
     ":feature:reader-comics",
     ":feature:reader-pdf",

@@ -8,6 +8,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.core.app.ApplicationProvider
+import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.SourceType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -526,6 +527,7 @@ class UnifiedReaderDatabaseMigrationTest {
                         sourceType = "GRIMMORY",
                         title = "Books",
                         remoteId = "g-books",
+                        contentType = LibraryContentType.BOOKS.name,
                     ),
                 ),
                 items = listOf(
@@ -561,6 +563,7 @@ class UnifiedReaderDatabaseMigrationTest {
                         sourceType = "GRIMMORY",
                         title = "New",
                         remoteId = "g-new",
+                        contentType = LibraryContentType.BOOKS.name,
                     ),
                 ),
                 items = emptyList(),
@@ -594,6 +597,134 @@ class UnifiedReaderDatabaseMigrationTest {
             UnifiedReaderDatabaseMigrations.MIGRATION_11_12.migrate(database)
 
             assertTrue(tableExists(database, "download_queue_entries"))
+        }
+    }
+
+    @Test
+    fun `migration 12 to 13 adds library content types`() {
+        createTestDatabase(
+            name = "migration-12-13-${System.nanoTime()}",
+            version = 12,
+        ) { database ->
+            createVersion1Schema(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_1_2.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_2_3.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_3_4.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_4_5.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_5_6.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_6_7.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_7_8.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_8_9.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_9_10.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_10_11.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_11_12.migrate(database)
+            database.execSQL(
+                """
+                INSERT INTO libraries (id, sourceType, title, remoteId)
+                VALUES ('stump:library:manga', 'STUMP', 'Manga', 'manga')
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                INSERT INTO libraries (id, sourceType, title, remoteId)
+                VALUES ('grimmory:library:books', 'GRIMMORY', 'Books', 'books')
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                INSERT INTO libraries (id, sourceType, title, remoteId)
+                VALUES ('kavita:library:empty-comics', 'KAVITA', 'Empty Comics', 'empty-comics')
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                INSERT INTO readable_items (
+                    id,
+                    sourceType,
+                    libraryId,
+                    remoteId,
+                    isLocalImport,
+                    remoteFileId,
+                    remoteFileType,
+                    title,
+                    format,
+                    kind,
+                    pageCount,
+                    coverUrl,
+                    description,
+                    addedAtEpochMillis,
+                    bookAuthor,
+                    comicSeries,
+                    comicIssueTitle,
+                    comicVolume,
+                    comicIssueNumber,
+                    updatedAtEpochMillis
+                ) VALUES (
+                    'stump:item:berserk-1',
+                    'STUMP',
+                    'stump:library:manga',
+                    'berserk-1',
+                    0,
+                    '1',
+                    'CBZ',
+                    'Berserk 1',
+                    'CBZ',
+                    'COMIC',
+                    180,
+                    NULL,
+                    NULL,
+                    0,
+                    NULL,
+                    'Berserk',
+                    NULL,
+                    NULL,
+                    NULL,
+                    0
+                )
+                """.trimIndent(),
+            )
+        }.use { database ->
+            UnifiedReaderDatabaseMigrations.MIGRATION_12_13.migrate(database)
+
+            database.query(
+                "SELECT id, contentType FROM libraries ORDER BY id",
+            ).use { cursor ->
+                val values = mutableMapOf<String, String>()
+                val idIndex = cursor.getColumnIndexOrThrow("id")
+                val contentTypeIndex = cursor.getColumnIndexOrThrow("contentType")
+                while (cursor.moveToNext()) {
+                    values[cursor.getString(idIndex)] = cursor.getString(contentTypeIndex)
+                }
+                assertEquals(LibraryContentType.BOOKS.name, values["grimmory:library:books"])
+                assertEquals(LibraryContentType.UNKNOWN.name, values["kavita:library:empty-comics"])
+                assertEquals(LibraryContentType.COMICS.name, values["stump:library:manga"])
+            }
+        }
+    }
+
+    @Test
+    fun `migration 13 to 14 creates remote library cache table`() {
+        createTestDatabase(
+            name = "migration-13-14-${System.nanoTime()}",
+            version = 13,
+        ) { database ->
+            createVersion1Schema(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_1_2.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_2_3.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_3_4.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_4_5.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_5_6.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_6_7.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_7_8.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_8_9.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_9_10.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_10_11.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_11_12.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_12_13.migrate(database)
+        }.use { database ->
+            UnifiedReaderDatabaseMigrations.MIGRATION_13_14.migrate(database)
+
+            assertTrue(tableExists(database, "remote_library_cache_entries"))
         }
     }
 }
@@ -706,6 +837,7 @@ private fun openRoomDatabase(
         UnifiedReaderDatabaseMigrations.MIGRATION_9_10,
         UnifiedReaderDatabaseMigrations.MIGRATION_10_11,
         UnifiedReaderDatabaseMigrations.MIGRATION_11_12,
+        UnifiedReaderDatabaseMigrations.MIGRATION_12_13,
     )
     .build()
 

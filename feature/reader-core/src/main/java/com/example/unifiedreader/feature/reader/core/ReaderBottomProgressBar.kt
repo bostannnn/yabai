@@ -23,6 +23,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 
 private val ReaderBottomProgressBarShape = RoundedCornerShape(8.dp)
 
@@ -31,12 +32,21 @@ fun ReaderBottomProgressBar(
     progress: Float,
     percentLabel: String,
     pageLabel: String,
+    readingDirection: ComicReadingDirection = ComicReadingDirection.LTR,
     modifier: Modifier = Modifier,
     chapterMarks: List<Float> = emptyList(),
     leadingAction: (@Composable RowScope.() -> Unit)? = null,
     onProgressSelected: ((Float) -> Unit)? = null,
 ) {
     val clampedProgress = progress.coerceIn(0f, 1f)
+    val visualProgress = orientReaderProgress(
+        progress = clampedProgress,
+        readingDirection = readingDirection,
+    )
+    val fillRange = resolveReaderProgressFillRange(
+        progress = clampedProgress,
+        readingDirection = readingDirection,
+    )
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -65,8 +75,10 @@ fun ReaderBottomProgressBar(
                         Modifier.pointerInput(onProgressSelected) {
                             detectTapGestures { offset ->
                                 if (size.width <= 0) return@detectTapGestures
-                                val selectedProgress = (offset.x / size.width.toFloat())
-                                    .coerceIn(0f, 1f)
+                                val selectedProgress = resolveReaderProgressSelection(
+                                    horizontalFraction = (offset.x / size.width.toFloat()).coerceIn(0f, 1f),
+                                    readingDirection = readingDirection,
+                                )
                                 onProgressSelected(selectedProgress)
                             }
                         }
@@ -87,14 +99,19 @@ fun ReaderBottomProgressBar(
             )
             drawLine(
                 color = Color(0xFFE9EEF3),
-                start = Offset(0f, centerY),
-                end = Offset(size.width * clampedProgress, centerY),
+                start = Offset(size.width * fillRange.startFraction, centerY),
+                end = Offset(size.width * fillRange.endFraction, centerY),
                 strokeWidth = trackStrokeWidth,
                 cap = StrokeCap.Round,
             )
             chapterMarks
                 .asSequence()
-                .map { it.coerceIn(0f, 1f) }
+                .map { mark ->
+                    orientReaderProgress(
+                        progress = mark.coerceIn(0f, 1f),
+                        readingDirection = readingDirection,
+                    )
+                }
                 .filter { it > 0f && it < 1f }
                 .distinct()
                 .forEach { mark ->
@@ -110,7 +127,7 @@ fun ReaderBottomProgressBar(
             drawCircle(
                 color = Color(0xFFF5F7FA),
                 radius = 3.5.dp.toPx(),
-                center = Offset(size.width * clampedProgress, centerY),
+                center = Offset(size.width * visualProgress, centerY),
             )
         }
         Text(
@@ -121,4 +138,45 @@ fun ReaderBottomProgressBar(
             overflow = TextOverflow.Clip,
         )
     }
+}
+
+internal fun orientReaderProgress(
+    progress: Float,
+    readingDirection: ComicReadingDirection,
+): Float = when (readingDirection) {
+    ComicReadingDirection.LTR -> progress.coerceIn(0f, 1f)
+    ComicReadingDirection.RTL -> 1f - progress.coerceIn(0f, 1f)
+}
+
+internal data class ReaderProgressFillRange(
+    val startFraction: Float,
+    val endFraction: Float,
+)
+
+internal fun resolveReaderProgressFillRange(
+    progress: Float,
+    readingDirection: ComicReadingDirection,
+): ReaderProgressFillRange {
+    val visualProgress = orientReaderProgress(
+        progress = progress,
+        readingDirection = readingDirection,
+    )
+    return when (readingDirection) {
+        ComicReadingDirection.LTR -> ReaderProgressFillRange(
+            startFraction = 0f,
+            endFraction = visualProgress,
+        )
+        ComicReadingDirection.RTL -> ReaderProgressFillRange(
+            startFraction = visualProgress,
+            endFraction = 1f,
+        )
+    }
+}
+
+internal fun resolveReaderProgressSelection(
+    horizontalFraction: Float,
+    readingDirection: ComicReadingDirection,
+): Float = when (readingDirection) {
+    ComicReadingDirection.LTR -> horizontalFraction.coerceIn(0f, 1f)
+    ComicReadingDirection.RTL -> 1f - horizontalFraction.coerceIn(0f, 1f)
 }

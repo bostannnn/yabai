@@ -23,6 +23,7 @@ import com.example.unifiedreader.feature.library.buildVisibleLibraryItems
 import com.example.unifiedreader.feature.library.buildRemoteDownloadActionAvailability
 import com.example.unifiedreader.feature.library.ItemProgressSummary
 import com.example.unifiedreader.feature.library.RemoteDownloadActionAvailability
+import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirectionPreferences
 import com.example.unifiedreader.feature.library.defaultLibrarySortMode
 import com.example.unifiedreader.feature.settings.KavitaConnectionUiState
 import com.example.unifiedreader.feature.settings.GrimmoryConnectionUiState
@@ -63,6 +64,7 @@ data class AppUiState(
     val downloadingRemoteItemIds: Set<String> = emptySet(),
     val hydratedSources: Set<SourceType> = setOf(SourceType.KAVITA),
     val themeMode: ThemeMode = ThemeMode.System,
+    val comicReadingDirectionPreferences: ComicReadingDirectionPreferences = ComicReadingDirectionPreferences(),
     val kavitaConnection: KavitaConnectionUiState = KavitaConnectionUiState(),
     val stumpConnection: StumpConnectionUiState = StumpConnectionUiState(),
     val grimmoryConnection: GrimmoryConnectionUiState = GrimmoryConnectionUiState(),

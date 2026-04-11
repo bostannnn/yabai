@@ -29,6 +29,7 @@ internal fun KavitaConnectionUiState.withStoredSession(
     session: KavitaStoredSession?,
 ): KavitaConnectionUiState = if (session == null) {
     copy(
+        availableLibraries = emptyList(),
         hasStoredSession = false,
         syncProgressFraction = null,
         syncProgressLabel = null,
@@ -39,6 +40,7 @@ internal fun KavitaConnectionUiState.withStoredSession(
         baseUrl = session.baseUrl,
         username = session.username,
         password = "",
+        availableLibraries = emptyList(),
         hasStoredSession = true,
         syncProgressFraction = null,
         syncProgressLabel = null,
@@ -50,6 +52,7 @@ internal fun StumpConnectionUiState.withStoredSession(
     session: StumpStoredSession?,
 ): StumpConnectionUiState = if (session == null) {
     copy(
+        availableLibraries = emptyList(),
         hasStoredSession = false,
         syncProgressFraction = null,
         syncProgressLabel = null,
@@ -60,6 +63,7 @@ internal fun StumpConnectionUiState.withStoredSession(
         baseUrl = session.baseUrl,
         username = session.username,
         password = "",
+        availableLibraries = emptyList(),
         hasStoredSession = true,
         syncProgressFraction = null,
         syncProgressLabel = null,

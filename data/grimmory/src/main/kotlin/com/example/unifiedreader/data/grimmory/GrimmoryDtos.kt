@@ -3,6 +3,7 @@ package com.example.unifiedreader.data.grimmory
 import com.example.unifiedreader.core.model.BookMetadata
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
+import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
@@ -170,6 +171,7 @@ internal fun GrimmoryLibraryDto.toDomain(): Library? {
         sourceType = SourceType.GRIMMORY,
         title = name?.takeIf(String::isNotBlank) ?: "Library $libraryId",
         remoteId = libraryId,
+        contentType = LibraryContentType.BOOKS,
     )
 }
 

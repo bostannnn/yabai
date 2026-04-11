@@ -4,12 +4,14 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.settings.KavitaConnectionUiState
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class AppKavitaRemoteSourceController @Inject constructor(
     private val kavitaCoordinator: AppKavitaCoordinator,
     private val kavitaCredentialStore: KavitaCredentialStore,
     private val comicPageSourceCacheController: ComicPageSourceCacheController,
+    private val remoteLibraryCacheStore: RemoteLibraryCacheStore,
 ) {
     fun initialize(
         updateState: AppUiStateUpdater,
@@ -35,7 +37,10 @@ class AppKavitaRemoteSourceController @Inject constructor(
         updateState: AppUiStateUpdater,
     ) {
         updateConnectionInput(updateState) { connection ->
-            connection.copy(baseUrl = baseUrl)
+            connection.copy(
+                baseUrl = baseUrl,
+                availableLibraries = emptyList(),
+            )
         }
     }
 
@@ -44,7 +49,10 @@ class AppKavitaRemoteSourceController @Inject constructor(
         updateState: AppUiStateUpdater,
     ) {
         updateConnectionInput(updateState) { connection ->
-            connection.copy(username = username)
+            connection.copy(
+                username = username,
+                availableLibraries = emptyList(),
+            )
         }
     }
 
@@ -99,12 +107,52 @@ class AppKavitaRemoteSourceController @Inject constructor(
         updateState: AppUiStateUpdater,
     ) {
         scope.launch {
-            kavitaCredentialStore.sessionFlow.collect { session ->
+            kavitaCredentialStore.sessionFlow.collectLatest { session ->
                 if (!stateProvider().kavitaConnection.isConnecting) {
                     updateConnection(updateState) { connection ->
                         kavitaCoordinator.refreshedConnectionState(
                             connection.withStoredSession(session),
                         )
+                    }
+                }
+                if (session == null) return@collectLatest
+                val cachedLibraries = remoteLibraryCacheStore.getCachedLibraries(
+                    sourceType = SourceType.KAVITA,
+                    baseUrl = session.baseUrl,
+                    username = session.username,
+                )
+                if (cachedLibraries.isNotEmpty()) {
+                    updateConnection(updateState) { connection ->
+                        if (
+                            connection.hasStoredSession &&
+                            connection.baseUrl == session.baseUrl &&
+                            connection.username == session.username
+                        ) {
+                            connection.copy(availableLibraries = cachedLibraries)
+                        } else {
+                            connection
+                        }
+                    }
+                }
+                if (stateProvider().kavitaConnection.isConnecting) return@collectLatest
+                val libraries = runCatching {
+                    kavitaCoordinator.loadAvailableLibraries(session)
+                }.getOrNull() ?: return@collectLatest
+                remoteLibraryCacheStore.replaceCachedLibraries(
+                    sourceType = SourceType.KAVITA,
+                    baseUrl = session.baseUrl,
+                    username = session.username,
+                    libraries = libraries,
+                )
+                updateConnection(updateState) { connection ->
+                    if (
+                        connection.hasStoredSession &&
+                        connection.baseUrl == session.baseUrl &&
+                        connection.username == session.username
+                    ) {
+                        connection.copy(availableLibraries = libraries)
+                    } else {
+                        connection
                     }
                 }
             }
@@ -176,6 +224,12 @@ class AppKavitaRemoteSourceController @Inject constructor(
                 )
             ) {
                 is KavitaSyncExecutionResult.Success -> {
+                    remoteLibraryCacheStore.replaceCachedLibraries(
+                        sourceType = SourceType.KAVITA,
+                        baseUrl = preparation.request.baseUrl,
+                        username = preparation.request.username,
+                        libraries = result.availableLibraries,
+                    )
                     clearPageCache()
                     updateState { state ->
                         state.copy(
@@ -184,7 +238,9 @@ class AppKavitaRemoteSourceController @Inject constructor(
                             selectedItemId = null,
                             activeReader = null,
                             selectedKavitaSeriesKey = null,
-                            kavitaConnection = result.connection,
+                            kavitaConnection = result.connection.copy(
+                                availableLibraries = result.availableLibraries,
+                            ),
                         )
                     }
                 }
@@ -207,10 +263,18 @@ class AppKavitaRemoteSourceController @Inject constructor(
         scope.launch {
             when (val result = kavitaCoordinator.executeConnect(preparation)) {
                 is KavitaConnectExecutionResult.Success -> {
+                    remoteLibraryCacheStore.replaceCachedLibraries(
+                        sourceType = SourceType.KAVITA,
+                        baseUrl = preparation.request.baseUrl,
+                        username = preparation.request.username,
+                        libraries = result.availableLibraries,
+                    )
                     clearPageCache()
                     updateState { state ->
                         state.copy(
-                            kavitaConnection = result.connection,
+                            kavitaConnection = result.connection.copy(
+                                availableLibraries = result.availableLibraries,
+                            ),
                         )
                     }
                 }

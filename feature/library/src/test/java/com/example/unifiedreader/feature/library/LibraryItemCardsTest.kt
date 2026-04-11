@@ -6,6 +6,8 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.buildKavitaSeriesContainer
 import com.example.unifiedreader.core.model.buildStumpSeriesContainer
+import com.example.unifiedreader.feature.library.menu.buildLibraryItemMenuActions
+import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -107,6 +109,23 @@ class LibraryItemCardsTest {
         assertTrue(secondIssue.id in actionAvailability.activeDownloadingItemIds)
         assertTrue(firstIssue.id !in actionAvailability.downloadableItemIds)
         assertTrue(secondIssue.id !in actionAvailability.downloadableItemIds)
+    }
+
+    @Test
+    fun `series menu includes reading direction actions before download actions`() {
+        val menuActions = buildLibraryItemMenuActions(
+            isDownloading = false,
+            seriesReadingDirection = ComicReadingDirection.RTL,
+            onSeriesReadingDirectionSelected = {},
+            onDeleteRequested = null,
+            onDownloadRequested = {},
+            onDeleteDownloadedRequested = null,
+        )
+
+        assertEquals("Reading: LTR", menuActions[0].label)
+        assertEquals("Reading: RTL", menuActions[1].label)
+        assertTrue(menuActions[1].selected)
+        assertEquals("Download file", menuActions[2].label)
     }
 }
 

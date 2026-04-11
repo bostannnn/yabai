@@ -28,6 +28,7 @@ android {
 
 dependencies {
     implementation(project(":core:model"))
+    implementation(project(":feature:reader-preferences"))
     implementation(libs.androidx.datastore.preferences)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)

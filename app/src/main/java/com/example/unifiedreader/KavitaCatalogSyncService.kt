@@ -1,6 +1,7 @@
 package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.data.kavita.KavitaApi
@@ -53,6 +54,7 @@ class KavitaCatalogSyncService(
         }
         return KavitaCatalogConnectionResult(
             libraryCount = refreshResult.value.size,
+            libraries = refreshResult.value,
             session = refreshResult.refreshedSession ?: session,
         )
     }
@@ -134,6 +136,7 @@ class KavitaCatalogSyncService(
             libraryCount = syncOutcome.libraryCount,
             itemCount = syncOutcome.itemCount,
             supportedFormatCounts = syncOutcome.supportedFormatCounts,
+            libraries = fetchResult.value.libraries,
             session = latestSession,
         )
     }
@@ -192,6 +195,7 @@ data class KavitaCatalogSyncRequest(
 
 data class KavitaCatalogConnectionResult(
     val libraryCount: Int,
+    val libraries: List<Library> = emptyList(),
     val session: KavitaSession? = null,
 )
 
@@ -204,5 +208,6 @@ data class KavitaCatalogSyncResult(
     val libraryCount: Int,
     val itemCount: Int,
     val supportedFormatCounts: Map<FormatType, Int>,
+    val libraries: List<Library> = emptyList(),
     val session: KavitaSession? = null,
 )

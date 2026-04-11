@@ -6,7 +6,13 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.feature.reader.core.ReaderLocator
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
+import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirectionPreferences
+import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirectionPreferencesStore
+import com.example.unifiedreader.feature.reader.preferences.normalizeComicItemDirectionOverride
+import com.example.unifiedreader.feature.reader.preferences.resolveComicReadingDirection
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.CoroutineScope
@@ -16,6 +22,7 @@ import kotlinx.coroutines.flow.SharingStarted
 
 class ComicsReaderSessionAdapter(
     private val sessionStore: ReaderSessionStore,
+    private val directionPreferencesStore: ComicReadingDirectionPreferencesStore,
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) : ComicReaderProgressStore, ComicReaderPreferencesStore {
     override val isHydratedFlow: StateFlow<Boolean> = sessionStore.isHydratedFlow
@@ -71,18 +78,38 @@ class ComicsReaderSessionAdapter(
     }
 
     override fun loadReadingDirection(item: ReadableItem): ComicReadingDirection =
-        restoreComicReaderPreferences(sessionStore.getSession(item))
-            ?.readingDirection
-            ?: ComicReadingDirection.LTR
+        resolveComicReadingDirection(
+            item = item,
+            itemOverride = restoreComicReadingDirectionOverride(sessionStore.getSession(item)),
+            preferences = directionPreferencesStore.preferencesFlow.value,
+        )
+
+    override fun observePreferences(
+        item: ReadableItem,
+    ) = combine(
+        sessionStore.sessionByItemIdFlow,
+        directionPreferencesStore.preferencesFlow,
+    ) { sessionByItemId, directionPreferences ->
+        sessionByItemId[item.id]
+            .toResolvedComicReaderPreferences(
+                item = item,
+                directionPreferences = directionPreferences,
+            )
+    }.distinctUntilChanged()
 
     override fun saveReadingDirection(
         item: ReadableItem,
         direction: ComicReadingDirection,
     ) {
+        val normalizedOverride = normalizeComicItemDirectionOverride(
+            item = item,
+            selectedDirection = direction,
+            preferences = directionPreferencesStore.preferencesFlow.value,
+        )
         sessionStore.updateSession(
             item = item,
-            preferences = buildComicReaderPreferencesPatch(
-                readingDirection = direction,
+            preferences = mapOf(
+                ComicsReadingDirectionKey to normalizedOverride?.name.orEmpty(),
             ),
         )
     }
@@ -153,6 +180,27 @@ class ComicsReaderSessionAdapter(
             ),
         )
     }
+}
+
+private fun com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot?.toResolvedComicReaderPreferences(
+    item: ReadableItem,
+    directionPreferences: ComicReadingDirectionPreferences,
+): ComicReaderPreferencesSnapshot? {
+    val restoredPreferences = restoreComicReaderPreferences(this)
+        ?: ComicReaderPreferencesSnapshot(
+            readingDirection = ComicReadingDirection.LTR,
+            pageFitMode = ComicPageFitMode.FitPage,
+            spreadMode = ComicSpreadMode.Auto,
+            splitWidePages = false,
+            resumeSegment = null,
+        )
+    return restoredPreferences.copy(
+        readingDirection = resolveComicReadingDirection(
+            item = item,
+            itemOverride = restoreComicReadingDirectionOverride(this),
+            preferences = directionPreferences,
+        ),
+    )
 }
 
 private inline fun <K, V, R : Any> Map<K, V>.mapNotNullValues(

@@ -31,6 +31,7 @@ import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.libraryDisplayLabel
+import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 @Composable
@@ -60,6 +61,8 @@ fun LibraryScreen(
     initialScrollPosition: LibraryScrollPosition = LibraryScrollPosition(),
     onScrollPositionChanged: (LibraryScrollPosition) -> Unit = {},
     onItemSelected: (ReadableItem) -> Unit,
+    seriesReadingDirectionFor: (ReadableItem) -> ComicReadingDirection? = { null },
+    onSeriesDirectionSelected: (ReadableItem, ComicReadingDirection) -> Unit = { _, _ -> },
     onDeleteImportedItem: (ReadableItem) -> Unit = {},
     onDownloadItem: (ReadableItem) -> Unit = {},
     onDeleteDownloadedItem: (ReadableItem) -> Unit = {},
@@ -159,9 +162,13 @@ fun LibraryScreen(
                             progress = progressByItemId[item.id],
                             isDownloaded = item.isDownloaded(locallyAvailableItemIds),
                             isDownloading = item.id in downloadingItemIds,
+                            seriesReadingDirection = seriesReadingDirectionFor(item),
                             coverImageUrlProvider = coverImageUrlProvider,
                             onCoverVisible = onCoverVisible,
                             onClick = { onItemSelected(item) },
+                            onSeriesReadingDirectionSelected = { direction ->
+                                onSeriesDirectionSelected(item, direction)
+                            },
                             onDeleteRequested = itemDeleteRequest(item) { deleteCandidate = it },
                             onDownloadRequested = itemDownloadRequest(
                                 item = item,
@@ -179,9 +186,13 @@ fun LibraryScreen(
                             progress = progressByItemId[item.id],
                             isDownloaded = item.isDownloaded(locallyAvailableItemIds),
                             isDownloading = item.id in downloadingItemIds,
+                            seriesReadingDirection = seriesReadingDirectionFor(item),
                             coverImageUrlProvider = coverImageUrlProvider,
                             onCoverVisible = onCoverVisible,
                             onClick = { onItemSelected(item) },
+                            onSeriesReadingDirectionSelected = { direction ->
+                                onSeriesDirectionSelected(item, direction)
+                            },
                             onDeleteRequested = itemDeleteRequest(item) { deleteCandidate = it },
                             onDownloadRequested = itemDownloadRequest(
                                 item = item,

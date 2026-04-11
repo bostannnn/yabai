@@ -1,6 +1,7 @@
 package com.example.unifiedreader.data.repository
 
 import com.example.unifiedreader.core.model.Library
+import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.remoteLibraryId
@@ -27,18 +28,21 @@ class SampleCatalogRepository : LibraryRepository, ReadableItemRepository {
                 sourceType = SourceType.KAVITA,
                 title = "Comics",
                 remoteId = "comics",
+                contentType = LibraryContentType.COMICS,
             ),
             Library(
                 id = SourceType.KAVITA.remoteLibraryId("magazines"),
                 sourceType = SourceType.KAVITA,
                 title = "Magazines",
                 remoteId = "magazines",
+                contentType = LibraryContentType.COMICS,
             ),
             Library(
                 id = SourceType.GRIMMORY.remoteLibraryId("books"),
                 sourceType = SourceType.GRIMMORY,
                 title = "Books",
                 remoteId = "books",
+                contentType = LibraryContentType.BOOKS,
             ),
             Library(
                 id = "local-imports",

@@ -37,7 +37,14 @@ data class Library(
     val sourceType: SourceType,
     val title: String,
     val remoteId: String? = null,
+    val contentType: LibraryContentType = LibraryContentType.UNKNOWN,
 )
+
+enum class LibraryContentType {
+    BOOKS,
+    COMICS,
+    UNKNOWN,
+}
 
 data class ReadableItem(
     val id: String,
@@ -150,6 +157,28 @@ fun ReadableItem.stumpSeriesGroupKey(): String? {
         ?: title.takeIf(String::isNotBlank)
         ?: return null
     return "$libraryId::$seriesKey"
+}
+
+fun ReadableItem.comicSeriesPreferenceKey(): String? {
+    if (kind != ReadableItemKind.COMIC) return null
+    return when (sourceType) {
+        SourceType.KAVITA -> {
+            when {
+                isKavitaSeriesContainer() -> remoteId?.takeIf(String::isNotBlank)
+                else -> kavitaSeriesGroupKey()
+            }
+        }
+
+        SourceType.STUMP -> {
+            when {
+                isStumpSeriesContainer() -> remoteId?.takeIf(String::isNotBlank)
+                else -> stumpSeriesGroupKey()
+            }
+        }
+
+        SourceType.GRIMMORY,
+        SourceType.LOCAL -> null
+    }
 }
 
 fun ReadableItem.belongsToKavitaSeries(

@@ -61,6 +61,7 @@ dependencies {
     implementation(project(":data:repository"))
     implementation(project(":feature:library"))
     implementation(project(":feature:settings"))
+    implementation(project(":feature:reader-preferences"))
     implementation(project(":feature:reader-core"))
     implementation(project(":feature:reader-comics"))
     implementation(project(":feature:reader-pdf"))

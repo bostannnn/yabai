@@ -3,6 +3,7 @@ package com.example.unifiedreader.data.stump
 import com.example.unifiedreader.core.model.ComicMetadata
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
+import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
@@ -166,6 +167,7 @@ internal fun StumpLibraryNodeDto.toDomain(): Library? {
         sourceType = SourceType.STUMP,
         title = name?.takeIf(String::isNotBlank) ?: "Library $remoteId",
         remoteId = remoteId,
+        contentType = LibraryContentType.COMICS,
     )
 }
 

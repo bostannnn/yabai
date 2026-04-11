@@ -331,13 +331,13 @@ private class FakeReaderSessionStore : ReaderSessionStore {
     override fun getSession(item: ReadableItem): ReaderSessionSnapshot? = sessionState.value[item.id]
 
     override fun updateSession(
-        item: ReadableItem,
+        itemId: String,
         pageCount: Int?,
         preferences: Map<String, String>,
     ) {
-        val current = sessionState.value[item.id] ?: ReaderSessionSnapshot(itemId = item.id)
+        val current = sessionState.value[itemId] ?: ReaderSessionSnapshot(itemId = itemId)
         sessionState.value = sessionState.value + (
-            item.id to current.copy(
+            itemId to current.copy(
                 pageCount = pageCount ?: current.pageCount,
                 preferences = current.preferences + preferences,
             )

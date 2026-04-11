@@ -29,6 +29,8 @@ import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesSto
 import com.example.unifiedreader.feature.reader.comics.ComicReaderProgressStore
 import com.example.unifiedreader.feature.reader.comics.ComicsReaderSessionAdapter
 import com.example.unifiedreader.feature.reader.comics.comicsReaderFactory
+import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirectionPreferencesStore
+import com.example.unifiedreader.feature.reader.preferences.DataStoreComicReadingDirectionPreferencesStore
 import com.example.unifiedreader.feature.reader.core.ReaderScreenFactory
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import com.example.unifiedreader.feature.reader.epub.epubReaderFactory
@@ -71,6 +73,12 @@ object AppModule {
     fun provideLibraryBrowseStateCoordinator(
         libraryBrowsePreferencesStore: LibraryBrowsePreferencesStore,
     ): LibraryBrowseStateCoordinator = LibraryBrowseStateCoordinator(libraryBrowsePreferencesStore)
+
+    @Provides
+    @Singleton
+    fun provideComicReadingDirectionPreferencesStore(
+        @ApplicationContext context: Context,
+    ): ComicReadingDirectionPreferencesStore = DataStoreComicReadingDirectionPreferencesStore(context)
 
     @Provides
     @Singleton
@@ -206,6 +214,11 @@ object AppModule {
     fun provideRemoteCatalogReadiness(
         repository: RoomRemoteCatalogRepository,
     ): RemoteCatalogReadiness = repository
+
+    @Provides
+    fun provideRemoteLibraryCacheStore(
+        repository: RoomRemoteCatalogRepository,
+    ): RemoteLibraryCacheStore = repository
 
     @Provides
     fun provideGrimmoryApiFactory(
@@ -509,7 +522,11 @@ object AppModule {
     @Singleton
     fun provideComicsReaderSessionAdapter(
         readerSessionStore: ReaderSessionStore,
-    ): ComicsReaderSessionAdapter = ComicsReaderSessionAdapter(readerSessionStore)
+        directionPreferencesStore: ComicReadingDirectionPreferencesStore,
+    ): ComicsReaderSessionAdapter = ComicsReaderSessionAdapter(
+        sessionStore = readerSessionStore,
+        directionPreferencesStore = directionPreferencesStore,
+    )
 
     @Provides
     fun provideComicReaderProgressStore(

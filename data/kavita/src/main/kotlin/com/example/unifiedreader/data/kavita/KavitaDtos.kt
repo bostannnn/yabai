@@ -3,6 +3,7 @@ package com.example.unifiedreader.data.kavita
 import com.example.unifiedreader.core.model.ComicMetadata
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
+import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadingProgress
@@ -168,6 +169,7 @@ internal fun KavitaLibraryDto.toDomain(): Library? {
         sourceType = SourceType.KAVITA,
         title = name?.takeIf(String::isNotBlank) ?: "Library $remoteId",
         remoteId = remoteId,
+        contentType = type.toLibraryContentType(),
     )
 }
 
@@ -367,6 +369,16 @@ private fun Int?.toFormatType(): FormatType? = when (this) {
     else -> null
 }
 
+private fun Int?.toLibraryContentType(): LibraryContentType = when (this) {
+    KAVITA_LIBRARY_TYPE_BOOK,
+    KAVITA_LIBRARY_TYPE_LIGHT_NOVEL -> LibraryContentType.BOOKS
+    KAVITA_LIBRARY_TYPE_COMIC,
+    KAVITA_LIBRARY_TYPE_COMIC_FLEXIBLE,
+    KAVITA_LIBRARY_TYPE_IMAGE,
+    KAVITA_LIBRARY_TYPE_MANGA -> LibraryContentType.COMICS
+    else -> LibraryContentType.UNKNOWN
+}
+
 private fun buildKavitaSeriesCoverUrl(
     baseUrl: String,
     seriesId: String,
@@ -401,3 +413,9 @@ private fun String?.toEpochMillisOrNull(): Long? = runCatching {
 
 private const val KAVITA_FORMAT_IMAGE = 0
 private const val KAVITA_FORMAT_ARCHIVE = 1
+private const val KAVITA_LIBRARY_TYPE_BOOK = 0
+private const val KAVITA_LIBRARY_TYPE_COMIC = 1
+private const val KAVITA_LIBRARY_TYPE_COMIC_FLEXIBLE = 2
+private const val KAVITA_LIBRARY_TYPE_IMAGE = 3
+private const val KAVITA_LIBRARY_TYPE_LIGHT_NOVEL = 4
+private const val KAVITA_LIBRARY_TYPE_MANGA = 5

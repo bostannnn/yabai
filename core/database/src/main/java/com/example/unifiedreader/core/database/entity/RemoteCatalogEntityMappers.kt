@@ -4,6 +4,7 @@ import com.example.unifiedreader.core.model.BookMetadata
 import com.example.unifiedreader.core.model.ComicMetadata
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
+import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
@@ -13,6 +14,20 @@ fun Library.toEntity(): LibraryEntity = LibraryEntity(
     sourceType = sourceType.name,
     title = title,
     remoteId = remoteId,
+    contentType = contentType.name,
+)
+
+fun Library.toRemoteLibraryCacheEntity(
+    baseUrl: String,
+    username: String,
+): RemoteLibraryCacheEntity = RemoteLibraryCacheEntity(
+    sourceType = sourceType.name,
+    baseUrl = baseUrl,
+    username = username,
+    libraryId = id,
+    title = title,
+    remoteId = remoteId,
+    contentType = contentType.name,
 )
 
 fun LibraryEntity.toDomain(): Library = Library(
@@ -20,6 +35,15 @@ fun LibraryEntity.toDomain(): Library = Library(
     sourceType = sourceType.toSourceType(),
     title = title,
     remoteId = remoteId,
+    contentType = contentType.toLibraryContentType(),
+)
+
+fun RemoteLibraryCacheEntity.toDomain(): Library = Library(
+    id = libraryId,
+    sourceType = sourceType.toSourceType(),
+    title = title,
+    remoteId = remoteId,
+    contentType = contentType.toLibraryContentType(),
 )
 
 fun ReadableItem.toEntity(
@@ -76,6 +100,9 @@ private fun String.toFormatType(): FormatType =
 
 private fun String.toReadableItemKind(): ReadableItemKind =
     enumValueOfOrDefault(defaultValue = ReadableItemKind.BOOK)
+
+private fun String.toLibraryContentType(): LibraryContentType =
+    enumValueOfOrDefault(defaultValue = LibraryContentType.UNKNOWN)
 
 private inline fun <reified T : Enum<T>> String.enumValueOfOrDefault(
     defaultValue: T,

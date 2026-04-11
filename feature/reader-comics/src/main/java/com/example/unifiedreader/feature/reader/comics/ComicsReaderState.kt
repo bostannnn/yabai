@@ -11,7 +11,10 @@ import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.graphics.ImageBitmap
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 
 data class ComicPageSpec(
     val id: String,
@@ -77,6 +80,12 @@ interface ComicReaderPreferencesStore {
     val isHydratedFlow: StateFlow<Boolean>
 
     val savedPreferencesFlow: StateFlow<Map<String, ComicReaderPreferencesSnapshot>>
+
+    fun observePreferences(
+        item: ReadableItem,
+    ): Flow<ComicReaderPreferencesSnapshot?> = savedPreferencesFlow.map { preferencesByItemId ->
+        preferencesByItemId[item.id]
+    }
 
     fun loadReadingDirection(
         item: ReadableItem,
@@ -357,13 +366,6 @@ internal fun isComicProgressFinished(
         ComicPageSegment.LeftHalf -> readingDirection == ComicReadingDirection.RTL
         ComicPageSegment.RightHalf -> readingDirection == ComicReadingDirection.LTR
     }
-}
-
-enum class ComicReadingDirection(
-    val label: String,
-) {
-    LTR("LTR"),
-    RTL("RTL"),
 }
 
 enum class ComicPageFitMode(

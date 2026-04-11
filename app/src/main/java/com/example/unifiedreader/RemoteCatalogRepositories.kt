@@ -5,6 +5,7 @@ import com.example.unifiedreader.core.database.dao.RemoteCatalogDao
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
 import com.example.unifiedreader.core.database.entity.toDomain
+import com.example.unifiedreader.core.database.entity.toRemoteLibraryCacheEntity
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
@@ -40,11 +41,30 @@ interface RemoteCatalogReadiness {
     val isHydratedFlow: StateFlow<Boolean>
 }
 
+interface RemoteLibraryCacheStore {
+    suspend fun getCachedLibraries(
+        sourceType: SourceType,
+        baseUrl: String,
+        username: String,
+    ): List<Library>
+
+    suspend fun replaceCachedLibraries(
+        sourceType: SourceType,
+        baseUrl: String,
+        username: String,
+        libraries: List<Library>,
+    )
+}
+
 class RoomRemoteCatalogRepository(
     private val remoteCatalogDao: RemoteCatalogDao,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + ioDispatcher),
-) : LibraryRepository, ReadableItemRepository, RemoteCatalogWriter, RemoteCatalogReadiness {
+) : LibraryRepository,
+    ReadableItemRepository,
+    RemoteCatalogWriter,
+    RemoteCatalogReadiness,
+    RemoteLibraryCacheStore {
     private val librariesState = MutableStateFlow<List<Library>>(emptyList())
     private val itemsState = MutableStateFlow<List<ReadableItem>>(emptyList())
     private val hydrationState = MutableStateFlow(false)
@@ -109,6 +129,37 @@ class RoomRemoteCatalogRepository(
             sourceType = sourceType.name,
             libraries = libraries,
             items = items,
+        )
+    }
+
+    override suspend fun getCachedLibraries(
+        sourceType: SourceType,
+        baseUrl: String,
+        username: String,
+    ): List<Library> = withContext(ioDispatcher) {
+        remoteCatalogDao.getCachedLibraries(
+            sourceType = sourceType.name,
+            baseUrl = baseUrl,
+            username = username,
+        ).map { entity -> entity.toDomain() }
+    }
+
+    override suspend fun replaceCachedLibraries(
+        sourceType: SourceType,
+        baseUrl: String,
+        username: String,
+        libraries: List<Library>,
+    ) = withContext(ioDispatcher) {
+        remoteCatalogDao.replaceCachedLibraries(
+            sourceType = sourceType.name,
+            baseUrl = baseUrl,
+            username = username,
+            entries = libraries.map { library ->
+                library.toRemoteLibraryCacheEntity(
+                    baseUrl = baseUrl,
+                    username = username,
+                )
+            },
         )
     }
 }

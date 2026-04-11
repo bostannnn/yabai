@@ -1,6 +1,7 @@
 package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.data.stump.StumpApi
@@ -52,6 +53,7 @@ class StumpCatalogSyncService(
         }
         return StumpCatalogConnectionResult(
             libraryCount = refreshResult.value.size,
+            libraries = refreshResult.value,
             session = refreshResult.refreshedSession ?: session,
         )
     }
@@ -130,6 +132,7 @@ class StumpCatalogSyncService(
             libraryCount = syncOutcome.libraryCount,
             itemCount = syncOutcome.itemCount,
             supportedFormatCounts = syncOutcome.supportedFormatCounts,
+            libraries = fetchResult.value.libraries,
             session = latestSession,
         )
     }
@@ -187,6 +190,7 @@ data class StumpCatalogSyncRequest(
 
 data class StumpCatalogConnectionResult(
     val libraryCount: Int,
+    val libraries: List<Library> = emptyList(),
     val session: StumpSession? = null,
 )
 
@@ -199,6 +203,7 @@ data class StumpCatalogSyncResult(
     val libraryCount: Int,
     val itemCount: Int,
     val supportedFormatCounts: Map<FormatType, Int>,
+    val libraries: List<Library> = emptyList(),
     val session: StumpSession? = null,
 )
 

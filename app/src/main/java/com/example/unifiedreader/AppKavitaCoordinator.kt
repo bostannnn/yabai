@@ -1,6 +1,7 @@
 package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.feature.settings.KavitaConnectionUiState
 import javax.inject.Inject
 
@@ -145,6 +146,7 @@ class AppKavitaCoordinator @Inject constructor(
             libraryCount = result.libraryCount,
             itemCount = result.itemCount,
             supportedFormatCounts = result.supportedFormatCounts,
+            availableLibraries = result.libraries,
             connection = preparation.activeConnection.copy(
                 password = "",
                 hasStoredSession = true,
@@ -178,6 +180,7 @@ class AppKavitaCoordinator @Inject constructor(
         )
         KavitaConnectExecutionResult.Success(
             libraryCount = result.libraryCount,
+            availableLibraries = result.libraries,
             connection = preparation.activeConnection.copy(
                 password = "",
                 hasStoredSession = true,
@@ -208,6 +211,19 @@ class AppKavitaCoordinator @Inject constructor(
         session.baseUrl == baseUrl &&
             session.username == username
     }
+
+    internal suspend fun loadAvailableLibraries(
+        session: KavitaStoredSession,
+    ): List<Library> = kavitaCatalogSyncer.connect(
+        request = KavitaCatalogSyncRequest(
+            displayName = session.displayName,
+            baseUrl = session.baseUrl,
+            username = session.username,
+            accessToken = session.accessToken,
+            refreshToken = session.refreshToken,
+            apiKey = session.apiKey,
+        ),
+    ).libraries
 
     private suspend fun persistSession(
         preparation: KavitaSyncPreparation.Ready,
@@ -259,6 +275,7 @@ internal sealed interface KavitaSyncExecutionResult {
         val libraryCount: Int,
         val itemCount: Int,
         val supportedFormatCounts: Map<FormatType, Int>,
+        val availableLibraries: List<Library>,
         val connection: KavitaConnectionUiState,
     ) : KavitaSyncExecutionResult
 
@@ -271,6 +288,7 @@ internal sealed interface KavitaSyncExecutionResult {
 internal sealed interface KavitaConnectExecutionResult {
     data class Success(
         val libraryCount: Int,
+        val availableLibraries: List<Library>,
         val connection: KavitaConnectionUiState,
     ) : KavitaConnectExecutionResult
 

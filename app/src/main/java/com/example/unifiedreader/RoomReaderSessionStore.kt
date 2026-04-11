@@ -98,20 +98,20 @@ class RoomReaderSessionStore(
     override fun getSession(item: ReadableItem): ReaderSessionSnapshot? = sessionState.value[item.id]
 
     override fun updateSession(
-        item: ReadableItem,
+        itemId: String,
         pageCount: Int?,
         preferences: Map<String, String>,
     ) {
-        val current = sessionState.value[item.id] ?: ReaderSessionSnapshot(itemId = item.id)
+        val current = sessionState.value[itemId] ?: ReaderSessionSnapshot(itemId = itemId)
         val next = current.copy(
             pageCount = pageCount ?: current.pageCount,
             preferences = current.preferences + preferences,
         )
-        sessionState.value = sessionState.value + (item.id to next)
+        sessionState.value = sessionState.value + (itemId to next)
         writeScope.launch {
             appStartupTasks.initialize()
             sessionWriteMutex.withLock {
-                val latest = sessionState.value[item.id] ?: ReaderSessionSnapshot(itemId = item.id)
+                val latest = sessionState.value[itemId] ?: ReaderSessionSnapshot(itemId = itemId)
                 readerSessionStateDao.insertOrReplace(latest.toEntity())
             }
         }

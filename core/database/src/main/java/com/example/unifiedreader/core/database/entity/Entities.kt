@@ -11,6 +11,24 @@ data class LibraryEntity(
     val sourceType: String,
     val title: String,
     val remoteId: String?,
+    val contentType: String,
+)
+
+@Entity(
+    tableName = "remote_library_cache_entries",
+    primaryKeys = ["sourceType", "baseUrl", "username", "libraryId"],
+    indices = [
+        Index(value = ["sourceType", "baseUrl", "username"]),
+    ],
+)
+data class RemoteLibraryCacheEntity(
+    val sourceType: String,
+    val baseUrl: String,
+    val username: String,
+    val libraryId: String,
+    val title: String,
+    val remoteId: String?,
+    val contentType: String,
 )
 
 @Entity(

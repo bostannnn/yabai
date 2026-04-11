@@ -5,6 +5,7 @@ import com.example.unifiedreader.core.database.entity.toEntity
 import com.example.unifiedreader.core.model.BookMetadata
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
+import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
@@ -21,6 +22,7 @@ class RemoteCatalogEntityMappersTest {
             sourceType = SourceType.GRIMMORY,
             title = "Books",
             remoteId = "g-books",
+            contentType = LibraryContentType.BOOKS,
         )
 
         assertEquals(library, library.toEntity().toDomain())

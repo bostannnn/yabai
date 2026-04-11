@@ -33,15 +33,22 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.core.model.Library
+import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
+import com.example.unifiedreader.feature.settings.direction.ComicReadingDirectionSettingsSection
+import com.example.unifiedreader.feature.settings.direction.ReadingDirectionLibraryUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     themeMode: ThemeMode,
+    kavitaReadingDirectionLibraries: List<ReadingDirectionLibraryUiState>,
+    stumpReadingDirectionLibraries: List<ReadingDirectionLibraryUiState>,
     kavitaConnection: KavitaConnectionUiState,
     stumpConnection: StumpConnectionUiState,
     grimmoryConnection: GrimmoryConnectionUiState,
     onThemeModeSelected: (ThemeMode) -> Unit,
+    onLibraryDirectionSelected: (String, ComicReadingDirection) -> Unit,
     onKavitaDisplayNameChanged: (String) -> Unit,
     onKavitaBaseUrlChanged: (String) -> Unit,
     onKavitaUsernameChanged: (String) -> Unit,
@@ -130,6 +137,10 @@ fun SettingsScreen(
                     onPasswordChanged = onKavitaPasswordChanged,
                     onConnect = onConnectKavita,
                 )
+                ComicReadingDirectionSettingsSection(
+                    libraries = kavitaReadingDirectionLibraries,
+                    onLibraryDirectionSelected = onLibraryDirectionSelected,
+                )
             }
         }
 
@@ -165,6 +176,10 @@ fun SettingsScreen(
                     onUsernameChanged = onStumpUsernameChanged,
                     onPasswordChanged = onStumpPasswordChanged,
                     onConnect = onConnectStump,
+                )
+                ComicReadingDirectionSettingsSection(
+                    libraries = stumpReadingDirectionLibraries,
+                    onLibraryDirectionSelected = onLibraryDirectionSelected,
                 )
             }
         }
@@ -352,6 +367,7 @@ data class KavitaConnectionUiState(
     val baseUrl: String = "",
     val username: String = "",
     val password: String = "",
+    val availableLibraries: List<Library> = emptyList(),
     val hasStoredSession: Boolean = false,
     val isConnecting: Boolean = false,
     val syncProgressFraction: Float? = null,
@@ -372,6 +388,7 @@ data class StumpConnectionUiState(
     val baseUrl: String = "",
     val username: String = "",
     val password: String = "",
+    val availableLibraries: List<Library> = emptyList(),
     val hasStoredSession: Boolean = false,
     val isConnecting: Boolean = false,
     val syncProgressFraction: Float? = null,

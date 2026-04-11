@@ -1,6 +1,7 @@
 package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.feature.settings.StumpConnectionUiState
 import javax.inject.Inject
 
@@ -151,6 +152,7 @@ class AppStumpCoordinator @Inject constructor(
             libraryCount = result.libraryCount,
             itemCount = result.itemCount,
             supportedFormatCounts = result.supportedFormatCounts,
+            availableLibraries = result.libraries,
             connection = preparation.activeConnection.copy(
                 password = "",
                 hasStoredSession = true,
@@ -202,6 +204,7 @@ class AppStumpCoordinator @Inject constructor(
         )
         StumpConnectExecutionResult.Success(
             libraryCount = result.libraryCount,
+            availableLibraries = result.libraries,
             connection = preparation.activeConnection.copy(
                 password = "",
                 hasStoredSession = true,
@@ -232,6 +235,18 @@ class AppStumpCoordinator @Inject constructor(
         session.baseUrl == baseUrl &&
             session.username == username
     }
+
+    internal suspend fun loadAvailableLibraries(
+        session: StumpStoredSession,
+    ): List<Library> = stumpCatalogSyncer.connect(
+        request = StumpCatalogSyncRequest(
+            displayName = session.displayName,
+            baseUrl = session.baseUrl,
+            username = session.username,
+            accessToken = session.accessToken,
+            refreshToken = session.refreshToken,
+        ),
+    ).libraries
 }
 
 internal sealed interface StumpSyncPreparation {
@@ -255,6 +270,7 @@ internal sealed interface StumpSyncExecutionResult {
         val libraryCount: Int,
         val itemCount: Int,
         val supportedFormatCounts: Map<FormatType, Int>,
+        val availableLibraries: List<Library>,
         val connection: StumpConnectionUiState,
     ) : StumpSyncExecutionResult
 
@@ -267,6 +283,7 @@ internal sealed interface StumpSyncExecutionResult {
 internal sealed interface StumpConnectExecutionResult {
     data class Success(
         val libraryCount: Int,
+        val availableLibraries: List<Library>,
         val connection: StumpConnectionUiState,
     ) : StumpConnectExecutionResult
 

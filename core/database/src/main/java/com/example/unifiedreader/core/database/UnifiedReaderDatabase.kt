@@ -15,19 +15,21 @@ import com.example.unifiedreader.core.database.entity.DownloadQueueEntryEntity
 import com.example.unifiedreader.core.database.entity.ImportedComicArchiveEntity
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
+import com.example.unifiedreader.core.database.entity.RemoteLibraryCacheEntity
 import com.example.unifiedreader.core.database.entity.ReaderSessionStateEntity
 import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
 
 @Database(
     entities = [
         LibraryEntity::class,
+        RemoteLibraryCacheEntity::class,
         ReadableItemEntity::class,
         ReadingProgressEntity::class,
         ImportedComicArchiveEntity::class,
         ReaderSessionStateEntity::class,
         DownloadQueueEntryEntity::class,
     ],
-    version = 12,
+    version = 14,
     exportSchema = false,
 )
 abstract class UnifiedReaderDatabase : RoomDatabase() {
@@ -442,6 +444,78 @@ object UnifiedReaderDatabaseMigrations {
             )
         }
     }
+
+    val MIGRATION_12_13 = object : Migration(12, 13) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL(
+                """
+                ALTER TABLE libraries
+                ADD COLUMN contentType TEXT NOT NULL DEFAULT 'UNKNOWN'
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                UPDATE libraries
+                SET contentType = 'COMICS'
+                WHERE id IN (
+                    SELECT DISTINCT libraryId
+                    FROM readable_items
+                    WHERE kind = 'COMIC' OR format IN ('CBZ', 'CBR')
+                )
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                UPDATE libraries
+                SET contentType = 'BOOKS'
+                WHERE id IN (
+                    SELECT DISTINCT libraryId
+                    FROM readable_items
+                    WHERE kind = 'BOOK' OR format IN ('EPUB', 'PDF')
+                )
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                UPDATE libraries
+                SET contentType = 'COMICS'
+                WHERE sourceType = 'STUMP' AND contentType = 'UNKNOWN'
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                UPDATE libraries
+                SET contentType = 'BOOKS'
+                WHERE sourceType = 'GRIMMORY' AND contentType = 'UNKNOWN'
+                """.trimIndent(),
+            )
+        }
+    }
+
+    val MIGRATION_13_14 = object : Migration(13, 14) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS remote_library_cache_entries (
+                    sourceType TEXT NOT NULL,
+                    baseUrl TEXT NOT NULL,
+                    username TEXT NOT NULL,
+                    libraryId TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    remoteId TEXT,
+                    contentType TEXT NOT NULL,
+                    PRIMARY KEY(sourceType, baseUrl, username, libraryId)
+                )
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS index_remote_library_cache_entries_sourceType_baseUrl_username
+                ON remote_library_cache_entries (sourceType, baseUrl, username)
+                """.trimIndent(),
+            )
+        }
+    }
 }
 
 object UnifiedReaderDatabaseFactory {
@@ -464,6 +538,8 @@ object UnifiedReaderDatabaseFactory {
             UnifiedReaderDatabaseMigrations.MIGRATION_9_10,
             UnifiedReaderDatabaseMigrations.MIGRATION_10_11,
             UnifiedReaderDatabaseMigrations.MIGRATION_11_12,
+            UnifiedReaderDatabaseMigrations.MIGRATION_12_13,
+            UnifiedReaderDatabaseMigrations.MIGRATION_13_14,
         )
         .build()
 }

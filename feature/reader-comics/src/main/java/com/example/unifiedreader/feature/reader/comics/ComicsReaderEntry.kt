@@ -48,7 +48,7 @@ fun ComicsReaderScreen(
     val progressHydrated by progressStore.isHydratedFlow.collectAsState()
     val preferencesHydrated by preferencesStore.isHydratedFlow.collectAsState()
     val savedPagesByItemId by progressStore.savedPagesFlow.collectAsState()
-    val savedPreferencesByItemId by preferencesStore.savedPreferencesFlow.collectAsState()
+    val restoredPreferences by preferencesStore.observePreferences(item).collectAsState(initial = null)
 
     if (pages.isEmpty()) {
         EmptyComicsReader(item = item)
@@ -116,8 +116,6 @@ fun ComicsReaderScreen(
         },
     )
     val restoredPage = savedPagesByItemId[item.id]
-    val restoredPreferences = savedPreferencesByItemId[item.id]
-
     LaunchedEffect(item.id, progressHydrated, restoredPage, pages.size) {
         if (!progressHydrated) {
             progressRestoreCompleted = false
@@ -335,6 +333,7 @@ fun ComicsReaderScreen(
                     progress = currentPageProgress,
                     percentLabel = "${(currentPageProgress * 100f).roundToInt()}%",
                     pageLabel = "${readerState.currentPage + 1}/${pages.size}",
+                    readingDirection = readerState.readingDirection,
                     modifier = Modifier.align(Alignment.BottomCenter),
                     onProgressSelected = { selectedProgress ->
                         val targetPage = (selectedProgress * (pages.size - 1))

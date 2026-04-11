@@ -2,6 +2,7 @@ package com.example.unifiedreader.feature.reader.comics
 
 import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
 import com.example.unifiedreader.feature.reader.core.enumValueOrNull
+import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 
 const val ComicsReadingDirectionKey = "readingDirection"
 const val ComicsPageFitModeKey = "pageFitMode"
@@ -41,6 +42,16 @@ fun restoreComicReaderPreferences(
             ?.enumValueOrNull<ComicPageSegment>(),
     )
 }
+
+fun restoreComicReadingDirectionOverride(
+    session: ReaderSessionSnapshot?,
+): ComicReadingDirection? = restoreComicReadingDirectionOverride(session?.preferences.orEmpty())
+
+fun restoreComicReadingDirectionOverride(
+    preferences: Map<String, String>,
+): ComicReadingDirection? = preferences[ComicsReadingDirectionKey]
+    ?.takeIf(String::isNotBlank)
+    ?.enumValueOrNull<ComicReadingDirection>()
 
 fun buildComicReaderPreferencesMap(
     preferences: ComicReaderPreferencesSnapshot,

@@ -3,7 +3,9 @@ package com.example.unifiedreader
 import com.example.unifiedreader.core.database.dao.RemoteCatalogDao
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
+import com.example.unifiedreader.core.database.entity.RemoteLibraryCacheEntity
 import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.remoteItemId
@@ -32,6 +34,7 @@ class RemoteCatalogRepositoriesTest {
                     sourceType = SourceType.GRIMMORY.name,
                     title = "Books",
                     remoteId = "books",
+                    contentType = LibraryContentType.BOOKS.name,
                 ),
             ),
             items = listOf(
@@ -109,6 +112,42 @@ class RemoteCatalogRepositoriesTest {
             scope.cancel()
         }
     }
+
+    @Test
+    fun `room remote catalog repository persists cached remote libraries by source and account`() = runBlocking {
+        val dao = FakeRemoteCatalogDao(
+            libraries = emptyList(),
+            items = emptyList(),
+        )
+        val repository = RoomRemoteCatalogRepository(
+            remoteCatalogDao = dao,
+            ioDispatcher = Dispatchers.Unconfined,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
+        )
+
+        repository.replaceCachedLibraries(
+            sourceType = SourceType.KAVITA,
+            baseUrl = "https://kavita.example",
+            username = "reader",
+            libraries = listOf(
+                com.example.unifiedreader.core.model.Library(
+                    id = SourceType.KAVITA.remoteLibraryId("comics"),
+                    sourceType = SourceType.KAVITA,
+                    title = "Comics",
+                    remoteId = "comics",
+                    contentType = LibraryContentType.COMICS,
+                ),
+            ),
+        )
+
+        val cachedLibraries = repository.getCachedLibraries(
+            sourceType = SourceType.KAVITA,
+            baseUrl = "https://kavita.example",
+            username = "reader",
+        )
+
+        assertEquals(listOf("Comics"), cachedLibraries.map { it.title })
+    }
 }
 
 private class FakeRemoteCatalogDao(
@@ -118,6 +157,7 @@ private class FakeRemoteCatalogDao(
 ) : RemoteCatalogDao() {
     private val librariesState = MutableStateFlow(libraries)
     private val itemsState = MutableStateFlow(items)
+    private val cachedLibrariesByKey = mutableMapOf<Triple<String, String, String>, List<RemoteLibraryCacheEntity>>()
 
     override fun getLibraries(): List<LibraryEntity> = librariesState.value
 
@@ -133,6 +173,12 @@ private class FakeRemoteCatalogDao(
     override fun getItemsForSourceType(sourceType: String): List<ReadableItemEntity> =
         itemsState.value.filter { it.sourceType == sourceType }
 
+    override fun getCachedLibraries(
+        sourceType: String,
+        baseUrl: String,
+        username: String,
+    ): List<RemoteLibraryCacheEntity> = cachedLibrariesByKey[Triple(sourceType, baseUrl, username)].orEmpty()
+
     override fun insertOrReplaceLibraries(libraries: List<LibraryEntity>) {
         librariesState.value = libraries
     }
@@ -141,11 +187,26 @@ private class FakeRemoteCatalogDao(
         itemsState.value = items
     }
 
+    override fun insertOrReplaceCachedLibraries(entries: List<RemoteLibraryCacheEntity>) {
+        entries.groupBy { Triple(it.sourceType, it.baseUrl, it.username) }
+            .forEach { (key, value) ->
+                cachedLibrariesByKey[key] = value
+            }
+    }
+
     protected override fun deleteItemsForSourceType(sourceType: String) {
         itemsState.value = itemsState.value.filterNot { it.sourceType == sourceType }
     }
 
     protected override fun deleteLibrariesForSourceType(sourceType: String) {
         librariesState.value = librariesState.value.filterNot { it.sourceType == sourceType }
+    }
+
+    protected override fun deleteCachedLibraries(
+        sourceType: String,
+        baseUrl: String,
+        username: String,
+    ) {
+        cachedLibrariesByKey.remove(Triple(sourceType, baseUrl, username))
     }
 }

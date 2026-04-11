@@ -173,13 +173,13 @@ private class ProgressSyncTestReaderSessionStore : ReaderSessionStore {
     override fun getSession(item: ReadableItem): ReaderSessionSnapshot? = sessionState.value[item.id]
 
     override fun updateSession(
-        item: ReadableItem,
+        itemId: String,
         pageCount: Int?,
         preferences: Map<String, String>,
     ) {
-        val existing = sessionState.value[item.id] ?: ReaderSessionSnapshot(itemId = item.id)
+        val existing = sessionState.value[itemId] ?: ReaderSessionSnapshot(itemId = itemId)
         sessionState.value = sessionState.value + (
-            item.id to existing.copy(
+            itemId to existing.copy(
                 pageCount = pageCount ?: existing.pageCount,
                 preferences = existing.preferences + preferences,
             )
