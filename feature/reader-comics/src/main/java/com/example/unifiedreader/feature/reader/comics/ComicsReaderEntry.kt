@@ -12,6 +12,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -32,9 +33,11 @@ import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
 import kotlin.math.roundToInt
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+private const val SpreadPlanningMaxMetadataRetries = 3
+private const val SpreadPlanningRetryDelayMillis = 750L
 
 @Composable
 fun ComicsReaderScreen(
@@ -80,12 +83,15 @@ fun ComicsReaderScreen(
             preferencesStore.loadResumeSegment(item)
         },
     )
-    var pageMetadataById by remember(item.id) { mutableStateOf<Map<String, ComicPageMetadata?>>(emptyMap()) }
+    var pageMetadataById by remember(item.id) { mutableStateOf<Map<String, ComicPageMetadata>>(emptyMap()) }
+    var spreadPlanningFailuresById by remember(item.id) { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    var degradedSpreadPlanningPageIds by remember(item.id) { mutableStateOf<Set<String>>(emptySet()) }
     val currentPageProgress = (readerState.currentPage + 1).toFloat() / pages.size.toFloat()
     val lifecycleOwner = LocalLifecycleOwner.current
     val coroutineScope = rememberCoroutineScope()
     var progressRestoreCompleted by remember(item.id) { mutableStateOf(false) }
     var preferencesRestoreCompleted by remember(item.id) { mutableStateOf(false) }
+    var metadataRetryNonce by remember(item.id) { mutableIntStateOf(0) }
     val overlayState = rememberReaderOverlayState(
         key = "comic-overlay-${item.id}",
         initiallyVisible = true,
@@ -94,7 +100,7 @@ fun ComicsReaderScreen(
     val latestPreferencesHydrated by rememberUpdatedState(preferencesHydrated)
     val latestProgressRestoreCompleted by rememberUpdatedState(progressRestoreCompleted)
     val latestPreferencesRestoreCompleted by rememberUpdatedState(preferencesRestoreCompleted)
-    val persistCurrentPage by rememberUpdatedState(
+    val persistProgress by rememberUpdatedState(
         newValue = {
             progressStore.savePage(
                 item = item,
@@ -109,14 +115,18 @@ fun ComicsReaderScreen(
             )
         },
     )
+    val persistResumePosition by rememberUpdatedState(
+        newValue = {
+            preferencesStore.saveResumeAnchorPage(item, readerState.resumeAnchorPage)
+            preferencesStore.saveResumeSegment(item, readerState.resumeSegment)
+        },
+    )
     val persistReaderPreferences by rememberUpdatedState(
         newValue = {
             preferencesStore.saveReadingDirection(item, readerState.readingDirection)
             preferencesStore.savePageFitMode(item, readerState.pageFitMode)
             preferencesStore.saveSpreadMode(item, readerState.spreadMode)
             preferencesStore.saveSplitWidePages(item, readerState.splitWidePages)
-            preferencesStore.saveResumeAnchorPage(item, readerState.resumeAnchorPage)
-            preferencesStore.saveResumeSegment(item, readerState.resumeSegment)
         },
     )
     val restoredPage = savedPagesByItemId[item.id]
@@ -149,14 +159,35 @@ fun ComicsReaderScreen(
         item.id,
         progressHydrated,
         progressRestoreCompleted,
+        preferencesHydrated,
+        preferencesRestoreCompleted,
         readerState.currentPage,
+        readerState.resumeAnchorPage,
         readerState.resumeSegment,
         readerState.readingDirection,
         pages.size,
     ) {
-        if (!progressHydrated || !progressRestoreCompleted) return@LaunchedEffect
+        if (!progressHydrated ||
+            !progressRestoreCompleted ||
+            !preferencesHydrated ||
+            !preferencesRestoreCompleted
+        ) {
+            return@LaunchedEffect
+        }
         delay(250)
-        persistCurrentPage()
+        persistProgress()
+        persistResumePosition()
+    }
+
+    LaunchedEffect(
+        item.id,
+        preferencesHydrated,
+        preferencesRestoreCompleted,
+        progressRestoreCompleted,
+    ) {
+        if (!progressRestoreCompleted || !preferencesHydrated || !preferencesRestoreCompleted) return@LaunchedEffect
+        persistProgress()
+        persistResumePosition()
     }
 
     LaunchedEffect(
@@ -167,7 +198,6 @@ fun ComicsReaderScreen(
         readerState.pageFitMode,
         readerState.spreadMode,
         readerState.splitWidePages,
-        readerState.resumeSegment,
     ) {
         if (!preferencesHydrated || !preferencesRestoreCompleted) return@LaunchedEffect
         persistReaderPreferences()
@@ -176,8 +206,13 @@ fun ComicsReaderScreen(
     DisposableEffect(lifecycleOwner, item.id) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_STOP) {
-                if (latestProgressHydrated && latestProgressRestoreCompleted) {
-                    persistCurrentPage()
+                if (latestProgressHydrated &&
+                    latestProgressRestoreCompleted &&
+                    latestPreferencesHydrated &&
+                    latestPreferencesRestoreCompleted
+                ) {
+                    persistProgress()
+                    persistResumePosition()
                 }
                 if (latestPreferencesHydrated && latestPreferencesRestoreCompleted) {
                     persistReaderPreferences()
@@ -187,8 +222,13 @@ fun ComicsReaderScreen(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
-            if (latestProgressHydrated && latestProgressRestoreCompleted) {
-                persistCurrentPage()
+            if (latestProgressHydrated &&
+                latestProgressRestoreCompleted &&
+                latestPreferencesHydrated &&
+                latestPreferencesRestoreCompleted
+            ) {
+                persistProgress()
+                persistResumePosition()
             }
             if (latestPreferencesHydrated && latestPreferencesRestoreCompleted) {
                 persistReaderPreferences()
@@ -220,30 +260,77 @@ fun ComicsReaderScreen(
                     readerState.splitWidePages,
                     useDoublePageSpreads,
                     pages,
+                    metadataRetryNonce,
                 ) {
-                    val targetIndexes = requiredMetadataIndexes(
+                    val requiredIndexes = requiredMetadataIndexes(
                         currentPage = readerState.resumeAnchorPage,
                         pageCount = pages.size,
                         useDoublePageSpreads = useDoublePageSpreads,
                         splitWidePages = readerState.splitWidePages,
-                    ).filter { index -> pages[index].id !in pageMetadataById }
-                    if (targetIndexes.isEmpty()) return@LaunchedEffect
-                    val loadedMetadata = coroutineScope {
-                        targetIndexes.map { index ->
-                            async {
-                                val page = pages[index]
-                                page.id to pageSource.loadPageMetadata(item, page)
-                            }
-                        }.awaitAll()
-                    }.toMap()
-                    if (loadedMetadata.isNotEmpty()) {
-                        pageMetadataById = pageMetadataById + loadedMetadata
+                    )
+                    val targetIndexes = backgroundMetadataIndexes(
+                        currentPage = readerState.resumeAnchorPage,
+                        pageCount = pages.size,
+                        useDoublePageSpreads = useDoublePageSpreads,
+                        splitWidePages = readerState.splitWidePages,
+                    ).filter { index ->
+                        val pageId = pages[index].id
+                        pageId !in pageMetadataById && pageId !in degradedSpreadPlanningPageIds
                     }
-                }
-                val resolvedPageMetadataById = remember(pageMetadataById) {
-                    pageMetadataById.mapNotNull { (pageId, metadata) ->
-                        metadata?.let { pageId to it }
-                    }.toMap()
+                    if (targetIndexes.isEmpty()) return@LaunchedEffect
+                    val requiredPageIds = requiredIndexes
+                        .map { index -> pages[index].id }
+                        .toSet()
+                    val loadResults = targetIndexes.map { index ->
+                        async {
+                            val page = pages[index]
+                            page.id to loadSpreadPlanningMetadata(
+                                item = item,
+                                page = page,
+                                pageSource = pageSource,
+                            )
+                        }
+                    }.awaitAll()
+                    val nextFailures = spreadPlanningFailuresById.toMutableMap()
+                    val nextMetadata = pageMetadataById.toMutableMap()
+                    val nextDegradedPageIds = degradedSpreadPlanningPageIds.toMutableSet()
+                    loadResults.forEach { (pageId, metadata) ->
+                        when {
+                            metadata != null -> {
+                                if (pageId !in nextDegradedPageIds) {
+                                    nextMetadata[pageId] = metadata
+                                    nextFailures.remove(pageId)
+                                }
+                            }
+
+                            pageId in requiredPageIds -> {
+                                val failureCount = (nextFailures[pageId] ?: 0) + 1
+                                if (failureCount >= SpreadPlanningMaxMetadataRetries) {
+                                    nextFailures.remove(pageId)
+                                    nextDegradedPageIds.add(pageId)
+                                } else {
+                                    nextFailures[pageId] = failureCount
+                                }
+                            }
+                        }
+                    }
+                    if (nextMetadata != pageMetadataById) {
+                        pageMetadataById = nextMetadata
+                    }
+                    if (nextFailures != spreadPlanningFailuresById) {
+                        spreadPlanningFailuresById = nextFailures
+                    }
+                    if (nextDegradedPageIds != degradedSpreadPlanningPageIds) {
+                        degradedSpreadPlanningPageIds = nextDegradedPageIds
+                    }
+                    val hasPendingRequiredMetadata = requiredIndexes.any { index ->
+                        val pageId = pages[index].id
+                        pageId !in nextMetadata && pageId !in nextDegradedPageIds
+                    }
+                    if (hasPendingRequiredMetadata) {
+                        delay(SpreadPlanningRetryDelayMillis)
+                        metadataRetryNonce += 1
+                    }
                 }
                 val requiresCommittedSpreadPlan = useDoublePageSpreads || readerState.splitWidePages
                 val spreadPlanReady = remember(
@@ -253,13 +340,17 @@ fun ComicsReaderScreen(
                     readerState.resumeAnchorPage,
                     pages,
                     pageMetadataById,
+                    degradedSpreadPlanningPageIds,
                 ) {
                     !requiresCommittedSpreadPlan || requiredMetadataIndexes(
                         currentPage = readerState.resumeAnchorPage,
                         pageCount = pages.size,
                         useDoublePageSpreads = useDoublePageSpreads,
                         splitWidePages = readerState.splitWidePages,
-                    ).all { index -> pages[index].id in pageMetadataById }
+                    ).all { index ->
+                        val pageId = pages[index].id
+                        pageId in pageMetadataById || pageId in degradedSpreadPlanningPageIds
+                    }
                 }
                 if (!spreadPlanReady) {
                     ReaderPageMessage(message = "Preparing spread layout...")
@@ -269,14 +360,14 @@ fun ComicsReaderScreen(
                     pages,
                     readerState.readingDirection,
                     useDoublePageSpreads,
-                    resolvedPageMetadataById,
+                    pageMetadataById,
                     readerState.splitWidePages,
                 ) {
                     buildComicPageSpreads(
                         pages = pages,
                         readingDirection = readerState.readingDirection,
                         useDoublePageSpreads = useDoublePageSpreads,
-                        pageMetadataById = resolvedPageMetadataById,
+                        pageMetadataById = pageMetadataById,
                         splitWidePages = readerState.splitWidePages,
                     )
                 }
@@ -383,6 +474,29 @@ internal fun requiredMetadataIndexes(
     pageCount: Int,
     useDoublePageSpreads: Boolean,
     splitWidePages: Boolean,
+): List<Int> = buildList {
+    if (pageCount <= 0) return@buildList
+    val lastIndex = pageCount - 1
+    if (useDoublePageSpreads) {
+        val targetEnd = if (currentPage == 0) {
+            0
+        } else {
+            (currentPage + 1).coerceIn(0, lastIndex)
+        }
+        for (index in 0..targetEnd) {
+            add(index)
+        }
+        return@buildList
+    }
+    add(currentPage.coerceIn(0, lastIndex))
+    if (!splitWidePages) return@buildList
+}.distinct()
+
+internal fun backgroundMetadataIndexes(
+    currentPage: Int,
+    pageCount: Int,
+    useDoublePageSpreads: Boolean,
+    splitWidePages: Boolean,
     radius: Int = 2,
     lookahead: Int = 4,
 ): List<Int> = buildList {
@@ -396,16 +510,33 @@ internal fun requiredMetadataIndexes(
         return@buildList
     }
     add(currentPage.coerceIn(0, lastIndex))
-    val effectiveRadius = if (splitWidePages) {
-        maxOf(radius, 1)
-    } else {
-        radius
-    }
-    for (offset in 1..effectiveRadius) {
+    for (offset in 1..radius) {
         add((currentPage + offset).coerceIn(0, lastIndex))
         add((currentPage - offset).coerceIn(0, lastIndex))
     }
 }.distinct()
+
+private suspend fun loadSpreadPlanningMetadata(
+    item: ReadableItem,
+    page: ComicPageSpec,
+    pageSource: ComicPageSource,
+): ComicPageMetadata? {
+    pageSource.loadPageMetadata(item, page)?.let { return it }
+    return when (
+        val imageResult = pageSource.loadPageImage(
+            item = item,
+            page = page,
+            priority = ComicPageLoadPriority.Prefetch,
+        )
+    ) {
+        is ComicPageLoadResult.Success -> ComicPageMetadata(
+            width = imageResult.image.width,
+            height = imageResult.image.height,
+        )
+
+        is ComicPageLoadResult.Failure -> null
+    }
+}
 
 @Composable
 private fun EmptyComicsReader(item: ReadableItem) {

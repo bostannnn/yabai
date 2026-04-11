@@ -27,7 +27,9 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -102,6 +104,147 @@ class ComicsReaderRestoreSmokeTest {
         composeRule.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
         composeRule.waitForText("3 / 3")
     }
+
+    @Test
+    fun reader_retries_required_metadata_until_spread_is_ready() {
+        val item = smokeTestItem()
+        val progressStore = SmokeProgressStore(
+            initialPages = mapOf(item.id to 2),
+        )
+        val preferencesStore = SmokePreferencesStore(
+            spreadMode = ComicSpreadMode.Double,
+        )
+        val pageSource = RetryingMetadataComicPageSource(
+            pageCount = 4,
+            delayedPageIndex = 3,
+            failuresBeforeSuccess = 2,
+        )
+
+        composeRule.setReaderContent(
+            item = item,
+            pageSource = pageSource,
+            progressStore = progressStore,
+            preferencesStore = preferencesStore,
+        )
+
+        composeRule.waitForText("Preparing spread layout...")
+        composeRule.waitUntil(timeoutMillis = 6_000) {
+            composeRule.onAllNodesWithText("Preparing spread layout...")
+                .fetchSemanticsNodes().isEmpty()
+        }
+        composeRule.onNodeWithTag(comicGestureSurfaceTag("spread-1")).assertExists()
+        assertEquals(3, pageSource.requiredPageAttempts)
+        composeRule.waitForIdle()
+        Thread.sleep(1_500)
+        assertEquals(3, pageSource.requiredPageAttempts)
+    }
+
+    @Test
+    fun reader_falls_back_after_permanent_required_metadata_failures() {
+        val item = smokeTestItem()
+        val progressStore = SmokeProgressStore(
+            initialPages = mapOf(item.id to 2),
+        )
+        val preferencesStore = SmokePreferencesStore(
+            spreadMode = ComicSpreadMode.Double,
+        )
+        val pageSource = RetryingMetadataComicPageSource(
+            pageCount = 4,
+            delayedPageIndex = 3,
+            failuresBeforeSuccess = Int.MAX_VALUE,
+        )
+
+        composeRule.setReaderContent(
+            item = item,
+            pageSource = pageSource,
+            progressStore = progressStore,
+            preferencesStore = preferencesStore,
+        )
+
+        composeRule.waitForText("Preparing spread layout...")
+        composeRule.waitUntil(timeoutMillis = 6_000) {
+            composeRule.onAllNodesWithText("Preparing spread layout...")
+                .fetchSemanticsNodes().isEmpty()
+        }
+        composeRule.onNodeWithTag(comicGestureSurfaceTag("spread-1")).assertExists()
+        assertEquals(3, pageSource.requiredPageAttempts)
+        composeRule.waitForIdle()
+        Thread.sleep(1_500)
+        assertEquals(3, pageSource.requiredPageAttempts)
+    }
+
+    @Test
+    fun reader_does_not_reclassify_after_temporary_fallback_threshold() {
+        val item = smokeTestItem()
+        val progressStore = SmokeProgressStore(
+            initialPages = mapOf(item.id to 2),
+        )
+        val preferencesStore = SmokePreferencesStore(
+            spreadMode = ComicSpreadMode.Double,
+        )
+        val pageSource = RetryingMetadataComicPageSource(
+            pageCount = 4,
+            delayedPageIndex = 3,
+            failuresBeforeSuccess = 3,
+        )
+
+        composeRule.setReaderContent(
+            item = item,
+            pageSource = pageSource,
+            progressStore = progressStore,
+            preferencesStore = preferencesStore,
+        )
+
+        composeRule.waitForText("Preparing spread layout...")
+        composeRule.waitUntil(timeoutMillis = 7_000) {
+            composeRule.onAllNodesWithText("Preparing spread layout...")
+                .fetchSemanticsNodes().isEmpty()
+        }
+        composeRule.onNodeWithTag(comicGestureSurfaceTag("spread-1")).assertExists()
+        assertEquals(3, pageSource.requiredPageAttempts)
+        composeRule.waitForIdle()
+        Thread.sleep(1_500)
+        assertEquals(3, pageSource.requiredPageAttempts)
+    }
+
+    @Test
+    fun reader_does_not_persist_resume_anchor_before_preferences_hydrate() {
+        val item = smokeTestItem()
+        val progressStore = SmokeProgressStore(
+            restoredPages = mapOf(item.id to 2),
+        )
+        val preferencesStore = DelayedPreferencesStore(
+            item = item,
+            snapshot = ComicReaderPreferencesSnapshot(
+                readingDirection = ComicReadingDirection.LTR,
+                pageFitMode = ComicPageFitMode.FitPage,
+                spreadMode = ComicSpreadMode.Double,
+                splitWidePages = false,
+                resumeAnchorPage = 1,
+                resumeSegment = null,
+            ),
+        )
+        val pageSource = SmokeComicPageSource(pageCount = 4)
+
+        composeRule.setReaderContent(
+            item = item,
+            pageSource = pageSource,
+            progressStore = progressStore,
+            preferencesStore = preferencesStore,
+        )
+
+        composeRule.waitForText("3 / 4")
+        assertEquals(0, progressStore.saveCalls)
+        assertTrue(preferencesStore.savedResumeAnchors.isEmpty())
+
+        preferencesStore.hydrate()
+
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            preferencesStore.savedResumeAnchors.isNotEmpty() && progressStore.saveCalls > 0
+        }
+        assertEquals(1, preferencesStore.savedResumeAnchors.first())
+        assertFalse(preferencesStore.savedResumeAnchors.contains(2))
+    }
 }
 
 private fun androidx.compose.ui.test.junit4.AndroidComposeTestRule<*, *>.setReaderContent(
@@ -167,12 +310,15 @@ private fun ReaderSmokeHarness(
 }
 
 private class SmokeProgressStore(
-    initialPages: Map<String, Int>,
+    initialPages: Map<String, Int> = emptyMap(),
+    restoredPages: Map<String, Int> = emptyMap(),
 ) : ComicReaderProgressStore {
     override val isHydratedFlow: StateFlow<Boolean> = MutableStateFlow(true)
-    override val savedPagesFlow = MutableStateFlow(emptyMap<String, Int>())
+    override val savedPagesFlow = MutableStateFlow(restoredPages)
     private val initialPages = initialPages.toMap()
     val persistedPages = mutableMapOf<String, Int>()
+    var saveCalls = 0
+        private set
     private var persistenceEnabled = false
 
     override fun loadPage(item: ReadableItem): Int? = persistedPages[item.id] ?: initialPages[item.id]
@@ -187,23 +333,54 @@ private class SmokeProgressStore(
         pageCount: Int,
         isFinished: Boolean,
     ) {
+        saveCalls += 1
         if (!persistenceEnabled) return
         persistedPages[item.id] = pageIndex.coerceIn(0, pageCount - 1)
     }
 }
 
-private class SmokePreferencesStore : ComicReaderPreferencesStore {
-    override val isHydratedFlow: StateFlow<Boolean> = MutableStateFlow(true)
+private open class SmokePreferencesStore(
+    private val spreadMode: ComicSpreadMode = ComicSpreadMode.Single,
+) : ComicReaderPreferencesStore {
+    protected val preferencesState = MutableStateFlow<Map<String, ComicReaderPreferencesSnapshot>>(emptyMap())
+    protected val hydrationState = MutableStateFlow(true)
+    val savedResumeAnchors = mutableListOf<Int>()
+
+    override val isHydratedFlow: StateFlow<Boolean> = hydrationState
     override val savedPreferencesFlow: StateFlow<Map<String, ComicReaderPreferencesSnapshot>> =
-        MutableStateFlow(
-            emptyMap(),
-        )
+        preferencesState
 
     override fun loadReadingDirection(item: ReadableItem): ComicReadingDirection = ComicReadingDirection.LTR
 
     override fun loadPageFitMode(item: ReadableItem): ComicPageFitMode = ComicPageFitMode.FitPage
 
-    override fun loadSpreadMode(item: ReadableItem): ComicSpreadMode = ComicSpreadMode.Single
+    override fun loadSpreadMode(item: ReadableItem): ComicSpreadMode = spreadMode
+
+    override fun saveResumeAnchorPage(item: ReadableItem, pageIndex: Int?) {
+        pageIndex?.let(savedResumeAnchors::add)
+    }
+}
+
+private class DelayedPreferencesStore(
+    private val item: ReadableItem,
+    private val snapshot: ComicReaderPreferencesSnapshot,
+) : SmokePreferencesStore(spreadMode = snapshot.spreadMode) {
+    init {
+        setHydrated(false)
+    }
+
+    fun hydrate() {
+        preferencesState.value = mapOf(item.id to snapshot)
+        setHydrated(true)
+    }
+
+    override fun loadResumeAnchorPage(item: ReadableItem): Int? = null
+
+    override fun loadResumeSegment(item: ReadableItem): ComicPageSegment? = null
+
+    private fun setHydrated(value: Boolean) {
+        hydrationState.value = value
+    }
 }
 
 private class SmokeComicPageSource(
@@ -236,6 +413,51 @@ private class SmokeComicPageSource(
     ): ComicPageLoadResult = ComicPageLoadResult.Success(
         image = imagesById.getValue(page.id),
     )
+}
+
+private class RetryingMetadataComicPageSource(
+    private val pageCount: Int,
+    private val delayedPageIndex: Int,
+    private val failuresBeforeSuccess: Int,
+) : ComicPageSource {
+    private val imagesById = List(pageCount) { index ->
+        "page-$index" to Bitmap.createBitmap(
+            if (index == delayedPageIndex) 96 else 32,
+            48,
+            Bitmap.Config.ARGB_8888,
+        ).apply {
+            eraseColor(android.graphics.Color.rgb((80 * index) % 255, 40, 120))
+        }.asImageBitmap()
+    }.toMap()
+    var requiredPageAttempts = 0
+        private set
+
+    override fun getPages(item: ReadableItem): List<ComicPageSpec> = List(pageCount) { index ->
+        ComicPageSpec(
+            id = "page-$index",
+            pageIndex = index,
+            contentDescription = "${item.title} page ${index + 1}",
+        )
+    }
+
+    override suspend fun loadPageMetadata(
+        item: ReadableItem,
+        page: ComicPageSpec,
+    ): ComicPageMetadata? = null
+
+    override suspend fun loadPageImage(
+        item: ReadableItem,
+        page: ComicPageSpec,
+        priority: ComicPageLoadPriority,
+    ): ComicPageLoadResult {
+        if (page.pageIndex == delayedPageIndex && priority == ComicPageLoadPriority.Prefetch) {
+            requiredPageAttempts += 1
+            if (requiredPageAttempts <= failuresBeforeSuccess) {
+                return ComicPageLoadResult.Failure("Metadata warmup failed")
+            }
+        }
+        return ComicPageLoadResult.Success(imagesById.getValue(page.id))
+    }
 }
 
 private fun smokeTestItem(): ReadableItem = ReadableItem(

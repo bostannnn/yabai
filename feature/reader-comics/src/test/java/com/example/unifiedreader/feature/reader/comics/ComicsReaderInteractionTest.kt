@@ -184,9 +184,9 @@ class ComicsReaderInteractionTest {
     }
 
     @Test
-    fun `double page metadata indexing builds stable prefix through lookahead window`() {
+    fun `double page committed metadata indexing only requires current spread prefix`() {
         assertEquals(
-            listOf(0, 1, 2, 3, 4, 5, 6),
+            listOf(0, 1, 2, 3),
             requiredMetadataIndexes(
                 currentPage = 2,
                 pageCount = 10,
@@ -197,10 +197,36 @@ class ComicsReaderInteractionTest {
     }
 
     @Test
-    fun `single page metadata indexing stays local when split wide pages disabled`() {
+    fun `double page background metadata indexing keeps warm lookahead prefix`() {
+        assertEquals(
+            listOf(0, 1, 2, 3, 4, 5, 6),
+            backgroundMetadataIndexes(
+                currentPage = 2,
+                pageCount = 10,
+                useDoublePageSpreads = true,
+                splitWidePages = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `single page committed metadata indexing stays local when split wide pages disabled`() {
+        assertEquals(
+            listOf(4),
+            requiredMetadataIndexes(
+                currentPage = 4,
+                pageCount = 8,
+                useDoublePageSpreads = false,
+                splitWidePages = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `single page background metadata indexing stays local to reading window`() {
         assertEquals(
             listOf(4, 5, 3, 6, 2),
-            requiredMetadataIndexes(
+            backgroundMetadataIndexes(
                 currentPage = 4,
                 pageCount = 8,
                 useDoublePageSpreads = false,
