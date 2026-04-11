@@ -8,6 +8,7 @@ import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.prepareGet
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
@@ -16,6 +17,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import io.ktor.http.takeFrom
 import java.io.File
 
 interface KavitaApi {
@@ -293,7 +295,8 @@ class KtorKavitaApi(
         destination: File,
     ) {
         authenticatedRequest {
-            val response = httpClient.get("$normalizedBaseUrl/api/Download/chapter") {
+            httpClient.prepareGet {
+                url.takeFrom("$normalizedBaseUrl/api/Download/chapter")
                 bearerAuth(accessToken)
                 apiKey?.takeIf(String::isNotBlank)?.let { key ->
                     header("x-api-key", key)
@@ -304,9 +307,10 @@ class KtorKavitaApi(
                         parameters.append("apiKey", key)
                     }
                 }
+            }.execute { response ->
+                response.throwIfKavitaError()
+                response.writeBodyTo(destination)
             }
-            response.throwIfKavitaError()
-            response.writeBodyTo(destination)
         }
     }
 }

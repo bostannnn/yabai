@@ -7,6 +7,7 @@ import io.ktor.client.call.body
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.prepareGet
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
@@ -16,6 +17,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import io.ktor.http.takeFrom
 import java.net.URI
 import java.io.File
 import kotlinx.serialization.builtins.serializer
@@ -414,11 +416,13 @@ class KtorStumpApi(
         mediaId: String,
         destination: File,
     ) {
-        val response = httpClient.get("$restBaseUrl/media/$mediaId/file") {
+        httpClient.prepareGet {
+            url.takeFrom("$restBaseUrl/media/$mediaId/file")
             bearerAuth(accessToken)
+        }.execute { response ->
+            response.throwIfStumpError()
+            response.writeBodyTo(destination)
         }
-        response.throwIfStumpError()
-        response.writeBodyTo(destination)
     }
 
     private suspend fun graphQlRequest(

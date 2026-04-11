@@ -8,6 +8,7 @@ import io.ktor.client.call.body
 import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
+import io.ktor.client.request.prepareGet
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
@@ -18,6 +19,7 @@ import io.ktor.http.URLBuilder
 import io.ktor.http.Url
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import io.ktor.http.takeFrom
 import java.io.File
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -290,11 +292,13 @@ class KtorGrimmoryApi(
         bookType: String?,
     ) {
         authenticatedRequest {
-            val response = httpClient.get(bookContentUrl(bookId = bookId, bookType = bookType)) {
+            httpClient.prepareGet {
+                url.takeFrom(bookContentUrl(bookId = bookId, bookType = bookType))
                 bearerAuth(accessToken)
+            }.execute { response ->
+                response.throwIfGrimmoryError()
+                response.writeBodyTo(destination)
             }
-            response.throwIfGrimmoryError()
-            response.writeBodyTo(destination)
         }
     }
 
