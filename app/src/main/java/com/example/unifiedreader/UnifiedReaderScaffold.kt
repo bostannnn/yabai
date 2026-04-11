@@ -64,10 +64,7 @@ fun UnifiedReaderScaffold(
                     selectedSource = uiState.selectedSource,
                     searchQuery = uiState.selectedLibrarySearchQuery,
                     seriesTitle = uiState.selectedSeriesTitle,
-                    onSourceSelected = { source ->
-                        viewModel.onTopLevelSelected(TopLevelDestination.Library)
-                        viewModel.onSourceSelected(source)
-                    },
+                    onSourceSelected = viewModel::openLibrarySource,
                     onSearchQueryChanged = viewModel::onLibrarySearchQueryChanged,
                     downloadBadgeCount = viewModel.downloadsSnapshot.badgeCount,
                     onDownloadsClick = viewModel::showDownloadsSheet,
@@ -80,10 +77,7 @@ fun UnifiedReaderScaffold(
 
                 TopLevelDestination.Settings -> SettingsTopBar(
                     selectedSource = uiState.selectedSource,
-                    onSourceSelected = { source ->
-                        viewModel.onTopLevelSelected(TopLevelDestination.Library)
-                        viewModel.onSourceSelected(source)
-                    },
+                    onSourceSelected = viewModel::openLibrarySource,
                     onSettingsClick = {
                         viewModel.onTopLevelSelected(TopLevelDestination.Settings)
                     },

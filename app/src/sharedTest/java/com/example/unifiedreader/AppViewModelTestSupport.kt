@@ -21,6 +21,7 @@ import com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
 import com.example.unifiedreader.feature.library.LibraryBrowsePreferences
 import com.example.unifiedreader.feature.library.LibraryBrowsePreferencesStore
 import com.example.unifiedreader.feature.library.LibraryBrowseStateCoordinator
+import com.example.unifiedreader.feature.library.LibraryDerivedStateComputer
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
@@ -213,6 +214,7 @@ internal fun createViewModel(
         comicReaderPreferencesStore = preferencesStore,
         readerSessionStore = readerSessionStore,
         readerFactories = readerFactories,
+        libraryDerivedStateComputer = LibraryDerivedStateComputer(),
     )
 }
 

@@ -11,6 +11,7 @@ import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.downloads.DownloadEntriesSnapshot
+import com.example.unifiedreader.feature.library.LibraryDerivedStateComputer
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesStore
@@ -40,8 +41,9 @@ class AppViewModel @Inject constructor(
     val comicReaderPreferencesStore: ComicReaderPreferencesStore,
     val readerSessionStore: ReaderSessionStore,
     val readerFactories: List<@JvmSuppressWildcards ReaderScreenFactory>,
+    private val libraryDerivedStateComputer: LibraryDerivedStateComputer,
 ) : ViewModel() {
-    var uiState by mutableStateOf(AppUiState().withDerivedLibraryState())
+    var uiState by mutableStateOf(initialUiState())
         private set
     var downloadsSnapshot by mutableStateOf(DownloadEntriesSnapshot(emptyList()))
         private set
@@ -69,16 +71,18 @@ class AppViewModel @Inject constructor(
         readerCoordinator.onTopLevelSelected(
             destination = destination,
             updateState = ::updateUiState,
-            refreshProgress = ::refreshProgress,
+        )
+    }
+
+    fun openLibrarySource(sourceType: SourceType) {
+        readerCoordinator.onLibrarySourceSelected(
+            sourceType = sourceType,
+            updateState = ::updateUiState,
         )
     }
 
     fun onSourceSelected(sourceType: SourceType) {
-        readerCoordinator.onSourceSelected(
-            sourceType = sourceType,
-            updateState = ::updateUiState,
-            refreshProgress = ::refreshProgress,
-        )
+        openLibrarySource(sourceType)
     }
 
     fun onLibraryFiltersChanged(filters: LibraryFilterState) {
@@ -506,8 +510,19 @@ class AppViewModel @Inject constructor(
     private inline fun updateUiState(
         transform: (AppUiState) -> AppUiState,
     ) {
-        val previousState = uiState
-        uiState = transform(previousState).withDerivedLibraryState(previousState)
+        val nextState = transform(uiState)
+        uiState = nextState.withLibraryDerivedState(
+            libraryDerivedStateComputer.compute(
+                nextState.toLibraryDerivedStateInput(),
+            ),
+        )
+    }
+
+    private fun initialUiState(): AppUiState {
+        val baseState = AppUiState()
+        return baseState.withLibraryDerivedState(
+            libraryDerivedStateComputer.compute(baseState.toLibraryDerivedStateInput()),
+        )
     }
 
 }

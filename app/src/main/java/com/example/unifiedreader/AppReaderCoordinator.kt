@@ -32,7 +32,6 @@ class AppReaderCoordinator @Inject constructor(
     fun onTopLevelSelected(
         destination: TopLevelDestination,
         updateState: AppUiStateUpdater,
-        refreshProgress: () -> Unit,
     ) {
         readerSelectionRequestId++
         updateState { state ->
@@ -41,17 +40,16 @@ class AppReaderCoordinator @Inject constructor(
                 selectedReaderItem = state.selectedReaderItem.takeIf { state.selectedItemId != null },
             )
         }
-        refreshProgress()
     }
 
-    fun onSourceSelected(
+    fun onLibrarySourceSelected(
         sourceType: SourceType,
         updateState: AppUiStateUpdater,
-        refreshProgress: () -> Unit,
     ) {
         readerSelectionRequestId++
         updateState { state ->
             state.copy(
+                topLevel = TopLevelDestination.Library,
                 selectedSource = sourceType,
                 selectedItemId = null,
                 activeReader = null,
@@ -60,7 +58,6 @@ class AppReaderCoordinator @Inject constructor(
                 selectedStumpSeriesKey = null,
             )
         }
-        refreshProgress()
     }
 
     fun onItemSelected(

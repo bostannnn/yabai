@@ -25,14 +25,30 @@ fun buildRemoteDownloadActionAvailability(
         allItems = allItems,
         downloadingItemIds = downloadingItemIds,
     )
+    return buildRemoteDownloadActionAvailability(
+        sourceItems = sourceItems,
+        downloadedItemIds = downloadedItemIds,
+        activeDownloadingItemIds = activeDownloadingItemIds,
+        actionItemsProvider = { item ->
+            resolveRemoteDownloadActionItems(
+                selectedItem = item,
+                items = allItems,
+            )
+        },
+    )
+}
+
+internal fun buildRemoteDownloadActionAvailability(
+    sourceItems: List<ReadableItem>,
+    downloadedItemIds: Set<String>,
+    activeDownloadingItemIds: Set<String>,
+    actionItemsProvider: (ReadableItem) -> List<ReadableItem>,
+): RemoteDownloadActionAvailability {
     val downloadableItemIds = mutableSetOf<String>()
     val deletableDownloadedItemIds = mutableSetOf<String>()
     sourceItems.forEach { item ->
         if (!item.supportsOfflineDownload()) return@forEach
-        val actionItems = resolveRemoteDownloadActionItems(
-            selectedItem = item,
-            items = allItems,
-        )
+        val actionItems = actionItemsProvider(item)
         if (actionItems.isEmpty()) return@forEach
         if (item.id !in activeDownloadingItemIds && actionItems.any { actionItem -> actionItem.id !in downloadedItemIds }) {
             downloadableItemIds += item.id

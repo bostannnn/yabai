@@ -14,6 +14,8 @@ class AppStumpRemoteSourceController @Inject constructor(
     private val comicPageSourceCacheController: ComicPageSourceCacheController,
     private val remoteLibraryCacheStore: RemoteLibraryCacheStore,
 ) {
+    private var suppressedObservedLibraryRefresh: StumpStoredSessionKey? = null
+
     fun initialize(
         updateState: AppUiStateUpdater,
     ) {
@@ -136,6 +138,8 @@ class AppStumpRemoteSourceController @Inject constructor(
                     }
                 }
                 if (stateProvider().stumpConnection.isConnecting) return@collectLatest
+                if (consumeSuppressedObservedLibraryRefresh(session)) return@collectLatest
+                if (cachedLibraries.isEmpty()) return@collectLatest
                 val libraries = runCatching {
                     stumpCoordinator.loadAvailableLibraries(session)
                 }.getOrNull() ?: return@collectLatest
@@ -206,6 +210,7 @@ class AppStumpRemoteSourceController @Inject constructor(
         scope: CoroutineScope,
     ) {
         scope.launch {
+            suppressObservedLibraryRefresh(preparation.request.baseUrl, preparation.request.username)
             when (
                 val result = stumpCoordinator.executeSync(
                     preparation = preparation,
@@ -248,6 +253,7 @@ class AppStumpRemoteSourceController @Inject constructor(
                     }
                 }
                 is StumpSyncExecutionResult.Failure -> {
+                    clearSuppressedObservedLibraryRefresh(preparation.request.baseUrl, preparation.request.username)
                     updateState { state ->
                         state.copy(
                             stumpConnection = result.connection,
@@ -264,6 +270,7 @@ class AppStumpRemoteSourceController @Inject constructor(
         scope: CoroutineScope,
     ) {
         scope.launch {
+            suppressObservedLibraryRefresh(preparation.request.baseUrl, preparation.request.username)
             when (val result = stumpCoordinator.executeConnect(preparation)) {
                 is StumpConnectExecutionResult.Success -> {
                     remoteLibraryCacheStore.replaceCachedLibraries(
@@ -282,6 +289,7 @@ class AppStumpRemoteSourceController @Inject constructor(
                     }
                 }
                 is StumpConnectExecutionResult.Failure -> {
+                    clearSuppressedObservedLibraryRefresh(preparation.request.baseUrl, preparation.request.username)
                     updateState { state ->
                         state.copy(
                             stumpConnection = result.connection,
@@ -298,6 +306,44 @@ class AppStumpRemoteSourceController @Inject constructor(
 
     private fun clearPageCache() {
         comicPageSourceCacheController.clearSourcePageCache(SourceType.STUMP)
+    }
+
+    private fun suppressObservedLibraryRefresh(
+        baseUrl: String,
+        username: String,
+    ) {
+        suppressedObservedLibraryRefresh = StumpStoredSessionKey(
+            baseUrl = baseUrl,
+            username = username,
+        )
+    }
+
+    private fun clearSuppressedObservedLibraryRefresh(
+        baseUrl: String,
+        username: String,
+    ) {
+        val key = StumpStoredSessionKey(
+            baseUrl = baseUrl,
+            username = username,
+        )
+        if (suppressedObservedLibraryRefresh == key) {
+            suppressedObservedLibraryRefresh = null
+        }
+    }
+
+    private fun consumeSuppressedObservedLibraryRefresh(
+        session: StumpStoredSession,
+    ): Boolean {
+        val key = StumpStoredSessionKey(
+            baseUrl = session.baseUrl,
+            username = session.username,
+        )
+        return if (suppressedObservedLibraryRefresh == key) {
+            suppressedObservedLibraryRefresh = null
+            true
+        } else {
+            false
+        }
     }
 
     private fun updateConnection(
@@ -325,3 +371,8 @@ class AppStumpRemoteSourceController @Inject constructor(
         }
     }
 }
+
+private data class StumpStoredSessionKey(
+    val baseUrl: String,
+    val username: String,
+)

@@ -144,6 +144,19 @@ class AppViewModelTest {
     }
 
     @Test
+    fun `open library source returns to library and switches source`() {
+        val viewModel = createViewModel()
+
+        viewModel.onTopLevelSelected(TopLevelDestination.Settings)
+        viewModel.openLibrarySource(SourceType.STUMP)
+
+        assertEquals(TopLevelDestination.Library, viewModel.uiState.topLevel)
+        assertEquals(SourceType.STUMP, viewModel.uiState.selectedSource)
+        assertNull(viewModel.uiState.selectedItemId)
+        assertNull(viewModel.uiState.activeReader)
+    }
+
+    @Test
     fun `imported epub opens local reader`() = runBlocking {
         val importedItem = ReadableItem(
             id = "document-abcd",
