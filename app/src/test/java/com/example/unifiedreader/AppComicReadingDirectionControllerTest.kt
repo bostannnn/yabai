@@ -46,25 +46,28 @@ class AppComicReadingDirectionControllerTest {
             readerSessionStore = sessionStore,
             readableItemRepository = FakeReadableItemRepository(items = listOf(item)),
         )
-        controller.observePreferences(
+        val observationJob = controller.observePreferences(
             scope = this,
             updateState = {},
         )
+        try {
+            controller.onLibraryDirectionSelected(
+                scope = this,
+                libraryId = libraryId,
+                direction = ComicReadingDirection.RTL,
+            )
+            advanceUntilIdle()
 
-        controller.onLibraryDirectionSelected(
-            scope = this,
-            libraryId = libraryId,
-            direction = ComicReadingDirection.RTL,
-        )
-        advanceUntilIdle()
-
-        val preferences = preferencesStore.preferencesFlow.value
-        assertEquals(ComicReadingDirection.RTL, preferences.libraryDirectionsById[libraryId])
-        assertTrue(preferences.seriesDirectionsByKey.isEmpty())
-        assertEquals(
-            "",
-            sessionStore.getSession(item)?.preferences?.get(ComicsReadingDirectionKey),
-        )
+            val preferences = preferencesStore.preferencesFlow.value
+            assertEquals(ComicReadingDirection.RTL, preferences.libraryDirectionsById[libraryId])
+            assertTrue(preferences.seriesDirectionsByKey.isEmpty())
+            assertEquals(
+                "",
+                sessionStore.getSession(item)?.preferences?.get(ComicsReadingDirectionKey),
+            )
+        } finally {
+            observationJob.cancel()
+        }
     }
 
     @Test
@@ -96,29 +99,32 @@ class AppComicReadingDirectionControllerTest {
             readerSessionStore = sessionStore,
             readableItemRepository = readableItemRepository,
         )
-        controller.observePreferences(
+        val observationJob = controller.observePreferences(
             scope = this,
             updateState = {},
         )
+        try {
+            controller.onLibraryDirectionSelected(
+                scope = this,
+                libraryId = libraryId,
+                direction = ComicReadingDirection.RTL,
+            )
+            advanceUntilIdle()
 
-        controller.onLibraryDirectionSelected(
-            scope = this,
-            libraryId = libraryId,
-            direction = ComicReadingDirection.RTL,
-        )
-        advanceUntilIdle()
+            assertEquals(
+                ComicReadingDirection.RTL.name,
+                sessionStore.getSession(item)?.preferences?.get(ComicsReadingDirectionKey),
+            )
 
-        assertEquals(
-            ComicReadingDirection.RTL.name,
-            sessionStore.getSession(item)?.preferences?.get(ComicsReadingDirectionKey),
-        )
+            readableItemRepository.emitItems(listOf(item))
+            advanceUntilIdle()
 
-        readableItemRepository.emitItems(listOf(item))
-        advanceUntilIdle()
-
-        assertEquals(
-            "",
-            sessionStore.getSession(item)?.preferences?.get(ComicsReadingDirectionKey),
-        )
+            assertEquals(
+                "",
+                sessionStore.getSession(item)?.preferences?.get(ComicsReadingDirectionKey),
+            )
+        } finally {
+            observationJob.cancel()
+        }
     }
 }

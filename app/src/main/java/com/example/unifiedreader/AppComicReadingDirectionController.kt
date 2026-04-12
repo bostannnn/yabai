@@ -17,6 +17,8 @@ import com.example.unifiedreader.feature.reader.preferences.normalizeComicSeries
 import com.example.unifiedreader.feature.reader.preferences.resolveInheritedComicReadingDirection
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
@@ -28,15 +30,17 @@ class AppComicReadingDirectionController @Inject constructor(
     fun observePreferences(
         scope: CoroutineScope,
         updateState: AppUiStateUpdater,
-    ) {
-        scope.launch {
+    ): Job {
+        val observationJob = SupervisorJob(scope.coroutineContext[Job])
+        val observationScope = CoroutineScope(scope.coroutineContext + observationJob)
+        observationScope.launch {
             preferencesStore.preferencesFlow.collect { preferences ->
                 updateState { state ->
                     state.copy(comicReadingDirectionPreferences = preferences)
                 }
             }
         }
-        scope.launch {
+        observationScope.launch {
             combine(
                 preferencesStore.preferencesFlow,
                 readableItemRepository.observeItems(),
@@ -67,6 +71,7 @@ class AppComicReadingDirectionController @Inject constructor(
                 }
             }
         }
+        return observationJob
     }
 
     fun onLibraryDirectionSelected(
