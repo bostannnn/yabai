@@ -13,7 +13,10 @@ internal typealias AppUiStateUpdater = ((AppUiState) -> AppUiState) -> Unit
 internal fun GrimmoryConnectionUiState.withStoredSession(
     session: GrimmoryStoredSession?,
 ): GrimmoryConnectionUiState = if (session == null) {
-    copy(hasStoredSession = false)
+    copy(
+        hasStoredSession = false,
+        activeAction = null,
+    )
 } else {
     copy(
         displayName = session.displayName,
@@ -22,6 +25,7 @@ internal fun GrimmoryConnectionUiState.withStoredSession(
         username = session.username,
         password = "",
         hasStoredSession = true,
+        activeAction = null,
         isError = false,
     )
 }
@@ -32,6 +36,7 @@ internal fun KavitaConnectionUiState.withStoredSession(
     copy(
         availableLibraries = emptyList(),
         hasStoredSession = false,
+        activeAction = null,
         syncProgressFraction = null,
         syncProgressLabel = null,
     )
@@ -44,6 +49,7 @@ internal fun KavitaConnectionUiState.withStoredSession(
         password = "",
         availableLibraries = emptyList(),
         hasStoredSession = true,
+        activeAction = null,
         syncProgressFraction = null,
         syncProgressLabel = null,
         isError = false,
@@ -56,6 +62,7 @@ internal fun StumpConnectionUiState.withStoredSession(
     copy(
         availableLibraries = emptyList(),
         hasStoredSession = false,
+        activeAction = null,
         syncProgressFraction = null,
         syncProgressLabel = null,
     )
@@ -68,6 +75,7 @@ internal fun StumpConnectionUiState.withStoredSession(
         password = "",
         availableLibraries = emptyList(),
         hasStoredSession = true,
+        activeAction = null,
         syncProgressFraction = null,
         syncProgressLabel = null,
         isError = false,

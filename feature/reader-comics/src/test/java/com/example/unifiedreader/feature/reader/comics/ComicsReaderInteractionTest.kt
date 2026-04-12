@@ -15,7 +15,6 @@ class ComicsReaderInteractionTest {
             readingDirection = ComicReadingDirection.LTR,
             useDoublePageSpreads = true,
             pageMetadataById = emptyMap(),
-            splitWidePages = false,
         )
 
         assertEquals(listOf(0), spreads[0].pageIndexes)
@@ -34,7 +33,6 @@ class ComicsReaderInteractionTest {
             readingDirection = ComicReadingDirection.RTL,
             useDoublePageSpreads = true,
             pageMetadataById = emptyMap(),
-            splitWidePages = false,
         )
 
         assertEquals(listOf(2, 1), spreads[1].pageIndexes)
@@ -54,7 +52,6 @@ class ComicsReaderInteractionTest {
             pageMetadataById = mapOf(
                 pages[1].id to ComicPageMetadata(width = 2400, height = 1200),
             ),
-            splitWidePages = false,
         )
 
         assertEquals(listOf(0), spreads[0].pageIndexes)
@@ -64,7 +61,7 @@ class ComicsReaderInteractionTest {
     }
 
     @Test
-    fun `single page mode can split wide pages into ordered halves`() {
+    fun `single page mode keeps wide pages as one page`() {
         val pages = samplePages(count = 2)
 
         val spreads = buildComicPageSpreads(
@@ -74,31 +71,11 @@ class ComicsReaderInteractionTest {
             pageMetadataById = mapOf(
                 pages[0].id to ComicPageMetadata(width = 2400, height = 1200),
             ),
-            splitWidePages = true,
         )
 
         assertEquals(listOf(0), spreads[0].pageIndexes)
-        assertEquals("spread-0-right", spreads[0].id)
-        assertEquals(listOf(0), spreads[1].pageIndexes)
-        assertEquals("spread-0-left", spreads[1].id)
-        assertEquals(listOf(1), spreads[2].pageIndexes)
-    }
-
-    @Test
-    fun `split wide page resume resolves to matching half`() {
-        val pages = samplePages(count = 1)
-
-        val spreads = buildComicPageSpreads(
-            pages = pages,
-            readingDirection = ComicReadingDirection.LTR,
-            useDoublePageSpreads = false,
-            pageMetadataById = mapOf(
-                pages[0].id to ComicPageMetadata(width = 2400, height = 1200),
-            ),
-            splitWidePages = true,
-        )
-
-        assertEquals(1, spreads.indexOfPage(pageIndex = 0, segment = ComicPageSegment.RightHalf))
+        assertEquals("spread-0-full", spreads[0].id)
+        assertEquals(listOf(1), spreads[1].pageIndexes)
     }
 
     @Test
@@ -191,7 +168,6 @@ class ComicsReaderInteractionTest {
                 currentPage = 2,
                 pageCount = 10,
                 useDoublePageSpreads = true,
-                splitWidePages = false,
             ),
         )
     }
@@ -204,7 +180,6 @@ class ComicsReaderInteractionTest {
                 currentPage = 2,
                 pageCount = 10,
                 useDoublePageSpreads = true,
-                splitWidePages = false,
             ),
         )
     }
@@ -217,7 +192,6 @@ class ComicsReaderInteractionTest {
                 currentPage = 4,
                 pageCount = 8,
                 useDoublePageSpreads = false,
-                splitWidePages = false,
             ),
         )
     }
@@ -230,9 +204,26 @@ class ComicsReaderInteractionTest {
                 currentPage = 4,
                 pageCount = 8,
                 useDoublePageSpreads = false,
-                splitWidePages = false,
             ),
         )
+    }
+
+    @Test
+    fun `legacy split resume segment is sanitized away`() {
+        val state = ComicsReaderState(
+            initialPage = 0,
+            pageCount = 5,
+            initialReadingDirection = ComicReadingDirection.LTR,
+            initialPageFitMode = ComicPageFitMode.FitPage,
+            initialSpreadMode = ComicSpreadMode.Single,
+            initialSplitWidePages = false,
+            initialResumeAnchorPage = 4,
+            initialResumeSegment = ComicPageSegment.LeftHalf,
+        )
+
+        assertEquals(null, state.resumeSegment)
+        assertFalse(state.restoreResumeSegmentIfUnchanged(ComicPageSegment.RightHalf))
+        assertEquals(null, state.resumeSegment)
     }
 
     @Test

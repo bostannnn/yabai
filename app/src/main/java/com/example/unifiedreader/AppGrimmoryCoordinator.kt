@@ -72,7 +72,7 @@ class AppGrimmoryCoordinator @Inject constructor(
                         username = input.username,
                     ),
                     successConnectionMessage = connectionSuccessMessage(
-                        message = "Connected to Grimmory.",
+                        message = "Connected to Grimmory. Tap Sync Grimmory to import the library.",
                         cleartextWarningMessage = input.cleartextWarningMessage,
                     ),
                     failurePrefix = "Unable to connect to Grimmory",
@@ -185,6 +185,59 @@ class AppGrimmoryCoordinator @Inject constructor(
         )
     }
 
+    internal suspend fun executeConnect(
+        preparation: GrimmorySyncPreparation.Ready,
+    ): GrimmoryConnectExecutionResult = runCatching {
+        val result = grimmoryCatalogSyncer.connect(preparation.request)
+        persistRemoteSession(
+            sessionStore = grimmoryCredentialStore,
+            session = result.session,
+            fallbackSession = preparation.fallbackSession,
+            displayName = preparation.request.displayName,
+            baseUrl = preparation.request.baseUrl,
+            backupBaseUrl = preparation.request.backupBaseUrl,
+            activeBaseUrl = result.activeBaseUrl ?: preparation.request.activeBaseUrl,
+            username = preparation.request.username,
+            toStoredSession = { activeSession, displayName, baseUrl, backupBaseUrl, activeBaseUrl, username ->
+                activeSession.toStoredSession(
+                    displayName = displayName,
+                    baseUrl = baseUrl,
+                    backupBaseUrl = backupBaseUrl,
+                    activeBaseUrl = activeBaseUrl,
+                    username = username,
+                )
+            },
+            restoreFallbackSession = { savedSession, displayName, baseUrl, backupBaseUrl, activeBaseUrl, username ->
+                savedSession.copy(
+                    displayName = displayName,
+                    baseUrl = baseUrl,
+                    backupBaseUrl = backupBaseUrl,
+                    activeBaseUrl = activeBaseUrl,
+                    username = username,
+                )
+            },
+        )
+        GrimmoryConnectExecutionResult.Success(
+            libraryCount = result.libraryCount,
+            connection = preparation.activeConnection.copy(
+                password = "",
+                hasStoredSession = true,
+                isConnecting = false,
+                message = preparation.successConnectionMessage,
+                isError = false,
+            ),
+        )
+    }.getOrElse { throwable ->
+        GrimmoryConnectExecutionResult.Failure(
+            message = "${preparation.failurePrefix}: ${throwable.userFacingMessage()}",
+            connection = preparation.activeConnection.copy(
+                isConnecting = false,
+                message = "${preparation.failurePrefix}: ${throwable.userFacingMessage()}",
+                isError = true,
+            ),
+        )
+    }
+
     private fun matchingStoredSession(
         baseUrl: String,
         backupBaseUrl: String?,
@@ -226,4 +279,16 @@ internal sealed interface GrimmorySyncExecutionResult {
         val message: String,
         val connection: GrimmoryConnectionUiState,
     ) : GrimmorySyncExecutionResult
+}
+
+internal sealed interface GrimmoryConnectExecutionResult {
+    data class Success(
+        val libraryCount: Int,
+        val connection: GrimmoryConnectionUiState,
+    ) : GrimmoryConnectExecutionResult
+
+    data class Failure(
+        val message: String,
+        val connection: GrimmoryConnectionUiState,
+    ) : GrimmoryConnectExecutionResult
 }

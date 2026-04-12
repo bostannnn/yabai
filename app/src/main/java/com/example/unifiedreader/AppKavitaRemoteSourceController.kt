@@ -2,6 +2,7 @@ package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.settings.KavitaConnectionUiState
+import com.example.unifiedreader.feature.settings.ServerConnectionAction
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.collectLatest
@@ -78,6 +79,7 @@ class AppKavitaRemoteSourceController @Inject constructor(
         updateConnection(updateState) { connection ->
             connection.copy(
                 password = password,
+                activeAction = null,
                 message = null,
                 isError = false,
             )
@@ -92,7 +94,11 @@ class AppKavitaRemoteSourceController @Inject constructor(
         val state = stateProvider()
         when (val preparation = kavitaCoordinator.prepareConnect(state.kavitaConnection)) {
             is KavitaSyncPreparation.Invalid -> {
-                updateState { current -> current.copy(kavitaConnection = preparation.connection) }
+                updateState { current ->
+                    current.copy(
+                        kavitaConnection = preparation.connection.copy(activeAction = null),
+                    )
+                }
             }
             KavitaSyncPreparation.MissingSession -> Unit
             is KavitaSyncPreparation.Ready -> {
@@ -100,6 +106,7 @@ class AppKavitaRemoteSourceController @Inject constructor(
                     current.copy(
                         kavitaConnection = preparation.activeConnection.copy(
                             isConnecting = true,
+                            activeAction = ServerConnectionAction.Connect,
                             syncProgressFraction = null,
                             syncProgressLabel = null,
                             message = "Connecting to Kavita.",
@@ -183,6 +190,7 @@ class AppKavitaRemoteSourceController @Inject constructor(
                     state.copy(
                         kavitaConnection = state.kavitaConnection.copy(
                             message = "Connect to Kavita before syncing the library.",
+                            activeAction = null,
                             isError = true,
                         ),
                     )
@@ -191,7 +199,7 @@ class AppKavitaRemoteSourceController @Inject constructor(
             is KavitaSyncPreparation.Invalid -> {
                 updateState { state ->
                     state.copy(
-                        kavitaConnection = preparation.connection,
+                        kavitaConnection = preparation.connection.copy(activeAction = null),
                     )
                 }
             }
@@ -200,6 +208,7 @@ class AppKavitaRemoteSourceController @Inject constructor(
                     state.copy(
                         kavitaConnection = preparation.activeConnection.copy(
                             isConnecting = true,
+                            activeAction = ServerConnectionAction.Sync,
                             syncProgressFraction = 0f,
                             syncProgressLabel = "Preparing Kavita sync...",
                             message = "Syncing Kavita library.",
@@ -228,6 +237,7 @@ class AppKavitaRemoteSourceController @Inject constructor(
                             state.copy(
                                 kavitaConnection = state.kavitaConnection.copy(
                                     isConnecting = true,
+                                    activeAction = ServerConnectionAction.Sync,
                                     syncProgressFraction = progress.fraction.coerceIn(0f, 1f),
                                     syncProgressLabel = progress.message,
                                     message = "Syncing Kavita library.",
@@ -254,6 +264,7 @@ class AppKavitaRemoteSourceController @Inject constructor(
                             activeReader = null,
                             selectedKavitaSeriesKey = null,
                             kavitaConnection = result.connection.copy(
+                                activeAction = null,
                                 availableLibraries = result.availableLibraries,
                             ),
                         )
@@ -263,7 +274,7 @@ class AppKavitaRemoteSourceController @Inject constructor(
                     clearSuppressedObservedLibraryRefresh(preparation.request.baseUrl, preparation.request.username)
                     updateState { state ->
                         state.copy(
-                            kavitaConnection = result.connection,
+                            kavitaConnection = result.connection.copy(activeAction = null),
                         )
                     }
                 }
@@ -290,6 +301,7 @@ class AppKavitaRemoteSourceController @Inject constructor(
                     updateState { state ->
                         state.copy(
                             kavitaConnection = result.connection.copy(
+                                activeAction = null,
                                 availableLibraries = result.availableLibraries,
                             ),
                         )
@@ -299,7 +311,7 @@ class AppKavitaRemoteSourceController @Inject constructor(
                     clearSuppressedObservedLibraryRefresh(preparation.request.baseUrl, preparation.request.username)
                     updateState { state ->
                         state.copy(
-                            kavitaConnection = result.connection,
+                            kavitaConnection = result.connection.copy(activeAction = null),
                         )
                     }
                 }
@@ -371,6 +383,7 @@ class AppKavitaRemoteSourceController @Inject constructor(
         updateConnection(updateState) { connection ->
             kavitaCoordinator.refreshedConnectionState(
                 transform(connection).copy(
+                    activeAction = null,
                     message = null,
                     isError = false,
                 ),

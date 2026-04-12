@@ -441,7 +441,6 @@ internal fun buildComicPageSpreads(
     readingDirection: ComicReadingDirection,
     useDoublePageSpreads: Boolean,
     pageMetadataById: Map<String, ComicPageMetadata>,
-    splitWidePages: Boolean,
 ): List<ComicPageSpread> {
     if (pages.isEmpty()) return emptyList()
     return if (useDoublePageSpreads) {
@@ -453,46 +452,32 @@ internal fun buildComicPageSpreads(
     } else {
         buildSinglePageSpreads(
             pages = pages,
-            readingDirection = readingDirection,
             pageMetadataById = pageMetadataById,
-            splitWidePages = splitWidePages,
         )
     }
 }
 
 private fun buildSinglePageSpreads(
     pages: List<ComicPageSpec>,
-    readingDirection: ComicReadingDirection,
     pageMetadataById: Map<String, ComicPageMetadata>,
-    splitWidePages: Boolean,
 ): List<ComicPageSpread> = buildList {
     pages.forEach { page ->
         val metadata = pageMetadataById[page.id]
-        val shouldSplitPage = splitWidePages && metadata?.isWide() == true
-        val segments = if (shouldSplitPage) {
-            when (readingDirection) {
-                ComicReadingDirection.LTR -> listOf(ComicPageSegment.LeftHalf, ComicPageSegment.RightHalf)
-                ComicReadingDirection.RTL -> listOf(ComicPageSegment.RightHalf, ComicPageSegment.LeftHalf)
-            }
-        } else {
-            listOf(ComicPageSegment.Full)
-        }
-        segments.forEach { segment ->
-            val spreadPage = ComicSpreadPage(
-                spec = page,
-                segment = segment,
-                metadata = metadata,
-            )
-            add(
-                ComicPageSpread(
-                    id = "spread-${page.pageIndex}-${segment.idSuffix}",
-                    pages = listOf(spreadPage),
-                    pageIndexes = listOf(page.pageIndex),
-                    resumePageIndex = page.pageIndex,
-                    progressLabel = "${page.pageIndex + 1} / ${pages.size}",
+        add(
+            ComicPageSpread(
+                id = "spread-${page.pageIndex}-${ComicPageSegment.Full.idSuffix}",
+                pages = listOf(
+                    ComicSpreadPage(
+                        spec = page,
+                        segment = ComicPageSegment.Full,
+                        metadata = metadata,
+                    ),
                 ),
-            )
-        }
+                pageIndexes = listOf(page.pageIndex),
+                resumePageIndex = page.pageIndex,
+                progressLabel = "${page.pageIndex + 1} / ${pages.size}",
+            ),
+        )
     }
 }
 

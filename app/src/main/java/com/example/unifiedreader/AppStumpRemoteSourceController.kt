@@ -1,6 +1,7 @@
 package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.feature.settings.ServerConnectionAction
 import com.example.unifiedreader.feature.settings.StumpConnectionUiState
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -78,6 +79,7 @@ class AppStumpRemoteSourceController @Inject constructor(
         updateConnection(updateState) { connection ->
             connection.copy(
                 password = password,
+                activeAction = null,
                 message = null,
                 isError = false,
             )
@@ -92,7 +94,11 @@ class AppStumpRemoteSourceController @Inject constructor(
         val state = stateProvider()
         when (val preparation = stumpCoordinator.prepareConnect(state.stumpConnection)) {
             is StumpSyncPreparation.Invalid -> {
-                updateState { current -> current.copy(stumpConnection = preparation.connection) }
+                updateState { current ->
+                    current.copy(
+                        stumpConnection = preparation.connection.copy(activeAction = null),
+                    )
+                }
             }
             StumpSyncPreparation.MissingSession -> Unit
             is StumpSyncPreparation.Ready -> {
@@ -100,6 +106,7 @@ class AppStumpRemoteSourceController @Inject constructor(
                     current.copy(
                         stumpConnection = preparation.activeConnection.copy(
                             isConnecting = true,
+                            activeAction = ServerConnectionAction.Connect,
                             syncProgressFraction = null,
                             syncProgressLabel = null,
                             message = "Connecting to Stump.",
@@ -183,6 +190,7 @@ class AppStumpRemoteSourceController @Inject constructor(
                     state.copy(
                         stumpConnection = state.stumpConnection.copy(
                             message = "Connect to Stump before syncing the library.",
+                            activeAction = null,
                             isError = true,
                         ),
                     )
@@ -191,7 +199,7 @@ class AppStumpRemoteSourceController @Inject constructor(
             is StumpSyncPreparation.Invalid -> {
                 updateState { state ->
                     state.copy(
-                        stumpConnection = preparation.connection,
+                        stumpConnection = preparation.connection.copy(activeAction = null),
                     )
                 }
             }
@@ -200,6 +208,7 @@ class AppStumpRemoteSourceController @Inject constructor(
                     state.copy(
                         stumpConnection = preparation.activeConnection.copy(
                             isConnecting = true,
+                            activeAction = ServerConnectionAction.Sync,
                             syncProgressFraction = 0f,
                             syncProgressLabel = "Preparing Stump sync...",
                             message = "Syncing Stump library.",
@@ -228,6 +237,7 @@ class AppStumpRemoteSourceController @Inject constructor(
                             state.copy(
                                 stumpConnection = state.stumpConnection.copy(
                                     isConnecting = true,
+                                    activeAction = ServerConnectionAction.Sync,
                                     syncProgressFraction = progress.fraction.coerceIn(0f, 1f),
                                     syncProgressLabel = progress.message,
                                     message = "Syncing Stump library.",
@@ -255,6 +265,7 @@ class AppStumpRemoteSourceController @Inject constructor(
                             selectedKavitaSeriesKey = null,
                             selectedStumpSeriesKey = null,
                             stumpConnection = result.connection.copy(
+                                activeAction = null,
                                 availableLibraries = result.availableLibraries,
                             ),
                         )
@@ -264,7 +275,7 @@ class AppStumpRemoteSourceController @Inject constructor(
                     clearSuppressedObservedLibraryRefresh(preparation.request.baseUrl, preparation.request.username)
                     updateState { state ->
                         state.copy(
-                            stumpConnection = result.connection,
+                            stumpConnection = result.connection.copy(activeAction = null),
                         )
                     }
                 }
@@ -291,6 +302,7 @@ class AppStumpRemoteSourceController @Inject constructor(
                     updateState { state ->
                         state.copy(
                             stumpConnection = result.connection.copy(
+                                activeAction = null,
                                 availableLibraries = result.availableLibraries,
                             ),
                         )
@@ -300,7 +312,7 @@ class AppStumpRemoteSourceController @Inject constructor(
                     clearSuppressedObservedLibraryRefresh(preparation.request.baseUrl, preparation.request.username)
                     updateState { state ->
                         state.copy(
-                            stumpConnection = result.connection,
+                            stumpConnection = result.connection.copy(activeAction = null),
                         )
                     }
                 }
@@ -372,6 +384,7 @@ class AppStumpRemoteSourceController @Inject constructor(
         updateConnection(updateState) { connection ->
             stumpCoordinator.refreshedConnectionState(
                 transform(connection).copy(
+                    activeAction = null,
                     message = null,
                     isError = false,
                 ),

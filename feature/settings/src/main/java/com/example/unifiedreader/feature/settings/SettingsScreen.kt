@@ -10,29 +10,16 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
@@ -57,18 +44,21 @@ fun SettingsScreen(
     onKavitaUsernameChanged: (String) -> Unit,
     onKavitaPasswordChanged: (String) -> Unit,
     onConnectKavita: () -> Unit,
+    onSyncKavita: () -> Unit,
     onStumpDisplayNameChanged: (String) -> Unit,
     onStumpBaseUrlChanged: (String) -> Unit,
     onStumpBackupBaseUrlChanged: (String) -> Unit,
     onStumpUsernameChanged: (String) -> Unit,
     onStumpPasswordChanged: (String) -> Unit,
     onConnectStump: () -> Unit,
+    onSyncStump: () -> Unit,
     onGrimmoryDisplayNameChanged: (String) -> Unit,
     onGrimmoryBaseUrlChanged: (String) -> Unit,
     onGrimmoryBackupBaseUrlChanged: (String) -> Unit,
     onGrimmoryUsernameChanged: (String) -> Unit,
     onGrimmoryPasswordChanged: (String) -> Unit,
     onConnectGrimmory: () -> Unit,
+    onSyncGrimmory: () -> Unit,
 ) {
     val upcomingSettings = listOf(
         "Reading preferences" to "Font, spacing, and page density controls can slot in after the shared app theme is stable.",
@@ -144,6 +134,7 @@ fun SettingsScreen(
                     onUsernameChanged = onKavitaUsernameChanged,
                     onPasswordChanged = onKavitaPasswordChanged,
                     onConnect = onConnectKavita,
+                    onSync = onSyncKavita,
                 )
                 ComicReadingDirectionSettingsSection(
                     libraries = kavitaReadingDirectionLibraries,
@@ -167,6 +158,7 @@ fun SettingsScreen(
                     onUsernameChanged = onGrimmoryUsernameChanged,
                     onPasswordChanged = onGrimmoryPasswordChanged,
                     onConnect = onConnectGrimmory,
+                    onSync = onSyncGrimmory,
                 )
             }
         }
@@ -186,6 +178,7 @@ fun SettingsScreen(
                     onUsernameChanged = onStumpUsernameChanged,
                     onPasswordChanged = onStumpPasswordChanged,
                     onConnect = onConnectStump,
+                    onSync = onSyncStump,
                 )
                 ComicReadingDirectionSettingsSection(
                     libraries = stumpReadingDirectionLibraries,
@@ -207,136 +200,6 @@ fun SettingsScreen(
             SettingsCard(
                 title = title,
                 body = body,
-            )
-        }
-    }
-}
-
-private data class ServerConnectionFormState(
-    val displayName: String,
-    val baseUrl: String,
-    val backupBaseUrl: String,
-    val username: String,
-    val password: String,
-    val hasStoredSession: Boolean,
-    val isConnecting: Boolean,
-    val syncProgressFraction: Float?,
-    val syncProgressLabel: String?,
-    val message: String?,
-    val isError: Boolean,
-    val canSubmit: Boolean,
-    val usesSyncLabelForStoredSessionAction: Boolean,
-)
-
-@Composable
-private fun ServerConnectionForm(
-    state: ServerConnectionFormState,
-    connectLabel: String,
-    syncLabel: String,
-    onDisplayNameChanged: (String) -> Unit,
-    onBaseUrlChanged: (String) -> Unit,
-    onBackupBaseUrlChanged: (String) -> Unit,
-    onUsernameChanged: (String) -> Unit,
-    onPasswordChanged: (String) -> Unit,
-    onConnect: () -> Unit,
-) {
-    var isPasswordVisible by rememberSaveable { mutableStateOf(false) }
-
-    Column(
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        OutlinedTextField(
-            value = state.displayName,
-            onValueChange = onDisplayNameChanged,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !state.isConnecting,
-            singleLine = true,
-            label = { Text("Name") },
-        )
-        OutlinedTextField(
-            value = state.baseUrl,
-            onValueChange = onBaseUrlChanged,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !state.isConnecting,
-            singleLine = true,
-            label = { Text("Server URL") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-        )
-        OutlinedTextField(
-            value = state.backupBaseUrl,
-            onValueChange = onBackupBaseUrlChanged,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !state.isConnecting,
-            singleLine = true,
-            label = { Text("Backup URL (optional)") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-        )
-        OutlinedTextField(
-            value = state.username,
-            onValueChange = onUsernameChanged,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !state.isConnecting,
-            singleLine = true,
-            label = { Text("Username") },
-        )
-        OutlinedTextField(
-            value = state.password,
-            onValueChange = onPasswordChanged,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !state.isConnecting,
-            singleLine = true,
-            label = { Text(if (state.hasStoredSession) "Password (optional)" else "Password") },
-            visualTransformation = if (isPasswordVisible) {
-                VisualTransformation.None
-            } else {
-                PasswordVisualTransformation()
-            },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            trailingIcon = {
-                TextButton(
-                    onClick = { isPasswordVisible = !isPasswordVisible },
-                    enabled = state.password.isNotEmpty() && !state.isConnecting,
-                ) {
-                    Text(if (isPasswordVisible) "Hide" else "Show")
-                }
-            },
-        )
-        Button(
-            onClick = onConnect,
-            enabled = state.canSubmit,
-        ) {
-            if (state.isConnecting) {
-                CircularProgressIndicator()
-            } else if (
-                state.usesSyncLabelForStoredSessionAction &&
-                state.hasStoredSession &&
-                state.password.isBlank()
-            ) {
-                Text(syncLabel)
-            } else {
-                Text(connectLabel)
-            }
-        }
-        if (state.isConnecting && state.syncProgressLabel != null) {
-            LinearProgressIndicator(
-                progress = { state.syncProgressFraction ?: 0f },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Text(
-                text = state.syncProgressLabel,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        state.message?.let { message ->
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (state.isError) {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
             )
         }
     }
@@ -378,6 +241,7 @@ data class GrimmoryConnectionUiState(
     val password: String = "",
     val hasStoredSession: Boolean = false,
     val isConnecting: Boolean = false,
+    val activeAction: ServerConnectionAction? = null,
     val message: String? = null,
     val isError: Boolean = false,
 ) {
@@ -398,6 +262,7 @@ data class KavitaConnectionUiState(
     val availableLibraries: List<Library> = emptyList(),
     val hasStoredSession: Boolean = false,
     val isConnecting: Boolean = false,
+    val activeAction: ServerConnectionAction? = null,
     val syncProgressFraction: Float? = null,
     val syncProgressLabel: String? = null,
     val message: String? = null,
@@ -420,6 +285,7 @@ data class StumpConnectionUiState(
     val availableLibraries: List<Library> = emptyList(),
     val hasStoredSession: Boolean = false,
     val isConnecting: Boolean = false,
+    val activeAction: ServerConnectionAction? = null,
     val syncProgressFraction: Float? = null,
     val syncProgressLabel: String? = null,
     val message: String? = null,
@@ -441,12 +307,12 @@ private fun GrimmoryConnectionUiState.toFormState(): ServerConnectionFormState =
     password = password,
     hasStoredSession = hasStoredSession,
     isConnecting = isConnecting,
+    activeAction = activeAction,
     syncProgressFraction = null,
     syncProgressLabel = null,
     message = message,
     isError = isError,
-    canSubmit = canSubmit,
-    usesSyncLabelForStoredSessionAction = true,
+    canConnect = canSubmit,
 )
 
 private fun KavitaConnectionUiState.toFormState(): ServerConnectionFormState = ServerConnectionFormState(
@@ -457,12 +323,12 @@ private fun KavitaConnectionUiState.toFormState(): ServerConnectionFormState = S
     password = password,
     hasStoredSession = hasStoredSession,
     isConnecting = isConnecting,
+    activeAction = activeAction,
     syncProgressFraction = syncProgressFraction,
     syncProgressLabel = syncProgressLabel,
     message = message,
     isError = isError,
-    canSubmit = canSubmit,
-    usesSyncLabelForStoredSessionAction = false,
+    canConnect = canSubmit,
 )
 
 private fun StumpConnectionUiState.toFormState(): ServerConnectionFormState = ServerConnectionFormState(
@@ -473,10 +339,10 @@ private fun StumpConnectionUiState.toFormState(): ServerConnectionFormState = Se
     password = password,
     hasStoredSession = hasStoredSession,
     isConnecting = isConnecting,
+    activeAction = activeAction,
     syncProgressFraction = syncProgressFraction,
     syncProgressLabel = syncProgressLabel,
     message = message,
     isError = isError,
-    canSubmit = canSubmit,
-    usesSyncLabelForStoredSessionAction = false,
+    canConnect = canSubmit,
 )

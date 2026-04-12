@@ -467,6 +467,9 @@ class FakeStumpCatalogSyncer(
 }
 
 class FakeGrimmoryCatalogSyncer(
+    private val connectionResult: GrimmoryCatalogConnectionResult = GrimmoryCatalogConnectionResult(
+        libraryCount = 0,
+    ),
     private val result: GrimmoryCatalogSyncResult = GrimmoryCatalogSyncResult(
         libraryCount = 0,
         itemCount = 0,
@@ -475,11 +478,23 @@ class FakeGrimmoryCatalogSyncer(
     private val failure: Throwable? = null,
 ) : GrimmoryCatalogSyncer {
     var lastRequest: GrimmoryCatalogSyncRequest? = null
+    var lastConnectRequest: GrimmoryCatalogSyncRequest? = null
+    var lastSyncRequest: GrimmoryCatalogSyncRequest? = null
+
+    override suspend fun connect(
+        request: GrimmoryCatalogSyncRequest,
+    ): GrimmoryCatalogConnectionResult {
+        lastRequest = request
+        lastConnectRequest = request
+        failure?.let { throw it }
+        return connectionResult
+    }
 
     override suspend fun sync(
         request: GrimmoryCatalogSyncRequest,
     ): GrimmoryCatalogSyncResult {
         lastRequest = request
+        lastSyncRequest = request
         failure?.let { throw it }
         return result
     }

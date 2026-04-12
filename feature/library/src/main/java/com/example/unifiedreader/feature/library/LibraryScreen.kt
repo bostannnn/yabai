@@ -31,6 +31,7 @@ import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.libraryDisplayLabel
+import com.example.unifiedreader.feature.library.menu.buildReadStatusMenuActionState
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import kotlinx.coroutines.flow.distinctUntilChanged
 
@@ -128,6 +129,7 @@ fun LibraryScreen(
         ) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 LibraryFilterSummary(
+                    selectedSource = selectedSource,
                     filterState = filterState,
                     filterFacets = filterFacets,
                     libraryTitlesById = libraryTitlesById,
@@ -172,7 +174,7 @@ fun LibraryScreen(
                             onSeriesReadingDirectionSelected = { direction ->
                                 onSeriesDirectionSelected(item, direction)
                             },
-                            readStatusActionState = itemReadStatusActionState(
+                            readStatusActionState = buildReadStatusMenuActionState(
                                 item = item,
                                 progress = progressByItemId[item.id],
                                 onSetReadStatus = onSetReadStatus,
@@ -202,7 +204,7 @@ fun LibraryScreen(
                             onSeriesReadingDirectionSelected = { direction ->
                                 onSeriesDirectionSelected(item, direction)
                             },
-                            readStatusActionState = itemReadStatusActionState(
+                            readStatusActionState = buildReadStatusMenuActionState(
                                 item = item,
                                 progress = progressByItemId[item.id],
                                 onSetReadStatus = onSetReadStatus,

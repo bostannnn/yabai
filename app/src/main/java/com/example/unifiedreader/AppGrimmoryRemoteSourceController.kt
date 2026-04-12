@@ -2,6 +2,7 @@ package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.settings.GrimmoryConnectionUiState
+import com.example.unifiedreader.feature.settings.ServerConnectionAction
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -64,6 +65,7 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
         updateConnection(updateState) { connection ->
             connection.copy(
                 password = password,
+                activeAction = null,
                 message = null,
                 isError = false,
             )
@@ -77,7 +79,11 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
     ) {
         when (val preparation = grimmoryCoordinator.prepareConnect(stateProvider().grimmoryConnection)) {
             is GrimmorySyncPreparation.Invalid -> {
-                updateState { state -> state.copy(grimmoryConnection = preparation.connection) }
+                updateState { state ->
+                    state.copy(
+                        grimmoryConnection = preparation.connection.copy(activeAction = null),
+                    )
+                }
             }
             GrimmorySyncPreparation.MissingSession -> Unit
             is GrimmorySyncPreparation.Ready -> {
@@ -85,12 +91,13 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
                     state.copy(
                         grimmoryConnection = preparation.activeConnection.copy(
                             isConnecting = true,
+                            activeAction = ServerConnectionAction.Connect,
                             message = "Connecting to Grimmory.",
                             isError = false,
                         ),
                     )
                 }
-                startSync(preparation, updateState, scope)
+                startConnect(preparation, updateState, scope)
             }
         }
     }
@@ -124,17 +131,25 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
                     state.copy(
                         grimmoryConnection = state.grimmoryConnection.copy(
                             message = "Connect to Grimmory before syncing the library.",
+                            activeAction = null,
                             isError = true,
                         ),
                     )
                 }
             }
-            is GrimmorySyncPreparation.Invalid -> Unit
+            is GrimmorySyncPreparation.Invalid -> {
+                updateState { state ->
+                    state.copy(
+                        grimmoryConnection = preparation.connection.copy(activeAction = null),
+                    )
+                }
+            }
             is GrimmorySyncPreparation.Ready -> {
                 updateState { state ->
                     state.copy(
                         grimmoryConnection = preparation.activeConnection.copy(
                             isConnecting = true,
+                            activeAction = ServerConnectionAction.Sync,
                             message = "Syncing Grimmory library.",
                             isError = false,
                         ),
@@ -159,14 +174,39 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
                             selectedSource = SourceType.GRIMMORY,
                             selectedItemId = null,
                             activeReader = null,
-                            grimmoryConnection = result.connection,
+                            grimmoryConnection = result.connection.copy(activeAction = null),
                         )
                     }
                 }
                 is GrimmorySyncExecutionResult.Failure -> {
                     updateState { state ->
                         state.copy(
-                            grimmoryConnection = result.connection,
+                            grimmoryConnection = result.connection.copy(activeAction = null),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun startConnect(
+        preparation: GrimmorySyncPreparation.Ready,
+        updateState: AppUiStateUpdater,
+        scope: CoroutineScope,
+    ) {
+        scope.launch {
+            when (val result = grimmoryCoordinator.executeConnect(preparation)) {
+                is GrimmoryConnectExecutionResult.Success -> {
+                    updateState { state ->
+                        state.copy(
+                            grimmoryConnection = result.connection.copy(activeAction = null),
+                        )
+                    }
+                }
+                is GrimmoryConnectExecutionResult.Failure -> {
+                    updateState { state ->
+                        state.copy(
+                            grimmoryConnection = result.connection.copy(activeAction = null),
                         )
                     }
                 }
@@ -196,6 +236,7 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
         updateConnection(updateState) { connection ->
             grimmoryCoordinator.refreshedConnectionState(
                 transform(connection).copy(
+                    activeAction = null,
                     message = null,
                     isError = false,
                 ),

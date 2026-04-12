@@ -7,8 +7,9 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.buildKavitaSeriesContainer
 import com.example.unifiedreader.core.model.buildStumpSeriesContainer
 import com.example.unifiedreader.feature.library.menu.ReadStatusMenuActionState
-import com.example.unifiedreader.feature.library.menu.buildReadingDirectionMenuState
 import com.example.unifiedreader.feature.library.menu.buildLibraryItemMenuActions
+import com.example.unifiedreader.feature.library.menu.buildReadStatusMenuActionState
+import com.example.unifiedreader.feature.library.menu.buildReadingDirectionMenuState
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -183,8 +184,12 @@ class LibraryItemCardsTest {
         val menuActions = buildLibraryItemMenuActions(
             isDownloading = false,
             readStatusActionState = ReadStatusMenuActionState(
-                isRead = false,
-                onToggleRequested = {},
+                actions = listOf(
+                    com.example.unifiedreader.feature.library.menu.ItemMenuAction(
+                        label = "Mark as read",
+                        onClick = {},
+                    ),
+                ),
             ),
             onDeleteRequested = null,
             onDownloadRequested = null,
@@ -195,6 +200,30 @@ class LibraryItemCardsTest {
     }
 
     @Test
+    fun `menu keeps both read status actions for in progress items`() {
+        val menuActions = buildLibraryItemMenuActions(
+            isDownloading = false,
+            readStatusActionState = ReadStatusMenuActionState(
+                actions = listOf(
+                    com.example.unifiedreader.feature.library.menu.ItemMenuAction(
+                        label = "Mark as read",
+                        onClick = {},
+                    ),
+                    com.example.unifiedreader.feature.library.menu.ItemMenuAction(
+                        label = "Mark as unread",
+                        onClick = {},
+                    ),
+                ),
+            ),
+            onDeleteRequested = null,
+            onDownloadRequested = null,
+            onDeleteDownloadedRequested = null,
+        )
+
+        assertEquals(listOf("Mark as read", "Mark as unread"), menuActions.map { it.label })
+    }
+
+    @Test
     fun `series containers do not expose read status toggle`() {
         val seriesItem = buildKavitaSeriesContainer(
             seriesKey = "kavita:library:k-comics::series-7",
@@ -202,7 +231,7 @@ class LibraryItemCardsTest {
         )
 
         assertNull(
-            itemReadStatusActionState(
+            buildReadStatusMenuActionState(
                 item = seriesItem,
                 progress = null,
                 onSetReadStatus = { _, _ -> },

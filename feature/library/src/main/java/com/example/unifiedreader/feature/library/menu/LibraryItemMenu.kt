@@ -53,8 +53,7 @@ internal data class ReadingDirectionMenuState(
 )
 
 internal data class ReadStatusMenuActionState(
-    val isRead: Boolean,
-    val onToggleRequested: () -> Unit,
+    val actions: List<ItemMenuAction>,
 )
 
 internal fun buildReadingDirectionMenuState(
@@ -76,12 +75,7 @@ internal fun buildLibraryItemMenuActions(
     onDeleteDownloadedRequested: (() -> Unit)?,
 ): List<ItemMenuAction> = buildList {
     readStatusActionState?.let { state ->
-        add(
-            ItemMenuAction(
-                label = if (state.isRead) "Mark as unread" else "Mark as read",
-                onClick = state.onToggleRequested,
-            ),
-        )
+        addAll(state.actions)
     }
     if (isDownloading) {
         add(ItemMenuAction(label = "Downloading...", enabled = false, onClick = {}))

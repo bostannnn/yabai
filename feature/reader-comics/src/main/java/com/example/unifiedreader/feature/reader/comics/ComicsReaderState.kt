@@ -196,7 +196,7 @@ class ComicsReaderState internal constructor(
     var resumeAnchorPage by mutableIntStateOf(initialResumeAnchorPage ?: initialPage)
         private set
 
-    var resumeSegment by mutableStateOf(initialResumeSegment)
+    var resumeSegment by mutableStateOf(sanitizeComicResumeSegment(initialResumeSegment))
         private set
 
     private var hasUserNavigated by mutableStateOf(false)
@@ -211,7 +211,9 @@ class ComicsReaderState internal constructor(
 
     private var hasRestoredResumeAnchor by mutableStateOf(initialResumeAnchorPage != null)
 
-    private var hasRestoredResumeSegment by mutableStateOf(initialResumeSegment != null)
+    private var hasRestoredResumeSegment by mutableStateOf(
+        sanitizeComicResumeSegment(initialResumeSegment) != null,
+    )
 
     val progressLabel: String
         get() = "${currentPage + 1} / $pageCount"
@@ -221,14 +223,15 @@ class ComicsReaderState internal constructor(
         resumeAnchorPage: Int = pageIndex,
         segment: ComicPageSegment? = null,
     ) {
+        val sanitizedSegment = sanitizeComicResumeSegment(segment)
         if (pageIndex != currentPage) {
             hasUserNavigated = true
         }
         currentPage = pageIndex
         this.resumeAnchorPage = resumeAnchorPage.coerceIn(0, pageCount - 1)
-        resumeSegment = segment
+        resumeSegment = sanitizedSegment
         hasRestoredResumeAnchor = true
-        hasRestoredResumeSegment = segment != null
+        hasRestoredResumeSegment = sanitizedSegment != null
     }
 
     fun onCurrentPageZoomChanged(isZoomed: Boolean) {
@@ -298,9 +301,10 @@ class ComicsReaderState internal constructor(
     }
 
     fun restoreResumeSegmentIfUnchanged(segment: ComicPageSegment?): Boolean {
-        if (hasUserNavigated || hasRestoredResumeSegment || resumeSegment == segment) return false
-        resumeSegment = segment
-        hasRestoredResumeSegment = segment != null
+        val sanitizedSegment = sanitizeComicResumeSegment(segment)
+        if (hasUserNavigated || hasRestoredResumeSegment || resumeSegment == sanitizedSegment) return false
+        resumeSegment = sanitizedSegment
+        hasRestoredResumeSegment = sanitizedSegment != null
         return true
     }
 
@@ -315,7 +319,7 @@ class ComicsReaderState internal constructor(
                     it.spreadMode.name,
                     if (it.splitWidePages) 1 else 0,
                     it.resumeAnchorPage,
-                    it.resumeSegment?.name.orEmpty(),
+                    sanitizeComicResumeSegment(it.resumeSegment)?.name.orEmpty(),
                     if (it.hasUserNavigated) 1 else 0,
                     if (it.hasExplicitReadingDirection) 1 else 0,
                     if (it.hasExplicitPageFitMode) 1 else 0,
@@ -337,9 +341,11 @@ class ComicsReaderState internal constructor(
                         .let(ComicSpreadMode::valueOf),
                     initialSplitWidePages = (restored.getOrNull(5) as? Int) == 1,
                     initialResumeAnchorPage = (restored.getOrNull(6) as? Int),
-                    initialResumeSegment = (restored.getOrNull(7) as? String)
-                        ?.takeIf(String::isNotBlank)
-                        ?.let(ComicPageSegment::valueOf),
+                    initialResumeSegment = sanitizeComicResumeSegment(
+                        (restored.getOrNull(7) as? String)
+                            ?.takeIf(String::isNotBlank)
+                            ?.let(ComicPageSegment::valueOf),
+                    ),
                 ).also { state ->
                     state.onCurrentPageZoomChanged((restored[1] as Int) == 1)
                     state.hasUserNavigated = (restored.getOrNull(8) as? Int) == 1
@@ -403,6 +409,10 @@ internal fun isComicProgressFinished(
         ComicPageSegment.RightHalf -> readingDirection == ComicReadingDirection.LTR
     }
 }
+
+internal fun sanitizeComicResumeSegment(
+    segment: ComicPageSegment?,
+): ComicPageSegment? = segment.takeIf { it == ComicPageSegment.Full }
 
 enum class ComicPageFitMode(
     val label: String,

@@ -118,7 +118,10 @@ fun ComicsReaderScreen(
     val persistResumePosition by rememberUpdatedState(
         newValue = {
             preferencesStore.saveResumeAnchorPage(item, readerState.resumeAnchorPage)
-            preferencesStore.saveResumeSegment(item, readerState.resumeSegment)
+            preferencesStore.saveResumeSegment(
+                item,
+                sanitizeComicResumeSegment(readerState.resumeSegment),
+            )
         },
     )
     val persistReaderPreferences by rememberUpdatedState(
@@ -126,7 +129,6 @@ fun ComicsReaderScreen(
             preferencesStore.saveReadingDirection(item, readerState.readingDirection)
             preferencesStore.savePageFitMode(item, readerState.pageFitMode)
             preferencesStore.saveSpreadMode(item, readerState.spreadMode)
-            preferencesStore.saveSplitWidePages(item, readerState.splitWidePages)
         },
     )
     val restoredPage = savedPagesByItemId[item.id]
@@ -148,7 +150,6 @@ fun ComicsReaderScreen(
             readerState.restoreReadingDirectionIfUnchanged(preferences.readingDirection)
             readerState.restorePageFitModeIfUnchanged(preferences.pageFitMode)
             readerState.restoreSpreadModeIfUnchanged(preferences.spreadMode)
-            readerState.restoreSplitWidePagesIfUnchanged(preferences.splitWidePages)
             readerState.restoreResumeAnchorIfUnchanged(preferences.resumeAnchorPage)
             readerState.restoreResumeSegmentIfUnchanged(preferences.resumeSegment)
         }
@@ -197,7 +198,6 @@ fun ComicsReaderScreen(
         readerState.readingDirection,
         readerState.pageFitMode,
         readerState.spreadMode,
-        readerState.splitWidePages,
     ) {
         if (!preferencesHydrated || !preferencesRestoreCompleted) return@LaunchedEffect
         persistReaderPreferences()
@@ -257,7 +257,6 @@ fun ComicsReaderScreen(
                     readerState.resumeAnchorPage,
                     readerState.readingDirection,
                     readerState.spreadMode,
-                    readerState.splitWidePages,
                     useDoublePageSpreads,
                     pages,
                     metadataRetryNonce,
@@ -266,13 +265,11 @@ fun ComicsReaderScreen(
                         currentPage = readerState.resumeAnchorPage,
                         pageCount = pages.size,
                         useDoublePageSpreads = useDoublePageSpreads,
-                        splitWidePages = readerState.splitWidePages,
                     )
                     val targetIndexes = backgroundMetadataIndexes(
                         currentPage = readerState.resumeAnchorPage,
                         pageCount = pages.size,
                         useDoublePageSpreads = useDoublePageSpreads,
-                        splitWidePages = readerState.splitWidePages,
                     ).filter { index ->
                         val pageId = pages[index].id
                         pageId !in pageMetadataById && pageId !in degradedSpreadPlanningPageIds
@@ -332,11 +329,10 @@ fun ComicsReaderScreen(
                         metadataRetryNonce += 1
                     }
                 }
-                val requiresCommittedSpreadPlan = useDoublePageSpreads || readerState.splitWidePages
+                val requiresCommittedSpreadPlan = useDoublePageSpreads
                 val spreadPlanReady = remember(
                     requiresCommittedSpreadPlan,
                     useDoublePageSpreads,
-                    readerState.splitWidePages,
                     readerState.resumeAnchorPage,
                     pages,
                     pageMetadataById,
@@ -346,7 +342,6 @@ fun ComicsReaderScreen(
                         currentPage = readerState.resumeAnchorPage,
                         pageCount = pages.size,
                         useDoublePageSpreads = useDoublePageSpreads,
-                        splitWidePages = readerState.splitWidePages,
                     ).all { index ->
                         val pageId = pages[index].id
                         pageId in pageMetadataById || pageId in degradedSpreadPlanningPageIds
@@ -361,14 +356,12 @@ fun ComicsReaderScreen(
                     readerState.readingDirection,
                     useDoublePageSpreads,
                     pageMetadataById,
-                    readerState.splitWidePages,
                 ) {
                     buildComicPageSpreads(
                         pages = pages,
                         readingDirection = readerState.readingDirection,
                         useDoublePageSpreads = useDoublePageSpreads,
                         pageMetadataById = pageMetadataById,
-                        splitWidePages = readerState.splitWidePages,
                     )
                 }
                 val pagerState = rememberPagerState(
@@ -443,13 +436,11 @@ fun ComicsReaderScreen(
                     readingDirection = readerState.readingDirection,
                     pageFitMode = readerState.pageFitMode,
                     spreadMode = readerState.spreadMode,
-                    splitWidePages = readerState.splitWidePages,
                     overlayVisible = overlayState.isVisible,
                     onBack = onBack,
                     onReadingDirectionChanged = readerState::onReadingDirectionChanged,
                     onPageFitModeChanged = readerState::onPageFitModeChanged,
                     onSpreadModeChanged = readerState::onSpreadModeChanged,
-                    onSplitWidePagesChanged = readerState::onSplitWidePagesChanged,
                 )
                 ReaderBottomProgressBar(
                     progress = currentPageProgress,
@@ -473,7 +464,6 @@ internal fun requiredMetadataIndexes(
     currentPage: Int,
     pageCount: Int,
     useDoublePageSpreads: Boolean,
-    splitWidePages: Boolean,
 ): List<Int> = buildList {
     if (pageCount <= 0) return@buildList
     val lastIndex = pageCount - 1
@@ -489,14 +479,12 @@ internal fun requiredMetadataIndexes(
         return@buildList
     }
     add(currentPage.coerceIn(0, lastIndex))
-    if (!splitWidePages) return@buildList
 }.distinct()
 
 internal fun backgroundMetadataIndexes(
     currentPage: Int,
     pageCount: Int,
     useDoublePageSpreads: Boolean,
-    splitWidePages: Boolean,
     radius: Int = 2,
     lookahead: Int = 4,
 ): List<Int> = buildList {

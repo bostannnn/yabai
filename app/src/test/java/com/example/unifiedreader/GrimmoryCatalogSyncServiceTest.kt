@@ -28,6 +28,42 @@ import org.junit.Test
 
 class GrimmoryCatalogSyncServiceTest {
     @Test
+    fun `connect validates Grimmory access without writing the catalog`() = runBlocking {
+        val writer = RecordingRemoteCatalogWriter()
+        val api = FakeGrimmoryApi(
+            libraries = listOf(grimmoryLibrary("g-books")),
+            allBookEntries = listOf(
+                GrimmoryBookCatalogEntry(
+                    item = grimmoryItem(remoteId = "book-1", libraryRemoteId = "g-books"),
+                    progress = null,
+                ),
+            ),
+        )
+        val service = GrimmoryCatalogSyncService(
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
+            remoteCatalogWriter = writer,
+        )
+
+        val result = service.connect(
+            GrimmoryCatalogSyncRequest(
+                displayName = "Grimmory",
+                baseUrl = "https://grimmory.example/",
+                username = "user",
+                password = "password",
+            ),
+        )
+
+        assertEquals("user" to "password", api.lastLogin)
+        assertEquals(1, result.libraryCount)
+        assertEquals("access-token", result.session?.accessToken)
+        assertEquals("refresh-token", result.session?.refreshToken)
+        assertEquals(listOf("access-token"), api.libraryAccessTokens)
+        assertTrue(writer.libraries.isEmpty())
+        assertTrue(writer.items.isEmpty())
+        assertEquals(null, writer.replacedSourceType)
+    }
+
+    @Test
     fun `sync fetches grimmory catalog and writes remote room entities`() = runBlocking {
         val writer = RecordingRemoteCatalogWriter()
         val library = grimmoryLibrary("g-books")

@@ -39,7 +39,6 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
-import com.example.unifiedreader.core.model.supportsManualReadStatusAction
 import com.example.unifiedreader.feature.library.menu.LibraryItemOverflowMenu
 import com.example.unifiedreader.feature.library.menu.ReadStatusMenuActionState
 import com.example.unifiedreader.feature.library.menu.buildReadingDirectionMenuState
@@ -77,19 +76,6 @@ internal fun itemDownloadedDeleteRequest(
     { onDeleteDownloadedItem(item) }
 } else {
     null
-}
-
-internal fun itemReadStatusActionState(
-    item: ReadableItem,
-    progress: ItemProgressSummary?,
-    onSetReadStatus: (ReadableItem, Boolean) -> Unit,
-): ReadStatusMenuActionState? {
-    if (!item.supportsManualReadStatusAction()) return null
-    val isRead = progress?.isComplete == true
-    return ReadStatusMenuActionState(
-        isRead = isRead,
-        onToggleRequested = { onSetReadStatus(item, !isRead) },
-    )
 }
 
 @Composable

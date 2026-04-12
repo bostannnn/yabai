@@ -16,6 +16,10 @@ fun interface GrimmoryApiFactory {
 }
 
 interface GrimmoryCatalogSyncer {
+    suspend fun connect(
+        request: GrimmoryCatalogSyncRequest,
+    ): GrimmoryCatalogConnectionResult
+
     suspend fun sync(
         request: GrimmoryCatalogSyncRequest,
     ): GrimmoryCatalogSyncResult
@@ -27,6 +31,39 @@ class GrimmoryCatalogSyncService(
     private val readerSessionStore: ReaderSessionStore? = null,
     private val nowEpochMillis: () -> Long = System::currentTimeMillis,
 ) : GrimmoryCatalogSyncer {
+    override suspend fun connect(
+        request: GrimmoryCatalogSyncRequest,
+    ): GrimmoryCatalogConnectionResult {
+        val result = runWithServerAddressFailover(
+            baseUrl = request.baseUrl,
+            backupBaseUrl = request.backupBaseUrl,
+            activeBaseUrl = request.activeBaseUrl,
+        ) { selectedBaseUrl ->
+            val api = grimmoryApiFactory.create(
+                baseUrl = selectedBaseUrl,
+            )
+            val session = request.password?.takeIf(String::isNotBlank)?.let { password ->
+                api.login(
+                    username = request.username,
+                    password = password,
+                )
+            }
+            val accessToken = session?.accessToken ?: request.accessToken
+                ?: error("A Grimmory connection requires a password or saved access token.")
+            val refreshResult = api.runWithTokenRefresh(
+                initialRefreshToken = session?.refreshToken ?: request.refreshToken,
+                initialAccessToken = accessToken,
+            ) { token ->
+                api.getLibraries(accessToken = token)
+            }
+            GrimmoryCatalogConnectionResult(
+                libraryCount = refreshResult.value.size,
+                session = refreshResult.refreshedSession ?: session,
+            )
+        }
+        return result.value.copy(activeBaseUrl = result.activeBaseUrl)
+    }
+
     override suspend fun sync(
         request: GrimmoryCatalogSyncRequest,
     ): GrimmoryCatalogSyncResult {
@@ -162,6 +199,12 @@ data class GrimmoryCatalogSyncRequest(
     val password: String? = null,
     val accessToken: String? = null,
     val refreshToken: String? = null,
+)
+
+data class GrimmoryCatalogConnectionResult(
+    val libraryCount: Int,
+    val session: GrimmorySession? = null,
+    val activeBaseUrl: String? = null,
 )
 
 data class GrimmoryCatalogSyncResult(

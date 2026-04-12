@@ -23,13 +23,11 @@ internal fun ReaderOverlayBar(
     readingDirection: ComicReadingDirection,
     pageFitMode: ComicPageFitMode,
     spreadMode: ComicSpreadMode,
-    splitWidePages: Boolean,
     overlayVisible: Boolean,
     onBack: () -> Unit,
     onReadingDirectionChanged: (ComicReadingDirection) -> Unit,
     onPageFitModeChanged: (ComicPageFitMode) -> Unit,
     onSpreadModeChanged: (ComicSpreadMode) -> Unit,
-    onSplitWidePagesChanged: (Boolean) -> Unit,
 ) {
     var activePanel by rememberReaderOverlayPanelState(
         key = itemId,
@@ -126,22 +124,6 @@ internal fun ReaderOverlayBar(
                         },
                     )
                 }
-                ReaderOverlayDropdownItem(
-                    label = "Split wide: Off",
-                    selected = !splitWidePages,
-                    onClick = {
-                        activePanel = ComicsOverlayPanel.None
-                        onSplitWidePagesChanged(false)
-                    },
-                )
-                ReaderOverlayDropdownItem(
-                    label = "Split wide: On",
-                    selected = splitWidePages,
-                    onClick = {
-                        activePanel = ComicsOverlayPanel.None
-                        onSplitWidePagesChanged(true)
-                    },
-                )
             }
         },
     )
