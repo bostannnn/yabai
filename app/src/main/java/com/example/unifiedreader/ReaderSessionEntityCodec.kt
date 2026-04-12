@@ -21,6 +21,7 @@ internal fun ReadingProgressEntity.toSnapshot(): ReaderProgressSnapshot = Reader
     cfi = cfi,
     percent = percent,
     isFinished = isFinished,
+    isExplicitUnreadReset = isExplicitUnreadReset,
     syncState = syncState.enumValueOrDefault(SyncState.CLEAN),
     updatedAtEpochMillis = updatedAtEpochMillis,
 )
@@ -32,6 +33,7 @@ internal fun ReaderProgressSnapshot.toEntity(): ReadingProgressEntity = ReadingP
     cfi = cfi,
     percent = percent,
     isFinished = isFinished,
+    isExplicitUnreadReset = isExplicitUnreadReset,
     syncState = syncState.name,
     updatedAtEpochMillis = updatedAtEpochMillis,
 )

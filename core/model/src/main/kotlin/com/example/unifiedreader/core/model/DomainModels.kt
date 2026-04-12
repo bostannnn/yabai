@@ -137,6 +137,13 @@ fun ReadableItem.isKavitaSeriesContainer(): Boolean =
 fun ReadableItem.isStumpSeriesContainer(): Boolean =
     sourceType == SourceType.STUMP && id.startsWith("stump:series:")
 
+fun ReadableItem.supportsManualReadStatusAction(): Boolean = when (sourceType) {
+    SourceType.KAVITA -> !isKavitaSeriesContainer()
+    SourceType.STUMP -> !isStumpSeriesContainer()
+    SourceType.GRIMMORY -> true
+    SourceType.LOCAL -> false
+}
+
 fun ReadableItem.kavitaSeriesGroupKey(): String? {
     if (sourceType != SourceType.KAVITA || kind != ReadableItemKind.COMIC || isKavitaSeriesContainer()) {
         return null

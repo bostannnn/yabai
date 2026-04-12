@@ -35,6 +35,7 @@ class AppViewModel @Inject constructor(
     private val appStateHydrator: AppStateHydrator,
     private val catalogStateCoordinator: AppCatalogStateCoordinator,
     private val libraryActionsCoordinator: AppLibraryActionsCoordinator,
+    private val libraryReadStatusController: AppLibraryReadStatusController,
     private val comicReadingDirectionController: AppComicReadingDirectionController,
     private val readerCoordinator: AppReaderCoordinator,
     private val remoteSourcesCoordinator: AppRemoteSourcesCoordinator,
@@ -267,6 +268,16 @@ class AppViewModel @Inject constructor(
             scope = viewModelScope,
             item = item,
         )
+    }
+
+    fun onSetReadStatus(item: ReadableItem, markAsRead: Boolean) {
+        viewModelScope.launch {
+            libraryReadStatusController.setReadStatus(
+                item = item,
+                markAsRead = markAsRead,
+                onProgressChanged = ::refreshProgress,
+            )
+        }
     }
 
     fun showDownloadsSheet() {

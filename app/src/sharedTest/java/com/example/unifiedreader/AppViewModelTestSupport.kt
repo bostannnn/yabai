@@ -22,6 +22,9 @@ import com.example.unifiedreader.feature.library.LibraryBrowsePreferences
 import com.example.unifiedreader.feature.library.LibraryBrowsePreferencesStore
 import com.example.unifiedreader.feature.library.LibraryBrowseStateCoordinator
 import com.example.unifiedreader.feature.library.LibraryDerivedStateComputer
+import com.example.unifiedreader.feature.navigation.SourceNavigationPreferences
+import com.example.unifiedreader.feature.navigation.SourceNavigationPreferencesStore
+import com.example.unifiedreader.feature.navigation.SourceNavigationStateCoordinator
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
@@ -60,12 +63,14 @@ internal fun createViewModel(
     settingsPreferencesStore: SettingsPreferencesStore = FakeSettingsPreferencesStore(),
     settingsStateCoordinator: SettingsStateCoordinator = SettingsStateCoordinator(settingsPreferencesStore),
     settingsController: AppSettingsController = AppSettingsController(settingsStateCoordinator),
+    sourceNavigationPreferencesStore: SourceNavigationPreferencesStore = FakeSourceNavigationPreferencesStore(),
     libraryBrowsePreferencesStore: LibraryBrowsePreferencesStore = FakeLibraryBrowsePreferencesStore(),
     libraryBrowseStateCoordinator: LibraryBrowseStateCoordinator = LibraryBrowseStateCoordinator(libraryBrowsePreferencesStore),
     libraryBrowseController: AppLibraryBrowseController = AppLibraryBrowseController(libraryBrowseStateCoordinator),
     readerSessionStore: FakeReaderSessionStore = FakeReaderSessionStore(),
     kavitaCatalogSyncer: KavitaCatalogSyncer = FakeKavitaCatalogSyncer(),
     kavitaCredentialStore: KavitaCredentialStore = FakeKavitaCredentialStore(),
+    kavitaCoverRepository: KavitaCoverDataSource = FakeKavitaCoverRepository(),
     stumpCatalogSyncer: StumpCatalogSyncer = FakeStumpCatalogSyncer(),
     stumpCredentialStore: StumpCredentialStore = FakeStumpCredentialStore(),
     stumpCoverRepository: StumpCoverDataSource = FakeStumpCoverRepository(),
@@ -97,12 +102,12 @@ internal fun createViewModel(
         localDocumentRepository = importedRepository,
         remoteDownloadDataSources = remoteDownloadDataSources,
     )
-    val stumpCoverCacheController = StumpCoverCacheController(
+    val remoteCoverController = RemoteCoverController(
+        kavitaCoverRepository = kavitaCoverRepository,
         stumpCoverRepository = stumpCoverRepository,
-        stumpCredentialStore = stumpCredentialStore,
-    )
-    val grimmoryCoverCacheController = GrimmoryCoverCacheController(
         grimmoryCoverRepository = grimmoryCoverRepository,
+        kavitaCredentialStore = kavitaCredentialStore,
+        stumpCredentialStore = stumpCredentialStore,
         grimmoryCredentialStore = grimmoryCredentialStore,
     )
     val downloadQueueStore = TestDownloadQueueStore()
@@ -135,9 +140,7 @@ internal fun createViewModel(
             remoteDownloadDataSources = remoteDownloadDataSources,
             libraryStateAssembler = libraryStateAssembler,
         ),
-        stumpCoverCacheController = stumpCoverCacheController,
-        grimmoryCoverCacheController = grimmoryCoverCacheController,
-        kavitaCredentialStore = kavitaCredentialStore,
+        remoteCoverController = remoteCoverController,
     )
     val catalogStateCoordinator = AppCatalogStateCoordinator(
         libraryRepository = libraryRepository,
@@ -154,10 +157,14 @@ internal fun createViewModel(
             libraryStateAssembler = libraryStateAssembler,
         ),
         readerSessionStore = readerSessionStore,
-        stumpCoverCacheController = stumpCoverCacheController,
-        grimmoryCoverCacheController = grimmoryCoverCacheController,
+        remoteCoverController = remoteCoverController,
     )
     return AppViewModel(
+        navigationController = AppNavigationController(
+            sourceNavigationStateCoordinator = SourceNavigationStateCoordinator(
+                preferencesStore = sourceNavigationPreferencesStore,
+            ),
+        ),
         libraryBrowseController = libraryBrowseController,
         settingsController = settingsController,
         remoteDownloadController = AppRemoteDownloadController(
@@ -171,6 +178,10 @@ internal fun createViewModel(
         ),
         catalogStateCoordinator = catalogStateCoordinator,
         libraryActionsCoordinator = libraryActionsCoordinator,
+        libraryReadStatusController = AppLibraryReadStatusController(
+            readerSessionStore = readerSessionStore,
+            sourceProgressSyncs = sourceProgressSyncs,
+        ),
         comicReadingDirectionController = AppComicReadingDirectionController(
             preferencesStore = comicReadingDirectionPreferencesStore,
             readerSessionStore = readerSessionStore,
@@ -186,10 +197,12 @@ internal fun createViewModel(
                 kavitaCoordinator = AppKavitaCoordinator(
                     kavitaCatalogSyncer = kavitaCatalogSyncer,
                     kavitaCredentialStore = kavitaCredentialStore,
+                    kavitaCoverRepository = kavitaCoverRepository,
                 ),
                 kavitaCredentialStore = kavitaCredentialStore,
                 comicPageSourceCacheController = comicPageSourceCacheController,
                 remoteLibraryCacheStore = remoteLibraryCacheStore,
+                remoteCoverController = remoteCoverController,
             ),
             stumpController = AppStumpRemoteSourceController(
                 stumpCoordinator = AppStumpCoordinator(
@@ -198,7 +211,7 @@ internal fun createViewModel(
                     stumpCoverRepository = stumpCoverRepository,
                 ),
                 stumpCredentialStore = stumpCredentialStore,
-                stumpCoverCacheController = stumpCoverCacheController,
+                remoteCoverController = remoteCoverController,
                 comicPageSourceCacheController = comicPageSourceCacheController,
                 remoteLibraryCacheStore = remoteLibraryCacheStore,
             ),
@@ -209,7 +222,7 @@ internal fun createViewModel(
                     grimmoryCoverRepository = grimmoryCoverRepository,
                 ),
                 grimmoryCredentialStore = grimmoryCredentialStore,
-                grimmoryCoverCacheController = grimmoryCoverCacheController,
+                remoteCoverController = remoteCoverController,
             ),
         ),
         comicPageSource = pageSource,
@@ -355,6 +368,18 @@ class ImmediateDownloadWorkScheduler(
 
     override fun cancelEntry(entryId: String) {
         jobsByEntryId.remove(entryId)?.cancel(CancellationException("Cancelled for test"))
+    }
+}
+
+class FakeSourceNavigationPreferencesStore(
+    initialPreferences: SourceNavigationPreferences = SourceNavigationPreferences(),
+) : SourceNavigationPreferencesStore {
+    private val preferencesState = MutableStateFlow(initialPreferences)
+
+    override val preferencesFlow: StateFlow<SourceNavigationPreferences> = preferencesState
+
+    override suspend fun setSourceOrder(sourceOrder: List<SourceType>) {
+        preferencesState.value = SourceNavigationPreferences(sourceOrder = sourceOrder)
     }
 }
 
@@ -509,6 +534,7 @@ class FakeStumpCredentialStore(
 }
 
 class FakeStumpCoverRepository : StumpCoverDataSource {
+    override val sourceType: SourceType = SourceType.STUMP
     var clearCachedCoversCalls: Int = 0
 
     constructor(
@@ -519,12 +545,43 @@ class FakeStumpCoverRepository : StumpCoverDataSource {
 
     private var coverUri: Uri? = null
 
+    override fun cachedCoverUri(
+        item: ReadableItem,
+    ): Uri? = coverUri
+
     override suspend fun getCoverUri(
         item: ReadableItem,
     ): Uri? = coverUri
 
     override suspend fun clearCachedCovers() {
         clearCachedCoversCalls += 1
+        coverUri = null
+    }
+}
+
+class FakeKavitaCoverRepository : KavitaCoverDataSource {
+    override val sourceType: SourceType = SourceType.KAVITA
+    var clearCachedCoversCalls: Int = 0
+
+    constructor(
+        coverUri: Uri? = null,
+    ) {
+        this.coverUri = coverUri
+    }
+
+    private var coverUri: Uri? = null
+
+    override fun cachedCoverUri(
+        item: ReadableItem,
+    ): Uri? = coverUri
+
+    override suspend fun getCoverUri(
+        item: ReadableItem,
+    ): Uri? = coverUri
+
+    override suspend fun clearCachedCovers() {
+        clearCachedCoversCalls += 1
+        coverUri = null
     }
 }
 
@@ -548,11 +605,28 @@ class FakeRemoteLibraryCacheStore : RemoteLibraryCacheStore {
 }
 
 class FakeGrimmoryCoverRepository : GrimmoryCoverDataSource {
+    override val sourceType: SourceType = SourceType.GRIMMORY
+    var clearCachedCoversCalls: Int = 0
+    private var coverUri: Uri? = null
+
+    constructor(
+        coverUri: Uri? = null,
+    ) {
+        this.coverUri = coverUri
+    }
+
+    override fun cachedCoverUri(
+        item: ReadableItem,
+    ): Uri? = coverUri
+
     override suspend fun getCoverUri(
         item: ReadableItem,
-    ): Uri? = null
+    ): Uri? = coverUri
 
-    override suspend fun clearCachedCovers() = Unit
+    override suspend fun clearCachedCovers() {
+        clearCachedCoversCalls += 1
+        coverUri = null
+    }
 }
 
 class FakeGrimmoryContentRepository(
@@ -873,6 +947,7 @@ class FakeReaderSessionStore(
         item: ReadableItem,
         locator: com.example.unifiedreader.feature.reader.core.ReaderLocator,
         isFinished: Boolean,
+        isExplicitUnreadReset: Boolean,
         syncState: com.example.unifiedreader.core.model.SyncState,
         pageCount: Int?,
         updatedAtEpochMillis: Long,
@@ -885,6 +960,7 @@ class FakeReaderSessionStore(
                 cfi = locator.cfi,
                 percent = locator.percent,
                 isFinished = isFinished,
+                isExplicitUnreadReset = isExplicitUnreadReset,
                 syncState = syncState,
                 updatedAtEpochMillis = updatedAtEpochMillis,
             )

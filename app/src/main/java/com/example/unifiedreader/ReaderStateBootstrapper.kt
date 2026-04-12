@@ -60,6 +60,7 @@ class ReaderStateBootstrapper(
                                     cfi = null,
                                     percent = null,
                                     isFinished = false,
+                                    isExplicitUnreadReset = false,
                                     syncState = SyncState.CLEAN.name,
                                     updatedAtEpochMillis = 0L,
                                 ),

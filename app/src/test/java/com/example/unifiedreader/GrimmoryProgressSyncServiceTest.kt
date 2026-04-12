@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
 class GrimmoryProgressSyncServiceTest {
@@ -101,6 +102,40 @@ class GrimmoryProgressSyncServiceTest {
         assertEquals(emptyList<String>(), api.requestedBookIds)
         assertNull(readerSessionStore.getProgress(orphanedItem))
     }
+
+    @Test
+    fun `failed Grimmory upload does not strand progress in syncing state`() = runBlocking {
+        val item = grimmoryItem(remoteId = "book-1")
+        val readerSessionStore = ProgressSyncTestReaderSessionStore().apply {
+            saveProgress(
+                item = item,
+                locator = ReaderLocator(locatorType = LocatorType.PERCENT, percent = 0.5),
+                syncState = SyncState.DIRTY,
+                updatedAtEpochMillis = 10L,
+            )
+        }
+        val api = RecordingGrimmoryApi(
+            updateError = IllegalStateException("boom"),
+        )
+        val service = GrimmoryProgressSyncService(
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
+            grimmoryCredentialStore = ProgressSyncTestGrimmoryCredentialStore(
+                GrimmoryStoredSession(
+                    displayName = "Home Grimmory",
+                    baseUrl = "https://grimmory.example",
+                    username = "reader",
+                    accessToken = "access-token",
+                    refreshToken = "refresh-token",
+                ),
+            ),
+            readerSessionStore = readerSessionStore,
+        )
+
+        service.pushPendingProgress(listOf(item))
+
+        assertEquals(SyncState.FAILED, readerSessionStore.getProgress(item)?.syncState)
+        assertNotEquals(SyncState.SYNCING, readerSessionStore.getProgress(item)?.syncState)
+    }
 }
 
 private fun grimmoryItem(
@@ -149,6 +184,7 @@ private class ProgressSyncTestReaderSessionStore : ReaderSessionStore {
         item: ReadableItem,
         locator: ReaderLocator,
         isFinished: Boolean,
+        isExplicitUnreadReset: Boolean,
         syncState: SyncState,
         pageCount: Int?,
         updatedAtEpochMillis: Long,
@@ -161,6 +197,7 @@ private class ProgressSyncTestReaderSessionStore : ReaderSessionStore {
                 cfi = locator.cfi,
                 percent = locator.percent,
                 isFinished = isFinished,
+                isExplicitUnreadReset = isExplicitUnreadReset,
                 syncState = syncState,
                 updatedAtEpochMillis = updatedAtEpochMillis,
             )
@@ -198,6 +235,7 @@ private class ProgressSyncTestReaderSessionStore : ReaderSessionStore {
 
 private class RecordingGrimmoryApi(
     private val bookEntriesById: Map<String, GrimmoryBookCatalogEntry> = emptyMap(),
+    private val updateError: Throwable? = null,
 ) : GrimmoryApi {
     val progressUpdates = mutableListOf<GrimmoryProgressUpdate>()
     val requestedBookIds = mutableListOf<String>()
@@ -237,6 +275,7 @@ private class RecordingGrimmoryApi(
         accessToken: String,
         progress: GrimmoryProgressUpdate,
     ) {
+        updateError?.let { throw it }
         progressUpdates += progress
     }
 }

@@ -340,6 +340,12 @@ private class RecordingKavitaPageApi : KavitaApi {
         return TEST_PNG_BYTES
     }
 
+    override suspend fun downloadCover(
+        accessToken: String,
+        coverUrl: String,
+        apiKey: String?,
+    ): ByteArray = error("Not needed in test.")
+
     override suspend fun downloadChapter(
         accessToken: String,
         chapterId: String,

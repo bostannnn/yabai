@@ -36,26 +36,32 @@ internal suspend fun pushDirtyKavitaProgress(
             )
             val update = chapterInfo.toProgressUpdate(
                 item = item,
-                page = progress.page ?: 0,
+                page = if (progress.isExplicitUnreadReset) 0 else progress.page ?: 0,
                 isFinished = progress.isFinished,
                 updatedAtEpochMillis = progress.updatedAtEpochMillis,
-            ) ?: return@runWithTokenRefresh Unit
+            ) ?: return@runWithTokenRefresh false
             api.updateProgress(
                 accessToken = token,
                 progress = update,
             )
+            true
         }
         activeAccessToken = uploadResult.accessToken
         activeRefreshToken = uploadResult.refreshToken
         latestSession = uploadResult.refreshedSession ?: latestSession
-        readerSessionStore.saveProgress(
-            item = item,
-            locator = progress.toReaderLocator(),
-            isFinished = progress.isFinished,
-            syncState = SyncState.CLEAN,
-            pageCount = item.pageCount,
-            updatedAtEpochMillis = progress.updatedAtEpochMillis,
-        )
+        if (!uploadResult.value) return@forEach
+        if (progress.isExplicitUnreadReset) {
+            readerSessionStore.clearProgress(item.id)
+        } else {
+            readerSessionStore.saveProgress(
+                item = item,
+                locator = progress.toReaderLocator(),
+                isFinished = progress.isFinished,
+                syncState = SyncState.CLEAN,
+                pageCount = item.pageCount,
+                updatedAtEpochMillis = progress.updatedAtEpochMillis,
+            )
+        }
     }
 
     return KavitaTokenRefreshResult(

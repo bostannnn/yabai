@@ -341,6 +341,64 @@ class UnifiedReaderDatabaseMigrationTest {
     }
 
     @Test
+    fun `room migrates 14 to 15 and adds explicit unread reset flag`() {
+        val databaseName = "migration-14-15-${System.nanoTime()}"
+        createTestDatabase(
+            name = databaseName,
+            version = 14,
+        ) { database ->
+            createVersion1Schema(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_1_2.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_2_3.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_3_4.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_4_5.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_5_6.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_6_7.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_7_8.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_8_9.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_9_10.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_10_11.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_11_12.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_12_13.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_13_14.migrate(database)
+            database.execSQL(
+                """
+                INSERT INTO reading_progress (
+                    itemId,
+                    locatorType,
+                    page,
+                    cfi,
+                    percent,
+                    isFinished,
+                    syncState,
+                    updatedAtEpochMillis
+                ) VALUES (
+                    'book-1',
+                    'PERCENT',
+                    NULL,
+                    NULL,
+                    0.0,
+                    0,
+                    'DIRTY',
+                    123
+                )
+                """.trimIndent(),
+            )
+        }.use { _ -> Unit }
+
+        val migratedDatabase = openRoomDatabase(databaseName)
+        try {
+            val migratedRow = checkNotNull(
+                migratedDatabase.readingProgressDao().getByItemId("book-1"),
+            )
+            assertEquals(false, migratedRow.isExplicitUnreadReset)
+        } finally {
+            migratedDatabase.close()
+            ApplicationProvider.getApplicationContext<Context>().deleteDatabase(databaseName)
+        }
+    }
+
+    @Test
     fun `room migrates 9 to 10 and validates remote file metadata schema`() {
         val databaseName = "migration-9-10-${System.nanoTime()}"
         createTestDatabase(
@@ -838,6 +896,8 @@ private fun openRoomDatabase(
         UnifiedReaderDatabaseMigrations.MIGRATION_10_11,
         UnifiedReaderDatabaseMigrations.MIGRATION_11_12,
         UnifiedReaderDatabaseMigrations.MIGRATION_12_13,
+        UnifiedReaderDatabaseMigrations.MIGRATION_13_14,
+        UnifiedReaderDatabaseMigrations.MIGRATION_14_15,
     )
     .build()
 

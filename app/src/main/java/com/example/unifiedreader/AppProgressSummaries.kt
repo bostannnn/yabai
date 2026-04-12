@@ -15,6 +15,7 @@ internal fun buildProgressSummaries(
     localPageCountProvider: (ReadableItem) -> Int,
 ): Map<String, ItemProgressSummary> = items.associateNotNull { item ->
     val progress = progressByItemId[item.id] ?: return@associateNotNull null
+    if (progress.isExplicitUnreadReset) return@associateNotNull null
     val sessionPageCount = sessionByItemId[item.id]?.pageCount?.takeIf { it > 0 }
     val summary = when (progress.locatorType) {
         LocatorType.PAGE -> {

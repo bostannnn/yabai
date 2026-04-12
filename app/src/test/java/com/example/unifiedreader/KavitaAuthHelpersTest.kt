@@ -132,6 +132,12 @@ private class FakeApi(
         apiKey: String?,
     ): ByteArray = error("Not needed in test.")
 
+    override suspend fun downloadCover(
+        accessToken: String,
+        coverUrl: String,
+        apiKey: String?,
+    ): ByteArray = error("Not needed in test.")
+
     override suspend fun downloadChapter(
         accessToken: String,
         chapterId: String,

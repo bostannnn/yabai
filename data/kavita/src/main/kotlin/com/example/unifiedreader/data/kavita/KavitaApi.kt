@@ -69,6 +69,12 @@ interface KavitaApi {
         apiKey: String?,
     ): ByteArray
 
+    suspend fun downloadCover(
+        accessToken: String,
+        coverUrl: String,
+        apiKey: String?,
+    ): ByteArray
+
     suspend fun downloadChapter(
         accessToken: String,
         chapterId: String,
@@ -288,6 +294,24 @@ class KtorKavitaApi(
         response.body()
     }
 
+    override suspend fun downloadCover(
+        accessToken: String,
+        coverUrl: String,
+        apiKey: String?,
+    ): ByteArray = authenticatedRequest {
+        val sameOriginUrl = coverUrl.resolveAgainst(normalizedBaseUrl)
+            .takeIf { candidate -> candidate.isSameOriginAs(normalizedBaseUrl) }
+            ?: error("Refusing to send Kavita credentials to a different host.")
+        val response = httpClient.get(sameOriginUrl) {
+            bearerAuth(accessToken)
+            apiKey?.takeIf(String::isNotBlank)?.let { key ->
+                header("x-api-key", key)
+            }
+        }
+        response.throwIfKavitaError()
+        response.body()
+    }
+
     override suspend fun downloadChapter(
         accessToken: String,
         chapterId: String,
@@ -333,4 +357,35 @@ private suspend fun HttpResponse.throwIfKavitaError() {
     if (!status.isSuccess()) {
         error(bodyAsText().ifBlank { status.description })
     }
+}
+
+private fun String.resolveAgainst(
+    baseUrl: String,
+): String = runCatching {
+    val baseUri = java.net.URI.create(baseUrl.trimEnd('/') + "/")
+    val candidateUri = java.net.URI.create(this)
+    if (candidateUri.isAbsolute) {
+        candidateUri.toString()
+    } else {
+        baseUri.resolve(candidateUri).toString()
+    }
+}.getOrElse {
+    error("Unable to resolve the Kavita asset URL.")
+}
+
+private fun String.isSameOriginAs(
+    baseUrl: String,
+): Boolean = runCatching {
+    val candidate = java.net.URI.create(this)
+    val base = java.net.URI.create(baseUrl)
+    candidate.scheme?.equals(base.scheme, ignoreCase = true) == true &&
+        candidate.host?.equals(base.host, ignoreCase = true) == true &&
+        candidate.effectivePort() == base.effectivePort()
+}.getOrDefault(false)
+
+private fun java.net.URI.effectivePort(): Int = when {
+    port != -1 -> port
+    scheme.equals("https", ignoreCase = true) -> 443
+    scheme.equals("http", ignoreCase = true) -> 80
+    else -> -1
 }

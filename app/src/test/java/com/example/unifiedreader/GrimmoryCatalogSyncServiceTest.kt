@@ -592,6 +592,7 @@ private class GrimmoryTestReaderSessionStore : ReaderSessionStore {
         item: ReadableItem,
         locator: ReaderLocator,
         isFinished: Boolean,
+        isExplicitUnreadReset: Boolean,
         syncState: com.example.unifiedreader.core.model.SyncState,
         pageCount: Int?,
         updatedAtEpochMillis: Long,
@@ -604,6 +605,7 @@ private class GrimmoryTestReaderSessionStore : ReaderSessionStore {
                 cfi = locator.cfi,
                 percent = locator.percent,
                 isFinished = isFinished,
+                isExplicitUnreadReset = isExplicitUnreadReset,
                 syncState = syncState,
                 updatedAtEpochMillis = updatedAtEpochMillis,
             )

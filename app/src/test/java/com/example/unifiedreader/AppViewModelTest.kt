@@ -1258,6 +1258,67 @@ class AppViewModelTest {
     }
 
     @Test
+    fun `cached kavita cover is used immediately after startup and cleared on sync`() {
+        val credentialStore = FakeKavitaCredentialStore(
+            KavitaStoredSession(
+                displayName = "Home Kavita",
+                baseUrl = "https://kavita.example",
+                username = "reader",
+                accessToken = "saved-access-token",
+                refreshToken = "saved-refresh-token",
+                apiKey = "saved-api-key",
+            ),
+        )
+        val syncer = FakeKavitaCatalogSyncer(
+            result = KavitaCatalogSyncResult(
+                libraryCount = 1,
+                itemCount = 5,
+                supportedFormatCounts = mapOf(FormatType.CBZ to 5),
+                session = com.example.unifiedreader.data.kavita.KavitaSession(
+                    accessToken = "refreshed-access-token",
+                    refreshToken = "refreshed-refresh-token",
+                    apiKey = "refreshed-api-key",
+                ),
+            ),
+        )
+        val kavitaCoverRepository = FakeKavitaCoverRepository(
+            coverUri = Uri.parse("file:///tmp/kavita-cover.png"),
+        )
+        val pageCacheController = FakeComicPageSourceCacheController()
+        val kavitaItem = sampleItem(
+            id = "kavita:item:issue-1",
+            title = "Kavita Issue",
+            format = FormatType.CBZ,
+        ).copy(
+            sourceType = SourceType.KAVITA,
+            libraryId = SourceType.KAVITA.remoteLibraryId("kavita-library"),
+            remoteId = "issue-1",
+            remoteFileType = "series-1",
+            coverUrl = "https://kavita.example/api/Image/chapter-cover?chapterId=issue-1&apiKey=saved-api-key",
+        )
+        val viewModel = createViewModel(
+            sampleItems = listOf(kavitaItem),
+            kavitaCatalogSyncer = syncer,
+            kavitaCredentialStore = credentialStore,
+            kavitaCoverRepository = kavitaCoverRepository,
+            comicPageSourceCacheController = pageCacheController,
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals("file:///tmp/kavita-cover.png", viewModel.coverImageUrlFor(kavitaItem))
+
+        viewModel.refreshKavitaLibrary()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(listOf(SourceType.KAVITA), pageCacheController.clearedSourceTypes)
+        assertEquals(1, kavitaCoverRepository.clearCachedCoversCalls)
+        assertEquals(
+            "https://kavita.example/api/Image/chapter-cover?chapterId=issue-1&apiKey=saved-api-key",
+            viewModel.coverImageUrlFor(kavitaItem),
+        )
+    }
+
+    @Test
     fun `connect stump authenticates quickly and waits for explicit sync`() {
         val syncer = FakeStumpCatalogSyncer(
             connectionResult = StumpCatalogConnectionResult(
@@ -1606,6 +1667,39 @@ class AppViewModelTest {
     }
 
     @Test
+    fun `cached stump cover is used immediately after startup`() {
+        val credentialStore = FakeStumpCredentialStore(
+            StumpStoredSession(
+                displayName = "Home Stump",
+                baseUrl = "https://stump.example",
+                username = "reader",
+                accessToken = "saved-access-token",
+                refreshToken = "saved-refresh-token",
+            ),
+        )
+        val stumpItem = sampleItem(
+            id = "stump:item:issue-1",
+            title = "Stump Issue",
+            format = FormatType.CBZ,
+        ).copy(
+            sourceType = SourceType.STUMP,
+            libraryId = SourceType.STUMP.remoteLibraryId("stump-library"),
+            remoteId = "issue-1",
+            coverUrl = "https://stump.example/api/v1/media/issue-1/thumbnail",
+        )
+        val viewModel = createViewModel(
+            sampleItems = listOf(stumpItem),
+            stumpCredentialStore = credentialStore,
+            stumpCoverRepository = FakeStumpCoverRepository(
+                coverUri = Uri.parse("file:///tmp/stump-cover-immediate.png"),
+            ),
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals("file:///tmp/stump-cover-immediate.png", viewModel.coverImageUrlFor(stumpItem))
+    }
+
+    @Test
     fun `connect grimmory syncs catalog and switches to grimmory library`() {
         val syncer = FakeGrimmoryCatalogSyncer(
             result = GrimmoryCatalogSyncResult(
@@ -1697,11 +1791,27 @@ class AppViewModelTest {
                 supportedFormatCounts = mapOf(FormatType.EPUB to 9),
             ),
         )
+        val grimmoryItem = sampleItem(
+            id = "grimmory:item:book-1",
+            title = "Grimmory Book",
+            format = FormatType.EPUB,
+        ).copy(
+            sourceType = SourceType.GRIMMORY,
+            libraryId = SourceType.GRIMMORY.remoteLibraryId("grimmory-books"),
+            remoteId = "book-1",
+            coverUrl = "https://grimmory.example/api/v1/media/book/book-1/thumbnail",
+        )
+        val grimmoryCoverRepository = FakeGrimmoryCoverRepository(
+            coverUri = Uri.parse("file:///tmp/grimmory-cover.png"),
+        )
         val viewModel = createViewModel(
+            sampleItems = listOf(grimmoryItem),
             grimmoryCatalogSyncer = syncer,
             grimmoryCredentialStore = credentialStore,
+            grimmoryCoverRepository = grimmoryCoverRepository,
         )
 
+        assertEquals("file:///tmp/grimmory-cover.png", viewModel.coverImageUrlFor(grimmoryItem))
         viewModel.refreshGrimmoryLibrary()
         shadowOf(Looper.getMainLooper()).idle()
 
@@ -1710,6 +1820,44 @@ class AppViewModelTest {
         assertEquals("saved-refresh-token", syncer.lastRequest?.refreshToken)
         assertEquals(SourceType.GRIMMORY, viewModel.uiState.selectedSource)
         assertEquals("Grimmory library synced.", viewModel.uiState.grimmoryConnection.message)
+        assertEquals(1, grimmoryCoverRepository.clearCachedCoversCalls)
+        assertEquals(
+            "https://grimmory.example/api/v1/media/book/book-1/thumbnail",
+            viewModel.coverImageUrlFor(grimmoryItem),
+        )
+    }
+
+    @Test
+    fun `cached grimmory cover is used immediately after startup`() {
+        val credentialStore = FakeGrimmoryCredentialStore(
+            GrimmoryStoredSession(
+                displayName = "Home Grimmory",
+                baseUrl = "https://grimmory.example",
+                username = "reader",
+                accessToken = "saved-access-token",
+                refreshToken = "saved-refresh-token",
+            ),
+        )
+        val grimmoryItem = sampleItem(
+            id = "grimmory:item:book-2",
+            title = "Grimmory Book",
+            format = FormatType.EPUB,
+        ).copy(
+            sourceType = SourceType.GRIMMORY,
+            libraryId = SourceType.GRIMMORY.remoteLibraryId("grimmory-books"),
+            remoteId = "book-2",
+            coverUrl = "https://grimmory.example/api/v1/media/book/book-2/thumbnail",
+        )
+        val viewModel = createViewModel(
+            sampleItems = listOf(grimmoryItem),
+            grimmoryCredentialStore = credentialStore,
+            grimmoryCoverRepository = FakeGrimmoryCoverRepository(
+                coverUri = Uri.parse("file:///tmp/grimmory-cover-immediate.png"),
+            ),
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals("file:///tmp/grimmory-cover-immediate.png", viewModel.coverImageUrlFor(grimmoryItem))
     }
 
     @Test

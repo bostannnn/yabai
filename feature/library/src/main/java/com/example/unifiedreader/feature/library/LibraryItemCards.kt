@@ -39,7 +39,9 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.supportsManualReadStatusAction
 import com.example.unifiedreader.feature.library.menu.LibraryItemOverflowMenu
+import com.example.unifiedreader.feature.library.menu.ReadStatusMenuActionState
 import com.example.unifiedreader.feature.library.menu.buildReadingDirectionMenuState
 import com.example.unifiedreader.feature.library.menu.buildLibraryItemMenuActions
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
@@ -77,6 +79,19 @@ internal fun itemDownloadedDeleteRequest(
     null
 }
 
+internal fun itemReadStatusActionState(
+    item: ReadableItem,
+    progress: ItemProgressSummary?,
+    onSetReadStatus: (ReadableItem, Boolean) -> Unit,
+): ReadStatusMenuActionState? {
+    if (!item.supportsManualReadStatusAction()) return null
+    val isRead = progress?.isComplete == true
+    return ReadStatusMenuActionState(
+        isRead = isRead,
+        onToggleRequested = { onSetReadStatus(item, !isRead) },
+    )
+}
+
 @Composable
 internal fun DetailedItemCard(
     item: ReadableItem,
@@ -88,6 +103,7 @@ internal fun DetailedItemCard(
     onCoverVisible: (ReadableItem) -> Unit,
     onClick: () -> Unit,
     onSeriesReadingDirectionSelected: ((ComicReadingDirection) -> Unit)? = null,
+    readStatusActionState: ReadStatusMenuActionState? = null,
     onDeleteRequested: (() -> Unit)?,
     onDownloadRequested: (() -> Unit)?,
     onDeleteDownloadedRequested: (() -> Unit)?,
@@ -113,6 +129,7 @@ internal fun DetailedItemCard(
             )
             val menuActions = buildLibraryItemMenuActions(
                 isDownloading = isDownloading,
+                readStatusActionState = readStatusActionState,
                 onDeleteRequested = onDeleteRequested,
                 onDownloadRequested = onDownloadRequested,
                 onDeleteDownloadedRequested = onDeleteDownloadedRequested,
@@ -166,6 +183,7 @@ internal fun GridCoverCard(
     onCoverVisible: (ReadableItem) -> Unit,
     onClick: () -> Unit,
     onSeriesReadingDirectionSelected: ((ComicReadingDirection) -> Unit)? = null,
+    readStatusActionState: ReadStatusMenuActionState? = null,
     onDeleteRequested: (() -> Unit)?,
     onDownloadRequested: (() -> Unit)?,
     onDeleteDownloadedRequested: (() -> Unit)?,
@@ -203,6 +221,7 @@ internal fun GridCoverCard(
         )
         val menuActions = buildLibraryItemMenuActions(
             isDownloading = isDownloading,
+            readStatusActionState = readStatusActionState,
             onDeleteRequested = onDeleteRequested,
             onDownloadRequested = onDownloadRequested,
             onDeleteDownloadedRequested = onDeleteDownloadedRequested,

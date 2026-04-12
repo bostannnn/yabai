@@ -6,6 +6,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.buildKavitaSeriesContainer
 import com.example.unifiedreader.core.model.buildStumpSeriesContainer
+import com.example.unifiedreader.feature.library.menu.ReadStatusMenuActionState
 import com.example.unifiedreader.feature.library.menu.buildReadingDirectionMenuState
 import com.example.unifiedreader.feature.library.menu.buildLibraryItemMenuActions
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
@@ -117,6 +118,7 @@ class LibraryItemCardsTest {
     fun `series menu keeps download action when reading direction uses icon toggle row`() {
         val menuActions = buildLibraryItemMenuActions(
             isDownloading = false,
+            readStatusActionState = null,
             onDeleteRequested = null,
             onDownloadRequested = {},
             onDeleteDownloadedRequested = null,
@@ -141,6 +143,38 @@ class LibraryItemCardsTest {
             buildReadingDirectionMenuState(
                 seriesReadingDirection = null,
                 onSeriesReadingDirectionSelected = {},
+            ),
+        )
+    }
+
+    @Test
+    fun `menu exposes mark as read for unread remote item`() {
+        val menuActions = buildLibraryItemMenuActions(
+            isDownloading = false,
+            readStatusActionState = ReadStatusMenuActionState(
+                isRead = false,
+                onToggleRequested = {},
+            ),
+            onDeleteRequested = null,
+            onDownloadRequested = null,
+            onDeleteDownloadedRequested = null,
+        )
+
+        assertEquals("Mark as read", menuActions.single().label)
+    }
+
+    @Test
+    fun `series containers do not expose read status toggle`() {
+        val seriesItem = buildKavitaSeriesContainer(
+            seriesKey = "kavita:library:k-comics::series-7",
+            issues = listOf(kavitaIssue(id = "chapter-1", title = "Akira 001", seriesKey = "series-7")),
+        )
+
+        assertNull(
+            itemReadStatusActionState(
+                item = seriesItem,
+                progress = null,
+                onSetReadStatus = { _, _ -> },
             ),
         )
     }

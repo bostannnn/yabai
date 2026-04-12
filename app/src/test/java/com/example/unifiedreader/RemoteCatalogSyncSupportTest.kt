@@ -267,6 +267,7 @@ private class RecordingReaderSessionStore : ReaderSessionStore {
         item: ReadableItem,
         locator: ReaderLocator,
         isFinished: Boolean,
+        isExplicitUnreadReset: Boolean,
         syncState: SyncState,
         pageCount: Int?,
         updatedAtEpochMillis: Long,
@@ -279,6 +280,7 @@ private class RecordingReaderSessionStore : ReaderSessionStore {
                 cfi = locator.cfi,
                 percent = locator.percent,
                 isFinished = isFinished,
+                isExplicitUnreadReset = isExplicitUnreadReset,
                 syncState = syncState,
                 updatedAtEpochMillis = updatedAtEpochMillis,
             )

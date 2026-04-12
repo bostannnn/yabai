@@ -12,6 +12,7 @@ data class ReaderProgressSnapshot(
     val cfi: String? = null,
     val percent: Double? = null,
     val isFinished: Boolean = false,
+    val isExplicitUnreadReset: Boolean = false,
     val syncState: SyncState = SyncState.CLEAN,
     val updatedAtEpochMillis: Long = System.currentTimeMillis(),
 )
@@ -42,6 +43,7 @@ interface ReaderSessionStore {
         item: ReadableItem,
         locator: ReaderLocator,
         isFinished: Boolean = false,
+        isExplicitUnreadReset: Boolean = false,
         syncState: SyncState = SyncState.CLEAN,
         pageCount: Int? = null,
         updatedAtEpochMillis: Long = System.currentTimeMillis(),

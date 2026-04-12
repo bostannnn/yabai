@@ -69,6 +69,7 @@ data class ReadingProgressEntity(
     val cfi: String?,
     val percent: Double?,
     val isFinished: Boolean,
+    @ColumnInfo(defaultValue = "0") val isExplicitUnreadReset: Boolean,
     val syncState: String,
     @ColumnInfo(defaultValue = "0") val updatedAtEpochMillis: Long,
 )

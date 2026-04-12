@@ -132,6 +132,7 @@ fun UnifiedReaderScaffold(
                         onDeleteImportedItem = viewModel::onDeleteImportedItem,
                         onDownloadRemoteItem = viewModel::onDownloadRemoteItem,
                         onDeleteRemoteLocalFile = viewModel::onDeleteRemoteLocalFile,
+                        onSetReadStatus = viewModel::onSetReadStatus,
                         onFilterStateChanged = viewModel::onLibraryFiltersChanged,
                         onClearFilters = viewModel::clearLibraryFilters,
                         onSortModeChanged = viewModel::onLibrarySortModeChanged,
@@ -200,6 +201,7 @@ private fun LibraryRoute(
     onDeleteImportedItem: (ReadableItem) -> Unit,
     onDownloadRemoteItem: (ReadableItem) -> Unit,
     onDeleteRemoteLocalFile: (ReadableItem) -> Unit,
+    onSetReadStatus: (ReadableItem, Boolean) -> Unit,
     onFilterStateChanged: (LibraryFilterState) -> Unit,
     onClearFilters: () -> Unit,
     onSortModeChanged: (LibrarySortMode) -> Unit,
@@ -242,6 +244,7 @@ private fun LibraryRoute(
             onDeleteImportedItem = onDeleteImportedItem,
             onDownloadItem = onDownloadRemoteItem,
             onDeleteDownloadedItem = onDeleteRemoteLocalFile,
+            onSetReadStatus = onSetReadStatus,
         )
     }
 }

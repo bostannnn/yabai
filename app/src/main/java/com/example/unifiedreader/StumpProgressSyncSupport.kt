@@ -29,7 +29,14 @@ internal suspend fun pushDirtyStumpProgress(
             initialRefreshToken = activeRefreshToken,
         ) { token ->
             val pageIndex = progress.page?.coerceAtLeast(0) ?: 0
-            if (progress.isFinished) {
+            if (progress.isExplicitUnreadReset) {
+                api.markMediaComplete(
+                    accessToken = token,
+                    mediaId = mediaId,
+                    isComplete = false,
+                    pageIndex = null,
+                )
+            } else if (progress.isFinished) {
                 api.markMediaComplete(
                     accessToken = token,
                     mediaId = mediaId,
@@ -47,14 +54,18 @@ internal suspend fun pushDirtyStumpProgress(
         activeAccessToken = uploadResult.accessToken
         activeRefreshToken = uploadResult.refreshToken
         latestSession = uploadResult.refreshedSession ?: latestSession
-        readerSessionStore.saveProgress(
-            item = item,
-            locator = progress.toReaderLocator(),
-            isFinished = progress.isFinished,
-            syncState = SyncState.CLEAN,
-            pageCount = item.pageCount,
-            updatedAtEpochMillis = progress.updatedAtEpochMillis,
-        )
+        if (progress.isExplicitUnreadReset) {
+            readerSessionStore.clearProgress(item.id)
+        } else {
+            readerSessionStore.saveProgress(
+                item = item,
+                locator = progress.toReaderLocator(),
+                isFinished = progress.isFinished,
+                syncState = SyncState.CLEAN,
+                pageCount = item.pageCount,
+                updatedAtEpochMillis = progress.updatedAtEpochMillis,
+            )
+        }
     }
 
     return StumpTokenRefreshResult(

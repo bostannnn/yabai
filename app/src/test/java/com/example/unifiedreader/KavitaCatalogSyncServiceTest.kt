@@ -266,6 +266,12 @@ private class FakeKavitaApi(
         apiKey: String?,
     ): ByteArray = ByteArray(0)
 
+    override suspend fun downloadCover(
+        accessToken: String,
+        coverUrl: String,
+        apiKey: String?,
+    ): ByteArray = ByteArray(0)
+
     override suspend fun downloadChapter(
         accessToken: String,
         chapterId: String,

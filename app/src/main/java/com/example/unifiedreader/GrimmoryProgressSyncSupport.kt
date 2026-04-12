@@ -25,15 +25,17 @@ internal suspend fun pushDirtyGrimmoryProgress(
     readerSessionStore.progressByItemIdFlow.value.forEach { (itemId, progress) ->
         val item = itemsById[itemId] ?: return@forEach
         if (progress.syncState != SyncState.DIRTY && progress.syncState != SyncState.FAILED) return@forEach
-        val update = progress.toGrimmoryProgressUpdate(item) ?: return@forEach
-        readerSessionStore.saveProgress(
-            item = item,
-            locator = progress.toReaderLocator(),
-            isFinished = progress.isFinished,
-            syncState = SyncState.SYNCING,
-            pageCount = readerSessionStore.getSession(item)?.pageCount,
-            updatedAtEpochMillis = progress.updatedAtEpochMillis,
-        )
+        val update = if (progress.isExplicitUnreadReset) {
+            GrimmoryProgressUpdate(
+                bookId = item.remoteId ?: return@forEach,
+                bookFileId = item.remoteFileId,
+                bookType = item.remoteFileType ?: item.format.name,
+                positionData = "0",
+                percent = 0.0,
+            )
+        } else {
+            progress.toGrimmoryProgressUpdate(item) ?: return@forEach
+        }
         runCatching {
             api.runWithTokenRefresh(
                 initialAccessToken = activeAccessToken,
@@ -48,19 +50,24 @@ internal suspend fun pushDirtyGrimmoryProgress(
             activeAccessToken = it.accessToken
             activeRefreshToken = it.refreshToken
             latestSession = it.refreshedSession ?: latestSession
-            readerSessionStore.saveProgress(
-                item = item,
-                locator = progress.toReaderLocator(),
-                isFinished = progress.isFinished,
-                syncState = SyncState.CLEAN,
-                pageCount = readerSessionStore.getSession(item)?.pageCount,
-                updatedAtEpochMillis = progress.updatedAtEpochMillis,
-            )
+            if (progress.isExplicitUnreadReset) {
+                readerSessionStore.clearProgress(item.id)
+            } else {
+                readerSessionStore.saveProgress(
+                    item = item,
+                    locator = progress.toReaderLocator(),
+                    isFinished = progress.isFinished,
+                    syncState = SyncState.CLEAN,
+                    pageCount = readerSessionStore.getSession(item)?.pageCount,
+                    updatedAtEpochMillis = progress.updatedAtEpochMillis,
+                )
+            }
         }.onFailure {
             readerSessionStore.saveProgress(
                 item = item,
                 locator = progress.toReaderLocator(),
                 isFinished = progress.isFinished,
+                isExplicitUnreadReset = progress.isExplicitUnreadReset,
                 syncState = SyncState.FAILED,
                 pageCount = readerSessionStore.getSession(item)?.pageCount,
                 updatedAtEpochMillis = progress.updatedAtEpochMillis,

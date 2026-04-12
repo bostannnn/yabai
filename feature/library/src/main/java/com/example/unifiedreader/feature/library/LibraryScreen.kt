@@ -66,6 +66,7 @@ fun LibraryScreen(
     onDeleteImportedItem: (ReadableItem) -> Unit = {},
     onDownloadItem: (ReadableItem) -> Unit = {},
     onDeleteDownloadedItem: (ReadableItem) -> Unit = {},
+    onSetReadStatus: (ReadableItem, Boolean) -> Unit = { _, _ -> },
 ) {
     var deleteCandidate by remember { mutableStateOf<ReadableItem?>(null) }
     var openFilterPanel by rememberSaveable { mutableStateOf<LibraryFilterPanel?>(null) }
@@ -169,6 +170,11 @@ fun LibraryScreen(
                             onSeriesReadingDirectionSelected = { direction ->
                                 onSeriesDirectionSelected(item, direction)
                             },
+                            readStatusActionState = itemReadStatusActionState(
+                                item = item,
+                                progress = progressByItemId[item.id],
+                                onSetReadStatus = onSetReadStatus,
+                            ),
                             onDeleteRequested = itemDeleteRequest(item) { deleteCandidate = it },
                             onDownloadRequested = itemDownloadRequest(
                                 item = item,
@@ -193,6 +199,11 @@ fun LibraryScreen(
                             onSeriesReadingDirectionSelected = { direction ->
                                 onSeriesDirectionSelected(item, direction)
                             },
+                            readStatusActionState = itemReadStatusActionState(
+                                item = item,
+                                progress = progressByItemId[item.id],
+                                onSetReadStatus = onSetReadStatus,
+                            ),
                             onDeleteRequested = itemDeleteRequest(item) { deleteCandidate = it },
                             onDownloadRequested = itemDownloadRequest(
                                 item = item,
