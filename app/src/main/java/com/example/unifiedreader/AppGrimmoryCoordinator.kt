@@ -8,7 +8,6 @@ import javax.inject.Inject
 class AppGrimmoryCoordinator @Inject constructor(
     private val grimmoryCatalogSyncer: GrimmoryCatalogSyncer,
     private val grimmoryCredentialStore: GrimmoryCredentialStore,
-    private val grimmoryCoverRepository: GrimmoryCoverDataSource,
 ) {
     fun refreshedConnectionState(
         connection: GrimmoryConnectionUiState,
@@ -131,7 +130,7 @@ class AppGrimmoryCoordinator @Inject constructor(
 
     internal suspend fun executeSync(
         preparation: GrimmorySyncPreparation.Ready,
-        clearCoverState: () -> Unit,
+        clearCoverState: suspend () -> Unit,
     ): GrimmorySyncExecutionResult = runCatching {
         val result = grimmoryCatalogSyncer.sync(preparation.request)
         persistRemoteSession(
@@ -163,7 +162,6 @@ class AppGrimmoryCoordinator @Inject constructor(
             },
         )
         clearCoverState()
-        grimmoryCoverRepository.clearCachedCovers()
         GrimmorySyncExecutionResult.Success(
             libraryCount = result.libraryCount,
             itemCount = result.itemCount,

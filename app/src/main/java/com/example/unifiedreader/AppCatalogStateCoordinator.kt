@@ -18,8 +18,7 @@ class AppCatalogStateCoordinator @Inject constructor(
     private val libraryStateAssembler: AppLibraryStateAssembler,
     private val observeAppCatalogSnapshotsUseCase: ObserveAppCatalogSnapshotsUseCase,
     private val readerSessionStore: com.example.unifiedreader.feature.reader.core.ReaderSessionStore,
-    private val stumpCoverCacheController: StumpCoverCacheController,
-    private val grimmoryCoverCacheController: GrimmoryCoverCacheController,
+    private val remoteCoverController: RemoteCoverController,
 ) {
     private var catalogLibraries = libraryRepository.getLibraries()
     private var catalogItems = readableItemRepository.getItems()
@@ -68,8 +67,7 @@ class AppCatalogStateCoordinator @Inject constructor(
                 catalogLibraries = snapshot.libraries
                 catalogItems = snapshot.catalogItems
                 val activeItemIds = snapshot.items.mapTo(mutableSetOf(), ReadableItem::id)
-                stumpCoverCacheController.removeMissingItems(activeItemIds)
-                grimmoryCoverCacheController.removeMissingItems(activeItemIds)
+                remoteCoverController.removeMissingItems(activeItemIds)
                 updateState { state ->
                     state.copy(
                         libraries = snapshot.libraries,

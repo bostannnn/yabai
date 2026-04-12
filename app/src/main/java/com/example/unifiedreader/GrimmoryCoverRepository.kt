@@ -1,43 +1,64 @@
 package com.example.unifiedreader
 
-import android.content.Context
 import android.net.Uri
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.data.grimmory.GrimmoryApi
 import java.io.File
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
+import javax.inject.Inject
 
-interface GrimmoryCoverDataSource {
-    suspend fun getCoverUri(
-        item: ReadableItem,
-    ): Uri?
+interface GrimmoryCoverDataSource : RemoteCoverDataSource
 
-    suspend fun clearCachedCovers()
-}
-
-class GrimmoryCoverRepository(
-    private val context: Context,
+class GrimmoryCoverRepository @Inject constructor(
     private val grimmoryApiFactory: GrimmoryApiFactory,
     private val grimmoryCredentialStore: GrimmoryCredentialStore,
+    private val coverStore: PersistentRemoteCoverStore,
 ) : GrimmoryCoverDataSource {
-    private val coverDownloadMutex = Mutex()
+    override val sourceType: SourceType = SourceType.GRIMMORY
     private val sessionRequestRunner = GrimmoryStoredSessionRequestRunner(grimmoryCredentialStore)
+
+    override fun cachedCover(
+        item: ReadableItem,
+    ): CachedRemoteCover? {
+        if (item.sourceType != sourceType) return null
+        return coverStore.cachedCoverFile(
+            storageDirectoryName = GRIMMORY_COVER_DIRECTORY_NAME,
+            fileName = item.grimmoryCacheFileName("cover"),
+            legacyDirectoryName = GRIMMORY_LEGACY_COVER_DIRECTORY_NAME,
+        )?.let { cachedCover ->
+            CachedRemoteCover(
+                uri = Uri.fromFile(cachedCover.file),
+                isPersistent = cachedCover.isPersistent,
+            )
+        }
+    }
 
     override suspend fun getCoverUri(
         item: ReadableItem,
     ): Uri? {
-        if (item.sourceType != SourceType.GRIMMORY) return null
-        val cachedFile = cacheFileFor(item)
+        if (item.sourceType != sourceType) return null
+        val fileName = item.grimmoryCacheFileName("cover")
+        val cachedFile = coverStore.persistentCoverFile(
+            storageDirectoryName = GRIMMORY_COVER_DIRECTORY_NAME,
+            fileName = fileName,
+        )
         if (cachedFile.isFile && cachedFile.length() > 0L) {
             return Uri.fromFile(cachedFile)
         }
-        coverDownloadMutex.withLock {
+        var resolvedUri: Uri? = null
+        coverStore.withStorageLock(GRIMMORY_COVER_DIRECTORY_NAME) {
+            coverStore.moveLegacyCoverIfPresent(
+                storageDirectoryName = GRIMMORY_COVER_DIRECTORY_NAME,
+                fileName = fileName,
+                legacyDirectoryName = GRIMMORY_LEGACY_COVER_DIRECTORY_NAME,
+            )?.let { migratedFile ->
+                if (migratedFile.isFile && migratedFile.length() > 0L) {
+                    resolvedUri = Uri.fromFile(migratedFile)
+                    return@withStorageLock
+                }
+            }
             if (cachedFile.isFile && cachedFile.length() > 0L) {
-                return@withLock
+                return@withStorageLock
             }
             val session = grimmoryCredentialStore.activeSessionFor(item)
                 ?: error("Connect to the active Grimmory server before loading remote covers.")
@@ -56,14 +77,16 @@ class GrimmoryCoverRepository(
                     destination = cachedFile,
                 )
             }
+            resolvedUri = Uri.fromFile(cachedFile)
         }
-        return Uri.fromFile(cachedFile)
+        return resolvedUri ?: Uri.fromFile(cachedFile)
     }
 
     override suspend fun clearCachedCovers() {
-        withContext(Dispatchers.IO) {
-            coverStorageDirectory().deleteRecursively()
-        }
+        coverStore.clearStorageDirectory(
+            storageDirectoryName = GRIMMORY_COVER_DIRECTORY_NAME,
+            legacyDirectoryName = GRIMMORY_LEGACY_COVER_DIRECTORY_NAME,
+        )
     }
 
     private suspend fun downloadWithTokenRefresh(
@@ -103,17 +126,7 @@ class GrimmoryCoverRepository(
         temporaryFile.writeBytes(bytes)
     }
 
-    private fun cacheFileFor(
-        item: ReadableItem,
-    ): File = File(
-        coverStorageDirectory(),
-        item.grimmoryCacheFileName("cover"),
-    )
-
-    private fun coverStorageDirectory(): File = File(
-        context.applicationContext.cacheDir,
-        "grimmory-covers",
-    ).apply {
-        mkdirs()
-    }
 }
+
+private const val GRIMMORY_COVER_DIRECTORY_NAME = "grimmory-covers"
+private const val GRIMMORY_LEGACY_COVER_DIRECTORY_NAME = "grimmory-covers"

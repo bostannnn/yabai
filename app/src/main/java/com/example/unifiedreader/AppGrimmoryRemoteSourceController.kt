@@ -9,7 +9,7 @@ import kotlinx.coroutines.launch
 class AppGrimmoryRemoteSourceController @Inject constructor(
     private val grimmoryCoordinator: AppGrimmoryCoordinator,
     private val grimmoryCredentialStore: GrimmoryCredentialStore,
-    private val grimmoryCoverCacheController: GrimmoryCoverCacheController,
+    private val remoteCoverController: RemoteCoverController,
 ) {
     fun initialize(
         updateState: AppUiStateUpdater,
@@ -151,7 +151,7 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
         scope: CoroutineScope,
     ) {
         scope.launch {
-            when (val result = grimmoryCoordinator.executeSync(preparation, ::clearCoverState)) {
+            when (val result = grimmoryCoordinator.executeSync(preparation, ::resetCoverState)) {
                 is GrimmorySyncExecutionResult.Success -> {
                     updateState { state ->
                         state.copy(
@@ -174,8 +174,8 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
         }
     }
 
-    private fun clearCoverState() {
-        grimmoryCoverCacheController.clear()
+    private suspend fun resetCoverState() {
+        remoteCoverController.resetSource(SourceType.GRIMMORY)
     }
 
     private fun updateConnection(

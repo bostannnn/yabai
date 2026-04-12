@@ -146,6 +146,7 @@ class AppKavitaCoordinator @Inject constructor(
 
     internal suspend fun executeSync(
         preparation: KavitaSyncPreparation.Ready,
+        clearCoverState: suspend () -> Unit,
         onProgress: (KavitaSyncProgress) -> Unit = {},
     ): KavitaSyncExecutionResult = runCatching {
         val result = kavitaCatalogSyncer.sync(
@@ -157,6 +158,7 @@ class AppKavitaCoordinator @Inject constructor(
             session = result.session,
             activeBaseUrl = result.activeBaseUrl,
         )
+        clearCoverState()
         KavitaSyncExecutionResult.Success(
             libraryCount = result.libraryCount,
             itemCount = result.itemCount,

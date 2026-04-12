@@ -1,43 +1,63 @@
 package com.example.unifiedreader
 
-import android.content.Context
 import android.net.Uri
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.isStumpSeriesContainer
-import java.io.File
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
+import javax.inject.Inject
 
-interface StumpCoverDataSource {
-    suspend fun getCoverUri(
-        item: ReadableItem,
-    ): Uri?
+interface StumpCoverDataSource : RemoteCoverDataSource
 
-    suspend fun clearCachedCovers()
-}
-
-class StumpCoverRepository(
-    private val context: Context,
+class StumpCoverRepository @Inject constructor(
     private val stumpApiFactory: StumpApiFactory,
     private val stumpCredentialStore: StumpCredentialStore,
+    private val coverStore: PersistentRemoteCoverStore,
 ) : StumpCoverDataSource {
-    private val coverDownloadMutex = Mutex()
+    override val sourceType: SourceType = SourceType.STUMP
     private val sessionRequestRunner = StumpStoredSessionRequestRunner(stumpCredentialStore)
+
+    override fun cachedCover(
+        item: ReadableItem,
+    ): CachedRemoteCover? {
+        if (item.sourceType != sourceType) return null
+        return coverStore.cachedCoverFile(
+            storageDirectoryName = STUMP_COVER_DIRECTORY_NAME,
+            fileName = item.stumpCacheFileName("cover"),
+            legacyDirectoryName = STUMP_LEGACY_COVER_DIRECTORY_NAME,
+        )?.let { cachedCover ->
+            CachedRemoteCover(
+                uri = Uri.fromFile(cachedCover.file),
+                isPersistent = cachedCover.isPersistent,
+            )
+        }
+    }
 
     override suspend fun getCoverUri(
         item: ReadableItem,
     ): Uri? {
-        if (item.sourceType != SourceType.STUMP) return null
-        val cachedFile = cacheFileFor(item)
+        if (item.sourceType != sourceType) return null
+        val fileName = item.stumpCacheFileName("cover")
+        val cachedFile = coverStore.persistentCoverFile(
+            storageDirectoryName = STUMP_COVER_DIRECTORY_NAME,
+            fileName = fileName,
+        )
         if (cachedFile.isFile && cachedFile.length() > 0L) {
             return Uri.fromFile(cachedFile)
         }
-        coverDownloadMutex.withLock {
+        var resolvedUri: Uri? = null
+        coverStore.withStorageLock(STUMP_COVER_DIRECTORY_NAME) {
+            coverStore.moveLegacyCoverIfPresent(
+                storageDirectoryName = STUMP_COVER_DIRECTORY_NAME,
+                fileName = fileName,
+                legacyDirectoryName = STUMP_LEGACY_COVER_DIRECTORY_NAME,
+            )?.let { migratedFile ->
+                if (migratedFile.isFile && migratedFile.length() > 0L) {
+                    resolvedUri = Uri.fromFile(migratedFile)
+                    return@withStorageLock
+                }
+            }
             if (cachedFile.isFile && cachedFile.length() > 0L) {
-                return@withLock
+                return@withStorageLock
             }
             val session = stumpCredentialStore.activeSessionFor(item)
                 ?: error("Connect to the active Stump server before loading remote covers.")
@@ -94,28 +114,16 @@ class StumpCoverRepository(
                     }
                 }
             }
+            resolvedUri = Uri.fromFile(cachedFile)
         }
-        return Uri.fromFile(cachedFile)
+        return resolvedUri ?: Uri.fromFile(cachedFile)
     }
 
     override suspend fun clearCachedCovers() {
-        withContext(Dispatchers.IO) {
-            coverStorageDirectory().deleteRecursively()
-        }
-    }
-
-    private fun cacheFileFor(
-        item: ReadableItem,
-    ): File = File(
-        coverStorageDirectory(),
-        item.stumpCacheFileName("cover"),
-    )
-
-    private fun coverStorageDirectory(): File = File(
-        context.applicationContext.cacheDir,
-        "stump-covers",
-    ).apply {
-        mkdirs()
+        coverStore.clearStorageDirectory(
+            storageDirectoryName = STUMP_COVER_DIRECTORY_NAME,
+            legacyDirectoryName = STUMP_LEGACY_COVER_DIRECTORY_NAME,
+        )
     }
 }
 
@@ -125,3 +133,6 @@ internal fun ReadableItem.stumpCacheFileName(
     id.toSafeFileSegment(),
     remoteFileType?.toSafeFileSegment(),
 ).joinToString(separator = "-").plus(".$extension")
+
+private const val STUMP_COVER_DIRECTORY_NAME = "stump-covers"
+private const val STUMP_LEGACY_COVER_DIRECTORY_NAME = "stump-covers"

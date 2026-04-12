@@ -8,7 +8,6 @@ import javax.inject.Inject
 class AppStumpCoordinator @Inject constructor(
     private val stumpCatalogSyncer: StumpCatalogSyncer,
     private val stumpCredentialStore: StumpCredentialStore,
-    private val stumpCoverRepository: StumpCoverDataSource,
 ) {
     fun refreshedConnectionState(
         connection: StumpConnectionUiState,
@@ -131,7 +130,7 @@ class AppStumpCoordinator @Inject constructor(
 
     internal suspend fun executeSync(
         preparation: StumpSyncPreparation.Ready,
-        clearCoverState: () -> Unit,
+        clearCoverState: suspend () -> Unit,
         onProgress: (StumpSyncProgress) -> Unit = {},
     ): StumpSyncExecutionResult = runCatching {
         val result = stumpCatalogSyncer.sync(
@@ -167,7 +166,6 @@ class AppStumpCoordinator @Inject constructor(
             },
         )
         clearCoverState()
-        stumpCoverRepository.clearCachedCovers()
         StumpSyncExecutionResult.Success(
             libraryCount = result.libraryCount,
             itemCount = result.itemCount,

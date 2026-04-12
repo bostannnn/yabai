@@ -197,7 +197,6 @@ internal fun createViewModel(
                 kavitaCoordinator = AppKavitaCoordinator(
                     kavitaCatalogSyncer = kavitaCatalogSyncer,
                     kavitaCredentialStore = kavitaCredentialStore,
-                    kavitaCoverRepository = kavitaCoverRepository,
                 ),
                 kavitaCredentialStore = kavitaCredentialStore,
                 comicPageSourceCacheController = comicPageSourceCacheController,
@@ -208,7 +207,6 @@ internal fun createViewModel(
                 stumpCoordinator = AppStumpCoordinator(
                     stumpCatalogSyncer = stumpCatalogSyncer,
                     stumpCredentialStore = stumpCredentialStore,
-                    stumpCoverRepository = stumpCoverRepository,
                 ),
                 stumpCredentialStore = stumpCredentialStore,
                 remoteCoverController = remoteCoverController,
@@ -219,7 +217,6 @@ internal fun createViewModel(
                 grimmoryCoordinator = AppGrimmoryCoordinator(
                     grimmoryCatalogSyncer = grimmoryCatalogSyncer,
                     grimmoryCredentialStore = grimmoryCredentialStore,
-                    grimmoryCoverRepository = grimmoryCoverRepository,
                 ),
                 grimmoryCredentialStore = grimmoryCredentialStore,
                 remoteCoverController = remoteCoverController,
@@ -539,19 +536,30 @@ class FakeStumpCoverRepository : StumpCoverDataSource {
 
     constructor(
         coverUri: Uri? = null,
+        isPersistent: Boolean = true,
     ) {
         this.coverUri = coverUri
+        this.isPersistent = isPersistent
     }
 
     private var coverUri: Uri? = null
+    private var isPersistent: Boolean = true
 
-    override fun cachedCoverUri(
+    override fun cachedCover(
         item: ReadableItem,
-    ): Uri? = coverUri
+    ): CachedRemoteCover? = coverUri?.let { uri ->
+        CachedRemoteCover(
+            uri = uri,
+            isPersistent = isPersistent,
+        )
+    }
 
     override suspend fun getCoverUri(
         item: ReadableItem,
-    ): Uri? = coverUri
+    ): Uri? {
+        isPersistent = true
+        return coverUri
+    }
 
     override suspend fun clearCachedCovers() {
         clearCachedCoversCalls += 1
@@ -565,19 +573,30 @@ class FakeKavitaCoverRepository : KavitaCoverDataSource {
 
     constructor(
         coverUri: Uri? = null,
+        isPersistent: Boolean = true,
     ) {
         this.coverUri = coverUri
+        this.isPersistent = isPersistent
     }
 
     private var coverUri: Uri? = null
+    private var isPersistent: Boolean = true
 
-    override fun cachedCoverUri(
+    override fun cachedCover(
         item: ReadableItem,
-    ): Uri? = coverUri
+    ): CachedRemoteCover? = coverUri?.let { uri ->
+        CachedRemoteCover(
+            uri = uri,
+            isPersistent = isPersistent,
+        )
+    }
 
     override suspend fun getCoverUri(
         item: ReadableItem,
-    ): Uri? = coverUri
+    ): Uri? {
+        isPersistent = true
+        return coverUri
+    }
 
     override suspend fun clearCachedCovers() {
         clearCachedCoversCalls += 1
@@ -608,20 +627,31 @@ class FakeGrimmoryCoverRepository : GrimmoryCoverDataSource {
     override val sourceType: SourceType = SourceType.GRIMMORY
     var clearCachedCoversCalls: Int = 0
     private var coverUri: Uri? = null
+    private var isPersistent: Boolean = true
 
     constructor(
         coverUri: Uri? = null,
+        isPersistent: Boolean = true,
     ) {
         this.coverUri = coverUri
+        this.isPersistent = isPersistent
     }
 
-    override fun cachedCoverUri(
+    override fun cachedCover(
         item: ReadableItem,
-    ): Uri? = coverUri
+    ): CachedRemoteCover? = coverUri?.let { uri ->
+        CachedRemoteCover(
+            uri = uri,
+            isPersistent = isPersistent,
+        )
+    }
 
     override suspend fun getCoverUri(
         item: ReadableItem,
-    ): Uri? = coverUri
+    ): Uri? {
+        isPersistent = true
+        return coverUri
+    }
 
     override suspend fun clearCachedCovers() {
         clearCachedCoversCalls += 1

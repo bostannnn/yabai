@@ -12,6 +12,7 @@ class AppKavitaRemoteSourceController @Inject constructor(
     private val kavitaCredentialStore: KavitaCredentialStore,
     private val comicPageSourceCacheController: ComicPageSourceCacheController,
     private val remoteLibraryCacheStore: RemoteLibraryCacheStore,
+    private val remoteCoverController: RemoteCoverController,
 ) {
     private var suppressedObservedLibraryRefresh: KavitaStoredSessionKey? = null
 
@@ -221,6 +222,7 @@ class AppKavitaRemoteSourceController @Inject constructor(
             when (
                 val result = kavitaCoordinator.executeSync(
                     preparation = preparation,
+                    clearCoverState = ::resetCoverState,
                     onProgress = { progress ->
                         updateState { state ->
                             state.copy(
@@ -307,6 +309,10 @@ class AppKavitaRemoteSourceController @Inject constructor(
 
     private fun clearPageCache() {
         comicPageSourceCacheController.clearSourcePageCache(SourceType.KAVITA)
+    }
+
+    private suspend fun resetCoverState() {
+        remoteCoverController.resetSource(SourceType.KAVITA)
     }
 
     private fun suppressObservedLibraryRefresh(

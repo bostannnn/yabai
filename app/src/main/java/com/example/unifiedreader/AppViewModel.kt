@@ -200,6 +200,10 @@ class AppViewModel @Inject constructor(
         return libraryActionsCoordinator.coverImageUrlFor(item)
     }
 
+    fun coverPrefetchKeyFor(item: ReadableItem): String? {
+        return libraryActionsCoordinator.coverPrefetchKeyFor(item)
+    }
+
     fun ensureCoverCached(item: ReadableItem) {
         libraryActionsCoordinator.ensureCoverCached(
             item = item,

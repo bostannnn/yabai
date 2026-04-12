@@ -119,6 +119,7 @@ fun UnifiedReaderScaffold(
                         browseContextKey = uiState.libraryBrowseContextKey,
                         initialScrollPosition = viewModel.libraryScrollPositionFor(uiState.libraryBrowseContextKey),
                         coverImageUrlProvider = viewModel::coverImageUrlFor,
+                        coverPrefetchKeyProvider = viewModel::coverPrefetchKeyFor,
                         onCoverVisible = viewModel::ensureCoverCached,
                         onScrollPositionChanged = { position ->
                             viewModel.onLibraryScrollPositionChanged(
@@ -193,6 +194,7 @@ private fun LibraryRoute(
     browseContextKey: String,
     initialScrollPosition: LibraryScrollPosition,
     coverImageUrlProvider: (ReadableItem) -> String?,
+    coverPrefetchKeyProvider: (ReadableItem) -> String?,
     onCoverVisible: (ReadableItem) -> Unit,
     onScrollPositionChanged: (LibraryScrollPosition) -> Unit,
     onItemSelected: (ReadableItem) -> Unit,
@@ -231,6 +233,7 @@ private fun LibraryRoute(
             sortMode = uiState.selectedLibrarySortMode,
             showSortControl = showSortControl,
             coverImageUrlProvider = coverImageUrlProvider,
+            coverPrefetchKeyProvider = coverPrefetchKeyProvider,
             onCoverVisible = onCoverVisible,
             onFilterStateChanged = onFilterStateChanged,
             onClearFilters = onClearFilters,

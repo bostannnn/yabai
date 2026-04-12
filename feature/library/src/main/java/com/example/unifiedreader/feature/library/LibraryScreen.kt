@@ -53,6 +53,7 @@ fun LibraryScreen(
     sortMode: LibrarySortMode = defaultLibrarySortMode,
     showSortControl: Boolean = true,
     coverImageUrlProvider: (ReadableItem) -> String? = { it.coverUrl },
+    coverPrefetchKeyProvider: (ReadableItem) -> String? = coverImageUrlProvider,
     onCoverVisible: (ReadableItem) -> Unit = {},
     onFilterStateChanged: (LibraryFilterState) -> Unit = {},
     onClearFilters: () -> Unit = {},
@@ -165,6 +166,7 @@ fun LibraryScreen(
                             isDownloading = item.id in downloadingItemIds,
                             seriesReadingDirection = seriesReadingDirectionFor(item),
                             coverImageUrlProvider = coverImageUrlProvider,
+                            coverPrefetchKeyProvider = coverPrefetchKeyProvider,
                             onCoverVisible = onCoverVisible,
                             onClick = { onItemSelected(item) },
                             onSeriesReadingDirectionSelected = { direction ->
@@ -194,6 +196,7 @@ fun LibraryScreen(
                             isDownloading = item.id in downloadingItemIds,
                             seriesReadingDirection = seriesReadingDirectionFor(item),
                             coverImageUrlProvider = coverImageUrlProvider,
+                            coverPrefetchKeyProvider = coverPrefetchKeyProvider,
                             onCoverVisible = onCoverVisible,
                             onClick = { onItemSelected(item) },
                             onSeriesReadingDirectionSelected = { direction ->

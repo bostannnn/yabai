@@ -100,6 +100,7 @@ internal fun DetailedItemCard(
     isDownloading: Boolean,
     seriesReadingDirection: ComicReadingDirection? = null,
     coverImageUrlProvider: (ReadableItem) -> String?,
+    coverPrefetchKeyProvider: (ReadableItem) -> String? = coverImageUrlProvider,
     onCoverVisible: (ReadableItem) -> Unit,
     onClick: () -> Unit,
     onSeriesReadingDirectionSelected: ((ComicReadingDirection) -> Unit)? = null,
@@ -147,6 +148,7 @@ internal fun DetailedItemCard(
                     LibraryCover(
                         item = item,
                         coverUrl = coverImageUrlProvider(item),
+                        coverPrefetchKey = coverPrefetchKeyProvider(item),
                         isDownloaded = isDownloaded,
                         isRead = progress?.isComplete == true,
                         onCoverVisible = onCoverVisible,
@@ -180,6 +182,7 @@ internal fun GridCoverCard(
     isDownloading: Boolean,
     seriesReadingDirection: ComicReadingDirection? = null,
     coverImageUrlProvider: (ReadableItem) -> String?,
+    coverPrefetchKeyProvider: (ReadableItem) -> String? = coverImageUrlProvider,
     onCoverVisible: (ReadableItem) -> Unit,
     onClick: () -> Unit,
     onSeriesReadingDirectionSelected: ((ComicReadingDirection) -> Unit)? = null,
@@ -199,6 +202,7 @@ internal fun GridCoverCard(
         LibraryCover(
             item = item,
             coverUrl = coverImageUrlProvider(item),
+            coverPrefetchKey = coverPrefetchKeyProvider(item),
             isDownloaded = isDownloaded,
             isRead = progress?.isComplete == true,
             downloadBadgeBottomInset = if (showCoverProgress) 2.dp else 0.dp,
@@ -242,6 +246,7 @@ internal fun GridCoverCard(
 private fun LibraryCover(
     item: ReadableItem,
     coverUrl: String? = item.coverUrl,
+    coverPrefetchKey: String? = coverUrl,
     isDownloaded: Boolean = false,
     isRead: Boolean = false,
     downloadBadgeBottomInset: androidx.compose.ui.unit.Dp = 0.dp,
@@ -251,11 +256,8 @@ private fun LibraryCover(
     val coverShape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
     val coverBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)
 
-    LaunchedEffect(item.id, item.sourceType, coverUrl) {
-        if (
-            item.sourceType in setOf(SourceType.GRIMMORY, SourceType.STUMP) &&
-            !coverUrl.orEmpty().startsWith("file:", ignoreCase = true)
-        ) {
+    LaunchedEffect(item.id, item.sourceType, coverPrefetchKey) {
+        if (shouldPrefetchRemoteCover(item)) {
             onCoverVisible(item)
         }
     }
@@ -358,6 +360,10 @@ private fun LibraryCover(
         }
     }
 }
+
+internal fun shouldPrefetchRemoteCover(
+    item: ReadableItem,
+): Boolean = item.sourceType != SourceType.LOCAL
 
 @Composable
 private fun DetailedItemTextBlock(

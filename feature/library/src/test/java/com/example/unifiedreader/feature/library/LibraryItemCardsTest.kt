@@ -14,9 +14,40 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class LibraryItemCardsTest {
+    @Test
+    fun `remote cover prefetch includes every remote source`() {
+        assertTrue(shouldPrefetchRemoteCover(kavitaIssue(id = "chapter-1", title = "Akira 001", seriesKey = "series-7")))
+        assertTrue(shouldPrefetchRemoteCover(stumpIssue(id = "issue-1", title = "Akira 001", seriesKey = "series-7")))
+        assertTrue(
+            shouldPrefetchRemoteCover(
+                ReadableItem(
+                    id = "grimmory:item:book-1",
+                    sourceType = SourceType.GRIMMORY,
+                    libraryId = "grimmory:library:books",
+                    remoteId = "book-1",
+                    title = "Grimmory Book",
+                    format = FormatType.EPUB,
+                    coverUrl = "https://grimmory.example/api/v1/media/book/book-1/thumbnail",
+                ),
+            ),
+        )
+        assertFalse(
+            shouldPrefetchRemoteCover(
+                ReadableItem(
+                    id = "local:item:book-1",
+                    sourceType = SourceType.LOCAL,
+                    libraryId = "local-imports",
+                    title = "Local Book",
+                    format = FormatType.EPUB,
+                ),
+            ),
+        )
+    }
+
     @Test
     fun `kavita series container exposes download action`() {
         val seriesItem = buildKavitaSeriesContainer(

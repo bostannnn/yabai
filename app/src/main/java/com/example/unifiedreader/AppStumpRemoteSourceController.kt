@@ -10,7 +10,7 @@ import kotlinx.coroutines.launch
 class AppStumpRemoteSourceController @Inject constructor(
     private val stumpCoordinator: AppStumpCoordinator,
     private val stumpCredentialStore: StumpCredentialStore,
-    private val stumpCoverCacheController: StumpCoverCacheController,
+    private val remoteCoverController: RemoteCoverController,
     private val comicPageSourceCacheController: ComicPageSourceCacheController,
     private val remoteLibraryCacheStore: RemoteLibraryCacheStore,
 ) {
@@ -222,7 +222,7 @@ class AppStumpRemoteSourceController @Inject constructor(
             when (
                 val result = stumpCoordinator.executeSync(
                     preparation = preparation,
-                    clearCoverState = ::clearCoverState,
+                    clearCoverState = ::resetCoverState,
                     onProgress = { progress ->
                         updateState { state ->
                             state.copy(
@@ -308,8 +308,8 @@ class AppStumpRemoteSourceController @Inject constructor(
         }
     }
 
-    private fun clearCoverState() {
-        stumpCoverCacheController.clear()
+    private suspend fun resetCoverState() {
+        remoteCoverController.resetSource(SourceType.STUMP)
     }
 
     private fun clearPageCache() {

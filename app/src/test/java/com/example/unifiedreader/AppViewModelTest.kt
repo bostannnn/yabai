@@ -1312,9 +1312,10 @@ class AppViewModelTest {
 
         assertEquals(listOf(SourceType.KAVITA), pageCacheController.clearedSourceTypes)
         assertEquals(1, kavitaCoverRepository.clearCachedCoversCalls)
-        assertEquals(
-            "https://kavita.example/api/Image/chapter-cover?chapterId=issue-1&apiKey=saved-api-key",
-            viewModel.coverImageUrlFor(kavitaItem),
+        assertRemoteCoverUrl(
+            expectedBaseUrl = "https://kavita.example/api/Image/chapter-cover?chapterId=issue-1&apiKey=saved-api-key",
+            expectedVersion = 2,
+            actualUrl = viewModel.coverImageUrlFor(kavitaItem),
         )
     }
 
@@ -1821,9 +1822,10 @@ class AppViewModelTest {
         assertEquals(SourceType.GRIMMORY, viewModel.uiState.selectedSource)
         assertEquals("Grimmory library synced.", viewModel.uiState.grimmoryConnection.message)
         assertEquals(1, grimmoryCoverRepository.clearCachedCoversCalls)
-        assertEquals(
-            "https://grimmory.example/api/v1/media/book/book-1/thumbnail",
-            viewModel.coverImageUrlFor(grimmoryItem),
+        assertRemoteCoverUrl(
+            expectedBaseUrl = "https://grimmory.example/api/v1/media/book/book-1/thumbnail",
+            expectedVersion = 2,
+            actualUrl = viewModel.coverImageUrlFor(grimmoryItem),
         )
     }
 
@@ -1974,4 +1976,12 @@ class AppViewModelTest {
         assertNull(readerSessionStore.getSession(importedItem))
     }
 
+}
+
+private fun assertRemoteCoverUrl(
+    expectedBaseUrl: String,
+    expectedVersion: Int,
+    actualUrl: String?,
+) {
+    assertEquals("$expectedBaseUrl#coverv=$expectedVersion", actualUrl)
 }
