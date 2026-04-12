@@ -18,16 +18,14 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -36,17 +34,17 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.displayName
 
 @Composable
 fun LibraryTopBar(
     selectedSource: SourceType,
     searchQuery: String,
     seriesTitle: String?,
-    onSourceSelected: (SourceType) -> Unit,
+    onDrawerClick: () -> Unit,
     onSearchQueryChanged: (String) -> Unit,
     downloadBadgeCount: Int,
     onDownloadsClick: () -> Unit,
-    onSettingsClick: () -> Unit,
     onImportLocalFileClick: () -> Unit,
     onLeaveSeries: () -> Unit,
 ) {
@@ -65,25 +63,16 @@ fun LibraryTopBar(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (seriesTitle != null) {
-                        SeriesContextHeader(
-                            title = seriesTitle,
-                            onBack = onLeaveSeries,
-                            modifier = Modifier.weight(1f),
-                        )
-                    } else {
-                        SourceTabs(
-                            selectedSource = selectedSource,
-                            topLevel = TopLevelDestination.Library,
-                            onSourceSelected = onSourceSelected,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
+                    LibraryTopBarTitle(
+                        selectedSource = selectedSource,
+                        seriesTitle = seriesTitle,
+                        onDrawerClick = onDrawerClick,
+                        onLeaveSeries = onLeaveSeries,
+                        modifier = Modifier.weight(1f),
+                    )
                     LibraryToolbarActions(
-                        topLevel = TopLevelDestination.Library,
                         downloadBadgeCount = downloadBadgeCount,
                         onDownloadsClick = onDownloadsClick,
-                        onSettingsClick = onSettingsClick,
                         onImportLocalFileClick = onImportLocalFileClick,
                     )
                 }
@@ -98,24 +87,15 @@ fun LibraryTopBar(
                 modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.Center,
             ) {
-                if (seriesTitle != null) {
-                    SeriesContextHeader(
-                        title = seriesTitle,
-                        onBack = onLeaveSeries,
-                        modifier = Modifier
-                            .align(Alignment.CenterStart)
-                            .widthIn(max = 320.dp),
-                    )
-                } else {
-                    SourceTabs(
-                        selectedSource = selectedSource,
-                        topLevel = TopLevelDestination.Library,
-                        onSourceSelected = onSourceSelected,
-                        modifier = Modifier
-                            .align(Alignment.CenterStart)
-                            .widthIn(max = 260.dp),
-                    )
-                }
+                LibraryTopBarTitle(
+                    selectedSource = selectedSource,
+                    seriesTitle = seriesTitle,
+                    onDrawerClick = onDrawerClick,
+                    onLeaveSeries = onLeaveSeries,
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .widthIn(max = 320.dp),
+                )
                 LibrarySearchField(
                     query = searchQuery,
                     onQueryChanged = onSearchQueryChanged,
@@ -124,10 +104,8 @@ fun LibraryTopBar(
                         .widthIn(min = 280.dp, max = 340.dp),
                 )
                 LibraryToolbarActions(
-                    topLevel = TopLevelDestination.Library,
                     downloadBadgeCount = downloadBadgeCount,
                     onDownloadsClick = onDownloadsClick,
-                    onSettingsClick = onSettingsClick,
                     onImportLocalFileClick = onImportLocalFileClick,
                     modifier = Modifier.align(Alignment.CenterEnd),
                 )
@@ -138,9 +116,7 @@ fun LibraryTopBar(
 
 @Composable
 fun SettingsTopBar(
-    selectedSource: SourceType,
-    onSourceSelected: (SourceType) -> Unit,
-    onSettingsClick: () -> Unit,
+    onDrawerClick: () -> Unit,
     onImportLocalFileClick: () -> Unit,
 ) {
     BoxWithConstraints(
@@ -152,17 +128,14 @@ fun SettingsTopBar(
             modifier = Modifier.fillMaxWidth(),
             contentAlignment = Alignment.Center,
         ) {
-            SourceTabs(
-                selectedSource = selectedSource,
-                topLevel = TopLevelDestination.Settings,
-                onSourceSelected = onSourceSelected,
+            AppSectionHeader(
+                title = "Settings",
+                onDrawerClick = onDrawerClick,
                 modifier = Modifier
                     .align(Alignment.CenterStart)
-                    .widthIn(max = 260.dp),
+                    .widthIn(max = 280.dp),
             )
             LibraryToolbarActions(
-                topLevel = TopLevelDestination.Settings,
-                onSettingsClick = onSettingsClick,
                 onImportLocalFileClick = onImportLocalFileClick,
                 modifier = Modifier.align(Alignment.CenterEnd),
             )
@@ -171,9 +144,11 @@ fun SettingsTopBar(
 }
 
 @Composable
-private fun SeriesContextHeader(
-    title: String,
-    onBack: () -> Unit,
+private fun LibraryTopBarTitle(
+    selectedSource: SourceType,
+    seriesTitle: String?,
+    onDrawerClick: () -> Unit,
+    onLeaveSeries: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -182,16 +157,27 @@ private fun SeriesContextHeader(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(
-            onClick = onBack,
+            onClick = onDrawerClick,
             modifier = Modifier.size(36.dp),
         ) {
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back to series list",
+                imageVector = Icons.Default.Menu,
+                contentDescription = "Open navigation drawer",
             )
         }
+        if (seriesTitle != null) {
+            IconButton(
+                onClick = onLeaveSeries,
+                modifier = Modifier.size(36.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back to series list",
+                )
+            }
+        }
         Text(
-            text = title,
+            text = seriesTitle ?: selectedSource.displayName(),
             style = MaterialTheme.typography.titleMedium,
             maxLines = 1,
         )
@@ -199,24 +185,30 @@ private fun SeriesContextHeader(
 }
 
 @Composable
-private fun SourceTabs(
-    selectedSource: SourceType,
-    topLevel: TopLevelDestination,
-    onSourceSelected: (SourceType) -> Unit,
+private fun AppSectionHeader(
+    title: String,
+    onDrawerClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    ScrollableTabRow(
-        selectedTabIndex = selectedSource.ordinal,
+    Row(
         modifier = modifier,
-        edgePadding = 0.dp,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        SourceType.entries.forEach { source ->
-            Tab(
-                selected = topLevel == TopLevelDestination.Library && source == selectedSource,
-                onClick = { onSourceSelected(source) },
-                text = { Text(text = source.displayName()) },
+        IconButton(
+            onClick = onDrawerClick,
+            modifier = Modifier.size(36.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Default.Menu,
+                contentDescription = "Open navigation drawer",
             )
         }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            maxLines = 1,
+        )
     }
 }
 
@@ -289,10 +281,8 @@ private fun LibrarySearchField(
 
 @Composable
 private fun LibraryToolbarActions(
-    topLevel: TopLevelDestination,
     downloadBadgeCount: Int = 0,
     onDownloadsClick: (() -> Unit)? = null,
-    onSettingsClick: () -> Unit,
     onImportLocalFileClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -320,17 +310,6 @@ private fun LibraryToolbarActions(
                 }
             }
         }
-        IconButton(onClick = onSettingsClick) {
-            Icon(
-                imageVector = Icons.Default.Settings,
-                contentDescription = "Settings",
-                tint = if (topLevel == TopLevelDestination.Settings) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-            )
-        }
         IconButton(onClick = onImportLocalFileClick) {
             Icon(
                 imageVector = Icons.Default.Add,
@@ -338,13 +317,6 @@ private fun LibraryToolbarActions(
             )
         }
     }
-}
-
-private fun SourceType.displayName(): String = when (this) {
-    SourceType.KAVITA -> "Kavita"
-    SourceType.STUMP -> "Stump"
-    SourceType.GRIMMORY -> "Grimmory"
-    SourceType.LOCAL -> "Local"
 }
 
 private const val LibrarySearchFieldTag = "library-search-field"

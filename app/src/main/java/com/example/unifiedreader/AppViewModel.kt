@@ -13,6 +13,7 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.downloads.DownloadEntriesSnapshot
 import com.example.unifiedreader.feature.library.LibraryDerivedStateComputer
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
+import com.example.unifiedreader.feature.navigation.SourceOrderMoveDirection
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesStore
 import com.example.unifiedreader.feature.reader.comics.ComicReaderProgressStore
@@ -27,6 +28,7 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class AppViewModel @Inject constructor(
+    private val navigationController: AppNavigationController,
     private val libraryBrowseController: AppLibraryBrowseController,
     private val settingsController: AppSettingsController,
     private val remoteDownloadController: AppRemoteDownloadController,
@@ -83,6 +85,26 @@ class AppViewModel @Inject constructor(
 
     fun onSourceSelected(sourceType: SourceType) {
         openLibrarySource(sourceType)
+    }
+
+    fun moveSourceUp(sourceType: SourceType) {
+        navigationController.moveSource(
+            currentState = uiState,
+            updateState = ::updateUiState,
+            scope = viewModelScope,
+            sourceType = sourceType,
+            direction = SourceOrderMoveDirection.Up,
+        )
+    }
+
+    fun moveSourceDown(sourceType: SourceType) {
+        navigationController.moveSource(
+            currentState = uiState,
+            updateState = ::updateUiState,
+            scope = viewModelScope,
+            sourceType = sourceType,
+            direction = SourceOrderMoveDirection.Down,
+        )
     }
 
     fun onLibraryFiltersChanged(filters: LibraryFilterState) {
@@ -547,7 +569,11 @@ class AppViewModel @Inject constructor(
     }
 
     private fun initialUiState(): AppUiState {
-        val baseState = AppUiState()
+        val navigationState = navigationController.initialState()
+        val baseState = AppUiState(
+            sourceOrder = navigationState.sourceOrder,
+            selectedSource = navigationState.startupSource,
+        )
         return baseState.withLibraryDerivedState(
             libraryDerivedStateComputer.compute(baseState.toLibraryDerivedStateInput()),
         )

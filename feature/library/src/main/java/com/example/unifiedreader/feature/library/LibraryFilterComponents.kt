@@ -47,6 +47,7 @@ import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.authorFacetKey
+import com.example.unifiedreader.core.model.displayName
 
 @Composable
 internal fun EmptyLibraryState(

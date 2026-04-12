@@ -4,11 +4,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
@@ -18,10 +21,14 @@ import com.example.unifiedreader.feature.downloads.DownloadsSheet
 import com.example.unifiedreader.feature.library.LibraryScreen
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
 import com.example.unifiedreader.feature.library.LibraryViewMode
+import com.example.unifiedreader.feature.navigation.SourceNavigationDestination
+import com.example.unifiedreader.feature.navigation.SourceNavigationDrawer
+import com.example.unifiedreader.feature.navigation.SourceNavigationSettingsSection
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import com.example.unifiedreader.feature.settings.SettingsScreen
 import com.example.unifiedreader.feature.settings.direction.ReadingDirectionLibraryUiState
 import com.example.unifiedreader.feature.settings.direction.buildComicReadingDirectionLibraryRows
+import kotlinx.coroutines.launch
 
 @Composable
 fun UnifiedReaderScaffold(
@@ -31,6 +38,8 @@ fun UnifiedReaderScaffold(
     onImportLocalFileClick: () -> Unit,
     viewModel: AppViewModel,
 ) {
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val drawerScope = rememberCoroutineScope()
     val kavitaReadingDirectionLibraries = remember(
         uiState.kavitaConnection.availableLibraries,
         uiState.comicReadingDirectionPreferences,
@@ -51,105 +60,127 @@ fun UnifiedReaderScaffold(
             sourceType = SourceType.STUMP,
         )
     }
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-        ) {
-            when (uiState.topLevel) {
-                TopLevelDestination.Library -> LibraryTopBar(
-                    selectedSource = uiState.selectedSource,
-                    searchQuery = uiState.selectedLibrarySearchQuery,
-                    seriesTitle = uiState.selectedSeriesTitle,
-                    onSourceSelected = viewModel::openLibrarySource,
-                    onSearchQueryChanged = viewModel::onLibrarySearchQueryChanged,
-                    downloadBadgeCount = viewModel.downloadsSnapshot.badgeCount,
-                    onDownloadsClick = viewModel::showDownloadsSheet,
-                    onSettingsClick = {
-                        viewModel.onTopLevelSelected(TopLevelDestination.Settings)
-                    },
-                    onImportLocalFileClick = onImportLocalFileClick,
-                    onLeaveSeries = viewModel::onBackPressed,
-                )
 
-                TopLevelDestination.Settings -> SettingsTopBar(
-                    selectedSource = uiState.selectedSource,
-                    onSourceSelected = viewModel::openLibrarySource,
-                    onSettingsClick = {
-                        viewModel.onTopLevelSelected(TopLevelDestination.Settings)
-                    },
-                    onImportLocalFileClick = onImportLocalFileClick,
+    SourceNavigationDrawer(
+        drawerState = drawerState,
+        sourceOrder = uiState.sourceOrder,
+        selectedDestination = when (uiState.topLevel) {
+            TopLevelDestination.Library -> SourceNavigationDestination.Source(uiState.selectedSource)
+            TopLevelDestination.Settings -> SourceNavigationDestination.Settings
+        },
+        onDestinationSelected = { destination ->
+            drawerScope.launch {
+                drawerState.close()
+            }
+            when (destination) {
+                is SourceNavigationDestination.Source -> viewModel.openLibrarySource(destination.sourceType)
+                SourceNavigationDestination.Settings -> viewModel.onTopLevelSelected(TopLevelDestination.Settings)
+            }
+        },
+    ) {
+        Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
+        ) { innerPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+            ) {
+                when (uiState.topLevel) {
+                    TopLevelDestination.Library -> LibraryTopBar(
+                        selectedSource = uiState.selectedSource,
+                        searchQuery = uiState.selectedLibrarySearchQuery,
+                        seriesTitle = uiState.selectedSeriesTitle,
+                        onDrawerClick = {
+                            drawerScope.launch {
+                                drawerState.open()
+                            }
+                        },
+                        onSearchQueryChanged = viewModel::onLibrarySearchQueryChanged,
+                        downloadBadgeCount = viewModel.downloadsSnapshot.badgeCount,
+                        onDownloadsClick = viewModel::showDownloadsSheet,
+                        onImportLocalFileClick = onImportLocalFileClick,
+                        onLeaveSeries = viewModel::onBackPressed,
+                    )
+
+                    TopLevelDestination.Settings -> SettingsTopBar(
+                        onDrawerClick = {
+                            drawerScope.launch {
+                                drawerState.open()
+                            }
+                        },
+                        onImportLocalFileClick = onImportLocalFileClick,
+                    )
+                }
+                when (uiState.topLevel) {
+                    TopLevelDestination.Library -> LibraryRoute(
+                        uiState = uiState,
+                        viewMode = libraryViewMode,
+                        browseContextKey = uiState.libraryBrowseContextKey,
+                        initialScrollPosition = viewModel.libraryScrollPositionFor(uiState.libraryBrowseContextKey),
+                        coverImageUrlProvider = viewModel::coverImageUrlFor,
+                        onCoverVisible = viewModel::ensureCoverCached,
+                        onScrollPositionChanged = { position ->
+                            viewModel.onLibraryScrollPositionChanged(
+                                contextKey = uiState.libraryBrowseContextKey,
+                                position = position,
+                            )
+                        },
+                        onItemSelected = viewModel::onItemSelected,
+                        seriesReadingDirectionFor = viewModel::seriesReadingDirectionFor,
+                        onSeriesDirectionSelected = viewModel::onSeriesDirectionSelected,
+                        onDeleteImportedItem = viewModel::onDeleteImportedItem,
+                        onDownloadRemoteItem = viewModel::onDownloadRemoteItem,
+                        onDeleteRemoteLocalFile = viewModel::onDeleteRemoteLocalFile,
+                        onFilterStateChanged = viewModel::onLibraryFiltersChanged,
+                        onClearFilters = viewModel::clearLibraryFilters,
+                        onSortModeChanged = viewModel::onLibrarySortModeChanged,
+                        onViewModeChanged = onLibraryViewModeChanged,
+                        showSortControl = !uiState.isSeriesBrowseActive,
+                        modifier = Modifier.weight(1f),
+                    )
+
+                    TopLevelDestination.Settings -> SettingsRoute(
+                        uiState = uiState,
+                        kavitaReadingDirectionLibraries = kavitaReadingDirectionLibraries,
+                        stumpReadingDirectionLibraries = stumpReadingDirectionLibraries,
+                        onThemeModeSelected = viewModel::onThemeModeSelected,
+                        onMoveSourceUp = viewModel::moveSourceUp,
+                        onMoveSourceDown = viewModel::moveSourceDown,
+                        onLibraryDirectionSelected = viewModel::onLibraryDirectionSelected,
+                        onKavitaDisplayNameChanged = viewModel::onKavitaDisplayNameChanged,
+                        onKavitaBaseUrlChanged = viewModel::onKavitaBaseUrlChanged,
+                        onKavitaBackupBaseUrlChanged = viewModel::onKavitaBackupBaseUrlChanged,
+                        onKavitaUsernameChanged = viewModel::onKavitaUsernameChanged,
+                        onKavitaPasswordChanged = viewModel::onKavitaPasswordChanged,
+                        onConnectKavita = viewModel::connectKavitaServer,
+                        onStumpDisplayNameChanged = viewModel::onStumpDisplayNameChanged,
+                        onStumpBaseUrlChanged = viewModel::onStumpBaseUrlChanged,
+                        onStumpBackupBaseUrlChanged = viewModel::onStumpBackupBaseUrlChanged,
+                        onStumpUsernameChanged = viewModel::onStumpUsernameChanged,
+                        onStumpPasswordChanged = viewModel::onStumpPasswordChanged,
+                        onConnectStump = viewModel::connectStumpServer,
+                        onGrimmoryDisplayNameChanged = viewModel::onGrimmoryDisplayNameChanged,
+                        onGrimmoryBaseUrlChanged = viewModel::onGrimmoryBaseUrlChanged,
+                        onGrimmoryBackupBaseUrlChanged = viewModel::onGrimmoryBackupBaseUrlChanged,
+                        onGrimmoryUsernameChanged = viewModel::onGrimmoryUsernameChanged,
+                        onGrimmoryPasswordChanged = viewModel::onGrimmoryPasswordChanged,
+                        onConnectGrimmory = viewModel::connectGrimmoryServer,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+            if (viewModel.isDownloadsSheetVisible) {
+                DownloadsSheet(
+                    snapshot = viewModel.downloadsSnapshot,
+                    onDismiss = viewModel::hideDownloadsSheet,
+                    onCancel = viewModel::cancelDownload,
+                    onRemove = viewModel::removeDownload,
+                    onRetry = viewModel::retryDownload,
+                    onClearCompleted = viewModel::clearCompletedDownloads,
+                    onOpenEntry = viewModel::openDownloadedEntry,
                 )
             }
-            when (uiState.topLevel) {
-                TopLevelDestination.Library -> LibraryRoute(
-                    uiState = uiState,
-                    viewMode = libraryViewMode,
-                    browseContextKey = uiState.libraryBrowseContextKey,
-                    initialScrollPosition = viewModel.libraryScrollPositionFor(uiState.libraryBrowseContextKey),
-                    coverImageUrlProvider = viewModel::coverImageUrlFor,
-                    onCoverVisible = viewModel::ensureCoverCached,
-                    onScrollPositionChanged = { position ->
-                        viewModel.onLibraryScrollPositionChanged(
-                            contextKey = uiState.libraryBrowseContextKey,
-                            position = position,
-                        )
-                    },
-                    onItemSelected = viewModel::onItemSelected,
-                    seriesReadingDirectionFor = viewModel::seriesReadingDirectionFor,
-                    onSeriesDirectionSelected = viewModel::onSeriesDirectionSelected,
-                    onDeleteImportedItem = viewModel::onDeleteImportedItem,
-                    onDownloadRemoteItem = viewModel::onDownloadRemoteItem,
-                    onDeleteRemoteLocalFile = viewModel::onDeleteRemoteLocalFile,
-                    onFilterStateChanged = viewModel::onLibraryFiltersChanged,
-                    onClearFilters = viewModel::clearLibraryFilters,
-                    onSortModeChanged = viewModel::onLibrarySortModeChanged,
-                    onViewModeChanged = onLibraryViewModeChanged,
-                    showSortControl = !uiState.isSeriesBrowseActive,
-                    modifier = Modifier.weight(1f),
-                )
-
-                TopLevelDestination.Settings -> SettingsRoute(
-                    uiState = uiState,
-                    kavitaReadingDirectionLibraries = kavitaReadingDirectionLibraries,
-                    stumpReadingDirectionLibraries = stumpReadingDirectionLibraries,
-                    onThemeModeSelected = viewModel::onThemeModeSelected,
-                    onLibraryDirectionSelected = viewModel::onLibraryDirectionSelected,
-                    onKavitaDisplayNameChanged = viewModel::onKavitaDisplayNameChanged,
-                    onKavitaBaseUrlChanged = viewModel::onKavitaBaseUrlChanged,
-                    onKavitaBackupBaseUrlChanged = viewModel::onKavitaBackupBaseUrlChanged,
-                    onKavitaUsernameChanged = viewModel::onKavitaUsernameChanged,
-                    onKavitaPasswordChanged = viewModel::onKavitaPasswordChanged,
-                    onConnectKavita = viewModel::connectKavitaServer,
-                    onStumpDisplayNameChanged = viewModel::onStumpDisplayNameChanged,
-                    onStumpBaseUrlChanged = viewModel::onStumpBaseUrlChanged,
-                    onStumpBackupBaseUrlChanged = viewModel::onStumpBackupBaseUrlChanged,
-                    onStumpUsernameChanged = viewModel::onStumpUsernameChanged,
-                    onStumpPasswordChanged = viewModel::onStumpPasswordChanged,
-                    onConnectStump = viewModel::connectStumpServer,
-                    onGrimmoryDisplayNameChanged = viewModel::onGrimmoryDisplayNameChanged,
-                    onGrimmoryBaseUrlChanged = viewModel::onGrimmoryBaseUrlChanged,
-                    onGrimmoryBackupBaseUrlChanged = viewModel::onGrimmoryBackupBaseUrlChanged,
-                    onGrimmoryUsernameChanged = viewModel::onGrimmoryUsernameChanged,
-                    onGrimmoryPasswordChanged = viewModel::onGrimmoryPasswordChanged,
-                    onConnectGrimmory = viewModel::connectGrimmoryServer,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-        if (viewModel.isDownloadsSheetVisible) {
-            DownloadsSheet(
-                snapshot = viewModel.downloadsSnapshot,
-                onDismiss = viewModel::hideDownloadsSheet,
-                onCancel = viewModel::cancelDownload,
-                onRemove = viewModel::removeDownload,
-                onRetry = viewModel::retryDownload,
-                onClearCompleted = viewModel::clearCompletedDownloads,
-                onOpenEntry = viewModel::openDownloadedEntry,
-            )
         }
     }
 }
@@ -221,6 +252,8 @@ private fun SettingsRoute(
     kavitaReadingDirectionLibraries: List<ReadingDirectionLibraryUiState>,
     stumpReadingDirectionLibraries: List<ReadingDirectionLibraryUiState>,
     onThemeModeSelected: (com.example.unifiedreader.feature.settings.ThemeMode) -> Unit,
+    onMoveSourceUp: (SourceType) -> Unit,
+    onMoveSourceDown: (SourceType) -> Unit,
     onLibraryDirectionSelected: (String, ComicReadingDirection) -> Unit,
     onKavitaDisplayNameChanged: (String) -> Unit,
     onKavitaBaseUrlChanged: (String) -> Unit,
@@ -254,6 +287,15 @@ private fun SettingsRoute(
             stumpConnection = uiState.stumpConnection,
             grimmoryConnection = uiState.grimmoryConnection,
             onThemeModeSelected = onThemeModeSelected,
+            extraSections = {
+                item {
+                    SourceNavigationSettingsSection(
+                        sourceOrder = uiState.sourceOrder,
+                        onMoveSourceUp = onMoveSourceUp,
+                        onMoveSourceDown = onMoveSourceDown,
+                    )
+                }
+            },
             onLibraryDirectionSelected = onLibraryDirectionSelected,
             onKavitaDisplayNameChanged = onKavitaDisplayNameChanged,
             onKavitaBaseUrlChanged = onKavitaBaseUrlChanged,

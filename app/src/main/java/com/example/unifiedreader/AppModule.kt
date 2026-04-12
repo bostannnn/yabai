@@ -24,6 +24,9 @@ import com.example.unifiedreader.feature.downloads.RoomDownloadQueueStore
 import com.example.unifiedreader.feature.library.DataStoreLibraryBrowsePreferencesStore
 import com.example.unifiedreader.feature.library.LibraryBrowseStateCoordinator
 import com.example.unifiedreader.feature.library.LibraryBrowsePreferencesStore
+import com.example.unifiedreader.feature.navigation.DataStoreSourceNavigationPreferencesStore
+import com.example.unifiedreader.feature.navigation.SourceNavigationPreferencesStore
+import com.example.unifiedreader.feature.navigation.SourceNavigationStateCoordinator
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesStore
 import com.example.unifiedreader.feature.reader.comics.ComicReaderProgressStore
@@ -50,6 +53,18 @@ import kotlin.jvm.JvmSuppressWildcards
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
+    @Provides
+    @Singleton
+    fun provideSourceNavigationPreferencesStore(
+        @ApplicationContext context: Context,
+    ): SourceNavigationPreferencesStore = DataStoreSourceNavigationPreferencesStore(context)
+
+    @Provides
+    @Singleton
+    fun provideSourceNavigationStateCoordinator(
+        sourceNavigationPreferencesStore: SourceNavigationPreferencesStore,
+    ): SourceNavigationStateCoordinator = SourceNavigationStateCoordinator(sourceNavigationPreferencesStore)
+
     @Provides
     @Singleton
     fun provideSettingsPreferencesStore(
@@ -318,26 +333,38 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideKavitaCoverRepository(
+        kavitaApiFactory: KavitaApiFactory,
+        kavitaCredentialStore: KavitaCredentialStore,
+        coverStore: PersistentRemoteCoverStore,
+    ): KavitaCoverDataSource = KavitaCoverRepository(
+        kavitaApiFactory = kavitaApiFactory,
+        kavitaCredentialStore = kavitaCredentialStore,
+        coverStore = coverStore,
+    )
+
+    @Provides
+    @Singleton
     fun provideGrimmoryCoverRepository(
-        @ApplicationContext context: Context,
         grimmoryApiFactory: GrimmoryApiFactory,
         grimmoryCredentialStore: GrimmoryCredentialStore,
+        coverStore: PersistentRemoteCoverStore,
     ): GrimmoryCoverDataSource = GrimmoryCoverRepository(
-        context = context.applicationContext,
         grimmoryApiFactory = grimmoryApiFactory,
         grimmoryCredentialStore = grimmoryCredentialStore,
+        coverStore = coverStore,
     )
 
     @Provides
     @Singleton
     fun provideStumpCoverRepository(
-        @ApplicationContext context: Context,
         stumpApiFactory: StumpApiFactory,
         stumpCredentialStore: StumpCredentialStore,
+        coverStore: PersistentRemoteCoverStore,
     ): StumpCoverDataSource = StumpCoverRepository(
-        context = context.applicationContext,
         stumpApiFactory = stumpApiFactory,
         stumpCredentialStore = stumpCredentialStore,
+        coverStore = coverStore,
     )
 
     @Provides

@@ -36,5 +36,6 @@ include(
     ":feature:reader-pdf",
     ":feature:reader-epub",
     ":feature:downloads",
+    ":feature:navigation",
     ":feature:settings",
 )

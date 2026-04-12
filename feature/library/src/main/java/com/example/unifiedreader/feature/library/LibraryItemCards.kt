@@ -40,6 +40,7 @@ import coil.compose.AsyncImage
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.library.menu.LibraryItemOverflowMenu
+import com.example.unifiedreader.feature.library.menu.buildReadingDirectionMenuState
 import com.example.unifiedreader.feature.library.menu.buildLibraryItemMenuActions
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 
@@ -106,15 +107,18 @@ internal fun DetailedItemCard(
                 .padding(10.dp),
         ) {
             val coverWidth = (maxWidth * 0.36f).coerceIn(72.dp, 104.dp)
-            val menuActions = buildLibraryItemMenuActions(
-                isDownloading = isDownloading,
+            val readingDirectionMenuState = buildReadingDirectionMenuState(
                 seriesReadingDirection = seriesReadingDirection,
                 onSeriesReadingDirectionSelected = onSeriesReadingDirectionSelected,
+            )
+            val menuActions = buildLibraryItemMenuActions(
+                isDownloading = isDownloading,
                 onDeleteRequested = onDeleteRequested,
                 onDownloadRequested = onDownloadRequested,
                 onDeleteDownloadedRequested = onDeleteDownloadedRequested,
             )
-            val menuSpace = if (menuActions.isNotEmpty()) 48.dp else 0.dp
+            val hasMenuContent = readingDirectionMenuState != null || menuActions.isNotEmpty()
+            val menuSpace = if (hasMenuContent) 48.dp else 0.dp
             Box(modifier = Modifier.fillMaxWidth()) {
                 Row(
                     modifier = Modifier
@@ -139,10 +143,11 @@ internal fun DetailedItemCard(
                         modifier = Modifier.weight(1f),
                     )
                 }
-                if (menuActions.isNotEmpty()) {
+                if (hasMenuContent) {
                     LibraryItemOverflowMenu(
                         modifier = Modifier.align(Alignment.TopEnd),
                         actions = menuActions,
+                        readingDirectionState = readingDirectionMenuState,
                     )
                 }
             }
@@ -192,20 +197,23 @@ internal fun GridCoverCard(
                     .fillMaxWidth(),
             )
         }
-        val menuActions = buildLibraryItemMenuActions(
-            isDownloading = isDownloading,
+        val readingDirectionMenuState = buildReadingDirectionMenuState(
             seriesReadingDirection = seriesReadingDirection,
             onSeriesReadingDirectionSelected = onSeriesReadingDirectionSelected,
+        )
+        val menuActions = buildLibraryItemMenuActions(
+            isDownloading = isDownloading,
             onDeleteRequested = onDeleteRequested,
             onDownloadRequested = onDownloadRequested,
             onDeleteDownloadedRequested = onDeleteDownloadedRequested,
         )
-        if (menuActions.isNotEmpty()) {
+        if (readingDirectionMenuState != null || menuActions.isNotEmpty()) {
             LibraryItemOverflowMenu(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(6.dp),
                 actions = menuActions,
+                readingDirectionState = readingDirectionMenuState,
             )
         }
     }

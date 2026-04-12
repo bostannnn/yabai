@@ -36,6 +36,7 @@ enum class TopLevelDestination {
 
 data class AppUiState(
     val topLevel: TopLevelDestination = TopLevelDestination.Library,
+    val sourceOrder: List<SourceType> = SourceType.entries.toList(),
     val selectedSource: SourceType = SourceType.KAVITA,
     val selectedItemId: String? = null,
     val activeReader: FormatType? = null,

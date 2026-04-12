@@ -9,6 +9,7 @@ import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.core.model.libraryAlphabetKey
 import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.core.model.librarySecondaryText
@@ -100,13 +101,6 @@ internal fun buildComicVolumeIssueLabel(
         metadata.issueNumber?.takeIf(String::isNotBlank)?.let { add("Issue $it") }
     }
     return parts.takeIf(List<String>::isNotEmpty)?.joinToString(" • ")
-}
-
-internal fun SourceType.displayName(): String = when (this) {
-    SourceType.KAVITA -> "Kavita"
-    SourceType.STUMP -> "Stump"
-    SourceType.GRIMMORY -> "Grimmory"
-    SourceType.LOCAL -> "Local"
 }
 
 internal val LibrarySortMode.label: String

@@ -6,10 +6,12 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.buildKavitaSeriesContainer
 import com.example.unifiedreader.core.model.buildStumpSeriesContainer
+import com.example.unifiedreader.feature.library.menu.buildReadingDirectionMenuState
 import com.example.unifiedreader.feature.library.menu.buildLibraryItemMenuActions
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -112,20 +114,35 @@ class LibraryItemCardsTest {
     }
 
     @Test
-    fun `series menu includes reading direction actions before download actions`() {
+    fun `series menu keeps download action when reading direction uses icon toggle row`() {
         val menuActions = buildLibraryItemMenuActions(
             isDownloading = false,
-            seriesReadingDirection = ComicReadingDirection.RTL,
-            onSeriesReadingDirectionSelected = {},
             onDeleteRequested = null,
             onDownloadRequested = {},
             onDeleteDownloadedRequested = null,
         )
 
-        assertEquals("Reading: LTR", menuActions[0].label)
-        assertEquals("Reading: RTL", menuActions[1].label)
-        assertTrue(menuActions[1].selected)
-        assertEquals("Download file", menuActions[2].label)
+        assertEquals("Download file", menuActions[0].label)
+    }
+
+    @Test
+    fun `series menu exposes reading direction toggle state separately`() {
+        val menuState = buildReadingDirectionMenuState(
+            seriesReadingDirection = ComicReadingDirection.RTL,
+            onSeriesReadingDirectionSelected = {},
+        )
+
+        assertEquals(ComicReadingDirection.RTL, menuState?.selectedDirection)
+    }
+
+    @Test
+    fun `reading direction menu state is absent when series direction is unavailable`() {
+        assertNull(
+            buildReadingDirectionMenuState(
+                seriesReadingDirection = null,
+                onSeriesReadingDirectionSelected = {},
+            ),
+        )
     }
 }
 
