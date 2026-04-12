@@ -5,22 +5,23 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.FormatTextdirectionLToR
-import androidx.compose.material.icons.automirrored.filled.FormatTextdirectionRToL
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -31,9 +32,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
@@ -49,6 +52,11 @@ internal data class ReadingDirectionMenuState(
     val onDirectionSelected: (ComicReadingDirection) -> Unit,
 )
 
+internal data class ReadStatusMenuActionState(
+    val isRead: Boolean,
+    val onToggleRequested: () -> Unit,
+)
+
 internal fun buildReadingDirectionMenuState(
     seriesReadingDirection: ComicReadingDirection?,
     onSeriesReadingDirectionSelected: ((ComicReadingDirection) -> Unit)?,
@@ -62,10 +70,19 @@ internal fun buildReadingDirectionMenuState(
 
 internal fun buildLibraryItemMenuActions(
     isDownloading: Boolean,
+    readStatusActionState: ReadStatusMenuActionState? = null,
     onDeleteRequested: (() -> Unit)?,
     onDownloadRequested: (() -> Unit)?,
     onDeleteDownloadedRequested: (() -> Unit)?,
 ): List<ItemMenuAction> = buildList {
+    readStatusActionState?.let { state ->
+        add(
+            ItemMenuAction(
+                label = if (state.isRead) "Mark as unread" else "Mark as read",
+                onClick = state.onToggleRequested,
+            ),
+        )
+    }
     if (isDownloading) {
         add(ItemMenuAction(label = "Downloading...", enabled = false, onClick = {}))
     }
@@ -124,18 +141,6 @@ internal fun LibraryItemOverflowMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
-            readingDirectionState?.let { state ->
-                ReadingDirectionMenuRow(
-                    state = state,
-                    onDirectionSelected = { direction ->
-                        expanded = false
-                        state.onDirectionSelected(direction)
-                    },
-                )
-                if (actions.isNotEmpty()) {
-                    HorizontalDivider()
-                }
-            }
             actions.forEach { action ->
                 DropdownMenuItem(
                     text = { Text(text = action.label) },
@@ -143,6 +148,18 @@ internal fun LibraryItemOverflowMenu(
                     onClick = {
                         expanded = false
                         action.onClick()
+                    },
+                )
+            }
+            readingDirectionState?.let { state ->
+                if (actions.isNotEmpty()) {
+                    HorizontalDivider()
+                }
+                ReadingDirectionMenuRow(
+                    state = state,
+                    onDirectionSelected = { direction ->
+                        expanded = false
+                        state.onDirectionSelected(direction)
                     },
                 )
             }
@@ -155,36 +172,74 @@ private fun ReadingDirectionMenuRow(
     state: ReadingDirectionMenuState,
     onDirectionSelected: (ComicReadingDirection) -> Unit,
 ) {
+    val buttonShape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
     Row(
-        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         ComicReadingDirection.entries.forEach { direction ->
-            FilledTonalIconButton(
+            ReadingDirectionButton(
                 onClick = { onDirectionSelected(direction) },
-                colors = IconButtonDefaults.filledTonalIconButtonColors(
-                    containerColor = if (direction == state.selectedDirection) {
-                        MaterialTheme.colorScheme.secondaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.surfaceVariant
-                    },
-                    contentColor = if (direction == state.selectedDirection) {
-                        MaterialTheme.colorScheme.onSecondaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                ),
+                selected = direction == state.selectedDirection,
+                shape = buttonShape,
             ) {
                 Icon(
                     imageVector = direction.icon(),
                     contentDescription = "Reading ${direction.label}",
+                    modifier = Modifier.size(18.dp),
                 )
             }
         }
     }
 }
 
+@Composable
+private fun ReadingDirectionButton(
+    onClick: () -> Unit,
+    selected: Boolean,
+    shape: Shape,
+    content: @Composable () -> Unit,
+) {
+    val containerColor = if (selected) {
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f)
+    } else {
+        MaterialTheme.colorScheme.surface.copy(alpha = 0.82f)
+    }
+    val contentColor = if (selected) {
+        MaterialTheme.colorScheme.onSurface
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val borderColor = if (selected) {
+        MaterialTheme.colorScheme.outline.copy(alpha = 0.9f)
+    } else {
+        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.68f)
+    }
+
+    Box(
+        modifier = Modifier
+            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+            .clip(shape)
+            .background(containerColor)
+            .border(width = 1.dp, color = borderColor, shape = shape)
+            .selectable(
+                selected = selected,
+                onClick = onClick,
+                role = Role.Button,
+            )
+            .semantics {
+                this.selected = selected
+            }
+            .padding(PaddingValues(horizontal = 9.dp, vertical = 7.dp)),
+        contentAlignment = Alignment.Center,
+    ) {
+        CompositionLocalProvider(LocalContentColor provides contentColor) {
+            content()
+        }
+    }
+}
+
 private fun ComicReadingDirection.icon(): ImageVector = when (this) {
-    ComicReadingDirection.LTR -> Icons.AutoMirrored.Filled.FormatTextdirectionLToR
-    ComicReadingDirection.RTL -> Icons.AutoMirrored.Filled.FormatTextdirectionRToL
+    ComicReadingDirection.LTR -> ReadingDirectionIcons.Ltr
+    ComicReadingDirection.RTL -> ReadingDirectionIcons.Rtl
 }
