@@ -246,6 +246,51 @@ class RemoteDownloadQueueControllerTest {
     }
 
     @Test
+    fun `retry does not requeue overlapping entry while another active entry exists`() = runTest {
+        val store = InMemoryDownloadQueueStore(
+            initialEntries = listOf(
+                DownloadEntry(
+                    id = "failed-entry",
+                    selectedItemId = "book-1",
+                    selectedItemTitle = "book-1",
+                    sourceType = SourceType.KAVITA,
+                    actionItems = listOf(testQueuedItem("book-1")),
+                    trackedItemIds = setOf("book-1"),
+                    completedItemIds = emptySet(),
+                    status = DownloadEntryStatus.Failed,
+                    errorMessage = "boom",
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L,
+                ),
+                DownloadEntry(
+                    id = "running-entry",
+                    selectedItemId = "book-1",
+                    selectedItemTitle = "book-1",
+                    sourceType = SourceType.KAVITA,
+                    actionItems = listOf(testQueuedItem("book-1")),
+                    trackedItemIds = setOf("book-1"),
+                    completedItemIds = emptySet(),
+                    status = DownloadEntryStatus.Running,
+                    createdAtEpochMillis = 2L,
+                    updatedAtEpochMillis = 2L,
+                ),
+            ),
+        )
+        val scheduler = RecordingDownloadWorkScheduler()
+        val controller = RemoteDownloadQueueController(
+            store = store,
+            scheduler = scheduler,
+            remoteDownloadDataSources = listOf(TestRemoteItemDownloadDataSource()),
+        )
+
+        controller.retry("failed-entry")
+
+        val failedEntry = checkNotNull(store.entries.firstOrNull { it.id == "failed-entry" })
+        assertEquals(DownloadEntryStatus.Failed, failedEntry.status)
+        assertTrue(scheduler.scheduledEntryIds.isEmpty())
+    }
+
+    @Test
     fun `remove ignores active entry`() = runTest {
         val store = InMemoryDownloadQueueStore(
             initialEntries = listOf(
@@ -693,6 +738,34 @@ private class InMemoryDownloadQueueStore(
             false
         } else {
             state.value = state.value.filterNot { existing -> existing.id == entry.id } + entry
+            true
+        }
+    }
+
+    override suspend fun retryEntryIfNoOtherActiveTrackedItems(entryId: String): Boolean = enqueueMutex.withLock {
+        val entry = state.value.firstOrNull { it.id == entryId } ?: return@withLock false
+        val hasOverlap = state.value.any { existingEntry ->
+            existingEntry.id != entryId &&
+                (existingEntry.status == DownloadEntryStatus.Queued ||
+                    existingEntry.status == DownloadEntryStatus.Running) &&
+                existingEntry.trackedItemIds.any(entry.trackedItemIds::contains)
+        }
+        if (hasOverlap) {
+            false
+        } else {
+            state.value = state.value.map { existing ->
+                if (existing.id != entryId) {
+                    existing
+                } else {
+                    existing.copy(
+                        status = DownloadEntryStatus.Queued,
+                        errorMessage = null,
+                        currentItemId = null,
+                        currentItemTitle = null,
+                        completedAtEpochMillis = null,
+                    )
+                }
+            }
             true
         }
     }

@@ -51,26 +51,20 @@ internal suspend fun pushDirtyGrimmoryProgress(
             activeRefreshToken = it.refreshToken
             latestSession = it.refreshedSession ?: latestSession
             if (progress.isExplicitUnreadReset) {
-                readerSessionStore.clearProgress(item.id)
+                readerSessionStore.replaceProgressIfCurrent(
+                    expected = progress,
+                    replacement = null,
+                )
             } else {
-                readerSessionStore.saveProgress(
-                    item = item,
-                    locator = progress.toReaderLocator(),
-                    isFinished = progress.isFinished,
-                    syncState = SyncState.CLEAN,
-                    pageCount = readerSessionStore.getSession(item)?.pageCount,
-                    updatedAtEpochMillis = progress.updatedAtEpochMillis,
+                readerSessionStore.replaceProgressIfCurrent(
+                    expected = progress,
+                    replacement = progress.copy(syncState = SyncState.CLEAN),
                 )
             }
         }.onFailure {
-            readerSessionStore.saveProgress(
-                item = item,
-                locator = progress.toReaderLocator(),
-                isFinished = progress.isFinished,
-                isExplicitUnreadReset = progress.isExplicitUnreadReset,
-                syncState = SyncState.FAILED,
-                pageCount = readerSessionStore.getSession(item)?.pageCount,
-                updatedAtEpochMillis = progress.updatedAtEpochMillis,
+            readerSessionStore.replaceProgressIfCurrent(
+                expected = progress,
+                replacement = progress.copy(syncState = SyncState.FAILED),
             )
         }
     }

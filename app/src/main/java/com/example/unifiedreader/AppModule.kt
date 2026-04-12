@@ -440,11 +440,13 @@ object AppModule {
         @ApplicationContext context: Context,
         importedComicArchiveDao: ImportedComicArchiveDao,
         appStartupTasks: AppStartupTasks,
+        readerSessionStore: ReaderSessionStore,
     ): LocalDocumentRepository {
         return LocalDocumentRepository(
             context = context,
             importedComicArchiveDao = importedComicArchiveDao,
             appStartupTasks = appStartupTasks,
+            onItemImported = readerSessionStore::restoreItem,
         )
     }
 

@@ -617,6 +617,20 @@ private class GrimmoryTestReaderSessionStore : ReaderSessionStore {
 
     override fun getSession(item: ReadableItem): ReaderSessionSnapshot? = sessionByItemId.value[item.id]
 
+    override suspend fun replaceProgressIfCurrent(
+        expected: ReaderProgressSnapshot,
+        replacement: ReaderProgressSnapshot?,
+    ): Boolean {
+        val current = progressByItemId.value[expected.itemId] ?: return false
+        if (current != expected) return false
+        progressByItemId.value = if (replacement == null) {
+            progressByItemId.value - expected.itemId
+        } else {
+            progressByItemId.value + (expected.itemId to replacement)
+        }
+        return true
+    }
+
     override fun updateSession(
         itemId: String,
         pageCount: Int?,
@@ -639,4 +653,6 @@ private class GrimmoryTestReaderSessionStore : ReaderSessionStore {
         clearProgress(itemId)
         sessionByItemId.value = sessionByItemId.value - itemId
     }
+
+    override fun restoreItem(itemId: String) = Unit
 }

@@ -136,6 +136,50 @@ class GrimmoryProgressSyncServiceTest {
         assertEquals(SyncState.FAILED, readerSessionStore.getProgress(item)?.syncState)
         assertNotEquals(SyncState.SYNCING, readerSessionStore.getProgress(item)?.syncState)
     }
+
+    @Test
+    fun `newer local progress is not marked failed after Grimmory upload error`() = runBlocking {
+        val item = grimmoryItem(remoteId = "book-1")
+        val readerSessionStore = ProgressSyncTestReaderSessionStore().apply {
+            saveProgress(
+                item = item,
+                locator = ReaderLocator(locatorType = LocatorType.PERCENT, percent = 0.5),
+                syncState = SyncState.DIRTY,
+                updatedAtEpochMillis = 10L,
+            )
+        }
+        val api = RecordingGrimmoryApi(
+            updateError = IllegalStateException("boom"),
+            beforeUpdateThrows = {
+                readerSessionStore.saveProgress(
+                    item = item,
+                    locator = ReaderLocator(locatorType = LocatorType.PERCENT, percent = 0.75),
+                    syncState = SyncState.DIRTY,
+                    updatedAtEpochMillis = 20L,
+                )
+            },
+        )
+        val service = GrimmoryProgressSyncService(
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
+            grimmoryCredentialStore = ProgressSyncTestGrimmoryCredentialStore(
+                GrimmoryStoredSession(
+                    displayName = "Home Grimmory",
+                    baseUrl = "https://grimmory.example",
+                    username = "reader",
+                    accessToken = "access-token",
+                    refreshToken = "refresh-token",
+                ),
+            ),
+            readerSessionStore = readerSessionStore,
+        )
+
+        service.pushPendingProgress(listOf(item))
+
+        val snapshot = checkNotNull(readerSessionStore.getProgress(item))
+        assertEquals(0.75, snapshot.percent)
+        assertEquals(SyncState.DIRTY, snapshot.syncState)
+        assertEquals(20L, snapshot.updatedAtEpochMillis)
+    }
 }
 
 private fun grimmoryItem(
@@ -209,6 +253,20 @@ private class ProgressSyncTestReaderSessionStore : ReaderSessionStore {
 
     override fun getSession(item: ReadableItem): ReaderSessionSnapshot? = sessionState.value[item.id]
 
+    override suspend fun replaceProgressIfCurrent(
+        expected: ReaderProgressSnapshot,
+        replacement: ReaderProgressSnapshot?,
+    ): Boolean {
+        val current = progressState.value[expected.itemId] ?: return false
+        if (current != expected) return false
+        progressState.value = if (replacement == null) {
+            progressState.value - expected.itemId
+        } else {
+            progressState.value + (expected.itemId to replacement)
+        }
+        return true
+    }
+
     override fun updateSession(
         itemId: String,
         pageCount: Int?,
@@ -231,11 +289,14 @@ private class ProgressSyncTestReaderSessionStore : ReaderSessionStore {
         clearProgress(itemId)
         sessionState.value = sessionState.value - itemId
     }
+
+    override fun restoreItem(itemId: String) = Unit
 }
 
 private class RecordingGrimmoryApi(
     private val bookEntriesById: Map<String, GrimmoryBookCatalogEntry> = emptyMap(),
     private val updateError: Throwable? = null,
+    private val beforeUpdateThrows: (suspend () -> Unit)? = null,
 ) : GrimmoryApi {
     val progressUpdates = mutableListOf<GrimmoryProgressUpdate>()
     val requestedBookIds = mutableListOf<String>()
@@ -275,6 +336,7 @@ private class RecordingGrimmoryApi(
         accessToken: String,
         progress: GrimmoryProgressUpdate,
     ) {
+        beforeUpdateThrows?.invoke()
         updateError?.let { throw it }
         progressUpdates += progress
     }

@@ -117,10 +117,67 @@ class KavitaProgressSyncSupportTest {
         assertEquals(SyncState.DIRTY, snapshot.syncState)
         assertTrue(snapshot.isFinished)
     }
+
+    @Test
+    fun `newer local progress is not overwritten after Kavita upload completes`() = runTest {
+        val item = ReadableItem(
+            id = "kavita:item:42",
+            sourceType = SourceType.KAVITA,
+            libraryId = "kavita:library:5",
+            remoteId = "42",
+            title = "Chapter 42",
+            format = FormatType.EPUB,
+            pageCount = 28,
+        )
+        val store = TestKavitaReaderSessionStore()
+        store.saveProgress(
+            item = item,
+            locator = ReaderLocator(
+                locatorType = LocatorType.PAGE,
+                page = 3,
+            ),
+            syncState = SyncState.DIRTY,
+            updatedAtEpochMillis = 123L,
+        )
+        val api = RecordingKavitaApi(
+            chapterInfo = KavitaChapterInfoDto(
+                libraryId = 5,
+                seriesId = 12,
+                volumeId = 7,
+                pages = 28,
+            ),
+            beforeUpdateProgressReturns = {
+                store.saveProgress(
+                    item = item,
+                    locator = ReaderLocator(
+                        locatorType = LocatorType.PAGE,
+                        page = 7,
+                    ),
+                    syncState = SyncState.DIRTY,
+                    updatedAtEpochMillis = 456L,
+                )
+            },
+        )
+
+        pushDirtyKavitaProgress(
+            api = api,
+            initialAccessToken = "access-token",
+            initialRefreshToken = null,
+            initialApiKey = null,
+            items = listOf(item),
+            readerSessionStore = store,
+        )
+
+        val snapshot = checkNotNull(store.progressByItemIdFlow.value[item.id])
+        assertEquals(7, snapshot.page)
+        assertEquals(SyncState.DIRTY, snapshot.syncState)
+        assertEquals(456L, snapshot.updatedAtEpochMillis)
+    }
 }
 
 private class RecordingKavitaApi(
     private val chapterInfo: KavitaChapterInfoDto,
+    private val beforeUpdateProgressReturns: (suspend () -> Unit)? = null,
 ) : KavitaApi {
     val progressUpdates = mutableListOf<KavitaProgressUpdate>()
 
@@ -165,6 +222,7 @@ private class RecordingKavitaApi(
         progress: KavitaProgressUpdate,
     ) {
         progressUpdates += progress
+        beforeUpdateProgressReturns?.invoke()
     }
 
     override suspend fun downloadPageImage(
@@ -223,6 +281,20 @@ private class TestKavitaReaderSessionStore : ReaderSessionStore {
 
     override fun getSession(item: ReadableItem): ReaderSessionSnapshot? = null
 
+    override suspend fun replaceProgressIfCurrent(
+        expected: ReaderProgressSnapshot,
+        replacement: ReaderProgressSnapshot?,
+    ): Boolean {
+        val current = progressState.value[expected.itemId] ?: return false
+        if (current != expected) return false
+        progressState.value = if (replacement == null) {
+            progressState.value - expected.itemId
+        } else {
+            progressState.value + (expected.itemId to replacement)
+        }
+        return true
+    }
+
     override fun updateSession(
         itemId: String,
         pageCount: Int?,
@@ -236,4 +308,6 @@ private class TestKavitaReaderSessionStore : ReaderSessionStore {
     override fun clearItem(itemId: String) {
         clearProgress(itemId)
     }
+
+    override fun restoreItem(itemId: String) = Unit
 }

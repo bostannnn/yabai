@@ -356,6 +356,28 @@ private class BootstrapDownloadQueueStore(
         return true
     }
 
+    override suspend fun retryEntryIfNoOtherActiveTrackedItems(entryId: String): Boolean {
+        val entry = state.value.firstOrNull { it.id == entryId } ?: return false
+        val hasOverlap = state.value.any { existingEntry ->
+            existingEntry.id != entryId &&
+                (existingEntry.status == DownloadEntryStatus.Queued ||
+                    existingEntry.status == DownloadEntryStatus.Running ||
+                    existingEntry.status == DownloadEntryStatus.Canceling) &&
+                existingEntry.trackedItemIds.any(entry.trackedItemIds::contains)
+        }
+        if (hasOverlap) return false
+        putEntry(
+            entry.copy(
+                status = DownloadEntryStatus.Queued,
+                errorMessage = null,
+                currentItemId = null,
+                currentItemTitle = null,
+                completedAtEpochMillis = null,
+            ),
+        )
+        return true
+    }
+
     override suspend fun updateStatus(
         entryId: String,
         status: DownloadEntryStatus,

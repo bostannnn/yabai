@@ -55,15 +55,14 @@ internal suspend fun pushDirtyStumpProgress(
         activeRefreshToken = uploadResult.refreshToken
         latestSession = uploadResult.refreshedSession ?: latestSession
         if (progress.isExplicitUnreadReset) {
-            readerSessionStore.clearProgress(item.id)
+            readerSessionStore.replaceProgressIfCurrent(
+                expected = progress,
+                replacement = null,
+            )
         } else {
-            readerSessionStore.saveProgress(
-                item = item,
-                locator = progress.toReaderLocator(),
-                isFinished = progress.isFinished,
-                syncState = SyncState.CLEAN,
-                pageCount = item.pageCount,
-                updatedAtEpochMillis = progress.updatedAtEpochMillis,
+            readerSessionStore.replaceProgressIfCurrent(
+                expected = progress,
+                replacement = progress.copy(syncState = SyncState.CLEAN),
             )
         }
     }

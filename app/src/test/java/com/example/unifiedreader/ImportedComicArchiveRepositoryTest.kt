@@ -13,13 +13,18 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.ByteArrayOutputStream
 import java.nio.file.Files
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -309,6 +314,93 @@ class ImportedComicArchiveRepositoryTest {
         assertTrue(removed)
         assertTrue(repository.getImportedItems().isEmpty())
         assertEquals(null, dao.getByItemId(imported.id))
+    }
+
+    @Test
+    fun `remove imported item stays deleted when cover warmup is already persisting`() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val dao = RepositoryImportedComicArchiveDao()
+        val itemId = "comic-stale-cover"
+        dao.insertOrReplace(
+            ImportedComicArchiveEntity(
+                itemId = itemId,
+                documentUri = "content://imports/stale-cover.cbz",
+                displayName = "stale-cover.cbz",
+                title = "Stale Cover",
+                coverFileName = null,
+                format = FormatType.CBZ.name,
+                pageCount = 1,
+                pageEntryNamesJson = "[\"001.jpg\"]",
+                author = null,
+                series = null,
+                issueTitle = null,
+                volume = null,
+                issueNumber = null,
+                updatedAtEpochMillis = 1L,
+            ),
+        )
+        val coverInsertStarted = CountDownLatch(1)
+        val allowCoverInsert = CountDownLatch(1)
+        dao.beforeInsert = {
+            coverInsertStarted.countDown()
+            check(allowCoverInsert.await(5, TimeUnit.SECONDS)) {
+                "Timed out waiting to release cover insert."
+            }
+        }
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        try {
+            val repository = LocalDocumentRepository.createForTesting(
+                context = context,
+                importedComicArchiveDao = dao,
+                appStartupTasks = AppStartupTasks {},
+                scope = scope,
+                comicArchiveCodecs = emptyList(),
+                coverSupport = TestLocalDocumentCoverSupport(
+                    attachedRecord = { record ->
+                        record.copy(
+                            coverFileName = "${record.id}.cover.jpg",
+                            coverUri = "file:///tmp/${record.id}.cover.jpg",
+                        )
+                    },
+                ),
+            )
+
+            repository.hydrate()
+            assertTrue(coverInsertStarted.await(5, TimeUnit.SECONDS))
+
+            val removeDeferred = async { repository.removeById(itemId) }
+            allowCoverInsert.countDown()
+
+            assertTrue(withTimeout(5_000) { removeDeferred.await() })
+            assertTrue(repository.getImportedItems().none { item -> item.id == itemId })
+            assertEquals(null, dao.getByItemId(itemId))
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun `import notifies item restored callback`() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val dao = RepositoryImportedComicArchiveDao()
+        var restoredItemId: String? = null
+        val repository = LocalDocumentRepository.createForTesting(
+            context = context,
+            importedComicArchiveDao = dao,
+            appStartupTasks = AppStartupTasks {},
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
+            comicArchiveCodecs = emptyList(),
+            coverSupport = TestLocalDocumentCoverSupport { record -> record },
+            onItemImported = { restoredItemId = it },
+        )
+        val pdfFile = createFile(
+            name = "restored.pdf",
+            bytes = "%PDF-1.7\nmock pdf".encodeToByteArray(),
+        )
+
+        val imported = repository.import(Uri.fromFile(pdfFile))
+
+        assertEquals(imported?.id, restoredItemId)
     }
 
     @Test
@@ -630,4 +722,20 @@ private class RepositoryImportedComicArchiveDao : ImportedComicArchiveDao {
     override fun insertOrReplace(entities: List<ImportedComicArchiveEntity>) {
         entities.forEach(::insertOrReplace)
     }
+}
+
+private class TestLocalDocumentCoverSupport(
+    private val attachedRecord: suspend (LocalDocumentRecord) -> LocalDocumentRecord,
+) : LocalDocumentCoverSupport {
+    override fun resolvePersistedCoverUri(
+        itemId: String,
+        coverFileName: String?,
+    ): String? = coverFileName?.let { "file:///tmp/$it" }
+
+    override suspend fun attach(
+        record: LocalDocumentRecord,
+        forceRefresh: Boolean,
+    ): LocalDocumentRecord = attachedRecord(record)
+
+    override fun clear(itemId: String) = Unit
 }

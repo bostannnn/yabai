@@ -105,18 +105,10 @@ class RemoteDownloadQueueController(
     suspend fun retry(
         entryId: String,
     ) {
-        val entry = store.getEntry(entryId) ?: return
-        store.putEntry(
-            entry.copy(
-                status = DownloadEntryStatus.Queued,
-                errorMessage = null,
-                currentItemId = null,
-                currentItemTitle = null,
-                updatedAtEpochMillis = timeProvider(),
-                completedAtEpochMillis = null,
-            ),
-        )
-        scheduler.scheduleEntry(entryId)
+        val retried = store.retryEntryIfNoOtherActiveTrackedItems(entryId)
+        if (retried) {
+            scheduler.scheduleEntry(entryId)
+        }
     }
 
     suspend fun remove(

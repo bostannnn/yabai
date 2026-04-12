@@ -332,6 +332,20 @@ private class FakeReaderSessionStore : ReaderSessionStore {
 
     override fun getSession(item: ReadableItem): ReaderSessionSnapshot? = sessionState.value[item.id]
 
+    override suspend fun replaceProgressIfCurrent(
+        expected: ReaderProgressSnapshot,
+        replacement: ReaderProgressSnapshot?,
+    ): Boolean {
+        val current = progressState.value[expected.itemId] ?: return false
+        if (current != expected) return false
+        progressState.value = if (replacement == null) {
+            progressState.value - expected.itemId
+        } else {
+            progressState.value + (expected.itemId to replacement)
+        }
+        return true
+    }
+
     override fun updateSession(
         itemId: String,
         pageCount: Int?,
@@ -354,4 +368,6 @@ private class FakeReaderSessionStore : ReaderSessionStore {
         clearProgress(itemId)
         sessionState.value = sessionState.value - itemId
     }
+
+    override fun restoreItem(itemId: String) = Unit
 }

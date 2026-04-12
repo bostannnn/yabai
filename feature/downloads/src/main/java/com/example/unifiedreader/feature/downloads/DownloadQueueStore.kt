@@ -19,6 +19,8 @@ interface DownloadQueueStore {
 
     suspend fun putEntryIfNoActiveTrackedItems(entry: DownloadEntry): Boolean
 
+    suspend fun retryEntryIfNoOtherActiveTrackedItems(entryId: String): Boolean
+
     suspend fun updateStatus(
         entryId: String,
         status: DownloadEntryStatus,
@@ -83,15 +85,42 @@ class RoomDownloadQueueStore(
         enqueueMutex.withLock {
             val hasOverlap = downloadQueueDao.getAll()
                 .map { entity -> entity.toDomain() }
-                .any { existingEntry ->
-                    (existingEntry.status == DownloadEntryStatus.Queued ||
-                        existingEntry.status == DownloadEntryStatus.Running) &&
-                        existingEntry.trackedItemIds.any(entry.trackedItemIds::contains)
-                }
+                .hasActiveTrackedItemOverlap(
+                    trackedItemIds = entry.trackedItemIds,
+                    ignoredEntryId = null,
+                )
             if (hasOverlap) {
                 false
             } else {
                 downloadQueueDao.insertOrReplace(entry.toEntity())
+                true
+            }
+        }
+    }
+
+    override suspend fun retryEntryIfNoOtherActiveTrackedItems(
+        entryId: String,
+    ): Boolean = withContext(Dispatchers.IO) {
+        enqueueMutex.withLock {
+            val entries = downloadQueueDao.getAll().map { entity -> entity.toDomain() }
+            val entry = entries.firstOrNull { candidate -> candidate.id == entryId } ?: return@withLock false
+            val hasOverlap = entries.hasActiveTrackedItemOverlap(
+                trackedItemIds = entry.trackedItemIds,
+                ignoredEntryId = entryId,
+            )
+            if (hasOverlap) {
+                false
+            } else {
+                downloadQueueDao.insertOrReplace(
+                    entry.copy(
+                        status = DownloadEntryStatus.Queued,
+                        errorMessage = null,
+                        currentItemId = null,
+                        currentItemTitle = null,
+                        updatedAtEpochMillis = timeProvider(),
+                        completedAtEpochMillis = null,
+                    ).toEntity(),
+                )
                 true
             }
         }
@@ -166,4 +195,14 @@ class RoomDownloadQueueStore(
     ): Int = withContext(Dispatchers.IO) {
         downloadQueueDao.deleteById(entryId)
     }
+}
+
+private fun List<DownloadEntry>.hasActiveTrackedItemOverlap(
+    trackedItemIds: Set<String>,
+    ignoredEntryId: String?,
+): Boolean = any { existingEntry ->
+    existingEntry.id != ignoredEntryId &&
+        (existingEntry.status == DownloadEntryStatus.Queued ||
+            existingEntry.status == DownloadEntryStatus.Running) &&
+        existingEntry.trackedItemIds.any(trackedItemIds::contains)
 }

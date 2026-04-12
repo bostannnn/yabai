@@ -271,6 +271,28 @@ class TestDownloadQueueStore(
         return true
     }
 
+    override suspend fun retryEntryIfNoOtherActiveTrackedItems(entryId: String): Boolean {
+        val entry = entriesFlow.value.firstOrNull { it.id == entryId } ?: return false
+        val hasOverlap = entriesFlow.value.any { existingEntry ->
+            existingEntry.id != entryId &&
+                (existingEntry.status == DownloadEntryStatus.Queued ||
+                    existingEntry.status == DownloadEntryStatus.Running ||
+                    existingEntry.status == DownloadEntryStatus.Canceling) &&
+                existingEntry.trackedItemIds.any(entry.trackedItemIds::contains)
+        }
+        if (hasOverlap) return false
+        putEntry(
+            entry.copy(
+                status = DownloadEntryStatus.Queued,
+                errorMessage = null,
+                currentItemId = null,
+                currentItemTitle = null,
+                completedAtEpochMillis = null,
+            ),
+        )
+        return true
+    }
+
     override suspend fun updateStatus(
         entryId: String,
         status: DownloadEntryStatus,
@@ -1002,6 +1024,20 @@ class FakeReaderSessionStore(
 
     override fun getSession(item: ReadableItem) = sessionByItemId.value[item.id]
 
+    override suspend fun replaceProgressIfCurrent(
+        expected: com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot,
+        replacement: com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot?,
+    ): Boolean {
+        val current = progressByItemId.value[expected.itemId] ?: return false
+        if (current != expected) return false
+        progressByItemId.value = if (replacement == null) {
+            progressByItemId.value - expected.itemId
+        } else {
+            progressByItemId.value + (expected.itemId to replacement)
+        }
+        return true
+    }
+
     override fun updateSession(
         itemId: String,
         pageCount: Int?,
@@ -1025,6 +1061,8 @@ class FakeReaderSessionStore(
         clearProgress(itemId)
         sessionByItemId.value = sessionByItemId.value - itemId
     }
+
+    override fun restoreItem(itemId: String) = Unit
 
     fun seedProgress(
         snapshot: com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot,

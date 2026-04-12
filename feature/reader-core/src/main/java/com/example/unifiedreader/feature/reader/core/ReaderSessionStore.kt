@@ -49,6 +49,11 @@ interface ReaderSessionStore {
         updatedAtEpochMillis: Long = System.currentTimeMillis(),
     )
 
+    suspend fun replaceProgressIfCurrent(
+        expected: ReaderProgressSnapshot,
+        replacement: ReaderProgressSnapshot?,
+    ): Boolean
+
     fun getSession(item: ReadableItem): ReaderSessionSnapshot?
 
     fun updateSession(
@@ -70,4 +75,6 @@ interface ReaderSessionStore {
     fun clearProgress(itemId: String)
 
     fun clearItem(itemId: String)
+
+    fun restoreItem(itemId: String)
 }

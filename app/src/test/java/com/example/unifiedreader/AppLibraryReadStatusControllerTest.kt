@@ -194,6 +194,20 @@ private class TestReaderSessionStore : ReaderSessionStore {
 
     override fun getSession(item: ReadableItem): ReaderSessionSnapshot? = null
 
+    override suspend fun replaceProgressIfCurrent(
+        expected: ReaderProgressSnapshot,
+        replacement: ReaderProgressSnapshot?,
+    ): Boolean {
+        val current = progressState.value[expected.itemId] ?: return false
+        if (current != expected) return false
+        progressState.value = if (replacement == null) {
+            progressState.value - expected.itemId
+        } else {
+            progressState.value + (expected.itemId to replacement)
+        }
+        return true
+    }
+
     override fun updateSession(
         itemId: String,
         pageCount: Int?,
@@ -207,6 +221,8 @@ private class TestReaderSessionStore : ReaderSessionStore {
     override fun clearItem(itemId: String) {
         clearProgress(itemId)
     }
+
+    override fun restoreItem(itemId: String) = Unit
 
     companion object {
         var activeStore: TestReaderSessionStore? = null

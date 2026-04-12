@@ -5,20 +5,34 @@ import android.net.Uri
 import com.example.unifiedreader.core.model.FormatType
 import java.io.File
 
+internal interface LocalDocumentCoverSupport {
+    fun resolvePersistedCoverUri(
+        itemId: String,
+        coverFileName: String?,
+    ): String?
+
+    suspend fun attach(
+        record: LocalDocumentRecord,
+        forceRefresh: Boolean = false,
+    ): LocalDocumentRecord
+
+    fun clear(itemId: String)
+}
+
 internal class LocalCoverCache(
     private val context: Context,
     private val comicArchiveCodecs: List<ComicArchiveCodec>,
-) {
-    fun resolvePersistedCoverUri(
+) : LocalDocumentCoverSupport {
+    override fun resolvePersistedCoverUri(
         itemId: String,
         coverFileName: String?,
     ): String? = coverFileName
         ?.takeIf { coverFile(it).isValidCoverFileFor(itemId) }
         ?.let(::coverUriForFileName)
 
-    suspend fun attach(
+    override suspend fun attach(
         record: LocalDocumentRecord,
-        forceRefresh: Boolean = false,
+        forceRefresh: Boolean,
     ): LocalDocumentRecord {
         val existingCoverFileName = existingCoverFileName(record)
         val coverFileName = runCatching {
@@ -35,7 +49,7 @@ internal class LocalCoverCache(
         )
     }
 
-    fun clear(itemId: String) {
+    override fun clear(itemId: String) {
         coverStorageDirectory()
             .listFiles()
             ?.filter { it.isFile && it.name.startsWith("$itemId.") }

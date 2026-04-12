@@ -31,6 +31,8 @@ class RoomReaderSessionStore(
     private val progressWriteMutex = Mutex()
     private val sessionWriteMutex = Mutex()
     private val hydrationMutex = Mutex()
+    private val stateMonitor = Any()
+    private val tombstonedItemIds = mutableSetOf<String>()
     private val hydrationState = MutableStateFlow(false)
     override val isHydratedFlow: StateFlow<Boolean> = hydrationState.asStateFlow()
     private val progressState = MutableStateFlow<Map<String, ReaderProgressSnapshot>>(emptyMap())
@@ -51,11 +53,17 @@ class RoomReaderSessionStore(
                 readerSessionStateDao.getAll()
                     .map(ReaderSessionStateEntity::toSnapshot)
             }
-            progressState.update { existing ->
-                persistedProgress.associateBy(ReaderProgressSnapshot::itemId) + existing
-            }
-            sessionState.update { existing ->
-                persistedSessions.associateBy(ReaderSessionSnapshot::itemId) + existing
+            synchronized(stateMonitor) {
+                progressState.update { existing ->
+                    persistedProgress
+                        .filterNot { snapshot -> snapshot.itemId in tombstonedItemIds }
+                        .associateBy(ReaderProgressSnapshot::itemId) + existing
+                }
+                sessionState.update { existing ->
+                    persistedSessions
+                        .filterNot { snapshot -> snapshot.itemId in tombstonedItemIds }
+                        .associateBy(ReaderSessionSnapshot::itemId) + existing
+                }
             }
             hydrationState.value = true
         }
@@ -83,18 +91,61 @@ class RoomReaderSessionStore(
             syncState = syncState,
             updatedAtEpochMillis = updatedAtEpochMillis,
         )
-        progressState.value = progressState.value + (item.id to snapshot)
+        val accepted = synchronized(stateMonitor) {
+            if (item.id in tombstonedItemIds) {
+                false
+            } else {
+                progressState.value = progressState.value + (item.id to snapshot)
+                true
+            }
+        }
+        if (!accepted) return
         writeScope.launch {
             appStartupTasks.initialize()
             progressWriteMutex.withLock {
-                progressState.value[item.id]
-                    ?.toEntity()
-                    ?.let(readingProgressDao::insertOrReplace)
+                val snapshotToPersist = synchronized(stateMonitor) {
+                    progressState.value[item.id]
+                }
+                snapshotToPersist?.toEntity()?.let(readingProgressDao::insertOrReplace)
             }
         }
         if (pageCount != null) {
             updateSession(item = item, pageCount = pageCount)
         }
+    }
+
+    override suspend fun replaceProgressIfCurrent(
+        expected: ReaderProgressSnapshot,
+        replacement: ReaderProgressSnapshot?,
+    ): Boolean {
+        val matched = synchronized(stateMonitor) {
+            val current = progressState.value[expected.itemId]
+            if (current != expected) {
+                false
+            } else {
+                progressState.value = if (replacement == null) {
+                    progressState.value - expected.itemId
+                } else {
+                    progressState.value + (expected.itemId to replacement)
+                }
+                true
+            }
+        }
+        if (!matched) return false
+        appStartupTasks.initialize()
+        progressWriteMutex.withLock {
+            withContext(Dispatchers.IO) {
+                val latest = synchronized(stateMonitor) {
+                    progressState.value[expected.itemId]
+                }
+                if (latest == null) {
+                    readingProgressDao.deleteByItemId(expected.itemId)
+                } else {
+                    readingProgressDao.insertOrReplace(latest.toEntity())
+                }
+            }
+        }
+        return true
     }
 
     override fun getSession(item: ReadableItem): ReaderSessionSnapshot? = sessionState.value[item.id]
@@ -104,27 +155,42 @@ class RoomReaderSessionStore(
         pageCount: Int?,
         preferences: Map<String, String>,
     ) {
-        val current = sessionState.value[itemId] ?: ReaderSessionSnapshot(itemId = itemId)
-        val next = current.copy(
-            pageCount = pageCount ?: current.pageCount,
-            preferences = current.preferences + preferences,
-        )
-        sessionState.value = sessionState.value + (itemId to next)
+        val accepted = synchronized(stateMonitor) {
+            if (itemId in tombstonedItemIds) {
+                false
+            } else {
+                val current = sessionState.value[itemId] ?: ReaderSessionSnapshot(itemId = itemId)
+                val next = current.copy(
+                    pageCount = pageCount ?: current.pageCount,
+                    preferences = current.preferences + preferences,
+                )
+                sessionState.value = sessionState.value + (itemId to next)
+                true
+            }
+        }
+        if (!accepted) return
         writeScope.launch {
             appStartupTasks.initialize()
             sessionWriteMutex.withLock {
-                val latest = sessionState.value[itemId] ?: ReaderSessionSnapshot(itemId = itemId)
+                val latest = synchronized(stateMonitor) {
+                    sessionState.value[itemId]
+                } ?: return@withLock
                 readerSessionStateDao.insertOrReplace(latest.toEntity())
             }
         }
     }
 
     override fun clearProgress(itemId: String) {
-        progressState.update { it - itemId }
+        synchronized(stateMonitor) {
+            progressState.update { it - itemId }
+        }
         writeScope.launch {
             appStartupTasks.initialize()
             progressWriteMutex.withLock {
-                if (itemId !in progressState.value) {
+                val shouldDelete = synchronized(stateMonitor) {
+                    itemId !in progressState.value
+                }
+                if (shouldDelete) {
                     readingProgressDao.deleteByItemId(itemId)
                 }
             }
@@ -132,13 +198,39 @@ class RoomReaderSessionStore(
     }
 
     override fun clearItem(itemId: String) {
-        clearProgress(itemId)
-        sessionState.update { it - itemId }
+        synchronized(stateMonitor) {
+            tombstonedItemIds += itemId
+            progressState.update { it - itemId }
+            sessionState.update { it - itemId }
+        }
         writeScope.launch {
             appStartupTasks.initialize()
-            sessionWriteMutex.withLock {
-                readerSessionStateDao.deleteByItemId(itemId)
+            progressWriteMutex.withLock {
+                val latest = synchronized(stateMonitor) {
+                    progressState.value[itemId]
+                }
+                if (latest == null) {
+                    readingProgressDao.deleteByItemId(itemId)
+                } else {
+                    readingProgressDao.insertOrReplace(latest.toEntity())
+                }
             }
+            sessionWriteMutex.withLock {
+                val latest = synchronized(stateMonitor) {
+                    sessionState.value[itemId]
+                }
+                if (latest == null) {
+                    readerSessionStateDao.deleteByItemId(itemId)
+                } else {
+                    readerSessionStateDao.insertOrReplace(latest.toEntity())
+                }
+            }
+        }
+    }
+
+    override fun restoreItem(itemId: String) {
+        synchronized(stateMonitor) {
+            tombstonedItemIds.remove(itemId)
         }
     }
 }

@@ -19,27 +19,41 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 
-class LocalDocumentRepository(
+class LocalDocumentRepository private constructor(
     private val context: Context,
     importedComicArchiveDao: ImportedComicArchiveDao,
-    appStartupTasks: AppStartupTasks = AppStartupTasks {},
-    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    appStartupTasks: AppStartupTasks,
+    private val scope: CoroutineScope,
+    private val comicArchiveCodecs: List<ComicArchiveCodec>,
+    private val coverSupport: LocalDocumentCoverSupport,
+    private val onItemImported: (String) -> Unit,
 ) : LocalDocumentDataSource, LocalComicDocumentDataSource, LocalDocumentHydrator {
     private val coverWarmupSemaphore = Semaphore(permits = 3)
     private val coverMutationMutex = Mutex()
     private val hydrationMutex = Mutex()
-    private val comicArchiveCodecs: List<ComicArchiveCodec> = listOf(
-        ZipComicArchiveCodec,
-        RarComicArchiveCodec(context),
-    )
     private val importProbe = LocalDocumentImportProbe(context, comicArchiveCodecs)
-    private val coverCache = LocalCoverCache(context, comicArchiveCodecs)
     private val store = LocalDocumentStore(
         appStartupTasks = appStartupTasks,
         importedComicArchiveDao = importedComicArchiveDao,
-        persistedCoverUriResolver = coverCache::resolvePersistedCoverUri,
+        persistedCoverUriResolver = coverSupport::resolvePersistedCoverUri,
     )
     private val comicPageLoader = LocalComicPageLoader(context, comicArchiveCodecs, scope)
+
+    constructor(
+        context: Context,
+        importedComicArchiveDao: ImportedComicArchiveDao,
+        appStartupTasks: AppStartupTasks = AppStartupTasks {},
+        scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+        onItemImported: (String) -> Unit = {},
+    ) : this(
+        context = context,
+        importedComicArchiveDao = importedComicArchiveDao,
+        appStartupTasks = appStartupTasks,
+        scope = scope,
+        comicArchiveCodecs = defaultComicArchiveCodecs(context),
+        coverSupport = LocalCoverCache(context, defaultComicArchiveCodecs(context)),
+        onItemImported = onItemImported,
+    )
 
     override val isHydratedFlow = store.isHydratedFlow
     override val importedItemsFlow = store.importedItemsFlow
@@ -62,10 +76,11 @@ class LocalDocumentRepository(
             addedAtEpochMillis = existingRecord?.addedAtEpochMillis ?: record.addedAtEpochMillis,
         )
         val recordWithCover = coverMutationMutex.withLock {
-            val refreshedRecord = coverCache.attach(recordWithAddedAt, forceRefresh = true)
+            val refreshedRecord = coverSupport.attach(recordWithAddedAt, forceRefresh = true)
             store.upsert(refreshedRecord)
             refreshedRecord
         }
+        onItemImported(recordWithCover.id)
         if (recordWithCover.coverUri == null) {
             warmImportedCovers(listOf(recordWithCover.id))
         }
@@ -73,16 +88,18 @@ class LocalDocumentRepository(
     }
 
     override suspend fun removeById(itemId: String): Boolean {
-        val record = store.remove(itemId) ?: return false
-        runCatching {
-            context.contentResolver.releasePersistableUriPermission(
-                Uri.parse(record.uri),
-                Intent.FLAG_GRANT_READ_URI_PERMISSION,
-            )
+        return coverMutationMutex.withLock {
+            val record = store.remove(itemId) ?: return@withLock false
+            runCatching {
+                context.contentResolver.releasePersistableUriPermission(
+                    Uri.parse(record.uri),
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                )
+            }
+            comicPageLoader.clear(itemId)
+            coverSupport.clear(itemId)
+            true
         }
-        comicPageLoader.clear(itemId)
-        coverCache.clear(itemId)
-        return true
     }
 
     override fun getPageCount(item: ReadableItem): Int = store.findRecord(item.id)?.pageCount ?: 0
@@ -150,7 +167,7 @@ class LocalDocumentRepository(
                     coverMutationMutex.withLock {
                         val currentRecord = store.findRecord(itemId) ?: return@launch
                         if (currentRecord.coverUri != null) return@launch
-                        val updatedRecord = coverCache.attach(currentRecord)
+                        val updatedRecord = coverSupport.attach(currentRecord)
                         if (updatedRecord.coverUri == currentRecord.coverUri) return@launch
                         if (store.findRecord(itemId) != currentRecord) return@launch
                         store.upsert(updatedRecord)
@@ -159,4 +176,31 @@ class LocalDocumentRepository(
             }
         }
     }
+
+    internal companion object {
+        fun createForTesting(
+            context: Context,
+            importedComicArchiveDao: ImportedComicArchiveDao,
+            appStartupTasks: AppStartupTasks,
+            scope: CoroutineScope,
+            comicArchiveCodecs: List<ComicArchiveCodec>,
+            coverSupport: LocalDocumentCoverSupport,
+            onItemImported: (String) -> Unit = {},
+        ): LocalDocumentRepository = LocalDocumentRepository(
+            context = context,
+            importedComicArchiveDao = importedComicArchiveDao,
+            appStartupTasks = appStartupTasks,
+            scope = scope,
+            comicArchiveCodecs = comicArchiveCodecs,
+            coverSupport = coverSupport,
+            onItemImported = onItemImported,
+        )
+    }
 }
+
+private fun defaultComicArchiveCodecs(
+    context: Context,
+): List<ComicArchiveCodec> = listOf(
+    ZipComicArchiveCodec,
+    RarComicArchiveCodec(context),
+)
