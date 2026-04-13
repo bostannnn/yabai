@@ -1,11 +1,15 @@
 package com.example.unifiedreader
 
 import com.example.unifiedreader.feature.settings.GrimmoryConnectionUiState
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 
 class AppGrimmoryCoordinatorTest {
@@ -49,6 +53,62 @@ class AppGrimmoryCoordinatorTest {
         assertEquals("", success.connection.password)
         assertEquals("https://backup.grimmory.example", credentialStore.sessionFlow.value?.activeBaseUrl)
         assertEquals(preparation.request, syncer.lastConnectRequest)
+    }
+
+    @Test
+    fun `execute connect rethrows cancellation`() = runTest {
+        val credentialStore = FakeGrimmoryCredentialStore()
+        val coordinator = AppGrimmoryCoordinator(
+            grimmoryCatalogSyncer = FakeGrimmoryCatalogSyncer(
+                failure = CancellationException("cancelled"),
+            ),
+            grimmoryCredentialStore = credentialStore,
+        )
+        val preparation = coordinator.prepareConnect(
+            GrimmoryConnectionUiState(
+                displayName = "Grimmory",
+                baseUrl = "https://grimmory.example",
+                username = "reader",
+                password = "secret",
+            ),
+        ) as GrimmorySyncPreparation.Ready
+
+        try {
+            coordinator.executeConnect(preparation)
+            fail("Expected CancellationException")
+        } catch (exception: CancellationException) {
+            assertEquals("cancelled", exception.message)
+        }
+
+        assertNull(credentialStore.sessionFlow.value)
+    }
+
+    @Test
+    fun `execute sync rethrows cancellation`() = runTest {
+        val credentialStore = FakeGrimmoryCredentialStore()
+        val coordinator = AppGrimmoryCoordinator(
+            grimmoryCatalogSyncer = FakeGrimmoryCatalogSyncer(
+                failure = CancellationException("cancelled"),
+            ),
+            grimmoryCredentialStore = credentialStore,
+        )
+        val preparation = coordinator.prepareConnect(
+            GrimmoryConnectionUiState(
+                displayName = "Grimmory",
+                baseUrl = "https://grimmory.example",
+                username = "reader",
+                password = "secret",
+            ),
+        ) as GrimmorySyncPreparation.Ready
+
+        try {
+            coordinator.executeSync(preparation, clearCoverState = {})
+            fail("Expected CancellationException")
+        } catch (exception: CancellationException) {
+            assertEquals("cancelled", exception.message)
+        }
+
+        assertNull(credentialStore.sessionFlow.value)
     }
 }
 

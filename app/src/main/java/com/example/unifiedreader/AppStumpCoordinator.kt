@@ -132,7 +132,7 @@ class AppStumpCoordinator @Inject constructor(
         preparation: StumpSyncPreparation.Ready,
         clearCoverState: suspend () -> Unit,
         onProgress: (StumpSyncProgress) -> Unit = {},
-    ): StumpSyncExecutionResult = runCatching {
+    ): StumpSyncExecutionResult = runSuspendCatchingPreservingCancellation {
         val result = stumpCatalogSyncer.sync(
             request = preparation.request,
             onProgress = onProgress,
@@ -202,7 +202,7 @@ class AppStumpCoordinator @Inject constructor(
 
     internal suspend fun executeConnect(
         preparation: StumpSyncPreparation.Ready,
-    ): StumpConnectExecutionResult = runCatching {
+    ): StumpConnectExecutionResult = runSuspendCatchingPreservingCancellation {
         val result = stumpCatalogSyncer.connect(preparation.request)
         persistRemoteSession(
             sessionStore = stumpCredentialStore,

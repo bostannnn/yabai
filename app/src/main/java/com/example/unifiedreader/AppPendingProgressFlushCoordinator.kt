@@ -3,11 +3,13 @@ package com.example.unifiedreader
 import android.util.Log
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SyncState
+import com.example.unifiedreader.data.repository.ReadableItemRepository
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -15,6 +17,7 @@ import kotlinx.coroutines.launch
 
 class AppPendingProgressFlushCoordinator @Inject constructor(
     private val readerSessionStore: ReaderSessionStore,
+    private val readableItemRepository: ReadableItemRepository,
     private val flushPendingSourceProgressUseCase: FlushPendingSourceProgressUseCase,
 ) {
     private val retainedProgressItemsById = linkedMapOf<String, ReadableItem>()
@@ -33,17 +36,29 @@ class AppPendingProgressFlushCoordinator @Inject constructor(
         onSyncFailures: (List<SourceProgressSyncFailure>) -> Unit,
     ) {
         scope.launch {
-            readerSessionStore.progressByItemIdFlow
-                .map(::pendingProgressKeys)
-                .distinctUntilChanged()
+            combine(
+                readerSessionStore.progressByItemIdFlow.map(::pendingProgressKeys),
+                readableItemRepository.observeItems(),
+            ) { pendingProgressKeys, catalogItems ->
+                PendingProgressObservation(
+                    pendingProgressKeys = pendingProgressKeys,
+                    catalogItems = catalogItems,
+                    resolvablePendingItemIds = pendingProgressKeys.resolvableIn(catalogItems),
+                )
+            }
+                .distinctUntilChanged { previous, next ->
+                    previous.pendingProgressKeys == next.pendingProgressKeys &&
+                        previous.resolvablePendingItemIds == next.resolvablePendingItemIds
+                }
                 .debounce(PENDING_PROGRESS_DEBOUNCE_MILLIS)
-                .collect { pendingProgressKeys ->
+                .collect { observation ->
+                    val pendingProgressKeys = observation.pendingProgressKeys
                     retainedProgressItemsById.keys.retainAll(
                         pendingProgressKeys.mapTo(mutableSetOf(), PendingProgressKey::itemId),
                     )
                     if (pendingProgressKeys.isNotEmpty()) {
                         flushPendingRemoteProgress(
-                            remoteItems = catalogItemsProvider().withPendingSyncItems(stateProvider().selectedItem),
+                            remoteItems = observation.catalogItems.withPendingSyncItems(stateProvider().selectedItem),
                             onSyncFailures = onSyncFailures,
                         )
                     }
@@ -69,6 +84,7 @@ class AppPendingProgressFlushCoordinator @Inject constructor(
         remoteItems: List<ReadableItem>,
         onSyncFailures: (List<SourceProgressSyncFailure>) -> Unit,
     ) {
+        if (remoteItems.isEmpty()) return
         val failures = flushPendingSourceProgressUseCase(remoteItems)
         failures.forEach { failure ->
             Log.w(
@@ -114,6 +130,23 @@ private data class PendingProgressKey(
     val syncState: String,
     val updatedAtEpochMillis: Long?,
 )
+
+private data class PendingProgressObservation(
+    val pendingProgressKeys: List<PendingProgressKey>,
+    val catalogItems: List<ReadableItem>,
+    val resolvablePendingItemIds: Set<String>,
+)
+
+private fun List<PendingProgressKey>.resolvableIn(
+    catalogItems: List<ReadableItem>,
+): Set<String> {
+    if (isEmpty() || catalogItems.isEmpty()) return emptySet()
+    val pendingItemIds = mapTo(mutableSetOf(), PendingProgressKey::itemId)
+    return catalogItems.asSequence()
+        .map(ReadableItem::id)
+        .filter(pendingItemIds::contains)
+        .toSet()
+}
 
 private const val PENDING_PROGRESS_DEBOUNCE_MILLIS = 1500L
 private const val LOG_TAG = "ProgressFlush"

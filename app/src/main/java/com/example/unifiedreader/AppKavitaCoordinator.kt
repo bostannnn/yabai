@@ -148,7 +148,7 @@ class AppKavitaCoordinator @Inject constructor(
         preparation: KavitaSyncPreparation.Ready,
         clearCoverState: suspend () -> Unit,
         onProgress: (KavitaSyncProgress) -> Unit = {},
-    ): KavitaSyncExecutionResult = runCatching {
+    ): KavitaSyncExecutionResult = runSuspendCatchingPreservingCancellation {
         val result = kavitaCatalogSyncer.sync(
             request = preparation.request,
             onProgress = onProgress,
@@ -194,7 +194,7 @@ class AppKavitaCoordinator @Inject constructor(
 
     internal suspend fun executeConnect(
         preparation: KavitaSyncPreparation.Ready,
-    ): KavitaConnectExecutionResult = runCatching {
+    ): KavitaConnectExecutionResult = runSuspendCatchingPreservingCancellation {
         val result = kavitaCatalogSyncer.connect(preparation.request)
         persistSession(
             preparation = preparation,

@@ -202,6 +202,7 @@ internal fun createViewModel(
             ),
             pendingProgressFlushCoordinator = AppPendingProgressFlushCoordinator(
                 readerSessionStore = readerSessionStore,
+                readableItemRepository = readableItemRepository,
                 flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
                     sourceProgressSyncRegistry = sourceProgressSyncRegistry,
                 ),

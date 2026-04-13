@@ -131,7 +131,7 @@ class AppGrimmoryCoordinator @Inject constructor(
     internal suspend fun executeSync(
         preparation: GrimmorySyncPreparation.Ready,
         clearCoverState: suspend () -> Unit,
-    ): GrimmorySyncExecutionResult = runCatching {
+    ): GrimmorySyncExecutionResult = runSuspendCatchingPreservingCancellation {
         val result = grimmoryCatalogSyncer.sync(preparation.request)
         persistRemoteSession(
             sessionStore = grimmoryCredentialStore,
@@ -192,7 +192,7 @@ class AppGrimmoryCoordinator @Inject constructor(
 
     internal suspend fun executeConnect(
         preparation: GrimmorySyncPreparation.Ready,
-    ): GrimmoryConnectExecutionResult = runCatching {
+    ): GrimmoryConnectExecutionResult = runSuspendCatchingPreservingCancellation {
         val result = grimmoryCatalogSyncer.connect(preparation.request)
         persistRemoteSession(
             sessionStore = grimmoryCredentialStore,
