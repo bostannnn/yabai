@@ -8,6 +8,7 @@ import com.example.unifiedreader.data.kavita.KavitaApi
 import com.example.unifiedreader.data.kavita.KavitaChapterCatalogEntry
 import com.example.unifiedreader.data.kavita.KavitaSession
 import com.example.unifiedreader.data.kavita.KavitaSeriesEntry
+import com.example.unifiedreader.core.model.progress.ProgressSyncStore
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 
 fun interface KavitaApiFactory {
@@ -33,6 +34,8 @@ class KavitaCatalogSyncService(
     private val readerSessionStore: ReaderSessionStore? = null,
     private val nowEpochMillis: () -> Long = System::currentTimeMillis,
 ) : KavitaCatalogSyncer {
+    private val progressSyncStore: ProgressSyncStore? = readerSessionStore?.let(::ReaderSessionProgressStoreAdapter)
+
     override suspend fun connect(
         request: KavitaCatalogSyncRequest,
     ): KavitaCatalogConnectionResult {
@@ -119,7 +122,7 @@ class KavitaCatalogSyncService(
                 sourceType = SourceType.KAVITA,
                 fetch = fetchResult.value,
                 remoteCatalogWriter = remoteCatalogWriter,
-                readerSessionStore = readerSessionStore,
+                progressSyncStore = progressSyncStore,
                 nowEpochMillis = nowEpochMillis(),
                 onProgress = { message, fraction ->
                     onProgress(KavitaSyncProgress(message = message, fraction = fraction))
@@ -141,7 +144,10 @@ class KavitaCatalogSyncService(
                 activeAccessToken = progressSync.accessToken
                 activeRefreshToken = progressSync.refreshToken
                 activeApiKey = progressSync.refreshedSession?.apiKey ?: activeApiKey
-                progressSync.refreshedSession
+                RemoteCatalogProgressPushResult(
+                    session = progressSync.refreshedSession,
+                    failures = progressSync.value,
+                )
             }
             latestSession = syncOutcome.session ?: latestSession
             KavitaCatalogSyncResult(
@@ -150,6 +156,7 @@ class KavitaCatalogSyncService(
                 supportedFormatCounts = syncOutcome.supportedFormatCounts,
                 libraries = fetchResult.value.libraries,
                 session = latestSession,
+                progressPushFailures = syncOutcome.progressPushFailures,
             )
         }
         return result.value.copy(activeBaseUrl = result.activeBaseUrl)
@@ -161,9 +168,9 @@ class KavitaCatalogSyncService(
         initialRefreshToken: String?,
         initialApiKey: String?,
         items: List<ReadableItem>,
-    ): KavitaTokenRefreshResult<Unit> {
+    ): KavitaTokenRefreshResult<List<Throwable>> {
         val store = readerSessionStore ?: return KavitaTokenRefreshResult(
-            value = Unit,
+            value = emptyList(),
             accessToken = initialAccessToken,
             refreshToken = initialRefreshToken,
             refreshedSession = null,
@@ -228,4 +235,5 @@ data class KavitaCatalogSyncResult(
     val libraries: List<Library> = emptyList(),
     val session: KavitaSession? = null,
     val activeBaseUrl: String? = null,
+    val progressPushFailures: List<Throwable> = emptyList(),
 )

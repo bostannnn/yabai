@@ -20,7 +20,9 @@ import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
+import kotlin.coroutines.cancellation.CancellationException
 import org.junit.Assert.assertEquals
+import org.junit.Assert.fail
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertNotEquals
 import org.junit.Test
@@ -104,6 +106,47 @@ class GrimmoryProgressSyncServiceTest {
     }
 
     @Test
+    fun `sync item does not let remote unread reset clear dirty local progress`() = runBlocking {
+        val item = grimmoryItem(remoteId = "book-1")
+        val readerSessionStore = ProgressSyncTestReaderSessionStore().apply {
+            saveProgress(
+                item = item,
+                locator = ReaderLocator(locatorType = LocatorType.PERCENT, percent = 0.5),
+                syncState = SyncState.DIRTY,
+                updatedAtEpochMillis = 10L,
+            )
+        }
+        val api = RecordingGrimmoryApi(
+            bookEntriesById = mapOf(
+                "book-1" to GrimmoryBookCatalogEntry(
+                    item = item,
+                    progress = null,
+                    isExplicitUnreadReset = true,
+                ),
+            ),
+        )
+        val service = GrimmoryProgressSyncService(
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
+            grimmoryCredentialStore = ProgressSyncTestGrimmoryCredentialStore(
+                GrimmoryStoredSession(
+                    displayName = "Home Grimmory",
+                    baseUrl = "https://grimmory.example",
+                    username = "reader",
+                    accessToken = "access-token",
+                    refreshToken = "refresh-token",
+                ),
+            ),
+            readerSessionStore = readerSessionStore,
+        )
+
+        service.syncItem(item)
+
+        val snapshot = checkNotNull(readerSessionStore.getProgress(item))
+        assertEquals(SyncState.DIRTY, snapshot.syncState)
+        assertEquals(0.5, snapshot.percent)
+    }
+
+    @Test
     fun `failed Grimmory upload does not strand progress in syncing state`() = runBlocking {
         val item = grimmoryItem(remoteId = "book-1")
         val readerSessionStore = ProgressSyncTestReaderSessionStore().apply {
@@ -179,6 +222,44 @@ class GrimmoryProgressSyncServiceTest {
         assertEquals(0.75, snapshot.percent)
         assertEquals(SyncState.DIRTY, snapshot.syncState)
         assertEquals(20L, snapshot.updatedAtEpochMillis)
+    }
+
+    @Test
+    fun `cancelled Grimmory upload rethrows without marking progress failed`() = runBlocking {
+        val item = grimmoryItem(remoteId = "book-1")
+        val readerSessionStore = ProgressSyncTestReaderSessionStore().apply {
+            saveProgress(
+                item = item,
+                locator = ReaderLocator(locatorType = LocatorType.PERCENT, percent = 0.5),
+                syncState = SyncState.DIRTY,
+                updatedAtEpochMillis = 10L,
+            )
+        }
+        val service = GrimmoryProgressSyncService(
+            grimmoryApiFactory = GrimmoryApiFactory {
+                RecordingGrimmoryApi(updateError = CancellationException("cancelled"))
+            },
+            grimmoryCredentialStore = ProgressSyncTestGrimmoryCredentialStore(
+                GrimmoryStoredSession(
+                    displayName = "Home Grimmory",
+                    baseUrl = "https://grimmory.example",
+                    username = "reader",
+                    accessToken = "access-token",
+                    refreshToken = "refresh-token",
+                ),
+            ),
+            readerSessionStore = readerSessionStore,
+        )
+
+        try {
+            service.pushPendingProgress(listOf(item))
+            fail("Expected CancellationException")
+        } catch (exception: CancellationException) {
+            assertEquals("cancelled", exception.message)
+        }
+
+        val snapshot = checkNotNull(readerSessionStore.getProgress(item))
+        assertEquals(SyncState.DIRTY, snapshot.syncState)
     }
 }
 

@@ -85,6 +85,8 @@ internal fun createViewModel(
     sourceProgressSyncs: List<SourceProgressSync> = emptyList(),
     appStartupTasks: AppStartupTasks = AppStartupTasks {},
     readerFactories: List<@JvmSuppressWildcards ReaderScreenFactory> = emptyList(),
+    progressSyncNoticeController: AppProgressSyncNoticeController = AppProgressSyncNoticeController(),
+    progressSyncStartupRetryCoordinator: AppProgressSyncStartupRetryCoordinator? = null,
     libraryRepository: FakeLibraryRepository = FakeLibraryRepository(
         libraries = listOf(
             Library(
@@ -159,6 +161,7 @@ internal fun createViewModel(
         readerSessionStore = readerSessionStore,
         remoteCoverController = remoteCoverController,
     )
+    val sourceProgressSyncRegistry = SourceProgressSyncRegistry(sourceProgressSyncs)
     return AppViewModel(
         navigationController = AppNavigationController(
             sourceNavigationStateCoordinator = SourceNavigationStateCoordinator(
@@ -179,8 +182,12 @@ internal fun createViewModel(
         catalogStateCoordinator = catalogStateCoordinator,
         libraryActionsCoordinator = libraryActionsCoordinator,
         libraryReadStatusController = AppLibraryReadStatusController(
-            readerSessionStore = readerSessionStore,
-            sourceProgressSyncs = sourceProgressSyncs,
+            applyReadStatusChangeUseCase = ApplyReadStatusChangeUseCase(
+                progressSyncStore = ReaderSessionProgressStoreAdapter(readerSessionStore),
+                flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
+                    sourceProgressSyncRegistry = sourceProgressSyncRegistry,
+                ),
+            ),
         ),
         comicReadingDirectionController = AppComicReadingDirectionController(
             preferencesStore = comicReadingDirectionPreferencesStore,
@@ -190,7 +197,15 @@ internal fun createViewModel(
         readerCoordinator = AppReaderCoordinator(
             libraryStateAssembler = libraryStateAssembler,
             readerSessionStore = readerSessionStore,
-            sourceProgressSyncs = sourceProgressSyncs,
+            syncItemProgressUseCase = SyncItemProgressUseCase(
+                sourceProgressSyncRegistry = sourceProgressSyncRegistry,
+            ),
+            pendingProgressFlushCoordinator = AppPendingProgressFlushCoordinator(
+                readerSessionStore = readerSessionStore,
+                flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
+                    sourceProgressSyncRegistry = sourceProgressSyncRegistry,
+                ),
+            ),
         ),
         remoteSourcesCoordinator = AppRemoteSourcesCoordinator(
             kavitaController = AppKavitaRemoteSourceController(
@@ -220,6 +235,18 @@ internal fun createViewModel(
                 ),
                 grimmoryCredentialStore = grimmoryCredentialStore,
                 remoteCoverController = remoteCoverController,
+            ),
+        ),
+        progressSyncNoticeController = progressSyncNoticeController,
+        progressSyncStartupRetryCoordinator = progressSyncStartupRetryCoordinator ?: AppProgressSyncStartupRetryCoordinator(
+            readableItemRepository = readableItemRepository,
+            readerSessionStore = readerSessionStore,
+            remoteCatalogReadiness = remoteCatalogReadiness,
+            flushPendingProgressOnStartupUseCase = FlushPendingProgressOnStartupUseCase(
+                progressSyncStore = ReaderSessionProgressStoreAdapter(readerSessionStore),
+                flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
+                    sourceProgressSyncRegistry = sourceProgressSyncRegistry,
+                ),
             ),
         ),
         comicPageSource = pageSource,
@@ -1127,7 +1154,7 @@ class BlockingSourceProgressSync(
 
     override suspend fun pushPendingProgress(
         items: List<ReadableItem>,
-    ) = Unit
+    ): List<SourceProgressSyncFailure> = emptyList()
 
     fun allowCompletion() {
         completionGate.complete(Unit)
@@ -1145,7 +1172,7 @@ class FailingSourceProgressSync(
 
     override suspend fun pushPendingProgress(
         items: List<ReadableItem>,
-    ) = Unit
+    ): List<SourceProgressSyncFailure> = emptyList()
 }
 
 internal fun sampleItem(

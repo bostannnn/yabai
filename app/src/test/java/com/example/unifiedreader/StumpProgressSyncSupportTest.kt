@@ -14,11 +14,14 @@ import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import java.io.File
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.fail
 import org.junit.Test
 
 class StumpProgressSyncSupportTest {
@@ -70,10 +73,173 @@ class StumpProgressSyncSupportTest {
         assertEquals(SyncState.DIRTY, snapshot.syncState)
         assertEquals(456L, snapshot.updatedAtEpochMillis)
     }
+
+    @Test
+    fun `failed Stump upload marks progress failed for retry`() = runTest {
+        val item = ReadableItem(
+            id = "stump:item:42",
+            sourceType = SourceType.STUMP,
+            libraryId = "stump:library:5",
+            remoteId = "42",
+            title = "Chapter 42",
+            format = FormatType.CBZ,
+            pageCount = 28,
+        )
+        val store = TestStumpReaderSessionStore()
+        store.saveProgress(
+            item = item,
+            locator = ReaderLocator(
+                locatorType = LocatorType.PAGE,
+                page = 3,
+            ),
+            syncState = SyncState.DIRTY,
+            updatedAtEpochMillis = 123L,
+        )
+        val api = RecordingStumpApi(
+            updateError = IllegalStateException("boom"),
+        )
+
+        pushDirtyStumpProgress(
+            api = api,
+            initialAccessToken = "access-token",
+            initialRefreshToken = null,
+            items = listOf(item),
+            readerSessionStore = store,
+        )
+
+        val snapshot = checkNotNull(store.progressByItemIdFlow.value[item.id])
+        assertEquals(SyncState.FAILED, snapshot.syncState)
+        assertFalse(snapshot.isFinished)
+    }
+
+    @Test
+    fun `failed Stump completion records diagnostic context`() = runTest {
+        val item = ReadableItem(
+            id = "stump:item:42",
+            sourceType = SourceType.STUMP,
+            libraryId = "stump:library:5",
+            remoteId = "42",
+            title = "Chapter 42",
+            format = FormatType.CBZ,
+            pageCount = 28,
+        )
+        val store = TestStumpReaderSessionStore()
+        store.saveProgress(
+            item = item,
+            locator = ReaderLocator(
+                locatorType = LocatorType.PAGE,
+                page = 3,
+            ),
+            isFinished = true,
+            syncState = SyncState.DIRTY,
+            updatedAtEpochMillis = 123L,
+        )
+        val diagnostics = RecordingStumpProgressSyncDiagnostics()
+
+        pushDirtyStumpProgress(
+            api = RecordingStumpApi(
+                updateError = IllegalStateException("NOT NULL constraint failed: reading_sessions.started_at"),
+            ),
+            initialAccessToken = "access-token",
+            initialRefreshToken = null,
+            items = listOf(item),
+            readerSessionStore = store,
+            diagnostics = diagnostics,
+        )
+
+        val attempt = diagnostics.attempts.single()
+        val failure = diagnostics.failures.single()
+        assertEquals(StumpProgressSyncOperation.MarkMediaComplete, attempt.operation)
+        assertEquals("42", attempt.mediaId)
+        assertEquals(27, attempt.pageIndex)
+        assertEquals(28, attempt.remotePageNumber)
+        assertEquals(28, attempt.pageCount)
+        assertEquals(true, attempt.isFinished)
+        assertEquals(attempt, failure.event)
+        assertEquals("NOT NULL constraint failed: reading_sessions.started_at", failure.throwable.message)
+    }
+
+    @Test
+    fun `cancelled Stump upload rethrows without marking progress failed`() = runTest {
+        val item = ReadableItem(
+            id = "stump:item:42",
+            sourceType = SourceType.STUMP,
+            libraryId = "stump:library:5",
+            remoteId = "42",
+            title = "Chapter 42",
+            format = FormatType.CBZ,
+            pageCount = 28,
+        )
+        val store = TestStumpReaderSessionStore()
+        store.saveProgress(
+            item = item,
+            locator = ReaderLocator(
+                locatorType = LocatorType.PAGE,
+                page = 3,
+            ),
+            syncState = SyncState.DIRTY,
+            updatedAtEpochMillis = 123L,
+        )
+        val diagnostics = RecordingStumpProgressSyncDiagnostics()
+
+        try {
+            pushDirtyStumpProgress(
+                api = RecordingStumpApi(
+                    updateError = CancellationException("cancelled"),
+                ),
+                initialAccessToken = "access-token",
+                initialRefreshToken = null,
+                items = listOf(item),
+                readerSessionStore = store,
+                diagnostics = diagnostics,
+            )
+            fail("Expected CancellationException")
+        } catch (exception: CancellationException) {
+            assertEquals("cancelled", exception.message)
+        }
+
+        val snapshot = checkNotNull(store.progressByItemIdFlow.value[item.id])
+        assertEquals(SyncState.DIRTY, snapshot.syncState)
+        assertEquals(0, diagnostics.failures.size)
+    }
+}
+
+private class RecordingStumpProgressSyncDiagnostics : StumpProgressSyncDiagnostics {
+    val attempts = mutableListOf<StumpProgressSyncDiagnosticEvent>()
+    val successes = mutableListOf<StumpProgressSyncDiagnosticEvent>()
+    val failures = mutableListOf<Failure>()
+
+    override fun onAttempt(
+        event: StumpProgressSyncDiagnosticEvent,
+    ) {
+        attempts += event
+    }
+
+    override fun onSuccess(
+        event: StumpProgressSyncDiagnosticEvent,
+    ) {
+        successes += event
+    }
+
+    override fun onFailure(
+        event: StumpProgressSyncDiagnosticEvent,
+        throwable: Throwable,
+    ) {
+        failures += Failure(
+            event = event,
+            throwable = throwable,
+        )
+    }
+
+    data class Failure(
+        val event: StumpProgressSyncDiagnosticEvent,
+        val throwable: Throwable,
+    )
 }
 
 private class RecordingStumpApi(
     private val beforeProgressReturns: (suspend () -> Unit)? = null,
+    private val updateError: Throwable? = null,
 ) : StumpApi {
     override suspend fun login(
         username: String,
@@ -110,6 +276,7 @@ private class RecordingStumpApi(
         mediaId: String,
         pageIndex: Int,
     ) {
+        updateError?.let { throw it }
         beforeProgressReturns?.invoke()
     }
 
@@ -119,6 +286,7 @@ private class RecordingStumpApi(
         isComplete: Boolean,
         pageIndex: Int?,
     ) {
+        updateError?.let { throw it }
         beforeProgressReturns?.invoke()
     }
 

@@ -68,6 +68,7 @@ data class AppUiState(
     val remoteDownloadActionAvailability: RemoteDownloadActionAvailability = RemoteDownloadActionAvailability(),
     val visibleItems: List<ReadableItem> = emptyList(),
     val libraryBrowseContextKey: String = "",
+    val progressSyncNotice: AppProgressSyncNotice? = null,
 ) {
     val selectedLibraryFilters: LibraryFilterState
         get() = libraryFiltersBySource[selectedSource] ?: LibraryFilterState()

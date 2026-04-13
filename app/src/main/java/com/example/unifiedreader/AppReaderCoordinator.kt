@@ -7,21 +7,16 @@ import com.example.unifiedreader.core.model.isKavitaSeriesContainer
 import com.example.unifiedreader.core.model.isStumpSeriesContainer
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
 import javax.inject.Inject
-import kotlin.jvm.JvmSuppressWildcards
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 class AppReaderCoordinator @Inject constructor(
     private val libraryStateAssembler: AppLibraryStateAssembler,
     private val readerSessionStore: com.example.unifiedreader.feature.reader.core.ReaderSessionStore,
-    private val sourceProgressSyncs: List<@JvmSuppressWildcards SourceProgressSync>,
+    private val syncItemProgressUseCase: SyncItemProgressUseCase,
+    private val pendingProgressFlushCoordinator: AppPendingProgressFlushCoordinator,
 ) {
     private var readerSelectionRequestId = 0
-    private val retainedProgressItemsById = linkedMapOf<String, ReadableItem>()
     private val libraryScrollPositionByContext =
         object : LinkedHashMap<String, LibraryScrollPosition>(LIBRARY_SCROLL_POSITION_CACHE_LIMIT, 0.75f, true) {
             override fun removeEldestEntry(
@@ -65,6 +60,7 @@ class AppReaderCoordinator @Inject constructor(
         updateState: AppUiStateUpdater,
         scope: CoroutineScope,
         refreshProgress: () -> Unit,
+        onSyncFailures: (List<SourceProgressSyncFailure>) -> Unit,
         selectedReaderItem: ReadableItem? = null,
     ) {
         if (item.isKavitaSeriesContainer()) {
@@ -93,29 +89,43 @@ class AppReaderCoordinator @Inject constructor(
             refreshProgress()
             return
         }
-        val progressSync = sourceProgressSyncs.firstOrNull { sync -> sync.supports(item) }
+        val hasProgressSync = syncItemProgressUseCase.hasSyncFor(item)
         val requestId = ++readerSelectionRequestId
         selectedReaderItem?.let { retainedItem ->
-            retainedProgressItemsById[retainedItem.id] = retainedItem
-        }
-        updateState { state ->
-            state.copy(
-                selectedItemId = item.id,
-                activeReader = item.format,
-                selectedReaderItem = selectedReaderItem,
-            )
+            pendingProgressFlushCoordinator.retainProgressItem(retainedItem)
         }
         refreshProgress()
-        if (progressSync != null) {
+        if (hasProgressSync) {
             scope.launch {
-                runCatching {
-                    progressSync.syncItem(item)
-                }.onFailure { throwable ->
-                    Log.w(LOG_TAG, "Unable to sync progress before opening ${item.id}.", throwable)
+                val failures = syncItemProgressUseCase(item).fold(
+                    onSuccess = { emptyList() },
+                    onFailure = { throwable ->
+                        listOf(
+                            SourceProgressSyncFailure(
+                                sourceType = item.sourceType,
+                                throwable = throwable,
+                            ),
+                        )
+                    },
+                )
+                failures.forEach { failure ->
+                    Log.w(LOG_TAG, "Unable to sync progress before opening ${item.id}.", failure.throwable)
                 }
                 if (readerSelectionRequestId != requestId) return@launch
+                onSyncFailures(failures)
                 refreshProgress()
+                openReader(
+                    item = item,
+                    selectedReaderItem = selectedReaderItem,
+                    updateState = updateState,
+                )
             }
+        } else {
+            openReader(
+                item = item,
+                selectedReaderItem = selectedReaderItem,
+                updateState = updateState,
+            )
         }
     }
 
@@ -137,6 +147,7 @@ class AppReaderCoordinator @Inject constructor(
         scope: CoroutineScope,
         catalogItemsProvider: () -> List<ReadableItem>,
         refreshProgress: () -> Unit,
+        onSyncFailures: (List<SourceProgressSyncFailure>) -> Unit,
     ) {
         readerSelectionRequestId++
         val state = stateProvider()
@@ -159,11 +170,12 @@ class AppReaderCoordinator @Inject constructor(
             }
         }
         if (wasReaderOpen) {
-            scope.launch {
-                flushPendingRemoteProgress(
-                    catalogItemsProvider().withPendingSyncItems(state.selectedItem),
-                )
-            }
+            pendingProgressFlushCoordinator.flushPendingProgress(
+                catalogItems = catalogItemsProvider(),
+                selectedItem = state.selectedItem,
+                scope = scope,
+                onSyncFailures = onSyncFailures,
+            )
         }
         refreshProgress()
     }
@@ -186,74 +198,44 @@ class AppReaderCoordinator @Inject constructor(
         refreshDownloadedRemoteItemIds(items)
     }
 
-    @OptIn(FlowPreview::class)
     fun observeDirtyProgress(
         scope: CoroutineScope,
         catalogItemsProvider: () -> List<ReadableItem>,
         stateProvider: AppUiStateProvider,
-    ) {
-        scope.launch {
-            readerSessionStore.progressByItemIdFlow
-                .map { progressByItemId ->
-                    progressByItemId.values
-                        .filter { progress ->
-                            progress.syncState == com.example.unifiedreader.core.model.SyncState.DIRTY ||
-                                progress.syncState == com.example.unifiedreader.core.model.SyncState.FAILED
-                        }
-                        .sortedBy(com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot::itemId)
-                        .map { progress ->
-                            PendingProgressKey(
-                                itemId = progress.itemId,
-                                syncState = progress.syncState.name,
-                                updatedAtEpochMillis = progress.updatedAtEpochMillis,
-                            )
-                        }
-                }
-                .distinctUntilChanged()
-                .debounce(1500L)
-                .collect { pendingProgressKeys ->
-                    retainedProgressItemsById.keys.retainAll(
-                        pendingProgressKeys.mapTo(mutableSetOf(), PendingProgressKey::itemId),
-                    )
-                    if (pendingProgressKeys.isNotEmpty()) {
-                        flushPendingRemoteProgress(
-                            catalogItemsProvider().withPendingSyncItems(stateProvider().selectedItem),
-                        )
-                    }
-                }
-        }
-    }
+        onSyncFailures: (List<SourceProgressSyncFailure>) -> Unit,
+    ) = pendingProgressFlushCoordinator.observeDirtyProgress(
+        scope = scope,
+        catalogItemsProvider = catalogItemsProvider,
+        stateProvider = stateProvider,
+        onSyncFailures = onSyncFailures,
+    )
 
-    private suspend fun flushPendingRemoteProgress(
-        remoteItems: List<ReadableItem>,
-    ) {
-        sourceProgressSyncs.forEach { sync ->
-            runCatching {
-                sync.pushPendingProgress(remoteItems)
-            }.onFailure { throwable ->
-                Log.w(LOG_TAG, "Unable to push pending remote progress.", throwable)
-            }
-        }
-    }
+    fun flushPendingProgress(
+        catalogItems: List<ReadableItem>,
+        selectedItem: ReadableItem?,
+        scope: CoroutineScope,
+        onSyncFailures: (List<SourceProgressSyncFailure>) -> Unit,
+    ) = pendingProgressFlushCoordinator.flushPendingProgress(
+        catalogItems = catalogItems,
+        selectedItem = selectedItem,
+        scope = scope,
+        onSyncFailures = onSyncFailures,
+    )
 
-    private fun List<ReadableItem>.withPendingSyncItems(
-        item: ReadableItem?,
-    ): List<ReadableItem> {
-        val itemsById = LinkedHashMap<String, ReadableItem>(size + retainedProgressItemsById.size + 1)
-        forEach { existing -> itemsById.putIfAbsent(existing.id, existing) }
-        item?.let { selectedItem -> itemsById.putIfAbsent(selectedItem.id, selectedItem) }
-        retainedProgressItemsById.values.forEach { retainedItem ->
-            itemsById.putIfAbsent(retainedItem.id, retainedItem)
+    private fun openReader(
+        item: ReadableItem,
+        selectedReaderItem: ReadableItem?,
+        updateState: AppUiStateUpdater,
+    ) {
+        updateState { state ->
+            state.copy(
+                selectedItemId = item.id,
+                activeReader = item.format,
+                selectedReaderItem = selectedReaderItem,
+            )
         }
-        return itemsById.values.toList()
     }
 }
-
-private data class PendingProgressKey(
-    val itemId: String,
-    val syncState: String,
-    val updatedAtEpochMillis: Long?,
-)
 
 private const val LIBRARY_SCROLL_POSITION_CACHE_LIMIT = 64
 private const val LOG_TAG = "UnifiedReader"

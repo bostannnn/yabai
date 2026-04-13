@@ -25,18 +25,6 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-interface RemoteCatalogWriter {
-    suspend fun getItemsForSourceType(
-        sourceType: SourceType,
-    ): List<ReadableItem>
-
-    suspend fun replaceSourceCatalog(
-        sourceType: SourceType,
-        libraries: List<LibraryEntity>,
-        items: List<ReadableItemEntity>,
-    )
-}
-
 interface RemoteCatalogReadiness {
     val isHydratedFlow: StateFlow<Boolean>
 }

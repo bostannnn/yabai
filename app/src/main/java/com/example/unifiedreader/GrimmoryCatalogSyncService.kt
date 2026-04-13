@@ -7,6 +7,7 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.data.grimmory.GrimmoryApi
 import com.example.unifiedreader.data.grimmory.GrimmoryBookCatalogEntry
 import com.example.unifiedreader.data.grimmory.GrimmorySession
+import com.example.unifiedreader.core.model.progress.ProgressSyncStore
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 
 fun interface GrimmoryApiFactory {
@@ -31,6 +32,8 @@ class GrimmoryCatalogSyncService(
     private val readerSessionStore: ReaderSessionStore? = null,
     private val nowEpochMillis: () -> Long = System::currentTimeMillis,
 ) : GrimmoryCatalogSyncer {
+    private val progressSyncStore: ProgressSyncStore? = readerSessionStore?.let(::ReaderSessionProgressStoreAdapter)
+
     override suspend fun connect(
         request: GrimmoryCatalogSyncRequest,
     ): GrimmoryCatalogConnectionResult {
@@ -127,6 +130,7 @@ class GrimmoryCatalogSyncService(
                 itemCount = items.size,
                 supportedFormatCounts = items.groupingBy(ReadableItem::format).eachCount(),
                 session = latestSession,
+                progressPushFailures = progressSync.value,
             )
         }
         return result.value.copy(activeBaseUrl = result.activeBaseUrl)
@@ -135,7 +139,7 @@ class GrimmoryCatalogSyncService(
     private fun pullProgress(
         entries: List<GrimmoryBookCatalogEntry>,
     ) {
-        val store = readerSessionStore ?: return
+        val store = progressSyncStore ?: return
         entries.forEach { entry ->
             applyRemoteProgressSyncDecision(
                 store = store,
@@ -146,6 +150,7 @@ class GrimmoryCatalogSyncService(
                     remote = entry.progress,
                     nowEpochMillis = nowEpochMillis(),
                     missingRemoteClearsLocal = entry.isExplicitUnreadReset,
+                    remoteClearOverridesLocal = false,
                 ),
             )
         }
@@ -154,7 +159,7 @@ class GrimmoryCatalogSyncService(
     private suspend fun clearStaleGrimmoryProgress(
         incomingItemIds: Set<String>,
     ) {
-        val store = readerSessionStore ?: return
+        val store = progressSyncStore ?: return
         remoteCatalogWriter.getItemsForSourceType(SourceType.GRIMMORY)
             .asSequence()
             .map(ReadableItem::id)
@@ -168,9 +173,9 @@ class GrimmoryCatalogSyncService(
         initialAccessToken: String,
         initialRefreshToken: String?,
         items: List<ReadableItem>,
-    ): GrimmoryTokenRefreshResult<Unit> {
+    ): GrimmoryTokenRefreshResult<List<Throwable>> {
         val store = readerSessionStore ?: return GrimmoryTokenRefreshResult(
-            value = Unit,
+            value = emptyList(),
             accessToken = initialAccessToken,
             refreshToken = initialRefreshToken,
             refreshedSession = null,
@@ -213,4 +218,5 @@ data class GrimmoryCatalogSyncResult(
     val supportedFormatCounts: Map<FormatType, Int>,
     val session: GrimmorySession? = null,
     val activeBaseUrl: String? = null,
+    val progressPushFailures: List<Throwable> = emptyList(),
 )

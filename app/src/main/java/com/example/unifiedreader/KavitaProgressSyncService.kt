@@ -2,6 +2,7 @@ package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.progress.ProgressSyncStore
 import com.example.unifiedreader.data.kavita.toReadingProgress
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import javax.inject.Inject
@@ -15,6 +16,7 @@ class KavitaProgressSyncService @Inject constructor(
     override val sourceType: SourceType = SourceType.KAVITA
 
     private val sessionRequestRunner = KavitaStoredSessionRequestRunner(kavitaCredentialStore)
+    private val progressSyncStore: ProgressSyncStore = ReaderSessionProgressStoreAdapter(readerSessionStore)
 
     override suspend fun syncItem(
         item: ReadableItem,
@@ -41,11 +43,11 @@ class KavitaProgressSyncService @Inject constructor(
             }
         }
         applyRemoteProgressSyncDecision(
-            store = readerSessionStore,
+            store = progressSyncStore,
             item = item,
             pageCount = item.pageCount,
             decision = decideRemoteProgressSync(
-                local = readerSessionStore.getProgress(item),
+                local = progressSyncStore.getProgress(item),
                 remote = progressDto.toReadingProgress(
                     itemId = item.id,
                     pageCount = item.pageCount,
@@ -59,11 +61,11 @@ class KavitaProgressSyncService @Inject constructor(
 
     override suspend fun pushPendingProgress(
         items: List<ReadableItem>,
-    ) {
-        val session = kavitaCredentialStore.sessionFlow.value ?: return
+    ): List<SourceProgressSyncFailure> {
+        val session = kavitaCredentialStore.sessionFlow.value ?: return emptyList()
         val kavitaItems = items.forSource(SourceType.KAVITA)
-        if (kavitaItems.isEmpty()) return
-        runWithStoredSessionAddressFailover(
+        if (kavitaItems.isEmpty()) return emptyList()
+        return runWithStoredSessionAddressFailover(
             sessionStore = kavitaCredentialStore,
             session = session,
             createApi = kavitaApiFactory::create,
@@ -86,6 +88,12 @@ class KavitaProgressSyncService @Inject constructor(
                         refreshToken = refreshedSession.refreshToken,
                         apiKey = refreshedSession.apiKey ?: activeSession.apiKey,
                     ),
+                )
+            }
+            result.value.map { throwable ->
+                SourceProgressSyncFailure(
+                    sourceType = sourceType,
+                    throwable = throwable,
                 )
             }
         }

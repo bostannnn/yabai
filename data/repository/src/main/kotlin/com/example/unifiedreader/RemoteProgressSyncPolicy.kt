@@ -3,24 +3,24 @@ package com.example.unifiedreader
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadingProgress
 import com.example.unifiedreader.core.model.SyncState
-import com.example.unifiedreader.feature.reader.core.ReaderLocator
-import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
-import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
+import com.example.unifiedreader.core.model.progress.ProgressSyncLocator
+import com.example.unifiedreader.core.model.progress.ProgressSyncSnapshot
+import com.example.unifiedreader.core.model.progress.ProgressSyncStore
 
-internal sealed interface RemoteProgressSyncDecision {
+sealed interface RemoteProgressSyncDecision {
     data object KeepLocal : RemoteProgressSyncDecision
 
     data object ClearLocal : RemoteProgressSyncDecision
 
     data class ApplyRemote(
-        val locator: ReaderLocator,
+        val locator: ProgressSyncLocator,
         val isFinished: Boolean,
         val updatedAtEpochMillis: Long,
     ) : RemoteProgressSyncDecision
 }
 
-internal fun decideRemoteProgressSync(
-    local: ReaderProgressSnapshot?,
+fun decideRemoteProgressSync(
+    local: ProgressSyncSnapshot?,
     remote: ReadingProgress?,
     nowEpochMillis: Long,
     missingRemoteClearsLocal: Boolean = false,
@@ -56,8 +56,8 @@ internal fun decideRemoteProgressSync(
     }
 }
 
-internal fun applyRemoteProgressSyncDecision(
-    store: ReaderSessionStore,
+fun applyRemoteProgressSyncDecision(
+    store: ProgressSyncStore,
     item: ReadableItem,
     pageCount: Int?,
     decision: RemoteProgressSyncDecision,
@@ -76,7 +76,7 @@ internal fun applyRemoteProgressSyncDecision(
     }
 }
 
-internal fun ReadingProgress.toReaderLocator(): ReaderLocator = ReaderLocator(
+fun ReadingProgress.toProgressSyncLocator(): ProgressSyncLocator = ProgressSyncLocator(
     locatorType = locatorType,
     page = page,
     cfi = cfi,
@@ -86,7 +86,7 @@ internal fun ReadingProgress.toReaderLocator(): ReaderLocator = ReaderLocator(
 private fun ReadingProgress.toApplyRemoteDecision(
     updatedAtEpochMillis: Long,
 ): RemoteProgressSyncDecision.ApplyRemote = RemoteProgressSyncDecision.ApplyRemote(
-    locator = toReaderLocator(),
+    locator = toProgressSyncLocator(),
     isFinished = isFinished,
     updatedAtEpochMillis = updatedAtEpochMillis,
 )

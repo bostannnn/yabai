@@ -4,6 +4,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class StumpDtosTest {
@@ -160,5 +161,33 @@ class StumpDtosTest {
         assertEquals(2, progress.page)
         assertEquals(0.3, progress.percent ?: 0.0, 0.0001)
         assertFalse(progress.isFinished)
+    }
+
+    @Test
+    fun `missing stump progress marks catalog entry as explicit unread reset`() {
+        val series = StumpSeriesEntry(
+            id = "series-1",
+            libraryId = "library-1",
+            title = "Saga",
+            coverUrl = null,
+        )
+
+        val entry = StumpSeriesDetailDto(
+            media = listOf(
+                StumpMediaNodeDto(
+                    id = "media-1",
+                    extension = "cbz",
+                    metadata = StumpMediaMetadataDto(
+                        title = "Issue 1",
+                    ),
+                ),
+            ),
+        ).toCatalogEntries(
+            baseUrl = "https://stump.example",
+            series = series,
+        ).single()
+
+        assertNull(entry.progress)
+        assertTrue(entry.isExplicitUnreadReset)
     }
 }

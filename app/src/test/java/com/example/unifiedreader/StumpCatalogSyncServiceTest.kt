@@ -168,6 +168,51 @@ class StumpCatalogSyncServiceTest {
             api.seriesAccessTokens.distinct(),
         )
     }
+
+    @Test
+    fun `sync preserves cached stump entries when series detail fails`() = runBlocking {
+        val cachedItem = stumpReadableItem(
+            id = "cached-media",
+            libraryId = "library-1",
+            seriesId = "series-failed",
+        )
+        val writer = RecordingStumpRemoteCatalogWriter(
+            existingItems = listOf(cachedItem),
+        )
+        val api = FakeStumpCatalogApi(
+            libraries = listOf(stumpLibrary("library-1")),
+            seriesByLibraryId = mapOf(
+                "library-1" to listOf(
+                    stumpSeriesEntry(id = "series-ok", libraryId = "library-1"),
+                    stumpSeriesEntry(id = "series-failed", libraryId = "library-1"),
+                ),
+            ),
+            entriesBySeriesId = mapOf(
+                "series-ok" to listOf(stumpMediaEntry(id = "media-1", libraryId = "library-1", seriesId = "series-ok")),
+            ),
+            failedSeriesDetailIds = setOf("series-failed"),
+        )
+        val service = StumpCatalogSyncService(
+            stumpApiFactory = StumpApiFactory { _ -> api },
+            remoteCatalogWriter = writer,
+        )
+
+        val result = service.sync(
+            request = StumpCatalogSyncRequest(
+                displayName = "Stump",
+                baseUrl = "https://stump.example",
+                username = "reader",
+                accessToken = "saved-access-token",
+            ),
+        )
+
+        assertEquals(
+            listOf("stump:item:cached-media", "stump:item:media-1"),
+            writer.lastItems.map(ReadableItemEntity::id).sorted(),
+        )
+        assertEquals(1, result.partialCatalogWarning?.failedSeriesCount)
+        assertEquals(1, result.partialCatalogWarning?.preservedItemCount)
+    }
 }
 
 private fun stumpLibrary(
@@ -196,29 +241,43 @@ private fun stumpMediaEntry(
     seriesId: String,
     format: FormatType = FormatType.CBZ,
 ): StumpMediaCatalogEntry = StumpMediaCatalogEntry(
-    item = ReadableItem(
-        id = SourceType.STUMP.remoteItemId(id),
-        sourceType = SourceType.STUMP,
-        libraryId = SourceType.STUMP.remoteLibraryId(libraryId),
-        remoteId = id,
-        remoteFileType = seriesId,
-        title = "Issue $id",
+    item = stumpReadableItem(
+        id = id,
+        libraryId = libraryId,
+        seriesId = seriesId,
         format = format,
-        pageCount = 24,
-        coverUrl = null,
-        description = null,
-        addedAtEpochMillis = null,
-        comicMetadata = null,
     ),
     progress = null,
 )
 
-private class RecordingStumpRemoteCatalogWriter : RemoteCatalogWriter {
+private fun stumpReadableItem(
+    id: String,
+    libraryId: String,
+    seriesId: String,
+    format: FormatType = FormatType.CBZ,
+): ReadableItem = ReadableItem(
+    id = SourceType.STUMP.remoteItemId(id),
+    sourceType = SourceType.STUMP,
+    libraryId = SourceType.STUMP.remoteLibraryId(libraryId),
+    remoteId = id,
+    remoteFileType = seriesId,
+    title = "Issue $id",
+    format = format,
+    pageCount = 24,
+    coverUrl = null,
+    description = null,
+    addedAtEpochMillis = null,
+    comicMetadata = null,
+)
+
+private class RecordingStumpRemoteCatalogWriter(
+    private val existingItems: List<ReadableItem> = emptyList(),
+) : RemoteCatalogWriter {
     var lastItems: List<ReadableItemEntity> = emptyList()
 
     override suspend fun getItemsForSourceType(
         sourceType: SourceType,
-    ): List<ReadableItem> = emptyList()
+    ): List<ReadableItem> = existingItems
 
     override suspend fun replaceSourceCatalog(
         sourceType: SourceType,
@@ -233,6 +292,7 @@ private class FakeStumpCatalogApi(
     private val libraries: List<Library>,
     private val seriesByLibraryId: Map<String, List<StumpSeriesEntry>>,
     private val entriesBySeriesId: Map<String, List<StumpMediaCatalogEntry>> = emptyMap(),
+    private val failedSeriesDetailIds: Set<String> = emptySet(),
     private val unauthorizedSeriesRequests: Int = 0,
     private val refreshedSession: StumpSession = StumpSession(
         accessToken = "refreshed-access-token",
@@ -275,7 +335,12 @@ private class FakeStumpCatalogApi(
     override suspend fun getSeriesDetail(
         accessToken: String,
         series: StumpSeriesEntry,
-    ): List<StumpMediaCatalogEntry> = entriesBySeriesId[series.id].orEmpty()
+    ): List<StumpMediaCatalogEntry> {
+        if (series.id in failedSeriesDetailIds) {
+            error("Series detail failed.")
+        }
+        return entriesBySeriesId[series.id].orEmpty()
+    }
 
     override suspend fun getProgress(
         accessToken: String,

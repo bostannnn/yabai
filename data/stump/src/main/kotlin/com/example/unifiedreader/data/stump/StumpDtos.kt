@@ -50,6 +50,8 @@ internal data class StumpGraphQlResponseDto(
 @Serializable
 internal data class StumpGraphQlErrorDto(
     val message: String? = null,
+    val path: List<JsonElement>? = null,
+    val extensions: JsonObject? = null,
 )
 
 @Serializable
@@ -315,9 +317,7 @@ internal fun StumpMediaNodeDto.toCatalogEntry(
             languages = metadata?.language.toFacetNames(),
         ),
     )
-    return StumpMediaCatalogEntry(
-        item = item,
-        progress = StumpMediaProgressDto(
+    val progress = StumpMediaProgressDto(
             id = id,
             pages = pages,
             readProgress = readProgress,
@@ -325,7 +325,11 @@ internal fun StumpMediaNodeDto.toCatalogEntry(
         ).toReadingProgress(
             itemId = item.id,
             pageCount = item.pageCount,
-        ),
+        )
+    return StumpMediaCatalogEntry(
+        item = item,
+        progress = progress,
+        isExplicitUnreadReset = progress == null,
     )
 }
 

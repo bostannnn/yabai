@@ -51,6 +51,16 @@ interface StumpApi {
         series: StumpSeriesEntry,
     ): List<StumpMediaCatalogEntry>
 
+    suspend fun getSeriesDetailResult(
+        accessToken: String,
+        series: StumpSeriesEntry,
+    ): StumpSeriesDetailResult = StumpSeriesDetailResult(
+        entries = getSeriesDetail(
+            accessToken = accessToken,
+            series = series,
+        ),
+    )
+
     suspend fun getProgress(
         accessToken: String,
         mediaId: String,
@@ -117,6 +127,12 @@ data class StumpMediaCatalogEntry(
     val isExplicitUnreadReset: Boolean = false,
 )
 
+data class StumpSeriesDetailResult(
+    val entries: List<StumpMediaCatalogEntry>,
+    val errors: List<StumpGraphQlErrorDetail> = emptyList(),
+    val isIncomplete: Boolean = errors.isNotEmpty(),
+)
+
 class StumpUnauthorizedException : RuntimeException("Stump access token expired.")
 
 class KtorStumpApi(
@@ -164,7 +180,7 @@ class KtorStumpApi(
     override suspend fun getLibraries(
         accessToken: String,
     ): List<Library> {
-        val data = graphQlRequest(
+        val response = graphQlRequest(
             accessToken = accessToken,
             query = """
                 query StumpLibraries {
@@ -177,7 +193,7 @@ class KtorStumpApi(
                 }
             """.trimIndent(),
         )
-        return json.decodeFromJsonElement(StumpLibrariesQueryData.serializer(), data)
+        return json.decodeFromJsonElement(StumpLibrariesQueryData.serializer(), response.data)
             .libraries
             ?.nodes
             .orEmpty()
@@ -188,7 +204,7 @@ class KtorStumpApi(
         accessToken: String,
         libraryId: String,
     ): List<StumpSeriesEntry> {
-        val data = graphQlRequest(
+        val response = graphQlRequest(
             accessToken = accessToken,
             query = """
                 query StumpSeries(${'$'}libraryId: String!) {
@@ -210,7 +226,7 @@ class KtorStumpApi(
                 put("libraryId", libraryId)
             },
         )
-        return json.decodeFromJsonElement(StumpSeriesQueryData.serializer(), data)
+        return json.decodeFromJsonElement(StumpSeriesQueryData.serializer(), response.data)
             .series
             ?.nodes
             .orEmpty()
@@ -225,8 +241,16 @@ class KtorStumpApi(
     override suspend fun getSeriesDetail(
         accessToken: String,
         series: StumpSeriesEntry,
-    ): List<StumpMediaCatalogEntry> {
-        val data = graphQlRequest(
+    ): List<StumpMediaCatalogEntry> = getSeriesDetailResult(
+        accessToken = accessToken,
+        series = series,
+    ).entries
+
+    override suspend fun getSeriesDetailResult(
+        accessToken: String,
+        series: StumpSeriesEntry,
+    ): StumpSeriesDetailResult {
+        val response = graphQlRequest(
             accessToken = accessToken,
             query = """
                 query StumpSeriesDetail(${'$'}id: ID!) {
@@ -276,14 +300,19 @@ class KtorStumpApi(
             variables = buildJsonObject {
                 put("id", series.id)
             },
+            allowPartialData = true,
         )
-        return json.decodeFromJsonElement(StumpSeriesDetailQueryData.serializer(), data)
+        val entries = json.decodeFromJsonElement(StumpSeriesDetailQueryData.serializer(), response.data)
             .seriesById
             ?.toCatalogEntries(
                 baseUrl = normalizedBaseUrl,
                 series = series,
             )
             .orEmpty()
+        return StumpSeriesDetailResult(
+            entries = entries,
+            errors = response.errors,
+        )
     }
 
     override suspend fun getProgress(
@@ -292,7 +321,7 @@ class KtorStumpApi(
         itemId: String,
         pageCount: Int?,
     ): com.example.unifiedreader.core.model.ReadingProgress? {
-        val data = graphQlRequest(
+        val response = graphQlRequest(
             accessToken = accessToken,
             query = """
                 query StumpMediaProgress(${'$'}id: ID!) {
@@ -314,7 +343,7 @@ class KtorStumpApi(
                 put("id", mediaId)
             },
         )
-        return json.decodeFromJsonElement(StumpMediaProgressQueryData.serializer(), data)
+        return json.decodeFromJsonElement(StumpMediaProgressQueryData.serializer(), response.data)
             .mediaById
             ?.toReadingProgress(
                 itemId = itemId,
@@ -442,7 +471,8 @@ class KtorStumpApi(
         accessToken: String,
         query: String,
         variables: JsonObject = buildJsonObject {},
-    ): JsonObject {
+        allowPartialData: Boolean = false,
+    ): StumpGraphQlDecodedResponse {
         val response = httpClient.post(graphQlUrl) {
             bearerAuth(accessToken)
             contentType(ContentType.Application.Json)
@@ -455,17 +485,7 @@ class KtorStumpApi(
         }
         response.throwIfStumpError()
         val payload = response.body<StumpGraphQlResponseDto>()
-        payload.errors.orEmpty()
-            .mapNotNull(StumpGraphQlErrorDto::message)
-            .firstOrNull()
-            ?.takeIf(String::isNotBlank)
-            ?.let { message ->
-                if (message.isUnauthorizedGraphQlMessage()) {
-                    throw StumpUnauthorizedException()
-                }
-                error(message)
-            }
-        return payload.data ?: error("Stump GraphQL response did not include data.")
+        return payload.requireGraphQlData(allowPartialData = allowPartialData)
     }
 }
 
@@ -480,17 +500,6 @@ private suspend fun HttpResponse.throwIfStumpError() {
     }
     error(responseBody.ifBlank { status.description })
 }
-
-private fun String.isUnauthorizedGraphQlMessage(): Boolean = contains(
-    other = "unauthorized",
-    ignoreCase = true,
-) || contains(
-    other = "not authenticated",
-    ignoreCase = true,
-) || contains(
-    other = "invalid token",
-    ignoreCase = true,
-)
 
 private fun String.removeTrailingStumpApiPath(): String = replace(
     Regex("/api(?:/v\\d+)?$"),

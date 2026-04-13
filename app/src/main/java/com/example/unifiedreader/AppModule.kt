@@ -11,6 +11,7 @@ import com.example.unifiedreader.core.database.dao.ReaderSessionStateDao
 import com.example.unifiedreader.core.network.buildHttpClient
 import com.example.unifiedreader.data.grimmory.KtorGrimmoryApi
 import com.example.unifiedreader.data.kavita.KtorKavitaApi
+import com.example.unifiedreader.core.model.progress.ProgressSyncStore
 import com.example.unifiedreader.data.stump.KtorStumpApi
 import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
@@ -264,6 +265,12 @@ object AppModule {
             baseUrl = baseUrl,
         )
     }
+
+    @Provides
+    @Singleton
+    fun provideProgressSyncStore(
+        readerSessionStore: ReaderSessionStore,
+    ): ProgressSyncStore = ReaderSessionProgressStoreAdapter(readerSessionStore)
 
     @Provides
     @Singleton

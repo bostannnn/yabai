@@ -17,11 +17,14 @@ import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import java.io.File
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.fail
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -173,11 +176,107 @@ class KavitaProgressSyncSupportTest {
         assertEquals(SyncState.DIRTY, snapshot.syncState)
         assertEquals(456L, snapshot.updatedAtEpochMillis)
     }
+
+    @Test
+    fun `failed Kavita upload marks progress failed for retry`() = runTest {
+        val item = ReadableItem(
+            id = "kavita:item:42",
+            sourceType = SourceType.KAVITA,
+            libraryId = "kavita:library:5",
+            remoteId = "42",
+            title = "Chapter 42",
+            format = FormatType.EPUB,
+            pageCount = 28,
+        )
+        val store = TestKavitaReaderSessionStore()
+        store.saveProgress(
+            item = item,
+            locator = ReaderLocator(
+                locatorType = LocatorType.PAGE,
+                page = 3,
+            ),
+            syncState = SyncState.DIRTY,
+            updatedAtEpochMillis = 123L,
+        )
+        val api = RecordingKavitaApi(
+            chapterInfo = KavitaChapterInfoDto(
+                libraryId = 5,
+                seriesId = 12,
+                volumeId = 7,
+                pages = 28,
+            ),
+            updateError = IllegalStateException("boom"),
+        )
+
+        pushDirtyKavitaProgress(
+            api = api,
+            initialAccessToken = "access-token",
+            initialRefreshToken = null,
+            initialApiKey = null,
+            items = listOf(item),
+            readerSessionStore = store,
+        )
+
+        val snapshot = checkNotNull(store.progressByItemIdFlow.value[item.id])
+        assertEquals(SyncState.FAILED, snapshot.syncState)
+        assertFalse(snapshot.isFinished)
+    }
+
+    @Test
+    fun `cancelled Kavita upload rethrows without marking progress failed`() = runTest {
+        val item = ReadableItem(
+            id = "kavita:item:42",
+            sourceType = SourceType.KAVITA,
+            libraryId = "kavita:library:5",
+            remoteId = "42",
+            title = "Chapter 42",
+            format = FormatType.EPUB,
+            pageCount = 28,
+        )
+        val store = TestKavitaReaderSessionStore()
+        store.saveProgress(
+            item = item,
+            locator = ReaderLocator(
+                locatorType = LocatorType.PAGE,
+                page = 3,
+            ),
+            syncState = SyncState.DIRTY,
+            updatedAtEpochMillis = 123L,
+        )
+        val api = RecordingKavitaApi(
+            chapterInfo = KavitaChapterInfoDto(
+                libraryId = 5,
+                seriesId = 12,
+                volumeId = 7,
+                pages = 28,
+            ),
+            updateError = CancellationException("cancelled"),
+        )
+
+        try {
+            pushDirtyKavitaProgress(
+                api = api,
+                initialAccessToken = "access-token",
+                initialRefreshToken = null,
+                initialApiKey = null,
+                items = listOf(item),
+                readerSessionStore = store,
+            )
+            fail("Expected CancellationException")
+        } catch (exception: CancellationException) {
+            assertEquals("cancelled", exception.message)
+        }
+
+        val snapshot = checkNotNull(store.progressByItemIdFlow.value[item.id])
+        assertEquals(SyncState.DIRTY, snapshot.syncState)
+        assertFalse(snapshot.isFinished)
+    }
 }
 
 private class RecordingKavitaApi(
     private val chapterInfo: KavitaChapterInfoDto,
     private val beforeUpdateProgressReturns: (suspend () -> Unit)? = null,
+    private val updateError: Throwable? = null,
 ) : KavitaApi {
     val progressUpdates = mutableListOf<KavitaProgressUpdate>()
 
@@ -221,6 +320,7 @@ private class RecordingKavitaApi(
         accessToken: String,
         progress: KavitaProgressUpdate,
     ) {
+        updateError?.let { throw it }
         progressUpdates += progress
         beforeUpdateProgressReturns?.invoke()
     }

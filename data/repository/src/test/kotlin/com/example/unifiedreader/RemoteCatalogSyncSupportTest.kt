@@ -11,13 +11,12 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
-import com.example.unifiedreader.feature.reader.core.ReaderLocator
-import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
-import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
-import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
+import com.example.unifiedreader.core.model.progress.ProgressSyncLocator
+import com.example.unifiedreader.core.model.progress.ProgressSyncSnapshot
+import com.example.unifiedreader.core.model.progress.ProgressSyncStore
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -31,17 +30,17 @@ class RemoteCatalogSyncSupportTest {
         val incomingItem = remoteItem(id = "issue-1")
         val staleItem = remoteItem(id = "issue-stale")
         val remoteCatalogWriter = SupportTestRemoteCatalogWriter(existingItems = listOf(staleItem))
-        val readerSessionStore = RecordingReaderSessionStore().apply {
+        val progressSyncStore = RecordingProgressSyncStore().apply {
             saveProgress(
                 item = staleItem,
-                locator = ReaderLocator(locatorType = LocatorType.PAGE, page = 2),
+                locator = ProgressSyncLocator(locatorType = LocatorType.PAGE, page = 2),
                 syncState = SyncState.CLEAN,
                 pageCount = staleItem.pageCount,
                 updatedAtEpochMillis = 50L,
             )
             saveProgress(
                 item = incomingItem,
-                locator = ReaderLocator(locatorType = LocatorType.PERCENT, percent = 0.2),
+                locator = ProgressSyncLocator(locatorType = LocatorType.PERCENT, percent = 0.2),
                 syncState = SyncState.CLEAN,
                 pageCount = incomingItem.pageCount,
                 updatedAtEpochMillis = 100L,
@@ -67,7 +66,7 @@ class RemoteCatalogSyncSupportTest {
                 ),
             ),
             remoteCatalogWriter = remoteCatalogWriter,
-            readerSessionStore = readerSessionStore,
+            progressSyncStore = progressSyncStore,
             nowEpochMillis = 999L,
             onProgress = { message, _ -> progressMessages += message },
             savingMessage = "Saving remote catalog...",
@@ -76,38 +75,42 @@ class RemoteCatalogSyncSupportTest {
             progressOf = TestRemoteEntry::progress,
         ) { items ->
             pushedItems = items
-            "refreshed-session"
+            RemoteCatalogProgressPushResult(
+                session = "refreshed-session",
+                failures = emptyList(),
+            )
         }
 
         assertEquals(SourceType.KAVITA, remoteCatalogWriter.replacedSourceType)
         assertEquals(listOf("Saving remote catalog...", "Applying remote progress..."), progressMessages)
         assertEquals(listOf(incomingItem.id), pushedItems.map(ReadableItem::id))
-        assertNull(readerSessionStore.getProgress(staleItem))
-        assertEquals(0.8, readerSessionStore.getProgress(incomingItem)?.percent)
-        assertEquals(SyncState.CLEAN, readerSessionStore.getProgress(incomingItem)?.syncState)
-        assertEquals(200L, readerSessionStore.getProgress(incomingItem)?.updatedAtEpochMillis)
-        assertEquals(incomingItem.pageCount, readerSessionStore.getSession(incomingItem)?.pageCount)
+        assertNull(progressSyncStore.getProgress(staleItem))
+        assertEquals(0.8, progressSyncStore.getProgress(incomingItem)?.percent)
+        assertEquals(SyncState.CLEAN, progressSyncStore.getProgress(incomingItem)?.syncState)
+        assertEquals(200L, progressSyncStore.getProgress(incomingItem)?.updatedAtEpochMillis)
+        assertEquals(incomingItem.pageCount, progressSyncStore.savedPageCountByItemId[incomingItem.id])
         assertEquals(1, outcome.libraryCount)
         assertEquals(1, outcome.itemCount)
         assertEquals(mapOf(FormatType.CBZ to 1), outcome.supportedFormatCounts)
         assertEquals("refreshed-session", outcome.session)
+        assertTrue(outcome.progressPushFailures.isEmpty())
     }
 
     @Test
     fun `finalize remote catalog sync propagates missing remote clear rules`() = runTest {
         val cleanItem = remoteItem(id = "issue-clean")
         val dirtyItem = remoteItem(id = "issue-dirty")
-        val readerSessionStore = RecordingReaderSessionStore().apply {
+        val progressSyncStore = RecordingProgressSyncStore().apply {
             saveProgress(
                 item = cleanItem,
-                locator = ReaderLocator(locatorType = LocatorType.PAGE, page = 4),
+                locator = ProgressSyncLocator(locatorType = LocatorType.PAGE, page = 4),
                 syncState = SyncState.CLEAN,
                 pageCount = cleanItem.pageCount,
                 updatedAtEpochMillis = 100L,
             )
             saveProgress(
                 item = dirtyItem,
-                locator = ReaderLocator(locatorType = LocatorType.PAGE, page = 7),
+                locator = ProgressSyncLocator(locatorType = LocatorType.PAGE, page = 7),
                 syncState = SyncState.DIRTY,
                 pageCount = dirtyItem.pageCount,
                 updatedAtEpochMillis = 150L,
@@ -133,7 +136,7 @@ class RemoteCatalogSyncSupportTest {
                 ),
             ),
             remoteCatalogWriter = SupportTestRemoteCatalogWriter(),
-            readerSessionStore = readerSessionStore,
+            progressSyncStore = progressSyncStore,
             nowEpochMillis = 999L,
             onProgress = { _, _ -> },
             savingMessage = "Saving remote catalog...",
@@ -142,10 +145,15 @@ class RemoteCatalogSyncSupportTest {
             progressOf = TestRemoteEntry::progress,
             missingRemoteClearsLocal = TestRemoteEntry::missingRemoteClearsLocal,
             remoteClearOverridesLocal = TestRemoteEntry::remoteClearOverridesLocal,
-        ) { _ -> null }
+        ) { _ ->
+            RemoteCatalogProgressPushResult(
+                session = null,
+                failures = emptyList(),
+            )
+        }
 
-        assertNull(readerSessionStore.getProgress(cleanItem))
-        assertEquals(SyncState.DIRTY, readerSessionStore.getProgress(dirtyItem)?.syncState)
+        assertNull(progressSyncStore.getProgress(cleanItem))
+        assertEquals(SyncState.DIRTY, progressSyncStore.getProgress(dirtyItem)?.syncState)
     }
 
     @Test
@@ -253,19 +261,20 @@ private class SupportTestRemoteCatalogWriter(
     }
 }
 
-private class RecordingReaderSessionStore : ReaderSessionStore {
-    private val progressByItemId = MutableStateFlow<Map<String, ReaderProgressSnapshot>>(emptyMap())
-    private val sessionByItemId = MutableStateFlow<Map<String, ReaderSessionSnapshot>>(emptyMap())
+private class RecordingProgressSyncStore : ProgressSyncStore {
+    private val progressByItemId = MutableStateFlow<Map<String, ProgressSyncSnapshot>>(emptyMap())
+    val savedPageCountByItemId = mutableMapOf<String, Int?>()
 
-    override val isHydratedFlow: StateFlow<Boolean> = MutableStateFlow(true)
-    override val progressByItemIdFlow: StateFlow<Map<String, ReaderProgressSnapshot>> = progressByItemId
-    override val sessionByItemIdFlow: StateFlow<Map<String, ReaderSessionSnapshot>> = sessionByItemId
+    override val isHydratedFlow = MutableStateFlow(true).asStateFlow()
+    override val progressByItemIdFlow = progressByItemId.asStateFlow()
 
-    override fun getProgress(item: ReadableItem): ReaderProgressSnapshot? = progressByItemId.value[item.id]
+    override fun currentProgressByItemId(): Map<String, ProgressSyncSnapshot> = progressByItemId.value
+
+    override fun getProgress(item: ReadableItem): ProgressSyncSnapshot? = progressByItemId.value[item.id]
 
     override fun saveProgress(
         item: ReadableItem,
-        locator: ReaderLocator,
+        locator: ProgressSyncLocator,
         isFinished: Boolean,
         isExplicitUnreadReset: Boolean,
         syncState: SyncState,
@@ -273,7 +282,7 @@ private class RecordingReaderSessionStore : ReaderSessionStore {
         updatedAtEpochMillis: Long,
     ) {
         progressByItemId.value = progressByItemId.value + (
-            item.id to ReaderProgressSnapshot(
+            item.id to ProgressSyncSnapshot(
                 itemId = item.id,
                 locatorType = locator.locatorType,
                 page = locator.page,
@@ -285,16 +294,12 @@ private class RecordingReaderSessionStore : ReaderSessionStore {
                 updatedAtEpochMillis = updatedAtEpochMillis,
             )
         )
-        if (pageCount != null) {
-            updateSession(item = item, pageCount = pageCount)
-        }
+        savedPageCountByItemId[item.id] = pageCount
     }
 
-    override fun getSession(item: ReadableItem): ReaderSessionSnapshot? = sessionByItemId.value[item.id]
-
     override suspend fun replaceProgressIfCurrent(
-        expected: ReaderProgressSnapshot,
-        replacement: ReaderProgressSnapshot?,
+        expected: ProgressSyncSnapshot,
+        replacement: ProgressSyncSnapshot?,
     ): Boolean {
         val current = progressByItemId.value[expected.itemId] ?: return false
         if (current != expected) return false
@@ -306,28 +311,12 @@ private class RecordingReaderSessionStore : ReaderSessionStore {
         return true
     }
 
-    override fun updateSession(
-        itemId: String,
-        pageCount: Int?,
-        preferences: Map<String, String>,
-    ) {
-        val current = sessionByItemId.value[itemId] ?: ReaderSessionSnapshot(itemId = itemId)
-        sessionByItemId.value = sessionByItemId.value + (
-            itemId to current.copy(
-                pageCount = pageCount ?: current.pageCount,
-                preferences = current.preferences + preferences,
-            )
-        )
-    }
-
     override fun clearProgress(itemId: String) {
         progressByItemId.value = progressByItemId.value - itemId
     }
 
     override fun clearItem(itemId: String) {
         clearProgress(itemId)
-        sessionByItemId.value = sessionByItemId.value - itemId
+        savedPageCountByItemId.remove(itemId)
     }
-
-    override fun restoreItem(itemId: String) = Unit
 }

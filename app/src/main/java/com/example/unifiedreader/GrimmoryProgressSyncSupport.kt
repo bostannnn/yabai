@@ -10,6 +10,7 @@ import com.example.unifiedreader.feature.reader.core.ReaderLocator
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import org.json.JSONObject
+import kotlin.coroutines.cancellation.CancellationException
 
 internal suspend fun pushDirtyGrimmoryProgress(
     api: GrimmoryApi,
@@ -17,13 +18,16 @@ internal suspend fun pushDirtyGrimmoryProgress(
     initialRefreshToken: String?,
     items: List<ReadableItem>,
     readerSessionStore: ReaderSessionStore,
-): GrimmoryTokenRefreshResult<Unit> {
+): GrimmoryTokenRefreshResult<List<Throwable>> {
     val itemsById = items.associateBy(ReadableItem::id)
     var activeAccessToken = initialAccessToken
     var activeRefreshToken = initialRefreshToken
     var latestSession: GrimmorySession? = null
-    readerSessionStore.progressByItemIdFlow.value.forEach { (itemId, progress) ->
-        val item = itemsById[itemId] ?: return@forEach
+    val failures = mutableListOf<Throwable>()
+    readerSessionStore.progressByItemIdFlow.value.values
+        .sortedBy(ReaderProgressSnapshot::updatedAtEpochMillis)
+        .forEach { progress ->
+        val item = itemsById[progress.itemId] ?: return@forEach
         if (progress.syncState != SyncState.DIRTY && progress.syncState != SyncState.FAILED) return@forEach
         val update = if (progress.isExplicitUnreadReset) {
             GrimmoryProgressUpdate(
@@ -61,7 +65,11 @@ internal suspend fun pushDirtyGrimmoryProgress(
                     replacement = progress.copy(syncState = SyncState.CLEAN),
                 )
             }
-        }.onFailure {
+        }.onFailure { throwable ->
+            if (throwable is CancellationException) {
+                throw throwable
+            }
+            failures += throwable
             readerSessionStore.replaceProgressIfCurrent(
                 expected = progress,
                 replacement = progress.copy(syncState = SyncState.FAILED),
@@ -69,7 +77,7 @@ internal suspend fun pushDirtyGrimmoryProgress(
         }
     }
     return GrimmoryTokenRefreshResult(
-        value = Unit,
+        value = failures.toList(),
         accessToken = activeAccessToken,
         refreshToken = activeRefreshToken,
         refreshedSession = latestSession,

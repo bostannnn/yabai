@@ -221,6 +221,7 @@ class KtorGrimmoryApi(
             .mapNotNull { book ->
                 book.toCatalogEntry(
                     baseUrl = normalizedBaseUrl,
+                    progressStateIncluded = false,
                 )
             }
     }

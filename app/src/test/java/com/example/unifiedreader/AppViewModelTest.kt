@@ -68,7 +68,7 @@ class AppViewModelTest {
     }
 
     @Test
-    fun `on item selected opens reader immediately while remote progress sync runs in background`() {
+    fun `on item selected waits for remote progress sync before opening reader`() {
         val remoteBook = sampleItem(
             id = "grimmory-epub",
             title = "Remote Book",
@@ -85,12 +85,42 @@ class AppViewModelTest {
         )
 
         viewModel.onItemSelected(remoteBook)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertNull(viewModel.uiState.selectedItemId)
+        assertNull(viewModel.uiState.activeReader)
+        assertEquals(1, progressSync.syncItemCalls)
+        progressSync.allowCompletion()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(remoteBook.id, viewModel.uiState.selectedItemId)
+        assertEquals(FormatType.EPUB, viewModel.uiState.activeReader)
+    }
+
+    @Test
+    fun `remote progress sync failure still opens reader and shows notice`() {
+        val remoteBook = sampleItem(
+            id = "grimmory-epub",
+            title = "Remote Book",
+            format = FormatType.EPUB,
+        ).copy(
+            sourceType = SourceType.GRIMMORY,
+            libraryId = SourceType.GRIMMORY.remoteLibraryId("grimmory-books"),
+            remoteId = "grimmory-epub",
+        )
+        val viewModel = createViewModel(
+            sampleItems = listOf(remoteBook),
+            sourceProgressSyncs = listOf(FailingSourceProgressSync(sourceType = SourceType.GRIMMORY)),
+        )
+
+        viewModel.onItemSelected(remoteBook)
+        shadowOf(Looper.getMainLooper()).idle()
 
         assertEquals(remoteBook.id, viewModel.uiState.selectedItemId)
         assertEquals(FormatType.EPUB, viewModel.uiState.activeReader)
-        progressSync.allowCompletion()
-        shadowOf(Looper.getMainLooper()).idle()
-        assertEquals(1, progressSync.syncItemCalls)
+        assertEquals(
+            "Unable to sync Grimmory progress: Sync unavailable",
+            viewModel.uiState.progressSyncNotice?.message,
+        )
     }
 
     @Test

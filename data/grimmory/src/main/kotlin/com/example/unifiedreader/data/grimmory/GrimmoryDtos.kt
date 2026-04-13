@@ -187,6 +187,7 @@ internal fun GrimmoryBookDto.toDomain(
 
 internal fun GrimmoryBookDto.toCatalogEntry(
     baseUrl: String,
+    progressStateIncluded: Boolean = true,
 ): GrimmoryBookCatalogEntry? {
     val bookId = id?.toString() ?: return null
     val libraryId = libraryId?.toString() ?: return null
@@ -222,9 +223,11 @@ internal fun GrimmoryBookDto.toCatalogEntry(
             languages = metadata?.language.toFacetNames(),
         ),
     )
+    val progress = toReadingProgress(item)
     return GrimmoryBookCatalogEntry(
         item = item,
-        progress = toReadingProgress(item),
+        progress = progress,
+        isExplicitUnreadReset = progressStateIncluded && progress == null,
     )
 }
 

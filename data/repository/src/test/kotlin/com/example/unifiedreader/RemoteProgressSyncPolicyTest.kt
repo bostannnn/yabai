@@ -3,14 +3,14 @@ package com.example.unifiedreader
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadingProgress
 import com.example.unifiedreader.core.model.SyncState
-import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
+import com.example.unifiedreader.core.model.progress.ProgressSyncSnapshot
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class RemoteProgressSyncPolicyTest {
     @Test
     fun `missing remote progress keeps dirty local progress by default`() {
-        val local = ReaderProgressSnapshot(
+        val local = ProgressSyncSnapshot(
             itemId = "book-1",
             locatorType = LocatorType.PERCENT,
             percent = 0.55,
@@ -29,7 +29,7 @@ class RemoteProgressSyncPolicyTest {
 
     @Test
     fun `missing remote progress clears clean local progress only when explicitly requested`() {
-        val local = ReaderProgressSnapshot(
+        val local = ProgressSyncSnapshot(
             itemId = "book-1",
             locatorType = LocatorType.PERCENT,
             percent = 0.55,
@@ -48,8 +48,29 @@ class RemoteProgressSyncPolicyTest {
     }
 
     @Test
+    fun `explicit remote reset keeps dirty local progress when remote clear override is disabled`() {
+        val local = ProgressSyncSnapshot(
+            itemId = "book-1",
+            locatorType = LocatorType.PERCENT,
+            percent = 0.55,
+            syncState = SyncState.DIRTY,
+            updatedAtEpochMillis = 10L,
+        )
+
+        val decision = decideRemoteProgressSync(
+            local = local,
+            remote = null,
+            nowEpochMillis = 20L,
+            missingRemoteClearsLocal = true,
+            remoteClearOverridesLocal = false,
+        )
+
+        assertEquals(RemoteProgressSyncDecision.KeepLocal, decision)
+    }
+
+    @Test
     fun `older remote progress does not overwrite clean local progress`() {
-        val local = ReaderProgressSnapshot(
+        val local = ProgressSyncSnapshot(
             itemId = "book-1",
             locatorType = LocatorType.PERCENT,
             percent = 0.80,
@@ -74,7 +95,7 @@ class RemoteProgressSyncPolicyTest {
 
     @Test
     fun `newer remote progress overwrites clean local progress`() {
-        val local = ReaderProgressSnapshot(
+        val local = ProgressSyncSnapshot(
             itemId = "book-1",
             locatorType = LocatorType.PERCENT,
             percent = 0.35,
@@ -96,7 +117,7 @@ class RemoteProgressSyncPolicyTest {
 
         assertEquals(
             RemoteProgressSyncDecision.ApplyRemote(
-                locator = remote.toReaderLocator(),
+                locator = remote.toProgressSyncLocator(),
                 isFinished = false,
                 updatedAtEpochMillis = 200L,
             ),

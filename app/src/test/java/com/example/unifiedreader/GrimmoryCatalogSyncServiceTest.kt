@@ -434,7 +434,7 @@ class GrimmoryCatalogSyncServiceTest {
     }
 
     @Test
-    fun `sync clears dirty progress when grimmory marks book unread`() = runBlocking {
+    fun `sync keeps dirty progress when grimmory marks book unread`() = runBlocking {
         val readerSessionStore = GrimmoryTestReaderSessionStore()
         val item = grimmoryItem(remoteId = "42", libraryRemoteId = "g-books", title = "Remote EPUB")
         readerSessionStore.saveProgress(
@@ -467,9 +467,12 @@ class GrimmoryCatalogSyncServiceTest {
             ),
         )
 
-        assertEquals(null, readerSessionStore.getProgress(item))
-        assertEquals(emptyList<GrimmoryProgressUpdate>(), api.progressUpdates)
+        val progress = readerSessionStore.getProgress(item)
+        assertEquals(0.75, progress?.percent)
+        assertEquals(com.example.unifiedreader.core.model.SyncState.CLEAN, progress?.syncState)
+        assertEquals(1, api.progressUpdates.size)
     }
+
 }
 
 private fun grimmoryLibrary(

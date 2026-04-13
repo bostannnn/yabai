@@ -40,6 +40,8 @@ class AppViewModel @Inject constructor(
     private val comicReadingDirectionController: AppComicReadingDirectionController,
     private val readerCoordinator: AppReaderCoordinator,
     private val remoteSourcesCoordinator: AppRemoteSourcesCoordinator,
+    private val progressSyncNoticeController: AppProgressSyncNoticeController,
+    private val progressSyncStartupRetryCoordinator: AppProgressSyncStartupRetryCoordinator,
     val comicPageSource: ComicPageSource,
     val comicReaderProgressStore: ComicReaderProgressStore,
     val comicReaderPreferencesStore: ComicReaderPreferencesStore,
@@ -163,6 +165,7 @@ class AppViewModel @Inject constructor(
             updateState = ::updateUiState,
             scope = viewModelScope,
             refreshProgress = ::refreshProgress,
+            onSyncFailures = ::reportProgressSyncFailures,
             selectedReaderItem = null,
         )
     }
@@ -233,6 +236,7 @@ class AppViewModel @Inject constructor(
             scope = viewModelScope,
             catalogItemsProvider = catalogStateCoordinator::catalogItems,
             refreshProgress = ::refreshProgress,
+            onSyncFailures = ::reportProgressSyncFailures,
         )
     }
 
@@ -248,6 +252,15 @@ class AppViewModel @Inject constructor(
                     items = items,
                 )
             },
+        )
+    }
+
+    fun flushPendingRemoteProgress() {
+        readerCoordinator.flushPendingProgress(
+            catalogItems = catalogStateCoordinator.catalogItems(),
+            selectedItem = uiState.selectedItem,
+            scope = viewModelScope,
+            onSyncFailures = ::reportProgressSyncFailures,
         )
     }
 
@@ -294,8 +307,17 @@ class AppViewModel @Inject constructor(
                 item = item,
                 markAsRead = markAsRead,
                 onProgressChanged = ::refreshProgress,
+                onSyncFailures = ::reportProgressSyncFailures,
             )
         }
+    }
+
+    fun dismissProgressSyncNotice(noticeId: Long) {
+        progressSyncNoticeController.dismissNotice(
+            noticeId = noticeId,
+            stateProvider = { uiState },
+            updateState = ::updateUiState,
+        )
     }
 
     fun showDownloadsSheet() {
@@ -341,6 +363,7 @@ class AppViewModel @Inject constructor(
                 updateState = ::updateUiState,
                 scope = viewModelScope,
                 refreshProgress = ::refreshProgress,
+                onSyncFailures = ::reportProgressSyncFailures,
                 selectedReaderItem = item.takeIf { catalogItem == null },
             )
         }
@@ -557,6 +580,11 @@ class AppViewModel @Inject constructor(
             scope = viewModelScope,
             catalogItemsProvider = catalogStateCoordinator::catalogItems,
             stateProvider = { uiState },
+            onSyncFailures = ::reportProgressSyncFailures,
+        )
+        progressSyncStartupRetryCoordinator.retryAfterHydration(
+            scope = viewModelScope,
+            onSyncFailures = ::reportProgressSyncFailures,
         )
         catalogStateCoordinator.observeCatalog(
             scope = viewModelScope,
@@ -594,6 +622,15 @@ class AppViewModel @Inject constructor(
             libraryDerivedStateComputer.compute(
                 nextState.toLibraryDerivedStateInput(),
             ),
+        )
+    }
+
+    private fun reportProgressSyncFailures(
+        failures: List<SourceProgressSyncFailure>,
+    ) {
+        progressSyncNoticeController.reportFailures(
+            failures = failures,
+            updateState = ::updateUiState,
         )
     }
 

@@ -6,7 +6,7 @@ import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadingProgress
 import com.example.unifiedreader.core.model.SourceType
-import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
+import com.example.unifiedreader.core.model.progress.ProgressSyncStore
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -14,23 +14,29 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 
-internal data class RemoteCatalogFetch<Entry>(
+data class RemoteCatalogFetch<Entry>(
     val libraries: List<Library>,
     val entries: List<Entry>,
 )
 
-internal data class RemoteCatalogSyncOutcome<Session>(
+data class RemoteCatalogSyncOutcome<Session>(
     val libraryCount: Int,
     val itemCount: Int,
     val supportedFormatCounts: Map<FormatType, Int>,
     val session: Session?,
+    val progressPushFailures: List<Throwable>,
 )
 
-internal suspend fun <Entry, Session> finalizeRemoteCatalogSync(
+data class RemoteCatalogProgressPushResult<Session>(
+    val session: Session?,
+    val failures: List<Throwable>,
+)
+
+suspend fun <Entry, Session> finalizeRemoteCatalogSync(
     sourceType: SourceType,
     fetch: RemoteCatalogFetch<Entry>,
     remoteCatalogWriter: RemoteCatalogWriter,
-    readerSessionStore: ReaderSessionStore?,
+    progressSyncStore: ProgressSyncStore?,
     nowEpochMillis: Long,
     onProgress: (message: String, fraction: Float) -> Unit,
     savingMessage: String,
@@ -39,7 +45,7 @@ internal suspend fun <Entry, Session> finalizeRemoteCatalogSync(
     progressOf: (Entry) -> ReadingProgress?,
     missingRemoteClearsLocal: (Entry) -> Boolean = { false },
     remoteClearOverridesLocal: (Entry) -> Boolean = { false },
-    pushDirtyProgress: suspend (items: List<ReadableItem>) -> Session?,
+    pushDirtyProgress: suspend (items: List<ReadableItem>) -> RemoteCatalogProgressPushResult<Session>,
 ): RemoteCatalogSyncOutcome<Session> {
     val libraries = fetch.libraries
     val entries = fetch.entries
@@ -48,7 +54,7 @@ internal suspend fun <Entry, Session> finalizeRemoteCatalogSync(
         sourceType = sourceType,
         incomingItemIds = items.mapTo(mutableSetOf(), ReadableItem::id),
         remoteCatalogWriter = remoteCatalogWriter,
-        readerSessionStore = readerSessionStore,
+        progressSyncStore = progressSyncStore,
     )
     onProgress(savingMessage, 0.92f)
     remoteCatalogWriter.replaceSourceCatalog(
@@ -61,22 +67,24 @@ internal suspend fun <Entry, Session> finalizeRemoteCatalogSync(
     onProgress(applyingProgressMessage, 0.97f)
     pullRemoteProgress(
         entries = entries,
-        readerSessionStore = readerSessionStore,
+        progressSyncStore = progressSyncStore,
         nowEpochMillis = nowEpochMillis,
         itemOf = itemOf,
         progressOf = progressOf,
         missingRemoteClearsLocal = missingRemoteClearsLocal,
         remoteClearOverridesLocal = remoteClearOverridesLocal,
     )
+    val progressPushResult = pushDirtyProgress(items)
     return RemoteCatalogSyncOutcome(
         libraryCount = libraries.size,
         itemCount = items.size,
         supportedFormatCounts = items.groupingBy(ReadableItem::format).eachCount(),
-        session = pushDirtyProgress(items),
+        session = progressPushResult.session,
+        progressPushFailures = progressPushResult.failures,
     )
 }
 
-internal suspend fun <Series, Entry> fetchSeriesEntriesWithProgress(
+suspend fun <Series, Entry> fetchSeriesEntriesWithProgress(
     sourceLabel: String,
     series: List<Series>,
     onProgress: (message: String, fraction: Float) -> Unit,
@@ -110,7 +118,7 @@ internal suspend fun <Series, Entry> fetchSeriesEntriesWithProgress(
     }.awaitAll().flatten()
 }
 
-internal fun shouldReportSeriesProgress(
+fun shouldReportSeriesProgress(
     completed: Int,
     total: Int,
     reportedSeriesCount: AtomicInteger,
@@ -132,14 +140,14 @@ internal fun shouldReportSeriesProgress(
 
 private fun <Entry> pullRemoteProgress(
     entries: List<Entry>,
-    readerSessionStore: ReaderSessionStore?,
+    progressSyncStore: ProgressSyncStore?,
     nowEpochMillis: Long,
     itemOf: (Entry) -> ReadableItem,
     progressOf: (Entry) -> ReadingProgress?,
     missingRemoteClearsLocal: (Entry) -> Boolean,
     remoteClearOverridesLocal: (Entry) -> Boolean,
 ) {
-    val store = readerSessionStore ?: return
+    val store = progressSyncStore ?: return
     entries.forEach { entry ->
         val item = itemOf(entry)
         applyRemoteProgressSyncDecision(
@@ -161,9 +169,9 @@ private suspend fun clearStaleRemoteProgress(
     sourceType: SourceType,
     incomingItemIds: Set<String>,
     remoteCatalogWriter: RemoteCatalogWriter,
-    readerSessionStore: ReaderSessionStore?,
+    progressSyncStore: ProgressSyncStore?,
 ) {
-    val store = readerSessionStore ?: return
+    val store = progressSyncStore ?: return
     remoteCatalogWriter.getItemsForSourceType(sourceType)
         .asSequence()
         .map(ReadableItem::id)

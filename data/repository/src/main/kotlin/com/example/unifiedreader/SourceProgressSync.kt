@@ -16,5 +16,5 @@ interface SourceProgressSync {
 
     suspend fun pushPendingProgress(
         items: List<ReadableItem>,
-    )
+    ): List<SourceProgressSyncFailure>
 }

@@ -162,6 +162,10 @@ class AppGrimmoryCoordinator @Inject constructor(
             },
         )
         clearCoverState()
+        val progressPushWarning = progressPushWarningMessage(
+            sourceLabel = "Grimmory",
+            failures = result.progressPushFailures,
+        )
         GrimmorySyncExecutionResult.Success(
             libraryCount = result.libraryCount,
             itemCount = result.itemCount,
@@ -170,8 +174,9 @@ class AppGrimmoryCoordinator @Inject constructor(
                 password = "",
                 hasStoredSession = true,
                 isConnecting = false,
-                message = preparation.successConnectionMessage,
-                isError = false,
+                message = listOfNotNull(preparation.successConnectionMessage, progressPushWarning)
+                    .joinToString(" "),
+                isError = progressPushWarning != null,
             ),
         )
     }.getOrElse { throwable ->

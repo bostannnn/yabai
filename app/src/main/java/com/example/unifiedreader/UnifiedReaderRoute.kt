@@ -6,20 +6,27 @@ import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -28,6 +35,7 @@ import com.example.unifiedreader.feature.library.LibraryViewMode
 import com.example.unifiedreader.feature.reader.core.ReaderHost
 import com.example.unifiedreader.ui.theme.UnifiedReaderTheme
 import com.example.unifiedreader.ui.theme.applyAndroidThemeMode
+import kotlinx.coroutines.delay
 
 @Composable
 fun UnifiedReaderRoute() {
@@ -80,6 +88,8 @@ fun UnifiedReaderAppContent(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 viewModel.refreshProgress()
+            } else if (event == Lifecycle.Event.ON_STOP) {
+                viewModel.flushPendingRemoteProgress()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -104,22 +114,57 @@ fun UnifiedReaderAppContent(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background,
         ) {
-            if (isReaderMode) {
-                ReaderHost(
-                    item = uiState.selectedItem!!,
-                    factories = viewModel.readerFactories,
-                    onBack = viewModel::onBackPressed,
-                )
-            } else {
-                UnifiedReaderScaffold(
-                    uiState = uiState,
-                    libraryViewMode = libraryViewMode,
-                    onLibraryViewModeChanged = { libraryViewMode = it },
-                    onImportLocalFileClick = onImportLocalFileClick,
-                    viewModel = viewModel,
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (isReaderMode) {
+                    ReaderHost(
+                        item = uiState.selectedItem!!,
+                        factories = viewModel.readerFactories,
+                        onBack = viewModel::onBackPressed,
+                    )
+                } else {
+                    UnifiedReaderScaffold(
+                        uiState = uiState,
+                        libraryViewMode = libraryViewMode,
+                        onLibraryViewModeChanged = { libraryViewMode = it },
+                        onImportLocalFileClick = onImportLocalFileClick,
+                        viewModel = viewModel,
+                    )
+                }
+                ProgressSyncNoticeHost(
+                    notice = uiState.progressSyncNotice,
+                    onDismiss = viewModel::dismissProgressSyncNotice,
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun BoxScope.ProgressSyncNoticeHost(
+    notice: AppProgressSyncNotice?,
+    onDismiss: (Long) -> Unit,
+) {
+    if (notice == null) return
+    LaunchedEffect(notice.id) {
+        delay(PROGRESS_SYNC_NOTICE_DURATION_MILLIS)
+        onDismiss(notice.id)
+    }
+    Snackbar(
+        modifier = Modifier
+            .padding(16.dp)
+            .align(Alignment.BottomCenter),
+        containerColor = if (notice.isError) {
+            MaterialTheme.colorScheme.errorContainer
+        } else {
+            MaterialTheme.colorScheme.inverseSurface
+        },
+        contentColor = if (notice.isError) {
+            MaterialTheme.colorScheme.onErrorContainer
+        } else {
+            MaterialTheme.colorScheme.inverseOnSurface
+        },
+    ) {
+        Text(text = notice.message)
     }
 }
 
@@ -139,3 +184,4 @@ internal fun importDocumentIntoApp(
 
 private const val UnsupportedImportSelectionMessage =
     "Choose an EPUB, PDF, CBZ, or CBR file to import."
+private const val PROGRESS_SYNC_NOTICE_DURATION_MILLIS = 6000L

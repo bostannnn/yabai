@@ -166,6 +166,11 @@ class AppStumpCoordinator @Inject constructor(
             },
         )
         clearCoverState()
+        val catalogWarning = result.partialCatalogWarning?.userFacingMessage()
+        val progressPushWarning = progressPushWarningMessage(
+            sourceLabel = "Stump",
+            failures = result.progressPushFailures,
+        )
         StumpSyncExecutionResult.Success(
             libraryCount = result.libraryCount,
             itemCount = result.itemCount,
@@ -177,8 +182,9 @@ class AppStumpCoordinator @Inject constructor(
                 isConnecting = false,
                 syncProgressFraction = null,
                 syncProgressLabel = null,
-                message = preparation.successConnectionMessage,
-                isError = false,
+                message = listOfNotNull(preparation.successConnectionMessage, catalogWarning, progressPushWarning)
+                    .joinToString(" "),
+                isError = catalogWarning != null || progressPushWarning != null,
             ),
         )
     }.getOrElse { throwable ->
@@ -277,6 +283,22 @@ class AppStumpCoordinator @Inject constructor(
             refreshToken = session.refreshToken,
         ),
     ).libraries
+}
+
+private fun StumpPartialCatalogWarning.userFacingMessage(): String {
+    val affectedSeries = affectedSeriesCount.seriesLabel()
+    val preservedItems = preservedItemCount.itemLabel()
+    return "Stump returned incomplete data for $affectedSeries; preserved $preservedItems from the previous sync."
+}
+
+private fun Int.seriesLabel(): String = when (this) {
+    1 -> "1 series"
+    else -> "$this series"
+}
+
+private fun Int.itemLabel(): String = when (this) {
+    1 -> "1 cached item"
+    else -> "$this cached items"
 }
 
 internal sealed interface StumpSyncPreparation {

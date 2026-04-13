@@ -239,7 +239,7 @@ class GrimmoryDtosTest {
     }
 
     @Test
-    fun unreadBookDoesNotInferExplicitReset() {
+    fun unreadBookMarksExplicitReset() {
         val item = GrimmoryBookDto(
             id = 12,
             libraryId = 4,
@@ -252,6 +252,28 @@ class GrimmoryDtosTest {
             pdfProgress = null,
         ).toCatalogEntry(
             baseUrl = "https://grimmory.example",
+        )
+
+        requireNotNull(item)
+        assertNull(item.progress)
+        assertEquals(true, item.isExplicitUnreadReset)
+    }
+
+    @Test
+    fun unreadBookDoesNotMarkExplicitResetWhenProgressStateWasStripped() {
+        val item = GrimmoryBookDto(
+            id = 12,
+            libraryId = 4,
+            primaryFile = GrimmoryBookFileDto(
+                bookType = "EPUB",
+                extension = "epub",
+            ),
+            lastReadTime = null,
+            epubProgress = null,
+            pdfProgress = null,
+        ).toCatalogEntry(
+            baseUrl = "https://grimmory.example",
+            progressStateIncluded = false,
         )
 
         requireNotNull(item)

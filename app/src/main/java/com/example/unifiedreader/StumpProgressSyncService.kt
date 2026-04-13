@@ -2,6 +2,7 @@ package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.progress.ProgressSyncStore
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import javax.inject.Inject
 
@@ -14,6 +15,7 @@ class StumpProgressSyncService @Inject constructor(
     override val sourceType: SourceType = SourceType.STUMP
 
     private val sessionRequestRunner = StumpStoredSessionRequestRunner(stumpCredentialStore)
+    private val progressSyncStore: ProgressSyncStore = ReaderSessionProgressStoreAdapter(readerSessionStore)
 
     override suspend fun syncItem(
         item: ReadableItem,
@@ -42,14 +44,14 @@ class StumpProgressSyncService @Inject constructor(
             }
         }
         applyRemoteProgressSyncDecision(
-            store = readerSessionStore,
+            store = progressSyncStore,
             item = item,
             pageCount = item.pageCount,
             decision = decideRemoteProgressSync(
-                local = readerSessionStore.getProgress(item),
+                local = progressSyncStore.getProgress(item),
                 remote = progress,
                 nowEpochMillis = nowEpochMillis(),
-                missingRemoteClearsLocal = false,
+                missingRemoteClearsLocal = true,
                 remoteClearOverridesLocal = false,
             ),
         )
@@ -57,11 +59,11 @@ class StumpProgressSyncService @Inject constructor(
 
     override suspend fun pushPendingProgress(
         items: List<ReadableItem>,
-    ) {
-        val session = stumpCredentialStore.sessionFlow.value ?: return
+    ): List<SourceProgressSyncFailure> {
+        val session = stumpCredentialStore.sessionFlow.value ?: return emptyList()
         val stumpItems = items.forSource(SourceType.STUMP)
-        if (stumpItems.isEmpty()) return
-        runWithStoredSessionAddressFailover(
+        if (stumpItems.isEmpty()) return emptyList()
+        return runWithStoredSessionAddressFailover(
             sessionStore = stumpCredentialStore,
             session = session,
             createApi = stumpApiFactory::create,
@@ -75,6 +77,7 @@ class StumpProgressSyncService @Inject constructor(
                 initialRefreshToken = activeSession.refreshToken,
                 items = stumpItems,
                 readerSessionStore = readerSessionStore,
+                diagnostics = LogcatStumpProgressSyncDiagnostics,
             )
             result.refreshedSession?.let { refreshedSession ->
                 stumpCredentialStore.save(
@@ -82,6 +85,12 @@ class StumpProgressSyncService @Inject constructor(
                         accessToken = refreshedSession.accessToken,
                         refreshToken = refreshedSession.refreshToken,
                     ),
+                )
+            }
+            result.value.map { throwable ->
+                SourceProgressSyncFailure(
+                    sourceType = sourceType,
+                    throwable = throwable,
                 )
             }
         }

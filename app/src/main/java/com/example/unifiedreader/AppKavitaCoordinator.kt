@@ -159,6 +159,10 @@ class AppKavitaCoordinator @Inject constructor(
             activeBaseUrl = result.activeBaseUrl,
         )
         clearCoverState()
+        val progressPushWarning = progressPushWarningMessage(
+            sourceLabel = "Kavita",
+            failures = result.progressPushFailures,
+        )
         KavitaSyncExecutionResult.Success(
             libraryCount = result.libraryCount,
             itemCount = result.itemCount,
@@ -170,8 +174,9 @@ class AppKavitaCoordinator @Inject constructor(
                 isConnecting = false,
                 syncProgressFraction = null,
                 syncProgressLabel = null,
-                message = preparation.successConnectionMessage,
-                isError = false,
+                message = listOfNotNull(preparation.successConnectionMessage, progressPushWarning)
+                    .joinToString(" "),
+                isError = progressPushWarning != null,
             ),
         )
     }.getOrElse { throwable ->

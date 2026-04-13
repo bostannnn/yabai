@@ -6,8 +6,8 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.data.stump.StumpApi
 import com.example.unifiedreader.data.stump.StumpMediaCatalogEntry
-import com.example.unifiedreader.data.stump.StumpSeriesEntry
 import com.example.unifiedreader.data.stump.StumpSession
+import com.example.unifiedreader.core.model.progress.ProgressSyncStore
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 
 fun interface StumpApiFactory {
@@ -32,7 +32,10 @@ class StumpCatalogSyncService(
     private val remoteCatalogWriter: RemoteCatalogWriter,
     private val readerSessionStore: ReaderSessionStore? = null,
     private val nowEpochMillis: () -> Long = System::currentTimeMillis,
+    private val progressDiagnostics: StumpProgressSyncDiagnostics = LogcatStumpProgressSyncDiagnostics,
 ) : StumpCatalogSyncer {
+    private val progressSyncStore: ProgressSyncStore? = readerSessionStore?.let(::ReaderSessionProgressStoreAdapter)
+
     override suspend fun connect(
         request: StumpCatalogSyncRequest,
     ): StumpCatalogConnectionResult {
@@ -92,32 +95,25 @@ class StumpCatalogSyncService(
             ) { token ->
                 onProgress(StumpSyncProgress(message = "Loading Stump libraries...", fraction = 0.05f))
                 val libraries = api.getLibraries(token)
-                onProgress(StumpSyncProgress(message = "Loading Stump series...", fraction = 0.15f))
-                val series = libraries.flatMap { library ->
-                    api.getSeries(
-                        accessToken = token,
-                        libraryId = library.remoteId ?: return@flatMap emptyList(),
-                    )
-                }
-                val entries = fetchSeriesEntries(
+                fetchStumpCatalogWithPartialSeriesRecovery(
                     api = api,
                     accessToken = token,
-                    series = series,
-                    onProgress = onProgress,
-                )
-                RemoteCatalogFetch(
                     libraries = libraries,
-                    entries = entries,
+                    remoteCatalogWriter = remoteCatalogWriter,
+                    onProgress = { message, fraction ->
+                        onProgress(StumpSyncProgress(message = message, fraction = fraction))
+                    },
                 )
             }
             activeAccessToken = fetchResult.accessToken
             activeRefreshToken = fetchResult.refreshToken
             latestSession = fetchResult.refreshedSession ?: latestSession
+            val catalogFetch = fetchResult.value
             val syncOutcome = finalizeRemoteCatalogSync(
                 sourceType = SourceType.STUMP,
-                fetch = fetchResult.value,
+                fetch = catalogFetch.fetch.supportedStumpCatalog(),
                 remoteCatalogWriter = remoteCatalogWriter,
-                readerSessionStore = readerSessionStore,
+                progressSyncStore = progressSyncStore,
                 nowEpochMillis = nowEpochMillis(),
                 onProgress = { message, fraction ->
                     onProgress(StumpSyncProgress(message = message, fraction = fraction))
@@ -126,7 +122,7 @@ class StumpCatalogSyncService(
                 applyingProgressMessage = "Applying Stump progress...",
                 itemOf = StumpMediaCatalogEntry::item,
                 progressOf = StumpMediaCatalogEntry::progress,
-                missingRemoteClearsLocal = { false },
+                missingRemoteClearsLocal = StumpMediaCatalogEntry::isExplicitUnreadReset,
                 remoteClearOverridesLocal = { false },
             ) { items ->
                 val progressSync = pushDirtyProgress(
@@ -137,15 +133,20 @@ class StumpCatalogSyncService(
                 )
                 activeAccessToken = progressSync.accessToken
                 activeRefreshToken = progressSync.refreshToken
-                progressSync.refreshedSession
+                RemoteCatalogProgressPushResult(
+                    session = progressSync.refreshedSession,
+                    failures = progressSync.value,
+                )
             }
             latestSession = syncOutcome.session ?: latestSession
             StumpCatalogSyncResult(
                 libraryCount = syncOutcome.libraryCount,
                 itemCount = syncOutcome.itemCount,
                 supportedFormatCounts = syncOutcome.supportedFormatCounts,
-                libraries = fetchResult.value.libraries,
+                libraries = catalogFetch.fetch.libraries,
                 session = latestSession,
+                progressPushFailures = syncOutcome.progressPushFailures,
+                partialCatalogWarning = catalogFetch.warning,
             )
         }
         return result.value.copy(activeBaseUrl = result.activeBaseUrl)
@@ -156,9 +157,9 @@ class StumpCatalogSyncService(
         initialAccessToken: String,
         initialRefreshToken: String?,
         items: List<ReadableItem>,
-    ): StumpTokenRefreshResult<Unit> {
+    ): StumpTokenRefreshResult<List<Throwable>> {
         val store = readerSessionStore ?: return StumpTokenRefreshResult(
-            value = Unit,
+            value = emptyList(),
             accessToken = initialAccessToken,
             refreshToken = initialRefreshToken,
             refreshedSession = null,
@@ -169,28 +170,16 @@ class StumpCatalogSyncService(
             initialRefreshToken = initialRefreshToken,
             items = items,
             readerSessionStore = store,
+            diagnostics = progressDiagnostics,
         )
     }
 
-    private suspend fun fetchSeriesEntries(
-        api: StumpApi,
-        accessToken: String,
-        series: List<StumpSeriesEntry>,
-        onProgress: (StumpSyncProgress) -> Unit,
-    ): List<StumpMediaCatalogEntry> = fetchSeriesEntriesWithProgress(
-        sourceLabel = "Stump",
-        series = series,
-        onProgress = { message, fraction ->
-            onProgress(StumpSyncProgress(message = message, fraction = fraction))
-        },
-    ) { seriesEntry ->
-        api.getSeriesDetail(
-            accessToken = accessToken,
-            series = seriesEntry,
-        ).filter { entry ->
-            entry.item.format in STUMP_SUPPORTED_SYNC_FORMATS
-        }
-    }
+    private fun RemoteCatalogFetch<StumpMediaCatalogEntry>.supportedStumpCatalog(): RemoteCatalogFetch<StumpMediaCatalogEntry> =
+        copy(
+            entries = entries.filter { entry ->
+                entry.item.format in STUMP_SUPPORTED_SYNC_FORMATS
+            },
+        )
 }
 
 data class StumpCatalogSyncRequest(
@@ -223,6 +212,8 @@ data class StumpCatalogSyncResult(
     val libraries: List<Library> = emptyList(),
     val session: StumpSession? = null,
     val activeBaseUrl: String? = null,
+    val progressPushFailures: List<Throwable> = emptyList(),
+    val partialCatalogWarning: StumpPartialCatalogWarning? = null,
 )
 
 private val STUMP_SUPPORTED_SYNC_FORMATS = setOf(
