@@ -53,6 +53,10 @@ internal data class KavitaSeriesDto(
     val libraryName: String? = null,
     val lastChapterAddedUtc: String? = null,
     val coverImage: String? = null,
+    val publishers: List<KavitaPersonDto>? = null,
+    val genres: List<KavitaGenreTagDto>? = null,
+    val tags: List<KavitaTagDto>? = null,
+    val language: String? = null,
 )
 
 @Serializable
@@ -86,6 +90,25 @@ internal data class KavitaChapterDto(
     val volumeId: Int? = null,
     val summary: String? = null,
     val volumeTitle: String? = null,
+    val publishers: List<KavitaPersonDto>? = null,
+    val genres: List<KavitaGenreTagDto>? = null,
+    val tags: List<KavitaTagDto>? = null,
+    val language: String? = null,
+)
+
+@Serializable
+internal data class KavitaPersonDto(
+    val name: String? = null,
+)
+
+@Serializable
+internal data class KavitaGenreTagDto(
+    val title: String? = null,
+)
+
+@Serializable
+internal data class KavitaTagDto(
+    val title: String? = null,
 )
 
 @Serializable
@@ -191,6 +214,10 @@ internal fun KavitaSeriesDto.toEntry(
             seriesId = seriesId,
             apiKey = apiKey,
         ),
+        publishers = publishers.toPublisherNames(),
+        genres = genres.toFacetNames(),
+        tags = tags.toTagNames(),
+        languages = language.toFacetNames(),
     )
 }
 
@@ -261,6 +288,10 @@ internal fun KavitaChapterDto.toCatalogEntry(
             volume = volumeName,
             issueNumber = range?.takeIf(String::isNotBlank)
                 ?: number?.takeIf(String::isNotBlank),
+            publishers = chapterPublishers(series),
+            genres = chapterGenres(series),
+            tags = chapterTags(series),
+            languages = chapterLanguages(series),
         ),
     )
     val progress = toReadingProgress(
@@ -410,6 +441,38 @@ private fun buildKavitaChapterCoverUrl(
 private fun String?.toEpochMillisOrNull(): Long? = runCatching {
     this?.let(Instant::parse)?.toEpochMilli()
 }.getOrNull()
+
+private fun KavitaChapterDto.chapterPublishers(
+    series: KavitaSeriesEntry,
+): List<String> = publishers.toPublisherNames().ifEmpty { series.publishers }
+
+private fun KavitaChapterDto.chapterGenres(
+    series: KavitaSeriesEntry,
+): List<String> = genres.toFacetNames().ifEmpty { series.genres }
+
+private fun KavitaChapterDto.chapterTags(
+    series: KavitaSeriesEntry,
+): List<String> = tags.toTagNames().ifEmpty { series.tags }
+
+private fun KavitaChapterDto.chapterLanguages(
+    series: KavitaSeriesEntry,
+): List<String> = language.toFacetNames().ifEmpty { series.languages }
+
+private fun String?.toFacetNames(): List<String> = listOfNotNull(
+    this?.trim()?.takeIf(String::isNotBlank),
+)
+
+private fun List<KavitaPersonDto>?.toPublisherNames(): List<String> = orEmpty()
+    .mapNotNull { publisher -> publisher.name?.trim()?.takeIf(String::isNotBlank) }
+    .distinctBy(String::lowercase)
+
+private fun List<KavitaGenreTagDto>?.toFacetNames(): List<String> = orEmpty()
+    .mapNotNull { facet -> facet.title?.trim()?.takeIf(String::isNotBlank) }
+    .distinctBy(String::lowercase)
+
+private fun List<KavitaTagDto>?.toTagNames(): List<String> = orEmpty()
+    .mapNotNull { tag -> tag.title?.trim()?.takeIf(String::isNotBlank) }
+    .distinctBy(String::lowercase)
 
 private const val KAVITA_FORMAT_IMAGE = 0
 private const val KAVITA_FORMAT_ARCHIVE = 1

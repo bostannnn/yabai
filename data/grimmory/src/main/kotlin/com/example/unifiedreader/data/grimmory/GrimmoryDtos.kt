@@ -88,6 +88,10 @@ internal data class GrimmoryBookMetadataDto(
     val seriesNumber: Float? = null,
     val pageCount: Int? = null,
     val authors: List<String>? = null,
+    val publisher: String? = null,
+    val genres: List<String>? = null,
+    val tags: List<String>? = null,
+    val language: String? = null,
     val thumbnailUrl: String? = null,
 )
 
@@ -210,6 +214,12 @@ internal fun GrimmoryBookDto.toCatalogEntry(
         addedAtEpochMillis = addedOn?.toEpochMillisOrNull(),
         bookMetadata = BookMetadata(
             author = metadata?.authors?.firstOrNull(String::isNotBlank),
+            authors = metadata?.authors.toFacetNames(),
+            seriesName = metadata?.seriesName?.trim()?.takeIf(String::isNotBlank),
+            publishers = metadata?.publisher.toFacetNames(),
+            genres = metadata?.genres.toFacetNames(),
+            tags = metadata?.tags.toFacetNames(),
+            languages = metadata?.language.toFacetNames(),
         ),
     )
     return GrimmoryBookCatalogEntry(
@@ -279,6 +289,14 @@ private fun GrimmoryPdfProgressDto.toReadingProgress(
         updatedAtEpochMillis = updatedAtEpochMillis,
     )
 }
+
+private fun String?.toFacetNames(): List<String> = listOfNotNull(
+    this?.trim()?.takeIf(String::isNotBlank),
+)
+
+private fun List<String>?.toFacetNames(): List<String> = orEmpty()
+    .mapNotNull { value -> value.trim().takeIf(String::isNotBlank) }
+    .distinctBy(String::lowercase)
 
 private fun Float?.toLocalProgressPercent(): Double? = this?.let { value ->
     (value / 100f).toDouble().coerceIn(0.0, 1.0)

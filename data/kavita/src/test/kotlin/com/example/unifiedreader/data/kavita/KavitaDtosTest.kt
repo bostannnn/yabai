@@ -20,6 +20,10 @@ class KavitaDtosTest {
             libraryId = 5,
             format = 1,
             lastChapterAddedUtc = "2026-04-08T10:15:30Z",
+            publishers = listOf(KavitaPersonDto(name = "Image")),
+            genres = listOf(KavitaGenreTagDto(title = "Sci-Fi")),
+            tags = listOf(KavitaTagDto(title = "Space Opera")),
+            language = "English",
         ).toEntry(
             baseUrl = "https://kavita.example",
             apiKey = "secret",
@@ -58,6 +62,10 @@ class KavitaDtosTest {
         assertEquals("Opening Shot", entry.item.comicMetadata?.issueTitle)
         assertEquals("1", entry.item.comicMetadata?.volume)
         assertEquals("1", entry.item.comicMetadata?.issueNumber)
+        assertEquals(listOf("Image"), entry.item.comicMetadata?.publishers)
+        assertEquals(listOf("Sci-Fi"), entry.item.comicMetadata?.genres)
+        assertEquals(listOf("Space Opera"), entry.item.comicMetadata?.tags)
+        assertEquals(listOf("English"), entry.item.comicMetadata?.languages)
         assertEquals(9, entry.progress?.page)
         assertFalse(entry.progress?.isFinished ?: true)
         assertFalse(entry.isExplicitUnreadReset)

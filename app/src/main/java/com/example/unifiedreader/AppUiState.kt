@@ -3,12 +3,14 @@ package com.example.unifiedreader
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.LibraryFilterFacets
+import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.belongsToKavitaSeries
 import com.example.unifiedreader.core.model.belongsToStumpSeries
+import com.example.unifiedreader.core.model.resolveLibraryFilterPanels
 import com.example.unifiedreader.feature.library.ItemProgressSummary
 import com.example.unifiedreader.feature.library.RemoteDownloadActionAvailability
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirectionPreferences
@@ -46,6 +48,7 @@ data class AppUiState(
     val libraryFiltersBySource: Map<SourceType, LibraryFilterState> = emptyMap(),
     val librarySearchQueriesBySource: Map<SourceType, String> = emptyMap(),
     val librarySortsBySource: Map<SourceType, LibrarySortMode> = emptyMap(),
+    val libraryFilterPanelsBySource: Map<SourceType, List<LibraryFilterPanel>> = emptyMap(),
     val progressByItemId: Map<String, ItemProgressSummary> = emptyMap(),
     val downloadedRemoteItemIds: Set<String> = emptySet(),
     val locallyAvailableRemoteItemIds: Set<String> = emptySet(),
@@ -74,6 +77,12 @@ data class AppUiState(
 
     val selectedLibrarySortMode: LibrarySortMode
         get() = librarySortsBySource[selectedSource] ?: defaultLibrarySortMode
+
+    val selectedLibraryFilterPanels: List<LibraryFilterPanel>
+        get() = resolveLibraryFilterPanels(
+            sourceType = selectedSource,
+            preferredPanels = libraryFilterPanelsBySource[selectedSource],
+        )
 
     val isSelectedSourceHydrated: Boolean
         get() = selectedSource in hydratedSources

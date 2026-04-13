@@ -94,6 +94,8 @@ internal data class StumpSeriesDetailQueryData(
 internal data class StumpSeriesDetailDto(
     val id: String? = null,
     val resolvedName: String? = null,
+    val metadata: StumpSeriesMetadataDto? = null,
+    val tags: List<StumpTagDto>? = null,
     val media: List<StumpMediaNodeDto>? = null,
 )
 
@@ -118,6 +120,7 @@ internal data class StumpMediaNodeDto(
     val pages: Int? = null,
     val thumbnail: StumpImageRefDto? = null,
     val metadata: StumpMediaMetadataDto? = null,
+    val tags: List<StumpTagDto>? = null,
     val readProgress: StumpActiveReadingSessionDto? = null,
     val readHistory: List<StumpFinishedReadingSessionDto>? = null,
 )
@@ -129,6 +132,20 @@ internal data class StumpMediaMetadataDto(
     val volume: JsonElement? = null,
     val number: JsonElement? = null,
     val pageCount: Int? = null,
+    val publisher: String? = null,
+    val genres: List<String>? = null,
+    val language: String? = null,
+)
+
+@Serializable
+internal data class StumpSeriesMetadataDto(
+    val publisher: String? = null,
+    val genres: List<String>? = null,
+)
+
+@Serializable
+internal data class StumpTagDto(
+    val name: String? = null,
 )
 
 @Serializable
@@ -187,13 +204,21 @@ internal fun StumpSeriesNodeDto.toEntry(
 internal fun StumpSeriesDetailDto.toCatalogEntries(
     baseUrl: String,
     series: StumpSeriesEntry,
-): List<StumpMediaCatalogEntry> = media.orEmpty()
-    .mapNotNull { node ->
-        node.toCatalogEntry(
-            baseUrl = baseUrl,
-            series = series,
-        )
-    }
+): List<StumpMediaCatalogEntry> {
+    val seriesPublishers = metadata?.publisher.toFacetNames()
+    val seriesGenres = metadata?.genres.toFacetNames()
+    val seriesTags = tags.toTagFacetNames()
+    return media.orEmpty()
+        .mapNotNull { node ->
+            node.toCatalogEntry(
+                baseUrl = baseUrl,
+                series = series,
+                seriesPublishers = seriesPublishers,
+                seriesGenres = seriesGenres,
+                seriesTags = seriesTags,
+            )
+        }
+}
 
 internal fun StumpMediaProgressDto.toReadingProgress(
     itemId: String,
@@ -257,6 +282,9 @@ private fun finishedStumpProgress(
 internal fun StumpMediaNodeDto.toCatalogEntry(
     baseUrl: String,
     series: StumpSeriesEntry,
+    seriesPublishers: List<String>,
+    seriesGenres: List<String>,
+    seriesTags: List<String>,
 ): StumpMediaCatalogEntry? {
     val mediaId = id?.takeIf(String::isNotBlank) ?: return null
     val format = extension.toComicFormatType() ?: return null
@@ -281,6 +309,10 @@ internal fun StumpMediaNodeDto.toCatalogEntry(
             issueTitle = issueTitle.takeIf { it != series.title },
             volume = metadata?.volume.asDisplayString(),
             issueNumber = metadata?.number.asDisplayString(),
+            publishers = metadata?.publisher.toFacetNames().ifEmpty { seriesPublishers },
+            genres = metadata?.genres.toFacetNames().ifEmpty { seriesGenres },
+            tags = tags.toTagFacetNames().ifEmpty { seriesTags },
+            languages = metadata?.language.toFacetNames(),
         ),
     )
     return StumpMediaCatalogEntry(
@@ -318,6 +350,18 @@ private fun String?.toComicFormatType(): FormatType? = when (this?.lowercase()) 
 private fun String?.toEpochMillisOrNull(): Long? = runCatching {
     this?.takeIf(String::isNotBlank)?.let(Instant::parse)?.toEpochMilli()
 }.getOrNull()
+
+private fun String?.toFacetNames(): List<String> = listOfNotNull(
+    this?.trim()?.takeIf(String::isNotBlank),
+)
+
+private fun List<String>?.toFacetNames(): List<String> = orEmpty()
+    .mapNotNull { value -> value.trim().takeIf(String::isNotBlank) }
+    .distinctBy(String::lowercase)
+
+private fun List<StumpTagDto>?.toTagFacetNames(): List<String> = orEmpty()
+    .mapNotNull { tag -> tag.name?.trim()?.takeIf(String::isNotBlank) }
+    .distinctBy(String::lowercase)
 
 private fun JsonElement?.asDoubleOrNull(): Double? = when (this) {
     null -> null

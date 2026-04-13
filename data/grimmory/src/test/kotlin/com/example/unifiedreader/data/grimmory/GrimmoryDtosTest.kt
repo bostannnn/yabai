@@ -77,6 +77,9 @@ class GrimmoryDtosTest {
                 description = "A useful description",
                 pageCount = 320,
                 authors = listOf("Ada Author"),
+                publisher = "Tor",
+                tags = listOf("Speculative"),
+                language = "English",
             ),
         ).toDomain(
             baseUrl = "https://grimmory.example",
@@ -91,6 +94,10 @@ class GrimmoryDtosTest {
         assertEquals(ReadableItemKind.BOOK, item.kind)
         assertEquals("Domain title", item.title)
         assertEquals("Ada Author", item.bookMetadata?.author)
+        assertEquals(listOf("Ada Author"), item.bookMetadata?.authors)
+        assertEquals(listOf("Tor"), item.bookMetadata?.publishers)
+        assertEquals(listOf("Speculative"), item.bookMetadata?.tags)
+        assertEquals(listOf("English"), item.bookMetadata?.languages)
         assertEquals(320, item.pageCount)
         assertEquals("https://grimmory.example/api/v1/media/book/12/thumbnail", item.coverUrl)
         assertEquals(1775046600000L, item.addedAtEpochMillis)

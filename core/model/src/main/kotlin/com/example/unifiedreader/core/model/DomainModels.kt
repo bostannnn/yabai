@@ -65,17 +65,6 @@ data class ReadableItem(
     val comicMetadata: ComicMetadata? = null,
 )
 
-data class BookMetadata(
-    val author: String? = null,
-)
-
-data class ComicMetadata(
-    val series: String? = null,
-    val issueTitle: String? = null,
-    val volume: String? = null,
-    val issueNumber: String? = null,
-)
-
 data class ReadingProgress(
     val itemId: String,
     val locatorType: LocatorType,
@@ -93,7 +82,7 @@ fun ReadableItem.libraryPrimaryText(): String = when (kind) {
 }
 
 fun ReadableItem.librarySecondaryText(): String? = when (kind) {
-    ReadableItemKind.BOOK -> bookMetadata?.author?.takeIf(String::isNotBlank)
+    ReadableItemKind.BOOK -> bookMetadata?.primaryAuthor()?.takeIf(String::isNotBlank)
     ReadableItemKind.COMIC -> {
         val issueTitle = comicMetadata?.issueTitle?.takeIf(String::isNotBlank) ?: return null
         if (issueTitle == libraryPrimaryText() || issueTitle == title) null else issueTitle
@@ -201,6 +190,7 @@ fun buildKavitaSeriesContainer(
     issues: List<ReadableItem>,
 ): ReadableItem {
     val firstIssue = issues.first()
+    val aggregatedMetadata = issues.aggregateFacetMetadata()
     val seriesTitle = issues.firstNotNullOfOrNull { issue ->
         issue.comicMetadata?.series?.takeIf(String::isNotBlank)
     } ?: firstIssue.title
@@ -221,6 +211,10 @@ fun buildKavitaSeriesContainer(
         comicMetadata = ComicMetadata(
             series = seriesTitle,
             issueTitle = if (issueCount == 1) "1 issue" else "$issueCount issues",
+            publishers = aggregatedMetadata.publishers,
+            genres = aggregatedMetadata.genres,
+            tags = aggregatedMetadata.tags,
+            languages = aggregatedMetadata.languages,
         ),
     )
 }
@@ -230,6 +224,7 @@ fun buildStumpSeriesContainer(
     issues: List<ReadableItem>,
 ): ReadableItem {
     val firstIssue = issues.first()
+    val aggregatedMetadata = issues.aggregateFacetMetadata()
     val seriesTitle = issues.firstNotNullOfOrNull { issue ->
         issue.comicMetadata?.series?.takeIf(String::isNotBlank)
     } ?: firstIssue.title
@@ -252,6 +247,10 @@ fun buildStumpSeriesContainer(
         comicMetadata = ComicMetadata(
             series = seriesTitle,
             issueTitle = if (issueCount == 1) "1 issue" else "$issueCount issues",
+            publishers = aggregatedMetadata.publishers,
+            genres = aggregatedMetadata.genres,
+            tags = aggregatedMetadata.tags,
+            languages = aggregatedMetadata.languages,
         ),
     )
 }

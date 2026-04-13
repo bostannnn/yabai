@@ -96,6 +96,10 @@ data class KavitaSeriesEntry(
     val format: com.example.unifiedreader.core.model.FormatType,
     val addedAtEpochMillis: Long?,
     val coverUrl: String?,
+    val publishers: List<String> = emptyList(),
+    val genres: List<String> = emptyList(),
+    val tags: List<String> = emptyList(),
+    val languages: List<String> = emptyList(),
 )
 
 data class KavitaChapterCatalogEntry(

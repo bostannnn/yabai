@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.unifiedreader.core.model.LibraryFilterState
+import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
@@ -140,6 +141,19 @@ class AppViewModel @Inject constructor(
             updateState = ::updateUiState,
             scope = viewModelScope,
             sortMode = sortMode,
+        )
+    }
+
+    fun onLibraryFilterPanelsChanged(
+        sourceType: SourceType,
+        panels: List<LibraryFilterPanel>,
+    ) {
+        libraryBrowseController.onLibraryFilterPanelsChanged(
+            currentState = uiState,
+            updateState = ::updateUiState,
+            scope = viewModelScope,
+            sourceType = sourceType,
+            panels = panels,
         )
     }
 

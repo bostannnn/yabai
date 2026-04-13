@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.library
 
 import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
@@ -22,6 +23,12 @@ class LibraryBrowseStateCoordinatorTest {
                 sortsBySource = mapOf(
                     SourceType.LOCAL to LibrarySortMode.TITLE,
                 ),
+                filterPanelsBySource = mapOf(
+                    SourceType.GRIMMORY to listOf(
+                        LibraryFilterPanel.Format,
+                        LibraryFilterPanel.Tag,
+                    ),
+                ),
             ),
         )
         val coordinator = LibraryBrowseStateCoordinator(preferencesStore)
@@ -32,6 +39,10 @@ class LibraryBrowseStateCoordinatorTest {
 
         assertEquals(setOf(FormatType.EPUB), restoredState.filtersBySource[SourceType.LOCAL]?.formats)
         assertEquals(LibrarySortMode.TITLE, restoredState.sortsBySource[SourceType.LOCAL])
+        assertEquals(
+            listOf(LibraryFilterPanel.Format, LibraryFilterPanel.Tag),
+            restoredState.filterPanelsBySource[SourceType.GRIMMORY],
+        )
         assertEquals("earthsea", restoredState.searchQueriesBySource[SourceType.LOCAL])
     }
 
@@ -71,10 +82,41 @@ class LibraryBrowseStateCoordinatorTest {
     }
 
     @Test
+    fun `update filter panels clears filters for hidden panels`() {
+        val coordinator = LibraryBrowseStateCoordinator(FakeLibraryBrowsePreferencesStore())
+        val initialState = LibraryBrowseState(
+            filtersBySource = mapOf(
+                SourceType.GRIMMORY to LibraryFilterState(
+                    authors = setOf("Ursula K. Le Guin"),
+                    series = setOf("Earthsea"),
+                    tags = setOf("Wizard School"),
+                ),
+            ),
+        )
+
+        val updatedState = coordinator.updateFilterPanels(
+            currentState = initialState,
+            selectedSource = SourceType.GRIMMORY,
+            panels = listOf(
+                LibraryFilterPanel.Format,
+                LibraryFilterPanel.Author,
+            ),
+        )
+
+        assertEquals(
+            LibraryFilterState(
+                authors = setOf("Ursula K. Le Guin"),
+            ),
+            updatedState.filtersBySource[SourceType.GRIMMORY],
+        )
+    }
+
+    @Test
     fun `persist delegates filters and sort mode to preferences store`() = runBlocking {
         val preferencesStore = FakeLibraryBrowsePreferencesStore()
         val coordinator = LibraryBrowseStateCoordinator(preferencesStore)
         val filters = LibraryFilterState(formats = setOf(FormatType.EPUB))
+        val panels = listOf(LibraryFilterPanel.Format, LibraryFilterPanel.Tag)
 
         coordinator.persistFilters(
             sourceType = SourceType.LOCAL,
@@ -84,9 +126,14 @@ class LibraryBrowseStateCoordinatorTest {
             sourceType = SourceType.LOCAL,
             sortMode = LibrarySortMode.TITLE,
         )
+        coordinator.persistFilterPanels(
+            sourceType = SourceType.GRIMMORY,
+            panels = panels,
+        )
 
         assertEquals(filters, preferencesStore.preferencesFlow.value.filtersBySource[SourceType.LOCAL])
         assertEquals(LibrarySortMode.TITLE, preferencesStore.preferencesFlow.value.sortsBySource[SourceType.LOCAL])
+        assertEquals(panels, preferencesStore.preferencesFlow.value.filterPanelsBySource[SourceType.GRIMMORY])
     }
 }
 
@@ -117,6 +164,18 @@ private class FakeLibraryBrowsePreferencesStore(
             sortsBySource = state.value.sortsBySource.updatedSortMode(
                 sourceType = sourceType,
                 sortMode = sortMode,
+            ),
+        )
+    }
+
+    override suspend fun setFilterPanels(
+        sourceType: SourceType,
+        panels: List<LibraryFilterPanel>,
+    ) {
+        state.value = state.value.copy(
+            filterPanelsBySource = state.value.filterPanelsBySource.updatedFilterPanels(
+                sourceType = sourceType,
+                panels = panels,
             ),
         )
     }

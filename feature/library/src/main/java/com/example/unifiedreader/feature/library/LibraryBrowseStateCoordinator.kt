@@ -1,13 +1,18 @@
 package com.example.unifiedreader.feature.library
 
 import com.example.unifiedreader.core.model.LibraryFilterState
+import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.defaultVisibleLibraryFilterPanels
+import com.example.unifiedreader.core.model.resolveLibraryFilterPanels
+import com.example.unifiedreader.core.model.visibleInPanels
 
 data class LibraryBrowseState(
     val filtersBySource: Map<SourceType, LibraryFilterState> = emptyMap(),
     val searchQueriesBySource: Map<SourceType, String> = emptyMap(),
     val sortsBySource: Map<SourceType, LibrarySortMode> = emptyMap(),
+    val filterPanelsBySource: Map<SourceType, List<LibraryFilterPanel>> = emptyMap(),
 )
 
 class LibraryBrowseStateCoordinator(
@@ -21,6 +26,7 @@ class LibraryBrowseStateCoordinator(
             filtersBySource = preferences.filtersBySource,
             searchQueriesBySource = currentSearchQueriesBySource,
             sortsBySource = preferences.sortsBySource,
+            filterPanelsBySource = preferences.filterPanelsBySource,
         )
     }
 
@@ -66,6 +72,30 @@ class LibraryBrowseStateCoordinator(
         ),
     )
 
+    fun updateFilterPanels(
+        currentState: LibraryBrowseState,
+        selectedSource: SourceType,
+        panels: List<LibraryFilterPanel>,
+    ): LibraryBrowseState {
+        val resolvedPanels = resolveLibraryFilterPanels(
+            sourceType = selectedSource,
+            preferredPanels = panels,
+        )
+        val visibleFilters = currentState.filtersBySource[selectedSource]
+            ?.visibleInPanels(resolvedPanels)
+            ?: LibraryFilterState()
+        return currentState.copy(
+            filtersBySource = currentState.filtersBySource.updatedFilters(
+                sourceType = selectedSource,
+                filters = visibleFilters,
+            ),
+            filterPanelsBySource = currentState.filterPanelsBySource.updatedFilterPanels(
+                sourceType = selectedSource,
+                panels = resolvedPanels,
+            ),
+        )
+    }
+
     suspend fun persistFilters(
         sourceType: SourceType,
         filters: LibraryFilterState,
@@ -83,6 +113,16 @@ class LibraryBrowseStateCoordinator(
         preferencesStore.setSortMode(
             sourceType = sourceType,
             sortMode = sortMode,
+        )
+    }
+
+    suspend fun persistFilterPanels(
+        sourceType: SourceType,
+        panels: List<LibraryFilterPanel>,
+    ) {
+        preferencesStore.setFilterPanels(
+            sourceType = sourceType,
+            panels = panels,
         )
     }
 }
@@ -109,3 +149,18 @@ internal fun Map<SourceType, String>.updatedSearchQuery(
     sourceType: SourceType,
     query: String,
 ): Map<SourceType, String> = this + (sourceType to query)
+
+internal fun Map<SourceType, List<LibraryFilterPanel>>.updatedFilterPanels(
+    sourceType: SourceType,
+    panels: List<LibraryFilterPanel>,
+): Map<SourceType, List<LibraryFilterPanel>> {
+    val resolvedPanels = resolveLibraryFilterPanels(
+        sourceType = sourceType,
+        preferredPanels = panels,
+    )
+    return if (resolvedPanels == defaultVisibleLibraryFilterPanels(sourceType)) {
+        this - sourceType
+    } else {
+        this + (sourceType to resolvedPanels)
+    }
+}

@@ -22,6 +22,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.Library
+import com.example.unifiedreader.core.model.LibraryFilterPanel
+import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import com.example.unifiedreader.feature.settings.direction.ComicReadingDirectionSettingsSection
 import com.example.unifiedreader.feature.settings.direction.ReadingDirectionLibraryUiState
@@ -30,12 +32,14 @@ import com.example.unifiedreader.feature.settings.direction.ReadingDirectionLibr
 @Composable
 fun SettingsScreen(
     themeMode: ThemeMode,
+    libraryFilterPanelsBySource: Map<SourceType, List<LibraryFilterPanel>>,
     kavitaReadingDirectionLibraries: List<ReadingDirectionLibraryUiState>,
     stumpReadingDirectionLibraries: List<ReadingDirectionLibraryUiState>,
     kavitaConnection: KavitaConnectionUiState,
     stumpConnection: StumpConnectionUiState,
     grimmoryConnection: GrimmoryConnectionUiState,
     onThemeModeSelected: (ThemeMode) -> Unit,
+    onLibraryFilterPanelsChanged: (SourceType, List<LibraryFilterPanel>) -> Unit,
     extraSections: LazyListScope.() -> Unit = {},
     onLibraryDirectionSelected: (String, ComicReadingDirection) -> Unit,
     onKavitaDisplayNameChanged: (String) -> Unit,
@@ -115,6 +119,13 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+
+        item {
+            LibraryFilterSettingsSection(
+                filterPanelsBySource = libraryFilterPanelsBySource,
+                onFilterPanelsChanged = onLibraryFilterPanelsChanged,
+            )
         }
 
         extraSections()
@@ -206,7 +217,7 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SettingsCard(
+internal fun SettingsCard(
     title: String,
     body: String,
     content: @Composable () -> Unit = {},

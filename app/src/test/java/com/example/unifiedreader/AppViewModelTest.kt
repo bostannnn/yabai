@@ -10,6 +10,7 @@ import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.LibraryFileLocation
+import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.LocatorType
@@ -480,6 +481,51 @@ class AppViewModelTest {
 
         assertEquals(listOf(localBook), viewModel.uiState.visibleItems)
         assertTrue(viewModel.uiState.selectedLibraryFilters.isEmpty)
+    }
+
+    @Test
+    fun `hiding a filter panel clears that panels active filters`() {
+        val item = sampleItem(
+            id = "earthsea",
+            title = "A Wizard of Earthsea",
+            format = FormatType.EPUB,
+        ).copy(
+            sourceType = SourceType.GRIMMORY,
+            libraryId = SourceType.GRIMMORY.remoteLibraryId("books"),
+            remoteId = "earthsea",
+            bookMetadata = BookMetadata(
+                author = "Ursula K. Le Guin",
+                seriesName = "Earthsea",
+                tags = listOf("Wizard School"),
+            ),
+        )
+        val viewModel = createViewModel(sampleItems = listOf(item))
+
+        viewModel.onSourceSelected(SourceType.GRIMMORY)
+        viewModel.onLibraryFiltersChanged(
+            LibraryFilterState(
+                series = setOf("Earthsea"),
+                tags = setOf("Wizard School"),
+            ),
+        )
+
+        viewModel.onLibraryFilterPanelsChanged(
+            SourceType.GRIMMORY,
+            listOf(
+                LibraryFilterPanel.Format,
+                LibraryFilterPanel.Author,
+                LibraryFilterPanel.Series,
+            ),
+        )
+
+        assertEquals(
+            LibraryFilterState(
+                series = setOf("Earthsea"),
+            ),
+            viewModel.uiState.selectedLibraryFilters,
+        )
+        assertTrue(LibraryFilterPanel.Series in viewModel.uiState.selectedLibraryFilterPanels)
+        assertTrue(LibraryFilterPanel.Tag !in viewModel.uiState.selectedLibraryFilterPanels)
     }
 
     @Test
@@ -1701,12 +1747,10 @@ class AppViewModelTest {
     }
 
     @Test
-    fun `connect grimmory syncs catalog and switches to grimmory library`() {
+    fun `connect grimmory authenticates quickly and waits for explicit sync`() {
         val syncer = FakeGrimmoryCatalogSyncer(
-            result = GrimmoryCatalogSyncResult(
+            connectionResult = GrimmoryCatalogConnectionResult(
                 libraryCount = 2,
-                itemCount = 12,
-                supportedFormatCounts = mapOf(FormatType.EPUB to 12),
                 session = GrimmorySession(
                     accessToken = "access-token",
                     refreshToken = "refresh-token",
@@ -1726,22 +1770,26 @@ class AppViewModelTest {
         viewModel.connectGrimmoryServer()
         shadowOf(Looper.getMainLooper()).idle()
 
-        assertEquals("Home Grimmory", syncer.lastRequest?.displayName)
-        assertEquals("https://grimmory.example", syncer.lastRequest?.baseUrl)
-        assertEquals("reader", syncer.lastRequest?.username)
-        assertEquals("secret", syncer.lastRequest?.password)
-        assertNull(syncer.lastRequest?.accessToken)
+        assertEquals("Home Grimmory", syncer.lastConnectRequest?.displayName)
+        assertEquals("https://grimmory.example", syncer.lastConnectRequest?.baseUrl)
+        assertEquals("reader", syncer.lastConnectRequest?.username)
+        assertEquals("secret", syncer.lastConnectRequest?.password)
+        assertNull(syncer.lastConnectRequest?.accessToken)
+        assertNull(syncer.lastSyncRequest)
         assertEquals("access-token", credentialStore.sessionFlow.value?.accessToken)
         assertEquals("refresh-token", credentialStore.sessionFlow.value?.refreshToken)
         assertEquals(TopLevelDestination.Library, viewModel.uiState.topLevel)
-        assertEquals(SourceType.GRIMMORY, viewModel.uiState.selectedSource)
         assertEquals("", viewModel.uiState.grimmoryConnection.password)
         assertEquals(true, viewModel.uiState.grimmoryConnection.hasStoredSession)
         assertEquals(false, viewModel.uiState.grimmoryConnection.isError)
+        assertEquals(
+            "Connected to Grimmory. Tap Sync Grimmory to import the library.",
+            viewModel.uiState.grimmoryConnection.message,
+        )
     }
 
     @Test
-    fun `connect grimmory reuses saved token when password is blank`() {
+    fun `connect grimmory with stored session reuses saved credentials for quick connect`() {
         val credentialStore = FakeGrimmoryCredentialStore(
             GrimmoryStoredSession(
                 displayName = "Home Grimmory",
@@ -1766,11 +1814,15 @@ class AppViewModelTest {
         viewModel.connectGrimmoryServer()
         shadowOf(Looper.getMainLooper()).idle()
 
-        assertNull(syncer.lastRequest?.password)
-        assertEquals("saved-access-token", syncer.lastRequest?.accessToken)
-        assertEquals("saved-refresh-token", syncer.lastRequest?.refreshToken)
+        assertNull(syncer.lastSyncRequest)
+        assertNull(syncer.lastConnectRequest?.password)
+        assertEquals("saved-access-token", syncer.lastConnectRequest?.accessToken)
+        assertEquals("saved-refresh-token", syncer.lastConnectRequest?.refreshToken)
         assertEquals("Home Grimmory", credentialStore.sessionFlow.value?.displayName)
-        assertEquals("Connected to Grimmory.", viewModel.uiState.grimmoryConnection.message)
+        assertEquals(
+            "Connected to Grimmory. Tap Sync Grimmory to import the library.",
+            viewModel.uiState.grimmoryConnection.message,
+        )
         assertEquals(true, viewModel.uiState.grimmoryConnection.hasStoredSession)
     }
 
@@ -1934,7 +1986,7 @@ class AppViewModelTest {
         assertEquals("http://grimmory.example", syncer.lastRequest?.baseUrl)
         assertEquals(false, viewModel.uiState.grimmoryConnection.isError)
         assertEquals(
-            "Connected to Grimmory. $HTTP_WARNING_MESSAGE",
+            "Connected to Grimmory. Tap Sync Grimmory to import the library. $HTTP_WARNING_MESSAGE",
             viewModel.uiState.grimmoryConnection.message,
         )
     }

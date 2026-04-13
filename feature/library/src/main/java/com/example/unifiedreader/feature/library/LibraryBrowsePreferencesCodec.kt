@@ -5,10 +5,13 @@ import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibraryFileLocation
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.defaultVisibleLibraryFilterPanels
+import com.example.unifiedreader.core.model.resolveLibraryFilterPanels
 import java.util.Base64
 import java.util.Locale
 
@@ -30,6 +33,17 @@ internal fun Preferences.toLibraryBrowsePreferences(): LibraryBrowsePreferences 
             }
         }
     },
+    filterPanelsBySource = buildMap {
+        SourceType.entries.forEach { sourceType ->
+            val panels = decodePanels(
+                sourceType = sourceType,
+                value = this@toLibraryBrowsePreferences[filterPanelsKey(sourceType)],
+            )
+            if (panels != null) {
+                put(sourceType, panels)
+            }
+        }
+    },
 )
 
 internal fun MutablePreferences.writeFilterState(
@@ -41,6 +55,10 @@ internal fun MutablePreferences.writeFilterState(
     writeEncodedValues(fileLocationsFilterKey(sourceType), filters.fileLocations.map(LibraryFileLocation::name))
     writeEncodedValues(authorsFilterKey(sourceType), filters.authors)
     writeEncodedValues(seriesFilterKey(sourceType), filters.series)
+    writeEncodedValues(publishersFilterKey(sourceType), filters.publishers)
+    writeEncodedValues(genresFilterKey(sourceType), filters.genres)
+    writeEncodedValues(tagsFilterKey(sourceType), filters.tags)
+    writeEncodedValues(languagesFilterKey(sourceType), filters.languages)
 }
 
 internal fun MutablePreferences.writeSortMode(
@@ -52,6 +70,22 @@ internal fun MutablePreferences.writeSortMode(
         remove(key)
     } else {
         this[key] = sortMode.name
+    }
+}
+
+internal fun MutablePreferences.writeFilterPanels(
+    sourceType: SourceType,
+    panels: List<LibraryFilterPanel>,
+) {
+    val key = filterPanelsKey(sourceType)
+    val encoded = encodeOrderedValues(
+        values = panels.map(LibraryFilterPanel::name),
+        defaultValues = defaultVisibleLibraryFilterPanels(sourceType).map(LibraryFilterPanel::name),
+    )
+    if (encoded == null) {
+        remove(key)
+    } else {
+        this[key] = encoded
     }
 }
 
@@ -68,6 +102,10 @@ internal fun loadStartupLibraryBrowsePreferences(
                 ),
                 authors = decodeStringValues(startupPreferences.getString(authorsFilterStorageKey(sourceType), null)),
                 series = decodeStringValues(startupPreferences.getString(seriesFilterStorageKey(sourceType), null)),
+                publishers = decodeStringValues(startupPreferences.getString(publishersFilterStorageKey(sourceType), null)),
+                genres = decodeStringValues(startupPreferences.getString(genresFilterStorageKey(sourceType), null)),
+                tags = decodeStringValues(startupPreferences.getString(tagsFilterStorageKey(sourceType), null)),
+                languages = decodeStringValues(startupPreferences.getString(languagesFilterStorageKey(sourceType), null)),
             )
             if (!filters.isEmpty) {
                 put(sourceType, filters)
@@ -80,6 +118,17 @@ internal fun loadStartupLibraryBrowsePreferences(
             val sortMode = rawValue.toEnumOrNull<LibrarySortMode>() ?: return@forEach
             if (sortMode != defaultLibrarySortMode) {
                 put(sourceType, sortMode)
+            }
+        }
+    },
+    filterPanelsBySource = buildMap {
+        SourceType.entries.forEach { sourceType ->
+            val panels = decodePanels(
+                sourceType = sourceType,
+                value = startupPreferences.getString(filterPanelsStorageKey(sourceType), null),
+            )
+            if (panels != null) {
+                put(sourceType, panels)
             }
         }
     },
@@ -97,6 +146,10 @@ internal fun writeStartupLibraryBrowsePreferences(
             writeEncodedValues(fileLocationsFilterStorageKey(sourceType), filters.fileLocations.map(LibraryFileLocation::name))
             writeEncodedValues(authorsFilterStorageKey(sourceType), filters.authors)
             writeEncodedValues(seriesFilterStorageKey(sourceType), filters.series)
+            writeEncodedValues(publishersFilterStorageKey(sourceType), filters.publishers)
+            writeEncodedValues(genresFilterStorageKey(sourceType), filters.genres)
+            writeEncodedValues(tagsFilterStorageKey(sourceType), filters.tags)
+            writeEncodedValues(languagesFilterStorageKey(sourceType), filters.languages)
 
             val sortMode = preferences.sortsBySource[sourceType]
             if (sortMode == null || sortMode == defaultLibrarySortMode) {
@@ -104,6 +157,12 @@ internal fun writeStartupLibraryBrowsePreferences(
             } else {
                 putString(sortModeStorageKey(sourceType), sortMode.name)
             }
+
+            writeOrderedValues(
+                key = filterPanelsStorageKey(sourceType),
+                values = preferences.filterPanelsBySource[sourceType]?.map(LibraryFilterPanel::name).orEmpty(),
+                defaultValues = defaultVisibleLibraryFilterPanels(sourceType).map(LibraryFilterPanel::name),
+            )
         }
         commit()
     }
@@ -117,7 +176,24 @@ private fun Preferences.decodeFilterState(
     fileLocations = decodeEnumValues<LibraryFileLocation>(this[fileLocationsFilterKey(sourceType)]),
     authors = decodeStringValues(this[authorsFilterKey(sourceType)]),
     series = decodeStringValues(this[seriesFilterKey(sourceType)]),
+    publishers = decodeStringValues(this[publishersFilterKey(sourceType)]),
+    genres = decodeStringValues(this[genresFilterKey(sourceType)]),
+    tags = decodeStringValues(this[tagsFilterKey(sourceType)]),
+    languages = decodeStringValues(this[languagesFilterKey(sourceType)]),
 )
+
+private fun decodePanels(
+    sourceType: SourceType,
+    value: String?,
+): List<LibraryFilterPanel>? {
+    val decodedNames = decodeOrderedValues(value)
+    if (decodedNames.isEmpty()) return null
+    val panels = resolveLibraryFilterPanels(
+        sourceType = sourceType,
+        preferredPanels = decodedNames.mapNotNull(String::toLibraryFilterPanelOrNull),
+    )
+    return panels.takeIf { it != defaultVisibleLibraryFilterPanels(sourceType) }
+}
 
 private fun MutablePreferences.writeEncodedValues(
     key: Preferences.Key<String>,
@@ -143,6 +219,19 @@ private fun SharedPreferences.Editor.writeEncodedValues(
     }
 }
 
+private fun SharedPreferences.Editor.writeOrderedValues(
+    key: String,
+    values: Iterable<String>,
+    defaultValues: List<String>,
+) {
+    val encoded = encodeOrderedValues(values, defaultValues)
+    if (encoded == null) {
+        remove(key)
+    } else {
+        putString(key, encoded)
+    }
+}
+
 private fun encodeValues(
     values: Iterable<String>,
 ): String? {
@@ -153,6 +242,20 @@ private fun encodeValues(
         .sortedWith(String.CASE_INSENSITIVE_ORDER)
         .map(::encodeValue)
     return normalizedValues.takeIf(List<String>::isNotEmpty)?.joinToString(VALUES_DELIMITER)
+}
+
+private fun encodeOrderedValues(
+    values: Iterable<String>,
+    defaultValues: List<String>,
+): String? {
+    val normalizedValues = values
+        .map(String::trim)
+        .filter(String::isNotBlank)
+        .distinct()
+    if (normalizedValues.isEmpty() || normalizedValues == defaultValues) {
+        return null
+    }
+    return normalizedValues.joinToString(VALUES_DELIMITER, transform = ::encodeValue)
 }
 
 private fun decodeStringValues(
@@ -169,6 +272,14 @@ private inline fun <reified T : Enum<T>> decodeEnumValues(
         decodeValue(encodedValue).toEnumOrNull<T>()
     }
     .toSet()
+
+private fun decodeOrderedValues(
+    value: String?,
+): List<String> = decodeValues(value)
+    .map(::decodeValue)
+    .map(String::trim)
+    .filter(String::isNotBlank)
+    .distinct()
 
 private fun decodeValues(
     value: String?,
@@ -217,6 +328,26 @@ private fun seriesFilterKey(
     sourceType: SourceType,
 ): Preferences.Key<String> = stringPreferencesKey(seriesFilterStorageKey(sourceType))
 
+private fun publishersFilterKey(
+    sourceType: SourceType,
+): Preferences.Key<String> = stringPreferencesKey(publishersFilterStorageKey(sourceType))
+
+private fun genresFilterKey(
+    sourceType: SourceType,
+): Preferences.Key<String> = stringPreferencesKey(genresFilterStorageKey(sourceType))
+
+private fun tagsFilterKey(
+    sourceType: SourceType,
+): Preferences.Key<String> = stringPreferencesKey(tagsFilterStorageKey(sourceType))
+
+private fun languagesFilterKey(
+    sourceType: SourceType,
+): Preferences.Key<String> = stringPreferencesKey(languagesFilterStorageKey(sourceType))
+
+private fun filterPanelsKey(
+    sourceType: SourceType,
+): Preferences.Key<String> = stringPreferencesKey(filterPanelsStorageKey(sourceType))
+
 private fun sortModeStorageKey(
     sourceType: SourceType,
 ): String = "library_sort_mode_${sourceType.keySuffix()}"
@@ -241,6 +372,30 @@ private fun seriesFilterStorageKey(
     sourceType: SourceType,
 ): String = "library_filter_series_${sourceType.keySuffix()}"
 
+private fun publishersFilterStorageKey(
+    sourceType: SourceType,
+): String = "library_filter_publishers_${sourceType.keySuffix()}"
+
+private fun genresFilterStorageKey(
+    sourceType: SourceType,
+): String = "library_filter_genres_${sourceType.keySuffix()}"
+
+private fun tagsFilterStorageKey(
+    sourceType: SourceType,
+): String = "library_filter_tags_${sourceType.keySuffix()}"
+
+private fun languagesFilterStorageKey(
+    sourceType: SourceType,
+): String = "library_filter_languages_${sourceType.keySuffix()}"
+
+private fun filterPanelsStorageKey(
+    sourceType: SourceType,
+): String = "library_filter_panels_${sourceType.keySuffix()}"
+
 private fun SourceType.keySuffix(): String = name.lowercase(Locale.ROOT)
+
+private fun String.toLibraryFilterPanelOrNull(): LibraryFilterPanel? = runCatching {
+    enumValueOf<LibraryFilterPanel>(this)
+}.getOrNull()
 
 private const val VALUES_DELIMITER = ","

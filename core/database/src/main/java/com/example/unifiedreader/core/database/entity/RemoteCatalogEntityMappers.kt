@@ -8,6 +8,8 @@ import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.normalizedAuthors
+import com.example.unifiedreader.core.model.primaryAuthor
 
 fun Library.toEntity(): LibraryEntity = LibraryEntity(
     id = id,
@@ -63,11 +65,21 @@ fun ReadableItem.toEntity(
     coverUrl = coverUrl,
     description = description,
     addedAtEpochMillis = addedAtEpochMillis,
-    bookAuthor = bookMetadata?.author,
+    bookAuthor = bookMetadata?.primaryAuthor(),
+    bookAuthorsJson = encodeMetadataValues(bookMetadata?.normalizedAuthors()),
+    bookSeriesName = bookMetadata?.seriesName,
+    bookPublishersJson = encodeMetadataValues(bookMetadata?.publishers),
+    bookGenresJson = encodeMetadataValues(bookMetadata?.genres),
+    bookTagsJson = encodeMetadataValues(bookMetadata?.tags),
+    bookLanguagesJson = encodeMetadataValues(bookMetadata?.languages),
     comicSeries = comicMetadata?.series,
     comicIssueTitle = comicMetadata?.issueTitle,
     comicVolume = comicMetadata?.volume,
     comicIssueNumber = comicMetadata?.issueNumber,
+    comicPublishersJson = encodeMetadataValues(comicMetadata?.publishers),
+    comicGenresJson = encodeMetadataValues(comicMetadata?.genres),
+    comicTagsJson = encodeMetadataValues(comicMetadata?.tags),
+    comicLanguagesJson = encodeMetadataValues(comicMetadata?.languages),
     updatedAtEpochMillis = updatedAtEpochMillis,
 )
 
@@ -86,9 +98,7 @@ fun ReadableItemEntity.toDomain(): ReadableItem = ReadableItem(
     coverUrl = coverUrl,
     description = description,
     addedAtEpochMillis = addedAtEpochMillis,
-    bookMetadata = bookAuthor?.let { author ->
-        BookMetadata(author = author)
-    },
+    bookMetadata = bookMetadataOrNull(),
     comicMetadata = comicMetadataOrNull(),
 )
 
@@ -115,7 +125,11 @@ private fun ReadableItemEntity.comicMetadataOrNull(): ComicMetadata? {
         comicSeries == null &&
         comicIssueTitle == null &&
         comicVolume == null &&
-        comicIssueNumber == null
+        comicIssueNumber == null &&
+        comicPublishersJson == null &&
+        comicGenresJson == null &&
+        comicTagsJson == null &&
+        comicLanguagesJson == null
     ) {
         return null
     }
@@ -124,5 +138,52 @@ private fun ReadableItemEntity.comicMetadataOrNull(): ComicMetadata? {
         issueTitle = comicIssueTitle,
         volume = comicVolume,
         issueNumber = comicIssueNumber,
+        publishers = decodeMetadataValues(comicPublishersJson),
+        genres = decodeMetadataValues(comicGenresJson),
+        tags = decodeMetadataValues(comicTagsJson),
+        languages = decodeMetadataValues(comicLanguagesJson),
     )
 }
+
+private fun ReadableItemEntity.bookMetadataOrNull(): BookMetadata? {
+    if (
+        bookAuthor == null &&
+        bookAuthorsJson == null &&
+        bookSeriesName == null &&
+        bookPublishersJson == null &&
+        bookGenresJson == null &&
+        bookTagsJson == null &&
+        bookLanguagesJson == null
+    ) {
+        return null
+    }
+    return BookMetadata(
+        author = bookAuthor,
+        authors = decodeMetadataValues(bookAuthorsJson),
+        seriesName = bookSeriesName,
+        publishers = decodeMetadataValues(bookPublishersJson),
+        genres = decodeMetadataValues(bookGenresJson),
+        tags = decodeMetadataValues(bookTagsJson),
+        languages = decodeMetadataValues(bookLanguagesJson),
+    )
+}
+
+private fun encodeMetadataValues(
+    values: List<String>?,
+): String? = values
+    ?.map(String::trim)
+    ?.filter(String::isNotBlank)
+    ?.distinctBy(String::lowercase)
+    ?.takeIf(List<String>::isNotEmpty)
+    ?.joinToString(METADATA_VALUES_DELIMITER)
+
+private fun decodeMetadataValues(
+    values: String?,
+): List<String> = values
+    ?.split(METADATA_VALUES_DELIMITER)
+    ?.map(String::trim)
+    ?.filter(String::isNotBlank)
+    ?.distinctBy(String::lowercase)
+    .orEmpty()
+
+private const val METADATA_VALUES_DELIMITER = "\u001F"

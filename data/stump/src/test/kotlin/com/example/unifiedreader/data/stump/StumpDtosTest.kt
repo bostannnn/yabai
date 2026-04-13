@@ -8,6 +8,45 @@ import org.junit.Test
 
 class StumpDtosTest {
     @Test
+    fun `series detail maps metadata facets onto media entries`() {
+        val series = StumpSeriesEntry(
+            id = "series-1",
+            libraryId = "library-1",
+            title = "Saga",
+            coverUrl = null,
+        )
+
+        val entry = StumpSeriesDetailDto(
+            metadata = StumpSeriesMetadataDto(
+                publisher = "Image",
+                genres = listOf("Sci-Fi"),
+            ),
+            tags = listOf(StumpTagDto(name = "Space Opera")),
+            media = listOf(
+                StumpMediaNodeDto(
+                    id = "media-1",
+                    extension = "cbz",
+                    metadata = StumpMediaMetadataDto(
+                        title = "Issue 1",
+                        publisher = "Image",
+                        genres = listOf("Sci-Fi"),
+                        language = "English",
+                    ),
+                    tags = listOf(StumpTagDto(name = "Space Opera")),
+                ),
+            ),
+        ).toCatalogEntries(
+            baseUrl = "https://stump.example",
+            series = series,
+        ).single()
+
+        assertEquals(listOf("Image"), entry.item.comicMetadata?.publishers)
+        assertEquals(listOf("Sci-Fi"), entry.item.comicMetadata?.genres)
+        assertEquals(listOf("Space Opera"), entry.item.comicMetadata?.tags)
+        assertEquals(listOf("English"), entry.item.comicMetadata?.languages)
+    }
+
+    @Test
     fun `active read progress keeps fractional stump percentages`() {
         val progress = StumpMediaProgressDto(
             readProgress = StumpActiveReadingSessionDto(

@@ -310,10 +310,16 @@ class AppViewModelRemoteDownloadsTest {
                 ),
             ),
         )
+        waitForUiState {
+            viewModel.uiState.visibleItems.size == 1
+        }
         val seriesItem = viewModel.uiState.visibleItems.single()
 
         viewModel.onDownloadRemoteItem(seriesItem)
         shadowOf(Looper.getMainLooper()).idle()
+        waitForUiState {
+            viewModel.downloadsSnapshot.failedEntries.singleOrNull()?.status == DownloadEntryStatus.Failed
+        }
 
         assertEquals(setOf(firstIssue.id), viewModel.uiState.downloadedRemoteItemIds)
         assertEquals(DownloadEntryStatus.Failed, viewModel.downloadsSnapshot.failedEntries.single().status)

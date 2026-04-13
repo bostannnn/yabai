@@ -6,6 +6,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
@@ -27,6 +28,7 @@ val defaultLibrarySortMode: LibrarySortMode = LibrarySortMode.LAST_READ
 data class LibraryBrowsePreferences(
     val filtersBySource: Map<SourceType, LibraryFilterState> = emptyMap(),
     val sortsBySource: Map<SourceType, LibrarySortMode> = emptyMap(),
+    val filterPanelsBySource: Map<SourceType, List<LibraryFilterPanel>> = emptyMap(),
 )
 
 interface LibraryBrowsePreferencesStore {
@@ -40,6 +42,11 @@ interface LibraryBrowsePreferencesStore {
     suspend fun setSortMode(
         sourceType: SourceType,
         sortMode: LibrarySortMode,
+    )
+
+    suspend fun setFilterPanels(
+        sourceType: SourceType,
+        panels: List<LibraryFilterPanel>,
     )
 }
 
@@ -109,6 +116,21 @@ class DataStoreLibraryBrowsePreferencesStore(
         writeStartupPreferences(updatedPreferences)
     }
 
+    override suspend fun setFilterPanels(
+        sourceType: SourceType,
+        panels: List<LibraryFilterPanel>,
+    ) {
+        dataStore.edit { preferences ->
+            preferences.writeFilterPanels(
+                sourceType = sourceType,
+                panels = panels,
+            )
+        }
+        val updatedPreferences = latestPreferences.get().withFilterPanels(sourceType, panels)
+        latestPreferences.set(updatedPreferences)
+        writeStartupPreferences(updatedPreferences)
+    }
+
     private fun writeStartupPreferences(
         preferences: LibraryBrowsePreferences,
     ) {
@@ -147,6 +169,16 @@ private fun LibraryBrowsePreferences.withSortMode(
     sortsBySource = sortsBySource.updatedSortMode(
         sourceType = sourceType,
         sortMode = sortMode,
+    ),
+)
+
+private fun LibraryBrowsePreferences.withFilterPanels(
+    sourceType: SourceType,
+    panels: List<LibraryFilterPanel>,
+): LibraryBrowsePreferences = copy(
+    filterPanelsBySource = filterPanelsBySource.updatedFilterPanels(
+        sourceType = sourceType,
+        panels = panels,
     ),
 )
 

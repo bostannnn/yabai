@@ -29,7 +29,7 @@ import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
         ReaderSessionStateEntity::class,
         DownloadQueueEntryEntity::class,
     ],
-    version = 15,
+    version = 16,
     exportSchema = false,
 )
 abstract class UnifiedReaderDatabase : RoomDatabase() {
@@ -527,6 +527,71 @@ object UnifiedReaderDatabaseMigrations {
             )
         }
     }
+
+    val MIGRATION_15_16 = object : Migration(15, 16) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL(
+                """
+                ALTER TABLE readable_items
+                ADD COLUMN bookAuthorsJson TEXT
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                ALTER TABLE readable_items
+                ADD COLUMN bookSeriesName TEXT
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                ALTER TABLE readable_items
+                ADD COLUMN bookPublishersJson TEXT
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                ALTER TABLE readable_items
+                ADD COLUMN bookGenresJson TEXT
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                ALTER TABLE readable_items
+                ADD COLUMN bookTagsJson TEXT
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                ALTER TABLE readable_items
+                ADD COLUMN bookLanguagesJson TEXT
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                ALTER TABLE readable_items
+                ADD COLUMN comicPublishersJson TEXT
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                ALTER TABLE readable_items
+                ADD COLUMN comicGenresJson TEXT
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                ALTER TABLE readable_items
+                ADD COLUMN comicTagsJson TEXT
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                ALTER TABLE readable_items
+                ADD COLUMN comicLanguagesJson TEXT
+                """.trimIndent(),
+            )
+        }
+    }
 }
 
 object UnifiedReaderDatabaseFactory {
@@ -552,6 +617,7 @@ object UnifiedReaderDatabaseFactory {
             UnifiedReaderDatabaseMigrations.MIGRATION_12_13,
             UnifiedReaderDatabaseMigrations.MIGRATION_13_14,
             UnifiedReaderDatabaseMigrations.MIGRATION_14_15,
+            UnifiedReaderDatabaseMigrations.MIGRATION_15_16,
         )
         .build()
 }

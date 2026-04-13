@@ -42,7 +42,15 @@ class RemoteCatalogEntityMappersTest {
             coverUrl = "https://grimmory.example/api/v1/media/book/1/thumbnail",
             description = "Description",
             addedAtEpochMillis = 1775046600000L,
-            bookMetadata = BookMetadata(author = "Author"),
+            bookMetadata = BookMetadata(
+                author = "Author",
+                authors = listOf("Author", "Co-Author"),
+                seriesName = "Earthsea",
+                publishers = listOf("Parnassus"),
+                genres = listOf("Fantasy"),
+                tags = listOf("Wizard"),
+                languages = listOf("English"),
+            ),
         )
 
         assertEquals(item, item.toEntity(updatedAtEpochMillis = 1775046600000L).toDomain())

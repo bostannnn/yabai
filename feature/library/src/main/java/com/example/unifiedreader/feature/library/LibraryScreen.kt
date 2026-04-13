@@ -26,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.LibraryFilterFacets
+import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
@@ -48,6 +49,7 @@ fun LibraryScreen(
     downloadingItemIds: Set<String> = emptySet(),
     isLoadingSource: Boolean = false,
     filterState: LibraryFilterState = LibraryFilterState(),
+    filterPanels: List<LibraryFilterPanel> = emptyList(),
     filterFacets: LibraryFilterFacets = LibraryFilterFacets(),
     libraryTitlesById: Map<String, String> = emptyMap(),
     searchQuery: String = "",
@@ -129,7 +131,7 @@ fun LibraryScreen(
         ) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 LibraryFilterSummary(
-                    selectedSource = selectedSource,
+                    filterPanels = filterPanels,
                     filterState = filterState,
                     filterFacets = filterFacets,
                     libraryTitlesById = libraryTitlesById,

@@ -14,9 +14,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import com.example.unifiedreader.core.model.LibraryFilterState
+import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.resolveLibraryFilterPanels
 import com.example.unifiedreader.feature.downloads.DownloadsSheet
 import com.example.unifiedreader.feature.library.LibraryScreen
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
@@ -149,6 +151,7 @@ fun UnifiedReaderScaffold(
                         onThemeModeSelected = viewModel::onThemeModeSelected,
                         onMoveSourceUp = viewModel::moveSourceUp,
                         onMoveSourceDown = viewModel::moveSourceDown,
+                        onLibraryFilterPanelsChanged = viewModel::onLibraryFilterPanelsChanged,
                         onLibraryDirectionSelected = viewModel::onLibraryDirectionSelected,
                         onKavitaDisplayNameChanged = viewModel::onKavitaDisplayNameChanged,
                         onKavitaBaseUrlChanged = viewModel::onKavitaBaseUrlChanged,
@@ -230,6 +233,7 @@ private fun LibraryRoute(
             downloadingItemIds = uiState.remoteDownloadActionAvailability.activeDownloadingItemIds,
             isLoadingSource = !uiState.isSelectedSourceHydrated,
             filterState = uiState.selectedLibraryFilters,
+            filterPanels = uiState.selectedLibraryFilterPanels,
             filterFacets = uiState.selectedLibraryFilterFacets,
             libraryTitlesById = uiState.selectedSourceLibraryTitlesById,
             searchQuery = uiState.selectedLibrarySearchQuery,
@@ -263,6 +267,7 @@ private fun SettingsRoute(
     onThemeModeSelected: (com.example.unifiedreader.feature.settings.ThemeMode) -> Unit,
     onMoveSourceUp: (SourceType) -> Unit,
     onMoveSourceDown: (SourceType) -> Unit,
+    onLibraryFilterPanelsChanged: (SourceType, List<LibraryFilterPanel>) -> Unit,
     onLibraryDirectionSelected: (String, ComicReadingDirection) -> Unit,
     onKavitaDisplayNameChanged: (String) -> Unit,
     onKavitaBaseUrlChanged: (String) -> Unit,
@@ -299,6 +304,13 @@ private fun SettingsRoute(
             stumpConnection = uiState.stumpConnection,
             grimmoryConnection = uiState.grimmoryConnection,
             onThemeModeSelected = onThemeModeSelected,
+            libraryFilterPanelsBySource = SourceType.entries.associateWith { sourceType ->
+                resolveLibraryFilterPanels(
+                    sourceType = sourceType,
+                    preferredPanels = uiState.libraryFilterPanelsBySource[sourceType],
+                )
+            },
+            onLibraryFilterPanelsChanged = onLibraryFilterPanelsChanged,
             extraSections = {
                 item {
                     SourceNavigationSettingsSection(

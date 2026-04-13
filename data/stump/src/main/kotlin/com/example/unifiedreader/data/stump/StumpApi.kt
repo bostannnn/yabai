@@ -233,6 +233,13 @@ class KtorStumpApi(
                   seriesById(id: ${'$'}id) {
                     id
                     resolvedName
+                    metadata {
+                      publisher
+                      genres
+                    }
+                    tags {
+                      name
+                    }
                     media {
                       id
                       resolvedName
@@ -247,6 +254,12 @@ class KtorStumpApi(
                         volume
                         number
                         pageCount
+                        publisher
+                        genres
+                        language
+                      }
+                      tags {
+                        name
                       }
                       readProgress {
                         page

@@ -1,7 +1,9 @@
 package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.LibraryFilterState
+import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibrarySortMode
+import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.library.LibraryBrowseState
 import com.example.unifiedreader.feature.library.LibraryBrowseStateCoordinator
 import javax.inject.Inject
@@ -101,6 +103,35 @@ class AppLibraryBrowseController @Inject constructor(
             libraryBrowseStateCoordinator.persistSortMode(
                 sourceType = sourceType,
                 sortMode = sortMode,
+            )
+        }
+    }
+
+    fun onLibraryFilterPanelsChanged(
+        currentState: AppUiState,
+        updateState: AppUiStateUpdater,
+        scope: CoroutineScope,
+        sourceType: SourceType,
+        panels: List<LibraryFilterPanel>,
+    ) {
+        val nextBrowseState = libraryBrowseStateCoordinator.updateFilterPanels(
+            currentState = currentState.toLibraryBrowseState(),
+            selectedSource = sourceType,
+            panels = panels,
+        )
+        updateLibraryBrowseState(
+            updateState = updateState,
+        ) {
+            nextBrowseState
+        }
+        scope.launch {
+            libraryBrowseStateCoordinator.persistFilters(
+                sourceType = sourceType,
+                filters = nextBrowseState.filtersBySource[sourceType] ?: LibraryFilterState(),
+            )
+            libraryBrowseStateCoordinator.persistFilterPanels(
+                sourceType = sourceType,
+                panels = panels,
             )
         }
     }

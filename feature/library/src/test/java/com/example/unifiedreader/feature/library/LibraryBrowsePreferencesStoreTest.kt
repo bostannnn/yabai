@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.test.core.app.ApplicationProvider
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.LibraryFileLocation
+import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
@@ -52,6 +53,10 @@ class LibraryBrowsePreferencesStoreTest {
             fileLocations = setOf(LibraryFileLocation.LOCAL),
             authors = setOf("Ursula K. Le Guin"),
             series = setOf("Earthsea"),
+            publishers = setOf("Parnassus"),
+            genres = setOf("Fantasy"),
+            tags = setOf("Wizard"),
+            languages = setOf("English"),
         )
 
         store.setFilters(SourceType.KAVITA, filters)
@@ -86,6 +91,36 @@ class LibraryBrowsePreferencesStoreTest {
 
         assertFalse(SourceType.LOCAL in preferences.sortsBySource)
         assertEquals(defaultLibrarySortMode, preferences.sortsBySource[SourceType.LOCAL] ?: defaultLibrarySortMode)
+    }
+
+    @Test
+    fun `persists custom filter panel order per source`() = runBlocking {
+        val file = File.createTempFile("library-browse-filter-panels", ".preferences_pb")
+        val startupPreferences = testStartupPreferences()
+        val dataStore = PreferenceDataStoreFactory.create(
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+            produceFile = { file },
+        )
+        val store = DataStoreLibraryBrowsePreferencesStore(
+            dataStore = dataStore,
+            startupPreferences = startupPreferences,
+        )
+        val panels = listOf(
+            LibraryFilterPanel.Format,
+            LibraryFilterPanel.Tag,
+            LibraryFilterPanel.Language,
+        )
+
+        store.setFilterPanels(
+            sourceType = SourceType.KAVITA,
+            panels = panels,
+        )
+
+        val preferences = store.preferencesFlow.first { current ->
+            current.filterPanelsBySource[SourceType.KAVITA] == panels
+        }
+
+        assertEquals(panels, preferences.filterPanelsBySource[SourceType.KAVITA])
     }
 
     @Test
@@ -128,6 +163,12 @@ class LibraryBrowsePreferencesStoreTest {
             ),
             sortsBySource = mapOf(
                 SourceType.LOCAL to LibrarySortMode.TITLE,
+            ),
+            filterPanelsBySource = mapOf(
+                SourceType.GRIMMORY to listOf(
+                    LibraryFilterPanel.Format,
+                    LibraryFilterPanel.Tag,
+                ),
             ),
         )
         writeStartupLibraryBrowsePreferences(

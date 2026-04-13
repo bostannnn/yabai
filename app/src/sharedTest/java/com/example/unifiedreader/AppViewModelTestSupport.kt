@@ -990,6 +990,25 @@ class FakeLibraryBrowsePreferencesStore(
             },
         )
     }
+
+    override suspend fun setFilterPanels(
+        sourceType: SourceType,
+        panels: List<com.example.unifiedreader.core.model.LibraryFilterPanel>,
+    ) {
+        val resolvedPanels = com.example.unifiedreader.core.model.resolveLibraryFilterPanels(
+            sourceType = sourceType,
+            preferredPanels = panels,
+        )
+        mutablePreferencesFlow.value = mutablePreferencesFlow.value.copy(
+            filterPanelsBySource = if (
+                resolvedPanels == com.example.unifiedreader.core.model.defaultVisibleLibraryFilterPanels(sourceType)
+            ) {
+                mutablePreferencesFlow.value.filterPanelsBySource - sourceType
+            } else {
+                mutablePreferencesFlow.value.filterPanelsBySource + (sourceType to resolvedPanels)
+            },
+        )
+    }
 }
 
 class FakeReaderSessionStore(

@@ -605,10 +605,20 @@ class UnifiedReaderDatabaseMigrationTest {
                         description = "Description",
                         addedAtEpochMillis = 1775046600000L,
                         bookAuthor = "Author",
+                        bookAuthorsJson = null,
+                        bookSeriesName = null,
+                        bookPublishersJson = null,
+                        bookGenresJson = null,
+                        bookTagsJson = null,
+                        bookLanguagesJson = null,
                         comicSeries = null,
                         comicIssueTitle = null,
                         comicVolume = null,
                         comicIssueNumber = null,
+                        comicPublishersJson = null,
+                        comicGenresJson = null,
+                        comicTagsJson = null,
+                        comicLanguagesJson = null,
                         updatedAtEpochMillis = 1775046600000L,
                     ),
                 ),
@@ -898,6 +908,7 @@ private fun openRoomDatabase(
         UnifiedReaderDatabaseMigrations.MIGRATION_12_13,
         UnifiedReaderDatabaseMigrations.MIGRATION_13_14,
         UnifiedReaderDatabaseMigrations.MIGRATION_14_15,
+        UnifiedReaderDatabaseMigrations.MIGRATION_15_16,
     )
     .build()
 

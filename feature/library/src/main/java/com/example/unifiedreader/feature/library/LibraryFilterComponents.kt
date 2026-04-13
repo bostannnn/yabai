@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.unifiedreader.core.model.LibraryFilterFacets
+import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
@@ -91,6 +92,7 @@ internal fun LoadingLibraryState(
 
 @Composable
 internal fun LibraryFilterSummary(
+    filterPanels: List<LibraryFilterPanel>,
     filterState: LibraryFilterState,
     filterFacets: LibraryFilterFacets,
     libraryTitlesById: Map<String, String>,
@@ -113,37 +115,18 @@ internal fun LibraryFilterSummary(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            LibraryFacetChip(
-                label = "Format",
-                count = filterState.formats.size,
-                enabled = filterFacets.formats.isNotEmpty() || filterState.formats.isNotEmpty(),
-                onClick = { onOpenFilterPanel(LibraryFilterPanel.Format) },
-            )
-            LibraryFacetChip(
-                label = "Library",
-                count = filterState.libraries.size,
-                enabled = libraryTitlesById.isNotEmpty() &&
-                    (filterFacets.libraries.isNotEmpty() || filterState.libraries.isNotEmpty()),
-                onClick = { onOpenFilterPanel(LibraryFilterPanel.Library) },
-            )
-            LibraryFacetChip(
-                label = "Location",
-                count = filterState.fileLocations.size,
-                enabled = filterFacets.fileLocations.isNotEmpty() || filterState.fileLocations.isNotEmpty(),
-                onClick = { onOpenFilterPanel(LibraryFilterPanel.Location) },
-            )
-            LibraryFacetChip(
-                label = "Author",
-                count = filterState.authors.size,
-                enabled = filterFacets.authors.isNotEmpty() || filterState.authors.isNotEmpty(),
-                onClick = { onOpenFilterPanel(LibraryFilterPanel.Author) },
-            )
-            LibraryFacetChip(
-                label = "Series",
-                count = filterState.series.size,
-                enabled = filterFacets.series.isNotEmpty() || filterState.series.isNotEmpty(),
-                onClick = { onOpenFilterPanel(LibraryFilterPanel.Series) },
-            )
+            filterPanels.forEach { panel ->
+                LibraryFacetChip(
+                    label = panel.label,
+                    count = panel.selectedCount(filterState),
+                    enabled = panel.isEnabled(
+                        filterState = filterState,
+                        filterFacets = filterFacets,
+                        libraryTitlesById = libraryTitlesById,
+                    ),
+                    onClick = { onOpenFilterPanel(panel) },
+                )
+            }
             if (!filterState.isEmpty) {
                 TextButton(onClick = onClearFilters) {
                     Text(text = "Clear")
@@ -264,6 +247,58 @@ internal fun LibraryFilterPanelDialog(
             },
             hasActiveFilters = filterState.series.isNotEmpty(),
             onClearFilters = { onFilterStateChanged(filterState.copy(series = emptySet())) },
+            letterKey = { it },
+            onDismiss = onDismiss,
+        )
+
+        LibraryFilterPanel.Publisher -> SearchableTextFacetDialog(
+            title = "Publishers",
+            values = filterFacets.publishers,
+            selectedValues = filterState.publishers,
+            onToggleValue = { publisher ->
+                onFilterStateChanged(filterState.copy(publishers = filterState.publishers.toggle(publisher)))
+            },
+            hasActiveFilters = filterState.publishers.isNotEmpty(),
+            onClearFilters = { onFilterStateChanged(filterState.copy(publishers = emptySet())) },
+            letterKey = { it },
+            onDismiss = onDismiss,
+        )
+
+        LibraryFilterPanel.Genre -> SearchableTextFacetDialog(
+            title = "Genres",
+            values = filterFacets.genres,
+            selectedValues = filterState.genres,
+            onToggleValue = { genre ->
+                onFilterStateChanged(filterState.copy(genres = filterState.genres.toggle(genre)))
+            },
+            hasActiveFilters = filterState.genres.isNotEmpty(),
+            onClearFilters = { onFilterStateChanged(filterState.copy(genres = emptySet())) },
+            letterKey = { it },
+            onDismiss = onDismiss,
+        )
+
+        LibraryFilterPanel.Tag -> SearchableTextFacetDialog(
+            title = "Tags",
+            values = filterFacets.tags,
+            selectedValues = filterState.tags,
+            onToggleValue = { tag ->
+                onFilterStateChanged(filterState.copy(tags = filterState.tags.toggle(tag)))
+            },
+            hasActiveFilters = filterState.tags.isNotEmpty(),
+            onClearFilters = { onFilterStateChanged(filterState.copy(tags = emptySet())) },
+            letterKey = { it },
+            onDismiss = onDismiss,
+        )
+
+        LibraryFilterPanel.Language -> SearchableTextFacetDialog(
+            title = "Languages",
+            values = filterFacets.languages,
+            selectedValues = filterState.languages,
+            onToggleValue = { language ->
+                onFilterStateChanged(filterState.copy(languages = filterState.languages.toggle(language)))
+            },
+            hasActiveFilters = filterState.languages.isNotEmpty(),
+            onClearFilters = { onFilterStateChanged(filterState.copy(languages = emptySet())) },
             letterKey = { it },
             onDismiss = onDismiss,
         )
@@ -519,14 +554,6 @@ private fun TextFacetRow(
             modifier = Modifier.weight(1f),
         )
     }
-}
-
-internal enum class LibraryFilterPanel {
-    Format,
-    Library,
-    Location,
-    Author,
-    Series,
 }
 
 @Composable

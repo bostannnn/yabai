@@ -184,6 +184,14 @@ private fun LibraryFilterState.keyFragment(): String = buildString {
     append(authors.sortedWith(String.CASE_INSENSITIVE_ORDER).joinToString(",") { value -> value.keyComponent() })
     append(";series=")
     append(series.sortedWith(String.CASE_INSENSITIVE_ORDER).joinToString(",") { value -> value.keyComponent() })
+    append(";publishers=")
+    append(publishers.sortedWith(String.CASE_INSENSITIVE_ORDER).joinToString(",") { value -> value.keyComponent() })
+    append(";genres=")
+    append(genres.sortedWith(String.CASE_INSENSITIVE_ORDER).joinToString(",") { value -> value.keyComponent() })
+    append(";tags=")
+    append(tags.sortedWith(String.CASE_INSENSITIVE_ORDER).joinToString(",") { value -> value.keyComponent() })
+    append(";languages=")
+    append(languages.sortedWith(String.CASE_INSENSITIVE_ORDER).joinToString(",") { value -> value.keyComponent() })
 }
 
 private fun String.keyComponent(): String = Base64.getUrlEncoder()
