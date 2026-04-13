@@ -487,63 +487,95 @@ private fun buildDoublePageSpreads(
     pageMetadataById: Map<String, ComicPageMetadata>,
 ): List<ComicPageSpread> {
     val spreads = mutableListOf<ComicPageSpread>()
-    spreads += ComicPageSpread(
+    spreads += soloComicPageSpread(
+        page = pages.first(),
+        pageCount = pages.size,
+        metadata = pageMetadataById[pages.first().id],
         id = "spread-cover",
-        pages = listOf(
-            ComicSpreadPage(
-                spec = pages.first(),
-                metadata = pageMetadataById[pages.first().id],
-            ),
-        ),
-        pageIndexes = listOf(0),
-        resumePageIndex = 0,
-        progressLabel = "1 / ${pages.size}",
     )
-    var pageIndex = 1
-    while (pageIndex < pages.size) {
-        val currentPage = pages[pageIndex]
-        val nextPage = pages.getOrNull(pageIndex + 1)
-        val currentWide = pageMetadataById[currentPage.id]?.isWide() == true
-        val nextWide = nextPage?.let { pageMetadataById[it.id]?.isWide() == true } == true
-        when {
-            currentWide || nextPage == null || nextWide -> {
-                spreads += ComicPageSpread(
-                    id = "spread-${currentPage.pageIndex}",
-                    pages = listOf(
-                        ComicSpreadPage(
-                            spec = currentPage,
-                            metadata = pageMetadataById[currentPage.id],
-                        ),
-                    ),
-                    pageIndexes = listOf(currentPage.pageIndex),
-                    resumePageIndex = currentPage.pageIndex,
-                    progressLabel = "${currentPage.pageIndex + 1} / ${pages.size}",
-                )
-                pageIndex += 1
-            }
-
-            else -> {
-                val pair = when (readingDirection) {
-                    ComicReadingDirection.LTR -> listOf(currentPage, nextPage)
-                    ComicReadingDirection.RTL -> listOf(nextPage, currentPage)
-                }.map { page ->
-                    ComicSpreadPage(
-                        spec = page,
-                        metadata = pageMetadataById[page.id],
-                    )
-                }
-                spreads += ComicPageSpread(
-                    id = "spread-${currentPage.pageIndex}",
-                    pages = pair,
-                    pageIndexes = pair.map(ComicSpreadPage::pageIndex),
-                    resumePageIndex = currentPage.pageIndex,
-                    progressLabel = "${currentPage.pageIndex + 1}-${nextPage.pageIndex + 1} / ${pages.size}",
-                )
-                pageIndex += 2
-            }
+    // Keep double-page slots stable after the cover so resumed spreads do not depend on
+    // metadata from every earlier page in the book. A wide page only splits its own slot.
+    var slotStartIndex = 1
+    while (slotStartIndex < pages.size) {
+        val leftPage = pages[slotStartIndex]
+        val rightPage = pages.getOrNull(slotStartIndex + 1)
+        if (rightPage == null) {
+            spreads += soloComicPageSpread(
+                page = leftPage,
+                pageCount = pages.size,
+                metadata = pageMetadataById[leftPage.id],
+            )
+            break
         }
+        val leftMetadata = pageMetadataById[leftPage.id]
+        val rightMetadata = pageMetadataById[rightPage.id]
+        val slotHasWidePage = leftMetadata?.isWide() == true || rightMetadata?.isWide() == true
+        if (slotHasWidePage) {
+            spreads += soloComicPageSpread(
+                page = leftPage,
+                pageCount = pages.size,
+                metadata = leftMetadata,
+            )
+            spreads += soloComicPageSpread(
+                page = rightPage,
+                pageCount = pages.size,
+                metadata = rightMetadata,
+            )
+        } else {
+            spreads += pairedComicPageSpread(
+                leftPage = leftPage,
+                rightPage = rightPage,
+                pageCount = pages.size,
+                readingDirection = readingDirection,
+                pageMetadataById = pageMetadataById,
+            )
+        }
+        slotStartIndex += 2
     }
     return spreads
+}
+
+private fun soloComicPageSpread(
+    page: ComicPageSpec,
+    pageCount: Int,
+    metadata: ComicPageMetadata?,
+    id: String = "spread-${page.pageIndex}",
+): ComicPageSpread = ComicPageSpread(
+    id = id,
+    pages = listOf(
+        ComicSpreadPage(
+            spec = page,
+            metadata = metadata,
+        ),
+    ),
+    pageIndexes = listOf(page.pageIndex),
+    resumePageIndex = page.pageIndex,
+    progressLabel = "${page.pageIndex + 1} / $pageCount",
+)
+
+private fun pairedComicPageSpread(
+    leftPage: ComicPageSpec,
+    rightPage: ComicPageSpec,
+    pageCount: Int,
+    readingDirection: ComicReadingDirection,
+    pageMetadataById: Map<String, ComicPageMetadata>,
+): ComicPageSpread {
+    val pair = when (readingDirection) {
+        ComicReadingDirection.LTR -> listOf(leftPage, rightPage)
+        ComicReadingDirection.RTL -> listOf(rightPage, leftPage)
+    }.map { page ->
+        ComicSpreadPage(
+            spec = page,
+            metadata = pageMetadataById[page.id],
+        )
+    }
+    return ComicPageSpread(
+        id = "spread-${leftPage.pageIndex}",
+        pages = pair,
+        pageIndexes = pair.map(ComicSpreadPage::pageIndex),
+        resumePageIndex = leftPage.pageIndex,
+        progressLabel = "${leftPage.pageIndex + 1}-${rightPage.pageIndex + 1} / $pageCount",
+    )
 }
 
 internal fun List<ComicPageSpread>.indexOfPage(

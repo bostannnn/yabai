@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.reader.comics
 
+import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -56,8 +57,8 @@ class ComicsReaderInteractionTest {
 
         assertEquals(listOf(0), spreads[0].pageIndexes)
         assertEquals(listOf(1), spreads[1].pageIndexes)
-        assertEquals(listOf(2, 3), spreads[2].pageIndexes)
-        assertEquals(listOf(4), spreads[3].pageIndexes)
+        assertEquals(listOf(2), spreads[2].pageIndexes)
+        assertEquals(listOf(3, 4), spreads[3].pageIndexes)
     }
 
     @Test
@@ -163,9 +164,9 @@ class ComicsReaderInteractionTest {
     @Test
     fun `double page committed metadata indexing only requires current spread prefix`() {
         assertEquals(
-            listOf(0, 1, 2, 3),
+            listOf(4, 5, 6, 7),
             requiredMetadataIndexes(
-                currentPage = 2,
+                currentPage = 6,
                 pageCount = 10,
                 useDoublePageSpreads = true,
             ),
@@ -175,9 +176,9 @@ class ComicsReaderInteractionTest {
     @Test
     fun `double page background metadata indexing keeps warm lookahead prefix`() {
         assertEquals(
-            listOf(0, 1, 2, 3, 4, 5, 6),
+            listOf(4, 5, 6, 7, 8, 9),
             backgroundMetadataIndexes(
-                currentPage = 2,
+                currentPage = 6,
                 pageCount = 10,
                 useDoublePageSpreads = true,
             ),
@@ -213,12 +214,14 @@ class ComicsReaderInteractionTest {
         val state = ComicsReaderState(
             initialPage = 0,
             pageCount = 5,
+            initialReaderMode = ComicReaderMode.Paged,
             initialReadingDirection = ComicReadingDirection.LTR,
             initialPageFitMode = ComicPageFitMode.FitPage,
             initialSpreadMode = ComicSpreadMode.Single,
             initialSplitWidePages = false,
             initialResumeAnchorPage = 4,
             initialResumeSegment = ComicPageSegment.LeftHalf,
+            initialResumeScrollOffsetRatio = null,
         )
 
         assertEquals(null, state.resumeSegment)

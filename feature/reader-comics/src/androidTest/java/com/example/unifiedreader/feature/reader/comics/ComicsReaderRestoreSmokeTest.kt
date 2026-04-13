@@ -127,14 +127,10 @@ class ComicsReaderRestoreSmokeTest {
             preferencesStore = preferencesStore,
         )
 
-        composeRule.waitForText("Preparing spread layout...")
-        composeRule.waitUntil(timeoutMillis = 6_000) {
-            composeRule.onAllNodesWithText("Preparing spread layout...")
-                .fetchSemanticsNodes().isEmpty()
-        }
         composeRule.onNodeWithTag(comicGestureSurfaceTag("spread-1")).assertExists()
-        assertEquals(3, pageSource.requiredPageAttempts)
-        composeRule.waitForIdle()
+        composeRule.waitUntil(timeoutMillis = 6_000) {
+            pageSource.requiredPageAttempts == 3
+        }
         Thread.sleep(1_500)
         assertEquals(3, pageSource.requiredPageAttempts)
     }
@@ -161,14 +157,10 @@ class ComicsReaderRestoreSmokeTest {
             preferencesStore = preferencesStore,
         )
 
-        composeRule.waitForText("Preparing spread layout...")
-        composeRule.waitUntil(timeoutMillis = 6_000) {
-            composeRule.onAllNodesWithText("Preparing spread layout...")
-                .fetchSemanticsNodes().isEmpty()
-        }
         composeRule.onNodeWithTag(comicGestureSurfaceTag("spread-1")).assertExists()
-        assertEquals(3, pageSource.requiredPageAttempts)
-        composeRule.waitForIdle()
+        composeRule.waitUntil(timeoutMillis = 6_000) {
+            pageSource.requiredPageAttempts == 3
+        }
         Thread.sleep(1_500)
         assertEquals(3, pageSource.requiredPageAttempts)
     }
@@ -195,14 +187,10 @@ class ComicsReaderRestoreSmokeTest {
             preferencesStore = preferencesStore,
         )
 
-        composeRule.waitForText("Preparing spread layout...")
-        composeRule.waitUntil(timeoutMillis = 7_000) {
-            composeRule.onAllNodesWithText("Preparing spread layout...")
-                .fetchSemanticsNodes().isEmpty()
-        }
         composeRule.onNodeWithTag(comicGestureSurfaceTag("spread-1")).assertExists()
-        assertEquals(3, pageSource.requiredPageAttempts)
-        composeRule.waitForIdle()
+        composeRule.waitUntil(timeoutMillis = 7_000) {
+            pageSource.requiredPageAttempts == 3
+        }
         Thread.sleep(1_500)
         assertEquals(3, pageSource.requiredPageAttempts)
     }
@@ -216,6 +204,7 @@ class ComicsReaderRestoreSmokeTest {
         val preferencesStore = DelayedPreferencesStore(
             item = item,
             snapshot = ComicReaderPreferencesSnapshot(
+                readerMode = com.example.unifiedreader.feature.reader.preferences.ComicReaderMode.Paged,
                 readingDirection = ComicReadingDirection.LTR,
                 pageFitMode = ComicPageFitMode.FitPage,
                 spreadMode = ComicSpreadMode.Double,

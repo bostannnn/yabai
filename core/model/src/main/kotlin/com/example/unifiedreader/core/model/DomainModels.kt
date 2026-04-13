@@ -128,7 +128,9 @@ fun ReadableItem.isStumpSeriesContainer(): Boolean =
 
 fun ReadableItem.supportsManualReadStatusAction(): Boolean = when (sourceType) {
     SourceType.KAVITA -> !isKavitaSeriesContainer()
-    SourceType.STUMP -> !isStumpSeriesContainer()
+    // Stump completion/unread mutations are still unreliable for direct user-triggered actions.
+    // Keep the workaround source-scoped so we can re-enable this once the Stump path matures.
+    SourceType.STUMP -> false
     SourceType.GRIMMORY -> true
     SourceType.LOCAL -> false
 }
