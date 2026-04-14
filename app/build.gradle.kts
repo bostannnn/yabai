@@ -60,6 +60,7 @@ dependencies {
     implementation(project(":data:grimmory"))
     implementation(project(":data:repository"))
     implementation(project(":feature:library"))
+    implementation(project(":feature:library-shelves"))
     implementation(project(":feature:settings"))
     implementation(project(":feature:reader-preferences"))
     implementation(project(":feature:reader-core"))

@@ -13,6 +13,7 @@ import com.example.unifiedreader.core.model.belongsToStumpSeries
 import com.example.unifiedreader.core.model.resolveLibraryFilterPanels
 import com.example.unifiedreader.feature.library.ItemProgressSummary
 import com.example.unifiedreader.feature.library.RemoteDownloadActionAvailability
+import com.example.unifiedreader.feature.library.shelves.LibraryShelvesState
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderModePreferences
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirectionPreferences
 import com.example.unifiedreader.feature.library.defaultLibrarySortMode
@@ -70,6 +71,7 @@ data class AppUiState(
     val remoteDownloadActionAvailability: RemoteDownloadActionAvailability = RemoteDownloadActionAvailability(),
     val visibleItems: List<ReadableItem> = emptyList(),
     val libraryBrowseContextKey: String = "",
+    val libraryShelvesState: LibraryShelvesState = LibraryShelvesState(),
     val progressSyncNotice: AppProgressSyncNotice? = null,
 ) {
     val selectedLibraryFilters: LibraryFilterState
@@ -124,4 +126,13 @@ data class AppUiState(
             SourceType.GRIMMORY,
             SourceType.LOCAL -> null
         }
+
+    val shouldShowLibraryShelves: Boolean
+        get() = shouldReserveLibraryShelvesSlot &&
+            libraryShelvesState.hasContent
+
+    val shouldReserveLibraryShelvesSlot: Boolean
+        get() = selectedLibrarySearchQuery.isBlank() &&
+            selectedLibraryFilters.isEmpty &&
+            !isSeriesBrowseActive
 }

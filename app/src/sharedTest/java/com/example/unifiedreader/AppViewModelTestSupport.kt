@@ -23,6 +23,7 @@ import com.example.unifiedreader.feature.library.LibraryBrowsePreferencesStore
 import com.example.unifiedreader.feature.library.LibraryBrowseStateCoordinator
 import com.example.unifiedreader.feature.library.LibraryDerivedStateComputer
 import com.example.unifiedreader.feature.library.LibrarySeriesContinuationResolver
+import com.example.unifiedreader.feature.library.shelves.LibraryShelvesStateComputer
 import com.example.unifiedreader.feature.navigation.SourceNavigationPreferences
 import com.example.unifiedreader.feature.navigation.SourceNavigationPreferencesStore
 import com.example.unifiedreader.feature.navigation.SourceNavigationStateCoordinator
@@ -267,6 +268,9 @@ internal fun createViewModel(
         readerSessionStore = readerSessionStore,
         readerFactories = readerFactories,
         libraryDerivedStateComputer = LibraryDerivedStateComputer(),
+        libraryShelvesStateComputer = LibraryShelvesStateComputer(
+            seriesContinuationResolver = LibrarySeriesContinuationResolver(),
+        ),
     )
 }
 

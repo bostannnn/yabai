@@ -14,6 +14,7 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.downloads.DownloadEntriesSnapshot
 import com.example.unifiedreader.feature.library.LibraryDerivedStateComputer
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
+import com.example.unifiedreader.feature.library.shelves.LibraryShelvesStateComputer
 import com.example.unifiedreader.feature.navigation.SourceOrderMoveDirection
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesStore
@@ -50,6 +51,7 @@ class AppViewModel @Inject constructor(
     val readerSessionStore: ReaderSessionStore,
     val readerFactories: List<@JvmSuppressWildcards ReaderScreenFactory>,
     private val libraryDerivedStateComputer: LibraryDerivedStateComputer,
+    private val libraryShelvesStateComputer: LibraryShelvesStateComputer,
 ) : ViewModel() {
     var uiState by mutableStateOf(initialUiState())
         private set
@@ -663,11 +665,32 @@ class AppViewModel @Inject constructor(
         transform: (AppUiState) -> AppUiState,
     ) {
         val nextState = transform(uiState)
-        uiState = nextState.withLibraryDerivedState(
-            libraryDerivedStateComputer.compute(
-                nextState.toLibraryDerivedStateInput(),
-            ),
+        uiState = nextState
+            .withLibraryDerivedState(
+                libraryDerivedStateComputer.compute(
+                    nextState.toLibraryDerivedStateInput(),
+                ),
+            )
+            .withLibraryShelvesState(
+                libraryShelvesStateComputer.compute(
+                    nextState.toLibraryShelvesInput(),
+                ),
+            )
+    }
+
+    private fun initialUiState(): AppUiState {
+        val navigationState = navigationController.initialState()
+        val baseState = AppUiState(
+            sourceOrder = navigationState.sourceOrder,
+            selectedSource = navigationState.startupSource,
         )
+        return baseState
+            .withLibraryDerivedState(
+                libraryDerivedStateComputer.compute(baseState.toLibraryDerivedStateInput()),
+            )
+            .withLibraryShelvesState(
+                libraryShelvesStateComputer.compute(baseState.toLibraryShelvesInput()),
+            )
     }
 
     private fun reportProgressSyncFailures(
@@ -678,16 +701,4 @@ class AppViewModel @Inject constructor(
             updateState = ::updateUiState,
         )
     }
-
-    private fun initialUiState(): AppUiState {
-        val navigationState = navigationController.initialState()
-        val baseState = AppUiState(
-            sourceOrder = navigationState.sourceOrder,
-            selectedSource = navigationState.startupSource,
-        )
-        return baseState.withLibraryDerivedState(
-            libraryDerivedStateComputer.compute(baseState.toLibraryDerivedStateInput()),
-        )
-    }
-
 }

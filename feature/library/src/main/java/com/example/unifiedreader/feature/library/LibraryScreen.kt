@@ -59,6 +59,7 @@ fun LibraryScreen(
     coverImageUrlProvider: (ReadableItem) -> String? = { it.coverUrl },
     coverPrefetchKeyProvider: (ReadableItem) -> String? = coverImageUrlProvider,
     onCoverVisible: (ReadableItem) -> Unit = {},
+    topContent: (@Composable () -> Unit)? = null,
     onFilterStateChanged: (LibraryFilterState) -> Unit = {},
     onClearFilters: () -> Unit = {},
     onSortModeChanged: (LibrarySortMode) -> Unit = {},
@@ -132,6 +133,12 @@ fun LibraryScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            if (topContent != null) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    topContent()
+                }
+            }
+
             item(span = { GridItemSpan(maxLineSpan) }) {
                 LibraryFilterSummary(
                     filterPanels = filterPanels,

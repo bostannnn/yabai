@@ -48,6 +48,49 @@ class LibrarySeriesContinuationResolverTest {
     }
 
     @Test
+    fun `next unstarted skips in progress issues`() {
+        val issueOne = issue(id = "1", issueNumber = "1")
+        val issueTwo = issue(id = "2", issueNumber = "2")
+        val issueThree = issue(id = "3", issueNumber = "3")
+
+        val nextIssue = resolver.nextUnstartedAfter(
+            currentItem = issueOne,
+            items = listOf(issueOne, issueTwo, issueThree),
+            progressByItemId = mapOf(
+                issueTwo.id to ItemProgressSummary(
+                    label = "Resume on page 6",
+                    fraction = 0.4f,
+                ),
+            ),
+        )
+
+        assertEquals(issueThree, nextIssue)
+    }
+
+    @Test
+    fun `next unstarted bulk lookup uses canonical issue order per series`() {
+        val alphaOne = issue(id = "alpha-1", issueNumber = "1", seriesKey = "alpha")
+        val alphaTwo = issue(id = "alpha-2", issueNumber = "2", seriesKey = "alpha")
+        val alphaThree = issue(id = "alpha-3", issueNumber = "3", seriesKey = "alpha")
+        val betaOne = issue(id = "beta-1", issueNumber = "1", seriesKey = "beta")
+        val betaTwo = issue(id = "beta-2", issueNumber = "2", seriesKey = "beta")
+
+        val nextByCurrentItemId = resolver.nextUnstartedAfterByCurrentItem(
+            items = listOf(alphaThree, betaTwo, alphaTwo, betaOne, alphaOne),
+            progressByItemId = mapOf(
+                alphaTwo.id to ItemProgressSummary(
+                    label = "Resume on page 6",
+                    fraction = 0.4f,
+                ),
+            ),
+        )
+
+        assertEquals(alphaThree, nextByCurrentItemId[alphaOne.id])
+        assertEquals(alphaThree, nextByCurrentItemId[alphaTwo.id])
+        assertEquals(betaTwo, nextByCurrentItemId[betaOne.id])
+    }
+
+    @Test
     fun `next unread returns null when series is finished`() {
         val issueOne = issue(id = "1", issueNumber = "1")
         val issueTwo = issue(id = "2", issueNumber = "2")

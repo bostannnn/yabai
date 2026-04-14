@@ -13,15 +13,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibraryFilterPanel
-import com.example.unifiedreader.core.model.LibrarySortMode
-import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.resolveLibraryFilterPanels
 import com.example.unifiedreader.feature.downloads.DownloadsSheet
-import com.example.unifiedreader.feature.library.LibraryScreen
-import com.example.unifiedreader.feature.library.LibraryScrollPosition
 import com.example.unifiedreader.feature.library.LibraryViewMode
 import com.example.unifiedreader.feature.navigation.SourceNavigationDestination
 import com.example.unifiedreader.feature.navigation.SourceNavigationDrawer
@@ -218,76 +213,6 @@ fun UnifiedReaderScaffold(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun LibraryRoute(
-    uiState: AppUiState,
-    viewMode: LibraryViewMode,
-    browseContextKey: String,
-    initialScrollPosition: LibraryScrollPosition,
-    coverImageUrlProvider: (ReadableItem) -> String?,
-    coverPrefetchKeyProvider: (ReadableItem) -> String?,
-    onCoverVisible: (ReadableItem) -> Unit,
-    onScrollPositionChanged: (LibraryScrollPosition) -> Unit,
-    onItemSelected: (ReadableItem) -> Unit,
-    seriesReadingDirectionFor: (ReadableItem) -> ComicReadingDirection?,
-    onSeriesDirectionSelected: (ReadableItem, ComicReadingDirection) -> Unit,
-    seriesReaderModeFor: (ReadableItem) -> ComicReaderMode?,
-    onSeriesReaderModeSelected: (ReadableItem, ComicReaderMode) -> Unit,
-    onDeleteImportedItem: (ReadableItem) -> Unit,
-    onDownloadRemoteItem: (ReadableItem) -> Unit,
-    onDeleteRemoteLocalFile: (ReadableItem) -> Unit,
-    onSetReadStatus: (ReadableItem, Boolean) -> Unit,
-    onFilterStateChanged: (LibraryFilterState) -> Unit,
-    onClearFilters: () -> Unit,
-    onSortModeChanged: (LibrarySortMode) -> Unit,
-    onViewModeChanged: (LibraryViewMode) -> Unit,
-    showSortControl: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background,
-    ) {
-        LibraryScreen(
-            selectedSource = uiState.selectedSource,
-            browseContextKey = browseContextKey,
-            items = uiState.visibleItems,
-            viewMode = viewMode,
-            progressByItemId = uiState.displayProgressByItemId,
-            locallyAvailableItemIds = uiState.locallyAvailableRemoteItemIds,
-            downloadableItemIds = uiState.remoteDownloadActionAvailability.downloadableItemIds,
-            deletableDownloadedItemIds = uiState.remoteDownloadActionAvailability.deletableDownloadedItemIds,
-            downloadingItemIds = uiState.remoteDownloadActionAvailability.activeDownloadingItemIds,
-            isLoadingSource = !uiState.isSelectedSourceHydrated,
-            filterState = uiState.selectedLibraryFilters,
-            filterPanels = uiState.selectedLibraryFilterPanels,
-            filterFacets = uiState.selectedLibraryFilterFacets,
-            libraryTitlesById = uiState.selectedSourceLibraryTitlesById,
-            searchQuery = uiState.selectedLibrarySearchQuery,
-            sortMode = uiState.selectedLibrarySortMode,
-            showSortControl = showSortControl,
-            coverImageUrlProvider = coverImageUrlProvider,
-            coverPrefetchKeyProvider = coverPrefetchKeyProvider,
-            onCoverVisible = onCoverVisible,
-            onFilterStateChanged = onFilterStateChanged,
-            onClearFilters = onClearFilters,
-            onSortModeChanged = onSortModeChanged,
-            onViewModeChanged = onViewModeChanged,
-            initialScrollPosition = initialScrollPosition,
-            onScrollPositionChanged = onScrollPositionChanged,
-            onItemSelected = onItemSelected,
-            seriesReadingDirectionFor = seriesReadingDirectionFor,
-            onSeriesDirectionSelected = onSeriesDirectionSelected,
-            seriesReaderModeFor = seriesReaderModeFor,
-            onSeriesReaderModeSelected = onSeriesReaderModeSelected,
-            onDeleteImportedItem = onDeleteImportedItem,
-            onDownloadItem = onDownloadRemoteItem,
-            onDeleteDownloadedItem = onDeleteRemoteLocalFile,
-            onSetReadStatus = onSetReadStatus,
-        )
     }
 }
 
