@@ -5,14 +5,18 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -55,6 +59,11 @@ internal fun LibraryShelfItemsSheet(
     onDismiss: () -> Unit,
     onItemSelected: (ReadableItem) -> Unit,
 ) {
+    val listState = rememberLazyListState()
+    LaunchedEffect(sheet) {
+        listState.scrollToItem(0)
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
     ) {
@@ -84,66 +93,88 @@ internal fun LibraryShelfItemsSheet(
                     )
                 }
             }
-            LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                when (sheet) {
-                    is LibraryShelfSheetState.ContinueReading -> items(
-                        items = sheet.items,
-                        key = { it.item.id },
-                    ) { shelfItem ->
-                        ShelfListRow(
-                            item = shelfItem.item,
-                            title = shelfItem.item.libraryPrimaryText(),
-                            supportingText = shelfItem.item.librarySecondaryText()
-                                ?: shelfItem.progress.label,
-                            trailingText = shelfItem.progress.detailLabel,
-                            coverImageUrlProvider = coverImageUrlProvider,
-                            onCoverVisible = onCoverVisible,
-                            onClick = { onItemSelected(shelfItem.item) },
-                            progressFraction = shelfItem.progress.fraction,
-                        )
-                    }
+            ShelfItemsList(
+                sheet = sheet,
+                listState = listState,
+                coverImageUrlProvider = coverImageUrlProvider,
+                onCoverVisible = onCoverVisible,
+                onItemSelected = onItemSelected,
+            )
+        }
+    }
+}
 
-                    is LibraryShelfSheetState.NextInSeries -> items(
-                        items = sheet.items,
-                        key = { it.item.id },
-                    ) { shelfItem ->
-                        ShelfListRow(
-                            item = shelfItem.item,
-                            title = shelfItem.item.libraryPrimaryText(),
-                            supportingText = shelfItem.item.librarySecondaryText()
-                                ?: shelfItem.item.title,
-                            trailingText = "After ${shelfItem.currentItem.librarySecondaryText() ?: shelfItem.currentItem.title}",
-                            coverImageUrlProvider = coverImageUrlProvider,
-                            onCoverVisible = onCoverVisible,
-                            onClick = { onItemSelected(shelfItem.item) },
-                        )
-                    }
+@Composable
+private fun ShelfItemsList(
+    sheet: LibraryShelfSheetState,
+    listState: LazyListState,
+    coverImageUrlProvider: (ReadableItem) -> String?,
+    onCoverVisible: (ReadableItem) -> Unit,
+    onItemSelected: (ReadableItem) -> Unit,
+) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(max = SheetListMaxHeight),
+        state = listState,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        when (sheet) {
+            is LibraryShelfSheetState.ContinueReading -> items(
+                items = sheet.items,
+                key = { it.item.id },
+            ) { shelfItem ->
+                ShelfListRow(
+                    item = shelfItem.item,
+                    title = shelfItem.item.libraryPrimaryText(),
+                    supportingText = shelfItem.item.librarySecondaryText()
+                        ?: shelfItem.progress.label,
+                    trailingText = shelfItem.progress.detailLabel,
+                    coverImageUrlProvider = coverImageUrlProvider,
+                    onCoverVisible = onCoverVisible,
+                    onClick = { onItemSelected(shelfItem.item) },
+                    progressFraction = shelfItem.progress.fraction,
+                )
+            }
 
-                    is LibraryShelfSheetState.RecentlyFinished -> items(
-                        items = sheet.items,
-                        key = { it.item.id },
-                    ) { shelfItem ->
-                        ShelfListRow(
-                            item = shelfItem.item,
-                            title = shelfItem.item.libraryPrimaryText(),
-                            supportingText = shelfItem.item.librarySecondaryText()
-                                ?: shelfItem.progress.label,
-                            trailingText = DateUtils.getRelativeTimeSpanString(
-                                shelfItem.progress.lastReadAtEpochMillis,
-                                System.currentTimeMillis(),
-                                DateUtils.MINUTE_IN_MILLIS,
-                                DateUtils.FORMAT_ABBREV_RELATIVE,
-                            ).toString(),
-                            coverImageUrlProvider = coverImageUrlProvider,
-                            onCoverVisible = onCoverVisible,
-                            onClick = { onItemSelected(shelfItem.item) },
-                        )
-                    }
-                }
+            is LibraryShelfSheetState.NextInSeries -> items(
+                items = sheet.items,
+                key = { it.item.id },
+            ) { shelfItem ->
+                ShelfListRow(
+                    item = shelfItem.item,
+                    title = shelfItem.item.libraryPrimaryText(),
+                    supportingText = shelfItem.item.librarySecondaryText()
+                        ?: shelfItem.item.title,
+                    trailingText = "After ${shelfItem.currentItem.librarySecondaryText() ?: shelfItem.currentItem.title}",
+                    coverImageUrlProvider = coverImageUrlProvider,
+                    onCoverVisible = onCoverVisible,
+                    onClick = { onItemSelected(shelfItem.item) },
+                )
+            }
+
+            is LibraryShelfSheetState.RecentlyFinished -> items(
+                items = sheet.items,
+                key = { it.item.id },
+            ) { shelfItem ->
+                ShelfListRow(
+                    item = shelfItem.item,
+                    title = shelfItem.item.libraryPrimaryText(),
+                    supportingText = shelfItem.item.librarySecondaryText()
+                        ?: shelfItem.progress.label,
+                    trailingText = DateUtils.getRelativeTimeSpanString(
+                        shelfItem.progress.lastReadAtEpochMillis,
+                        System.currentTimeMillis(),
+                        DateUtils.MINUTE_IN_MILLIS,
+                        DateUtils.FORMAT_ABBREV_RELATIVE,
+                    ).toString(),
+                    coverImageUrlProvider = coverImageUrlProvider,
+                    onCoverVisible = onCoverVisible,
+                    onClick = { onItemSelected(shelfItem.item) },
+                )
             }
         }
     }
 }
+
+private val SheetListMaxHeight = 560.dp

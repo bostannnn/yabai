@@ -18,7 +18,6 @@ internal fun VisibleRemoteCoverPrefetcher(
     leadingContentItemCount: Int,
     coverPrefetchKeyProvider: (ReadableItem) -> String?,
     onCoverVisible: (ReadableItem) -> Unit,
-    maxTargetsPerPass: Int = VISIBLE_COVER_PREFETCH_TARGET_LIMIT,
 ) {
     val prefetchedKeys = remember(browseContextKey) { mutableSetOf<String>() }
 
@@ -42,9 +41,13 @@ internal fun VisibleRemoteCoverPrefetcher(
             .collectLatest { targets ->
                 if (targets.isEmpty()) return@collectLatest
                 delay(REMOTE_COVER_PREFETCH_DELAY_MILLIS)
-                targets.take(maxTargetsPerPass).forEach { target ->
+                pendingRemoteCoverPrefetchTargets(
+                    targets = targets,
+                    prefetchedKeys = prefetchedKeys,
+                ).forEach { target ->
                     if (prefetchedKeys.add(target.prefetchKey)) {
                         onCoverVisible(target.item)
+                        delay(REMOTE_COVER_PREFETCH_STAGGER_MILLIS)
                     }
                 }
             }
@@ -74,10 +77,17 @@ internal fun visibleRemoteCoverPrefetchTargets(
     .distinctBy(RemoteCoverPrefetchTarget::prefetchKey)
     .toList()
 
+internal fun pendingRemoteCoverPrefetchTargets(
+    targets: List<RemoteCoverPrefetchTarget>,
+    prefetchedKeys: Set<String>,
+): List<RemoteCoverPrefetchTarget> = targets.filterNot { target ->
+    target.prefetchKey in prefetchedKeys
+}
+
 internal data class RemoteCoverPrefetchTarget(
     val item: ReadableItem,
     val prefetchKey: String,
 )
 
 internal const val REMOTE_COVER_PREFETCH_DELAY_MILLIS = 180L
-internal const val VISIBLE_COVER_PREFETCH_TARGET_LIMIT = 4
+internal const val REMOTE_COVER_PREFETCH_STAGGER_MILLIS = 24L
