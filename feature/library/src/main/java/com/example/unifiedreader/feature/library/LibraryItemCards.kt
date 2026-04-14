@@ -41,8 +41,10 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.library.menu.LibraryItemOverflowMenu
 import com.example.unifiedreader.feature.library.menu.ReadStatusMenuActionState
+import com.example.unifiedreader.feature.library.menu.buildReaderModeMenuState
 import com.example.unifiedreader.feature.library.menu.buildReadingDirectionMenuState
 import com.example.unifiedreader.feature.library.menu.buildLibraryItemMenuActions
+import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 
 internal fun itemDeleteRequest(
@@ -85,11 +87,13 @@ internal fun DetailedItemCard(
     isDownloaded: Boolean,
     isDownloading: Boolean,
     seriesReadingDirection: ComicReadingDirection? = null,
+    seriesReaderMode: ComicReaderMode? = null,
     coverImageUrlProvider: (ReadableItem) -> String?,
     coverPrefetchKeyProvider: (ReadableItem) -> String? = coverImageUrlProvider,
     onCoverVisible: (ReadableItem) -> Unit,
     onClick: () -> Unit,
     onSeriesReadingDirectionSelected: ((ComicReadingDirection) -> Unit)? = null,
+    onSeriesReaderModeSelected: ((ComicReaderMode) -> Unit)? = null,
     readStatusActionState: ReadStatusMenuActionState? = null,
     onDeleteRequested: (() -> Unit)?,
     onDownloadRequested: (() -> Unit)?,
@@ -114,6 +118,10 @@ internal fun DetailedItemCard(
                 seriesReadingDirection = seriesReadingDirection,
                 onSeriesReadingDirectionSelected = onSeriesReadingDirectionSelected,
             )
+            val readerModeMenuState = buildReaderModeMenuState(
+                seriesReaderMode = seriesReaderMode,
+                onSeriesReaderModeSelected = onSeriesReaderModeSelected,
+            )
             val menuActions = buildLibraryItemMenuActions(
                 isDownloading = isDownloading,
                 readStatusActionState = readStatusActionState,
@@ -121,7 +129,9 @@ internal fun DetailedItemCard(
                 onDownloadRequested = onDownloadRequested,
                 onDeleteDownloadedRequested = onDeleteDownloadedRequested,
             )
-            val hasMenuContent = readingDirectionMenuState != null || menuActions.isNotEmpty()
+            val hasMenuContent = readingDirectionMenuState != null ||
+                readerModeMenuState != null ||
+                menuActions.isNotEmpty()
             val menuSpace = if (hasMenuContent) 48.dp else 0.dp
             Box(modifier = Modifier.fillMaxWidth()) {
                 Row(
@@ -153,6 +163,7 @@ internal fun DetailedItemCard(
                         modifier = Modifier.align(Alignment.TopEnd),
                         actions = menuActions,
                         readingDirectionState = readingDirectionMenuState,
+                        readerModeState = readerModeMenuState,
                     )
                 }
             }
@@ -167,11 +178,13 @@ internal fun GridCoverCard(
     isDownloaded: Boolean,
     isDownloading: Boolean,
     seriesReadingDirection: ComicReadingDirection? = null,
+    seriesReaderMode: ComicReaderMode? = null,
     coverImageUrlProvider: (ReadableItem) -> String?,
     coverPrefetchKeyProvider: (ReadableItem) -> String? = coverImageUrlProvider,
     onCoverVisible: (ReadableItem) -> Unit,
     onClick: () -> Unit,
     onSeriesReadingDirectionSelected: ((ComicReadingDirection) -> Unit)? = null,
+    onSeriesReaderModeSelected: ((ComicReaderMode) -> Unit)? = null,
     readStatusActionState: ReadStatusMenuActionState? = null,
     onDeleteRequested: (() -> Unit)?,
     onDownloadRequested: (() -> Unit)?,
@@ -209,6 +222,10 @@ internal fun GridCoverCard(
             seriesReadingDirection = seriesReadingDirection,
             onSeriesReadingDirectionSelected = onSeriesReadingDirectionSelected,
         )
+        val readerModeMenuState = buildReaderModeMenuState(
+            seriesReaderMode = seriesReaderMode,
+            onSeriesReaderModeSelected = onSeriesReaderModeSelected,
+        )
         val menuActions = buildLibraryItemMenuActions(
             isDownloading = isDownloading,
             readStatusActionState = readStatusActionState,
@@ -216,13 +233,14 @@ internal fun GridCoverCard(
             onDownloadRequested = onDownloadRequested,
             onDeleteDownloadedRequested = onDeleteDownloadedRequested,
         )
-        if (readingDirectionMenuState != null || menuActions.isNotEmpty()) {
+        if (readingDirectionMenuState != null || readerModeMenuState != null || menuActions.isNotEmpty()) {
             LibraryItemOverflowMenu(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(6.dp),
                 actions = menuActions,
                 readingDirectionState = readingDirectionMenuState,
+                readerModeState = readerModeMenuState,
             )
         }
     }

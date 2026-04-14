@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.reader.comics
 
 import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
+import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -18,6 +19,7 @@ class ComicsReaderSessionCodecTest {
         )
 
         requireNotNull(restored)
+        assertEquals(ComicReaderMode.Paged, restored.readerMode)
         assertEquals(ComicReadingDirection.RTL, restored.readingDirection)
         assertEquals(ComicPageFitMode.FitPage, restored.pageFitMode)
         assertEquals(ComicSpreadMode.Auto, restored.spreadMode)

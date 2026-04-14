@@ -13,6 +13,7 @@ import com.example.unifiedreader.core.model.belongsToStumpSeries
 import com.example.unifiedreader.core.model.resolveLibraryFilterPanels
 import com.example.unifiedreader.feature.library.ItemProgressSummary
 import com.example.unifiedreader.feature.library.RemoteDownloadActionAvailability
+import com.example.unifiedreader.feature.reader.preferences.ComicReaderModePreferences
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirectionPreferences
 import com.example.unifiedreader.feature.library.defaultLibrarySortMode
 import com.example.unifiedreader.feature.settings.KavitaConnectionUiState
@@ -56,6 +57,7 @@ data class AppUiState(
     val hydratedSources: Set<SourceType> = setOf(SourceType.KAVITA),
     val themeMode: ThemeMode = ThemeMode.System,
     val comicReadingDirectionPreferences: ComicReadingDirectionPreferences = ComicReadingDirectionPreferences(),
+    val comicReaderModePreferences: ComicReaderModePreferences = ComicReaderModePreferences(),
     val kavitaConnection: KavitaConnectionUiState = KavitaConnectionUiState(),
     val stumpConnection: StumpConnectionUiState = StumpConnectionUiState(),
     val grimmoryConnection: GrimmoryConnectionUiState = GrimmoryConnectionUiState(),

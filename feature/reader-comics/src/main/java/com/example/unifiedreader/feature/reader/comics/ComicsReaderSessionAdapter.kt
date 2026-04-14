@@ -6,9 +6,14 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.feature.reader.core.ReaderLocator
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
+import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
+import com.example.unifiedreader.feature.reader.preferences.ComicReaderModePreferences
+import com.example.unifiedreader.feature.reader.preferences.ComicReaderModePreferencesStore
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirectionPreferences
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirectionPreferencesStore
+import com.example.unifiedreader.feature.reader.preferences.normalizeComicItemModeOverride
 import com.example.unifiedreader.feature.reader.preferences.normalizeComicItemDirectionOverride
+import com.example.unifiedreader.feature.reader.preferences.resolveComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.resolveComicReadingDirection
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -23,6 +28,7 @@ import kotlinx.coroutines.flow.SharingStarted
 class ComicsReaderSessionAdapter(
     private val sessionStore: ReaderSessionStore,
     private val directionPreferencesStore: ComicReadingDirectionPreferencesStore,
+    private val readerModePreferencesStore: ComicReaderModePreferencesStore,
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) : ComicReaderProgressStore, ComicReaderPreferencesStore {
     override val isHydratedFlow: StateFlow<Boolean> = sessionStore.isHydratedFlow
@@ -84,16 +90,25 @@ class ComicsReaderSessionAdapter(
             preferences = directionPreferencesStore.preferencesFlow.value,
         )
 
+    override fun loadReaderMode(item: ReadableItem): ComicReaderMode =
+        resolveComicReaderMode(
+            item = item,
+            itemOverride = restoreComicReaderModeOverride(sessionStore.getSession(item)),
+            preferences = readerModePreferencesStore.preferencesFlow.value,
+        )
+
     override fun observePreferences(
         item: ReadableItem,
     ) = combine(
         sessionStore.sessionByItemIdFlow,
         directionPreferencesStore.preferencesFlow,
-    ) { sessionByItemId, directionPreferences ->
+        readerModePreferencesStore.preferencesFlow,
+    ) { sessionByItemId, directionPreferences, readerModePreferences ->
         sessionByItemId[item.id]
             .toResolvedComicReaderPreferences(
                 item = item,
                 directionPreferences = directionPreferences,
+                readerModePreferences = readerModePreferences,
             )
     }.distinctUntilChanged()
 
@@ -110,6 +125,23 @@ class ComicsReaderSessionAdapter(
             item = item,
             preferences = mapOf(
                 ComicsReadingDirectionKey to normalizedOverride?.name.orEmpty(),
+            ),
+        )
+    }
+
+    override fun saveReaderMode(
+        item: ReadableItem,
+        mode: ComicReaderMode,
+    ) {
+        val normalizedOverride = normalizeComicItemModeOverride(
+            item = item,
+            selectedMode = mode,
+            preferences = readerModePreferencesStore.preferencesFlow.value,
+        )
+        sessionStore.updateSession(
+            item = item,
+            preferences = mapOf(
+                ComicsReaderModeKey to normalizedOverride?.name.orEmpty(),
             ),
         )
     }
@@ -196,22 +228,46 @@ class ComicsReaderSessionAdapter(
             ),
         )
     }
+
+    override fun loadResumeScrollOffsetRatio(item: ReadableItem): Float? =
+        restoreComicReaderPreferences(sessionStore.getSession(item))
+            ?.resumeScrollOffsetRatio
+
+    override fun saveResumeScrollOffsetRatio(
+        item: ReadableItem,
+        ratio: Float?,
+    ) {
+        sessionStore.updateSession(
+            item = item,
+            preferences = mapOf(
+                ComicsResumeScrollOffsetRatioKey to ratio?.toString().orEmpty(),
+            ),
+        )
+    }
 }
 
 private fun com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot?.toResolvedComicReaderPreferences(
     item: ReadableItem,
     directionPreferences: ComicReadingDirectionPreferences,
+    readerModePreferences: ComicReaderModePreferences,
 ): ComicReaderPreferencesSnapshot? {
     val restoredPreferences = restoreComicReaderPreferences(this)
         ?: ComicReaderPreferencesSnapshot(
+            readerMode = ComicReaderMode.Paged,
             readingDirection = ComicReadingDirection.LTR,
             pageFitMode = ComicPageFitMode.FitPage,
             spreadMode = ComicSpreadMode.Auto,
             splitWidePages = false,
             resumeAnchorPage = null,
             resumeSegment = null,
+            resumeScrollOffsetRatio = null,
         )
     return restoredPreferences.copy(
+        readerMode = resolveComicReaderMode(
+            item = item,
+            itemOverride = restoreComicReaderModeOverride(this),
+            preferences = readerModePreferences,
+        ),
         readingDirection = resolveComicReadingDirection(
             item = item,
             itemOverride = restoreComicReadingDirectionOverride(this),

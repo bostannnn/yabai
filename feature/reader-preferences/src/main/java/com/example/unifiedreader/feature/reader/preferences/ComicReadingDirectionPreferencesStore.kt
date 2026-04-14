@@ -8,7 +8,6 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import java.io.IOException
-import java.util.Base64
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -60,7 +59,7 @@ class DataStoreComicReadingDirectionPreferencesStore(
         direction: ComicReadingDirection,
     ) {
         dataStore.edit { preferences ->
-            preferences[Keys.libraryDirection(libraryId)] = direction.name
+            preferences[DirectionKeys.libraryDirection(libraryId)] = direction.name
         }
     }
 
@@ -69,7 +68,7 @@ class DataStoreComicReadingDirectionPreferencesStore(
         direction: ComicReadingDirection?,
     ) {
         dataStore.edit { preferences ->
-            val key = Keys.seriesDirection(seriesKey)
+            val key = DirectionKeys.seriesDirection(seriesKey)
             if (direction == null) {
                 preferences.remove(key)
             } else {
@@ -89,13 +88,13 @@ private fun toComicReadingDirectionPreferences(
         val direction = runCatching { ComicReadingDirection.valueOf(rawValue) }.getOrNull() ?: return@forEach
         when {
             key.name.startsWith(LIBRARY_DIRECTION_PREFIX) -> {
-                decodePreferenceId(key.name.removePrefix(LIBRARY_DIRECTION_PREFIX))?.let { decodedId ->
+                decodeComicPreferenceId(key.name.removePrefix(LIBRARY_DIRECTION_PREFIX))?.let { decodedId ->
                     libraryDirectionsById[decodedId] = direction
                 }
             }
 
             key.name.startsWith(SERIES_DIRECTION_PREFIX) -> {
-                decodePreferenceId(key.name.removePrefix(SERIES_DIRECTION_PREFIX))?.let { decodedId ->
+                decodeComicPreferenceId(key.name.removePrefix(SERIES_DIRECTION_PREFIX))?.let { decodedId ->
                     seriesDirectionsByKey[decodedId] = direction
                 }
             }
@@ -111,26 +110,14 @@ private val Context.comicReadingDirectionPreferencesDataStore: DataStore<Prefere
     name = COMIC_READING_DIRECTION_DATASTORE_NAME,
 )
 
-private fun encodePreferenceId(
-    value: String,
-): String = Base64.getUrlEncoder()
-    .withoutPadding()
-    .encodeToString(value.toByteArray(Charsets.UTF_8))
-
-private fun decodePreferenceId(
-    value: String,
-): String? = runCatching {
-    String(Base64.getUrlDecoder().decode(value), Charsets.UTF_8)
-}.getOrNull()
-
-private object Keys {
+private object DirectionKeys {
     fun libraryDirection(
         libraryId: String,
-    ) = stringPreferencesKey(LIBRARY_DIRECTION_PREFIX + encodePreferenceId(libraryId))
+    ) = stringPreferencesKey(LIBRARY_DIRECTION_PREFIX + encodeComicPreferenceId(libraryId))
 
     fun seriesDirection(
         seriesKey: String,
-    ) = stringPreferencesKey(SERIES_DIRECTION_PREFIX + encodePreferenceId(seriesKey))
+    ) = stringPreferencesKey(SERIES_DIRECTION_PREFIX + encodeComicPreferenceId(seriesKey))
 }
 
 internal const val COMIC_READING_DIRECTION_DATASTORE_NAME = "comic_reading_direction_preferences"

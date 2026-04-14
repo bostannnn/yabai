@@ -7,8 +7,10 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageMetadata
+import com.example.unifiedreader.feature.reader.comics.ComicPagePrefetchWindow
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
+import com.example.unifiedreader.feature.reader.comics.candidateIndexes
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -30,15 +32,21 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + ioDispatcher),
 ) : ComicPageSource {
-    private val pageBitmapCache = LruCache<String, ComicPageLoadResult.Success>(12)
-    private val pageMetadataCache = LruCache<String, ComicPageMetadata>(128)
-    private val pageBytesCache = LruCache<String, ByteArray>(4)
+    private val pageBitmapCache = LruCache<String, ComicPageLoadResult.Success>(
+        ComicPageLoaderCacheSizing.BITMAP_CACHE_ENTRIES,
+    )
+    private val pageMetadataCache = LruCache<String, ComicPageMetadata>(
+        ComicPageLoaderCacheSizing.METADATA_CACHE_ENTRIES,
+    )
+    private val pageBytesCache = LruCache<String, ByteArray>(
+        ComicPageLoaderCacheSizing.BYTE_CACHE_ENTRIES,
+    )
     private val cacheGeneration = AtomicInteger(0)
     private val inFlightByteRequests = mutableMapOf<RemoteComicPageByteRequestKey, Deferred<ByteArray?>>()
     private val byteRequestLock = Any()
-    private val visibleLoadSemaphore = Semaphore(permits = 2)
-    private val metadataLoadSemaphore = Semaphore(permits = 2)
-    private val prefetchLoadSemaphore = Semaphore(permits = 1)
+    private val visibleLoadSemaphore = Semaphore(permits = ComicPageLoaderCacheSizing.VISIBLE_LOAD_CONCURRENCY)
+    private val metadataLoadSemaphore = Semaphore(permits = ComicPageLoaderCacheSizing.METADATA_LOAD_CONCURRENCY)
+    private val prefetchLoadSemaphore = Semaphore(permits = ComicPageLoaderCacheSizing.PREFETCH_LOAD_CONCURRENCY)
     private val prefetchJobs = mutableMapOf<String, Job>()
     private val prefetchLock = Any()
 
@@ -141,17 +149,27 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
         settledPageIndex: Int,
         pageCount: Int,
     ) {
+        prefetchAround(
+            item = item,
+            settledPageIndex = settledPageIndex,
+            pageCount = pageCount,
+            window = ComicPagePrefetchWindow(),
+        )
+    }
+
+    override fun prefetchAround(
+        item: ReadableItem,
+        settledPageIndex: Int,
+        pageCount: Int,
+        window: ComicPagePrefetchWindow,
+    ) {
         if (item.sourceType != sourceType || pageCount <= 1) return
         val session = activeSessionFor(item) ?: return
         val pages = getPages(item)
-        val candidateIndexes = buildList {
-            for (offset in 1..4) {
-                add(settledPageIndex + offset)
-            }
-            for (offset in 1..4) {
-                add(settledPageIndex - offset)
-            }
-        }.filter { it in 0 until minOf(pageCount, pages.size) }
+        val candidateIndexes = window.candidateIndexes(
+            settledPageIndex = settledPageIndex,
+            pageCount = minOf(pageCount, pages.size),
+        )
         val targetKeys = candidateIndexes.associateWith { pageIndex ->
             pageCacheKey(
                 baseUrl = session.baseUrl,

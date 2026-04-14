@@ -33,6 +33,9 @@ import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesSna
 import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesStore
 import com.example.unifiedreader.feature.reader.comics.ComicReaderProgressStore
 import com.example.unifiedreader.feature.reader.core.ReaderScreenFactory
+import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
+import com.example.unifiedreader.feature.reader.preferences.ComicReaderModePreferences
+import com.example.unifiedreader.feature.reader.preferences.ComicReaderModePreferencesStore
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirectionPreferences
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirectionPreferencesStore
@@ -60,6 +63,7 @@ internal fun createViewModel(
     progressStore: ComicReaderProgressStore = FakeComicReaderProgressStore(),
     preferencesStore: ComicReaderPreferencesStore = FakeComicReaderPreferencesStore(),
     comicReadingDirectionPreferencesStore: ComicReadingDirectionPreferencesStore = FakeComicReadingDirectionPreferencesStore(),
+    comicReaderModePreferencesStore: ComicReaderModePreferencesStore = FakeComicReaderModePreferencesStore(),
     settingsPreferencesStore: SettingsPreferencesStore = FakeSettingsPreferencesStore(),
     settingsStateCoordinator: SettingsStateCoordinator = SettingsStateCoordinator(settingsPreferencesStore),
     settingsController: AppSettingsController = AppSettingsController(settingsStateCoordinator),
@@ -191,6 +195,11 @@ internal fun createViewModel(
         ),
         comicReadingDirectionController = AppComicReadingDirectionController(
             preferencesStore = comicReadingDirectionPreferencesStore,
+            readerSessionStore = readerSessionStore,
+            readableItemRepository = readableItemRepository,
+        ),
+        comicReaderModeController = AppComicReaderModeController(
+            preferencesStore = comicReaderModePreferencesStore,
             readerSessionStore = readerSessionStore,
             readableItemRepository = readableItemRepository,
         ),
@@ -969,6 +978,35 @@ class FakeComicReadingDirectionPreferencesStore : ComicReadingDirectionPreferenc
                 mutablePreferencesFlow.value.seriesDirectionsByKey - seriesKey
             } else {
                 mutablePreferencesFlow.value.seriesDirectionsByKey + (seriesKey to direction)
+            },
+        )
+    }
+}
+
+class FakeComicReaderModePreferencesStore : ComicReaderModePreferencesStore {
+    private val mutablePreferencesFlow = MutableStateFlow(
+        ComicReaderModePreferences(),
+    )
+    override val preferencesFlow: StateFlow<ComicReaderModePreferences> = mutablePreferencesFlow
+
+    override suspend fun setLibraryMode(
+        libraryId: String,
+        mode: ComicReaderMode,
+    ) {
+        mutablePreferencesFlow.value = mutablePreferencesFlow.value.copy(
+            libraryModesById = mutablePreferencesFlow.value.libraryModesById + (libraryId to mode),
+        )
+    }
+
+    override suspend fun setSeriesModeOverride(
+        seriesKey: String,
+        mode: ComicReaderMode?,
+    ) {
+        mutablePreferencesFlow.value = mutablePreferencesFlow.value.copy(
+            seriesModesByKey = if (mode == null) {
+                mutablePreferencesFlow.value.seriesModesByKey - seriesKey
+            } else {
+                mutablePreferencesFlow.value.seriesModesByKey + (seriesKey to mode)
             },
         )
     }

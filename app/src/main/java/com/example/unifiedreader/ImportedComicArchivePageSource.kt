@@ -2,6 +2,7 @@ package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
+import com.example.unifiedreader.feature.reader.comics.ComicPagePrefetchWindow
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 
 class LocalComicPageSource(
@@ -29,6 +30,20 @@ class LocalComicPageSource(
             item = item,
             settledPageIndex = settledPageIndex,
             pageCount = pageCount,
+        )
+    }
+
+    override fun prefetchAround(
+        item: ReadableItem,
+        settledPageIndex: Int,
+        pageCount: Int,
+        window: ComicPagePrefetchWindow,
+    ) {
+        localComicDocumentDataSource.prefetchAround(
+            item = item,
+            settledPageIndex = settledPageIndex,
+            pageCount = pageCount,
+            window = window,
         )
     }
 }

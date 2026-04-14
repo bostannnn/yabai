@@ -33,7 +33,9 @@ import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesSto
 import com.example.unifiedreader.feature.reader.comics.ComicReaderProgressStore
 import com.example.unifiedreader.feature.reader.comics.ComicsReaderSessionAdapter
 import com.example.unifiedreader.feature.reader.comics.comicsReaderFactory
+import com.example.unifiedreader.feature.reader.preferences.ComicReaderModePreferencesStore
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirectionPreferencesStore
+import com.example.unifiedreader.feature.reader.preferences.DataStoreComicReaderModePreferencesStore
 import com.example.unifiedreader.feature.reader.preferences.DataStoreComicReadingDirectionPreferencesStore
 import com.example.unifiedreader.feature.reader.core.ReaderScreenFactory
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
@@ -95,6 +97,12 @@ object AppModule {
     fun provideComicReadingDirectionPreferencesStore(
         @ApplicationContext context: Context,
     ): ComicReadingDirectionPreferencesStore = DataStoreComicReadingDirectionPreferencesStore(context)
+
+    @Provides
+    @Singleton
+    fun provideComicReaderModePreferencesStore(
+        @ApplicationContext context: Context,
+    ): ComicReaderModePreferencesStore = DataStoreComicReaderModePreferencesStore(context)
 
     @Provides
     @Singleton
@@ -559,9 +567,11 @@ object AppModule {
     fun provideComicsReaderSessionAdapter(
         readerSessionStore: ReaderSessionStore,
         directionPreferencesStore: ComicReadingDirectionPreferencesStore,
+        readerModePreferencesStore: ComicReaderModePreferencesStore,
     ): ComicsReaderSessionAdapter = ComicsReaderSessionAdapter(
         sessionStore = readerSessionStore,
         directionPreferencesStore = directionPreferencesStore,
+        readerModePreferencesStore = readerModePreferencesStore,
     )
 
     @Provides

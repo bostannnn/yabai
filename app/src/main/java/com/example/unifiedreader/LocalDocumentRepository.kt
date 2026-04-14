@@ -8,6 +8,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageMetadata
+import com.example.unifiedreader.feature.reader.comics.ComicPagePrefetchWindow
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 import kotlinx.coroutines.CoroutineScope
@@ -155,6 +156,22 @@ class LocalDocumentRepository private constructor(
             record = record,
             settledPageIndex = settledPageIndex,
             pageCount = pageCount,
+        )
+    }
+
+    override fun prefetchAround(
+        item: ReadableItem,
+        settledPageIndex: Int,
+        pageCount: Int,
+        window: ComicPagePrefetchWindow,
+    ) {
+        val record = store.findRecord(item.id) ?: return
+        comicPageLoader.prefetchAround(
+            item = item,
+            record = record,
+            settledPageIndex = settledPageIndex,
+            pageCount = pageCount,
+            window = window,
         )
     }
 

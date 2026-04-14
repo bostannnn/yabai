@@ -19,6 +19,7 @@ import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesStore
 import com.example.unifiedreader.feature.reader.comics.ComicReaderProgressStore
 import com.example.unifiedreader.feature.reader.core.ReaderScreenFactory
+import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import com.example.unifiedreader.feature.settings.ThemeMode
@@ -38,6 +39,7 @@ class AppViewModel @Inject constructor(
     private val libraryActionsCoordinator: AppLibraryActionsCoordinator,
     private val libraryReadStatusController: AppLibraryReadStatusController,
     private val comicReadingDirectionController: AppComicReadingDirectionController,
+    private val comicReaderModeController: AppComicReaderModeController,
     private val readerCoordinator: AppReaderCoordinator,
     private val remoteSourcesCoordinator: AppRemoteSourcesCoordinator,
     private val progressSyncNoticeController: AppProgressSyncNoticeController,
@@ -197,6 +199,35 @@ class AppViewModel @Inject constructor(
     ): ComicReadingDirection? = comicReadingDirectionController.effectiveSeriesDirection(
         item = item,
         currentPreferences = uiState.comicReadingDirectionPreferences,
+    )
+
+    fun onLibraryReaderModeSelected(
+        libraryId: String,
+        mode: ComicReaderMode,
+    ) {
+        comicReaderModeController.onLibraryModeSelected(
+            scope = viewModelScope,
+            libraryId = libraryId,
+            mode = mode,
+        )
+    }
+
+    fun onSeriesReaderModeSelected(
+        item: ReadableItem,
+        mode: ComicReaderMode,
+    ) {
+        comicReaderModeController.onSeriesModeSelected(
+            scope = viewModelScope,
+            item = item,
+            mode = mode,
+        )
+    }
+
+    fun seriesReaderModeFor(
+        item: ReadableItem,
+    ): ComicReaderMode? = comicReaderModeController.effectiveSeriesMode(
+        item = item,
+        currentPreferences = uiState.comicReaderModePreferences,
     )
 
     fun libraryScrollPositionFor(contextKey: String): LibraryScrollPosition {
@@ -568,6 +599,10 @@ class AppViewModel @Inject constructor(
 
     private fun observeAppState() {
         comicReadingDirectionController.observePreferences(
+            scope = viewModelScope,
+            updateState = ::updateUiState,
+        )
+        comicReaderModeController.observePreferences(
             scope = viewModelScope,
             updateState = ::updateUiState,
         )

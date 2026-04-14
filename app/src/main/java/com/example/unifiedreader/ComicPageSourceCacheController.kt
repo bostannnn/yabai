@@ -5,6 +5,7 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageMetadata
+import com.example.unifiedreader.feature.reader.comics.ComicPagePrefetchWindow
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 
@@ -42,6 +43,20 @@ class CompositeComicPageSource(
         pageCount: Int,
     ) {
         pageSourceFor(item)?.prefetchAround(item, settledPageIndex, pageCount)
+    }
+
+    override fun prefetchAround(
+        item: ReadableItem,
+        settledPageIndex: Int,
+        pageCount: Int,
+        window: ComicPagePrefetchWindow,
+    ) {
+        pageSourceFor(item)?.prefetchAround(
+            item = item,
+            settledPageIndex = settledPageIndex,
+            pageCount = pageCount,
+            window = window,
+        )
     }
 
     override fun clearSourcePageCache(

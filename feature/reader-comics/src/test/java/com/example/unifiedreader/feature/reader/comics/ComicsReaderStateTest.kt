@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.reader.comics
 
+import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -11,12 +12,14 @@ class ComicsReaderStateTest {
         val state = ComicsReaderState(
             initialPage = 0,
             pageCount = 6,
+            initialReaderMode = ComicReaderMode.Paged,
             initialReadingDirection = ComicReadingDirection.LTR,
             initialPageFitMode = ComicPageFitMode.FitPage,
             initialSpreadMode = ComicSpreadMode.Double,
             initialSplitWidePages = false,
             initialResumeAnchorPage = null,
             initialResumeSegment = null,
+            initialResumeScrollOffsetRatio = null,
         )
 
         state.onPageSettled(
@@ -34,12 +37,14 @@ class ComicsReaderStateTest {
         val state = ComicsReaderState(
             initialPage = 0,
             pageCount = 6,
+            initialReaderMode = ComicReaderMode.Paged,
             initialReadingDirection = ComicReadingDirection.LTR,
             initialPageFitMode = ComicPageFitMode.FitPage,
             initialSpreadMode = ComicSpreadMode.Double,
             initialSplitWidePages = false,
             initialResumeAnchorPage = null,
             initialResumeSegment = null,
+            initialResumeScrollOffsetRatio = null,
         )
 
         assertTrue(state.restorePageIfUnchanged(4))
@@ -52,17 +57,42 @@ class ComicsReaderStateTest {
         val state = ComicsReaderState(
             initialPage = 3,
             pageCount = 6,
+            initialReaderMode = ComicReaderMode.Paged,
             initialReadingDirection = ComicReadingDirection.LTR,
             initialPageFitMode = ComicPageFitMode.FitPage,
             initialSpreadMode = ComicSpreadMode.Double,
             initialSplitWidePages = false,
             initialResumeAnchorPage = null,
             initialResumeSegment = null,
+            initialResumeScrollOffsetRatio = null,
         )
 
         assertTrue(state.restoreResumeAnchorIfUnchanged(2))
         assertEquals(2, state.resumeAnchorPage)
         assertFalse(state.restoreResumeAnchorIfUnchanged(1))
         assertEquals(2, state.resumeAnchorPage)
+    }
+
+    @Test
+    fun `switching to vertical scroll reanchors on current page and clears paged resume state`() {
+        val state = ComicsReaderState(
+            initialPage = 2,
+            pageCount = 6,
+            initialReaderMode = ComicReaderMode.Paged,
+            initialReadingDirection = ComicReadingDirection.LTR,
+            initialPageFitMode = ComicPageFitMode.FitPage,
+            initialSpreadMode = ComicSpreadMode.Double,
+            initialSplitWidePages = false,
+            initialResumeAnchorPage = 1,
+            initialResumeSegment = ComicPageSegment.Full,
+            initialResumeScrollOffsetRatio = null,
+        )
+
+        state.onReaderModeChanged(ComicReaderMode.VerticalScroll)
+
+        assertEquals(ComicReaderMode.VerticalScroll, state.readerMode)
+        assertEquals(2, state.resumeAnchorPage)
+        assertEquals(null, state.resumeSegment)
+        assertEquals(null, state.resumeScrollOffsetRatio)
     }
 }

@@ -8,6 +8,8 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageMetadata
+import com.example.unifiedreader.feature.reader.comics.ComicPagePrefetchWindow
+import com.example.unifiedreader.feature.reader.comics.candidateIndexes
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -24,15 +26,21 @@ internal class LocalComicPageLoader(
     private val comicArchiveCodecs: List<ComicArchiveCodec>,
     private val scope: CoroutineScope,
 ) {
-    private val pageBitmapCache = LruCache<String, ComicPageLoadResult.Success>(12)
-    private val pageMetadataCache = LruCache<String, ComicPageMetadata>(128)
-    private val pageBytesCache = LruCache<String, ByteArray>(4)
+    private val pageBitmapCache = LruCache<String, ComicPageLoadResult.Success>(
+        ComicPageLoaderCacheSizing.BITMAP_CACHE_ENTRIES,
+    )
+    private val pageMetadataCache = LruCache<String, ComicPageMetadata>(
+        ComicPageLoaderCacheSizing.METADATA_CACHE_ENTRIES,
+    )
+    private val pageBytesCache = LruCache<String, ByteArray>(
+        ComicPageLoaderCacheSizing.BYTE_CACHE_ENTRIES,
+    )
     private val cacheGenerationByItemId = mutableMapOf<String, Int>()
     private val inFlightByteRequests = mutableMapOf<LocalPageByteRequestKey, Deferred<ByteArray?>>()
     private val byteRequestLock = Any()
-    private val visibleLoadSemaphore = Semaphore(permits = 2)
-    private val metadataLoadSemaphore = Semaphore(permits = 2)
-    private val prefetchLoadSemaphore = Semaphore(permits = 1)
+    private val visibleLoadSemaphore = Semaphore(permits = ComicPageLoaderCacheSizing.VISIBLE_LOAD_CONCURRENCY)
+    private val metadataLoadSemaphore = Semaphore(permits = ComicPageLoaderCacheSizing.METADATA_LOAD_CONCURRENCY)
+    private val prefetchLoadSemaphore = Semaphore(permits = ComicPageLoaderCacheSizing.PREFETCH_LOAD_CONCURRENCY)
     private val prefetchJobs = mutableMapOf<String, Job>()
     private val prefetchLock = Any()
 
@@ -101,15 +109,27 @@ internal class LocalComicPageLoader(
         settledPageIndex: Int,
         pageCount: Int,
     ) {
+        prefetchAround(
+            item = item,
+            record = record,
+            settledPageIndex = settledPageIndex,
+            pageCount = pageCount,
+            window = ComicPagePrefetchWindow(),
+        )
+    }
+
+    fun prefetchAround(
+        item: ReadableItem,
+        record: LocalDocumentRecord,
+        settledPageIndex: Int,
+        pageCount: Int,
+        window: ComicPagePrefetchWindow,
+    ) {
         if (pageCount <= 1) return
-        val candidateIndexes = buildList {
-            for (offset in 1..2) {
-                add(settledPageIndex + offset)
-            }
-            for (offset in 1..2) {
-                add(settledPageIndex - offset)
-            }
-        }.filter { it in 0 until minOf(pageCount, record.pageEntryNames.size) }
+        val candidateIndexes = window.candidateIndexes(
+            settledPageIndex = settledPageIndex,
+            pageCount = minOf(pageCount, record.pageEntryNames.size),
+        )
         val targetKeys = candidateIndexes.associateWith { pageIndex ->
             pageCacheKey(item.id, record.pageEntryNames[pageIndex])
         }

@@ -24,9 +24,12 @@ import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import com.example.unifiedreader.feature.settings.direction.ComicReadingDirectionSettingsSection
 import com.example.unifiedreader.feature.settings.direction.ReadingDirectionLibraryUiState
+import com.example.unifiedreader.feature.settings.mode.ComicReaderModeSettingsSection
+import com.example.unifiedreader.feature.settings.mode.ReaderModeLibraryUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,6 +38,8 @@ fun SettingsScreen(
     libraryFilterPanelsBySource: Map<SourceType, List<LibraryFilterPanel>>,
     kavitaReadingDirectionLibraries: List<ReadingDirectionLibraryUiState>,
     stumpReadingDirectionLibraries: List<ReadingDirectionLibraryUiState>,
+    kavitaReaderModeLibraries: List<ReaderModeLibraryUiState>,
+    stumpReaderModeLibraries: List<ReaderModeLibraryUiState>,
     kavitaConnection: KavitaConnectionUiState,
     stumpConnection: StumpConnectionUiState,
     grimmoryConnection: GrimmoryConnectionUiState,
@@ -42,6 +47,7 @@ fun SettingsScreen(
     onLibraryFilterPanelsChanged: (SourceType, List<LibraryFilterPanel>) -> Unit,
     extraSections: LazyListScope.() -> Unit = {},
     onLibraryDirectionSelected: (String, ComicReadingDirection) -> Unit,
+    onLibraryReaderModeSelected: (String, ComicReaderMode) -> Unit,
     onKavitaDisplayNameChanged: (String) -> Unit,
     onKavitaBaseUrlChanged: (String) -> Unit,
     onKavitaBackupBaseUrlChanged: (String) -> Unit,
@@ -151,6 +157,10 @@ fun SettingsScreen(
                     libraries = kavitaReadingDirectionLibraries,
                     onLibraryDirectionSelected = onLibraryDirectionSelected,
                 )
+                ComicReaderModeSettingsSection(
+                    libraries = kavitaReaderModeLibraries,
+                    onLibraryModeSelected = onLibraryReaderModeSelected,
+                )
             }
         }
 
@@ -194,6 +204,10 @@ fun SettingsScreen(
                 ComicReadingDirectionSettingsSection(
                     libraries = stumpReadingDirectionLibraries,
                     onLibraryDirectionSelected = onLibraryDirectionSelected,
+                )
+                ComicReaderModeSettingsSection(
+                    libraries = stumpReaderModeLibraries,
+                    onLibraryModeSelected = onLibraryReaderModeSelected,
                 )
             }
         }

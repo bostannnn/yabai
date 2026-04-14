@@ -90,6 +90,7 @@ internal fun LibraryItemOverflowMenu(
     modifier: Modifier = Modifier,
     actions: List<ItemMenuAction>,
     readingDirectionState: ReadingDirectionMenuState? = null,
+    readerModeState: ReaderModeMenuState? = null,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val menuButtonShape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
@@ -157,6 +158,23 @@ internal fun LibraryItemOverflowMenu(
                     },
                 )
             }
+            readerModeState?.let { state ->
+                if (actions.isNotEmpty() || readingDirectionState != null) {
+                    HorizontalDivider()
+                }
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    ReaderModeMenuRow(
+                        state = state,
+                        onModeSelected = { mode ->
+                            expanded = false
+                            state.onModeSelected(mode)
+                        },
+                    )
+                }
+            }
         }
     }
 }
@@ -188,7 +206,7 @@ private fun ReadingDirectionMenuRow(
 }
 
 @Composable
-private fun ReadingDirectionButton(
+internal fun ReadingDirectionButton(
     onClick: () -> Unit,
     selected: Boolean,
     shape: Shape,

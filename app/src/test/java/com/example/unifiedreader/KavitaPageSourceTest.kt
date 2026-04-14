@@ -14,6 +14,7 @@ import com.example.unifiedreader.data.kavita.KavitaSeriesEntry
 import com.example.unifiedreader.data.kavita.KavitaSession
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
+import com.example.unifiedreader.feature.reader.comics.ComicPagePrefetchWindow
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 import java.io.File
 import kotlinx.coroutines.CompletableDeferred
@@ -68,6 +69,26 @@ class KavitaPageSourceTest {
         scope.advanceUntilIdle()
 
         assertEquals(listOf(6, 7, 8, 9, 4, 3, 2, 1), api.requestedPageIndexes)
+    }
+
+    @Test
+    fun `custom prefetch window requests a larger forward-biased range for kavita comics`() = runTest {
+        val item = sampleKavitaComic(pageCount = 20)
+        val api = RecordingKavitaPageApi()
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val scope = TestScope(dispatcher)
+        val pageSource = createPageSource(api, scope)
+
+        pageSource.prefetchAround(
+            item = item,
+            settledPageIndex = 5,
+            pageCount = 20,
+            window = ComicPagePrefetchWindow(forwardCount = 6, backwardCount = 2),
+        )
+        scope.advanceUntilIdle()
+
+        assertEquals(8, api.requestedPageIndexes.size)
+        assertTrue(api.requestedPageIndexes.containsAll(listOf(6, 7, 8, 9, 10, 11, 4, 3)))
     }
 
     @Test

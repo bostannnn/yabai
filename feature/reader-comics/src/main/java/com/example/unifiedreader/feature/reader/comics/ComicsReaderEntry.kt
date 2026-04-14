@@ -2,21 +2,17 @@ package com.example.unifiedreader.feature.reader.comics
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,14 +26,9 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.reader.core.ImmersiveReaderOverlay
 import com.example.unifiedreader.feature.reader.core.ReaderBottomProgressBar
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
+import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import kotlin.math.roundToInt
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-
-private const val SpreadPlanningMaxMetadataRetries = 3
-private const val SpreadPlanningRetryDelayMillis = 750L
 
 @Composable
 fun ComicsReaderScreen(
@@ -64,6 +55,9 @@ fun ComicsReaderScreen(
         initialPage = remember(item.id, progressStore, pages.size) {
             progressStore.loadPage(item)?.coerceIn(0, pages.lastIndex) ?: 0
         },
+        initialReaderMode = remember(item.id, preferencesStore) {
+            preferencesStore.loadReaderMode(item)
+        },
         initialReadingDirection = remember(item.id, preferencesStore) {
             preferencesStore.loadReadingDirection(item)
         },
@@ -82,16 +76,14 @@ fun ComicsReaderScreen(
         initialResumeSegment = remember(item.id, preferencesStore) {
             preferencesStore.loadResumeSegment(item)
         },
+        initialResumeScrollOffsetRatio = remember(item.id, preferencesStore) {
+            preferencesStore.loadResumeScrollOffsetRatio(item)
+        },
     )
-    var pageMetadataById by remember(item.id) { mutableStateOf<Map<String, ComicPageMetadata>>(emptyMap()) }
-    var spreadPlanningFailuresById by remember(item.id) { mutableStateOf<Map<String, Int>>(emptyMap()) }
-    var degradedSpreadPlanningPageIds by remember(item.id) { mutableStateOf<Set<String>>(emptySet()) }
     val currentPageProgress = (readerState.currentPage + 1).toFloat() / pages.size.toFloat()
     val lifecycleOwner = LocalLifecycleOwner.current
-    val coroutineScope = rememberCoroutineScope()
     var progressRestoreCompleted by remember(item.id) { mutableStateOf(false) }
     var preferencesRestoreCompleted by remember(item.id) { mutableStateOf(false) }
-    var metadataRetryNonce by remember(item.id) { mutableIntStateOf(0) }
     val overlayState = rememberReaderOverlayState(
         key = "comic-overlay-${item.id}",
         initiallyVisible = true,
@@ -122,10 +114,19 @@ fun ComicsReaderScreen(
                 item,
                 sanitizeComicResumeSegment(readerState.resumeSegment),
             )
+            preferencesStore.saveResumeScrollOffsetRatio(
+                item,
+                if (readerState.readerMode == ComicReaderMode.VerticalScroll) {
+                    sanitizeComicResumeScrollOffsetRatio(readerState.resumeScrollOffsetRatio)
+                } else {
+                    null
+                },
+            )
         },
     )
     val persistReaderPreferences by rememberUpdatedState(
         newValue = {
+            preferencesStore.saveReaderMode(item, readerState.readerMode)
             preferencesStore.saveReadingDirection(item, readerState.readingDirection)
             preferencesStore.savePageFitMode(item, readerState.pageFitMode)
             preferencesStore.saveSpreadMode(item, readerState.spreadMode)
@@ -147,11 +148,13 @@ fun ComicsReaderScreen(
             return@LaunchedEffect
         }
         restoredPreferences?.let { preferences ->
+            readerState.restoreReaderModeIfUnchanged(preferences.readerMode)
             readerState.restoreReadingDirectionIfUnchanged(preferences.readingDirection)
             readerState.restorePageFitModeIfUnchanged(preferences.pageFitMode)
             readerState.restoreSpreadModeIfUnchanged(preferences.spreadMode)
             readerState.restoreResumeAnchorIfUnchanged(preferences.resumeAnchorPage)
             readerState.restoreResumeSegmentIfUnchanged(preferences.resumeSegment)
+            readerState.restoreResumeScrollOffsetRatioIfUnchanged(preferences.resumeScrollOffsetRatio)
         }
         preferencesRestoreCompleted = true
     }
@@ -165,7 +168,9 @@ fun ComicsReaderScreen(
         readerState.currentPage,
         readerState.resumeAnchorPage,
         readerState.resumeSegment,
+        readerState.resumeScrollOffsetRatio,
         readerState.readingDirection,
+        readerState.readerMode,
         pages.size,
     ) {
         if (!progressHydrated ||
@@ -195,6 +200,7 @@ fun ComicsReaderScreen(
         item.id,
         preferencesHydrated,
         preferencesRestoreCompleted,
+        readerState.readerMode,
         readerState.readingDirection,
         readerState.pageFitMode,
         readerState.spreadMode,
@@ -243,187 +249,22 @@ fun ComicsReaderScreen(
             .fillMaxSize()
             .background(Color(0xFF0A0D11)),
         content = {
-            BoxWithConstraints(
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                val useDoublePageSpreads = shouldUseDoublePageSpreads(
-                    spreadMode = readerState.spreadMode,
-                    maxWidthDp = maxWidth.value,
-                    maxHeightDp = maxHeight.value,
-                    pageCount = pages.size,
-                )
-                LaunchedEffect(
-                    item.id,
-                    readerState.resumeAnchorPage,
-                    readerState.readingDirection,
-                    readerState.spreadMode,
-                    useDoublePageSpreads,
-                    pages,
-                    metadataRetryNonce,
-                ) {
-                    val requiredIndexes = requiredMetadataIndexes(
-                        currentPage = readerState.resumeAnchorPage,
-                        pageCount = pages.size,
-                        useDoublePageSpreads = useDoublePageSpreads,
-                    )
-                    val targetIndexes = backgroundMetadataIndexes(
-                        currentPage = readerState.resumeAnchorPage,
-                        pageCount = pages.size,
-                        useDoublePageSpreads = useDoublePageSpreads,
-                    ).filter { index ->
-                        val pageId = pages[index].id
-                        pageId !in pageMetadataById && pageId !in degradedSpreadPlanningPageIds
-                    }
-                    if (targetIndexes.isEmpty()) return@LaunchedEffect
-                    val requiredPageIds = requiredIndexes
-                        .map { index -> pages[index].id }
-                        .toSet()
-                    val loadResults = targetIndexes.map { index ->
-                        async {
-                            val page = pages[index]
-                            page.id to loadSpreadPlanningMetadata(
-                                item = item,
-                                page = page,
-                                pageSource = pageSource,
-                            )
-                        }
-                    }.awaitAll()
-                    val nextFailures = spreadPlanningFailuresById.toMutableMap()
-                    val nextMetadata = pageMetadataById.toMutableMap()
-                    val nextDegradedPageIds = degradedSpreadPlanningPageIds.toMutableSet()
-                    loadResults.forEach { (pageId, metadata) ->
-                        when {
-                            metadata != null -> {
-                                if (pageId !in nextDegradedPageIds) {
-                                    nextMetadata[pageId] = metadata
-                                    nextFailures.remove(pageId)
-                                }
-                            }
-
-                            pageId in requiredPageIds -> {
-                                val failureCount = (nextFailures[pageId] ?: 0) + 1
-                                if (failureCount >= SpreadPlanningMaxMetadataRetries) {
-                                    nextFailures.remove(pageId)
-                                    nextDegradedPageIds.add(pageId)
-                                } else {
-                                    nextFailures[pageId] = failureCount
-                                }
-                            }
-                        }
-                    }
-                    if (nextMetadata != pageMetadataById) {
-                        pageMetadataById = nextMetadata
-                    }
-                    if (nextFailures != spreadPlanningFailuresById) {
-                        spreadPlanningFailuresById = nextFailures
-                    }
-                    if (nextDegradedPageIds != degradedSpreadPlanningPageIds) {
-                        degradedSpreadPlanningPageIds = nextDegradedPageIds
-                    }
-                    val hasPendingRequiredMetadata = requiredIndexes.any { index ->
-                        val pageId = pages[index].id
-                        pageId !in nextMetadata && pageId !in nextDegradedPageIds
-                    }
-                    if (hasPendingRequiredMetadata) {
-                        delay(SpreadPlanningRetryDelayMillis)
-                        metadataRetryNonce += 1
-                    }
-                }
-                val requiresCommittedSpreadPlan = useDoublePageSpreads
-                val spreadPlanReady = remember(
-                    requiresCommittedSpreadPlan,
-                    useDoublePageSpreads,
-                    readerState.resumeAnchorPage,
-                    pages,
-                    pageMetadataById,
-                    degradedSpreadPlanningPageIds,
-                ) {
-                    !requiresCommittedSpreadPlan || requiredMetadataIndexes(
-                        currentPage = readerState.resumeAnchorPage,
-                        pageCount = pages.size,
-                        useDoublePageSpreads = useDoublePageSpreads,
-                    ).all { index ->
-                        val pageId = pages[index].id
-                        pageId in pageMetadataById || pageId in degradedSpreadPlanningPageIds
-                    }
-                }
-                if (!spreadPlanReady) {
-                    ReaderPageMessage(message = "Preparing spread layout...")
-                    return@BoxWithConstraints
-                }
-                val spreads = remember(
-                    pages,
-                    readerState.readingDirection,
-                    useDoublePageSpreads,
-                    pageMetadataById,
-                ) {
-                    buildComicPageSpreads(
-                        pages = pages,
-                        readingDirection = readerState.readingDirection,
-                        useDoublePageSpreads = useDoublePageSpreads,
-                        pageMetadataById = pageMetadataById,
-                    )
-                }
-                val pagerState = rememberPagerState(
-                    initialPage = spreads.indexOfPage(readerState.resumeAnchorPage, readerState.resumeSegment),
-                    pageCount = { spreads.size },
-                )
-                val currentSpread = spreads.getOrNull(pagerState.currentPage) ?: spreads.first()
-
-                LaunchedEffect(spreads, readerState.resumeAnchorPage, readerState.resumeSegment) {
-                    val targetSpreadIndex = spreads.indexOfPage(readerState.resumeAnchorPage, readerState.resumeSegment)
-                    if (pagerState.currentPage != targetSpreadIndex &&
-                        !currentSpread.matchesPosition(readerState.resumeAnchorPage, readerState.resumeSegment)
-                    ) {
-                        pagerState.scrollToPage(targetSpreadIndex)
-                    }
-                }
-
-                LaunchedEffect(pagerState.settledPage, spreads, item.id) {
-                    val settledSpread = spreads.getOrNull(pagerState.settledPage) ?: return@LaunchedEffect
-                    val settledPageIndex = when {
-                        readerState.currentPage in settledSpread.pageIndexes -> readerState.currentPage
-                        else -> settledSpread.resumePageIndex
-                    }
-                    readerState.onPageSettled(
-                        pageIndex = settledPageIndex,
-                        resumeAnchorPage = settledSpread.resumePageIndex,
-                        segment = settledSpread.resumeSegment,
-                    )
-                    pageSource.prefetchAround(
-                        item = item,
-                        settledPageIndex = settledPageIndex,
-                        pageCount = pages.size,
-                    )
-                }
-
-                ComicSpreadPager(
+            when (readerState.readerMode) {
+                ComicReaderMode.Paged -> ComicsPagedReaderSurface(
                     item = item,
-                    spreads = spreads,
-                    currentPage = readerState.currentPage,
-                    readingDirection = readerState.readingDirection,
-                    pageFitMode = readerState.pageFitMode,
-                    isZoomed = readerState.isCurrentPageZoomed,
-                    overlayVisible = overlayState.isVisible,
+                    pages = pages,
                     pageSource = pageSource,
-                    pagerState = pagerState,
-                    onZoomStateChanged = readerState::onCurrentPageZoomChanged,
-                    onInteraction = {},
+                    readerState = readerState,
+                    overlayVisible = overlayState.isVisible,
                     onToggleOverlay = overlayState::toggle,
-                    onNavigatePrevious = { spreadIndex ->
-                        if (spreadIndex > 0) {
-                            coroutineScope.launch {
-                                pagerState.animateScrollToPage(spreadIndex - 1)
-                            }
-                        }
-                    },
-                    onNavigateNext = { spreadIndex ->
-                        if (spreadIndex < spreads.lastIndex) {
-                            coroutineScope.launch {
-                                pagerState.animateScrollToPage(spreadIndex + 1)
-                            }
-                        }
-                    },
+                )
+
+                ComicReaderMode.VerticalScroll -> ComicsContinuousReaderSurface(
+                    item = item,
+                    pages = pages,
+                    pageSource = pageSource,
+                    readerState = readerState,
+                    onToggleOverlay = overlayState::toggle,
                 )
             }
         },
@@ -433,11 +274,13 @@ fun ComicsReaderScreen(
                     itemId = item.id,
                     title = item.title,
                     progressLabel = "${readerState.currentPage + 1} / ${pages.size}",
+                    readerMode = readerState.readerMode,
                     readingDirection = readerState.readingDirection,
                     pageFitMode = readerState.pageFitMode,
                     spreadMode = readerState.spreadMode,
                     overlayVisible = overlayState.isVisible,
                     onBack = onBack,
+                    onReaderModeChanged = readerState::onReaderModeChanged,
                     onReadingDirectionChanged = readerState::onReadingDirectionChanged,
                     onPageFitModeChanged = readerState::onPageFitModeChanged,
                     onSpreadModeChanged = readerState::onSpreadModeChanged,
@@ -446,13 +289,22 @@ fun ComicsReaderScreen(
                     progress = currentPageProgress,
                     percentLabel = "${(currentPageProgress * 100f).roundToInt()}%",
                     pageLabel = "${readerState.currentPage + 1}/${pages.size}",
-                    readingDirection = readerState.readingDirection,
+                    readingDirection = comicProgressBarDirection(
+                        readerMode = readerState.readerMode,
+                        readingDirection = readerState.readingDirection,
+                    ),
                     modifier = Modifier.align(Alignment.BottomCenter),
                     onProgressSelected = { selectedProgress ->
                         val targetPage = (selectedProgress * (pages.size - 1))
                             .roundToInt()
                             .coerceIn(0, pages.lastIndex)
-                        readerState.onPageSettled(targetPage)
+                        when (readerState.readerMode) {
+                            ComicReaderMode.Paged -> readerState.onPageSettled(targetPage)
+                            ComicReaderMode.VerticalScroll -> readerState.onContinuousPositionSettled(
+                                pageIndex = targetPage,
+                                offsetRatio = 0f,
+                            )
+                        }
                     },
                 )
             }
@@ -460,75 +312,9 @@ fun ComicsReaderScreen(
     )
 }
 
-internal fun requiredMetadataIndexes(
-    currentPage: Int,
-    pageCount: Int,
-    useDoublePageSpreads: Boolean,
-): List<Int> = buildList {
-    if (pageCount <= 0) return@buildList
-    val lastIndex = pageCount - 1
-    if (useDoublePageSpreads) {
-        val targetEnd = if (currentPage == 0) {
-            0
-        } else {
-            (currentPage + 1).coerceIn(0, lastIndex)
-        }
-        for (index in 0..targetEnd) {
-            add(index)
-        }
-        return@buildList
-    }
-    add(currentPage.coerceIn(0, lastIndex))
-}.distinct()
-
-internal fun backgroundMetadataIndexes(
-    currentPage: Int,
-    pageCount: Int,
-    useDoublePageSpreads: Boolean,
-    radius: Int = 2,
-    lookahead: Int = 4,
-): List<Int> = buildList {
-    if (pageCount <= 0) return@buildList
-    val lastIndex = pageCount - 1
-    if (useDoublePageSpreads) {
-        val targetEnd = (currentPage + lookahead).coerceIn(0, lastIndex)
-        for (index in 0..targetEnd) {
-            add(index)
-        }
-        return@buildList
-    }
-    add(currentPage.coerceIn(0, lastIndex))
-    for (offset in 1..radius) {
-        add((currentPage + offset).coerceIn(0, lastIndex))
-        add((currentPage - offset).coerceIn(0, lastIndex))
-    }
-}.distinct()
-
-private suspend fun loadSpreadPlanningMetadata(
-    item: ReadableItem,
-    page: ComicPageSpec,
-    pageSource: ComicPageSource,
-): ComicPageMetadata? {
-    pageSource.loadPageMetadata(item, page)?.let { return it }
-    return when (
-        val imageResult = pageSource.loadPageImage(
-            item = item,
-            page = page,
-            priority = ComicPageLoadPriority.Prefetch,
-        )
-    ) {
-        is ComicPageLoadResult.Success -> ComicPageMetadata(
-            width = imageResult.image.width,
-            height = imageResult.image.height,
-        )
-
-        is ComicPageLoadResult.Failure -> null
-    }
-}
-
 @Composable
 private fun EmptyComicsReader(item: ReadableItem) {
-    androidx.compose.foundation.layout.Box(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF101418))

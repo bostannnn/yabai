@@ -9,6 +9,7 @@ import com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageMetadata
+import com.example.unifiedreader.feature.reader.comics.ComicPagePrefetchWindow
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -104,6 +105,25 @@ class DownloadedRemoteComicPageSource @Inject constructor(
             record = record,
             settledPageIndex = settledPageIndex,
             pageCount = pageCount,
+        )
+    }
+
+    override fun prefetchAround(
+        item: ReadableItem,
+        settledPageIndex: Int,
+        pageCount: Int,
+        window: ComicPagePrefetchWindow,
+    ) {
+        if (!hasStoredDocument(item)) return
+        val entryNames = archiveEntryCache.get(item.id).orEmpty()
+        if (entryNames.isEmpty()) return
+        val record = localRecordForCachedEntries(item = item, entryNames = entryNames) ?: return
+        comicPageLoader.prefetchAround(
+            item = item,
+            record = record,
+            settledPageIndex = settledPageIndex,
+            pageCount = pageCount,
+            window = window,
         )
     }
 

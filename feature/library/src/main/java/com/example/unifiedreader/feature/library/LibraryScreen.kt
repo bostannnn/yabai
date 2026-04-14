@@ -33,6 +33,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.feature.library.menu.buildReadStatusMenuActionState
+import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import kotlinx.coroutines.flow.distinctUntilChanged
 
@@ -67,6 +68,8 @@ fun LibraryScreen(
     onItemSelected: (ReadableItem) -> Unit,
     seriesReadingDirectionFor: (ReadableItem) -> ComicReadingDirection? = { null },
     onSeriesDirectionSelected: (ReadableItem, ComicReadingDirection) -> Unit = { _, _ -> },
+    seriesReaderModeFor: (ReadableItem) -> ComicReaderMode? = { null },
+    onSeriesReaderModeSelected: (ReadableItem, ComicReaderMode) -> Unit = { _, _ -> },
     onDeleteImportedItem: (ReadableItem) -> Unit = {},
     onDownloadItem: (ReadableItem) -> Unit = {},
     onDeleteDownloadedItem: (ReadableItem) -> Unit = {},
@@ -169,12 +172,16 @@ fun LibraryScreen(
                             isDownloaded = item.isDownloaded(locallyAvailableItemIds),
                             isDownloading = item.id in downloadingItemIds,
                             seriesReadingDirection = seriesReadingDirectionFor(item),
+                            seriesReaderMode = seriesReaderModeFor(item),
                             coverImageUrlProvider = coverImageUrlProvider,
                             coverPrefetchKeyProvider = coverPrefetchKeyProvider,
                             onCoverVisible = onCoverVisible,
                             onClick = { onItemSelected(item) },
                             onSeriesReadingDirectionSelected = { direction ->
                                 onSeriesDirectionSelected(item, direction)
+                            },
+                            onSeriesReaderModeSelected = { mode ->
+                                onSeriesReaderModeSelected(item, mode)
                             },
                             readStatusActionState = buildReadStatusMenuActionState(
                                 item = item,
@@ -199,12 +206,16 @@ fun LibraryScreen(
                             isDownloaded = item.isDownloaded(locallyAvailableItemIds),
                             isDownloading = item.id in downloadingItemIds,
                             seriesReadingDirection = seriesReadingDirectionFor(item),
+                            seriesReaderMode = seriesReaderModeFor(item),
                             coverImageUrlProvider = coverImageUrlProvider,
                             coverPrefetchKeyProvider = coverPrefetchKeyProvider,
                             onCoverVisible = onCoverVisible,
                             onClick = { onItemSelected(item) },
                             onSeriesReadingDirectionSelected = { direction ->
                                 onSeriesDirectionSelected(item, direction)
+                            },
+                            onSeriesReaderModeSelected = { mode ->
+                                onSeriesReaderModeSelected(item, mode)
                             },
                             readStatusActionState = buildReadStatusMenuActionState(
                                 item = item,

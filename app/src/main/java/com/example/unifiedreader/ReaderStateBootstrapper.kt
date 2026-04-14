@@ -13,6 +13,7 @@ import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesSna
 import com.example.unifiedreader.feature.reader.comics.buildComicReaderPreferencesMap
 import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
 import com.example.unifiedreader.feature.reader.core.enumValueOrNull
+import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 
 class ReaderStateBootstrapper(
     context: Context,
@@ -82,6 +83,7 @@ class ReaderStateBootstrapper(
                                 itemId = itemId,
                                 preferences = buildComicReaderPreferencesMap(
                                     ComicReaderPreferencesSnapshot(
+                                        readerMode = ComicReaderMode.Paged,
                                         readingDirection = direction,
                                         pageFitMode = fitMode,
                                         spreadMode = ComicSpreadMode.Auto,

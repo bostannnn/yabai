@@ -60,7 +60,13 @@ class UnifiedReaderAppFlowTest {
                 ),
             ),
         )
-        val comicsSessionAdapter = ComicsReaderSessionAdapter(readerSessionStore)
+        val directionPreferencesStore = FakeComicReadingDirectionPreferencesStore()
+        val readerModePreferencesStore = FakeComicReaderModePreferencesStore()
+        val comicsSessionAdapter = ComicsReaderSessionAdapter(
+            readerSessionStore,
+            directionPreferencesStore,
+            readerModePreferencesStore,
+        )
         val pageSource = FlowTestComicPageSource(pageCount = 3)
         val localDocumentRepository = importedLocalDocumentRepository(
             importedItem = importedItem,
@@ -72,6 +78,8 @@ class UnifiedReaderAppFlowTest {
             pageSource = pageSource,
             progressStore = comicsSessionAdapter,
             preferencesStore = comicsSessionAdapter,
+            comicReadingDirectionPreferencesStore = directionPreferencesStore,
+            comicReaderModePreferencesStore = readerModePreferencesStore,
             readerSessionStore = readerSessionStore,
             readerFactories = listOf(
                 comicsReaderFactory(
@@ -124,7 +132,13 @@ class UnifiedReaderAppFlowTest {
         )
         val importUri = Uri.parse("content://imports/akira.cbz")
         val readerSessionStore = FakeReaderSessionStore()
-        val comicsSessionAdapter = ComicsReaderSessionAdapter(readerSessionStore)
+        val directionPreferencesStore = FakeComicReadingDirectionPreferencesStore()
+        val readerModePreferencesStore = FakeComicReaderModePreferencesStore()
+        val comicsSessionAdapter = ComicsReaderSessionAdapter(
+            readerSessionStore,
+            directionPreferencesStore,
+            readerModePreferencesStore,
+        )
         val pageSource = FlowTestComicPageSource(pageCount = 3)
         val localDocumentRepository = importedLocalDocumentRepository(
             importedItem = importedItem,
@@ -136,6 +150,8 @@ class UnifiedReaderAppFlowTest {
             pageSource = pageSource,
             progressStore = comicsSessionAdapter,
             preferencesStore = comicsSessionAdapter,
+            comicReadingDirectionPreferencesStore = directionPreferencesStore,
+            comicReaderModePreferencesStore = readerModePreferencesStore,
             readerSessionStore = readerSessionStore,
             readerFactories = listOf(
                 comicsReaderFactory(
@@ -193,7 +209,13 @@ class UnifiedReaderAppFlowTest {
             coverUrl = null,
         )
         val readerSessionStore = FakeReaderSessionStore()
-        val comicsSessionAdapter = ComicsReaderSessionAdapter(readerSessionStore)
+        val directionPreferencesStore = FakeComicReadingDirectionPreferencesStore()
+        val readerModePreferencesStore = FakeComicReaderModePreferencesStore()
+        val comicsSessionAdapter = ComicsReaderSessionAdapter(
+            readerSessionStore,
+            directionPreferencesStore,
+            readerModePreferencesStore,
+        )
         val viewModel = createViewModel(
             readableItemRepository = FakeReadableItemRepository(
                 items = listOf(russianBook, englishBook),
@@ -211,6 +233,8 @@ class UnifiedReaderAppFlowTest {
             readerSessionStore = readerSessionStore,
             progressStore = comicsSessionAdapter,
             preferencesStore = comicsSessionAdapter,
+            comicReadingDirectionPreferencesStore = directionPreferencesStore,
+            comicReaderModePreferencesStore = readerModePreferencesStore,
         )
 
         composeRule.setContent {
@@ -244,7 +268,13 @@ class UnifiedReaderAppFlowTest {
         )
         val importUri = Uri.parse("content://imports/akira.cbz")
         val readerSessionStore = FakeReaderSessionStore()
-        val comicsSessionAdapter = ComicsReaderSessionAdapter(readerSessionStore)
+        val directionPreferencesStore = FakeComicReadingDirectionPreferencesStore()
+        val readerModePreferencesStore = FakeComicReaderModePreferencesStore()
+        val comicsSessionAdapter = ComicsReaderSessionAdapter(
+            readerSessionStore,
+            directionPreferencesStore,
+            readerModePreferencesStore,
+        )
         val localDocumentRepository = importedLocalDocumentRepository(
             importedItem = importedItem,
             importUri = importUri,
@@ -255,6 +285,8 @@ class UnifiedReaderAppFlowTest {
             pageSource = FlowTestComicPageSource(pageCount = 3),
             progressStore = comicsSessionAdapter,
             preferencesStore = comicsSessionAdapter,
+            comicReadingDirectionPreferencesStore = directionPreferencesStore,
+            comicReaderModePreferencesStore = readerModePreferencesStore,
             readerSessionStore = readerSessionStore,
         )
 
@@ -287,7 +319,13 @@ class UnifiedReaderAppFlowTest {
             coverUrl = null,
         )
         val readerSessionStore = FakeReaderSessionStore()
-        val comicsSessionAdapter = ComicsReaderSessionAdapter(readerSessionStore)
+        val directionPreferencesStore = FakeComicReadingDirectionPreferencesStore()
+        val readerModePreferencesStore = FakeComicReaderModePreferencesStore()
+        val comicsSessionAdapter = ComicsReaderSessionAdapter(
+            readerSessionStore,
+            directionPreferencesStore,
+            readerModePreferencesStore,
+        )
         val viewModel = createViewModel(
             readableItemRepository = FakeReadableItemRepository(items = listOf(item)),
             importedRepository = importedLocalDocumentRepository(
@@ -302,6 +340,8 @@ class UnifiedReaderAppFlowTest {
             pageSource = FlowTestComicPageSource(pageCount = 1),
             progressStore = comicsSessionAdapter,
             preferencesStore = comicsSessionAdapter,
+            comicReadingDirectionPreferencesStore = directionPreferencesStore,
+            comicReaderModePreferencesStore = readerModePreferencesStore,
             readerSessionStore = readerSessionStore,
         )
 

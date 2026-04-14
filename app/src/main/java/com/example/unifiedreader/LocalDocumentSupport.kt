@@ -9,6 +9,7 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageMetadata
+import com.example.unifiedreader.feature.reader.comics.ComicPagePrefetchWindow
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 import kotlinx.coroutines.flow.StateFlow
 import org.json.JSONArray
@@ -52,6 +53,19 @@ interface LocalComicDocumentDataSource {
         settledPageIndex: Int,
         pageCount: Int,
     )
+
+    fun prefetchAround(
+        item: ReadableItem,
+        settledPageIndex: Int,
+        pageCount: Int,
+        window: ComicPagePrefetchWindow,
+    ) {
+        prefetchAround(
+            item = item,
+            settledPageIndex = settledPageIndex,
+            pageCount = pageCount,
+        )
+    }
 }
 
 internal const val LOCAL_LIBRARY_ID = "local-imports"

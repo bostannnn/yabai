@@ -26,10 +26,13 @@ import com.example.unifiedreader.feature.library.LibraryViewMode
 import com.example.unifiedreader.feature.navigation.SourceNavigationDestination
 import com.example.unifiedreader.feature.navigation.SourceNavigationDrawer
 import com.example.unifiedreader.feature.navigation.SourceNavigationSettingsSection
+import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import com.example.unifiedreader.feature.settings.SettingsScreen
 import com.example.unifiedreader.feature.settings.direction.ReadingDirectionLibraryUiState
 import com.example.unifiedreader.feature.settings.direction.buildComicReadingDirectionLibraryRows
+import com.example.unifiedreader.feature.settings.mode.ReaderModeLibraryUiState
+import com.example.unifiedreader.feature.settings.mode.buildComicReaderModeLibraryRows
 import kotlinx.coroutines.launch
 
 @Composable
@@ -59,6 +62,26 @@ fun UnifiedReaderScaffold(
         buildComicReadingDirectionLibraryRows(
             availableLibraries = uiState.stumpConnection.availableLibraries,
             preferences = uiState.comicReadingDirectionPreferences,
+            sourceType = SourceType.STUMP,
+        )
+    }
+    val kavitaReaderModeLibraries = remember(
+        uiState.kavitaConnection.availableLibraries,
+        uiState.comicReaderModePreferences,
+    ) {
+        buildComicReaderModeLibraryRows(
+            availableLibraries = uiState.kavitaConnection.availableLibraries,
+            preferences = uiState.comicReaderModePreferences,
+            sourceType = SourceType.KAVITA,
+        )
+    }
+    val stumpReaderModeLibraries = remember(
+        uiState.stumpConnection.availableLibraries,
+        uiState.comicReaderModePreferences,
+    ) {
+        buildComicReaderModeLibraryRows(
+            availableLibraries = uiState.stumpConnection.availableLibraries,
+            preferences = uiState.comicReaderModePreferences,
             sourceType = SourceType.STUMP,
         )
     }
@@ -132,6 +155,8 @@ fun UnifiedReaderScaffold(
                         onItemSelected = viewModel::onItemSelected,
                         seriesReadingDirectionFor = viewModel::seriesReadingDirectionFor,
                         onSeriesDirectionSelected = viewModel::onSeriesDirectionSelected,
+                        seriesReaderModeFor = viewModel::seriesReaderModeFor,
+                        onSeriesReaderModeSelected = viewModel::onSeriesReaderModeSelected,
                         onDeleteImportedItem = viewModel::onDeleteImportedItem,
                         onDownloadRemoteItem = viewModel::onDownloadRemoteItem,
                         onDeleteRemoteLocalFile = viewModel::onDeleteRemoteLocalFile,
@@ -148,11 +173,14 @@ fun UnifiedReaderScaffold(
                         uiState = uiState,
                         kavitaReadingDirectionLibraries = kavitaReadingDirectionLibraries,
                         stumpReadingDirectionLibraries = stumpReadingDirectionLibraries,
+                        kavitaReaderModeLibraries = kavitaReaderModeLibraries,
+                        stumpReaderModeLibraries = stumpReaderModeLibraries,
                         onThemeModeSelected = viewModel::onThemeModeSelected,
                         onMoveSourceUp = viewModel::moveSourceUp,
                         onMoveSourceDown = viewModel::moveSourceDown,
                         onLibraryFilterPanelsChanged = viewModel::onLibraryFilterPanelsChanged,
                         onLibraryDirectionSelected = viewModel::onLibraryDirectionSelected,
+                        onLibraryReaderModeSelected = viewModel::onLibraryReaderModeSelected,
                         onKavitaDisplayNameChanged = viewModel::onKavitaDisplayNameChanged,
                         onKavitaBaseUrlChanged = viewModel::onKavitaBaseUrlChanged,
                         onKavitaBackupBaseUrlChanged = viewModel::onKavitaBackupBaseUrlChanged,
@@ -206,6 +234,8 @@ private fun LibraryRoute(
     onItemSelected: (ReadableItem) -> Unit,
     seriesReadingDirectionFor: (ReadableItem) -> ComicReadingDirection?,
     onSeriesDirectionSelected: (ReadableItem, ComicReadingDirection) -> Unit,
+    seriesReaderModeFor: (ReadableItem) -> ComicReaderMode?,
+    onSeriesReaderModeSelected: (ReadableItem, ComicReaderMode) -> Unit,
     onDeleteImportedItem: (ReadableItem) -> Unit,
     onDownloadRemoteItem: (ReadableItem) -> Unit,
     onDeleteRemoteLocalFile: (ReadableItem) -> Unit,
@@ -251,6 +281,8 @@ private fun LibraryRoute(
             onItemSelected = onItemSelected,
             seriesReadingDirectionFor = seriesReadingDirectionFor,
             onSeriesDirectionSelected = onSeriesDirectionSelected,
+            seriesReaderModeFor = seriesReaderModeFor,
+            onSeriesReaderModeSelected = onSeriesReaderModeSelected,
             onDeleteImportedItem = onDeleteImportedItem,
             onDownloadItem = onDownloadRemoteItem,
             onDeleteDownloadedItem = onDeleteRemoteLocalFile,
@@ -264,11 +296,14 @@ private fun SettingsRoute(
     uiState: AppUiState,
     kavitaReadingDirectionLibraries: List<ReadingDirectionLibraryUiState>,
     stumpReadingDirectionLibraries: List<ReadingDirectionLibraryUiState>,
+    kavitaReaderModeLibraries: List<ReaderModeLibraryUiState>,
+    stumpReaderModeLibraries: List<ReaderModeLibraryUiState>,
     onThemeModeSelected: (com.example.unifiedreader.feature.settings.ThemeMode) -> Unit,
     onMoveSourceUp: (SourceType) -> Unit,
     onMoveSourceDown: (SourceType) -> Unit,
     onLibraryFilterPanelsChanged: (SourceType, List<LibraryFilterPanel>) -> Unit,
     onLibraryDirectionSelected: (String, ComicReadingDirection) -> Unit,
+    onLibraryReaderModeSelected: (String, ComicReaderMode) -> Unit,
     onKavitaDisplayNameChanged: (String) -> Unit,
     onKavitaBaseUrlChanged: (String) -> Unit,
     onKavitaBackupBaseUrlChanged: (String) -> Unit,
@@ -300,6 +335,8 @@ private fun SettingsRoute(
             themeMode = uiState.themeMode,
             kavitaReadingDirectionLibraries = kavitaReadingDirectionLibraries,
             stumpReadingDirectionLibraries = stumpReadingDirectionLibraries,
+            kavitaReaderModeLibraries = kavitaReaderModeLibraries,
+            stumpReaderModeLibraries = stumpReaderModeLibraries,
             kavitaConnection = uiState.kavitaConnection,
             stumpConnection = uiState.stumpConnection,
             grimmoryConnection = uiState.grimmoryConnection,
@@ -321,6 +358,7 @@ private fun SettingsRoute(
                 }
             },
             onLibraryDirectionSelected = onLibraryDirectionSelected,
+            onLibraryReaderModeSelected = onLibraryReaderModeSelected,
             onKavitaDisplayNameChanged = onKavitaDisplayNameChanged,
             onKavitaBaseUrlChanged = onKavitaBaseUrlChanged,
             onKavitaBackupBaseUrlChanged = onKavitaBackupBaseUrlChanged,

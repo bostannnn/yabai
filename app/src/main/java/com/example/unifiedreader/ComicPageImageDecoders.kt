@@ -28,4 +28,5 @@ internal fun decodeComicPageImage(
     bytes: ByteArray,
 ): ComicPageLoadResult.Success? = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
     ?.asImageBitmap()
+    ?.also { image -> image.prepareToDraw() }
     ?.let(ComicPageLoadResult::Success)
