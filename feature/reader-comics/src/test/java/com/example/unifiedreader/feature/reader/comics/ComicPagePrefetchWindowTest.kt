@@ -8,7 +8,7 @@ class ComicPagePrefetchWindowTest {
     @Test
     fun `candidate indexes bias forward pages for continuous reading`() {
         assertEquals(
-            listOf(6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 4, 3, 2),
+            listOf(6, 7, 4),
             continuousReaderPrefetchWindow().candidateIndexes(
                 settledPageIndex = 5,
                 pageCount = 20,

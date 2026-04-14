@@ -22,6 +22,7 @@ internal fun ContinuousComicPageItem(
     item: ReadableItem,
     page: ComicPageSpec,
     pageSource: ComicPageSource,
+    shouldLoadImage: Boolean,
     contentWidth: Dp,
     fallbackPlaceholderHeight: Dp,
     onToggleOverlay: () -> Unit,
@@ -37,7 +38,12 @@ internal fun ContinuousComicPageItem(
         initialValue = null,
         key1 = item.id,
         key2 = page.id,
+        key3 = shouldLoadImage,
     ) {
+        if (!shouldLoadImage) {
+            value = null
+            return@produceState
+        }
         value = pageSource.loadPageImage(
             item = item,
             page = page,

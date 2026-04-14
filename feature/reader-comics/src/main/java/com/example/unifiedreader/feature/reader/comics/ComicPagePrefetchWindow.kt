@@ -30,8 +30,8 @@ fun ComicPagePrefetchWindow.candidateIndexes(
 }
 
 internal fun continuousReaderPrefetchWindow(): ComicPagePrefetchWindow = ComicPagePrefetchWindow(
-    forwardCount = 10,
-    backwardCount = 3,
+    forwardCount = 2,
+    backwardCount = 1,
 )
 
 internal fun continuousReaderContentWidth(

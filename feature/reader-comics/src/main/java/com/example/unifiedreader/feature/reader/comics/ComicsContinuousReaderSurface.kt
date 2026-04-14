@@ -10,6 +10,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
@@ -37,6 +39,18 @@ internal fun ComicsContinuousReaderSurface(
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize(),
     ) {
+        val activePageWindow by remember(listState, pages.size) {
+            derivedStateOf {
+                val visibleIndexes = listState.layoutInfo.visibleItemsInfo
+                    .map { it.index }
+                    .filter { it in 0 until pages.size }
+                val firstVisible = visibleIndexes.minOrNull() ?: readerState.currentPage.coerceIn(0, pages.lastIndex)
+                val lastVisible = visibleIndexes.maxOrNull() ?: firstVisible
+                val startIndex = (firstVisible - 1).coerceAtLeast(0)
+                val endIndex = (lastVisible + 1).coerceAtMost(pages.lastIndex)
+                startIndex..endIndex
+            }
+        }
         val contentWidth = remember(maxWidth, maxHeight) {
             continuousReaderContentWidth(
                 maxWidth = maxWidth,
@@ -113,6 +127,7 @@ internal fun ComicsContinuousReaderSurface(
                     item = item,
                     page = page,
                     pageSource = pageSource,
+                    shouldLoadImage = page.pageIndex in activePageWindow,
                     contentWidth = contentWidth,
                     fallbackPlaceholderHeight = continuousReaderFallbackPlaceholderHeight(
                         contentWidth = contentWidth,
