@@ -10,6 +10,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.mutableStateOf
@@ -263,27 +264,36 @@ fun ComicsReaderScreen(
             .fillMaxSize()
             .background(Color(0xFF0A0D11)),
         content = {
-            when (readerState.readerMode) {
-                ComicReaderMode.Paged -> ComicsPagedReaderSurface(
-                    item = item,
-                    pages = pages,
-                    pageSource = pageSource,
-                    readerState = readerState,
-                    overlayVisible = overlayState.isVisible,
-                    onToggleOverlay = overlayState::toggle,
-                    onNavigatePastEnd = {
-                        persistCompletedProgress()
-                        onNextItemRequested()
-                    },
+            val surfaceStateKey = remember(pages) {
+                Triple(
+                    pages.size,
+                    pages.firstOrNull()?.id.orEmpty(),
+                    pages.lastOrNull()?.id.orEmpty(),
                 )
+            }
+            key(item.id, readerState.readerMode, surfaceStateKey) {
+                when (readerState.readerMode) {
+                    ComicReaderMode.Paged -> ComicsPagedReaderSurface(
+                        item = item,
+                        pages = pages,
+                        pageSource = pageSource,
+                        readerState = readerState,
+                        overlayVisible = overlayState.isVisible,
+                        onToggleOverlay = overlayState::toggle,
+                        onNavigatePastEnd = {
+                            persistCompletedProgress()
+                            onNextItemRequested()
+                        },
+                    )
 
-                ComicReaderMode.VerticalScroll -> ComicsContinuousReaderSurface(
-                    item = item,
-                    pages = pages,
-                    pageSource = pageSource,
-                    readerState = readerState,
-                    onToggleOverlay = overlayState::toggle,
-                )
+                    ComicReaderMode.VerticalScroll -> ComicsContinuousReaderSurface(
+                        item = item,
+                        pages = pages,
+                        pageSource = pageSource,
+                        readerState = readerState,
+                        onToggleOverlay = overlayState::toggle,
+                    )
+                }
             }
         },
         overlay = {
