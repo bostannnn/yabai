@@ -27,10 +27,10 @@ data class RecentlyFinishedShelfItem(
 )
 
 data class LibraryShelvesState(
-    val continueReading: ContinueReadingShelfItem? = null,
+    val continueReading: List<ContinueReadingShelfItem> = emptyList(),
     val nextInSeries: List<NextInSeriesShelfItem> = emptyList(),
     val recentlyFinished: List<RecentlyFinishedShelfItem> = emptyList(),
 ) {
     val hasContent: Boolean
-        get() = continueReading != null || nextInSeries.isNotEmpty() || recentlyFinished.isNotEmpty()
+        get() = continueReading.isNotEmpty() || nextInSeries.isNotEmpty() || recentlyFinished.isNotEmpty()
 }

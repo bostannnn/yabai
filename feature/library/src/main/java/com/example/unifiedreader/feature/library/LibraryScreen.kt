@@ -101,6 +101,7 @@ fun LibraryScreen(
             firstVisibleItemScrollOffset = initialScrollPosition.offset,
         )
     }
+    val leadingContentItemCount = 1 + if (topContent != null) 1 else 0
 
     LaunchedEffect(selectedSortLetter, effectiveSortLetter) {
         if (selectedSortLetter != effectiveSortLetter) {
@@ -120,6 +121,15 @@ fun LibraryScreen(
     }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        VisibleRemoteCoverPrefetcher(
+            browseContextKey = browseContextKey,
+            gridState = gridState,
+            items = visibleItems,
+            leadingContentItemCount = leadingContentItemCount,
+            coverPrefetchKeyProvider = coverPrefetchKeyProvider,
+            onCoverVisible = onCoverVisible,
+        )
+
         LazyVerticalGrid(
             columns = viewMode.gridCells(maxWidth = maxWidth, maxHeight = maxHeight),
             state = gridState,
@@ -181,8 +191,6 @@ fun LibraryScreen(
                             seriesReadingDirection = seriesReadingDirectionFor(item),
                             seriesReaderMode = seriesReaderModeFor(item),
                             coverImageUrlProvider = coverImageUrlProvider,
-                            coverPrefetchKeyProvider = coverPrefetchKeyProvider,
-                            onCoverVisible = onCoverVisible,
                             onClick = { onItemSelected(item) },
                             onSeriesReadingDirectionSelected = { direction ->
                                 onSeriesDirectionSelected(item, direction)
@@ -211,35 +219,8 @@ fun LibraryScreen(
                             item = item,
                             progress = progressByItemId[item.id],
                             isDownloaded = item.isDownloaded(locallyAvailableItemIds),
-                            isDownloading = item.id in downloadingItemIds,
-                            seriesReadingDirection = seriesReadingDirectionFor(item),
-                            seriesReaderMode = seriesReaderModeFor(item),
                             coverImageUrlProvider = coverImageUrlProvider,
-                            coverPrefetchKeyProvider = coverPrefetchKeyProvider,
-                            onCoverVisible = onCoverVisible,
                             onClick = { onItemSelected(item) },
-                            onSeriesReadingDirectionSelected = { direction ->
-                                onSeriesDirectionSelected(item, direction)
-                            },
-                            onSeriesReaderModeSelected = { mode ->
-                                onSeriesReaderModeSelected(item, mode)
-                            },
-                            readStatusActionState = buildReadStatusMenuActionState(
-                                item = item,
-                                progress = progressByItemId[item.id],
-                                onSetReadStatus = onSetReadStatus,
-                            ),
-                            onDeleteRequested = itemDeleteRequest(item) { deleteCandidate = it },
-                            onDownloadRequested = itemDownloadRequest(
-                                item = item,
-                                downloadableItemIds = downloadableItemIds,
-                                onDownloadItem = onDownloadItem,
-                            ),
-                            onDeleteDownloadedRequested = itemDownloadedDeleteRequest(
-                                item = item,
-                                deletableDownloadedItemIds = deletableDownloadedItemIds,
-                                onDeleteDownloadedItem = onDeleteDownloadedItem,
-                            ),
                         )
                     }
                 }

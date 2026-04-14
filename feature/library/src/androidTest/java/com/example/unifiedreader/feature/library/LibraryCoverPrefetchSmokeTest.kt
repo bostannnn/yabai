@@ -38,18 +38,15 @@ class LibraryCoverPrefetchSmokeTest {
 
         composeRule.setContent {
             MaterialTheme {
-                GridCoverCard(
-                    item = seriesItem,
-                    progress = null,
-                    isDownloaded = false,
-                    isDownloading = false,
+                LibraryScreen(
+                    selectedSource = SourceType.STUMP,
+                    browseContextKey = "stump",
+                    items = listOf(seriesItem),
+                    viewMode = LibraryViewMode.Grid,
                     coverImageUrlProvider = { null },
                     coverPrefetchKeyProvider = { coverPrefetchKey },
                     onCoverVisible = { coverVisibleCalls += 1 },
-                    onClick = {},
-                    onDeleteRequested = null,
-                    onDownloadRequested = null,
-                    onDeleteDownloadedRequested = null,
+                    onItemSelected = {},
                 )
             }
         }

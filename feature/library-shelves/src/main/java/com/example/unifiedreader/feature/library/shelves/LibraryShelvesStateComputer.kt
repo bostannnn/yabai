@@ -12,9 +12,26 @@ import javax.inject.Inject
 class LibraryShelvesStateComputer @Inject constructor(
     private val seriesContinuationResolver: LibrarySeriesContinuationResolver,
 ) {
+    private val stateCache =
+        object : LinkedHashMap<LibraryShelvesStateCacheKey, LibraryShelvesState>(
+            SHELVES_STATE_CACHE_LIMIT,
+            0.75f,
+            true,
+        ) {
+            override fun removeEldestEntry(
+                eldest: MutableMap.MutableEntry<LibraryShelvesStateCacheKey, LibraryShelvesState>,
+            ): Boolean = size > SHELVES_STATE_CACHE_LIMIT
+        }
+
     fun compute(
         input: LibraryShelvesInput,
     ): LibraryShelvesState {
+        val cacheKey = LibraryShelvesStateCacheKey(
+            selectedSource = input.selectedSource,
+            items = input.items,
+            progressByItemId = input.progressByItemId,
+        )
+        stateCache[cacheKey]?.let { return it }
         val sourceItems = input.items.filter { item ->
             item.sourceType == input.selectedSource
         }
@@ -35,22 +52,30 @@ class LibraryShelvesStateComputer @Inject constructor(
             continueReading = continueReading,
             nextInSeries = nextInSeries,
             recentlyFinished = recentlyFinished,
-        )
+        ).also { shelvesState ->
+            stateCache[cacheKey] = shelvesState
+        }
     }
 
     private fun buildContinueReadingShelf(
         items: List<ReadableItem>,
         progressByItemId: Map<String, ItemProgressSummary>,
-    ): ContinueReadingShelfItem? = items.mapNotNull { item ->
+    ): List<ContinueReadingShelfItem> = items.mapNotNull { item ->
         val progress = progressByItemId[item.id] ?: return@mapNotNull null
         if (progress.isComplete) return@mapNotNull null
+        if (!progress.hasActivity) return@mapNotNull null
         ContinueReadingShelfItem(
             item = item,
             progress = progress,
         )
-    }.maxByOrNull { entry ->
-        entry.progress.lastReadAtEpochMillis
     }
+        .sortedWith(
+            compareByDescending<ContinueReadingShelfItem> { entry ->
+                entry.progress.lastReadAtEpochMillis
+            }.thenByDescending { entry ->
+                entry.progress.fraction
+            },
+        )
 
     private fun buildNextInSeriesShelf(
         selectedSource: SourceType,
@@ -83,7 +108,6 @@ class LibraryShelvesStateComputer @Inject constructor(
                 }
             }
             .sortedByDescending(NextInSeriesShelfItem::lastActivityAtEpochMillis)
-            .take(NextInSeriesShelfLimit)
     }
 
     private fun buildRecentlyFinishedShelf(
@@ -99,7 +123,6 @@ class LibraryShelvesStateComputer @Inject constructor(
         )
     }
         .sortedByDescending { entry -> entry.progress.lastReadAtEpochMillis }
-        .take(RecentlyFinishedShelfLimit)
 }
 
 private val ItemProgressSummary.isComplete: Boolean
@@ -125,5 +148,34 @@ private fun ReadableItem.localSeriesGroupKey(): String? {
     return "$libraryId::${series.lowercase()}"
 }
 
-private const val NextInSeriesShelfLimit = 4
-private const val RecentlyFinishedShelfLimit = 4
+private const val SHELVES_STATE_CACHE_LIMIT = 12
+
+private data class LibraryShelvesStateCacheKey(
+    val selectedSource: SourceType,
+    val items: IdentityBox<List<ReadableItem>>,
+    val progressByItemId: IdentityBox<Map<String, ItemProgressSummary>>,
+    val itemCount: Int,
+    val progressCount: Int,
+) {
+    constructor(
+        selectedSource: SourceType,
+        items: List<ReadableItem>,
+        progressByItemId: Map<String, ItemProgressSummary>,
+    ) : this(
+        selectedSource = selectedSource,
+        items = IdentityBox(items),
+        progressByItemId = IdentityBox(progressByItemId),
+        itemCount = items.size,
+        progressCount = progressByItemId.size,
+    )
+}
+
+private class IdentityBox<T : Any?>(
+    private val value: T,
+) {
+    override fun equals(
+        other: Any?,
+    ): Boolean = other is IdentityBox<*> && value === other.value
+
+    override fun hashCode(): Int = System.identityHashCode(value)
+}

@@ -7,7 +7,8 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.library.ItemProgressSummary
 import com.example.unifiedreader.feature.library.LibrarySeriesContinuationResolver
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
+import org.junit.Assert.assertNotSame
+import org.junit.Assert.assertSame
 import org.junit.Test
 
 class LibraryShelvesStateComputerTest {
@@ -16,24 +17,26 @@ class LibraryShelvesStateComputerTest {
     )
 
     @Test
-    fun `continue reading picks latest unfinished item for selected source`() {
+    fun `continue reading keeps all unfinished items ordered by latest activity for selected source`() {
         val older = issue(id = "older", issueNumber = "1")
         val newer = issue(id = "newer", issueNumber = "2")
+        val finished = issue(id = "finished", issueNumber = "4")
         val otherSource = issue(id = "other", issueNumber = "3", sourceType = SourceType.STUMP)
 
         val state = computer.compute(
             LibraryShelvesInput(
                 selectedSource = SourceType.KAVITA,
-                items = listOf(older, newer, otherSource),
+                items = listOf(older, newer, finished, otherSource),
                 progressByItemId = mapOf(
                     older.id to progress("Resume on page 2", fraction = 0.2f, lastReadAt = 100L),
                     newer.id to progress("Resume on page 5", fraction = 0.5f, lastReadAt = 200L),
+                    finished.id to progress("Finished", fraction = 1f, lastReadAt = 400L, isFinished = true),
                     otherSource.id to progress("Resume on page 8", fraction = 0.8f, lastReadAt = 300L),
                 ),
             ),
         )
 
-        assertEquals(newer.id, state.continueReading?.item?.id)
+        assertEquals(listOf(newer.id, older.id), state.continueReading.map { item -> item.item.id })
     }
 
     @Test
@@ -100,6 +103,56 @@ class LibraryShelvesStateComputerTest {
     }
 
     @Test
+    fun `next in series is not capped to four items`() {
+        val items = (1..5).flatMap { index ->
+            listOf(
+                issue(id = "series-$index-1", series = "Series $index", issueNumber = "1", seriesKey = "series-$index"),
+                issue(id = "series-$index-2", series = "Series $index", issueNumber = "2", seriesKey = "series-$index"),
+            )
+        }
+
+        val state = computer.compute(
+            LibraryShelvesInput(
+                selectedSource = SourceType.KAVITA,
+                items = items,
+                progressByItemId = (1..5).associate { index ->
+                    "kavita:series-$index-1" to progress(
+                        label = "Resume",
+                        fraction = 0.4f,
+                        lastReadAt = index.toLong(),
+                    )
+                },
+            ),
+        )
+
+        assertEquals(5, state.nextInSeries.size)
+    }
+
+    @Test
+    fun `recently finished is not capped to four items`() {
+        val items = (1..5).map { index ->
+            issue(id = "finished-$index", issueNumber = index.toString())
+        }
+
+        val state = computer.compute(
+            LibraryShelvesInput(
+                selectedSource = SourceType.KAVITA,
+                items = items,
+                progressByItemId = items.mapIndexed { index, item ->
+                    item.id to progress(
+                        label = "Finished",
+                        fraction = 1f,
+                        lastReadAt = (index + 1).toLong(),
+                        isFinished = true,
+                    )
+                }.toMap(),
+            ),
+        )
+
+        assertEquals(5, state.recentlyFinished.size)
+    }
+
+    @Test
     fun `recently finished ignores completed items without activity timestamp`() {
         val finishedWithActivity = issue(id = "finish-active", issueNumber = "7")
         val finishedWithoutActivity = issue(id = "finish-inactive", issueNumber = "3")
@@ -144,8 +197,57 @@ class LibraryShelvesStateComputerTest {
             ),
         )
 
-        assertNull(state.continueReading)
+        assertEquals(emptyList<ContinueReadingShelfItem>(), state.continueReading)
         assertEquals(emptyList<NextInSeriesShelfItem>(), state.nextInSeries)
+    }
+
+    @Test
+    fun `compute reuses state when input backing collections are unchanged`() {
+        val item = issue(id = "cached", issueNumber = "1")
+        val items = listOf(item)
+        val progressByItemId = mapOf(
+            item.id to progress("Resume", fraction = 0.4f, lastReadAt = 100L),
+        )
+        val input = LibraryShelvesInput(
+            selectedSource = SourceType.KAVITA,
+            items = items,
+            progressByItemId = progressByItemId,
+        )
+
+        val first = computer.compute(input)
+        val second = computer.compute(input.copy())
+
+        assertSame(first, second)
+    }
+
+    @Test
+    fun `compute invalidates cache when progress backing map changes`() {
+        val item = issue(id = "cache-invalidated", issueNumber = "1")
+        val items = listOf(item)
+        val firstProgress = mapOf(
+            item.id to progress("Resume", fraction = 0.4f, lastReadAt = 100L),
+        )
+        val secondProgress = mapOf(
+            item.id to progress("Resume", fraction = 0.6f, lastReadAt = 200L),
+        )
+
+        val first = computer.compute(
+            LibraryShelvesInput(
+                selectedSource = SourceType.KAVITA,
+                items = items,
+                progressByItemId = firstProgress,
+            ),
+        )
+        val second = computer.compute(
+            LibraryShelvesInput(
+                selectedSource = SourceType.KAVITA,
+                items = items,
+                progressByItemId = secondProgress,
+            ),
+        )
+
+        assertNotSame(first, second)
+        assertEquals(0.6f, second.continueReading.firstOrNull()?.progress?.fraction ?: -1f, 0.0001f)
     }
 }
 
