@@ -36,6 +36,14 @@ internal suspend fun pushDirtyStumpProgress(
             operation = operation,
         )
         diagnostics.onAttempt(event)
+        if (operation.operation == StumpProgressSyncOperation.LocalUnreadReset) {
+            diagnostics.onSuccess(event)
+            readerSessionStore.replaceProgressIfCurrent(
+                expected = progress,
+                replacement = null,
+            )
+            return@forEach
+        }
         runCatching {
             api.runWithTokenRefresh(
                 initialAccessToken = activeAccessToken,
@@ -95,12 +103,14 @@ private fun ReaderProgressSnapshot.toStumpProgressPushOperation(
     val pageIndex = page?.coerceAtLeast(0) ?: 0
     return when {
         isExplicitUnreadReset -> StumpProgressPushOperation(
-            operation = StumpProgressSyncOperation.MarkMediaIncomplete,
+            // Stump completion/unread mutations are unreliable, so stale manual unread resets
+            // from older builds are resolved locally instead of retrying a failing remote call.
+            operation = StumpProgressSyncOperation.LocalUnreadReset,
             pageIndex = null,
         )
 
         isFinished -> StumpProgressPushOperation(
-            operation = StumpProgressSyncOperation.MarkMediaComplete,
+            operation = StumpProgressSyncOperation.UpdatePagedProgress,
             pageIndex = item.pageCount?.minus(1)?.coerceAtLeast(pageIndex) ?: pageIndex,
         )
 
@@ -136,6 +146,8 @@ private suspend fun StumpApi.pushStumpProgressOperation(
             mediaId = mediaId,
             pageIndex = operation.pageIndex ?: 0,
         )
+
+        StumpProgressSyncOperation.LocalUnreadReset -> error("Local-only Stump unread reset should not be pushed.")
     }
 }
 

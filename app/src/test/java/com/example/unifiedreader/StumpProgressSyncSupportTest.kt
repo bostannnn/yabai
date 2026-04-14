@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 
@@ -113,7 +114,7 @@ class StumpProgressSyncSupportTest {
     }
 
     @Test
-    fun `failed Stump completion records diagnostic context`() = runTest {
+    fun `finished Stump progress updates final page without completion mutation`() = runTest {
         val item = ReadableItem(
             id = "stump:item:42",
             sourceType = SourceType.STUMP,
@@ -135,11 +136,10 @@ class StumpProgressSyncSupportTest {
             updatedAtEpochMillis = 123L,
         )
         val diagnostics = RecordingStumpProgressSyncDiagnostics()
+        val api = RecordingStumpApi()
 
         pushDirtyStumpProgress(
-            api = RecordingStumpApi(
-                updateError = IllegalStateException("NOT NULL constraint failed: reading_sessions.started_at"),
-            ),
+            api = api,
             initialAccessToken = "access-token",
             initialRefreshToken = null,
             items = listOf(item),
@@ -148,15 +148,62 @@ class StumpProgressSyncSupportTest {
         )
 
         val attempt = diagnostics.attempts.single()
-        val failure = diagnostics.failures.single()
-        assertEquals(StumpProgressSyncOperation.MarkMediaComplete, attempt.operation)
+        val success = diagnostics.successes.single()
+        val snapshot = checkNotNull(store.progressByItemIdFlow.value[item.id])
+        assertEquals(StumpProgressSyncOperation.UpdatePagedProgress, attempt.operation)
         assertEquals("42", attempt.mediaId)
         assertEquals(27, attempt.pageIndex)
         assertEquals(28, attempt.remotePageNumber)
         assertEquals(28, attempt.pageCount)
         assertEquals(true, attempt.isFinished)
-        assertEquals(attempt, failure.event)
-        assertEquals("NOT NULL constraint failed: reading_sessions.started_at", failure.throwable.message)
+        assertEquals(attempt, success)
+        assertEquals(listOf(RecordingStumpApi.PagedProgressCall(mediaId = "42", pageIndex = 27)), api.pagedProgressCalls)
+        assertTrue(api.completionCalls.isEmpty())
+        assertEquals(SyncState.CLEAN, snapshot.syncState)
+        assertEquals(true, snapshot.isFinished)
+    }
+
+    @Test
+    fun `stale Stump unread reset clears locally without remote mutation`() = runTest {
+        val item = ReadableItem(
+            id = "stump:item:42",
+            sourceType = SourceType.STUMP,
+            libraryId = "stump:library:5",
+            remoteId = "42",
+            title = "Chapter 42",
+            format = FormatType.CBZ,
+            pageCount = 28,
+        )
+        val store = TestStumpReaderSessionStore()
+        store.saveProgress(
+            item = item,
+            locator = ReaderLocator(
+                locatorType = LocatorType.PAGE,
+                page = 0,
+            ),
+            isExplicitUnreadReset = true,
+            syncState = SyncState.FAILED,
+            updatedAtEpochMillis = 123L,
+        )
+        val diagnostics = RecordingStumpProgressSyncDiagnostics()
+        val api = RecordingStumpApi()
+
+        pushDirtyStumpProgress(
+            api = api,
+            initialAccessToken = "access-token",
+            initialRefreshToken = null,
+            items = listOf(item),
+            readerSessionStore = store,
+            diagnostics = diagnostics,
+        )
+
+        val attempt = diagnostics.attempts.single()
+        assertEquals(StumpProgressSyncOperation.LocalUnreadReset, attempt.operation)
+        assertEquals(attempt, diagnostics.successes.single())
+        assertTrue(diagnostics.failures.isEmpty())
+        assertTrue(api.pagedProgressCalls.isEmpty())
+        assertTrue(api.completionCalls.isEmpty())
+        assertEquals(null, store.progressByItemIdFlow.value[item.id])
     }
 
     @Test
@@ -241,6 +288,9 @@ private class RecordingStumpApi(
     private val beforeProgressReturns: (suspend () -> Unit)? = null,
     private val updateError: Throwable? = null,
 ) : StumpApi {
+    val pagedProgressCalls = mutableListOf<PagedProgressCall>()
+    val completionCalls = mutableListOf<CompletionCall>()
+
     override suspend fun login(
         username: String,
         password: String,
@@ -276,6 +326,10 @@ private class RecordingStumpApi(
         mediaId: String,
         pageIndex: Int,
     ) {
+        pagedProgressCalls += PagedProgressCall(
+            mediaId = mediaId,
+            pageIndex = pageIndex,
+        )
         updateError?.let { throw it }
         beforeProgressReturns?.invoke()
     }
@@ -286,6 +340,11 @@ private class RecordingStumpApi(
         isComplete: Boolean,
         pageIndex: Int?,
     ) {
+        completionCalls += CompletionCall(
+            mediaId = mediaId,
+            isComplete = isComplete,
+            pageIndex = pageIndex,
+        )
         updateError?.let { throw it }
         beforeProgressReturns?.invoke()
     }
@@ -316,6 +375,17 @@ private class RecordingStumpApi(
         mediaId: String,
         destination: File,
     ) = error("Not needed in test.")
+
+    data class PagedProgressCall(
+        val mediaId: String,
+        val pageIndex: Int,
+    )
+
+    data class CompletionCall(
+        val mediaId: String,
+        val isComplete: Boolean,
+        val pageIndex: Int?,
+    )
 }
 
 private class TestStumpReaderSessionStore : ReaderSessionStore {

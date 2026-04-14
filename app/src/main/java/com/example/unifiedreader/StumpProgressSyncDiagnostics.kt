@@ -9,6 +9,7 @@ enum class StumpProgressSyncOperation(
     UpdatePagedProgress("updateMediaProgress"),
     MarkMediaComplete("markMediaAsComplete"),
     MarkMediaIncomplete("markMediaAsComplete"),
+    LocalUnreadReset("localUnreadReset"),
 }
 
 data class StumpProgressSyncDiagnosticEvent(
