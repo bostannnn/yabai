@@ -1,12 +1,18 @@
 package com.example.unifiedreader.feature.reader.preferences
 
+import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.test.core.app.ApplicationProvider
 import java.io.File
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -15,6 +21,22 @@ import org.robolectric.RobolectricTestRunner
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class ComicReadingDirectionPreferencesStoreTest {
+    @Test
+    fun `store reports hydrated after first DataStore value`() = runTest {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val data = MutableSharedFlow<Preferences>(replay = 1)
+        val store = DataStoreComicReadingDirectionPreferencesStore(
+            context = context,
+            dataStore = FlowBackedDirectionPreferencesDataStore(data),
+        )
+
+        assertFalse(store.isHydratedFlow.value)
+
+        data.emit(emptyPreferences())
+
+        assertTrue(store.isHydratedFlow.first { it })
+    }
+
     @Test
     fun `store persists library and series directions`() = runTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
@@ -79,4 +101,12 @@ class ComicReadingDirectionPreferencesStoreTest {
 
         assertTrue(preferences.seriesDirectionsByKey.isEmpty())
     }
+}
+
+private class FlowBackedDirectionPreferencesDataStore(
+    override val data: Flow<Preferences>,
+) : DataStore<Preferences> {
+    override suspend fun updateData(
+        transform: suspend (t: Preferences) -> Preferences,
+    ): Preferences = error("Not supported in this test.")
 }

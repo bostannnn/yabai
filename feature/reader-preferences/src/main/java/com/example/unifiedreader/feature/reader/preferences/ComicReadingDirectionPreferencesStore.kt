@@ -13,12 +13,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.flow.stateIn
 
 interface ComicReadingDirectionPreferencesStore {
+    val isHydratedFlow: StateFlow<Boolean>
+
     val preferencesFlow: StateFlow<ComicReadingDirectionPreferences>
 
     suspend fun setLibraryDirection(
@@ -38,6 +42,8 @@ class DataStoreComicReadingDirectionPreferencesStore(
     private val ioRetryDelayMillis: Long = DATASTORE_IO_RETRY_DELAY_MILLIS,
 ) : ComicReadingDirectionPreferencesStore {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val hydrationState = MutableStateFlow(false)
+    override val isHydratedFlow: StateFlow<Boolean> = hydrationState
 
     override val preferencesFlow: StateFlow<ComicReadingDirectionPreferences> = dataStore.data
         .retryWhen { error, _ ->
@@ -48,6 +54,9 @@ class DataStoreComicReadingDirectionPreferencesStore(
             error is IOException
         }
         .map(::toComicReadingDirectionPreferences)
+        .onEach {
+            hydrationState.value = true
+        }
         .stateIn(
             scope = scope,
             started = SharingStarted.Eagerly,

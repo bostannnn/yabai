@@ -429,8 +429,6 @@ private class BootstrapDownloadQueueStore(
         currentItemTitle: String?,
     ) = Unit
 
-    override suspend fun clearCompletedEntries(): Int = 0
-
     override suspend fun deleteEntry(entryId: String): Int = 0
 }
 

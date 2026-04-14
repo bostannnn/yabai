@@ -95,4 +95,49 @@ class ComicsReaderStateTest {
         assertEquals(null, state.resumeSegment)
         assertEquals(null, state.resumeScrollOffsetRatio)
     }
+
+    @Test
+    fun `sync page count preserves current page and anchor when still in range`() {
+        val state = ComicsReaderState(
+            initialPage = 1,
+            pageCount = 6,
+            initialReaderMode = ComicReaderMode.Paged,
+            initialReadingDirection = ComicReadingDirection.LTR,
+            initialPageFitMode = ComicPageFitMode.FitPage,
+            initialSpreadMode = ComicSpreadMode.Double,
+            initialSplitWidePages = false,
+            initialResumeAnchorPage = 1,
+            initialResumeSegment = null,
+            initialResumeScrollOffsetRatio = null,
+        )
+
+        state.onPageSettled(pageIndex = 2, resumeAnchorPage = 2)
+        state.syncPageCount(4)
+
+        assertEquals(2, state.currentPage)
+        assertEquals(2, state.resumeAnchorPage)
+        assertEquals("3 / 4", state.progressLabel)
+    }
+
+    @Test
+    fun `sync page count clamps current page and anchor when count shrinks`() {
+        val state = ComicsReaderState(
+            initialPage = 4,
+            pageCount = 6,
+            initialReaderMode = ComicReaderMode.Paged,
+            initialReadingDirection = ComicReadingDirection.LTR,
+            initialPageFitMode = ComicPageFitMode.FitPage,
+            initialSpreadMode = ComicSpreadMode.Double,
+            initialSplitWidePages = false,
+            initialResumeAnchorPage = 4,
+            initialResumeSegment = null,
+            initialResumeScrollOffsetRatio = null,
+        )
+
+        state.syncPageCount(3)
+
+        assertEquals(2, state.currentPage)
+        assertEquals(2, state.resumeAnchorPage)
+        assertEquals("3 / 3", state.progressLabel)
+    }
 }

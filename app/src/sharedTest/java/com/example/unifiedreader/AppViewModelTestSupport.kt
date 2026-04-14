@@ -392,14 +392,6 @@ class TestDownloadQueueStore(
         }
     }
 
-    override suspend fun clearCompletedEntries(): Int {
-        val previousSize = entriesFlow.value.size
-        entriesFlow.value = entriesFlow.value.filterNot { entry ->
-            entry.status == DownloadEntryStatus.Completed || entry.status == DownloadEntryStatus.Canceled
-        }
-        return previousSize - entriesFlow.value.size
-    }
-
     override suspend fun deleteEntry(entryId: String): Int {
         val previousSize = entriesFlow.value.size
         entriesFlow.value = entriesFlow.value.filterNot { it.id == entryId }
@@ -960,6 +952,7 @@ class FakeComicReadingDirectionPreferencesStore : ComicReadingDirectionPreferenc
     private val mutablePreferencesFlow = MutableStateFlow(
         ComicReadingDirectionPreferences(),
     )
+    override val isHydratedFlow: StateFlow<Boolean> = MutableStateFlow(true)
     override val preferencesFlow: StateFlow<ComicReadingDirectionPreferences> = mutablePreferencesFlow
 
     override suspend fun setLibraryDirection(
@@ -989,6 +982,7 @@ class FakeComicReaderModePreferencesStore : ComicReaderModePreferencesStore {
     private val mutablePreferencesFlow = MutableStateFlow(
         ComicReaderModePreferences(),
     )
+    override val isHydratedFlow: StateFlow<Boolean> = MutableStateFlow(true)
     override val preferencesFlow: StateFlow<ComicReaderModePreferences> = mutablePreferencesFlow
 
     override suspend fun setLibraryMode(

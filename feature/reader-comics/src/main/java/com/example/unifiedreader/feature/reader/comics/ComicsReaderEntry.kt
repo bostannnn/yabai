@@ -39,7 +39,10 @@ fun ComicsReaderScreen(
     onBack: () -> Unit,
     onNextItemRequested: () -> Unit = {},
 ) {
-    val pages = remember(item.id, pageSource) { pageSource.getPages(item) }
+    val pages = rememberObservedComicPages(
+        item = item,
+        pageSource = pageSource,
+    )
     val progressHydrated by progressStore.isHydratedFlow.collectAsState()
     val preferencesHydrated by preferencesStore.isHydratedFlow.collectAsState()
     val savedPagesByItemId by progressStore.savedPagesFlow.collectAsState()

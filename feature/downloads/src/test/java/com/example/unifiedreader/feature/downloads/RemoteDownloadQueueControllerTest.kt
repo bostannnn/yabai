@@ -72,6 +72,39 @@ class RemoteDownloadQueueControllerTest {
     }
 
     @Test
+    fun `enqueue rejects overlapping canceling entries`() = runTest {
+        val store = InMemoryDownloadQueueStore(
+            initialEntries = listOf(
+                DownloadEntry(
+                    id = "entry-1",
+                    selectedItemId = "book-1",
+                    selectedItemTitle = "book-1",
+                    sourceType = SourceType.KAVITA,
+                    actionItems = listOf(testQueuedItem("book-1")),
+                    trackedItemIds = setOf("book-1"),
+                    completedItemIds = emptySet(),
+                    status = DownloadEntryStatus.Canceling,
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L,
+                ),
+            ),
+        )
+        val controller = RemoteDownloadQueueController(
+            store = store,
+            scheduler = RecordingDownloadWorkScheduler(),
+            remoteDownloadDataSources = listOf(TestRemoteItemDownloadDataSource()),
+        )
+
+        val result = controller.enqueue(
+            item = testReadableItem("book-1"),
+            items = listOf(testReadableItem("book-1")),
+        )
+
+        assertTrue(result.isError)
+        assertEquals(1, store.entries.size)
+    }
+
+    @Test
     fun `enqueue uses atomic overlap guard in store`() = runTest {
         val store = InMemoryDownloadQueueStore()
         val controller = RemoteDownloadQueueController(
@@ -271,6 +304,51 @@ class RemoteDownloadQueueControllerTest {
                     trackedItemIds = setOf("book-1"),
                     completedItemIds = emptySet(),
                     status = DownloadEntryStatus.Running,
+                    createdAtEpochMillis = 2L,
+                    updatedAtEpochMillis = 2L,
+                ),
+            ),
+        )
+        val scheduler = RecordingDownloadWorkScheduler()
+        val controller = RemoteDownloadQueueController(
+            store = store,
+            scheduler = scheduler,
+            remoteDownloadDataSources = listOf(TestRemoteItemDownloadDataSource()),
+        )
+
+        controller.retry("failed-entry")
+
+        val failedEntry = checkNotNull(store.entries.firstOrNull { it.id == "failed-entry" })
+        assertEquals(DownloadEntryStatus.Failed, failedEntry.status)
+        assertTrue(scheduler.scheduledEntryIds.isEmpty())
+    }
+
+    @Test
+    fun `retry does not requeue overlapping entry while another canceling entry exists`() = runTest {
+        val store = InMemoryDownloadQueueStore(
+            initialEntries = listOf(
+                DownloadEntry(
+                    id = "failed-entry",
+                    selectedItemId = "book-1",
+                    selectedItemTitle = "book-1",
+                    sourceType = SourceType.KAVITA,
+                    actionItems = listOf(testQueuedItem("book-1")),
+                    trackedItemIds = setOf("book-1"),
+                    completedItemIds = emptySet(),
+                    status = DownloadEntryStatus.Failed,
+                    errorMessage = "boom",
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L,
+                ),
+                DownloadEntry(
+                    id = "canceling-entry",
+                    selectedItemId = "book-1",
+                    selectedItemTitle = "book-1",
+                    sourceType = SourceType.KAVITA,
+                    actionItems = listOf(testQueuedItem("book-1")),
+                    trackedItemIds = setOf("book-1"),
+                    completedItemIds = emptySet(),
+                    status = DownloadEntryStatus.Canceling,
                     createdAtEpochMillis = 2L,
                     updatedAtEpochMillis = 2L,
                 ),
@@ -661,11 +739,52 @@ class RemoteDownloadWorkerRunnerTest {
             ),
         )
 
-        val removedCount = store.clearCompletedEntries()
+        val controller = RemoteDownloadQueueController(
+            store = store,
+            scheduler = RecordingDownloadWorkScheduler(),
+            remoteDownloadDataSources = listOf(TestRemoteItemDownloadDataSource()),
+        )
+
+        val removedCount = controller.clearCompleted()
 
         assertEquals(1, removedCount)
         assertEquals(listOf("canceling-entry"), store.entries.map(DownloadEntry::id))
         assertEquals(DownloadEntryStatus.Canceling, store.entries.single().status)
+    }
+
+    @Test
+    fun `clear completed deletes files for partially completed canceled entries`() = runTest {
+        val dataSource = TestRemoteItemDownloadDataSource(
+            storedItemIds = mutableSetOf("book-1"),
+        )
+        val store = InMemoryDownloadQueueStore(
+            initialEntries = listOf(
+                DownloadEntry(
+                    id = "entry-1",
+                    selectedItemId = "book-1",
+                    selectedItemTitle = "book-1",
+                    sourceType = SourceType.KAVITA,
+                    actionItems = listOf(testQueuedItem("book-1"), testQueuedItem("book-2")),
+                    trackedItemIds = setOf("book-1", "book-2"),
+                    completedItemIds = setOf("book-1"),
+                    status = DownloadEntryStatus.Canceled,
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 2L,
+                    completedAtEpochMillis = 2L,
+                ),
+            ),
+        )
+        val controller = RemoteDownloadQueueController(
+            store = store,
+            scheduler = RecordingDownloadWorkScheduler(),
+            remoteDownloadDataSources = listOf(dataSource),
+        )
+
+        val removedCount = controller.clearCompleted()
+
+        assertEquals(1, removedCount)
+        assertTrue(store.entries.isEmpty())
+        assertNull(dataSource.storedDocumentUri(testReadableItem("book-1")))
     }
 
     @Test
@@ -731,7 +850,8 @@ private class InMemoryDownloadQueueStore(
     ): Boolean = enqueueMutex.withLock {
         val hasOverlap = state.value.any { existingEntry ->
             (existingEntry.status == DownloadEntryStatus.Queued ||
-                existingEntry.status == DownloadEntryStatus.Running) &&
+                existingEntry.status == DownloadEntryStatus.Running ||
+                existingEntry.status == DownloadEntryStatus.Canceling) &&
                 existingEntry.trackedItemIds.any(entry.trackedItemIds::contains)
         }
         if (hasOverlap) {
@@ -747,7 +867,8 @@ private class InMemoryDownloadQueueStore(
         val hasOverlap = state.value.any { existingEntry ->
             existingEntry.id != entryId &&
                 (existingEntry.status == DownloadEntryStatus.Queued ||
-                    existingEntry.status == DownloadEntryStatus.Running) &&
+                    existingEntry.status == DownloadEntryStatus.Running ||
+                    existingEntry.status == DownloadEntryStatus.Canceling) &&
                 existingEntry.trackedItemIds.any(entry.trackedItemIds::contains)
         }
         if (hasOverlap) {
@@ -828,14 +949,6 @@ private class InMemoryDownloadQueueStore(
                 currentItemTitle = currentItemTitle,
             )
         }
-    }
-
-    override suspend fun clearCompletedEntries(): Int {
-        val previousSize = state.value.size
-        state.value = state.value.filterNot { entry ->
-            entry.status == DownloadEntryStatus.Completed || entry.status == DownloadEntryStatus.Canceled
-        }
-        return previousSize - state.value.size
     }
 
     override suspend fun deleteEntry(entryId: String): Int {

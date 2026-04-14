@@ -47,8 +47,6 @@ interface DownloadQueueStore {
         currentItemTitle: String?,
     )
 
-    suspend fun clearCompletedEntries(): Int
-
     suspend fun deleteEntry(entryId: String): Int
 }
 
@@ -185,11 +183,6 @@ class RoomDownloadQueueStore(
         }
     }
 
-    override suspend fun clearCompletedEntries(): Int = withContext(Dispatchers.IO) {
-        downloadQueueDao.deleteByStatus(DownloadEntryStatus.Completed.name) +
-            downloadQueueDao.deleteByStatus(DownloadEntryStatus.Canceled.name)
-    }
-
     override suspend fun deleteEntry(
         entryId: String,
     ): Int = withContext(Dispatchers.IO) {
@@ -202,7 +195,15 @@ private fun List<DownloadEntry>.hasActiveTrackedItemOverlap(
     ignoredEntryId: String?,
 ): Boolean = any { existingEntry ->
     existingEntry.id != ignoredEntryId &&
-        (existingEntry.status == DownloadEntryStatus.Queued ||
-            existingEntry.status == DownloadEntryStatus.Running) &&
+        existingEntry.status.blocksTrackedItemOverlap() &&
         existingEntry.trackedItemIds.any(trackedItemIds::contains)
+}
+
+private fun DownloadEntryStatus.blocksTrackedItemOverlap(): Boolean = when (this) {
+    DownloadEntryStatus.Queued,
+    DownloadEntryStatus.Running,
+    DownloadEntryStatus.Canceling -> true
+    DownloadEntryStatus.Completed,
+    DownloadEntryStatus.Canceled,
+    DownloadEntryStatus.Failed -> false
 }

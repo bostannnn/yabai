@@ -31,7 +31,17 @@ class ComicsReaderSessionAdapter(
     private val readerModePreferencesStore: ComicReaderModePreferencesStore,
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) : ComicReaderProgressStore, ComicReaderPreferencesStore {
-    override val isHydratedFlow: StateFlow<Boolean> = sessionStore.isHydratedFlow
+    override val isHydratedFlow: StateFlow<Boolean> = combine(
+        sessionStore.isHydratedFlow,
+        directionPreferencesStore.isHydratedFlow,
+        readerModePreferencesStore.isHydratedFlow,
+    ) { sessionHydrated, directionPreferencesHydrated, readerModePreferencesHydrated ->
+        sessionHydrated && directionPreferencesHydrated && readerModePreferencesHydrated
+    }.stateIn(
+        scope = scope,
+        started = SharingStarted.Eagerly,
+        initialValue = false,
+    )
 
     override val savedPagesFlow: StateFlow<Map<String, Int>> = sessionStore.progressByItemIdFlow
         .map { progressByItemId ->

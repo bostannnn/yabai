@@ -1,6 +1,5 @@
 package com.example.unifiedreader.feature.reader.comics
 
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -8,13 +7,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.graphics.ImageBitmap
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 
 data class ComicPageSpec(
@@ -167,6 +166,10 @@ interface ComicReaderPreferencesStore {
 interface ComicPageSource {
     fun getPages(item: ReadableItem): List<ComicPageSpec>
 
+    fun observePages(
+        item: ReadableItem,
+    ): Flow<List<ComicPageSpec>> = flowOf(getPages(item))
+
     suspend fun loadPageMetadata(
         item: ReadableItem,
         page: ComicPageSpec,
@@ -201,7 +204,7 @@ interface ComicPageSource {
 @Stable
 class ComicsReaderState internal constructor(
     initialPage: Int,
-    private val pageCount: Int,
+    pageCount: Int,
     initialReaderMode: ComicReaderMode,
     initialReadingDirection: ComicReadingDirection,
     initialPageFitMode: ComicPageFitMode,
@@ -211,6 +214,8 @@ class ComicsReaderState internal constructor(
     initialResumeSegment: ComicPageSegment?,
     initialResumeScrollOffsetRatio: Float?,
 ) {
+    private var pageCount by mutableIntStateOf(pageCount)
+
     var currentPage by mutableIntStateOf(initialPage)
         private set
 
@@ -407,6 +412,14 @@ class ComicsReaderState internal constructor(
         return true
     }
 
+    internal fun syncPageCount(pageCount: Int) {
+        val safePageCount = pageCount.coerceAtLeast(1)
+        if (this.pageCount == safePageCount) return
+        this.pageCount = safePageCount
+        currentPage = currentPage.coerceIn(0, safePageCount - 1)
+        resumeAnchorPage = resumeAnchorPage.coerceIn(0, safePageCount - 1)
+    }
+
     companion object {
         fun saver(pageCount: Int): Saver<ComicsReaderState, *> = listSaver(
             save = {
@@ -465,42 +478,6 @@ class ComicsReaderState internal constructor(
                     state.hasRestoredResumeScrollOffsetRatio = (restored.getOrNull(18) as? Int) == 1
                 }
             },
-        )
-    }
-}
-
-@Composable
-fun rememberComicsReaderState(
-    itemId: String,
-    pageCount: Int,
-    initialPage: Int = 0,
-    initialReaderMode: ComicReaderMode = ComicReaderMode.Paged,
-    initialReadingDirection: ComicReadingDirection = ComicReadingDirection.LTR,
-    initialPageFitMode: ComicPageFitMode = ComicPageFitMode.FitPage,
-    initialSpreadMode: ComicSpreadMode = ComicSpreadMode.Auto,
-    initialSplitWidePages: Boolean = false,
-    initialResumeAnchorPage: Int? = null,
-    initialResumeSegment: ComicPageSegment? = null,
-    initialResumeScrollOffsetRatio: Float? = null,
-): ComicsReaderState {
-    val safePageCount = pageCount.coerceAtLeast(1)
-    val safeInitialPage = initialPage.coerceIn(0, safePageCount - 1)
-    return rememberSaveable(
-        itemId,
-        safePageCount,
-        saver = ComicsReaderState.saver(pageCount = safePageCount),
-    ) {
-        ComicsReaderState(
-            initialPage = safeInitialPage,
-            pageCount = safePageCount,
-            initialReaderMode = initialReaderMode,
-            initialReadingDirection = initialReadingDirection,
-            initialPageFitMode = initialPageFitMode,
-            initialSpreadMode = initialSpreadMode,
-            initialSplitWidePages = initialSplitWidePages,
-            initialResumeAnchorPage = initialResumeAnchorPage,
-            initialResumeSegment = initialResumeSegment,
-            initialResumeScrollOffsetRatio = initialResumeScrollOffsetRatio,
         )
     }
 }

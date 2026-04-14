@@ -8,6 +8,10 @@ import com.example.unifiedreader.feature.reader.comics.ComicPageMetadata
 import com.example.unifiedreader.feature.reader.comics.ComicPagePrefetchWindow
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.onStart
 
 interface ComicPageSourceCacheController {
     fun clearSourcePageCache(
@@ -20,10 +24,19 @@ class CompositeComicPageSource(
     private val downloadedRemoteComicPageSource: DownloadedRemoteComicPageSource,
     private val kavitaPageSource: KavitaPageSource,
     private val stumpPageSource: StumpPageSource,
+    private val cacheInvalidationDispatcher: DownloadedRemoteComicCacheInvalidationDispatcher,
 ) : ComicPageSource, ComicPageSourceCacheController {
     override fun getPages(
         item: ReadableItem,
     ): List<ComicPageSpec> = pageSourceFor(item)?.getPages(item).orEmpty()
+
+    override fun observePages(
+        item: ReadableItem,
+    ): Flow<List<ComicPageSpec>> = cacheInvalidationDispatcher.observeInvalidations(item.id)
+        .onStart { emit(Unit) }
+        .flatMapLatest {
+            pageSourceFor(item)?.observePages(item) ?: flowOf(emptyList())
+        }
 
     override suspend fun loadPageMetadata(
         item: ReadableItem,

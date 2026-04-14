@@ -545,11 +545,13 @@ object AppModule {
         downloadedRemoteComicPageSource: DownloadedRemoteComicPageSource,
         kavitaPageSource: KavitaPageSource,
         stumpPageSource: StumpPageSource,
+        cacheInvalidationDispatcher: DownloadedRemoteComicCacheInvalidationDispatcher,
     ): CompositeComicPageSource = CompositeComicPageSource(
         localComicPageSource = localComicPageSource,
         downloadedRemoteComicPageSource = downloadedRemoteComicPageSource,
         kavitaPageSource = kavitaPageSource,
         stumpPageSource = stumpPageSource,
+        cacheInvalidationDispatcher = cacheInvalidationDispatcher,
     )
 
     @Provides

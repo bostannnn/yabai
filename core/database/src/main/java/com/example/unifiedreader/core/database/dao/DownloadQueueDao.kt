@@ -84,9 +84,6 @@ abstract class DownloadQueueDao {
         updatedAtEpochMillis: Long,
     ): Int
 
-    @Query("DELETE FROM download_queue_entries WHERE status = :status")
-    abstract fun deleteByStatus(status: String): Int
-
     @Query("DELETE FROM download_queue_entries WHERE id = :entryId")
     abstract fun deleteById(entryId: String): Int
 }

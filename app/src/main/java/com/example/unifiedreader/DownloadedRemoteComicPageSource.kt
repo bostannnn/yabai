@@ -16,8 +16,9 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import javax.inject.Inject
 import kotlin.jvm.JvmSuppressWildcards
 
@@ -60,6 +61,17 @@ class DownloadedRemoteComicPageSource @Inject constructor(
             }
         }
     }
+
+    override fun observePages(
+        item: ReadableItem,
+    ): Flow<List<ComicPageSpec>> = flow {
+        val initialPages = getPages(item)
+        emit(initialPages)
+        val resolvedPages = resolvedArchivePagesFor(item) ?: return@flow
+        if (resolvedPages != initialPages) {
+            emit(resolvedPages)
+        }
+    }.flowOn(Dispatchers.IO)
 
     override suspend fun loadPageMetadata(
         item: ReadableItem,
@@ -130,15 +142,26 @@ class DownloadedRemoteComicPageSource @Inject constructor(
     private suspend fun localRecordFor(
         item: ReadableItem,
     ): LocalDocumentRecord? {
+        val entryNames = archiveEntryNamesFor(item) ?: return null
+        return localRecordForCachedEntries(item = item, entryNames = entryNames)
+    }
+
+    private suspend fun resolvedArchivePagesFor(
+        item: ReadableItem,
+    ): List<ComicPageSpec>? = archiveEntryNamesFor(item)
+        ?.toComicPageSpecs(item)
+
+    private suspend fun archiveEntryNamesFor(
+        item: ReadableItem,
+    ): List<String>? {
         val uri = storedDocumentUriFor(item) ?: return null
         val codec = comicArchiveCodecs.firstOrNull { codec -> codec.format == item.format } ?: return null
-        val entryNames = entryCacheCoordinator.entryNamesFor(item.id) {
+        return entryCacheCoordinator.entryNamesFor(item.id) {
             codec.listImageEntries(
                 context = context,
                 uri = uri,
             )
         }
-        return localRecordForCachedEntries(item = item, entryNames = entryNames)
     }
 
     private fun localRecordForCachedEntries(
