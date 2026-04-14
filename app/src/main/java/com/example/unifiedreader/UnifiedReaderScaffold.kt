@@ -348,13 +348,17 @@ private fun SettingsRoute(
                 )
             },
             onLibraryFilterPanelsChanged = onLibraryFilterPanelsChanged,
-            extraSectionContent = {
-                SourceNavigationSettingsSection(
-                    sourceOrder = uiState.sourceOrder,
-                    onMoveSourceUp = onMoveSourceUp,
-                    onMoveSourceDown = onMoveSourceDown,
-                )
-            },
+            supplementarySection = com.example.unifiedreader.feature.settings.SettingsSupplementarySection(
+                id = "navigation",
+                title = "Navigation",
+                content = {
+                    SourceNavigationSettingsSection(
+                        sourceOrder = uiState.sourceOrder,
+                        onMoveSourceUp = onMoveSourceUp,
+                        onMoveSourceDown = onMoveSourceDown,
+                    )
+                },
+            ),
             onLibraryDirectionSelected = onLibraryDirectionSelected,
             onLibraryReaderModeSelected = onLibraryReaderModeSelected,
             onKavitaDisplayNameChanged = onKavitaDisplayNameChanged,

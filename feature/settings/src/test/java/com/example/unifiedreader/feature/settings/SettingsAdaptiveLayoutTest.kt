@@ -38,4 +38,31 @@ class SettingsAdaptiveLayoutTest {
         assertEquals(855, singleColumnWidth)
         assertEquals(856, twoColumnWidth)
     }
+
+    @Test
+    fun `list detail only enables once sidebar gap and detail pane all fit`() {
+        val threshold =
+            SettingsListDetailSidebarWidthDp +
+                SettingsListDetailPaneSpacingDp +
+                SettingsListDetailMinDetailWidthDp
+
+        assertFalse(shouldUseSettingsListDetail(threshold - 1))
+        assertTrue(shouldUseSettingsListDetail(threshold))
+    }
+
+    @Test
+    fun `section descriptors include supplementary section only when provided`() {
+        val withoutSupplementary = buildSettingsSectionDescriptors(supplementarySection = null)
+        val withSupplementary = buildSettingsSectionDescriptors(
+            supplementarySection = SettingsSupplementarySection(
+                id = "navigation",
+                title = "Navigation",
+                content = {},
+            ),
+        )
+
+        assertFalse(withoutSupplementary.any { section -> section.id == SettingsSectionId.Supplementary })
+        assertTrue(withSupplementary.any { section -> section.id == SettingsSectionId.Supplementary })
+        assertEquals(SettingsSectionId.Theme, withSupplementary.first().id)
+    }
 }

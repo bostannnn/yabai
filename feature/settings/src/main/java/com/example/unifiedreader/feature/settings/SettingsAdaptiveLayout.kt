@@ -8,6 +8,9 @@ internal const val SettingsScreenHorizontalPaddingDp = 20
 internal const val SettingsOverviewColumnSpacingDp = 16
 internal const val SettingsOverviewMinColumnWidthDp = 420
 internal const val SettingsFilterSourceMinColumnWidthDp = 300
+internal const val SettingsListDetailSidebarWidthDp = 248
+internal const val SettingsListDetailPaneSpacingDp = 20
+internal const val SettingsListDetailMinDetailWidthDp = 560
 internal const val SettingsServerFormTwoColumnBreakpointDp = 560
 internal const val SettingsInlineChoiceControlsBreakpointDp = 420
 
@@ -31,4 +34,11 @@ internal fun resolveSettingsAdaptiveLayout(widthDp: Int): SettingsAdaptiveLayout
 internal fun resolveSettingsOverviewContentWidth(containerWidthDp: Int): Int {
     val boundedWidth = minOf(containerWidthDp, SettingsMaxContentWidth.value.toInt())
     return max(0, boundedWidth - (SettingsScreenHorizontalPaddingDp * 2))
+}
+
+internal fun shouldUseSettingsListDetail(contentWidthDp: Int): Boolean {
+    return contentWidthDp >=
+        SettingsListDetailSidebarWidthDp +
+        SettingsListDetailPaneSpacingDp +
+        SettingsListDetailMinDetailWidthDp
 }
