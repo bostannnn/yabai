@@ -49,6 +49,7 @@ internal fun ShelfPreviewCard(
     trailingText: String,
     coverImageUrlProvider: (ReadableItem) -> String?,
     onCoverVisible: (ReadableItem) -> Unit,
+    coverLoadingEnabled: Boolean = true,
     onClick: () -> Unit,
     progressFraction: Float? = null,
 ) {
@@ -69,6 +70,7 @@ internal fun ShelfPreviewCard(
                     item = item,
                     coverImageUrlProvider = coverImageUrlProvider,
                     onCoverVisible = onCoverVisible,
+                    coverLoadingEnabled = coverLoadingEnabled,
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(CoverAspectRatio),
@@ -122,6 +124,7 @@ internal fun ShelfListRow(
     trailingText: String,
     coverImageUrlProvider: (ReadableItem) -> String?,
     onCoverVisible: (ReadableItem) -> Unit,
+    coverLoadingEnabled: Boolean = true,
     onClick: () -> Unit,
     progressFraction: Float? = null,
 ) {
@@ -134,12 +137,15 @@ internal fun ShelfListRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box {
+        Box(
+            modifier = Modifier.size(width = 42.dp, height = 58.dp),
+        ) {
             ShelfCover(
                 item = item,
                 coverImageUrlProvider = coverImageUrlProvider,
                 onCoverVisible = onCoverVisible,
-                modifier = Modifier.size(width = 42.dp, height = 58.dp),
+                coverLoadingEnabled = coverLoadingEnabled,
+                modifier = Modifier.fillMaxSize(),
             )
             progressFraction?.let { fraction ->
                 LinearProgressIndicator(
@@ -189,12 +195,19 @@ internal fun ShelfCover(
     item: ReadableItem,
     coverImageUrlProvider: (ReadableItem) -> String?,
     onCoverVisible: (ReadableItem) -> Unit,
+    coverLoadingEnabled: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
-    LaunchedEffect(item.id) {
-        onCoverVisible(item)
+    LaunchedEffect(item.id, coverLoadingEnabled) {
+        if (coverLoadingEnabled) {
+            onCoverVisible(item)
+        }
     }
-    val imageUrl = coverImageUrlProvider(item)
+    val imageUrl = if (coverLoadingEnabled) {
+        coverImageUrlProvider(item)
+    } else {
+        null
+    }
     if (imageUrl.isNullOrBlank()) {
         PlaceholderCover(
             title = item.title,
@@ -218,7 +231,10 @@ internal fun ShelfCover(
             contentScale = ContentScale.Crop,
         )
     } else {
-        Box(modifier = coverModifier.onSizeChanged { targetSize = it })
+        PlaceholderCover(
+            title = item.title,
+            modifier = coverModifier.onSizeChanged { targetSize = it },
+        )
     }
 }
 

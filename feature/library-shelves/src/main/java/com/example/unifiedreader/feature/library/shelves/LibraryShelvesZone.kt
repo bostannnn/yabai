@@ -23,10 +23,10 @@ fun LibraryShelvesZone(
     modifier: Modifier = Modifier,
 ) {
     if (!state.hasContent) return
-    if (!rememberShelvesRenderReady(hasContent = state.hasContent)) return
 
     var activeSheet by remember(state) { mutableStateOf<LibraryShelfSheetState?>(null) }
     val visibleShelves = visibleShelfCount(state)
+    val coverLoadingReady = rememberShelvesCoverLoadingReady(hasContent = state.hasContent)
 
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         if (maxWidth >= ShelvesRowBreakpoint && visibleShelves > 1) {
@@ -40,6 +40,7 @@ fun LibraryShelvesZone(
                     onCoverVisible = onCoverVisible,
                     onItemSelected = onItemSelected,
                     onOpenSheet = { activeSheet = it },
+                    coverLoadingEnabled = coverLoadingReady,
                     itemModifier = Modifier.weight(1f),
                 )
             }
@@ -54,6 +55,7 @@ fun LibraryShelvesZone(
                     onCoverVisible = onCoverVisible,
                     onItemSelected = onItemSelected,
                     onOpenSheet = { activeSheet = it },
+                    coverLoadingEnabled = coverLoadingReady,
                     itemModifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -81,6 +83,7 @@ private fun ShelfSections(
     onCoverVisible: (ReadableItem) -> Unit,
     onItemSelected: (ReadableItem) -> Unit,
     onOpenSheet: (LibraryShelfSheetState) -> Unit,
+    coverLoadingEnabled: Boolean,
     itemModifier: Modifier,
 ) {
     if (state.continueReading.isNotEmpty()) {
@@ -88,6 +91,7 @@ private fun ShelfSections(
             items = state.continueReading,
             coverImageUrlProvider = coverImageUrlProvider,
             onCoverVisible = onCoverVisible,
+            coverLoadingEnabled = coverLoadingEnabled,
             onItemSelected = onItemSelected,
             onSeeAll = {
                 onOpenSheet(LibraryShelfSheetState.ContinueReading(state.continueReading))
@@ -100,6 +104,7 @@ private fun ShelfSections(
             items = state.nextInSeries,
             coverImageUrlProvider = coverImageUrlProvider,
             onCoverVisible = onCoverVisible,
+            coverLoadingEnabled = coverLoadingEnabled,
             onItemSelected = onItemSelected,
             onSeeAll = {
                 onOpenSheet(LibraryShelfSheetState.NextInSeries(state.nextInSeries))
@@ -112,6 +117,7 @@ private fun ShelfSections(
             items = state.recentlyFinished,
             coverImageUrlProvider = coverImageUrlProvider,
             onCoverVisible = onCoverVisible,
+            coverLoadingEnabled = coverLoadingEnabled,
             onItemSelected = onItemSelected,
             onSeeAll = {
                 onOpenSheet(LibraryShelfSheetState.RecentlyFinished(state.recentlyFinished))

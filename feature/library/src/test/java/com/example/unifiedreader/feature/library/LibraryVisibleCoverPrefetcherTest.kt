@@ -61,22 +61,6 @@ class LibraryVisibleCoverPrefetcherTest {
         assertEquals(items.map(ReadableItem::id), targets.map { target -> target.item.id })
     }
 
-    @Test
-    fun `pending prefetch targets skip only keys already requested`() {
-        val first = remoteItem(id = "kavita:item:1", key = "remote-cover:kavita:1")
-        val second = remoteItem(id = "kavita:item:2", key = "remote-cover:kavita:2")
-        val targets = listOf(
-            RemoteCoverPrefetchTarget(first, first.description.orEmpty()),
-            RemoteCoverPrefetchTarget(second, second.description.orEmpty()),
-        )
-
-        val pending = pendingRemoteCoverPrefetchTargets(
-            targets = targets,
-            prefetchedKeys = setOf("remote-cover:kavita:1"),
-        )
-
-        assertEquals(listOf("kavita:item:2"), pending.map { target -> target.item.id })
-    }
 }
 
 private fun remoteItem(

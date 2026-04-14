@@ -27,6 +27,7 @@ internal fun ContinueReadingShelfSection(
     items: List<ContinueReadingShelfItem>,
     coverImageUrlProvider: (ReadableItem) -> String?,
     onCoverVisible: (ReadableItem) -> Unit,
+    coverLoadingEnabled: Boolean = true,
     onItemSelected: (ReadableItem) -> Unit,
     onSeeAll: () -> Unit,
     modifier: Modifier = Modifier,
@@ -44,6 +45,7 @@ internal fun ContinueReadingShelfSection(
                     shelfItem = shelfItem,
                     coverImageUrlProvider = coverImageUrlProvider,
                     onCoverVisible = onCoverVisible,
+                    coverLoadingEnabled = coverLoadingEnabled,
                     onClick = { onItemSelected(shelfItem.item) },
                 )
             }
@@ -56,6 +58,7 @@ internal fun NextInSeriesShelfSection(
     items: List<NextInSeriesShelfItem>,
     coverImageUrlProvider: (ReadableItem) -> String?,
     onCoverVisible: (ReadableItem) -> Unit,
+    coverLoadingEnabled: Boolean = true,
     onItemSelected: (ReadableItem) -> Unit,
     onSeeAll: () -> Unit,
     modifier: Modifier = Modifier,
@@ -77,6 +80,7 @@ internal fun NextInSeriesShelfSection(
                     trailingText = "After ${shelfItem.currentItem.librarySecondaryText() ?: shelfItem.currentItem.title}",
                     coverImageUrlProvider = coverImageUrlProvider,
                     onCoverVisible = onCoverVisible,
+                    coverLoadingEnabled = coverLoadingEnabled,
                     onClick = { onItemSelected(shelfItem.item) },
                 )
             }
@@ -89,6 +93,7 @@ internal fun RecentlyFinishedShelfSection(
     items: List<RecentlyFinishedShelfItem>,
     coverImageUrlProvider: (ReadableItem) -> String?,
     onCoverVisible: (ReadableItem) -> Unit,
+    coverLoadingEnabled: Boolean = true,
     onItemSelected: (ReadableItem) -> Unit,
     onSeeAll: () -> Unit,
     modifier: Modifier = Modifier,
@@ -115,6 +120,7 @@ internal fun RecentlyFinishedShelfSection(
                     ).toString(),
                     coverImageUrlProvider = coverImageUrlProvider,
                     onCoverVisible = onCoverVisible,
+                    coverLoadingEnabled = coverLoadingEnabled,
                     onClick = { onItemSelected(shelfItem.item) },
                 )
             }
@@ -176,6 +182,7 @@ private fun ContinueReadingCarouselCard(
     shelfItem: ContinueReadingShelfItem,
     coverImageUrlProvider: (ReadableItem) -> String?,
     onCoverVisible: (ReadableItem) -> Unit,
+    coverLoadingEnabled: Boolean,
     onClick: () -> Unit,
 ) {
     ShelfPreviewCard(
@@ -186,6 +193,7 @@ private fun ContinueReadingCarouselCard(
         trailingText = shelfItem.progress.detailLabel,
         coverImageUrlProvider = coverImageUrlProvider,
         onCoverVisible = onCoverVisible,
+        coverLoadingEnabled = coverLoadingEnabled,
         onClick = onClick,
         progressFraction = shelfItem.progress.fraction,
     )

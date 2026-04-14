@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.library
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,6 +12,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun GridCoverCard(
     item: ReadableItem,
@@ -18,6 +20,7 @@ internal fun GridCoverCard(
     isDownloaded: Boolean,
     coverImageUrlProvider: (ReadableItem) -> String?,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
 ) {
     val showCoverProgress = progress?.shouldShowCoverProgress == true
 
@@ -25,7 +28,10 @@ internal fun GridCoverCard(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("library-grid-card-${item.id}")
-            .clickable(onClick = onClick),
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick,
+            ),
     ) {
         LibraryCover(
             item = item,

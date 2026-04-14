@@ -10,7 +10,7 @@ import androidx.compose.runtime.withFrameNanos
 import kotlinx.coroutines.delay
 
 @Composable
-internal fun rememberShelvesRenderReady(
+internal fun rememberShelvesCoverLoadingReady(
     hasContent: Boolean,
 ): Boolean {
     var ready by remember(hasContent) { mutableStateOf(!hasContent) }
@@ -21,11 +21,11 @@ internal fun rememberShelvesRenderReady(
             return@LaunchedEffect
         }
         withFrameNanos { }
-        delay(SHELVES_RENDER_DELAY_MILLIS)
+        delay(SHELVES_COVER_LOADING_DELAY_MILLIS)
         ready = true
     }
 
     return ready
 }
 
-private const val SHELVES_RENDER_DELAY_MILLIS = 250L
+private const val SHELVES_COVER_LOADING_DELAY_MILLIS = 250L

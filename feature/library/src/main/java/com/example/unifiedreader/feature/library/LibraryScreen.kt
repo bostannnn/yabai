@@ -32,7 +32,10 @@ import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.libraryDisplayLabel
+import com.example.unifiedreader.feature.library.menu.buildLibraryItemMenuActions
+import com.example.unifiedreader.feature.library.menu.buildReaderModeMenuState
 import com.example.unifiedreader.feature.library.menu.buildReadStatusMenuActionState
+import com.example.unifiedreader.feature.library.menu.buildReadingDirectionMenuState
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -77,6 +80,7 @@ fun LibraryScreen(
     onSetReadStatus: (ReadableItem, Boolean) -> Unit = { _, _ -> },
 ) {
     var deleteCandidate by remember { mutableStateOf<ReadableItem?>(null) }
+    var gridActionCandidate by remember { mutableStateOf<ReadableItem?>(null) }
     var openFilterPanel by rememberSaveable { mutableStateOf<LibraryFilterPanel?>(null) }
     var selectedSortLetter by rememberSaveable(sortMode) { mutableStateOf<String?>(null) }
     val alphabetRailVisible = showSortControl && sortMode.usesAlphabetRail && items.isNotEmpty()
@@ -221,6 +225,7 @@ fun LibraryScreen(
                             isDownloaded = item.isDownloaded(locallyAvailableItemIds),
                             coverImageUrlProvider = coverImageUrlProvider,
                             onClick = { onItemSelected(item) },
+                            onLongClick = { gridActionCandidate = item },
                         )
                     }
                 }
@@ -272,6 +277,44 @@ fun LibraryScreen(
                     Text(text = "Cancel")
                 }
             },
+        )
+    }
+
+    gridActionCandidate?.let { item ->
+        LibraryGridItemActionsSheet(
+            item = item,
+            actions = buildLibraryItemMenuActions(
+                isDownloading = item.id in downloadingItemIds,
+                readStatusActionState = buildReadStatusMenuActionState(
+                    item = item,
+                    progress = progressByItemId[item.id],
+                    onSetReadStatus = onSetReadStatus,
+                ),
+                onDeleteRequested = itemDeleteRequest(item) { deleteCandidate = it },
+                onDownloadRequested = itemDownloadRequest(
+                    item = item,
+                    downloadableItemIds = downloadableItemIds,
+                    onDownloadItem = onDownloadItem,
+                ),
+                onDeleteDownloadedRequested = itemDownloadedDeleteRequest(
+                    item = item,
+                    deletableDownloadedItemIds = deletableDownloadedItemIds,
+                    onDeleteDownloadedItem = onDeleteDownloadedItem,
+                ),
+            ),
+            readingDirectionState = buildReadingDirectionMenuState(
+                seriesReadingDirection = seriesReadingDirectionFor(item),
+                onSeriesReadingDirectionSelected = { direction ->
+                    onSeriesDirectionSelected(item, direction)
+                },
+            ),
+            readerModeState = buildReaderModeMenuState(
+                seriesReaderMode = seriesReaderModeFor(item),
+                onSeriesReaderModeSelected = { mode ->
+                    onSeriesReaderModeSelected(item, mode)
+                },
+            ),
+            onDismiss = { gridActionCandidate = null },
         )
     }
 
