@@ -37,6 +37,7 @@ fun ComicsReaderScreen(
     progressStore: ComicReaderProgressStore,
     preferencesStore: ComicReaderPreferencesStore,
     onBack: () -> Unit,
+    onNextItemRequested: () -> Unit = {},
 ) {
     val pages = remember(item.id, pageSource) { pageSource.getPages(item) }
     val progressHydrated by progressStore.isHydratedFlow.collectAsState()
@@ -104,6 +105,16 @@ fun ComicsReaderScreen(
                     segment = readerState.resumeSegment,
                     readingDirection = readerState.readingDirection,
                 ),
+            )
+        },
+    )
+    val persistCompletedProgress by rememberUpdatedState(
+        newValue = {
+            progressStore.savePage(
+                item = item,
+                pageIndex = completedComicPageIndex(pages.size),
+                pageCount = pages.size,
+                isFinished = true,
             )
         },
     )
@@ -257,6 +268,10 @@ fun ComicsReaderScreen(
                     readerState = readerState,
                     overlayVisible = overlayState.isVisible,
                     onToggleOverlay = overlayState::toggle,
+                    onNavigatePastEnd = {
+                        persistCompletedProgress()
+                        onNextItemRequested()
+                    },
                 )
 
                 ComicReaderMode.VerticalScroll -> ComicsContinuousReaderSurface(

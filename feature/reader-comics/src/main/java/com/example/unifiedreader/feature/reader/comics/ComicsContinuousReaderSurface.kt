@@ -50,7 +50,7 @@ internal fun ComicsContinuousReaderSurface(
             if (listState.isScrollInProgress) {
                 return@LaunchedEffect
             }
-            val currentPosition = listState.currentVisiblePosition()
+            val currentPosition = listState.currentVisiblePosition(pageCount = pages.size)
             if (currentPosition != null &&
                 currentPosition.pageIndex == targetIndex &&
                 abs(currentPosition.offsetRatio - targetRatio) < 0.02f
@@ -74,7 +74,7 @@ internal fun ComicsContinuousReaderSurface(
 
         LaunchedEffect(item.id, listState, pages.size) {
             var lastPrefetchedPageIndex: Int? = null
-            snapshotFlow { listState.currentVisiblePosition() }
+            snapshotFlow { listState.currentVisiblePosition(pageCount = pages.size) }
                 .filterNotNull()
                 .distinctUntilChanged { previous, next ->
                     previous.pageIndex == next.pageIndex &&
@@ -130,8 +130,14 @@ private data class ContinuousVisiblePosition(
     val offsetRatio: Float,
 )
 
-private fun androidx.compose.foundation.lazy.LazyListState.currentVisiblePosition(): ContinuousVisiblePosition? {
-    val visibleItem = layoutInfo.visibleItemsInfo
+private fun androidx.compose.foundation.lazy.LazyListState.currentVisiblePosition(
+    pageCount: Int,
+): ContinuousVisiblePosition? {
+    val visibleItems = layoutInfo.visibleItemsInfo
+        .filter { item -> item.index in 0 until pageCount }
+    val visibleItem = visibleItems
+        .lastOrNull { item -> item.index == pageCount - 1 }
+        ?: visibleItems
         .firstOrNull { it.index >= 0 }
         ?: return null
     val offsetPixels = (-visibleItem.offset).coerceAtLeast(0)

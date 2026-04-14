@@ -6,6 +6,7 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.isKavitaSeriesContainer
 import com.example.unifiedreader.core.model.isStumpSeriesContainer
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
+import com.example.unifiedreader.feature.library.LibrarySeriesContinuationResolver
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -15,6 +16,7 @@ class AppReaderCoordinator @Inject constructor(
     private val readerSessionStore: com.example.unifiedreader.feature.reader.core.ReaderSessionStore,
     private val syncItemProgressUseCase: SyncItemProgressUseCase,
     private val pendingProgressFlushCoordinator: AppPendingProgressFlushCoordinator,
+    private val seriesContinuationResolver: LibrarySeriesContinuationResolver,
 ) {
     private var readerSelectionRequestId = 0
     private val libraryScrollPositionByContext =
@@ -178,6 +180,30 @@ class AppReaderCoordinator @Inject constructor(
             )
         }
         refreshProgress()
+    }
+
+    fun onReaderNextRequested(
+        stateProvider: AppUiStateProvider,
+        updateState: AppUiStateUpdater,
+        scope: CoroutineScope,
+        refreshProgress: () -> Unit,
+        onSyncFailures: (List<SourceProgressSyncFailure>) -> Unit,
+    ) {
+        refreshProgress()
+        val state = stateProvider()
+        val currentItem = state.selectedItem ?: return
+        val nextItem = seriesContinuationResolver.nextUnreadAfter(
+            currentItem = currentItem,
+            items = state.items,
+            progressByItemId = state.progressByItemId,
+        ) ?: return
+        onItemSelected(
+            item = nextItem,
+            updateState = updateState,
+            scope = scope,
+            refreshProgress = refreshProgress,
+            onSyncFailures = onSyncFailures,
+        )
     }
 
     fun refreshProgress(

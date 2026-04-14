@@ -27,6 +27,10 @@ enum class ReaderChrome {
     Standard,
 }
 
+data class ReaderNavigationActions(
+    val onRequestNextInSeries: () -> Unit = {},
+)
+
 interface ReaderScreenFactory {
     fun supports(item: ReadableItem): Boolean
 
@@ -36,6 +40,7 @@ interface ReaderScreenFactory {
     fun Content(
         item: ReadableItem,
         onBack: () -> Unit,
+        navigationActions: ReaderNavigationActions = ReaderNavigationActions(),
     )
 }
 
@@ -44,6 +49,7 @@ fun ReaderHost(
     item: ReadableItem,
     factories: List<ReaderScreenFactory>,
     onBack: () -> Unit,
+    navigationActions: ReaderNavigationActions = ReaderNavigationActions(),
 ) {
     val factory = factories.firstOrNull { it.supports(item) }
     val chrome = factory?.chrome ?: ReaderChrome.Standard
@@ -51,7 +57,11 @@ fun ReaderHost(
 
     when {
         factory == null -> UnsupportedReader(item = item, onBack = onBack)
-        chrome == ReaderChrome.Immersive -> factory.Content(item = item, onBack = onBack)
+        chrome == ReaderChrome.Immersive -> factory.Content(
+            item = item,
+            onBack = onBack,
+            navigationActions = navigationActions,
+        )
         else -> Column(modifier = Modifier.fillMaxSize()) {
             ReaderTopBar(
                 title = item.title,
@@ -60,6 +70,7 @@ fun ReaderHost(
             factory.Content(
                 item = item,
                 onBack = onBack,
+                navigationActions = navigationActions,
             )
         }
     }

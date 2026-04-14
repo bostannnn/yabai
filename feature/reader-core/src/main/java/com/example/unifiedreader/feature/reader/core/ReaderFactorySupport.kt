@@ -19,6 +19,7 @@ fun formatReaderFactory(
         override fun Content(
             item: ReadableItem,
             onBack: () -> Unit,
+            navigationActions: ReaderNavigationActions,
         ) {
             content(item, onBack)
         }

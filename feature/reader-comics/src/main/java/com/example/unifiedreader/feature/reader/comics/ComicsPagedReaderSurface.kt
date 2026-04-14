@@ -29,6 +29,7 @@ internal fun ComicsPagedReaderSurface(
     readerState: ComicsReaderState,
     overlayVisible: Boolean,
     onToggleOverlay: () -> Unit,
+    onNavigatePastEnd: () -> Unit,
 ) {
     var pageMetadataById by remember(item.id) { mutableStateOf<Map<String, ComicPageMetadata>>(emptyMap()) }
     var spreadPlanningFailuresById by remember(item.id) { mutableStateOf<Map<String, Int>>(emptyMap()) }
@@ -131,18 +132,18 @@ internal fun ComicsPagedReaderSurface(
 
         LaunchedEffect(pagerState.settledPage, spreads, item.id) {
             val settledSpread = spreads.getOrNull(pagerState.settledPage) ?: return@LaunchedEffect
-            val settledPageIndex = when {
-                readerState.currentPage in settledSpread.pageIndexes -> readerState.currentPage
-                else -> settledSpread.resumePageIndex
-            }
+            val settledPosition = settledSpread.settledReadingPosition(
+                currentPage = readerState.currentPage,
+                pageCount = pages.size,
+            )
             readerState.onPageSettled(
-                pageIndex = settledPageIndex,
-                resumeAnchorPage = settledSpread.resumePageIndex,
-                segment = settledSpread.resumeSegment,
+                pageIndex = settledPosition.pageIndex,
+                resumeAnchorPage = settledPosition.resumeAnchorPage,
+                segment = settledPosition.segment,
             )
             pageSource.prefetchAround(
                 item = item,
-                settledPageIndex = settledPageIndex,
+                settledPageIndex = settledPosition.pageIndex,
                 pageCount = pages.size,
             )
         }
@@ -172,6 +173,8 @@ internal fun ComicsPagedReaderSurface(
                     coroutineScope.launch {
                         pagerState.animateScrollToPage(spreadIndex + 1)
                     }
+                } else {
+                    onNavigatePastEnd()
                 }
             },
         )

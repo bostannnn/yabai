@@ -868,6 +868,37 @@ class AppViewModelTest {
     }
 
     @Test
+    fun `reader next request opens next unread issue in same series`() {
+        val firstIssue = sampleItem(
+            id = "chapter-1",
+            title = "Akira 001",
+            format = FormatType.CBZ,
+        ).copy(
+            remoteId = "chapter-1",
+            remoteFileType = "series-7",
+            comicMetadata = ComicMetadata(series = "Akira", issueTitle = "Issue 1", issueNumber = "1"),
+        )
+        val secondIssue = sampleItem(
+            id = "chapter-2",
+            title = "Akira 002",
+            format = FormatType.CBZ,
+        ).copy(
+            remoteId = "chapter-2",
+            remoteFileType = "series-7",
+            comicMetadata = ComicMetadata(series = "Akira", issueTitle = "Issue 2", issueNumber = "2"),
+        )
+        val viewModel = createViewModel(
+            sampleItems = listOf(secondIssue, firstIssue),
+        )
+
+        viewModel.onItemSelected(firstIssue)
+        viewModel.onReaderNextRequested()
+
+        assertEquals(secondIssue.id, viewModel.uiState.selectedItemId)
+        assertEquals(FormatType.CBZ, viewModel.uiState.activeReader)
+    }
+
+    @Test
     fun `library scroll positions are kept per browse context when entering and leaving kavita series`() {
         val firstIssue = sampleItem(
             id = "chapter-1",

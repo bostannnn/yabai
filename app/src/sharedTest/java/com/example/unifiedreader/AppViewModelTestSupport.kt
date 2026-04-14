@@ -22,6 +22,7 @@ import com.example.unifiedreader.feature.library.LibraryBrowsePreferences
 import com.example.unifiedreader.feature.library.LibraryBrowsePreferencesStore
 import com.example.unifiedreader.feature.library.LibraryBrowseStateCoordinator
 import com.example.unifiedreader.feature.library.LibraryDerivedStateComputer
+import com.example.unifiedreader.feature.library.LibrarySeriesContinuationResolver
 import com.example.unifiedreader.feature.navigation.SourceNavigationPreferences
 import com.example.unifiedreader.feature.navigation.SourceNavigationPreferencesStore
 import com.example.unifiedreader.feature.navigation.SourceNavigationStateCoordinator
@@ -216,6 +217,7 @@ internal fun createViewModel(
                     sourceProgressSyncRegistry = sourceProgressSyncRegistry,
                 ),
             ),
+            seriesContinuationResolver = LibrarySeriesContinuationResolver(),
         ),
         remoteSourcesCoordinator = AppRemoteSourcesCoordinator(
             kavitaController = AppKavitaRemoteSourceController(

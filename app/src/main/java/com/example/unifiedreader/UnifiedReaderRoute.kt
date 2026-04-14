@@ -33,6 +33,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.unifiedreader.feature.library.LibraryViewMode
 import com.example.unifiedreader.feature.reader.core.ReaderHost
+import com.example.unifiedreader.feature.reader.core.ReaderNavigationActions
 import com.example.unifiedreader.ui.theme.UnifiedReaderTheme
 import com.example.unifiedreader.ui.theme.applyAndroidThemeMode
 import kotlinx.coroutines.delay
@@ -120,6 +121,9 @@ fun UnifiedReaderAppContent(
                         item = uiState.selectedItem!!,
                         factories = viewModel.readerFactories,
                         onBack = viewModel::onBackPressed,
+                        navigationActions = ReaderNavigationActions(
+                            onRequestNextInSeries = viewModel::onReaderNextRequested,
+                        ),
                     )
                 } else {
                     UnifiedReaderScaffold(

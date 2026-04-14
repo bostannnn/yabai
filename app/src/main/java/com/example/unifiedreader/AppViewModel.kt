@@ -271,6 +271,16 @@ class AppViewModel @Inject constructor(
         )
     }
 
+    fun onReaderNextRequested() {
+        readerCoordinator.onReaderNextRequested(
+            stateProvider = { uiState },
+            updateState = ::updateUiState,
+            scope = viewModelScope,
+            refreshProgress = ::refreshProgress,
+            onSyncFailures = ::reportProgressSyncFailures,
+        )
+    }
+
     fun refreshProgress() {
         readerCoordinator.refreshProgress(
             stateProvider = { uiState },

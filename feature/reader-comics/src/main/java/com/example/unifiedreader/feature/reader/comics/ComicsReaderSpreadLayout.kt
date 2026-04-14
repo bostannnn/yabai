@@ -74,7 +74,14 @@ internal fun ComicSpreadPager(
         state = pagerState,
         userScrollEnabled = !isZoomed,
         reverseLayout = readingDirection == ComicReadingDirection.RTL,
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .comicTerminalSwipeNavigation(
+                isAtLastSpread = pagerState.currentPage >= spreads.lastIndex,
+                isZoomed = isZoomed,
+                readingDirection = readingDirection,
+                onNavigatePastEnd = { onNavigateNext(spreads.lastIndex) },
+            ),
     ) { spreadIndex ->
         val spread = spreads[spreadIndex]
         ComicSpreadSurface(

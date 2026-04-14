@@ -134,6 +134,100 @@ class ComicsReaderInteractionTest {
     }
 
     @Test
+    fun `settled final spread stores last visible page as completed progress`() {
+        val pages = samplePages(count = 5)
+        val finalSpread = buildComicPageSpreads(
+            pages = pages,
+            readingDirection = ComicReadingDirection.LTR,
+            useDoublePageSpreads = true,
+            pageMetadataById = emptyMap(),
+        ).last()
+
+        val settledPosition = finalSpread.settledReadingPosition(
+            currentPage = 2,
+            pageCount = pages.size,
+        )
+
+        assertEquals(4, settledPosition.pageIndex)
+        assertEquals(3, settledPosition.resumeAnchorPage)
+        assertTrue(
+            isComicProgressFinished(
+                pageIndex = settledPosition.pageIndex,
+                pageCount = pages.size,
+                segment = settledPosition.segment,
+                readingDirection = ComicReadingDirection.LTR,
+            ),
+        )
+    }
+
+    @Test
+    fun `settled middle spread keeps existing current page when it is visible`() {
+        val pages = samplePages(count = 6)
+        val middleSpread = buildComicPageSpreads(
+            pages = pages,
+            readingDirection = ComicReadingDirection.LTR,
+            useDoublePageSpreads = true,
+            pageMetadataById = emptyMap(),
+        )[1]
+
+        val settledPosition = middleSpread.settledReadingPosition(
+            currentPage = 2,
+            pageCount = pages.size,
+        )
+
+        assertEquals(2, settledPosition.pageIndex)
+        assertEquals(1, settledPosition.resumeAnchorPage)
+    }
+
+    @Test
+    fun `terminal forward swipe resolves by reading direction`() {
+        assertTrue(
+            isTerminalForwardSwipe(
+                horizontalDrag = -24f,
+                verticalDrag = 2f,
+                readingDirection = ComicReadingDirection.LTR,
+                touchSlop = 8f,
+            ),
+        )
+        assertFalse(
+            isTerminalForwardSwipe(
+                horizontalDrag = 24f,
+                verticalDrag = 2f,
+                readingDirection = ComicReadingDirection.LTR,
+                touchSlop = 8f,
+            ),
+        )
+        assertTrue(
+            isTerminalForwardSwipe(
+                horizontalDrag = 24f,
+                verticalDrag = 2f,
+                readingDirection = ComicReadingDirection.RTL,
+                touchSlop = 8f,
+            ),
+        )
+    }
+
+    @Test
+    fun `terminal forward swipe ignores short or mostly vertical drags`() {
+        assertFalse(
+            isTerminalForwardSwipe(
+                horizontalDrag = -4f,
+                verticalDrag = 0f,
+                readingDirection = ComicReadingDirection.LTR,
+                touchSlop = 8f,
+            ),
+        )
+        assertFalse(
+            isTerminalForwardSwipe(
+                horizontalDrag = -24f,
+                verticalDrag = 32f,
+                readingDirection = ComicReadingDirection.LTR,
+                touchSlop = 8f,
+            ),
+        )
+    }
+
+    @Test
     fun `auto spread mode prefers large or landscape layouts`() {
         assertTrue(
             shouldUseDoublePageSpreads(
