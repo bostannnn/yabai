@@ -38,13 +38,13 @@ fun SourceNavigationSettingsSection(
         ),
     ) {
         Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
                     text = "Navigation",
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
@@ -53,7 +53,7 @@ fun SourceNavigationSettingsSection(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 sourceOrder.forEachIndexed { index, sourceType ->
                     SourceOrderRow(
                         sourceType = sourceType,
@@ -85,7 +85,7 @@ private fun SourceOrderRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
+                .padding(start = 14.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {

@@ -1,16 +1,17 @@
 package com.example.unifiedreader.feature.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
@@ -18,6 +19,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -45,7 +47,7 @@ fun SettingsScreen(
     grimmoryConnection: GrimmoryConnectionUiState,
     onThemeModeSelected: (ThemeMode) -> Unit,
     onLibraryFilterPanelsChanged: (SourceType, List<LibraryFilterPanel>) -> Unit,
-    extraSections: LazyListScope.() -> Unit = {},
+    extraSectionContent: (@Composable () -> Unit)? = null,
     onLibraryDirectionSelected: (String, ComicReadingDirection) -> Unit,
     onLibraryReaderModeSelected: (String, ComicReaderMode) -> Unit,
     onKavitaDisplayNameChanged: (String) -> Unit,
@@ -75,185 +77,206 @@ fun SettingsScreen(
         "Offline behavior" to "Cache size, download quality, and cleanup rules can become persistent settings next.",
     )
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 20.dp),
-        contentPadding = PaddingValues(vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxSize(),
     ) {
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    text = "Settings",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text = "Appearance is the first persisted app setting. It updates the full Material 3 shell immediately.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
+        val overviewContentWidthDp = resolveSettingsOverviewContentWidth(maxWidth.value.toInt())
+        val useOverviewSingleLaneCards =
+            overviewContentWidthDp >= (SettingsOverviewMinColumnWidthDp * 2) + SettingsOverviewColumnSpacingDp
 
-        item {
-            SettingsCard(
-                title = "Theme",
-                body = "Choose how the app chrome should render across the library and settings surfaces.",
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.TopCenter,
+        ) {
+            LazyVerticalStaggeredGrid(
+                columns = StaggeredGridCells.Adaptive(SettingsOverviewMinColumnWidthDp.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .widthIn(max = SettingsMaxContentWidth)
+                    .padding(horizontal = SettingsScreenHorizontalPaddingDp.dp),
+                contentPadding = PaddingValues(vertical = 20.dp),
+                verticalItemSpacing = 16.dp,
+                horizontalArrangement = Arrangement.spacedBy(SettingsOverviewColumnSpacingDp.dp),
             ) {
-                SingleChoiceSegmentedButtonRow(
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    ThemeMode.entries.forEachIndexed { index, option ->
-                        SegmentedButton(
-                            selected = option == themeMode,
-                            onClick = { onThemeModeSelected(option) },
-                            shape = SegmentedButtonDefaults.itemShape(
-                                index = index,
-                                count = ThemeMode.entries.size,
-                            ),
-                            label = {
-                                Text(text = option.label)
-                            },
-                        )
+                item(span = StaggeredGridItemSpan.FullLine) {
+                    SettingsHeader()
+                }
+                item {
+                    ThemeSettingsCard(
+                        themeMode = themeMode,
+                        onThemeModeSelected = onThemeModeSelected,
+                    )
+                }
+                extraSectionContent?.let { content ->
+                    item {
+                        content()
                     }
                 }
-                Text(
-                    text = themeMode.description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                item(span = StaggeredGridItemSpan.FullLine) {
+                    LibraryFilterSettingsSection(
+                        filterPanelsBySource = libraryFilterPanelsBySource,
+                        onFilterPanelsChanged = onLibraryFilterPanelsChanged,
+                    )
+                }
+                item(
+                    span = if (useOverviewSingleLaneCards) {
+                        StaggeredGridItemSpan.SingleLane
+                    } else {
+                        StaggeredGridItemSpan.FullLine
+                    },
+                ) {
+                    RemoteSourceSettingsCard(
+                        title = "Kavita",
+                        body = "Connect a Kavita server and sync comic libraries into the Kavita tab.",
+                        formState = kavitaConnection.toFormState(),
+                        connectLabel = "Connect Kavita",
+                        syncLabel = "Sync Kavita",
+                        onDisplayNameChanged = onKavitaDisplayNameChanged,
+                        onBaseUrlChanged = onKavitaBaseUrlChanged,
+                        onBackupBaseUrlChanged = onKavitaBackupBaseUrlChanged,
+                        onUsernameChanged = onKavitaUsernameChanged,
+                        onPasswordChanged = onKavitaPasswordChanged,
+                        onConnect = onConnectKavita,
+                        onSync = onSyncKavita,
+                        readingDirectionLibraries = kavitaReadingDirectionLibraries,
+                        readerModeLibraries = kavitaReaderModeLibraries,
+                        onLibraryDirectionSelected = onLibraryDirectionSelected,
+                        onLibraryModeSelected = onLibraryReaderModeSelected,
+                    )
+                }
+                item(
+                    span = if (useOverviewSingleLaneCards) {
+                        StaggeredGridItemSpan.SingleLane
+                    } else {
+                        StaggeredGridItemSpan.FullLine
+                    },
+                ) {
+                    RemoteSourceSettingsCard(
+                        title = "Grimmory",
+                        body = "Connect a Grimmory server and sync book libraries into the Grimmory tab.",
+                        formState = grimmoryConnection.toFormState(),
+                        connectLabel = "Connect Grimmory",
+                        syncLabel = "Sync Grimmory",
+                        onDisplayNameChanged = onGrimmoryDisplayNameChanged,
+                        onBaseUrlChanged = onGrimmoryBaseUrlChanged,
+                        onBackupBaseUrlChanged = onGrimmoryBackupBaseUrlChanged,
+                        onUsernameChanged = onGrimmoryUsernameChanged,
+                        onPasswordChanged = onGrimmoryPasswordChanged,
+                        onConnect = onConnectGrimmory,
+                        onSync = onSyncGrimmory,
+                    )
+                }
+                item(
+                    span = if (useOverviewSingleLaneCards) {
+                        StaggeredGridItemSpan.SingleLane
+                    } else {
+                        StaggeredGridItemSpan.FullLine
+                    },
+                ) {
+                    RemoteSourceSettingsCard(
+                        title = "Stump",
+                        body = "Connect a Stump server and sync comics or manga grouped by series into the Stump tab.",
+                        formState = stumpConnection.toFormState(),
+                        connectLabel = "Connect Stump",
+                        syncLabel = "Sync Stump",
+                        onDisplayNameChanged = onStumpDisplayNameChanged,
+                        onBaseUrlChanged = onStumpBaseUrlChanged,
+                        onBackupBaseUrlChanged = onStumpBackupBaseUrlChanged,
+                        onUsernameChanged = onStumpUsernameChanged,
+                        onPasswordChanged = onStumpPasswordChanged,
+                        onConnect = onConnectStump,
+                        onSync = onSyncStump,
+                        readingDirectionLibraries = stumpReadingDirectionLibraries,
+                        readerModeLibraries = stumpReaderModeLibraries,
+                        onLibraryDirectionSelected = onLibraryDirectionSelected,
+                        onLibraryModeSelected = onLibraryReaderModeSelected,
+                    )
+                }
+                item(
+                    span = if (useOverviewSingleLaneCards) {
+                        StaggeredGridItemSpan.SingleLane
+                    } else {
+                        StaggeredGridItemSpan.FullLine
+                    },
+                ) {
+                    PlannedNextSection(
+                        upcomingSettings = upcomingSettings,
+                    )
+                }
             }
-        }
-
-        item {
-            LibraryFilterSettingsSection(
-                filterPanelsBySource = libraryFilterPanelsBySource,
-                onFilterPanelsChanged = onLibraryFilterPanelsChanged,
-            )
-        }
-
-        extraSections()
-
-        item {
-            SettingsCard(
-                title = "Kavita",
-                body = "Connect a Kavita server and sync comic libraries into the Kavita tab.",
-            ) {
-                ServerConnectionForm(
-                    state = kavitaConnection.toFormState(),
-                    connectLabel = "Connect Kavita",
-                    syncLabel = "Sync Kavita",
-                    onDisplayNameChanged = onKavitaDisplayNameChanged,
-                    onBaseUrlChanged = onKavitaBaseUrlChanged,
-                    onBackupBaseUrlChanged = onKavitaBackupBaseUrlChanged,
-                    onUsernameChanged = onKavitaUsernameChanged,
-                    onPasswordChanged = onKavitaPasswordChanged,
-                    onConnect = onConnectKavita,
-                    onSync = onSyncKavita,
-                )
-                ComicReadingDirectionSettingsSection(
-                    libraries = kavitaReadingDirectionLibraries,
-                    onLibraryDirectionSelected = onLibraryDirectionSelected,
-                )
-                ComicReaderModeSettingsSection(
-                    libraries = kavitaReaderModeLibraries,
-                    onLibraryModeSelected = onLibraryReaderModeSelected,
-                )
-            }
-        }
-
-        item {
-            SettingsCard(
-                title = "Grimmory",
-                body = "Connect a Grimmory server and sync book libraries into the Grimmory tab.",
-            ) {
-                ServerConnectionForm(
-                    state = grimmoryConnection.toFormState(),
-                    connectLabel = "Connect Grimmory",
-                    syncLabel = "Sync Grimmory",
-                    onDisplayNameChanged = onGrimmoryDisplayNameChanged,
-                    onBaseUrlChanged = onGrimmoryBaseUrlChanged,
-                    onBackupBaseUrlChanged = onGrimmoryBackupBaseUrlChanged,
-                    onUsernameChanged = onGrimmoryUsernameChanged,
-                    onPasswordChanged = onGrimmoryPasswordChanged,
-                    onConnect = onConnectGrimmory,
-                    onSync = onSyncGrimmory,
-                )
-            }
-        }
-
-        item {
-            SettingsCard(
-                title = "Stump",
-                body = "Connect a Stump server and sync comics or manga grouped by series into the Stump tab.",
-            ) {
-                ServerConnectionForm(
-                    state = stumpConnection.toFormState(),
-                    connectLabel = "Connect Stump",
-                    syncLabel = "Sync Stump",
-                    onDisplayNameChanged = onStumpDisplayNameChanged,
-                    onBaseUrlChanged = onStumpBaseUrlChanged,
-                    onBackupBaseUrlChanged = onStumpBackupBaseUrlChanged,
-                    onUsernameChanged = onStumpUsernameChanged,
-                    onPasswordChanged = onStumpPasswordChanged,
-                    onConnect = onConnectStump,
-                    onSync = onSyncStump,
-                )
-                ComicReadingDirectionSettingsSection(
-                    libraries = stumpReadingDirectionLibraries,
-                    onLibraryDirectionSelected = onLibraryDirectionSelected,
-                )
-                ComicReaderModeSettingsSection(
-                    libraries = stumpReaderModeLibraries,
-                    onLibraryModeSelected = onLibraryReaderModeSelected,
-                )
-            }
-        }
-
-        item {
-            Text(
-                text = "Planned next",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(top = 4.dp),
-            )
-        }
-
-        items(upcomingSettings) { (title, body) ->
-            SettingsCard(
-                title = title,
-                body = body,
-            )
         }
     }
 }
 
 @Composable
-internal fun SettingsCard(
-    title: String,
-    body: String,
-    content: @Composable () -> Unit = {},
+private fun SettingsHeader() {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = "Settings",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Text(
+            text = "Appearance is the first persisted app setting. It updates the full Material 3 shell immediately.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ThemeSettingsCard(
+    themeMode: ThemeMode,
+    onThemeModeSelected: (ThemeMode) -> Unit,
 ) {
-    Card(
-        shape = RoundedCornerShape(28.dp),
+    SettingsCard(
+        title = "Theme",
+        body = "Choose how the app chrome should render across the library and settings surfaces.",
     ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+        SingleChoiceSegmentedButtonRow(
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
+            ThemeMode.entries.forEachIndexed { index, option ->
+                SegmentedButton(
+                    selected = option == themeMode,
+                    onClick = { onThemeModeSelected(option) },
+                    shape = SegmentedButtonDefaults.itemShape(
+                        index = index,
+                        count = ThemeMode.entries.size,
+                    ),
+                    label = {
+                        Text(text = option.label)
+                    },
+                )
+            }
+        }
+        Text(
+            text = themeMode.description,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun PlannedNextSection(
+    upcomingSettings: List<Pair<String, String>>,
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Text(
+            text = "Planned next",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+        upcomingSettings.forEach { (title, body) ->
+            SettingsCard(
+                title = title,
+                body = body,
             )
-            Text(
-                text = body,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            content()
         }
     }
 }

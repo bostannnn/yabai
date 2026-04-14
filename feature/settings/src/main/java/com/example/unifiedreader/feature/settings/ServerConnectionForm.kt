@@ -1,8 +1,12 @@
 package com.example.unifiedreader.feature.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -78,122 +82,228 @@ internal fun ServerConnectionForm(
     var isPasswordVisible by rememberSaveable { mutableStateOf(false) }
     val actionState = buildServerConnectionActionState(state)
 
-    Column(
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        OutlinedTextField(
-            value = state.displayName,
-            onValueChange = onDisplayNameChanged,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !state.isConnecting,
-            singleLine = true,
-            label = { Text("Name") },
-        )
-        OutlinedTextField(
-            value = state.baseUrl,
-            onValueChange = onBaseUrlChanged,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !state.isConnecting,
-            singleLine = true,
-            label = { Text("Server URL") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-        )
-        OutlinedTextField(
-            value = state.backupBaseUrl,
-            onValueChange = onBackupBaseUrlChanged,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !state.isConnecting,
-            singleLine = true,
-            label = { Text("Backup URL (optional)") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-        )
-        OutlinedTextField(
-            value = state.username,
-            onValueChange = onUsernameChanged,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !state.isConnecting,
-            singleLine = true,
-            label = { Text("Username") },
-        )
-        OutlinedTextField(
-            value = state.password,
-            onValueChange = onPasswordChanged,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !state.isConnecting,
-            singleLine = true,
-            label = { Text(if (state.hasStoredSession) "Password (optional)" else "Password") },
-            visualTransformation = if (isPasswordVisible) {
-                VisualTransformation.None
+    BoxWithConstraints {
+        val layout = resolveSettingsAdaptiveLayout(maxWidth.value.toInt())
+
+        Column(
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (layout.useTwoColumnServerForm) {
+                ServerFormFieldRow(
+                    start = {
+                        OutlinedTextField(
+                            value = state.displayName,
+                            onValueChange = onDisplayNameChanged,
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !state.isConnecting,
+                            singleLine = true,
+                            label = { Text("Name") },
+                        )
+                    },
+                    end = {
+                        OutlinedTextField(
+                            value = state.username,
+                            onValueChange = onUsernameChanged,
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !state.isConnecting,
+                            singleLine = true,
+                            label = { Text("Username") },
+                        )
+                    },
+                )
+                ServerFormFieldRow(
+                    start = {
+                        OutlinedTextField(
+                            value = state.baseUrl,
+                            onValueChange = onBaseUrlChanged,
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !state.isConnecting,
+                            singleLine = true,
+                            label = { Text("Server URL") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                        )
+                    },
+                    end = {
+                        OutlinedTextField(
+                            value = state.backupBaseUrl,
+                            onValueChange = onBackupBaseUrlChanged,
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !state.isConnecting,
+                            singleLine = true,
+                            label = { Text("Backup URL (optional)") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                        )
+                    },
+                )
             } else {
-                PasswordVisualTransformation()
-            },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            trailingIcon = {
-                TextButton(
-                    onClick = { isPasswordVisible = !isPasswordVisible },
-                    enabled = state.password.isNotEmpty() && !state.isConnecting,
-                ) {
-                    Text(if (isPasswordVisible) "Hide" else "Show")
-                }
-            },
-        )
-        if (actionState.showSyncButton) {
-            Button(
-                onClick = onConnect,
-                enabled = state.canConnect,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                if (actionState.activeAction == ServerConnectionAction.Connect) {
-                    CircularProgressIndicator()
-                } else {
-                    Text(connectLabel)
-                }
+                OutlinedTextField(
+                    value = state.displayName,
+                    onValueChange = onDisplayNameChanged,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !state.isConnecting,
+                    singleLine = true,
+                    label = { Text("Name") },
+                )
+                OutlinedTextField(
+                    value = state.baseUrl,
+                    onValueChange = onBaseUrlChanged,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !state.isConnecting,
+                    singleLine = true,
+                    label = { Text("Server URL") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                )
+                OutlinedTextField(
+                    value = state.backupBaseUrl,
+                    onValueChange = onBackupBaseUrlChanged,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !state.isConnecting,
+                    singleLine = true,
+                    label = { Text("Backup URL (optional)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                )
+                OutlinedTextField(
+                    value = state.username,
+                    onValueChange = onUsernameChanged,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !state.isConnecting,
+                    singleLine = true,
+                    label = { Text("Username") },
+                )
             }
-            Button(
-                onClick = onSync,
-                enabled = actionState.canSync,
+            OutlinedTextField(
+                value = state.password,
+                onValueChange = onPasswordChanged,
                 modifier = Modifier.fillMaxWidth(),
-            ) {
-                if (actionState.activeAction == ServerConnectionAction.Sync) {
-                    CircularProgressIndicator()
+                enabled = !state.isConnecting,
+                singleLine = true,
+                label = { Text(if (state.hasStoredSession) "Password (optional)" else "Password") },
+                visualTransformation = if (isPasswordVisible) {
+                    VisualTransformation.None
                 } else {
-                    Text(syncLabel)
-                }
-            }
-        } else {
-            Button(
-                onClick = onConnect,
-                enabled = state.canConnect,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                if (actionState.activeAction == ServerConnectionAction.Connect) {
-                    CircularProgressIndicator()
-                } else {
-                    Text(connectLabel)
-                }
-            }
-        }
-        if (state.isConnecting && state.syncProgressLabel != null) {
-            LinearProgressIndicator(
-                progress = { state.syncProgressFraction ?: 0f },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Text(
-                text = state.syncProgressLabel,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        state.message?.let { message ->
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (state.isError) {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
+                    PasswordVisualTransformation()
+                },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                trailingIcon = {
+                    TextButton(
+                        onClick = { isPasswordVisible = !isPasswordVisible },
+                        enabled = state.password.isNotEmpty() && !state.isConnecting,
+                    ) {
+                        Text(if (isPasswordVisible) "Hide" else "Show")
+                    }
                 },
             )
+            if (actionState.showSyncButton) {
+                if (layout.useTwoColumnServerForm) {
+                    ServerFormFieldRow(
+                        start = {
+                            Button(
+                                onClick = onConnect,
+                                enabled = state.canConnect,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                if (actionState.activeAction == ServerConnectionAction.Connect) {
+                                    CircularProgressIndicator()
+                                } else {
+                                    Text(connectLabel)
+                                }
+                            }
+                        },
+                        end = {
+                            Button(
+                                onClick = onSync,
+                                enabled = actionState.canSync,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                if (actionState.activeAction == ServerConnectionAction.Sync) {
+                                    CircularProgressIndicator()
+                                } else {
+                                    Text(syncLabel)
+                                }
+                            }
+                        },
+                    )
+                } else {
+                    Button(
+                        onClick = onConnect,
+                        enabled = state.canConnect,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        if (actionState.activeAction == ServerConnectionAction.Connect) {
+                            CircularProgressIndicator()
+                        } else {
+                            Text(connectLabel)
+                        }
+                    }
+                    Button(
+                        onClick = onSync,
+                        enabled = actionState.canSync,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        if (actionState.activeAction == ServerConnectionAction.Sync) {
+                            CircularProgressIndicator()
+                        } else {
+                            Text(syncLabel)
+                        }
+                    }
+                }
+            } else {
+                Button(
+                    onClick = onConnect,
+                    enabled = state.canConnect,
+                    modifier = if (layout.useTwoColumnServerForm) {
+                        Modifier.widthIn(max = 240.dp)
+                    } else {
+                        Modifier.fillMaxWidth()
+                    },
+                ) {
+                    if (actionState.activeAction == ServerConnectionAction.Connect) {
+                        CircularProgressIndicator()
+                    } else {
+                        Text(connectLabel)
+                    }
+                }
+            }
+            if (state.isConnecting && state.syncProgressLabel != null) {
+                LinearProgressIndicator(
+                    progress = { state.syncProgressFraction ?: 0f },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    text = state.syncProgressLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            state.message?.let { message ->
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (state.isError) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ServerFormFieldRow(
+    start: @Composable () -> Unit,
+    end: @Composable () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(modifier = Modifier.weight(1f)) {
+            start()
+        }
+        Box(modifier = Modifier.weight(1f)) {
+            end()
         }
     }
 }

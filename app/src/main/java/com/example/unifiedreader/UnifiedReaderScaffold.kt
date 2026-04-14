@@ -348,14 +348,12 @@ private fun SettingsRoute(
                 )
             },
             onLibraryFilterPanelsChanged = onLibraryFilterPanelsChanged,
-            extraSections = {
-                item {
-                    SourceNavigationSettingsSection(
-                        sourceOrder = uiState.sourceOrder,
-                        onMoveSourceUp = onMoveSourceUp,
-                        onMoveSourceDown = onMoveSourceDown,
-                    )
-                }
+            extraSectionContent = {
+                SourceNavigationSettingsSection(
+                    sourceOrder = uiState.sourceOrder,
+                    onMoveSourceUp = onMoveSourceUp,
+                    onMoveSourceDown = onMoveSourceDown,
+                )
             },
             onLibraryDirectionSelected = onLibraryDirectionSelected,
             onLibraryReaderModeSelected = onLibraryReaderModeSelected,
