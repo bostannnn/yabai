@@ -25,6 +25,7 @@ import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
 import com.example.unifiedreader.data.grimmory.GrimmorySession
 import com.example.unifiedreader.feature.library.LibraryBrowsePreferences
+import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesStore
@@ -1412,18 +1413,19 @@ class AppViewModelTest {
         )
         shadowOf(Looper.getMainLooper()).idle()
 
-        assertEquals("file:///tmp/kavita-cover.png", viewModel.coverImageUrlFor(kavitaItem))
+        viewModel.ensureCoverCached(kavitaItem, LibraryCoverImageVariant.Grid)
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(
+            "file:///tmp/kavita-cover.png",
+            viewModel.coverImageUrlFor(kavitaItem, LibraryCoverImageVariant.Grid),
+        )
 
         viewModel.refreshKavitaLibrary()
         shadowOf(Looper.getMainLooper()).idle()
 
         assertEquals(listOf(SourceType.KAVITA), pageCacheController.clearedSourceTypes)
         assertEquals(1, kavitaCoverRepository.clearCachedCoversCalls)
-        assertRemoteCoverUrl(
-            expectedBaseUrl = "https://kavita.example/api/Image/chapter-cover?chapterId=issue-1&apiKey=saved-api-key",
-            expectedVersion = 2,
-            actualUrl = viewModel.coverImageUrlFor(kavitaItem),
-        )
+        assertNull(viewModel.coverImageUrlFor(kavitaItem, LibraryCoverImageVariant.Grid))
     }
 
     @Test
@@ -1754,9 +1756,12 @@ class AppViewModelTest {
         )
         shadowOf(Looper.getMainLooper()).idle()
 
-        viewModel.ensureCoverCached(stumpItem)
+        viewModel.ensureCoverCached(stumpItem, LibraryCoverImageVariant.Grid)
         shadowOf(Looper.getMainLooper()).idle()
-        assertEquals("file:///tmp/stump-cover.png", viewModel.coverImageUrlFor(stumpItem))
+        assertEquals(
+            "file:///tmp/stump-cover.png",
+            viewModel.coverImageUrlFor(stumpItem, LibraryCoverImageVariant.Grid),
+        )
 
         viewModel.refreshStumpLibrary()
         shadowOf(Looper.getMainLooper()).idle()
@@ -1771,11 +1776,11 @@ class AppViewModelTest {
         assertEquals("Stump library synced.", viewModel.uiState.stumpConnection.message)
         assertEquals(listOf(SourceType.STUMP), pageCacheController.clearedSourceTypes)
         assertEquals(1, stumpCoverRepository.clearCachedCoversCalls)
-        assertNull(viewModel.coverImageUrlFor(stumpItem))
+        assertNull(viewModel.coverImageUrlFor(stumpItem, LibraryCoverImageVariant.Grid))
     }
 
     @Test
-    fun `cached stump cover is used immediately after startup`() {
+    fun `cached stump cover is published after visible prefetch`() {
         val credentialStore = FakeStumpCredentialStore(
             StumpStoredSession(
                 displayName = "Home Stump",
@@ -1804,7 +1809,16 @@ class AppViewModelTest {
         )
         shadowOf(Looper.getMainLooper()).idle()
 
-        assertEquals("file:///tmp/stump-cover-immediate.png", viewModel.coverImageUrlFor(stumpItem))
+        assertEquals(
+            "file:///tmp/stump-cover-immediate.png",
+            viewModel.coverImageUrlFor(stumpItem, LibraryCoverImageVariant.Grid),
+        )
+        viewModel.ensureCoverCached(stumpItem, LibraryCoverImageVariant.Grid)
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(
+            "file:///tmp/stump-cover-immediate.png",
+            viewModel.coverImageUrlFor(stumpItem, LibraryCoverImageVariant.Grid),
+        )
     }
 
     @Test
@@ -1925,7 +1939,12 @@ class AppViewModelTest {
             grimmoryCoverRepository = grimmoryCoverRepository,
         )
 
-        assertEquals("file:///tmp/grimmory-cover.png", viewModel.coverImageUrlFor(grimmoryItem))
+        viewModel.ensureCoverCached(grimmoryItem, LibraryCoverImageVariant.Grid)
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(
+            "file:///tmp/grimmory-cover.png",
+            viewModel.coverImageUrlFor(grimmoryItem, LibraryCoverImageVariant.Grid),
+        )
         viewModel.refreshGrimmoryLibrary()
         shadowOf(Looper.getMainLooper()).idle()
 
@@ -1938,12 +1957,12 @@ class AppViewModelTest {
         assertRemoteCoverUrl(
             expectedBaseUrl = "https://grimmory.example/api/v1/media/book/book-1/thumbnail",
             expectedVersion = 2,
-            actualUrl = viewModel.coverImageUrlFor(grimmoryItem),
+            actualUrl = viewModel.coverImageUrlFor(grimmoryItem, LibraryCoverImageVariant.Grid),
         )
     }
 
     @Test
-    fun `cached grimmory cover is used immediately after startup`() {
+    fun `cached grimmory cover is published after visible prefetch`() {
         val credentialStore = FakeGrimmoryCredentialStore(
             GrimmoryStoredSession(
                 displayName = "Home Grimmory",
@@ -1972,7 +1991,16 @@ class AppViewModelTest {
         )
         shadowOf(Looper.getMainLooper()).idle()
 
-        assertEquals("file:///tmp/grimmory-cover-immediate.png", viewModel.coverImageUrlFor(grimmoryItem))
+        assertEquals(
+            "file:///tmp/grimmory-cover-immediate.png",
+            viewModel.coverImageUrlFor(grimmoryItem, LibraryCoverImageVariant.Grid),
+        )
+        viewModel.ensureCoverCached(grimmoryItem, LibraryCoverImageVariant.Grid)
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(
+            "file:///tmp/grimmory-cover-immediate.png",
+            viewModel.coverImageUrlFor(grimmoryItem, LibraryCoverImageVariant.Grid),
+        )
     }
 
     @Test

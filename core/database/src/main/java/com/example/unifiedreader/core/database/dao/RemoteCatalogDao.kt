@@ -7,8 +7,46 @@ import androidx.room.Query
 import androidx.room.Transaction
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
+import com.example.unifiedreader.core.database.entity.ReadableItemLibraryEntity
 import com.example.unifiedreader.core.database.entity.RemoteLibraryCacheEntity
 import kotlinx.coroutines.flow.Flow
+
+private const val READABLE_ITEM_LIBRARY_SELECT = """
+    SELECT
+        id,
+        sourceType,
+        libraryId,
+        remoteId,
+        isLocalImport,
+        remoteFileId,
+        remoteFileType,
+        title,
+        format,
+        kind,
+        pageCount,
+        coverUrl,
+        CASE
+            WHEN description IS NULL THEN NULL
+            ELSE substr(description, 1, 512)
+        END AS description,
+        addedAtEpochMillis,
+        bookAuthor,
+        bookAuthorsJson,
+        bookSeriesName,
+        bookPublishersJson,
+        bookGenresJson,
+        bookTagsJson,
+        bookLanguagesJson,
+        comicSeries,
+        comicIssueTitle,
+        comicVolume,
+        comicIssueNumber,
+        comicPublishersJson,
+        comicGenresJson,
+        comicTagsJson,
+        comicLanguagesJson
+    FROM readable_items
+"""
 
 @Dao
 abstract class RemoteCatalogDao {
@@ -26,6 +64,15 @@ abstract class RemoteCatalogDao {
 
     @Query("SELECT * FROM readable_items WHERE sourceType = :sourceType ORDER BY title COLLATE NOCASE ASC")
     abstract fun getItemsForSourceType(sourceType: String): List<ReadableItemEntity>
+
+    @Query(READABLE_ITEM_LIBRARY_SELECT + " ORDER BY title COLLATE NOCASE ASC")
+    abstract fun getLibraryItems(): List<ReadableItemLibraryEntity>
+
+    @Query(READABLE_ITEM_LIBRARY_SELECT + " ORDER BY title COLLATE NOCASE ASC")
+    abstract fun observeLibraryItems(): Flow<List<ReadableItemLibraryEntity>>
+
+    @Query(READABLE_ITEM_LIBRARY_SELECT + " WHERE sourceType = :sourceType ORDER BY title COLLATE NOCASE ASC")
+    abstract fun getLibraryItemsForSourceType(sourceType: String): List<ReadableItemLibraryEntity>
 
     @Query(
         """

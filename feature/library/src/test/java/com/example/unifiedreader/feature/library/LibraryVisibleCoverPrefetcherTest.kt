@@ -17,7 +17,7 @@ class LibraryVisibleCoverPrefetcherTest {
             visibleGridItemIndices = listOf(0, 1, 2, 3, 4),
             itemIndexOffset = 2,
             items = listOf(first, second, duplicateKey),
-            coverPrefetchKeyProvider = { item -> item.description },
+            coverPrefetchKeyProvider = { item, _ -> item.description },
         )
 
         assertEquals(listOf("kavita:item:1", "kavita:item:2"), targets.map { it.item.id })
@@ -39,7 +39,7 @@ class LibraryVisibleCoverPrefetcherTest {
             visibleGridItemIndices = listOf(0, 1),
             itemIndexOffset = 0,
             items = listOf(local, remoteWithoutKey),
-            coverPrefetchKeyProvider = { item -> item.description },
+            coverPrefetchKeyProvider = { item, _ -> item.description },
         )
 
         assertEquals(emptyList<RemoteCoverPrefetchTarget>(), targets)
@@ -55,7 +55,7 @@ class LibraryVisibleCoverPrefetcherTest {
             visibleGridItemIndices = items.indices.toList(),
             itemIndexOffset = 0,
             items = items,
-            coverPrefetchKeyProvider = { item -> item.description },
+            coverPrefetchKeyProvider = { item, _ -> item.description },
         )
 
         assertEquals(items.map(ReadableItem::id), targets.map { target -> target.item.id })

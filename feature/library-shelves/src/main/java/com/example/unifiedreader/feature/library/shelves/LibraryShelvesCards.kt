@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
@@ -36,10 +37,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import coil.request.ImageRequest
-import coil.size.Precision
-import coil.size.Scale
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
+import com.example.unifiedreader.feature.library.rememberLibraryCoverImageRequest
 
 @Composable
 internal fun ShelfPreviewCard(
@@ -47,10 +47,10 @@ internal fun ShelfPreviewCard(
     title: String,
     supportingText: String,
     trailingText: String,
-    coverImageUrlProvider: (ReadableItem) -> String?,
-    onCoverVisible: (ReadableItem) -> Unit,
+    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     coverLoadingEnabled: Boolean = true,
     onClick: () -> Unit,
+    menuContent: (@Composable BoxScope.() -> Unit)? = null,
     progressFraction: Float? = null,
 ) {
     Card(
@@ -69,8 +69,9 @@ internal fun ShelfPreviewCard(
                 ShelfCover(
                     item = item,
                     coverImageUrlProvider = coverImageUrlProvider,
-                    onCoverVisible = onCoverVisible,
+                    onCoverVisible = { _, _ -> },
                     coverLoadingEnabled = coverLoadingEnabled,
+                    notifyVisibleOnCompose = false,
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(CoverAspectRatio),
@@ -89,6 +90,7 @@ internal fun ShelfPreviewCard(
                             ),
                     )
                 }
+                menuContent?.invoke(this)
             }
             Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(
@@ -122,10 +124,11 @@ internal fun ShelfListRow(
     title: String,
     supportingText: String,
     trailingText: String,
-    coverImageUrlProvider: (ReadableItem) -> String?,
-    onCoverVisible: (ReadableItem) -> Unit,
+    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
+    onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     coverLoadingEnabled: Boolean = true,
     onClick: () -> Unit,
+    menuContent: (@Composable () -> Unit)? = null,
     progressFraction: Float? = null,
 ) {
     Row(
@@ -187,24 +190,31 @@ internal fun ShelfListRow(
                 overflow = TextOverflow.Ellipsis,
             )
         }
+        menuContent?.invoke()
     }
 }
 
 @Composable
 internal fun ShelfCover(
     item: ReadableItem,
-    coverImageUrlProvider: (ReadableItem) -> String?,
-    onCoverVisible: (ReadableItem) -> Unit,
+    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
+    onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     coverLoadingEnabled: Boolean = true,
+    notifyVisibleOnCompose: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
-    LaunchedEffect(item.id, coverLoadingEnabled) {
-        if (coverLoadingEnabled) {
-            onCoverVisible(item)
+    LaunchedEffect(item.id, coverLoadingEnabled, notifyVisibleOnCompose) {
+        if (coverLoadingEnabled && notifyVisibleOnCompose) {
+            onCoverVisible(item, LibraryCoverImageVariant.ShelfRow)
         }
     }
+    val variant = if (notifyVisibleOnCompose) {
+        LibraryCoverImageVariant.ShelfRow
+    } else {
+        LibraryCoverImageVariant.ShelfPreview
+    }
     val imageUrl = if (coverLoadingEnabled) {
-        coverImageUrlProvider(item)
+        coverImageUrlProvider(item, variant)
     } else {
         null
     }
@@ -222,6 +232,7 @@ internal fun ShelfCover(
     val request = rememberShelfCoverRequest(
         imageUrl = imageUrl,
         targetSize = targetSize,
+        variant = variant,
     )
     if (request != null) {
         AsyncImage(
@@ -242,27 +253,18 @@ internal fun ShelfCover(
 private fun rememberShelfCoverRequest(
     imageUrl: String,
     targetSize: IntSize,
-): ImageRequest? {
+    variant: LibraryCoverImageVariant,
+): coil.request.ImageRequest? {
     val context = LocalContext.current
-    return remember(context, imageUrl, targetSize) {
-        if (targetSize.width <= 0 || targetSize.height <= 0) {
-            null
-        } else {
-            ImageRequest.Builder(context)
-                .data(imageUrl)
-                .size(targetSize.width, targetSize.height)
-                .precision(Precision.EXACT)
-                .scale(Scale.FILL)
-                .build()
-        }
-    }
+    return rememberLibraryCoverImageRequest(
+        context = context,
+        imageUrl = imageUrl,
+        targetSize = targetSize,
+        variant = variant,
+    )
 }
-
 @Composable
-private fun PlaceholderCover(
-    title: String,
-    modifier: Modifier = Modifier,
-) {
+private fun PlaceholderCover(title: String, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier.clip(RoundedCornerShape(14.dp)),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,

@@ -2,6 +2,7 @@ package com.example.unifiedreader
 
 import android.content.Context
 import androidx.work.WorkManager
+import com.example.unifiedreader.core.common.AppDispatchers
 import com.example.unifiedreader.core.database.UnifiedReaderDatabase
 import com.example.unifiedreader.core.database.UnifiedReaderDatabaseFactory
 import com.example.unifiedreader.core.database.dao.DownloadQueueDao
@@ -25,6 +26,8 @@ import com.example.unifiedreader.feature.downloads.RoomDownloadQueueStore
 import com.example.unifiedreader.feature.library.DataStoreLibraryBrowsePreferencesStore
 import com.example.unifiedreader.feature.library.LibraryBrowseStateCoordinator
 import com.example.unifiedreader.feature.library.LibraryBrowsePreferencesStore
+import com.example.unifiedreader.feature.library.covers.LibraryCoverThumbnailGenerator
+import com.example.unifiedreader.feature.library.covers.PersistentRemoteCoverStore
 import com.example.unifiedreader.feature.navigation.DataStoreSourceNavigationPreferencesStore
 import com.example.unifiedreader.feature.navigation.SourceNavigationPreferencesStore
 import com.example.unifiedreader.feature.navigation.SourceNavigationStateCoordinator
@@ -56,6 +59,10 @@ import kotlin.jvm.JvmSuppressWildcards
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
+    @Provides
+    @Singleton
+    fun provideAppDispatchers(): AppDispatchers = AppDispatchers()
+
     @Provides
     @Singleton
     fun provideSourceNavigationPreferencesStore(
@@ -352,10 +359,12 @@ object AppModule {
         kavitaApiFactory: KavitaApiFactory,
         kavitaCredentialStore: KavitaCredentialStore,
         coverStore: PersistentRemoteCoverStore,
+        thumbnailGenerator: LibraryCoverThumbnailGenerator,
     ): KavitaCoverDataSource = KavitaCoverRepository(
         kavitaApiFactory = kavitaApiFactory,
         kavitaCredentialStore = kavitaCredentialStore,
         coverStore = coverStore,
+        thumbnailGenerator = thumbnailGenerator,
     )
 
     @Provides
@@ -364,10 +373,12 @@ object AppModule {
         grimmoryApiFactory: GrimmoryApiFactory,
         grimmoryCredentialStore: GrimmoryCredentialStore,
         coverStore: PersistentRemoteCoverStore,
+        thumbnailGenerator: LibraryCoverThumbnailGenerator,
     ): GrimmoryCoverDataSource = GrimmoryCoverRepository(
         grimmoryApiFactory = grimmoryApiFactory,
         grimmoryCredentialStore = grimmoryCredentialStore,
         coverStore = coverStore,
+        thumbnailGenerator = thumbnailGenerator,
     )
 
     @Provides
@@ -376,10 +387,12 @@ object AppModule {
         stumpApiFactory: StumpApiFactory,
         stumpCredentialStore: StumpCredentialStore,
         coverStore: PersistentRemoteCoverStore,
+        thumbnailGenerator: LibraryCoverThumbnailGenerator,
     ): StumpCoverDataSource = StumpCoverRepository(
         stumpApiFactory = stumpApiFactory,
         stumpCredentialStore = stumpCredentialStore,
         coverStore = coverStore,
+        thumbnailGenerator = thumbnailGenerator,
     )
 
     @Provides

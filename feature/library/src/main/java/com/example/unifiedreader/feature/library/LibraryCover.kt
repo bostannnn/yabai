@@ -30,9 +30,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import coil.request.ImageRequest
-import coil.size.Precision
-import coil.size.Scale
 import com.example.unifiedreader.core.model.ReadableItem
 
 @Composable
@@ -42,6 +39,7 @@ internal fun LibraryCover(
     isDownloaded: Boolean = false,
     isRead: Boolean = false,
     downloadBadgeBottomInset: Dp = 0.dp,
+    imageVariant: LibraryCoverImageVariant = LibraryCoverImageVariant.Grid,
     modifier: Modifier = Modifier,
 ) {
     val coverShape = RoundedCornerShape(4.dp)
@@ -60,9 +58,10 @@ internal fun LibraryCover(
     ) {
         val imageUrl = coverUrl?.takeIf(String::isNotBlank)
         if (imageUrl != null) {
-            ExactSizeCoverImage(
+            BucketedCoverImage(
                 imageUrl = imageUrl,
                 contentDescription = item.title,
+                variant = imageVariant,
                 modifier = Modifier.fillMaxSize(),
             )
         } else {
@@ -108,25 +107,20 @@ internal fun LibraryCover(
 }
 
 @Composable
-internal fun ExactSizeCoverImage(
+internal fun BucketedCoverImage(
     imageUrl: String,
     contentDescription: String?,
+    variant: LibraryCoverImageVariant,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     var targetSize by remember(imageUrl) { mutableStateOf(IntSize.Zero) }
-    val request = remember(context, imageUrl, targetSize) {
-        if (targetSize.width <= 0 || targetSize.height <= 0) {
-            null
-        } else {
-            ImageRequest.Builder(context)
-                .data(imageUrl)
-                .size(targetSize.width, targetSize.height)
-                .precision(Precision.EXACT)
-                .scale(Scale.FILL)
-                .build()
-        }
-    }
+    val request = rememberLibraryCoverImageRequest(
+        context = context,
+        imageUrl = imageUrl,
+        targetSize = targetSize,
+        variant = variant,
+    )
 
     if (request != null) {
         AsyncImage(

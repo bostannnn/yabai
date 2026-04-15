@@ -9,11 +9,8 @@ import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -31,11 +28,7 @@ import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
-import com.example.unifiedreader.core.model.libraryDisplayLabel
-import com.example.unifiedreader.feature.library.menu.buildLibraryItemMenuActions
-import com.example.unifiedreader.feature.library.menu.buildReaderModeMenuState
 import com.example.unifiedreader.feature.library.menu.buildReadStatusMenuActionState
-import com.example.unifiedreader.feature.library.menu.buildReadingDirectionMenuState
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -59,9 +52,9 @@ fun LibraryScreen(
     searchQuery: String = "",
     sortMode: LibrarySortMode = defaultLibrarySortMode,
     showSortControl: Boolean = true,
-    coverImageUrlProvider: (ReadableItem) -> String? = { it.coverUrl },
-    coverPrefetchKeyProvider: (ReadableItem) -> String? = coverImageUrlProvider,
-    onCoverVisible: (ReadableItem) -> Unit = {},
+    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String? = { item, _ -> item.coverUrl },
+    coverPrefetchKeyProvider: (ReadableItem, LibraryCoverImageVariant) -> String? = coverImageUrlProvider,
+    onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit = { _, _ -> },
     topContent: (@Composable () -> Unit)? = null,
     onFilterStateChanged: (LibraryFilterState) -> Unit = {},
     onClearFilters: () -> Unit = {},
@@ -79,8 +72,22 @@ fun LibraryScreen(
     onDeleteDownloadedItem: (ReadableItem) -> Unit = {},
     onSetReadStatus: (ReadableItem, Boolean) -> Unit = { _, _ -> },
 ) {
+    val itemActionContext = LibraryItemActionContext(
+        progressByItemId = progressByItemId,
+        locallyAvailableItemIds = locallyAvailableItemIds,
+        downloadableItemIds = downloadableItemIds,
+        deletableDownloadedItemIds = deletableDownloadedItemIds,
+        downloadingItemIds = downloadingItemIds,
+        seriesReadingDirectionFor = seriesReadingDirectionFor,
+        onSeriesDirectionSelected = onSeriesDirectionSelected,
+        seriesReaderModeFor = seriesReaderModeFor,
+        onSeriesReaderModeSelected = onSeriesReaderModeSelected,
+        onDownloadItem = onDownloadItem,
+        onDeleteDownloadedItem = onDeleteDownloadedItem,
+        onSetReadStatus = onSetReadStatus,
+    )
     var deleteCandidate by remember { mutableStateOf<ReadableItem?>(null) }
-    var gridActionCandidate by remember { mutableStateOf<ReadableItem?>(null) }
+    var gridExpandedMenuItemId by remember { mutableStateOf<String?>(null) }
     var openFilterPanel by rememberSaveable { mutableStateOf<LibraryFilterPanel?>(null) }
     var selectedSortLetter by rememberSaveable(sortMode) { mutableStateOf<String?>(null) }
     val alphabetRailVisible = showSortControl && sortMode.usesAlphabetRail && items.isNotEmpty()
@@ -112,7 +119,6 @@ fun LibraryScreen(
             selectedSortLetter = effectiveSortLetter
         }
     }
-
     LaunchedEffect(browseContextKey, gridState) {
         snapshotFlow {
             LibraryScrollPosition(
@@ -190,7 +196,7 @@ fun LibraryScreen(
                         LibraryViewMode.Detailed -> DetailedItemCard(
                             item = item,
                             progress = progressByItemId[item.id],
-                            isDownloaded = item.isDownloaded(locallyAvailableItemIds),
+                            isDownloaded = itemActionContext.isDownloaded(item),
                             isDownloading = item.id in downloadingItemIds,
                             seriesReadingDirection = seriesReadingDirectionFor(item),
                             seriesReaderMode = seriesReaderModeFor(item),
@@ -222,10 +228,24 @@ fun LibraryScreen(
                         LibraryViewMode.Grid -> GridCoverCard(
                             item = item,
                             progress = progressByItemId[item.id],
-                            isDownloaded = item.isDownloaded(locallyAvailableItemIds),
+                            isDownloaded = itemActionContext.isDownloaded(item),
                             coverImageUrlProvider = coverImageUrlProvider,
                             onClick = { onItemSelected(item) },
-                            onLongClick = { gridActionCandidate = item },
+                            onLongClick = { gridExpandedMenuItemId = item.id },
+                            menuContent = {
+                                LibraryAnchoredItemMenu(
+                                    item = item,
+                                    actionContext = itemActionContext,
+                                    expanded = gridExpandedMenuItemId == item.id,
+                                    onExpandedChange = { expanded ->
+                                        gridExpandedMenuItemId = if (expanded) item.id else null
+                                    },
+                                    onDeleteImportedRequested = { deleteCandidate = it },
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(4.dp),
+                                )
+                            },
                         )
                     }
                 }
@@ -254,67 +274,13 @@ fun LibraryScreen(
     }
 
     deleteCandidate?.let { item ->
-        AlertDialog(
-            onDismissRequest = { deleteCandidate = null },
-            title = { Text(text = "Remove local file?") },
-            text = {
-                Text(
-                    text = "This removes ${item.libraryDisplayLabel()} from your library and clears local reading state.",
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onDeleteImportedItem(item)
-                        deleteCandidate = null
-                    },
-                ) {
-                    Text(text = "Remove")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { deleteCandidate = null }) {
-                    Text(text = "Cancel")
-                }
-            },
-        )
-    }
-
-    gridActionCandidate?.let { item ->
-        LibraryGridItemActionsSheet(
+        LibraryDeleteImportedItemDialog(
             item = item,
-            actions = buildLibraryItemMenuActions(
-                isDownloading = item.id in downloadingItemIds,
-                readStatusActionState = buildReadStatusMenuActionState(
-                    item = item,
-                    progress = progressByItemId[item.id],
-                    onSetReadStatus = onSetReadStatus,
-                ),
-                onDeleteRequested = itemDeleteRequest(item) { deleteCandidate = it },
-                onDownloadRequested = itemDownloadRequest(
-                    item = item,
-                    downloadableItemIds = downloadableItemIds,
-                    onDownloadItem = onDownloadItem,
-                ),
-                onDeleteDownloadedRequested = itemDownloadedDeleteRequest(
-                    item = item,
-                    deletableDownloadedItemIds = deletableDownloadedItemIds,
-                    onDeleteDownloadedItem = onDeleteDownloadedItem,
-                ),
-            ),
-            readingDirectionState = buildReadingDirectionMenuState(
-                seriesReadingDirection = seriesReadingDirectionFor(item),
-                onSeriesReadingDirectionSelected = { direction ->
-                    onSeriesDirectionSelected(item, direction)
-                },
-            ),
-            readerModeState = buildReaderModeMenuState(
-                seriesReaderMode = seriesReaderModeFor(item),
-                onSeriesReaderModeSelected = { mode ->
-                    onSeriesReaderModeSelected(item, mode)
-                },
-            ),
-            onDismiss = { gridActionCandidate = null },
+            onDismiss = { deleteCandidate = null },
+            onConfirmDelete = {
+                onDeleteImportedItem(it)
+                deleteCandidate = null
+            },
         )
     }
 

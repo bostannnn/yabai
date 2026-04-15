@@ -1,6 +1,7 @@
 package com.example.unifiedreader
 
 import android.net.Uri
+import com.example.unifiedreader.core.common.AppDispatchers
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.LibraryContentType
@@ -18,6 +19,7 @@ import com.example.unifiedreader.feature.downloads.DownloadWorkScheduler
 import com.example.unifiedreader.feature.downloads.RemoteDownloadQueueController
 import com.example.unifiedreader.feature.downloads.RemoteDownloadWorkerRunner
 import com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
+import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryBrowsePreferences
 import com.example.unifiedreader.feature.library.LibraryBrowsePreferencesStore
 import com.example.unifiedreader.feature.library.LibraryBrowseStateCoordinator
@@ -106,9 +108,18 @@ internal fun createViewModel(
     ),
     readableItemRepository: FakeReadableItemRepository = FakeReadableItemRepository(items = sampleItems),
 ): AppViewModel {
+    val appDispatchers = AppDispatchers(
+        io = Dispatchers.Unconfined,
+        default = Dispatchers.Unconfined,
+    )
     val libraryStateAssembler = AppLibraryStateAssembler(
         localDocumentRepository = importedRepository,
         remoteDownloadDataSources = remoteDownloadDataSources,
+    )
+    val libraryProgressRefreshCoordinator = AppLibraryProgressRefreshCoordinator(
+        libraryStateAssembler = libraryStateAssembler,
+        readerSessionStore = readerSessionStore,
+        appDispatchers = appDispatchers,
     )
     val remoteCoverController = RemoteCoverController(
         kavitaCoverRepository = kavitaCoverRepository,
@@ -117,6 +128,7 @@ internal fun createViewModel(
         kavitaCredentialStore = kavitaCredentialStore,
         stumpCredentialStore = stumpCredentialStore,
         grimmoryCredentialStore = grimmoryCredentialStore,
+        appDispatchers = appDispatchers,
     )
     val downloadQueueStore = TestDownloadQueueStore()
     val downloadScheduler = ImmediateDownloadWorkScheduler()
@@ -163,11 +175,19 @@ internal fun createViewModel(
             localDocumentRepository = importedRepository,
             readerSessionStore = readerSessionStore,
             libraryStateAssembler = libraryStateAssembler,
+            appDispatchers = appDispatchers,
         ),
         readerSessionStore = readerSessionStore,
         remoteCoverController = remoteCoverController,
     )
     val sourceProgressSyncRegistry = SourceProgressSyncRegistry(sourceProgressSyncs)
+    val libraryStateRecomputeCoordinator = AppLibraryStateRecomputeCoordinator(
+        libraryDerivedStateComputer = LibraryDerivedStateComputer(),
+        libraryShelvesStateComputer = LibraryShelvesStateComputer(
+            seriesContinuationResolver = LibrarySeriesContinuationResolver(),
+        ),
+        appDispatchers = appDispatchers,
+    )
     return AppViewModel(
         navigationController = AppNavigationController(
             sourceNavigationStateCoordinator = SourceNavigationStateCoordinator(
@@ -206,8 +226,7 @@ internal fun createViewModel(
             readableItemRepository = readableItemRepository,
         ),
         readerCoordinator = AppReaderCoordinator(
-            libraryStateAssembler = libraryStateAssembler,
-            readerSessionStore = readerSessionStore,
+            libraryProgressRefreshCoordinator = libraryProgressRefreshCoordinator,
             syncItemProgressUseCase = SyncItemProgressUseCase(
                 sourceProgressSyncRegistry = sourceProgressSyncRegistry,
             ),
@@ -267,10 +286,7 @@ internal fun createViewModel(
         comicReaderPreferencesStore = preferencesStore,
         readerSessionStore = readerSessionStore,
         readerFactories = readerFactories,
-        libraryDerivedStateComputer = LibraryDerivedStateComputer(),
-        libraryShelvesStateComputer = LibraryShelvesStateComputer(
-            seriesContinuationResolver = LibrarySeriesContinuationResolver(),
-        ),
+        libraryStateRecomputeCoordinator = libraryStateRecomputeCoordinator,
     )
 }
 
@@ -619,6 +635,7 @@ class FakeStumpCoverRepository : StumpCoverDataSource {
 
     override fun cachedCover(
         item: ReadableItem,
+        variant: LibraryCoverImageVariant,
     ): CachedRemoteCover? = coverUri?.let { uri ->
         CachedRemoteCover(
             uri = uri,
@@ -628,6 +645,7 @@ class FakeStumpCoverRepository : StumpCoverDataSource {
 
     override suspend fun getCoverUri(
         item: ReadableItem,
+        variant: LibraryCoverImageVariant,
     ): Uri? {
         isPersistent = true
         return coverUri
@@ -656,6 +674,7 @@ class FakeKavitaCoverRepository : KavitaCoverDataSource {
 
     override fun cachedCover(
         item: ReadableItem,
+        variant: LibraryCoverImageVariant,
     ): CachedRemoteCover? = coverUri?.let { uri ->
         CachedRemoteCover(
             uri = uri,
@@ -665,6 +684,7 @@ class FakeKavitaCoverRepository : KavitaCoverDataSource {
 
     override suspend fun getCoverUri(
         item: ReadableItem,
+        variant: LibraryCoverImageVariant,
     ): Uri? {
         isPersistent = true
         return coverUri
@@ -711,6 +731,7 @@ class FakeGrimmoryCoverRepository : GrimmoryCoverDataSource {
 
     override fun cachedCover(
         item: ReadableItem,
+        variant: LibraryCoverImageVariant,
     ): CachedRemoteCover? = coverUri?.let { uri ->
         CachedRemoteCover(
             uri = uri,
@@ -720,6 +741,7 @@ class FakeGrimmoryCoverRepository : GrimmoryCoverDataSource {
 
     override suspend fun getCoverUri(
         item: ReadableItem,
+        variant: LibraryCoverImageVariant,
     ): Uri? {
         isPersistent = true
         return coverUri

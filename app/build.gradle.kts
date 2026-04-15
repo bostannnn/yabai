@@ -52,6 +52,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":core:common"))
     implementation(project(":core:model"))
     implementation(project(":core:network"))
     implementation(project(":core:database"))
@@ -60,6 +61,7 @@ dependencies {
     implementation(project(":data:grimmory"))
     implementation(project(":data:repository"))
     implementation(project(":feature:library"))
+    implementation(project(":feature:library-covers"))
     implementation(project(":feature:library-shelves"))
     implementation(project(":feature:settings"))
     implementation(project(":feature:reader-preferences"))

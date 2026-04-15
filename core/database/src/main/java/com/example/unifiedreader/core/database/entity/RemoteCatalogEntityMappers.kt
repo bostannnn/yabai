@@ -102,6 +102,25 @@ fun ReadableItemEntity.toDomain(): ReadableItem = ReadableItem(
     comicMetadata = comicMetadataOrNull(),
 )
 
+fun ReadableItemLibraryEntity.toDomain(): ReadableItem = ReadableItem(
+    id = id,
+    sourceType = sourceType.toSourceType(),
+    libraryId = libraryId,
+    remoteId = remoteId,
+    isLocalImport = isLocalImport,
+    remoteFileId = remoteFileId,
+    remoteFileType = remoteFileType,
+    title = title,
+    format = format.toFormatType(),
+    kind = kind.toReadableItemKind(),
+    pageCount = pageCount,
+    coverUrl = coverUrl,
+    description = description,
+    addedAtEpochMillis = addedAtEpochMillis,
+    bookMetadata = bookMetadataOrNull(),
+    comicMetadata = comicMetadataOrNull(),
+)
+
 private fun String.toSourceType(): SourceType =
     enumValueOfOrDefault(defaultValue = SourceType.KAVITA)
 
@@ -145,7 +164,55 @@ private fun ReadableItemEntity.comicMetadataOrNull(): ComicMetadata? {
     )
 }
 
+private fun ReadableItemLibraryEntity.comicMetadataOrNull(): ComicMetadata? {
+    if (
+        comicSeries == null &&
+        comicIssueTitle == null &&
+        comicVolume == null &&
+        comicIssueNumber == null &&
+        comicPublishersJson == null &&
+        comicGenresJson == null &&
+        comicTagsJson == null &&
+        comicLanguagesJson == null
+    ) {
+        return null
+    }
+    return ComicMetadata(
+        series = comicSeries,
+        issueTitle = comicIssueTitle,
+        volume = comicVolume,
+        issueNumber = comicIssueNumber,
+        publishers = decodeMetadataValues(comicPublishersJson),
+        genres = decodeMetadataValues(comicGenresJson),
+        tags = decodeMetadataValues(comicTagsJson),
+        languages = decodeMetadataValues(comicLanguagesJson),
+    )
+}
+
 private fun ReadableItemEntity.bookMetadataOrNull(): BookMetadata? {
+    if (
+        bookAuthor == null &&
+        bookAuthorsJson == null &&
+        bookSeriesName == null &&
+        bookPublishersJson == null &&
+        bookGenresJson == null &&
+        bookTagsJson == null &&
+        bookLanguagesJson == null
+    ) {
+        return null
+    }
+    return BookMetadata(
+        author = bookAuthor,
+        authors = decodeMetadataValues(bookAuthorsJson),
+        seriesName = bookSeriesName,
+        publishers = decodeMetadataValues(bookPublishersJson),
+        genres = decodeMetadataValues(bookGenresJson),
+        tags = decodeMetadataValues(bookTagsJson),
+        languages = decodeMetadataValues(bookLanguagesJson),
+    )
+}
+
+private fun ReadableItemLibraryEntity.bookMetadataOrNull(): BookMetadata? {
     if (
         bookAuthor == null &&
         bookAuthorsJson == null &&

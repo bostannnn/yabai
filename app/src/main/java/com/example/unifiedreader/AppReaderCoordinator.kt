@@ -12,8 +12,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 class AppReaderCoordinator @Inject constructor(
-    private val libraryStateAssembler: AppLibraryStateAssembler,
-    private val readerSessionStore: com.example.unifiedreader.feature.reader.core.ReaderSessionStore,
+    private val libraryProgressRefreshCoordinator: AppLibraryProgressRefreshCoordinator,
     private val syncItemProgressUseCase: SyncItemProgressUseCase,
     private val pendingProgressFlushCoordinator: AppPendingProgressFlushCoordinator,
     private val seriesContinuationResolver: LibrarySeriesContinuationResolver,
@@ -207,22 +206,16 @@ class AppReaderCoordinator @Inject constructor(
     }
 
     fun refreshProgress(
+        scope: CoroutineScope,
         stateProvider: AppUiStateProvider,
         updateState: AppUiStateUpdater,
         refreshDownloadedRemoteItemIds: (List<ReadableItem>) -> Unit,
-    ) {
-        val items = stateProvider().items
-        updateState { state ->
-            state.copy(
-                progressByItemId = libraryStateAssembler.buildProgressSummaries(
-                    items = items,
-                    progressByItemId = readerSessionStore.progressByItemIdFlow.value,
-                    sessionByItemId = readerSessionStore.sessionByItemIdFlow.value,
-                ),
-            )
-        }
-        refreshDownloadedRemoteItemIds(items)
-    }
+    ) = libraryProgressRefreshCoordinator.refresh(
+        scope = scope,
+        stateProvider = stateProvider,
+        updateState = updateState,
+        refreshDownloadedRemoteItemIds = refreshDownloadedRemoteItemIds,
+    )
 
     fun observeDirtyProgress(
         scope: CoroutineScope,

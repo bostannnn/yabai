@@ -17,12 +17,19 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.core.model.librarySecondaryText
+import com.example.unifiedreader.feature.library.LibraryAnchoredItemMenu
+import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
+import com.example.unifiedreader.feature.library.LibraryItemActionContext
 
 internal sealed interface LibraryShelfSheetState {
     val title: String
@@ -54,12 +61,15 @@ internal sealed interface LibraryShelfSheetState {
 @Composable
 internal fun LibraryShelfItemsSheet(
     sheet: LibraryShelfSheetState,
-    coverImageUrlProvider: (ReadableItem) -> String?,
-    onCoverVisible: (ReadableItem) -> Unit,
+    itemActionContext: LibraryItemActionContext,
+    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
+    onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onDismiss: () -> Unit,
     onItemSelected: (ReadableItem) -> Unit,
+    onDeleteImportedItem: (ReadableItem) -> Unit,
 ) {
     val listState = rememberLazyListState()
+    var expandedMenuItemId by remember(sheet) { mutableStateOf<String?>(null) }
     LaunchedEffect(sheet) {
         listState.scrollToItem(0)
     }
@@ -96,9 +106,15 @@ internal fun LibraryShelfItemsSheet(
             ShelfItemsList(
                 sheet = sheet,
                 listState = listState,
+                itemActionContext = itemActionContext,
                 coverImageUrlProvider = coverImageUrlProvider,
                 onCoverVisible = onCoverVisible,
                 onItemSelected = onItemSelected,
+                expandedMenuItemId = expandedMenuItemId,
+                onExpandedMenuChange = { item, expanded ->
+                    expandedMenuItemId = if (expanded) item.id else null
+                },
+                onDeleteImportedItem = onDeleteImportedItem,
             )
         }
     }
@@ -108,9 +124,13 @@ internal fun LibraryShelfItemsSheet(
 private fun ShelfItemsList(
     sheet: LibraryShelfSheetState,
     listState: LazyListState,
-    coverImageUrlProvider: (ReadableItem) -> String?,
-    onCoverVisible: (ReadableItem) -> Unit,
+    itemActionContext: LibraryItemActionContext,
+    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
+    onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onItemSelected: (ReadableItem) -> Unit,
+    expandedMenuItemId: String?,
+    onExpandedMenuChange: (ReadableItem, Boolean) -> Unit,
+    onDeleteImportedItem: (ReadableItem) -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier
@@ -133,6 +153,17 @@ private fun ShelfItemsList(
                     coverImageUrlProvider = coverImageUrlProvider,
                     onCoverVisible = onCoverVisible,
                     onClick = { onItemSelected(shelfItem.item) },
+                    menuContent = {
+                        LibraryAnchoredItemMenu(
+                            item = shelfItem.item,
+                            actionContext = itemActionContext,
+                            expanded = expandedMenuItemId == shelfItem.item.id,
+                            onExpandedChange = { expanded ->
+                                onExpandedMenuChange(shelfItem.item, expanded)
+                            },
+                            onDeleteImportedRequested = onDeleteImportedItem,
+                        )
+                    },
                     progressFraction = shelfItem.progress.fraction,
                 )
             }
@@ -150,6 +181,17 @@ private fun ShelfItemsList(
                     coverImageUrlProvider = coverImageUrlProvider,
                     onCoverVisible = onCoverVisible,
                     onClick = { onItemSelected(shelfItem.item) },
+                    menuContent = {
+                        LibraryAnchoredItemMenu(
+                            item = shelfItem.item,
+                            actionContext = itemActionContext,
+                            expanded = expandedMenuItemId == shelfItem.item.id,
+                            onExpandedChange = { expanded ->
+                                onExpandedMenuChange(shelfItem.item, expanded)
+                            },
+                            onDeleteImportedRequested = onDeleteImportedItem,
+                        )
+                    },
                 )
             }
 
@@ -171,6 +213,17 @@ private fun ShelfItemsList(
                     coverImageUrlProvider = coverImageUrlProvider,
                     onCoverVisible = onCoverVisible,
                     onClick = { onItemSelected(shelfItem.item) },
+                    menuContent = {
+                        LibraryAnchoredItemMenu(
+                            item = shelfItem.item,
+                            actionContext = itemActionContext,
+                            expanded = expandedMenuItemId == shelfItem.item.id,
+                            onExpandedChange = { expanded ->
+                                onExpandedMenuChange(shelfItem.item, expanded)
+                            },
+                            onDeleteImportedRequested = onDeleteImportedItem,
+                        )
+                    },
                 )
             }
         }

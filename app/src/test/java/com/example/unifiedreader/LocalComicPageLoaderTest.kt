@@ -6,6 +6,7 @@ import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
+import com.example.unifiedreader.feature.reader.comics.ComicPagePrefetchWindow
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -74,6 +75,10 @@ class LocalComicPageLoaderTest {
             record = record,
             settledPageIndex = 2,
             pageCount = 12,
+            window = ComicPagePrefetchWindow(
+                forwardCount = 1,
+                backwardCount = 0,
+            ),
         )
         scope.runCurrent()
         codec.awaitBlockedRead()

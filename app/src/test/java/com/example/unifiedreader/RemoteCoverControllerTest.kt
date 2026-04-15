@@ -1,15 +1,19 @@
 package com.example.unifiedreader
 
 import android.net.Uri
+import com.example.unifiedreader.core.common.AppDispatchers
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -17,6 +21,92 @@ import org.robolectric.RobolectricTestRunner
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class RemoteCoverControllerTest {
+    @Test
+    fun `coverImageUrlFor returns cached file immediately when warm cache exists`() {
+        val cachedUri = Uri.parse("file:///tmp/persistent-kavita-cover.png")
+        val kavitaDataSource = PersistentCachedKavitaCoverDataSource(
+            cachedUri = cachedUri,
+        )
+        val controller = RemoteCoverController(
+            kavitaCoverRepository = kavitaDataSource,
+            stumpCoverRepository = EmptyStumpCoverDataSource(),
+            grimmoryCoverRepository = EmptyGrimmoryCoverDataSource(),
+            kavitaCredentialStore = FakeKavitaCredentialStore(),
+            stumpCredentialStore = FakeStumpCredentialStore(),
+            grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            appDispatchers = immediateAppDispatchers(),
+        )
+        val kavitaItem = remoteItem(
+            id = "kavita:item:issue-cached",
+            sourceType = SourceType.KAVITA,
+            coverUrl = "https://kavita.example/api/Image/chapter-cover?chapterId=99&apiKey=token-1",
+        )
+
+        assertEquals(cachedUri.toString(), controller.coverImageUrlFor(kavitaItem, LibraryCoverImageVariant.Grid))
+    }
+
+    @Test
+    fun `ensureCoverCached skips background fetch when exact persistent variant already cached`() = runTest {
+        val cachedUri = Uri.parse("file:///tmp/persistent-stump-cover.png")
+        val stumpDataSource = PersistentCachedStumpCoverDataSource(
+            cachedUri = cachedUri,
+            matchesRequestedVariant = true,
+        )
+        val controller = RemoteCoverController(
+            kavitaCoverRepository = EmptyKavitaCoverDataSource(),
+            stumpCoverRepository = stumpDataSource,
+            grimmoryCoverRepository = EmptyGrimmoryCoverDataSource(),
+            kavitaCredentialStore = FakeKavitaCredentialStore(),
+            stumpCredentialStore = FakeStumpCredentialStore(),
+            grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            appDispatchers = immediateAppDispatchers(),
+        )
+        val stumpItem = remoteItem(
+            id = "stump:item:issue-cached",
+            sourceType = SourceType.STUMP,
+            coverUrl = "https://stump.example/api/v1/media/issue-cached/thumbnail",
+        )
+
+        controller.ensureCoverCached(stumpItem, LibraryCoverImageVariant.Grid, this) {}
+        advanceUntilIdle()
+
+        assertEquals(cachedUri.toString(), controller.coverImageUrlFor(stumpItem, LibraryCoverImageVariant.Grid))
+        assertEquals(0, stumpDataSource.getCoverUriCalls)
+    }
+
+    @Test
+    fun `ensureCoverCached backfills thumbnail when only persistent fallback cover exists`() = runTest {
+        val fallbackUri = Uri.parse("file:///tmp/persistent-stump-cover.png")
+        val thumbnailUri = Uri.parse("file:///tmp/persistent-stump-cover-grid.jpg")
+        val stumpDataSource = PersistentCachedStumpCoverDataSource(
+            cachedUri = fallbackUri,
+            matchesRequestedVariant = false,
+            refreshedUri = thumbnailUri,
+        )
+        val controller = RemoteCoverController(
+            kavitaCoverRepository = EmptyKavitaCoverDataSource(),
+            stumpCoverRepository = stumpDataSource,
+            grimmoryCoverRepository = EmptyGrimmoryCoverDataSource(),
+            kavitaCredentialStore = FakeKavitaCredentialStore(),
+            stumpCredentialStore = FakeStumpCredentialStore(),
+            grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            appDispatchers = immediateAppDispatchers(),
+        )
+        val stumpItem = remoteItem(
+            id = "stump:item:issue-backfill",
+            sourceType = SourceType.STUMP,
+            coverUrl = "https://stump.example/api/v1/media/issue-backfill/thumbnail",
+        )
+
+        assertEquals(fallbackUri.toString(), controller.coverImageUrlFor(stumpItem, LibraryCoverImageVariant.Grid))
+
+        controller.ensureCoverCached(stumpItem, LibraryCoverImageVariant.Grid, this) {}
+        advanceUntilIdle()
+
+        assertEquals(thumbnailUri.toString(), controller.coverImageUrlFor(stumpItem, LibraryCoverImageVariant.Grid))
+        assertEquals(1, stumpDataSource.getCoverUriCalls)
+    }
+
     @Test
     fun `clearSource ignores stale cover fetch completions`() = runTest {
         val stumpDataSource = DelayedCoverDataSource(sourceType = SourceType.STUMP)
@@ -27,6 +117,7 @@ class RemoteCoverControllerTest {
             kavitaCredentialStore = FakeKavitaCredentialStore(),
             stumpCredentialStore = FakeStumpCredentialStore(),
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            appDispatchers = immediateAppDispatchers(),
         )
         val stumpItem = remoteItem(
             id = "stump:item:issue-1",
@@ -34,7 +125,7 @@ class RemoteCoverControllerTest {
             coverUrl = "https://stump.example/api/v1/media/issue-1/thumbnail",
         )
 
-        controller.ensureCoverCached(stumpItem, this) {}
+        controller.ensureCoverCached(stumpItem, LibraryCoverImageVariant.Grid, this) {}
         advanceUntilIdle()
         stumpDataSource.awaitRequest()
 
@@ -42,7 +133,7 @@ class RemoteCoverControllerTest {
         stumpDataSource.complete(Uri.parse("file:///tmp/stale-stump-cover.png"))
         advanceUntilIdle()
 
-        assertEquals(stumpItem.coverUrl, controller.coverImageUrlFor(stumpItem))
+        assertEquals(stumpItem.coverUrl, controller.coverImageUrlFor(stumpItem, LibraryCoverImageVariant.Grid))
     }
 
     @Test
@@ -61,6 +152,7 @@ class RemoteCoverControllerTest {
             kavitaCredentialStore = FakeKavitaCredentialStore(),
             stumpCredentialStore = FakeStumpCredentialStore(),
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            appDispatchers = immediateAppDispatchers(),
         )
         val stumpItem = remoteItem(
             id = "stump:item:issue-2",
@@ -68,12 +160,12 @@ class RemoteCoverControllerTest {
             coverUrl = "https://stump.example/api/v1/media/issue-2/thumbnail",
         )
 
-        assertEquals(legacyUri.toString(), controller.coverImageUrlFor(stumpItem))
+        assertEquals(legacyUri.toString(), controller.coverImageUrlFor(stumpItem, LibraryCoverImageVariant.Grid))
 
-        controller.ensureCoverCached(stumpItem, this) {}
+        controller.ensureCoverCached(stumpItem, LibraryCoverImageVariant.Grid, this) {}
         advanceUntilIdle()
 
-        assertEquals(persistentUri.toString(), controller.coverImageUrlFor(stumpItem))
+        assertEquals(persistentUri.toString(), controller.coverImageUrlFor(stumpItem, LibraryCoverImageVariant.Grid))
     }
 
     @Test
@@ -90,6 +182,7 @@ class RemoteCoverControllerTest {
             kavitaCredentialStore = FakeKavitaCredentialStore(),
             stumpCredentialStore = FakeStumpCredentialStore(),
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            appDispatchers = immediateAppDispatchers(),
         )
         val stumpItem = remoteItem(
             id = "stump:item:issue-3",
@@ -97,7 +190,9 @@ class RemoteCoverControllerTest {
             coverUrl = "https://stump.example/api/v1/media/issue-3/thumbnail",
         )
 
-        assertEquals(cachedUri.toString(), controller.coverImageUrlFor(stumpItem))
+        controller.ensureCoverCached(stumpItem, LibraryCoverImageVariant.Grid, this) {}
+        advanceUntilIdle()
+        assertEquals(cachedUri.toString(), controller.coverImageUrlFor(stumpItem, LibraryCoverImageVariant.Grid))
 
         val resetJob = async {
             controller.resetSource(SourceType.STUMP)
@@ -106,7 +201,7 @@ class RemoteCoverControllerTest {
 
         assertEquals(
             "https://stump.example/api/v1/media/issue-3/thumbnail#coverv=1",
-            controller.coverImageUrlFor(stumpItem),
+            controller.coverImageUrlFor(stumpItem, LibraryCoverImageVariant.Grid),
         )
 
         stumpDataSource.finishClear()
@@ -115,7 +210,7 @@ class RemoteCoverControllerTest {
 
         assertEquals(
             "https://stump.example/api/v1/media/issue-3/thumbnail#coverv=2",
-            controller.coverImageUrlFor(stumpItem),
+            controller.coverImageUrlFor(stumpItem, LibraryCoverImageVariant.Grid),
         )
     }
 
@@ -133,6 +228,7 @@ class RemoteCoverControllerTest {
             kavitaCredentialStore = FakeKavitaCredentialStore(),
             stumpCredentialStore = FakeStumpCredentialStore(),
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            appDispatchers = immediateAppDispatchers(),
         )
         val stumpSeriesItem = ReadableItem(
             id = "stump:series:series-1",
@@ -145,10 +241,10 @@ class RemoteCoverControllerTest {
             coverUrl = null,
         )
 
-        assertEquals(cachedUri.toString(), controller.coverImageUrlFor(stumpSeriesItem))
+        assertEquals(cachedUri.toString(), controller.coverImageUrlFor(stumpSeriesItem, LibraryCoverImageVariant.Grid))
         assertEquals(
-            "remote-cover:stump:stump:series:series-1:coverv=0",
-            controller.coverPrefetchKeyFor(stumpSeriesItem),
+            "remote-cover:stump:stump:series:series-1:grid:coverv=0",
+            controller.coverPrefetchKeyFor(stumpSeriesItem, LibraryCoverImageVariant.Grid),
         )
 
         val resetJob = async {
@@ -157,8 +253,8 @@ class RemoteCoverControllerTest {
         stumpDataSource.awaitClearStarted()
 
         assertEquals(
-            "remote-cover:stump:stump:series:series-1:coverv=1",
-            controller.coverPrefetchKeyFor(stumpSeriesItem),
+            "remote-cover:stump:stump:series:series-1:grid:coverv=1",
+            controller.coverPrefetchKeyFor(stumpSeriesItem, LibraryCoverImageVariant.Grid),
         )
 
         stumpDataSource.finishClear()
@@ -166,21 +262,52 @@ class RemoteCoverControllerTest {
         advanceUntilIdle()
 
         assertEquals(
-            "remote-cover:stump:stump:series:series-1:coverv=2",
-            controller.coverPrefetchKeyFor(stumpSeriesItem),
+            "remote-cover:stump:stump:series:series-1:grid:coverv=2",
+            controller.coverPrefetchKeyFor(stumpSeriesItem, LibraryCoverImageVariant.Grid),
+        )
+    }
+
+    @Test
+    fun `kavita cover waits for cached file instead of using remote fallback`() {
+        val controller = RemoteCoverController(
+            kavitaCoverRepository = EmptyKavitaCoverDataSource(),
+            stumpCoverRepository = EmptyStumpCoverDataSource(),
+            grimmoryCoverRepository = EmptyGrimmoryCoverDataSource(),
+            kavitaCredentialStore = FakeKavitaCredentialStore(),
+            stumpCredentialStore = FakeStumpCredentialStore(),
+            grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            appDispatchers = immediateAppDispatchers(),
+        )
+        val kavitaItem = remoteItem(
+            id = "kavita:item:issue-1",
+            sourceType = SourceType.KAVITA,
+            coverUrl = "https://kavita.example/api/Image/chapter-cover?chapterId=1&apiKey=token-1",
+        )
+
+        assertNull(controller.coverImageUrlFor(kavitaItem, LibraryCoverImageVariant.Grid))
+        assertEquals(
+            "remote-cover:kavita:kavita:item:issue-1:grid:coverv=0",
+            controller.coverPrefetchKeyFor(kavitaItem, LibraryCoverImageVariant.Grid),
         )
     }
 }
+
+private fun immediateAppDispatchers(): AppDispatchers = AppDispatchers(
+    io = Dispatchers.Unconfined,
+    default = Dispatchers.Unconfined,
+)
 
 private class EmptyKavitaCoverDataSource : KavitaCoverDataSource {
     override val sourceType: SourceType = SourceType.KAVITA
 
     override fun cachedCover(
         item: ReadableItem,
+        variant: LibraryCoverImageVariant,
     ): CachedRemoteCover? = null
 
     override suspend fun getCoverUri(
         item: ReadableItem,
+        variant: LibraryCoverImageVariant,
     ): Uri? = null
 
     override suspend fun clearCachedCovers() = Unit
@@ -194,10 +321,12 @@ private class DelayedCoverDataSource(
 
     override fun cachedCover(
         item: ReadableItem,
+        variant: LibraryCoverImageVariant,
     ): CachedRemoteCover? = null
 
     override suspend fun getCoverUri(
         item: ReadableItem,
+        variant: LibraryCoverImageVariant,
     ): Uri? {
         requestStarted.complete(Unit)
         return response.await()
@@ -216,15 +345,33 @@ private class DelayedCoverDataSource(
     }
 }
 
+private class EmptyStumpCoverDataSource : StumpCoverDataSource {
+    override val sourceType: SourceType = SourceType.STUMP
+
+    override fun cachedCover(
+        item: ReadableItem,
+        variant: LibraryCoverImageVariant,
+    ): CachedRemoteCover? = null
+
+    override suspend fun getCoverUri(
+        item: ReadableItem,
+        variant: LibraryCoverImageVariant,
+    ): Uri? = null
+
+    override suspend fun clearCachedCovers() = Unit
+}
+
 private class EmptyGrimmoryCoverDataSource : GrimmoryCoverDataSource {
     override val sourceType: SourceType = SourceType.GRIMMORY
 
     override fun cachedCover(
         item: ReadableItem,
+        variant: LibraryCoverImageVariant,
     ): CachedRemoteCover? = null
 
     override suspend fun getCoverUri(
         item: ReadableItem,
+        variant: LibraryCoverImageVariant,
     ): Uri? = null
 
     override suspend fun clearCachedCovers() = Unit
@@ -242,10 +389,12 @@ private class MigratingCoverDataSource(
 
     override fun cachedCover(
         item: ReadableItem,
+        variant: LibraryCoverImageVariant,
     ): CachedRemoteCover? = cachedCover
 
     override suspend fun getCoverUri(
         item: ReadableItem,
+        variant: LibraryCoverImageVariant,
     ): Uri {
         cachedCover = CachedRemoteCover(
             uri = persistentUri,
@@ -270,10 +419,12 @@ private class ResettableCachedCoverDataSource(
 
     override fun cachedCover(
         item: ReadableItem,
+        variant: LibraryCoverImageVariant,
     ): CachedRemoteCover? = cachedCover
 
     override suspend fun getCoverUri(
         item: ReadableItem,
+        variant: LibraryCoverImageVariant,
     ): Uri? = cachedCover?.uri
 
     override suspend fun clearCachedCovers() {
@@ -289,6 +440,56 @@ private class ResettableCachedCoverDataSource(
     fun finishClear() {
         clearFinished.complete(Unit)
     }
+}
+
+private abstract class PersistentCachedCoverDataSource(
+    cachedUri: Uri,
+    matchesRequestedVariant: Boolean,
+    private val refreshedUri: Uri = cachedUri,
+) : RemoteCoverDataSource {
+    private var cachedCover = CachedRemoteCover(
+        uri = cachedUri,
+        isPersistent = true,
+        matchesRequestedVariant = matchesRequestedVariant,
+    )
+    var getCoverUriCalls: Int = 0
+        private set
+
+    override fun cachedCover(
+        item: ReadableItem,
+        variant: LibraryCoverImageVariant,
+    ): CachedRemoteCover = cachedCover
+
+    override suspend fun getCoverUri(
+        item: ReadableItem,
+        variant: LibraryCoverImageVariant,
+    ): Uri {
+        getCoverUriCalls += 1
+        cachedCover = CachedRemoteCover(
+            uri = refreshedUri,
+            isPersistent = true,
+            matchesRequestedVariant = true,
+        )
+        return cachedCover.uri
+    }
+
+    override suspend fun clearCachedCovers() = Unit
+}
+
+private class PersistentCachedKavitaCoverDataSource(
+    cachedUri: Uri,
+    matchesRequestedVariant: Boolean = true,
+    refreshedUri: Uri = cachedUri,
+) : PersistentCachedCoverDataSource(cachedUri, matchesRequestedVariant, refreshedUri), KavitaCoverDataSource {
+    override val sourceType: SourceType = SourceType.KAVITA
+}
+
+private class PersistentCachedStumpCoverDataSource(
+    cachedUri: Uri,
+    matchesRequestedVariant: Boolean = true,
+    refreshedUri: Uri = cachedUri,
+) : PersistentCachedCoverDataSource(cachedUri, matchesRequestedVariant, refreshedUri), StumpCoverDataSource {
+    override val sourceType: SourceType = SourceType.STUMP
 }
 
 private fun remoteItem(

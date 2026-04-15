@@ -1,0 +1,114 @@
+package com.example.unifiedreader.feature.reader.comics
+
+import android.graphics.BitmapFactory
+import androidx.compose.ui.graphics.asImageBitmap
+import kotlin.math.ceil
+
+data class ComicPageImageDecodeOptions(
+    val maxLongEdge: Int = 4096,
+    val maxPixelCount: Int = 16_000_000,
+) {
+    init {
+        require(maxLongEdge > 0) { "maxLongEdge must be > 0" }
+        require(maxPixelCount > 0) { "maxPixelCount must be > 0" }
+    }
+}
+
+object ComicPageLoaderCacheSizing {
+    const val METADATA_CACHE_ENTRIES = 256
+    const val BYTE_CACHE_ENTRIES = 12
+    const val VISIBLE_LOAD_CONCURRENCY = 3
+    const val METADATA_LOAD_CONCURRENCY = 3
+    const val PREFETCH_LOAD_CONCURRENCY = 2
+
+    fun bitmapCacheBytes(
+        maxMemoryBytes: Long = Runtime.getRuntime().maxMemory(),
+    ): Int {
+        val targetBytes = maxMemoryBytes / BITMAP_CACHE_MEMORY_DIVISOR
+        return targetBytes
+            .coerceIn(MIN_BITMAP_CACHE_BYTES.toLong(), MAX_BITMAP_CACHE_BYTES.toLong())
+            .toInt()
+    }
+}
+
+fun comicPageBitmapCacheEntryBytes(
+    result: ComicPageLoadResult.Success,
+): Int = (result.image.width.toLong() * result.image.height.toLong() * BYTES_PER_ARGB_8888_PIXEL)
+    .coerceAtMost(Int.MAX_VALUE.toLong())
+    .toInt()
+
+fun decodeComicPageMetadata(
+    bytes: ByteArray,
+): ComicPageMetadata? {
+    val options = BitmapFactory.Options().apply {
+        inJustDecodeBounds = true
+    }
+    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+    val width = options.outWidth
+    val height = options.outHeight
+    return if (width > 0 && height > 0) {
+        ComicPageMetadata(
+            width = width,
+            height = height,
+        )
+    } else {
+        null
+    }
+}
+
+fun decodeComicPageImage(
+    bytes: ByteArray,
+    options: ComicPageImageDecodeOptions = ComicPageImageDecodeOptions(),
+): ComicPageLoadResult.Success? {
+    val bounds = decodeComicPageMetadata(bytes) ?: return null
+    val bitmapOptions = BitmapFactory.Options().apply {
+        inSampleSize = comicPageBitmapSampleSize(
+            width = bounds.width,
+            height = bounds.height,
+            options = options,
+        )
+    }
+    return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bitmapOptions)
+        ?.asImageBitmap()
+        ?.also { image -> image.prepareToDraw() }
+        ?.let(ComicPageLoadResult::Success)
+}
+
+internal fun comicPageBitmapSampleSize(
+    width: Int,
+    height: Int,
+    options: ComicPageImageDecodeOptions,
+): Int {
+    if (width <= 0 || height <= 0) return 1
+    var sampleSize = 1
+    while (sampledLongEdge(width, height, sampleSize) > options.maxLongEdge ||
+        sampledPixelCount(width, height, sampleSize) > options.maxPixelCount
+    ) {
+        sampleSize *= 2
+    }
+    return sampleSize
+}
+
+private fun sampledLongEdge(
+    width: Int,
+    height: Int,
+    sampleSize: Int,
+): Int = maxOf(
+    ceil(width / sampleSize.toDouble()).toInt(),
+    ceil(height / sampleSize.toDouble()).toInt(),
+)
+
+private fun sampledPixelCount(
+    width: Int,
+    height: Int,
+    sampleSize: Int,
+): Int {
+    val sampledWidth = ceil(width / sampleSize.toDouble()).toLong()
+    val sampledHeight = ceil(height / sampleSize.toDouble()).toLong()
+    return (sampledWidth * sampledHeight).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+}
+
+private const val BITMAP_CACHE_MEMORY_DIVISOR = 8
+private const val MIN_BITMAP_CACHE_BYTES = 16 * 1024 * 1024
+private const val MAX_BITMAP_CACHE_BYTES = 96 * 1024 * 1024
+private const val BYTES_PER_ARGB_8888_PIXEL = 4

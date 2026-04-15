@@ -13,20 +13,40 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
+import com.example.unifiedreader.feature.library.LibraryDeleteImportedItemDialog
+import com.example.unifiedreader.feature.library.LibraryItemActionContext
 
 @Composable
 fun LibraryShelvesZone(
     state: LibraryShelvesState,
-    coverImageUrlProvider: (ReadableItem) -> String?,
-    onCoverVisible: (ReadableItem) -> Unit,
+    itemActionContext: LibraryItemActionContext = LibraryItemActionContext(),
+    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
+    onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onItemSelected: (ReadableItem) -> Unit,
+    onDeleteImportedItem: (ReadableItem) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     if (!state.hasContent) return
 
     var activeSheet by remember(state) { mutableStateOf<LibraryShelfSheetState?>(null) }
+    var previewExpandedMenuItemId by remember(state) { mutableStateOf<String?>(null) }
+    var deleteCandidate by remember(state) { mutableStateOf<ReadableItem?>(null) }
     val visibleShelves = visibleShelfCount(state)
+    val previewContentReady = rememberShelvesPreviewContentReady(hasContent = state.hasContent)
     val coverLoadingReady = rememberShelvesCoverLoadingReady(hasContent = state.hasContent)
+    val previewCoverItems = remember(state, coverImageUrlProvider) {
+        shelfPreviewCoverPrefetchItems(
+            state = state,
+            coverImageUrlProvider = coverImageUrlProvider,
+        )
+    }
+
+    LibraryShelvesPreviewCoverPrefetcher(
+        coverLoadingEnabled = coverLoadingReady && previewContentReady,
+        items = previewCoverItems,
+        onCoverVisible = onCoverVisible,
+    )
 
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         if (maxWidth >= ShelvesRowBreakpoint && visibleShelves > 1) {
@@ -36,9 +56,15 @@ fun LibraryShelvesZone(
             ) {
                 ShelfSections(
                     state = state,
+                    itemActionContext = itemActionContext,
                     coverImageUrlProvider = coverImageUrlProvider,
-                    onCoverVisible = onCoverVisible,
+                    previewContentEnabled = previewContentReady,
                     onItemSelected = onItemSelected,
+                    expandedMenuItemId = previewExpandedMenuItemId,
+                    onMenuExpandedChange = { item, expanded ->
+                        previewExpandedMenuItemId = if (expanded) item.id else null
+                    },
+                    onDeleteImportedRequested = { deleteCandidate = it },
                     onOpenSheet = { activeSheet = it },
                     coverLoadingEnabled = coverLoadingReady,
                     itemModifier = Modifier.weight(1f),
@@ -51,9 +77,15 @@ fun LibraryShelvesZone(
             ) {
                 ShelfSections(
                     state = state,
+                    itemActionContext = itemActionContext,
                     coverImageUrlProvider = coverImageUrlProvider,
-                    onCoverVisible = onCoverVisible,
+                    previewContentEnabled = previewContentReady,
                     onItemSelected = onItemSelected,
+                    expandedMenuItemId = previewExpandedMenuItemId,
+                    onMenuExpandedChange = { item, expanded ->
+                        previewExpandedMenuItemId = if (expanded) item.id else null
+                    },
+                    onDeleteImportedRequested = { deleteCandidate = it },
                     onOpenSheet = { activeSheet = it },
                     coverLoadingEnabled = coverLoadingReady,
                     itemModifier = Modifier.fillMaxWidth(),
@@ -65,12 +97,25 @@ fun LibraryShelvesZone(
     activeSheet?.let { sheet ->
         LibraryShelfItemsSheet(
             sheet = sheet,
+            itemActionContext = itemActionContext,
             coverImageUrlProvider = coverImageUrlProvider,
             onCoverVisible = onCoverVisible,
             onDismiss = { activeSheet = null },
             onItemSelected = { item ->
                 activeSheet = null
                 onItemSelected(item)
+            },
+            onDeleteImportedItem = { deleteCandidate = it },
+        )
+    }
+
+    deleteCandidate?.let { item ->
+        LibraryDeleteImportedItemDialog(
+            item = item,
+            onDismiss = { deleteCandidate = null },
+            onConfirmDelete = {
+                onDeleteImportedItem(it)
+                deleteCandidate = null
             },
         )
     }
@@ -79,9 +124,13 @@ fun LibraryShelvesZone(
 @Composable
 private fun ShelfSections(
     state: LibraryShelvesState,
-    coverImageUrlProvider: (ReadableItem) -> String?,
-    onCoverVisible: (ReadableItem) -> Unit,
+    itemActionContext: LibraryItemActionContext,
+    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
+    previewContentEnabled: Boolean,
     onItemSelected: (ReadableItem) -> Unit,
+    expandedMenuItemId: String?,
+    onMenuExpandedChange: (ReadableItem, Boolean) -> Unit,
+    onDeleteImportedRequested: (ReadableItem) -> Unit,
     onOpenSheet: (LibraryShelfSheetState) -> Unit,
     coverLoadingEnabled: Boolean,
     itemModifier: Modifier,
@@ -89,10 +138,14 @@ private fun ShelfSections(
     if (state.continueReading.isNotEmpty()) {
         ContinueReadingShelfSection(
             items = state.continueReading,
+            itemActionContext = itemActionContext,
             coverImageUrlProvider = coverImageUrlProvider,
-            onCoverVisible = onCoverVisible,
+            previewContentEnabled = previewContentEnabled,
             coverLoadingEnabled = coverLoadingEnabled,
             onItemSelected = onItemSelected,
+            expandedMenuItemId = expandedMenuItemId,
+            onMenuExpandedChange = onMenuExpandedChange,
+            onDeleteImportedRequested = onDeleteImportedRequested,
             onSeeAll = {
                 onOpenSheet(LibraryShelfSheetState.ContinueReading(state.continueReading))
             },
@@ -102,10 +155,14 @@ private fun ShelfSections(
     if (state.nextInSeries.isNotEmpty()) {
         NextInSeriesShelfSection(
             items = state.nextInSeries,
+            itemActionContext = itemActionContext,
             coverImageUrlProvider = coverImageUrlProvider,
-            onCoverVisible = onCoverVisible,
+            previewContentEnabled = previewContentEnabled,
             coverLoadingEnabled = coverLoadingEnabled,
             onItemSelected = onItemSelected,
+            expandedMenuItemId = expandedMenuItemId,
+            onMenuExpandedChange = onMenuExpandedChange,
+            onDeleteImportedRequested = onDeleteImportedRequested,
             onSeeAll = {
                 onOpenSheet(LibraryShelfSheetState.NextInSeries(state.nextInSeries))
             },
@@ -115,10 +172,14 @@ private fun ShelfSections(
     if (state.recentlyFinished.isNotEmpty()) {
         RecentlyFinishedShelfSection(
             items = state.recentlyFinished,
+            itemActionContext = itemActionContext,
             coverImageUrlProvider = coverImageUrlProvider,
-            onCoverVisible = onCoverVisible,
+            previewContentEnabled = previewContentEnabled,
             coverLoadingEnabled = coverLoadingEnabled,
             onItemSelected = onItemSelected,
+            expandedMenuItemId = expandedMenuItemId,
+            onMenuExpandedChange = onMenuExpandedChange,
+            onDeleteImportedRequested = onDeleteImportedRequested,
             onSeeAll = {
                 onOpenSheet(LibraryShelfSheetState.RecentlyFinished(state.recentlyFinished))
             },

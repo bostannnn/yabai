@@ -40,7 +40,7 @@ interface ReaderScreenFactory {
     fun Content(
         item: ReadableItem,
         onBack: () -> Unit,
-        navigationActions: ReaderNavigationActions = ReaderNavigationActions(),
+        navigationActions: ReaderNavigationActions,
     )
 }
 

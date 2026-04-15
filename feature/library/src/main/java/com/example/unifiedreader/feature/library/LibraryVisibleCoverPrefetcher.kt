@@ -15,8 +15,8 @@ internal fun VisibleRemoteCoverPrefetcher(
     gridState: LazyGridState,
     items: List<ReadableItem>,
     leadingContentItemCount: Int,
-    coverPrefetchKeyProvider: (ReadableItem) -> String?,
-    onCoverVisible: (ReadableItem) -> Unit,
+    coverPrefetchKeyProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
+    onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
 ) {
     LaunchedEffect(
         browseContextKey,
@@ -39,7 +39,7 @@ internal fun VisibleRemoteCoverPrefetcher(
                 if (targets.isEmpty()) return@collectLatest
                 delay(REMOTE_COVER_PREFETCH_DELAY_MILLIS)
                 targets.forEach { target ->
-                    onCoverVisible(target.item)
+                    onCoverVisible(target.item, target.variant)
                     delay(REMOTE_COVER_PREFETCH_STAGGER_MILLIS)
                 }
             }
@@ -50,20 +50,21 @@ internal fun visibleRemoteCoverPrefetchTargets(
     visibleGridItemIndices: List<Int>,
     itemIndexOffset: Int,
     items: List<ReadableItem>,
-    coverPrefetchKeyProvider: (ReadableItem) -> String?,
+    coverPrefetchKeyProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
 ): List<RemoteCoverPrefetchTarget> = visibleGridItemIndices
     .asSequence()
     .map { visibleIndex -> visibleIndex - itemIndexOffset }
     .filter { itemIndex -> itemIndex in items.indices }
     .map(items::get)
     .mapNotNull { item ->
-        val prefetchKey = coverPrefetchKeyProvider(item)
+        val prefetchKey = coverPrefetchKeyProvider(item, LibraryCoverImageVariant.Grid)
             ?.takeIf(String::isNotBlank)
             ?: return@mapNotNull null
         if (!shouldPrefetchRemoteCover(item)) return@mapNotNull null
         RemoteCoverPrefetchTarget(
             item = item,
             prefetchKey = prefetchKey,
+            variant = LibraryCoverImageVariant.Grid,
         )
     }
     .distinctBy(RemoteCoverPrefetchTarget::prefetchKey)
@@ -72,7 +73,8 @@ internal fun visibleRemoteCoverPrefetchTargets(
 internal data class RemoteCoverPrefetchTarget(
     val item: ReadableItem,
     val prefetchKey: String,
+    val variant: LibraryCoverImageVariant,
 )
 
-internal const val REMOTE_COVER_PREFETCH_DELAY_MILLIS = 180L
-internal const val REMOTE_COVER_PREFETCH_STAGGER_MILLIS = 24L
+internal const val REMOTE_COVER_PREFETCH_DELAY_MILLIS = 48L
+internal const val REMOTE_COVER_PREFETCH_STAGGER_MILLIS = 16L

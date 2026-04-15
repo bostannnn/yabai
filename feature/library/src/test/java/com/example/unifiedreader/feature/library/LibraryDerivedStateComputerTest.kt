@@ -10,6 +10,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.remoteLibraryId
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Test
 
@@ -101,6 +102,106 @@ class LibraryDerivedStateComputerTest {
 
         assertEquals(setOf("kavita:series:${issueOne.libraryId}::akira"), derivedState.remoteDownloadActionAvailability.downloadableItemIds)
         assertEquals(setOf("kavita:series:${issueOne.libraryId}::akira"), derivedState.remoteDownloadActionAvailability.deletableDownloadedItemIds)
+    }
+
+    @Test
+    fun `root browse does not synthesize aggregate series progress`() {
+        val libraries = listOf(
+            Library(
+                id = SourceType.KAVITA.remoteLibraryId("k-comics"),
+                sourceType = SourceType.KAVITA,
+                title = "Kavita Comics",
+                contentType = LibraryContentType.COMICS,
+            ),
+        )
+        val issueOne = issue(
+            id = "k-1",
+            sourceType = SourceType.KAVITA,
+            libraryId = SourceType.KAVITA.remoteLibraryId("k-comics"),
+            seriesKey = "akira",
+            title = "Akira 1",
+        )
+        val issueTwo = issue(
+            id = "k-2",
+            sourceType = SourceType.KAVITA,
+            libraryId = SourceType.KAVITA.remoteLibraryId("k-comics"),
+            seriesKey = "akira",
+            title = "Akira 2",
+        )
+        val progressByItemId = mapOf(
+            issueOne.id to ItemProgressSummary(
+                label = "Continue",
+                fraction = 0.4f,
+                lastReadAtEpochMillis = 42L,
+            ),
+        )
+
+        val derivedState = computer.compute(
+            LibraryDerivedStateInput(
+                selectedSource = SourceType.KAVITA,
+                libraries = libraries,
+                items = listOf(issueOne, issueTwo),
+                selectedLibrarySortMode = LibrarySortMode.TITLE,
+                progressByItemId = progressByItemId,
+            ),
+        )
+
+        assertEquals(progressByItemId, derivedState.displayProgressByItemId)
+        assertEquals(1, derivedState.visibleItems.size)
+        assertNull(derivedState.displayProgressByItemId[derivedState.visibleItems.single().id])
+    }
+
+    @Test
+    fun `root last read sort still follows issue activity for series containers`() {
+        val libraryId = SourceType.KAVITA.remoteLibraryId("k-comics")
+        val libraries = listOf(
+            Library(
+                id = libraryId,
+                sourceType = SourceType.KAVITA,
+                title = "Kavita Comics",
+                contentType = LibraryContentType.COMICS,
+            ),
+        )
+        val akiraIssue = issue(
+            id = "k-1",
+            sourceType = SourceType.KAVITA,
+            libraryId = libraryId,
+            seriesKey = "akira",
+            title = "Akira 1",
+        )
+        val blameIssue = issue(
+            id = "k-2",
+            sourceType = SourceType.KAVITA,
+            libraryId = libraryId,
+            seriesKey = "blame",
+            title = "Blame 1",
+        )
+
+        val derivedState = computer.compute(
+            LibraryDerivedStateInput(
+                selectedSource = SourceType.KAVITA,
+                libraries = libraries,
+                items = listOf(akiraIssue, blameIssue),
+                selectedLibrarySortMode = LibrarySortMode.LAST_READ,
+                progressByItemId = mapOf(
+                    akiraIssue.id to ItemProgressSummary(
+                        label = "Continue",
+                        fraction = 0.1f,
+                        lastReadAtEpochMillis = 10L,
+                    ),
+                    blameIssue.id to ItemProgressSummary(
+                        label = "Continue",
+                        fraction = 0.2f,
+                        lastReadAtEpochMillis = 20L,
+                    ),
+                ),
+            ),
+        )
+
+        assertEquals(
+            listOf("kavita:series:${libraryId}::blame", "kavita:series:${libraryId}::akira"),
+            derivedState.visibleItems.map(ReadableItem::id),
+        )
     }
 }
 

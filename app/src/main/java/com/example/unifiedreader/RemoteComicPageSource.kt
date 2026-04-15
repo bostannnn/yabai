@@ -6,11 +6,15 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
+import com.example.unifiedreader.feature.reader.comics.ComicPageLoaderCacheSizing
 import com.example.unifiedreader.feature.reader.comics.ComicPageMetadata
 import com.example.unifiedreader.feature.reader.comics.ComicPagePrefetchWindow
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 import com.example.unifiedreader.feature.reader.comics.candidateIndexes
+import com.example.unifiedreader.feature.reader.comics.comicPageBitmapCacheEntryBytes
+import com.example.unifiedreader.feature.reader.comics.decodeComicPageImage
+import com.example.unifiedreader.feature.reader.comics.decodeComicPageMetadata
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -32,9 +36,14 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + ioDispatcher),
 ) : ComicPageSource {
-    private val pageBitmapCache = LruCache<String, ComicPageLoadResult.Success>(
-        ComicPageLoaderCacheSizing.BITMAP_CACHE_ENTRIES,
-    )
+    private val pageBitmapCache = object : LruCache<String, ComicPageLoadResult.Success>(
+        ComicPageLoaderCacheSizing.bitmapCacheBytes(),
+    ) {
+        override fun sizeOf(
+            key: String,
+            value: ComicPageLoadResult.Success,
+        ): Int = comicPageBitmapCacheEntryBytes(value)
+    }
     private val pageMetadataCache = LruCache<String, ComicPageMetadata>(
         ComicPageLoaderCacheSizing.METADATA_CACHE_ENTRIES,
     )

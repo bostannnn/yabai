@@ -3,6 +3,7 @@ package com.example.unifiedreader
 import com.example.unifiedreader.core.database.dao.RemoteCatalogDao
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
+import com.example.unifiedreader.core.database.entity.ReadableItemLibraryEntity
 import com.example.unifiedreader.core.database.entity.RemoteLibraryCacheEntity
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.LibraryContentType
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.dropWhile
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.SupervisorJob
@@ -174,7 +176,6 @@ private class FakeRemoteCatalogDao(
     override fun observeLibraries(): Flow<List<LibraryEntity>> = librariesState
 
     override fun getItems(): List<ReadableItemEntity> {
-        getItemsFailure?.let { throw it }
         return itemsState.value
     }
 
@@ -182,6 +183,21 @@ private class FakeRemoteCatalogDao(
 
     override fun getItemsForSourceType(sourceType: String): List<ReadableItemEntity> =
         itemsState.value.filter { it.sourceType == sourceType }
+
+    override fun getLibraryItems(): List<ReadableItemLibraryEntity> {
+        getItemsFailure?.let { throw it }
+        return itemsState.value.map(ReadableItemEntity::toLibraryEntity)
+    }
+
+    override fun observeLibraryItems(): Flow<List<ReadableItemLibraryEntity>> =
+        itemsState.map { items ->
+            items.map(ReadableItemEntity::toLibraryEntity)
+        }
+
+    override fun getLibraryItemsForSourceType(sourceType: String): List<ReadableItemLibraryEntity> =
+        itemsState.value
+            .filter { it.sourceType == sourceType }
+            .map(ReadableItemEntity::toLibraryEntity)
 
     override fun getCachedLibraries(
         sourceType: String,
@@ -220,3 +236,35 @@ private class FakeRemoteCatalogDao(
         cachedLibrariesByKey.remove(Triple(sourceType, baseUrl, username))
     }
 }
+
+private fun ReadableItemEntity.toLibraryEntity(): ReadableItemLibraryEntity = ReadableItemLibraryEntity(
+    id = id,
+    sourceType = sourceType,
+    libraryId = libraryId,
+    remoteId = remoteId,
+    isLocalImport = isLocalImport,
+    remoteFileId = remoteFileId,
+    remoteFileType = remoteFileType,
+    title = title,
+    format = format,
+    kind = kind,
+    pageCount = pageCount,
+    coverUrl = coverUrl,
+    description = description?.take(512),
+    addedAtEpochMillis = addedAtEpochMillis,
+    bookAuthor = bookAuthor,
+    bookAuthorsJson = bookAuthorsJson,
+    bookSeriesName = bookSeriesName,
+    bookPublishersJson = bookPublishersJson,
+    bookGenresJson = bookGenresJson,
+    bookTagsJson = bookTagsJson,
+    bookLanguagesJson = bookLanguagesJson,
+    comicSeries = comicSeries,
+    comicIssueTitle = comicIssueTitle,
+    comicVolume = comicVolume,
+    comicIssueNumber = comicIssueNumber,
+    comicPublishersJson = comicPublishersJson,
+    comicGenresJson = comicGenresJson,
+    comicTagsJson = comicTagsJson,
+    comicLanguagesJson = comicLanguagesJson,
+)

@@ -87,6 +87,12 @@ class AppCatalogStateCoordinator @Inject constructor(
                         },
                     )
                 }
+                refreshDownloadedRemoteItemIdsAsync(
+                    scope = scope,
+                    stateProvider = stateProvider,
+                    updateState = updateState,
+                    items = snapshot.items,
+                )
             }
         }
     }

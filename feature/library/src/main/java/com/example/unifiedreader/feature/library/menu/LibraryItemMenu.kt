@@ -2,7 +2,6 @@ package com.example.unifiedreader.feature.library.menu
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.defaultMinSize
@@ -11,8 +10,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -24,17 +21,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -91,57 +86,28 @@ internal fun LibraryItemOverflowMenu(
     actions: List<ItemMenuAction>,
     readingDirectionState: ReadingDirectionMenuState? = null,
     readerModeState: ReaderModeMenuState? = null,
+    expanded: Boolean? = null,
+    onExpandedChange: ((Boolean) -> Unit)? = null,
 ) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
-    val menuButtonShape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
-    Box(modifier = modifier) {
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .semantics {
-                    contentDescription = "More actions"
-                    role = Role.Button
-                }
-                .clickable(onClick = { expanded = true }),
-            contentAlignment = Alignment.TopEnd,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .shadow(
-                        elevation = 3.dp,
-                        shape = menuButtonShape,
-                        clip = false,
-                        ambientColor = Color.Black.copy(alpha = 0.18f),
-                        spotColor = Color.Black.copy(alpha = 0.22f),
-                    )
-                    .clip(menuButtonShape)
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.88f))
-                    .border(
-                        width = 1.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f),
-                        shape = menuButtonShape,
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Default.MoreVert,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
+    var localExpanded by rememberSaveable { mutableStateOf(false) }
+    val menuExpanded = expanded ?: localExpanded
+    val updateExpanded = remember(onExpandedChange) {
+        { value: Boolean ->
+            onExpandedChange?.invoke(value) ?: run { localExpanded = value }
         }
+    }
+    Box(modifier = modifier) {
+        LibraryItemMenuButton(onClick = { updateExpanded(true) })
         DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
+            expanded = menuExpanded,
+            onDismissRequest = { updateExpanded(false) },
         ) {
             actions.forEach { action ->
                 DropdownMenuItem(
                     text = { Text(text = action.label) },
                     enabled = action.enabled,
                     onClick = {
-                        expanded = false
+                        updateExpanded(false)
                         action.onClick()
                     },
                 )
@@ -153,7 +119,7 @@ internal fun LibraryItemOverflowMenu(
                 ReadingDirectionMenuRow(
                     state = state,
                     onDirectionSelected = { direction ->
-                        expanded = false
+                        updateExpanded(false)
                         state.onDirectionSelected(direction)
                     },
                 )
@@ -169,7 +135,7 @@ internal fun LibraryItemOverflowMenu(
                     ReaderModeMenuRow(
                         state = state,
                         onModeSelected = { mode ->
-                            expanded = false
+                            updateExpanded(false)
                             state.onModeSelected(mode)
                         },
                     )

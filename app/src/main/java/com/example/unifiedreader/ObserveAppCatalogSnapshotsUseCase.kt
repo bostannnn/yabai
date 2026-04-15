@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.common.AppDispatchers
 import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
@@ -7,6 +8,7 @@ import com.example.unifiedreader.feature.settings.SettingsPreferencesStore
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.withContext
 
 class ObserveAppCatalogSnapshotsUseCase @Inject constructor(
     private val settingsPreferencesStore: SettingsPreferencesStore,
@@ -16,48 +18,54 @@ class ObserveAppCatalogSnapshotsUseCase @Inject constructor(
     private val localDocumentRepository: LocalDocumentDataSource,
     private val readerSessionStore: ReaderSessionStore,
     private val libraryStateAssembler: AppLibraryStateAssembler,
+    private val appDispatchers: AppDispatchers = AppDispatchers(),
 ) {
     internal fun observe(): Flow<AppCatalogSnapshot> = combine(
         settingsPreferencesStore.preferencesFlow,
         combine(
             libraryRepository.observeLibraries(),
             readableItemRepository.observeItems(),
-            combine(
-                remoteCatalogReadiness.isHydratedFlow,
-                localDocumentRepository.isHydratedFlow,
-                localDocumentRepository.importedItemsFlow,
-                readerSessionStore.progressByItemIdFlow,
-                readerSessionStore.sessionByItemIdFlow,
-            ) { isRemoteCatalogHydrated, isLocalCatalogHydrated, importedItems, progressByItemId, sessionByItemId ->
-                AppCatalogObservation(
-                    isRemoteCatalogHydrated = isRemoteCatalogHydrated,
-                    isLocalCatalogHydrated = isLocalCatalogHydrated,
-                    importedItems = importedItems,
-                    progressByItemId = progressByItemId,
-                    sessionByItemId = sessionByItemId,
-                )
-            },
-        ) { libraries, catalogItems, observation ->
-            libraryStateAssembler.buildSnapshot(
+            remoteCatalogReadiness.isHydratedFlow,
+        ) { libraries, catalogItems, isRemoteCatalogHydrated ->
+            RemoteCatalogObservation(
                 libraries = libraries,
                 catalogItems = catalogItems,
-                importedItems = observation.importedItems,
-                progressByItemId = observation.progressByItemId,
-                sessionByItemId = observation.sessionByItemId,
-                isRemoteCatalogHydrated = observation.isRemoteCatalogHydrated,
-                isLocalCatalogHydrated = observation.isLocalCatalogHydrated,
-                themeMode = settingsPreferencesStore.preferencesFlow.value.themeMode,
+                isRemoteCatalogHydrated = isRemoteCatalogHydrated,
             )
         },
-    ) { preferences, snapshot ->
-        snapshot.copy(themeMode = preferences.themeMode)
+        combine(
+            localDocumentRepository.isHydratedFlow,
+            localDocumentRepository.importedItemsFlow,
+        ) { isLocalCatalogHydrated, importedItems ->
+            LocalCatalogObservation(
+                isLocalCatalogHydrated = isLocalCatalogHydrated,
+                importedItems = importedItems,
+            )
+        },
+    ) { preferences, remoteObservation, localObservation ->
+        withContext(appDispatchers.default) {
+            libraryStateAssembler.buildSnapshot(
+                libraries = remoteObservation.libraries,
+                catalogItems = remoteObservation.catalogItems,
+                importedItems = localObservation.importedItems,
+                progressByItemId = readerSessionStore.progressByItemIdFlow.value,
+                sessionByItemId = readerSessionStore.sessionByItemIdFlow.value,
+                isRemoteCatalogHydrated = remoteObservation.isRemoteCatalogHydrated,
+                isLocalCatalogHydrated = localObservation.isLocalCatalogHydrated,
+                themeMode = preferences.themeMode,
+                includeRemoteItemLocalState = false,
+            )
+        }
     }
 }
 
-private data class AppCatalogObservation(
+private data class RemoteCatalogObservation(
+    val libraries: List<com.example.unifiedreader.core.model.Library>,
+    val catalogItems: List<com.example.unifiedreader.core.model.ReadableItem>,
     val isRemoteCatalogHydrated: Boolean,
+)
+
+private data class LocalCatalogObservation(
     val isLocalCatalogHydrated: Boolean,
     val importedItems: List<com.example.unifiedreader.core.model.ReadableItem>,
-    val progressByItemId: Map<String, com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot>,
-    val sessionByItemId: Map<String, com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot>,
 )

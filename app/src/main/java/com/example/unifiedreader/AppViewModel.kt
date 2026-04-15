@@ -12,9 +12,8 @@ import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.downloads.DownloadEntriesSnapshot
-import com.example.unifiedreader.feature.library.LibraryDerivedStateComputer
+import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
-import com.example.unifiedreader.feature.library.shelves.LibraryShelvesStateComputer
 import com.example.unifiedreader.feature.navigation.SourceOrderMoveDirection
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesStore
@@ -50,8 +49,7 @@ class AppViewModel @Inject constructor(
     val comicReaderPreferencesStore: ComicReaderPreferencesStore,
     val readerSessionStore: ReaderSessionStore,
     val readerFactories: List<@JvmSuppressWildcards ReaderScreenFactory>,
-    private val libraryDerivedStateComputer: LibraryDerivedStateComputer,
-    private val libraryShelvesStateComputer: LibraryShelvesStateComputer,
+    private val libraryStateRecomputeCoordinator: AppLibraryStateRecomputeCoordinator,
 ) : ViewModel() {
     var uiState by mutableStateOf(initialUiState())
         private set
@@ -246,17 +244,27 @@ class AppViewModel @Inject constructor(
         )
     }
 
-    fun coverImageUrlFor(item: ReadableItem): String? {
-        return libraryActionsCoordinator.coverImageUrlFor(item)
+    fun coverImageUrlFor(
+        item: ReadableItem,
+        variant: LibraryCoverImageVariant,
+    ): String? {
+        return libraryActionsCoordinator.coverImageUrlFor(item, variant)
     }
 
-    fun coverPrefetchKeyFor(item: ReadableItem): String? {
-        return libraryActionsCoordinator.coverPrefetchKeyFor(item)
+    fun coverPrefetchKeyFor(
+        item: ReadableItem,
+        variant: LibraryCoverImageVariant,
+    ): String? {
+        return libraryActionsCoordinator.coverPrefetchKeyFor(item, variant)
     }
 
-    fun ensureCoverCached(item: ReadableItem) {
+    fun ensureCoverCached(
+        item: ReadableItem,
+        variant: LibraryCoverImageVariant,
+    ) {
         libraryActionsCoordinator.ensureCoverCached(
             item = item,
+            variant = variant,
             scope = viewModelScope,
             onError = {},
         )
@@ -285,6 +293,7 @@ class AppViewModel @Inject constructor(
 
     fun refreshProgress() {
         readerCoordinator.refreshProgress(
+            scope = viewModelScope,
             stateProvider = { uiState },
             updateState = ::updateUiState,
             refreshDownloadedRemoteItemIds = { items ->
@@ -661,21 +670,17 @@ class AppViewModel @Inject constructor(
         }
     }
 
-    private inline fun updateUiState(
+    private fun updateUiState(
         transform: (AppUiState) -> AppUiState,
     ) {
-        val nextState = transform(uiState)
-        uiState = nextState
-            .withLibraryDerivedState(
-                libraryDerivedStateComputer.compute(
-                    nextState.toLibraryDerivedStateInput(),
-                ),
-            )
-            .withLibraryShelvesState(
-                libraryShelvesStateComputer.compute(
-                    nextState.toLibraryShelvesInput(),
-                ),
-            )
+        libraryStateRecomputeCoordinator.updateState(
+            currentState = uiState,
+            transform = transform,
+            scope = viewModelScope,
+            publishState = { nextState ->
+                uiState = nextState
+            },
+        )
     }
 
     private fun initialUiState(): AppUiState {
@@ -684,13 +689,7 @@ class AppViewModel @Inject constructor(
             sourceOrder = navigationState.sourceOrder,
             selectedSource = navigationState.startupSource,
         )
-        return baseState
-            .withLibraryDerivedState(
-                libraryDerivedStateComputer.compute(baseState.toLibraryDerivedStateInput()),
-            )
-            .withLibraryShelvesState(
-                libraryShelvesStateComputer.compute(baseState.toLibraryShelvesInput()),
-            )
+        return libraryStateRecomputeCoordinator.initialize(baseState)
     }
 
     private fun reportProgressSyncFailures(

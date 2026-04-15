@@ -1,4 +1,4 @@
-package com.example.unifiedreader
+package com.example.unifiedreader.feature.library.covers
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
@@ -8,8 +8,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertFalse
@@ -63,6 +63,42 @@ class PersistentRemoteCoverStoreTest {
     }
 
     @Test
+    fun `warmStorageDirectoryIndex indexes existing persistent and legacy covers`() = runTest {
+        val persistentFile = File(File(context.filesDir, STORAGE_DIRECTORY), FILE_NAME).apply {
+            parentFile?.mkdirs()
+            writeBytes(byteArrayOf(9, 8, 7))
+        }
+        val legacyOnlyFile = File(File(context.cacheDir, LEGACY_DIRECTORY), LEGACY_ONLY_FILE_NAME).apply {
+            parentFile?.mkdirs()
+            writeBytes(byteArrayOf(4, 5, 6))
+        }
+
+        store.warmStorageDirectoryIndex(
+            storageDirectoryName = STORAGE_DIRECTORY,
+            legacyDirectoryName = LEGACY_DIRECTORY,
+        )
+
+        val persistentCover = store.cachedCoverFile(
+            storageDirectoryName = STORAGE_DIRECTORY,
+            fileName = FILE_NAME,
+            legacyDirectoryName = LEGACY_DIRECTORY,
+        )
+        val legacyCover = store.cachedCoverFile(
+            storageDirectoryName = STORAGE_DIRECTORY,
+            fileName = LEGACY_ONLY_FILE_NAME,
+            legacyDirectoryName = LEGACY_DIRECTORY,
+        )
+
+        assertNotNull(persistentCover)
+        assertTrue(requireNotNull(persistentCover).isPersistent)
+        assertTrue(persistentCover.file == persistentFile)
+
+        assertNotNull(legacyCover)
+        assertFalse(requireNotNull(legacyCover).isPersistent)
+        assertTrue(legacyCover.file == legacyOnlyFile)
+    }
+
+    @Test
     fun `clearStorageDirectory waits for in flight storage work`() = runBlocking {
         val enteredLock = CompletableDeferred<Unit>()
         val releaseLock = CompletableDeferred<Unit>()
@@ -89,3 +125,4 @@ class PersistentRemoteCoverStoreTest {
 private const val STORAGE_DIRECTORY = "remote-cover-store-test"
 private const val LEGACY_DIRECTORY = "remote-cover-store-test-legacy"
 private const val FILE_NAME = "issue-1.cover"
+private const val LEGACY_ONLY_FILE_NAME = "issue-2.cover"

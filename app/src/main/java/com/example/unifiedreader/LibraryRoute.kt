@@ -8,6 +8,8 @@ import androidx.compose.ui.Modifier
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
+import com.example.unifiedreader.feature.library.LibraryItemActionContext
 import com.example.unifiedreader.feature.library.LibraryScreen
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
 import com.example.unifiedreader.feature.library.LibraryViewMode
@@ -21,9 +23,9 @@ internal fun LibraryRoute(
     viewMode: LibraryViewMode,
     browseContextKey: String,
     initialScrollPosition: LibraryScrollPosition,
-    coverImageUrlProvider: (ReadableItem) -> String?,
-    coverPrefetchKeyProvider: (ReadableItem) -> String?,
-    onCoverVisible: (ReadableItem) -> Unit,
+    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
+    coverPrefetchKeyProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
+    onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onScrollPositionChanged: (LibraryScrollPosition) -> Unit,
     onItemSelected: (ReadableItem) -> Unit,
     seriesReadingDirectionFor: (ReadableItem) -> ComicReadingDirection?,
@@ -41,6 +43,20 @@ internal fun LibraryRoute(
     showSortControl: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val itemActionContext = LibraryItemActionContext(
+        progressByItemId = uiState.displayProgressByItemId,
+        locallyAvailableItemIds = uiState.locallyAvailableRemoteItemIds,
+        downloadableItemIds = uiState.remoteDownloadActionAvailability.downloadableItemIds,
+        deletableDownloadedItemIds = uiState.remoteDownloadActionAvailability.deletableDownloadedItemIds,
+        downloadingItemIds = uiState.remoteDownloadActionAvailability.activeDownloadingItemIds,
+        seriesReadingDirectionFor = seriesReadingDirectionFor,
+        onSeriesDirectionSelected = onSeriesDirectionSelected,
+        seriesReaderModeFor = seriesReaderModeFor,
+        onSeriesReaderModeSelected = onSeriesReaderModeSelected,
+        onDownloadItem = onDownloadRemoteItem,
+        onDeleteDownloadedItem = onDeleteRemoteLocalFile,
+        onSetReadStatus = onSetReadStatus,
+    )
     Surface(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
@@ -71,9 +87,11 @@ internal fun LibraryRoute(
                     if (uiState.isSelectedSourceHydrated && uiState.shouldShowLibraryShelves) {
                         LibraryShelvesZone(
                             state = uiState.libraryShelvesState,
+                            itemActionContext = itemActionContext,
                             coverImageUrlProvider = coverImageUrlProvider,
                             onCoverVisible = onCoverVisible,
                             onItemSelected = onItemSelected,
+                            onDeleteImportedItem = onDeleteImportedItem,
                         )
                     }
                 }

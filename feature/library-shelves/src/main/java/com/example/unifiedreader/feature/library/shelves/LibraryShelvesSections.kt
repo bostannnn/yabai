@@ -21,17 +21,25 @@ import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.core.model.librarySecondaryText
+import com.example.unifiedreader.feature.library.LibraryAnchoredItemMenu
+import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
+import com.example.unifiedreader.feature.library.LibraryItemActionContext
 
 @Composable
 internal fun ContinueReadingShelfSection(
     items: List<ContinueReadingShelfItem>,
-    coverImageUrlProvider: (ReadableItem) -> String?,
-    onCoverVisible: (ReadableItem) -> Unit,
+    itemActionContext: LibraryItemActionContext,
+    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
+    previewContentEnabled: Boolean,
     coverLoadingEnabled: Boolean = true,
     onItemSelected: (ReadableItem) -> Unit,
+    expandedMenuItemId: String?,
+    onMenuExpandedChange: (ReadableItem, Boolean) -> Unit,
+    onDeleteImportedRequested: (ReadableItem) -> Unit,
     onSeeAll: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val previewItems = items.take(ShelfPreviewItemLimit)
     ShelfSectionCard(
         title = "Continue Reading",
         count = items.size,
@@ -39,16 +47,23 @@ internal fun ContinueReadingShelfSection(
         onSeeAll = onSeeAll,
         modifier = modifier,
     ) {
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(items = items, key = { it.item.id }) { shelfItem ->
-                ContinueReadingCarouselCard(
-                    shelfItem = shelfItem,
-                    coverImageUrlProvider = coverImageUrlProvider,
-                    onCoverVisible = onCoverVisible,
-                    coverLoadingEnabled = coverLoadingEnabled,
-                    onClick = { onItemSelected(shelfItem.item) },
-                )
+        if (previewContentEnabled) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(items = previewItems, key = { it.item.id }) { shelfItem ->
+                    ContinueReadingCarouselCard(
+                        shelfItem = shelfItem,
+                        itemActionContext = itemActionContext,
+                        coverImageUrlProvider = coverImageUrlProvider,
+                        coverLoadingEnabled = coverLoadingEnabled,
+                        onClick = { onItemSelected(shelfItem.item) },
+                        expandedMenuItemId = expandedMenuItemId,
+                        onMenuExpandedChange = onMenuExpandedChange,
+                        onDeleteImportedRequested = onDeleteImportedRequested,
+                    )
+                }
             }
+        } else {
+            ShelfPreviewPlaceholderRow()
         }
     }
 }
@@ -56,13 +71,18 @@ internal fun ContinueReadingShelfSection(
 @Composable
 internal fun NextInSeriesShelfSection(
     items: List<NextInSeriesShelfItem>,
-    coverImageUrlProvider: (ReadableItem) -> String?,
-    onCoverVisible: (ReadableItem) -> Unit,
+    itemActionContext: LibraryItemActionContext,
+    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
+    previewContentEnabled: Boolean,
     coverLoadingEnabled: Boolean = true,
     onItemSelected: (ReadableItem) -> Unit,
+    expandedMenuItemId: String?,
+    onMenuExpandedChange: (ReadableItem, Boolean) -> Unit,
+    onDeleteImportedRequested: (ReadableItem) -> Unit,
     onSeeAll: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val previewItems = items.take(ShelfPreviewItemLimit)
     ShelfSectionCard(
         title = "Up Next",
         count = items.size,
@@ -70,20 +90,37 @@ internal fun NextInSeriesShelfSection(
         onSeeAll = onSeeAll,
         modifier = modifier,
     ) {
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(items = items, key = { it.item.id }) { shelfItem ->
-                ShelfPreviewCard(
-                    item = shelfItem.item,
-                    title = shelfItem.item.libraryPrimaryText(),
-                    supportingText = shelfItem.item.librarySecondaryText()
-                        ?: shelfItem.item.title,
-                    trailingText = "After ${shelfItem.currentItem.librarySecondaryText() ?: shelfItem.currentItem.title}",
-                    coverImageUrlProvider = coverImageUrlProvider,
-                    onCoverVisible = onCoverVisible,
-                    coverLoadingEnabled = coverLoadingEnabled,
-                    onClick = { onItemSelected(shelfItem.item) },
-                )
+        if (previewContentEnabled) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(items = previewItems, key = { it.item.id }) { shelfItem ->
+                    ShelfPreviewCard(
+                        item = shelfItem.item,
+                        title = shelfItem.item.libraryPrimaryText(),
+                        supportingText = shelfItem.item.librarySecondaryText()
+                            ?: shelfItem.item.title,
+                        trailingText = "After ${shelfItem.currentItem.librarySecondaryText() ?: shelfItem.currentItem.title}",
+                        coverImageUrlProvider = coverImageUrlProvider,
+                        coverLoadingEnabled = coverLoadingEnabled,
+                        onClick = { onItemSelected(shelfItem.item) },
+                        menuContent = {
+                            LibraryAnchoredItemMenu(
+                                item = shelfItem.item,
+                                actionContext = itemActionContext,
+                                expanded = expandedMenuItemId == shelfItem.item.id,
+                                onExpandedChange = { expanded ->
+                                    onMenuExpandedChange(shelfItem.item, expanded)
+                                },
+                                onDeleteImportedRequested = onDeleteImportedRequested,
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(4.dp),
+                            )
+                        },
+                    )
+                }
             }
+        } else {
+            ShelfPreviewPlaceholderRow()
         }
     }
 }
@@ -91,13 +128,18 @@ internal fun NextInSeriesShelfSection(
 @Composable
 internal fun RecentlyFinishedShelfSection(
     items: List<RecentlyFinishedShelfItem>,
-    coverImageUrlProvider: (ReadableItem) -> String?,
-    onCoverVisible: (ReadableItem) -> Unit,
+    itemActionContext: LibraryItemActionContext,
+    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
+    previewContentEnabled: Boolean,
     coverLoadingEnabled: Boolean = true,
     onItemSelected: (ReadableItem) -> Unit,
+    expandedMenuItemId: String?,
+    onMenuExpandedChange: (ReadableItem, Boolean) -> Unit,
+    onDeleteImportedRequested: (ReadableItem) -> Unit,
     onSeeAll: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val previewItems = items.take(ShelfPreviewItemLimit)
     ShelfSectionCard(
         title = "Recently Finished",
         count = items.size,
@@ -105,25 +147,42 @@ internal fun RecentlyFinishedShelfSection(
         onSeeAll = onSeeAll,
         modifier = modifier,
     ) {
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(items = items, key = { it.item.id }) { shelfItem ->
-                ShelfPreviewCard(
-                    item = shelfItem.item,
-                    title = shelfItem.item.libraryPrimaryText(),
-                    supportingText = shelfItem.item.librarySecondaryText()
-                        ?: shelfItem.progress.label,
-                    trailingText = DateUtils.getRelativeTimeSpanString(
-                        shelfItem.progress.lastReadAtEpochMillis,
-                        System.currentTimeMillis(),
-                        DateUtils.MINUTE_IN_MILLIS,
-                        DateUtils.FORMAT_ABBREV_RELATIVE,
-                    ).toString(),
-                    coverImageUrlProvider = coverImageUrlProvider,
-                    onCoverVisible = onCoverVisible,
-                    coverLoadingEnabled = coverLoadingEnabled,
-                    onClick = { onItemSelected(shelfItem.item) },
-                )
+        if (previewContentEnabled) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(items = previewItems, key = { it.item.id }) { shelfItem ->
+                    ShelfPreviewCard(
+                        item = shelfItem.item,
+                        title = shelfItem.item.libraryPrimaryText(),
+                        supportingText = shelfItem.item.librarySecondaryText()
+                            ?: shelfItem.progress.label,
+                        trailingText = DateUtils.getRelativeTimeSpanString(
+                            shelfItem.progress.lastReadAtEpochMillis,
+                            System.currentTimeMillis(),
+                            DateUtils.MINUTE_IN_MILLIS,
+                            DateUtils.FORMAT_ABBREV_RELATIVE,
+                        ).toString(),
+                        coverImageUrlProvider = coverImageUrlProvider,
+                        coverLoadingEnabled = coverLoadingEnabled,
+                        onClick = { onItemSelected(shelfItem.item) },
+                        menuContent = {
+                            LibraryAnchoredItemMenu(
+                                item = shelfItem.item,
+                                actionContext = itemActionContext,
+                                expanded = expandedMenuItemId == shelfItem.item.id,
+                                onExpandedChange = { expanded ->
+                                    onMenuExpandedChange(shelfItem.item, expanded)
+                                },
+                                onDeleteImportedRequested = onDeleteImportedRequested,
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(4.dp),
+                            )
+                        },
+                    )
+                }
             }
+        } else {
+            ShelfPreviewPlaceholderRow()
         }
     }
 }
@@ -180,10 +239,13 @@ private fun ShelfSectionCard(
 @Composable
 private fun ContinueReadingCarouselCard(
     shelfItem: ContinueReadingShelfItem,
-    coverImageUrlProvider: (ReadableItem) -> String?,
-    onCoverVisible: (ReadableItem) -> Unit,
+    itemActionContext: LibraryItemActionContext,
+    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     coverLoadingEnabled: Boolean,
     onClick: () -> Unit,
+    expandedMenuItemId: String?,
+    onMenuExpandedChange: (ReadableItem, Boolean) -> Unit,
+    onDeleteImportedRequested: (ReadableItem) -> Unit,
 ) {
     ShelfPreviewCard(
         item = shelfItem.item,
@@ -192,9 +254,22 @@ private fun ContinueReadingCarouselCard(
             ?: shelfItem.progress.label,
         trailingText = shelfItem.progress.detailLabel,
         coverImageUrlProvider = coverImageUrlProvider,
-        onCoverVisible = onCoverVisible,
         coverLoadingEnabled = coverLoadingEnabled,
         onClick = onClick,
+        menuContent = {
+            LibraryAnchoredItemMenu(
+                item = shelfItem.item,
+                actionContext = itemActionContext,
+                expanded = expandedMenuItemId == shelfItem.item.id,
+                onExpandedChange = { expanded ->
+                    onMenuExpandedChange(shelfItem.item, expanded)
+                },
+                onDeleteImportedRequested = onDeleteImportedRequested,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(4.dp),
+            )
+        },
         progressFraction = shelfItem.progress.fraction,
     )
 }
@@ -206,4 +281,5 @@ private fun shelfCountLabel(
     else -> "$count items"
 }
 
+private const val ShelfPreviewItemLimit = 4
 private const val SeeAllThreshold = 4

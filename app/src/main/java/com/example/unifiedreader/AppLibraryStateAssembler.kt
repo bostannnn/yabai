@@ -73,9 +73,17 @@ class AppLibraryStateAssembler @Inject constructor(
         isRemoteCatalogHydrated: Boolean,
         isLocalCatalogHydrated: Boolean,
         themeMode: ThemeMode,
+        includeRemoteItemLocalState: Boolean = false,
     ): AppCatalogSnapshot {
         val items = catalogItems + importedItems
-        val remoteItemLocalState = loadRemoteItemLocalState(items)
+        val remoteItemLocalState = if (includeRemoteItemLocalState) {
+            loadRemoteItemLocalState(items)
+        } else {
+            RemoteItemLocalState(
+                downloadedItemIds = emptySet(),
+                locallyAvailableItemIds = emptySet(),
+            )
+        }
         return AppCatalogSnapshot(
             libraries = libraries,
             catalogItems = catalogItems,

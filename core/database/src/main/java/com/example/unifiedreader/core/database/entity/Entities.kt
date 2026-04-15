@@ -71,6 +71,38 @@ data class ReadableItemEntity(
     val updatedAtEpochMillis: Long,
 )
 
+data class ReadableItemLibraryEntity(
+    val id: String,
+    val sourceType: String,
+    val libraryId: String,
+    val remoteId: String?,
+    val isLocalImport: Boolean,
+    val remoteFileId: String?,
+    val remoteFileType: String?,
+    val title: String,
+    val format: String,
+    val kind: String,
+    val pageCount: Int?,
+    val coverUrl: String?,
+    val description: String?,
+    val addedAtEpochMillis: Long?,
+    val bookAuthor: String?,
+    val bookAuthorsJson: String?,
+    val bookSeriesName: String?,
+    val bookPublishersJson: String?,
+    val bookGenresJson: String?,
+    val bookTagsJson: String?,
+    val bookLanguagesJson: String?,
+    val comicSeries: String?,
+    val comicIssueTitle: String?,
+    val comicVolume: String?,
+    val comicIssueNumber: String?,
+    val comicPublishersJson: String?,
+    val comicGenresJson: String?,
+    val comicTagsJson: String?,
+    val comicLanguagesJson: String?,
+)
+
 @Entity(tableName = "reading_progress")
 data class ReadingProgressEntity(
     @PrimaryKey val itemId: String,

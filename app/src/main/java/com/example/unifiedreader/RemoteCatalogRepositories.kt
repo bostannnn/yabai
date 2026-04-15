@@ -4,6 +4,7 @@ import android.util.Log
 import com.example.unifiedreader.core.database.dao.RemoteCatalogDao
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
+import com.example.unifiedreader.core.database.entity.ReadableItemLibraryEntity
 import com.example.unifiedreader.core.database.entity.toDomain
 import com.example.unifiedreader.core.database.entity.toRemoteLibraryCacheEntity
 import com.example.unifiedreader.core.model.SourceType
@@ -70,8 +71,8 @@ class RoomRemoteCatalogRepository(
                     logSeedFailure("Unable to seed remote catalog libraries.", throwable)
                 }
                 runCatching {
-                    remoteCatalogDao.getItems()
-                        .map(ReadableItemEntity::toDomain)
+                    remoteCatalogDao.getLibraryItems()
+                        .map(ReadableItemLibraryEntity::toDomain)
                 }.onSuccess { items ->
                     itemsState.value = items
                 }.onFailure { throwable ->
@@ -87,8 +88,8 @@ class RoomRemoteCatalogRepository(
             }
         }
         scope.launch {
-            remoteCatalogDao.observeItems().collect { items ->
-                itemsState.value = items.map(ReadableItemEntity::toDomain)
+            remoteCatalogDao.observeLibraryItems().collect { items ->
+                itemsState.value = items.map(ReadableItemLibraryEntity::toDomain)
             }
         }
     }
@@ -104,8 +105,8 @@ class RoomRemoteCatalogRepository(
     override suspend fun getItemsForSourceType(
         sourceType: SourceType,
     ): List<ReadableItem> = withContext(ioDispatcher) {
-        remoteCatalogDao.getItemsForSourceType(sourceType.name)
-            .map(ReadableItemEntity::toDomain)
+        remoteCatalogDao.getLibraryItemsForSourceType(sourceType.name)
+            .map(ReadableItemLibraryEntity::toDomain)
     }
 
     override suspend fun replaceSourceCatalog(

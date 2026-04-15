@@ -36,7 +36,7 @@ internal fun DetailedItemCard(
     isDownloading: Boolean,
     seriesReadingDirection: ComicReadingDirection? = null,
     seriesReaderMode: ComicReaderMode? = null,
-    coverImageUrlProvider: (ReadableItem) -> String?,
+    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     onClick: () -> Unit,
     onSeriesReadingDirectionSelected: ((ComicReadingDirection) -> Unit)? = null,
     onSeriesReaderModeSelected: ((ComicReaderMode) -> Unit)? = null,
@@ -88,9 +88,10 @@ internal fun DetailedItemCard(
                 ) {
                     LibraryCover(
                         item = item,
-                        coverUrl = coverImageUrlProvider(item),
+                        coverUrl = coverImageUrlProvider(item, LibraryCoverImageVariant.Detailed),
                         isDownloaded = isDownloaded,
                         isRead = progress?.isComplete == true,
+                        imageVariant = LibraryCoverImageVariant.Detailed,
                         modifier = Modifier
                             .width(96.dp)
                             .aspectRatio(2f / 3f),

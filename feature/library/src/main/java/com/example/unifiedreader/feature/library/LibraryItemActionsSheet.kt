@@ -17,21 +17,53 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.libraryPrimaryText
-import com.example.unifiedreader.feature.library.menu.ItemMenuAction
-import com.example.unifiedreader.feature.library.menu.ReaderModeMenuState
-import com.example.unifiedreader.feature.library.menu.ReadingDirectionMenuState
+import com.example.unifiedreader.feature.library.menu.buildLibraryItemMenuActions
+import com.example.unifiedreader.feature.library.menu.buildReaderModeMenuState
+import com.example.unifiedreader.feature.library.menu.buildReadStatusMenuActionState
+import com.example.unifiedreader.feature.library.menu.buildReadingDirectionMenuState
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun LibraryGridItemActionsSheet(
+fun LibraryItemActionsSheet(
     item: ReadableItem,
-    actions: List<ItemMenuAction>,
-    readingDirectionState: ReadingDirectionMenuState?,
-    readerModeState: ReaderModeMenuState?,
+    actionContext: LibraryItemActionContext,
+    onDeleteImportedRequested: (ReadableItem) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val actions = buildLibraryItemMenuActions(
+        isDownloading = item.id in actionContext.downloadingItemIds,
+        readStatusActionState = buildReadStatusMenuActionState(
+            item = item,
+            progress = actionContext.progressByItemId[item.id],
+            onSetReadStatus = actionContext.onSetReadStatus,
+        ),
+        onDeleteRequested = itemDeleteRequest(item, onDeleteImportedRequested),
+        onDownloadRequested = itemDownloadRequest(
+            item = item,
+            downloadableItemIds = actionContext.downloadableItemIds,
+            onDownloadItem = actionContext.onDownloadItem,
+        ),
+        onDeleteDownloadedRequested = itemDownloadedDeleteRequest(
+            item = item,
+            deletableDownloadedItemIds = actionContext.deletableDownloadedItemIds,
+            onDeleteDownloadedItem = actionContext.onDeleteDownloadedItem,
+        ),
+    )
+    val readingDirectionState = buildReadingDirectionMenuState(
+        seriesReadingDirection = actionContext.seriesReadingDirectionFor(item),
+        onSeriesReadingDirectionSelected = { direction ->
+            actionContext.onSeriesDirectionSelected(item, direction)
+        },
+    )
+    val readerModeState = buildReaderModeMenuState(
+        seriesReaderMode = actionContext.seriesReaderModeFor(item),
+        onSeriesReaderModeSelected = { mode ->
+            actionContext.onSeriesReaderModeSelected(item, mode)
+        },
+    )
+
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier

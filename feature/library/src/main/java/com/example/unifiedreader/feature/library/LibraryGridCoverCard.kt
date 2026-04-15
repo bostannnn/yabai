@@ -3,6 +3,7 @@ package com.example.unifiedreader.feature.library
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
@@ -18,9 +19,10 @@ internal fun GridCoverCard(
     item: ReadableItem,
     progress: ItemProgressSummary?,
     isDownloaded: Boolean,
-    coverImageUrlProvider: (ReadableItem) -> String?,
+    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
+    menuContent: (@Composable BoxScope.() -> Unit)? = null,
 ) {
     val showCoverProgress = progress?.shouldShowCoverProgress == true
 
@@ -35,9 +37,10 @@ internal fun GridCoverCard(
     ) {
         LibraryCover(
             item = item,
-            coverUrl = coverImageUrlProvider(item),
+            coverUrl = coverImageUrlProvider(item, LibraryCoverImageVariant.Grid),
             isDownloaded = isDownloaded,
             isRead = progress?.isComplete == true,
+            imageVariant = LibraryCoverImageVariant.Grid,
             downloadBadgeBottomInset = if (showCoverProgress) 2.dp else 0.dp,
             modifier = Modifier
                 .fillMaxWidth()
@@ -51,5 +54,6 @@ internal fun GridCoverCard(
                     .fillMaxWidth(),
             )
         }
+        menuContent?.invoke(this)
     }
 }

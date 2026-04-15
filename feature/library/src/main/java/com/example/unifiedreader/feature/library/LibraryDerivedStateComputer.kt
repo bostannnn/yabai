@@ -2,6 +2,7 @@ package com.example.unifiedreader.feature.library
 
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.LibraryFilterState
+import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.kavitaSeriesContainerId
@@ -45,7 +46,6 @@ class LibraryDerivedStateComputer @Inject constructor() {
         )
         val displayProgressByItemId = buildDisplayProgressByItemId(
             input = input,
-            sourceIndex = sourceIndex,
         )
         val activeDownloadingItemIds = buildActiveDownloadingItemIds(
             downloadingItemIds = input.downloadingRemoteItemIds,
@@ -57,9 +57,11 @@ class LibraryDerivedStateComputer @Inject constructor() {
             activeDownloadingItemIds = activeDownloadingItemIds,
             actionItemsProvider = sourceIndex::resolveDownloadActionItems,
         )
-        val lastReadAtEpochMillisByItemId = displayProgressByItemId.mapValues { (_, progress) ->
-            progress.lastReadAtEpochMillis
-        }
+        val lastReadAtEpochMillisByItemId = lastReadAtEpochMillisByItemId(
+            input = input,
+            sourceIndex = sourceIndex,
+            progressByItemId = displayProgressByItemId,
+        )
         val visibleItems = buildVisibleLibraryItems(
             sourceItems = sourceItems,
             filterState = input.selectedLibraryFilters,
@@ -85,6 +87,41 @@ class LibraryDerivedStateComputer @Inject constructor() {
         }
     }
 
+    fun computeQuick(
+        input: LibraryDerivedStateInput,
+    ): LibraryDerivedState {
+        val sourceIndex = sourceIndexFor(input)
+        val sourceItems = sourceIndex.sourceItems(
+            selectedSource = input.selectedSource,
+            selectedKavitaSeriesKey = input.selectedKavitaSeriesKey,
+            selectedStumpSeriesKey = input.selectedStumpSeriesKey,
+        )
+        return LibraryDerivedState(
+            sourceItems = sourceItems,
+            selectedLibraryFilterFacets = com.example.unifiedreader.core.model.buildLibraryFilterFacets(
+                sourceItems,
+                downloadedRemoteItemIds = emptySet(),
+            ),
+            selectedSourceLibraryTitlesById = sourceIndex.selectedSourceLibraryTitlesById(input.selectedSource),
+            displayProgressByItemId = input.progressByItemId,
+            remoteDownloadActionAvailability = RemoteDownloadActionAvailability(),
+            visibleItems = buildVisibleLibraryItems(
+                sourceItems = sourceItems,
+                filterState = input.selectedLibraryFilters,
+                searchQuery = input.selectedLibrarySearchQuery,
+                sortMode = input.selectedLibrarySortMode,
+                downloadedRemoteItemIds = emptySet(),
+                lastReadAtEpochMillisByItemId = lastReadAtEpochMillisByItemId(
+                    input = input,
+                    sourceIndex = sourceIndex,
+                    progressByItemId = input.progressByItemId,
+                ),
+                forceSeriesIssueOrder = input.isSeriesBrowseActive,
+            ),
+            libraryBrowseContextKey = buildLibraryBrowseContextKey(input),
+        )
+    }
+
     private fun sourceIndexFor(
         input: LibraryDerivedStateInput,
     ): LibrarySourceIndex {
@@ -108,24 +145,7 @@ class LibraryDerivedStateComputer @Inject constructor() {
 
     private fun buildDisplayProgressByItemId(
         input: LibraryDerivedStateInput,
-        sourceIndex: LibrarySourceIndex,
-    ): Map<String, ItemProgressSummary> = when {
-        input.selectedSource == SourceType.KAVITA && input.selectedKavitaSeriesKey == null ->
-            input.progressByItemId + buildComicSeriesProgressByItemId(
-                issuesBySeriesKey = sourceIndex.issueGroupsFor(SourceType.KAVITA),
-                progressByItemId = input.progressByItemId,
-                seriesContainerId = ::kavitaSeriesContainerId,
-            )
-
-        input.selectedSource == SourceType.STUMP && input.selectedStumpSeriesKey == null ->
-            input.progressByItemId + buildComicSeriesProgressByItemId(
-                issuesBySeriesKey = sourceIndex.issueGroupsFor(SourceType.STUMP),
-                progressByItemId = input.progressByItemId,
-                seriesContainerId = ::stumpSeriesContainerId,
-            )
-
-        else -> input.progressByItemId
-    }
+    ): Map<String, ItemProgressSummary> = input.progressByItemId
 
     private fun buildActiveDownloadingItemIds(
         downloadingItemIds: Set<String>,
@@ -198,47 +218,48 @@ private fun String.keyComponent(): String = Base64.getUrlEncoder()
     .withoutPadding()
     .encodeToString(toByteArray(Charsets.UTF_8))
 
-private fun buildComicSeriesProgressByItemId(
+private fun lastReadAtEpochMillisByItemId(
+    input: LibraryDerivedStateInput,
+    sourceIndex: LibrarySourceIndex,
+    progressByItemId: Map<String, ItemProgressSummary>,
+): Map<String, Long> {
+    if (input.selectedLibrarySortMode != LibrarySortMode.LAST_READ || progressByItemId.isEmpty()) {
+        return emptyMap()
+    }
+    val itemLastReadAt = progressByItemId.mapValues { (_, progress) -> progress.lastReadAtEpochMillis }
+    if (input.isSeriesBrowseActive) {
+        return itemLastReadAt
+    }
+    val rootSeriesLastReadAt = when (input.selectedSource) {
+        SourceType.KAVITA -> buildRootSeriesLastReadAtEpochMillisByItemId(
+            issuesBySeriesKey = sourceIndex.issueGroupsFor(SourceType.KAVITA),
+            progressByItemId = progressByItemId,
+            seriesContainerId = ::kavitaSeriesContainerId,
+        )
+
+        SourceType.STUMP -> buildRootSeriesLastReadAtEpochMillisByItemId(
+            issuesBySeriesKey = sourceIndex.issueGroupsFor(SourceType.STUMP),
+            progressByItemId = progressByItemId,
+            seriesContainerId = ::stumpSeriesContainerId,
+        )
+
+        SourceType.GRIMMORY,
+        SourceType.LOCAL -> emptyMap()
+    }
+    return itemLastReadAt + rootSeriesLastReadAt
+}
+
+private fun buildRootSeriesLastReadAtEpochMillisByItemId(
     issuesBySeriesKey: Map<String, List<ReadableItem>>,
     progressByItemId: Map<String, ItemProgressSummary>,
     seriesContainerId: (String) -> String,
-): Map<String, ItemProgressSummary> = issuesBySeriesKey.mapNotNull { (seriesKey, issues) ->
-    val issueProgress = issues.mapNotNull { issue ->
-        progressByItemId[issue.id]?.let { progress -> issue to progress }
-    }
-    if (issueProgress.isEmpty()) return@mapNotNull null
-    val latestInProgress = issueProgress
-        .filter { (_, progress) -> progress.fraction < 0.999f }
-        .maxByOrNull { (_, progress) -> progress.lastReadAtEpochMillis }
-    val latestDisplayProgress = latestInProgress
-        ?: issueProgress.maxByOrNull { (_, progress) -> progress.lastReadAtEpochMillis }
-        ?: return@mapNotNull null
-    val latestActivityProgress = issueProgress.maxByOrNull { (_, progress) ->
-        progress.lastReadAtEpochMillis
-    } ?: return@mapNotNull null
-    val progressByIssueId = issueProgress.associate { (issue, progress) ->
-        issue.id to progress
-    }
-    val averageFraction = issues
-        .map { issue -> progressByIssueId[issue.id]?.fraction?.coerceIn(0f, 1f) ?: 0f }
-        .average()
-        .toFloat()
-    val completedCount = issues.count { issue ->
-        (progressByIssueId[issue.id]?.fraction ?: 0f) >= 0.999f
-    }
-    val isFinished = completedCount == issues.size
-    val latestIssueLabel = latestDisplayProgress.first.comicMetadata?.issueTitle?.takeIf(String::isNotBlank)
-        ?: latestDisplayProgress.first.title
-    seriesContainerId(seriesKey) to ItemProgressSummary(
-        label = when {
-            isFinished -> "Finished all ${issues.size} issues"
-            latestInProgress != null && latestIssueLabel.isNotBlank() -> "Continue $latestIssueLabel"
-            else -> "Read $completedCount of ${issues.size} issues"
-        },
-        fraction = averageFraction,
-        lastReadAtEpochMillis = latestActivityProgress.second.lastReadAtEpochMillis,
-        isFinished = isFinished,
-    )
+): Map<String, Long> = issuesBySeriesKey.mapNotNull { (seriesKey, issues) ->
+    val lastReadAtEpochMillis = issues.maxOfOrNull { issue ->
+        progressByItemId[issue.id]?.lastReadAtEpochMillis ?: Long.MIN_VALUE
+    } ?: Long.MIN_VALUE
+    lastReadAtEpochMillis
+        .takeIf { it > 0L }
+        ?.let { seriesContainerId(seriesKey) to it }
 }.toMap()
 
 private data class SourceIndexCacheKey(
