@@ -510,9 +510,9 @@ internal fun sanitizeComicResumeScrollOffsetRatio(
 enum class ComicPageFitMode(
     val label: String,
 ) {
-    FitPage("Page"),
-    FitWidth("Width"),
-    FitHeight("Height"),
+    FitPage("Fit screen"),
+    FitWidth("Fit width"),
+    FitHeight("Fit height"),
 }
 
 enum class ComicSpreadMode(

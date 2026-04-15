@@ -2,14 +2,18 @@ package com.example.unifiedreader.feature.reader.comics
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.AutoMode
 import androidx.compose.material.icons.filled.FitScreen
-import androidx.compose.material.icons.filled.ViewStream
+import androidx.compose.material.icons.filled.ViewCarousel
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.feature.reader.core.CompactReaderOverlayFrame
 import com.example.unifiedreader.feature.reader.core.ReaderOverlayBackButton
 import com.example.unifiedreader.feature.reader.core.ReaderOverlayDropdownItem
@@ -46,22 +50,23 @@ internal fun ReaderOverlayBar(
         },
         trailingActions = {
             ReaderOverlayMenuAction(
-                expanded = activePanel == ComicsOverlayPanel.Mode,
+                expanded = activePanel == ComicsOverlayPanel.Layout,
                 onExpandedChange = { expanded ->
                     activePanel = if (expanded) {
-                        ComicsOverlayPanel.Mode
+                        ComicsOverlayPanel.Layout
                     } else {
                         ComicsOverlayPanel.None
                     }
                 },
                 icon = {
                     Icon(
-                        imageVector = Icons.Default.ViewStream,
-                        contentDescription = "Reader mode",
+                        imageVector = Icons.Default.ViewCarousel,
+                        contentDescription = "Layout",
                         tint = Color(0xFFF5F7FA),
                     )
                 },
             ) {
+                ComicsReaderOverlaySectionLabel(label = "Reading style")
                 ComicReaderMode.entries.forEach { entry ->
                     ReaderOverlayDropdownItem(
                         label = entry.label,
@@ -71,6 +76,20 @@ internal fun ReaderOverlayBar(
                             onReaderModeChanged(entry)
                         },
                     )
+                }
+                if (readerMode == ComicReaderMode.Paged) {
+                    HorizontalDivider(color = Color(0x33F5F7FA))
+                    ComicsReaderOverlaySectionLabel(label = "Pages")
+                    ComicSpreadMode.entries.forEach { entry ->
+                        ReaderOverlayDropdownItem(
+                            label = entry.label,
+                            selected = entry == spreadMode,
+                            onClick = {
+                                activePanel = ComicsOverlayPanel.None
+                                onSpreadModeChanged(entry)
+                            },
+                        )
+                    }
                 }
             }
             ReaderOverlayMenuAction(
@@ -114,7 +133,7 @@ internal fun ReaderOverlayBar(
                     icon = {
                         Icon(
                             imageVector = Icons.Default.FitScreen,
-                            contentDescription = "Page fit mode",
+                            contentDescription = "Fit",
                             tint = Color(0xFFF5F7FA),
                         )
                     },
@@ -130,43 +149,25 @@ internal fun ReaderOverlayBar(
                         )
                     }
                 }
-                ReaderOverlayMenuAction(
-                    expanded = activePanel == ComicsOverlayPanel.Spread,
-                    onExpandedChange = { expanded ->
-                        activePanel = if (expanded) {
-                            ComicsOverlayPanel.Spread
-                        } else {
-                            ComicsOverlayPanel.None
-                        }
-                    },
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Default.AutoMode,
-                            contentDescription = "Spread mode",
-                            tint = Color(0xFFF5F7FA),
-                        )
-                    },
-                ) {
-                    ComicSpreadMode.entries.forEach { entry ->
-                        ReaderOverlayDropdownItem(
-                            label = entry.label,
-                            selected = entry == spreadMode,
-                            onClick = {
-                                activePanel = ComicsOverlayPanel.None
-                                onSpreadModeChanged(entry)
-                            },
-                        )
-                    }
-                }
             }
         },
     )
 }
 
+@Composable
+private fun ComicsReaderOverlaySectionLabel(
+    label: String,
+) {
+    Text(
+        text = label,
+        color = Color(0xFFB7C4CE),
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+    )
+}
+
 private enum class ComicsOverlayPanel {
     None,
-    Mode,
+    Layout,
     Direction,
     Fit,
-    Spread,
 }

@@ -262,9 +262,7 @@ private fun ContinueReadingCarouselCard(
     ShelfPreviewCard(
         item = shelfItem.item,
         title = shelfItem.item.libraryPrimaryText(),
-        supportingText = shelfItem.item.librarySecondaryText()
-            ?: shelfItem.progress.label,
-        trailingText = shelfItem.progress.detailLabel,
+        supportingText = shelfItem.item.librarySecondaryText(),
         coverImageUrlProvider = coverImageUrlProvider,
         coverLoadingEnabled = coverLoadingEnabled,
         onClick = onClick,

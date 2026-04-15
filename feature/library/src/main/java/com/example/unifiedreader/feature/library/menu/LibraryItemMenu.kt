@@ -8,12 +8,10 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -27,7 +25,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -161,11 +158,7 @@ private fun ReadingDirectionMenuRow(
                 selected = direction == state.selectedDirection,
                 shape = buttonShape,
             ) {
-                Icon(
-                    imageVector = direction.icon(),
-                    contentDescription = "Reading ${direction.label}",
-                    modifier = Modifier.size(18.dp),
-                )
+                Text(text = direction.label)
             }
         }
     }
@@ -215,9 +208,4 @@ internal fun ReadingDirectionButton(
             content()
         }
     }
-}
-
-private fun ComicReadingDirection.icon(): ImageVector = when (this) {
-    ComicReadingDirection.LTR -> ReadingDirectionIcons.Ltr
-    ComicReadingDirection.RTL -> ReadingDirectionIcons.Rtl
 }

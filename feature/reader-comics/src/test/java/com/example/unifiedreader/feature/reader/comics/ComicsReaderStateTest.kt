@@ -8,6 +8,13 @@ import org.junit.Test
 
 class ComicsReaderStateTest {
     @Test
+    fun `fit mode labels describe viewport behavior`() {
+        assertEquals("Fit screen", ComicPageFitMode.FitPage.label)
+        assertEquals("Fit width", ComicPageFitMode.FitWidth.label)
+        assertEquals("Fit height", ComicPageFitMode.FitHeight.label)
+    }
+
+    @Test
     fun `page settle keeps visible page and normalizes resume anchor`() {
         val state = ComicsReaderState(
             initialPage = 0,

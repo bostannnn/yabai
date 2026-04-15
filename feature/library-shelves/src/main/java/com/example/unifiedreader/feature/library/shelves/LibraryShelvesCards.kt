@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -39,8 +40,8 @@ import com.example.unifiedreader.feature.library.rememberLibraryCoverImageReques
 internal fun ShelfPreviewCard(
     item: ReadableItem,
     title: String,
-    supportingText: String,
-    trailingText: String,
+    supportingText: String? = null,
+    trailingText: String? = null,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     coverLoadingEnabled: Boolean = true,
     onClick: () -> Unit,
@@ -50,6 +51,7 @@ internal fun ShelfPreviewCard(
     Card(
         modifier = Modifier
             .width(ShelfPreviewCardWidth)
+            .height(ShelfPreviewCardHeight)
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
@@ -90,23 +92,27 @@ internal fun ShelfPreviewCard(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleSmall,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = supportingText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Text(
-                    text = trailingText,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                supportingText?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                trailingText?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
     }
@@ -267,4 +273,5 @@ private fun PlaceholderCover(title: String, modifier: Modifier = Modifier) {
 }
 
 private val ShelfPreviewCardWidth = 132.dp
+private val ShelfPreviewCardHeight = 226.dp
 private const val CoverAspectRatio = 0.72f
