@@ -1,8 +1,10 @@
 package com.example.unifiedreader.feature.library
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.feature.library.menu.LibraryItemMenuButton
 import com.example.unifiedreader.feature.library.menu.LibraryItemOverflowMenu
 import com.example.unifiedreader.feature.library.menu.buildLibraryItemMenuActions
 import com.example.unifiedreader.feature.library.menu.buildReaderModeMenuState
@@ -18,6 +20,13 @@ fun LibraryAnchoredItemMenu(
     onDeleteImportedRequested: (ReadableItem) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    if (!expanded) {
+        Box(modifier = modifier) {
+            LibraryItemMenuButton(onClick = { onExpandedChange(true) })
+        }
+        return
+    }
+
     LibraryItemOverflowMenu(
         modifier = modifier,
         actions = buildLibraryItemMenuActions(

@@ -1,14 +1,19 @@
 package com.example.unifiedreader.feature.library
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.grid.LazyGridLayoutInfo
+import androidx.compose.foundation.lazy.grid.LazyGridPrefetchScope
+import androidx.compose.foundation.lazy.grid.LazyGridPrefetchStrategy
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.layout.NestedPrefetchScope
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -33,6 +38,7 @@ import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import kotlinx.coroutines.flow.distinctUntilChanged
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LibraryScreen(
     selectedSource: SourceType,
@@ -110,6 +116,7 @@ fun LibraryScreen(
         LazyGridState(
             firstVisibleItemIndex = initialScrollPosition.index,
             firstVisibleItemScrollOffset = initialScrollPosition.offset,
+            prefetchStrategy = LibraryGridScrollPrefetchStrategy,
         )
     }
     val leadingContentItemCount = 1 + if (topContent != null) 1 else 0
@@ -294,4 +301,20 @@ fun LibraryScreen(
             onDismiss = { openFilterPanel = null },
         )
     }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+private object LibraryGridScrollPrefetchStrategy : LazyGridPrefetchStrategy {
+    override fun LazyGridPrefetchScope.onScroll(
+        delta: Float,
+        layoutInfo: LazyGridLayoutInfo,
+    ) = Unit
+
+    override fun LazyGridPrefetchScope.onVisibleItemsUpdated(
+        layoutInfo: LazyGridLayoutInfo,
+    ) = Unit
+
+    override fun NestedPrefetchScope.onNestedPrefetch(
+        firstVisibleItemIndex: Int,
+    ) = Unit
 }

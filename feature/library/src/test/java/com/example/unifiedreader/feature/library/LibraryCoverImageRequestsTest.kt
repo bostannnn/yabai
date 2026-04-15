@@ -2,35 +2,22 @@ package com.example.unifiedreader.feature.library
 
 import androidx.compose.ui.unit.IntSize
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 
 class LibraryCoverImageRequestsTest {
     @Test
-    fun `bucketedCoverSize rounds grid covers into stable buckets`() {
+    fun `libraryCoverImageRequestSize uses fixed thumbnail dimensions`() {
         assertEquals(
-            IntSize(384, 576),
-            bucketedCoverSize(
-                targetSize = IntSize(377, 566),
-                variant = LibraryCoverImageVariant.Grid,
-            ),
+            IntSize(240, 360),
+            libraryCoverImageRequestSize(LibraryCoverImageVariant.Grid),
         )
         assertEquals(
-            IntSize(320, 448),
-            bucketedCoverSize(
-                targetSize = IntSize(295, 419),
-                variant = LibraryCoverImageVariant.ShelfRow,
-            ),
+            IntSize(144, 216),
+            libraryCoverImageRequestSize(LibraryCoverImageVariant.ShelfPreview),
         )
-    }
-
-    @Test
-    fun `bucketedCoverSize ignores zero sized requests`() {
-        assertNull(
-            bucketedCoverSize(
-                targetSize = IntSize.Zero,
-                variant = LibraryCoverImageVariant.Detailed,
-            ),
+        assertEquals(
+            IntSize(320, 480),
+            libraryCoverImageRequestSize(LibraryCoverImageVariant.Detailed),
         )
     }
 }

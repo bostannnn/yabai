@@ -33,8 +33,6 @@ fun LibraryShelvesZone(
     var previewExpandedMenuItemId by remember(state) { mutableStateOf<String?>(null) }
     var deleteCandidate by remember(state) { mutableStateOf<ReadableItem?>(null) }
     val visibleShelves = visibleShelfCount(state)
-    val previewContentReady = rememberShelvesPreviewContentReady(hasContent = state.hasContent)
-    val coverLoadingReady = rememberShelvesCoverLoadingReady(hasContent = state.hasContent)
     val previewCoverItems = remember(state, coverImageUrlProvider) {
         shelfPreviewCoverPrefetchItems(
             state = state,
@@ -43,7 +41,7 @@ fun LibraryShelvesZone(
     }
 
     LibraryShelvesPreviewCoverPrefetcher(
-        coverLoadingEnabled = coverLoadingReady && previewContentReady,
+        coverLoadingEnabled = true,
         items = previewCoverItems,
         onCoverVisible = onCoverVisible,
     )
@@ -58,7 +56,7 @@ fun LibraryShelvesZone(
                     state = state,
                     itemActionContext = itemActionContext,
                     coverImageUrlProvider = coverImageUrlProvider,
-                    previewContentEnabled = previewContentReady,
+                    previewContentEnabled = true,
                     onItemSelected = onItemSelected,
                     expandedMenuItemId = previewExpandedMenuItemId,
                     onMenuExpandedChange = { item, expanded ->
@@ -66,7 +64,7 @@ fun LibraryShelvesZone(
                     },
                     onDeleteImportedRequested = { deleteCandidate = it },
                     onOpenSheet = { activeSheet = it },
-                    coverLoadingEnabled = coverLoadingReady,
+                    coverLoadingEnabled = true,
                     itemModifier = Modifier.weight(1f),
                 )
             }
@@ -79,7 +77,7 @@ fun LibraryShelvesZone(
                     state = state,
                     itemActionContext = itemActionContext,
                     coverImageUrlProvider = coverImageUrlProvider,
-                    previewContentEnabled = previewContentReady,
+                    previewContentEnabled = true,
                     onItemSelected = onItemSelected,
                     expandedMenuItemId = previewExpandedMenuItemId,
                     onMenuExpandedChange = { item, expanded ->
@@ -87,7 +85,7 @@ fun LibraryShelvesZone(
                     },
                     onDeleteImportedRequested = { deleteCandidate = it },
                     onOpenSheet = { activeSheet = it },
-                    coverLoadingEnabled = coverLoadingReady,
+                    coverLoadingEnabled = true,
                     itemModifier = Modifier.fillMaxWidth(),
                 )
             }

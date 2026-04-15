@@ -52,9 +52,13 @@ enum class LibraryViewMode {
         } else {
             androidx.compose.foundation.lazy.grid.GridCells.Fixed(2)
         }
-        Grid -> androidx.compose.foundation.lazy.grid.GridCells.Adaptive(minSize = 140.dp)
+        Grid -> androidx.compose.foundation.lazy.grid.GridCells.Adaptive(
+            minSize = LibraryGridMinimumCellSize,
+        )
     }
 }
+
+internal val LibraryGridMinimumCellSize = 180.dp
 
 internal val LibraryViewMode.label: String
     get() = when (this) {

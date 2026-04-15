@@ -1,13 +1,14 @@
 package com.example.unifiedreader.feature.library.shelves
 
 import android.text.format.DateUtils
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -48,8 +49,8 @@ internal fun ContinueReadingShelfSection(
         modifier = modifier,
     ) {
         if (previewContentEnabled) {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(items = previewItems, key = { it.item.id }) { shelfItem ->
+            ShelfPreviewRow {
+                previewItems.forEach { shelfItem ->
                     ContinueReadingCarouselCard(
                         shelfItem = shelfItem,
                         itemActionContext = itemActionContext,
@@ -91,8 +92,8 @@ internal fun NextInSeriesShelfSection(
         modifier = modifier,
     ) {
         if (previewContentEnabled) {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(items = previewItems, key = { it.item.id }) { shelfItem ->
+            ShelfPreviewRow {
+                previewItems.forEach { shelfItem ->
                     ShelfPreviewCard(
                         item = shelfItem.item,
                         title = shelfItem.item.libraryPrimaryText(),
@@ -148,8 +149,8 @@ internal fun RecentlyFinishedShelfSection(
         modifier = modifier,
     ) {
         if (previewContentEnabled) {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(items = previewItems, key = { it.item.id }) { shelfItem ->
+            ShelfPreviewRow {
+                previewItems.forEach { shelfItem ->
                     ShelfPreviewCard(
                         item = shelfItem.item,
                         title = shelfItem.item.libraryPrimaryText(),
@@ -185,6 +186,17 @@ internal fun RecentlyFinishedShelfSection(
             ShelfPreviewPlaceholderRow()
         }
     }
+}
+
+@Composable
+private fun ShelfPreviewRow(
+    content: @Composable RowScope.() -> Unit,
+) {
+    Row(
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        content = content,
+    )
 }
 
 @Composable
