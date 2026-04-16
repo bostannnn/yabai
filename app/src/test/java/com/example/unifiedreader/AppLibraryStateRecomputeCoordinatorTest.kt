@@ -45,7 +45,7 @@ class AppLibraryStateRecomputeCoordinatorTest {
     }
 
     @Test
-    fun `initialize keeps shelves deferred even when shelf content exists`() = runTest {
+    fun `initialize restores computed shelves when shelf content exists`() = runTest {
         val coordinator = createCoordinator(StandardTestDispatcher(testScheduler))
 
         val initializedState = coordinator.initialize(
@@ -62,7 +62,8 @@ class AppLibraryStateRecomputeCoordinatorTest {
         )
 
         assertEquals(1, initializedState.visibleItems.size)
-        assertFalse(initializedState.libraryShelvesState.hasContent)
+        assertTrue(initializedState.libraryShelvesState.hasContent)
+        assertFalse(initializedState.libraryShelvesState.isLoading)
     }
 
     @Test
@@ -92,11 +93,62 @@ class AppLibraryStateRecomputeCoordinatorTest {
         assertEquals(1, publishedStates.size)
         assertEquals(1, publishedStates.first().visibleItems.size)
         assertFalse(publishedStates.first().libraryShelvesState.hasContent)
+        assertTrue(publishedStates.first().libraryShelvesState.isLoading)
 
         advanceUntilIdle()
 
         assertEquals(2, publishedStates.size)
         assertTrue(publishedStates.last().libraryShelvesState.hasContent)
+        assertFalse(publishedStates.last().libraryShelvesState.isLoading)
+    }
+
+    @Test
+    fun `library updates preserve prior shelves while refreshed shelves load`() = runTest {
+        val coordinator = createCoordinator(StandardTestDispatcher(testScheduler))
+        val initialState = coordinator.initialize(
+            sampleLibraryState().copy(
+                items = listOf(sampleItem(id = "book-1", format = FormatType.EPUB)),
+                progressByItemId = mapOf(
+                    "book-1" to ItemProgressSummary(
+                        label = "Continue",
+                        fraction = 0.35f,
+                        lastReadAtEpochMillis = 25L,
+                    ),
+                ),
+            ),
+        )
+        val publishedStates = mutableListOf<AppUiState>()
+
+        coordinator.updateState(
+            currentState = initialState,
+            transform = { state ->
+                state.copy(
+                    progressByItemId = mapOf(
+                        "book-1" to ItemProgressSummary(
+                            label = "Continue",
+                            fraction = 0.65f,
+                            lastReadAtEpochMillis = 50L,
+                        ),
+                    ),
+                )
+            },
+            scope = this,
+            publishState = publishedStates::add,
+        )
+
+        assertEquals(1, publishedStates.size)
+        assertTrue(publishedStates.first().libraryShelvesState.hasContent)
+        assertTrue(publishedStates.first().libraryShelvesState.isLoading)
+        assertSame(
+            initialState.libraryShelvesState.continueReading.first().item,
+            publishedStates.first().libraryShelvesState.continueReading.first().item,
+        )
+
+        advanceUntilIdle()
+
+        assertEquals(2, publishedStates.size)
+        assertTrue(publishedStates.last().libraryShelvesState.hasContent)
+        assertFalse(publishedStates.last().libraryShelvesState.isLoading)
     }
 
     @Test
@@ -129,6 +181,7 @@ class AppLibraryStateRecomputeCoordinatorTest {
         assertEquals(2, publishedStates.size)
         assertTrue(publishedStates.all { state -> !state.shouldReserveLibraryShelvesSlot })
         assertTrue(publishedStates.all { state -> !state.libraryShelvesState.hasContent })
+        assertTrue(publishedStates.none { state -> state.libraryShelvesState.isLoading })
     }
 
     private fun createCoordinator(
@@ -158,5 +211,6 @@ class AppLibraryStateRecomputeCoordinatorTest {
         ),
         items = emptyList(),
         selectedSource = SourceType.KAVITA,
+        hydratedSources = setOf(SourceType.KAVITA),
     )
 }

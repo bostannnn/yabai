@@ -1198,7 +1198,10 @@ class AppViewModelTest {
 
     @Test
     fun `selected source hydration reflects remote catalog readiness`() {
-        val remoteCatalogReadiness = FakeRemoteCatalogReadiness(initialHydrated = false)
+        val remoteCatalogReadiness = FakeRemoteCatalogReadiness(
+            initialHydrated = false,
+            hydrateOnBootstrap = false,
+        )
         val viewModel = createViewModel(
             remoteCatalogReadiness = remoteCatalogReadiness,
         )

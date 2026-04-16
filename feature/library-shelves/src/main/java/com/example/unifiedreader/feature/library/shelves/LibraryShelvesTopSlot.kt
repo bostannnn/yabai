@@ -16,7 +16,6 @@ import kotlinx.coroutines.delay
 fun LibraryShelvesTopSlot(
     browseContextKey: String,
     shouldReserveSlot: Boolean,
-    isSourceHydrated: Boolean,
     state: LibraryShelvesState,
     itemActionContext: LibraryItemActionContext = LibraryItemActionContext(),
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
@@ -30,34 +29,35 @@ fun LibraryShelvesTopSlot(
 
     LaunchedEffect(browseContextKey, state) {
         if (state.hasContent) {
-            retainedState = state
+            retainedState = state.ready()
         }
     }
 
-    LaunchedEffect(browseContextKey, shouldReserveSlot, isSourceHydrated, state) {
+    LaunchedEffect(browseContextKey, shouldReserveSlot, state) {
         if (!shouldReserveSlot) {
             retainedState = null
             slotVisible = false
             return@LaunchedEffect
         }
         slotVisible = true
-        if (!isSourceHydrated || state.hasContent) {
+        if (state.isLoading || state.hasContent) {
             return@LaunchedEffect
         }
         delay(LibraryShelvesSlotCollapseDelayMillis)
-        if (shouldReserveSlot && isSourceHydrated && !state.hasContent) {
+        if (shouldReserveSlot && !state.isLoading && !state.hasContent) {
             retainedState = null
             slotVisible = false
         }
     }
 
     val displayedState = when {
-        state.hasContent -> state
+        state.hasContent -> state.ready()
         retainedState?.hasContent == true -> retainedState
         else -> null
     }
+    val showPlaceholder = slotVisible && displayedState == null
 
-    if (!slotVisible && displayedState == null) return
+    if (!showPlaceholder && displayedState == null) return
 
     if (displayedState != null) {
         LibraryShelvesZone(

@@ -24,10 +24,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 interface RemoteCatalogReadiness {
     val isHydratedFlow: StateFlow<Boolean>
+}
+
+interface RemoteCatalogHydrator {
+    suspend fun hydrate()
 }
 
 interface RemoteLibraryCacheStore {
@@ -53,14 +58,31 @@ class RoomRemoteCatalogRepository(
     ReadableItemRepository,
     RemoteCatalogWriter,
     RemoteCatalogReadiness,
+    RemoteCatalogHydrator,
     RemoteLibraryCacheStore {
     private val librariesState = MutableStateFlow<List<Library>>(emptyList())
     private val itemsState = MutableStateFlow<List<ReadableItem>>(emptyList())
     private val hydrationState = MutableStateFlow(false)
+    private val hydrationMutex = kotlinx.coroutines.sync.Mutex()
     override val isHydratedFlow: StateFlow<Boolean> = hydrationState.asStateFlow()
 
     init {
         scope.launch {
+            remoteCatalogDao.observeLibraries().collect { libraries ->
+                librariesState.value = libraries.map(LibraryEntity::toDomain)
+            }
+        }
+        scope.launch {
+            remoteCatalogDao.observeLibraryItems().collect { items ->
+                itemsState.value = items.map(ReadableItemLibraryEntity::toDomain)
+            }
+        }
+    }
+
+    override suspend fun hydrate() {
+        if (hydrationState.value) return
+        hydrationMutex.withLock {
+            if (hydrationState.value) return@withLock
             try {
                 runCatching {
                     remoteCatalogDao.getLibraries()
@@ -80,16 +102,6 @@ class RoomRemoteCatalogRepository(
                 }
             } finally {
                 hydrationState.value = true
-            }
-        }
-        scope.launch {
-            remoteCatalogDao.observeLibraries().collect { libraries ->
-                librariesState.value = libraries.map(LibraryEntity::toDomain)
-            }
-        }
-        scope.launch {
-            remoteCatalogDao.observeLibraryItems().collect { items ->
-                itemsState.value = items.map(ReadableItemLibraryEntity::toDomain)
             }
         }
     }

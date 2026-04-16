@@ -30,7 +30,16 @@ data class LibraryShelvesState(
     val continueReading: List<ContinueReadingShelfItem> = emptyList(),
     val nextInSeries: List<NextInSeriesShelfItem> = emptyList(),
     val recentlyFinished: List<RecentlyFinishedShelfItem> = emptyList(),
+    val isLoading: Boolean = false,
 ) {
     val hasContent: Boolean
         get() = continueReading.isNotEmpty() || nextInSeries.isNotEmpty() || recentlyFinished.isNotEmpty()
+
+    fun asLoading(): LibraryShelvesState = if (isLoading) this else copy(isLoading = true)
+
+    fun ready(): LibraryShelvesState = if (isLoading) copy(isLoading = false) else this
+
+    companion object {
+        fun placeholderLoading(): LibraryShelvesState = LibraryShelvesState(isLoading = true)
+    }
 }

@@ -31,13 +31,19 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
         baseState: AppUiState,
     ): AppUiState {
         val derivedState = libraryDerivedStateComputer.computeQuick(baseState.toLibraryDerivedStateInput())
+        val projectedState = baseState.withLibraryDerivedState(derivedState)
+        val shelvesSignature = projectedState.libraryShelvesStateSignature()
+        val shelvesState = if (projectedState.shouldReserveLibraryShelvesSlot) {
+            libraryShelvesStateComputer.compute(projectedState.toLibraryShelvesInput())
+        } else {
+            LibraryShelvesState()
+        }
         appliedDerivedSignature = baseState.libraryDerivedStateSignature()
         appliedDerivedState = derivedState
-        appliedShelvesSignature = null
-        appliedShelvesState = null
-        return baseState
-            .withLibraryDerivedState(derivedState)
-            .withLibraryShelvesState(LibraryShelvesState())
+        appliedShelvesSignature = shelvesSignature.takeIf { projectedState.shouldReserveLibraryShelvesSlot }
+        appliedShelvesState = shelvesState.takeIf { projectedState.shouldReserveLibraryShelvesSlot }
+        return projectedState
+            .withLibraryShelvesState(shelvesState)
             .also { initializedState ->
                 latestState = initializedState
             }
@@ -51,10 +57,13 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
     ) {
         val nextBaseState = transform(currentState)
         latestState = nextBaseState
+        val isLibraryPresentationActive = nextBaseState.topLevel == TopLevelDestination.Library
         val derivedSignature = nextBaseState.libraryDerivedStateSignature()
         val shelvesSignature = nextBaseState.libraryShelvesStateSignature()
-        val shouldComputeDerived = derivedSignature != appliedDerivedSignature
-        val shouldComputeShelves = nextBaseState.shouldReserveLibraryShelvesSlot &&
+        val shouldComputeDerived = isLibraryPresentationActive &&
+            derivedSignature != appliedDerivedSignature
+        val shouldComputeShelves = isLibraryPresentationActive &&
+            nextBaseState.shouldReserveLibraryShelvesSlot &&
             shelvesSignature != appliedShelvesSignature
         val projectedState = if (shouldComputeDerived) {
             nextBaseState.withLibraryDerivedState(
@@ -63,16 +72,26 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
         } else {
             nextBaseState
         }
-        val nextState = mergeAppliedLibraryState(projectedState)
-        latestState = nextState
-        publishState(nextState)
+        val nextState = presentShelvesState(
+            state = mergeAppliedLibraryState(projectedState),
+            isLoading = nextBaseState.shouldReserveLibraryShelvesSlot &&
+                (!nextBaseState.isSelectedSourceHydrated || shouldComputeShelves),
+        )
         if (!shouldComputeDerived && !shouldComputeShelves) {
             pendingRecomputeJob?.cancel()
             pendingRecomputeJob = null
             pendingDerivedSignature = null
             pendingShelvesSignature = null
+            val stableState = preserveCurrentLibraryPresentation(
+                state = nextBaseState,
+                currentState = currentState,
+            )
+            latestState = stableState
+            publishState(stableState)
             return
         }
+        latestState = nextState
+        publishState(nextState)
         if (
             pendingDerivedSignature == derivedSignature.takeIf { shouldComputeDerived } &&
             pendingShelvesSignature == shelvesSignature.takeIf { shouldComputeShelves }
@@ -112,7 +131,11 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
                 appliedShelvesSignature = shelvesSignature
                 appliedShelvesState = computedState.shelvesState
             }
-            val mergedState = mergeAppliedLibraryState(latest)
+            val mergedState = presentShelvesState(
+                state = mergeAppliedLibraryState(latest),
+                isLoading = latest.shouldReserveLibraryShelvesSlot &&
+                    (!latest.isSelectedSourceHydrated || pendingShelvesSignature != null),
+            )
             latestState = mergedState
             publishState(mergedState)
         }
@@ -135,6 +158,32 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
         }
         return mergedState
     }
+
+    private fun presentShelvesState(
+        state: AppUiState,
+        isLoading: Boolean,
+    ): AppUiState {
+        val shelvesState = when {
+            !state.shouldReserveLibraryShelvesSlot -> LibraryShelvesState()
+            isLoading -> state.libraryShelvesState.asLoading()
+            else -> state.libraryShelvesState.ready()
+        }
+        return state.withLibraryShelvesState(shelvesState)
+    }
+
+    private fun preserveCurrentLibraryPresentation(
+        state: AppUiState,
+        currentState: AppUiState,
+    ): AppUiState = state.copy(
+        sourceItems = currentState.sourceItems,
+        selectedLibraryFilterFacets = currentState.selectedLibraryFilterFacets,
+        selectedSourceLibraryTitlesById = currentState.selectedSourceLibraryTitlesById,
+        displayProgressByItemId = currentState.displayProgressByItemId,
+        remoteDownloadActionAvailability = currentState.remoteDownloadActionAvailability,
+        visibleItems = currentState.visibleItems,
+        libraryBrowseContextKey = currentState.libraryBrowseContextKey,
+        libraryShelvesState = currentState.libraryShelvesState,
+    )
 }
 
 private data class AppLibraryComputedState(

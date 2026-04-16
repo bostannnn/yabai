@@ -247,6 +247,11 @@ object AppModule {
     ): RemoteCatalogReadiness = repository
 
     @Provides
+    fun provideRemoteCatalogHydrator(
+        repository: RoomRemoteCatalogRepository,
+    ): RemoteCatalogHydrator = repository
+
+    @Provides
     fun provideRemoteLibraryCacheStore(
         repository: RoomRemoteCatalogRepository,
     ): RemoteLibraryCacheStore = repository

@@ -89,7 +89,7 @@ internal fun createViewModel(
     grimmoryContentRepository: GrimmoryContentDataSource = FakeGrimmoryContentRepository(),
     remoteDownloadDataSources: List<RemoteItemDownloadDataSource> = listOf(grimmoryContentRepository),
     comicPageSourceCacheController: ComicPageSourceCacheController = FakeComicPageSourceCacheController(),
-    remoteCatalogReadiness: RemoteCatalogReadiness = FakeRemoteCatalogReadiness(),
+    remoteCatalogReadiness: FakeRemoteCatalogReadiness = FakeRemoteCatalogReadiness(),
     sourceProgressSyncs: List<SourceProgressSync> = emptyList(),
     appStartupTasks: AppStartupTasks = AppStartupTasks {},
     readerFactories: List<@JvmSuppressWildcards ReaderScreenFactory> = emptyList(),
@@ -188,23 +188,43 @@ internal fun createViewModel(
         ),
         appDispatchers = appDispatchers,
     )
-    return AppViewModel(
-        navigationController = AppNavigationController(
-            sourceNavigationStateCoordinator = SourceNavigationStateCoordinator(
-                preferencesStore = sourceNavigationPreferencesStore,
-            ),
+    val navigationController = AppNavigationController(
+        sourceNavigationStateCoordinator = SourceNavigationStateCoordinator(
+            preferencesStore = sourceNavigationPreferencesStore,
         ),
+    )
+    val appStateHydrator = AppStateHydrator(
+        appStartupTasks = appStartupTasks,
+        remoteCatalogHydrator = remoteCatalogReadiness,
+        localDocumentHydrator = importedRepository,
+        readerSessionHydrator = readerSessionStore,
+    )
+    val catalogSnapshotsUseCase = ObserveAppCatalogSnapshotsUseCase(
+        settingsPreferencesStore = settingsPreferencesStore,
+        libraryRepository = libraryRepository,
+        readableItemRepository = readableItemRepository,
+        remoteCatalogReadiness = remoteCatalogReadiness,
+        localDocumentRepository = importedRepository,
+        readerSessionStore = readerSessionStore,
+        libraryStateAssembler = libraryStateAssembler,
+        appDispatchers = appDispatchers,
+    )
+    val initialUiStateFactory = AppInitialUiStateFactory(
+        navigationController = navigationController,
+        appStateHydrator = appStateHydrator,
+        catalogSnapshotsUseCase = catalogSnapshotsUseCase,
+        libraryStateRecomputeCoordinator = libraryStateRecomputeCoordinator,
+    )
+    return AppViewModel(
+        navigationController = navigationController,
+        initialUiStateFactory = initialUiStateFactory,
         libraryBrowseController = libraryBrowseController,
         settingsController = settingsController,
         remoteDownloadController = AppRemoteDownloadController(
             libraryActionsCoordinator = libraryActionsCoordinator,
             remoteDownloadQueueController = remoteDownloadQueueController,
         ),
-        appStateHydrator = AppStateHydrator(
-            appStartupTasks = appStartupTasks,
-            localDocumentHydrator = importedRepository,
-            readerSessionHydrator = readerSessionStore,
-        ),
+        appStateHydrator = appStateHydrator,
         catalogStateCoordinator = catalogStateCoordinator,
         libraryActionsCoordinator = libraryActionsCoordinator,
         libraryReadStatusController = AppLibraryReadStatusController(
@@ -557,9 +577,16 @@ class FakeGrimmoryCatalogSyncer(
 
 class FakeRemoteCatalogReadiness(
     initialHydrated: Boolean = true,
-) : RemoteCatalogReadiness {
+    private val hydrateOnBootstrap: Boolean = true,
+) : RemoteCatalogReadiness, RemoteCatalogHydrator {
     private val hydrationState = MutableStateFlow(initialHydrated)
     override val isHydratedFlow: StateFlow<Boolean> = hydrationState
+
+    override suspend fun hydrate() {
+        if (hydrateOnBootstrap) {
+            hydrationState.value = true
+        }
+    }
 
     fun emit(
         hydrated: Boolean,

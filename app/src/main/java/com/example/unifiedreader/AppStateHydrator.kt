@@ -8,14 +8,17 @@ import kotlinx.coroutines.withContext
 
 class AppStateHydrator @Inject constructor(
     private val appStartupTasks: AppStartupTasks,
+    private val remoteCatalogHydrator: RemoteCatalogHydrator,
     private val localDocumentHydrator: LocalDocumentHydrator,
     private val readerSessionHydrator: ReaderSessionHydrator,
 ) {
     suspend fun hydrate() = withContext(Dispatchers.IO) {
         appStartupTasks.initialize()
         coroutineScope {
+            val remoteCatalog = async { remoteCatalogHydrator.hydrate() }
             val localDocuments = async { localDocumentHydrator.hydrate() }
             val readerSessions = async { readerSessionHydrator.hydrate() }
+            remoteCatalog.await()
             localDocuments.await()
             readerSessions.await()
         }

@@ -18,7 +18,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+
+internal const val LibraryShelvesSlotPlaceholderTag = "library-shelves-slot-placeholder"
 
 @Composable
 internal fun ShelfPreviewPlaceholderRow(
@@ -55,6 +58,14 @@ internal fun ShelfPreviewPlaceholderRow(
                         .clip(RoundedCornerShape(6.dp))
                         .background(MaterialTheme.colorScheme.surfaceContainerHighest),
                 )
+                Box(
+                    modifier = Modifier
+                        .padding(top = 2.dp)
+                        .width(84.dp)
+                        .height(10.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                )
             }
         }
     }
@@ -64,7 +75,11 @@ internal fun ShelfPreviewPlaceholderRow(
 internal fun LibraryShelvesSlotPlaceholder(
     modifier: Modifier = Modifier,
 ) {
-    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+    BoxWithConstraints(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag(LibraryShelvesSlotPlaceholderTag),
+    ) {
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(

@@ -42,8 +42,8 @@ class LibraryShelvesZoneActionsTest {
                         downloadableItemIds = setOf(item.id),
                         onDownloadItem = {},
                     ),
-                    coverImageUrlProvider = { null },
-                    onCoverVisible = {},
+                    coverImageUrlProvider = { _, _ -> null },
+                    onCoverVisible = { _, _ -> },
                     onItemSelected = {},
                 )
             }
@@ -78,8 +78,8 @@ class LibraryShelvesZoneActionsTest {
                         downloadableItemIds = setOf(item.id),
                         onDownloadItem = {},
                     ),
-                    coverImageUrlProvider = { null },
-                    onCoverVisible = {},
+                    coverImageUrlProvider = { _, _ -> null },
+                    onCoverVisible = { _, _ -> },
                     onDismiss = {},
                     onItemSelected = {},
                     onDeleteImportedItem = {},

@@ -31,6 +31,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class AppViewModel @Inject constructor(
     private val navigationController: AppNavigationController,
+    initialUiStateFactory: AppInitialUiStateFactory,
     private val libraryBrowseController: AppLibraryBrowseController,
     private val settingsController: AppSettingsController,
     private val remoteDownloadController: AppRemoteDownloadController,
@@ -51,7 +52,7 @@ class AppViewModel @Inject constructor(
     val readerFactories: List<@JvmSuppressWildcards ReaderScreenFactory>,
     private val libraryStateRecomputeCoordinator: AppLibraryStateRecomputeCoordinator,
 ) : ViewModel() {
-    var uiState by mutableStateOf(initialUiState())
+    var uiState by mutableStateOf(initialUiStateFactory.create())
         private set
     var downloadsSnapshot by mutableStateOf(DownloadEntriesSnapshot(emptyList()))
         private set
@@ -68,10 +69,6 @@ class AppViewModel @Inject constructor(
         remoteSourcesCoordinator.initialize(::updateUiState)
         settingsController.restoreState(updateState = ::updateUiState)
         libraryBrowseController.restoreState(updateState = ::updateUiState)
-        catalogStateCoordinator.updateLibraryState(
-            currentState = uiState,
-            updateState = ::updateUiState,
-        )
         observeAppState()
     }
 
@@ -696,16 +693,6 @@ class AppViewModel @Inject constructor(
             },
         )
     }
-
-    private fun initialUiState(): AppUiState {
-        val navigationState = navigationController.initialState()
-        val baseState = AppUiState(
-            sourceOrder = navigationState.sourceOrder,
-            selectedSource = navigationState.startupSource,
-        )
-        return libraryStateRecomputeCoordinator.initialize(baseState)
-    }
-
     private fun reportProgressSyncFailures(
         failures: List<SourceProgressSyncFailure>,
     ) {

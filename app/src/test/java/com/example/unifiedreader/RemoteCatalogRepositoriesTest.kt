@@ -28,7 +28,7 @@ import org.junit.Test
 
 class RemoteCatalogRepositoriesTest {
     @Test
-    fun `room remote catalog repository seeds cached libraries and items asynchronously`() = runBlocking {
+    fun `room remote catalog repository hydrates cached libraries and items on demand`() = runBlocking {
         val dao = FakeRemoteCatalogDao(
             libraries = listOf(
                 LibraryEntity(
@@ -82,6 +82,7 @@ class RemoteCatalogRepositoriesTest {
                 ioDispatcher = Dispatchers.Unconfined,
                 scope = scope,
             )
+            repository.hydrate()
 
             val libraries = withTimeout(1_000L) {
                 repository.observeLibraries()
@@ -116,6 +117,7 @@ class RemoteCatalogRepositoriesTest {
                 ioDispatcher = Dispatchers.Unconfined,
                 scope = scope,
             )
+            repository.hydrate()
 
             assertTrue(withTimeout(1_000L) {
                 repository.isHydratedFlow.first { it }

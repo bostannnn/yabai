@@ -59,7 +59,7 @@ data class AppUiState(
     val downloadedRemoteItemIds: Set<String> = emptySet(),
     val locallyAvailableRemoteItemIds: Set<String> = emptySet(),
     val downloadingRemoteItemIds: Set<String> = emptySet(),
-    val hydratedSources: Set<SourceType> = setOf(SourceType.KAVITA),
+    val hydratedSources: Set<SourceType> = emptySet(),
     val themeMode: ThemeMode = ThemeMode.System,
     val comicReadingDirectionPreferences: ComicReadingDirectionPreferences = ComicReadingDirectionPreferences(),
     val comicReaderModePreferences: ComicReaderModePreferences = ComicReaderModePreferences(),
@@ -133,7 +133,7 @@ data class AppUiState(
 
     val shouldShowLibraryShelves: Boolean
         get() = shouldReserveLibraryShelvesSlot &&
-            libraryShelvesState.hasContent
+            (libraryShelvesState.hasContent || libraryShelvesState.isLoading)
 
     val shouldReserveLibraryShelvesSlot: Boolean
         get() = selectedLibrarySearchQuery.isBlank() &&

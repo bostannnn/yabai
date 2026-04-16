@@ -95,7 +95,6 @@ internal fun LibraryRoute(
                     LibraryShelvesTopSlot(
                         browseContextKey = browseContextKey,
                         shouldReserveSlot = uiState.shouldReserveLibraryShelvesSlot,
-                        isSourceHydrated = uiState.isSelectedSourceHydrated,
                         state = uiState.libraryShelvesState,
                         itemActionContext = itemActionContext,
                         coverImageUrlProvider = coverImageUrlProvider,

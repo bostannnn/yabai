@@ -74,23 +74,6 @@ internal fun EmptyLibraryState(
 }
 
 @Composable
-internal fun LoadingLibraryState(
-    selectedSource: SourceType,
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 48.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = "Loading ${selectedSource.displayName()} library…",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
 internal fun LibraryFilterSummary(
     filterPanels: List<LibraryFilterPanel>,
     filterState: LibraryFilterState,

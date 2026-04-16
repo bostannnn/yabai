@@ -96,8 +96,8 @@ class AppLibraryStateAssembler @Inject constructor(
                 sessionByItemId = sessionByItemId,
             ),
             hydratedSources = buildSet {
-                add(SourceType.KAVITA)
                 if (isRemoteCatalogHydrated) {
+                    add(SourceType.KAVITA)
                     add(SourceType.STUMP)
                     add(SourceType.GRIMMORY)
                 }

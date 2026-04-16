@@ -227,7 +227,10 @@ fun LibraryScreen(
                     span = { GridItemSpan(maxLineSpan) },
                 ) {
                     if (isLoadingSource) {
-                        LoadingLibraryState(selectedSource = selectedSource)
+                        LoadingLibraryState(
+                            viewMode = viewMode,
+                            gridCellSizeDp = gridPresentation.selectedGridSize.cellSizeDp,
+                        )
                     } else {
                         EmptyLibraryState(
                             selectedSource = selectedSource,

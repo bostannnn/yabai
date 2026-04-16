@@ -57,6 +57,20 @@ class ObserveAppCatalogSnapshotsUseCase @Inject constructor(
             )
         }
     }
+
+    internal suspend fun currentSnapshot(): AppCatalogSnapshot = withContext(appDispatchers.default) {
+        libraryStateAssembler.buildSnapshot(
+            libraries = libraryRepository.getLibraries(),
+            catalogItems = readableItemRepository.getItems(),
+            importedItems = localDocumentRepository.getImportedItems(),
+            progressByItemId = readerSessionStore.progressByItemIdFlow.value,
+            sessionByItemId = readerSessionStore.sessionByItemIdFlow.value,
+            isRemoteCatalogHydrated = remoteCatalogReadiness.isHydratedFlow.value,
+            isLocalCatalogHydrated = localDocumentRepository.isHydratedFlow.value,
+            themeMode = settingsPreferencesStore.preferencesFlow.value.themeMode,
+            includeRemoteItemLocalState = false,
+        )
+    }
 }
 
 private data class RemoteCatalogObservation(
