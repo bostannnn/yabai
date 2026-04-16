@@ -6,7 +6,7 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.isKavitaSeriesContainer
 import com.example.unifiedreader.core.model.isStumpSeriesContainer
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
-import com.example.unifiedreader.feature.library.LibrarySeriesContinuationResolver
+import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -15,7 +15,7 @@ class AppReaderCoordinator @Inject constructor(
     private val libraryProgressRefreshCoordinator: AppLibraryProgressRefreshCoordinator,
     private val syncItemProgressUseCase: SyncItemProgressUseCase,
     private val pendingProgressFlushCoordinator: AppPendingProgressFlushCoordinator,
-    private val seriesContinuationResolver: LibrarySeriesContinuationResolver,
+    private val nextItemResolver: AppReaderNextItemResolver,
 ) {
     private var readerSelectionRequestId = 0
     private val libraryScrollPositionByContext =
@@ -33,6 +33,7 @@ class AppReaderCoordinator @Inject constructor(
         updateState { state ->
             state.copy(
                 topLevel = destination,
+                selectedReaderOpenMode = ReaderOpenMode.Default,
                 selectedReaderItem = state.selectedReaderItem.takeIf { state.selectedItemId != null },
             )
         }
@@ -49,6 +50,7 @@ class AppReaderCoordinator @Inject constructor(
                 selectedSource = sourceType,
                 selectedItemId = null,
                 activeReader = null,
+                selectedReaderOpenMode = ReaderOpenMode.Default,
                 selectedReaderItem = null,
                 selectedKavitaSeriesKey = null,
                 selectedStumpSeriesKey = null,
@@ -63,6 +65,7 @@ class AppReaderCoordinator @Inject constructor(
         refreshProgress: () -> Unit,
         onSyncFailures: (List<SourceProgressSyncFailure>) -> Unit,
         selectedReaderItem: ReadableItem? = null,
+        openMode: ReaderOpenMode = ReaderOpenMode.Default,
     ) {
         if (item.isKavitaSeriesContainer()) {
             updateState { state ->
@@ -71,6 +74,7 @@ class AppReaderCoordinator @Inject constructor(
                     selectedStumpSeriesKey = null,
                     selectedItemId = null,
                     activeReader = null,
+                    selectedReaderOpenMode = ReaderOpenMode.Default,
                     selectedReaderItem = null,
                 )
             }
@@ -84,6 +88,7 @@ class AppReaderCoordinator @Inject constructor(
                     selectedKavitaSeriesKey = null,
                     selectedItemId = null,
                     activeReader = null,
+                    selectedReaderOpenMode = ReaderOpenMode.Default,
                     selectedReaderItem = null,
                 )
             }
@@ -118,6 +123,7 @@ class AppReaderCoordinator @Inject constructor(
                 openReader(
                     item = item,
                     selectedReaderItem = selectedReaderItem,
+                    openMode = openMode,
                     updateState = updateState,
                 )
             }
@@ -125,6 +131,7 @@ class AppReaderCoordinator @Inject constructor(
             openReader(
                 item = item,
                 selectedReaderItem = selectedReaderItem,
+                openMode = openMode,
                 updateState = updateState,
             )
         }
@@ -158,6 +165,7 @@ class AppReaderCoordinator @Inject constructor(
                 it.activeReader != null -> it.copy(
                     activeReader = null,
                     selectedItemId = null,
+                    selectedReaderOpenMode = ReaderOpenMode.Default,
                     selectedReaderItem = null,
                 )
                 it.selectedKavitaSeriesKey != null -> it.copy(
@@ -191,10 +199,9 @@ class AppReaderCoordinator @Inject constructor(
         refreshProgress()
         val state = stateProvider()
         val currentItem = state.selectedItem ?: return
-        val nextItem = seriesContinuationResolver.nextUnreadAfter(
+        val nextItem = nextItemResolver.nextUnreadAfter(
             currentItem = currentItem,
             items = state.items,
-            progressByItemId = state.progressByItemId,
         ) ?: return
         onItemSelected(
             item = nextItem,
@@ -202,6 +209,7 @@ class AppReaderCoordinator @Inject constructor(
             scope = scope,
             refreshProgress = refreshProgress,
             onSyncFailures = onSyncFailures,
+            openMode = ReaderOpenMode.StartFromBeginning,
         )
     }
 
@@ -244,12 +252,14 @@ class AppReaderCoordinator @Inject constructor(
     private fun openReader(
         item: ReadableItem,
         selectedReaderItem: ReadableItem?,
+        openMode: ReaderOpenMode,
         updateState: AppUiStateUpdater,
     ) {
         updateState { state ->
             state.copy(
                 selectedItemId = item.id,
                 activeReader = item.format,
+                selectedReaderOpenMode = openMode,
                 selectedReaderItem = selectedReaderItem,
             )
         }

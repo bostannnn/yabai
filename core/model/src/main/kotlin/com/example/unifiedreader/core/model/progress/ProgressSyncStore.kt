@@ -54,6 +54,10 @@ interface ProgressSyncStore {
         itemId: String,
     )
 
+    fun clearLocalReaderPosition(
+        item: ReadableItem,
+    ) = Unit
+
     fun clearItem(
         itemId: String,
     )

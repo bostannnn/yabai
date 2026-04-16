@@ -114,3 +114,22 @@ fun buildComicReaderPreferencesPatch(
         put(ComicsResumeScrollOffsetRatioKey, resumeScrollOffsetRatio.toString())
     }
 }
+
+fun clearComicReaderPosition(
+    session: ReaderSessionSnapshot?,
+): ReaderSessionSnapshot? {
+    val existing = session ?: return null
+    val clearedPreferences = existing.preferences - setOf(
+        ComicsResumeAnchorPageKey,
+        ComicsResumeSegmentKey,
+        ComicsResumeScrollOffsetRatioKey,
+    )
+    if (clearedPreferences == existing.preferences) {
+        return existing
+    }
+    return ReaderSessionSnapshot(
+        itemId = existing.itemId,
+        pageCount = existing.pageCount,
+        preferences = clearedPreferences,
+    ).takeUnless { it.pageCount == null && it.preferences.isEmpty() }
+}

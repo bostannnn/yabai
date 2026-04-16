@@ -33,6 +33,7 @@ import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesSna
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 import com.example.unifiedreader.feature.reader.comics.ComicReaderProgressStore
+import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
 import com.example.unifiedreader.feature.settings.ThemeMode
@@ -696,6 +697,7 @@ class AppViewModelTest {
                 sortsBySource = mapOf(
                     SourceType.LOCAL to LibrarySortMode.TITLE,
                 ),
+                gridCellSizeDp = 140,
             ),
         )
         val viewModel = createViewModel(
@@ -709,6 +711,7 @@ class AppViewModelTest {
 
         assertEquals(LibrarySortMode.TITLE, viewModel.uiState.selectedLibrarySortMode)
         assertEquals(setOf(FormatType.EPUB), viewModel.uiState.selectedLibraryFilters.formats)
+        assertEquals(140, viewModel.uiState.libraryGridCellSizeDp)
         assertEquals(listOf(localBook), viewModel.uiState.visibleItems)
     }
 
@@ -736,6 +739,7 @@ class AppViewModelTest {
             ),
         )
         viewModel.onLibrarySortModeChanged(LibrarySortMode.TITLE)
+        viewModel.onLibraryGridCellSizeChanged(140)
         shadowOf(Looper.getMainLooper()).idle()
 
         assertEquals(
@@ -749,6 +753,11 @@ class AppViewModelTest {
             LibrarySortMode.TITLE,
             browsePreferencesStore.preferencesFlow.value.sortsBySource[SourceType.LOCAL],
         )
+        assertEquals(
+            140,
+            browsePreferencesStore.preferencesFlow.value.gridCellSizeDp,
+        )
+        assertEquals(140, viewModel.uiState.libraryGridCellSizeDp)
     }
 
     @Test
@@ -897,6 +906,7 @@ class AppViewModelTest {
 
         assertEquals(secondIssue.id, viewModel.uiState.selectedItemId)
         assertEquals(FormatType.CBZ, viewModel.uiState.activeReader)
+        assertEquals(ReaderOpenMode.StartFromBeginning, viewModel.uiState.selectedReaderOpenMode)
     }
 
     @Test
@@ -1019,7 +1029,7 @@ class AppViewModelTest {
     }
 
     @Test
-    fun `kavita series progress uses total issue count and avoids continue on finished issue`() {
+    fun `kavita root series does not synthesize aggregate progress from finished issues`() {
         val firstIssue = sampleItem(
             id = "chapter-1",
             title = "Akira 001",
@@ -1061,12 +1071,11 @@ class AppViewModelTest {
         val progress = viewModel.uiState.displayProgressByItemId[seriesItem.id]
 
         assertEquals(true, seriesItem.isKavitaSeriesContainer())
-        assertEquals("Read 1 of 2 issues", progress?.label)
-        assertEquals(0.5f, progress?.fraction ?: -1f, 0.001f)
+        assertNull(progress)
     }
 
     @Test
-    fun `kavita series progress keeps last read timestamp from latest issue activity`() {
+    fun `kavita root series omits display progress from issue activity`() {
         val firstIssue = sampleItem(
             id = "chapter-1",
             title = "Akira 001",
@@ -1116,12 +1125,12 @@ class AppViewModelTest {
         val seriesItem = viewModel.uiState.visibleItems.single()
         val progress = viewModel.uiState.displayProgressByItemId[seriesItem.id]
 
-        assertEquals("Continue Issue 1", progress?.label)
-        assertEquals(2_000L, progress?.lastReadAtEpochMillis)
+        assertEquals(true, seriesItem.isKavitaSeriesContainer())
+        assertNull(progress)
     }
 
     @Test
-    fun `stump series progress is marked finished when all issues are finished`() {
+    fun `stump root series does not synthesize aggregate progress from finished issues`() {
         val firstIssue = sampleItem(
             id = "stump-issue-1",
             title = "Akira 001",
@@ -1170,9 +1179,7 @@ class AppViewModelTest {
         val progress = viewModel.uiState.displayProgressByItemId[seriesItem.id]
 
         assertTrue(seriesItem.isStumpSeriesContainer())
-        assertEquals("Finished all 2 issues", progress?.label)
-        assertEquals(1f, progress?.fraction ?: -1f, 0.001f)
-        assertTrue(progress?.isFinished ?: false)
+        assertNull(progress)
     }
 
     @Test

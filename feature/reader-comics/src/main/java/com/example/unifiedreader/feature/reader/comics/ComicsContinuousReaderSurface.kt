@@ -13,7 +13,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -31,9 +33,19 @@ internal fun ComicsContinuousReaderSurface(
     pageSource: ComicPageSource,
     readerState: ComicsReaderState,
     onToggleOverlay: () -> Unit,
+    onNavigatePastEnd: () -> Unit,
 ) {
+    var hasTriggeredPastEndNavigation by remember(item.id) { mutableStateOf(false) }
     val listState = rememberLazyListState(
         initialFirstVisibleItemIndex = readerState.resumeAnchorPage.coerceIn(0, pages.lastIndex),
+    )
+    val endNavigationModifier = rememberContinuousEndNavigationModifier(
+        canScrollForward = listState.canScrollForward,
+        alreadyTriggered = hasTriggeredPastEndNavigation,
+        onNavigatePastEnd = {
+            hasTriggeredPastEndNavigation = true
+            onNavigatePastEnd()
+        },
     )
 
     BoxWithConstraints(
@@ -115,6 +127,7 @@ internal fun ComicsContinuousReaderSurface(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
+                .then(endNavigationModifier)
                 .background(Color(0xFF0A0D11)),
             contentPadding = PaddingValues(top = 12.dp, bottom = 88.dp),
             verticalArrangement = Arrangement.spacedBy(0.dp),

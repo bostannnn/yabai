@@ -29,6 +29,7 @@ enum class ReaderChrome {
 
 data class ReaderNavigationActions(
     val onRequestNextInSeries: () -> Unit = {},
+    val currentOpenMode: ReaderOpenMode = ReaderOpenMode.Default,
 )
 
 interface ReaderScreenFactory {

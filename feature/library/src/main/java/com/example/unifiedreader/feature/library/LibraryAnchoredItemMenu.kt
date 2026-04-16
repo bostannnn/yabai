@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.menu.LibraryItemMenuButton
+import com.example.unifiedreader.feature.library.menu.LibraryItemMenuButtonStyle
 import com.example.unifiedreader.feature.library.menu.LibraryItemOverflowMenu
 import com.example.unifiedreader.feature.library.menu.buildLibraryItemMenuActions
 import com.example.unifiedreader.feature.library.menu.buildReaderModeMenuState
@@ -22,13 +23,17 @@ fun LibraryAnchoredItemMenu(
 ) {
     if (!expanded) {
         Box(modifier = modifier) {
-            LibraryItemMenuButton(onClick = { onExpandedChange(true) })
+            LibraryItemMenuButton(
+                onClick = { onExpandedChange(true) },
+                style = LibraryItemMenuButtonStyle.CompactOverlay,
+            )
         }
         return
     }
 
     LibraryItemOverflowMenu(
         modifier = modifier,
+        buttonStyle = LibraryItemMenuButtonStyle.CompactOverlay,
         actions = buildLibraryItemMenuActions(
             isDownloading = item.id in actionContext.downloadingItemIds,
             readStatusActionState = buildReadStatusMenuActionState(

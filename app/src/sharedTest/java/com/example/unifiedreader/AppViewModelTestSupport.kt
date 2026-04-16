@@ -237,7 +237,11 @@ internal fun createViewModel(
                     sourceProgressSyncRegistry = sourceProgressSyncRegistry,
                 ),
             ),
-            seriesContinuationResolver = LibrarySeriesContinuationResolver(),
+            nextItemResolver = AppReaderNextItemResolver(
+                libraryStateAssembler = libraryStateAssembler,
+                readerSessionStore = readerSessionStore,
+                seriesContinuationResolver = LibrarySeriesContinuationResolver(),
+            ),
         ),
         remoteSourcesCoordinator = AppRemoteSourcesCoordinator(
             kavitaController = AppKavitaRemoteSourceController(
@@ -1095,6 +1099,16 @@ class FakeLibraryBrowsePreferencesStore(
             } else {
                 mutablePreferencesFlow.value.filterPanelsBySource + (sourceType to resolvedPanels)
             },
+        )
+    }
+
+    override suspend fun setGridCellSizeDp(
+        gridCellSizeDp: Int,
+    ) {
+        mutablePreferencesFlow.value = mutablePreferencesFlow.value.copy(
+            gridCellSizeDp = com.example.unifiedreader.feature.library.sanitizeLibraryGridCellSizeDp(
+                gridCellSizeDp,
+            ),
         )
     }
 }

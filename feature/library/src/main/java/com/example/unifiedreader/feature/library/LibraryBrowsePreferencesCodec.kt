@@ -3,6 +3,7 @@ package com.example.unifiedreader.feature.library
 import android.content.SharedPreferences
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.LibraryFilterPanel
@@ -44,6 +45,9 @@ internal fun Preferences.toLibraryBrowsePreferences(): LibraryBrowsePreferences 
             }
         }
     },
+    gridCellSizeDp = sanitizeLibraryGridCellSizeDp(
+        this[gridCellSizeKey()] ?: defaultLibraryGridCellSizeDp,
+    ),
 )
 
 internal fun MutablePreferences.writeFilterState(
@@ -86,6 +90,17 @@ internal fun MutablePreferences.writeFilterPanels(
         remove(key)
     } else {
         this[key] = encoded
+    }
+}
+
+internal fun MutablePreferences.writeGridCellSizeDp(
+    gridCellSizeDp: Int,
+) {
+    val sanitizedGridCellSizeDp = sanitizeLibraryGridCellSizeDp(gridCellSizeDp)
+    if (sanitizedGridCellSizeDp == defaultLibraryGridCellSizeDp) {
+        remove(gridCellSizeKey())
+    } else {
+        this[gridCellSizeKey()] = sanitizedGridCellSizeDp
     }
 }
 
@@ -132,6 +147,12 @@ internal fun loadStartupLibraryBrowsePreferences(
             }
         }
     },
+    gridCellSizeDp = sanitizeLibraryGridCellSizeDp(
+        startupPreferences.getInt(
+            gridCellSizeStorageKey(),
+            defaultLibraryGridCellSizeDp,
+        ),
+    ),
 )
 
 internal fun writeStartupLibraryBrowsePreferences(
@@ -163,6 +184,12 @@ internal fun writeStartupLibraryBrowsePreferences(
                 values = preferences.filterPanelsBySource[sourceType]?.map(LibraryFilterPanel::name).orEmpty(),
                 defaultValues = defaultVisibleLibraryFilterPanels(sourceType).map(LibraryFilterPanel::name),
             )
+        }
+        val gridCellSizeDp = sanitizeLibraryGridCellSizeDp(preferences.gridCellSizeDp)
+        if (gridCellSizeDp == defaultLibraryGridCellSizeDp) {
+            remove(gridCellSizeStorageKey())
+        } else {
+            putInt(gridCellSizeStorageKey(), gridCellSizeDp)
         }
         commit()
     }
@@ -348,6 +375,8 @@ private fun filterPanelsKey(
     sourceType: SourceType,
 ): Preferences.Key<String> = stringPreferencesKey(filterPanelsStorageKey(sourceType))
 
+private fun gridCellSizeKey(): Preferences.Key<Int> = intPreferencesKey(gridCellSizeStorageKey())
+
 private fun sortModeStorageKey(
     sourceType: SourceType,
 ): String = "library_sort_mode_${sourceType.keySuffix()}"
@@ -391,6 +420,8 @@ private fun languagesFilterStorageKey(
 private fun filterPanelsStorageKey(
     sourceType: SourceType,
 ): String = "library_filter_panels_${sourceType.keySuffix()}"
+
+private fun gridCellSizeStorageKey(): String = "library_grid_cell_size_dp"
 
 private fun SourceType.keySuffix(): String = name.lowercase(Locale.ROOT)
 

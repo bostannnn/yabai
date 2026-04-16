@@ -8,71 +8,79 @@ import org.junit.Test
 
 class LibraryVisibleCoverPrefetcherTest {
     @Test
-    fun `visible prefetch targets skip leading content items and dedupe by key`() {
-        val first = remoteItem(id = "kavita:item:1", key = "remote-cover:kavita:1")
-        val second = remoteItem(id = "kavita:item:2", key = "remote-cover:kavita:2")
-        val duplicateKey = remoteItem(id = "kavita:item:1b", key = "remote-cover:kavita:1")
+    fun `scrolling forward only prefetches trailing visible items`() {
+        val items = List(6) { index -> remoteItem(index) }
 
         val targets = visibleRemoteCoverPrefetchTargets(
-            visibleGridItemIndices = listOf(0, 1, 2, 3, 4),
-            itemIndexOffset = 2,
-            items = listOf(first, second, duplicateKey),
-            coverPrefetchKeyProvider = { item, _ -> item.description },
-        )
-
-        assertEquals(listOf("kavita:item:1", "kavita:item:2"), targets.map { it.item.id })
-    }
-
-    @Test
-    fun `visible prefetch targets ignore local items and blank keys`() {
-        val local = ReadableItem(
-            id = "local:item:1",
-            sourceType = SourceType.LOCAL,
-            libraryId = "local-imports",
-            title = "Local",
-            format = FormatType.EPUB,
-            description = "ignored",
-        )
-        val remoteWithoutKey = remoteItem(id = "kavita:item:3", key = "")
-
-        val targets = visibleRemoteCoverPrefetchTargets(
-            visibleGridItemIndices = listOf(0, 1),
-            itemIndexOffset = 0,
-            items = listOf(local, remoteWithoutKey),
-            coverPrefetchKeyProvider = { item, _ -> item.description },
-        )
-
-        assertEquals(emptyList<RemoteCoverPrefetchTarget>(), targets)
-    }
-
-    @Test
-    fun `visible prefetch targets include every visible remote item`() {
-        val items = (1..8).map { index ->
-            remoteItem(id = "kavita:item:$index", key = "remote-cover:kavita:$index")
-        }
-
-        val targets = visibleRemoteCoverPrefetchTargets(
-            visibleGridItemIndices = items.indices.toList(),
+            visibleGridItemIndices = listOf(0, 1, 2, 3, 4, 5),
             itemIndexOffset = 0,
             items = items,
-            coverPrefetchKeyProvider = { item, _ -> item.description },
+            variant = LibraryCoverImageVariant.Grid,
+            isScrollInProgress = true,
+            scrollDirection = RemoteCoverPrefetchScrollDirection.Forward,
+            maxTargetsWhileScrolling = 2,
+            coverPrefetchKeyProvider = { item, _ -> item.id },
         )
 
-        assertEquals(items.map(ReadableItem::id), targets.map { target -> target.item.id })
+        assertEquals(listOf("item-4", "item-5"), targets.map { target -> target.item.id })
     }
 
-}
+    @Test
+    fun `idle prefetch keeps all visible items`() {
+        val items = List(4) { index -> remoteItem(index) }
 
-private fun remoteItem(
-    id: String,
-    key: String,
-): ReadableItem = ReadableItem(
-    id = id,
-    sourceType = SourceType.KAVITA,
-    libraryId = "kavita:library:k-comics",
-    remoteId = id,
-    title = id,
-    format = FormatType.CBZ,
-    description = key,
-    coverUrl = "https://example.com/$id.jpg",
-)
+        val targets = visibleRemoteCoverPrefetchTargets(
+            visibleGridItemIndices = listOf(0, 1, 2, 3),
+            itemIndexOffset = 0,
+            items = items,
+            variant = LibraryCoverImageVariant.Grid,
+            isScrollInProgress = false,
+            scrollDirection = RemoteCoverPrefetchScrollDirection.Idle,
+            maxTargetsWhileScrolling = 2,
+            coverPrefetchKeyProvider = { item, _ -> item.id },
+        )
+
+        assertEquals(listOf("item-0", "item-1", "item-2", "item-3"), targets.map { target -> target.item.id })
+    }
+
+    @Test
+    fun `unsignaled targets exclude already requested keys`() {
+        val targets = listOf(
+            RemoteCoverPrefetchTarget(
+                item = remoteItem(0),
+                prefetchKey = "item-0",
+                variant = LibraryCoverImageVariant.Grid,
+            ),
+            RemoteCoverPrefetchTarget(
+                item = remoteItem(1),
+                prefetchKey = "item-1",
+                variant = LibraryCoverImageVariant.Grid,
+            ),
+            RemoteCoverPrefetchTarget(
+                item = remoteItem(2),
+                prefetchKey = "item-2",
+                variant = LibraryCoverImageVariant.Grid,
+            ),
+        )
+
+        val unsignaledTargets = unsignaledRemoteCoverPrefetchTargets(
+            targets = targets,
+            signaledPrefetchKeys = setOf("item-0", "item-2"),
+        )
+
+        assertEquals(listOf("item-1"), unsignaledTargets.map { target -> target.prefetchKey })
+    }
+
+    private fun remoteItem(
+        index: Int,
+    ): ReadableItem = ReadableItem(
+        id = "item-$index",
+        sourceType = SourceType.STUMP,
+        libraryId = "library",
+        remoteId = "remote-$index",
+        remoteFileId = "file-$index",
+        title = "Item $index",
+        format = FormatType.CBZ,
+        coverUrl = "https://example.com/$index.jpg",
+    )
+}

@@ -31,6 +31,7 @@ fun comicsReaderFactory(
                 progressStore = progressStore,
                 preferencesStore = preferencesStore,
                 onBack = onBack,
+                openMode = navigationActions.currentOpenMode,
                 onNextItemRequested = navigationActions.onRequestNextInSeries,
             )
         }

@@ -43,9 +43,9 @@ class LibraryCoverPrefetchSmokeTest {
                     browseContextKey = "stump",
                     items = listOf(seriesItem),
                     viewMode = LibraryViewMode.Grid,
-                    coverImageUrlProvider = { null },
-                    coverPrefetchKeyProvider = { coverPrefetchKey },
-                    onCoverVisible = { coverVisibleCalls += 1 },
+                    coverImageUrlProvider = { _, _ -> null },
+                    coverPrefetchKeyProvider = { _, _ -> coverPrefetchKey },
+                    onCoverVisible = { _, _ -> coverVisibleCalls += 1 },
                     onItemSelected = {},
                 )
             }

@@ -29,6 +29,7 @@ class LibraryBrowseStateCoordinatorTest {
                         LibraryFilterPanel.Tag,
                     ),
                 ),
+                gridCellSizeDp = 140,
             ),
         )
         val coordinator = LibraryBrowseStateCoordinator(preferencesStore)
@@ -44,6 +45,7 @@ class LibraryBrowseStateCoordinatorTest {
             restoredState.filterPanelsBySource[SourceType.GRIMMORY],
         )
         assertEquals("earthsea", restoredState.searchQueriesBySource[SourceType.LOCAL])
+        assertEquals(140, restoredState.gridCellSizeDp)
     }
 
     @Test
@@ -79,6 +81,18 @@ class LibraryBrowseStateCoordinatorTest {
         )
 
         assertFalse(SourceType.LOCAL in updatedState.sortsBySource)
+    }
+
+    @Test
+    fun `update grid cell size normalizes unsupported values`() {
+        val coordinator = LibraryBrowseStateCoordinator(FakeLibraryBrowsePreferencesStore())
+
+        val updatedState = coordinator.updateGridCellSizeDp(
+            currentState = LibraryBrowseState(),
+            gridCellSizeDp = 149,
+        )
+
+        assertEquals(140, updatedState.gridCellSizeDp)
     }
 
     @Test
@@ -130,10 +144,12 @@ class LibraryBrowseStateCoordinatorTest {
             sourceType = SourceType.GRIMMORY,
             panels = panels,
         )
+        coordinator.persistGridCellSizeDp(140)
 
         assertEquals(filters, preferencesStore.preferencesFlow.value.filtersBySource[SourceType.LOCAL])
         assertEquals(LibrarySortMode.TITLE, preferencesStore.preferencesFlow.value.sortsBySource[SourceType.LOCAL])
         assertEquals(panels, preferencesStore.preferencesFlow.value.filterPanelsBySource[SourceType.GRIMMORY])
+        assertEquals(140, preferencesStore.preferencesFlow.value.gridCellSizeDp)
     }
 }
 
@@ -177,6 +193,14 @@ private class FakeLibraryBrowsePreferencesStore(
                 sourceType = sourceType,
                 panels = panels,
             ),
+        )
+    }
+
+    override suspend fun setGridCellSizeDp(
+        gridCellSizeDp: Int,
+    ) {
+        state.value = state.value.copy(
+            gridCellSizeDp = sanitizeLibraryGridCellSizeDp(gridCellSizeDp),
         )
     }
 }

@@ -101,6 +101,27 @@ internal fun LibraryCover(
 }
 
 @Composable
+internal fun ResolvedLibraryCover(
+    item: ReadableItem,
+    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
+    isDownloaded: Boolean = false,
+    isRead: Boolean = false,
+    downloadBadgeBottomInset: Dp = 0.dp,
+    imageVariant: LibraryCoverImageVariant = LibraryCoverImageVariant.Grid,
+    modifier: Modifier = Modifier,
+) {
+    LibraryCover(
+        item = item,
+        coverUrl = coverImageUrlProvider(item, imageVariant),
+        isDownloaded = isDownloaded,
+        isRead = isRead,
+        downloadBadgeBottomInset = downloadBadgeBottomInset,
+        imageVariant = imageVariant,
+        modifier = modifier,
+    )
+}
+
+@Composable
 internal fun BucketedCoverImage(
     imageUrl: String,
     contentDescription: String?,

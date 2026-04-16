@@ -17,6 +17,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ApplyReadStatusChangeUseCaseTest {
+    companion object {
+        private const val ResumeAnchorPageKey = "resumeAnchorPage"
+        private const val ResumeSegmentKey = "resumeSegment"
+        private const val ResumeScrollOffsetRatioKey = "resumeScrollOffsetRatio"
+    }
+
     @Test
     fun `mark as read updates local progress and syncs clean state`() = runTest {
         val store = TestProgressSyncStore()
@@ -96,6 +102,40 @@ class ApplyReadStatusChangeUseCaseTest {
         assertTrue(result.applied)
         assertTrue(result.syncFailures.isEmpty())
         assertNull(store.progressByItemIdFlow.value[grimmoryBook().id])
+    }
+
+    @Test
+    fun `mark as unread clears persisted local comic reader position immediately`() = runTest {
+        val item = comicBook()
+        val store = TestProgressSyncStore(
+            initialSessionPreferences = mapOf(
+                item.id to mapOf(
+                    ResumeAnchorPageKey to "17",
+                    ResumeSegmentKey to "Full",
+                    ResumeScrollOffsetRatioKey to "0.6",
+                    "readerMode" to "VerticalScroll",
+                ),
+            ),
+        )
+        val useCase = ApplyReadStatusChangeUseCase(
+            progressSyncStore = store,
+            flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
+                SourceProgressSyncRegistry(emptyList()),
+            ),
+        )
+
+        val result = useCase(
+            item = item,
+            markAsRead = false,
+        )
+
+        val snapshot = checkNotNull(store.progressByItemIdFlow.value[item.id])
+        assertTrue(result.applied)
+        assertTrue(snapshot.isExplicitUnreadReset)
+        assertEquals(
+            mapOf("readerMode" to "VerticalScroll"),
+            store.sessionPreferencesByItemId[item.id],
+        )
     }
 
     @Test
@@ -214,6 +254,17 @@ private fun grimmoryBook(
     format = FormatType.EPUB,
 )
 
+private fun comicBook(
+    id: String = "kavita:item:7",
+): ReadableItem = ReadableItem(
+    id = id,
+    sourceType = SourceType.KAVITA,
+    libraryId = "kavita:library:4",
+    remoteId = "7",
+    title = "One Piece",
+    format = FormatType.CBZ,
+)
+
 private class RecordingSourceProgressSync(
     override val sourceType: SourceType,
     private val failure: Throwable? = null,
@@ -241,6 +292,13 @@ private class RecordingSourceProgressSync(
 }
 
 private class TestProgressSyncStore : ProgressSyncStore {
+    constructor(
+        initialSessionPreferences: Map<String, Map<String, String>> = emptyMap(),
+    ) {
+        activeStore = this
+        sessionPreferencesByItemId.putAll(initialSessionPreferences)
+    }
+
     init {
         activeStore = this
     }
@@ -248,6 +306,7 @@ private class TestProgressSyncStore : ProgressSyncStore {
     override val isHydratedFlow = MutableStateFlow(true).asStateFlow()
     private val progressState = MutableStateFlow<Map<String, ProgressSyncSnapshot>>(emptyMap())
     override val progressByItemIdFlow = progressState.asStateFlow()
+    val sessionPreferencesByItemId = mutableMapOf<String, Map<String, String>>()
 
     override fun currentProgressByItemId(): Map<String, ProgressSyncSnapshot> = progressState.value
 
@@ -293,6 +352,22 @@ private class TestProgressSyncStore : ProgressSyncStore {
 
     override fun clearProgress(itemId: String) {
         progressState.value = progressState.value - itemId
+    }
+
+    override fun clearLocalReaderPosition(item: ReadableItem) {
+        if (item.format != FormatType.CBZ && item.format != FormatType.CBR) return
+        sessionPreferencesByItemId[item.id]?.let { preferences ->
+            val cleared = preferences - setOf(
+                "resumeAnchorPage",
+                "resumeSegment",
+                "resumeScrollOffsetRatio",
+            )
+            if (cleared.isEmpty()) {
+                sessionPreferencesByItemId.remove(item.id)
+            } else {
+                sessionPreferencesByItemId[item.id] = cleared
+            }
+        }
     }
 
     override fun clearItem(itemId: String) {

@@ -13,6 +13,7 @@ data class LibraryBrowseState(
     val searchQueriesBySource: Map<SourceType, String> = emptyMap(),
     val sortsBySource: Map<SourceType, LibrarySortMode> = emptyMap(),
     val filterPanelsBySource: Map<SourceType, List<LibraryFilterPanel>> = emptyMap(),
+    val gridCellSizeDp: Int = defaultLibraryGridCellSizeDp,
 )
 
 class LibraryBrowseStateCoordinator(
@@ -27,6 +28,7 @@ class LibraryBrowseStateCoordinator(
             searchQueriesBySource = currentSearchQueriesBySource,
             sortsBySource = preferences.sortsBySource,
             filterPanelsBySource = preferences.filterPanelsBySource,
+            gridCellSizeDp = preferences.gridCellSizeDp,
         )
     }
 
@@ -96,6 +98,13 @@ class LibraryBrowseStateCoordinator(
         )
     }
 
+    fun updateGridCellSizeDp(
+        currentState: LibraryBrowseState,
+        gridCellSizeDp: Int,
+    ): LibraryBrowseState = currentState.copy(
+        gridCellSizeDp = sanitizeLibraryGridCellSizeDp(gridCellSizeDp),
+    )
+
     suspend fun persistFilters(
         sourceType: SourceType,
         filters: LibraryFilterState,
@@ -123,6 +132,14 @@ class LibraryBrowseStateCoordinator(
         preferencesStore.setFilterPanels(
             sourceType = sourceType,
             panels = panels,
+        )
+    }
+
+    suspend fun persistGridCellSizeDp(
+        gridCellSizeDp: Int,
+    ) {
+        preferencesStore.setGridCellSizeDp(
+            gridCellSizeDp = gridCellSizeDp,
         )
     }
 }

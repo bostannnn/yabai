@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.library
 
+import android.graphics.Bitmap
 import androidx.compose.ui.unit.IntSize
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -18,6 +19,42 @@ class LibraryCoverImageRequestsTest {
         assertEquals(
             IntSize(320, 480),
             libraryCoverImageRequestSize(LibraryCoverImageVariant.Detailed),
+        )
+    }
+
+    @Test
+    fun `grid and shelf covers use software rgb565 decode policy`() {
+        assertEquals(
+            LibraryCoverImageDecodePolicy(
+                allowHardware = false,
+                bitmapConfig = Bitmap.Config.RGB_565,
+            ),
+            libraryCoverImageDecodePolicy(LibraryCoverImageVariant.Grid),
+        )
+        assertEquals(
+            LibraryCoverImageDecodePolicy(
+                allowHardware = false,
+                bitmapConfig = Bitmap.Config.RGB_565,
+            ),
+            libraryCoverImageDecodePolicy(LibraryCoverImageVariant.ShelfPreview),
+        )
+        assertEquals(
+            LibraryCoverImageDecodePolicy(
+                allowHardware = false,
+                bitmapConfig = Bitmap.Config.RGB_565,
+            ),
+            libraryCoverImageDecodePolicy(LibraryCoverImageVariant.ShelfRow),
+        )
+    }
+
+    @Test
+    fun `detailed cover keeps hardware quality policy`() {
+        assertEquals(
+            LibraryCoverImageDecodePolicy(
+                allowHardware = true,
+                bitmapConfig = null,
+            ),
+            libraryCoverImageDecodePolicy(LibraryCoverImageVariant.Detailed),
         )
     }
 }

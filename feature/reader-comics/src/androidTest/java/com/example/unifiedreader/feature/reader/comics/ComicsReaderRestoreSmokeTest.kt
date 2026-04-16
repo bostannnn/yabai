@@ -25,6 +25,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.junit.Assert.assertFalse
@@ -234,6 +235,27 @@ class ComicsReaderRestoreSmokeTest {
         assertEquals(1, preferencesStore.savedResumeAnchors.first())
         assertFalse(preferencesStore.savedResumeAnchors.contains(2))
     }
+
+    @Test
+    fun reader_start_from_beginning_ignores_saved_progress_for_auto_next_open() {
+        val item = smokeTestItem()
+        val progressStore = SmokeProgressStore(
+            initialPages = mapOf(item.id to 2),
+            restoredPages = mapOf(item.id to 2),
+        )
+        val preferencesStore = SmokePreferencesStore()
+        val pageSource = SmokeComicPageSource(pageCount = 4)
+
+        composeRule.setReaderContent(
+            item = item,
+            pageSource = pageSource,
+            progressStore = progressStore,
+            preferencesStore = preferencesStore,
+            openMode = ReaderOpenMode.StartFromBeginning,
+        )
+
+        composeRule.waitForText("1 / 4")
+    }
 }
 
 private fun androidx.compose.ui.test.junit4.AndroidComposeTestRule<*, *>.setReaderContent(
@@ -241,6 +263,7 @@ private fun androidx.compose.ui.test.junit4.AndroidComposeTestRule<*, *>.setRead
     pageSource: ComicPageSource,
     progressStore: ComicReaderProgressStore,
     preferencesStore: ComicReaderPreferencesStore,
+    openMode: ReaderOpenMode = ReaderOpenMode.Default,
     onBeforeClose: () -> Unit = {},
 ) {
     setContent {
@@ -250,6 +273,7 @@ private fun androidx.compose.ui.test.junit4.AndroidComposeTestRule<*, *>.setRead
                 pageSource = pageSource,
                 progressStore = progressStore,
                 preferencesStore = preferencesStore,
+                openMode = openMode,
                 onBeforeClose = onBeforeClose,
             )
         }
@@ -272,6 +296,7 @@ private fun ReaderSmokeHarness(
     pageSource: ComicPageSource,
     progressStore: ComicReaderProgressStore,
     preferencesStore: ComicReaderPreferencesStore,
+    openMode: ReaderOpenMode,
     onBeforeClose: () -> Unit,
 ) {
     val isReaderOpen = remember { mutableStateOf(true) }
@@ -281,6 +306,7 @@ private fun ReaderSmokeHarness(
             pageSource = pageSource,
             progressStore = progressStore,
             preferencesStore = preferencesStore,
+            openMode = openMode,
             onBack = {
                 onBeforeClose()
                 isReaderOpen.value = false

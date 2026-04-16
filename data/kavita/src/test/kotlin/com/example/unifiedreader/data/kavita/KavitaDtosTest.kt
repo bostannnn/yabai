@@ -4,6 +4,7 @@ import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -237,5 +238,85 @@ class KavitaDtosTest {
         assertEquals(7, update?.volumeId)
         assertEquals(12, update?.seriesId)
         assertEquals(5, update?.libraryId)
+    }
+
+    @Test
+    fun `invalid generated chapter titles fall back to formatted volume name`() {
+        val title = preferredKavitaIssueTitle(
+            explicitTitle = "Chapter -100000",
+            volumeName = "2",
+        )
+
+        assertEquals("Volume 2", title)
+    }
+
+    @Test
+    fun `range and number are ignored as display title inputs`() {
+        val title = preferredKavitaIssueTitle(
+            explicitTitle = null,
+            volumeName = "2",
+        )
+
+        assertEquals("Volume 2", title)
+    }
+
+    @Test
+    fun `negative or huge chapter tokens are rejected`() {
+        assertFalse(isValidKavitaChapterToken("-100000"))
+        assertFalse(isValidKavitaChapterToken("-1"))
+        assertFalse(isValidKavitaChapterToken("100000"))
+        assertTrue(isValidKavitaChapterToken("1099"))
+        assertTrue(isValidKavitaChapterToken("Special 1"))
+    }
+
+    @Test
+    fun `chapter info metadata title is used when series detail title is missing`() {
+        val title = KavitaChapterInfoDto(
+            chapterTitle = "Romance Dawn",
+            title = "One Piece v02.cbz",
+        ).preferredKavitaIssueTitleFallback(volumeName = null)
+
+        assertEquals("Romance Dawn", title)
+    }
+
+    @Test
+    fun `chapter info filename fallback strips archive extension`() {
+        val title = KavitaChapterInfoDto(
+            pageDimensions = listOf(
+                KavitaFileDimensionDto(fileName = "One Piece Volume 02.cbz"),
+            ),
+        ).preferredKavitaIssueTitleFallback(volumeName = null)
+
+        assertEquals("One Piece Volume 02", title)
+    }
+
+    @Test
+    fun `page image names do not replace volume fallback`() {
+        val title = KavitaChapterInfoDto(
+            pageDimensions = listOf(
+                KavitaFileDimensionDto(fileName = "001.jpg"),
+            ),
+        ).preferredKavitaIssueTitleFallback(volumeName = "2")
+
+        assertEquals("Volume 2", title)
+    }
+
+    @Test
+    fun `series detail resolves missing titles from chapter info`() = runBlocking {
+        val overrides = KavitaSeriesDetailDto(
+            chapters = listOf(
+                KavitaChapterDto(
+                    id = 21,
+                    pages = 28,
+                ),
+            ),
+        ).resolveSupplementalIssueTitles { chapterId ->
+            assertEquals("21", chapterId)
+            KavitaChapterInfoDto(
+                title = "One Piece Volume 02.cbz",
+            )
+        }
+
+        assertEquals(mapOf("21" to "One Piece Volume 02"), overrides)
     }
 }

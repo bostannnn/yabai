@@ -5,6 +5,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.feature.reader.core.ReaderLocator
+import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderModePreferences
@@ -46,7 +47,7 @@ class ComicsReaderSessionAdapter(
     override val savedPagesFlow: StateFlow<Map<String, Int>> = sessionStore.progressByItemIdFlow
         .map { progressByItemId ->
             progressByItemId.mapNotNullValues { _, snapshot ->
-                snapshot.page?.takeIf { snapshot.locatorType == LocatorType.PAGE }
+                savedComicReaderPage(snapshot)
             }
         }
         .stateIn(
@@ -56,10 +57,15 @@ class ComicsReaderSessionAdapter(
         )
 
     override val savedPreferencesFlow: StateFlow<Map<String, ComicReaderPreferencesSnapshot>> =
-        sessionStore.sessionByItemIdFlow
-            .map { sessionByItemId ->
+        combine(
+            sessionStore.sessionByItemIdFlow,
+            sessionStore.progressByItemIdFlow,
+        ) { sessionByItemId, progressByItemId ->
                 sessionByItemId.mapNotNullValues { _, snapshot ->
-                    restoreComicReaderPreferences(snapshot)
+                    effectiveComicReaderPreferences(
+                        session = snapshot,
+                        progress = progressByItemId[snapshot.itemId],
+                    )
                 }
             }
             .stateIn(
@@ -68,7 +74,7 @@ class ComicsReaderSessionAdapter(
                 initialValue = emptyMap(),
             )
 
-    override fun loadPage(item: ReadableItem): Int? = sessionStore.getProgress(item)?.page
+    override fun loadPage(item: ReadableItem): Int? = savedComicReaderPage(sessionStore.getProgress(item))
 
     override fun savePage(
         item: ReadableItem,
@@ -111,12 +117,14 @@ class ComicsReaderSessionAdapter(
         item: ReadableItem,
     ) = combine(
         sessionStore.sessionByItemIdFlow,
+        sessionStore.progressByItemIdFlow,
         directionPreferencesStore.preferencesFlow,
         readerModePreferencesStore.preferencesFlow,
-    ) { sessionByItemId, directionPreferences, readerModePreferences ->
+    ) { sessionByItemId, progressByItemId, directionPreferences, readerModePreferences ->
         sessionByItemId[item.id]
             .toResolvedComicReaderPreferences(
                 item = item,
+                progress = progressByItemId[item.id],
                 directionPreferences = directionPreferences,
                 readerModePreferences = readerModePreferences,
             )
@@ -208,7 +216,10 @@ class ComicsReaderSessionAdapter(
     }
 
     override fun loadResumeAnchorPage(item: ReadableItem): Int? =
-        restoreComicReaderPreferences(sessionStore.getSession(item))
+        effectiveComicReaderPreferences(
+            session = sessionStore.getSession(item),
+            progress = sessionStore.getProgress(item),
+        )
             ?.resumeAnchorPage
 
     override fun saveResumeAnchorPage(
@@ -224,7 +235,10 @@ class ComicsReaderSessionAdapter(
     }
 
     override fun loadResumeSegment(item: ReadableItem): ComicPageSegment? =
-        restoreComicReaderPreferences(sessionStore.getSession(item))
+        effectiveComicReaderPreferences(
+            session = sessionStore.getSession(item),
+            progress = sessionStore.getProgress(item),
+        )
             ?.resumeSegment
 
     override fun saveResumeSegment(
@@ -240,7 +254,10 @@ class ComicsReaderSessionAdapter(
     }
 
     override fun loadResumeScrollOffsetRatio(item: ReadableItem): Float? =
-        restoreComicReaderPreferences(sessionStore.getSession(item))
+        effectiveComicReaderPreferences(
+            session = sessionStore.getSession(item),
+            progress = sessionStore.getProgress(item),
+        )
             ?.resumeScrollOffsetRatio
 
     override fun saveResumeScrollOffsetRatio(
@@ -258,10 +275,14 @@ class ComicsReaderSessionAdapter(
 
 private fun com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot?.toResolvedComicReaderPreferences(
     item: ReadableItem,
+    progress: ReaderProgressSnapshot?,
     directionPreferences: ComicReadingDirectionPreferences,
     readerModePreferences: ComicReaderModePreferences,
 ): ComicReaderPreferencesSnapshot? {
-    val restoredPreferences = restoreComicReaderPreferences(this)
+    val restoredPreferences = effectiveComicReaderPreferences(
+        session = this,
+        progress = progress,
+    )
         ?: ComicReaderPreferencesSnapshot(
             readerMode = ComicReaderMode.Paged,
             readingDirection = ComicReadingDirection.LTR,

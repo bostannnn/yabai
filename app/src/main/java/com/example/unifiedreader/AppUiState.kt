@@ -13,10 +13,12 @@ import com.example.unifiedreader.core.model.belongsToStumpSeries
 import com.example.unifiedreader.core.model.resolveLibraryFilterPanels
 import com.example.unifiedreader.feature.library.ItemProgressSummary
 import com.example.unifiedreader.feature.library.RemoteDownloadActionAvailability
+import com.example.unifiedreader.feature.library.defaultLibraryGridCellSizeDp
 import com.example.unifiedreader.feature.library.shelves.LibraryShelvesState
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderModePreferences
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirectionPreferences
 import com.example.unifiedreader.feature.library.defaultLibrarySortMode
+import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
 import com.example.unifiedreader.feature.settings.KavitaConnectionUiState
 import com.example.unifiedreader.feature.settings.GrimmoryConnectionUiState
 import com.example.unifiedreader.feature.settings.StumpConnectionUiState
@@ -44,6 +46,7 @@ data class AppUiState(
     val selectedSource: SourceType = SourceType.KAVITA,
     val selectedItemId: String? = null,
     val activeReader: FormatType? = null,
+    val selectedReaderOpenMode: ReaderOpenMode = ReaderOpenMode.Default,
     val libraries: List<Library> = emptyList(),
     val items: List<ReadableItem> = emptyList(),
     val selectedReaderItem: ReadableItem? = null,
@@ -51,6 +54,7 @@ data class AppUiState(
     val librarySearchQueriesBySource: Map<SourceType, String> = emptyMap(),
     val librarySortsBySource: Map<SourceType, LibrarySortMode> = emptyMap(),
     val libraryFilterPanelsBySource: Map<SourceType, List<LibraryFilterPanel>> = emptyMap(),
+    val libraryGridCellSizeDp: Int = defaultLibraryGridCellSizeDp,
     val progressByItemId: Map<String, ItemProgressSummary> = emptyMap(),
     val downloadedRemoteItemIds: Set<String> = emptySet(),
     val locallyAvailableRemoteItemIds: Set<String> = emptySet(),

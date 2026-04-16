@@ -86,9 +86,9 @@ internal fun DetailedItemCard(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.Top,
                 ) {
-                    LibraryCover(
+                    ResolvedLibraryCover(
                         item = item,
-                        coverUrl = coverImageUrlProvider(item, LibraryCoverImageVariant.Detailed),
+                        coverImageUrlProvider = coverImageUrlProvider,
                         isDownloaded = isDownloaded,
                         isRead = progress?.isComplete == true,
                         imageVariant = LibraryCoverImageVariant.Detailed,

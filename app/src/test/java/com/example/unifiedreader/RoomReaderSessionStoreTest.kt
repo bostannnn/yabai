@@ -119,6 +119,43 @@ class RoomReaderSessionStoreTest {
     }
 
     @Test
+    fun `replace session persists cleared local reader position without dropping other preferences`() = runTest {
+        val sessionDao = RecordingReaderSessionStateDao()
+        val store = RoomReaderSessionStore(
+            readingProgressDao = FakeReadingProgressDaoForStore(),
+            readerSessionStateDao = sessionDao,
+            writeScope = CoroutineScope(coroutineContext),
+        )
+        val item = testItem()
+
+        store.hydrate()
+        store.updateSession(
+            item = item,
+            preferences = mapOf(
+                "readerMode" to "VerticalScroll",
+                "resumeAnchorPage" to "17",
+                "resumeSegment" to "Full",
+            ),
+        )
+        advanceUntilIdle()
+
+        store.replaceSession(
+            itemId = item.id,
+            replacement = com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot(
+                itemId = item.id,
+                preferences = mapOf("readerMode" to "VerticalScroll"),
+            ),
+        )
+        advanceUntilIdle()
+
+        val persisted = sessionDao.entities.single()
+        val persistedPreferences = org.json.JSONObject(persisted.preferencesJson)
+        assertEquals("VerticalScroll", persistedPreferences.getString("readerMode"))
+        assertTrue(!persistedPreferences.has("resumeAnchorPage"))
+        assertTrue(!persistedPreferences.has("resumeSegment"))
+    }
+
+    @Test
     fun `save progress initializes startup tasks before persisting room data`() = runTest {
         var initialized = false
         val progressDao = FakeReadingProgressDaoForStore().apply {

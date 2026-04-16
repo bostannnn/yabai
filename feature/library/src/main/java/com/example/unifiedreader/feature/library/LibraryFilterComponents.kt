@@ -98,11 +98,14 @@ internal fun LibraryFilterSummary(
     libraryTitlesById: Map<String, String>,
     sortMode: LibrarySortMode,
     viewMode: LibraryViewMode,
+    gridCellSizeDp: Int,
+    gridSizeOptions: List<LibraryGridSizeOption>,
     showSortControl: Boolean,
     onOpenFilterPanel: (LibraryFilterPanel) -> Unit,
     onClearFilters: () -> Unit,
     onSortModeChanged: (LibrarySortMode) -> Unit,
     onViewModeChanged: (LibraryViewMode) -> Unit,
+    onGridCellSizeDpChanged: (Int) -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -137,9 +140,12 @@ internal fun LibraryFilterSummary(
         LibraryBrowseOptionsSelector(
             sortMode = sortMode,
             viewMode = viewMode,
+            gridCellSizeDp = gridCellSizeDp,
+            gridSizeOptions = gridSizeOptions,
             showSortOptions = showSortControl,
             onSortModeChanged = onSortModeChanged,
             onViewModeChanged = onViewModeChanged,
+            onGridCellSizeDpChanged = onGridCellSizeDpChanged,
         )
     }
 }

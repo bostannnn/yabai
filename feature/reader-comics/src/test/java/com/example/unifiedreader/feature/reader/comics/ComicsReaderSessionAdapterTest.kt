@@ -1,7 +1,9 @@
 package com.example.unifiedreader.feature.reader.comics
 
 import com.example.unifiedreader.core.model.LocatorType
+import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.feature.reader.core.ReaderLocator
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
@@ -17,9 +19,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -45,18 +50,98 @@ class ComicsReaderSessionAdapterTest {
         assertTrue(adapter.isHydratedFlow.value)
         scope.cancel()
     }
+
+    @Test
+    fun `explicit unread reset suppresses saved page and resume restore`() = runBlocking {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val item = comicItem()
+        val sessionStore = TestReaderSessionStore(
+            isHydrated = true,
+            progressByItemId = mapOf(
+                item.id to ReaderProgressSnapshot(
+                    itemId = item.id,
+                    locatorType = LocatorType.PERCENT,
+                    percent = 0.0,
+                    isExplicitUnreadReset = true,
+                    syncState = SyncState.DIRTY,
+                ),
+            ),
+            sessionByItemId = mapOf(
+                item.id to ReaderSessionSnapshot(
+                    itemId = item.id,
+                    preferences = buildComicReaderPreferencesPatch(
+                        resumeAnchorPage = 17,
+                        resumeSegment = ComicPageSegment.Full,
+                        resumeScrollOffsetRatio = 0.6f,
+                    ),
+                ),
+            ),
+        )
+        val adapter = ComicsReaderSessionAdapter(
+            sessionStore = sessionStore,
+            directionPreferencesStore = TestComicReadingDirectionPreferencesStore(isHydrated = true),
+            readerModePreferencesStore = TestComicReaderModePreferencesStore(isHydrated = true),
+            scope = scope,
+        )
+
+        assertNull(adapter.loadPage(item))
+        assertNull(adapter.loadResumeAnchorPage(item))
+        assertNull(adapter.loadResumeSegment(item))
+        assertNull(adapter.loadResumeScrollOffsetRatio(item))
+        val observed = adapter.observePreferences(item).first()
+        assertNull(observed?.resumeAnchorPage)
+        assertNull(observed?.resumeSegment)
+        assertNull(observed?.resumeScrollOffsetRatio)
+        scope.cancel()
+    }
+
+    @Test
+    fun `saved session resume is ignored when page progress has been cleared`() = runBlocking {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val item = comicItem()
+        val sessionStore = TestReaderSessionStore(
+            isHydrated = true,
+            sessionByItemId = mapOf(
+                item.id to ReaderSessionSnapshot(
+                    itemId = item.id,
+                    preferences = buildComicReaderPreferencesPatch(
+                        resumeAnchorPage = 9,
+                        resumeSegment = ComicPageSegment.Full,
+                        resumeScrollOffsetRatio = 0.3f,
+                    ),
+                ),
+            ),
+        )
+        val adapter = ComicsReaderSessionAdapter(
+            sessionStore = sessionStore,
+            directionPreferencesStore = TestComicReadingDirectionPreferencesStore(isHydrated = true),
+            readerModePreferencesStore = TestComicReaderModePreferencesStore(isHydrated = true),
+            scope = scope,
+        )
+
+        assertNull(adapter.loadResumeAnchorPage(item))
+        assertEquals(
+            null,
+            adapter.savedPreferencesFlow.value[item.id]?.resumeAnchorPage,
+        )
+        scope.cancel()
+    }
 }
 
 private class TestReaderSessionStore(
     isHydrated: Boolean,
+    progressByItemId: Map<String, ReaderProgressSnapshot> = emptyMap(),
+    sessionByItemId: Map<String, ReaderSessionSnapshot> = emptyMap(),
 ) : ReaderSessionStore {
     override val isHydratedFlow: StateFlow<Boolean> = MutableStateFlow(isHydrated)
-    override val progressByItemIdFlow: StateFlow<Map<String, ReaderProgressSnapshot>> = MutableStateFlow(emptyMap())
-    override val sessionByItemIdFlow: StateFlow<Map<String, ReaderSessionSnapshot>> = MutableStateFlow(emptyMap())
+    override val progressByItemIdFlow: StateFlow<Map<String, ReaderProgressSnapshot>> =
+        MutableStateFlow(progressByItemId)
+    override val sessionByItemIdFlow: StateFlow<Map<String, ReaderSessionSnapshot>> =
+        MutableStateFlow(sessionByItemId)
 
     override fun getProgress(
         item: ReadableItem,
-    ): ReaderProgressSnapshot? = null
+    ): ReaderProgressSnapshot? = progressByItemIdFlow.value[item.id]
 
     override fun saveProgress(
         item: ReadableItem,
@@ -75,7 +160,7 @@ private class TestReaderSessionStore(
 
     override fun getSession(
         item: ReadableItem,
-    ): ReaderSessionSnapshot? = null
+    ): ReaderSessionSnapshot? = sessionByItemIdFlow.value[item.id]
 
     override fun updateSession(
         itemId: String,
@@ -95,6 +180,14 @@ private class TestReaderSessionStore(
         itemId: String,
     ) = Unit
 }
+
+private fun comicItem(): ReadableItem = ReadableItem(
+    id = "kavita:item:comic-1",
+    sourceType = SourceType.KAVITA,
+    libraryId = "kavita:library:1",
+    title = "One Piece",
+    format = FormatType.CBZ,
+)
 
 private class TestComicReadingDirectionPreferencesStore(
     isHydrated: Boolean,

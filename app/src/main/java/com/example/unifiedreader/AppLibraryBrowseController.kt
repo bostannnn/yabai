@@ -6,6 +6,7 @@ import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.library.LibraryBrowseState
 import com.example.unifiedreader.feature.library.LibraryBrowseStateCoordinator
+import com.example.unifiedreader.feature.library.sanitizeLibraryGridCellSizeDp
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -133,6 +134,25 @@ class AppLibraryBrowseController @Inject constructor(
                 sourceType = sourceType,
                 panels = panels,
             )
+        }
+    }
+
+    fun onLibraryGridCellSizeChanged(
+        updateState: AppUiStateUpdater,
+        scope: CoroutineScope,
+        gridCellSizeDp: Int,
+    ) {
+        val sanitizedGridCellSizeDp = sanitizeLibraryGridCellSizeDp(gridCellSizeDp)
+        updateLibraryBrowseState(
+            updateState = updateState,
+        ) { state ->
+            libraryBrowseStateCoordinator.updateGridCellSizeDp(
+                currentState = state,
+                gridCellSizeDp = sanitizedGridCellSizeDp,
+            )
+        }
+        scope.launch {
+            libraryBrowseStateCoordinator.persistGridCellSizeDp(sanitizedGridCellSizeDp)
         }
     }
 

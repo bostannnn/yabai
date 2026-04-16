@@ -81,6 +81,7 @@ internal fun buildLibraryItemMenuActions(
 internal fun LibraryItemOverflowMenu(
     modifier: Modifier = Modifier,
     actions: List<ItemMenuAction>,
+    buttonStyle: LibraryItemMenuButtonStyle = LibraryItemMenuButtonStyle.Tonal,
     readingDirectionState: ReadingDirectionMenuState? = null,
     readerModeState: ReaderModeMenuState? = null,
     expanded: Boolean? = null,
@@ -94,7 +95,10 @@ internal fun LibraryItemOverflowMenu(
         }
     }
     Box(modifier = modifier) {
-        LibraryItemMenuButton(onClick = { updateExpanded(true) })
+        LibraryItemMenuButton(
+            onClick = { updateExpanded(true) },
+            style = buttonStyle,
+        )
         DropdownMenu(
             expanded = menuExpanded,
             onDismissRequest = { updateExpanded(false) },

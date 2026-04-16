@@ -29,6 +29,7 @@ data class LibraryBrowsePreferences(
     val filtersBySource: Map<SourceType, LibraryFilterState> = emptyMap(),
     val sortsBySource: Map<SourceType, LibrarySortMode> = emptyMap(),
     val filterPanelsBySource: Map<SourceType, List<LibraryFilterPanel>> = emptyMap(),
+    val gridCellSizeDp: Int = defaultLibraryGridCellSizeDp,
 )
 
 interface LibraryBrowsePreferencesStore {
@@ -47,6 +48,10 @@ interface LibraryBrowsePreferencesStore {
     suspend fun setFilterPanels(
         sourceType: SourceType,
         panels: List<LibraryFilterPanel>,
+    )
+
+    suspend fun setGridCellSizeDp(
+        gridCellSizeDp: Int,
     )
 }
 
@@ -127,6 +132,20 @@ class DataStoreLibraryBrowsePreferencesStore(
             )
         }
         val updatedPreferences = latestPreferences.get().withFilterPanels(sourceType, panels)
+        latestPreferences.set(updatedPreferences)
+        writeStartupPreferences(updatedPreferences)
+    }
+
+    override suspend fun setGridCellSizeDp(
+        gridCellSizeDp: Int,
+    ) {
+        val sanitizedGridCellSizeDp = sanitizeLibraryGridCellSizeDp(gridCellSizeDp)
+        dataStore.edit { preferences ->
+            preferences.writeGridCellSizeDp(sanitizedGridCellSizeDp)
+        }
+        val updatedPreferences = latestPreferences.get().copy(
+            gridCellSizeDp = sanitizedGridCellSizeDp,
+        )
         latestPreferences.set(updatedPreferences)
         writeStartupPreferences(updatedPreferences)
     }

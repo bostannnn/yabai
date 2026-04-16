@@ -57,6 +57,7 @@ fun LibraryScreen(
     libraryTitlesById: Map<String, String> = emptyMap(),
     searchQuery: String = "",
     sortMode: LibrarySortMode = defaultLibrarySortMode,
+    gridCellSizeDp: Int = defaultLibraryGridCellSizeDp,
     showSortControl: Boolean = true,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String? = { item, _ -> item.coverUrl },
     coverPrefetchKeyProvider: (ReadableItem, LibraryCoverImageVariant) -> String? = coverImageUrlProvider,
@@ -66,6 +67,7 @@ fun LibraryScreen(
     onClearFilters: () -> Unit = {},
     onSortModeChanged: (LibrarySortMode) -> Unit = {},
     onViewModeChanged: (LibraryViewMode) -> Unit = {},
+    onGridCellSizeDpChanged: (Int) -> Unit = {},
     initialScrollPosition: LibraryScrollPosition = LibraryScrollPosition(),
     onScrollPositionChanged: (LibraryScrollPosition) -> Unit = {},
     onItemSelected: (ReadableItem) -> Unit,
@@ -138,35 +140,61 @@ fun LibraryScreen(
     }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val gridEndPadding = if (alphabetRailVisible) {
+            libraryGridAlphabetRailEndPaddingDp
+        } else {
+            libraryGridEndPaddingDp
+        }
+        val gridPresentation = remember(maxWidth, gridEndPadding, gridCellSizeDp) {
+            libraryGridPresentation(
+                maxWidth = maxWidth,
+                endPadding = gridEndPadding,
+                requestedGridCellSizeDp = gridCellSizeDp,
+            )
+        }
         VisibleRemoteCoverPrefetcher(
             browseContextKey = browseContextKey,
             gridState = gridState,
             items = visibleItems,
             leadingContentItemCount = leadingContentItemCount,
+            variant = LibraryCoverImageVariant.Grid,
+            maxTargetsWhileScrolling = gridPresentation.scrollingPrefetchItemLimit,
             coverPrefetchKeyProvider = coverPrefetchKeyProvider,
             onCoverVisible = onCoverVisible,
         )
 
         LazyVerticalGrid(
-            columns = viewMode.gridCells(maxWidth = maxWidth, maxHeight = maxHeight),
+            columns = viewMode.gridCells(
+                maxWidth = maxWidth,
+                maxHeight = maxHeight,
+                gridCellSizeDp = gridPresentation.selectedGridSize.cellSizeDp,
+            ),
             state = gridState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
-                start = 16.dp,
+                start = libraryGridStartPaddingDp,
                 top = 16.dp,
-                end = if (alphabetRailVisible) 56.dp else 16.dp,
+                end = gridEndPadding,
                 bottom = 16.dp,
             ),
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             if (topContent != null) {
-                item(span = { GridItemSpan(maxLineSpan) }) {
+                item(
+                    key = "top-content",
+                    contentType = LibraryScreenContentTypes.TopContent,
+                    span = { GridItemSpan(maxLineSpan) },
+                ) {
                     topContent()
                 }
             }
 
-            item(span = { GridItemSpan(maxLineSpan) }) {
+            item(
+                key = "filter-summary",
+                contentType = LibraryScreenContentTypes.FilterSummary,
+                span = { GridItemSpan(maxLineSpan) },
+            ) {
                 LibraryFilterSummary(
                     filterPanels = filterPanels,
                     filterState = filterState,
@@ -174,6 +202,8 @@ fun LibraryScreen(
                     libraryTitlesById = libraryTitlesById,
                     sortMode = sortMode,
                     viewMode = viewMode,
+                    gridCellSizeDp = gridPresentation.selectedGridSize.cellSizeDp,
+                    gridSizeOptions = gridPresentation.availableGridSizes,
                     showSortControl = showSortControl,
                     onOpenFilterPanel = { openFilterPanel = it },
                     onClearFilters = onClearFilters,
@@ -182,11 +212,20 @@ fun LibraryScreen(
                         onSortModeChanged(it)
                     },
                     onViewModeChanged = onViewModeChanged,
+                    onGridCellSizeDpChanged = onGridCellSizeDpChanged,
                 )
             }
 
             if (visibleItems.isEmpty()) {
-                item(span = { GridItemSpan(maxLineSpan) }) {
+                item(
+                    key = "empty-state",
+                    contentType = if (isLoadingSource) {
+                        LibraryScreenContentTypes.LoadingState
+                    } else {
+                        LibraryScreenContentTypes.EmptyState
+                    },
+                    span = { GridItemSpan(maxLineSpan) },
+                ) {
                     if (isLoadingSource) {
                         LoadingLibraryState(selectedSource = selectedSource)
                     } else {
@@ -198,7 +237,17 @@ fun LibraryScreen(
                     }
                 }
             } else {
-                items(visibleItems, key = { it.id }) { item ->
+                items(
+                    items = visibleItems,
+                    key = { it.id },
+                    contentType = {
+                        if (viewMode == LibraryViewMode.Grid) {
+                            LibraryScreenContentTypes.GridItem
+                        } else {
+                            LibraryScreenContentTypes.DetailedItem
+                        }
+                    },
+                ) { item ->
                     when (viewMode) {
                         LibraryViewMode.Detailed -> DetailedItemCard(
                             item = item,
@@ -238,7 +287,6 @@ fun LibraryScreen(
                             isDownloaded = itemActionContext.isDownloaded(item),
                             coverImageUrlProvider = coverImageUrlProvider,
                             onClick = { onItemSelected(item) },
-                            onLongClick = { gridExpandedMenuItemId = item.id },
                             menuContent = {
                                 LibraryAnchoredItemMenu(
                                     item = item,

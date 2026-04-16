@@ -24,6 +24,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
 import com.example.unifiedreader.feature.reader.core.ImmersiveReaderOverlay
 import com.example.unifiedreader.feature.reader.core.ReaderBottomProgressBar
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
@@ -38,6 +39,7 @@ fun ComicsReaderScreen(
     progressStore: ComicReaderProgressStore,
     preferencesStore: ComicReaderPreferencesStore,
     onBack: () -> Unit,
+    openMode: ReaderOpenMode = ReaderOpenMode.Default,
     onNextItemRequested: () -> Unit = {},
 ) {
     val pages = rememberObservedComicPages(
@@ -54,12 +56,26 @@ fun ComicsReaderScreen(
         return
     }
 
+    val initialPosition = remember(
+        item.id,
+        openMode,
+        progressStore,
+        preferencesStore,
+        pages.size,
+    ) {
+        resolveComicReaderInitialPosition(
+            openMode = openMode,
+            savedPage = progressStore.loadPage(item),
+            savedResumeAnchorPage = preferencesStore.loadResumeAnchorPage(item),
+            savedResumeSegment = preferencesStore.loadResumeSegment(item),
+            savedResumeScrollOffsetRatio = preferencesStore.loadResumeScrollOffsetRatio(item),
+            lastPageIndex = pages.lastIndex,
+        )
+    }
     val readerState = rememberComicsReaderState(
         itemId = item.id,
         pageCount = pages.size,
-        initialPage = remember(item.id, progressStore, pages.size) {
-            progressStore.loadPage(item)?.coerceIn(0, pages.lastIndex) ?: 0
-        },
+        initialPage = initialPosition.page,
         initialReaderMode = remember(item.id, preferencesStore) {
             preferencesStore.loadReaderMode(item)
         },
@@ -75,15 +91,9 @@ fun ComicsReaderScreen(
         initialSplitWidePages = remember(item.id, preferencesStore) {
             preferencesStore.loadSplitWidePages(item)
         },
-        initialResumeAnchorPage = remember(item.id, preferencesStore) {
-            preferencesStore.loadResumeAnchorPage(item)
-        },
-        initialResumeSegment = remember(item.id, preferencesStore) {
-            preferencesStore.loadResumeSegment(item)
-        },
-        initialResumeScrollOffsetRatio = remember(item.id, preferencesStore) {
-            preferencesStore.loadResumeScrollOffsetRatio(item)
-        },
+        initialResumeAnchorPage = initialPosition.resumeAnchorPage,
+        initialResumeSegment = initialPosition.resumeSegment,
+        initialResumeScrollOffsetRatio = initialPosition.resumeScrollOffsetRatio,
     )
     val currentPageProgress = (readerState.currentPage + 1).toFloat() / pages.size.toFloat()
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -153,7 +163,9 @@ fun ComicsReaderScreen(
             progressRestoreCompleted = false
             return@LaunchedEffect
         }
-        restoredPage?.coerceIn(0, pages.lastIndex)?.let(readerState::restorePageIfUnchanged)
+        if (shouldRestoreComicReaderPosition(openMode)) {
+            restoredPage?.coerceIn(0, pages.lastIndex)?.let(readerState::restorePageIfUnchanged)
+        }
         progressRestoreCompleted = true
     }
 
@@ -167,9 +179,11 @@ fun ComicsReaderScreen(
             readerState.restoreReadingDirectionIfUnchanged(preferences.readingDirection)
             readerState.restorePageFitModeIfUnchanged(preferences.pageFitMode)
             readerState.restoreSpreadModeIfUnchanged(preferences.spreadMode)
-            readerState.restoreResumeAnchorIfUnchanged(preferences.resumeAnchorPage)
-            readerState.restoreResumeSegmentIfUnchanged(preferences.resumeSegment)
-            readerState.restoreResumeScrollOffsetRatioIfUnchanged(preferences.resumeScrollOffsetRatio)
+            if (shouldRestoreComicReaderPosition(openMode)) {
+                readerState.restoreResumeAnchorIfUnchanged(preferences.resumeAnchorPage)
+                readerState.restoreResumeSegmentIfUnchanged(preferences.resumeSegment)
+                readerState.restoreResumeScrollOffsetRatioIfUnchanged(preferences.resumeScrollOffsetRatio)
+            }
         }
         preferencesRestoreCompleted = true
     }
@@ -292,6 +306,10 @@ fun ComicsReaderScreen(
                         pageSource = pageSource,
                         readerState = readerState,
                         onToggleOverlay = overlayState::toggle,
+                        onNavigatePastEnd = {
+                            persistCompletedProgress()
+                            onNextItemRequested()
+                        },
                     )
                 }
             }
@@ -300,7 +318,7 @@ fun ComicsReaderScreen(
             Box(modifier = Modifier.fillMaxSize()) {
                 ReaderOverlayBar(
                     itemId = item.id,
-                    title = item.title,
+                    title = comicReaderDisplayTitle(item),
                     progressLabel = "${readerState.currentPage + 1} / ${pages.size}",
                     readerMode = readerState.readerMode,
                     readingDirection = readerState.readingDirection,

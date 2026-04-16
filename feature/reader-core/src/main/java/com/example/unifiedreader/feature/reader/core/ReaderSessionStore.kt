@@ -72,6 +72,11 @@ interface ReaderSessionStore {
         preferences = preferences,
     )
 
+    fun replaceSession(
+        itemId: String,
+        replacement: ReaderSessionSnapshot?,
+    ) = Unit
+
     fun clearProgress(itemId: String)
 
     fun clearItem(itemId: String)

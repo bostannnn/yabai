@@ -61,14 +61,17 @@ class LibraryBrowsePreferencesStoreTest {
 
         store.setFilters(SourceType.KAVITA, filters)
         store.setSortMode(SourceType.KAVITA, LibrarySortMode.TITLE)
+        store.setGridCellSizeDp(140)
 
         val preferences = store.preferencesFlow.first { current ->
             current.filtersBySource[SourceType.KAVITA] == filters &&
-                current.sortsBySource[SourceType.KAVITA] == LibrarySortMode.TITLE
+                current.sortsBySource[SourceType.KAVITA] == LibrarySortMode.TITLE &&
+                current.gridCellSizeDp == 140
         }
 
         assertEquals(filters, preferences.filtersBySource[SourceType.KAVITA])
         assertEquals(LibrarySortMode.TITLE, preferences.sortsBySource[SourceType.KAVITA])
+        assertEquals(140, preferences.gridCellSizeDp)
     }
 
     @Test
@@ -87,7 +90,9 @@ class LibraryBrowsePreferencesStoreTest {
         store.setSortMode(SourceType.LOCAL, LibrarySortMode.TITLE)
         store.setSortMode(SourceType.LOCAL, defaultLibrarySortMode)
 
-        val preferences = store.preferencesFlow.first()
+        val preferences = store.preferencesFlow.first { current ->
+            SourceType.LOCAL !in current.sortsBySource
+        }
 
         assertFalse(SourceType.LOCAL in preferences.sortsBySource)
         assertEquals(defaultLibrarySortMode, preferences.sortsBySource[SourceType.LOCAL] ?: defaultLibrarySortMode)
@@ -121,6 +126,53 @@ class LibraryBrowsePreferencesStoreTest {
         }
 
         assertEquals(panels, preferences.filterPanelsBySource[SourceType.KAVITA])
+    }
+
+    @Test
+    fun `normalizes persisted grid cell size`() = runBlocking {
+        val file = File.createTempFile("library-browse-grid-size", ".preferences_pb")
+        val startupPreferences = testStartupPreferences()
+        val dataStore = PreferenceDataStoreFactory.create(
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+            produceFile = { file },
+        )
+        val store = DataStoreLibraryBrowsePreferencesStore(
+            dataStore = dataStore,
+            startupPreferences = startupPreferences,
+        )
+
+        store.setGridCellSizeDp(149)
+
+        val preferences = store.preferencesFlow.first { current ->
+            current.gridCellSizeDp == 140
+        }
+
+        assertEquals(140, preferences.gridCellSizeDp)
+        assertEquals(140, loadStartupLibraryBrowsePreferences(startupPreferences).gridCellSizeDp)
+    }
+
+    @Test
+    fun `default grid cell size is not stored explicitly`() = runBlocking {
+        val file = File.createTempFile("library-browse-default-grid-size", ".preferences_pb")
+        val startupPreferences = testStartupPreferences()
+        val dataStore = PreferenceDataStoreFactory.create(
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+            produceFile = { file },
+        )
+        val store = DataStoreLibraryBrowsePreferencesStore(
+            dataStore = dataStore,
+            startupPreferences = startupPreferences,
+        )
+
+        store.setGridCellSizeDp(140)
+        store.setGridCellSizeDp(defaultLibraryGridCellSizeDp)
+
+        val preferences = store.preferencesFlow.first { current ->
+            current.gridCellSizeDp == defaultLibraryGridCellSizeDp
+        }
+
+        assertEquals(defaultLibraryGridCellSizeDp, preferences.gridCellSizeDp)
+        assertFalse(startupPreferences.contains("library_grid_cell_size_dp"))
     }
 
     @Test
@@ -170,6 +222,7 @@ class LibraryBrowsePreferencesStoreTest {
                     LibraryFilterPanel.Tag,
                 ),
             ),
+            gridCellSizeDp = 140,
         )
         writeStartupLibraryBrowsePreferences(
             startupPreferences = startupPreferences,

@@ -52,5 +52,8 @@ class ApplyReadStatusChangeUseCase @Inject constructor(
             pageCount = item.pageCount,
             updatedAtEpochMillis = updatedAtEpochMillis,
         )
+        if (!markAsRead) {
+            progressSyncStore.clearLocalReaderPosition(item)
+        }
     }
 }

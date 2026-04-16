@@ -1,9 +1,11 @@
 package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.progress.ProgressSyncLocator
 import com.example.unifiedreader.core.model.progress.ProgressSyncSnapshot
 import com.example.unifiedreader.core.model.progress.ProgressSyncStore
+import com.example.unifiedreader.feature.reader.comics.clearComicReaderPosition
 import com.example.unifiedreader.feature.reader.core.ReaderLocator
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
@@ -60,6 +62,18 @@ class ReaderSessionProgressStoreAdapter(
         itemId: String,
     ) {
         readerSessionStore.clearProgress(itemId)
+    }
+
+    override fun clearLocalReaderPosition(
+        item: ReadableItem,
+    ) {
+        val replacement = when (item.kind) {
+            ReadableItemKind.COMIC -> clearComicReaderPosition(readerSessionStore.getSession(item))
+            ReadableItemKind.BOOK -> readerSessionStore.getSession(item)
+        }
+        if (item.kind == ReadableItemKind.COMIC) {
+            readerSessionStore.replaceSession(item.id, replacement)
+        }
     }
 
     override fun clearItem(

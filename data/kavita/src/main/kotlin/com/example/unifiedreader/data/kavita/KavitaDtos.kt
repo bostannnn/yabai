@@ -223,6 +223,7 @@ internal fun KavitaSeriesDto.toEntry(
 
 internal fun KavitaSeriesDetailDto.toCatalogEntries(
     series: KavitaSeriesEntry,
+    issueTitleOverridesByChapterId: Map<String, String> = emptyMap(),
 ): List<KavitaChapterCatalogEntry> {
     val baseUrl = series.coverUrl
         ?.substringBefore("/api/Image/", missingDelimiterValue = "")
@@ -231,23 +232,15 @@ internal fun KavitaSeriesDetailDto.toCatalogEntries(
         ?.substringAfter("apiKey=", missingDelimiterValue = "")
         ?.substringBefore('&')
         ?.takeIf(String::isNotBlank)
-    val volumeNamesById = volumes.orEmpty()
-        .associate { volume -> volume.id?.toString() to volume.name }
-        .filterKeys { it != null }
-        .mapKeys { (key, _) -> key!! }
-    return sequenceOf(
-        chapters.orEmpty(),
-        specials.orEmpty(),
-        storylineChapters.orEmpty(),
-        volumes.orEmpty().flatMap { it.chapters.orEmpty() },
-    ).flatten()
-        .mapNotNull { chapter ->
-            chapter.toCatalogEntry(
+    return resolvedChapters()
+        .mapNotNull { resolved ->
+            val chapterId = resolved.chapter.id?.toString() ?: return@mapNotNull null
+            resolved.chapter.toCatalogEntry(
                 series = series,
-                volumeName = chapter.volumeTitle?.takeIf(String::isNotBlank)
-                    ?: chapter.volumeId?.toString()?.let(volumeNamesById::get),
+                volumeName = resolved.volumeName,
                 baseUrl = baseUrl,
                 apiKey = apiKey,
+                issueTitleOverride = issueTitleOverridesByChapterId[chapterId],
             )
         }
         .distinctBy { entry -> entry.item.id }
@@ -259,10 +252,11 @@ internal fun KavitaChapterDto.toCatalogEntry(
     volumeName: String?,
     baseUrl: String?,
     apiKey: String?,
+    issueTitleOverride: String? = null,
 ): KavitaChapterCatalogEntry? {
     val chapterId = id?.toString() ?: return null
     val pageCount = pages?.coerceAtLeast(0) ?: 0
-    val issueTitle = preferredIssueTitle(volumeName = volumeName)
+    val issueTitle = issueTitleOverride ?: preferredIssueTitle(volumeName = volumeName)
     val item = ReadableItem(
         id = SourceType.KAVITA.remoteItemId(chapterId),
         sourceType = SourceType.KAVITA,
@@ -373,26 +367,12 @@ private fun KavitaChapterDto.toReadingProgress(
     pageCount = pageCount,
 )
 
-private fun KavitaChapterDto.preferredIssueTitle(
+internal fun KavitaChapterDto.preferredIssueTitle(
     volumeName: String?,
-): String? = listOfNotNull(
-    title?.takeIf(String::isNotBlank),
-    range?.takeIf(String::isNotBlank)?.let { value ->
-        if (volumeName.isNullOrBlank()) {
-            "Chapter $value"
-        } else {
-            "$volumeName • Chapter $value"
-        }
-    },
-    number?.takeIf(String::isNotBlank)?.let { value ->
-        if (volumeName.isNullOrBlank()) {
-            "Chapter $value"
-        } else {
-            "$volumeName • Chapter $value"
-        }
-    },
-    volumeName?.takeIf(String::isNotBlank),
-).firstOrNull()
+): String? = preferredKavitaIssueTitle(
+    explicitTitle = title,
+    volumeName = volumeName,
+)
 
 private fun Int?.toFormatType(): FormatType? = when (this) {
     KAVITA_FORMAT_IMAGE,

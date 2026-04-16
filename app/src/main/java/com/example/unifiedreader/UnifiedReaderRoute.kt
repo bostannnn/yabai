@@ -32,6 +32,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.unifiedreader.feature.library.LibraryViewMode
+import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
 import com.example.unifiedreader.feature.reader.core.ReaderHost
 import com.example.unifiedreader.feature.reader.core.ReaderNavigationActions
 import com.example.unifiedreader.ui.theme.UnifiedReaderTheme
@@ -123,6 +124,7 @@ fun UnifiedReaderAppContent(
                         onBack = viewModel::onBackPressed,
                         navigationActions = ReaderNavigationActions(
                             onRequestNextInSeries = viewModel::onReaderNextRequested,
+                            currentOpenMode = uiState.selectedReaderOpenMode,
                         ),
                     )
                 } else {

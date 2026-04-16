@@ -217,8 +217,17 @@ class KtorKavitaApi(
             }
         }
         response.throwIfKavitaError()
-        response.body<KavitaSeriesDetailDto>().toCatalogEntries(
+        val detail = response.body<KavitaSeriesDetailDto>()
+        val issueTitleOverridesByChapterId = detail.resolveSupplementalIssueTitles { chapterId ->
+            getChapterInfo(
+                accessToken = accessToken,
+                chapterId = chapterId,
+                includeDimensions = true,
+            )
+        }
+        detail.toCatalogEntries(
             series = series,
+            issueTitleOverridesByChapterId = issueTitleOverridesByChapterId,
         )
     }
 
@@ -249,6 +258,9 @@ class KtorKavitaApi(
             }
         }
         response.throwIfKavitaError()
+        if (response.status == HttpStatusCode.NoContent) {
+            return@authenticatedRequest KavitaChapterInfoDto()
+        }
         response.body()
     }
 

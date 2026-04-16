@@ -180,6 +180,38 @@ class RoomReaderSessionStore(
         }
     }
 
+    override fun replaceSession(
+        itemId: String,
+        replacement: ReaderSessionSnapshot?,
+    ) {
+        val accepted = synchronized(stateMonitor) {
+            if (itemId in tombstonedItemIds) {
+                false
+            } else {
+                sessionState.value = if (replacement == null) {
+                    sessionState.value - itemId
+                } else {
+                    sessionState.value + (itemId to replacement)
+                }
+                true
+            }
+        }
+        if (!accepted) return
+        writeScope.launch {
+            appStartupTasks.initialize()
+            sessionWriteMutex.withLock {
+                val latest = synchronized(stateMonitor) {
+                    sessionState.value[itemId]
+                }
+                if (latest == null) {
+                    readerSessionStateDao.deleteByItemId(itemId)
+                } else {
+                    readerSessionStateDao.insertOrReplace(latest.toEntity())
+                }
+            }
+        }
+    }
+
     override fun clearProgress(itemId: String) {
         synchronized(stateMonitor) {
             progressState.update { it - itemId }
