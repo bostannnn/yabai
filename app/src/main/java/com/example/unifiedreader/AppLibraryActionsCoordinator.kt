@@ -2,6 +2,7 @@ package com.example.unifiedreader
 
 import android.net.Uri
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -29,6 +30,12 @@ class AppLibraryActionsCoordinator @Inject constructor(
         item: ReadableItem,
         variant: LibraryCoverImageVariant,
     ): String? = remoteCoverController.coverImageUrlFor(item, variant)
+
+    fun prepareCoverSource(
+        sourceType: SourceType,
+    ) {
+        remoteCoverController.prepareSource(sourceType)
+    }
 
     fun coverPrefetchKeyFor(
         item: ReadableItem,

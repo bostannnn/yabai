@@ -29,10 +29,11 @@ class PersistentRemoteCoverStoreTest {
     fun tearDown() {
         File(context.filesDir, STORAGE_DIRECTORY).deleteRecursively()
         File(context.cacheDir, LEGACY_DIRECTORY).deleteRecursively()
+        File(context.filesDir, THUMBNAIL_DIRECTORY).deleteRecursively()
     }
 
     @Test
-    fun `cachedCoverFile marks legacy cache files as non persistent and move migrates them`() = runTest {
+    fun `cached cover lookup can discover unwarmed legacy file and move still migrates it`() = runTest {
         val bytes = byteArrayOf(1, 2, 3, 4)
         val legacyFile = File(File(context.cacheDir, LEGACY_DIRECTORY), FILE_NAME).apply {
             parentFile?.mkdirs()
@@ -60,6 +61,30 @@ class PersistentRemoteCoverStoreTest {
         assertTrue(migratedFile.parentFile == File(context.filesDir, STORAGE_DIRECTORY))
         assertFalse(legacyFile.exists())
         assertArrayEquals(bytes, migratedFile.readBytes())
+    }
+
+    @Test
+    fun `cached thumbnail lookup can discover unwarmed file immediately`() = runTest {
+        val thumbnailFile = File(File(context.filesDir, THUMBNAIL_DIRECTORY), FILE_NAME).apply {
+            parentFile?.mkdirs()
+            writeBytes(byteArrayOf(7, 7, 7))
+        }
+
+        assertTrue(
+            store.cachedThumbnailFile(
+                thumbnailDirectoryName = THUMBNAIL_DIRECTORY,
+                fileName = FILE_NAME,
+            ) == thumbnailFile,
+        )
+
+        store.warmStorageDirectoryIndex(storageDirectoryName = THUMBNAIL_DIRECTORY)
+
+        assertTrue(
+            store.cachedThumbnailFile(
+                thumbnailDirectoryName = THUMBNAIL_DIRECTORY,
+                fileName = FILE_NAME,
+            ) == thumbnailFile,
+        )
     }
 
     @Test
@@ -124,5 +149,6 @@ class PersistentRemoteCoverStoreTest {
 
 private const val STORAGE_DIRECTORY = "remote-cover-store-test"
 private const val LEGACY_DIRECTORY = "remote-cover-store-test-legacy"
+private const val THUMBNAIL_DIRECTORY = "remote-cover-store-test-thumbnails"
 private const val FILE_NAME = "issue-1.cover"
 private const val LEGACY_ONLY_FILE_NAME = "issue-2.cover"

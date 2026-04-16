@@ -148,6 +148,14 @@ class AppViewModel @Inject constructor(
         )
     }
 
+    fun onLibraryGridCellSizeChanged(gridCellSizeDp: Int) {
+        libraryBrowseController.onLibraryGridCellSizeChanged(
+            updateState = ::updateUiState,
+            scope = viewModelScope,
+            gridCellSizeDp = gridCellSizeDp,
+        )
+    }
+
     fun onLibraryFilterPanelsChanged(
         sourceType: SourceType,
         panels: List<LibraryFilterPanel>,
@@ -249,6 +257,12 @@ class AppViewModel @Inject constructor(
         variant: LibraryCoverImageVariant,
     ): String? {
         return libraryActionsCoordinator.coverImageUrlFor(item, variant)
+    }
+
+    fun prepareCoverSource(
+        sourceType: SourceType,
+    ) {
+        libraryActionsCoordinator.prepareCoverSource(sourceType)
     }
 
     fun coverPrefetchKeyFor(

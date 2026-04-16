@@ -113,6 +113,8 @@ class StumpCoverRepositoryTest {
             thumbnailFileName(item.stumpCacheFileName("cover"), LibraryCoverVariant.Grid),
         )
 
+        store.warmStorageDirectoryIndex(storageDirectoryName = STUMP_COVER_DIRECTORY_NAME)
+
         val cachedFallback = repository.cachedCover(item, LibraryCoverImageVariant.Grid)
 
         assertNotNull(cachedFallback)

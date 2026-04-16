@@ -153,6 +153,12 @@ class RemoteCoverController @Inject constructor(
         }
     }
 
+    fun prepareSource(
+        sourceType: SourceType,
+    ) {
+        scheduleCacheWarmup(sourceType)
+    }
+
     suspend fun resetSource(
         sourceType: SourceType,
     ) {
@@ -220,7 +226,9 @@ class RemoteCoverController @Inject constructor(
         val dataSource = coverDataSources[sourceType] ?: return
         sourceWarmupJobs[sourceType] = backgroundScope.launch {
             runCatching { dataSource.warmCacheIndexes() }
-                .onSuccess { warmedSources += sourceType }
+                .onSuccess {
+                    warmedSources += sourceType
+                }
                 .onFailure { throwable ->
                     Log.w(LOG_TAG, "Unable to warm ${sourceType.name.lowercase()} cover cache indexes.", throwable)
                 }

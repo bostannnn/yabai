@@ -74,6 +74,8 @@ class KavitaCoverRepositoryTest {
             thumbnailFileName(item.kavitaCacheFileName("cover"), LibraryCoverVariant.Grid),
         )
 
+        store.warmStorageDirectoryIndex(storageDirectoryName = KAVITA_COVER_DIRECTORY_NAME)
+
         val cachedFallback = repository.cachedCover(item, LibraryCoverImageVariant.Grid)
 
         assertNotNull(cachedFallback)

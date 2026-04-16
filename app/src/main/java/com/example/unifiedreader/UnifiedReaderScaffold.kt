@@ -140,6 +140,7 @@ fun UnifiedReaderScaffold(
                         initialScrollPosition = viewModel.libraryScrollPositionFor(uiState.libraryBrowseContextKey),
                         coverImageUrlProvider = viewModel::coverImageUrlFor,
                         coverPrefetchKeyProvider = viewModel::coverPrefetchKeyFor,
+                        onPrepareCoverSource = viewModel::prepareCoverSource,
                         onCoverVisible = viewModel::ensureCoverCached,
                         onScrollPositionChanged = { position ->
                             viewModel.onLibraryScrollPositionChanged(
@@ -160,6 +161,7 @@ fun UnifiedReaderScaffold(
                         onClearFilters = viewModel::clearLibraryFilters,
                         onSortModeChanged = viewModel::onLibrarySortModeChanged,
                         onViewModeChanged = onLibraryViewModeChanged,
+                        onGridCellSizeDpChanged = viewModel::onLibraryGridCellSizeChanged,
                         showSortControl = !uiState.isSeriesBrowseActive,
                         modifier = Modifier.weight(1f),
                     )

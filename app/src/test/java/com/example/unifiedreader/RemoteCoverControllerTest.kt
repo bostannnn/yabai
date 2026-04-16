@@ -10,6 +10,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -290,6 +291,37 @@ class RemoteCoverControllerTest {
             controller.coverPrefetchKeyFor(kavitaItem, LibraryCoverImageVariant.Grid),
         )
     }
+
+    @Test
+    fun `prepareSource warms cache so cached kavita cover becomes visible without prefetch`() = runTest {
+        val cachedUri = Uri.parse("file:///tmp/warmed-kavita-cover.png")
+        val kavitaDataSource = WarmableKavitaCoverDataSource(cachedUri = cachedUri)
+        val controller = RemoteCoverController(
+            kavitaCoverRepository = kavitaDataSource,
+            stumpCoverRepository = EmptyStumpCoverDataSource(),
+            grimmoryCoverRepository = EmptyGrimmoryCoverDataSource(),
+            kavitaCredentialStore = FakeKavitaCredentialStore(),
+            stumpCredentialStore = FakeStumpCredentialStore(),
+            grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            appDispatchers = AppDispatchers(
+                io = StandardTestDispatcher(testScheduler),
+                default = StandardTestDispatcher(testScheduler),
+            ),
+        )
+        val kavitaItem = remoteItem(
+            id = "kavita:item:warm-cache",
+            sourceType = SourceType.KAVITA,
+            coverUrl = "https://kavita.example/api/Image/chapter-cover?chapterId=7&apiKey=token-1",
+        )
+
+        assertNull(controller.coverImageUrlFor(kavitaItem, LibraryCoverImageVariant.Grid))
+
+        controller.prepareSource(SourceType.KAVITA)
+        advanceUntilIdle()
+
+        assertEquals(cachedUri.toString(), controller.coverImageUrlFor(kavitaItem, LibraryCoverImageVariant.Grid))
+        assertEquals(1, kavitaDataSource.warmCacheIndexesCalls)
+    }
 }
 
 private fun immediateAppDispatchers(): AppDispatchers = AppDispatchers(
@@ -482,6 +514,41 @@ private class PersistentCachedKavitaCoverDataSource(
     refreshedUri: Uri = cachedUri,
 ) : PersistentCachedCoverDataSource(cachedUri, matchesRequestedVariant, refreshedUri), KavitaCoverDataSource {
     override val sourceType: SourceType = SourceType.KAVITA
+}
+
+private class WarmableKavitaCoverDataSource(
+    private val cachedUri: Uri,
+) : KavitaCoverDataSource {
+    override val sourceType: SourceType = SourceType.KAVITA
+
+    var warmCacheIndexesCalls: Int = 0
+        private set
+
+    private var isWarm = false
+
+    override fun cachedCover(
+        item: ReadableItem,
+        variant: LibraryCoverImageVariant,
+    ): CachedRemoteCover? = if (isWarm) {
+        CachedRemoteCover(
+            uri = cachedUri,
+            isPersistent = true,
+        )
+    } else {
+        null
+    }
+
+    override suspend fun getCoverUri(
+        item: ReadableItem,
+        variant: LibraryCoverImageVariant,
+    ): Uri = cachedUri
+
+    override suspend fun warmCacheIndexes() {
+        warmCacheIndexesCalls += 1
+        isWarm = true
+    }
+
+    override suspend fun clearCachedCovers() = Unit
 }
 
 private class PersistentCachedStumpCoverDataSource(
