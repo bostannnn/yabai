@@ -17,7 +17,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "UnifiedReader"
+rootProject.name = "yabai"
 
 include(
     ":app",
