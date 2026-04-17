@@ -29,6 +29,7 @@ internal fun LibraryRoute(
     coverPrefetchKeyProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     onPrepareCoverSource: (SourceType) -> Unit,
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
+    onCoverViewportScrollingChanged: (Boolean) -> Unit,
     onScrollPositionChanged: (LibraryScrollPosition) -> Unit,
     onItemSelected: (ReadableItem) -> Unit,
     seriesReadingDirectionFor: (ReadableItem) -> ComicReadingDirection?,
@@ -90,6 +91,7 @@ internal fun LibraryRoute(
             coverImageUrlProvider = coverImageUrlProvider,
             coverPrefetchKeyProvider = coverPrefetchKeyProvider,
             onCoverVisible = onCoverVisible,
+            onCoverViewportScrollingChanged = onCoverViewportScrollingChanged,
             topContent = if (uiState.shouldReserveLibraryShelvesSlot) {
                 @Composable {
                     LibraryShelvesTopSlot(

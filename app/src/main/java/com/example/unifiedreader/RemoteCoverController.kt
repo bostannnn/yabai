@@ -5,6 +5,7 @@ import com.example.unifiedreader.core.common.AppDispatchers
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
+import com.example.unifiedreader.feature.library.covers.VisibleLibraryCoverRegistry
 import java.net.URI
 import dagger.hilt.android.scopes.ViewModelScoped
 import javax.inject.Inject
@@ -24,6 +25,7 @@ class RemoteCoverController @Inject constructor(
     private val kavitaCredentialStore: KavitaCredentialStore,
     private val stumpCredentialStore: StumpCredentialStore,
     private val grimmoryCredentialStore: GrimmoryCredentialStore,
+    private val visibleLibraryCoverRegistry: VisibleLibraryCoverRegistry,
     private val appDispatchers: AppDispatchers = AppDispatchers(),
 ) {
     private val coverDataSources = listOf<RemoteCoverDataSource>(
@@ -31,7 +33,6 @@ class RemoteCoverController @Inject constructor(
         stumpCoverRepository,
         grimmoryCoverRepository,
     ).associateBy(RemoteCoverDataSource::sourceType)
-    private val coverStateRegistry = RemoteCoverStateRegistry()
     private val sourceTypeByItemId = mutableMapOf<String, SourceType>()
     private val pendingCoverKeys = mutableSetOf<RemoteCoverRequestKey>()
     private val activeRequestNonceByKey = mutableMapOf<RemoteCoverRequestKey, Long>()
@@ -49,19 +50,26 @@ class RemoteCoverController @Inject constructor(
         item: ReadableItem,
         variant: LibraryCoverImageVariant,
     ): String? {
+        val coverVariant = variant.toCoverAssetVariant()
         sourceTypeByItemId[item.id] = item.sourceType
         scheduleCacheWarmup(item.sourceType)
-        coverStateRegistry.coverUriFor(item.id, variant)?.let { return it }
+        visibleLibraryCoverRegistry.presentedUriFor(item.id, coverVariant)?.let { return it }
         if (item.sourceType !in sourcesBeingReset) {
             cachedCoverUri(item, variant)?.let { cachedUri ->
-                coverStateRegistry.update(item.id, variant, cachedUri)
-                return cachedUri
+                visibleLibraryCoverRegistry.promoteResolvedUri(item.id, coverVariant, cachedUri)
+                return visibleLibraryCoverRegistry.presentedUriFor(item.id, coverVariant) ?: cachedUri
             }
         }
         if (coverDataSources[item.sourceType]?.usesRemoteDisplayFallback == false) {
             return null
         }
-        return remoteFallbackCoverUrlFor(item)
+        return remoteFallbackCoverUrlFor(item)?.also { fallbackUri ->
+            visibleLibraryCoverRegistry.rememberDisplayedFallbackUri(
+                itemId = item.id,
+                variant = coverVariant,
+                uri = fallbackUri,
+            )
+        }
     }
 
     fun coverPrefetchKeyFor(
@@ -78,6 +86,7 @@ class RemoteCoverController @Inject constructor(
         scope: CoroutineScope,
         onError: (String) -> Unit,
     ) {
+        val coverVariant = variant.toCoverAssetVariant()
         sourceTypeByItemId[item.id] = item.sourceType
         scheduleCacheWarmup(item.sourceType)
         val dataSource = coverDataSources[item.sourceType] ?: return
@@ -90,9 +99,7 @@ class RemoteCoverController @Inject constructor(
         cachedCover?.uri?.toString()
             ?.takeIf(String::isNotBlank)
             ?.let { cachedUri ->
-                if (coverStateRegistry.coverUriFor(item.id, variant) != cachedUri) {
-                    coverStateRegistry.update(item.id, variant, cachedUri)
-                }
+                visibleLibraryCoverRegistry.promoteResolvedUri(item.id, coverVariant, cachedUri)
                 lastErrorMessageBySource.remove(item.sourceType)
                 if (cachedCover.isPersistent && cachedCover.matchesRequestedVariant) {
                     return
@@ -119,10 +126,10 @@ class RemoteCoverController @Inject constructor(
                 }
             }.onSuccess { cachedUri ->
                 if (!cachedUri.isNullOrBlank() && isActiveRequest(item, variant, requestNonce, requestSourceResetVersion)) {
-                    val currentUri = coverStateRegistry.coverUriFor(item.id, variant)
+                    val currentUri = visibleLibraryCoverRegistry.presentedUriFor(item.id, coverVariant)
                     if (currentUri != cachedUri) {
                         Log.d(LOG_TAG, "Cached ${item.sourceType} ${variant.name.lowercase()} cover for ${item.id}: $cachedUri")
-                        coverStateRegistry.update(item.id, variant, cachedUri)
+                        visibleLibraryCoverRegistry.promoteResolvedUri(item.id, coverVariant, cachedUri)
                     }
                     lastErrorMessageBySource.remove(item.sourceType)
                 } else if (cachedUri.isNullOrBlank()) {
@@ -159,6 +166,12 @@ class RemoteCoverController @Inject constructor(
         scheduleCacheWarmup(sourceType)
     }
 
+    fun onLibraryViewportScrollingChanged(
+        isScrolling: Boolean,
+    ) {
+        visibleLibraryCoverRegistry.onViewportScrollingChanged(isScrolling)
+    }
+
     suspend fun resetSource(
         sourceType: SourceType,
     ) {
@@ -185,7 +198,7 @@ class RemoteCoverController @Inject constructor(
             .toList()
             .filterNot(activeItemIds::contains)
         missingItemIds.forEach(sourceTypeByItemId::remove)
-        missingItemIds.forEach(coverStateRegistry::remove)
+        missingItemIds.forEach(visibleLibraryCoverRegistry::remove)
         missingItemIds.forEach { itemId ->
             activeRequestNonceByKey.keys.removeAll { key -> key.itemId == itemId }
             coverRequestJobsByKey.entries
@@ -210,7 +223,7 @@ class RemoteCoverController @Inject constructor(
                 job.cancel()
                 coverRequestJobsByKey.remove(key)
             }
-        itemIdsForSource.forEach(coverStateRegistry::remove)
+        itemIdsForSource.forEach(visibleLibraryCoverRegistry::remove)
         itemIdsForSource.forEach(sourceTypeByItemId::remove)
         activeRequestNonceByKey.keys.removeAll { key -> key.itemId in itemIdsForSource }
         pendingCoverKeys.removeAll { key -> key.itemId in itemIdsForSource }
@@ -286,7 +299,7 @@ class RemoteCoverController @Inject constructor(
             .filter { (_, itemSourceType) -> itemSourceType == sourceType }
             .map { (itemId, _) -> itemId }
             .toList()
-            .forEach(coverStateRegistry::remove)
+            .forEach(visibleLibraryCoverRegistry::remove)
     }
 
     private fun cachedCoverUri(

@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.layout.NestedPrefetchScope
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -62,6 +63,7 @@ fun LibraryScreen(
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String? = { item, _ -> item.coverUrl },
     coverPrefetchKeyProvider: (ReadableItem, LibraryCoverImageVariant) -> String? = coverImageUrlProvider,
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit = { _, _ -> },
+    onCoverViewportScrollingChanged: (Boolean) -> Unit = {},
     topContent: (@Composable () -> Unit)? = null,
     onFilterStateChanged: (LibraryFilterState) -> Unit = {},
     onClearFilters: () -> Unit = {},
@@ -137,6 +139,16 @@ fun LibraryScreen(
         }
             .distinctUntilChanged()
             .collect(onScrollPositionChanged)
+    }
+    LaunchedEffect(browseContextKey, gridState) {
+        snapshotFlow { gridState.isScrollInProgress }
+            .distinctUntilChanged()
+            .collect(onCoverViewportScrollingChanged)
+    }
+    DisposableEffect(browseContextKey) {
+        onDispose {
+            onCoverViewportScrollingChanged(false)
+        }
     }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {

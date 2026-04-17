@@ -55,4 +55,10 @@ class AppLibraryActionsCoordinator @Inject constructor(
             onError = onError,
         )
     }
+
+    fun onLibraryViewportScrollingChanged(
+        isScrolling: Boolean,
+    ) {
+        remoteCoverController.onLibraryViewportScrollingChanged(isScrolling)
+    }
 }

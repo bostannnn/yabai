@@ -281,6 +281,12 @@ class AppViewModel @Inject constructor(
         )
     }
 
+    fun onLibraryViewportScrollingChanged(
+        isScrolling: Boolean,
+    ) {
+        libraryActionsCoordinator.onLibraryViewportScrollingChanged(isScrolling)
+    }
+
     fun onBackPressed() {
         readerCoordinator.onBackPressed(
             stateProvider = { uiState },

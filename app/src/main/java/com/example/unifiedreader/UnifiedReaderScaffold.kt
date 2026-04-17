@@ -142,6 +142,7 @@ fun UnifiedReaderScaffold(
                         coverPrefetchKeyProvider = viewModel::coverPrefetchKeyFor,
                         onPrepareCoverSource = viewModel::prepareCoverSource,
                         onCoverVisible = viewModel::ensureCoverCached,
+                        onCoverViewportScrollingChanged = viewModel::onLibraryViewportScrollingChanged,
                         onScrollPositionChanged = { position ->
                             viewModel.onLibraryScrollPositionChanged(
                                 contextKey = uiState.libraryBrowseContextKey,
