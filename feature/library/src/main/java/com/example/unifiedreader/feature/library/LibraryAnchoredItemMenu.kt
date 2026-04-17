@@ -25,6 +25,7 @@ fun LibraryAnchoredItemMenu(
         Box(modifier = modifier) {
             LibraryItemMenuButton(
                 onClick = { onExpandedChange(true) },
+                modifier = Modifier,
                 style = LibraryItemMenuButtonStyle.CompactOverlay,
             )
         }
@@ -65,7 +66,7 @@ fun LibraryAnchoredItemMenu(
                 actionContext.onSeriesReaderModeSelected(item, mode)
             },
         ),
-        expanded = expanded,
+        expanded = true,
         onExpandedChange = onExpandedChange,
     )
 }

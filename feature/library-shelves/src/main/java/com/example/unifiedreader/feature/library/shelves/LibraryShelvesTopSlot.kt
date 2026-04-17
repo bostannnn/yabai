@@ -61,6 +61,7 @@ fun LibraryShelvesTopSlot(
 
     if (displayedState != null) {
         LibraryShelvesZone(
+            browseContextKey = browseContextKey,
             state = displayedState,
             itemActionContext = itemActionContext,
             coverImageUrlProvider = coverImageUrlProvider,

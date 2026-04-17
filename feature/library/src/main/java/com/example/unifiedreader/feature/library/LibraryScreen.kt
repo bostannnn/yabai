@@ -291,18 +291,20 @@ fun LibraryScreen(
                             coverImageUrlProvider = coverImageUrlProvider,
                             onClick = { onItemSelected(item) },
                             menuContent = {
-                                LibraryAnchoredItemMenu(
-                                    item = item,
-                                    actionContext = itemActionContext,
-                                    expanded = gridExpandedMenuItemId == item.id,
-                                    onExpandedChange = { expanded ->
-                                        gridExpandedMenuItemId = if (expanded) item.id else null
-                                    },
-                                    onDeleteImportedRequested = { deleteCandidate = it },
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .padding(4.dp),
-                                )
+                                if (itemActionContext.hasMenuContent(item)) {
+                                    LibraryAnchoredItemMenu(
+                                        item = item,
+                                        actionContext = itemActionContext,
+                                        expanded = gridExpandedMenuItemId == item.id,
+                                        onExpandedChange = { expanded ->
+                                            gridExpandedMenuItemId = if (expanded) item.id else null
+                                        },
+                                        onDeleteImportedRequested = { deleteCandidate = it },
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .padding(4.dp),
+                                    )
+                                }
                             },
                         )
                     }

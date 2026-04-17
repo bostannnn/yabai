@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.unifiedreader.core.model.ComicMetadata
 import com.example.unifiedreader.core.model.FormatType
@@ -56,7 +57,8 @@ class LibraryShelvesZoneActionsTest {
         composeRule.waitForIdle()
 
         composeRule.onNodeWithText("Akira").assertExists()
-        composeRule.onNodeWithContentDescription("More actions").assertExists()
+        composeRule.onNodeWithContentDescription("More actions").assertExists().performClick()
+        composeRule.onNodeWithText("Download file").assertExists()
     }
 
     @Test
@@ -88,7 +90,8 @@ class LibraryShelvesZoneActionsTest {
         }
 
         composeRule.onNodeWithText("Continue Reading").assertExists()
-        composeRule.onNodeWithContentDescription("More actions").assertExists()
+        composeRule.onNodeWithContentDescription("More actions").assertExists().performClick()
+        composeRule.onNodeWithText("Download file").assertExists()
     }
 }
 

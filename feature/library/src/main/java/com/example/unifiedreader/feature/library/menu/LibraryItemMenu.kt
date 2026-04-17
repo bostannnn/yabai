@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -103,45 +104,71 @@ internal fun LibraryItemOverflowMenu(
             expanded = menuExpanded,
             onDismissRequest = { updateExpanded(false) },
         ) {
-            actions.forEach { action ->
-                DropdownMenuItem(
-                    text = { Text(text = action.label) },
-                    enabled = action.enabled,
-                    onClick = {
-                        updateExpanded(false)
-                        action.onClick()
-                    },
-                )
-            }
-            readingDirectionState?.let { state ->
-                if (actions.isNotEmpty()) {
-                    HorizontalDivider()
-                }
-                ReadingDirectionMenuRow(
-                    state = state,
-                    onDirectionSelected = { direction ->
-                        updateExpanded(false)
-                        state.onDirectionSelected(direction)
-                    },
-                )
-            }
-            readerModeState?.let { state ->
-                if (actions.isNotEmpty() || readingDirectionState != null) {
-                    HorizontalDivider()
-                }
-                Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    ReaderModeMenuRow(
-                        state = state,
-                        onModeSelected = { mode ->
-                            updateExpanded(false)
-                            state.onModeSelected(mode)
-                        },
-                    )
-                }
-            }
+            LibraryItemMenuEntries(
+                actions = actions,
+                readingDirectionState = readingDirectionState,
+                readerModeState = readerModeState,
+                onActionHandled = { updateExpanded(false) },
+            )
+        }
+    }
+}
+
+@Composable
+internal fun LibraryItemMenuEntries(
+    actions: List<ItemMenuAction>,
+    readingDirectionState: ReadingDirectionMenuState?,
+    readerModeState: ReaderModeMenuState?,
+    onActionHandled: () -> Unit,
+) {
+    val hasPreferences = readingDirectionState != null || readerModeState != null
+    val effectiveActions = if (actions.isEmpty() && !hasPreferences) {
+        listOf(ItemMenuAction(label = "No actions available", enabled = false, onClick = {}))
+    } else {
+        actions
+    }
+
+    effectiveActions.forEach { action ->
+        DropdownMenuItem(
+            text = { Text(text = action.label) },
+            enabled = action.enabled,
+            onClick = {
+                onActionHandled()
+                action.onClick()
+            },
+        )
+    }
+    readingDirectionState?.let { state ->
+        if (effectiveActions.isNotEmpty()) {
+            HorizontalDivider()
+        }
+        Column(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+        ) {
+            ReadingDirectionMenuRow(
+                state = state,
+                onDirectionSelected = { direction ->
+                    onActionHandled()
+                    state.onDirectionSelected(direction)
+                },
+            )
+        }
+    }
+    readerModeState?.let { state ->
+        if (effectiveActions.isNotEmpty() || readingDirectionState != null) {
+            HorizontalDivider()
+        }
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            ReaderModeMenuRow(
+                state = state,
+                onModeSelected = { mode ->
+                    onActionHandled()
+                    state.onModeSelected(mode)
+                },
+            )
         }
     }
 }

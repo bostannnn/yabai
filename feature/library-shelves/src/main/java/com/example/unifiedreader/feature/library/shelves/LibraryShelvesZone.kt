@@ -19,6 +19,7 @@ import com.example.unifiedreader.feature.library.LibraryItemActionContext
 
 @Composable
 fun LibraryShelvesZone(
+    browseContextKey: String = "library-shelves",
     state: LibraryShelvesState,
     itemActionContext: LibraryItemActionContext = LibraryItemActionContext(),
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
@@ -29,8 +30,11 @@ fun LibraryShelvesZone(
 ) {
     if (!state.hasContent) return
 
+    val previewDatasetSignature = remember(state) { previewDatasetSignature(state) }
     var activeSheet by remember(state) { mutableStateOf<LibraryShelfSheetState?>(null) }
-    var previewExpandedMenuItemId by remember(state) { mutableStateOf<String?>(null) }
+    var previewExpandedMenuItemId by remember(browseContextKey, previewDatasetSignature) {
+        mutableStateOf<String?>(null)
+    }
     var deleteCandidate by remember(state) { mutableStateOf<ReadableItem?>(null) }
     val visibleShelves = visibleShelfCount(state)
     val previewCoverItems = remember(state, coverImageUrlProvider) {
@@ -59,7 +63,7 @@ fun LibraryShelvesZone(
                     previewContentEnabled = true,
                     onItemSelected = onItemSelected,
                     expandedMenuItemId = previewExpandedMenuItemId,
-                    onMenuExpandedChange = { item, expanded ->
+                    onExpandedMenuChange = { item, expanded ->
                         previewExpandedMenuItemId = if (expanded) item.id else null
                     },
                     onDeleteImportedRequested = { deleteCandidate = it },
@@ -80,7 +84,7 @@ fun LibraryShelvesZone(
                     previewContentEnabled = true,
                     onItemSelected = onItemSelected,
                     expandedMenuItemId = previewExpandedMenuItemId,
-                    onMenuExpandedChange = { item, expanded ->
+                    onExpandedMenuChange = { item, expanded ->
                         previewExpandedMenuItemId = if (expanded) item.id else null
                     },
                     onDeleteImportedRequested = { deleteCandidate = it },
@@ -127,7 +131,7 @@ private fun ShelfSections(
     previewContentEnabled: Boolean,
     onItemSelected: (ReadableItem) -> Unit,
     expandedMenuItemId: String?,
-    onMenuExpandedChange: (ReadableItem, Boolean) -> Unit,
+    onExpandedMenuChange: (ReadableItem, Boolean) -> Unit,
     onDeleteImportedRequested: (ReadableItem) -> Unit,
     onOpenSheet: (LibraryShelfSheetState) -> Unit,
     coverLoadingEnabled: Boolean,
@@ -142,7 +146,7 @@ private fun ShelfSections(
             coverLoadingEnabled = coverLoadingEnabled,
             onItemSelected = onItemSelected,
             expandedMenuItemId = expandedMenuItemId,
-            onMenuExpandedChange = onMenuExpandedChange,
+            onExpandedMenuChange = onExpandedMenuChange,
             onDeleteImportedRequested = onDeleteImportedRequested,
             onSeeAll = {
                 onOpenSheet(LibraryShelfSheetState.ContinueReading(state.continueReading))
@@ -159,7 +163,7 @@ private fun ShelfSections(
             coverLoadingEnabled = coverLoadingEnabled,
             onItemSelected = onItemSelected,
             expandedMenuItemId = expandedMenuItemId,
-            onMenuExpandedChange = onMenuExpandedChange,
+            onExpandedMenuChange = onExpandedMenuChange,
             onDeleteImportedRequested = onDeleteImportedRequested,
             onSeeAll = {
                 onOpenSheet(LibraryShelfSheetState.NextInSeries(state.nextInSeries))
@@ -176,7 +180,7 @@ private fun ShelfSections(
             coverLoadingEnabled = coverLoadingEnabled,
             onItemSelected = onItemSelected,
             expandedMenuItemId = expandedMenuItemId,
-            onMenuExpandedChange = onMenuExpandedChange,
+            onExpandedMenuChange = onExpandedMenuChange,
             onDeleteImportedRequested = onDeleteImportedRequested,
             onSeeAll = {
                 onOpenSheet(LibraryShelfSheetState.RecentlyFinished(state.recentlyFinished))
@@ -194,4 +198,16 @@ private fun visibleShelfCount(
     state.recentlyFinished.isNotEmpty(),
 ).count { visible -> visible }
 
+private fun previewDatasetSignature(
+    state: LibraryShelvesState,
+): List<String> = buildList {
+    add("continue")
+    addAll(state.continueReading.take(ShelfPreviewDatasetLimit).map { it.item.id })
+    add("next")
+    addAll(state.nextInSeries.take(ShelfPreviewDatasetLimit).map { it.item.id })
+    add("finished")
+    addAll(state.recentlyFinished.take(ShelfPreviewDatasetLimit).map { it.item.id })
+}
+
+private const val ShelfPreviewDatasetLimit = 4
 private val ShelvesRowBreakpoint = 840.dp

@@ -30,6 +30,7 @@ import com.example.unifiedreader.core.model.librarySecondaryText
 import com.example.unifiedreader.feature.library.LibraryAnchoredItemMenu
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
+import com.example.unifiedreader.feature.library.hasMenuContent
 
 internal sealed interface LibraryShelfSheetState {
     val title: String
@@ -144,6 +145,7 @@ private fun ShelfItemsList(
                 items = sheet.items,
                 key = { it.item.id },
             ) { shelfItem ->
+                val hasMenuContent = itemActionContext.hasMenuContent(shelfItem.item)
                 ShelfListRow(
                     item = shelfItem.item,
                     title = shelfItem.item.libraryPrimaryText(),
@@ -153,16 +155,20 @@ private fun ShelfItemsList(
                     coverImageUrlProvider = coverImageUrlProvider,
                     onCoverVisible = onCoverVisible,
                     onClick = { onItemSelected(shelfItem.item) },
-                    menuContent = {
-                        LibraryAnchoredItemMenu(
-                            item = shelfItem.item,
-                            actionContext = itemActionContext,
-                            expanded = expandedMenuItemId == shelfItem.item.id,
-                            onExpandedChange = { expanded ->
-                                onExpandedMenuChange(shelfItem.item, expanded)
-                            },
-                            onDeleteImportedRequested = onDeleteImportedItem,
-                        )
+                    menuContent = if (hasMenuContent) {
+                        {
+                            LibraryAnchoredItemMenu(
+                                item = shelfItem.item,
+                                actionContext = itemActionContext,
+                                expanded = expandedMenuItemId == shelfItem.item.id,
+                                onExpandedChange = { expanded ->
+                                    onExpandedMenuChange(shelfItem.item, expanded)
+                                },
+                                onDeleteImportedRequested = onDeleteImportedItem,
+                            )
+                        }
+                    } else {
+                        null
                     },
                     progressFraction = shelfItem.progress.fraction,
                 )
@@ -172,6 +178,7 @@ private fun ShelfItemsList(
                 items = sheet.items,
                 key = { it.item.id },
             ) { shelfItem ->
+                val hasMenuContent = itemActionContext.hasMenuContent(shelfItem.item)
                 ShelfListRow(
                     item = shelfItem.item,
                     title = shelfItem.item.libraryPrimaryText(),
@@ -181,16 +188,20 @@ private fun ShelfItemsList(
                     coverImageUrlProvider = coverImageUrlProvider,
                     onCoverVisible = onCoverVisible,
                     onClick = { onItemSelected(shelfItem.item) },
-                    menuContent = {
-                        LibraryAnchoredItemMenu(
-                            item = shelfItem.item,
-                            actionContext = itemActionContext,
-                            expanded = expandedMenuItemId == shelfItem.item.id,
-                            onExpandedChange = { expanded ->
-                                onExpandedMenuChange(shelfItem.item, expanded)
-                            },
-                            onDeleteImportedRequested = onDeleteImportedItem,
-                        )
+                    menuContent = if (hasMenuContent) {
+                        {
+                            LibraryAnchoredItemMenu(
+                                item = shelfItem.item,
+                                actionContext = itemActionContext,
+                                expanded = expandedMenuItemId == shelfItem.item.id,
+                                onExpandedChange = { expanded ->
+                                    onExpandedMenuChange(shelfItem.item, expanded)
+                                },
+                                onDeleteImportedRequested = onDeleteImportedItem,
+                            )
+                        }
+                    } else {
+                        null
                     },
                 )
             }
@@ -199,6 +210,7 @@ private fun ShelfItemsList(
                 items = sheet.items,
                 key = { it.item.id },
             ) { shelfItem ->
+                val hasMenuContent = itemActionContext.hasMenuContent(shelfItem.item)
                 ShelfListRow(
                     item = shelfItem.item,
                     title = shelfItem.item.libraryPrimaryText(),
@@ -213,16 +225,20 @@ private fun ShelfItemsList(
                     coverImageUrlProvider = coverImageUrlProvider,
                     onCoverVisible = onCoverVisible,
                     onClick = { onItemSelected(shelfItem.item) },
-                    menuContent = {
-                        LibraryAnchoredItemMenu(
-                            item = shelfItem.item,
-                            actionContext = itemActionContext,
-                            expanded = expandedMenuItemId == shelfItem.item.id,
-                            onExpandedChange = { expanded ->
-                                onExpandedMenuChange(shelfItem.item, expanded)
-                            },
-                            onDeleteImportedRequested = onDeleteImportedItem,
-                        )
+                    menuContent = if (hasMenuContent) {
+                        {
+                            LibraryAnchoredItemMenu(
+                                item = shelfItem.item,
+                                actionContext = itemActionContext,
+                                expanded = expandedMenuItemId == shelfItem.item.id,
+                                onExpandedChange = { expanded ->
+                                    onExpandedMenuChange(shelfItem.item, expanded)
+                                },
+                                onDeleteImportedRequested = onDeleteImportedItem,
+                            )
+                        }
+                    } else {
+                        null
                     },
                 )
             }

@@ -25,6 +25,7 @@ import com.example.unifiedreader.core.model.librarySecondaryText
 import com.example.unifiedreader.feature.library.LibraryAnchoredItemMenu
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
+import com.example.unifiedreader.feature.library.hasMenuContent
 
 @Composable
 internal fun ContinueReadingShelfSection(
@@ -35,7 +36,7 @@ internal fun ContinueReadingShelfSection(
     coverLoadingEnabled: Boolean = true,
     onItemSelected: (ReadableItem) -> Unit,
     expandedMenuItemId: String?,
-    onMenuExpandedChange: (ReadableItem, Boolean) -> Unit,
+    onExpandedMenuChange: (ReadableItem, Boolean) -> Unit,
     onDeleteImportedRequested: (ReadableItem) -> Unit,
     onSeeAll: () -> Unit,
     modifier: Modifier = Modifier,
@@ -58,7 +59,7 @@ internal fun ContinueReadingShelfSection(
                         coverLoadingEnabled = coverLoadingEnabled,
                         onClick = { onItemSelected(shelfItem.item) },
                         expandedMenuItemId = expandedMenuItemId,
-                        onMenuExpandedChange = onMenuExpandedChange,
+                        onExpandedMenuChange = onExpandedMenuChange,
                         onDeleteImportedRequested = onDeleteImportedRequested,
                     )
                 }
@@ -78,7 +79,7 @@ internal fun NextInSeriesShelfSection(
     coverLoadingEnabled: Boolean = true,
     onItemSelected: (ReadableItem) -> Unit,
     expandedMenuItemId: String?,
-    onMenuExpandedChange: (ReadableItem, Boolean) -> Unit,
+    onExpandedMenuChange: (ReadableItem, Boolean) -> Unit,
     onDeleteImportedRequested: (ReadableItem) -> Unit,
     onSeeAll: () -> Unit,
     modifier: Modifier = Modifier,
@@ -94,6 +95,7 @@ internal fun NextInSeriesShelfSection(
         if (previewContentEnabled) {
             ShelfPreviewRow {
                 previewItems.forEach { shelfItem ->
+                    val hasMenuContent = itemActionContext.hasMenuContent(shelfItem.item)
                     ShelfPreviewCard(
                         item = shelfItem.item,
                         title = shelfItem.item.libraryPrimaryText(),
@@ -103,19 +105,23 @@ internal fun NextInSeriesShelfSection(
                         coverImageUrlProvider = coverImageUrlProvider,
                         coverLoadingEnabled = coverLoadingEnabled,
                         onClick = { onItemSelected(shelfItem.item) },
-                        menuContent = {
-                            LibraryAnchoredItemMenu(
-                                item = shelfItem.item,
-                                actionContext = itemActionContext,
-                                expanded = expandedMenuItemId == shelfItem.item.id,
-                                onExpandedChange = { expanded ->
-                                    onMenuExpandedChange(shelfItem.item, expanded)
-                                },
-                                onDeleteImportedRequested = onDeleteImportedRequested,
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .padding(4.dp),
-                            )
+                        menuContent = if (hasMenuContent) {
+                            {
+                                LibraryAnchoredItemMenu(
+                                    item = shelfItem.item,
+                                    actionContext = itemActionContext,
+                                    expanded = expandedMenuItemId == shelfItem.item.id,
+                                    onExpandedChange = { expanded ->
+                                        onExpandedMenuChange(shelfItem.item, expanded)
+                                    },
+                                    onDeleteImportedRequested = onDeleteImportedRequested,
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(4.dp),
+                                )
+                            }
+                        } else {
+                            null
                         },
                     )
                 }
@@ -135,7 +141,7 @@ internal fun RecentlyFinishedShelfSection(
     coverLoadingEnabled: Boolean = true,
     onItemSelected: (ReadableItem) -> Unit,
     expandedMenuItemId: String?,
-    onMenuExpandedChange: (ReadableItem, Boolean) -> Unit,
+    onExpandedMenuChange: (ReadableItem, Boolean) -> Unit,
     onDeleteImportedRequested: (ReadableItem) -> Unit,
     onSeeAll: () -> Unit,
     modifier: Modifier = Modifier,
@@ -151,6 +157,7 @@ internal fun RecentlyFinishedShelfSection(
         if (previewContentEnabled) {
             ShelfPreviewRow {
                 previewItems.forEach { shelfItem ->
+                    val hasMenuContent = itemActionContext.hasMenuContent(shelfItem.item)
                     ShelfPreviewCard(
                         item = shelfItem.item,
                         title = shelfItem.item.libraryPrimaryText(),
@@ -165,19 +172,23 @@ internal fun RecentlyFinishedShelfSection(
                         coverImageUrlProvider = coverImageUrlProvider,
                         coverLoadingEnabled = coverLoadingEnabled,
                         onClick = { onItemSelected(shelfItem.item) },
-                        menuContent = {
-                            LibraryAnchoredItemMenu(
-                                item = shelfItem.item,
-                                actionContext = itemActionContext,
-                                expanded = expandedMenuItemId == shelfItem.item.id,
-                                onExpandedChange = { expanded ->
-                                    onMenuExpandedChange(shelfItem.item, expanded)
-                                },
-                                onDeleteImportedRequested = onDeleteImportedRequested,
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .padding(4.dp),
-                            )
+                        menuContent = if (hasMenuContent) {
+                            {
+                                LibraryAnchoredItemMenu(
+                                    item = shelfItem.item,
+                                    actionContext = itemActionContext,
+                                    expanded = expandedMenuItemId == shelfItem.item.id,
+                                    onExpandedChange = { expanded ->
+                                        onExpandedMenuChange(shelfItem.item, expanded)
+                                    },
+                                    onDeleteImportedRequested = onDeleteImportedRequested,
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(4.dp),
+                                )
+                            }
+                        } else {
+                            null
                         },
                     )
                 }
@@ -256,9 +267,10 @@ private fun ContinueReadingCarouselCard(
     coverLoadingEnabled: Boolean,
     onClick: () -> Unit,
     expandedMenuItemId: String?,
-    onMenuExpandedChange: (ReadableItem, Boolean) -> Unit,
+    onExpandedMenuChange: (ReadableItem, Boolean) -> Unit,
     onDeleteImportedRequested: (ReadableItem) -> Unit,
 ) {
+    val hasMenuContent = itemActionContext.hasMenuContent(shelfItem.item)
     ShelfPreviewCard(
         item = shelfItem.item,
         title = shelfItem.item.libraryPrimaryText(),
@@ -267,19 +279,23 @@ private fun ContinueReadingCarouselCard(
         coverImageUrlProvider = coverImageUrlProvider,
         coverLoadingEnabled = coverLoadingEnabled,
         onClick = onClick,
-        menuContent = {
-            LibraryAnchoredItemMenu(
-                item = shelfItem.item,
-                actionContext = itemActionContext,
-                expanded = expandedMenuItemId == shelfItem.item.id,
-                onExpandedChange = { expanded ->
-                    onMenuExpandedChange(shelfItem.item, expanded)
-                },
-                onDeleteImportedRequested = onDeleteImportedRequested,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(4.dp),
-            )
+        menuContent = if (hasMenuContent) {
+            {
+                LibraryAnchoredItemMenu(
+                    item = shelfItem.item,
+                    actionContext = itemActionContext,
+                    expanded = expandedMenuItemId == shelfItem.item.id,
+                    onExpandedChange = { expanded ->
+                        onExpandedMenuChange(shelfItem.item, expanded)
+                    },
+                    onDeleteImportedRequested = onDeleteImportedRequested,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp),
+                )
+            }
+        } else {
+            null
         },
         progressFraction = shelfItem.progress.fraction,
     )
