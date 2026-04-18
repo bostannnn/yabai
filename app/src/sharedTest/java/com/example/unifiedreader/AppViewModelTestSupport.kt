@@ -569,6 +569,7 @@ class FakeGrimmoryCatalogSyncer(
 
     override suspend fun sync(
         request: GrimmoryCatalogSyncRequest,
+        onProgress: (GrimmorySyncProgress) -> Unit,
     ): GrimmoryCatalogSyncResult {
         lastRequest = request
         lastSyncRequest = request

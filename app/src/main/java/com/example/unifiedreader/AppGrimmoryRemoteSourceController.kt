@@ -150,6 +150,8 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
                         grimmoryConnection = preparation.activeConnection.copy(
                             isConnecting = true,
                             activeAction = ServerConnectionAction.Sync,
+                            syncProgressFraction = 0f,
+                            syncProgressLabel = "Preparing Grimmory sync...",
                             message = "Syncing Grimmory library.",
                             isError = false,
                         ),
@@ -166,7 +168,26 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
         scope: CoroutineScope,
     ) {
         scope.launch {
-            when (val result = grimmoryCoordinator.executeSync(preparation, ::resetCoverState)) {
+            when (
+                val result = grimmoryCoordinator.executeSync(
+                    preparation = preparation,
+                    clearCoverState = ::resetCoverState,
+                    onProgress = { progress ->
+                        updateState { state ->
+                            state.copy(
+                                grimmoryConnection = state.grimmoryConnection.copy(
+                                    isConnecting = true,
+                                    activeAction = ServerConnectionAction.Sync,
+                                    syncProgressFraction = progress.fraction.coerceIn(0f, 1f),
+                                    syncProgressLabel = progress.message,
+                                    message = "Syncing Grimmory library.",
+                                    isError = false,
+                                ),
+                            )
+                        }
+                    },
+                )
+            ) {
                 is GrimmorySyncExecutionResult.Success -> {
                     updateState { state ->
                         state.copy(

@@ -36,6 +36,8 @@ internal suspend fun pushDirtyGrimmoryProgress(
                 bookType = item.remoteFileType ?: item.format.name,
                 positionData = "0",
                 percent = 0.0,
+                clearsFinishedState = true,
+                updatedAtEpochMillis = progress.updatedAtEpochMillis,
             )
         } else {
             progress.toGrimmoryProgressUpdate(item) ?: return@forEach
@@ -108,6 +110,8 @@ internal fun ReaderProgressSnapshot.toGrimmoryProgressUpdate(
         positionData = positionData,
         positionHref = epubPosition?.href,
         percent = percent ?: 0.0,
+        isFinished = isFinished,
+        updatedAtEpochMillis = updatedAtEpochMillis,
     )
 }
 

@@ -126,6 +126,9 @@ data class GrimmoryProgressUpdate(
     val positionHref: String? = null,
     val percent: Double,
     val ttsPositionCfi: String? = null,
+    val isFinished: Boolean = false,
+    val clearsFinishedState: Boolean = false,
+    val updatedAtEpochMillis: Long? = null,
 )
 
 data class GrimmoryBookCatalogEntry(

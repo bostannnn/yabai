@@ -6,7 +6,9 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -197,6 +199,53 @@ class GrimmoryDtosTest {
     }
 
     @Test
+    fun mapsFinishedProgressUpdateToFinishedRequestPayload() {
+        val request = GrimmoryProgressUpdate(
+            bookId = "12",
+            bookFileId = "99",
+            bookType = "EPUB",
+            positionData = "100",
+            percent = 1.0,
+            isFinished = true,
+            updatedAtEpochMillis = 1_775_131_200_000L,
+        ).toRequestDto()
+
+        assertEquals("2026-04-02T12:00:00Z", request.dateFinished?.jsonPrimitive?.content)
+        assertEquals(100f, request.fileProgress?.progressPercent)
+    }
+
+    @Test
+    fun mapsUnreadResetToExplicitFinishedClearPayload() {
+        val request = GrimmoryProgressUpdate(
+            bookId = "12",
+            bookFileId = "99",
+            bookType = "EPUB",
+            positionData = "0",
+            percent = 0.0,
+            clearsFinishedState = true,
+        ).toRequestDto()
+
+        assertEquals(JsonNull, request.dateFinished)
+    }
+
+    @Test
+    fun serializesUnreadResetWithExplicitNullFinishedField() {
+        val body = testJson.encodeToString(
+            GrimmoryReadProgressRequestDto.serializer(),
+            GrimmoryProgressUpdate(
+                bookId = "12",
+                bookFileId = "99",
+                bookType = "EPUB",
+                positionData = "0",
+                percent = 0.0,
+                clearsFinishedState = true,
+            ).toRequestDto(),
+        )
+
+        assertTrue(body.contains("\"dateFinished\":null"))
+    }
+
+    @Test
     fun mapsGrimmoryPercentScaleToLocalFraction() {
         val item = GrimmoryBookDto(
             id = 12,
@@ -327,4 +376,8 @@ class GrimmoryDtosTest {
         assertEquals(0.5, item.progress?.percent ?: 0.0, 0.0001)
         assertEquals(false, item.isExplicitUnreadReset)
     }
+}
+
+private val testJson = Json {
+    explicitNulls = false
 }

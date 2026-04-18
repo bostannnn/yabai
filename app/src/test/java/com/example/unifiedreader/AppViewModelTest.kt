@@ -1964,11 +1964,7 @@ class AppViewModelTest {
         assertEquals(SourceType.GRIMMORY, viewModel.uiState.selectedSource)
         assertEquals("Grimmory library synced.", viewModel.uiState.grimmoryConnection.message)
         assertEquals(1, grimmoryCoverRepository.clearCachedCoversCalls)
-        assertRemoteCoverUrl(
-            expectedBaseUrl = "https://grimmory.example/api/v1/media/book/book-1/thumbnail",
-            expectedVersion = 2,
-            actualUrl = viewModel.coverImageUrlFor(grimmoryItem, LibraryCoverImageVariant.Grid),
-        )
+        assertNull(viewModel.coverImageUrlFor(grimmoryItem, LibraryCoverImageVariant.Grid))
     }
 
     @Test

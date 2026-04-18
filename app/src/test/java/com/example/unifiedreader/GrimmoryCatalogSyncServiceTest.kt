@@ -100,6 +100,34 @@ class GrimmoryCatalogSyncServiceTest {
     }
 
     @Test
+    fun `sync emits determinate grimmory progress updates`() = runBlocking {
+        val api = FakeGrimmoryApi(
+            libraries = listOf(grimmoryLibrary("g-books")),
+            allBookEntries = emptyList(),
+        )
+        val service = GrimmoryCatalogSyncService(
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
+            remoteCatalogWriter = RecordingRemoteCatalogWriter(),
+        )
+        val progressUpdates = mutableListOf<GrimmorySyncProgress>()
+
+        service.sync(
+            request = GrimmoryCatalogSyncRequest(
+                displayName = "Grimmory",
+                baseUrl = "https://grimmory.example/",
+                username = "user",
+                accessToken = "saved-access-token",
+            ),
+            onProgress = progressUpdates::add,
+        )
+
+        assertTrue(progressUpdates.any { update -> update.message == "Loading Grimmory libraries..." })
+        assertTrue(progressUpdates.any { update -> update.message == "Loading Grimmory books..." })
+        assertTrue(progressUpdates.any { update -> update.message == "Saving Grimmory catalog..." })
+        assertTrue(progressUpdates.any { update -> update.message == "Applying Grimmory progress..." })
+    }
+
+    @Test
     fun `sync can reuse saved access token without logging in`() = runBlocking {
         val api = FakeGrimmoryApi(
             libraries = listOf(grimmoryLibrary("g-books")),

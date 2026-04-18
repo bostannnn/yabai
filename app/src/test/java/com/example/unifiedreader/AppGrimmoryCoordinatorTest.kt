@@ -126,6 +126,7 @@ private class TestGrimmoryCatalogSyncer(
 
     override suspend fun sync(
         request: GrimmoryCatalogSyncRequest,
+        onProgress: (GrimmorySyncProgress) -> Unit,
     ): GrimmoryCatalogSyncResult = error("Not used in this test.")
 }
 

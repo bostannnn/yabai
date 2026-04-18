@@ -23,6 +23,7 @@ interface GrimmoryCatalogSyncer {
 
     suspend fun sync(
         request: GrimmoryCatalogSyncRequest,
+        onProgress: (GrimmorySyncProgress) -> Unit = {},
     ): GrimmoryCatalogSyncResult
 }
 
@@ -69,6 +70,7 @@ class GrimmoryCatalogSyncService(
 
     override suspend fun sync(
         request: GrimmoryCatalogSyncRequest,
+        onProgress: (GrimmorySyncProgress) -> Unit,
     ): GrimmoryCatalogSyncResult {
         val result = runWithServerAddressFailover(
             baseUrl = request.baseUrl,
@@ -89,83 +91,61 @@ class GrimmoryCatalogSyncService(
             var activeAccessToken = accessToken
             var activeRefreshToken = session?.refreshToken ?: request.refreshToken
             var latestSession: GrimmorySession? = session
-            val entries = api.runWithTokenRefresh(
+            val fetchResult = api.runWithTokenRefresh(
                 initialRefreshToken = activeRefreshToken,
                 initialAccessToken = activeAccessToken,
             ) { token ->
+                onProgress(GrimmorySyncProgress(message = "Loading Grimmory libraries...", fraction = 0.1f))
                 val libraries = api.getLibraries(accessToken = token)
+                onProgress(GrimmorySyncProgress(message = "Loading Grimmory books...", fraction = 0.55f))
                 val bookEntries = api.getAllBookEntries(accessToken = token)
-                GrimmorySyncFetch(
+                RemoteCatalogFetch(
                     libraries = libraries,
                     entries = bookEntries,
                 )
             }
-            activeAccessToken = entries.accessToken
-            activeRefreshToken = entries.refreshToken
-            latestSession = entries.refreshedSession ?: latestSession
-            val libraries = entries.value.libraries
-            val catalogEntries = entries.value.entries
-            val items = catalogEntries.map(GrimmoryBookCatalogEntry::item)
-            val updatedAtEpochMillis = nowEpochMillis()
-            clearStaleGrimmoryProgress(
-                incomingItemIds = items.mapTo(mutableSetOf(), ReadableItem::id),
-            )
-            remoteCatalogWriter.replaceSourceCatalog(
+            activeAccessToken = fetchResult.accessToken
+            activeRefreshToken = fetchResult.refreshToken
+            latestSession = fetchResult.refreshedSession ?: latestSession
+            val syncOutcome = finalizeRemoteCatalogSync(
                 sourceType = SourceType.GRIMMORY,
-                libraries = libraries.map { library -> library.toEntity() },
-                items = items.map { item ->
-                    item.toEntity(updatedAtEpochMillis = updatedAtEpochMillis)
+                fetch = fetchResult.value,
+                remoteCatalogWriter = remoteCatalogWriter,
+                progressSyncStore = progressSyncStore,
+                nowEpochMillis = nowEpochMillis(),
+                onProgress = { message, fraction ->
+                    onProgress(GrimmorySyncProgress(message = message, fraction = fraction))
                 },
-            )
-            pullProgress(catalogEntries)
-            val progressSync = pushDirtyProgress(
-                api = api,
-                initialAccessToken = activeAccessToken,
-                initialRefreshToken = activeRefreshToken,
-                items = items,
-            )
-            latestSession = progressSync.refreshedSession ?: latestSession
+                savingMessage = "Saving Grimmory catalog...",
+                applyingProgressMessage = "Applying Grimmory progress...",
+                itemOf = GrimmoryBookCatalogEntry::item,
+                progressOf = GrimmoryBookCatalogEntry::progress,
+                missingRemoteClearsLocal = GrimmoryBookCatalogEntry::isExplicitUnreadReset,
+                remoteClearOverridesLocal = { false },
+            ) { items ->
+                val progressSync = pushDirtyProgress(
+                    api = api,
+                    initialAccessToken = activeAccessToken,
+                    initialRefreshToken = activeRefreshToken,
+                    items = items,
+                )
+                activeAccessToken = progressSync.accessToken
+                activeRefreshToken = progressSync.refreshToken
+                RemoteCatalogProgressPushResult(
+                    session = progressSync.refreshedSession,
+                    failures = progressSync.value,
+                )
+            }
+            latestSession = syncOutcome.session ?: latestSession
             GrimmoryCatalogSyncResult(
-                libraryCount = libraries.size,
-                itemCount = items.size,
-                supportedFormatCounts = items.groupingBy(ReadableItem::format).eachCount(),
+                libraryCount = syncOutcome.libraryCount,
+                itemCount = syncOutcome.itemCount,
+                supportedFormatCounts = syncOutcome.supportedFormatCounts,
                 session = latestSession,
-                progressPushFailures = progressSync.value,
+                progressPushFailures = syncOutcome.progressPushFailures,
             )
         }
         return result.value.copy(activeBaseUrl = result.activeBaseUrl)
-    }
-
-    private fun pullProgress(
-        entries: List<GrimmoryBookCatalogEntry>,
-    ) {
-        val store = progressSyncStore ?: return
-        entries.forEach { entry ->
-            applyRemoteProgressSyncDecision(
-                store = store,
-                item = entry.item,
-                pageCount = entry.item.pageCount,
-                decision = decideRemoteProgressSync(
-                    local = store.getProgress(entry.item),
-                    remote = entry.progress,
-                    nowEpochMillis = nowEpochMillis(),
-                    missingRemoteClearsLocal = entry.isExplicitUnreadReset,
-                    remoteClearOverridesLocal = false,
-                ),
-            )
-        }
-    }
-
-    private suspend fun clearStaleGrimmoryProgress(
-        incomingItemIds: Set<String>,
-    ) {
-        val store = progressSyncStore ?: return
-        remoteCatalogWriter.getItemsForSourceType(SourceType.GRIMMORY)
-            .asSequence()
-            .map(ReadableItem::id)
-            .filterNot(incomingItemIds::contains)
-            .distinct()
-            .forEach(store::clearItem)
     }
 
     private suspend fun pushDirtyProgress(
@@ -190,11 +170,6 @@ class GrimmoryCatalogSyncService(
     }
 }
 
-private data class GrimmorySyncFetch(
-    val libraries: List<com.example.unifiedreader.core.model.Library>,
-    val entries: List<GrimmoryBookCatalogEntry>,
-)
-
 data class GrimmoryCatalogSyncRequest(
     val displayName: String,
     val baseUrl: String,
@@ -210,6 +185,11 @@ data class GrimmoryCatalogConnectionResult(
     val libraryCount: Int,
     val session: GrimmorySession? = null,
     val activeBaseUrl: String? = null,
+)
+
+data class GrimmorySyncProgress(
+    val message: String,
+    val fraction: Float,
 )
 
 data class GrimmoryCatalogSyncResult(

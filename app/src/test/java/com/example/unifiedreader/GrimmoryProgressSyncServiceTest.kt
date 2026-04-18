@@ -225,6 +225,78 @@ class GrimmoryProgressSyncServiceTest {
     }
 
     @Test
+    fun `finished Grimmory progress uploads explicit finished state`() = runBlocking {
+        val item = grimmoryItem(remoteId = "book-1")
+        val readerSessionStore = ProgressSyncTestReaderSessionStore().apply {
+            saveProgress(
+                item = item,
+                locator = ReaderLocator(locatorType = LocatorType.PERCENT, percent = 1.0),
+                isFinished = true,
+                syncState = SyncState.DIRTY,
+                updatedAtEpochMillis = 123L,
+            )
+        }
+        val api = RecordingGrimmoryApi()
+        val service = GrimmoryProgressSyncService(
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
+            grimmoryCredentialStore = ProgressSyncTestGrimmoryCredentialStore(
+                GrimmoryStoredSession(
+                    displayName = "Home Grimmory",
+                    baseUrl = "https://grimmory.example",
+                    username = "reader",
+                    accessToken = "access-token",
+                    refreshToken = "refresh-token",
+                ),
+            ),
+            readerSessionStore = readerSessionStore,
+        )
+
+        service.pushPendingProgress(listOf(item))
+
+        val update = api.progressUpdates.single()
+        assertEquals(true, update.isFinished)
+        assertEquals(123L, update.updatedAtEpochMillis)
+        assertEquals(1.0, update.percent, 0.0001)
+        assertEquals(SyncState.CLEAN, readerSessionStore.getProgress(item)?.syncState)
+    }
+
+    @Test
+    fun `unread reset Grimmory progress explicitly clears finished state`() = runBlocking {
+        val item = grimmoryItem(remoteId = "book-1")
+        val readerSessionStore = ProgressSyncTestReaderSessionStore().apply {
+            saveProgress(
+                item = item,
+                locator = ReaderLocator(locatorType = LocatorType.PERCENT, percent = 0.0),
+                isExplicitUnreadReset = true,
+                syncState = SyncState.DIRTY,
+                updatedAtEpochMillis = 456L,
+            )
+        }
+        val api = RecordingGrimmoryApi()
+        val service = GrimmoryProgressSyncService(
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
+            grimmoryCredentialStore = ProgressSyncTestGrimmoryCredentialStore(
+                GrimmoryStoredSession(
+                    displayName = "Home Grimmory",
+                    baseUrl = "https://grimmory.example",
+                    username = "reader",
+                    accessToken = "access-token",
+                    refreshToken = "refresh-token",
+                ),
+            ),
+            readerSessionStore = readerSessionStore,
+        )
+
+        service.pushPendingProgress(listOf(item))
+
+        val update = api.progressUpdates.single()
+        assertEquals(true, update.clearsFinishedState)
+        assertEquals(false, update.isFinished)
+        assertEquals(456L, update.updatedAtEpochMillis)
+        assertNull(readerSessionStore.getProgress(item))
+    }
+
+    @Test
     fun `cancelled Grimmory upload rethrows without marking progress failed`() = runBlocking {
         val item = grimmoryItem(remoteId = "book-1")
         val readerSessionStore = ProgressSyncTestReaderSessionStore().apply {

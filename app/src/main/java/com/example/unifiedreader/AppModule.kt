@@ -26,8 +26,7 @@ import com.example.unifiedreader.feature.downloads.RoomDownloadQueueStore
 import com.example.unifiedreader.feature.library.DataStoreLibraryBrowsePreferencesStore
 import com.example.unifiedreader.feature.library.LibraryBrowseStateCoordinator
 import com.example.unifiedreader.feature.library.LibraryBrowsePreferencesStore
-import com.example.unifiedreader.feature.library.covers.LibraryCoverThumbnailGenerator
-import com.example.unifiedreader.feature.library.covers.PersistentRemoteCoverStore
+import com.example.unifiedreader.feature.library.covers.RemoteCoverCacheResolver
 import com.example.unifiedreader.feature.navigation.DataStoreSourceNavigationPreferencesStore
 import com.example.unifiedreader.feature.navigation.SourceNavigationPreferencesStore
 import com.example.unifiedreader.feature.navigation.SourceNavigationStateCoordinator
@@ -363,13 +362,11 @@ object AppModule {
     fun provideKavitaCoverRepository(
         kavitaApiFactory: KavitaApiFactory,
         kavitaCredentialStore: KavitaCredentialStore,
-        coverStore: PersistentRemoteCoverStore,
-        thumbnailGenerator: LibraryCoverThumbnailGenerator,
+        coverCacheResolver: RemoteCoverCacheResolver,
     ): KavitaCoverDataSource = KavitaCoverRepository(
         kavitaApiFactory = kavitaApiFactory,
         kavitaCredentialStore = kavitaCredentialStore,
-        coverStore = coverStore,
-        thumbnailGenerator = thumbnailGenerator,
+        coverCacheResolver = coverCacheResolver,
     )
 
     @Provides
@@ -377,13 +374,11 @@ object AppModule {
     fun provideGrimmoryCoverRepository(
         grimmoryApiFactory: GrimmoryApiFactory,
         grimmoryCredentialStore: GrimmoryCredentialStore,
-        coverStore: PersistentRemoteCoverStore,
-        thumbnailGenerator: LibraryCoverThumbnailGenerator,
+        coverCacheResolver: RemoteCoverCacheResolver,
     ): GrimmoryCoverDataSource = GrimmoryCoverRepository(
         grimmoryApiFactory = grimmoryApiFactory,
         grimmoryCredentialStore = grimmoryCredentialStore,
-        coverStore = coverStore,
-        thumbnailGenerator = thumbnailGenerator,
+        coverCacheResolver = coverCacheResolver,
     )
 
     @Provides
@@ -391,13 +386,11 @@ object AppModule {
     fun provideStumpCoverRepository(
         stumpApiFactory: StumpApiFactory,
         stumpCredentialStore: StumpCredentialStore,
-        coverStore: PersistentRemoteCoverStore,
-        thumbnailGenerator: LibraryCoverThumbnailGenerator,
+        coverCacheResolver: RemoteCoverCacheResolver,
     ): StumpCoverDataSource = StumpCoverRepository(
         stumpApiFactory = stumpApiFactory,
         stumpCredentialStore = stumpCredentialStore,
-        coverStore = coverStore,
-        thumbnailGenerator = thumbnailGenerator,
+        coverCacheResolver = coverCacheResolver,
     )
 
     @Provides

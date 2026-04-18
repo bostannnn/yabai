@@ -12,6 +12,7 @@ import com.example.unifiedreader.core.model.remoteLibraryId
 import java.time.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -113,7 +114,7 @@ internal data class GrimmoryReadProgressRequestDto(
     val deprecatedEpubProgress: GrimmoryEpubProgressDto? = null,
     @SerialName("pdfProgress")
     val deprecatedPdfProgress: GrimmoryPdfProgressDto? = null,
-    val dateFinished: String? = null,
+    val dateFinished: JsonElement? = null,
 )
 
 @Serializable

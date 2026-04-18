@@ -9,6 +9,7 @@ import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.covers.LibraryCoverVariant
 import com.example.unifiedreader.feature.library.covers.LibraryCoverThumbnailGenerator
 import com.example.unifiedreader.feature.library.covers.PersistentRemoteCoverStore
+import com.example.unifiedreader.feature.library.covers.RemoteCoverCacheResolver
 import com.example.unifiedreader.feature.library.covers.STUMP_COVER_DIRECTORY_NAME
 import com.example.unifiedreader.feature.library.covers.thumbnailDirectoryName
 import com.example.unifiedreader.feature.library.covers.thumbnailFileName
@@ -28,6 +29,10 @@ import org.robolectric.RobolectricTestRunner
 class StumpCoverRepositoryTest {
     private val context = ApplicationProvider.getApplicationContext<Application>()
     private val store = PersistentRemoteCoverStore(context)
+    private val coverCacheResolver = RemoteCoverCacheResolver(
+        coverStore = store,
+        thumbnailGenerator = LibraryCoverThumbnailGenerator(),
+    )
 
     @After
     fun tearDown() {
@@ -44,8 +49,7 @@ class StumpCoverRepositoryTest {
         val repository = StumpCoverRepository(
             stumpApiFactory = StumpApiFactory { error("Legacy migration should not hit the Stump API.") },
             stumpCredentialStore = FakeStumpCredentialStore(),
-            coverStore = store,
-            thumbnailGenerator = LibraryCoverThumbnailGenerator(),
+            coverCacheResolver = coverCacheResolver,
         )
         val item = sampleItem(
             id = "stump:item:issue-legacy",
@@ -84,8 +88,7 @@ class StumpCoverRepositoryTest {
         val repository = StumpCoverRepository(
             stumpApiFactory = StumpApiFactory { error("Cached Stump cover should not hit the API.") },
             stumpCredentialStore = FakeStumpCredentialStore(),
-            coverStore = store,
-            thumbnailGenerator = LibraryCoverThumbnailGenerator(),
+            coverCacheResolver = coverCacheResolver,
         )
         val item = sampleItem(
             id = "stump:item:issue-cached",

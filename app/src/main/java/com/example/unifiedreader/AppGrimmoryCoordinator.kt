@@ -131,8 +131,12 @@ class AppGrimmoryCoordinator @Inject constructor(
     internal suspend fun executeSync(
         preparation: GrimmorySyncPreparation.Ready,
         clearCoverState: suspend () -> Unit,
+        onProgress: (GrimmorySyncProgress) -> Unit = {},
     ): GrimmorySyncExecutionResult = runSuspendCatchingPreservingCancellation {
-        val result = grimmoryCatalogSyncer.sync(preparation.request)
+        val result = grimmoryCatalogSyncer.sync(
+            request = preparation.request,
+            onProgress = onProgress,
+        )
         persistRemoteSession(
             sessionStore = grimmoryCredentialStore,
             session = result.session,
@@ -174,6 +178,8 @@ class AppGrimmoryCoordinator @Inject constructor(
                 password = "",
                 hasStoredSession = true,
                 isConnecting = false,
+                syncProgressFraction = null,
+                syncProgressLabel = null,
                 message = listOfNotNull(preparation.successConnectionMessage, progressPushWarning)
                     .joinToString(" "),
                 isError = progressPushWarning != null,
@@ -184,6 +190,8 @@ class AppGrimmoryCoordinator @Inject constructor(
             message = "${preparation.failurePrefix}: ${throwable.userFacingMessage()}",
             connection = preparation.activeConnection.copy(
                 isConnecting = false,
+                syncProgressFraction = null,
+                syncProgressLabel = null,
                 message = "${preparation.failurePrefix}: ${throwable.userFacingMessage()}",
                 isError = true,
             ),

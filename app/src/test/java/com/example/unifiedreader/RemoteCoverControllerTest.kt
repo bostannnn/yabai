@@ -302,6 +302,31 @@ class RemoteCoverControllerTest {
     }
 
     @Test
+    fun `grimmory cover waits for cached file instead of using remote fallback`() {
+        val controller = RemoteCoverController(
+            kavitaCoverRepository = EmptyKavitaCoverDataSource(),
+            stumpCoverRepository = EmptyStumpCoverDataSource(),
+            grimmoryCoverRepository = EmptyGrimmoryCoverDataSource(),
+            kavitaCredentialStore = FakeKavitaCredentialStore(),
+            stumpCredentialStore = FakeStumpCredentialStore(),
+            grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
+            appDispatchers = immediateAppDispatchers(),
+        )
+        val grimmoryItem = remoteItem(
+            id = "grimmory:item:book-1",
+            sourceType = SourceType.GRIMMORY,
+            coverUrl = "https://grimmory.example/api/v1/media/book/1/thumbnail",
+        )
+
+        assertNull(controller.coverImageUrlFor(grimmoryItem, LibraryCoverImageVariant.Grid))
+        assertEquals(
+            "remote-cover:grimmory:grimmory:item:book-1:grid:coverv=0",
+            controller.coverPrefetchKeyFor(grimmoryItem, LibraryCoverImageVariant.Grid),
+        )
+    }
+
+    @Test
     fun `prepareSource warms cache so cached kavita cover becomes visible without prefetch`() = runTest {
         val cachedUri = Uri.parse("file:///tmp/warmed-kavita-cover.png")
         val kavitaDataSource = WarmableKavitaCoverDataSource(cachedUri = cachedUri)

@@ -3,24 +3,23 @@ package com.example.unifiedreader
 import android.net.Uri
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
-import com.example.unifiedreader.data.grimmory.GrimmoryApi
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
+import com.example.unifiedreader.feature.library.covers.CachedCoverAsset
 import com.example.unifiedreader.feature.library.covers.GRIMMORY_COVER_DIRECTORY_NAME
 import com.example.unifiedreader.feature.library.covers.GRIMMORY_LEGACY_COVER_DIRECTORY_NAME
-import com.example.unifiedreader.feature.library.covers.LibraryCoverThumbnailGenerator
-import com.example.unifiedreader.feature.library.covers.PersistentRemoteCoverStore
-import com.example.unifiedreader.feature.library.covers.thumbnailDirectoryName
-import com.example.unifiedreader.feature.library.covers.thumbnailFileName
-import java.io.File
+import com.example.unifiedreader.feature.library.covers.RemoteCoverCacheResolver
+import com.example.unifiedreader.feature.library.covers.RemoteCoverStorageDirectory
 import javax.inject.Inject
 
-interface GrimmoryCoverDataSource : RemoteCoverDataSource
+interface GrimmoryCoverDataSource : RemoteCoverDataSource {
+    override val usesRemoteDisplayFallback: Boolean
+        get() = false
+}
 
 class GrimmoryCoverRepository @Inject constructor(
     private val grimmoryApiFactory: GrimmoryApiFactory,
     private val grimmoryCredentialStore: GrimmoryCredentialStore,
-    private val coverStore: PersistentRemoteCoverStore,
-    private val thumbnailGenerator: LibraryCoverThumbnailGenerator,
+    private val coverCacheResolver: RemoteCoverCacheResolver,
 ) : GrimmoryCoverDataSource {
     override val sourceType: SourceType = SourceType.GRIMMORY
     private val sessionRequestRunner = GrimmoryStoredSessionRequestRunner(grimmoryCredentialStore)
@@ -30,33 +29,11 @@ class GrimmoryCoverRepository @Inject constructor(
         variant: LibraryCoverImageVariant,
     ): CachedRemoteCover? {
         if (item.sourceType != sourceType) return null
-        val baseFileName = item.grimmoryCacheFileName("cover")
-        val thumbnailDirectory = thumbnailDirectoryName(
-            storageDirectoryName = GRIMMORY_COVER_DIRECTORY_NAME,
+        return coverCacheResolver.cachedCover(
+            storage = grimmoryCoverStorage,
+            baseFileName = item.grimmoryCacheFileName("cover"),
             variant = variant.toCoverAssetVariant(),
-        )
-        val thumbnailName = thumbnailFileName(
-            baseFileName = baseFileName,
-            variant = variant.toCoverAssetVariant(),
-        )
-        coverStore.cachedThumbnailFile(thumbnailDirectory, thumbnailName)?.let { thumbnailFile ->
-            return CachedRemoteCover(
-                uri = Uri.fromFile(thumbnailFile),
-                isPersistent = true,
-                matchesRequestedVariant = true,
-            )
-        }
-        return coverStore.cachedCoverFile(
-            storageDirectoryName = GRIMMORY_COVER_DIRECTORY_NAME,
-            fileName = baseFileName,
-            legacyDirectoryName = GRIMMORY_LEGACY_COVER_DIRECTORY_NAME,
-        )?.let { cachedCover ->
-            CachedRemoteCover(
-                uri = Uri.fromFile(cachedCover.file),
-                isPersistent = cachedCover.isPersistent,
-                matchesRequestedVariant = false,
-            )
-        }
+        )?.toCachedRemoteCover()
     }
 
     override suspend fun getCoverUri(
@@ -64,70 +41,11 @@ class GrimmoryCoverRepository @Inject constructor(
         variant: LibraryCoverImageVariant,
     ): Uri? {
         if (item.sourceType != sourceType) return null
-        val fileName = item.grimmoryCacheFileName("cover")
-        val cachedFile = coverStore.persistentCoverFile(
-            storageDirectoryName = GRIMMORY_COVER_DIRECTORY_NAME,
-            fileName = fileName,
-        )
-        val thumbnailVariant = variant.toCoverAssetVariant()
-        val thumbnailDirectory = thumbnailDirectoryName(
-            storageDirectoryName = GRIMMORY_COVER_DIRECTORY_NAME,
-            variant = thumbnailVariant,
-        )
-        val thumbnailName = thumbnailFileName(
-            baseFileName = fileName,
-            variant = thumbnailVariant,
-        )
-        val thumbnailFile = coverStore.thumbnailCoverFile(
-            thumbnailDirectoryName = thumbnailDirectory,
-            fileName = thumbnailName,
-        )
-        coverStore.cachedThumbnailFile(thumbnailDirectory, thumbnailName)?.let { existingThumbnail ->
-            return Uri.fromFile(existingThumbnail)
-        }
-        if (cachedFile.isFile && cachedFile.length() > 0L) {
-            val generatedThumbnail = thumbnailGenerator.ensureThumbnail(
-                sourceFile = cachedFile,
-                destinationFile = thumbnailFile,
-                variant = thumbnailVariant,
-            )
-            generatedThumbnail?.let {
-                coverStore.recordThumbnailFile(
-                    thumbnailDirectoryName = thumbnailDirectory,
-                    fileName = thumbnailName,
-                    file = it,
-                )
-                return Uri.fromFile(it)
-            }
-            return Uri.fromFile(cachedFile)
-        }
-        var resolvedUri: Uri? = null
-        coverStore.withStorageLock(GRIMMORY_COVER_DIRECTORY_NAME) {
-            coverStore.moveLegacyCoverIfPresent(
-                storageDirectoryName = GRIMMORY_COVER_DIRECTORY_NAME,
-                fileName = fileName,
-                legacyDirectoryName = GRIMMORY_LEGACY_COVER_DIRECTORY_NAME,
-            )?.let { migratedFile ->
-                if (migratedFile.isFile && migratedFile.length() > 0L) {
-                    val generatedThumbnail = thumbnailGenerator.ensureThumbnail(
-                        sourceFile = migratedFile,
-                        destinationFile = thumbnailFile,
-                        variant = thumbnailVariant,
-                    )
-                    generatedThumbnail?.let {
-                        coverStore.recordThumbnailFile(
-                            thumbnailDirectoryName = thumbnailDirectory,
-                            fileName = thumbnailName,
-                            file = it,
-                        )
-                    }
-                    resolvedUri = Uri.fromFile(generatedThumbnail ?: migratedFile)
-                    return@withStorageLock
-                }
-            }
-            if (cachedFile.isFile && cachedFile.length() > 0L) {
-                return@withStorageLock
-            }
+        val resolvedFile = coverCacheResolver.resolveCoverFile(
+            storage = grimmoryCoverStorage,
+            baseFileName = item.grimmoryCacheFileName("cover"),
+            variant = variant.toCoverAssetVariant(),
+        ) { destination ->
             val session = grimmoryCredentialStore.activeSessionFor(item)
                 ?: error("Connect to the active Grimmory server before loading remote covers.")
             runWithStoredSessionAddressFailover(
@@ -142,69 +60,26 @@ class GrimmoryCoverRepository @Inject constructor(
                     api = api,
                     session = activeSession,
                     item = item,
-                    destination = cachedFile,
+                    destination = destination,
                 )
             }
-            coverStore.recordPersistentCoverFile(
-                storageDirectoryName = GRIMMORY_COVER_DIRECTORY_NAME,
-                fileName = fileName,
-                file = cachedFile,
-            )
-            val generatedThumbnail = thumbnailGenerator.ensureThumbnail(
-                sourceFile = cachedFile,
-                destinationFile = thumbnailFile,
-                variant = thumbnailVariant,
-            )
-            generatedThumbnail?.let {
-                coverStore.recordThumbnailFile(
-                    thumbnailDirectoryName = thumbnailDirectory,
-                    fileName = thumbnailName,
-                    file = it,
-                )
-            }
-            resolvedUri = Uri.fromFile(generatedThumbnail ?: cachedFile)
         }
-        return resolvedUri ?: Uri.fromFile(cachedFile)
+        return Uri.fromFile(resolvedFile)
     }
 
     override suspend fun warmCacheIndexes() {
-        coverStore.warmStorageDirectoryIndex(
-            storageDirectoryName = GRIMMORY_COVER_DIRECTORY_NAME,
-            legacyDirectoryName = GRIMMORY_LEGACY_COVER_DIRECTORY_NAME,
-        )
-        LibraryCoverImageVariant.entries
-            .map { variant ->
-                thumbnailDirectoryName(
-                    storageDirectoryName = GRIMMORY_COVER_DIRECTORY_NAME,
-                    variant = variant.toCoverAssetVariant(),
-                )
-            }
-            .distinct()
-            .forEach { directoryName ->
-                coverStore.warmStorageDirectoryIndex(directoryName)
-            }
+        coverCacheResolver.warmCacheIndexes(grimmoryCoverStorage)
     }
 
     override suspend fun clearCachedCovers() {
-        coverStore.clearStorageDirectory(
-            storageDirectoryName = GRIMMORY_COVER_DIRECTORY_NAME,
-            legacyDirectoryName = GRIMMORY_LEGACY_COVER_DIRECTORY_NAME,
-            additionalStorageDirectories = LibraryCoverImageVariant.entries
-                .map { variant ->
-                    thumbnailDirectoryName(
-                        storageDirectoryName = GRIMMORY_COVER_DIRECTORY_NAME,
-                        variant = variant.toCoverAssetVariant(),
-                    )
-                }
-                .distinct(),
-        )
+        coverCacheResolver.clearCachedCovers(grimmoryCoverStorage)
     }
 
     private suspend fun downloadWithTokenRefresh(
-        api: GrimmoryApi,
         session: GrimmoryStoredSession,
         item: ReadableItem,
-        destination: File,
+        destination: java.io.File,
+        api: com.example.unifiedreader.data.grimmory.GrimmoryApi,
     ) {
         sessionRequestRunner.run(
             api = api,
@@ -220,10 +95,10 @@ class GrimmoryCoverRepository @Inject constructor(
     }
 
     private suspend fun download(
-        api: GrimmoryApi,
+        api: com.example.unifiedreader.data.grimmory.GrimmoryApi,
         accessToken: String,
         item: ReadableItem,
-        destination: File,
+        destination: java.io.File,
     ) = writeGrimmoryCacheFile(
         destination = destination,
         targetDescription = "cached Grimmory cover for ${item.title}",
@@ -238,3 +113,14 @@ class GrimmoryCoverRepository @Inject constructor(
     }
 
 }
+
+private fun CachedCoverAsset.toCachedRemoteCover(): CachedRemoteCover = CachedRemoteCover(
+    uri = Uri.fromFile(file),
+    isPersistent = isPersistent,
+    matchesRequestedVariant = matchesRequestedVariant,
+)
+
+private val grimmoryCoverStorage = RemoteCoverStorageDirectory(
+    storageDirectoryName = GRIMMORY_COVER_DIRECTORY_NAME,
+    legacyDirectoryName = GRIMMORY_LEGACY_COVER_DIRECTORY_NAME,
+)

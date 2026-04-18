@@ -11,6 +11,7 @@ import com.example.unifiedreader.feature.library.covers.KAVITA_LEGACY_COVER_DIRE
 import com.example.unifiedreader.feature.library.covers.LibraryCoverVariant
 import com.example.unifiedreader.feature.library.covers.LibraryCoverThumbnailGenerator
 import com.example.unifiedreader.feature.library.covers.PersistentRemoteCoverStore
+import com.example.unifiedreader.feature.library.covers.RemoteCoverCacheResolver
 import com.example.unifiedreader.feature.library.covers.thumbnailDirectoryName
 import com.example.unifiedreader.feature.library.covers.thumbnailFileName
 import java.io.ByteArrayOutputStream
@@ -29,6 +30,10 @@ import org.robolectric.RobolectricTestRunner
 class KavitaCoverRepositoryTest {
     private val context = ApplicationProvider.getApplicationContext<Application>()
     private val store = PersistentRemoteCoverStore(context)
+    private val coverCacheResolver = RemoteCoverCacheResolver(
+        coverStore = store,
+        thumbnailGenerator = LibraryCoverThumbnailGenerator(),
+    )
 
     @After
     fun tearDown() {
@@ -45,8 +50,7 @@ class KavitaCoverRepositoryTest {
         val repository = KavitaCoverRepository(
             kavitaApiFactory = KavitaApiFactory { error("Cached Kavita cover should not hit the API.") },
             kavitaCredentialStore = FakeKavitaCredentialStore(),
-            coverStore = store,
-            thumbnailGenerator = LibraryCoverThumbnailGenerator(),
+            coverCacheResolver = coverCacheResolver,
         )
         val item = sampleItem(
             id = "kavita:item:issue-cached",

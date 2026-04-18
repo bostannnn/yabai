@@ -1,5 +1,9 @@
 package com.example.unifiedreader.data.grimmory
 
+import java.time.Instant
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
+
 internal fun GrimmoryEpubProgressUpdate.toRequestDto(): GrimmoryReadProgressRequestDto {
     return toGenericProgressUpdate().toRequestDto()
 }
@@ -39,6 +43,14 @@ internal fun GrimmoryProgressUpdate.toRequestDto(): GrimmoryReadProgressRequestD
             toDeprecatedPdfProgress(clampedPercent)
         } else {
             null
+        },
+        dateFinished = when {
+            isFinished -> updatedAtEpochMillis
+                ?.let(Instant::ofEpochMilli)
+                ?.toString()
+                ?.let(::JsonPrimitive)
+            clearsFinishedState -> JsonNull
+            else -> null
         },
     )
 }

@@ -16,6 +16,8 @@ internal fun GrimmoryConnectionUiState.withStoredSession(
     copy(
         hasStoredSession = false,
         activeAction = null,
+        syncProgressFraction = null,
+        syncProgressLabel = null,
     )
 } else {
     copy(
@@ -26,6 +28,8 @@ internal fun GrimmoryConnectionUiState.withStoredSession(
         password = "",
         hasStoredSession = true,
         activeAction = null,
+        syncProgressFraction = null,
+        syncProgressLabel = null,
         isError = false,
     )
 }
