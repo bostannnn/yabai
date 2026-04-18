@@ -6,6 +6,7 @@ import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
+import com.example.unifiedreader.feature.library.covers.VisibleLibraryCoverRegistry
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -35,6 +36,7 @@ class RemoteCoverControllerTest {
             kavitaCredentialStore = FakeKavitaCredentialStore(),
             stumpCredentialStore = FakeStumpCredentialStore(),
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
             appDispatchers = immediateAppDispatchers(),
         )
         val kavitaItem = remoteItem(
@@ -60,6 +62,7 @@ class RemoteCoverControllerTest {
             kavitaCredentialStore = FakeKavitaCredentialStore(),
             stumpCredentialStore = FakeStumpCredentialStore(),
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
             appDispatchers = immediateAppDispatchers(),
         )
         val stumpItem = remoteItem(
@@ -91,6 +94,7 @@ class RemoteCoverControllerTest {
             kavitaCredentialStore = FakeKavitaCredentialStore(),
             stumpCredentialStore = FakeStumpCredentialStore(),
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
             appDispatchers = immediateAppDispatchers(),
         )
         val stumpItem = remoteItem(
@@ -118,6 +122,7 @@ class RemoteCoverControllerTest {
             kavitaCredentialStore = FakeKavitaCredentialStore(),
             stumpCredentialStore = FakeStumpCredentialStore(),
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
             appDispatchers = immediateAppDispatchers(),
         )
         val stumpItem = remoteItem(
@@ -153,6 +158,7 @@ class RemoteCoverControllerTest {
             kavitaCredentialStore = FakeKavitaCredentialStore(),
             stumpCredentialStore = FakeStumpCredentialStore(),
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
             appDispatchers = immediateAppDispatchers(),
         )
         val stumpItem = remoteItem(
@@ -183,6 +189,7 @@ class RemoteCoverControllerTest {
             kavitaCredentialStore = FakeKavitaCredentialStore(),
             stumpCredentialStore = FakeStumpCredentialStore(),
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
             appDispatchers = immediateAppDispatchers(),
         )
         val stumpItem = remoteItem(
@@ -229,6 +236,7 @@ class RemoteCoverControllerTest {
             kavitaCredentialStore = FakeKavitaCredentialStore(),
             stumpCredentialStore = FakeStumpCredentialStore(),
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
             appDispatchers = immediateAppDispatchers(),
         )
         val stumpSeriesItem = ReadableItem(
@@ -277,6 +285,7 @@ class RemoteCoverControllerTest {
             kavitaCredentialStore = FakeKavitaCredentialStore(),
             stumpCredentialStore = FakeStumpCredentialStore(),
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
             appDispatchers = immediateAppDispatchers(),
         )
         val kavitaItem = remoteItem(
@@ -303,6 +312,7 @@ class RemoteCoverControllerTest {
             kavitaCredentialStore = FakeKavitaCredentialStore(),
             stumpCredentialStore = FakeStumpCredentialStore(),
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
             appDispatchers = AppDispatchers(
                 io = StandardTestDispatcher(testScheduler),
                 default = StandardTestDispatcher(testScheduler),

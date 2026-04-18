@@ -239,6 +239,29 @@ class GrimmoryDtosTest {
     }
 
     @Test
+    fun treatsZeroCfiAndZeroPercentAsUnread() {
+        val item = GrimmoryBookDto(
+            id = 12,
+            libraryId = 4,
+            primaryFile = GrimmoryBookFileDto(
+                bookType = "EPUB",
+                extension = "epub",
+            ),
+            lastReadTime = "2026-04-17T19:25:51Z",
+            epubProgress = GrimmoryEpubProgressDto(
+                cfi = "0",
+                percentage = 0f,
+            ),
+        ).toCatalogEntry(
+            baseUrl = "https://grimmory.example",
+        )
+
+        requireNotNull(item)
+        assertNull(item.progress)
+        assertEquals(true, item.isExplicitUnreadReset)
+    }
+
+    @Test
     fun unreadBookMarksExplicitReset() {
         val item = GrimmoryBookDto(
             id = 12,
@@ -278,6 +301,30 @@ class GrimmoryDtosTest {
 
         requireNotNull(item)
         assertNull(item.progress)
+        assertEquals(false, item.isExplicitUnreadReset)
+    }
+
+    @Test
+    fun keepsMeaningfulCfiProgress() {
+        val item = GrimmoryBookDto(
+            id = 12,
+            libraryId = 4,
+            primaryFile = GrimmoryBookFileDto(
+                bookType = "EPUB",
+                extension = "epub",
+            ),
+            lastReadTime = "2026-04-17T19:25:51Z",
+            epubProgress = GrimmoryEpubProgressDto(
+                cfi = "epubcfi(/6/14!/4/2/10)",
+                href = "OPS/ch2.xhtml",
+                percentage = 50f,
+            ),
+        ).toCatalogEntry(
+            baseUrl = "https://grimmory.example",
+        )
+
+        requireNotNull(item)
+        assertEquals(0.5, item.progress?.percent ?: 0.0, 0.0001)
         assertEquals(false, item.isExplicitUnreadReset)
     }
 }

@@ -4,10 +4,8 @@ import com.example.unifiedreader.core.model.BookMetadata
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.LibraryContentType
-import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
-import com.example.unifiedreader.core.model.ReadingProgress
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
@@ -17,8 +15,6 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.buildJsonArray
-import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 @Serializable
@@ -231,68 +227,6 @@ internal fun GrimmoryBookDto.toCatalogEntry(
     )
 }
 
-private fun GrimmoryBookDto.toReadingProgress(
-    item: ReadableItem,
-): ReadingProgress? {
-    val updatedAtEpochMillis = lastReadTime?.toEpochMillisOrNull()
-    val finishedAtEpochMillis = (dateFinished ?: dateFinishedSnake)?.toEpochMillisOrNull()
-    if (finishedAtEpochMillis != null) {
-        return ReadingProgress(
-            itemId = item.id,
-            locatorType = LocatorType.PERCENT,
-            percent = 1.0,
-            isFinished = true,
-            updatedAtEpochMillis = finishedAtEpochMillis,
-        )
-    }
-    return when (item.format) {
-        FormatType.EPUB -> epubProgress?.toReadingProgress(
-            itemId = item.id,
-            updatedAtEpochMillis = updatedAtEpochMillis,
-        )
-        FormatType.PDF -> pdfProgress?.toReadingProgress(
-            itemId = item.id,
-            updatedAtEpochMillis = updatedAtEpochMillis,
-        )
-        else -> null
-    }
-}
-
-private fun GrimmoryEpubProgressDto.toReadingProgress(
-    itemId: String,
-    updatedAtEpochMillis: Long?,
-): ReadingProgress? {
-    val localPercent = percentage.toLocalProgressPercent()
-    val locatorType = if (cfi.isNullOrBlank()) LocatorType.PERCENT else LocatorType.CFI
-    if (locatorType == LocatorType.PERCENT && localPercent == null) return null
-    return ReadingProgress(
-        itemId = itemId,
-        locatorType = locatorType,
-        cfi = cfi?.takeIf(String::isNotBlank)?.toReaderLocatorJson(
-            href = href,
-            percent = localPercent,
-        ),
-        percent = localPercent,
-        updatedAtEpochMillis = updatedAtEpochMillis,
-    )
-}
-
-private fun GrimmoryPdfProgressDto.toReadingProgress(
-    itemId: String,
-    updatedAtEpochMillis: Long?,
-): ReadingProgress? {
-    val localPercent = percentage.toLocalProgressPercent()
-    val pageIndex = page?.let { (it - 1).coerceAtLeast(0) }
-    if (pageIndex == null && localPercent == null) return null
-    return ReadingProgress(
-        itemId = itemId,
-        locatorType = if (pageIndex == null) LocatorType.PERCENT else LocatorType.PAGE,
-        page = pageIndex,
-        percent = localPercent,
-        updatedAtEpochMillis = updatedAtEpochMillis,
-    )
-}
-
 private fun String?.toFacetNames(): List<String> = listOfNotNull(
     this?.trim()?.takeIf(String::isNotBlank),
 )
@@ -300,10 +234,6 @@ private fun String?.toFacetNames(): List<String> = listOfNotNull(
 private fun List<String>?.toFacetNames(): List<String> = orEmpty()
     .mapNotNull { value -> value.trim().takeIf(String::isNotBlank) }
     .distinctBy(String::lowercase)
-
-private fun Float?.toLocalProgressPercent(): Double? = this?.let { value ->
-    (value / 100f).toDouble().coerceIn(0.0, 1.0)
-}
 
 private fun String?.toAbsoluteGrimmoryCoverUrl(
     baseUrl: String,
@@ -326,31 +256,6 @@ private fun String?.toAbsoluteGrimmoryCoverUrl(
     }
 }
 
-private fun String.toReaderLocatorJson(
-    href: String?,
-    percent: Double?,
-): String {
-    val locatorHref = href?.takeIf(String::isNotBlank) ?: return this
-    return buildJsonObject {
-        put("href", JsonPrimitive(locatorHref))
-        put("type", JsonPrimitive("application/xhtml+xml"))
-        put(
-            "locations",
-            buildJsonObject {
-                put(
-                    "fragments",
-                    buildJsonArray {
-                        add(JsonPrimitive(this@toReaderLocatorJson))
-                    },
-                )
-                percent?.let { value ->
-                    put("totalProgression", JsonPrimitive(value))
-                }
-            },
-        )
-    }.toString()
-}
-
 private fun GrimmoryBookFileDto.toFormatType(): FormatType? {
     val normalizedType = bookType?.trim()?.uppercase()
     val normalizedExtension = extension?.trim()?.lowercase()
@@ -363,6 +268,6 @@ private fun GrimmoryBookFileDto.toFormatType(): FormatType? {
     }
 }
 
-private fun String.toEpochMillisOrNull(): Long? = runCatching {
+internal fun String.toEpochMillisOrNull(): Long? = runCatching {
     Instant.parse(this).toEpochMilli()
 }.getOrNull()
