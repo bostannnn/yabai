@@ -8,6 +8,20 @@ import org.junit.Test
 
 class ServerConnectionFormTest {
     @Test
+    fun `remote source connection states use default server addresses`() {
+        val kavita = KavitaConnectionUiState()
+        val grimmory = GrimmoryConnectionUiState()
+        val stump = StumpConnectionUiState()
+
+        assertEquals("http://192.168.50.60:5000/", kavita.baseUrl)
+        assertEquals("https://100.84.32.88:5000/", kavita.backupBaseUrl)
+        assertEquals("http://192.168.50.60:6060/", grimmory.baseUrl)
+        assertEquals("https://100.84.32.88:6060/", grimmory.backupBaseUrl)
+        assertEquals("http://192.168.50.60:10801/", stump.baseUrl)
+        assertEquals("https://100.84.32.88:10801/", stump.backupBaseUrl)
+    }
+
+    @Test
     fun `sync button stays hidden until a stored session exists`() {
         val actionState = buildServerConnectionActionState(
             state = formState(hasStoredSession = false, isConnecting = false),

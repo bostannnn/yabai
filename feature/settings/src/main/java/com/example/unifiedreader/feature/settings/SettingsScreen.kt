@@ -31,6 +31,13 @@ import com.example.unifiedreader.feature.settings.direction.ReadingDirectionLibr
 import com.example.unifiedreader.feature.settings.mode.ComicReaderModeSettingsSection
 import com.example.unifiedreader.feature.settings.mode.ReaderModeLibraryUiState
 
+internal const val DefaultKavitaServerUrl = "http://192.168.50.60:5000/"
+internal const val DefaultKavitaBackupServerUrl = "https://100.84.32.88:5000/"
+internal const val DefaultGrimmoryServerUrl = "http://192.168.50.60:6060/"
+internal const val DefaultGrimmoryBackupServerUrl = "https://100.84.32.88:6060/"
+internal const val DefaultStumpServerUrl = "http://192.168.50.60:10801/"
+internal const val DefaultStumpBackupServerUrl = "https://100.84.32.88:10801/"
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -366,8 +373,8 @@ private fun ThemeSettingsCard(
 
 data class GrimmoryConnectionUiState(
     val displayName: String = "Grimmory",
-    val baseUrl: String = "",
-    val backupBaseUrl: String = "",
+    val baseUrl: String = DefaultGrimmoryServerUrl,
+    val backupBaseUrl: String = DefaultGrimmoryBackupServerUrl,
     val username: String = "",
     val password: String = "",
     val hasStoredSession: Boolean = false,
@@ -388,8 +395,8 @@ data class GrimmoryConnectionUiState(
 
 data class KavitaConnectionUiState(
     val displayName: String = "Kavita",
-    val baseUrl: String = "",
-    val backupBaseUrl: String = "",
+    val baseUrl: String = DefaultKavitaServerUrl,
+    val backupBaseUrl: String = DefaultKavitaBackupServerUrl,
     val username: String = "",
     val password: String = "",
     val availableLibraries: List<Library> = emptyList(),
@@ -411,8 +418,8 @@ data class KavitaConnectionUiState(
 
 data class StumpConnectionUiState(
     val displayName: String = "Stump",
-    val baseUrl: String = "",
-    val backupBaseUrl: String = "",
+    val baseUrl: String = DefaultStumpServerUrl,
+    val backupBaseUrl: String = DefaultStumpBackupServerUrl,
     val username: String = "",
     val password: String = "",
     val availableLibraries: List<Library> = emptyList(),
