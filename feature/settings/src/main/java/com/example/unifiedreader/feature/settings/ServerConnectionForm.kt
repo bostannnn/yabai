@@ -89,27 +89,13 @@ internal fun ServerConnectionForm(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (layout.useTwoColumnServerForm) {
-                ServerFormFieldRow(
-                    start = {
-                        OutlinedTextField(
-                            value = state.displayName,
-                            onValueChange = onDisplayNameChanged,
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = !state.isConnecting,
-                            singleLine = true,
-                            label = { Text("Name") },
-                        )
-                    },
-                    end = {
-                        OutlinedTextField(
-                            value = state.username,
-                            onValueChange = onUsernameChanged,
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = !state.isConnecting,
-                            singleLine = true,
-                            label = { Text("Username") },
-                        )
-                    },
+                OutlinedTextField(
+                    value = state.displayName,
+                    onValueChange = onDisplayNameChanged,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !state.isConnecting,
+                    singleLine = true,
+                    label = { Text("Name") },
                 )
                 ServerFormFieldRow(
                     start = {
@@ -132,6 +118,28 @@ internal fun ServerConnectionForm(
                             singleLine = true,
                             label = { Text("Backup URL (optional)") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                        )
+                    },
+                )
+                ServerFormFieldRow(
+                    start = {
+                        OutlinedTextField(
+                            value = state.username,
+                            onValueChange = onUsernameChanged,
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !state.isConnecting,
+                            singleLine = true,
+                            label = { Text("Username") },
+                        )
+                    },
+                    end = {
+                        ServerPasswordField(
+                            password = state.password,
+                            hasStoredSession = state.hasStoredSession,
+                            isConnecting = state.isConnecting,
+                            isPasswordVisible = isPasswordVisible,
+                            onPasswordVisibilityChanged = { isPasswordVisible = it },
+                            onPasswordChanged = onPasswordChanged,
                         )
                     },
                 )
@@ -171,28 +179,16 @@ internal fun ServerConnectionForm(
                     label = { Text("Username") },
                 )
             }
-            OutlinedTextField(
-                value = state.password,
-                onValueChange = onPasswordChanged,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !state.isConnecting,
-                singleLine = true,
-                label = { Text(if (state.hasStoredSession) "Password (optional)" else "Password") },
-                visualTransformation = if (isPasswordVisible) {
-                    VisualTransformation.None
-                } else {
-                    PasswordVisualTransformation()
-                },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                trailingIcon = {
-                    TextButton(
-                        onClick = { isPasswordVisible = !isPasswordVisible },
-                        enabled = state.password.isNotEmpty() && !state.isConnecting,
-                    ) {
-                        Text(if (isPasswordVisible) "Hide" else "Show")
-                    }
-                },
-            )
+            if (!layout.useTwoColumnServerForm) {
+                ServerPasswordField(
+                    password = state.password,
+                    hasStoredSession = state.hasStoredSession,
+                    isConnecting = state.isConnecting,
+                    isPasswordVisible = isPasswordVisible,
+                    onPasswordVisibilityChanged = { isPasswordVisible = it },
+                    onPasswordChanged = onPasswordChanged,
+                )
+            }
             if (actionState.showSyncButton) {
                 if (layout.useTwoColumnServerForm) {
                     ServerFormFieldRow(
@@ -288,6 +284,39 @@ internal fun ServerConnectionForm(
             }
         }
     }
+}
+
+@Composable
+private fun ServerPasswordField(
+    password: String,
+    hasStoredSession: Boolean,
+    isConnecting: Boolean,
+    isPasswordVisible: Boolean,
+    onPasswordVisibilityChanged: (Boolean) -> Unit,
+    onPasswordChanged: (String) -> Unit,
+) {
+    OutlinedTextField(
+        value = password,
+        onValueChange = onPasswordChanged,
+        modifier = Modifier.fillMaxWidth(),
+        enabled = !isConnecting,
+        singleLine = true,
+        label = { Text(if (hasStoredSession) "Password (optional)" else "Password") },
+        visualTransformation = if (isPasswordVisible) {
+            VisualTransformation.None
+        } else {
+            PasswordVisualTransformation()
+        },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+        trailingIcon = {
+            TextButton(
+                onClick = { onPasswordVisibilityChanged(!isPasswordVisible) },
+                enabled = password.isNotEmpty() && !isConnecting,
+            ) {
+                Text(if (isPasswordVisible) "Hide" else "Show")
+            }
+        },
+    )
 }
 
 @Composable
