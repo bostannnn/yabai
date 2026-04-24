@@ -332,6 +332,13 @@ private class RecordingKavitaApi(
         apiKey: String?,
     ): ByteArray = error("Not needed in test.")
 
+    override suspend fun downloadPageThumbnail(
+        accessToken: String,
+        chapterId: String,
+        pageNumber: Int,
+        apiKey: String?,
+    ): ByteArray = error("Not needed in test.")
+
     override suspend fun downloadCover(
         accessToken: String,
         coverUrl: String,

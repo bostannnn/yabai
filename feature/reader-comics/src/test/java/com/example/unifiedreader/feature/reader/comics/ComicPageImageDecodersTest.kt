@@ -67,6 +67,27 @@ class ComicPageImageDecodersTest {
     }
 
     @Test
+    fun `decode preview uses smaller target bounds`() {
+        val bytes = encodedBitmap(
+            width = 2400,
+            height = 3600,
+        )
+
+        val decoded = decodeComicPagePreview(
+            bytes = bytes,
+            options = ComicPagePreviewOptions(
+                targetLongEdge = 220,
+                maxPixelCount = 90_000,
+            ),
+        )
+
+        assertNotNull(decoded)
+        val image = requireNotNull(decoded).image
+        assertTrue(image.width <= 300)
+        assertTrue(image.height <= 300)
+    }
+
+    @Test
     fun `bitmap cache sizing is byte based and bounded`() {
         assertEquals(
             16 * 1024 * 1024,
@@ -75,6 +96,18 @@ class ComicPageImageDecodersTest {
         assertEquals(
             96 * 1024 * 1024,
             ComicPageLoaderCacheSizing.bitmapCacheBytes(maxMemoryBytes = 2L * 1024 * 1024 * 1024),
+        )
+    }
+
+    @Test
+    fun `preview cache sizing is byte based and bounded`() {
+        assertEquals(
+            4 * 1024 * 1024,
+            ComicPageLoaderCacheSizing.previewCacheBytes(maxMemoryBytes = 8L * 1024 * 1024),
+        )
+        assertEquals(
+            24 * 1024 * 1024,
+            ComicPageLoaderCacheSizing.previewCacheBytes(maxMemoryBytes = 2L * 1024 * 1024 * 1024),
         )
     }
 

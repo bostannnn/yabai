@@ -38,6 +38,16 @@ data class ComicPageMetadata(
     }
 }
 
+data class ComicPagePreviewOptions(
+    val targetLongEdge: Int = 220,
+    val maxPixelCount: Int = 90_000,
+) {
+    init {
+        require(targetLongEdge > 0) { "targetLongEdge must be > 0" }
+        require(maxPixelCount > 0) { "maxPixelCount must be > 0" }
+    }
+}
+
 sealed interface ComicPageLoadResult {
     data class Success(
         val image: ImageBitmap,
@@ -46,6 +56,14 @@ sealed interface ComicPageLoadResult {
     data class Failure(
         val message: String,
     ) : ComicPageLoadResult
+}
+
+sealed interface ComicPagePreviewResult {
+    data class Success(
+        val image: ImageBitmap,
+    ) : ComicPagePreviewResult
+
+    data object Unavailable : ComicPagePreviewResult
 }
 
 data class ComicReaderPreferencesSnapshot(
@@ -180,6 +198,31 @@ interface ComicPageSource {
         page: ComicPageSpec,
         priority: ComicPageLoadPriority = ComicPageLoadPriority.Visible,
     ): ComicPageLoadResult
+
+    suspend fun loadPagePreview(
+        item: ReadableItem,
+        page: ComicPageSpec,
+        options: ComicPagePreviewOptions = ComicPagePreviewOptions(),
+    ): ComicPagePreviewResult = ComicPagePreviewResult.Unavailable
+
+    suspend fun loadPagePreviewMetadata(
+        item: ReadableItem,
+        page: ComicPageSpec,
+        options: ComicPagePreviewOptions = ComicPagePreviewOptions(),
+    ): ComicPageMetadata? = null
+
+    suspend fun loadCachedPagePreviewMetadata(
+        item: ReadableItem,
+        page: ComicPageSpec,
+        options: ComicPagePreviewOptions = ComicPagePreviewOptions(),
+    ): ComicPageMetadata? = null
+
+    fun prefetchPagePreviews(
+        item: ReadableItem,
+        pages: List<ComicPageSpec>,
+        options: ComicPagePreviewOptions = ComicPagePreviewOptions(),
+        priorityPageIndex: Int? = null,
+    ) = Unit
 
     fun prefetchAround(
         item: ReadableItem,

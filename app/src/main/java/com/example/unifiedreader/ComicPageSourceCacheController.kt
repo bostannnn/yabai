@@ -5,6 +5,8 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageMetadata
+import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewOptions
+import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewResult
 import com.example.unifiedreader.feature.reader.comics.ComicPagePrefetchWindow
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
@@ -49,6 +51,34 @@ class CompositeComicPageSource(
         priority: ComicPageLoadPriority,
     ): ComicPageLoadResult = pageSourceFor(item)?.loadPageImage(item, page, priority)
         ?: ComicPageLoadResult.Failure("Unsupported source.")
+
+    override suspend fun loadPagePreview(
+        item: ReadableItem,
+        page: ComicPageSpec,
+        options: ComicPagePreviewOptions,
+    ): ComicPagePreviewResult = pageSourceFor(item)?.loadPagePreview(item, page, options)
+        ?: ComicPagePreviewResult.Unavailable
+
+    override suspend fun loadPagePreviewMetadata(
+        item: ReadableItem,
+        page: ComicPageSpec,
+        options: ComicPagePreviewOptions,
+    ): ComicPageMetadata? = pageSourceFor(item)?.loadPagePreviewMetadata(item, page, options)
+
+    override suspend fun loadCachedPagePreviewMetadata(
+        item: ReadableItem,
+        page: ComicPageSpec,
+        options: ComicPagePreviewOptions,
+    ): ComicPageMetadata? = pageSourceFor(item)?.loadCachedPagePreviewMetadata(item, page, options)
+
+    override fun prefetchPagePreviews(
+        item: ReadableItem,
+        pages: List<ComicPageSpec>,
+        options: ComicPagePreviewOptions,
+        priorityPageIndex: Int?,
+    ) {
+        pageSourceFor(item)?.prefetchPagePreviews(item, pages, options, priorityPageIndex)
+    }
 
     override fun prefetchAround(
         item: ReadableItem,

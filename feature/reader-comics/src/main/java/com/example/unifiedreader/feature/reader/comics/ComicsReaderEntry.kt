@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -344,6 +345,30 @@ fun ComicsReaderScreen(
                         val targetPage = (selectedProgress * (pages.size - 1))
                             .roundToInt()
                             .coerceIn(0, pages.lastIndex)
+                        when (readerState.readerMode) {
+                            ComicReaderMode.Paged -> readerState.onPageSettled(targetPage)
+                            ComicReaderMode.VerticalScroll -> readerState.onContinuousPositionSettled(
+                                pageIndex = targetPage,
+                                offsetRatio = 0f,
+                            )
+                        }
+                    },
+                )
+                ComicPagePreviewStrip(
+                    item = item,
+                    pages = pages,
+                    currentPage = readerState.currentPage,
+                    readingDirection = readerState.readingDirection,
+                    spreadMode = when (readerState.readerMode) {
+                        ComicReaderMode.Paged -> readerState.spreadMode
+                        ComicReaderMode.VerticalScroll -> ComicSpreadMode.Single
+                    },
+                    pageSource = pageSource,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .navigationBarsPadding()
+                        .padding(bottom = 60.dp),
+                    onPageSelected = { targetPage ->
                         when (readerState.readerMode) {
                             ComicReaderMode.Paged -> readerState.onPageSettled(targetPage)
                             ComicReaderMode.VerticalScroll -> readerState.onContinuousPositionSettled(

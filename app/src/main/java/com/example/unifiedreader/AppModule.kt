@@ -34,6 +34,7 @@ import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesStore
 import com.example.unifiedreader.feature.reader.comics.ComicReaderProgressStore
 import com.example.unifiedreader.feature.reader.comics.ComicsReaderSessionAdapter
+import com.example.unifiedreader.feature.reader.comics.PersistentComicPagePreviewStore
 import com.example.unifiedreader.feature.reader.comics.comicsReaderFactory
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderModePreferencesStore
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirectionPreferencesStore
@@ -52,6 +53,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import io.ktor.client.HttpClient
+import java.io.File
 import javax.inject.Singleton
 import kotlin.jvm.JvmSuppressWildcards
 
@@ -531,12 +533,22 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun providePersistentComicPagePreviewStore(
+        @ApplicationContext context: Context,
+    ): PersistentComicPagePreviewStore = PersistentComicPagePreviewStore(
+        rootDirectory = File(context.cacheDir, "comic-page-previews"),
+    )
+
+    @Provides
+    @Singleton
     fun provideKavitaPageSource(
         kavitaApiFactory: KavitaApiFactory,
         kavitaCredentialStore: KavitaCredentialStore,
+        previewStore: PersistentComicPagePreviewStore,
     ): KavitaPageSource = KavitaPageSource(
         kavitaApiFactory = kavitaApiFactory,
         kavitaCredentialStore = kavitaCredentialStore,
+        previewStore = previewStore,
     )
 
     @Provides

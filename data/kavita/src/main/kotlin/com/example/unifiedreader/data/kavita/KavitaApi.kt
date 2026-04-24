@@ -69,6 +69,13 @@ interface KavitaApi {
         apiKey: String?,
     ): ByteArray
 
+    suspend fun downloadPageThumbnail(
+        accessToken: String,
+        chapterId: String,
+        pageNumber: Int,
+        apiKey: String?,
+    ): ByteArray
+
     suspend fun downloadCover(
         accessToken: String,
         coverUrl: String,
@@ -301,6 +308,29 @@ class KtorKavitaApi(
             url {
                 parameters.append("chapterId", chapterId)
                 parameters.append("page", pageIndex.toString())
+                apiKey?.takeIf(String::isNotBlank)?.let { key ->
+                    parameters.append("apiKey", key)
+                }
+            }
+        }
+        response.throwIfKavitaError()
+        response.body()
+    }
+
+    override suspend fun downloadPageThumbnail(
+        accessToken: String,
+        chapterId: String,
+        pageNumber: Int,
+        apiKey: String?,
+    ): ByteArray = authenticatedRequest {
+        val response = httpClient.get("$normalizedBaseUrl/api/Reader/thumbnail") {
+            bearerAuth(accessToken)
+            apiKey?.takeIf(String::isNotBlank)?.let { key ->
+                header("x-api-key", key)
+            }
+            url {
+                parameters.append("chapterId", chapterId)
+                parameters.append("pageNum", pageNumber.toString())
                 apiKey?.takeIf(String::isNotBlank)?.let { key ->
                     parameters.append("apiKey", key)
                 }

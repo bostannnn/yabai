@@ -15,7 +15,9 @@ import com.example.unifiedreader.data.kavita.KavitaSession
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPagePrefetchWindow
+import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
+import com.example.unifiedreader.feature.reader.comics.PersistentComicPagePreviewStore
 import java.io.File
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -89,6 +91,120 @@ class KavitaPageSourceTest {
 
         assertEquals(8, api.requestedPageIndexes.size)
         assertTrue(api.requestedPageIndexes.containsAll(listOf(6, 7, 8, 9, 10, 11, 4, 3)))
+    }
+
+    @Test
+    fun `page preview uses kavita thumbnail endpoint instead of full page image`() = runTest {
+        val item = sampleKavitaComic(pageCount = 12)
+        val api = RecordingKavitaPageApi()
+        val pageSource = createPageSource(api, this)
+        val page = ComicPageSpec(id = "3", pageIndex = 3, contentDescription = "Page 4")
+
+        val result = pageSource.loadPagePreview(item, page)
+
+        assertTrue(result is ComicPagePreviewResult.Success)
+        assertEquals(emptyList<Int>(), api.requestedPageIndexes)
+        assertEquals(listOf(3), api.requestedThumbnailPageNumbers)
+    }
+
+    @Test
+    fun `preview prefetch warms all kavita thumbnail bytes`() = runTest {
+        val item = sampleKavitaComic(pageCount = 6)
+        val api = RecordingKavitaPageApi()
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val scope = TestScope(dispatcher)
+        val pageSource = createPageSource(api, scope)
+        val pages = pageSource.getPages(item)
+
+        pageSource.prefetchPagePreviews(item, pages)
+        scope.advanceUntilIdle()
+        pageSource.loadPagePreview(item, pages[2])
+
+        assertEquals(emptyList<Int>(), api.requestedPageIndexes)
+        assertEquals(listOf(0, 1, 2, 3, 4, 5), api.requestedThumbnailPageNumbers)
+    }
+
+    @Test
+    fun `preview prefetch prioritizes current page before warming the rest`() = runTest {
+        val item = sampleKavitaComic(pageCount = 6)
+        val api = RecordingKavitaPageApi()
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val scope = TestScope(dispatcher)
+        val pageSource = createPageSource(api, scope)
+        val pages = pageSource.getPages(item)
+
+        pageSource.prefetchPagePreviews(
+            item = item,
+            pages = pages,
+            priorityPageIndex = 3,
+        )
+        scope.advanceUntilIdle()
+
+        assertEquals(listOf(3, 2, 4, 1, 5, 0), api.requestedThumbnailPageNumbers)
+    }
+
+    @Test
+    fun `visible preview reuses in flight prefetched thumbnail request`() = runTest {
+        val item = sampleKavitaComic(pageCount = 6)
+        val api = RecordingKavitaPageApi()
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val scope = TestScope(dispatcher)
+        val pageSource = createPageSource(api, scope)
+        val pages = pageSource.getPages(item)
+        api.beginBlockingRequests()
+
+        pageSource.prefetchPagePreviews(
+            item = item,
+            pages = pages,
+            priorityPageIndex = 3,
+        )
+        scope.runCurrent()
+        api.awaitBlockedRequest()
+
+        val visiblePreview = async(UnconfinedTestDispatcher(testScheduler)) {
+            pageSource.loadPagePreview(item, pages[3])
+        }
+        runCurrent()
+        api.releaseBlockedRequests()
+
+        assertTrue(visiblePreview.await() is ComicPagePreviewResult.Success)
+        scope.advanceUntilIdle()
+        assertEquals(1, api.requestedThumbnailPageNumbers.count { it == 3 })
+    }
+
+    @Test
+    fun `page preview reuses persistent thumbnail bytes after source recreation`() = runTest {
+        val item = sampleKavitaComic(pageCount = 12)
+        val previewStoreDirectory = File(System.getProperty("java.io.tmpdir"), "kavita-preview-store-${System.nanoTime()}")
+        val previewStore = PersistentComicPagePreviewStore(
+            rootDirectory = previewStoreDirectory,
+            ioDispatcher = coroutineContext[ContinuationInterceptor] as kotlinx.coroutines.CoroutineDispatcher,
+        )
+        val firstApi = RecordingKavitaPageApi()
+        val firstSource = createPageSource(
+            api = firstApi,
+            scope = this,
+            previewStore = previewStore,
+        )
+        val page = ComicPageSpec(id = "3", pageIndex = 3, contentDescription = "Page 4")
+
+        try {
+            firstSource.loadPagePreview(item, page)
+
+            val secondApi = RecordingKavitaPageApi()
+            val secondSource = createPageSource(
+                api = secondApi,
+                scope = this,
+                previewStore = previewStore,
+            )
+            val result = secondSource.loadPagePreview(item, page)
+
+            assertTrue(result is ComicPagePreviewResult.Success)
+            assertEquals(listOf(3), firstApi.requestedThumbnailPageNumbers)
+            assertEquals(emptyList<Int>(), secondApi.requestedThumbnailPageNumbers)
+        } finally {
+            previewStoreDirectory.deleteRecursively()
+        }
     }
 
     @Test
@@ -254,11 +370,13 @@ private fun createPageSource(
             apiKey = "api-key",
         ),
     ),
+    previewStore: PersistentComicPagePreviewStore? = null,
 ): KavitaPageSource = KavitaPageSource(
     kavitaApiFactory = KavitaApiFactory { _ -> api },
     kavitaCredentialStore = credentialStore,
     ioDispatcher = scope.coroutineContext[ContinuationInterceptor] as kotlinx.coroutines.CoroutineDispatcher,
     scope = scope,
+    previewStore = previewStore,
 )
 
 private fun sampleKavitaComic(
@@ -299,6 +417,7 @@ private class TestKavitaCredentialStore(
 
 private class RecordingKavitaPageApi : KavitaApi {
     val requestedPageIndexes = mutableListOf<Int>()
+    val requestedThumbnailPageNumbers = mutableListOf<Int>()
     var blockRequests: Boolean = false
     private var blockedRequestCount = 0
     private var blockedRequestStarted = CompletableDeferred<Unit>()
@@ -352,6 +471,22 @@ private class RecordingKavitaPageApi : KavitaApi {
         apiKey: String?,
     ): ByteArray {
         requestedPageIndexes += pageIndex
+        if (blockRequests) {
+            blockedRequestCount += 1
+            blockedRequestStarted.complete(Unit)
+            releaseBlockedRequests.await()
+            blockedRequestCount -= 1
+        }
+        return TEST_PNG_BYTES
+    }
+
+    override suspend fun downloadPageThumbnail(
+        accessToken: String,
+        chapterId: String,
+        pageNumber: Int,
+        apiKey: String?,
+    ): ByteArray {
+        requestedThumbnailPageNumbers += pageNumber
         if (blockRequests) {
             blockedRequestCount += 1
             blockedRequestStarted.complete(Unit)

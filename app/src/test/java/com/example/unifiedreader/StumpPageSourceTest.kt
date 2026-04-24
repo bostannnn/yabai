@@ -11,6 +11,7 @@ import com.example.unifiedreader.data.stump.StumpSeriesEntry
 import com.example.unifiedreader.data.stump.StumpSession
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
+import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 import java.io.File
 import kotlinx.coroutines.CompletableDeferred
@@ -179,6 +180,19 @@ class StumpPageSourceTest {
         imageLoad.await()
 
         assertEquals(1, api.requestedPageIndexes.count { it == 3 })
+    }
+
+    @Test
+    fun `page preview does not start full page request for stump without cached bytes`() = runTest {
+        val item = sampleStumpComic(pageCount = 12)
+        val api = RecordingStumpPageApi()
+        val pageSource = createPageSource(api, this)
+        val page = ComicPageSpec(id = "3", pageIndex = 3, contentDescription = "Page 4")
+
+        val result = pageSource.loadPagePreview(item, page)
+
+        assertTrue(result is ComicPagePreviewResult.Unavailable)
+        assertEquals(emptyList<Int>(), api.requestedPageIndexes)
     }
 
     @Test

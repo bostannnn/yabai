@@ -3,6 +3,7 @@ package com.example.unifiedreader
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
+import com.example.unifiedreader.feature.reader.comics.PersistentComicPagePreviewStore
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -13,14 +14,18 @@ class KavitaPageSource(
     private val kavitaCredentialStore: KavitaCredentialStore,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + ioDispatcher),
+    previewStore: PersistentComicPagePreviewStore? = null,
 ) : RemoteComicPageSource<KavitaStoredSession>(
     sourceType = com.example.unifiedreader.core.model.SourceType.KAVITA,
     supportedFormats = setOf(FormatType.CBZ),
     missingSessionMessage = "Connect to Kavita before reading remote comics.",
     ioDispatcher = ioDispatcher,
     scope = scope,
+    previewStore = previewStore,
 ) {
     private val sessionRequestRunner = KavitaStoredSessionRequestRunner(kavitaCredentialStore)
+
+    override val hasDedicatedPagePreviews: Boolean = true
 
     override fun activeSessionFor(
         item: ReadableItem,
@@ -49,6 +54,35 @@ class KavitaPageSource(
                     accessToken = accessToken,
                     chapterId = chapterId,
                     pageIndex = pageIndex,
+                    apiKey = apiKey,
+                )
+            }
+        }
+    }
+
+    override suspend fun downloadPagePreviewBytes(
+        session: KavitaStoredSession,
+        item: ReadableItem,
+        page: ComicPageSpec,
+    ): ByteArray? {
+        val chapterId = item.remoteId ?: return null
+        val pageNumber = page.id.toIntOrNull() ?: return null
+        return runWithStoredSessionAddressFailover(
+            sessionStore = kavitaCredentialStore,
+            session = session,
+            createApi = kavitaApiFactory::create,
+            withActiveBaseUrl = { currentSession, activeBaseUrl ->
+                currentSession.copy(activeBaseUrl = activeBaseUrl)
+            },
+        ) { api, activeSession ->
+            sessionRequestRunner.run(
+                api = api,
+                session = activeSession,
+            ) { accessToken, apiKey ->
+                api.downloadPageThumbnail(
+                    accessToken = accessToken,
+                    chapterId = chapterId,
+                    pageNumber = pageNumber,
                     apiKey = apiKey,
                 )
             }

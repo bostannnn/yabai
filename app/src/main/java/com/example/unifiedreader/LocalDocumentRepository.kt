@@ -9,6 +9,8 @@ import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageMetadata
 import com.example.unifiedreader.feature.reader.comics.ComicPagePrefetchWindow
+import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewOptions
+import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 import kotlinx.coroutines.CoroutineScope
@@ -144,6 +146,43 @@ class LocalDocumentRepository private constructor(
             priority = priority,
         )
     }
+
+    override suspend fun loadPagePreview(
+        item: ReadableItem,
+        page: ComicPageSpec,
+        options: ComicPagePreviewOptions,
+    ): ComicPagePreviewResult {
+        val record = store.findRecord(item.id)
+            ?: return ComicPagePreviewResult.Unavailable
+        return comicPageLoader.loadPagePreview(
+            item = item,
+            record = record,
+            entryName = page.id,
+            options = options,
+        )
+    }
+
+    override suspend fun loadPagePreviewMetadata(
+        item: ReadableItem,
+        page: ComicPageSpec,
+        options: ComicPagePreviewOptions,
+    ): ComicPageMetadata? {
+        val record = store.findRecord(item.id) ?: return null
+        return comicPageLoader.loadPageMetadata(
+            item = item,
+            record = record,
+            entryName = page.id,
+        )
+    }
+
+    override suspend fun loadCachedPagePreviewMetadata(
+        item: ReadableItem,
+        page: ComicPageSpec,
+        options: ComicPagePreviewOptions,
+    ): ComicPageMetadata? = comicPageLoader.cachedPageMetadata(
+        item = item,
+        entryName = page.id,
+    )
 
     override fun prefetchAround(
         item: ReadableItem,

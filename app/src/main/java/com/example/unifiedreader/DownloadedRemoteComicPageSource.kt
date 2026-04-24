@@ -9,6 +9,8 @@ import com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageMetadata
+import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewOptions
+import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewResult
 import com.example.unifiedreader.feature.reader.comics.ComicPagePrefetchWindow
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
@@ -100,6 +102,52 @@ class DownloadedRemoteComicPageSource @Inject constructor(
             record = record,
             entryName = entryName,
             priority = priority,
+        )
+    }
+
+    override suspend fun loadPagePreview(
+        item: ReadableItem,
+        page: ComicPageSpec,
+        options: ComicPagePreviewOptions,
+    ): ComicPagePreviewResult {
+        val record = localRecordFor(item)
+            ?: return ComicPagePreviewResult.Unavailable
+        val entryName = record.pageEntryNames.getOrNull(page.pageIndex)
+            ?: return ComicPagePreviewResult.Unavailable
+        return comicPageLoader.loadPagePreview(
+            item = item,
+            record = record,
+            entryName = entryName,
+            options = options,
+        )
+    }
+
+    override suspend fun loadPagePreviewMetadata(
+        item: ReadableItem,
+        page: ComicPageSpec,
+        options: ComicPagePreviewOptions,
+    ): ComicPageMetadata? {
+        val record = localRecordFor(item) ?: return null
+        val entryName = record.pageEntryNames.getOrNull(page.pageIndex) ?: return null
+        return comicPageLoader.loadPageMetadata(
+            item = item,
+            record = record,
+            entryName = entryName,
+        )
+    }
+
+    override suspend fun loadCachedPagePreviewMetadata(
+        item: ReadableItem,
+        page: ComicPageSpec,
+        options: ComicPagePreviewOptions,
+    ): ComicPageMetadata? {
+        val entryNames = archiveEntryCache.get(item.id).orEmpty()
+        if (entryNames.isEmpty()) return null
+        val record = localRecordForCachedEntries(item = item, entryNames = entryNames) ?: return null
+        val entryName = record.pageEntryNames.getOrNull(page.pageIndex) ?: return null
+        return comicPageLoader.cachedPageMetadata(
+            item = item,
+            entryName = entryName,
         )
     }
 

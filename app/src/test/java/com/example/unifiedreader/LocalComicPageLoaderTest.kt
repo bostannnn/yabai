@@ -7,6 +7,8 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPagePrefetchWindow
+import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewOptions
+import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewResult
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -17,6 +19,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -91,6 +94,40 @@ class LocalComicPageLoaderTest {
         visibleLoad.await()
         scope.advanceUntilIdle()
 
+        assertEquals(1, codec.requestedEntryNames.count { it == entryName })
+    }
+
+    @Test
+    fun `preview load shares in flight archive read with visible load`() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val codec = RecordingComicArchiveCodec()
+        val loader = LocalComicPageLoader(
+            context = context,
+            comicArchiveCodecs = listOf(codec),
+            scope = TestScope(StandardTestDispatcher(testScheduler)),
+        )
+        val item = sampleLocalComic(pageCount = 12)
+        val record = sampleLocalRecord(pageCount = 12)
+        val entryName = "3.png"
+        codec.beginBlockingReads()
+
+        val previewLoad = async(UnconfinedTestDispatcher(testScheduler)) {
+            loader.loadPagePreview(
+                item = item,
+                record = record,
+                entryName = entryName,
+                options = ComicPagePreviewOptions(),
+            )
+        }
+        codec.awaitBlockedRead()
+        val imageLoad = async(UnconfinedTestDispatcher(testScheduler)) {
+            loader.loadPageImage(item, record, entryName, ComicPageLoadPriority.Visible)
+        }
+        runCurrent()
+        codec.releaseBlockedReads()
+
+        assertTrue(previewLoad.await() is ComicPagePreviewResult.Success)
+        imageLoad.await()
         assertEquals(1, codec.requestedEntryNames.count { it == entryName })
     }
 }
