@@ -137,6 +137,5 @@ data class AppUiState(
 
     val shouldReserveLibraryShelvesSlot: Boolean
         get() = selectedLibrarySearchQuery.isBlank() &&
-            selectedLibraryFilters.isEmpty &&
             !isSeriesBrowseActive
 }

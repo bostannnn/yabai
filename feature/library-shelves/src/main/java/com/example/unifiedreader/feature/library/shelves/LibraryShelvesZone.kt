@@ -23,6 +23,7 @@ fun LibraryShelvesZone(
     state: LibraryShelvesState,
     itemActionContext: LibraryItemActionContext = LibraryItemActionContext(),
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
+    coverPrefetchKeyProvider: (ReadableItem, LibraryCoverImageVariant) -> String? = coverImageUrlProvider,
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onItemSelected: (ReadableItem) -> Unit,
     onDeleteImportedItem: (ReadableItem) -> Unit = {},
@@ -37,16 +38,17 @@ fun LibraryShelvesZone(
     }
     var deleteCandidate by remember(state) { mutableStateOf<ReadableItem?>(null) }
     val visibleShelves = visibleShelfCount(state)
-    val previewCoverItems = remember(state, coverImageUrlProvider) {
-        shelfPreviewCoverPrefetchItems(
+    val previewCoverTargets = remember(state, coverPrefetchKeyProvider) {
+        shelfPreviewCoverPrefetchTargets(
             state = state,
-            coverImageUrlProvider = coverImageUrlProvider,
+            coverPrefetchKeyProvider = coverPrefetchKeyProvider,
         )
     }
 
     LibraryShelvesPreviewCoverPrefetcher(
+        browseContextKey = browseContextKey,
         coverLoadingEnabled = true,
-        items = previewCoverItems,
+        targets = previewCoverTargets,
         onCoverVisible = onCoverVisible,
     )
 

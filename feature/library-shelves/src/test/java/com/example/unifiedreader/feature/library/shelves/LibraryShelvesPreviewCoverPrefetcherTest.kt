@@ -48,13 +48,13 @@ class LibraryShelvesPreviewCoverPrefetcherTest {
             )
         }
 
-        val targets = shelfPreviewCoverPrefetchItems(
+        val targets = shelfPreviewCoverPrefetchTargets(
             state = LibraryShelvesState(
                 continueReading = continueReading,
                 nextInSeries = nextInSeries,
                 recentlyFinished = recentlyFinished,
             ),
-            coverImageUrlProvider = { item, _ -> item.coverUrl },
+            coverPrefetchKeyProvider = { item, variant -> "${variant.name}:${item.coverUrl}" },
         )
 
         assertEquals(
@@ -71,7 +71,7 @@ class LibraryShelvesPreviewCoverPrefetcherTest {
                 "finished-3",
                 "finished-4",
             ),
-            targets.map(ReadableItem::remoteId),
+            targets.map { target -> target.item.remoteId },
         )
     }
 
@@ -87,17 +87,33 @@ class LibraryShelvesPreviewCoverPrefetcherTest {
         )
         val uncachedRemote = remoteItem(id = "blank", coverUrl = "")
 
-        val targets = shelfPreviewCoverPrefetchItems(
+        val targets = shelfPreviewCoverPrefetchTargets(
             state = LibraryShelvesState(
                 continueReading = listOf(
                     ContinueReadingShelfItem(localItem, progress(0.2f)),
                     ContinueReadingShelfItem(uncachedRemote, progress(0.3f)),
                 ),
             ),
-            coverImageUrlProvider = { item, _ -> item.coverUrl },
+            coverPrefetchKeyProvider = { item, variant -> "remote-cover:${item.id}:${variant.name}" },
         )
 
-        assertEquals(listOf("blank"), targets.map(ReadableItem::remoteId))
+        assertEquals(listOf("blank"), targets.map { target -> target.item.remoteId })
+    }
+
+    @Test
+    fun `preview prefetch items skip remote items without prefetch key`() {
+        val remoteWithoutKey = remoteItem(id = "missing-key")
+
+        val targets = shelfPreviewCoverPrefetchTargets(
+            state = LibraryShelvesState(
+                continueReading = listOf(
+                    ContinueReadingShelfItem(remoteWithoutKey, progress(0.3f)),
+                ),
+            ),
+            coverPrefetchKeyProvider = { _, _ -> null },
+        )
+
+        assertEquals(emptyList<ShelfPreviewCoverPrefetchTarget>(), targets)
     }
 }
 

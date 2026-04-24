@@ -100,6 +100,7 @@ internal fun LibraryRoute(
                         state = uiState.libraryShelvesState,
                         itemActionContext = itemActionContext,
                         coverImageUrlProvider = coverImageUrlProvider,
+                        coverPrefetchKeyProvider = coverPrefetchKeyProvider,
                         onCoverVisible = onCoverVisible,
                         onItemSelected = onItemSelected,
                         onDeleteImportedItem = onDeleteImportedItem,

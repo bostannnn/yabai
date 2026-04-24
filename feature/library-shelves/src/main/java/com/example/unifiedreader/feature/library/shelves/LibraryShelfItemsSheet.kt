@@ -31,6 +31,7 @@ import com.example.unifiedreader.feature.library.LibraryAnchoredItemMenu
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
 import com.example.unifiedreader.feature.library.hasMenuContent
+import com.example.unifiedreader.feature.library.isDownloaded
 
 internal sealed interface LibraryShelfSheetState {
     val title: String
@@ -171,6 +172,8 @@ private fun ShelfItemsList(
                         null
                     },
                     progressFraction = shelfItem.progress.fraction,
+                    isDownloaded = itemActionContext.isDownloaded(shelfItem.item),
+                    isRead = shelfItem.progress.isShelfComplete,
                 )
             }
 
@@ -203,6 +206,8 @@ private fun ShelfItemsList(
                     } else {
                         null
                     },
+                    isDownloaded = itemActionContext.isDownloaded(shelfItem.item),
+                    isRead = itemActionContext.progressByItemId[shelfItem.item.id]?.isShelfComplete == true,
                 )
             }
 
@@ -240,10 +245,15 @@ private fun ShelfItemsList(
                     } else {
                         null
                     },
+                    isDownloaded = itemActionContext.isDownloaded(shelfItem.item),
+                    isRead = shelfItem.progress.isShelfComplete,
                 )
             }
         }
     }
 }
+
+private val com.example.unifiedreader.feature.library.ItemProgressSummary.isShelfComplete: Boolean
+    get() = isFinished || fraction >= 0.999f
 
 private val SheetListMaxHeight = 560.dp

@@ -27,7 +27,7 @@ import coil.compose.AsyncImage
 import com.example.unifiedreader.core.model.ReadableItem
 
 @Composable
-internal fun LibraryCover(
+fun LibraryCover(
     item: ReadableItem,
     coverUrl: String? = item.coverUrl,
     isDownloaded: Boolean = false,
@@ -101,7 +101,7 @@ internal fun LibraryCover(
 }
 
 @Composable
-internal fun ResolvedLibraryCover(
+fun ResolvedLibraryCover(
     item: ReadableItem,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     isDownloaded: Boolean = false,

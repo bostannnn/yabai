@@ -2,6 +2,7 @@ package com.example.unifiedreader.feature.library.shelves
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
@@ -9,25 +10,32 @@ import kotlinx.coroutines.delay
 
 @Composable
 internal fun LibraryShelvesPreviewCoverPrefetcher(
+    browseContextKey: String,
     coverLoadingEnabled: Boolean,
-    items: List<ReadableItem>,
+    targets: List<ShelfPreviewCoverPrefetchTarget>,
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
 ) {
-    LaunchedEffect(coverLoadingEnabled, items, onCoverVisible) {
-        if (!coverLoadingEnabled || items.isEmpty()) return@LaunchedEffect
-        items.forEachIndexed { index, item ->
+    val signaledPrefetchKeys = remember(browseContextKey) { mutableSetOf<String>() }
+
+    LaunchedEffect(coverLoadingEnabled, targets, onCoverVisible) {
+        if (!coverLoadingEnabled || targets.isEmpty()) return@LaunchedEffect
+        val unsignaledTargets = targets.filterNot { target ->
+            target.prefetchKey in signaledPrefetchKeys
+        }
+        unsignaledTargets.forEachIndexed { index, target ->
             if (index > 0) {
                 delay(SHELF_PREVIEW_PREFETCH_STAGGER_MILLIS)
             }
-            onCoverVisible(item, LibraryCoverImageVariant.ShelfPreview)
+            signaledPrefetchKeys += target.prefetchKey
+            onCoverVisible(target.item, LibraryCoverImageVariant.ShelfPreview)
         }
     }
 }
 
-internal fun shelfPreviewCoverPrefetchItems(
+internal fun shelfPreviewCoverPrefetchTargets(
     state: LibraryShelvesState,
-    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
-): List<ReadableItem> = buildList {
+    coverPrefetchKeyProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
+): List<ShelfPreviewCoverPrefetchTarget> = buildList {
     addAll(
         state.continueReading
             .asSequence()
@@ -51,9 +59,21 @@ internal fun shelfPreviewCoverPrefetchItems(
     )
 }
     .distinctBy(ReadableItem::id)
-    .filter { item ->
-        item.sourceType != SourceType.LOCAL
+    .mapNotNull { item ->
+        if (item.sourceType == SourceType.LOCAL) return@mapNotNull null
+        val prefetchKey = coverPrefetchKeyProvider(item, LibraryCoverImageVariant.ShelfPreview)
+            ?.takeIf(String::isNotBlank)
+            ?: return@mapNotNull null
+        ShelfPreviewCoverPrefetchTarget(
+            item = item,
+            prefetchKey = prefetchKey,
+        )
     }
+
+internal data class ShelfPreviewCoverPrefetchTarget(
+    val item: ReadableItem,
+    val prefetchKey: String,
+)
 
 internal const val SHELF_PREVIEW_PREFETCH_LIMIT_PER_SECTION = 4
 private const val SHELF_PREVIEW_PREFETCH_STAGGER_MILLIS = 24L

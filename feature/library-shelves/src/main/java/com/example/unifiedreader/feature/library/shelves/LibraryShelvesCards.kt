@@ -1,6 +1,5 @@
 package com.example.unifiedreader.feature.library.shelves
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,22 +18,17 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
-import com.example.unifiedreader.feature.library.rememberLibraryCoverImageRequest
+import com.example.unifiedreader.feature.library.ResolvedLibraryCover
 
 @Composable
 internal fun ShelfPreviewCard(
@@ -47,6 +41,8 @@ internal fun ShelfPreviewCard(
     onClick: () -> Unit,
     menuContent: (@Composable BoxScope.() -> Unit)? = null,
     progressFraction: Float? = null,
+    isDownloaded: Boolean = false,
+    isRead: Boolean = false,
 ) {
     Card(
         modifier = Modifier
@@ -68,6 +64,8 @@ internal fun ShelfPreviewCard(
                     onCoverVisible = { _, _ -> },
                     coverLoadingEnabled = coverLoadingEnabled,
                     notifyVisibleOnCompose = false,
+                    isDownloaded = isDownloaded,
+                    isRead = isRead,
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(CoverAspectRatio),
@@ -80,8 +78,8 @@ internal fun ShelfPreviewCard(
                             .fillMaxWidth()
                             .clip(
                                 RoundedCornerShape(
-                                    bottomStart = 14.dp,
-                                    bottomEnd = 14.dp,
+                                    bottomStart = CoverCornerRadius,
+                                    bottomEnd = CoverCornerRadius,
                                 ),
                             ),
                     )
@@ -130,6 +128,8 @@ internal fun ShelfListRow(
     onClick: () -> Unit,
     menuContent: (@Composable () -> Unit)? = null,
     progressFraction: Float? = null,
+    isDownloaded: Boolean = false,
+    isRead: Boolean = false,
 ) {
     Row(
         modifier = Modifier
@@ -148,6 +148,8 @@ internal fun ShelfListRow(
                 coverImageUrlProvider = coverImageUrlProvider,
                 onCoverVisible = onCoverVisible,
                 coverLoadingEnabled = coverLoadingEnabled,
+                isDownloaded = isDownloaded,
+                isRead = isRead,
                 modifier = Modifier.fillMaxSize(),
             )
             progressFraction?.let { fraction ->
@@ -158,8 +160,8 @@ internal fun ShelfListRow(
                         .fillMaxWidth()
                         .clip(
                             RoundedCornerShape(
-                                bottomStart = 14.dp,
-                                bottomEnd = 14.dp,
+                                bottomStart = CoverCornerRadius,
+                                bottomEnd = CoverCornerRadius,
                             ),
                         ),
                 )
@@ -201,6 +203,8 @@ internal fun ShelfCover(
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     coverLoadingEnabled: Boolean = true,
     notifyVisibleOnCompose: Boolean = true,
+    isDownloaded: Boolean = false,
+    isRead: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     LaunchedEffect(item.id, coverLoadingEnabled, notifyVisibleOnCompose) {
@@ -213,65 +217,23 @@ internal fun ShelfCover(
     } else {
         LibraryCoverImageVariant.ShelfPreview
     }
-    val imageUrl = if (coverLoadingEnabled) {
-        coverImageUrlProvider(item, variant)
-    } else {
-        null
-    }
-    if (imageUrl.isNullOrBlank()) {
-        PlaceholderCover(
-            title = item.title,
-            modifier = modifier,
-        )
-        return
-    }
-    val coverModifier = modifier
-        .clip(RoundedCornerShape(14.dp))
-        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-    val request = rememberShelfCoverRequest(
-        imageUrl = imageUrl,
-        variant = variant,
+    ResolvedLibraryCover(
+        item = item,
+        coverImageUrlProvider = { coverItem, coverVariant ->
+            if (coverLoadingEnabled) {
+                coverImageUrlProvider(coverItem, coverVariant)
+            } else {
+                null
+            }
+        },
+        isDownloaded = isDownloaded,
+        isRead = isRead,
+        imageVariant = variant,
+        modifier = modifier,
     )
-    AsyncImage(
-        model = request,
-        contentDescription = item.title,
-        modifier = coverModifier,
-        contentScale = ContentScale.Crop,
-    )
-}
-
-@Composable
-private fun rememberShelfCoverRequest(
-    imageUrl: String,
-    variant: LibraryCoverImageVariant,
-): coil.request.ImageRequest {
-    val context = LocalContext.current
-    return rememberLibraryCoverImageRequest(
-        context = context,
-        imageUrl = imageUrl,
-        variant = variant,
-    )
-}
-@Composable
-private fun PlaceholderCover(title: String, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier.clip(RoundedCornerShape(14.dp)),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-    ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = title.firstOrNull()?.uppercase() ?: "?",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Bold,
-            )
-        }
-    }
 }
 
 private val ShelfPreviewCardWidth = 132.dp
 private val ShelfPreviewCardHeight = 226.dp
+private val CoverCornerRadius = 4.dp
 private const val CoverAspectRatio = 0.72f
