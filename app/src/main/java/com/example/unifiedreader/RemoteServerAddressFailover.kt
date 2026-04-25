@@ -1,7 +1,7 @@
 package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.SourceType
-import java.io.IOException
+import com.example.unifiedreader.core.network.isRetryableNetworkFailure
 import java.net.URI
 
 internal data class RemoteServerAddressResult<T>(
@@ -40,17 +40,7 @@ internal suspend fun <T> runWithServerAddressFailover(
     throw lastFailure ?: error("Unable to reach any configured server address.")
 }
 
-internal fun Throwable.isRemoteServerAddressRetryableFailure(): Boolean = generateSequence(this) { error ->
-    error.cause
-}.any { error ->
-    error is IOException ||
-        error::class.simpleName in setOf(
-            "ConnectTimeoutException",
-            "HttpRequestTimeoutException",
-            "SocketTimeoutException",
-            "UnresolvedAddressException",
-        )
-}
+internal fun Throwable.isRemoteServerAddressRetryableFailure(): Boolean = isRetryableNetworkFailure()
 
 internal suspend fun <Session : StoredSourceSession, Api, T> runWithStoredSessionAddressFailover(
     sessionStore: SourceSessionStore<Session>,

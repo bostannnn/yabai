@@ -99,7 +99,211 @@ class AppViewModelTest {
     }
 
     @Test
-    fun `remote progress sync failure still opens reader and shows notice`() {
+    fun `on downloaded item selected opens reader without waiting for remote progress sync`() {
+        val remoteComic = sampleItem(
+            id = "kavita-cbz",
+            title = "Downloaded Comic",
+            format = FormatType.CBZ,
+        ).copy(
+            sourceType = SourceType.KAVITA,
+            libraryId = SourceType.KAVITA.remoteLibraryId("kavita-comics"),
+            remoteId = "chapter-1",
+        )
+        val progressSync = BlockingSourceProgressSync(sourceType = SourceType.KAVITA)
+        val kavitaDownloadDataSource = FakeRemoteDownloadDataSource(
+            sourceType = SourceType.KAVITA,
+            storedItemIds = mutableSetOf(remoteComic.id),
+        )
+        val viewModel = createViewModel(
+            sampleItems = listOf(remoteComic),
+            remoteDownloadDataSources = listOf(
+                FakeGrimmoryContentRepository(),
+                kavitaDownloadDataSource,
+            ),
+            sourceProgressSyncs = listOf(progressSync),
+        )
+
+        viewModel.onItemSelected(remoteComic)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(remoteComic.id, viewModel.uiState.selectedItemId)
+        assertEquals(FormatType.CBZ, viewModel.uiState.activeReader)
+        assertEquals(1, progressSync.syncItemCalls)
+    }
+
+    @Test
+    fun `downloaded item network progress failure opens reader silently and marks source unavailable`() {
+        val remoteComic = sampleItem(
+            id = "kavita-cbz",
+            title = "Downloaded Comic",
+            format = FormatType.CBZ,
+        ).copy(
+            sourceType = SourceType.KAVITA,
+            libraryId = SourceType.KAVITA.remoteLibraryId("kavita-comics"),
+            remoteId = "chapter-1",
+        )
+        val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markReachable(SourceType.KAVITA)
+        }
+        val viewModel = createViewModel(
+            sampleItems = listOf(remoteComic),
+            remoteDownloadDataSources = listOf(
+                FakeGrimmoryContentRepository(),
+                FakeRemoteDownloadDataSource(
+                    sourceType = SourceType.KAVITA,
+                    storedItemIds = mutableSetOf(remoteComic.id),
+                ),
+            ),
+            sourceProgressSyncs = listOf(NetworkFailingSourceProgressSync(sourceType = SourceType.KAVITA)),
+            remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+        )
+
+        viewModel.onItemSelected(remoteComic)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(remoteComic.id, viewModel.uiState.selectedItemId)
+        assertEquals(FormatType.CBZ, viewModel.uiState.activeReader)
+        assertNull(viewModel.uiState.progressSyncNotice)
+        assertEquals(RemoteSourceReachability.Unavailable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+    }
+
+    @Test
+    fun `downloaded item non-network progress failure opens reader and shows notice`() {
+        val remoteComic = sampleItem(
+            id = "kavita-cbz",
+            title = "Downloaded Comic",
+            format = FormatType.CBZ,
+        ).copy(
+            sourceType = SourceType.KAVITA,
+            libraryId = SourceType.KAVITA.remoteLibraryId("kavita-comics"),
+            remoteId = "chapter-1",
+        )
+        val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy()
+        remoteSourceConnectivityPolicy.markReachable(SourceType.KAVITA)
+        val viewModel = createViewModel(
+            sampleItems = listOf(remoteComic),
+            remoteDownloadDataSources = listOf(
+                FakeGrimmoryContentRepository(),
+                FakeRemoteDownloadDataSource(
+                    sourceType = SourceType.KAVITA,
+                    storedItemIds = mutableSetOf(remoteComic.id),
+                ),
+            ),
+            sourceProgressSyncs = listOf(FailingSourceProgressSync(sourceType = SourceType.KAVITA)),
+            remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+        )
+
+        viewModel.onItemSelected(remoteComic)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(remoteComic.id, viewModel.uiState.selectedItemId)
+        assertEquals(FormatType.CBZ, viewModel.uiState.activeReader)
+        assertEquals(
+            "Unable to sync Kavita progress: Sync unavailable",
+            viewModel.uiState.progressSyncNotice?.message,
+        )
+        assertEquals(RemoteSourceReachability.Reachable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+    }
+
+    @Test
+    fun `unavailable remote item open shows notice and keeps reader closed`() {
+        val remoteComic = sampleItem(
+            id = "kavita-cbz",
+            title = "Remote Comic",
+            format = FormatType.CBZ,
+        ).copy(
+            sourceType = SourceType.KAVITA,
+            libraryId = SourceType.KAVITA.remoteLibraryId("kavita-comics"),
+            remoteId = "chapter-1",
+        )
+        val progressSync = BlockingSourceProgressSync(sourceType = SourceType.KAVITA)
+        val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markUnavailable(SourceType.KAVITA)
+        }
+        val viewModel = createViewModel(
+            sampleItems = listOf(remoteComic),
+            sourceProgressSyncs = listOf(progressSync),
+            remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+        )
+
+        viewModel.onItemSelected(remoteComic)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertNull(viewModel.uiState.selectedItemId)
+        assertNull(viewModel.uiState.activeReader)
+        assertEquals(0, progressSync.syncItemCalls)
+        assertEquals(
+            "Kavita local network cannot be accessed. Only downloaded items can be opened.",
+            viewModel.uiState.progressSyncNotice?.message,
+        )
+    }
+
+    @Test
+    fun `retry selected source connection checks offline source again`() {
+        val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy()
+        val healthCheck = RetryableRemoteSourceHealthCheck(
+            firstFailure = java.io.IOException("timeout"),
+        )
+        val viewModel = createViewModel(
+            remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+            remoteSourceHealthChecks = listOf(healthCheck),
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(RemoteSourceReachability.Unavailable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+
+        viewModel.retrySelectedSourceConnection()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(RemoteSourceReachability.Reachable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(2, healthCheck.callCount)
+    }
+
+    @Test
+    fun `startup pending progress pushes downloaded remote items while reachability is unknown`() {
+        val remoteComic = sampleItem(
+            id = "kavita-cbz",
+            title = "Downloaded Comic",
+            format = FormatType.CBZ,
+        ).copy(
+            sourceType = SourceType.KAVITA,
+            libraryId = SourceType.KAVITA.remoteLibraryId("kavita-comics"),
+            remoteId = "chapter-1",
+        )
+        val readerSessionStore = FakeReaderSessionStore().apply {
+            saveProgress(
+                item = remoteComic,
+                locator = com.example.unifiedreader.feature.reader.core.ReaderLocator(
+                    locatorType = LocatorType.PAGE,
+                    page = 10,
+                ),
+                syncState = SyncState.DIRTY,
+                pageCount = remoteComic.pageCount,
+            )
+        }
+        val progressSync = BlockingSourceProgressSync(sourceType = SourceType.KAVITA)
+        val kavitaDownloadDataSource = FakeRemoteDownloadDataSource(
+            sourceType = SourceType.KAVITA,
+            storedItemIds = mutableSetOf(remoteComic.id),
+        )
+
+        val viewModel = createViewModel(
+            sampleItems = listOf(remoteComic),
+            readerSessionStore = readerSessionStore,
+            remoteDownloadDataSources = listOf(
+                FakeGrimmoryContentRepository(),
+                kavitaDownloadDataSource,
+            ),
+            sourceProgressSyncs = listOf(progressSync),
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertNull(viewModel.uiState.progressSyncNotice)
+        assertEquals(1, progressSync.pushPendingProgressCalls)
+    }
+
+    @Test
+    fun `remote progress sync non-network failure still opens reader and shows notice`() {
         val remoteBook = sampleItem(
             id = "grimmory-epub",
             title = "Remote Book",
@@ -121,6 +325,33 @@ class AppViewModelTest {
         assertEquals(FormatType.EPUB, viewModel.uiState.activeReader)
         assertEquals(
             "Unable to sync Grimmory progress: Sync unavailable",
+            viewModel.uiState.progressSyncNotice?.message,
+        )
+    }
+
+    @Test
+    fun `remote progress sync network failure keeps online reader closed and shows unavailable notice`() {
+        val remoteBook = sampleItem(
+            id = "grimmory-epub",
+            title = "Remote Book",
+            format = FormatType.EPUB,
+        ).copy(
+            sourceType = SourceType.GRIMMORY,
+            libraryId = SourceType.GRIMMORY.remoteLibraryId("grimmory-books"),
+            remoteId = "grimmory-epub",
+        )
+        val viewModel = createViewModel(
+            sampleItems = listOf(remoteBook),
+            sourceProgressSyncs = listOf(NetworkFailingSourceProgressSync(sourceType = SourceType.GRIMMORY)),
+        )
+
+        viewModel.onItemSelected(remoteBook)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertNull(viewModel.uiState.selectedItemId)
+        assertNull(viewModel.uiState.activeReader)
+        assertEquals(
+            "Grimmory local network cannot be accessed. Only downloaded items can be opened.",
             viewModel.uiState.progressSyncNotice?.message,
         )
     }
@@ -217,6 +448,36 @@ class AppViewModelTest {
         assertEquals(FormatType.EPUB, viewModel.uiState.activeReader)
         assertEquals(SourceType.LOCAL, viewModel.uiState.selectedSource)
         assertEquals(SourceType.LOCAL, viewModel.uiState.selectedItem?.sourceType)
+    }
+
+    @Test
+    fun `local library item selection opens reader without remote connectivity`() {
+        val localItem = ReadableItem(
+            id = "document-local-library",
+            sourceType = SourceType.LOCAL,
+            libraryId = "local-imports",
+            isLocalImport = true,
+            title = "Local Book",
+            format = FormatType.EPUB,
+            description = "Already imported local EPUB.",
+        )
+        val importedRepository = FakeLocalDocumentRepository(
+            importedDocumentUris = mutableMapOf(
+                localItem.id to Uri.parse("content://imports/local-book.epub"),
+            ),
+        )
+        val viewModel = createViewModel(
+            sampleItems = listOf(localItem),
+            importedRepository = importedRepository,
+            remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
+        )
+
+        viewModel.onItemSelected(localItem)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(localItem.id, viewModel.uiState.selectedItemId)
+        assertEquals(FormatType.EPUB, viewModel.uiState.activeReader)
+        assertNull(viewModel.uiState.progressSyncNotice)
     }
 
     @Test
@@ -2131,4 +2392,18 @@ private fun assertRemoteCoverUrl(
     actualUrl: String?,
 ) {
     assertEquals("$expectedBaseUrl#coverv=$expectedVersion", actualUrl)
+}
+
+private class RetryableRemoteSourceHealthCheck(
+    override val sourceType: SourceType = SourceType.KAVITA,
+    private val firstFailure: Throwable,
+) : RemoteSourceHealthCheck {
+    var callCount = 0
+        private set
+
+    override suspend fun check(): RemoteSourceHealthCheckResult {
+        callCount += 1
+        if (callCount == 1) throw firstFailure
+        return RemoteSourceHealthCheckResult.Online
+    }
 }

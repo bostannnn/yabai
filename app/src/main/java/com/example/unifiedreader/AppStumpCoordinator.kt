@@ -2,12 +2,14 @@ package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
+import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.settings.StumpConnectionUiState
 import javax.inject.Inject
 
 class AppStumpCoordinator @Inject constructor(
     private val stumpCatalogSyncer: StumpCatalogSyncer,
     private val stumpCredentialStore: StumpCredentialStore,
+    private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
 ) {
     fun refreshedConnectionState(
         connection: StumpConnectionUiState,
@@ -165,6 +167,7 @@ class AppStumpCoordinator @Inject constructor(
                 )
             },
         )
+        remoteSourceConnectivityPolicy.markReachable(SourceType.STUMP)
         clearCoverState()
         val catalogWarning = result.partialCatalogWarning?.userFacingMessage()
         val progressPushWarning = progressPushWarningMessage(
@@ -188,6 +191,7 @@ class AppStumpCoordinator @Inject constructor(
             ),
         )
     }.getOrElse { throwable ->
+        remoteSourceConnectivityPolicy.markFromFailure(SourceType.STUMP, throwable)
         StumpSyncExecutionResult.Failure(
             message = "${preparation.failurePrefix}: ${throwable.userFacingMessage()}",
             connection = preparation.activeConnection.copy(
@@ -232,6 +236,7 @@ class AppStumpCoordinator @Inject constructor(
                 )
             },
         )
+        remoteSourceConnectivityPolicy.markReachable(SourceType.STUMP)
         StumpConnectExecutionResult.Success(
             libraryCount = result.libraryCount,
             availableLibraries = result.libraries,
@@ -246,6 +251,7 @@ class AppStumpCoordinator @Inject constructor(
             ),
         )
     }.getOrElse { throwable ->
+        remoteSourceConnectivityPolicy.markFromFailure(SourceType.STUMP, throwable)
         StumpConnectExecutionResult.Failure(
             message = "${preparation.failurePrefix}: ${throwable.userFacingMessage()}",
             connection = preparation.activeConnection.copy(

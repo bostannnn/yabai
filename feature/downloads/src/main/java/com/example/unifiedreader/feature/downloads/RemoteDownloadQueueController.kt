@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.downloads
 
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.core.model.resolveRemoteDownloadActionItems
 import java.util.UUID
@@ -33,6 +34,7 @@ class RemoteDownloadQueueController(
     suspend fun enqueue(
         item: ReadableItem,
         items: List<ReadableItem>,
+        canScheduleSource: (SourceType) -> Boolean = { true },
     ): DownloadQueueActionResult {
         val resolvedActionItems = resolveRemoteDownloadActionItems(
             selectedItem = item,
@@ -73,7 +75,9 @@ class RemoteDownloadQueueController(
                 isError = true,
             )
         }
-        scheduler.scheduleEntry(entry.id)
+        if (canScheduleSource(entry.sourceType)) {
+            scheduler.scheduleEntry(entry.id)
+        }
         return DownloadQueueActionResult(
             message = if (actionItems.size == 1) {
                 "Queued ${item.libraryDisplayLabel()} for download."
@@ -88,7 +92,7 @@ class RemoteDownloadQueueController(
     ) {
         val canceledQueued = store.updateStatusIfCurrentStatusIn(
             entryId = entryId,
-            expectedStatuses = setOf(DownloadEntryStatus.Queued),
+            expectedStatuses = setOf(DownloadEntryStatus.Queued, DownloadEntryStatus.PausedConnectivity),
             status = DownloadEntryStatus.Canceled,
             completedAtEpochMillis = timeProvider(),
         )
@@ -104,9 +108,11 @@ class RemoteDownloadQueueController(
 
     suspend fun retry(
         entryId: String,
+        canScheduleSource: (SourceType) -> Boolean = { true },
     ) {
         val retried = store.retryEntryIfNoOtherActiveTrackedItems(entryId)
-        if (retried) {
+        val sourceType = store.getEntry(entryId)?.sourceType
+        if (retried && sourceType != null && canScheduleSource(sourceType)) {
             scheduler.scheduleEntry(entryId)
         }
     }
@@ -164,6 +170,7 @@ class RemoteDownloadQueueController(
                 DownloadEntryStatus.Completed -> store.deleteEntry(entry.id) > 0
                 DownloadEntryStatus.Canceled -> remove(entry.id)
                 DownloadEntryStatus.Queued,
+                DownloadEntryStatus.PausedConnectivity,
                 DownloadEntryStatus.Running,
                 DownloadEntryStatus.Canceling,
                 DownloadEntryStatus.Failed -> false
@@ -191,7 +198,9 @@ class RemoteDownloadQueueController(
         }
     }
 
-    suspend fun ensureScheduled(): Int {
+    suspend fun ensureScheduled(
+        canScheduleSource: (SourceType) -> Boolean = { true },
+    ): Int {
         val entries = store.getEntries()
         entries.filter { entry ->
             entry.status == DownloadEntryStatus.Canceling
@@ -203,8 +212,19 @@ class RemoteDownloadQueueController(
                 completedAtEpochMillis = timeProvider(),
             )
         }
+        entries.filter { entry ->
+            entry.status in ConnectivityPausableDownloadStatuses && !canScheduleSource(entry.sourceType)
+        }.forEach { entry ->
+            store.updateStatusIfCurrentStatusIn(
+                entryId = entry.id,
+                expectedStatuses = ConnectivityPausableDownloadStatuses,
+                status = DownloadEntryStatus.PausedConnectivity,
+                currentItemId = entry.currentItemId,
+                currentItemTitle = entry.currentItemTitle,
+            )
+        }
         val pendingEntries = entries.filter { entry ->
-            entry.status == DownloadEntryStatus.Queued || entry.status == DownloadEntryStatus.Running
+            entry.status in SchedulableDownloadStatuses && canScheduleSource(entry.sourceType)
         }
         pendingEntries.forEach { entry ->
             scheduler.scheduleEntry(entry.id)
@@ -212,6 +232,17 @@ class RemoteDownloadQueueController(
         return pendingEntries.size
     }
 }
+
+private val SchedulableDownloadStatuses = setOf(
+    DownloadEntryStatus.Queued,
+    DownloadEntryStatus.PausedConnectivity,
+    DownloadEntryStatus.Running,
+)
+
+private val ConnectivityPausableDownloadStatuses = setOf(
+    DownloadEntryStatus.Queued,
+    DownloadEntryStatus.Running,
+)
 
 private fun ReadableItem.toQueuedDownloadItem(): QueuedDownloadItem = QueuedDownloadItem(
     id = id,

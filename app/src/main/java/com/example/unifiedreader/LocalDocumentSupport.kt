@@ -68,6 +68,13 @@ interface LocalComicDocumentDataSource {
         options: ComicPagePreviewOptions,
     ): ComicPageMetadata? = null
 
+    fun prefetchPagePreviews(
+        item: ReadableItem,
+        pages: List<ComicPageSpec>,
+        options: ComicPagePreviewOptions = ComicPagePreviewOptions(),
+        priorityPageIndex: Int? = null,
+    ) = Unit
+
     fun prefetchAround(
         item: ReadableItem,
         settledPageIndex: Int,

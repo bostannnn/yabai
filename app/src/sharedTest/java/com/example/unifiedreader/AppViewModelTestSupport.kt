@@ -60,6 +60,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import java.io.IOException
 
 internal fun createViewModel(
     sampleItems: List<ReadableItem> = emptyList(),
@@ -92,6 +93,8 @@ internal fun createViewModel(
     comicPageSourceCacheController: ComicPageSourceCacheController = FakeComicPageSourceCacheController(),
     remoteCatalogReadiness: FakeRemoteCatalogReadiness = FakeRemoteCatalogReadiness(),
     sourceProgressSyncs: List<SourceProgressSync> = emptyList(),
+    remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy = onlineRemoteSourceConnectivityPolicy(),
+    remoteSourceHealthChecks: List<RemoteSourceHealthCheck> = emptyList(),
     appStartupTasks: AppStartupTasks = AppStartupTasks {},
     readerFactories: List<@JvmSuppressWildcards ReaderScreenFactory> = emptyList(),
     progressSyncNoticeController: AppProgressSyncNoticeController = AppProgressSyncNoticeController(),
@@ -129,6 +132,7 @@ internal fun createViewModel(
         kavitaCredentialStore = kavitaCredentialStore,
         stumpCredentialStore = stumpCredentialStore,
         grimmoryCredentialStore = grimmoryCredentialStore,
+        remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
         visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
         appDispatchers = appDispatchers,
     )
@@ -141,6 +145,7 @@ internal fun createViewModel(
         store = downloadQueueStore,
         remoteDownloadDataSources = remoteDownloadDataSources,
         completionSideEffects = completionSideEffects,
+        canRunSource = remoteSourceConnectivityPolicy::canScheduleDownload,
     )
     downloadScheduler.runner = remoteDownloadWorkerRunner
     val remoteDownloadQueueController = RemoteDownloadQueueController(
@@ -183,6 +188,7 @@ internal fun createViewModel(
         remoteCoverController = remoteCoverController,
     )
     val sourceProgressSyncRegistry = SourceProgressSyncRegistry(sourceProgressSyncs)
+    val remoteItemLocalAvailability = RemoteItemLocalAvailability(remoteDownloadDataSources)
     val libraryStateRecomputeCoordinator = AppLibraryStateRecomputeCoordinator(
         libraryDerivedStateComputer = LibraryDerivedStateComputer(),
         libraryShelvesStateComputer = LibraryShelvesStateComputer(
@@ -194,6 +200,10 @@ internal fun createViewModel(
         sourceNavigationStateCoordinator = SourceNavigationStateCoordinator(
             preferencesStore = sourceNavigationPreferencesStore,
         ),
+    )
+    val remoteSourceConnectivityStartupCoordinator = RemoteSourceConnectivityStartupCoordinator(
+        healthChecks = remoteSourceHealthChecks,
+        remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
     )
     val appStateHydrator = AppStateHydrator(
         appStartupTasks = appStartupTasks,
@@ -226,7 +236,6 @@ internal fun createViewModel(
             libraryActionsCoordinator = libraryActionsCoordinator,
             remoteDownloadQueueController = remoteDownloadQueueController,
         ),
-        appStateHydrator = appStateHydrator,
         catalogStateCoordinator = catalogStateCoordinator,
         libraryActionsCoordinator = libraryActionsCoordinator,
         libraryReadStatusController = AppLibraryReadStatusController(
@@ -258,43 +267,57 @@ internal fun createViewModel(
                 flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
                     sourceProgressSyncRegistry = sourceProgressSyncRegistry,
                 ),
+                remoteItemLocalAvailability = remoteItemLocalAvailability,
+                remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
             ),
             nextItemResolver = AppReaderNextItemResolver(
                 libraryStateAssembler = libraryStateAssembler,
                 readerSessionStore = readerSessionStore,
                 seriesContinuationResolver = LibrarySeriesContinuationResolver(),
             ),
+            readableAccessResolver = ReadableAccessResolver(
+                remoteItemLocalAvailability = remoteItemLocalAvailability,
+                remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+            ),
+            remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
         ),
         remoteSourcesCoordinator = AppRemoteSourcesCoordinator(
             kavitaController = AppKavitaRemoteSourceController(
                 kavitaCoordinator = AppKavitaCoordinator(
                     kavitaCatalogSyncer = kavitaCatalogSyncer,
                     kavitaCredentialStore = kavitaCredentialStore,
+                    remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
                 ),
                 kavitaCredentialStore = kavitaCredentialStore,
                 comicPageSourceCacheController = comicPageSourceCacheController,
                 remoteLibraryCacheStore = remoteLibraryCacheStore,
                 remoteCoverController = remoteCoverController,
+                remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
             ),
             stumpController = AppStumpRemoteSourceController(
                 stumpCoordinator = AppStumpCoordinator(
                     stumpCatalogSyncer = stumpCatalogSyncer,
                     stumpCredentialStore = stumpCredentialStore,
+                    remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
                 ),
                 stumpCredentialStore = stumpCredentialStore,
                 remoteCoverController = remoteCoverController,
                 comicPageSourceCacheController = comicPageSourceCacheController,
                 remoteLibraryCacheStore = remoteLibraryCacheStore,
+                remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
             ),
             grimmoryController = AppGrimmoryRemoteSourceController(
                 grimmoryCoordinator = AppGrimmoryCoordinator(
                     grimmoryCatalogSyncer = grimmoryCatalogSyncer,
                     grimmoryCredentialStore = grimmoryCredentialStore,
+                    remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
                 ),
                 grimmoryCredentialStore = grimmoryCredentialStore,
                 remoteCoverController = remoteCoverController,
             ),
         ),
+        remoteSourceConnectivityStartupCoordinator = remoteSourceConnectivityStartupCoordinator,
+        remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
         progressSyncNoticeController = progressSyncNoticeController,
         progressSyncStartupRetryCoordinator = progressSyncStartupRetryCoordinator ?: AppProgressSyncStartupRetryCoordinator(
             readableItemRepository = readableItemRepository,
@@ -306,6 +329,8 @@ internal fun createViewModel(
                     sourceProgressSyncRegistry = sourceProgressSyncRegistry,
                 ),
             ),
+            remoteItemLocalAvailability = remoteItemLocalAvailability,
+            remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
         ),
         comicPageSource = pageSource,
         comicReaderProgressStore = progressStore,
@@ -315,6 +340,13 @@ internal fun createViewModel(
         libraryStateRecomputeCoordinator = libraryStateRecomputeCoordinator,
     )
 }
+
+private fun onlineRemoteSourceConnectivityPolicy(): RemoteSourceConnectivityPolicy =
+    RemoteSourceConnectivityPolicy().apply {
+        markReachable(SourceType.KAVITA)
+        markReachable(SourceType.STUMP)
+        markReachable(SourceType.GRIMMORY)
+    }
 
 class FakeComicPageSourceCacheController : ComicPageSourceCacheController {
     val clearedSourceTypes = mutableListOf<SourceType>()
@@ -347,6 +379,7 @@ class TestDownloadQueueStore(
     override suspend fun putEntryIfNoActiveTrackedItems(entry: DownloadEntry): Boolean {
         val hasOverlap = entriesFlow.value.any { existingEntry ->
             (existingEntry.status == DownloadEntryStatus.Queued ||
+                existingEntry.status == DownloadEntryStatus.PausedConnectivity ||
                 existingEntry.status == DownloadEntryStatus.Running ||
                 existingEntry.status == DownloadEntryStatus.Canceling) &&
                 existingEntry.trackedItemIds.any(entry.trackedItemIds::contains)
@@ -361,6 +394,7 @@ class TestDownloadQueueStore(
         val hasOverlap = entriesFlow.value.any { existingEntry ->
             existingEntry.id != entryId &&
                 (existingEntry.status == DownloadEntryStatus.Queued ||
+                    existingEntry.status == DownloadEntryStatus.PausedConnectivity ||
                     existingEntry.status == DownloadEntryStatus.Running ||
                     existingEntry.status == DownloadEntryStatus.Canceling) &&
                 existingEntry.trackedItemIds.any(entry.trackedItemIds::contains)
@@ -1249,6 +1283,8 @@ class BlockingSourceProgressSync(
     private val completionGate = CompletableDeferred<Unit>()
     var syncItemCalls: Int = 0
         private set
+    var pushPendingProgressCalls: Int = 0
+        private set
 
     override suspend fun syncItem(
         item: ReadableItem,
@@ -1259,7 +1295,10 @@ class BlockingSourceProgressSync(
 
     override suspend fun pushPendingProgress(
         items: List<ReadableItem>,
-    ): List<SourceProgressSyncFailure> = emptyList()
+    ): List<SourceProgressSyncFailure> {
+        pushPendingProgressCalls += 1
+        return emptyList()
+    }
 
     fun allowCompletion() {
         completionGate.complete(Unit)
@@ -1273,6 +1312,20 @@ class FailingSourceProgressSync(
         item: ReadableItem,
     ) {
         error("Sync unavailable")
+    }
+
+    override suspend fun pushPendingProgress(
+        items: List<ReadableItem>,
+    ): List<SourceProgressSyncFailure> = emptyList()
+}
+
+class NetworkFailingSourceProgressSync(
+    override val sourceType: SourceType,
+) : SourceProgressSync {
+    override suspend fun syncItem(
+        item: ReadableItem,
+    ) {
+        throw IOException("Network unavailable")
     }
 
     override suspend fun pushPendingProgress(

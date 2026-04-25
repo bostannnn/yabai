@@ -45,6 +45,9 @@ private fun List<SourceProgressSyncFailure>.toProgressSyncNoticeMessage(): Strin
     val groupedFailures = groupBy(SourceProgressSyncFailure::sourceType)
     if (groupedFailures.size == 1) {
         val (sourceType, failures) = groupedFailures.entries.single()
+        failures.first().throwable.takeIf { throwable -> throwable is RemoteSourceUnavailableException }?.let { throwable ->
+            return throwable.userFacingMessage()
+        }
         return "Unable to sync ${sourceType.displayName()} progress: ${failures.first().throwable.userFacingMessage()}"
     }
     return "Unable to sync progress for ${

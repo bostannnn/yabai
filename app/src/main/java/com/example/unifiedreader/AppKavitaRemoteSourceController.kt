@@ -14,6 +14,7 @@ class AppKavitaRemoteSourceController @Inject constructor(
     private val comicPageSourceCacheController: ComicPageSourceCacheController,
     private val remoteLibraryCacheStore: RemoteLibraryCacheStore,
     private val remoteCoverController: RemoteCoverController,
+    private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
 ) {
     private var suppressedObservedLibraryRefresh: KavitaStoredSessionKey? = null
 
@@ -155,6 +156,7 @@ class AppKavitaRemoteSourceController @Inject constructor(
                 if (stateProvider().kavitaConnection.isConnecting) return@collectLatest
                 if (consumeSuppressedObservedLibraryRefresh(session)) return@collectLatest
                 if (cachedLibraries.isEmpty()) return@collectLatest
+                if (!remoteSourceConnectivityPolicy.isReachable(SourceType.KAVITA)) return@collectLatest
                 val libraries = runCatching {
                     kavitaCoordinator.loadAvailableLibraries(session)
                 }.getOrNull() ?: return@collectLatest

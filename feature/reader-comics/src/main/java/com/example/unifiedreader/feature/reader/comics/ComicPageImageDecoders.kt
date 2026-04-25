@@ -2,6 +2,7 @@ package com.example.unifiedreader.feature.reader.comics
 
 import android.graphics.BitmapFactory
 import androidx.compose.ui.graphics.asImageBitmap
+import java.io.ByteArrayOutputStream
 import kotlin.math.ceil
 
 data class ComicPageImageDecodeOptions(
@@ -101,6 +102,29 @@ fun decodeComicPagePreview(
         ?.let(ComicPagePreviewResult::Success)
 }
 
+fun decodeComicPagePreviewBytes(
+    bytes: ByteArray,
+    options: ComicPagePreviewOptions = ComicPagePreviewOptions(),
+): ByteArray? {
+    val bounds = decodeComicPageMetadata(bytes) ?: return null
+    val bitmapOptions = BitmapFactory.Options().apply {
+        inPreferredConfig = android.graphics.Bitmap.Config.RGB_565
+        inSampleSize = comicPagePreviewSampleSize(
+            width = bounds.width,
+            height = bounds.height,
+            options = options,
+        )
+    }
+    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bitmapOptions) ?: return null
+    return ByteArrayOutputStream().use { output ->
+        if (bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, PREVIEW_JPEG_QUALITY, output)) {
+            output.toByteArray().takeIf(ByteArray::isNotEmpty)
+        } else {
+            null
+        }
+    }
+}
+
 fun decodeComicPageImage(
     bytes: ByteArray,
     options: ComicPageImageDecodeOptions = ComicPageImageDecodeOptions(),
@@ -176,3 +200,4 @@ private const val MAX_PREVIEW_CACHE_BYTES = 24 * 1024 * 1024
 private const val MIN_PREVIEW_BYTE_CACHE_BYTES = 2 * 1024 * 1024
 private const val MAX_PREVIEW_BYTE_CACHE_BYTES = 16 * 1024 * 1024
 private const val BYTES_PER_ARGB_8888_PIXEL = 4
+private const val PREVIEW_JPEG_QUALITY = 82

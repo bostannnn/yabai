@@ -13,6 +13,7 @@ import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewOptions
 import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
+import com.example.unifiedreader.feature.reader.comics.PersistentComicPagePreviewStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -30,6 +31,7 @@ class LocalDocumentRepository private constructor(
     private val comicArchiveCodecs: List<ComicArchiveCodec>,
     private val coverSupport: LocalDocumentCoverSupport,
     private val onItemImported: (String) -> Unit,
+    private val previewStore: PersistentComicPagePreviewStore?,
 ) : LocalDocumentDataSource, LocalComicDocumentDataSource, LocalDocumentHydrator {
     private val coverWarmupSemaphore = Semaphore(permits = 3)
     private val coverMutationMutex = Mutex()
@@ -40,7 +42,12 @@ class LocalDocumentRepository private constructor(
         importedComicArchiveDao = importedComicArchiveDao,
         persistedCoverUriResolver = coverSupport::resolvePersistedCoverUri,
     )
-    private val comicPageLoader = LocalComicPageLoader(context, comicArchiveCodecs, scope)
+    private val comicPageLoader = LocalComicPageLoader(
+        context = context,
+        comicArchiveCodecs = comicArchiveCodecs,
+        scope = scope,
+        previewStore = previewStore,
+    )
 
     constructor(
         context: Context,
@@ -48,6 +55,7 @@ class LocalDocumentRepository private constructor(
         appStartupTasks: AppStartupTasks = AppStartupTasks {},
         scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
         onItemImported: (String) -> Unit = {},
+        previewStore: PersistentComicPagePreviewStore? = null,
     ) : this(
         context = context,
         importedComicArchiveDao = importedComicArchiveDao,
@@ -56,6 +64,7 @@ class LocalDocumentRepository private constructor(
         comicArchiveCodecs = defaultComicArchiveCodecs(context),
         coverSupport = LocalCoverCache(context, defaultComicArchiveCodecs(context)),
         onItemImported = onItemImported,
+        previewStore = previewStore,
     )
 
     override val isHydratedFlow = store.isHydratedFlow
@@ -79,6 +88,10 @@ class LocalDocumentRepository private constructor(
             addedAtEpochMillis = existingRecord?.addedAtEpochMillis ?: record.addedAtEpochMillis,
         )
         val recordWithCover = coverMutationMutex.withLock {
+            if (existingRecord != null) {
+                comicPageLoader.clear(record.id)
+                previewStore?.clear()
+            }
             val refreshedRecord = coverSupport.attach(recordWithAddedAt, forceRefresh = true)
             store.upsert(refreshedRecord)
             refreshedRecord
@@ -179,10 +192,31 @@ class LocalDocumentRepository private constructor(
         item: ReadableItem,
         page: ComicPageSpec,
         options: ComicPagePreviewOptions,
-    ): ComicPageMetadata? = comicPageLoader.cachedPageMetadata(
-        item = item,
-        entryName = page.id,
-    )
+    ): ComicPageMetadata? {
+        val record = store.findRecord(item.id) ?: return null
+        return comicPageLoader.cachedPageMetadata(
+            item = item,
+            record = record,
+            entryName = page.id,
+        )
+    }
+
+    override fun prefetchPagePreviews(
+        item: ReadableItem,
+        pages: List<ComicPageSpec>,
+        options: ComicPagePreviewOptions,
+        priorityPageIndex: Int?,
+    ) {
+        val record = store.findRecord(item.id) ?: return
+        if (pages.isEmpty()) return
+        comicPageLoader.prefetchPagePreviews(
+            item = item,
+            record = record,
+            entryNames = record.pageEntryNames,
+            options = options,
+            priorityPageIndex = priorityPageIndex,
+        )
+    }
 
     override fun prefetchAround(
         item: ReadableItem,
@@ -242,6 +276,7 @@ class LocalDocumentRepository private constructor(
             comicArchiveCodecs: List<ComicArchiveCodec>,
             coverSupport: LocalDocumentCoverSupport,
             onItemImported: (String) -> Unit = {},
+            previewStore: PersistentComicPagePreviewStore? = null,
         ): LocalDocumentRepository = LocalDocumentRepository(
             context = context,
             importedComicArchiveDao = importedComicArchiveDao,
@@ -250,6 +285,7 @@ class LocalDocumentRepository private constructor(
             comicArchiveCodecs = comicArchiveCodecs,
             coverSupport = coverSupport,
             onItemImported = onItemImported,
+            previewStore = previewStore,
         )
     }
 }

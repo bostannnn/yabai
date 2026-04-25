@@ -18,6 +18,11 @@ class VisibleLibraryCoverRegistry @Inject constructor() {
         return entry.resolvedUri.value ?: entry.displayedUri
     }
 
+    fun resolvedUriFor(
+        itemId: String,
+        variant: LibraryCoverVariant,
+    ): String? = entryFor(itemId, variant).resolvedUri.value
+
     fun rememberDisplayedFallbackUri(
         itemId: String,
         variant: LibraryCoverVariant,

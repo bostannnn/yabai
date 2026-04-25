@@ -2,6 +2,8 @@ package com.example.unifiedreader
 
 import android.util.Log
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.SourceConnectivityState
+import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.data.repository.ReadableItemRepository
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
@@ -9,6 +11,7 @@ import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -19,8 +22,11 @@ class AppPendingProgressFlushCoordinator @Inject constructor(
     private val readerSessionStore: ReaderSessionStore,
     private val readableItemRepository: ReadableItemRepository,
     private val flushPendingSourceProgressUseCase: FlushPendingSourceProgressUseCase,
+    private val remoteItemLocalAvailability: RemoteItemLocalAvailability,
+    private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
 ) {
     private val retainedProgressItemsById = linkedMapOf<String, ReadableItem>()
+    private var lastSuccessfulAutoFlush: PendingProgressFlushFingerprint? = null
 
     fun retainProgressItem(
         item: ReadableItem,
@@ -39,16 +45,19 @@ class AppPendingProgressFlushCoordinator @Inject constructor(
             combine(
                 readerSessionStore.progressByItemIdFlow.map(::pendingProgressKeys),
                 readableItemRepository.observeItems(),
-            ) { pendingProgressKeys, catalogItems ->
+                remoteSourceConnectivityPolicy.reachabilityFlow,
+            ) { pendingProgressKeys, catalogItems, reachabilityBySource ->
                 PendingProgressObservation(
                     pendingProgressKeys = pendingProgressKeys,
                     catalogItems = catalogItems,
+                    reachabilityBySource = reachabilityBySource,
                     resolvablePendingItemIds = pendingProgressKeys.resolvableIn(catalogItems),
                 )
             }
                 .distinctUntilChanged { previous, next ->
                     previous.pendingProgressKeys == next.pendingProgressKeys &&
-                        previous.resolvablePendingItemIds == next.resolvablePendingItemIds
+                        previous.resolvablePendingItemIds == next.resolvablePendingItemIds &&
+                        previous.reachabilityBySource == next.reachabilityBySource
                 }
                 .debounce(PENDING_PROGRESS_DEBOUNCE_MILLIS)
                 .collect { observation ->
@@ -56,11 +65,23 @@ class AppPendingProgressFlushCoordinator @Inject constructor(
                     retainedProgressItemsById.keys.retainAll(
                         pendingProgressKeys.mapTo(mutableSetOf(), PendingProgressKey::itemId),
                     )
-                    if (pendingProgressKeys.isNotEmpty()) {
-                        flushPendingRemoteProgress(
-                            remoteItems = observation.catalogItems.withPendingSyncItems(stateProvider().selectedItem),
+                    val remoteItems = observation.catalogItems
+                        .withPendingSyncItems(stateProvider().selectedItem)
+                        .withoutUnavailableProgressSources(
+                            remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+                        )
+                    val flushFingerprint = PendingProgressFlushFingerprint(
+                        pendingProgressKeys = pendingProgressKeys,
+                        itemIds = remoteItems.map(ReadableItem::id),
+                    )
+                    if (remoteItems.isNotEmpty() && flushFingerprint != lastSuccessfulAutoFlush) {
+                        val failures = flushPendingRemoteProgress(
+                            remoteItems = remoteItems,
                             onSyncFailures = onSyncFailures,
                         )
+                        if (failures.isEmpty()) {
+                            lastSuccessfulAutoFlush = flushFingerprint
+                        }
                     }
                 }
         }
@@ -73,8 +94,13 @@ class AppPendingProgressFlushCoordinator @Inject constructor(
         onSyncFailures: (List<SourceProgressSyncFailure>) -> Unit,
     ) {
         scope.launch {
+            val remoteItems = catalogItems
+                .withPendingSyncItems(selectedItem)
+                .withoutUnavailableProgressSources(
+                    remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+                )
             flushPendingRemoteProgress(
-                remoteItems = catalogItems.withPendingSyncItems(selectedItem),
+                remoteItems = remoteItems,
                 onSyncFailures = onSyncFailures,
             )
         }
@@ -83,17 +109,26 @@ class AppPendingProgressFlushCoordinator @Inject constructor(
     private suspend fun flushPendingRemoteProgress(
         remoteItems: List<ReadableItem>,
         onSyncFailures: (List<SourceProgressSyncFailure>) -> Unit,
-    ) {
-        if (remoteItems.isEmpty()) return
+    ): List<SourceProgressSyncFailure> {
+        if (remoteItems.isEmpty()) return emptyList()
         val failures = flushPendingSourceProgressUseCase(remoteItems)
-        failures.forEach { failure ->
+        remoteSourceConnectivityPolicy.markFromSyncFailures(
+            attemptedSourceTypes = remoteItems.mapTo(mutableSetOf(), ReadableItem::sourceType),
+            failures = failures,
+        )
+        val reportableFailures = failures.withoutDownloadedReachabilityFailures(
+            attemptedItems = remoteItems,
+            remoteItemLocalAvailability = remoteItemLocalAvailability,
+        )
+        reportableFailures.forEach { failure ->
             Log.w(
                 LOG_TAG,
                 "Unable to push pending remote progress for ${failure.sourceType}.",
                 failure.throwable,
             )
         }
-        onSyncFailures(failures)
+        onSyncFailures(reportableFailures)
+        return failures
     }
 
     private fun List<ReadableItem>.withPendingSyncItems(
@@ -106,6 +141,15 @@ class AppPendingProgressFlushCoordinator @Inject constructor(
             itemsById.putIfAbsent(retainedItem.id, retainedItem)
         }
         return itemsById.values.toList()
+    }
+}
+
+private fun List<ReadableItem>.withoutUnavailableProgressSources(
+    remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
+): List<ReadableItem> {
+    if (isEmpty()) return this
+    return filterNot { item ->
+        !remoteSourceConnectivityPolicy.canAttemptProgressSync(item.sourceType)
     }
 }
 
@@ -134,7 +178,13 @@ private data class PendingProgressKey(
 private data class PendingProgressObservation(
     val pendingProgressKeys: List<PendingProgressKey>,
     val catalogItems: List<ReadableItem>,
+    val reachabilityBySource: Map<SourceType, SourceConnectivityState>,
     val resolvablePendingItemIds: Set<String>,
+)
+
+private data class PendingProgressFlushFingerprint(
+    val pendingProgressKeys: List<PendingProgressKey>,
+    val itemIds: List<String>,
 )
 
 private fun List<PendingProgressKey>.resolvableIn(

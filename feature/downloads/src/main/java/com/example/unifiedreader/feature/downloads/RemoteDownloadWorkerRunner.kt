@@ -15,6 +15,7 @@ class RemoteDownloadWorkerRunner(
     private val store: DownloadQueueStore,
     private val remoteDownloadDataSources: List<RemoteItemDownloadDataSource>,
     private val completionSideEffects: List<DownloadCompletionSideEffect>,
+    private val canRunSource: (com.example.unifiedreader.core.model.SourceType) -> Boolean = { true },
     private val timeProvider: () -> Long = System::currentTimeMillis,
 ) {
     suspend fun runEntry(
@@ -26,6 +27,20 @@ class RemoteDownloadWorkerRunner(
         }
         if (entry.status == DownloadEntryStatus.Canceling) {
             return finalizeCanceled(entryId)
+        }
+        if (!canRunSource(entry.sourceType)) {
+            store.updateStatusIfCurrentStatusIn(
+                entryId = entryId,
+                expectedStatuses = setOf(
+                    DownloadEntryStatus.Queued,
+                    DownloadEntryStatus.PausedConnectivity,
+                    DownloadEntryStatus.Running,
+                ),
+                status = DownloadEntryStatus.PausedConnectivity,
+                currentItemId = entry.currentItemId,
+                currentItemTitle = entry.currentItemTitle,
+            )
+            return RemoteDownloadWorkerOutcome.Success
         }
         return try {
             val transitionedToRunning = store.updateStatusIfCurrentStatusIn(
@@ -117,6 +132,7 @@ class RemoteDownloadWorkerRunner(
                 entryId = entryId,
                 expectedStatuses = setOf(
                     DownloadEntryStatus.Queued,
+                    DownloadEntryStatus.PausedConnectivity,
                     DownloadEntryStatus.Running,
                     DownloadEntryStatus.Canceling,
                 ),

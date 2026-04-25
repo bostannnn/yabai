@@ -9,6 +9,10 @@ import com.example.unifiedreader.core.database.entity.ImportedComicArchiveEntity
 import com.example.unifiedreader.core.model.ComicMetadata
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewOptions
+import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewResult
+import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
+import com.example.unifiedreader.feature.reader.comics.PersistentComicPagePreviewStore
 import java.io.File
 import java.io.FileOutputStream
 import java.io.ByteArrayOutputStream
@@ -470,6 +474,40 @@ class ImportedComicArchiveRepositoryTest {
         val hydrated = restartedRepository.getImportedItems().single()
         assertEquals(imported.coverUrl, hydrated.coverUrl)
         assertEquals(persistedEntity.coverFileName, dao.getByItemId(imported.id)?.coverFileName)
+    }
+
+    @Test
+    fun `imported comic page preview is stored in persistent preview cache`() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val previewDirectory = File(context.cacheDir, "imported-preview-cache-test").apply {
+            deleteRecursively()
+        }
+        val repository = LocalDocumentRepository(
+            context = context,
+            importedComicArchiveDao = RepositoryImportedComicArchiveDao(),
+            scope = kotlinx.coroutines.CoroutineScope(Dispatchers.Unconfined),
+            previewStore = PersistentComicPagePreviewStore(previewDirectory),
+        )
+        val comicFile = createZipBackedFile(
+            name = "local-preview-cache.cbz",
+            entries = mapOf(
+                "001.png" to singlePixelPngBytes(android.graphics.Color.BLACK),
+            ),
+        )
+        val imported = repository.import(Uri.fromFile(comicFile))!!
+
+        val preview = repository.loadPagePreview(
+            item = imported,
+            page = ComicPageSpec(
+                id = "001.png",
+                pageIndex = 0,
+                contentDescription = "Local page 1",
+            ),
+            options = ComicPagePreviewOptions(),
+        )
+
+        assertTrue(preview is ComicPagePreviewResult.Success)
+        assertTrue(previewDirectory.listFiles().orEmpty().any { file -> file.isFile && file.length() > 0L })
     }
 
     @Test

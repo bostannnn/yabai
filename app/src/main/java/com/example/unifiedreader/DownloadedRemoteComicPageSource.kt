@@ -9,11 +9,13 @@ import com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageMetadata
+import com.example.unifiedreader.feature.reader.comics.ComicPagesUnavailableDiagnostic
 import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewOptions
 import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewResult
 import com.example.unifiedreader.feature.reader.comics.ComicPagePrefetchWindow
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
+import com.example.unifiedreader.feature.reader.comics.PersistentComicPagePreviewStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -21,6 +23,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import kotlin.jvm.JvmSuppressWildcards
 
@@ -29,14 +34,21 @@ class DownloadedRemoteComicPageSource @Inject constructor(
     private val remoteDownloadDataSources: List<@JvmSuppressWildcards RemoteItemDownloadDataSource>,
     private val archiveEntryCache: DownloadedRemoteComicArchiveEntryCache,
     cacheInvalidationDispatcher: DownloadedRemoteComicCacheInvalidationDispatcher,
+    previewStore: PersistentComicPagePreviewStore? = null,
 ) : ComicPageSource {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val comicArchiveCodecs: List<ComicArchiveCodec> = listOf(
         ZipComicArchiveCodec,
         RarComicArchiveCodec(context),
     )
-    private val comicPageLoader = LocalComicPageLoader(context, comicArchiveCodecs, scope)
+    private val comicPageLoader = LocalComicPageLoader(
+        context = context,
+        comicArchiveCodecs = comicArchiveCodecs,
+        scope = scope,
+        previewStore = previewStore,
+    )
     private val entryCacheCoordinator = DownloadedRemoteComicEntryCacheCoordinator(archiveEntryCache)
+    private val archiveDiagnosticsByItemId = ConcurrentHashMap<String, DownloadedComicArchiveDiagnostic>()
 
     init {
         cacheInvalidationDispatcher.register(::invalidateItemCaches)
@@ -64,6 +76,52 @@ class DownloadedRemoteComicPageSource @Inject constructor(
         }
     }
 
+    override fun pagesUnavailableDiagnostic(
+        item: ReadableItem,
+    ): ComicPagesUnavailableDiagnostic {
+        val unsupportedFormatMessage = if (!item.format.supportedComicDownloadFormat()) {
+            "Downloaded comic reader supports CBZ/CBR only."
+        } else {
+            null
+        }
+        val dataSource = remoteDownloadDataSources.downloadDataSourceFor(item)
+        val storedUri = dataSource?.storedDocumentUri(item)
+        val cachedEntryNames = archiveEntryCache.get(item.id)
+        val archiveDiagnostic = archiveDiagnosticsByItemId[item.id]
+        val title = when {
+            unsupportedFormatMessage != null -> "Unsupported downloaded comic format"
+            dataSource == null -> "No download data source for this comic"
+            storedUri == null -> "Downloaded comic file was not found"
+            archiveDiagnostic?.allEntryCount == 0 -> "Downloaded comic archive has no entries"
+            cachedEntryNames != null && cachedEntryNames.isEmpty() -> "Downloaded comic archive has no readable pages"
+            item.pageCount == null -> "Downloaded comic pages are still being inspected"
+            else -> "Downloaded comic pages are not ready"
+        }
+        val detail = buildString {
+            append("itemId=${item.id}, source=${item.sourceType}, format=${item.format}")
+            append(", remoteId=${item.remoteId.orEmpty()}, remoteFileId=${item.remoteFileId.orEmpty()}")
+            append(", pageCount=${item.pageCount ?: "unknown"}")
+            append(", storedUri=${storedUri?.toString().orEmpty()}")
+            append(", cachedEntries=${cachedEntryNames?.size?.toString() ?: "not loaded"}")
+            archiveDiagnostic?.let { diagnostic ->
+                append(", fileBytes=${diagnostic.fileBytes ?: "unknown"}")
+                append(", firstBytes=${diagnostic.firstBytesHex.orEmpty()}")
+                append(", archiveEntries=${diagnostic.allEntryCount}")
+                append(", imageEntries=${diagnostic.imageEntryCount}")
+                if (diagnostic.firstEntryNames.isNotEmpty()) {
+                    append(", firstEntries=${diagnostic.firstEntryNames.joinToString(separator = " / ")}")
+                }
+            }
+            unsupportedFormatMessage?.let { message ->
+                append(", reason=$message")
+            }
+        }
+        return ComicPagesUnavailableDiagnostic(
+            title = title,
+            detail = detail,
+        )
+    }
+
     override fun observePages(
         item: ReadableItem,
     ): Flow<List<ComicPageSpec>> = flow {
@@ -73,6 +131,15 @@ class DownloadedRemoteComicPageSource @Inject constructor(
         if (resolvedPages != initialPages) {
             emit(resolvedPages)
         }
+    }.flowOn(Dispatchers.IO)
+
+    override fun observePagesUnavailableDiagnostic(
+        item: ReadableItem,
+    ): Flow<ComicPagesUnavailableDiagnostic> = flow {
+        emit(pagesUnavailableDiagnostic(item))
+        inspectArchiveForDiagnostics(item)
+        archiveEntryNamesFor(item)
+        emit(pagesUnavailableDiagnostic(item))
     }.flowOn(Dispatchers.IO)
 
     override suspend fun loadPageMetadata(
@@ -147,7 +214,27 @@ class DownloadedRemoteComicPageSource @Inject constructor(
         val entryName = record.pageEntryNames.getOrNull(page.pageIndex) ?: return null
         return comicPageLoader.cachedPageMetadata(
             item = item,
+            record = record,
             entryName = entryName,
+        )
+    }
+
+    override fun prefetchPagePreviews(
+        item: ReadableItem,
+        pages: List<ComicPageSpec>,
+        options: ComicPagePreviewOptions,
+        priorityPageIndex: Int?,
+    ) {
+        if (!hasStoredDocument(item) || pages.isEmpty()) return
+        val entryNames = archiveEntryCache.get(item.id).orEmpty()
+        if (entryNames.isEmpty()) return
+        val record = localRecordForCachedEntries(item = item, entryNames = entryNames) ?: return
+        comicPageLoader.prefetchPagePreviews(
+            item = item,
+            record = record,
+            entryNames = entryNames,
+            options = options,
+            priorityPageIndex = priorityPageIndex,
         )
     }
 
@@ -212,6 +299,51 @@ class DownloadedRemoteComicPageSource @Inject constructor(
         }
     }
 
+    private suspend fun inspectArchiveForDiagnostics(
+        item: ReadableItem,
+    ) {
+        val uri = storedDocumentUriFor(item) ?: return
+        val codec = comicArchiveCodecs.firstOrNull { codec -> codec.format == item.format } ?: return
+        val firstBytes = readFirstBytes(uri, byteCount = 12)
+        val allEntries = codec.listEntries(
+            context = context,
+            uri = uri,
+        )
+        val imageEntries = codec.listImageEntries(
+            context = context,
+            uri = uri,
+        )
+        archiveDiagnosticsByItemId[item.id] = DownloadedComicArchiveDiagnostic(
+            fileBytes = uri.fileLengthOrNull(),
+            firstBytesHex = firstBytes?.toHexString(),
+            allEntryCount = allEntries.size,
+            imageEntryCount = imageEntries.size,
+            firstEntryNames = allEntries.take(5),
+        )
+    }
+
+    private suspend fun readFirstBytes(
+        uri: Uri,
+        byteCount: Int,
+    ): ByteArray? = withContext(Dispatchers.IO) {
+        runCatching {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                val buffer = ByteArray(byteCount)
+                val bytesRead = input.read(buffer)
+                if (bytesRead <= 0) {
+                    ByteArray(0)
+                } else {
+                    buffer.copyOf(bytesRead)
+                }
+            }
+        }.getOrNull()
+    }
+
+    private fun Uri.fileLengthOrNull(): Long? {
+        if (scheme != "file") return null
+        return path?.let(::File)?.takeIf(File::isFile)?.length()
+    }
+
     private fun localRecordForCachedEntries(
         item: ReadableItem,
         entryNames: List<String>,
@@ -245,8 +377,21 @@ class DownloadedRemoteComicPageSource @Inject constructor(
         itemId: String,
     ) {
         entryCacheCoordinator.invalidate(itemId)
+        archiveDiagnosticsByItemId.remove(itemId)
         comicPageLoader.clear(itemId)
     }
+}
+
+private data class DownloadedComicArchiveDiagnostic(
+    val fileBytes: Long?,
+    val firstBytesHex: String?,
+    val allEntryCount: Int,
+    val imageEntryCount: Int,
+    val firstEntryNames: List<String>,
+)
+
+private fun ByteArray.toHexString(): String = joinToString(separator = " ") { byte ->
+    (byte.toInt() and 0xFF).toString(radix = 16).padStart(2, '0')
 }
 
 private fun List<String>.toComicPageSpecs(

@@ -201,6 +201,7 @@ private fun List<DownloadEntry>.hasActiveTrackedItemOverlap(
 
 private fun DownloadEntryStatus.blocksTrackedItemOverlap(): Boolean = when (this) {
     DownloadEntryStatus.Queued,
+    DownloadEntryStatus.PausedConnectivity,
     DownloadEntryStatus.Running,
     DownloadEntryStatus.Canceling -> true
     DownloadEntryStatus.Completed,

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -33,14 +35,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
 
 @Composable
 fun LibraryTopBar(
     selectedSource: SourceType,
+    sourceConnectivity: SourceConnectivityState,
     searchQuery: String,
     seriesTitle: String?,
+    onSourceConnectivityClick: () -> Unit,
     onDrawerClick: () -> Unit,
     onSearchQueryChanged: (String) -> Unit,
     downloadBadgeCount: Int,
@@ -65,7 +70,9 @@ fun LibraryTopBar(
                 ) {
                     LibraryTopBarTitle(
                         selectedSource = selectedSource,
+                        sourceConnectivity = sourceConnectivity,
                         seriesTitle = seriesTitle,
+                        onSourceConnectivityClick = onSourceConnectivityClick,
                         onDrawerClick = onDrawerClick,
                         onLeaveSeries = onLeaveSeries,
                         modifier = Modifier.weight(1f),
@@ -89,7 +96,9 @@ fun LibraryTopBar(
             ) {
                 LibraryTopBarTitle(
                     selectedSource = selectedSource,
+                    sourceConnectivity = sourceConnectivity,
                     seriesTitle = seriesTitle,
+                    onSourceConnectivityClick = onSourceConnectivityClick,
                     onDrawerClick = onDrawerClick,
                     onLeaveSeries = onLeaveSeries,
                     modifier = Modifier
@@ -146,7 +155,9 @@ fun SettingsTopBar(
 @Composable
 private fun LibraryTopBarTitle(
     selectedSource: SourceType,
+    sourceConnectivity: SourceConnectivityState,
     seriesTitle: String?,
+    onSourceConnectivityClick: () -> Unit,
     onDrawerClick: () -> Unit,
     onLeaveSeries: () -> Unit,
     modifier: Modifier = Modifier,
@@ -180,6 +191,58 @@ private fun LibraryTopBarTitle(
             text = seriesTitle ?: selectedSource.displayName(),
             style = MaterialTheme.typography.titleMedium,
             maxLines = 1,
+        )
+        SourceConnectivityIndicator(
+            sourceType = selectedSource,
+            state = sourceConnectivity,
+            onClick = onSourceConnectivityClick,
+        )
+    }
+}
+
+@Composable
+private fun SourceConnectivityIndicator(
+    sourceType: SourceType,
+    state: SourceConnectivityState,
+    onClick: () -> Unit,
+) {
+    if (sourceType == SourceType.LOCAL) return
+    val colors = MaterialTheme.colorScheme
+    val (label, containerColor, contentColor) = when (state) {
+        SourceConnectivityState.Unknown -> return
+        SourceConnectivityState.Checking -> Triple(
+            "Checking",
+            colors.surfaceVariant.copy(alpha = 0.62f),
+            colors.onSurfaceVariant,
+        )
+        SourceConnectivityState.Online -> Triple(
+            "Online",
+            colors.primaryContainer.copy(alpha = 0.72f),
+            colors.onPrimaryContainer,
+        )
+        SourceConnectivityState.Offline -> Triple(
+            "Offline",
+            colors.errorContainer.copy(alpha = 0.86f),
+            colors.onErrorContainer,
+        )
+    }
+    Spacer(modifier = Modifier.size(2.dp))
+    val clickModifier = if (state == SourceConnectivityState.Offline) {
+        Modifier.clickable(onClickLabel = "Retry connection", onClick = onClick)
+    } else {
+        Modifier
+    }
+    Surface(
+        modifier = clickModifier,
+        shape = RoundedCornerShape(8.dp),
+        color = containerColor,
+    ) {
+        Text(
+            text = label,
+            color = contentColor,
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = 1,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
         )
     }
 }

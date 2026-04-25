@@ -479,6 +479,60 @@ class RemoteDownloadQueueControllerTest {
             store.entries.first { entry -> entry.id == "canceling-entry" }.status,
         )
     }
+
+    @Test
+    fun `ensure scheduled pauses queued and running entries while source cannot be scheduled`() = runTest {
+        val store = InMemoryDownloadQueueStore(
+            initialEntries = listOf(
+                DownloadEntry(
+                    id = "queued-entry",
+                    selectedItemId = "book-1",
+                    selectedItemTitle = "book-1",
+                    sourceType = SourceType.KAVITA,
+                    actionItems = listOf(testQueuedItem("book-1")),
+                    trackedItemIds = setOf("book-1"),
+                    completedItemIds = emptySet(),
+                    status = DownloadEntryStatus.Queued,
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L,
+                ),
+                DownloadEntry(
+                    id = "running-entry",
+                    selectedItemId = "book-2",
+                    selectedItemTitle = "book-2",
+                    sourceType = SourceType.KAVITA,
+                    actionItems = listOf(testQueuedItem("book-2")),
+                    trackedItemIds = setOf("book-2"),
+                    completedItemIds = emptySet(),
+                    status = DownloadEntryStatus.Running,
+                    currentItemId = "book-2",
+                    currentItemTitle = "book-2",
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L,
+                ),
+            ),
+        )
+        val scheduler = RecordingDownloadWorkScheduler()
+        val controller = RemoteDownloadQueueController(
+            store = store,
+            scheduler = scheduler,
+            remoteDownloadDataSources = listOf(TestRemoteItemDownloadDataSource()),
+        )
+
+        val scheduledCount = controller.ensureScheduled(
+            canScheduleSource = { false },
+        )
+
+        assertEquals(0, scheduledCount)
+        assertTrue(scheduler.scheduledEntryIds.isEmpty())
+        assertEquals(
+            DownloadEntryStatus.PausedConnectivity,
+            store.entries.first { entry -> entry.id == "queued-entry" }.status,
+        )
+        val runningEntry = store.entries.first { entry -> entry.id == "running-entry" }
+        assertEquals(DownloadEntryStatus.PausedConnectivity, runningEntry.status)
+        assertEquals("book-2", runningEntry.currentItemId)
+    }
 }
 
 @RunWith(RobolectricTestRunner::class)
@@ -518,6 +572,44 @@ class RemoteDownloadWorkerRunnerTest {
         assertEquals(setOf(item.id), entry.completedItemIds)
         assertEquals(listOf(item.id), dataSource.downloadedItemIds)
         assertEquals(listOf(item.id), sideEffect.completedItemIds)
+    }
+
+    @Test
+    fun `run entry pauses running download when source cannot run`() = runTest {
+        val item = testReadableItem("book-1")
+        val store = InMemoryDownloadQueueStore(
+            initialEntries = listOf(
+                DownloadEntry(
+                    id = "entry-1",
+                    selectedItemId = item.id,
+                    selectedItemTitle = item.title,
+                    sourceType = item.sourceType,
+                    actionItems = listOf(testQueuedItem(item.id)),
+                    trackedItemIds = setOf(item.id),
+                    completedItemIds = emptySet(),
+                    status = DownloadEntryStatus.Running,
+                    currentItemId = item.id,
+                    currentItemTitle = item.title,
+                    createdAtEpochMillis = 1L,
+                    updatedAtEpochMillis = 1L,
+                ),
+            ),
+        )
+        val dataSource = TestRemoteItemDownloadDataSource()
+        val runner = RemoteDownloadWorkerRunner(
+            store = store,
+            remoteDownloadDataSources = listOf(dataSource),
+            completionSideEffects = emptyList(),
+            canRunSource = { false },
+        )
+
+        val outcome = runner.runEntry("entry-1")
+        val entry = checkNotNull(store.entries.singleOrNull())
+
+        assertEquals(RemoteDownloadWorkerOutcome.Success, outcome)
+        assertEquals(DownloadEntryStatus.PausedConnectivity, entry.status)
+        assertEquals(item.id, entry.currentItemId)
+        assertTrue(dataSource.downloadedItemIds.isEmpty())
     }
 
     @Test
@@ -850,6 +942,7 @@ private class InMemoryDownloadQueueStore(
     ): Boolean = enqueueMutex.withLock {
         val hasOverlap = state.value.any { existingEntry ->
             (existingEntry.status == DownloadEntryStatus.Queued ||
+                existingEntry.status == DownloadEntryStatus.PausedConnectivity ||
                 existingEntry.status == DownloadEntryStatus.Running ||
                 existingEntry.status == DownloadEntryStatus.Canceling) &&
                 existingEntry.trackedItemIds.any(entry.trackedItemIds::contains)
@@ -867,6 +960,7 @@ private class InMemoryDownloadQueueStore(
         val hasOverlap = state.value.any { existingEntry ->
             existingEntry.id != entryId &&
                 (existingEntry.status == DownloadEntryStatus.Queued ||
+                    existingEntry.status == DownloadEntryStatus.PausedConnectivity ||
                     existingEntry.status == DownloadEntryStatus.Running ||
                     existingEntry.status == DownloadEntryStatus.Canceling) &&
                 existingEntry.trackedItemIds.any(entry.trackedItemIds::contains)

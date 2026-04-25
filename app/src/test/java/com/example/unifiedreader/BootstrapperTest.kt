@@ -167,6 +167,7 @@ class BootstrapperTest {
             importedComicArchiveDao = archiveDao,
             readingProgressDao = progressDao,
             readerSessionStateDao = sessionDao,
+            remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
             remoteDownloadQueueController = RemoteDownloadQueueController(
                 store = BootstrapDownloadQueueStore(),
                 scheduler = BootstrapRecordingDownloadWorkScheduler(),
@@ -236,12 +237,16 @@ class BootstrapperTest {
             ),
         )
         val scheduler = BootstrapRecordingDownloadWorkScheduler()
+        val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markReachable(SourceType.KAVITA)
+        }
 
         AppStartupInitializer(
             context = context,
             importedComicArchiveDao = archiveDao,
             readingProgressDao = progressDao,
             readerSessionStateDao = sessionDao,
+            remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
             remoteDownloadQueueController = RemoteDownloadQueueController(
                 store = downloadStore,
                 scheduler = scheduler,
@@ -347,6 +352,7 @@ private class BootstrapDownloadQueueStore(
     override suspend fun putEntryIfNoActiveTrackedItems(entry: DownloadEntry): Boolean {
         val hasOverlap = state.value.any { existingEntry ->
             (existingEntry.status == DownloadEntryStatus.Queued ||
+                existingEntry.status == DownloadEntryStatus.PausedConnectivity ||
                 existingEntry.status == DownloadEntryStatus.Running ||
                 existingEntry.status == DownloadEntryStatus.Canceling) &&
                 existingEntry.trackedItemIds.any(entry.trackedItemIds::contains)
@@ -361,6 +367,7 @@ private class BootstrapDownloadQueueStore(
         val hasOverlap = state.value.any { existingEntry ->
             existingEntry.id != entryId &&
                 (existingEntry.status == DownloadEntryStatus.Queued ||
+                    existingEntry.status == DownloadEntryStatus.PausedConnectivity ||
                     existingEntry.status == DownloadEntryStatus.Running ||
                     existingEntry.status == DownloadEntryStatus.Canceling) &&
                 existingEntry.trackedItemIds.any(entry.trackedItemIds::contains)

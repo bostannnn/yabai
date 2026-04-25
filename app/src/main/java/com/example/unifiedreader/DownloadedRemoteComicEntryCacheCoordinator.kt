@@ -14,7 +14,7 @@ class DownloadedRemoteComicEntryCacheCoordinator(
         itemId: String,
         loadEntryNames: suspend () -> List<String>,
     ): List<String> {
-        archiveEntryCache.get(itemId)?.let { return it }
+        archiveEntryCache.get(itemId)?.takeIf(List<String>::isNotEmpty)?.let { return it }
         return entryLoadMutex.withLock {
             loadCurrentEntryNames(
                 itemId = itemId,
@@ -39,7 +39,7 @@ class DownloadedRemoteComicEntryCacheCoordinator(
         loadEntryNames: suspend () -> List<String>,
     ): List<String> {
         while (true) {
-            archiveEntryCache.get(itemId)?.let { return it }
+            archiveEntryCache.get(itemId)?.takeIf(List<String>::isNotEmpty)?.let { return it }
             val requestGeneration = generationFor(itemId)
             val loadedEntryNames = loadEntryNames()
             if (generationFor(itemId) == requestGeneration) {

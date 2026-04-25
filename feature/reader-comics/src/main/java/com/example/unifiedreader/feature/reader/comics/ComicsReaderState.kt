@@ -188,6 +188,17 @@ interface ComicPageSource {
         item: ReadableItem,
     ): Flow<List<ComicPageSpec>> = flowOf(getPages(item))
 
+    fun pagesUnavailableDiagnostic(
+        item: ReadableItem,
+    ): ComicPagesUnavailableDiagnostic = ComicPagesUnavailableDiagnostic(
+        title = "No comic pages available",
+        detail = "itemId=${item.id}, source=${item.sourceType}, format=${item.format}",
+    )
+
+    fun observePagesUnavailableDiagnostic(
+        item: ReadableItem,
+    ): Flow<ComicPagesUnavailableDiagnostic> = flowOf(pagesUnavailableDiagnostic(item))
+
     suspend fun loadPageMetadata(
         item: ReadableItem,
         page: ComicPageSpec,
@@ -243,6 +254,11 @@ interface ComicPageSource {
         )
     }
 }
+
+data class ComicPagesUnavailableDiagnostic(
+    val title: String,
+    val detail: String,
+)
 
 @Stable
 class ComicsReaderState internal constructor(

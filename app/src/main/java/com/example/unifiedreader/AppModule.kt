@@ -164,12 +164,14 @@ object AppModule {
         remoteDownloadQueueController: RemoteDownloadQueueController,
         readingProgressDao: ReadingProgressDao,
         readerSessionStateDao: ReaderSessionStateDao,
+        remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
     ): AppStartupTasks = AppStartupInitializer(
         context = context,
         importedComicArchiveDao = importedComicArchiveDao,
         remoteDownloadQueueController = remoteDownloadQueueController,
         readingProgressDao = readingProgressDao,
         readerSessionStateDao = readerSessionStateDao,
+        remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
     )
 
     @Provides
@@ -215,10 +217,12 @@ object AppModule {
         store: DownloadQueueStore,
         remoteDownloadDataSources: List<@JvmSuppressWildcards RemoteItemDownloadDataSource>,
         completionSideEffects: List<@JvmSuppressWildcards DownloadCompletionSideEffect>,
+        remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
     ): RemoteDownloadWorkerRunner = RemoteDownloadWorkerRunner(
         store = store,
         remoteDownloadDataSources = remoteDownloadDataSources,
         completionSideEffects = completionSideEffects,
+        canRunSource = remoteSourceConnectivityPolicy::canScheduleDownload,
     )
 
     @Provides
@@ -327,6 +331,29 @@ object AppModule {
         stumpApiFactory = stumpApiFactory,
         remoteCatalogWriter = remoteCatalogWriter,
         readerSessionStore = readerSessionStore,
+    )
+
+    @Provides
+    fun provideRemoteSourceHealthChecks(
+        kavitaApiFactory: KavitaApiFactory,
+        kavitaCredentialStore: KavitaCredentialStore,
+        stumpApiFactory: StumpApiFactory,
+        stumpCredentialStore: StumpCredentialStore,
+        grimmoryApiFactory: GrimmoryApiFactory,
+        grimmoryCredentialStore: GrimmoryCredentialStore,
+    ): List<@JvmSuppressWildcards RemoteSourceHealthCheck> = listOf(
+        KavitaRemoteSourceHealthCheck(
+            kavitaApiFactory = kavitaApiFactory,
+            kavitaCredentialStore = kavitaCredentialStore,
+        ),
+        StumpRemoteSourceHealthCheck(
+            stumpApiFactory = stumpApiFactory,
+            stumpCredentialStore = stumpCredentialStore,
+        ),
+        GrimmoryRemoteSourceHealthCheck(
+            grimmoryApiFactory = grimmoryApiFactory,
+            grimmoryCredentialStore = grimmoryCredentialStore,
+        ),
     )
 
     @Provides
@@ -469,12 +496,14 @@ object AppModule {
         importedComicArchiveDao: ImportedComicArchiveDao,
         appStartupTasks: AppStartupTasks,
         readerSessionStore: ReaderSessionStore,
+        previewStore: PersistentComicPagePreviewStore,
     ): LocalDocumentRepository {
         return LocalDocumentRepository(
             context = context,
             importedComicArchiveDao = importedComicArchiveDao,
             appStartupTasks = appStartupTasks,
             onItemImported = readerSessionStore::restoreItem,
+            previewStore = previewStore,
         )
     }
 
@@ -617,6 +646,7 @@ object AppModule {
         readerSessionStore: ReaderSessionStore,
         localDocumentRepository: LocalDocumentRepository,
         remoteDownloadDataSources: List<@JvmSuppressWildcards RemoteItemDownloadDataSource>,
+        remoteDocumentReadCache: RemoteDocumentReadCache,
     ): List<@JvmSuppressWildcards ReaderScreenFactory> = listOf(
         comicsReaderFactory(
             pageSource = comicPageSource,
@@ -629,7 +659,8 @@ object AppModule {
                 localDocumentRepository.getDocumentUri(item)
                     ?: remoteDownloadDataSources.firstOrNull { dataSource ->
                         dataSource.supports(item)
-                    }?.getDocumentUri(item)
+                    }?.storedDocumentUri(item)
+                    ?: remoteDocumentReadCache.documentUriForReading(item)
             },
         ),
         pdfReaderFactory(
@@ -637,7 +668,8 @@ object AppModule {
                 localDocumentRepository.getDocumentUri(item)
                     ?: remoteDownloadDataSources.firstOrNull { dataSource ->
                         dataSource.supports(item)
-                    }?.getDocumentUri(item)
+                    }?.storedDocumentUri(item)
+                    ?: remoteDocumentReadCache.documentUriForReading(item)
             },
         ),
     )

@@ -8,6 +8,23 @@ import org.junit.Test
 
 class DownloadedRemoteComicEntryCacheCoordinatorTest {
     @Test
+    fun `empty cached entry list is refreshed from archive`() = runTest {
+        val archiveEntryCache = DownloadedRemoteComicArchiveEntryCache()
+        val coordinator = DownloadedRemoteComicEntryCacheCoordinator(archiveEntryCache)
+        archiveEntryCache.put("comic-1", emptyList())
+        var loadCount = 0
+
+        val result = coordinator.entryNamesFor(itemId = "comic-1") {
+            loadCount += 1
+            listOf("recovered-page")
+        }
+
+        assertEquals(listOf("recovered-page"), result)
+        assertEquals(listOf("recovered-page"), archiveEntryCache.get("comic-1"))
+        assertEquals(1, loadCount)
+    }
+
+    @Test
     fun `stale in-flight entry load is discarded after invalidation`() = runTest {
         val archiveEntryCache = DownloadedRemoteComicArchiveEntryCache()
         val coordinator = DownloadedRemoteComicEntryCacheCoordinator(archiveEntryCache)

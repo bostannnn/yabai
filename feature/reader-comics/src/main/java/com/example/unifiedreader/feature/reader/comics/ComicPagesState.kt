@@ -20,3 +20,18 @@ internal fun rememberObservedComicPages(
     val pages by pagesFlow.collectAsState(initial = initialPages)
     return pages
 }
+
+@Composable
+internal fun rememberComicPagesUnavailableDiagnostic(
+    item: ReadableItem,
+    pageSource: ComicPageSource,
+): ComicPagesUnavailableDiagnostic {
+    val initialDiagnostic = remember(item, pageSource) {
+        pageSource.pagesUnavailableDiagnostic(item)
+    }
+    val diagnosticFlow = remember(item, pageSource) {
+        pageSource.observePagesUnavailableDiagnostic(item)
+    }
+    val diagnostic by diagnosticFlow.collectAsState(initial = initialDiagnostic)
+    return diagnostic
+}

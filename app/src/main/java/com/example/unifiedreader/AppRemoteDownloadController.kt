@@ -1,6 +1,7 @@
 package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.downloads.DownloadEntriesSnapshot
 import com.example.unifiedreader.feature.downloads.RemoteDownloadQueueController
 import javax.inject.Inject
@@ -19,12 +20,23 @@ class AppRemoteDownloadController @Inject constructor(
         updateState: AppUiStateUpdater,
         scope: CoroutineScope,
         item: ReadableItem,
+        canScheduleSource: (SourceType) -> Boolean,
     ) {
         scope.launch {
             remoteDownloadQueueController.enqueue(
                 item = item,
                 items = stateProvider().items,
+                canScheduleSource = canScheduleSource,
             )
+        }
+    }
+
+    fun scheduleQueuedDownloads(
+        scope: CoroutineScope,
+        canScheduleSource: (SourceType) -> Boolean,
+    ) {
+        scope.launch {
+            remoteDownloadQueueController.ensureScheduled(canScheduleSource)
         }
     }
 
@@ -40,9 +52,10 @@ class AppRemoteDownloadController @Inject constructor(
     fun retryDownload(
         scope: CoroutineScope,
         entryId: String,
+        canScheduleSource: (SourceType) -> Boolean,
     ) {
         scope.launch {
-            remoteDownloadQueueController.retry(entryId)
+            remoteDownloadQueueController.retry(entryId, canScheduleSource)
         }
     }
 

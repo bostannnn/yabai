@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.settings.GrimmoryConnectionUiState
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,6 +14,31 @@ import org.junit.Assert.fail
 import org.junit.Test
 
 class AppGrimmoryCoordinatorTest {
+    @Test
+    fun `execute sync non-network failure does not mark source unavailable`() = runTest {
+        val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy()
+        val coordinator = AppGrimmoryCoordinator(
+            grimmoryCatalogSyncer = FakeGrimmoryCatalogSyncer(
+                failure = IllegalStateException("Sync rejected"),
+            ),
+            grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+        )
+        val preparation = coordinator.prepareConnect(
+            GrimmoryConnectionUiState(
+                displayName = "Grimmory",
+                baseUrl = "https://grimmory.example",
+                username = "reader",
+                password = "secret",
+            ),
+        ) as GrimmorySyncPreparation.Ready
+
+        val result = coordinator.executeSync(preparation, clearCoverState = {})
+
+        assertTrue(result is GrimmorySyncExecutionResult.Failure)
+        assertEquals(RemoteSourceReachability.Reachable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.GRIMMORY))
+    }
+
     @Test
     fun `executeConnect persists session and returns sync guidance message`() = runBlocking {
         val credentialStore = TestGrimmoryCredentialStore()
@@ -29,6 +55,7 @@ class AppGrimmoryCoordinatorTest {
         val coordinator = AppGrimmoryCoordinator(
             grimmoryCatalogSyncer = syncer,
             grimmoryCredentialStore = credentialStore,
+            remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
         )
         val preparation = coordinator.prepareConnect(
             GrimmoryConnectionUiState(
@@ -63,6 +90,7 @@ class AppGrimmoryCoordinatorTest {
                 failure = CancellationException("cancelled"),
             ),
             grimmoryCredentialStore = credentialStore,
+            remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
         )
         val preparation = coordinator.prepareConnect(
             GrimmoryConnectionUiState(
@@ -91,6 +119,7 @@ class AppGrimmoryCoordinatorTest {
                 failure = CancellationException("cancelled"),
             ),
             grimmoryCredentialStore = credentialStore,
+            remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
         )
         val preparation = coordinator.prepareConnect(
             GrimmoryConnectionUiState(

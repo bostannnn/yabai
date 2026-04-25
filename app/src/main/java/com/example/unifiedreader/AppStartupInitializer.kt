@@ -18,6 +18,7 @@ class AppStartupInitializer(
     private val readingProgressDao: ReadingProgressDao,
     private val readerSessionStateDao: ReaderSessionStateDao,
     private val remoteDownloadQueueController: RemoteDownloadQueueController,
+    private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
 ) : AppStartupTasks {
     @Volatile
     private var initialized = false
@@ -36,7 +37,7 @@ class AppStartupInitializer(
                 readingProgressDao = readingProgressDao,
                 readerSessionStateDao = readerSessionStateDao,
             ).bootstrapIfNeeded()
-            remoteDownloadQueueController.ensureScheduled()
+            remoteDownloadQueueController.ensureScheduled(remoteSourceConnectivityPolicy::canScheduleDownload)
             initialized = true
         }
     }

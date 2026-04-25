@@ -109,8 +109,10 @@ fun UnifiedReaderScaffold(
                 when (uiState.topLevel) {
                     TopLevelDestination.Library -> LibraryTopBar(
                         selectedSource = uiState.selectedSource,
+                        sourceConnectivity = uiState.selectedSourceConnectivity,
                         searchQuery = uiState.selectedLibrarySearchQuery,
                         seriesTitle = uiState.selectedSeriesTitle,
+                        onSourceConnectivityClick = viewModel::retrySelectedSourceConnection,
                         onDrawerClick = {
                             drawerScope.launch {
                                 drawerState.open()

@@ -2,12 +2,14 @@ package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
+import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.settings.KavitaConnectionUiState
 import javax.inject.Inject
 
 class AppKavitaCoordinator @Inject constructor(
     private val kavitaCatalogSyncer: KavitaCatalogSyncer,
     private val kavitaCredentialStore: KavitaCredentialStore,
+    private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
 ) {
     fun refreshedConnectionState(
         connection: KavitaConnectionUiState,
@@ -158,6 +160,7 @@ class AppKavitaCoordinator @Inject constructor(
             session = result.session,
             activeBaseUrl = result.activeBaseUrl,
         )
+        remoteSourceConnectivityPolicy.markReachable(SourceType.KAVITA)
         clearCoverState()
         val progressPushWarning = progressPushWarningMessage(
             sourceLabel = "Kavita",
@@ -180,6 +183,7 @@ class AppKavitaCoordinator @Inject constructor(
             ),
         )
     }.getOrElse { throwable ->
+        remoteSourceConnectivityPolicy.markFromFailure(SourceType.KAVITA, throwable)
         KavitaSyncExecutionResult.Failure(
             message = "${preparation.failurePrefix}: ${throwable.userFacingMessage()}",
             connection = preparation.activeConnection.copy(
@@ -201,6 +205,7 @@ class AppKavitaCoordinator @Inject constructor(
             session = result.session,
             activeBaseUrl = result.activeBaseUrl,
         )
+        remoteSourceConnectivityPolicy.markReachable(SourceType.KAVITA)
         KavitaConnectExecutionResult.Success(
             libraryCount = result.libraryCount,
             availableLibraries = result.libraries,
@@ -215,6 +220,7 @@ class AppKavitaCoordinator @Inject constructor(
             ),
         )
     }.getOrElse { throwable ->
+        remoteSourceConnectivityPolicy.markFromFailure(SourceType.KAVITA, throwable)
         KavitaConnectExecutionResult.Failure(
             message = "${preparation.failurePrefix}: ${throwable.userFacingMessage()}",
             connection = preparation.activeConnection.copy(

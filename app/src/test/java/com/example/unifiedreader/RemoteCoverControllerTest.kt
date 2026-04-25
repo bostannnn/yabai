@@ -49,6 +49,36 @@ class RemoteCoverControllerTest {
     }
 
     @Test
+    fun `coverImageUrlFor suppresses remembered remote fallback while offline`() {
+        val connectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markReachable(SourceType.STUMP)
+        }
+        val registry = VisibleLibraryCoverRegistry()
+        val controller = RemoteCoverController(
+            kavitaCoverRepository = EmptyKavitaCoverDataSource(),
+            stumpCoverRepository = EmptyStumpCoverDataSource(),
+            grimmoryCoverRepository = EmptyGrimmoryCoverDataSource(),
+            kavitaCredentialStore = FakeKavitaCredentialStore(),
+            stumpCredentialStore = FakeStumpCredentialStore(),
+            grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            remoteSourceConnectivityPolicy = connectivityPolicy,
+            visibleLibraryCoverRegistry = registry,
+            appDispatchers = immediateAppDispatchers(),
+        )
+        val stumpItem = remoteItem(
+            id = "stump:item:fallback",
+            sourceType = SourceType.STUMP,
+            coverUrl = "https://stump.example/api/v1/media/fallback/thumbnail",
+        )
+
+        assertEquals(stumpItem.coverUrl, controller.coverImageUrlFor(stumpItem, LibraryCoverImageVariant.Grid))
+
+        connectivityPolicy.markUnavailable(SourceType.STUMP)
+
+        assertNull(controller.coverImageUrlFor(stumpItem, LibraryCoverImageVariant.Grid))
+    }
+
+    @Test
     fun `ensureCoverCached skips background fetch when exact persistent variant already cached`() = runTest {
         val cachedUri = Uri.parse("file:///tmp/persistent-stump-cover.png")
         val stumpDataSource = PersistentCachedStumpCoverDataSource(

@@ -5,6 +5,7 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageMetadata
+import com.example.unifiedreader.feature.reader.comics.ComicPagesUnavailableDiagnostic
 import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewOptions
 import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewResult
 import com.example.unifiedreader.feature.reader.comics.ComicPagePrefetchWindow
@@ -13,6 +14,7 @@ import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 
 interface ComicPageSourceCacheController {
@@ -38,6 +40,41 @@ class CompositeComicPageSource(
         .onStart { emit(Unit) }
         .flatMapLatest {
             pageSourceFor(item)?.observePages(item) ?: flowOf(emptyList())
+        }
+
+    override fun pagesUnavailableDiagnostic(
+        item: ReadableItem,
+    ): ComicPagesUnavailableDiagnostic {
+        val selectedPageSource = pageSourceFor(item)
+            ?: return ComicPagesUnavailableDiagnostic(
+                title = "No comic page source selected",
+                detail = "itemId=${item.id}, source=${item.sourceType}, format=${item.format}",
+            )
+        val selectedDiagnostic = selectedPageSource.pagesUnavailableDiagnostic(item)
+        val downloadedDiagnostic = when {
+            item.sourceType == SourceType.KAVITA || item.sourceType == SourceType.STUMP ->
+                downloadedRemoteComicPageSource.pagesUnavailableDiagnostic(item)
+            else -> null
+        }
+        return if (downloadedDiagnostic == null || selectedPageSource === downloadedRemoteComicPageSource) {
+            selectedDiagnostic
+        } else {
+            ComicPagesUnavailableDiagnostic(
+                title = selectedDiagnostic.title,
+                detail = "${selectedDiagnostic.detail}; selectedPageSource=${selectedPageSource.javaClass.simpleName}; " +
+                    "downloadedLocalState=${downloadedDiagnostic.title}: ${downloadedDiagnostic.detail}",
+            )
+        }
+    }
+
+    override fun observePagesUnavailableDiagnostic(
+        item: ReadableItem,
+    ): Flow<ComicPagesUnavailableDiagnostic> = cacheInvalidationDispatcher.observeInvalidations(item.id)
+        .onStart { emit(Unit) }
+        .flatMapLatest {
+            pageSourceFor(item)?.observePagesUnavailableDiagnostic(item)?.map {
+                pagesUnavailableDiagnostic(item)
+            } ?: flowOf(pagesUnavailableDiagnostic(item))
         }
 
     override suspend fun loadPageMetadata(

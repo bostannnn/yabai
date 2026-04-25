@@ -288,6 +288,7 @@ private fun DownloadEntryCard(
 @Composable
 private fun DownloadEntryStatus.tint() = when (this) {
     DownloadEntryStatus.Queued -> MaterialTheme.colorScheme.secondary
+    DownloadEntryStatus.PausedConnectivity -> MaterialTheme.colorScheme.secondary
     DownloadEntryStatus.Running -> MaterialTheme.colorScheme.primary
     DownloadEntryStatus.Canceling -> MaterialTheme.colorScheme.secondary
     DownloadEntryStatus.Completed -> MaterialTheme.colorScheme.tertiary
@@ -297,6 +298,7 @@ private fun DownloadEntryStatus.tint() = when (this) {
 
 private fun DownloadEntryStatus.icon() = when (this) {
     DownloadEntryStatus.Queued -> Icons.Default.HourglassTop
+    DownloadEntryStatus.PausedConnectivity -> Icons.Default.HourglassTop
     DownloadEntryStatus.Running -> Icons.Default.HourglassTop
     DownloadEntryStatus.Canceling -> Icons.Default.Stop
     DownloadEntryStatus.Completed -> Icons.Default.DownloadDone
@@ -308,6 +310,7 @@ private fun DownloadEntryStatus.label(
     entry: DownloadEntry,
 ): String = when (this) {
     DownloadEntryStatus.Queued -> "Queued"
+    DownloadEntryStatus.PausedConnectivity -> "Waiting for server"
     DownloadEntryStatus.Running -> entry.progressLabel
     DownloadEntryStatus.Canceling -> if (entry.completedItemCount > 0) {
         "Canceling after ${entry.progressLabel.lowercase()}"

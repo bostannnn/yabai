@@ -16,6 +16,8 @@ class AppReaderCoordinator @Inject constructor(
     private val syncItemProgressUseCase: SyncItemProgressUseCase,
     private val pendingProgressFlushCoordinator: AppPendingProgressFlushCoordinator,
     private val nextItemResolver: AppReaderNextItemResolver,
+    private val readableAccessResolver: ReadableAccessResolver,
+    private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
 ) {
     private var readerSelectionRequestId = 0
     private val libraryScrollPositionByContext =
@@ -66,6 +68,7 @@ class AppReaderCoordinator @Inject constructor(
         onSyncFailures: (List<SourceProgressSyncFailure>) -> Unit,
         selectedReaderItem: ReadableItem? = null,
         openMode: ReaderOpenMode = ReaderOpenMode.Default,
+        skipProgressSyncBeforeOpen: Boolean = false,
     ) {
         if (item.isKavitaSeriesContainer()) {
             updateState { state ->
@@ -95,23 +98,83 @@ class AppReaderCoordinator @Inject constructor(
             refreshProgress()
             return
         }
-        val hasProgressSync = syncItemProgressUseCase.hasSyncFor(item)
+        val accessDecision = readableAccessResolver.resolve(item)
+        val hasProgressSync = !skipProgressSyncBeforeOpen && syncItemProgressUseCase.hasSyncFor(item)
         val requestId = ++readerSelectionRequestId
         selectedReaderItem?.let { retainedItem ->
             pendingProgressFlushCoordinator.retainProgressItem(retainedItem)
         }
         refreshProgress()
+        when (accessDecision) {
+            ReadableAccessDecision.LocalFile -> {
+                openReader(
+                    item = item,
+                    selectedReaderItem = selectedReaderItem,
+                    openMode = openMode,
+                    updateState = updateState,
+                )
+                return
+            }
+
+            ReadableAccessDecision.DownloadedRemoteFile -> {
+                openReader(
+                    item = item,
+                    selectedReaderItem = selectedReaderItem,
+                    openMode = openMode,
+                    updateState = updateState,
+                )
+                if (hasProgressSync && remoteSourceConnectivityPolicy.canAttemptDownloadedProgressSync(item.sourceType)) {
+                    scope.launch {
+                        syncProgressForDownloadedItem(
+                            item = item,
+                            refreshProgress = refreshProgress,
+                            onSyncFailures = onSyncFailures,
+                        )
+                    }
+                }
+                return
+            }
+
+            is ReadableAccessDecision.BlockedRemoteUnavailable -> {
+                onSyncFailures(
+                    listOf(
+                        SourceProgressSyncFailure(
+                            sourceType = accessDecision.sourceType,
+                            throwable = RemoteSourceUnavailableException(accessDecision.sourceType),
+                        ),
+                    ),
+                )
+                return
+            }
+
+            ReadableAccessDecision.RemoteStream -> Unit
+        }
         if (hasProgressSync) {
             scope.launch {
                 val failures = syncItemProgressUseCase(item).fold(
-                    onSuccess = { emptyList() },
+                    onSuccess = {
+                        remoteSourceConnectivityPolicy.markReachable(item.sourceType)
+                        emptyList()
+                    },
                     onFailure = { throwable ->
-                        listOf(
-                            SourceProgressSyncFailure(
-                                sourceType = item.sourceType,
-                                throwable = throwable,
-                            ),
-                        )
+                        if (throwable.isRemoteServerAddressRetryableFailure()) {
+                            remoteSourceConnectivityPolicy.markUnavailable(item.sourceType)
+                            Log.w(LOG_TAG, "Unable to reach ${item.sourceType} before opening ${item.id}.", throwable)
+                            listOf(
+                                SourceProgressSyncFailure(
+                                    sourceType = item.sourceType,
+                                    throwable = RemoteSourceUnavailableException(item.sourceType),
+                                ),
+                            )
+                        } else {
+                            remoteSourceConnectivityPolicy.markReachable(item.sourceType)
+                            listOf(
+                                SourceProgressSyncFailure(
+                                    sourceType = item.sourceType,
+                                    throwable = throwable,
+                                ),
+                            )
+                        }
                     },
                 )
                 failures.forEach { failure ->
@@ -119,6 +182,7 @@ class AppReaderCoordinator @Inject constructor(
                 }
                 if (readerSelectionRequestId != requestId) return@launch
                 onSyncFailures(failures)
+                if (failures.any { failure -> failure.throwable is RemoteSourceUnavailableException }) return@launch
                 refreshProgress()
                 openReader(
                     item = item,
@@ -134,6 +198,36 @@ class AppReaderCoordinator @Inject constructor(
                 openMode = openMode,
                 updateState = updateState,
             )
+        }
+    }
+
+    private suspend fun syncProgressForDownloadedItem(
+        item: ReadableItem,
+        refreshProgress: () -> Unit,
+        onSyncFailures: (List<SourceProgressSyncFailure>) -> Unit,
+    ) {
+        var isReachabilityFailure = false
+        val failure = syncItemProgressUseCase(item).fold(
+            onSuccess = {
+                remoteSourceConnectivityPolicy.markReachable(item.sourceType)
+                null
+            },
+            onFailure = { throwable ->
+                isReachabilityFailure = throwable.isRemoteServerAddressRetryableFailure()
+                remoteSourceConnectivityPolicy.markFromFailure(
+                    sourceType = item.sourceType,
+                    throwable = throwable,
+                )
+                SourceProgressSyncFailure(
+                    sourceType = item.sourceType,
+                    throwable = throwable,
+                )
+            },
+        )
+        if (failure == null) {
+            refreshProgress()
+        } else if (!isReachabilityFailure) {
+            onSyncFailures(listOf(failure))
         }
     }
 

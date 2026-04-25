@@ -35,7 +35,6 @@ class AppViewModel @Inject constructor(
     private val libraryBrowseController: AppLibraryBrowseController,
     private val settingsController: AppSettingsController,
     private val remoteDownloadController: AppRemoteDownloadController,
-    private val appStateHydrator: AppStateHydrator,
     private val catalogStateCoordinator: AppCatalogStateCoordinator,
     private val libraryActionsCoordinator: AppLibraryActionsCoordinator,
     private val libraryReadStatusController: AppLibraryReadStatusController,
@@ -43,6 +42,8 @@ class AppViewModel @Inject constructor(
     private val comicReaderModeController: AppComicReaderModeController,
     private val readerCoordinator: AppReaderCoordinator,
     private val remoteSourcesCoordinator: AppRemoteSourcesCoordinator,
+    private val remoteSourceConnectivityStartupCoordinator: RemoteSourceConnectivityStartupCoordinator,
+    private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
     private val progressSyncNoticeController: AppProgressSyncNoticeController,
     private val progressSyncStartupRetryCoordinator: AppProgressSyncStartupRetryCoordinator,
     val comicPageSource: ComicPageSource,
@@ -64,7 +65,7 @@ class AppViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            appStateHydrator.hydrate()
+            remoteSourceConnectivityStartupCoordinator.checkConfiguredSources()
         }
         remoteSourcesCoordinator.initialize(::updateUiState)
         settingsController.restoreState(updateState = ::updateUiState)
@@ -358,6 +359,7 @@ class AppViewModel @Inject constructor(
             updateState = ::updateUiState,
             scope = viewModelScope,
             item = item,
+            canScheduleSource = remoteSourceConnectivityPolicy::canScheduleDownload,
         )
     }
 
@@ -408,6 +410,7 @@ class AppViewModel @Inject constructor(
         remoteDownloadController.retryDownload(
             scope = viewModelScope,
             entryId = entryId,
+            canScheduleSource = remoteSourceConnectivityPolicy::canScheduleDownload,
         )
     }
 
@@ -576,6 +579,14 @@ class AppViewModel @Inject constructor(
         )
     }
 
+    fun retrySelectedSourceConnection() {
+        val sourceType = uiState.selectedSource
+        if (!remoteSourceConnectivityPolicy.canRunExplicitProbe(sourceType)) return
+        viewModelScope.launch {
+            remoteSourceConnectivityStartupCoordinator.retrySource(sourceType)
+        }
+    }
+
     fun refreshSelectedRemoteLibrary() {
         remoteSourcesCoordinator.refreshSelectedRemoteLibrary(
             stateProvider = { uiState },
@@ -649,6 +660,25 @@ class AppViewModel @Inject constructor(
             stateProvider = { uiState },
             updateState = ::updateUiState,
         )
+        viewModelScope.launch {
+            remoteSourceConnectivityPolicy.reachabilityFlow.collect { connectivityBySource ->
+                updateUiState { state ->
+                    state.copy(sourceConnectivityBySource = connectivityBySource)
+                }
+                remoteDownloadController.scheduleQueuedDownloads(
+                    scope = viewModelScope,
+                    canScheduleSource = remoteSourceConnectivityPolicy::canScheduleDownload,
+                )
+            }
+        }
+        viewModelScope.launch {
+            remoteSourceConnectivityStartupCoordinator.sourceErrorsFlow.collect { errorsBySource ->
+                if (errorsBySource.isEmpty()) return@collect
+                updateUiState { state ->
+                    state.withStartupSourceErrors(errorsBySource)
+                }
+            }
+        }
         readerCoordinator.observeDirtyProgress(
             scope = viewModelScope,
             catalogItemsProvider = catalogStateCoordinator::catalogItems,
@@ -707,4 +737,35 @@ class AppViewModel @Inject constructor(
             updateState = ::updateUiState,
         )
     }
+}
+
+private fun AppUiState.withStartupSourceErrors(
+    errorsBySource: Map<SourceType, Throwable>,
+): AppUiState {
+    var next = this
+    errorsBySource[SourceType.KAVITA]?.let { throwable ->
+        next = next.copy(
+            kavitaConnection = next.kavitaConnection.copy(
+                message = "Unable to check Kavita: ${throwable.userFacingMessage()}",
+                isError = true,
+            ),
+        )
+    }
+    errorsBySource[SourceType.STUMP]?.let { throwable ->
+        next = next.copy(
+            stumpConnection = next.stumpConnection.copy(
+                message = "Unable to check Stump: ${throwable.userFacingMessage()}",
+                isError = true,
+            ),
+        )
+    }
+    errorsBySource[SourceType.GRIMMORY]?.let { throwable ->
+        next = next.copy(
+            grimmoryConnection = next.grimmoryConnection.copy(
+                message = "Unable to check Grimmory: ${throwable.userFacingMessage()}",
+                isError = true,
+            ),
+        )
+    }
+    return next
 }

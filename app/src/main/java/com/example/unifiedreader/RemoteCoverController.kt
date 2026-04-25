@@ -25,6 +25,7 @@ class RemoteCoverController @Inject constructor(
     private val kavitaCredentialStore: KavitaCredentialStore,
     private val stumpCredentialStore: StumpCredentialStore,
     private val grimmoryCredentialStore: GrimmoryCredentialStore,
+    private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy = defaultOnlineCoverConnectivityPolicy(),
     private val visibleLibraryCoverRegistry: VisibleLibraryCoverRegistry,
     private val appDispatchers: AppDispatchers = AppDispatchers(),
 ) {
@@ -52,8 +53,16 @@ class RemoteCoverController @Inject constructor(
     ): String? {
         val coverVariant = variant.toCoverAssetVariant()
         sourceTypeByItemId[item.id] = item.sourceType
-        scheduleCacheWarmup(item.sourceType)
-        visibleLibraryCoverRegistry.presentedUriFor(item.id, coverVariant)?.let { return it }
+        val canFetchRemoteCover = remoteSourceConnectivityPolicy.canFetchCover(item.sourceType)
+        if (canFetchRemoteCover) {
+            scheduleCacheWarmup(item.sourceType)
+        }
+        val presentedUri = if (canFetchRemoteCover) {
+            visibleLibraryCoverRegistry.presentedUriFor(item.id, coverVariant)
+        } else {
+            visibleLibraryCoverRegistry.resolvedUriFor(item.id, coverVariant)
+        }
+        presentedUri?.let { return it }
         if (item.sourceType !in sourcesBeingReset) {
             cachedCoverUri(item, variant)?.let { cachedUri ->
                 visibleLibraryCoverRegistry.promoteResolvedUri(item.id, coverVariant, cachedUri)
@@ -61,6 +70,9 @@ class RemoteCoverController @Inject constructor(
             }
         }
         if (coverDataSources[item.sourceType]?.usesRemoteDisplayFallback == false) {
+            return null
+        }
+        if (!canFetchRemoteCover) {
             return null
         }
         return remoteFallbackCoverUrlFor(item)?.also { fallbackUri ->
@@ -88,6 +100,7 @@ class RemoteCoverController @Inject constructor(
     ) {
         val coverVariant = variant.toCoverAssetVariant()
         sourceTypeByItemId[item.id] = item.sourceType
+        if (!remoteSourceConnectivityPolicy.canFetchCover(item.sourceType)) return
         scheduleCacheWarmup(item.sourceType)
         val dataSource = coverDataSources[item.sourceType] ?: return
         if (item.sourceType in sourcesBeingReset) return
@@ -163,6 +176,7 @@ class RemoteCoverController @Inject constructor(
     fun prepareSource(
         sourceType: SourceType,
     ) {
+        if (!remoteSourceConnectivityPolicy.canFetchCover(sourceType)) return
         scheduleCacheWarmup(sourceType)
     }
 
@@ -372,3 +386,10 @@ private data class RemoteCoverRequestKey(
 
 private const val LOG_TAG = "UnifiedReaderRemoteCover"
 private const val REMOTE_COVER_CACHE_CONCURRENCY = 4
+
+private fun defaultOnlineCoverConnectivityPolicy(): RemoteSourceConnectivityPolicy =
+    RemoteSourceConnectivityPolicy().apply {
+        markReachable(SourceType.KAVITA)
+        markReachable(SourceType.STUMP)
+        markReachable(SourceType.GRIMMORY)
+    }

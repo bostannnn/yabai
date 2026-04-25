@@ -8,6 +8,7 @@ import javax.inject.Inject
 class AppGrimmoryCoordinator @Inject constructor(
     private val grimmoryCatalogSyncer: GrimmoryCatalogSyncer,
     private val grimmoryCredentialStore: GrimmoryCredentialStore,
+    private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
 ) {
     fun refreshedConnectionState(
         connection: GrimmoryConnectionUiState,
@@ -165,6 +166,7 @@ class AppGrimmoryCoordinator @Inject constructor(
                 )
             },
         )
+        remoteSourceConnectivityPolicy.markReachable(SourceType.GRIMMORY)
         clearCoverState()
         val progressPushWarning = progressPushWarningMessage(
             sourceLabel = "Grimmory",
@@ -186,6 +188,7 @@ class AppGrimmoryCoordinator @Inject constructor(
             ),
         )
     }.getOrElse { throwable ->
+        remoteSourceConnectivityPolicy.markFromFailure(SourceType.GRIMMORY, throwable)
         GrimmorySyncExecutionResult.Failure(
             message = "${preparation.failurePrefix}: ${throwable.userFacingMessage()}",
             connection = preparation.activeConnection.copy(
@@ -230,6 +233,7 @@ class AppGrimmoryCoordinator @Inject constructor(
                 )
             },
         )
+        remoteSourceConnectivityPolicy.markReachable(SourceType.GRIMMORY)
         GrimmoryConnectExecutionResult.Success(
             libraryCount = result.libraryCount,
             connection = preparation.activeConnection.copy(
@@ -241,6 +245,7 @@ class AppGrimmoryCoordinator @Inject constructor(
             ),
         )
     }.getOrElse { throwable ->
+        remoteSourceConnectivityPolicy.markFromFailure(SourceType.GRIMMORY, throwable)
         GrimmoryConnectExecutionResult.Failure(
             message = "${preparation.failurePrefix}: ${throwable.userFacingMessage()}",
             connection = preparation.activeConnection.copy(

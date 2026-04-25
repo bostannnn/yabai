@@ -8,6 +8,7 @@ import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.belongsToKavitaSeries
 import com.example.unifiedreader.core.model.belongsToStumpSeries
 import com.example.unifiedreader.core.model.resolveLibraryFilterPanels
@@ -77,6 +78,7 @@ data class AppUiState(
     val libraryBrowseContextKey: String = "",
     val libraryShelvesState: LibraryShelvesState = LibraryShelvesState(),
     val progressSyncNotice: AppProgressSyncNotice? = null,
+    val sourceConnectivityBySource: Map<SourceType, SourceConnectivityState> = emptyMap(),
 ) {
     val selectedLibraryFilters: LibraryFilterState
         get() = libraryFiltersBySource[selectedSource] ?: LibraryFilterState()
@@ -138,4 +140,7 @@ data class AppUiState(
     val shouldReserveLibraryShelvesSlot: Boolean
         get() = selectedLibrarySearchQuery.isBlank() &&
             !isSeriesBrowseActive
+
+    val selectedSourceConnectivity: SourceConnectivityState
+        get() = sourceConnectivityBySource[selectedSource] ?: SourceConnectivityState.Unknown
 }

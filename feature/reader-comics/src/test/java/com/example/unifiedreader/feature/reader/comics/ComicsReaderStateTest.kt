@@ -1,5 +1,8 @@
 package com.example.unifiedreader.feature.reader.comics
 
+import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -12,6 +15,29 @@ class ComicsReaderStateTest {
         assertEquals("Fit screen", ComicPageFitMode.FitPage.label)
         assertEquals("Fit width", ComicPageFitMode.FitWidth.label)
         assertEquals("Fit height", ComicPageFitMode.FitHeight.label)
+    }
+
+    @Test
+    fun `empty reader message omits diagnostic internals`() {
+        val item = ReadableItem(
+            id = "item-42",
+            libraryId = "library-1",
+            sourceType = SourceType.KAVITA,
+            title = "Private Comic",
+            format = FormatType.CBZ,
+        )
+        val message = emptyComicReaderMessage(
+            item = item,
+            diagnostic = ComicPagesUnavailableDiagnostic(
+                title = "Downloaded comic file was not found",
+                detail = "itemId=item-42, remoteId=remote-9, storedUri=file:///private/path/book.cbz",
+            ),
+        )
+
+        assertEquals("Downloaded comic file was not found\n\nPrivate Comic", message)
+        assertFalse(message.contains("itemId="))
+        assertFalse(message.contains("file:///private/path"))
+        assertFalse(message.contains("remote-9"))
     }
 
     @Test

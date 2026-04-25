@@ -9,6 +9,8 @@ import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPagePrefetchWindow
 import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewOptions
 import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewResult
+import com.example.unifiedreader.feature.reader.comics.PersistentComicPagePreviewStore
+import java.io.File
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -129,6 +131,57 @@ class LocalComicPageLoaderTest {
         assertTrue(previewLoad.await() is ComicPagePreviewResult.Success)
         imageLoad.await()
         assertEquals(1, codec.requestedEntryNames.count { it == entryName })
+    }
+
+    @Test
+    fun `preview load ignores invalid persistent preview bytes and regenerates from archive`() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val previewDirectory = File(context.cacheDir, "local-preview-invalid-cache-test").apply {
+            deleteRecursively()
+        }
+        val previewStore = PersistentComicPagePreviewStore(previewDirectory)
+        val firstCodec = RecordingComicArchiveCodec()
+        val firstLoader = LocalComicPageLoader(
+            context = context,
+            comicArchiveCodecs = listOf(firstCodec),
+            scope = TestScope(StandardTestDispatcher(testScheduler)),
+            previewStore = previewStore,
+        )
+        val item = sampleLocalComic(pageCount = 12)
+        val record = sampleLocalRecord(pageCount = 12)
+        val entryName = "3.png"
+        assertTrue(
+            firstLoader.loadPagePreview(
+                item = item,
+                record = record,
+                entryName = entryName,
+                options = ComicPagePreviewOptions(),
+            ) is ComicPagePreviewResult.Success,
+        )
+        val cachedPreviewFiles = previewDirectory.walkTopDown()
+            .filter(File::isFile)
+            .toList()
+        assertTrue(cachedPreviewFiles.isNotEmpty())
+        val invalidPreviewBytes = byteArrayOf(1, 2, 3)
+        cachedPreviewFiles.forEach { file -> file.writeBytes(invalidPreviewBytes) }
+        assertTrue(cachedPreviewFiles.all { file -> file.readBytes().contentEquals(invalidPreviewBytes) })
+        val secondCodec = RecordingComicArchiveCodec()
+        val secondLoader = LocalComicPageLoader(
+            context = context,
+            comicArchiveCodecs = listOf(secondCodec),
+            scope = TestScope(StandardTestDispatcher(testScheduler)),
+            previewStore = previewStore,
+        )
+
+        val preview = secondLoader.loadPagePreview(
+            item = item,
+            record = record,
+            entryName = entryName,
+            options = ComicPagePreviewOptions(),
+        )
+
+        assertTrue(preview is ComicPagePreviewResult.Success)
+        assertEquals(1, secondCodec.requestedEntryNames.count { it == entryName })
     }
 }
 

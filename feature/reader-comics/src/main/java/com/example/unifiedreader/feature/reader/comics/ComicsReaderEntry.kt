@@ -53,7 +53,14 @@ fun ComicsReaderScreen(
     val restoredPreferences by preferencesStore.observePreferences(item).collectAsState(initial = null)
 
     if (pages.isEmpty()) {
-        EmptyComicsReader(item = item)
+        val pagesUnavailableDiagnostic = rememberComicPagesUnavailableDiagnostic(
+            item = item,
+            pageSource = pageSource,
+        )
+        EmptyComicsReader(
+            item = item,
+            diagnostic = pagesUnavailableDiagnostic,
+        )
         return
     }
 
@@ -384,7 +391,10 @@ fun ComicsReaderScreen(
 }
 
 @Composable
-private fun EmptyComicsReader(item: ReadableItem) {
+private fun EmptyComicsReader(
+    item: ReadableItem,
+    diagnostic: ComicPagesUnavailableDiagnostic,
+) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -393,9 +403,17 @@ private fun EmptyComicsReader(item: ReadableItem) {
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = "No local sample pages configured for ${item.title}.",
+            text = emptyComicReaderMessage(
+                item = item,
+                diagnostic = diagnostic,
+            ),
             color = Color(0xFFB7C4CE),
             textAlign = TextAlign.Center,
         )
     }
 }
+
+internal fun emptyComicReaderMessage(
+    item: ReadableItem,
+    diagnostic: ComicPagesUnavailableDiagnostic,
+): String = "${diagnostic.title}\n\n${item.title}"

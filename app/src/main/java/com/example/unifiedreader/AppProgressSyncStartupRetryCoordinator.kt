@@ -15,6 +15,8 @@ class AppProgressSyncStartupRetryCoordinator @Inject constructor(
     private val readerSessionStore: ReaderSessionStore,
     private val remoteCatalogReadiness: RemoteCatalogReadiness,
     private val flushPendingProgressOnStartupUseCase: FlushPendingProgressOnStartupUseCase,
+    private val remoteItemLocalAvailability: RemoteItemLocalAvailability,
+    private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
 ) {
     fun retryAfterHydration(
         scope: CoroutineScope,
@@ -32,17 +34,39 @@ class AppProgressSyncStartupRetryCoordinator @Inject constructor(
                 )
             }.first { snapshot -> snapshot.ready }.items
 
-            val failures = flushPendingProgressOnStartupUseCase(items)
-            failures.forEach { failure ->
+            val startupProgressItems = items.filterStartupProgressItems(
+                remoteItemLocalAvailability = remoteItemLocalAvailability,
+                remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+            )
+            val failures = flushPendingProgressOnStartupUseCase(startupProgressItems)
+            remoteSourceConnectivityPolicy.markFromSyncFailures(
+                attemptedSourceTypes = startupProgressItems.mapTo(mutableSetOf(), ReadableItem::sourceType),
+                failures = failures,
+            )
+            val reportableFailures = failures.withoutDownloadedReachabilityFailures(
+                attemptedItems = startupProgressItems,
+                remoteItemLocalAvailability = remoteItemLocalAvailability,
+            )
+            reportableFailures.forEach { failure ->
                 Log.w(
                     LOG_TAG,
                     "Unable to push pending startup progress for ${failure.sourceType}.",
                     failure.throwable,
                 )
             }
-            onSyncFailures(failures)
+            onSyncFailures(reportableFailures)
         }
     }
+}
+
+private fun List<ReadableItem>.filterStartupProgressItems(
+    remoteItemLocalAvailability: RemoteItemLocalAvailability,
+    remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
+): List<ReadableItem> = filter { item ->
+    remoteSourceConnectivityPolicy.canFlushStartupProgress(
+        sourceType = item.sourceType,
+        hasStoredDocument = remoteItemLocalAvailability.hasStoredDocument(item),
+    )
 }
 
 private data class StartupRetrySnapshot(

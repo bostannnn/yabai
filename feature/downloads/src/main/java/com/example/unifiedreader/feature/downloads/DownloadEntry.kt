@@ -16,6 +16,7 @@ data class QueuedDownloadItem(
 
 enum class DownloadEntryStatus {
     Queued,
+    PausedConnectivity,
     Running,
     Canceling,
     Completed,
@@ -52,6 +53,7 @@ data class DownloadEntry(
         get() = when {
             totalItemCount <= 1 && status == DownloadEntryStatus.Completed -> "Ready"
             totalItemCount <= 1 && status == DownloadEntryStatus.Running -> "Downloading"
+            totalItemCount <= 1 && status == DownloadEntryStatus.PausedConnectivity -> "Waiting for server"
             totalItemCount <= 1 && status == DownloadEntryStatus.Canceling -> "Canceling"
             else -> "${completedItemCount.coerceAtMost(totalItemCount)}/$totalItemCount files"
         }
@@ -60,7 +62,9 @@ data class DownloadEntry(
         get() = status == DownloadEntryStatus.Failed || status == DownloadEntryStatus.Canceled
 
     val canCancel: Boolean
-        get() = status == DownloadEntryStatus.Queued || status == DownloadEntryStatus.Running
+        get() = status == DownloadEntryStatus.Queued ||
+            status == DownloadEntryStatus.PausedConnectivity ||
+            status == DownloadEntryStatus.Running
 
     val canRemove: Boolean
         get() = status == DownloadEntryStatus.Failed || status == DownloadEntryStatus.Canceled
@@ -75,6 +79,7 @@ data class DownloadEntriesSnapshot(
     val activeEntries: List<DownloadEntry>
         get() = entries.filter { entry ->
             entry.status == DownloadEntryStatus.Queued ||
+                entry.status == DownloadEntryStatus.PausedConnectivity ||
                 entry.status == DownloadEntryStatus.Running ||
                 entry.status == DownloadEntryStatus.Canceling
         }

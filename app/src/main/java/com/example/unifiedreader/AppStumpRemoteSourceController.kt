@@ -14,6 +14,7 @@ class AppStumpRemoteSourceController @Inject constructor(
     private val remoteCoverController: RemoteCoverController,
     private val comicPageSourceCacheController: ComicPageSourceCacheController,
     private val remoteLibraryCacheStore: RemoteLibraryCacheStore,
+    private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
 ) {
     private var suppressedObservedLibraryRefresh: StumpStoredSessionKey? = null
 
@@ -155,6 +156,7 @@ class AppStumpRemoteSourceController @Inject constructor(
                 if (stateProvider().stumpConnection.isConnecting) return@collectLatest
                 if (consumeSuppressedObservedLibraryRefresh(session)) return@collectLatest
                 if (cachedLibraries.isEmpty()) return@collectLatest
+                if (!remoteSourceConnectivityPolicy.isReachable(SourceType.STUMP)) return@collectLatest
                 val libraries = runCatching {
                     stumpCoordinator.loadAvailableLibraries(session)
                 }.getOrNull() ?: return@collectLatest

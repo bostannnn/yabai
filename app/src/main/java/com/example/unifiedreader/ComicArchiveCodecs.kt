@@ -205,15 +205,17 @@ private fun android.content.ContentResolver.queryArchiveSignature(
         OpenableColumns.SIZE,
         DocumentsContract.Document.COLUMN_LAST_MODIFIED,
     )
-    return query(uri, projection, null, null, null)?.use { cursor ->
-        if (!cursor.moveToFirst()) return@use UNKNOWN_ARCHIVE_SIGNATURE
-        val size = cursor.getLongOrNull(OpenableColumns.SIZE) ?: -1L
-        val lastModified = cursor.getLongOrNull(DocumentsContract.Document.COLUMN_LAST_MODIFIED) ?: -1L
-        if (size < 0L && lastModified < 0L) {
-            return@use UNKNOWN_ARCHIVE_SIGNATURE
-        }
-        "$size:$lastModified"
-    } ?: UNKNOWN_ARCHIVE_SIGNATURE
+    return runCatching {
+        query(uri, projection, null, null, null)?.use { cursor ->
+            if (!cursor.moveToFirst()) return@use UNKNOWN_ARCHIVE_SIGNATURE
+            val size = cursor.getLongOrNull(OpenableColumns.SIZE) ?: -1L
+            val lastModified = cursor.getLongOrNull(DocumentsContract.Document.COLUMN_LAST_MODIFIED) ?: -1L
+            if (size < 0L && lastModified < 0L) {
+                return@use UNKNOWN_ARCHIVE_SIGNATURE
+            }
+            "$size:$lastModified"
+        } ?: UNKNOWN_ARCHIVE_SIGNATURE
+    }.getOrDefault(UNKNOWN_ARCHIVE_SIGNATURE)
 }
 
 private fun Cursor.getLongOrNull(
