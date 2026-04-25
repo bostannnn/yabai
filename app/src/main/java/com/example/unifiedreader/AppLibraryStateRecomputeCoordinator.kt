@@ -72,10 +72,12 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
         } else {
             nextBaseState
         }
+        val retainedShelvesState = retainedShelvesStateFor(shelvesSignature)
         val nextState = presentShelvesState(
             state = mergeAppliedLibraryState(projectedState),
             isLoading = nextBaseState.shouldReserveLibraryShelvesSlot &&
                 (!nextBaseState.isSelectedSourceHydrated || shouldComputeShelves),
+            retainedShelvesState = retainedShelvesState,
         )
         if (!shouldComputeDerived && !shouldComputeShelves) {
             pendingRecomputeJob?.cancel()
@@ -135,6 +137,7 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
                 state = mergeAppliedLibraryState(latest),
                 isLoading = latest.shouldReserveLibraryShelvesSlot &&
                     (!latest.isSelectedSourceHydrated || pendingShelvesSignature != null),
+                retainedShelvesState = retainedShelvesStateFor(latest.libraryShelvesStateSignature()),
             )
             latestState = mergedState
             publishState(mergedState)
@@ -162,13 +165,30 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
     private fun presentShelvesState(
         state: AppUiState,
         isLoading: Boolean,
+        retainedShelvesState: LibraryShelvesState? = null,
     ): AppUiState {
         val shelvesState = when {
             !state.shouldReserveLibraryShelvesSlot -> LibraryShelvesState()
-            isLoading -> state.libraryShelvesState.asLoading()
+            isLoading -> state.libraryShelvesState
+                .takeIf(LibraryShelvesState::hasContent)
+                ?.asLoading()
+                ?: retainedShelvesState
+                ?: state.libraryShelvesState
+                .asLoading()
             else -> state.libraryShelvesState.ready()
         }
         return state.withLibraryShelvesState(shelvesState)
+    }
+
+    private fun retainedShelvesStateFor(
+        shelvesSignature: AppLibraryShelvesStateSignature,
+    ): LibraryShelvesState? {
+        val appliedSignature = appliedShelvesSignature ?: return null
+        if (appliedSignature.selectedSource != shelvesSignature.selectedSource) return null
+        if (appliedSignature.items != shelvesSignature.items) return null
+        return appliedShelvesState
+            ?.takeIf(LibraryShelvesState::hasContent)
+            ?.asLoading()
     }
 
     private fun preserveCurrentLibraryPresentation(
