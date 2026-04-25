@@ -62,6 +62,7 @@ fun SettingsScreen(
     onKavitaPasswordChanged: (String) -> Unit,
     onConnectKavita: () -> Unit,
     onSyncKavita: () -> Unit,
+    onPreloadKavitaCovers: () -> Unit,
     onStumpDisplayNameChanged: (String) -> Unit,
     onStumpBaseUrlChanged: (String) -> Unit,
     onStumpBackupBaseUrlChanged: (String) -> Unit,
@@ -69,6 +70,7 @@ fun SettingsScreen(
     onStumpPasswordChanged: (String) -> Unit,
     onConnectStump: () -> Unit,
     onSyncStump: () -> Unit,
+    onPreloadStumpCovers: () -> Unit,
     onGrimmoryDisplayNameChanged: (String) -> Unit,
     onGrimmoryBaseUrlChanged: (String) -> Unit,
     onGrimmoryBackupBaseUrlChanged: (String) -> Unit,
@@ -76,6 +78,7 @@ fun SettingsScreen(
     onGrimmoryPasswordChanged: (String) -> Unit,
     onConnectGrimmory: () -> Unit,
     onSyncGrimmory: () -> Unit,
+    onPreloadGrimmoryCovers: () -> Unit,
 ) {
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize(),
@@ -125,6 +128,7 @@ fun SettingsScreen(
                             onKavitaPasswordChanged = onKavitaPasswordChanged,
                             onConnectKavita = onConnectKavita,
                             onSyncKavita = onSyncKavita,
+                            onPreloadKavitaCovers = onPreloadKavitaCovers,
                             onLibraryDirectionSelected = onLibraryDirectionSelected,
                             onLibraryReaderModeSelected = onLibraryReaderModeSelected,
                         )
@@ -137,6 +141,7 @@ fun SettingsScreen(
                             onGrimmoryPasswordChanged = onGrimmoryPasswordChanged,
                             onConnectGrimmory = onConnectGrimmory,
                             onSyncGrimmory = onSyncGrimmory,
+                            onPreloadGrimmoryCovers = onPreloadGrimmoryCovers,
                         )
                         SettingsSectionId.Stump -> StumpSettingsCard(
                             stumpConnection = stumpConnection,
@@ -149,6 +154,7 @@ fun SettingsScreen(
                             onStumpPasswordChanged = onStumpPasswordChanged,
                             onConnectStump = onConnectStump,
                             onSyncStump = onSyncStump,
+                            onPreloadStumpCovers = onPreloadStumpCovers,
                             onLibraryDirectionSelected = onLibraryDirectionSelected,
                             onLibraryReaderModeSelected = onLibraryReaderModeSelected,
                         )
@@ -186,6 +192,7 @@ fun SettingsScreen(
                         onKavitaPasswordChanged = onKavitaPasswordChanged,
                         onConnectKavita = onConnectKavita,
                         onSyncKavita = onSyncKavita,
+                        onPreloadKavitaCovers = onPreloadKavitaCovers,
                         onLibraryDirectionSelected = onLibraryDirectionSelected,
                         onLibraryReaderModeSelected = onLibraryReaderModeSelected,
                     )
@@ -200,6 +207,7 @@ fun SettingsScreen(
                         onGrimmoryPasswordChanged = onGrimmoryPasswordChanged,
                         onConnectGrimmory = onConnectGrimmory,
                         onSyncGrimmory = onSyncGrimmory,
+                        onPreloadGrimmoryCovers = onPreloadGrimmoryCovers,
                     )
                 },
                 stumpCard = {
@@ -214,6 +222,7 @@ fun SettingsScreen(
                         onStumpPasswordChanged = onStumpPasswordChanged,
                         onConnectStump = onConnectStump,
                         onSyncStump = onSyncStump,
+                        onPreloadStumpCovers = onPreloadStumpCovers,
                         onLibraryDirectionSelected = onLibraryDirectionSelected,
                         onLibraryReaderModeSelected = onLibraryReaderModeSelected,
                     )
@@ -235,6 +244,7 @@ private fun KavitaSettingsCard(
     onKavitaPasswordChanged: (String) -> Unit,
     onConnectKavita: () -> Unit,
     onSyncKavita: () -> Unit,
+    onPreloadKavitaCovers: () -> Unit,
     onLibraryDirectionSelected: (String, ComicReadingDirection) -> Unit,
     onLibraryReaderModeSelected: (String, ComicReaderMode) -> Unit,
 ) {
@@ -251,6 +261,9 @@ private fun KavitaSettingsCard(
         onPasswordChanged = onKavitaPasswordChanged,
         onConnect = onConnectKavita,
         onSync = onSyncKavita,
+        coverPreloadState = kavitaConnection.coverPreload,
+        preloadCoversLabel = "Preload Kavita covers",
+        onPreloadCovers = onPreloadKavitaCovers,
         readingDirectionLibraries = kavitaReadingDirectionLibraries,
         readerModeLibraries = kavitaReaderModeLibraries,
         onLibraryDirectionSelected = onLibraryDirectionSelected,
@@ -268,6 +281,7 @@ private fun GrimmorySettingsCard(
     onGrimmoryPasswordChanged: (String) -> Unit,
     onConnectGrimmory: () -> Unit,
     onSyncGrimmory: () -> Unit,
+    onPreloadGrimmoryCovers: () -> Unit,
 ) {
     RemoteSourceSettingsCard(
         title = "Grimmory",
@@ -282,6 +296,9 @@ private fun GrimmorySettingsCard(
         onPasswordChanged = onGrimmoryPasswordChanged,
         onConnect = onConnectGrimmory,
         onSync = onSyncGrimmory,
+        coverPreloadState = grimmoryConnection.coverPreload,
+        preloadCoversLabel = "Preload Grimmory covers",
+        onPreloadCovers = onPreloadGrimmoryCovers,
     )
 }
 
@@ -297,6 +314,7 @@ private fun StumpSettingsCard(
     onStumpPasswordChanged: (String) -> Unit,
     onConnectStump: () -> Unit,
     onSyncStump: () -> Unit,
+    onPreloadStumpCovers: () -> Unit,
     onLibraryDirectionSelected: (String, ComicReadingDirection) -> Unit,
     onLibraryReaderModeSelected: (String, ComicReaderMode) -> Unit,
 ) {
@@ -313,6 +331,9 @@ private fun StumpSettingsCard(
         onPasswordChanged = onStumpPasswordChanged,
         onConnect = onConnectStump,
         onSync = onSyncStump,
+        coverPreloadState = stumpConnection.coverPreload,
+        preloadCoversLabel = "Preload Stump covers",
+        onPreloadCovers = onPreloadStumpCovers,
         readingDirectionLibraries = stumpReadingDirectionLibraries,
         readerModeLibraries = stumpReaderModeLibraries,
         onLibraryDirectionSelected = onLibraryDirectionSelected,
@@ -382,6 +403,7 @@ data class GrimmoryConnectionUiState(
     val activeAction: ServerConnectionAction? = null,
     val syncProgressFraction: Float? = null,
     val syncProgressLabel: String? = null,
+    val coverPreload: CoverPreloadUiState = CoverPreloadUiState(),
     val message: String? = null,
     val isError: Boolean = false,
 ) {
@@ -405,6 +427,7 @@ data class KavitaConnectionUiState(
     val activeAction: ServerConnectionAction? = null,
     val syncProgressFraction: Float? = null,
     val syncProgressLabel: String? = null,
+    val coverPreload: CoverPreloadUiState = CoverPreloadUiState(),
     val message: String? = null,
     val isError: Boolean = false,
 ) {
@@ -428,6 +451,7 @@ data class StumpConnectionUiState(
     val activeAction: ServerConnectionAction? = null,
     val syncProgressFraction: Float? = null,
     val syncProgressLabel: String? = null,
+    val coverPreload: CoverPreloadUiState = CoverPreloadUiState(),
     val message: String? = null,
     val isError: Boolean = false,
 ) {

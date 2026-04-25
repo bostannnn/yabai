@@ -13,6 +13,10 @@ class LibraryCoverImageRequestsTest {
             libraryCoverImageRequestSize(LibraryCoverImageVariant.Grid),
         )
         assertEquals(
+            IntSize(480, 720),
+            libraryCoverImageRequestSize(LibraryCoverImageVariant.GridLarge),
+        )
+        assertEquals(
             IntSize(144, 216),
             libraryCoverImageRequestSize(LibraryCoverImageVariant.ShelfPreview),
         )
@@ -30,6 +34,13 @@ class LibraryCoverImageRequestsTest {
                 bitmapConfig = Bitmap.Config.RGB_565,
             ),
             libraryCoverImageDecodePolicy(LibraryCoverImageVariant.Grid),
+        )
+        assertEquals(
+            LibraryCoverImageDecodePolicy(
+                allowHardware = false,
+                bitmapConfig = Bitmap.Config.RGB_565,
+            ),
+            libraryCoverImageDecodePolicy(LibraryCoverImageVariant.GridLarge),
         )
         assertEquals(
             LibraryCoverImageDecodePolicy(

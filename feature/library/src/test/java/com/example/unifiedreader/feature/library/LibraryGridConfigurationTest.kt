@@ -37,6 +37,13 @@ class LibraryGridConfigurationTest {
     }
 
     @Test
+    fun `large grid cells use large cover thumbnails`() {
+        assertEquals(LibraryCoverImageVariant.Grid, libraryGridCoverImageVariant(160))
+        assertEquals(LibraryCoverImageVariant.GridLarge, libraryGridCoverImageVariant(180))
+        assertEquals(LibraryCoverImageVariant.GridLarge, libraryGridCoverImageVariant(240))
+    }
+
+    @Test
     fun `wider layouts keep overflow button visible`() {
         val presentation = libraryGridPresentation(
             maxWidth = 900.dp,

@@ -188,6 +188,7 @@ fun UnifiedReaderScaffold(
                         onKavitaPasswordChanged = viewModel::onKavitaPasswordChanged,
                         onConnectKavita = viewModel::connectKavitaServer,
                         onSyncKavita = viewModel::refreshKavitaLibrary,
+                        onPreloadKavitaCovers = { viewModel.preloadCovers(SourceType.KAVITA) },
                         onStumpDisplayNameChanged = viewModel::onStumpDisplayNameChanged,
                         onStumpBaseUrlChanged = viewModel::onStumpBaseUrlChanged,
                         onStumpBackupBaseUrlChanged = viewModel::onStumpBackupBaseUrlChanged,
@@ -195,6 +196,7 @@ fun UnifiedReaderScaffold(
                         onStumpPasswordChanged = viewModel::onStumpPasswordChanged,
                         onConnectStump = viewModel::connectStumpServer,
                         onSyncStump = viewModel::refreshStumpLibrary,
+                        onPreloadStumpCovers = { viewModel.preloadCovers(SourceType.STUMP) },
                         onGrimmoryDisplayNameChanged = viewModel::onGrimmoryDisplayNameChanged,
                         onGrimmoryBaseUrlChanged = viewModel::onGrimmoryBaseUrlChanged,
                         onGrimmoryBackupBaseUrlChanged = viewModel::onGrimmoryBackupBaseUrlChanged,
@@ -202,6 +204,7 @@ fun UnifiedReaderScaffold(
                         onGrimmoryPasswordChanged = viewModel::onGrimmoryPasswordChanged,
                         onConnectGrimmory = viewModel::connectGrimmoryServer,
                         onSyncGrimmory = viewModel::refreshGrimmoryLibrary,
+                        onPreloadGrimmoryCovers = { viewModel.preloadCovers(SourceType.GRIMMORY) },
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -246,6 +249,7 @@ private fun SettingsRoute(
     onKavitaPasswordChanged: (String) -> Unit,
     onConnectKavita: () -> Unit,
     onSyncKavita: () -> Unit,
+    onPreloadKavitaCovers: () -> Unit,
     onStumpDisplayNameChanged: (String) -> Unit,
     onStumpBaseUrlChanged: (String) -> Unit,
     onStumpBackupBaseUrlChanged: (String) -> Unit,
@@ -253,6 +257,7 @@ private fun SettingsRoute(
     onStumpPasswordChanged: (String) -> Unit,
     onConnectStump: () -> Unit,
     onSyncStump: () -> Unit,
+    onPreloadStumpCovers: () -> Unit,
     onGrimmoryDisplayNameChanged: (String) -> Unit,
     onGrimmoryBaseUrlChanged: (String) -> Unit,
     onGrimmoryBackupBaseUrlChanged: (String) -> Unit,
@@ -260,6 +265,7 @@ private fun SettingsRoute(
     onGrimmoryPasswordChanged: (String) -> Unit,
     onConnectGrimmory: () -> Unit,
     onSyncGrimmory: () -> Unit,
+    onPreloadGrimmoryCovers: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -303,6 +309,7 @@ private fun SettingsRoute(
             onKavitaPasswordChanged = onKavitaPasswordChanged,
             onConnectKavita = onConnectKavita,
             onSyncKavita = onSyncKavita,
+            onPreloadKavitaCovers = onPreloadKavitaCovers,
             onStumpDisplayNameChanged = onStumpDisplayNameChanged,
             onStumpBaseUrlChanged = onStumpBaseUrlChanged,
             onStumpBackupBaseUrlChanged = onStumpBackupBaseUrlChanged,
@@ -310,6 +317,7 @@ private fun SettingsRoute(
             onStumpPasswordChanged = onStumpPasswordChanged,
             onConnectStump = onConnectStump,
             onSyncStump = onSyncStump,
+            onPreloadStumpCovers = onPreloadStumpCovers,
             onGrimmoryDisplayNameChanged = onGrimmoryDisplayNameChanged,
             onGrimmoryBaseUrlChanged = onGrimmoryBaseUrlChanged,
             onGrimmoryBackupBaseUrlChanged = onGrimmoryBackupBaseUrlChanged,
@@ -317,6 +325,7 @@ private fun SettingsRoute(
             onGrimmoryPasswordChanged = onGrimmoryPasswordChanged,
             onConnectGrimmory = onConnectGrimmory,
             onSyncGrimmory = onSyncGrimmory,
+            onPreloadGrimmoryCovers = onPreloadGrimmoryCovers,
         )
     }
 }

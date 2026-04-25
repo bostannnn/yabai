@@ -5,6 +5,7 @@ import com.example.unifiedreader.feature.library.covers.LibraryCoverVariant
 
 internal fun LibraryCoverImageVariant.toCoverAssetVariant(): LibraryCoverVariant = when (this) {
     LibraryCoverImageVariant.Grid -> LibraryCoverVariant.Grid
+    LibraryCoverImageVariant.GridLarge -> LibraryCoverVariant.GridLarge
     LibraryCoverImageVariant.Detailed -> LibraryCoverVariant.Detail
     LibraryCoverImageVariant.ShelfPreview,
     LibraryCoverImageVariant.ShelfRow -> LibraryCoverVariant.Shelf

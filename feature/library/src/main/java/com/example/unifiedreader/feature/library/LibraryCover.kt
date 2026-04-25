@@ -175,7 +175,8 @@ private data class LibraryCoverStyle(
 )
 
 private fun libraryCoverStyle(variant: LibraryCoverImageVariant): LibraryCoverStyle = when (variant) {
-    LibraryCoverImageVariant.Grid -> LibraryCoverStyle(
+    LibraryCoverImageVariant.Grid,
+    LibraryCoverImageVariant.GridLarge -> LibraryCoverStyle(
         elevation = 8.dp,
         shape = RoundedCornerShape(6.dp),
         borderAlpha = 0.64f,

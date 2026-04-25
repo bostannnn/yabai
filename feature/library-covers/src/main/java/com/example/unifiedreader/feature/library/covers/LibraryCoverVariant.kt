@@ -10,6 +10,11 @@ enum class LibraryCoverVariant(
         width = 240,
         height = 360,
     ),
+    GridLarge(
+        fileKey = "grid-large",
+        width = 480,
+        height = 720,
+    ),
     Shelf(
         fileKey = "shelf",
         width = 144,

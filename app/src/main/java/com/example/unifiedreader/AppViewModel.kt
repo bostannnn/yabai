@@ -46,6 +46,7 @@ class AppViewModel @Inject constructor(
     private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
     private val progressSyncNoticeController: AppProgressSyncNoticeController,
     private val progressSyncStartupRetryCoordinator: AppProgressSyncStartupRetryCoordinator,
+    private val coverPreloadController: AppCoverPreloadController,
     val comicPageSource: ComicPageSource,
     val comicReaderProgressStore: ComicReaderProgressStore,
     val comicReaderPreferencesStore: ComicReaderPreferencesStore,
@@ -613,6 +614,15 @@ class AppViewModel @Inject constructor(
 
     fun refreshGrimmoryLibrary() {
         remoteSourcesCoordinator.refreshGrimmoryLibrary(
+            stateProvider = { uiState },
+            updateState = ::updateUiState,
+            scope = viewModelScope,
+        )
+    }
+
+    fun preloadCovers(sourceType: SourceType) {
+        coverPreloadController.preloadCovers(
+            sourceType = sourceType,
             stateProvider = { uiState },
             updateState = ::updateUiState,
             scope = viewModelScope,

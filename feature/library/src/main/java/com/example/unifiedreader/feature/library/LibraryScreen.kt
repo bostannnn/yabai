@@ -164,12 +164,15 @@ fun LibraryScreen(
                 requestedGridCellSizeDp = gridCellSizeDp,
             )
         }
+        val gridCoverImageVariant = libraryGridCoverImageVariant(
+            gridPresentation.selectedGridSize.cellSizeDp,
+        )
         VisibleRemoteCoverPrefetcher(
             browseContextKey = browseContextKey,
             gridState = gridState,
             items = visibleItems,
             leadingContentItemCount = leadingContentItemCount,
-            variant = LibraryCoverImageVariant.Grid,
+            variant = gridCoverImageVariant,
             maxTargetsWhileScrolling = gridPresentation.scrollingPrefetchItemLimit,
             coverPrefetchKeyProvider = coverPrefetchKeyProvider,
             onCoverVisible = onCoverVisible,
@@ -300,6 +303,7 @@ fun LibraryScreen(
                             item = item,
                             progress = progressByItemId[item.id],
                             isDownloaded = itemActionContext.isDownloaded(item),
+                            imageVariant = gridCoverImageVariant,
                             coverImageUrlProvider = coverImageUrlProvider,
                             onClick = { onItemSelected(item) },
                             menuContent = {

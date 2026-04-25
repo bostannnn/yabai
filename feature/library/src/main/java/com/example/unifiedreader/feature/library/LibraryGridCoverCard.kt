@@ -17,6 +17,7 @@ internal fun GridCoverCard(
     item: ReadableItem,
     progress: ItemProgressSummary?,
     isDownloaded: Boolean,
+    imageVariant: LibraryCoverImageVariant,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     onClick: () -> Unit,
     menuContent: (@Composable BoxScope.() -> Unit)? = null,
@@ -34,7 +35,7 @@ internal fun GridCoverCard(
             coverImageUrlProvider = coverImageUrlProvider,
             isDownloaded = isDownloaded,
             isRead = progress?.isComplete == true,
-            imageVariant = LibraryCoverImageVariant.Grid,
+            imageVariant = imageVariant,
             downloadBadgeBottomInset = if (showCoverProgress) 2.dp else 0.dp,
             modifier = Modifier
                 .fillMaxWidth()

@@ -11,6 +11,7 @@ import coil.size.Scale
 
 enum class LibraryCoverImageVariant {
     Grid,
+    GridLarge,
     Detailed,
     ShelfPreview,
     ShelfRow,
@@ -40,6 +41,7 @@ internal fun libraryCoverImageRequestSize(
     variant: LibraryCoverImageVariant,
 ): IntSize = when (variant) {
     LibraryCoverImageVariant.Grid -> IntSize(240, 360)
+    LibraryCoverImageVariant.GridLarge -> IntSize(480, 720)
     LibraryCoverImageVariant.Detailed -> IntSize(320, 480)
     LibraryCoverImageVariant.ShelfPreview,
     LibraryCoverImageVariant.ShelfRow -> IntSize(144, 216)
@@ -54,6 +56,7 @@ internal fun libraryCoverImageDecodePolicy(
     variant: LibraryCoverImageVariant,
 ): LibraryCoverImageDecodePolicy = when (variant) {
     LibraryCoverImageVariant.Grid,
+    LibraryCoverImageVariant.GridLarge,
     LibraryCoverImageVariant.ShelfPreview,
     LibraryCoverImageVariant.ShelfRow -> LibraryCoverImageDecodePolicy(
         allowHardware = false,
