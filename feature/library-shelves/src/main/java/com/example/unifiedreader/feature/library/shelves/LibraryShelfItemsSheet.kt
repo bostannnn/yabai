@@ -245,8 +245,6 @@ private fun ShelfItemsList(
                     } else {
                         null
                     },
-                    isDownloaded = itemActionContext.isDownloaded(shelfItem.item),
-                    isRead = shelfItem.progress.isShelfComplete,
                 )
             }
         }

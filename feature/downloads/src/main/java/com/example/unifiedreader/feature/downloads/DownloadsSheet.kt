@@ -2,12 +2,16 @@ package com.example.unifiedreader.feature.downloads
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -27,15 +31,25 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.libraryPrimaryText
+import com.example.unifiedreader.core.model.librarySecondaryText
+import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
+import com.example.unifiedreader.feature.library.ResolvedLibraryCover
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadsSheet(
     snapshot: DownloadEntriesSnapshot,
+    itemResolver: (String) -> ReadableItem?,
+    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
+    onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onDismiss: () -> Unit,
     onCancel: (String) -> Unit,
     onRemove: (String) -> Unit,
@@ -117,6 +131,9 @@ fun DownloadsSheet(
                         onRemove = onRemove,
                         onRetry = onRetry,
                         onOpenEntry = onOpenEntry,
+                        itemResolver = itemResolver,
+                        coverImageUrlProvider = coverImageUrlProvider,
+                        onCoverVisible = onCoverVisible,
                     )
                     downloadSection(
                         title = "Failed",
@@ -125,6 +142,9 @@ fun DownloadsSheet(
                         onRemove = onRemove,
                         onRetry = onRetry,
                         onOpenEntry = onOpenEntry,
+                        itemResolver = itemResolver,
+                        coverImageUrlProvider = coverImageUrlProvider,
+                        onCoverVisible = onCoverVisible,
                     )
                     downloadSection(
                         title = "History",
@@ -133,6 +153,9 @@ fun DownloadsSheet(
                         onRemove = onRemove,
                         onRetry = onRetry,
                         onOpenEntry = onOpenEntry,
+                        itemResolver = itemResolver,
+                        coverImageUrlProvider = coverImageUrlProvider,
+                        onCoverVisible = onCoverVisible,
                     )
                 }
             }
@@ -147,6 +170,9 @@ private fun androidx.compose.foundation.lazy.LazyListScope.downloadSection(
     onRemove: (String) -> Unit,
     onRetry: (String) -> Unit,
     onOpenEntry: (String) -> Unit,
+    itemResolver: (String) -> ReadableItem?,
+    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
+    onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
 ) {
     if (entries.isEmpty()) return
     item(key = "${title}_header") {
@@ -167,6 +193,9 @@ private fun androidx.compose.foundation.lazy.LazyListScope.downloadSection(
             onRemove = onRemove,
             onRetry = onRetry,
             onOpenEntry = onOpenEntry,
+            itemResolver = itemResolver,
+            coverImageUrlProvider = coverImageUrlProvider,
+            onCoverVisible = onCoverVisible,
         )
     }
 }
@@ -178,7 +207,11 @@ private fun DownloadEntryCard(
     onRemove: (String) -> Unit,
     onRetry: (String) -> Unit,
     onOpenEntry: (String) -> Unit,
+    itemResolver: (String) -> ReadableItem?,
+    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
+    onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
 ) {
+    val displayItem = entry.displayItemForDownloads(itemResolver)
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -196,25 +229,46 @@ private fun DownloadEntryCard(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.Top,
             ) {
-                Icon(
-                    imageVector = entry.status.icon(),
-                    contentDescription = null,
-                    tint = entry.status.tint(),
-                )
+                Box(
+                    modifier = Modifier.size(width = 42.dp, height = 58.dp),
+                ) {
+                    if (displayItem != null) {
+                        LaunchedEffect(displayItem.id) {
+                            onCoverVisible(displayItem, LibraryCoverImageVariant.ShelfRow)
+                        }
+                        ResolvedLibraryCover(
+                            item = displayItem,
+                            coverImageUrlProvider = coverImageUrlProvider,
+                            imageVariant = LibraryCoverImageVariant.ShelfRow,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(4.dp)),
+                        )
+                    } else {
+                        Icon(
+                            imageVector = entry.status.icon(),
+                            contentDescription = null,
+                            tint = entry.status.tint(),
+                            modifier = Modifier.align(Alignment.Center),
+                        )
+                    }
+                }
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Text(
-                        text = entry.selectedItemTitle,
+                        text = displayItem?.libraryPrimaryText() ?: entry.selectedItemTitle,
                         style = MaterialTheme.typography.titleMedium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        text = entry.status.label(entry),
+                        text = entry.detailLabel(displayItem),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     entry.currentItemTitle?.takeIf { entry.status == DownloadEntryStatus.Running }?.let { currentTitle ->
                         Text(
@@ -323,5 +377,18 @@ private fun DownloadEntryStatus.label(
         "Canceled after ${entry.progressLabel.lowercase()}"
     } else {
         "Canceled"
+    }
+}
+
+private fun DownloadEntry.detailLabel(
+    item: ReadableItem?,
+): String {
+    val itemDetail = item?.librarySecondaryText()
+        ?.takeIf { detail -> detail != item.libraryPrimaryText() && detail != item.title }
+    val statusLabel = status.label(this)
+    return when {
+        itemDetail != null && status == DownloadEntryStatus.Completed -> itemDetail
+        itemDetail != null -> "$statusLabel - $itemDetail"
+        else -> statusLabel
     }
 }

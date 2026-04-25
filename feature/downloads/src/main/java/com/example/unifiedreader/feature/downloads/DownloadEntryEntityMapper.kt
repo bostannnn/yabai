@@ -59,6 +59,11 @@ private fun List<QueuedDownloadItem>.encodeQueuedDownloadItems(): String = joinT
         item.title,
         item.formatName,
         item.pageCount?.toString().orEmpty(),
+        item.coverUrl.orEmpty(),
+        item.comicSeries.orEmpty(),
+        item.comicIssueTitle.orEmpty(),
+        item.comicVolume.orEmpty(),
+        item.comicIssueNumber.orEmpty(),
     ).joinToString(separator = "|") { field ->
         field.encodeStorageToken()
     }
@@ -70,7 +75,7 @@ private fun String.decodeQueuedDownloadItems(): List<QueuedDownloadItem> {
         .filter(String::isNotBlank)
         .map { line ->
             val fields = line.split('|')
-            check(fields.size == 9) { "Unexpected download queue item encoding." }
+            check(fields.size == 9 || fields.size == 14) { "Unexpected download queue item encoding." }
             QueuedDownloadItem(
                 id = fields[0].decodeStorageToken(),
                 sourceType = SourceType.valueOf(fields[1].decodeStorageToken()),
@@ -81,6 +86,11 @@ private fun String.decodeQueuedDownloadItems(): List<QueuedDownloadItem> {
                 title = fields[6].decodeStorageToken(),
                 formatName = fields[7].decodeStorageToken(),
                 pageCount = fields[8].decodeStorageToken().ifBlank { null }?.toInt(),
+                coverUrl = fields.getOrNull(9)?.decodeStorageToken()?.ifBlank { null },
+                comicSeries = fields.getOrNull(10)?.decodeStorageToken()?.ifBlank { null },
+                comicIssueTitle = fields.getOrNull(11)?.decodeStorageToken()?.ifBlank { null },
+                comicVolume = fields.getOrNull(12)?.decodeStorageToken()?.ifBlank { null },
+                comicIssueNumber = fields.getOrNull(13)?.decodeStorageToken()?.ifBlank { null },
             )
         }
         .toList()

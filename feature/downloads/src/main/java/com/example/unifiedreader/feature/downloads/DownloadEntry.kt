@@ -12,6 +12,11 @@ data class QueuedDownloadItem(
     val title: String,
     val formatName: String,
     val pageCount: Int?,
+    val coverUrl: String? = null,
+    val comicSeries: String? = null,
+    val comicIssueTitle: String? = null,
+    val comicVolume: String? = null,
+    val comicIssueNumber: String? = null,
 )
 
 enum class DownloadEntryStatus {

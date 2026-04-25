@@ -254,4 +254,9 @@ private fun ReadableItem.toQueuedDownloadItem(): QueuedDownloadItem = QueuedDown
     title = libraryDisplayLabel(),
     formatName = format.name,
     pageCount = pageCount,
+    coverUrl = coverUrl,
+    comicSeries = comicMetadata?.series,
+    comicIssueTitle = comicMetadata?.issueTitle,
+    comicVolume = comicMetadata?.volume,
+    comicIssueNumber = comicMetadata?.issueNumber,
 )

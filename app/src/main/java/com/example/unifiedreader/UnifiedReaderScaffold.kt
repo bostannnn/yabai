@@ -209,6 +209,11 @@ fun UnifiedReaderScaffold(
             if (viewModel.isDownloadsSheetVisible) {
                 DownloadsSheet(
                     snapshot = viewModel.downloadsSnapshot,
+                    itemResolver = { itemId ->
+                        uiState.items.firstOrNull { item -> item.id == itemId }
+                    },
+                    coverImageUrlProvider = viewModel::coverImageUrlFor,
+                    onCoverVisible = viewModel::ensureCoverCached,
                     onDismiss = viewModel::hideDownloadsSheet,
                     onCancel = viewModel::cancelDownload,
                     onRemove = viewModel::removeDownload,
