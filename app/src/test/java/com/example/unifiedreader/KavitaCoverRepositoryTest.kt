@@ -5,6 +5,13 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
+import com.example.unifiedreader.data.kavita.KavitaApi
+import com.example.unifiedreader.data.kavita.KavitaChapterCatalogEntry
+import com.example.unifiedreader.data.kavita.KavitaChapterInfoDto
+import com.example.unifiedreader.data.kavita.KavitaProgressDto
+import com.example.unifiedreader.data.kavita.KavitaProgressUpdate
+import com.example.unifiedreader.data.kavita.KavitaSeriesEntry
+import com.example.unifiedreader.data.kavita.KavitaSession
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.covers.KAVITA_COVER_DIRECTORY_NAME
 import com.example.unifiedreader.feature.library.covers.KAVITA_LEGACY_COVER_DIRECTORY_NAME
@@ -96,6 +103,130 @@ class KavitaCoverRepositoryTest {
         assertEquals(Uri.fromFile(expectedThumbnailFile), cachedThumbnail?.uri)
         assertTrue(requireNotNull(cachedThumbnail).matchesRequestedVariant)
     }
+
+    @Test
+    fun `getCoverUri rewrites synced primary cover URL to active backup server`() = runTest {
+        val api = RecordingCoverKavitaApi()
+        val repository = KavitaCoverRepository(
+            kavitaApiFactory = KavitaApiFactory { baseUrl ->
+                assertEquals("http://backup.example:5000", baseUrl)
+                api
+            },
+            kavitaCredentialStore = FakeKavitaCredentialStore(
+                KavitaStoredSession(
+                    displayName = "Kavita",
+                    baseUrl = "http://primary.example:5000",
+                    backupBaseUrl = "http://backup.example:5000",
+                    activeBaseUrl = "http://backup.example:5000",
+                    username = "reader",
+                    accessToken = "access-token",
+                    refreshToken = "refresh-token",
+                    apiKey = "api-key",
+                ),
+            ),
+            coverCacheResolver = coverCacheResolver,
+        )
+        val item = sampleItem(
+            id = "kavita:item:issue-backup",
+            title = "Backup Issue",
+            format = com.example.unifiedreader.core.model.FormatType.CBZ,
+        ).copy(
+            sourceType = com.example.unifiedreader.core.model.SourceType.KAVITA,
+            libraryId = "kavita:library:k-comics",
+            remoteId = "issue-backup",
+            remoteFileType = "12",
+            coverUrl = "http://primary.example:5000/api/Image/chapter-cover?chapterId=1&apiKey=old",
+        )
+
+        val coverUri = repository.getCoverUri(item, LibraryCoverImageVariant.Grid)
+
+        assertTrue(File(requireNotNull(requireNotNull(coverUri).path)).isFile)
+        assertEquals(
+            "http://backup.example:5000/api/Image/chapter-cover?chapterId=1&apiKey=old",
+            api.requestedCoverUrls.single(),
+        )
+        assertEquals("access-token", api.requestedAccessTokens.single())
+        assertEquals("api-key", api.requestedApiKeys.single())
+    }
+}
+
+private class RecordingCoverKavitaApi : KavitaApi {
+    val requestedCoverUrls = mutableListOf<String>()
+    val requestedAccessTokens = mutableListOf<String>()
+    val requestedApiKeys = mutableListOf<String?>()
+
+    override suspend fun login(
+        username: String,
+        password: String,
+    ): KavitaSession = error("Not needed in test.")
+
+    override suspend fun refreshSession(
+        refreshToken: String,
+        accessToken: String?,
+        apiKey: String?,
+    ): KavitaSession = error("Not needed in test.")
+
+    override suspend fun getLibraries(
+        accessToken: String,
+    ) = emptyList<com.example.unifiedreader.core.model.Library>()
+
+    override suspend fun getSeries(
+        accessToken: String,
+        apiKey: String?,
+    ): List<KavitaSeriesEntry> = emptyList()
+
+    override suspend fun getSeriesDetail(
+        accessToken: String,
+        series: KavitaSeriesEntry,
+    ): List<KavitaChapterCatalogEntry> = emptyList()
+
+    override suspend fun getProgress(
+        accessToken: String,
+        chapterId: String,
+    ): KavitaProgressDto = error("Not needed in test.")
+
+    override suspend fun getChapterInfo(
+        accessToken: String,
+        chapterId: String,
+        includeDimensions: Boolean,
+    ): KavitaChapterInfoDto = error("Not needed in test.")
+
+    override suspend fun updateProgress(
+        accessToken: String,
+        progress: KavitaProgressUpdate,
+    ) = Unit
+
+    override suspend fun downloadPageImage(
+        accessToken: String,
+        chapterId: String,
+        pageIndex: Int,
+        apiKey: String?,
+    ): ByteArray = error("Not needed in test.")
+
+    override suspend fun downloadPageThumbnail(
+        accessToken: String,
+        chapterId: String,
+        pageNumber: Int,
+        apiKey: String?,
+    ): ByteArray = error("Not needed in test.")
+
+    override suspend fun downloadCover(
+        accessToken: String,
+        coverUrl: String,
+        apiKey: String?,
+    ): ByteArray {
+        requestedAccessTokens += accessToken
+        requestedCoverUrls += coverUrl
+        requestedApiKeys += apiKey
+        return validCoverBytes()
+    }
+
+    override suspend fun downloadChapter(
+        accessToken: String,
+        chapterId: String,
+        apiKey: String?,
+        destination: File,
+    ) = error("Not needed in test.")
 }
 
 private fun validCoverBytes(): ByteArray {

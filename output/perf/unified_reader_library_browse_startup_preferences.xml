@@ -1,0 +1,5 @@
+<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<map>
+    <string name="library_sort_mode_kavita">DATE_ADDED</string>
+    <int name="library_grid_cell_size_dp" value="140" />
+</map>

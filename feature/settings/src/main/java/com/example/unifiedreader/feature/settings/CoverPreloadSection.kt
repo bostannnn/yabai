@@ -3,8 +3,8 @@ package com.example.unifiedreader.feature.settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,10 +24,12 @@ internal fun CoverPreloadSection(
         Button(
             onClick = onPreloadCovers,
             enabled = state.canStart,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = SettingsActionButtonMinHeight),
         ) {
             if (state.isRunning) {
-                CircularProgressIndicator()
+                SettingsButtonProgressIndicator()
             } else {
                 Text(label)
             }
@@ -56,4 +58,3 @@ internal fun CoverPreloadSection(
         }
     }
 }
-

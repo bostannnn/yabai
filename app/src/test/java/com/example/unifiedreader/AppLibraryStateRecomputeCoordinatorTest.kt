@@ -221,6 +221,96 @@ class AppLibraryStateRecomputeCoordinatorTest {
     }
 
     @Test
+    fun `first return from series preserves startup shelves after root identity refresh`() = runTest {
+        val coordinator = createCoordinator(StandardTestDispatcher(testScheduler))
+        val initialItem = sampleItem(id = "book-1", format = FormatType.EPUB)
+        val refreshedItem = sampleItem(id = "book-1", format = FormatType.EPUB)
+        val initialState = coordinator.initialize(
+            sampleLibraryState().copy(
+                items = listOf(initialItem),
+                progressByItemId = mapOf(
+                    initialItem.id to ItemProgressSummary(
+                        label = "Continue",
+                        fraction = 0.35f,
+                        lastReadAtEpochMillis = 25L,
+                    ),
+                ),
+            ),
+        )
+        val rootRefreshStates = mutableListOf<AppUiState>()
+
+        coordinator.updateState(
+            currentState = initialState,
+            transform = { state ->
+                state.copy(
+                    items = listOf(refreshedItem),
+                    progressByItemId = mapOf(
+                        refreshedItem.id to ItemProgressSummary(
+                            label = "Continue",
+                            fraction = 0.45f,
+                            lastReadAtEpochMillis = 35L,
+                        ),
+                    ),
+                )
+            },
+            scope = this,
+            publishState = rootRefreshStates::add,
+        )
+
+        val rootRefreshingState = rootRefreshStates.single()
+        assertTrue(rootRefreshingState.libraryShelvesState.hasContent)
+        assertTrue(rootRefreshingState.libraryShelvesState.isLoading)
+        val seriesStates = mutableListOf<AppUiState>()
+
+        coordinator.updateState(
+            currentState = rootRefreshingState,
+            transform = { state ->
+                state.copy(selectedKavitaSeriesKey = "series-1")
+            },
+            scope = this,
+            publishState = seriesStates::add,
+        )
+
+        val seriesState = seriesStates.first()
+        assertFalse(seriesState.shouldReserveLibraryShelvesSlot)
+        assertFalse(seriesState.libraryShelvesState.hasContent)
+        val backStates = mutableListOf<AppUiState>()
+
+        coordinator.updateState(
+            currentState = seriesState,
+            transform = { state ->
+                state.copy(
+                    selectedKavitaSeriesKey = null,
+                    progressByItemId = mapOf(
+                        refreshedItem.id to ItemProgressSummary(
+                            label = "Continue",
+                            fraction = 0.65f,
+                            lastReadAtEpochMillis = 50L,
+                        ),
+                    ),
+                )
+            },
+            scope = this,
+            publishState = backStates::add,
+        )
+
+        assertEquals(1, backStates.size)
+        assertTrue(backStates.first().shouldReserveLibraryShelvesSlot)
+        assertTrue(backStates.first().libraryShelvesState.hasContent)
+        assertTrue(backStates.first().libraryShelvesState.isLoading)
+        assertEquals(
+            refreshedItem.id,
+            backStates.first().libraryShelvesState.continueReading.single().item.id,
+        )
+
+        advanceUntilIdle()
+
+        assertTrue(backStates.last().libraryShelvesState.hasContent)
+        assertFalse(backStates.last().libraryShelvesState.isLoading)
+        assertEquals(0.65f, backStates.last().libraryShelvesState.continueReading.single().progress.fraction)
+    }
+
+    @Test
     fun `library filters keep shelves visible from unfiltered source items`() = runTest {
         val coordinator = createCoordinator(StandardTestDispatcher(testScheduler))
         val initialState = coordinator.initialize(

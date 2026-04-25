@@ -1,6 +1,7 @@
 package com.example.unifiedreader
 
 import com.example.unifiedreader.core.common.AppDispatchers
+import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.library.LibraryDerivedState
 import com.example.unifiedreader.feature.library.LibraryDerivedStateComputer
 import com.example.unifiedreader.feature.library.shelves.LibraryShelvesState
@@ -26,6 +27,12 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
     private var pendingDerivedSignature: AppLibraryDerivedStateSignature? = null
     private var pendingShelvesSignature: AppLibraryShelvesStateSignature? = null
     private var pendingRecomputeJob: Job? = null
+    private val retainedRootShelvesBySource =
+        object : LinkedHashMap<SourceType, LibraryShelvesState>(RETAINED_ROOT_SHELVES_LIMIT, 0.75f, true) {
+            override fun removeEldestEntry(
+                eldest: MutableMap.MutableEntry<SourceType, LibraryShelvesState>,
+            ): Boolean = size > RETAINED_ROOT_SHELVES_LIMIT
+        }
 
     fun initialize(
         baseState: AppUiState,
@@ -45,6 +52,7 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
         return projectedState
             .withLibraryShelvesState(shelvesState)
             .also { initializedState ->
+                retainRootShelves(initializedState)
                 latestState = initializedState
             }
     }
@@ -72,7 +80,7 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
         } else {
             nextBaseState
         }
-        val retainedShelvesState = retainedShelvesStateFor(shelvesSignature)
+        val retainedShelvesState = retainedShelvesStateFor(projectedState, shelvesSignature)
         val nextState = presentShelvesState(
             state = mergeAppliedLibraryState(projectedState),
             isLoading = nextBaseState.shouldReserveLibraryShelvesSlot &&
@@ -89,10 +97,12 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
                 currentState = currentState,
             )
             latestState = stableState
+            retainRootShelves(stableState)
             publishState(stableState)
             return
         }
         latestState = nextState
+        retainRootShelves(nextState)
         publishState(nextState)
         if (
             pendingDerivedSignature == derivedSignature.takeIf { shouldComputeDerived } &&
@@ -137,9 +147,10 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
                 state = mergeAppliedLibraryState(latest),
                 isLoading = latest.shouldReserveLibraryShelvesSlot &&
                     (!latest.isSelectedSourceHydrated || pendingShelvesSignature != null),
-                retainedShelvesState = retainedShelvesStateFor(latest.libraryShelvesStateSignature()),
+                retainedShelvesState = retainedShelvesStateFor(latest, latest.libraryShelvesStateSignature()),
             )
             latestState = mergedState
+            retainRootShelves(mergedState)
             publishState(mergedState)
         }
         pendingRecomputeJob = recomputeJob
@@ -181,6 +192,18 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
     }
 
     private fun retainedShelvesStateFor(
+        state: AppUiState,
+        shelvesSignature: AppLibraryShelvesStateSignature,
+    ): LibraryShelvesState? {
+        retainedAppliedShelvesStateFor(shelvesSignature)?.let { shelvesState ->
+            return shelvesState
+        }
+        return retainedRootShelvesBySource[state.selectedSource]
+            ?.takeIf { shelvesState -> shelvesState.hasOnlyCurrentItems(state) }
+            ?.asLoading()
+    }
+
+    private fun retainedAppliedShelvesStateFor(
         shelvesSignature: AppLibraryShelvesStateSignature,
     ): LibraryShelvesState? {
         val appliedSignature = appliedShelvesSignature ?: return null
@@ -189,6 +212,17 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
         return appliedShelvesState
             ?.takeIf(LibraryShelvesState::hasContent)
             ?.asLoading()
+    }
+
+    private fun retainRootShelves(
+        state: AppUiState,
+    ) {
+        if (!state.shouldReserveLibraryShelvesSlot) return
+        val shelvesState = state.libraryShelvesState
+            .takeIf(LibraryShelvesState::hasContent)
+            ?.ready()
+            ?: return
+        retainedRootShelvesBySource[state.selectedSource] = shelvesState
     }
 
     private fun preserveCurrentLibraryPresentation(
@@ -253,6 +287,22 @@ private fun AppUiState.libraryShelvesStateSignature(): AppLibraryShelvesStateSig
     progressByItemId = IdentityBox(progressByItemId),
 )
 
+private fun LibraryShelvesState.hasOnlyCurrentItems(
+    state: AppUiState,
+): Boolean {
+    val currentItemIds = state.items.mapTo(hashSetOf(), com.example.unifiedreader.core.model.ReadableItem::id)
+    return allItemIds().all(currentItemIds::contains)
+}
+
+private fun LibraryShelvesState.allItemIds(): List<String> = buildList {
+    continueReading.forEach { item -> add(item.item.id) }
+    nextInSeries.forEach { item ->
+        add(item.item.id)
+        add(item.currentItem.id)
+    }
+    recentlyFinished.forEach { item -> add(item.item.id) }
+}
+
 private class IdentityBox<T : Any?>(
     private val value: T,
 ) {
@@ -262,3 +312,5 @@ private class IdentityBox<T : Any?>(
 
     override fun hashCode(): Int = System.identityHashCode(value)
 }
+
+private const val RETAINED_ROOT_SHELVES_LIMIT = 4

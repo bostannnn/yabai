@@ -62,7 +62,10 @@ class KavitaCoverRepository @Inject constructor(
                     api = api,
                     session = activeSession,
                 ) { accessToken, apiKey ->
-                    val coverUrl = item.coverUrl?.takeIf(String::isNotBlank)
+                    val coverUrl = rewriteRemoteAssetUrlForActiveServer(
+                        url = item.coverUrl,
+                        session = activeSession,
+                    )?.takeIf(String::isNotBlank)
                         ?: error("Unable to resolve Kavita cover URL.")
                     writeCoverCacheFile(
                         destination = destination,

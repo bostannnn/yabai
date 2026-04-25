@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
@@ -196,10 +198,12 @@ internal fun ServerConnectionForm(
                             Button(
                                 onClick = onConnect,
                                 enabled = state.canConnect,
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = SettingsActionButtonMinHeight),
                             ) {
                                 if (actionState.activeAction == ServerConnectionAction.Connect) {
-                                    CircularProgressIndicator()
+                                    SettingsButtonProgressIndicator()
                                 } else {
                                     Text(connectLabel)
                                 }
@@ -209,10 +213,12 @@ internal fun ServerConnectionForm(
                             Button(
                                 onClick = onSync,
                                 enabled = actionState.canSync,
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = SettingsActionButtonMinHeight),
                             ) {
                                 if (actionState.activeAction == ServerConnectionAction.Sync) {
-                                    CircularProgressIndicator()
+                                    SettingsButtonProgressIndicator()
                                 } else {
                                     Text(syncLabel)
                                 }
@@ -223,10 +229,12 @@ internal fun ServerConnectionForm(
                     Button(
                         onClick = onConnect,
                         enabled = state.canConnect,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = SettingsActionButtonMinHeight),
                     ) {
                         if (actionState.activeAction == ServerConnectionAction.Connect) {
-                            CircularProgressIndicator()
+                            SettingsButtonProgressIndicator()
                         } else {
                             Text(connectLabel)
                         }
@@ -234,10 +242,12 @@ internal fun ServerConnectionForm(
                     Button(
                         onClick = onSync,
                         enabled = actionState.canSync,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = SettingsActionButtonMinHeight),
                     ) {
                         if (actionState.activeAction == ServerConnectionAction.Sync) {
-                            CircularProgressIndicator()
+                            SettingsButtonProgressIndicator()
                         } else {
                             Text(syncLabel)
                         }
@@ -248,13 +258,18 @@ internal fun ServerConnectionForm(
                     onClick = onConnect,
                     enabled = state.canConnect,
                     modifier = if (layout.useTwoColumnServerForm) {
-                        Modifier.widthIn(max = 240.dp)
+                        Modifier
+                            .fillMaxWidth()
+                            .widthIn(max = 240.dp)
+                            .heightIn(min = SettingsActionButtonMinHeight)
                     } else {
-                        Modifier.fillMaxWidth()
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = SettingsActionButtonMinHeight)
                     },
                 ) {
                     if (actionState.activeAction == ServerConnectionAction.Connect) {
-                        CircularProgressIndicator()
+                        SettingsButtonProgressIndicator()
                     } else {
                         Text(connectLabel)
                     }
@@ -285,6 +300,17 @@ internal fun ServerConnectionForm(
         }
     }
 }
+
+@Composable
+internal fun SettingsButtonProgressIndicator() {
+    CircularProgressIndicator(
+        modifier = Modifier.size(SettingsButtonProgressIndicatorSize),
+        strokeWidth = 2.dp,
+    )
+}
+
+internal val SettingsActionButtonMinHeight = 40.dp
+internal val SettingsButtonProgressIndicatorSize = 18.dp
 
 @Composable
 private fun ServerPasswordField(
