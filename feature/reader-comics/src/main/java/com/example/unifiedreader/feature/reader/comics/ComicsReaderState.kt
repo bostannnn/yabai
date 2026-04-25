@@ -199,6 +199,12 @@ interface ComicPageSource {
         item: ReadableItem,
     ): Flow<ComicPagesUnavailableDiagnostic> = flowOf(pagesUnavailableDiagnostic(item))
 
+    fun observePagePreviewVersion(
+        item: ReadableItem,
+        pages: List<ComicPageSpec>,
+        options: ComicPagePreviewOptions,
+    ): Flow<Long> = flowOf(0L)
+
     suspend fun loadPageMetadata(
         item: ReadableItem,
         page: ComicPageSpec,

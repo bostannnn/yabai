@@ -5,6 +5,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -42,8 +43,11 @@ data class RemoteCoverPreloadProgress(
 data class RemoteCoverPreloadResult(
     val totalCount: Int,
     val succeededCount: Int,
-    val failedCount: Int,
+    val failures: List<RemoteCoverPreloadFailure> = emptyList(),
 ) {
+    val failedCount: Int
+        get() = failures.size
+
     val message: String
         get() = if (failedCount == 0) {
             "Preloaded $succeededCount covers."
@@ -51,6 +55,12 @@ data class RemoteCoverPreloadResult(
             "Preloaded $succeededCount of $totalCount covers; $failedCount failed."
         }
 }
+
+data class RemoteCoverPreloadFailure(
+    val item: ReadableItem,
+    val variant: LibraryCoverImageVariant,
+    val reason: String,
+)
 
 class RemoteCoverPreloader @Inject constructor(
     kavitaCoverRepository: KavitaCoverDataSource,
@@ -70,24 +80,27 @@ class RemoteCoverPreloader @Inject constructor(
         items: List<ReadableItem>,
         variants: List<LibraryCoverImageVariant> = defaultCoverPreloadVariants,
         onProgress: (RemoteCoverPreloadProgress) -> Unit,
+    ): RemoteCoverPreloadResult = preloadTargets(
+        sourceType = sourceType,
+        targets = buildTargets(
+            sourceType = sourceType,
+            items = items,
+            variants = variants,
+        ),
+        onProgress = onProgress,
+    )
+
+    suspend fun preloadTargets(
+        sourceType: SourceType,
+        targets: List<RemoteCoverPreloadTarget>,
+        onProgress: (RemoteCoverPreloadProgress) -> Unit,
     ): RemoteCoverPreloadResult {
         val dataSource = coverDataSources[sourceType]
-        val targets = items
-            .asSequence()
-            .filter { item -> item.sourceType == sourceType }
-            .filter { item -> sourceType != SourceType.LOCAL }
-            .flatMap { item ->
-                variants.asSequence()
-                    .distinctBy { variant -> variant.toCoverAssetVariant() }
-                    .map { variant -> RemoteCoverPreloadTarget(item, variant) }
-            }
-            .toList()
         if (dataSource == null || targets.isEmpty() || !remoteSourceConnectivityPolicy.canFetchCover(sourceType)) {
             onProgress(RemoteCoverPreloadProgress(0, targets.size, null, 0))
             return RemoteCoverPreloadResult(
                 totalCount = targets.size,
                 succeededCount = 0,
-                failedCount = 0,
             )
         }
         withContext(appDispatchers.io) {
@@ -97,29 +110,29 @@ class RemoteCoverPreloader @Inject constructor(
         val progressLock = Any()
         var processedCount = 0
         var succeededCount = 0
-        var failedCount = 0
+        val failures = mutableListOf<RemoteCoverPreloadFailure>()
         onProgress(RemoteCoverPreloadProgress(0, targets.size, null, 0))
         coroutineScope {
             targets.map { target ->
                 async {
-                    val succeeded = semaphore.withPermit {
+                    val failure = semaphore.withPermit {
                         withContext(appDispatchers.io) {
                             preloadTarget(dataSource, target)
                         }
                     }
                     synchronized(progressLock) {
                         processedCount += 1
-                        if (succeeded) {
+                        if (failure == null) {
                             succeededCount += 1
                         } else {
-                            failedCount += 1
+                            failures += failure
                         }
                         onProgress(
                             RemoteCoverPreloadProgress(
                                 processedCount = processedCount,
                                 totalCount = targets.size,
                                 currentTitle = target.item.title,
-                                failedCount = failedCount,
+                                failedCount = failures.size,
                             ),
                         )
                     }
@@ -129,27 +142,58 @@ class RemoteCoverPreloader @Inject constructor(
         return RemoteCoverPreloadResult(
             totalCount = targets.size,
             succeededCount = succeededCount,
-            failedCount = failedCount,
+            failures = failures.toList(),
         )
     }
 
     private suspend fun preloadTarget(
         dataSource: RemoteCoverDataSource,
         target: RemoteCoverPreloadTarget,
-    ): Boolean {
+    ): RemoteCoverPreloadFailure? {
         val cachedCover = dataSource.cachedCover(target.item, target.variant)
         if (cachedCover?.isPersistent == true && cachedCover.matchesRequestedVariant) {
-            return true
+            return null
         }
-        return runCatching {
-            dataSource.getCoverUri(target.item, target.variant) != null
-        }.getOrDefault(false)
+        return try {
+            if (dataSource.getCoverUri(target.item, target.variant) != null) {
+                null
+            } else {
+                target.failure("No cover URI was returned.")
+            }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (throwable: Throwable) {
+            target.failure(throwable.userFacingMessage())
+        }
     }
+
+    private fun buildTargets(
+        sourceType: SourceType,
+        items: List<ReadableItem>,
+        variants: List<LibraryCoverImageVariant>,
+    ): List<RemoteCoverPreloadTarget> = items
+        .asSequence()
+        .filter { item -> item.sourceType == sourceType }
+        .filter { item -> sourceType != SourceType.LOCAL }
+        .flatMap { item ->
+            variants.asSequence()
+                .distinctBy { variant -> variant.toCoverAssetVariant() }
+                .map { variant -> RemoteCoverPreloadTarget(item, variant) }
+        }
+        .toList()
 }
 
-private data class RemoteCoverPreloadTarget(
+data class RemoteCoverPreloadTarget(
     val item: ReadableItem,
     val variant: LibraryCoverImageVariant,
+)
+
+private fun RemoteCoverPreloadTarget.failure(
+    reason: String,
+): RemoteCoverPreloadFailure = RemoteCoverPreloadFailure(
+    item = item,
+    variant = variant,
+    reason = reason,
 )
 
 private val defaultCoverPreloadVariants = listOf(

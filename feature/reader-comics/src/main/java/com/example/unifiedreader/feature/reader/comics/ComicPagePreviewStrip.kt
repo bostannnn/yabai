@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -41,6 +42,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -61,6 +63,7 @@ private val PreviewOptions = ComicPagePreviewOptions(
 )
 private const val PreviewMetadataWarmConcurrency = 2
 private const val PreviewMetadataWarmPageLimit = 24
+private const val PreviewUnavailableRetryDelayMillis = 300L
 
 @Composable
 internal fun ComicPagePreviewStrip(
@@ -188,45 +191,44 @@ private fun ComicSpreadPreviewItem(
     onMetadataLoaded: (String, ComicPageMetadata) -> Unit,
     onClick: () -> Unit,
 ) {
+    val spreadPreviewVersion by remember(item.id, spread.id, pageSource) {
+        pageSource.observePagePreviewVersion(
+            item = item,
+            pages = spread.pages.map(ComicSpreadPage::spec),
+            options = PreviewOptions,
+        )
+    }.collectAsState(initial = 0L)
     val previewResults by produceState<Map<String, ComicPagePreviewResult>>(
         initialValue = emptyMap(),
         key1 = item.id,
         key2 = spread.id,
-        key3 = pageSource,
+        key3 = pageSource to spreadPreviewVersion,
     ) {
         val loadedState = withContext(Dispatchers.IO) {
-            coroutineScope {
-                spread.pages
-                    .map(ComicSpreadPage::spec)
-                    .distinctBy(ComicPageSpec::id)
-                    .map { page ->
-                        async {
-                            val preview = pageSource.loadPagePreview(
-                                item = item,
-                                page = page,
-                                options = PreviewOptions,
-                            )
-                            val metadata = (preview as? ComicPagePreviewResult.Success)?.let {
-                                page.id to
-                                    ComicPageMetadata(
-                                        width = it.image.width,
-                                        height = it.image.height,
-                                    )
-                            }
-                            LoadedPreviewPage(
-                                pageId = page.id,
-                                result = preview,
-                                metadata = metadata,
-                            )
-                        }
-                    }
-                    .awaitAll()
-            }
+            loadSpreadPreviewPages(
+                item = item,
+                spread = spread,
+                pageSource = pageSource,
+            )
         }
         loadedState.mapNotNull(LoadedPreviewPage::metadata).forEach { (pageId, metadata) ->
             onMetadataLoaded(pageId, metadata)
         }
         value = loadedState.associate { it.pageId to it.result }
+        if (loadedState.any { page -> page.result == ComicPagePreviewResult.Unavailable }) {
+            delay(PreviewUnavailableRetryDelayMillis)
+            val retryState = withContext(Dispatchers.IO) {
+                loadSpreadPreviewPages(
+                    item = item,
+                    spread = spread,
+                    pageSource = pageSource,
+                )
+            }
+            retryState.mapNotNull(LoadedPreviewPage::metadata).forEach { (pageId, metadata) ->
+                onMetadataLoaded(pageId, metadata)
+            }
+            value = retryState.associate { it.pageId to it.result }
+        }
     }
     val previewHeight by animateDpAsState(
         targetValue = if (selected) SelectedPreviewHeight else NormalPreviewHeight,
@@ -286,6 +288,38 @@ private fun ComicSpreadPreviewItem(
             fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
         )
     }
+}
+
+private suspend fun loadSpreadPreviewPages(
+    item: ReadableItem,
+    spread: ComicPageSpread,
+    pageSource: ComicPageSource,
+): List<LoadedPreviewPage> = coroutineScope {
+    spread.pages
+        .map(ComicSpreadPage::spec)
+        .distinctBy(ComicPageSpec::id)
+        .map { page ->
+            async {
+                val preview = pageSource.loadPagePreview(
+                    item = item,
+                    page = page,
+                    options = PreviewOptions,
+                )
+                val metadata = (preview as? ComicPagePreviewResult.Success)?.let {
+                    page.id to
+                        ComicPageMetadata(
+                            width = it.image.width,
+                            height = it.image.height,
+                        )
+                }
+                LoadedPreviewPage(
+                    pageId = page.id,
+                    result = preview,
+                    metadata = metadata,
+                )
+            }
+        }
+        .awaitAll()
 }
 
 @Composable

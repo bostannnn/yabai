@@ -629,6 +629,22 @@ class AppViewModel @Inject constructor(
         )
     }
 
+    fun retryFailedCovers(sourceType: SourceType) {
+        coverPreloadController.retryFailedCovers(
+            sourceType = sourceType,
+            stateProvider = { uiState },
+            updateState = ::updateUiState,
+            scope = viewModelScope,
+        )
+    }
+
+    fun cancelCoverPreload(sourceType: SourceType) {
+        coverPreloadController.cancelPreload(
+            sourceType = sourceType,
+            updateState = ::updateUiState,
+        )
+    }
+
     internal suspend fun importDocument(uri: Uri): Boolean {
         val result = libraryActionsCoordinator.importDocument(uri)
         val importedItem = result.importedItem

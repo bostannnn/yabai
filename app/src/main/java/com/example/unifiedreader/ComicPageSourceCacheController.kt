@@ -108,6 +108,12 @@ class CompositeComicPageSource(
         options: ComicPagePreviewOptions,
     ): ComicPageMetadata? = pageSourceFor(item)?.loadCachedPagePreviewMetadata(item, page, options)
 
+    override fun observePagePreviewVersion(
+        item: ReadableItem,
+        pages: List<ComicPageSpec>,
+        options: ComicPagePreviewOptions,
+    ): Flow<Long> = pageSourceFor(item)?.observePagePreviewVersion(item, pages, options) ?: flowOf(0L)
+
     override fun prefetchPagePreviews(
         item: ReadableItem,
         pages: List<ComicPageSpec>,

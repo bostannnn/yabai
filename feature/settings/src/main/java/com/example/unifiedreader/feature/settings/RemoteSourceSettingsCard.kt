@@ -25,6 +25,8 @@ internal fun RemoteSourceSettingsCard(
     coverPreloadState: CoverPreloadUiState = CoverPreloadUiState(),
     preloadCoversLabel: String = "Preload covers",
     onPreloadCovers: () -> Unit = {},
+    onRetryFailedCovers: () -> Unit = {},
+    onCancelPreload: () -> Unit = {},
     readingDirectionLibraries: List<ReadingDirectionLibraryUiState> = emptyList(),
     readerModeLibraries: List<ReaderModeLibraryUiState> = emptyList(),
     onLibraryDirectionSelected: (String, ComicReadingDirection) -> Unit = { _, _ -> },
@@ -50,6 +52,8 @@ internal fun RemoteSourceSettingsCard(
             state = coverPreloadState,
             label = preloadCoversLabel,
             onPreloadCovers = onPreloadCovers,
+            onRetryFailedCovers = onRetryFailedCovers,
+            onCancelPreload = onCancelPreload,
         )
         ComicReadingDirectionSettingsSection(
             libraries = readingDirectionLibraries,

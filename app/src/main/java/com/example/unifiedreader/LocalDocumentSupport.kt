@@ -13,7 +13,9 @@ import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewOptions
 import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewResult
 import com.example.unifiedreader.feature.reader.comics.ComicPagePrefetchWindow
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flowOf
 import org.json.JSONArray
 
 interface LocalDocumentDataSource {
@@ -67,6 +69,12 @@ interface LocalComicDocumentDataSource {
         page: ComicPageSpec,
         options: ComicPagePreviewOptions,
     ): ComicPageMetadata? = null
+
+    fun observePagePreviewVersion(
+        item: ReadableItem,
+        pages: List<ComicPageSpec>,
+        options: ComicPagePreviewOptions,
+    ): Flow<Long> = flowOf(0L)
 
     fun prefetchPagePreviews(
         item: ReadableItem,

@@ -2,8 +2,10 @@ package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.library.buildLibraryCoverPreloadTargets
+import com.example.unifiedreader.feature.settings.CoverPreloadFailureUiItem
 import com.example.unifiedreader.feature.settings.CoverPreloadUiState
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -13,6 +15,9 @@ class AppCoverPreloadController @Inject constructor(
     private val remoteCoverController: RemoteCoverController,
 ) {
     private val activeJobsBySource = mutableMapOf<SourceType, Job>()
+    private val activeProgressBySource = mutableMapOf<SourceType, RemoteCoverPreloadProgress>()
+    private val failedTargetsBySource = mutableMapOf<SourceType, List<RemoteCoverPreloadTarget>>()
+    private val cancellingSources = mutableSetOf<SourceType>()
 
     fun preloadCovers(
         sourceType: SourceType,
@@ -36,6 +41,65 @@ class AppCoverPreloadController @Inject constructor(
             }
             return
         }
+        startPreload(
+            sourceType = sourceType,
+            items = targets,
+            retryTargets = null,
+            updateState = updateState,
+            scope = scope,
+        )
+    }
+
+    fun retryFailedCovers(
+        sourceType: SourceType,
+        stateProvider: AppUiStateProvider,
+        updateState: AppUiStateUpdater,
+        scope: CoroutineScope,
+    ) {
+        val failedTargets = failedTargetsBySource[sourceType].orEmpty()
+        if (failedTargets.isEmpty()) return
+        startPreload(
+            sourceType = sourceType,
+            items = emptyList(),
+            retryTargets = failedTargets,
+            updateState = updateState,
+            scope = scope,
+        )
+    }
+
+    fun cancelPreload(
+        sourceType: SourceType,
+        updateState: AppUiStateUpdater,
+    ) {
+        val activeJob = activeJobsBySource[sourceType]?.takeIf(Job::isActive) ?: return
+        cancellingSources += sourceType
+        activeJob.cancel()
+        val progress = activeProgressBySource[sourceType]
+        updatePreloadState(updateState, sourceType) {
+            CoverPreloadUiState(
+                isRunning = true,
+                progressFraction = progress?.fraction?.coerceIn(0f, 1f),
+                progressLabel = null,
+                message = if (progress == null) {
+                    "Cancelling cover preload..."
+                } else {
+                    "Cancelling cover preload at ${progress.processedCount} of ${progress.totalCount} covers."
+                },
+                isError = false,
+                failedItems = failedTargetsBySource[sourceType].orEmpty().toPendingFailureUiItems(),
+            )
+        }
+    }
+
+    private fun startPreload(
+        sourceType: SourceType,
+        items: List<com.example.unifiedreader.core.model.ReadableItem>,
+        retryTargets: List<RemoteCoverPreloadTarget>?,
+        updateState: AppUiStateUpdater,
+        scope: CoroutineScope,
+    ) {
+        if (activeJobsBySource[sourceType]?.isActive == true) return
+        cancellingSources -= sourceType
         updatePreloadState(updateState, sourceType) {
             CoverPreloadUiState(
                 isRunning = true,
@@ -45,24 +109,38 @@ class AppCoverPreloadController @Inject constructor(
                 isError = false,
             )
         }
+        activeProgressBySource.remove(sourceType)
         val job = scope.launch {
             runCatching {
-                remoteCoverPreloader.preload(
-                    sourceType = sourceType,
-                    items = targets,
-                    onProgress = { progress ->
-                        updatePreloadState(updateState, sourceType) {
-                            CoverPreloadUiState(
-                                isRunning = true,
-                                progressFraction = progress.fraction.coerceIn(0f, 1f),
-                                progressLabel = progress.label,
-                                message = "Preloading covers.",
-                                isError = false,
-                            )
-                        }
-                    },
-                )
+                val onProgress: (RemoteCoverPreloadProgress) -> Unit = { progress ->
+                    activeProgressBySource[sourceType] = progress
+                    updatePreloadState(updateState, sourceType) {
+                        CoverPreloadUiState(
+                            isRunning = true,
+                            progressFraction = progress.fraction.coerceIn(0f, 1f),
+                            progressLabel = progress.label,
+                            message = "Preloading covers.",
+                            isError = false,
+                        )
+                    }
+                }
+                if (retryTargets == null) {
+                    remoteCoverPreloader.preload(
+                        sourceType = sourceType,
+                        items = items,
+                        onProgress = onProgress,
+                    )
+                } else {
+                    remoteCoverPreloader.preloadTargets(
+                        sourceType = sourceType,
+                        targets = retryTargets,
+                        onProgress = onProgress,
+                    )
+                }
             }.onSuccess { result ->
+                failedTargetsBySource[sourceType] = result.failures.map { failure ->
+                    RemoteCoverPreloadTarget(failure.item, failure.variant)
+                }
                 remoteCoverController.clearSource(sourceType)
                 updatePreloadState(updateState, sourceType) {
                     CoverPreloadUiState(
@@ -71,17 +149,37 @@ class AppCoverPreloadController @Inject constructor(
                         progressLabel = null,
                         message = result.message,
                         isError = result.failedCount > 0,
+                        failedItems = result.failures.toFailureUiItems(),
                     )
                 }
             }.onFailure { throwable ->
-                updatePreloadState(updateState, sourceType) {
-                    CoverPreloadUiState(
-                        isRunning = false,
-                        progressFraction = null,
-                        progressLabel = null,
-                        message = "Unable to preload covers: ${throwable.userFacingMessage()}",
-                        isError = true,
-                    )
+                if (throwable is CancellationException) {
+                    val progress = activeProgressBySource[sourceType]
+                    val userCancelled = sourceType in cancellingSources
+                    updatePreloadState(updateState, sourceType) {
+                        CoverPreloadUiState(
+                            isRunning = false,
+                            progressFraction = progress?.fraction?.coerceIn(0f, 1f),
+                            progressLabel = null,
+                            message = cancellationMessage(
+                                progress = progress,
+                                userCancelled = userCancelled,
+                            ),
+                            isError = !userCancelled,
+                            failedItems = failedTargetsBySource[sourceType].orEmpty().toPendingFailureUiItems(),
+                        )
+                    }
+                } else {
+                    updatePreloadState(updateState, sourceType) {
+                        CoverPreloadUiState(
+                            isRunning = false,
+                            progressFraction = null,
+                            progressLabel = null,
+                            message = "Unable to preload covers: ${throwable.userFacingMessage()}",
+                            isError = true,
+                            failedItems = failedTargetsBySource[sourceType].orEmpty().toPendingFailureUiItems(),
+                        )
+                    }
                 }
             }
         }
@@ -89,7 +187,25 @@ class AppCoverPreloadController @Inject constructor(
         job.invokeOnCompletion {
             if (activeJobsBySource[sourceType] === job) {
                 activeJobsBySource.remove(sourceType)
+                activeProgressBySource.remove(sourceType)
+                cancellingSources -= sourceType
             }
+        }
+    }
+
+    private fun cancellationMessage(
+        progress: RemoteCoverPreloadProgress?,
+        userCancelled: Boolean,
+    ): String {
+        val prefix = if (userCancelled) {
+            "Cover preload cancelled"
+        } else {
+            "Cover preload stopped unexpectedly"
+        }
+        return if (progress == null) {
+            "$prefix."
+        } else {
+            "$prefix at ${progress.processedCount} of ${progress.totalCount} covers."
         }
     }
 
@@ -114,3 +230,23 @@ class AppCoverPreloadController @Inject constructor(
         }
     }
 }
+
+private fun List<RemoteCoverPreloadFailure>.toFailureUiItems(): List<CoverPreloadFailureUiItem> =
+    take(MAX_FAILURES_TO_SHOW).map { failure ->
+        CoverPreloadFailureUiItem(
+            title = failure.item.title,
+            variant = failure.variant.name,
+            reason = failure.reason,
+        )
+    }
+
+private fun List<RemoteCoverPreloadTarget>.toPendingFailureUiItems(): List<CoverPreloadFailureUiItem> =
+    take(MAX_FAILURES_TO_SHOW).map { target ->
+        CoverPreloadFailureUiItem(
+            title = target.item.title,
+            variant = target.variant.name,
+            reason = "Retry pending.",
+        )
+    }
+
+private const val MAX_FAILURES_TO_SHOW = 8

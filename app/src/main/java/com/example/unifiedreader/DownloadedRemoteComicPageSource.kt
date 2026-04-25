@@ -219,6 +219,26 @@ class DownloadedRemoteComicPageSource @Inject constructor(
         )
     }
 
+    override fun observePagePreviewVersion(
+        item: ReadableItem,
+        pages: List<ComicPageSpec>,
+        options: ComicPagePreviewOptions,
+    ): kotlinx.coroutines.flow.Flow<Long> {
+        val entryNames = archiveEntryCache.get(item.id).orEmpty()
+        if (entryNames.isEmpty()) return kotlinx.coroutines.flow.flowOf(0L)
+        val record = localRecordForCachedEntries(item = item, entryNames = entryNames)
+            ?: return kotlinx.coroutines.flow.flowOf(0L)
+        val spreadEntryNames = pages.mapNotNull { page -> entryNames.getOrNull(page.pageIndex) }
+        return comicPageLoader.observePagePreviewVersion(
+            comicPageLoader.pagePreviewCacheKeys(
+                item = item,
+                record = record,
+                entryNames = spreadEntryNames,
+                options = options,
+            ),
+        )
+    }
+
     override fun prefetchPagePreviews(
         item: ReadableItem,
         pages: List<ComicPageSpec>,

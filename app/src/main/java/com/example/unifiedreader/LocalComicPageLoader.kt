@@ -33,6 +33,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import java.io.File
 
 internal class LocalComicPageLoader(
@@ -83,6 +88,7 @@ internal class LocalComicPageLoader(
     private val prefetchJobs = mutableMapOf<String, Job>()
     private val previewPrefetchJobs = mutableMapOf<String, LocalPreviewPrefetchJob>()
     private val prefetchLock = Any()
+    private val previewVersionByCacheKeyFlow = MutableStateFlow<Map<String, Long>>(emptyMap())
 
     suspend fun loadPageMetadata(
         item: ReadableItem,
@@ -219,6 +225,26 @@ internal class LocalComicPageLoader(
         record: LocalDocumentRecord,
         entryName: String,
     ): ComicPageMetadata? = pageMetadataCache[pageCacheKey(item.id, record, entryName)]
+
+    fun observePagePreviewVersion(
+        previewCacheKeys: Set<String>,
+    ): Flow<Long> = previewVersionByCacheKeyFlow
+        .map { versions -> previewCacheKeys.sumOf { key -> versions[key] ?: 0L } }
+        .distinctUntilChanged()
+
+    fun pagePreviewCacheKeys(
+        item: ReadableItem,
+        record: LocalDocumentRecord,
+        entryNames: List<String>,
+        options: ComicPagePreviewOptions,
+    ): Set<String> = entryNames
+        .map { entryName ->
+            pagePreviewCacheKey(
+                pageCacheKey = pageCacheKey(item.id, record, entryName),
+                options = options,
+            )
+        }
+        .toSet()
 
     fun prefetchPagePreviews(
         item: ReadableItem,
@@ -540,6 +566,7 @@ internal class LocalComicPageLoader(
                         }
                     }
                     previewStore?.writeBytes(previewCacheKey, bytes)
+                    previewVersionByCacheKeyFlow.increment(previewCacheKey)
                 }
                 bytes
             }.also { deferred ->
@@ -656,6 +683,14 @@ private data class LocalPreviewPrefetchJob(
     val priorityPageIndex: Int,
     val job: Job,
 )
+
+private fun MutableStateFlow<Map<String, Long>>.increment(
+    key: String,
+) {
+    update { versions ->
+        versions + (key to ((versions[key] ?: 0L) + 1L))
+    }
+}
 
 private fun IntRange.sortedByPriority(
     priorityPageIndex: Int?,

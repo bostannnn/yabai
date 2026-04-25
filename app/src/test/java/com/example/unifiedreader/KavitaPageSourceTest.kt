@@ -15,6 +15,7 @@ import com.example.unifiedreader.data.kavita.KavitaSession
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPagePrefetchWindow
+import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewOptions
 import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 import com.example.unifiedreader.feature.reader.comics.PersistentComicPagePreviewStore
@@ -24,6 +25,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -205,6 +208,24 @@ class KavitaPageSourceTest {
         } finally {
             previewStoreDirectory.deleteRecursively()
         }
+    }
+
+    @Test
+    fun `page preview version updates after thumbnail bytes are cached`() = runTest {
+        val item = sampleKavitaComic(pageCount = 12)
+        val api = RecordingKavitaPageApi()
+        val pageSource = createPageSource(api, this)
+        val page = ComicPageSpec(id = "3", pageIndex = 3, contentDescription = "Page 4")
+        val nextVersion = async(UnconfinedTestDispatcher(testScheduler)) {
+            pageSource.observePagePreviewVersion(item, listOf(page), ComicPagePreviewOptions())
+                .drop(1)
+                .first()
+        }
+
+        val result = pageSource.loadPagePreview(item, page)
+
+        assertTrue(result is ComicPagePreviewResult.Success)
+        assertEquals(1L, nextVersion.await())
     }
 
     @Test

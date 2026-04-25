@@ -201,6 +201,23 @@ class LocalDocumentRepository private constructor(
         )
     }
 
+    override fun observePagePreviewVersion(
+        item: ReadableItem,
+        pages: List<ComicPageSpec>,
+        options: ComicPagePreviewOptions,
+    ): kotlinx.coroutines.flow.Flow<Long> {
+        val record = store.findRecord(item.id) ?: return kotlinx.coroutines.flow.flowOf(0L)
+        val entryNames = pages.map(ComicPageSpec::id)
+        return comicPageLoader.observePagePreviewVersion(
+            comicPageLoader.pagePreviewCacheKeys(
+                item = item,
+                record = record,
+                entryNames = entryNames,
+                options = options,
+            ),
+        )
+    }
+
     override fun prefetchPagePreviews(
         item: ReadableItem,
         pages: List<ComicPageSpec>,

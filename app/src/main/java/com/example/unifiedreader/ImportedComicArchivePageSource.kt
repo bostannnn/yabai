@@ -54,6 +54,12 @@ class LocalComicPageSource(
         options = options,
     )
 
+    override fun observePagePreviewVersion(
+        item: ReadableItem,
+        pages: List<ComicPageSpec>,
+        options: ComicPagePreviewOptions,
+    ) = localComicDocumentDataSource.observePagePreviewVersion(item, pages, options)
+
     override fun prefetchPagePreviews(
         item: ReadableItem,
         pages: List<ComicPageSpec>,

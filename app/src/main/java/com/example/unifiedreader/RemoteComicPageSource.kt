@@ -36,6 +36,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 
 abstract class RemoteComicPageSource<Session : StoredSourceSession>(
     private val sourceType: SourceType,
@@ -87,6 +92,7 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
     private val prefetchJobs = mutableMapOf<String, Job>()
     private val previewPrefetchJobs = mutableMapOf<String, PreviewPrefetchJob>()
     private val prefetchLock = Any()
+    private val previewVersionByCacheKeyFlow = MutableStateFlow<Map<String, Long>>(emptyMap())
 
     protected abstract fun activeSessionFor(
         item: ReadableItem,
@@ -118,6 +124,30 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
                 contentDescription = "${item.title} page ${index + 1}",
             )
         }
+    }
+
+    override fun observePagePreviewVersion(
+        item: ReadableItem,
+        pages: List<ComicPageSpec>,
+        options: ComicPagePreviewOptions,
+    ): Flow<Long> {
+        val session = activeSessionFor(item) ?: return kotlinx.coroutines.flow.flowOf(0L)
+        val itemKey = item.cacheIdentityKey()
+        val previewCacheKeys = pages
+            .map { page ->
+                pagePreviewCacheKey(
+                    pageCacheKey = pageCacheKey(
+                        baseUrl = session.baseUrl,
+                        itemKey = itemKey,
+                        pageId = page.id,
+                    ),
+                    options = options,
+                )
+            }
+            .toSet()
+        return previewVersionByCacheKeyFlow
+            .map { versions -> previewCacheKeys.sumOf { key -> versions[key] ?: 0L } }
+            .distinctUntilChanged()
     }
 
     override suspend fun loadPageMetadata(
@@ -586,6 +616,7 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
                 }
             }
             previewStore?.writeBytes(previewCacheKey, bytes)
+            previewVersionByCacheKeyFlow.increment(previewCacheKey)
         }
         return bytes
     }
@@ -660,6 +691,14 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
         itemKey: String,
         options: ComicPagePreviewOptions,
     ): String = "${baseUrl.trimEnd('/')}::$itemKey::preview-prefetch:${options.targetLongEdge}:${options.maxPixelCount}"
+}
+
+private fun MutableStateFlow<Map<String, Long>>.increment(
+    key: String,
+) {
+    update { versions ->
+        versions + (key to ((versions[key] ?: 0L) + 1L))
+    }
 }
 
 private fun ReadableItem.cacheIdentityKey(): String = listOf(
