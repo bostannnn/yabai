@@ -32,11 +32,11 @@ import com.example.unifiedreader.feature.settings.mode.ComicReaderModeSettingsSe
 import com.example.unifiedreader.feature.settings.mode.ReaderModeLibraryUiState
 
 internal const val DefaultKavitaServerUrl = "http://192.168.50.60:5000/"
-internal const val DefaultKavitaBackupServerUrl = "https://100.84.32.88:5000/"
+internal const val DefaultKavitaBackupServerUrl = "http://100.84.32.88:5000/"
 internal const val DefaultGrimmoryServerUrl = "http://192.168.50.60:6060/"
-internal const val DefaultGrimmoryBackupServerUrl = "https://100.84.32.88:6060/"
+internal const val DefaultGrimmoryBackupServerUrl = "http://100.84.32.88:6060/"
 internal const val DefaultStumpServerUrl = "http://192.168.50.60:10801/"
-internal const val DefaultStumpBackupServerUrl = "https://100.84.32.88:10801/"
+internal const val DefaultStumpBackupServerUrl = "http://100.84.32.88:10801/"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
