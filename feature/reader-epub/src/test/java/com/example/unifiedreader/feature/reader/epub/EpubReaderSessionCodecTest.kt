@@ -10,7 +10,11 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.readium.r2.navigator.preferences.FontFamily
 import org.readium.r2.navigator.preferences.ReadingProgression
+import org.readium.r2.navigator.preferences.TextAlign
+import org.readium.r2.shared.DelicateReadiumApi
+import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.util.Url
 import org.readium.r2.shared.util.mediatype.MediaType
@@ -163,8 +167,14 @@ class EpubReaderSessionCodecTest {
     fun `preferences map persists override flags`() {
         val preferences = buildEpubPreferencesMap(
             EpubReaderPreferences(
+                typographyMode = EpubTypographyMode.Custom,
+                fontFamily = EpubReaderFontFamily.OpenDyslexic,
                 fontSize = 1.2,
                 lineHeight = 1.7,
+                pageMargins = 1.4,
+                paragraphSpacing = 0.5,
+                paragraphIndent = 1.2,
+                textAlign = EpubReaderTextAlign.Justify,
                 theme = EpubReaderTheme.Dark,
                 themeOverride = true,
                 layoutMode = EpubReaderLayoutMode.DoublePage,
@@ -174,6 +184,71 @@ class EpubReaderSessionCodecTest {
 
         assertEquals("true", preferences[EpubThemeOverrideKey])
         assertEquals("true", preferences[EpubLayoutOverrideKey])
+        assertEquals(EpubTypographyMode.Custom.name, preferences[EpubTypographyModeKey])
+        assertEquals(EpubReaderFontFamily.OpenDyslexic.name, preferences[EpubFontFamilyKey])
+        assertEquals(EpubReaderTextAlign.Justify.name, preferences[EpubTextAlignKey])
+        assertEquals("1.4", preferences[EpubPageMarginsKey])
+        assertEquals("0.5", preferences[EpubParagraphSpacingKey])
+        assertEquals("1.2", preferences[EpubParagraphIndentKey])
+    }
+
+    @Test
+    fun `original typography mode enables publisher styles and omits forced typography`() {
+        val preferences = EpubReaderPreferences(
+            typographyMode = EpubTypographyMode.Original,
+            fontFamily = EpubReaderFontFamily.OpenDyslexic,
+            fontSize = 1.4,
+            lineHeight = 1.8,
+            pageMargins = 1.6,
+            paragraphSpacing = 1.0,
+            paragraphIndent = 2.0,
+            textAlign = EpubReaderTextAlign.Justify,
+        ).toNavigatorPreferences()
+
+        assertTrue(preferences.publisherStyles == true)
+        assertNull(preferences.fontFamily)
+        assertNull(preferences.fontSize)
+        assertNull(preferences.lineHeight)
+        assertNull(preferences.pageMargins)
+        assertNull(preferences.paragraphSpacing)
+        assertNull(preferences.paragraphIndent)
+        assertNull(preferences.textAlign)
+    }
+
+    @Test
+    fun `custom typography mode maps font spacing and alignment to readium preferences`() {
+        val preferences = EpubReaderPreferences(
+            typographyMode = EpubTypographyMode.Custom,
+            fontFamily = EpubReaderFontFamily.IaWriterDuospace,
+            fontSize = 1.25,
+            lineHeight = 1.75,
+            pageMargins = 1.5,
+            paragraphSpacing = 0.8,
+            paragraphIndent = 0.0,
+            textAlign = EpubReaderTextAlign.Justify,
+        ).toNavigatorPreferences()
+
+        assertFalse(preferences.publisherStyles == true)
+        assertEquals(FontFamily.IA_WRITER_DUOSPACE, preferences.fontFamily)
+        assertEquals(1.25, preferences.fontSize ?: 0.0, 0.0001)
+        assertEquals(1.75, preferences.lineHeight ?: 0.0, 0.0001)
+        assertEquals(1.5, preferences.pageMargins ?: 0.0, 0.0001)
+        assertEquals(0.8, preferences.paragraphSpacing ?: 0.0, 0.0001)
+        assertEquals(0.0, preferences.paragraphIndent ?: -1.0, 0.0001)
+        assertEquals(TextAlign.JUSTIFY, preferences.textAlign)
+    }
+
+    @Test
+    fun `font size label presents readium scale as percent`() {
+        assertEquals("125%", formatEpubFontSizeValue(1.25))
+    }
+
+    @Test
+    @OptIn(ExperimentalReadiumApi::class, DelicateReadiumApi::class)
+    fun `navigator configuration does not force readium css root font size`() {
+        val configuration = epubNavigatorFragmentConfiguration()
+
+        assertFalse(configuration.useReadiumCssFontSize)
     }
 
     @Test

@@ -8,32 +8,21 @@ import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
 import java.io.ByteArrayInputStream
-import java.util.Locale
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Toc
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.FormatSize
-import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material.icons.filled.ViewDay
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -68,18 +57,13 @@ import androidx.fragment.app.FragmentContainerView
 import androidx.lifecycle.lifecycleScope
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SyncState
-import com.example.unifiedreader.feature.reader.core.CompactReaderOverlayFrame
 import com.example.unifiedreader.feature.reader.core.ImmersiveReaderOverlay
 import com.example.unifiedreader.feature.reader.core.ReaderBottomProgressBar
-import com.example.unifiedreader.feature.reader.core.ReaderOverlayBackButton
-import com.example.unifiedreader.feature.reader.core.ReaderOverlayDropdownItem
 import com.example.unifiedreader.feature.reader.core.ReaderOverlayIconButton
-import com.example.unifiedreader.feature.reader.core.ReaderOverlayMenuAction
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import com.example.unifiedreader.feature.reader.core.findContextAncestor
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
-import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayPanelState
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -186,8 +170,14 @@ fun EpubReaderScreen(
             appReaderTheme = appReaderTheme,
         )
     }
+    var typographyMode by rememberSaveable(item.id) { mutableStateOf(restoredPreferences.typographyMode) }
+    var fontFamily by rememberSaveable(item.id) { mutableStateOf(restoredPreferences.fontFamily) }
     var fontSize by rememberSaveable(item.id) { mutableDoubleStateOf(restoredPreferences.fontSize) }
     var lineHeight by rememberSaveable(item.id) { mutableDoubleStateOf(restoredPreferences.lineHeight) }
+    var pageMargins by rememberSaveable(item.id) { mutableDoubleStateOf(restoredPreferences.pageMargins) }
+    var paragraphSpacing by rememberSaveable(item.id) { mutableDoubleStateOf(restoredPreferences.paragraphSpacing) }
+    var paragraphIndent by rememberSaveable(item.id) { mutableDoubleStateOf(restoredPreferences.paragraphIndent) }
+    var textAlign by rememberSaveable(item.id) { mutableStateOf(restoredPreferences.textAlign) }
     var theme by rememberSaveable(item.id) {
         mutableStateOf(
             restoredThemeSelection.theme,
@@ -267,8 +257,14 @@ fun EpubReaderScreen(
         if (!hydrated || restoredSessionState) return@LaunchedEffect
         val restoredThemeUsesDefault = restoredThemeSelection.useAppThemeDefault
         val restoredLayoutUsesDefault = !restoredPreferences.layoutModeOverride
+        typographyMode = restoredPreferences.typographyMode
+        fontFamily = restoredPreferences.fontFamily
         fontSize = restoredPreferences.fontSize
         lineHeight = restoredPreferences.lineHeight
+        pageMargins = restoredPreferences.pageMargins
+        paragraphSpacing = restoredPreferences.paragraphSpacing
+        paragraphIndent = restoredPreferences.paragraphIndent
+        textAlign = restoredPreferences.textAlign
         useAppThemeDefault = restoredThemeUsesDefault
         useOrientationLayoutDefault = restoredLayoutUsesDefault
         theme = restoredThemeSelection.theme
@@ -421,8 +417,14 @@ fun EpubReaderScreen(
                 item.id,
                 hydrated,
                 restoredSessionState,
+                typographyMode,
+                fontFamily,
                 fontSize,
                 lineHeight,
+                pageMargins,
+                paragraphSpacing,
+                paragraphIndent,
+                textAlign,
                 theme,
                 layoutMode,
                 pageCount,
@@ -432,8 +434,14 @@ fun EpubReaderScreen(
                 if (!hydrated || !restoredSessionState) return@LaunchedEffect
                 val preferences = buildEpubPreferencesMap(
                         EpubReaderPreferences(
+                            typographyMode = typographyMode,
+                            fontFamily = fontFamily,
                             fontSize = fontSize,
                             lineHeight = lineHeight,
+                            pageMargins = pageMargins,
+                            paragraphSpacing = paragraphSpacing,
+                            paragraphIndent = paragraphIndent,
+                            textAlign = textAlign,
                             theme = theme,
                             themeOverride = !useAppThemeDefault,
                             layoutMode = layoutMode,
@@ -472,8 +480,14 @@ fun EpubReaderScreen(
                         publication = state.publication,
                         initialLocator = resolvedInitialLocator,
                         preferences = EpubReaderPreferences(
+                            typographyMode = typographyMode,
+                            fontFamily = fontFamily,
                             fontSize = fontSize,
                             lineHeight = lineHeight,
+                            pageMargins = pageMargins,
+                            paragraphSpacing = paragraphSpacing,
+                            paragraphIndent = paragraphIndent,
+                            textAlign = textAlign,
                             theme = theme,
                             layoutMode = layoutMode,
                         ),
@@ -538,19 +552,43 @@ fun EpubReaderScreen(
                                 position = currentPage,
                                 pageCount = pageCount,
                             ),
+                            typographyMode = typographyMode,
+                            fontFamily = fontFamily,
                             fontSize = fontSize,
                             lineHeight = lineHeight,
+                            pageMargins = pageMargins,
+                            paragraphSpacing = paragraphSpacing,
+                            paragraphIndent = paragraphIndent,
+                            textAlign = textAlign,
                             theme = theme,
                             useAppThemeDefault = useAppThemeDefault,
                             layoutMode = layoutMode,
                             useOrientationLayoutDefault = useOrientationLayoutDefault,
                             overlayVisible = overlayState.isVisible,
                             onBack = onBack,
+                            onTypographyModeChanged = {
+                                typographyMode = it
+                            },
+                            onFontFamilyChanged = {
+                                fontFamily = it
+                            },
                             onFontSizeChanged = {
                                 fontSize = it
                             },
                             onLineHeightChanged = {
                                 lineHeight = it
+                            },
+                            onPageMarginsChanged = {
+                                pageMargins = it
+                            },
+                            onParagraphSpacingChanged = {
+                                paragraphSpacing = it
+                            },
+                            onParagraphIndentChanged = {
+                                paragraphIndent = it
+                            },
+                            onTextAlignChanged = {
+                                textAlign = it
                             },
                             onThemeChanged = {
                                 useAppThemeDefault = false
@@ -635,171 +673,6 @@ fun EpubReaderScreen(
             )
         }
     }
-}
-
-@Composable
-private fun EpubReaderOverlay(
-    itemId: String,
-    title: String,
-    progressLabel: String,
-    fontSize: Double,
-    lineHeight: Double,
-    theme: EpubReaderTheme,
-    useAppThemeDefault: Boolean,
-    layoutMode: EpubReaderLayoutMode,
-    useOrientationLayoutDefault: Boolean,
-    overlayVisible: Boolean,
-    onBack: () -> Unit,
-    onFontSizeChanged: (Double) -> Unit,
-    onLineHeightChanged: (Double) -> Unit,
-    onThemeChanged: (EpubReaderTheme) -> Unit,
-    onUseAppThemeDefault: () -> Unit,
-    onLayoutModeChanged: (EpubReaderLayoutMode) -> Unit,
-    onUseOrientationLayoutDefault: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val tokens = readerOverlayTokens()
-    var activePanel by rememberReaderOverlayPanelState(
-        key = itemId,
-        overlayVisible = overlayVisible,
-        hiddenPanel = EpubOverlayPanel.None,
-    )
-    CompactReaderOverlayFrame(
-        title = title,
-        progressLabel = progressLabel,
-        modifier = modifier,
-        leadingActions = {
-            ReaderOverlayBackButton(onClick = onBack)
-        },
-        trailingActions = {
-            ReaderOverlayMenuAction(
-                expanded = activePanel == EpubOverlayPanel.Text,
-                onExpandedChange = { expanded ->
-                    activePanel = if (expanded) {
-                        EpubOverlayPanel.Text
-                    } else {
-                        EpubOverlayPanel.None
-                    }
-                },
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.FormatSize,
-                        contentDescription = "Text settings",
-                        tint = tokens.colors.primaryText,
-                    )
-                },
-                menuModifier = Modifier.width(280.dp),
-            ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        text = "Font size",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = tokens.colors.secondaryText,
-                    )
-                    Text(
-                        text = formatEpubFontSizeValue(fontSize),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = tokens.colors.tertiaryText,
-                    )
-                    Slider(
-                        value = fontSize.toFloat(),
-                        onValueChange = { onFontSizeChanged(it.toDouble()) },
-                        valueRange = 0.8f..2.4f,
-                    )
-                    Text(
-                        text = "Line height",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = tokens.colors.secondaryText,
-                    )
-                    Text(
-                        text = formatEpubLineHeightValue(lineHeight),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = tokens.colors.tertiaryText,
-                    )
-                    Slider(
-                        value = lineHeight.toFloat(),
-                        onValueChange = { onLineHeightChanged(it.toDouble()) },
-                        valueRange = 1.1f..2.2f,
-                    )
-                }
-            }
-            ReaderOverlayMenuAction(
-                expanded = activePanel == EpubOverlayPanel.Theme,
-                onExpandedChange = { expanded ->
-                    activePanel = if (expanded) {
-                        EpubOverlayPanel.Theme
-                    } else {
-                        EpubOverlayPanel.None
-                    }
-                },
-                icon = {
-                    Icon(
-                        imageVector = if (theme == EpubReaderTheme.Dark) Icons.Default.DarkMode else Icons.Default.LightMode,
-                        contentDescription = "Reader theme",
-                        tint = tokens.colors.primaryText,
-                    )
-                },
-            ) {
-                ReaderOverlayDropdownItem(
-                    label = "Follow app theme",
-                    selected = useAppThemeDefault,
-                    onClick = {
-                        activePanel = EpubOverlayPanel.None
-                        onUseAppThemeDefault()
-                    },
-                )
-                EpubReaderTheme.entries.forEach { entry ->
-                    ReaderOverlayDropdownItem(
-                        label = entry.label,
-                        selected = !useAppThemeDefault && entry == theme,
-                        onClick = {
-                            activePanel = EpubOverlayPanel.None
-                            onThemeChanged(entry)
-                        },
-                    )
-                }
-            }
-            ReaderOverlayMenuAction(
-                expanded = activePanel == EpubOverlayPanel.Layout,
-                onExpandedChange = { expanded ->
-                    activePanel = if (expanded) {
-                        EpubOverlayPanel.Layout
-                    } else {
-                        EpubOverlayPanel.None
-                    }
-                },
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.ViewDay,
-                        contentDescription = "Page layout",
-                        tint = tokens.colors.primaryText,
-                    )
-                },
-            ) {
-                ReaderOverlayDropdownItem(
-                    label = "Auto (portrait: Page, landscape: Spread)",
-                    selected = useOrientationLayoutDefault,
-                    onClick = {
-                        activePanel = EpubOverlayPanel.None
-                        onUseOrientationLayoutDefault()
-                    },
-                )
-                EpubReaderLayoutMode.entries.forEach { entry ->
-                    ReaderOverlayDropdownItem(
-                        label = entry.label,
-                        selected = !useOrientationLayoutDefault && entry == layoutMode,
-                        onClick = {
-                            activePanel = EpubOverlayPanel.None
-                            onLayoutModeChanged(entry)
-                        },
-                    )
-                }
-            }
-        },
-    )
 }
 
 @Composable
@@ -1009,9 +882,7 @@ private fun ReadiumEpubNavigatorHost(
                     }
                 }
             },
-            configuration = EpubNavigatorFragment.Configuration(
-                shouldApplyInsetsPadding = false,
-            ),
+            configuration = epubNavigatorFragmentConfiguration(),
         )
         val fragment = fragmentFactory.instantiate(
             activity.classLoader,
@@ -1226,7 +1097,7 @@ private sealed interface ReaderDocumentUriState {
     }
 }
 
-private enum class EpubOverlayPanel {
+internal enum class EpubOverlayPanel {
     None,
     Text,
     Theme,
@@ -1291,14 +1162,6 @@ private fun defaultEpubViewportSpacing(
         contentPaddingPx = 12,
     )
 }
-
-private fun formatEpubFontSizeValue(
-    value: Double,
-): String = String.format(Locale.getDefault(), "%.1fx", value)
-
-private fun formatEpubLineHeightValue(
-    value: Double,
-): String = String.format(Locale.getDefault(), "%.2f", value)
 
 internal fun resolveRestoredThemeSelection(
     restoredPreferences: EpubReaderPreferences,
