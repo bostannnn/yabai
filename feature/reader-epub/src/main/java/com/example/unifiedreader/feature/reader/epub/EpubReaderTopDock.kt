@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 
 @Composable
 internal fun EpubReaderTopDock(
@@ -50,6 +51,7 @@ internal fun EpubReaderTopDock(
     onUseOrientationLayoutDefault: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val tokens = readerOverlayTokens()
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -70,7 +72,7 @@ internal fun EpubReaderTopDock(
             modifier = Modifier.fillMaxWidth(),
         )
         if (isPreferencesOpen) {
-            Spacer(modifier = Modifier.height(EpubTopDockPaneSeamHeight))
+            Spacer(modifier = Modifier.height(tokens.spacing.smallGap))
         }
         BoxWithConstraints(
             modifier = Modifier
@@ -110,5 +112,3 @@ internal fun EpubReaderTopDock(
         }
     }
 }
-
-private val EpubTopDockPaneSeamHeight = 2.dp

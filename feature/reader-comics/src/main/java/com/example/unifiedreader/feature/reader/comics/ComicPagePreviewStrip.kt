@@ -76,6 +76,7 @@ internal fun ComicPagePreviewStrip(
     spreadMode: ComicSpreadMode,
     pageSource: ComicPageSource,
     modifier: Modifier = Modifier,
+    applySafeGesturesPadding: Boolean = true,
     onPageSelected: (Int) -> Unit,
 ) {
     if (pages.isEmpty()) return
@@ -157,7 +158,7 @@ internal fun ComicPagePreviewStrip(
             reverseLayout = readingDirection == ComicReadingDirection.RTL,
             modifier = Modifier
                 .fillMaxWidth()
-                .safeGesturesPadding()
+                .then(if (applySafeGesturesPadding) Modifier.safeGesturesPadding() else Modifier)
                 .padding(horizontal = 10.dp)
                 .readerOverlaySurface(
                     role = ReaderOverlaySurfaceRole.PreviewStrip,

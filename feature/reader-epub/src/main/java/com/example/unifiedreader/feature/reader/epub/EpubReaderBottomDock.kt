@@ -40,6 +40,7 @@ internal fun EpubReaderBottomDock(
     onProgressSelected: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val tokens = readerOverlayTokens()
     BoxWithConstraints(
         modifier = modifier.fillMaxSize(),
     ) {
@@ -74,7 +75,7 @@ internal fun EpubReaderBottomDock(
                 )
             }
             if (isTocOpen) {
-                Spacer(modifier = Modifier.height(EpubDockPaneSeamHeight))
+                Spacer(modifier = Modifier.height(tokens.spacing.smallGap))
             }
             ReaderBottomProgressBar(
                 progress = currentProgress.toFloat(),
@@ -93,7 +94,7 @@ internal fun EpubReaderBottomDock(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.Toc,
                             contentDescription = "Table of contents",
-                            tint = readerOverlayTokens().colors.primaryText,
+                            tint = tokens.colors.primaryText,
                         )
                     }
                 },
@@ -102,5 +103,3 @@ internal fun EpubReaderBottomDock(
         }
     }
 }
-
-private val EpubDockPaneSeamHeight = 2.dp

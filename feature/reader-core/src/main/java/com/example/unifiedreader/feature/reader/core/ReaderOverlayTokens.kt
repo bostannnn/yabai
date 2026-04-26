@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 @Immutable
@@ -36,9 +37,15 @@ data class ReaderOverlayShapes(
 )
 
 @Immutable
+data class ReaderOverlaySpacing(
+    val smallGap: Dp = 2.dp,
+)
+
+@Immutable
 data class ReaderOverlayTokens(
     val colors: ReaderOverlayColors = ReaderOverlayColors(),
     val shapes: ReaderOverlayShapes = ReaderOverlayShapes(),
+    val spacing: ReaderOverlaySpacing = ReaderOverlaySpacing(),
 )
 
 @Composable

@@ -26,9 +26,8 @@ fun Modifier.readerOverlaySurface(
     val elevation = role.elevation()
     val color = containerColor ?: when (role) {
         ReaderOverlaySurfaceRole.ControlBar,
+        ReaderOverlaySurfaceRole.AttachedPane,
         ReaderOverlaySurfaceRole.PreviewStrip -> tokens.colors.container
-
-        ReaderOverlaySurfaceRole.AttachedPane -> tokens.colors.elevatedContainer
     }
     return then(
         Modifier
