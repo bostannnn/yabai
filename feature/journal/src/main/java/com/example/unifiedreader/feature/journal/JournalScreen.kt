@@ -29,6 +29,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 
 enum class JournalTab(
     val label: String,
@@ -40,6 +42,8 @@ enum class JournalTab(
 @Composable
 fun JournalScreen(
     snapshot: JournalSnapshot,
+    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String? = { item, _ -> item.coverUrl },
+    onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit = { _, _ -> },
     onDeleteEvent: (String) -> Unit,
     onDeleteItemJournal: (String) -> Unit,
     onSaveJournalEntry: (JournalItemRef, Int?, String) -> Unit,
@@ -71,13 +75,19 @@ fun JournalScreen(
         when (selectedTab) {
             JournalTab.Timeline -> JournalTimelineContent(
                 snapshot = snapshot,
+                coverImageUrlProvider = coverImageUrlProvider,
+                onCoverVisible = onCoverVisible,
                 onRequestDeleteEvent = { eventId -> deleteTarget = JournalDeleteTarget.Event(eventId) },
                 onDeleteItemJournal = { itemId -> deleteTarget = JournalDeleteTarget.Item(itemId) },
                 onSaveJournalEntry = onSaveJournalEntry,
                 onSaveGoal = onSaveGoal,
                 onDeleteGoal = { goalId -> deleteTarget = JournalDeleteTarget.Goal(goalId) },
             )
-            JournalTab.Stats -> JournalStatsContent(snapshot = snapshot)
+            JournalTab.Stats -> JournalStatsContent(
+                snapshot = snapshot,
+                coverImageUrlProvider = coverImageUrlProvider,
+                onCoverVisible = onCoverVisible,
+            )
         }
     }
     deleteTarget?.let { target ->

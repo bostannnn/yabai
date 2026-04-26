@@ -26,6 +26,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,6 +35,8 @@ fun JournalItemDetailSheet(
     item: JournalItemRef,
     events: List<JournalReadingEvent>,
     entry: ItemJournalEntry?,
+    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
+    onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onDismiss: () -> Unit,
     onReview: () -> Unit,
     onRequestDeleteEvent: (String) -> Unit,
@@ -53,6 +57,8 @@ fun JournalItemDetailSheet(
                 ) {
                     JournalCoverArt(
                         item = item,
+                        coverImageUrlProvider = coverImageUrlProvider,
+                        onCoverVisible = onCoverVisible,
                         modifier = Modifier
                             .width(92.dp)
                             .aspectRatio(0.68f),

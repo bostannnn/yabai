@@ -183,6 +183,8 @@ fun UnifiedReaderScaffold(
 
                     TopLevelDestination.Journal -> JournalScreen(
                         snapshot = uiState.journalSnapshot,
+                        coverImageUrlProvider = viewModel::coverImageUrlFor,
+                        onCoverVisible = viewModel::ensureCoverCached,
                         onDeleteEvent = viewModel::deleteJournalEvent,
                         onDeleteItemJournal = viewModel::deleteItemJournal,
                         onSaveJournalEntry = viewModel::saveJournalEntry,

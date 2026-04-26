@@ -111,6 +111,27 @@ data class JournalStats(
     val ratingCounts: Map<Int, Int> = emptyMap(),
 )
 
+data class JournalActivityDay(
+    val localDayKey: Int,
+    val year: Int,
+    val month: Int,
+    val dayOfMonth: Int,
+    val pagesRead: Int,
+    val eventCount: Int,
+    val finishedBooks: Int,
+    val finishedComics: Int,
+)
+
+data class JournalPeriodOverview(
+    val period: ReadingGoalPeriod,
+    val periodStartEpochMillis: Long,
+    val periodEndEpochMillis: Long,
+    val stats: JournalStats,
+    val activityDays: List<JournalActivityDay>,
+    val finishedItems: List<JournalItemSummary>,
+    val goals: List<JournalGoalProgress>,
+)
+
 data class JournalItemSummary(
     val item: JournalItemRef,
     val events: List<JournalReadingEvent>,

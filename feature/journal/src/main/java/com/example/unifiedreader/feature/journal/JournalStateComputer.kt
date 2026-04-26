@@ -116,6 +116,78 @@ fun computeStats(
     )
 }
 
+fun computePeriodOverview(
+    snapshot: JournalSnapshot,
+    period: ReadingGoalPeriod,
+    referenceEpochMillis: Long,
+): JournalPeriodOverview {
+    val (periodStart, periodEnd) = periodBounds(period, referenceEpochMillis)
+    val periodEvents = snapshot.events.inPeriod(periodStart, periodEnd)
+    val periodEntries = snapshot.entries.journalEntriesInPeriod(periodStart, periodEnd)
+    return JournalPeriodOverview(
+        period = period,
+        periodStartEpochMillis = periodStart,
+        periodEndEpochMillis = periodEnd,
+        stats = computeStats(periodEvents, periodEntries),
+        activityDays = computeActivityDays(periodEvents),
+        finishedItems = snapshot.itemSummaries
+            .filter { summary -> summary.finishedAtEpochMillis in periodStart until periodEnd }
+            .sortedByDescending(JournalItemSummary::finishedAtEpochMillis),
+        goals = snapshot.goals
+            .filter { goal ->
+                goal.periodType == period &&
+                    goal.periodStartEpochMillis == periodStart &&
+                    goal.periodEndEpochMillis == periodEnd
+            }
+            .map { goal ->
+                JournalGoalProgress(
+                    goal = goal,
+                    current = goal.currentValue(snapshot.events),
+                )
+            },
+    )
+}
+
+fun currentGoalProgress(
+    goals: List<JournalGoalProgress>,
+    referenceEpochMillis: Long,
+): List<JournalGoalProgress> = goals.filter { progress ->
+    referenceEpochMillis in progress.goal.periodStartEpochMillis until progress.goal.periodEndEpochMillis
+}
+
+fun JournalSnapshot.firstJournalAtEpochMillis(): Long? = listOfNotNull(
+    events.minOfOrNull(JournalReadingEvent::occurredAtEpochMillis),
+    entries.minOfOrNull(ItemJournalEntry::updatedAtEpochMillis),
+    goals.minOfOrNull(ReadingGoal::periodStartEpochMillis),
+).minOrNull()
+
+fun computeActivityDays(
+    events: List<JournalReadingEvent>,
+): List<JournalActivityDay> = events
+    .groupBy(JournalReadingEvent::localDayKey)
+    .map { (dayKey, dayEvents) ->
+        val calendar = Calendar.getInstance(Locale.US).apply {
+            timeInMillis = dayEvents.minOf(JournalReadingEvent::occurredAtEpochMillis)
+        }
+        JournalActivityDay(
+            localDayKey = dayKey,
+            year = calendar.get(Calendar.YEAR),
+            month = calendar.get(Calendar.MONTH),
+            dayOfMonth = calendar.get(Calendar.DAY_OF_MONTH),
+            pagesRead = dayEvents.sumOf(JournalReadingEvent::positivePageDelta),
+            eventCount = dayEvents.size,
+            finishedBooks = dayEvents.count { event ->
+                event.eventType == JournalReadingEventType.FINISHED &&
+                    event.itemKind == ReadableItemKind.BOOK
+            },
+            finishedComics = dayEvents.count { event ->
+                event.eventType == JournalReadingEventType.FINISHED &&
+                    event.itemKind == ReadableItemKind.COMIC
+            },
+        )
+    }
+    .sortedWith(compareBy<JournalActivityDay> { it.year }.thenBy { it.month }.thenBy { it.dayOfMonth })
+
 internal fun List<JournalReadingEvent>.inPeriod(
     startInclusive: Long,
     endExclusive: Long,

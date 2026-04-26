@@ -13,10 +13,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 
 @Composable
 internal fun JournalTimelineContent(
     snapshot: JournalSnapshot,
+    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
+    onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onRequestDeleteEvent: (String) -> Unit,
     onDeleteItemJournal: (String) -> Unit,
     onSaveJournalEntry: (JournalItemRef, Int?, String) -> Unit,
@@ -44,6 +48,8 @@ internal fun JournalTimelineContent(
         items(snapshot.itemSummaries, key = { summary -> summary.item.itemId }) { summary ->
             JournalSummaryCard(
                 summary = summary,
+                coverImageUrlProvider = coverImageUrlProvider,
+                onCoverVisible = onCoverVisible,
                 onOpen = { detailTarget = summary.item },
                 onReview = { editTarget = summary.item },
                 onDelete = { onDeleteItemJournal(summary.item.itemId) },
@@ -75,6 +81,8 @@ internal fun JournalTimelineContent(
             item = item,
             events = snapshot.events.filter { event -> event.itemId == item.itemId },
             entry = snapshot.entryByItemId[item.itemId],
+            coverImageUrlProvider = coverImageUrlProvider,
+            onCoverVisible = onCoverVisible,
             onDismiss = { detailTarget = null },
             onReview = {
                 detailTarget = null

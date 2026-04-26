@@ -8,6 +8,8 @@ import com.example.unifiedreader.core.model.SourceType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import java.util.Calendar
+import java.util.Locale
 
 class JournalStateComputerTest {
     @Test
@@ -243,6 +245,163 @@ class JournalStateComputerTest {
         assertEquals("https://example.test/catalog-cover.jpg", item.coverUrl)
     }
 
+    @Test
+    fun `period overview scopes activity to selected month`() {
+        val april10 = epochMillis(2026, Calendar.APRIL, 10)
+        val april26 = epochMillis(2026, Calendar.APRIL, 26)
+        val may2 = epochMillis(2026, Calendar.MAY, 2)
+        val snapshot = JournalStateComputer(nowEpochMillis = { may2 }).snapshot(
+            events = listOf(
+                startedEvent(
+                    id = "april-started",
+                    page = 1,
+                    percent = 0.01,
+                    occurredAtEpochMillis = april10,
+                ),
+                startedEvent(
+                    id = "april-continued",
+                    page = 41,
+                    percent = 0.41,
+                    type = JournalReadingEventType.CONTINUED,
+                    fromPage = 1,
+                    fromPercent = 0.01,
+                    occurredAtEpochMillis = april26,
+                ),
+                startedEvent(
+                    id = "may-finished",
+                    page = 100,
+                    percent = 1.0,
+                    type = JournalReadingEventType.FINISHED,
+                    fromPage = 41,
+                    fromPercent = 0.41,
+                    occurredAtEpochMillis = may2,
+                ),
+            ),
+            entries = emptyList(),
+            goals = emptyList(),
+        )
+
+        val aprilOverview = computePeriodOverview(
+            snapshot = snapshot,
+            period = ReadingGoalPeriod.MONTH,
+            referenceEpochMillis = april26,
+        )
+        val mayOverview = computePeriodOverview(
+            snapshot = snapshot,
+            period = ReadingGoalPeriod.MONTH,
+            referenceEpochMillis = may2,
+        )
+
+        assertEquals(41, aprilOverview.stats.pagesRead)
+        assertEquals(2, aprilOverview.stats.activeDays)
+        assertEquals(0, aprilOverview.stats.booksFinished)
+        assertEquals(listOf(10, 26), aprilOverview.activityDays.map(JournalActivityDay::dayOfMonth))
+        assertEquals(59, mayOverview.stats.pagesRead)
+        assertEquals(1, mayOverview.stats.booksFinished)
+        assertEquals(listOf(testItem.id), mayOverview.finishedItems.map { summary -> summary.item.itemId })
+    }
+
+    @Test
+    fun `period overview returns matching goals for selected period`() {
+        val april10 = epochMillis(2026, Calendar.APRIL, 10)
+        val (aprilStart, aprilEnd) = periodBounds(ReadingGoalPeriod.MONTH, april10)
+        val (yearStart, yearEnd) = periodBounds(ReadingGoalPeriod.YEAR, april10)
+        val snapshot = JournalStateComputer(nowEpochMillis = { april10 }).snapshot(
+            events = listOf(
+                startedEvent(
+                    id = "april-started",
+                    page = 25,
+                    percent = 0.25,
+                    occurredAtEpochMillis = april10,
+                ),
+            ),
+            entries = emptyList(),
+            goals = listOf(
+                ReadingGoal(
+                    id = "month-pages",
+                    periodType = ReadingGoalPeriod.MONTH,
+                    periodStartEpochMillis = aprilStart,
+                    periodEndEpochMillis = aprilEnd,
+                    metric = ReadingGoalMetric.PAGES_READ,
+                    target = 100,
+                    createdAtEpochMillis = april10,
+                    updatedAtEpochMillis = april10,
+                ),
+                ReadingGoal(
+                    id = "year-pages",
+                    periodType = ReadingGoalPeriod.YEAR,
+                    periodStartEpochMillis = yearStart,
+                    periodEndEpochMillis = yearEnd,
+                    metric = ReadingGoalMetric.PAGES_READ,
+                    target = 500,
+                    createdAtEpochMillis = april10,
+                    updatedAtEpochMillis = april10,
+                ),
+            ),
+        )
+
+        val overview = computePeriodOverview(
+            snapshot = snapshot,
+            period = ReadingGoalPeriod.MONTH,
+            referenceEpochMillis = april10,
+        )
+
+        assertEquals(listOf("month-pages"), overview.goals.map { progress -> progress.goal.id })
+        assertEquals(25, overview.goals.single().current)
+    }
+
+    @Test
+    fun `current goal progress excludes historical goals`() {
+        val april10 = epochMillis(2026, Calendar.APRIL, 10)
+        val may2 = epochMillis(2026, Calendar.MAY, 2)
+        val (aprilStart, aprilEnd) = periodBounds(ReadingGoalPeriod.MONTH, april10)
+        val (mayStart, mayEnd) = periodBounds(ReadingGoalPeriod.MONTH, may2)
+        val progress = listOf(
+            goalProgress(id = "april-pages", start = aprilStart, end = aprilEnd),
+            goalProgress(id = "may-pages", start = mayStart, end = mayEnd),
+        )
+
+        val current = currentGoalProgress(progress, may2)
+
+        assertEquals(listOf("may-pages"), current.map { goalProgress -> goalProgress.goal.id })
+    }
+
+    @Test
+    fun `first journal timestamp uses earliest activity entry or goal period`() {
+        val april10 = epochMillis(2026, Calendar.APRIL, 10)
+        val may2 = epochMillis(2026, Calendar.MAY, 2)
+        val june5 = epochMillis(2026, Calendar.JUNE, 5)
+        val (juneStart, juneEnd) = periodBounds(ReadingGoalPeriod.MONTH, june5)
+        val snapshot = JournalSnapshot(
+            events = listOf(
+                startedEvent(
+                    id = "may-started",
+                    page = 5,
+                    percent = 0.05,
+                    occurredAtEpochMillis = may2,
+                ),
+            ),
+            entries = listOf(journalEntry(itemId = testItem.id, rating = 4, updatedAtEpochMillis = april10)),
+            goals = listOf(goalProgress(id = "june-pages", start = juneStart, end = juneEnd).goal),
+        )
+
+        assertEquals(april10, snapshot.firstJournalAtEpochMillis())
+    }
+
+    @Test
+    fun `millis until next local day advances to midnight`() {
+        val april10 = Calendar.getInstance(Locale.US).apply {
+            clear()
+            set(Calendar.YEAR, 2026)
+            set(Calendar.MONTH, Calendar.APRIL)
+            set(Calendar.DAY_OF_MONTH, 10)
+            set(Calendar.HOUR_OF_DAY, 23)
+            set(Calendar.MINUTE, 30)
+        }.timeInMillis
+
+        assertEquals(30 * 60 * 1000L, millisUntilNextLocalDay(april10))
+    }
+
     private fun progressInput(
         page: Int,
         percent: Double,
@@ -301,6 +460,24 @@ class JournalStateComputerTest {
         reviewedAtEpochMillis = null,
         updatedAtEpochMillis = updatedAtEpochMillis,
     )
+
+    private fun goalProgress(
+        id: String,
+        start: Long,
+        end: Long,
+    ): JournalGoalProgress = JournalGoalProgress(
+        goal = ReadingGoal(
+            id = id,
+            periodType = ReadingGoalPeriod.MONTH,
+            periodStartEpochMillis = start,
+            periodEndEpochMillis = end,
+            metric = ReadingGoalMetric.PAGES_READ,
+            target = 100,
+            createdAtEpochMillis = start,
+            updatedAtEpochMillis = start,
+        ),
+        current = 0,
+    )
 }
 
 private val testItem = ReadableItem(
@@ -312,3 +489,14 @@ private val testItem = ReadableItem(
     kind = ReadableItemKind.BOOK,
     pageCount = 100,
 )
+
+private fun epochMillis(
+    year: Int,
+    month: Int,
+    dayOfMonth: Int,
+): Long = Calendar.getInstance(Locale.US).apply {
+    clear()
+    set(Calendar.YEAR, year)
+    set(Calendar.MONTH, month)
+    set(Calendar.DAY_OF_MONTH, dayOfMonth)
+}.timeInMillis

@@ -25,10 +25,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 
 @Composable
 internal fun JournalSummaryCard(
     summary: JournalItemSummary,
+    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
+    onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onOpen: () -> Unit,
     onReview: () -> Unit,
     onDelete: () -> Unit,
@@ -48,6 +52,8 @@ internal fun JournalSummaryCard(
         ) {
             JournalCoverArt(
                 item = summary.item,
+                coverImageUrlProvider = coverImageUrlProvider,
+                onCoverVisible = onCoverVisible,
                 modifier = Modifier
                     .width(78.dp)
                     .aspectRatio(0.68f),

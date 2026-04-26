@@ -19,6 +19,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -30,6 +31,10 @@ internal fun TimelineGoalHeader(
     onAddGoal: () -> Unit,
     onDeleteGoal: (String) -> Unit,
 ) {
+    val now = rememberJournalNowEpochMillis()
+    val currentGoalProgress = remember(snapshot.goalProgress, now) {
+        currentGoalProgress(snapshot.goalProgress, now)
+    }
     OutlinedCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
@@ -59,14 +64,14 @@ internal fun TimelineGoalHeader(
                     Text(text = "Goal", modifier = Modifier.padding(start = 8.dp))
                 }
             }
-            if (snapshot.goalProgress.isEmpty()) {
+            if (currentGoalProgress.isEmpty()) {
                 Text(
                     text = "Monthly and yearly goals will appear here.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
-                snapshot.goalProgress.forEach { progress ->
+                currentGoalProgress.forEach { progress ->
                     GoalProgressRow(progress = progress, onDelete = { onDeleteGoal(progress.goal.id) })
                 }
             }
