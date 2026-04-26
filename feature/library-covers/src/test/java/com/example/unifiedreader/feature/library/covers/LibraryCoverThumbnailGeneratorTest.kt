@@ -64,4 +64,30 @@ class LibraryCoverThumbnailGeneratorTest {
         assertEquals(LibraryCoverVariant.GridLarge.width, decoded.width)
         assertEquals(LibraryCoverVariant.GridLarge.height, decoded.height)
     }
+
+    @Test
+    fun `ensureThumbnail writes extra large grid thumbnail`() = runTest {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val source = File(context.cacheDir, "thumbnail-extra-large-source.png")
+        val destination = File(context.cacheDir, "thumbnail-extra-large-dest.jpg")
+        val bitmap = Bitmap.createBitmap(1600, 2400, Bitmap.Config.ARGB_8888)
+        try {
+            source.outputStream().use { output ->
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+            }
+        } finally {
+            bitmap.recycle()
+        }
+
+        val output = LibraryCoverThumbnailGenerator().ensureThumbnail(
+            sourceFile = source,
+            destinationFile = destination,
+            variant = LibraryCoverVariant.GridExtraLarge,
+        )
+
+        assertTrue(output?.isFile == true)
+        val decoded = BitmapFactory.decodeFile(destination.absolutePath)
+        assertEquals(LibraryCoverVariant.GridExtraLarge.width, decoded.width)
+        assertEquals(LibraryCoverVariant.GridExtraLarge.height, decoded.height)
+    }
 }

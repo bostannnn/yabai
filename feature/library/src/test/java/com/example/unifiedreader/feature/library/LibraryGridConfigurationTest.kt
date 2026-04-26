@@ -37,10 +37,11 @@ class LibraryGridConfigurationTest {
     }
 
     @Test
-    fun `large grid cells use large cover thumbnails`() {
+    fun `large grid cells use larger cover thumbnails`() {
         assertEquals(LibraryCoverImageVariant.Grid, libraryGridCoverImageVariant(160))
         assertEquals(LibraryCoverImageVariant.GridLarge, libraryGridCoverImageVariant(180))
-        assertEquals(LibraryCoverImageVariant.GridLarge, libraryGridCoverImageVariant(240))
+        assertEquals(LibraryCoverImageVariant.GridExtraLarge, libraryGridCoverImageVariant(200))
+        assertEquals(LibraryCoverImageVariant.GridExtraLarge, libraryGridCoverImageVariant(240))
     }
 
     @Test

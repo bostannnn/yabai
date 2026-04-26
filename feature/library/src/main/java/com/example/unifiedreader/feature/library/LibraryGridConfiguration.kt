@@ -67,10 +67,10 @@ internal fun libraryGridPresentation(
 
 internal fun libraryGridCoverImageVariant(
     gridCellSizeDp: Int,
-): LibraryCoverImageVariant = if (gridCellSizeDp >= largeGridCoverCellSizeDp) {
-    LibraryCoverImageVariant.GridLarge
-} else {
-    LibraryCoverImageVariant.Grid
+): LibraryCoverImageVariant = when {
+    gridCellSizeDp >= extraLargeGridCoverCellSizeDp -> LibraryCoverImageVariant.GridExtraLarge
+    gridCellSizeDp >= largeGridCoverCellSizeDp -> LibraryCoverImageVariant.GridLarge
+    else -> LibraryCoverImageVariant.Grid
 }
 
 internal fun availableLibraryGridSizeOptions(
@@ -128,3 +128,4 @@ private fun libraryGridColumnCount(
 }
 
 private const val largeGridCoverCellSizeDp = 180
+private const val extraLargeGridCoverCellSizeDp = 200

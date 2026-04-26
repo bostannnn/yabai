@@ -27,7 +27,7 @@ class LibraryCoverThumbnailGenerator @Inject constructor() {
         val decoded = BitmapFactory.decodeFile(
             sourceFile.absolutePath,
             BitmapFactory.Options().apply {
-                inPreferredConfig = Bitmap.Config.RGB_565
+                inPreferredConfig = Bitmap.Config.ARGB_8888
                 inSampleSize = calculateInSampleSize(
                     sourceWidth = bounds.outWidth,
                     sourceHeight = bounds.outHeight,
@@ -114,4 +114,4 @@ class LibraryCoverThumbnailGenerator @Inject constructor() {
     }
 }
 
-private const val THUMBNAIL_QUALITY = 82
+private const val THUMBNAIL_QUALITY = 95

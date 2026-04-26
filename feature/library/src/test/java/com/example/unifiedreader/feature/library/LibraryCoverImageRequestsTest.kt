@@ -17,6 +17,10 @@ class LibraryCoverImageRequestsTest {
             libraryCoverImageRequestSize(LibraryCoverImageVariant.GridLarge),
         )
         assertEquals(
+            IntSize(720, 1080),
+            libraryCoverImageRequestSize(LibraryCoverImageVariant.GridExtraLarge),
+        )
+        assertEquals(
             IntSize(144, 216),
             libraryCoverImageRequestSize(LibraryCoverImageVariant.ShelfPreview),
         )
@@ -27,21 +31,32 @@ class LibraryCoverImageRequestsTest {
     }
 
     @Test
-    fun `grid and shelf covers use software rgb565 decode policy`() {
+    fun `grid covers keep full quality decode policy`() {
         assertEquals(
             LibraryCoverImageDecodePolicy(
-                allowHardware = false,
-                bitmapConfig = Bitmap.Config.RGB_565,
+                allowHardware = true,
+                bitmapConfig = null,
             ),
             libraryCoverImageDecodePolicy(LibraryCoverImageVariant.Grid),
         )
         assertEquals(
             LibraryCoverImageDecodePolicy(
-                allowHardware = false,
-                bitmapConfig = Bitmap.Config.RGB_565,
+                allowHardware = true,
+                bitmapConfig = null,
             ),
             libraryCoverImageDecodePolicy(LibraryCoverImageVariant.GridLarge),
         )
+        assertEquals(
+            LibraryCoverImageDecodePolicy(
+                allowHardware = true,
+                bitmapConfig = null,
+            ),
+            libraryCoverImageDecodePolicy(LibraryCoverImageVariant.GridExtraLarge),
+        )
+    }
+
+    @Test
+    fun `shelf covers use compact software decode policy`() {
         assertEquals(
             LibraryCoverImageDecodePolicy(
                 allowHardware = false,

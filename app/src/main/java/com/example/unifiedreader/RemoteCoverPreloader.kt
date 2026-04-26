@@ -200,6 +200,7 @@ private val defaultCoverPreloadVariants = listOf(
     LibraryCoverImageVariant.ShelfPreview,
     LibraryCoverImageVariant.Grid,
     LibraryCoverImageVariant.GridLarge,
+    LibraryCoverImageVariant.GridExtraLarge,
     LibraryCoverImageVariant.Detailed,
 )
 
