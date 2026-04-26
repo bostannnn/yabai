@@ -40,7 +40,7 @@ class VisibleLibraryCoverRegistryTest {
     }
 
     @Test
-    fun `resolved cover promotion is immediate when no fallback is currently displayed`() {
+    fun `resolved cover promotion from empty presentation is deferred while viewport is scrolling`() {
         registry.onViewportScrollingChanged(true)
 
         registry.promoteResolvedUri(
@@ -49,9 +49,46 @@ class VisibleLibraryCoverRegistryTest {
             uri = "file:///cached/cover.jpg",
         )
 
+        assertNull(registry.presentedUriFor("item-2", LibraryCoverVariant.Grid))
+
+        registry.onViewportScrollingChanged(false)
+
         assertEquals(
             "file:///cached/cover.jpg",
             registry.presentedUriFor("item-2", LibraryCoverVariant.Grid),
+        )
+    }
+
+    @Test
+    fun `latest pending promotion wins when multiple resolved covers arrive while scrolling`() {
+        registry.rememberDisplayedFallbackUri(
+            itemId = "item-5",
+            variant = LibraryCoverVariant.Grid,
+            uri = "https://fallback.example/cover.jpg",
+        )
+        registry.onViewportScrollingChanged(true)
+
+        registry.promoteResolvedUri(
+            itemId = "item-5",
+            variant = LibraryCoverVariant.Grid,
+            uri = "file:///cached/old-cover.jpg",
+        )
+        registry.promoteResolvedUri(
+            itemId = "item-5",
+            variant = LibraryCoverVariant.Grid,
+            uri = "file:///cached/new-cover.jpg",
+        )
+
+        assertEquals(
+            "https://fallback.example/cover.jpg",
+            registry.presentedUriFor("item-5", LibraryCoverVariant.Grid),
+        )
+
+        registry.onViewportScrollingChanged(false)
+
+        assertEquals(
+            "file:///cached/new-cover.jpg",
+            registry.presentedUriFor("item-5", LibraryCoverVariant.Grid),
         )
     }
 

@@ -14,6 +14,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,6 +27,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -71,6 +76,7 @@ fun LibraryCover(
         val imageUrl = coverUrl?.takeIf(String::isNotBlank)
         if (imageUrl != null) {
             BucketedCoverImage(
+                identityKey = item.id,
                 imageUrl = imageUrl,
                 contentDescription = item.title,
                 variant = imageVariant,
@@ -369,6 +375,7 @@ fun ResolvedLibraryCover(
 
 @Composable
 internal fun BucketedCoverImage(
+    identityKey: String,
     imageUrl: String,
     contentDescription: String?,
     variant: LibraryCoverImageVariant,
@@ -380,11 +387,17 @@ internal fun BucketedCoverImage(
         imageUrl = imageUrl,
         variant = variant,
     )
+    var retainedPainter by remember(identityKey) { mutableStateOf<Painter?>(null) }
 
     AsyncImage(
         model = request,
         contentDescription = contentDescription,
         contentScale = ContentScale.Crop,
+        placeholder = retainedPainter,
+        error = retainedPainter,
+        onSuccess = { state ->
+            retainedPainter = state.painter
+        },
         modifier = modifier,
     )
 }

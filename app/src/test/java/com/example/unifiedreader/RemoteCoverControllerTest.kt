@@ -49,6 +49,37 @@ class RemoteCoverControllerTest {
     }
 
     @Test
+    fun `coverImageUrlFor defers cached file promotion while viewport is scrolling`() {
+        val cachedUri = Uri.parse("file:///tmp/persistent-kavita-cover.png")
+        val kavitaDataSource = PersistentCachedKavitaCoverDataSource(
+            cachedUri = cachedUri,
+        )
+        val controller = RemoteCoverController(
+            kavitaCoverRepository = kavitaDataSource,
+            stumpCoverRepository = EmptyStumpCoverDataSource(),
+            grimmoryCoverRepository = EmptyGrimmoryCoverDataSource(),
+            kavitaCredentialStore = FakeKavitaCredentialStore(),
+            stumpCredentialStore = FakeStumpCredentialStore(),
+            grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
+            appDispatchers = immediateAppDispatchers(),
+        )
+        val kavitaItem = remoteItem(
+            id = "kavita:item:issue-scrolling",
+            sourceType = SourceType.KAVITA,
+            coverUrl = "https://kavita.example/api/Image/chapter-cover?chapterId=100&apiKey=token-1",
+        )
+
+        controller.onLibraryViewportScrollingChanged(true)
+
+        assertNull(controller.coverImageUrlFor(kavitaItem, LibraryCoverImageVariant.Grid))
+
+        controller.onLibraryViewportScrollingChanged(false)
+
+        assertEquals(cachedUri.toString(), controller.coverImageUrlFor(kavitaItem, LibraryCoverImageVariant.Grid))
+    }
+
+    @Test
     fun `coverImageUrlFor suppresses remembered remote fallback while offline`() {
         val connectivityPolicy = RemoteSourceConnectivityPolicy().apply {
             markReachable(SourceType.STUMP)

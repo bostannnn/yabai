@@ -39,12 +39,7 @@ class VisibleLibraryCoverRegistry @Inject constructor() {
         uri: String,
     ) {
         val entry = entryFor(itemId, variant)
-        val currentlyDisplayed = entry.resolvedUri.value ?: entry.displayedUri
-        if (
-            viewportScrolling &&
-            !currentlyDisplayed.isNullOrBlank() &&
-            currentlyDisplayed != uri
-        ) {
+        if (viewportScrolling && entry.presentedUri != uri) {
             entry.pendingResolvedUri = uri
             return
         }
@@ -98,4 +93,7 @@ private data class VisibleLibraryCoverEntry(
     val resolvedUri: MutableState<String?>,
     var displayedUri: String? = null,
     var pendingResolvedUri: String? = null,
-)
+) {
+    val presentedUri: String?
+        get() = resolvedUri.value ?: displayedUri
+}

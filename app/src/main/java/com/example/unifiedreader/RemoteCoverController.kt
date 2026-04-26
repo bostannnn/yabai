@@ -66,7 +66,7 @@ class RemoteCoverController @Inject constructor(
         if (item.sourceType !in sourcesBeingReset) {
             cachedCoverUri(item, variant)?.let { cachedUri ->
                 visibleLibraryCoverRegistry.promoteResolvedUri(item.id, coverVariant, cachedUri)
-                return visibleLibraryCoverRegistry.presentedUriFor(item.id, coverVariant) ?: cachedUri
+                return visibleLibraryCoverRegistry.presentedUriFor(item.id, coverVariant)
             }
         }
         if (coverDataSources[item.sourceType]?.usesRemoteDisplayFallback == false) {
