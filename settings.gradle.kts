@@ -37,6 +37,7 @@ include(
     ":feature:reader-pdf",
     ":feature:reader-epub",
     ":feature:downloads",
+    ":feature:journal",
     ":feature:library-shelves",
     ":feature:navigation",
     ":feature:settings",

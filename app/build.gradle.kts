@@ -70,6 +70,7 @@ dependencies {
     implementation(project(":feature:reader-pdf"))
     implementation(project(":feature:reader-epub"))
     implementation(project(":feature:downloads"))
+    implementation(project(":feature:journal"))
     implementation(project(":feature:navigation"))
 
     implementation(libs.androidx.appcompat)

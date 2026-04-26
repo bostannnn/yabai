@@ -12,6 +12,10 @@ import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.downloads.DownloadEntriesSnapshot
+import com.example.unifiedreader.feature.journal.JournalItemRef
+import com.example.unifiedreader.feature.journal.JournalRepository
+import com.example.unifiedreader.feature.journal.ReadingGoalMetric
+import com.example.unifiedreader.feature.journal.ReadingGoalPeriod
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
 import com.example.unifiedreader.feature.navigation.SourceOrderMoveDirection
@@ -45,6 +49,7 @@ class AppViewModel @Inject constructor(
     private val remoteSourceConnectivityStartupCoordinator: RemoteSourceConnectivityStartupCoordinator,
     private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
     private val progressSyncNoticeController: AppProgressSyncNoticeController,
+    private val journalRepository: JournalRepository,
     private val progressSyncStartupRetryCoordinator: AppProgressSyncStartupRetryCoordinator,
     private val coverPreloadController: AppCoverPreloadController,
     val comicPageSource: ComicPageSource,
@@ -451,6 +456,52 @@ class AppViewModel @Inject constructor(
         )
     }
 
+    fun saveJournalEntry(
+        item: JournalItemRef,
+        rating: Int?,
+        reviewText: String,
+    ) {
+        viewModelScope.launch {
+            journalRepository.saveJournalEntry(
+                item = item,
+                rating = rating,
+                reviewText = reviewText,
+            )
+        }
+    }
+
+    fun deleteJournalEvent(eventId: String) {
+        viewModelScope.launch {
+            journalRepository.deleteReadingEvent(eventId)
+        }
+    }
+
+    fun deleteItemJournal(itemId: String) {
+        viewModelScope.launch {
+            journalRepository.deleteItemJournal(itemId)
+        }
+    }
+
+    fun saveJournalGoal(
+        period: ReadingGoalPeriod,
+        metric: ReadingGoalMetric,
+        target: Int,
+    ) {
+        viewModelScope.launch {
+            journalRepository.saveGoal(
+                period = period,
+                metric = metric,
+                target = target,
+            )
+        }
+    }
+
+    fun deleteJournalGoal(goalId: String) {
+        viewModelScope.launch {
+            journalRepository.deleteGoal(goalId)
+        }
+    }
+
     fun onKavitaDisplayNameChanged(displayName: String) {
         remoteSourcesCoordinator.onKavitaDisplayNameChanged(
             displayName = displayName,
@@ -738,6 +789,13 @@ class AppViewModel @Inject constructor(
                         updateState = ::updateUiState,
                         items = uiState.items,
                     )
+                }
+            }
+        }
+        viewModelScope.launch {
+            journalRepository.observeSnapshot().collect { snapshot ->
+                updateUiState { state ->
+                    state.copy(journalSnapshot = snapshot)
                 }
             }
         }

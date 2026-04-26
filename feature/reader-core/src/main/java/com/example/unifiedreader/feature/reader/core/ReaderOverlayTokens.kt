@@ -1,9 +1,11 @@
 package com.example.unifiedreader.feature.reader.core
 
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
 
 @Immutable
@@ -40,4 +42,30 @@ data class ReaderOverlayTokens(
 )
 
 @Composable
-fun readerOverlayTokens(): ReaderOverlayTokens = ReaderOverlayTokens()
+fun readerOverlayTokens(): ReaderOverlayTokens {
+    val colorScheme = MaterialTheme.colorScheme
+    val isDark = colorScheme.background.luminance() < 0.5f
+    val container = if (isDark) colorScheme.surfaceContainerLow else colorScheme.surfaceContainerHigh
+    val elevatedContainer = if (isDark) colorScheme.surfaceContainerHigh else colorScheme.surfaceContainerHighest
+    val selectedContainer = colorScheme.primaryContainer
+    val selectedBorder = colorScheme.primary.copy(alpha = if (isDark) 0.7f else 0.62f)
+    val primaryText = colorScheme.onSurface
+    val secondaryText = colorScheme.onSurfaceVariant
+    return ReaderOverlayTokens(
+        colors = ReaderOverlayColors(
+            container = container,
+            elevatedContainer = elevatedContainer,
+            selectedContainer = selectedContainer,
+            selectedBorder = selectedBorder,
+            divider = colorScheme.outlineVariant,
+            primaryText = primaryText,
+            secondaryText = secondaryText,
+            tertiaryText = secondaryText.copy(alpha = 0.78f),
+            mutedText = secondaryText.copy(alpha = 0.62f),
+            track = colorScheme.outlineVariant,
+            progress = primaryText,
+            accent = colorScheme.primary,
+            fallbackPage = colorScheme.background,
+        ),
+    )
+}

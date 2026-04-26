@@ -8,7 +8,10 @@ fun applyAndroidThemeMode(themeMode: ThemeMode) {
 }
 
 private fun ThemeMode.toNightMode(): Int = when (this) {
-    ThemeMode.System -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
-    ThemeMode.Light -> AppCompatDelegate.MODE_NIGHT_NO
-    ThemeMode.Dark -> AppCompatDelegate.MODE_NIGHT_YES
+    ThemeMode.SystemDynamic -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+    else -> if (isDark) {
+        AppCompatDelegate.MODE_NIGHT_YES
+    } else {
+        AppCompatDelegate.MODE_NIGHT_NO
+    }
 }

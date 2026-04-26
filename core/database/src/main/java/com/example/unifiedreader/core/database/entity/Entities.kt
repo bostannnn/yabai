@@ -169,3 +169,66 @@ data class DownloadQueueEntryEntity(
     val updatedAtEpochMillis: Long,
     val completedAtEpochMillis: Long?,
 )
+
+@Entity(
+    tableName = "journal_reading_events",
+    indices = [
+        Index(value = ["itemId"]),
+        Index(value = ["occurredAtEpochMillis"]),
+    ],
+)
+data class JournalReadingEventEntity(
+    @PrimaryKey val id: String,
+    val itemId: String,
+    val sourceType: String,
+    val libraryId: String,
+    val itemTitle: String,
+    val coverUrl: String?,
+    val itemKind: String,
+    val format: String,
+    val eventType: String,
+    val fromPercent: Double?,
+    val toPercent: Double?,
+    val fromPage: Int?,
+    val toPage: Int?,
+    val pageCount: Int?,
+    val occurredAtEpochMillis: Long,
+)
+
+@Entity(
+    tableName = "item_journal_entries",
+    indices = [
+        Index(value = ["sourceType"]),
+        Index(value = ["updatedAtEpochMillis"]),
+    ],
+)
+data class ItemJournalEntryEntity(
+    @PrimaryKey val itemId: String,
+    val sourceType: String,
+    val libraryId: String,
+    val itemTitle: String,
+    val coverUrl: String?,
+    val itemKind: String,
+    val format: String,
+    val rating: Int?,
+    val reviewText: String,
+    val reviewedAtEpochMillis: Long?,
+    val updatedAtEpochMillis: Long,
+)
+
+@Entity(
+    tableName = "reading_goals",
+    indices = [
+        Index(value = ["periodType", "periodStartEpochMillis", "metric"]),
+    ],
+)
+data class ReadingGoalEntity(
+    @PrimaryKey val id: String,
+    val periodType: String,
+    val periodStartEpochMillis: Long,
+    val periodEndEpochMillis: Long,
+    val metric: String,
+    val target: Int,
+    val createdAtEpochMillis: Long,
+    val updatedAtEpochMillis: Long,
+)

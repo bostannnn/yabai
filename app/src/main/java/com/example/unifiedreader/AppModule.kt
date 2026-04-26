@@ -7,6 +7,7 @@ import com.example.unifiedreader.core.database.UnifiedReaderDatabase
 import com.example.unifiedreader.core.database.UnifiedReaderDatabaseFactory
 import com.example.unifiedreader.core.database.dao.DownloadQueueDao
 import com.example.unifiedreader.core.database.dao.ImportedComicArchiveDao
+import com.example.unifiedreader.core.database.dao.JournalDao
 import com.example.unifiedreader.core.database.dao.ReadingProgressDao
 import com.example.unifiedreader.core.database.dao.ReaderSessionStateDao
 import com.example.unifiedreader.core.network.buildHttpClient
@@ -23,6 +24,9 @@ import com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
 import com.example.unifiedreader.feature.downloads.RemoteDownloadQueueController
 import com.example.unifiedreader.feature.downloads.RemoteDownloadWorkerRunner
 import com.example.unifiedreader.feature.downloads.RoomDownloadQueueStore
+import com.example.unifiedreader.feature.journal.JournalEventRecorder
+import com.example.unifiedreader.feature.journal.JournalRepository
+import com.example.unifiedreader.feature.journal.RoomJournalRepository
 import com.example.unifiedreader.feature.library.DataStoreLibraryBrowsePreferencesStore
 import com.example.unifiedreader.feature.library.LibraryBrowseStateCoordinator
 import com.example.unifiedreader.feature.library.LibraryBrowsePreferencesStore
@@ -147,6 +151,11 @@ object AppModule {
     ): DownloadQueueDao = database.downloadQueueDao()
 
     @Provides
+    fun provideJournalDao(
+        database: UnifiedReaderDatabase,
+    ): JournalDao = database.journalDao()
+
+    @Provides
     fun provideReadingProgressDao(
         database: UnifiedReaderDatabase,
     ): ReadingProgressDao = database.readingProgressDao()
@@ -185,6 +194,22 @@ object AppModule {
     fun provideDownloadQueueStore(
         downloadQueueDao: DownloadQueueDao,
     ): DownloadQueueStore = RoomDownloadQueueStore(downloadQueueDao)
+
+    @Provides
+    @Singleton
+    fun provideJournalRepository(
+        journalDao: JournalDao,
+    ): RoomJournalRepository = RoomJournalRepository(journalDao)
+
+    @Provides
+    fun provideJournalRepositoryContract(
+        repository: RoomJournalRepository,
+    ): JournalRepository = repository
+
+    @Provides
+    fun provideJournalEventRecorder(
+        repository: RoomJournalRepository,
+    ): JournalEventRecorder = repository
 
     @Provides
     @Singleton
@@ -643,6 +668,7 @@ object AppModule {
     fun provideReaderFactories(
         comicPageSource: ComicPageSource,
         adapter: ComicsReaderSessionAdapter,
+        journalEventRecorder: JournalEventRecorder,
         readerSessionStore: ReaderSessionStore,
         localDocumentRepository: LocalDocumentRepository,
         remoteDownloadDataSources: List<@JvmSuppressWildcards RemoteItemDownloadDataSource>,
@@ -650,11 +676,17 @@ object AppModule {
     ): List<@JvmSuppressWildcards ReaderScreenFactory> = listOf(
         comicsReaderFactory(
             pageSource = comicPageSource,
-            progressStore = adapter,
+            progressStore = JournalRecordingComicReaderProgressStore(
+                delegate = adapter,
+                journalEventRecorder = journalEventRecorder,
+            ),
             preferencesStore = adapter,
         ),
         epubReaderFactory(
-            sessionStore = readerSessionStore,
+            sessionStore = JournalRecordingReaderSessionStore(
+                delegate = readerSessionStore,
+                journalEventRecorder = journalEventRecorder,
+            ),
             documentUriProvider = { item ->
                 localDocumentRepository.getDocumentUri(item)
                     ?: remoteDownloadDataSources.firstOrNull { dataSource ->

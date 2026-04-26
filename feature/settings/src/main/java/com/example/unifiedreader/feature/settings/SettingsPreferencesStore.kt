@@ -21,7 +21,7 @@ import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.flow.stateIn
 
 data class SettingsPreferences(
-    val themeMode: ThemeMode = ThemeMode.System,
+    val themeMode: ThemeMode = ThemeMode.SystemDynamic,
 )
 
 interface SettingsPreferencesStore {

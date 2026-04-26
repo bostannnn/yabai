@@ -3,14 +3,14 @@ package com.example.unifiedreader.feature.settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -38,7 +38,7 @@ internal const val DefaultGrimmoryBackupServerUrl = "http://100.84.32.88:6060/"
 internal const val DefaultStumpServerUrl = "http://192.168.50.60:10801/"
 internal const val DefaultStumpBackupServerUrl = "http://100.84.32.88:10801/"
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
     themeMode: ThemeMode,
@@ -387,7 +387,7 @@ private fun SettingsHeader() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun ThemeSettingsCard(
     themeMode: ThemeMode,
@@ -397,17 +397,20 @@ private fun ThemeSettingsCard(
         title = "Theme",
         body = "Choose how the app chrome should render across the library and settings surfaces.",
     ) {
-        SingleChoiceSegmentedButtonRow(
+        val themeOptions = if (themeMode.isAvailableInSettings) {
+            ThemeMode.settingsEntries
+        } else {
+            ThemeMode.settingsEntries + themeMode
+        }
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            ThemeMode.entries.forEachIndexed { index, option ->
-                SegmentedButton(
+            themeOptions.forEach { option ->
+                FilterChip(
                     selected = option == themeMode,
                     onClick = { onThemeModeSelected(option) },
-                    shape = SegmentedButtonDefaults.itemShape(
-                        index = index,
-                        count = ThemeMode.entries.size,
-                    ),
                     label = {
                         Text(text = option.label)
                     },

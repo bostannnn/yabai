@@ -43,14 +43,14 @@ class SettingsStateCoordinatorTest {
         )
 
         val selection = coordinator.selectThemeMode(
-            currentState = SettingsState(themeMode = ThemeMode.System),
-            themeMode = ThemeMode.Dark,
+            currentState = SettingsState(themeMode = ThemeMode.SystemDynamic),
+            themeMode = ThemeMode.Graphite,
         )
 
         assertEquals(
             ThemeModeSelection(
-                state = SettingsState(themeMode = ThemeMode.Dark),
-                themeMode = ThemeMode.Dark,
+                state = SettingsState(themeMode = ThemeMode.Graphite),
+                themeMode = ThemeMode.Graphite,
             ),
             selection,
         )

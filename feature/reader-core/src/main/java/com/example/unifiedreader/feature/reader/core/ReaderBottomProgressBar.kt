@@ -31,6 +31,7 @@ fun ReaderBottomProgressBar(
     readingDirection: ComicReadingDirection = ComicReadingDirection.LTR,
     modifier: Modifier = Modifier,
     chapterMarks: List<Float> = emptyList(),
+    applySafeGesturesPadding: Boolean = true,
     leadingAction: (@Composable RowScope.() -> Unit)? = null,
     onProgressSelected: ((Float) -> Unit)? = null,
 ) {
@@ -47,7 +48,7 @@ fun ReaderBottomProgressBar(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .safeGesturesPadding()
+            .then(if (applySafeGesturesPadding) Modifier.safeGesturesPadding() else Modifier)
             .padding(start = 10.dp, end = 10.dp, bottom = 10.dp)
             .background(tokens.colors.container, tokens.shapes.controlBar)
             .padding(horizontal = 12.dp, vertical = 8.dp),

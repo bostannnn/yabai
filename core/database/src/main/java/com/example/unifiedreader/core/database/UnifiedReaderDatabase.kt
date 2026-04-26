@@ -8,13 +8,17 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.unifiedreader.core.database.dao.ImportedComicArchiveDao
 import com.example.unifiedreader.core.database.dao.DownloadQueueDao
+import com.example.unifiedreader.core.database.dao.JournalDao
 import com.example.unifiedreader.core.database.dao.ReadingProgressDao
 import com.example.unifiedreader.core.database.dao.ReaderSessionStateDao
 import com.example.unifiedreader.core.database.dao.RemoteCatalogDao
 import com.example.unifiedreader.core.database.entity.DownloadQueueEntryEntity
 import com.example.unifiedreader.core.database.entity.ImportedComicArchiveEntity
+import com.example.unifiedreader.core.database.entity.ItemJournalEntryEntity
+import com.example.unifiedreader.core.database.entity.JournalReadingEventEntity
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
+import com.example.unifiedreader.core.database.entity.ReadingGoalEntity
 import com.example.unifiedreader.core.database.entity.RemoteLibraryCacheEntity
 import com.example.unifiedreader.core.database.entity.ReaderSessionStateEntity
 import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
@@ -28,13 +32,17 @@ import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
         ImportedComicArchiveEntity::class,
         ReaderSessionStateEntity::class,
         DownloadQueueEntryEntity::class,
+        JournalReadingEventEntity::class,
+        ItemJournalEntryEntity::class,
+        ReadingGoalEntity::class,
     ],
-    version = 16,
+    version = 18,
     exportSchema = false,
 )
 abstract class UnifiedReaderDatabase : RoomDatabase() {
     abstract fun importedComicArchiveDao(): ImportedComicArchiveDao
     abstract fun downloadQueueDao(): DownloadQueueDao
+    abstract fun journalDao(): JournalDao
     abstract fun readingProgressDao(): ReadingProgressDao
     abstract fun readerSessionStateDao(): ReaderSessionStateDao
     abstract fun remoteCatalogDao(): RemoteCatalogDao
@@ -592,6 +600,92 @@ object UnifiedReaderDatabaseMigrations {
             )
         }
     }
+
+    val MIGRATION_16_17 = object : Migration(16, 17) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS journal_reading_events (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    itemId TEXT NOT NULL,
+                    sourceType TEXT NOT NULL,
+                    libraryId TEXT NOT NULL,
+                    itemTitle TEXT NOT NULL,
+                    itemKind TEXT NOT NULL,
+                    format TEXT NOT NULL,
+                    eventType TEXT NOT NULL,
+                    fromPercent REAL,
+                    toPercent REAL,
+                    fromPage INTEGER,
+                    toPage INTEGER,
+                    pageCount INTEGER,
+                    occurredAtEpochMillis INTEGER NOT NULL
+                )
+                """.trimIndent(),
+            )
+            database.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_journal_reading_events_itemId ON journal_reading_events (itemId)",
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS index_journal_reading_events_occurredAtEpochMillis
+                ON journal_reading_events (occurredAtEpochMillis)
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS item_journal_entries (
+                    itemId TEXT NOT NULL PRIMARY KEY,
+                    sourceType TEXT NOT NULL,
+                    libraryId TEXT NOT NULL,
+                    itemTitle TEXT NOT NULL,
+                    itemKind TEXT NOT NULL,
+                    format TEXT NOT NULL,
+                    rating INTEGER,
+                    reviewText TEXT NOT NULL,
+                    reviewedAtEpochMillis INTEGER,
+                    updatedAtEpochMillis INTEGER NOT NULL
+                )
+                """.trimIndent(),
+            )
+            database.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_item_journal_entries_sourceType ON item_journal_entries (sourceType)",
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS index_item_journal_entries_updatedAtEpochMillis
+                ON item_journal_entries (updatedAtEpochMillis)
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS reading_goals (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    periodType TEXT NOT NULL,
+                    periodStartEpochMillis INTEGER NOT NULL,
+                    periodEndEpochMillis INTEGER NOT NULL,
+                    metric TEXT NOT NULL,
+                    target INTEGER NOT NULL,
+                    createdAtEpochMillis INTEGER NOT NULL,
+                    updatedAtEpochMillis INTEGER NOT NULL
+                )
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS index_reading_goals_periodType_periodStartEpochMillis_metric
+                ON reading_goals (periodType, periodStartEpochMillis, metric)
+                """.trimIndent(),
+            )
+        }
+    }
+
+    val MIGRATION_17_18 = object : Migration(17, 18) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("ALTER TABLE journal_reading_events ADD COLUMN coverUrl TEXT")
+            database.execSQL("ALTER TABLE item_journal_entries ADD COLUMN coverUrl TEXT")
+        }
+    }
 }
 
 object UnifiedReaderDatabaseFactory {
@@ -618,6 +712,8 @@ object UnifiedReaderDatabaseFactory {
             UnifiedReaderDatabaseMigrations.MIGRATION_13_14,
             UnifiedReaderDatabaseMigrations.MIGRATION_14_15,
             UnifiedReaderDatabaseMigrations.MIGRATION_15_16,
+            UnifiedReaderDatabaseMigrations.MIGRATION_16_17,
+            UnifiedReaderDatabaseMigrations.MIGRATION_17_18,
         )
         .build()
 }

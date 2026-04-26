@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -25,13 +26,15 @@ fun CompactReaderOverlayFrame(
     leadingActions: @Composable RowScope.() -> Unit = {},
     trailingActions: @Composable RowScope.() -> Unit = {},
     modifier: Modifier = Modifier,
+    applySafeGesturesPadding: Boolean = true,
+    bottomPadding: Dp = 8.dp,
 ) {
     val tokens = readerOverlayTokens()
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .safeGesturesPadding()
-            .padding(start = 10.dp, end = 10.dp, top = 10.dp, bottom = 8.dp),
+            .then(if (applySafeGesturesPadding) Modifier.safeGesturesPadding() else Modifier)
+            .padding(start = 10.dp, end = 10.dp, top = 10.dp, bottom = bottomPadding),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(

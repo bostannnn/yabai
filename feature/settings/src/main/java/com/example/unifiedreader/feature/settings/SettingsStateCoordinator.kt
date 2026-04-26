@@ -1,7 +1,7 @@
 package com.example.unifiedreader.feature.settings
 
 data class SettingsState(
-    val themeMode: ThemeMode = ThemeMode.System,
+    val themeMode: ThemeMode = ThemeMode.SystemDynamic,
 )
 
 data class ThemeModeSelection(

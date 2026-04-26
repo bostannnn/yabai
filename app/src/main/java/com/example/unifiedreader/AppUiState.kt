@@ -16,6 +16,7 @@ import com.example.unifiedreader.feature.library.ItemProgressSummary
 import com.example.unifiedreader.feature.library.RemoteDownloadActionAvailability
 import com.example.unifiedreader.feature.library.defaultLibraryGridCellSizeDp
 import com.example.unifiedreader.feature.library.shelves.LibraryShelvesState
+import com.example.unifiedreader.feature.journal.JournalSnapshot
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderModePreferences
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirectionPreferences
 import com.example.unifiedreader.feature.library.defaultLibrarySortMode
@@ -38,6 +39,7 @@ internal data class AppCatalogSnapshot(
 
 enum class TopLevelDestination {
     Library,
+    Journal,
     Settings,
 }
 
@@ -61,7 +63,7 @@ data class AppUiState(
     val locallyAvailableRemoteItemIds: Set<String> = emptySet(),
     val downloadingRemoteItemIds: Set<String> = emptySet(),
     val hydratedSources: Set<SourceType> = emptySet(),
-    val themeMode: ThemeMode = ThemeMode.System,
+    val themeMode: ThemeMode = ThemeMode.SystemDynamic,
     val comicReadingDirectionPreferences: ComicReadingDirectionPreferences = ComicReadingDirectionPreferences(),
     val comicReaderModePreferences: ComicReaderModePreferences = ComicReaderModePreferences(),
     val kavitaConnection: KavitaConnectionUiState = KavitaConnectionUiState(),
@@ -77,6 +79,7 @@ data class AppUiState(
     val visibleItems: List<ReadableItem> = emptyList(),
     val libraryBrowseContextKey: String = "",
     val libraryShelvesState: LibraryShelvesState = LibraryShelvesState(),
+    val journalSnapshot: JournalSnapshot = JournalSnapshot(),
     val progressSyncNotice: AppProgressSyncNotice? = null,
     val sourceConnectivityBySource: Map<SourceType, SourceConnectivityState> = emptyMap(),
 ) {

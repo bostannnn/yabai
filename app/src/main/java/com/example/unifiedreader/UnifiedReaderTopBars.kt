@@ -153,6 +153,35 @@ fun SettingsTopBar(
 }
 
 @Composable
+fun JournalTopBar(
+    onDrawerClick: () -> Unit,
+    onImportLocalFileClick: () -> Unit,
+) {
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+    ) {
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center,
+        ) {
+            AppSectionHeader(
+                title = "Journal",
+                onDrawerClick = onDrawerClick,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .widthIn(max = 280.dp),
+            )
+            LibraryToolbarActions(
+                onImportLocalFileClick = onImportLocalFileClick,
+                modifier = Modifier.align(Alignment.CenterEnd),
+            )
+        }
+    }
+}
+
+@Composable
 private fun LibraryTopBarTitle(
     selectedSource: SourceType,
     sourceConnectivity: SourceConnectivityState,

@@ -17,6 +17,7 @@ import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.resolveLibraryFilterPanels
 import com.example.unifiedreader.feature.downloads.DownloadsSheet
+import com.example.unifiedreader.feature.journal.JournalScreen
 import com.example.unifiedreader.feature.library.LibraryViewMode
 import com.example.unifiedreader.feature.navigation.SourceNavigationDestination
 import com.example.unifiedreader.feature.navigation.SourceNavigationDrawer
@@ -86,6 +87,7 @@ fun UnifiedReaderScaffold(
         sourceOrder = uiState.sourceOrder,
         selectedDestination = when (uiState.topLevel) {
             TopLevelDestination.Library -> SourceNavigationDestination.Source(uiState.selectedSource)
+            TopLevelDestination.Journal -> SourceNavigationDestination.Journal
             TopLevelDestination.Settings -> SourceNavigationDestination.Settings
         },
         onDestinationSelected = { destination ->
@@ -94,6 +96,7 @@ fun UnifiedReaderScaffold(
             }
             when (destination) {
                 is SourceNavigationDestination.Source -> viewModel.openLibrarySource(destination.sourceType)
+                SourceNavigationDestination.Journal -> viewModel.onTopLevelSelected(TopLevelDestination.Journal)
                 SourceNavigationDestination.Settings -> viewModel.onTopLevelSelected(TopLevelDestination.Settings)
             }
         },
@@ -123,6 +126,15 @@ fun UnifiedReaderScaffold(
                         onDownloadsClick = viewModel::showDownloadsSheet,
                         onImportLocalFileClick = onImportLocalFileClick,
                         onLeaveSeries = viewModel::onBackPressed,
+                    )
+
+                    TopLevelDestination.Journal -> JournalTopBar(
+                        onDrawerClick = {
+                            drawerScope.launch {
+                                drawerState.open()
+                            }
+                        },
+                        onImportLocalFileClick = onImportLocalFileClick,
                     )
 
                     TopLevelDestination.Settings -> SettingsTopBar(
@@ -166,6 +178,16 @@ fun UnifiedReaderScaffold(
                         onViewModeChanged = onLibraryViewModeChanged,
                         onGridCellSizeDpChanged = viewModel::onLibraryGridCellSizeChanged,
                         showSortControl = !uiState.isSeriesBrowseActive,
+                        modifier = Modifier.weight(1f),
+                    )
+
+                    TopLevelDestination.Journal -> JournalScreen(
+                        snapshot = uiState.journalSnapshot,
+                        onDeleteEvent = viewModel::deleteJournalEvent,
+                        onDeleteItemJournal = viewModel::deleteItemJournal,
+                        onSaveJournalEntry = viewModel::saveJournalEntry,
+                        onSaveGoal = viewModel::saveJournalGoal,
+                        onDeleteGoal = viewModel::deleteJournalGoal,
                         modifier = Modifier.weight(1f),
                     )
 

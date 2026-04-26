@@ -14,15 +14,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Toc
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -44,7 +40,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -58,12 +53,9 @@ import androidx.lifecycle.lifecycleScope
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.feature.reader.core.ImmersiveReaderOverlay
-import com.example.unifiedreader.feature.reader.core.ReaderBottomProgressBar
-import com.example.unifiedreader.feature.reader.core.ReaderOverlayIconButton
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import com.example.unifiedreader.feature.reader.core.findContextAncestor
-import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -104,7 +96,6 @@ fun EpubReaderScreen(
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
-    val density = LocalDensity.current
     val configuration = LocalConfiguration.current
     val activity = remember(context) { context.findContextAncestor<FragmentActivity>() }
     val isLandscape = remember(
@@ -215,14 +206,7 @@ fun EpubReaderScreen(
     var seekRequestId by remember { mutableIntStateOf(0) }
     var navigationRequest by remember { mutableStateOf<EpubNavigationRequest?>(null) }
     var isTocSheetOpen by rememberSaveable(item.id) { mutableStateOf(false) }
-    var bottomProgressBarHeightPx by remember { mutableIntStateOf(0) }
-    val tocBottomAnchorHeight = if (bottomProgressBarHeightPx > 0) {
-        with(density) {
-            bottomProgressBarHeightPx.toDp()
-        }
-    } else {
-        EpubTocBottomAnchorFallbackHeight
-    }
+    var isPreferencesPaneOpen by rememberSaveable(item.id) { mutableStateOf(false) }
     var footnoteContent by remember(item.id) { mutableStateOf<EpubFootnoteContent?>(null) }
     val overlayState = rememberReaderOverlayState(
         key = "epub-overlay-${item.id}",
@@ -282,6 +266,12 @@ fun EpubReaderScreen(
     LaunchedEffect(hydrated, restoredSessionState, isLandscape, useOrientationLayoutDefault) {
         if (!hydrated || !restoredSessionState || !useOrientationLayoutDefault) return@LaunchedEffect
         layoutMode = defaultEpubLayoutMode(isLandscape)
+    }
+    LaunchedEffect(overlayState.isVisible) {
+        if (!overlayState.isVisible) {
+            isTocSheetOpen = false
+            isPreferencesPaneOpen = false
+        }
     }
     LaunchedEffect(initialRestoreLocked, restoreProgressSnapshot, restoreSessionSnapshot, serializedInitialLocator) {
         if (initialRestoreLocked) return@LaunchedEffect
@@ -494,6 +484,7 @@ fun EpubReaderScreen(
                         currentHref = currentHref,
                         currentProgress = currentProgress,
                         onLocationChanged = { locator, pageIndex, _ ->
+                            val shouldPersistProgress = initialRestoreLocked
                             if (!initialRestoreLocked) {
                                 initialRestoreLocked = true
                             }
@@ -518,20 +509,23 @@ fun EpubReaderScreen(
                                     }
                                     ?: currentProgress
                                 ).coerceIn(0.0, 1.0)
-                            sessionStore.saveProgress(
-                                item = item,
-                                locator = buildReaderLocator(
-                                    locator = locator,
-                                    page = reportedPage.takeIf { it > 0 },
-                                ),
-                                isFinished = bookPageCount?.let { reportedPage >= it } ?: false,
-                                syncState = SyncState.DIRTY,
-                                pageCount = bookPageCount ?: pageCount.takeIf { it > 0 },
-                            )
+                            if (shouldPersistProgress) {
+                                sessionStore.saveProgress(
+                                    item = item,
+                                    locator = buildReaderLocator(
+                                        locator = locator,
+                                        page = reportedPage.takeIf { it > 0 },
+                                    ),
+                                    isFinished = bookPageCount?.let { reportedPage >= it } ?: false,
+                                    syncState = SyncState.DIRTY,
+                                    pageCount = bookPageCount ?: pageCount.takeIf { it > 0 },
+                                )
+                            }
                         },
                         onSurfaceTap = overlayState::toggle,
                         onFootnoteActivated = { footnote ->
                             isTocSheetOpen = false
+                            isPreferencesPaneOpen = false
                             footnoteContent = footnote
                             overlayState.show()
                         },
@@ -544,14 +538,23 @@ fun EpubReaderScreen(
                 },
                 overlay = {
                     Box(modifier = Modifier.fillMaxSize()) {
-                        EpubReaderOverlay(
-                            itemId = item.id,
+                        EpubReaderTopDock(
                             title = item.title,
                             progressLabel = buildEpubProgressLabel(
                                 progress = currentProgress,
                                 position = currentPage,
                                 pageCount = pageCount,
                             ),
+                            isPreferencesOpen = isPreferencesPaneOpen,
+                            onBack = onBack,
+                            onPreferencesClick = {
+                                overlayState.show()
+                                isTocSheetOpen = false
+                                isPreferencesPaneOpen = !isPreferencesPaneOpen
+                            },
+                            onDismissPreferences = {
+                                isPreferencesPaneOpen = false
+                            },
                             typographyMode = typographyMode,
                             fontFamily = fontFamily,
                             fontSize = fontSize,
@@ -564,8 +567,6 @@ fun EpubReaderScreen(
                             useAppThemeDefault = useAppThemeDefault,
                             layoutMode = layoutMode,
                             useOrientationLayoutDefault = useOrientationLayoutDefault,
-                            overlayVisible = overlayState.isVisible,
-                            onBack = onBack,
                             onTypographyModeChanged = {
                                 typographyMode = it
                             },
@@ -606,53 +607,34 @@ fun EpubReaderScreen(
                                 useOrientationLayoutDefault = true
                                 layoutMode = defaultEpubLayoutMode(isLandscape)
                             },
-                            modifier = Modifier.testTag(EpubReaderOverlayTag),
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .fillMaxSize()
+                                .testTag(EpubReaderOverlayTag),
                         )
-                        EpubTableOfContentsSheet(
+                        EpubReaderBottomDock(
                             title = item.title,
-                            entries = bookProgress.tocEntries,
+                            tocEntries = bookProgress.tocEntries,
                             currentHref = currentHref,
                             currentProgress = currentProgress,
-                            isOpen = isTocSheetOpen,
-                            bottomAnchorHeight = tocBottomAnchorHeight,
-                            onDismissRequest = {
+                            currentPage = currentPage,
+                            pageCount = pageCount,
+                            chapterMarks = bookProgress.chapterMarks,
+                            isTocOpen = isTocSheetOpen,
+                            onDismissToc = {
                                 isTocSheetOpen = false
                             },
-                            onEntrySelected = { entry ->
+                            onTocClick = {
+                                overlayState.show()
+                                isPreferencesPaneOpen = false
+                                isTocSheetOpen = !isTocSheetOpen
+                            },
+                            onTocEntrySelected = { link ->
                                 isTocSheetOpen = false
                                 navigationRequest = EpubTocNavigationRequest(
                                     id = seekRequestId++,
-                                    link = entry.link,
+                                    link = link,
                                 )
-                            },
-                        )
-                        ReaderBottomProgressBar(
-                            progress = currentProgress.toFloat(),
-                            percentLabel = buildEpubPercentLabel(currentProgress),
-                            pageLabel = buildEpubPageProgressLabel(
-                                position = currentPage,
-                                pageCount = pageCount,
-                            ),
-                            chapterMarks = bookProgress.chapterMarks,
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .onGloballyPositioned { coordinates ->
-                                    bottomProgressBarHeightPx = coordinates.size.height
-                                },
-                            leadingAction = {
-                                ReaderOverlayIconButton(
-                                    isActive = isTocSheetOpen,
-                                    onClick = {
-                                        overlayState.show()
-                                        isTocSheetOpen = true
-                                    },
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.Toc,
-                                        contentDescription = "Table of contents",
-                                        tint = readerOverlayTokens().colors.primaryText,
-                                    )
-                                }
                             },
                             onProgressSelected = { selectedProgress ->
                                 currentProgress = selectedProgress.toDouble()
@@ -661,6 +643,9 @@ fun EpubReaderScreen(
                                     progress = selectedProgress,
                                 )
                             },
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxSize(),
                         )
                         EpubFootnotePopup(
                             footnote = footnoteContent,
@@ -987,11 +972,11 @@ private fun buildEpubProgressLabel(
     else -> "Saved location"
 }
 
-private fun buildEpubPercentLabel(
+internal fun buildEpubPercentLabel(
     progress: Double,
 ): String = "${((progress.coerceIn(0.0, 1.0) * 100.0).roundToInt()).coerceIn(0, 100)}%"
 
-private fun buildEpubPageProgressLabel(
+internal fun buildEpubPageProgressLabel(
     position: Int,
     pageCount: Int,
 ): String = when {
@@ -1097,13 +1082,6 @@ private sealed interface ReaderDocumentUriState {
     }
 }
 
-internal enum class EpubOverlayPanel {
-    None,
-    Text,
-    Theme,
-    Layout,
-}
-
 private sealed interface EpubNavigationRequest {
     val id: Int
 }
@@ -1119,7 +1097,6 @@ private data class EpubTocNavigationRequest(
 ) : EpubNavigationRequest
 
 private const val EpubNavigationZoneFraction = 0.25f
-private val EpubTocBottomAnchorFallbackHeight = 74.dp
 private val EpubFootnoteLinkHints = listOf(
     "edn",
     "enote",

@@ -15,6 +15,7 @@ import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.CollectionsBookmark
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.HorizontalDivider
@@ -37,6 +38,7 @@ sealed interface SourceNavigationDestination {
     ) : SourceNavigationDestination
 
     data object Settings : SourceNavigationDestination
+    data object Journal : SourceNavigationDestination
 }
 
 @Composable
@@ -101,6 +103,23 @@ fun SourceNavigationDrawer(
                         }
                     }
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+                    NavigationDrawerItem(
+                        label = { Text(text = "Journal") },
+                        selected = selectedDestination == SourceNavigationDestination.Journal,
+                        onClick = { onDestinationSelected(SourceNavigationDestination.Journal) },
+                        icon = {
+                            androidx.compose.material3.Icon(
+                                imageVector = Icons.Default.History,
+                                contentDescription = null,
+                            )
+                        },
+                        colors = NavigationDrawerItemDefaults.colors(
+                            selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            selectedTextColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                     NavigationDrawerItem(
                         label = { Text(text = "Settings") },
                         selected = selectedDestination == SourceNavigationDestination.Settings,

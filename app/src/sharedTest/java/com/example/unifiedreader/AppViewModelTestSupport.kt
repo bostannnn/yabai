@@ -19,6 +19,12 @@ import com.example.unifiedreader.feature.downloads.DownloadWorkScheduler
 import com.example.unifiedreader.feature.downloads.RemoteDownloadQueueController
 import com.example.unifiedreader.feature.downloads.RemoteDownloadWorkerRunner
 import com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
+import com.example.unifiedreader.feature.journal.JournalItemRef
+import com.example.unifiedreader.feature.journal.JournalProgressInput
+import com.example.unifiedreader.feature.journal.JournalRepository
+import com.example.unifiedreader.feature.journal.JournalSnapshot
+import com.example.unifiedreader.feature.journal.ReadingGoalMetric
+import com.example.unifiedreader.feature.journal.ReadingGoalPeriod
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryBrowsePreferences
 import com.example.unifiedreader.feature.library.LibraryBrowsePreferencesStore
@@ -100,6 +106,7 @@ internal fun createViewModel(
     readerFactories: List<@JvmSuppressWildcards ReaderScreenFactory> = emptyList(),
     progressSyncNoticeController: AppProgressSyncNoticeController = AppProgressSyncNoticeController(),
     progressSyncStartupRetryCoordinator: AppProgressSyncStartupRetryCoordinator? = null,
+    journalRepository: JournalRepository = FakeJournalRepository(),
     libraryRepository: FakeLibraryRepository = FakeLibraryRepository(
         libraries = listOf(
             Library(
@@ -320,6 +327,7 @@ internal fun createViewModel(
         remoteSourceConnectivityStartupCoordinator = remoteSourceConnectivityStartupCoordinator,
         remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
         progressSyncNoticeController = progressSyncNoticeController,
+        journalRepository = journalRepository,
         progressSyncStartupRetryCoordinator = progressSyncStartupRetryCoordinator ?: AppProgressSyncStartupRetryCoordinator(
             readableItemRepository = readableItemRepository,
             readerSessionStore = readerSessionStore,
@@ -1045,6 +1053,39 @@ class FakeComicReaderProgressStore : ComicReaderProgressStore {
         pagesByItemId[item.id] = safePage
         (savedPagesFlow as MutableStateFlow).value = pagesByItemId.toMap()
     }
+}
+
+class FakeJournalRepository : JournalRepository {
+    private val snapshotFlow = MutableStateFlow(JournalSnapshot())
+
+    override fun observeSnapshot(): Flow<JournalSnapshot> = snapshotFlow
+
+    override suspend fun recordReaderProgress(input: JournalProgressInput) = Unit
+
+    override suspend fun saveJournalEntry(
+        item: ReadableItem,
+        rating: Int?,
+        reviewText: String,
+    ) = Unit
+
+    override suspend fun saveJournalEntry(
+        item: JournalItemRef,
+        rating: Int?,
+        reviewText: String,
+    ) = Unit
+
+    override suspend fun deleteReadingEvent(eventId: String) = Unit
+
+    override suspend fun deleteItemJournal(itemId: String) = Unit
+
+    override suspend fun saveGoal(
+        period: ReadingGoalPeriod,
+        metric: ReadingGoalMetric,
+        target: Int,
+        referenceEpochMillis: Long,
+    ) = Unit
+
+    override suspend fun deleteGoal(goalId: String) = Unit
 }
 
 class FakeComicReaderPreferencesStore : ComicReaderPreferencesStore {
