@@ -20,7 +20,7 @@ class VisibleLibraryCoverRegistryTest {
         )
         registry.onViewportScrollingChanged(true)
 
-        registry.promoteResolvedUri(
+        registry.promoteResolvedUriWhenViewportIdle(
             itemId = "item-1",
             variant = LibraryCoverVariant.Grid,
             uri = "file:///cached/cover.jpg",
@@ -43,7 +43,7 @@ class VisibleLibraryCoverRegistryTest {
     fun `resolved cover promotion from empty presentation is deferred while viewport is scrolling`() {
         registry.onViewportScrollingChanged(true)
 
-        registry.promoteResolvedUri(
+        registry.promoteResolvedUriWhenViewportIdle(
             itemId = "item-2",
             variant = LibraryCoverVariant.Grid,
             uri = "file:///cached/cover.jpg",
@@ -60,6 +60,22 @@ class VisibleLibraryCoverRegistryTest {
     }
 
     @Test
+    fun `immediate resolved cover promotion updates presentation while viewport is scrolling`() {
+        registry.onViewportScrollingChanged(true)
+
+        registry.promoteResolvedUriImmediately(
+            itemId = "item-6",
+            variant = LibraryCoverVariant.Grid,
+            uri = "file:///cached/cover.jpg",
+        )
+
+        assertEquals(
+            "file:///cached/cover.jpg",
+            registry.presentedUriFor("item-6", LibraryCoverVariant.Grid),
+        )
+    }
+
+    @Test
     fun `latest pending promotion wins when multiple resolved covers arrive while scrolling`() {
         registry.rememberDisplayedFallbackUri(
             itemId = "item-5",
@@ -68,12 +84,12 @@ class VisibleLibraryCoverRegistryTest {
         )
         registry.onViewportScrollingChanged(true)
 
-        registry.promoteResolvedUri(
+        registry.promoteResolvedUriWhenViewportIdle(
             itemId = "item-5",
             variant = LibraryCoverVariant.Grid,
             uri = "file:///cached/old-cover.jpg",
         )
-        registry.promoteResolvedUri(
+        registry.promoteResolvedUriWhenViewportIdle(
             itemId = "item-5",
             variant = LibraryCoverVariant.Grid,
             uri = "file:///cached/new-cover.jpg",
@@ -94,7 +110,7 @@ class VisibleLibraryCoverRegistryTest {
 
     @Test
     fun `new fallback does not override a resolved cover already being displayed`() {
-        registry.promoteResolvedUri(
+        registry.promoteResolvedUriImmediately(
             itemId = "item-3",
             variant = LibraryCoverVariant.Detail,
             uri = "file:///cached/detail.jpg",

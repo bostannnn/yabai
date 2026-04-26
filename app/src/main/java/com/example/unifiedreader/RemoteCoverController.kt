@@ -65,7 +65,7 @@ class RemoteCoverController @Inject constructor(
         presentedUri?.let { return it }
         if (item.sourceType !in sourcesBeingReset) {
             cachedCoverUri(item, variant)?.let { cachedUri ->
-                visibleLibraryCoverRegistry.promoteResolvedUri(item.id, coverVariant, cachedUri)
+                visibleLibraryCoverRegistry.promoteResolvedUriImmediately(item.id, coverVariant, cachedUri)
                 return visibleLibraryCoverRegistry.presentedUriFor(item.id, coverVariant)
             }
         }
@@ -112,7 +112,7 @@ class RemoteCoverController @Inject constructor(
         cachedCover?.uri?.toString()
             ?.takeIf(String::isNotBlank)
             ?.let { cachedUri ->
-                visibleLibraryCoverRegistry.promoteResolvedUri(item.id, coverVariant, cachedUri)
+                visibleLibraryCoverRegistry.promoteResolvedUriWhenViewportIdle(item.id, coverVariant, cachedUri)
                 lastErrorMessageBySource.remove(item.sourceType)
                 if (cachedCover.isPersistent && cachedCover.matchesRequestedVariant) {
                     return
@@ -142,7 +142,7 @@ class RemoteCoverController @Inject constructor(
                     val currentUri = visibleLibraryCoverRegistry.presentedUriFor(item.id, coverVariant)
                     if (currentUri != cachedUri) {
                         Log.d(LOG_TAG, "Cached ${item.sourceType} ${variant.name.lowercase()} cover for ${item.id}: $cachedUri")
-                        visibleLibraryCoverRegistry.promoteResolvedUri(item.id, coverVariant, cachedUri)
+                        visibleLibraryCoverRegistry.promoteResolvedUriWhenViewportIdle(item.id, coverVariant, cachedUri)
                     }
                     lastErrorMessageBySource.remove(item.sourceType)
                 } else if (cachedUri.isNullOrBlank()) {

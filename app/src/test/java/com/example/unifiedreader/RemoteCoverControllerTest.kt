@@ -49,7 +49,7 @@ class RemoteCoverControllerTest {
     }
 
     @Test
-    fun `coverImageUrlFor defers cached file promotion while viewport is scrolling`() {
+    fun `coverImageUrlFor returns cached file immediately while viewport is scrolling`() {
         val cachedUri = Uri.parse("file:///tmp/persistent-kavita-cover.png")
         val kavitaDataSource = PersistentCachedKavitaCoverDataSource(
             cachedUri = cachedUri,
@@ -72,7 +72,7 @@ class RemoteCoverControllerTest {
 
         controller.onLibraryViewportScrollingChanged(true)
 
-        assertNull(controller.coverImageUrlFor(kavitaItem, LibraryCoverImageVariant.Grid))
+        assertEquals(cachedUri.toString(), controller.coverImageUrlFor(kavitaItem, LibraryCoverImageVariant.Grid))
 
         controller.onLibraryViewportScrollingChanged(false)
 
@@ -137,6 +137,42 @@ class RemoteCoverControllerTest {
 
         assertEquals(cachedUri.toString(), controller.coverImageUrlFor(stumpItem, LibraryCoverImageVariant.Grid))
         assertEquals(0, stumpDataSource.getCoverUriCalls)
+    }
+
+    @Test
+    fun `ensureCoverCached defers background cover completion while viewport is scrolling`() = runTest {
+        val cachedUri = Uri.parse("file:///tmp/persistent-stump-cover.png")
+        val stumpDataSource = DelayedCoverDataSource(sourceType = SourceType.STUMP)
+        val controller = RemoteCoverController(
+            kavitaCoverRepository = EmptyKavitaCoverDataSource(),
+            stumpCoverRepository = stumpDataSource,
+            grimmoryCoverRepository = EmptyGrimmoryCoverDataSource(),
+            kavitaCredentialStore = FakeKavitaCredentialStore(),
+            stumpCredentialStore = FakeStumpCredentialStore(),
+            grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
+            appDispatchers = immediateAppDispatchers(),
+        )
+        val stumpItem = remoteItem(
+            id = "stump:item:issue-scrolling-completion",
+            sourceType = SourceType.STUMP,
+            coverUrl = "https://stump.example/api/v1/media/issue-scrolling-completion/thumbnail",
+        )
+
+        assertEquals(stumpItem.coverUrl, controller.coverImageUrlFor(stumpItem, LibraryCoverImageVariant.Grid))
+        controller.onLibraryViewportScrollingChanged(true)
+
+        controller.ensureCoverCached(stumpItem, LibraryCoverImageVariant.Grid, this) {}
+        advanceUntilIdle()
+        stumpDataSource.awaitRequest()
+        stumpDataSource.complete(cachedUri)
+        advanceUntilIdle()
+
+        assertEquals(stumpItem.coverUrl, controller.coverImageUrlFor(stumpItem, LibraryCoverImageVariant.Grid))
+
+        controller.onLibraryViewportScrollingChanged(false)
+
+        assertEquals(cachedUri.toString(), controller.coverImageUrlFor(stumpItem, LibraryCoverImageVariant.Grid))
     }
 
     @Test

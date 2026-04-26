@@ -33,7 +33,15 @@ class VisibleLibraryCoverRegistry @Inject constructor() {
         entry.displayedUri = uri
     }
 
-    fun promoteResolvedUri(
+    fun promoteResolvedUriImmediately(
+        itemId: String,
+        variant: LibraryCoverVariant,
+        uri: String,
+    ) {
+        entryFor(itemId, variant).promoteResolvedUri(uri)
+    }
+
+    fun promoteResolvedUriWhenViewportIdle(
         itemId: String,
         variant: LibraryCoverVariant,
         uri: String,
@@ -43,11 +51,7 @@ class VisibleLibraryCoverRegistry @Inject constructor() {
             entry.pendingResolvedUri = uri
             return
         }
-        if (entry.resolvedUri.value != uri) {
-            entry.resolvedUri.value = uri
-        }
-        entry.displayedUri = uri
-        entry.pendingResolvedUri = null
+        entry.promoteResolvedUri(uri)
     }
 
     fun onViewportScrollingChanged(
@@ -58,11 +62,7 @@ class VisibleLibraryCoverRegistry @Inject constructor() {
         if (isScrolling) return
         entries.values.forEach { entry ->
             val pendingResolvedUri = entry.pendingResolvedUri ?: return@forEach
-            if (entry.resolvedUri.value != pendingResolvedUri) {
-                entry.resolvedUri.value = pendingResolvedUri
-            }
-            entry.displayedUri = pendingResolvedUri
-            entry.pendingResolvedUri = null
+            entry.promoteResolvedUri(pendingResolvedUri)
         }
     }
 
@@ -96,4 +96,14 @@ private data class VisibleLibraryCoverEntry(
 ) {
     val presentedUri: String?
         get() = resolvedUri.value ?: displayedUri
+
+    fun promoteResolvedUri(
+        uri: String,
+    ) {
+        if (resolvedUri.value != uri) {
+            resolvedUri.value = uri
+        }
+        displayedUri = uri
+        pendingResolvedUri = null
+    }
 }
