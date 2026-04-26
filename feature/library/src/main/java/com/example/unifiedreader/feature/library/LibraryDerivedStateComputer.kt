@@ -5,6 +5,7 @@ import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.buildContextualLibraryFilterFacets
 import com.example.unifiedreader.core.model.kavitaSeriesContainerId
 import com.example.unifiedreader.core.model.stumpSeriesContainerId
 import java.util.Base64
@@ -73,9 +74,10 @@ class LibraryDerivedStateComputer @Inject constructor() {
         )
         return LibraryDerivedState(
             sourceItems = sourceItems,
-            selectedLibraryFilterFacets = com.example.unifiedreader.core.model.buildLibraryFilterFacets(
-                sourceItems,
-                input.locallyAvailableRemoteItemIds,
+            selectedLibraryFilterFacets = buildContextualLibraryFilterFacets(
+                items = sourceItems,
+                filters = input.selectedLibraryFilters,
+                downloadedRemoteItemIds = input.locallyAvailableRemoteItemIds,
             ),
             selectedSourceLibraryTitlesById = sourceIndex.selectedSourceLibraryTitlesById(input.selectedSource),
             displayProgressByItemId = displayProgressByItemId,
@@ -98,9 +100,10 @@ class LibraryDerivedStateComputer @Inject constructor() {
         )
         return LibraryDerivedState(
             sourceItems = sourceItems,
-            selectedLibraryFilterFacets = com.example.unifiedreader.core.model.buildLibraryFilterFacets(
+            selectedLibraryFilterFacets = buildContextualLibraryFilterFacets(
                 sourceItems,
                 downloadedRemoteItemIds = emptySet(),
+                filters = input.selectedLibraryFilters,
             ),
             selectedSourceLibraryTitlesById = sourceIndex.selectedSourceLibraryTitlesById(input.selectedSource),
             displayProgressByItemId = input.progressByItemId,

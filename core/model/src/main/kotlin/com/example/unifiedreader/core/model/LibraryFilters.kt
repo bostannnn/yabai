@@ -102,17 +102,40 @@ fun applyLibraryFilters(
 fun applyLibrarySearch(
     items: List<ReadableItem>,
     query: String,
+    tieBreaker: Comparator<ReadableItem>? = null,
 ): List<ReadableItem> {
     val tokens = query.normalizedSearchText()
         .split(Regex("\\s+"))
         .filter(String::isNotBlank)
     if (tokens.isEmpty()) return items
-    return items.filter { item ->
-        val searchableValues = item.librarySearchValues()
-        tokens.all { token ->
-            searchableValues.any { value -> value.normalizedSearchText().contains(token) }
+    val phrase = tokens.joinToString(" ")
+    return items
+        .mapIndexedNotNull { index, item ->
+            item.librarySearchRank(tokens, phrase)?.let { rank ->
+                LibrarySearchMatch(
+                    item = item,
+                    rank = rank,
+                    originalIndex = index,
+                )
+            }
         }
-    }
+        .sortedWith(librarySearchMatchComparator(tieBreaker))
+        .map(LibrarySearchMatch::item)
+}
+
+private fun librarySearchMatchComparator(
+    tieBreaker: Comparator<ReadableItem>?,
+): Comparator<LibrarySearchMatch> = Comparator { left, right ->
+    left.rank.compareTo(right.rank)
+        .takeIf { it != 0 }
+        ?: tieBreaker?.compare(left.item, right.item)?.takeIf { it != 0 }
+        ?: if (tieBreaker == null) {
+            left.item.libraryDisplayLabel().compareTo(right.item.libraryDisplayLabel(), ignoreCase = true)
+                .takeIf { it != 0 }
+                ?: left.originalIndex.compareTo(right.originalIndex)
+        } else {
+            left.originalIndex.compareTo(right.originalIndex)
+        }
 }
 
 fun applyLibrarySort(
@@ -164,28 +187,121 @@ fun buildLibraryFilterFacets(
     languages = items.flatMap { item -> item.facetMetadata().languages }.distinctByTextOrder(),
 )
 
+fun buildContextualLibraryFilterFacets(
+    items: List<ReadableItem>,
+    filters: LibraryFilterState,
+    downloadedRemoteItemIds: Set<String> = emptySet(),
+): LibraryFilterFacets = LibraryFilterFacets(
+    formats = applyLibraryFilters(
+        items = items,
+        filters = filters.copy(formats = emptySet()),
+        downloadedRemoteItemIds = downloadedRemoteItemIds,
+    ).map(ReadableItem::format).distinctByEnumOrder(),
+    libraries = applyLibraryFilters(
+        items = items,
+        filters = filters.copy(libraries = emptySet()),
+        downloadedRemoteItemIds = downloadedRemoteItemIds,
+    ).map(ReadableItem::libraryId).distinctByTextOrder(),
+    fileLocations = applyLibraryFilters(
+        items = items,
+        filters = filters.copy(fileLocations = emptySet()),
+        downloadedRemoteItemIds = downloadedRemoteItemIds,
+    ).map { item -> item.fileLocation(downloadedRemoteItemIds) }.distinctByEnumOrder(),
+    authors = applyLibraryFilters(
+        items = items,
+        filters = filters.copy(authors = emptySet()),
+        downloadedRemoteItemIds = downloadedRemoteItemIds,
+    ).flatMap { item -> item.facetMetadata().authors }.distinctByAuthorOrder(),
+    series = applyLibraryFilters(
+        items = items,
+        filters = filters.copy(series = emptySet()),
+        downloadedRemoteItemIds = downloadedRemoteItemIds,
+    ).flatMap { item -> item.facetMetadata().series }.distinctByTextOrder(),
+    publishers = applyLibraryFilters(
+        items = items,
+        filters = filters.copy(publishers = emptySet()),
+        downloadedRemoteItemIds = downloadedRemoteItemIds,
+    ).flatMap { item -> item.facetMetadata().publishers }.distinctByTextOrder(),
+    genres = applyLibraryFilters(
+        items = items,
+        filters = filters.copy(genres = emptySet()),
+        downloadedRemoteItemIds = downloadedRemoteItemIds,
+    ).flatMap { item -> item.facetMetadata().genres }.distinctByTextOrder(),
+    tags = applyLibraryFilters(
+        items = items,
+        filters = filters.copy(tags = emptySet()),
+        downloadedRemoteItemIds = downloadedRemoteItemIds,
+    ).flatMap { item -> item.facetMetadata().tags }.distinctByTextOrder(),
+    languages = applyLibraryFilters(
+        items = items,
+        filters = filters.copy(languages = emptySet()),
+        downloadedRemoteItemIds = downloadedRemoteItemIds,
+    ).flatMap { item -> item.facetMetadata().languages }.distinctByTextOrder(),
+)
+
 private fun <T> Set<T>.matches(value: T?): Boolean = isEmpty() || value in this
 private fun Set<String>.matchesAny(values: List<String>): Boolean = isEmpty() || values.any(this::contains)
 
-private fun ReadableItem.librarySearchValues(): List<String> = listOfNotNull(
-    title,
-    libraryDisplayLabel(),
-    libraryPrimaryText(),
-    librarySecondaryText(),
-    description,
-    format.name,
-    bookMetadata?.primaryAuthor(),
-    bookMetadata?.seriesName,
-    comicMetadata?.series,
-    comicMetadata?.issueTitle,
-    comicMetadata?.volume,
-    comicMetadata?.issueNumber,
-).plus(facetMetadata().publishers)
-    .plus(facetMetadata().genres)
-    .plus(facetMetadata().tags)
-    .plus(facetMetadata().languages)
-    .plus(facetMetadata().authors)
-    .plus(facetMetadata().series)
+private fun ReadableItem.librarySearchRank(
+    tokens: List<String>,
+    phrase: String,
+): Int? {
+    val primaryValues = listOfNotNull(
+        title,
+        libraryDisplayLabel(),
+        libraryPrimaryText(),
+        comicMetadata?.series,
+        bookMetadata?.seriesName,
+    ).normalizedSearchValues()
+    val secondaryValues = listOfNotNull(
+        librarySecondaryText(),
+        comicMetadata?.issueTitle,
+        bookMetadata?.primaryAuthor(),
+    )
+        .plus(facetMetadata().authors)
+        .normalizedSearchValues()
+    val metadataValues = listOfNotNull(
+        description,
+        format.name,
+        comicMetadata?.volume,
+        comicMetadata?.issueNumber,
+    )
+        .plus(facetMetadata().publishers)
+        .plus(facetMetadata().genres)
+        .plus(facetMetadata().tags)
+        .plus(facetMetadata().languages)
+        .normalizedSearchValues()
+
+    return when {
+        primaryValues.any { value -> value == phrase } -> 0
+        primaryValues.any { value -> value.containsWordPrefixSequence(tokens) } -> 1
+        primaryValues.any { value -> tokens.all(value::contains) } -> 2
+        secondaryValues.any { value -> tokens.all(value::contains) } -> 3
+        metadataValues.any { value -> tokens.all(value::contains) } -> 4
+        else -> null
+    }
+}
+
+private fun Iterable<String>.normalizedSearchValues(): List<String> = map(String::normalizedSearchText)
+    .filter(String::isNotBlank)
+
+private fun String.containsWordPrefixSequence(
+    tokens: List<String>,
+): Boolean {
+    if (tokens.isEmpty()) return true
+    val words = split(Regex("\\s+"))
+        .filter(String::isNotBlank)
+    if (tokens.size > words.size) return false
+    return words.windowed(tokens.size).any { candidate ->
+        candidate.zip(tokens).all { (word, token) -> word.startsWith(token) }
+    }
+}
+
+private data class LibrarySearchMatch(
+    val item: ReadableItem,
+    val rank: Int,
+    val originalIndex: Int,
+)
 
 private fun String.normalizedSearchText(): String =
     Normalizer.normalize(trim(), Normalizer.Form.NFKC)

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -21,7 +22,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -334,12 +334,15 @@ private fun SearchableTextFacetDialog(
 ) {
     var query by rememberSaveable(title) { mutableStateOf("") }
     var selectedLetter by rememberSaveable(title) { mutableStateOf<String?>(null) }
-    val searchedValues = remember(values, query, valueLabel) {
+    val displayValues = remember(values, selectedValues, valueLabel) {
+        (values + selectedValues).distinctBy { value -> valueLabel(value).lowercase() }
+    }
+    val searchedValues = remember(displayValues, query, valueLabel) {
         val normalizedQuery = query.trim()
         if (normalizedQuery.isEmpty()) {
-            values
+            displayValues
         } else {
-            values.filter { value -> valueLabel(value).contains(normalizedQuery, ignoreCase = true) }
+            displayValues.filter { value -> valueLabel(value).contains(normalizedQuery, ignoreCase = true) }
         }
     }
     val availableLetters = remember(searchedValues, letterKey, valueLabel) {
@@ -354,6 +357,8 @@ private fun SearchableTextFacetDialog(
             searchedValues.filter { value -> valueLabel(value).filterLetter(letterKey) == letter }
         } ?: searchedValues
     }
+    val availableValues = remember(values) { values.toSet() }
+    val gridHeight = searchableFacetGridHeight(visibleValues.size)
     FilterDialogScaffold(
         title = title,
         hasActiveFilters = hasActiveFilters,
@@ -382,7 +387,8 @@ private fun SearchableTextFacetDialog(
                     columns = GridCells.Adaptive(minSize = 180.dp),
                     modifier = Modifier
                         .weight(1f)
-                        .heightIn(max = 360.dp),
+                        .height(gridHeight)
+                        .heightIn(max = SearchableFacetGridMaxHeight),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
@@ -400,6 +406,7 @@ private fun SearchableTextFacetDialog(
                         TextFacetRow(
                             value = valueLabel(value),
                             selected = value in selectedValues,
+                            available = value in availableValues,
                             onClick = { onToggleValue(value) },
                         )
                     }
@@ -521,8 +528,13 @@ private fun AlphabetRailItem(
 private fun TextFacetRow(
     value: String,
     selected: Boolean,
+    available: Boolean,
     onClick: () -> Unit,
 ) {
+    val textColor = when {
+        selected || available -> MaterialTheme.colorScheme.onSurface
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -534,16 +546,31 @@ private fun TextFacetRow(
         Checkbox(
             checked = selected,
             onCheckedChange = { onClick() },
+            enabled = available || selected,
         )
         Text(
             text = value,
             style = MaterialTheme.typography.bodyMedium,
+            color = textColor,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
     }
 }
+
+private fun searchableFacetGridHeight(
+    visibleValueCount: Int,
+): androidx.compose.ui.unit.Dp {
+    val rowCount = when {
+        visibleValueCount <= 0 -> 1
+        else -> ((visibleValueCount + 1) / 2).coerceAtMost(6)
+    }
+    return (rowCount * SearchableFacetGridRowHeight.value).dp
+}
+
+private val SearchableFacetGridRowHeight = 48.dp
+private val SearchableFacetGridMaxHeight = 288.dp
 
 @Composable
 private fun FilterToggleChip(

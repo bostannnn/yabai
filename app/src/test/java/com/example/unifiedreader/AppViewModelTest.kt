@@ -741,9 +741,9 @@ class AppViewModelTest {
         )
 
         assertEquals(listOf(dune), viewModel.uiState.visibleItems)
-        assertEquals(listOf(FormatType.CBZ, FormatType.EPUB), viewModel.uiState.selectedLibraryFilterFacets.formats)
+        assertEquals(listOf(FormatType.EPUB), viewModel.uiState.selectedLibraryFilterFacets.formats)
         assertEquals(listOf("Frank Herbert", "Ursula K. Le Guin"), viewModel.uiState.selectedLibraryFilterFacets.authors)
-        assertEquals(listOf("Akira"), viewModel.uiState.selectedLibraryFilterFacets.series)
+        assertEquals(emptyList<String>(), viewModel.uiState.selectedLibraryFilterFacets.series)
     }
 
     @Test

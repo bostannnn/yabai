@@ -57,6 +57,7 @@ private val SinglePreviewFallbackWidth = 104.dp
 private val SpreadPreviewGap = 5.dp
 private val MinPreviewPageWidth = 56.dp
 private val MaxPreviewPageWidth = 240.dp
+private val MaxWidePreviewPageWidth = 360.dp
 private val PreviewOptions = ComicPagePreviewOptions(
     targetLongEdge = 520,
     maxPixelCount = 320_000,
@@ -364,20 +365,26 @@ private fun previewItemWidth(
     )
 } + SpreadPreviewGap * (spread.pages.size - 1).coerceAtLeast(0)
 
-private fun previewPageWidth(
+internal fun previewPageWidth(
     spreadPage: ComicSpreadPage,
     result: ComicPagePreviewResult?,
     previewHeight: Dp,
 ): Dp {
     val metadata = spreadPage.metadata
-    val width = when {
-        result is ComicPagePreviewResult.Success -> previewHeight * result.image.width / result.image.height
-        metadata != null -> previewHeight * metadata.width / metadata.height
-        else -> SinglePreviewFallbackWidth
+    val aspectRatio: Float? = when {
+        metadata != null && metadata.height > 0 -> metadata.width / metadata.height.toFloat()
+        result is ComicPagePreviewResult.Success && result.image.height > 0 -> result.image.width / result.image.height.toFloat()
+        else -> null
+    }
+    val width = aspectRatio?.let { ratio -> previewHeight * ratio } ?: SinglePreviewFallbackWidth
+    val maxWidth = if (aspectRatio != null && aspectRatio >= ComicPageMetadata.DefaultWidePageAspectRatioThreshold) {
+        MaxWidePreviewPageWidth
+    } else {
+        MaxPreviewPageWidth
     }
     return width
         .coerceAtLeast(MinPreviewPageWidth)
-        .coerceAtMost(MaxPreviewPageWidth)
+        .coerceAtMost(maxWidth)
 }
 
 private inline fun Iterable<ComicSpreadPage>.sumOfDp(

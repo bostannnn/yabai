@@ -26,7 +26,15 @@ fun buildVisibleLibraryItems(
     val searchedItems = applyLibrarySearch(
         items = filteredItems,
         query = searchQuery,
+        tieBreaker = if (searchQuery.isNotBlank() && forceSeriesIssueOrder) {
+            canonicalSeriesIssueComparator()
+        } else {
+            null
+        },
     )
+    if (searchQuery.isNotBlank()) {
+        return searchedItems
+    }
     return if (forceSeriesIssueOrder) {
         searchedItems.sortedInCanonicalSeriesIssueOrder()
     } else {
@@ -41,23 +49,28 @@ fun buildVisibleLibraryItems(
 internal fun List<ReadableItem>.sortedInCanonicalSeriesIssueOrder(): List<ReadableItem> = withIndex()
     .sortedWith(
         Comparator<IndexedValue<ReadableItem>> { left, right ->
-            compareNaturalStrings(
-                left.value.seriesIssueOrderKey(),
-                right.value.seriesIssueOrderKey(),
-            )
+            canonicalSeriesIssueComparator().compare(left.value, right.value)
         }
-            .thenComparator { left, right ->
-                compareNaturalStrings(left.value.title, right.value.title)
-            }
-            .thenComparator { left, right ->
-                compareNaturalStrings(
-                    left.value.comicMetadata?.issueTitle,
-                    right.value.comicMetadata?.issueTitle,
-                )
-            }
             .thenBy { indexed -> indexed.index },
     )
     .map(IndexedValue<ReadableItem>::value)
+
+private fun canonicalSeriesIssueComparator(): Comparator<ReadableItem> =
+    Comparator<ReadableItem> { left, right ->
+        compareNaturalStrings(
+            left.seriesIssueOrderKey(),
+            right.seriesIssueOrderKey(),
+        )
+    }
+        .thenComparator { left, right ->
+            compareNaturalStrings(left.title, right.title)
+        }
+        .thenComparator { left, right ->
+            compareNaturalStrings(
+                left.comicMetadata?.issueTitle,
+                right.comicMetadata?.issueTitle,
+            )
+        }
 
 private fun ReadableItem.seriesIssueOrderKey(): String = listOfNotNull(
     comicMetadata?.volume?.trim()?.takeIf(String::isNotEmpty),

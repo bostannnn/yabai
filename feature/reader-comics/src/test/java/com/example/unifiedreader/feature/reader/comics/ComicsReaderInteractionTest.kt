@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.reader.comics
 
+import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -77,6 +78,22 @@ class ComicsReaderInteractionTest {
         assertEquals(listOf(0), spreads[0].pageIndexes)
         assertEquals("spread-0-full", spreads[0].id)
         assertEquals(listOf(1), spreads[1].pageIndexes)
+    }
+
+    @Test
+    fun `preview width allows wide pages to stay visibly landscape`() {
+        val page = ComicSpreadPage(
+            spec = samplePages(count = 1).single(),
+            metadata = ComicPageMetadata(width = 2400, height = 1200),
+        )
+
+        val width = previewPageWidth(
+            spreadPage = page,
+            result = null,
+            previewHeight = 176.dp,
+        )
+
+        assertEquals(352.dp, width)
     }
 
     @Test

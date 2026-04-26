@@ -67,12 +67,38 @@ class LibraryBrowseItemsTest {
 
         assertEquals(listOf(issue10, issue2, issue1), visibleItems)
     }
+
+    @Test
+    fun `series search keeps relevance before canonical issue order`() {
+        val weakEarlierIssue = seriesIssue(
+            id = "2",
+            title = "Saga 2",
+            issueNumber = "2",
+            tags = listOf("raw her"),
+        )
+        val strongLaterIssue = seriesIssue(
+            id = "10",
+            title = "Raw Hero 10",
+            issueNumber = "10",
+        )
+
+        val visibleItems = buildVisibleLibraryItems(
+            sourceItems = listOf(weakEarlierIssue, strongLaterIssue),
+            filterState = com.example.unifiedreader.core.model.LibraryFilterState(),
+            searchQuery = "raw her",
+            sortMode = LibrarySortMode.TITLE,
+            forceSeriesIssueOrder = true,
+        )
+
+        assertEquals(listOf(strongLaterIssue, weakEarlierIssue), visibleItems)
+    }
 }
 
 private fun seriesIssue(
     id: String,
     title: String,
     issueNumber: String? = null,
+    tags: List<String> = emptyList(),
 ): ReadableItem = ReadableItem(
     id = "kavita:item:$id",
     sourceType = SourceType.KAVITA,
@@ -85,5 +111,6 @@ private fun seriesIssue(
         series = "Saga",
         issueTitle = title,
         issueNumber = issueNumber,
+        tags = tags,
     ),
 )
