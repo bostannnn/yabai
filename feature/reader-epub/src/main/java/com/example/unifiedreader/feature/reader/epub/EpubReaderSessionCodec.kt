@@ -181,16 +181,53 @@ internal enum class EpubTypographyMode(
 internal enum class EpubReaderFontFamily(
     override val label: String,
     val readiumName: String,
+    val category: EpubReaderFontCategory,
+    val previewAssetPath: String? = null,
 ) : EpubLabeledOption {
-    Serif("Serif", FontFamily.SERIF.name),
-    Sans("Sans", FontFamily.SANS_SERIF.name),
-    Monospace("Monospace", FontFamily.MONOSPACE.name),
-    OpenDyslexic("OpenDyslexic", FontFamily.OPEN_DYSLEXIC.name),
-    AccessibleDfa("AccessibleDfA", FontFamily.ACCESSIBLE_DFA.name),
-    IaWriterDuospace("iA Writer Duospace", FontFamily.IA_WRITER_DUOSPACE.name),
+    Serif("Serif", FontFamily.SERIF.name, EpubReaderFontCategory.System),
+    Sans("Sans", FontFamily.SANS_SERIF.name, EpubReaderFontCategory.System),
+    Monospace("Monospace", FontFamily.MONOSPACE.name, EpubReaderFontCategory.System),
+    OpenDyslexic("OpenDyslexic", FontFamily.OPEN_DYSLEXIC.name, EpubReaderFontCategory.Accessibility),
+    AccessibleDfa("AccessibleDfA", FontFamily.ACCESSIBLE_DFA.name, EpubReaderFontCategory.Accessibility),
+    AtkinsonHyperlegible(
+        "Atkinson Hyperlegible",
+        "Atkinson Hyperlegible",
+        EpubReaderFontCategory.Accessibility,
+        "fonts/atkinson-hyperlegible/AtkinsonHyperlegible-Regular.ttf",
+    ),
+    IaWriterDuospace("iA Writer Duospace", FontFamily.IA_WRITER_DUOSPACE.name, EpubReaderFontCategory.Reader),
+    Literata("Literata", "Literata", EpubReaderFontCategory.Reader, "fonts/literata/Literata-Variable.ttf"),
+    SourceSerif4(
+        "Source Serif 4",
+        "Source Serif 4",
+        EpubReaderFontCategory.Reader,
+        "fonts/source-serif-4/SourceSerif4-Variable.ttf",
+    ),
+    LibreBaskerville(
+        "Libre Baskerville",
+        "Libre Baskerville",
+        EpubReaderFontCategory.Reader,
+        "fonts/libre-baskerville/LibreBaskerville-Variable.ttf",
+    ),
+    CrimsonPro("Crimson Pro", "Crimson Pro", EpubReaderFontCategory.Reader, "fonts/crimson-pro/CrimsonPro-Variable.ttf"),
+    CormorantGaramond(
+        "Cormorant Garamond",
+        "Cormorant Garamond",
+        EpubReaderFontCategory.Reader,
+        "fonts/cormorant-garamond/CormorantGaramond-Variable.ttf",
+    ),
+    Merriweather("Merriweather", "Merriweather", EpubReaderFontCategory.Reader, "fonts/merriweather/Merriweather-Variable.ttf"),
 }
 
 internal fun EpubReaderFontFamily.toReadiumFontFamily(): FontFamily = FontFamily(readiumName)
+
+internal enum class EpubReaderFontCategory(
+    val sectionLabel: String,
+) {
+    System("Publisher and system"),
+    Accessibility("Accessibility"),
+    Reader("Reader fonts"),
+}
 
 internal enum class EpubReaderTextAlign(
     override val label: String,

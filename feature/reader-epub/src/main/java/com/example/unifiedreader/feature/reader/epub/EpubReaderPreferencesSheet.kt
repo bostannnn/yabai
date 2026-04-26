@@ -12,6 +12,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -52,6 +53,12 @@ internal fun EpubPreferencesSheet(
 ) {
     val tokens = readerOverlayTokens()
     var selectedTab by rememberSaveable { mutableStateOf(EpubPreferencesTab.Text) }
+    var isFontPickerOpen by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(selectedTab, typographyMode) {
+        if (selectedTab != EpubPreferencesTab.Text || typographyMode == EpubTypographyMode.Original) {
+            isFontPickerOpen = false
+        }
+    }
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         containerColor = tokens.colors.container,
@@ -65,56 +72,73 @@ internal fun EpubPreferencesSheet(
                 .padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            Text(
-                text = "Preferences",
-                style = MaterialTheme.typography.titleLarge,
-                color = tokens.colors.primaryText,
-            )
-            EpubSegmentedSection(
-                selected = selectedTab,
-                entries = EpubPreferencesTab.entries,
-                onSelected = { selectedTab = it },
-            )
-            key(selectedTab) {
+            if (isFontPickerOpen) {
                 Column(
                     modifier = Modifier
                         .weight(1f, fill = false)
                         .verticalScroll(rememberScrollState()),
                 ) {
-                    when (selectedTab) {
-                        EpubPreferencesTab.Text -> EpubTextPreferencesTab(
-                            typographyMode = typographyMode,
-                            fontFamily = fontFamily,
-                            fontSize = fontSize,
-                            lineHeight = lineHeight,
-                            textAlign = textAlign,
-                            onTypographyModeChanged = onTypographyModeChanged,
-                            onFontFamilyChanged = onFontFamilyChanged,
-                            onFontSizeChanged = onFontSizeChanged,
-                            onLineHeightChanged = onLineHeightChanged,
-                            onTextAlignChanged = onTextAlignChanged,
-                        )
+                    EpubFontPicker(
+                        selected = fontFamily,
+                        onSelected = { selectedFontFamily ->
+                            onFontFamilyChanged(selectedFontFamily)
+                            isFontPickerOpen = false
+                        },
+                        onBack = { isFontPickerOpen = false },
+                    )
+                }
+            } else {
+                Text(
+                    text = "Preferences",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = tokens.colors.primaryText,
+                )
+                EpubSegmentedSection(
+                    selected = selectedTab,
+                    entries = EpubPreferencesTab.entries,
+                    onSelected = { selectedTab = it },
+                )
+                key(selectedTab) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .verticalScroll(rememberScrollState()),
+                    ) {
+                        when (selectedTab) {
+                            EpubPreferencesTab.Text -> EpubTextPreferencesTab(
+                                typographyMode = typographyMode,
+                                fontFamily = fontFamily,
+                                fontSize = fontSize,
+                                lineHeight = lineHeight,
+                                textAlign = textAlign,
+                                onTypographyModeChanged = onTypographyModeChanged,
+                                onFontPickerRequested = { isFontPickerOpen = true },
+                                onFontSizeChanged = onFontSizeChanged,
+                                onLineHeightChanged = onLineHeightChanged,
+                                onTextAlignChanged = onTextAlignChanged,
+                            )
 
-                        EpubPreferencesTab.Theme -> EpubThemePreferencesTab(
-                            theme = theme,
-                            useAppThemeDefault = useAppThemeDefault,
-                            onThemeChanged = onThemeChanged,
-                            onUseAppThemeDefault = onUseAppThemeDefault,
-                        )
+                            EpubPreferencesTab.Theme -> EpubThemePreferencesTab(
+                                theme = theme,
+                                useAppThemeDefault = useAppThemeDefault,
+                                onThemeChanged = onThemeChanged,
+                                onUseAppThemeDefault = onUseAppThemeDefault,
+                            )
 
-                        EpubPreferencesTab.Layout -> EpubLayoutPreferencesTab(
-                            typographyMode = typographyMode,
-                            pageMargins = pageMargins,
-                            paragraphSpacing = paragraphSpacing,
-                            paragraphIndent = paragraphIndent,
-                            layoutMode = layoutMode,
-                            useOrientationLayoutDefault = useOrientationLayoutDefault,
-                            onPageMarginsChanged = onPageMarginsChanged,
-                            onParagraphSpacingChanged = onParagraphSpacingChanged,
-                            onParagraphIndentChanged = onParagraphIndentChanged,
-                            onLayoutModeChanged = onLayoutModeChanged,
-                            onUseOrientationLayoutDefault = onUseOrientationLayoutDefault,
-                        )
+                            EpubPreferencesTab.Layout -> EpubLayoutPreferencesTab(
+                                typographyMode = typographyMode,
+                                pageMargins = pageMargins,
+                                paragraphSpacing = paragraphSpacing,
+                                paragraphIndent = paragraphIndent,
+                                layoutMode = layoutMode,
+                                useOrientationLayoutDefault = useOrientationLayoutDefault,
+                                onPageMarginsChanged = onPageMarginsChanged,
+                                onParagraphSpacingChanged = onParagraphSpacingChanged,
+                                onParagraphIndentChanged = onParagraphIndentChanged,
+                                onLayoutModeChanged = onLayoutModeChanged,
+                                onUseOrientationLayoutDefault = onUseOrientationLayoutDefault,
+                            )
+                        }
                     }
                 }
             }
@@ -130,7 +154,7 @@ private fun EpubTextPreferencesTab(
     lineHeight: Double,
     textAlign: EpubReaderTextAlign,
     onTypographyModeChanged: (EpubTypographyMode) -> Unit,
-    onFontFamilyChanged: (EpubReaderFontFamily) -> Unit,
+    onFontPickerRequested: () -> Unit,
     onFontSizeChanged: (Double) -> Unit,
     onLineHeightChanged: (Double) -> Unit,
     onTextAlignChanged: (EpubReaderTextAlign) -> Unit,
@@ -144,9 +168,9 @@ private fun EpubTextPreferencesTab(
         if (typographyMode == EpubTypographyMode.Original) {
             EpubPublisherTypographySummary()
         } else {
-            EpubFontSection(
+            EpubFontSummarySection(
                 selected = fontFamily,
-                onSelected = onFontFamilyChanged,
+                onClick = onFontPickerRequested,
             )
             EpubTextSizeStepper(
                 value = fontSize,

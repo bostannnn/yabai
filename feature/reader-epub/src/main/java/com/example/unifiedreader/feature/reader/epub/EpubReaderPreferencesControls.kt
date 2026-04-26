@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.reader.epub
 
+import android.graphics.Typeface
 import java.util.Locale
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -12,8 +13,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -22,9 +26,12 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
@@ -123,6 +130,98 @@ internal fun EpubFontSection(
 }
 
 @Composable
+internal fun EpubFontSummarySection(
+    selected: EpubReaderFontFamily,
+    onClick: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        EpubSectionLabel("Font")
+        EpubSelectableRowGroup {
+            EpubSelectableRow(
+                label = "Typeface",
+                value = selected.label,
+                selected = false,
+                onClick = onClick,
+                trailingIcon = {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = readerOverlayTokens().colors.tertiaryText,
+                    )
+                },
+            )
+        }
+    }
+}
+
+@Composable
+internal fun EpubFontPicker(
+    selected: EpubReaderFontFamily,
+    onSelected: (EpubReaderFontFamily) -> Unit,
+    onBack: () -> Unit,
+) {
+    val tokens = readerOverlayTokens()
+    Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = tokens.colors.primaryText,
+                )
+            }
+            Text(
+                text = "Font",
+                style = MaterialTheme.typography.titleLarge,
+                color = tokens.colors.primaryText,
+            )
+        }
+        EpubReaderFontCategory.entries.forEach { category ->
+            val entries = EpubReaderFontFamily.entries.filter { it.category == category }
+            if (entries.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    EpubSectionLabel(category.sectionLabel)
+                    EpubSelectableRowGroup {
+                        entries.forEach { entry ->
+                            EpubSelectableRow(
+                                label = entry.label,
+                                selected = entry == selected,
+                                onClick = { onSelected(entry) },
+                                labelFontFamily = rememberEpubFontPreviewFamily(entry),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun rememberEpubFontPreviewFamily(
+    entry: EpubReaderFontFamily,
+): FontFamily? {
+    val context = LocalContext.current
+    return remember(context, entry) {
+        when (entry) {
+            EpubReaderFontFamily.Serif -> FontFamily.Serif
+            EpubReaderFontFamily.Sans -> FontFamily.SansSerif
+            EpubReaderFontFamily.Monospace -> FontFamily.Monospace
+            else -> entry.previewAssetPath
+                ?.let { path ->
+                    runCatching {
+                        FontFamily(Typeface.createFromAsset(context.assets, path))
+                    }.getOrNull()
+                }
+        }
+    }
+}
+
+@Composable
 internal fun EpubPublisherTypographySummary() {
     EpubSelectableRowGroup {
         EpubSummaryRow(label = "Font", value = "From book")
@@ -164,6 +263,8 @@ internal fun EpubSelectableRow(
     onClick: () -> Unit,
     value: String? = null,
     supportingText: String? = null,
+    trailingIcon: (@Composable () -> Unit)? = null,
+    labelFontFamily: FontFamily? = null,
 ) {
     val tokens = readerOverlayTokens()
     Row(
@@ -199,6 +300,7 @@ internal fun EpubSelectableRow(
                 text = label,
                 style = MaterialTheme.typography.bodyMedium,
                 color = tokens.colors.primaryText,
+                fontFamily = labelFontFamily,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -220,6 +322,9 @@ internal fun EpubSelectableRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+        }
+        if (trailingIcon != null) {
+            trailingIcon()
         }
     }
 }
