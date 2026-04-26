@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.journal
 
 import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.ComicMetadata
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
@@ -210,6 +211,38 @@ class JournalStateComputerTest {
         assertEquals("https://example.test/cover.jpg", snapshot.itemSummaries.single().item.coverUrl)
     }
 
+    @Test
+    fun `item summary uses catalog display metadata and cover`() {
+        val comic = testItem.copy(
+            kind = ReadableItemKind.COMIC,
+            format = FormatType.CBZ,
+            title = "Chapter v24",
+            coverUrl = "https://example.test/catalog-cover.jpg",
+            comicMetadata = ComicMetadata(
+                series = "Chainsaw Man",
+                issueTitle = "Chapter v24",
+            ),
+        )
+        val snapshot = JournalStateComputer(nowEpochMillis = { 123_000L }).snapshot(
+            events = listOf(
+                startedEvent(
+                    item = comic,
+                    page = 2,
+                    percent = 0.02,
+                    coverUrl = null,
+                ),
+            ),
+            entries = emptyList(),
+            goals = emptyList(),
+            catalogItemsById = mapOf(comic.id to comic),
+        )
+
+        val item = snapshot.itemSummaries.single().item
+        assertEquals("Chainsaw Man", item.displayTitle)
+        assertEquals("Chapter v24", item.displaySubtitle)
+        assertEquals("https://example.test/catalog-cover.jpg", item.coverUrl)
+    }
+
     private fun progressInput(
         page: Int,
         percent: Double,
@@ -224,6 +257,7 @@ class JournalStateComputerTest {
     )
 
     private fun startedEvent(
+        item: ReadableItem = testItem,
         id: String = "book-started",
         page: Int,
         percent: Double,
@@ -234,13 +268,13 @@ class JournalStateComputerTest {
         occurredAtEpochMillis: Long = 123_000L,
     ): JournalReadingEvent = JournalReadingEvent(
         id = id,
-        itemId = testItem.id,
-        sourceType = testItem.sourceType,
-        libraryId = testItem.libraryId,
-        itemTitle = testItem.title,
+        itemId = item.id,
+        sourceType = item.sourceType,
+        libraryId = item.libraryId,
+        itemTitle = item.title,
         coverUrl = coverUrl,
-        itemKind = testItem.kind,
-        format = testItem.format,
+        itemKind = item.kind,
+        format = item.format,
         eventType = type,
         fromPercent = fromPercent,
         toPercent = percent,

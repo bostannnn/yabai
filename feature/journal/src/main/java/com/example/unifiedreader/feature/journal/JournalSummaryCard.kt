@@ -1,14 +1,11 @@
 package com.example.unifiedreader.feature.journal
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -23,14 +20,11 @@ import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
 
 @Composable
 internal fun JournalSummaryCard(
@@ -52,7 +46,12 @@ internal fun JournalSummaryCard(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = Alignment.Top,
         ) {
-            JournalCover(summary = summary)
+            JournalCoverArt(
+                item = summary.item,
+                modifier = Modifier
+                    .width(78.dp)
+                    .aspectRatio(0.68f),
+            )
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -82,12 +81,21 @@ private fun SummaryText(
         color = MaterialTheme.colorScheme.primary,
     )
     Text(
-        text = summary.item.itemTitle,
+        text = summary.item.displayTitle,
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.SemiBold,
         maxLines = 2,
         overflow = TextOverflow.Ellipsis,
     )
+    summary.item.displaySubtitle?.let { subtitle ->
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
     Text(
         text = "${summary.item.sourceType.displayName()} · ${summary.item.format.name}",
         style = MaterialTheme.typography.bodySmall,
@@ -102,36 +110,6 @@ private fun SummaryText(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-    }
-}
-
-@Composable
-private fun JournalCover(
-    summary: JournalItemSummary,
-) {
-    Box(
-        modifier = Modifier
-            .width(78.dp)
-            .aspectRatio(0.68f)
-            .clip(RoundedCornerShape(6.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (!summary.item.coverUrl.isNullOrBlank()) {
-            AsyncImage(
-                model = summary.item.coverUrl,
-                contentDescription = "${summary.item.itemTitle} cover",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-            )
-        } else {
-            Text(
-                text = summary.item.itemTitle.firstOrNull()?.uppercase().orEmpty(),
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.SemiBold,
-            )
-        }
     }
 }
 

@@ -3,8 +3,10 @@ package com.example.unifiedreader.feature.journal
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -45,32 +47,53 @@ fun JournalItemDetailSheet(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = item.itemTitle,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.SemiBold,
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    JournalCoverArt(
+                        item = item,
+                        modifier = Modifier
+                            .width(92.dp)
+                            .aspectRatio(0.68f),
                     )
-                    Text(
-                        text = "${item.sourceType.name.displayName()} · ${item.format.name}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    if (entry?.rating != null || !entry?.reviewText.isNullOrBlank()) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
                         Text(
-                            text = "${entry?.rating?.stars().orEmpty()} ${entry?.reviewText.orEmpty()}".trim(),
+                            text = item.displayTitle,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        item.displaySubtitle?.let { subtitle ->
+                            Text(
+                                text = subtitle,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Medium,
+                            )
+                        }
+                        Text(
+                            text = "${item.sourceType.name.displayName()} · ${item.format.name}",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = onReview) {
-                            Icon(imageVector = Icons.Default.EditNote, contentDescription = null)
-                            Text(text = "Review", modifier = Modifier.padding(start = 8.dp))
+                        if (entry?.rating != null || !entry?.reviewText.isNullOrBlank()) {
+                            Text(
+                                text = "${entry?.rating?.stars().orEmpty()} ${entry?.reviewText.orEmpty()}".trim(),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
-                        TextButton(onClick = onDeleteItemJournal) {
-                            Icon(imageVector = Icons.Default.Delete, contentDescription = null)
-                            Text(text = "Remove journal", modifier = Modifier.padding(start = 8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = onReview) {
+                                Icon(imageVector = Icons.Default.EditNote, contentDescription = null)
+                                Text(text = "Review", modifier = Modifier.padding(start = 8.dp))
+                            }
+                            TextButton(onClick = onDeleteItemJournal) {
+                                Icon(imageVector = Icons.Default.Delete, contentDescription = null)
+                                Text(text = "Remove journal", modifier = Modifier.padding(start = 8.dp))
+                            }
                         }
                     }
                 }

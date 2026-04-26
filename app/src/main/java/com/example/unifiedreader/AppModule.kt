@@ -199,7 +199,11 @@ object AppModule {
     @Singleton
     fun provideJournalRepository(
         journalDao: JournalDao,
-    ): RoomJournalRepository = RoomJournalRepository(journalDao)
+        database: UnifiedReaderDatabase,
+    ): RoomJournalRepository = RoomJournalRepository(
+        journalDao = journalDao,
+        remoteCatalogDao = database.remoteCatalogDao(),
+    )
 
     @Provides
     fun provideJournalRepositoryContract(

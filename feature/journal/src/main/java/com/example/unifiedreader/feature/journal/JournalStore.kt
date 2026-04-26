@@ -1,6 +1,8 @@
 package com.example.unifiedreader.feature.journal
 
 import com.example.unifiedreader.core.database.dao.JournalDao
+import com.example.unifiedreader.core.database.dao.RemoteCatalogDao
+import com.example.unifiedreader.core.database.entity.toDomain
 import com.example.unifiedreader.core.model.ReadableItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -45,6 +47,7 @@ interface JournalRepository : JournalEventRecorder {
 
 class RoomJournalRepository(
     private val journalDao: JournalDao,
+    private val remoteCatalogDao: RemoteCatalogDao,
     private val stateComputer: JournalStateComputer = JournalStateComputer(),
     private val nowEpochMillis: () -> Long = System::currentTimeMillis,
 ) : JournalRepository {
@@ -54,11 +57,13 @@ class RoomJournalRepository(
         journalDao.observeReadingEvents().map { entities -> entities.map { it.toDomain() } },
         journalDao.observeJournalEntries().map { entities -> entities.map { it.toDomain() } },
         journalDao.observeGoals().map { entities -> entities.map { it.toDomain() } },
-    ) { events, entries, goals ->
+        remoteCatalogDao.observeItems().map { entities -> entities.map { it.toDomain() }.associateBy(ReadableItem::id) },
+    ) { events, entries, goals, catalogItemsById ->
         stateComputer.snapshot(
             events = events,
             entries = entries,
             goals = goals,
+            catalogItemsById = catalogItemsById,
         )
     }
 

@@ -2,7 +2,10 @@ package com.example.unifiedreader.feature.journal
 
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItemKind
+import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.libraryPrimaryText
+import com.example.unifiedreader.core.model.librarySecondaryText
 import java.util.Calendar
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -14,6 +17,7 @@ class JournalStateComputer(
         events: List<JournalReadingEvent>,
         entries: List<ItemJournalEntry>,
         goals: List<ReadingGoal>,
+        catalogItemsById: Map<String, ReadableItem> = emptyMap(),
     ): JournalSnapshot {
         val (monthStart, monthEnd) = periodBounds(ReadingGoalPeriod.MONTH, nowEpochMillis())
         val (yearStart, yearEnd) = periodBounds(ReadingGoalPeriod.YEAR, nowEpochMillis())
@@ -24,7 +28,7 @@ class JournalStateComputer(
         return JournalSnapshot(
             events = events.sortedByDescending(JournalReadingEvent::occurredAtEpochMillis),
             entries = entries.sortedByDescending(ItemJournalEntry::updatedAtEpochMillis),
-            itemSummaries = computeItemSummaries(events, entries),
+            itemSummaries = computeItemSummaries(events, entries, catalogItemsById),
             goals = goals.sortedWith(compareByDescending<ReadingGoal> { it.periodStartEpochMillis }.thenBy { it.metric.name }),
             monthStats = monthStats,
             yearStats = yearStats,
@@ -41,6 +45,7 @@ class JournalStateComputer(
 fun computeItemSummaries(
     events: List<JournalReadingEvent>,
     entries: List<ItemJournalEntry>,
+    catalogItemsById: Map<String, ReadableItem> = emptyMap(),
 ): List<JournalItemSummary> {
     val entriesByItemId = entries.associateBy(ItemJournalEntry::itemId)
     val eventGroups = events.groupBy(JournalReadingEvent::itemId)
@@ -52,6 +57,7 @@ fun computeItemSummaries(
         val item = summaryItemRef(
             events = itemEvents,
             entry = entry,
+            catalogItem = catalogItemsById[itemId],
         ) ?: return@mapNotNull null
         JournalItemSummary(
             item = item,
@@ -64,14 +70,18 @@ fun computeItemSummaries(
 private fun summaryItemRef(
     events: List<JournalReadingEvent>,
     entry: ItemJournalEntry?,
+    catalogItem: ReadableItem?,
 ): JournalItemRef? {
     val newestEvent = events.maxByOrNull(JournalReadingEvent::occurredAtEpochMillis)
-    val coverUrl = entry?.coverUrl?.takeIf(String::isNotBlank)
+    val coverUrl = catalogItem?.coverUrl?.takeIf(String::isNotBlank)
+        ?: entry?.coverUrl?.takeIf(String::isNotBlank)
         ?: events
             .asReversed()
             .firstOrNull { event -> !event.coverUrl.isNullOrBlank() }
             ?.coverUrl
     return (entry?.toItemRef() ?: newestEvent?.toItemRef())?.copy(
+        itemPrimaryText = catalogItem?.libraryPrimaryText()?.takeIf(String::isNotBlank),
+        itemSecondaryText = catalogItem?.librarySecondaryText()?.takeIf(String::isNotBlank),
         coverUrl = coverUrl,
     )
 }

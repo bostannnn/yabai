@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
@@ -153,7 +154,9 @@ internal fun ComicPagePreviewStrip(
             state = listState,
             reverseLayout = readingDirection == ComicReadingDirection.RTL,
             modifier = Modifier
+                .fillMaxWidth()
                 .safeGesturesPadding()
+                .padding(horizontal = 10.dp)
                 .background(tokens.colors.container.copy(alpha = 0.84f), tokens.shapes.previewStrip)
                 .height(PreviewStripHeight)
                 .testTag(ComicPagePreviewStripTag),

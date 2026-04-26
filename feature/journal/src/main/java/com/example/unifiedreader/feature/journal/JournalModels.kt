@@ -65,10 +65,19 @@ data class JournalItemRef(
     val sourceType: SourceType,
     val libraryId: String,
     val itemTitle: String,
+    val itemPrimaryText: String? = null,
+    val itemSecondaryText: String? = null,
     val coverUrl: String?,
     val itemKind: ReadableItemKind,
     val format: FormatType,
-)
+) {
+    val displayTitle: String
+        get() = itemPrimaryText?.takeIf(String::isNotBlank) ?: itemTitle
+
+    val displaySubtitle: String?
+        get() = itemSecondaryText?.takeIf(String::isNotBlank)
+            ?.takeUnless { it == displayTitle }
+}
 
 data class ReadingGoal(
     val id: String,
