@@ -358,7 +358,7 @@ private fun SearchableTextFacetDialog(
         } ?: searchedValues
     }
     val availableValues = remember(values) { values.toSet() }
-    val gridHeight = searchableFacetGridHeight(visibleValues.size)
+    val viewportHeight = searchableFacetViewportHeight(visibleValues.size)
     FilterDialogScaffold(
         title = title,
         hasActiveFilters = hasActiveFilters,
@@ -387,8 +387,7 @@ private fun SearchableTextFacetDialog(
                     columns = GridCells.Adaptive(minSize = 180.dp),
                     modifier = Modifier
                         .weight(1f)
-                        .height(gridHeight)
-                        .heightIn(max = SearchableFacetGridMaxHeight),
+                        .height(viewportHeight),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
@@ -417,6 +416,8 @@ private fun SearchableTextFacetDialog(
                     onLetterSelected = { letter ->
                         selectedLetter = if (effectiveLetter == letter) null else letter
                     },
+                    modifier = Modifier
+                        .height(viewportHeight),
                 )
             }
         }
@@ -484,7 +485,10 @@ internal fun AlphabetRail(
     LazyColumn(
         modifier = modifier
             .width(28.dp)
-            .heightIn(max = 420.dp),
+            .heightIn(
+                min = SearchableFacetViewportMinHeight,
+                max = SearchableFacetViewportMaxHeight,
+            ),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         item(key = "all") {
@@ -559,18 +563,22 @@ private fun TextFacetRow(
     }
 }
 
-private fun searchableFacetGridHeight(
+private fun searchableFacetViewportHeight(
     visibleValueCount: Int,
 ): androidx.compose.ui.unit.Dp {
     val rowCount = when {
         visibleValueCount <= 0 -> 1
-        else -> ((visibleValueCount + 1) / 2).coerceAtMost(6)
+        else -> ((visibleValueCount + 1) / 2)
     }
+        .coerceIn(SearchableFacetViewportMinRows, SearchableFacetViewportMaxRows)
     return (rowCount * SearchableFacetGridRowHeight.value).dp
 }
 
 private val SearchableFacetGridRowHeight = 48.dp
-private val SearchableFacetGridMaxHeight = 288.dp
+private const val SearchableFacetViewportMinRows = 6
+private const val SearchableFacetViewportMaxRows = 8
+private val SearchableFacetViewportMinHeight = SearchableFacetGridRowHeight * SearchableFacetViewportMinRows
+private val SearchableFacetViewportMaxHeight = SearchableFacetGridRowHeight * SearchableFacetViewportMaxRows
 
 @Composable
 private fun FilterToggleChip(

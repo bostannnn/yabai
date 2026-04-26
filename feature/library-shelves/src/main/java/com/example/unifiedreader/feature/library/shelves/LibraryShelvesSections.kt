@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Card
@@ -236,9 +237,11 @@ private fun ShelfSectionCard(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = ShelfSectionHeaderMinHeight),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.Top,
             ) {
                 Column(
                     modifier = Modifier.weight(1f),
@@ -322,5 +325,6 @@ private fun shelfCountLabel(
     else -> "$count items"
 }
 
+private val ShelfSectionHeaderMinHeight = 48.dp
 private const val ShelfPreviewItemLimit = 4
 private const val SeeAllThreshold = 4
