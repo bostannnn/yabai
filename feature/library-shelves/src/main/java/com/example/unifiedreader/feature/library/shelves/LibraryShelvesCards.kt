@@ -234,6 +234,6 @@ internal fun ShelfCover(
 }
 
 private val ShelfPreviewCardWidth = 132.dp
-private val ShelfPreviewCardHeight = 226.dp
+private val ShelfPreviewCardHeight = 250.dp
 private val CoverCornerRadius = 4.dp
 private const val CoverAspectRatio = 0.72f
