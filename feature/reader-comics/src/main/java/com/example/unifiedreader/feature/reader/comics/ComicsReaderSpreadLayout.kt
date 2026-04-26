@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.core.model.ReadableItem
 import kotlin.math.abs
 import kotlin.math.max
@@ -409,16 +410,17 @@ private fun ComicPageBitmap(
 internal fun ReaderPageMessage(
     message: String,
 ) {
+    val tokens = readerOverlayTokens()
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF141A20)),
+            .background(tokens.colors.fallbackPage),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = message,
             style = MaterialTheme.typography.bodyMedium,
-            color = Color(0xFFB7C4CE),
+            color = tokens.colors.tertiaryText,
         )
     }
 }

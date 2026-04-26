@@ -10,22 +10,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeGesturesPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
-
-private val ReaderBottomProgressBarShape = RoundedCornerShape(8.dp)
 
 @Composable
 fun ReaderBottomProgressBar(
@@ -38,6 +34,7 @@ fun ReaderBottomProgressBar(
     leadingAction: (@Composable RowScope.() -> Unit)? = null,
     onProgressSelected: ((Float) -> Unit)? = null,
 ) {
+    val tokens = readerOverlayTokens()
     val clampedProgress = progress.coerceIn(0f, 1f)
     val visualProgress = orientReaderProgress(
         progress = clampedProgress,
@@ -52,7 +49,7 @@ fun ReaderBottomProgressBar(
             .fillMaxWidth()
             .safeGesturesPadding()
             .padding(start = 10.dp, end = 10.dp, bottom = 10.dp)
-            .background(Color(0xF2111418), ReaderBottomProgressBarShape)
+            .background(tokens.colors.container, tokens.shapes.controlBar)
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -62,7 +59,7 @@ fun ReaderBottomProgressBar(
             text = percentLabel,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
-            color = Color(0xFFF5F7FA),
+            color = tokens.colors.primaryText,
             maxLines = 1,
             overflow = TextOverflow.Clip,
         )
@@ -91,14 +88,14 @@ fun ReaderBottomProgressBar(
             val trackStrokeWidth = 2.dp.toPx()
             val markHalfHeight = 5.dp.toPx()
             drawLine(
-                color = Color(0x55F5F7FA),
+                color = tokens.colors.track,
                 start = Offset(0f, centerY),
                 end = Offset(size.width, centerY),
                 strokeWidth = trackStrokeWidth,
                 cap = StrokeCap.Round,
             )
             drawLine(
-                color = Color(0xFFE9EEF3),
+                color = tokens.colors.progress,
                 start = Offset(size.width * fillRange.startFraction, centerY),
                 end = Offset(size.width * fillRange.endFraction, centerY),
                 strokeWidth = trackStrokeWidth,
@@ -117,7 +114,7 @@ fun ReaderBottomProgressBar(
                 .forEach { mark ->
                     val x = size.width * mark
                     drawLine(
-                        color = Color(0xCCF5F7FA),
+                        color = tokens.colors.primaryText.copy(alpha = 0.8f),
                         start = Offset(x, centerY - markHalfHeight),
                         end = Offset(x, centerY + markHalfHeight),
                         strokeWidth = 1.dp.toPx(),
@@ -125,7 +122,7 @@ fun ReaderBottomProgressBar(
                     )
                 }
             drawCircle(
-                color = Color(0xFFF5F7FA),
+                color = tokens.colors.primaryText,
                 radius = 3.5.dp.toPx(),
                 center = Offset(size.width * visualProgress, centerY),
             )
@@ -133,7 +130,7 @@ fun ReaderBottomProgressBar(
         Text(
             text = pageLabel,
             style = MaterialTheme.typography.labelMedium,
-            color = Color(0xFFD6E0E8),
+            color = tokens.colors.secondaryText,
             maxLines = 1,
             overflow = TextOverflow.Clip,
         )

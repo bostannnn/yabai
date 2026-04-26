@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.animation.core.animateDpAsState
@@ -39,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -48,8 +48,6 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 
-private val PreviewStripShape = RoundedCornerShape(8.dp)
-private val PreviewItemShape = RoundedCornerShape(4.dp)
 private val NormalPreviewHeight = 154.dp
 private val SelectedPreviewHeight = 176.dp
 private val PreviewStripHeight = 214.dp
@@ -78,6 +76,7 @@ internal fun ComicPagePreviewStrip(
     onPageSelected: (Int) -> Unit,
 ) {
     if (pages.isEmpty()) return
+    val tokens = readerOverlayTokens()
     val listState = rememberLazyListState()
     val safeCurrentPage = currentPage.coerceIn(0, pages.lastIndex)
     var pageMetadataById by remember(item.id, pages) { mutableStateOf<Map<String, ComicPageMetadata>>(emptyMap()) }
@@ -155,7 +154,7 @@ internal fun ComicPagePreviewStrip(
             reverseLayout = readingDirection == ComicReadingDirection.RTL,
             modifier = Modifier
                 .safeGesturesPadding()
-                .background(Color(0xD6111418), PreviewStripShape)
+                .background(tokens.colors.container.copy(alpha = 0.84f), tokens.shapes.previewStrip)
                 .height(PreviewStripHeight)
                 .testTag(ComicPagePreviewStripTag),
             contentPadding = PaddingValues(horizontal = 12.dp),
@@ -192,6 +191,7 @@ private fun ComicSpreadPreviewItem(
     onMetadataLoaded: (String, ComicPageMetadata) -> Unit,
     onClick: () -> Unit,
 ) {
+    val tokens = readerOverlayTokens()
     val spreadPreviewVersion by remember(item.id, spread.id, pageSource) {
         pageSource.observePagePreviewVersion(
             item = item,
@@ -249,11 +249,11 @@ private fun ComicSpreadPreviewItem(
             modifier = Modifier
                 .width(itemWidth)
                 .height(previewHeight)
-                .clip(PreviewItemShape)
+                .clip(tokens.shapes.previewItem)
                 .border(
                     width = if (selected) 3.dp else 0.dp,
-                    color = if (selected) Color(0xFF2F81F7) else Color.Transparent,
-                    shape = PreviewItemShape,
+                    color = if (selected) tokens.colors.accent else Color.Transparent,
+                    shape = tokens.shapes.previewItem,
                 )
                 .clickable(onClick = onClick)
                 .padding(if (selected) 3.dp else 0.dp),
@@ -284,7 +284,7 @@ private fun ComicSpreadPreviewItem(
         }
         Text(
             text = spread.previewLabel(),
-            color = if (selected) Color(0xFFF5F7FA) else Color(0xFFD6E0E8),
+            color = if (selected) tokens.colors.primaryText else tokens.colors.secondaryText,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
         )
@@ -329,6 +329,7 @@ private fun ComicPagePreviewImage(
     result: ComicPagePreviewResult,
     modifier: Modifier,
 ) {
+    val tokens = readerOverlayTokens()
     when (result) {
         is ComicPagePreviewResult.Success -> Image(
             bitmap = result.image,
@@ -339,13 +340,13 @@ private fun ComicPagePreviewImage(
 
         ComicPagePreviewResult.Unavailable -> Box(
             modifier = modifier
-                .clip(PreviewItemShape)
-                .background(Color(0xFF05090C)),
+                .clip(tokens.shapes.previewItem)
+                .background(tokens.colors.fallbackPage),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = (page.pageIndex + 1).toString(),
-                color = Color(0xFFB7C4CE),
+                color = tokens.colors.tertiaryText,
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold,
             )

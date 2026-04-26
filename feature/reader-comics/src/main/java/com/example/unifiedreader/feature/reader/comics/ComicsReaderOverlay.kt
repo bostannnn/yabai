@@ -12,12 +12,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.feature.reader.core.CompactReaderOverlayFrame
 import com.example.unifiedreader.feature.reader.core.ReaderOverlayBackButton
 import com.example.unifiedreader.feature.reader.core.ReaderOverlayDropdownItem
 import com.example.unifiedreader.feature.reader.core.ReaderOverlayMenuAction
+import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayPanelState
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 
@@ -37,6 +37,7 @@ internal fun ReaderOverlayBar(
     onPageFitModeChanged: (ComicPageFitMode) -> Unit,
     onSpreadModeChanged: (ComicSpreadMode) -> Unit,
 ) {
+    val tokens = readerOverlayTokens()
     var activePanel by rememberReaderOverlayPanelState(
         key = itemId,
         overlayVisible = overlayVisible,
@@ -62,7 +63,7 @@ internal fun ReaderOverlayBar(
                     Icon(
                         imageVector = Icons.Default.ViewCarousel,
                         contentDescription = "Layout",
-                        tint = Color(0xFFF5F7FA),
+                        tint = tokens.colors.primaryText,
                     )
                 },
             ) {
@@ -78,7 +79,7 @@ internal fun ReaderOverlayBar(
                     )
                 }
                 if (readerMode == ComicReaderMode.Paged) {
-                    HorizontalDivider(color = Color(0x33F5F7FA))
+                    HorizontalDivider(color = tokens.colors.divider)
                     ComicsReaderOverlaySectionLabel(label = "Pages")
                     ComicSpreadMode.entries.forEach { entry ->
                         ReaderOverlayDropdownItem(
@@ -105,7 +106,7 @@ internal fun ReaderOverlayBar(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.MenuBook,
                         contentDescription = "Reading direction",
-                        tint = Color(0xFFF5F7FA),
+                        tint = tokens.colors.primaryText,
                     )
                 },
             ) {
@@ -134,7 +135,7 @@ internal fun ReaderOverlayBar(
                         Icon(
                             imageVector = Icons.Default.FitScreen,
                             contentDescription = "Fit",
-                            tint = Color(0xFFF5F7FA),
+                            tint = tokens.colors.primaryText,
                         )
                     },
                 ) {
@@ -158,9 +159,10 @@ internal fun ReaderOverlayBar(
 private fun ComicsReaderOverlaySectionLabel(
     label: String,
 ) {
+    val tokens = readerOverlayTokens()
     Text(
         text = label,
-        color = Color(0xFFB7C4CE),
+        color = tokens.colors.tertiaryText,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
     )
 }

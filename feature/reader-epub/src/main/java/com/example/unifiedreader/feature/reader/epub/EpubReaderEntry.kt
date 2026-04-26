@@ -78,6 +78,7 @@ import com.example.unifiedreader.feature.reader.core.ReaderOverlayMenuAction
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import com.example.unifiedreader.feature.reader.core.findContextAncestor
+import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayPanelState
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
 import kotlinx.coroutines.Dispatchers
@@ -611,7 +612,7 @@ fun EpubReaderScreen(
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.Toc,
                                         contentDescription = "Table of contents",
-                                        tint = Color(0xFFF5F7FA),
+                                        tint = readerOverlayTokens().colors.primaryText,
                                     )
                                 }
                             },
@@ -657,6 +658,7 @@ private fun EpubReaderOverlay(
     onUseOrientationLayoutDefault: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val tokens = readerOverlayTokens()
     var activePanel by rememberReaderOverlayPanelState(
         key = itemId,
         overlayVisible = overlayVisible,
@@ -683,7 +685,7 @@ private fun EpubReaderOverlay(
                     Icon(
                         imageVector = Icons.Default.FormatSize,
                         contentDescription = "Text settings",
-                        tint = Color(0xFFF5F7FA),
+                        tint = tokens.colors.primaryText,
                     )
                 },
                 menuModifier = Modifier.width(280.dp),
@@ -695,12 +697,12 @@ private fun EpubReaderOverlay(
                     Text(
                         text = "Font size",
                         style = MaterialTheme.typography.labelLarge,
-                        color = Color(0xFFD6E0E8),
+                        color = tokens.colors.secondaryText,
                     )
                     Text(
                         text = formatEpubFontSizeValue(fontSize),
                         style = MaterialTheme.typography.labelMedium,
-                        color = Color(0xFFB7C4CE),
+                        color = tokens.colors.tertiaryText,
                     )
                     Slider(
                         value = fontSize.toFloat(),
@@ -710,12 +712,12 @@ private fun EpubReaderOverlay(
                     Text(
                         text = "Line height",
                         style = MaterialTheme.typography.labelLarge,
-                        color = Color(0xFFD6E0E8),
+                        color = tokens.colors.secondaryText,
                     )
                     Text(
                         text = formatEpubLineHeightValue(lineHeight),
                         style = MaterialTheme.typography.labelMedium,
-                        color = Color(0xFFB7C4CE),
+                        color = tokens.colors.tertiaryText,
                     )
                     Slider(
                         value = lineHeight.toFloat(),
@@ -737,7 +739,7 @@ private fun EpubReaderOverlay(
                     Icon(
                         imageVector = if (theme == EpubReaderTheme.Dark) Icons.Default.DarkMode else Icons.Default.LightMode,
                         contentDescription = "Reader theme",
-                        tint = Color(0xFFF5F7FA),
+                        tint = tokens.colors.primaryText,
                     )
                 },
             ) {
@@ -773,7 +775,7 @@ private fun EpubReaderOverlay(
                     Icon(
                         imageVector = Icons.Default.ViewDay,
                         contentDescription = "Page layout",
-                        tint = Color(0xFFF5F7FA),
+                        tint = tokens.colors.primaryText,
                     )
                 },
             ) {

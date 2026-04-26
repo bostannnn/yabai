@@ -10,17 +10,13 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeGesturesPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-
-private val ReaderControlBarShape = RoundedCornerShape(8.dp)
 
 @Composable
 fun CompactReaderOverlayFrame(
@@ -30,6 +26,7 @@ fun CompactReaderOverlayFrame(
     trailingActions: @Composable RowScope.() -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    val tokens = readerOverlayTokens()
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -41,7 +38,7 @@ fun CompactReaderOverlayFrame(
             modifier = Modifier
                 .fillMaxWidth()
                 .defaultMinSize(minHeight = 44.dp)
-                .background(Color(0xF2111418), ReaderControlBarShape)
+                .background(tokens.colors.container, tokens.shapes.controlBar)
                 .padding(horizontal = 4.dp, vertical = 3.dp),
         ) {
             ReaderActionRow(
@@ -58,14 +55,14 @@ fun CompactReaderOverlayFrame(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.labelLarge,
-                    color = Color(0xFFF5F7FA),
+                    color = tokens.colors.primaryText,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     text = progressLabel,
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFFB7C4CE),
+                    color = tokens.colors.tertiaryText,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )

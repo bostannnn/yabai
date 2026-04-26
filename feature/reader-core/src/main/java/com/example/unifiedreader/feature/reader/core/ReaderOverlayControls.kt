@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.sizeIn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.DropdownMenu
@@ -23,8 +22,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-private val ReaderOverlayButtonShape = RoundedCornerShape(8.dp)
-
 @Composable
 fun ReaderOverlayIconButton(
     onClick: () -> Unit,
@@ -32,12 +29,13 @@ fun ReaderOverlayIconButton(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
+    val tokens = readerOverlayTokens()
     IconButton(
         onClick = onClick,
         modifier = modifier
             .background(
-                if (isActive) Color(0x29F5F7FA) else Color.Transparent,
-                ReaderOverlayButtonShape,
+                if (isActive) tokens.colors.selectedContainer else Color.Transparent,
+                tokens.shapes.button,
             )
             .sizeIn(minWidth = 44.dp, minHeight = 36.dp),
     ) {
@@ -57,10 +55,13 @@ fun ReaderOverlayDropdownMenu(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
+    val tokens = readerOverlayTokens()
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismissRequest,
-        modifier = modifier.background(Color(0xF2111418)),
+        modifier = modifier,
+        shape = tokens.shapes.controlBar,
+        containerColor = tokens.colors.container,
     ) {
         content()
     }
@@ -72,11 +73,12 @@ fun ReaderOverlayDropdownItem(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
+    val tokens = readerOverlayTokens()
     DropdownMenuItem(
         text = {
             Text(
                 text = if (selected) "• $label" else label,
-                color = Color(0xFFF5F7FA),
+                color = tokens.colors.primaryText,
             )
         },
         onClick = onClick,
@@ -87,11 +89,12 @@ fun ReaderOverlayDropdownItem(
 fun ReaderOverlayBackButton(
     onClick: () -> Unit,
 ) {
+    val tokens = readerOverlayTokens()
     ReaderOverlayIconButton(onClick = onClick) {
         Icon(
             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
             contentDescription = "Back to library",
-            tint = Color(0xFFF5F7FA),
+            tint = tokens.colors.primaryText,
         )
     }
 }

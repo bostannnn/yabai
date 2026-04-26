@@ -28,6 +28,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
 import com.example.unifiedreader.feature.reader.core.ImmersiveReaderOverlay
 import com.example.unifiedreader.feature.reader.core.ReaderBottomProgressBar
+import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import kotlin.math.roundToInt
@@ -395,10 +396,11 @@ private fun EmptyComicsReader(
     item: ReadableItem,
     diagnostic: ComicPagesUnavailableDiagnostic,
 ) {
+    val tokens = readerOverlayTokens()
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF101418))
+            .background(tokens.colors.fallbackPage)
             .padding(24.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -407,7 +409,7 @@ private fun EmptyComicsReader(
                 item = item,
                 diagnostic = diagnostic,
             ),
-            color = Color(0xFFB7C4CE),
+            color = tokens.colors.tertiaryText,
             textAlign = TextAlign.Center,
         )
     }

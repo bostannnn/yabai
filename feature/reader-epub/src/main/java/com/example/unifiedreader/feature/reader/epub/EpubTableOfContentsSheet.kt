@@ -45,6 +45,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 
 @androidx.compose.runtime.Composable
 internal fun EpubTableOfContentsSheet(
@@ -58,6 +59,7 @@ internal fun EpubTableOfContentsSheet(
     onEntrySelected: (EpubTocEntry) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val tokens = readerOverlayTokens()
     BackHandler(enabled = isOpen) {
         onDismissRequest()
     }
@@ -133,16 +135,16 @@ internal fun EpubTableOfContentsSheet(
                             .heightIn(max = sheetMaxHeight)
                             .shadow(
                                 elevation = 18.dp,
-                                shape = EpubTocSheetShape,
+                                shape = tokens.shapes.sheet,
                             )
                             .background(
-                                color = Color(0xFA171A1F),
-                                shape = EpubTocSheetShape,
+                                color = tokens.colors.elevatedContainer,
+                                shape = tokens.shapes.sheet,
                             )
                             .border(
                                 width = 1.dp,
-                                color = Color(0x18F5F7FA),
-                                shape = EpubTocSheetShape,
+                                color = tokens.colors.selectedBorder.copy(alpha = 0.67f),
+                                shape = tokens.shapes.sheet,
                             )
                             .clickable(
                                 indication = null,
@@ -158,13 +160,13 @@ internal fun EpubTableOfContentsSheet(
                             text = "Contents",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFFF5F7FA),
+                            color = tokens.colors.primaryText,
                             modifier = Modifier.padding(horizontal = 20.dp),
                         )
                         Text(
                             text = title,
                             style = MaterialTheme.typography.labelMedium,
-                            color = Color(0xFFAEBBC7),
+                            color = tokens.colors.tertiaryText,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.padding(
@@ -178,7 +180,7 @@ internal fun EpubTableOfContentsSheet(
                             Text(
                                 text = "No table of contents",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color(0xFFD6E0E8),
+                                color = tokens.colors.secondaryText,
                                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
                             )
                         } else {
@@ -218,10 +220,11 @@ private fun EpubTableOfContentsSheetRow(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
+    val tokens = readerOverlayTokens()
     val titleColor = when {
-        selected -> Color(0xFFF5F7FA)
-        entry.depth == 0 -> Color(0xFFE7EDF4)
-        else -> Color(0xFFD0DAE4)
+        selected -> tokens.colors.primaryText
+        entry.depth == 0 -> tokens.colors.progress
+        else -> tokens.colors.secondaryText
     }
     val titleStyle = when {
         selected -> MaterialTheme.typography.labelLarge
@@ -232,13 +235,13 @@ private fun EpubTableOfContentsSheetRow(
         modifier = Modifier
             .fillMaxWidth()
             .background(
-                color = if (selected) Color(0x22F5F7FA) else Color.Transparent,
-                shape = RoundedCornerShape(16.dp),
+                color = if (selected) tokens.colors.selectedContainer else Color.Transparent,
+                shape = tokens.shapes.selectedRow,
             )
             .border(
                 width = if (selected) 1.dp else 0.dp,
-                color = if (selected) Color(0x24F5F7FA) else Color.Transparent,
-                shape = RoundedCornerShape(16.dp),
+                color = if (selected) tokens.colors.selectedBorder else Color.Transparent,
+                shape = tokens.shapes.selectedRow,
             )
             .clickable(onClick = onClick)
             .padding(
@@ -255,7 +258,7 @@ private fun EpubTableOfContentsSheetRow(
                 modifier = Modifier
                     .size(width = 6.dp, height = 6.dp)
                     .background(
-                        color = if (selected) Color(0x99F5F7FA) else Color(0x48AEBBC7),
+                        color = if (selected) tokens.colors.primaryText.copy(alpha = 0.6f) else tokens.colors.tertiaryText.copy(alpha = 0.28f),
                         shape = RoundedCornerShape(100.dp),
                     ),
             )
@@ -273,7 +276,7 @@ private fun EpubTableOfContentsSheetRow(
             Text(
                 text = position.toString(),
                 style = MaterialTheme.typography.labelMedium,
-                color = if (selected) Color(0xFFF5F7FA) else Color(0xFF8B9AAA),
+                color = if (selected) tokens.colors.primaryText else tokens.colors.mutedText,
                 maxLines = 1,
             )
         }
@@ -283,6 +286,5 @@ private fun EpubTableOfContentsSheetRow(
 private fun tocRowIndent(depth: Int): Dp = (depth.coerceAtLeast(0) * 12).dp
 
 internal const val EpubTocSheetTag = "epub-toc-sheet"
-private val EpubTocSheetShape = RoundedCornerShape(22.dp)
 private val EpubTocSheetMaxWidth = 312.dp
 private val EpubTocSheetBottomGap = 4.dp
