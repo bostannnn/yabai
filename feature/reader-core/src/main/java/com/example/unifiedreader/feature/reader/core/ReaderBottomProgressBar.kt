@@ -1,7 +1,6 @@
 package com.example.unifiedreader.feature.reader.core
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -50,7 +49,7 @@ fun ReaderBottomProgressBar(
             .fillMaxWidth()
             .then(if (applySafeGesturesPadding) Modifier.safeGesturesPadding() else Modifier)
             .padding(start = 10.dp, end = 10.dp, bottom = 10.dp)
-            .background(tokens.colors.container, tokens.shapes.controlBar)
+            .readerOverlaySurface(ReaderOverlaySurfaceRole.ControlBar)
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),

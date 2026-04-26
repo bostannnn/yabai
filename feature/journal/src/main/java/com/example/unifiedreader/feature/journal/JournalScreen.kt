@@ -114,7 +114,14 @@ internal fun JournalEntryEditorSheet(
                 .padding(bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text(text = item.itemTitle, style = MaterialTheme.typography.titleLarge)
+            Text(text = item.displayTitle, style = MaterialTheme.typography.titleLarge)
+            item.displaySubtitle?.let { subtitle ->
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 (1..5).forEach { rating ->
                     FilterChip(

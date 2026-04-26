@@ -1,6 +1,5 @@
 package com.example.unifiedreader.feature.reader.core
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,7 +40,7 @@ fun CompactReaderOverlayFrame(
             modifier = Modifier
                 .fillMaxWidth()
                 .defaultMinSize(minHeight = 44.dp)
-                .background(tokens.colors.container, tokens.shapes.controlBar)
+                .readerOverlaySurface(ReaderOverlaySurfaceRole.ControlBar)
                 .padding(horizontal = 4.dp, vertical = 3.dp),
         ) {
             ReaderActionRow(

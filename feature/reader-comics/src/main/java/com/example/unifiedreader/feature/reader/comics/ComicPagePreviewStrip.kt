@@ -39,6 +39,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.feature.reader.core.ReaderOverlaySurfaceRole
+import com.example.unifiedreader.feature.reader.core.readerOverlaySurface
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -157,7 +159,10 @@ internal fun ComicPagePreviewStrip(
                 .fillMaxWidth()
                 .safeGesturesPadding()
                 .padding(horizontal = 10.dp)
-                .background(tokens.colors.container.copy(alpha = 0.84f), tokens.shapes.previewStrip)
+                .readerOverlaySurface(
+                    role = ReaderOverlaySurfaceRole.PreviewStrip,
+                    containerColor = tokens.colors.container.copy(alpha = 0.84f),
+                )
                 .height(PreviewStripHeight)
                 .testTag(ComicPagePreviewStripTag),
             contentPadding = PaddingValues(horizontal = 12.dp),

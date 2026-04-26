@@ -14,23 +14,25 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.feature.reader.core.ReaderAttachedPane
+import com.example.unifiedreader.feature.reader.core.ReaderAttachedPaneAnchor
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
 internal fun ComicsReaderPreferencesSheet(
+    isOpen: Boolean,
+    maxSheetHeight: Dp,
     readerMode: ComicReaderMode,
     readingDirection: ComicReadingDirection,
     pageFitMode: ComicPageFitMode,
@@ -42,18 +44,23 @@ internal fun ComicsReaderPreferencesSheet(
     onSpreadModeChanged: (ComicSpreadMode) -> Unit,
 ) {
     val tokens = readerOverlayTokens()
-    ModalBottomSheet(
+    val sheetMaxHeight = (maxSheetHeight * 0.64f).coerceAtMost(ComicsPreferencesSheetMaxHeight)
+    ReaderAttachedPane(
+        visible = isOpen,
+        anchor = ReaderAttachedPaneAnchor.Top,
+        maxPaneHeight = sheetMaxHeight,
+        maxPaneWidth = ComicsPreferencesSheetMaxWidth,
+        horizontalAlignment = Alignment.End,
+        horizontalPadding = 10.dp,
         onDismissRequest = onDismissRequest,
-        containerColor = tokens.colors.container,
-        contentColor = tokens.colors.primaryText,
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = ComicsPreferencesSheetMaxHeight)
+                .heightIn(max = sheetMaxHeight)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
-                .padding(bottom = 24.dp),
+                .padding(top = 16.dp, bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
             Text(
@@ -177,3 +184,4 @@ private fun ComicsSelectableRow(
 }
 
 private val ComicsPreferencesSheetMaxHeight = 560.dp
+private val ComicsPreferencesSheetMaxWidth = 480.dp

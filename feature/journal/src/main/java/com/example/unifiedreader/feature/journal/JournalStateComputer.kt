@@ -4,8 +4,7 @@ import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
-import com.example.unifiedreader.core.model.libraryPrimaryText
-import com.example.unifiedreader.core.model.librarySecondaryText
+import com.example.unifiedreader.core.model.primaryAuthor
 import java.util.Calendar
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -80,10 +79,23 @@ private fun summaryItemRef(
             .firstOrNull { event -> !event.coverUrl.isNullOrBlank() }
             ?.coverUrl
     return (entry?.toItemRef() ?: newestEvent?.toItemRef())?.copy(
-        itemPrimaryText = catalogItem?.libraryPrimaryText()?.takeIf(String::isNotBlank),
-        itemSecondaryText = catalogItem?.librarySecondaryText()?.takeIf(String::isNotBlank),
+        itemPrimaryText = catalogItem?.journalPrimaryText()?.takeIf(String::isNotBlank),
+        itemSecondaryText = catalogItem?.journalSecondaryText()?.takeIf(String::isNotBlank),
         coverUrl = coverUrl,
     )
+}
+
+private fun ReadableItem.journalPrimaryText(): String = when (kind) {
+    ReadableItemKind.BOOK -> title
+    ReadableItemKind.COMIC -> comicMetadata?.series?.takeIf(String::isNotBlank) ?: title
+}
+
+private fun ReadableItem.journalSecondaryText(): String? = when (kind) {
+    ReadableItemKind.BOOK -> bookMetadata?.primaryAuthor()?.takeIf(String::isNotBlank)
+    ReadableItemKind.COMIC -> comicMetadata
+        ?.issueTitle
+        ?.takeIf(String::isNotBlank)
+        ?.takeUnless { issueTitle -> issueTitle == journalPrimaryText() }
 }
 
 fun computeStats(

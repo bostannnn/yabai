@@ -8,8 +8,6 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -25,7 +23,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
@@ -100,24 +97,11 @@ fun ReaderAttachedPane(
                         transformOrigin = paneTransformOrigin(anchor, horizontalAlignment),
                     ),
                 ) {
-                    val tokens = readerOverlayTokens()
                     Column(
                         modifier = Modifier
                             .widthIn(min = sheetMinWidth, max = sheetWidth)
                             .heightIn(max = maxPaneHeight)
-                            .shadow(
-                                elevation = 18.dp,
-                                shape = tokens.shapes.sheet,
-                            )
-                            .background(
-                                color = tokens.colors.elevatedContainer,
-                                shape = tokens.shapes.sheet,
-                            )
-                            .border(
-                                width = 1.dp,
-                                color = tokens.colors.selectedBorder,
-                                shape = tokens.shapes.sheet,
-                            )
+                            .readerOverlaySurface(ReaderOverlaySurfaceRole.AttachedPane)
                             .clickable(
                                 indication = null,
                                 interactionSource = remember { MutableInteractionSource() },

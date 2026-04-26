@@ -29,8 +29,8 @@ data class ReaderOverlayColors(
 data class ReaderOverlayShapes(
     val button: RoundedCornerShape = RoundedCornerShape(8.dp),
     val controlBar: RoundedCornerShape = RoundedCornerShape(8.dp),
-    val sheet: RoundedCornerShape = RoundedCornerShape(22.dp),
-    val selectedRow: RoundedCornerShape = RoundedCornerShape(16.dp),
+    val sheet: RoundedCornerShape = RoundedCornerShape(8.dp),
+    val selectedRow: RoundedCornerShape = RoundedCornerShape(8.dp),
     val previewStrip: RoundedCornerShape = RoundedCornerShape(8.dp),
     val previewItem: RoundedCornerShape = RoundedCornerShape(4.dp),
 )
