@@ -8,10 +8,12 @@ import com.example.unifiedreader.core.model.remoteLibraryId
 import com.example.unifiedreader.data.kavita.KavitaApi
 import com.example.unifiedreader.data.kavita.KavitaChapterCatalogEntry
 import com.example.unifiedreader.data.kavita.KavitaChapterInfoDto
+import com.example.unifiedreader.data.kavita.KavitaFileDimensionDto
 import com.example.unifiedreader.data.kavita.KavitaProgressDto
 import com.example.unifiedreader.data.kavita.KavitaProgressUpdate
 import com.example.unifiedreader.data.kavita.KavitaSeriesEntry
 import com.example.unifiedreader.data.kavita.KavitaSession
+import com.example.unifiedreader.feature.reader.comics.ComicPageMetadata
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPagePrefetchWindow
@@ -23,6 +25,7 @@ import java.io.File
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.drop
@@ -108,6 +111,210 @@ class KavitaPageSourceTest {
         assertTrue(result is ComicPagePreviewResult.Success)
         assertEquals(emptyList<Int>(), api.requestedPageIndexes)
         assertEquals(listOf(3), api.requestedThumbnailPageNumbers)
+    }
+
+    @Test
+    fun `page metadata uses kavita chapter dimensions before full image bytes`() = runTest {
+        val item = sampleKavitaComic(pageCount = 4)
+        val api = RecordingKavitaPageApi().apply {
+            chapterInfo = KavitaChapterInfoDto(
+                pageDimensions = listOf(
+                    KavitaFileDimensionDto(width = 800, height = 1200, pageNumber = 1),
+                    KavitaFileDimensionDto(width = 1600, height = 1000, pageNumber = 2),
+                ),
+            )
+        }
+        val pageSource = createPageSource(api, this)
+        val page = ComicPageSpec(id = "1", pageIndex = 1, contentDescription = "Page 2")
+
+        val metadata = pageSource.loadPageMetadata(item, page)
+
+        assertEquals(ComicPageMetadata(width = 1600, height = 1000), metadata)
+        assertEquals(listOf(true), api.requestedChapterInfoIncludeDimensions)
+        assertEquals(emptyList<Int>(), api.requestedPageIndexes)
+    }
+
+    @Test
+    fun `wide kavita page preview uses full page image instead of dedicated thumbnail`() = runTest {
+        val item = sampleKavitaComic(pageCount = 4)
+        val api = RecordingKavitaPageApi().apply {
+            chapterInfo = KavitaChapterInfoDto(
+                pageDimensions = listOf(
+                    KavitaFileDimensionDto(width = 800, height = 1200, pageNumber = 1),
+                    KavitaFileDimensionDto(width = 2400, height = 1200, pageNumber = 2),
+                ),
+            )
+        }
+        val pageSource = createPageSource(api, this)
+        val page = ComicPageSpec(id = "1", pageIndex = 1, contentDescription = "Page 2")
+
+        val preview = pageSource.loadPagePreview(item, page)
+
+        assertTrue(preview is ComicPagePreviewResult.Success)
+        assertEquals(listOf(true), api.requestedChapterInfoIncludeDimensions)
+        assertEquals(listOf(1), api.requestedPageIndexes)
+        assertEquals(emptyList<Int>(), api.requestedThumbnailPageNumbers)
+    }
+
+    @Test
+    fun `page metadata falls back to full image when kavita chapter dimensions fail`() = runTest {
+        val item = sampleKavitaComic(pageCount = 4)
+        val api = RecordingKavitaPageApi().apply {
+            chapterInfoFailure = IllegalStateException("chapter info unavailable")
+        }
+        val pageSource = createPageSource(api, this)
+        val page = ComicPageSpec(id = "2", pageIndex = 2, contentDescription = "Page 3")
+
+        val metadata = pageSource.loadPageMetadata(item, page)
+
+        assertEquals(ComicPageMetadata(width = 1, height = 1), metadata)
+        assertEquals(listOf(true), api.requestedChapterInfoIncludeDimensions)
+        assertEquals(listOf(2), api.requestedPageIndexes)
+    }
+
+    @Test
+    fun `page preview falls back to dedicated thumbnail when kavita chapter dimensions fail`() = runTest {
+        val item = sampleKavitaComic(pageCount = 4)
+        val api = RecordingKavitaPageApi().apply {
+            chapterInfoFailure = IllegalStateException("chapter info unavailable")
+        }
+        val pageSource = createPageSource(api, this)
+        val page = ComicPageSpec(id = "2", pageIndex = 2, contentDescription = "Page 3")
+
+        val preview = pageSource.loadPagePreview(item, page)
+
+        assertTrue(preview is ComicPagePreviewResult.Success)
+        assertEquals(listOf(true), api.requestedChapterInfoIncludeDimensions)
+        assertEquals(emptyList<Int>(), api.requestedPageIndexes)
+        assertEquals(listOf(2), api.requestedThumbnailPageNumbers)
+    }
+
+    @Test
+    fun `concurrent kavita metadata requests share one chapter dimensions request`() = runTest {
+        val item = sampleKavitaComic(pageCount = 4)
+        val api = RecordingKavitaPageApi().apply {
+            chapterInfo = KavitaChapterInfoDto(
+                pageDimensions = listOf(
+                    KavitaFileDimensionDto(width = 800, height = 1200, pageNumber = 1),
+                    KavitaFileDimensionDto(width = 900, height = 1300, pageNumber = 2),
+                    KavitaFileDimensionDto(width = 1000, height = 1400, pageNumber = 3),
+                ),
+            )
+        }
+        val pageSource = createPageSource(api, this)
+        val pages = pageSource.getPages(item).take(3)
+
+        val metadata = pages
+            .map { page ->
+                async {
+                    pageSource.loadPageMetadata(item, page)
+                }
+            }
+            .awaitAll()
+
+        assertEquals(
+            listOf(
+                ComicPageMetadata(width = 800, height = 1200),
+                ComicPageMetadata(width = 900, height = 1300),
+                ComicPageMetadata(width = 1000, height = 1400),
+            ),
+            metadata,
+        )
+        assertEquals(listOf(true), api.requestedChapterInfoIncludeDimensions)
+    }
+
+    @Test
+    fun `clearing kavita source cache clears chapter dimensions metadata`() = runTest {
+        val item = sampleKavitaComic(pageCount = 4)
+        val api = RecordingKavitaPageApi().apply {
+            chapterInfo = KavitaChapterInfoDto(
+                pageDimensions = listOf(
+                    KavitaFileDimensionDto(width = 800, height = 1200, pageNumber = 1),
+                ),
+            )
+        }
+        val pageSource = createPageSource(api, this)
+        val page = ComicPageSpec(id = "0", pageIndex = 0, contentDescription = "Page 1")
+
+        val firstMetadata = pageSource.loadPageMetadata(item, page)
+        api.chapterInfo = KavitaChapterInfoDto(
+            pageDimensions = listOf(
+                KavitaFileDimensionDto(width = 900, height = 1300, pageNumber = 1),
+            ),
+        )
+        pageSource.clear()
+        val secondMetadata = pageSource.loadPageMetadata(item, page)
+
+        assertEquals(ComicPageMetadata(width = 800, height = 1200), firstMetadata)
+        assertEquals(ComicPageMetadata(width = 900, height = 1300), secondMetadata)
+        assertEquals(listOf(true, true), api.requestedChapterInfoIncludeDimensions)
+    }
+
+    @Test
+    fun `kavita chapter dimensions metadata is keyed by server url`() = runTest {
+        val item = sampleKavitaComic(pageCount = 4)
+        val credentialStore = TestKavitaCredentialStore(
+            KavitaStoredSession(
+                displayName = "Kavita",
+                baseUrl = "https://first-kavita.example",
+                username = "reader",
+                accessToken = "access-token",
+                refreshToken = "refresh-token",
+                apiKey = "api-key",
+            ),
+        )
+        val api = RecordingKavitaPageApi().apply {
+            chapterInfo = KavitaChapterInfoDto(
+                pageDimensions = listOf(
+                    KavitaFileDimensionDto(width = 800, height = 1200, pageNumber = 1),
+                ),
+            )
+        }
+        val pageSource = createPageSource(
+            api = api,
+            scope = this,
+            credentialStore = credentialStore,
+        )
+        val page = ComicPageSpec(id = "0", pageIndex = 0, contentDescription = "Page 1")
+
+        val firstMetadata = pageSource.loadPageMetadata(item, page)
+        api.chapterInfo = KavitaChapterInfoDto(
+            pageDimensions = listOf(
+                KavitaFileDimensionDto(width = 900, height = 1300, pageNumber = 1),
+            ),
+        )
+        credentialStore.save(
+            KavitaStoredSession(
+                displayName = "Kavita",
+                baseUrl = "https://second-kavita.example",
+                username = "reader",
+                accessToken = "access-token",
+                refreshToken = "refresh-token",
+                apiKey = "api-key",
+            ),
+        )
+        val secondMetadata = pageSource.loadPageMetadata(item, page)
+
+        assertEquals(ComicPageMetadata(width = 800, height = 1200), firstMetadata)
+        assertEquals(ComicPageMetadata(width = 900, height = 1300), secondMetadata)
+        assertEquals(listOf(true, true), api.requestedChapterInfoIncludeDimensions)
+    }
+
+    @Test
+    fun `thumbnail preview does not populate authoritative page metadata`() = runTest {
+        val item = sampleKavitaComic(pageCount = 4)
+        val api = RecordingKavitaPageApi()
+        val pageSource = createPageSource(api, this)
+        val page = ComicPageSpec(id = "2", pageIndex = 2, contentDescription = "Page 3")
+
+        pageSource.loadPagePreview(item, page)
+        val previewMetadata = pageSource.loadPagePreviewMetadata(item, page)
+        val metadata = pageSource.loadPageMetadata(item, page)
+
+        assertEquals(null, previewMetadata)
+        assertEquals(ComicPageMetadata(width = 1, height = 1), metadata)
+        assertEquals(listOf(2), api.requestedThumbnailPageNumbers)
+        assertEquals(listOf(2), api.requestedPageIndexes)
     }
 
     @Test
@@ -439,6 +646,9 @@ private class TestKavitaCredentialStore(
 private class RecordingKavitaPageApi : KavitaApi {
     val requestedPageIndexes = mutableListOf<Int>()
     val requestedThumbnailPageNumbers = mutableListOf<Int>()
+    val requestedChapterInfoIncludeDimensions = mutableListOf<Boolean>()
+    var chapterInfo = KavitaChapterInfoDto()
+    var chapterInfoFailure: Throwable? = null
     var blockRequests: Boolean = false
     private var blockedRequestCount = 0
     private var blockedRequestStarted = CompletableDeferred<Unit>()
@@ -478,7 +688,11 @@ private class RecordingKavitaPageApi : KavitaApi {
         accessToken: String,
         chapterId: String,
         includeDimensions: Boolean,
-    ): KavitaChapterInfoDto = error("Not needed in test.")
+    ): KavitaChapterInfoDto {
+        requestedChapterInfoIncludeDimensions += includeDimensions
+        chapterInfoFailure?.let { throw it }
+        return chapterInfo
+    }
 
     override suspend fun updateProgress(
         accessToken: String,

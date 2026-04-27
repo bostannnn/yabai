@@ -2,6 +2,7 @@ package com.example.unifiedreader.feature.reader.comics
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -289,124 +290,146 @@ fun ComicsReaderScreen(
         }
     }
 
-    ImmersiveReaderOverlay(
-        overlayState = overlayState,
-        autoHideDelayMillis = 0L,
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF0A0D11)),
-        content = {
-            val surfaceStateKey = remember(pages) {
-                Triple(
-                    pages.size,
-                    pages.firstOrNull()?.id.orEmpty(),
-                    pages.lastOrNull()?.id.orEmpty(),
-                )
-            }
-            key(item.id, readerState.readerMode, surfaceStateKey) {
-                when (readerState.readerMode) {
-                    ComicReaderMode.Paged -> ComicsPagedReaderSurface(
-                        item = item,
-                        pages = pages,
-                        pageSource = pageSource,
-                        readerState = readerState,
-                        overlayVisible = overlayState.isVisible,
-                        onToggleOverlay = overlayState::toggle,
-                        onNavigatePastEnd = {
-                            persistCompletedProgress()
-                            onNextItemRequested()
-                        },
+    ) {
+        val spreadModeForPlan = when (readerState.readerMode) {
+            ComicReaderMode.Paged -> readerState.spreadMode
+            ComicReaderMode.VerticalScroll -> ComicSpreadMode.Single
+        }
+        val useDoublePageSpreadsForPlan = shouldUseDoublePageSpreads(
+            spreadMode = spreadModeForPlan,
+            maxWidthDp = maxWidth.value,
+            maxHeightDp = maxHeight.value,
+            pageCount = pages.size,
+        )
+        val spreadPlanState = rememberComicSpreadPlanState(
+            item = item,
+            pages = pages,
+            pageSource = pageSource,
+            currentPage = readerState.resumeAnchorPage,
+            readingDirection = readerState.readingDirection,
+            spreadMode = spreadModeForPlan,
+            useDoublePageSpreads = useDoublePageSpreadsForPlan,
+        )
+        ImmersiveReaderOverlay(
+            overlayState = overlayState,
+            autoHideDelayMillis = 0L,
+            modifier = Modifier.fillMaxSize(),
+            content = {
+                val surfaceStateKey = remember(pages) {
+                    Triple(
+                        pages.size,
+                        pages.firstOrNull()?.id.orEmpty(),
+                        pages.lastOrNull()?.id.orEmpty(),
                     )
+                }
+                key(item.id, readerState.readerMode, surfaceStateKey) {
+                    when (readerState.readerMode) {
+                        ComicReaderMode.Paged -> ComicsPagedReaderSurface(
+                            item = item,
+                            pages = pages,
+                            pageSource = pageSource,
+                            readerState = readerState,
+                            spreadPlanState = spreadPlanState,
+                            overlayVisible = overlayState.isVisible,
+                            onToggleOverlay = overlayState::toggle,
+                            onNavigatePastEnd = {
+                                persistCompletedProgress()
+                                onNextItemRequested()
+                            },
+                        )
 
-                    ComicReaderMode.VerticalScroll -> ComicsContinuousReaderSurface(
-                        item = item,
-                        pages = pages,
-                        pageSource = pageSource,
-                        readerState = readerState,
-                        onToggleOverlay = overlayState::toggle,
-                        onNavigatePastEnd = {
-                            persistCompletedProgress()
-                            onNextItemRequested()
-                        },
-                    )
+                        ComicReaderMode.VerticalScroll -> ComicsContinuousReaderSurface(
+                            item = item,
+                            pages = pages,
+                            pageSource = pageSource,
+                            readerState = readerState,
+                            onToggleOverlay = overlayState::toggle,
+                            onNavigatePastEnd = {
+                                persistCompletedProgress()
+                                onNextItemRequested()
+                            },
+                        )
+                    }
                 }
-            }
-        },
-        overlay = {
-            Box(modifier = Modifier.fillMaxSize()) {
-                ReaderOverlayBar(
-                    itemId = item.id,
-                    title = comicReaderDisplayTitle(item),
-                    progressLabel = "${readerState.currentPage + 1} / ${pages.size}",
-                    readerMode = readerState.readerMode,
-                    readingDirection = readerState.readingDirection,
-                    pageFitMode = readerState.pageFitMode,
-                    spreadMode = readerState.spreadMode,
-                    overlayVisible = overlayState.isVisible,
-                    onBack = onBack,
-                    onReaderModeChanged = readerState::onReaderModeChanged,
-                    onReadingDirectionChanged = readerState::onReadingDirectionChanged,
-                    onPageFitModeChanged = readerState::onPageFitModeChanged,
-                    onSpreadModeChanged = readerState::onSpreadModeChanged,
-                )
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .windowInsetsPadding(
-                            WindowInsets.safeGestures.only(
-                                WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom,
-                            ),
-                        ),
-                ) {
-                    ComicPagePreviewStrip(
-                        item = item,
-                        pages = pages,
-                        currentPage = readerState.currentPage,
+            },
+            overlay = {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    ReaderOverlayBar(
+                        itemId = item.id,
+                        title = comicReaderDisplayTitle(item),
+                        progressLabel = "${readerState.currentPage + 1} / ${pages.size}",
+                        readerMode = readerState.readerMode,
                         readingDirection = readerState.readingDirection,
-                        spreadMode = when (readerState.readerMode) {
-                            ComicReaderMode.Paged -> readerState.spreadMode
-                            ComicReaderMode.VerticalScroll -> ComicSpreadMode.Single
-                        },
-                        pageSource = pageSource,
-                        applySafeGesturesPadding = false,
-                        onPageSelected = { targetPage ->
-                            when (readerState.readerMode) {
-                                ComicReaderMode.Paged -> readerState.onPageSettled(targetPage)
-                                ComicReaderMode.VerticalScroll -> readerState.onContinuousPositionSettled(
-                                    pageIndex = targetPage,
-                                    offsetRatio = 0f,
-                                )
-                            }
-                        },
+                        pageFitMode = readerState.pageFitMode,
+                        spreadMode = readerState.spreadMode,
+                        overlayVisible = overlayState.isVisible,
+                        onBack = onBack,
+                        onReaderModeChanged = readerState::onReaderModeChanged,
+                        onReadingDirectionChanged = readerState::onReadingDirectionChanged,
+                        onPageFitModeChanged = readerState::onPageFitModeChanged,
+                        onSpreadModeChanged = readerState::onSpreadModeChanged,
                     )
-                    Spacer(modifier = Modifier.height(overlayTokens.spacing.smallGap))
-                    ReaderBottomProgressBar(
-                        progress = currentPageProgress,
-                        percentLabel = "${(currentPageProgress * 100f).roundToInt()}%",
-                        pageLabel = "${readerState.currentPage + 1}/${pages.size}",
-                        readingDirection = comicProgressBarDirection(
-                            readerMode = readerState.readerMode,
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .windowInsetsPadding(
+                                WindowInsets.safeGestures.only(
+                                    WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom,
+                                ),
+                            ),
+                    ) {
+                        ComicPagePreviewStrip(
+                            item = item,
+                            pages = pages,
+                            currentPage = readerState.currentPage,
                             readingDirection = readerState.readingDirection,
-                        ),
-                        applySafeGesturesPadding = false,
-                        onProgressSelected = { selectedProgress ->
-                            val targetPage = (selectedProgress * (pages.size - 1))
-                                .roundToInt()
-                                .coerceIn(0, pages.lastIndex)
-                            when (readerState.readerMode) {
-                                ComicReaderMode.Paged -> readerState.onPageSettled(targetPage)
-                                ComicReaderMode.VerticalScroll -> readerState.onContinuousPositionSettled(
-                                    pageIndex = targetPage,
-                                    offsetRatio = 0f,
-                                )
-                            }
-                        },
-                    )
+                            spreadMode = spreadModeForPlan,
+                            spreadPlanState = spreadPlanState,
+                            pageSource = pageSource,
+                            applySafeGesturesPadding = false,
+                            onPageSelected = { targetPage ->
+                                when (readerState.readerMode) {
+                                    ComicReaderMode.Paged -> readerState.onPageSettled(targetPage)
+                                    ComicReaderMode.VerticalScroll -> readerState.onContinuousPositionSettled(
+                                        pageIndex = targetPage,
+                                        offsetRatio = 0f,
+                                    )
+                                }
+                            },
+                        )
+                        Spacer(modifier = Modifier.height(overlayTokens.spacing.smallGap))
+                        ReaderBottomProgressBar(
+                            progress = currentPageProgress,
+                            percentLabel = "${(currentPageProgress * 100f).roundToInt()}%",
+                            pageLabel = "${readerState.currentPage + 1}/${pages.size}",
+                            readingDirection = comicProgressBarDirection(
+                                readerMode = readerState.readerMode,
+                                readingDirection = readerState.readingDirection,
+                            ),
+                            applySafeGesturesPadding = false,
+                            onProgressSelected = { selectedProgress ->
+                                val targetPage = (selectedProgress * (pages.size - 1))
+                                    .roundToInt()
+                                    .coerceIn(0, pages.lastIndex)
+                                when (readerState.readerMode) {
+                                    ComicReaderMode.Paged -> readerState.onPageSettled(targetPage)
+                                    ComicReaderMode.VerticalScroll -> readerState.onContinuousPositionSettled(
+                                        pageIndex = targetPage,
+                                        offsetRatio = 0f,
+                                    )
+                                }
+                            },
+                        )
+                    }
                 }
-            }
-        },
-    )
+            },
+        )
+    }
 }
 
 @Composable

@@ -502,34 +502,37 @@ private fun buildDoublePageSpreads(
         metadata = pageMetadataById[pages.first().id],
         id = "spread-cover",
     )
-    // Keep double-page slots stable after the cover so resumed spreads do not depend on
-    // metadata from every earlier page in the book. A wide page only splits its own slot.
-    var slotStartIndex = 1
-    while (slotStartIndex < pages.size) {
-        val leftPage = pages[slotStartIndex]
-        val rightPage = pages.getOrNull(slotStartIndex + 1)
-        if (rightPage == null) {
-            spreads += soloComicPageSpread(
-                page = leftPage,
-                pageCount = pages.size,
-                metadata = pageMetadataById[leftPage.id],
-            )
-            break
-        }
+    var pageIndex = 1
+    while (pageIndex < pages.size) {
+        val leftPage = pages[pageIndex]
         val leftMetadata = pageMetadataById[leftPage.id]
-        val rightMetadata = pageMetadataById[rightPage.id]
-        val slotHasWidePage = leftMetadata?.isWide() == true || rightMetadata?.isWide() == true
-        if (slotHasWidePage) {
+        if (leftMetadata?.isWide() == true) {
             spreads += soloComicPageSpread(
                 page = leftPage,
                 pageCount = pages.size,
                 metadata = leftMetadata,
             )
+            pageIndex += 1
+            continue
+        }
+
+        val rightPage = pages.getOrNull(pageIndex + 1)
+        if (rightPage == null) {
             spreads += soloComicPageSpread(
-                page = rightPage,
+                page = leftPage,
                 pageCount = pages.size,
-                metadata = rightMetadata,
+                metadata = leftMetadata,
             )
+            break
+        }
+        val rightMetadata = pageMetadataById[rightPage.id]
+        if (rightMetadata?.isWide() == true) {
+            spreads += soloComicPageSpread(
+                page = leftPage,
+                pageCount = pages.size,
+                metadata = leftMetadata,
+            )
+            pageIndex += 1
         } else {
             spreads += pairedComicPageSpread(
                 leftPage = leftPage,
@@ -538,8 +541,8 @@ private fun buildDoublePageSpreads(
                 readingDirection = readingDirection,
                 pageMetadataById = pageMetadataById,
             )
+            pageIndex += 2
         }
-        slotStartIndex += 2
     }
     return spreads
 }

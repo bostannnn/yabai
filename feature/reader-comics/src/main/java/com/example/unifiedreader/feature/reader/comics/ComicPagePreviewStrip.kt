@@ -25,10 +25,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,8 +45,6 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 
 private val NormalPreviewHeight = 154.dp
@@ -63,8 +59,6 @@ private val PreviewOptions = ComicPagePreviewOptions(
     targetLongEdge = 520,
     maxPixelCount = 320_000,
 )
-private const val PreviewMetadataWarmConcurrency = 2
-private const val PreviewMetadataWarmPageLimit = 24
 private const val PreviewUnavailableRetryDelayMillis = 300L
 
 @Composable
@@ -74,6 +68,7 @@ internal fun ComicPagePreviewStrip(
     currentPage: Int,
     readingDirection: ComicReadingDirection,
     spreadMode: ComicSpreadMode,
+    spreadPlanState: ComicSpreadPlanState,
     pageSource: ComicPageSource,
     modifier: Modifier = Modifier,
     applySafeGesturesPadding: Boolean = true,
@@ -83,7 +78,6 @@ internal fun ComicPagePreviewStrip(
     val tokens = readerOverlayTokens()
     val listState = rememberLazyListState()
     val safeCurrentPage = currentPage.coerceIn(0, pages.lastIndex)
-    var pageMetadataById by remember(item.id, pages) { mutableStateOf<Map<String, ComicPageMetadata>>(emptyMap()) }
 
     LaunchedEffect(item.id, pages, pageSource, safeCurrentPage) {
         pageSource.prefetchPagePreviews(
@@ -92,32 +86,6 @@ internal fun ComicPagePreviewStrip(
             options = PreviewOptions,
             priorityPageIndex = safeCurrentPage,
         )
-    }
-
-    LaunchedEffect(item.id, pages, pageSource, safeCurrentPage) {
-        val metadataSemaphore = Semaphore(PreviewMetadataWarmConcurrency)
-        kotlinx.coroutines.coroutineScope {
-            pages
-                .sortedByDistanceTo(safeCurrentPage)
-                .take(PreviewMetadataWarmPageLimit)
-                .map { page ->
-                    async {
-                        metadataSemaphore.withPermit {
-                            page.id to pageSource.loadCachedPagePreviewMetadata(
-                                item = item,
-                                page = page,
-                                options = PreviewOptions,
-                            )
-                        }
-                    }
-                }
-                .forEach { deferred ->
-                    val (pageId, metadata) = deferred.await()
-                    if (metadata != null && pageMetadataById[pageId] != metadata) {
-                        pageMetadataById = pageMetadataById + (pageId to metadata)
-                    }
-                }
-        }
     }
 
     BoxWithConstraints(
@@ -133,13 +101,13 @@ internal fun ComicPagePreviewStrip(
             pages,
             readingDirection,
             useDoublePageSpreads,
-            pageMetadataById,
+            spreadPlanState.metadataByPageId,
         ) {
             buildComicPageSpreads(
                 pages = pages,
                 readingDirection = readingDirection,
                 useDoublePageSpreads = useDoublePageSpreads,
-                pageMetadataById = pageMetadataById,
+                pageMetadataById = spreadPlanState.metadataByPageId,
             )
         }
         val targetListIndex = remember(spreads, safeCurrentPage) {
@@ -179,11 +147,6 @@ internal fun ComicPagePreviewStrip(
                     spread = spread,
                     pageSource = pageSource,
                     selected = safeCurrentPage in spread.pageIndexes,
-                    onMetadataLoaded = { pageId, metadata ->
-                        if (pageMetadataById[pageId] != metadata) {
-                            pageMetadataById = pageMetadataById + (pageId to metadata)
-                        }
-                    },
                     onClick = { onPageSelected(spread.resumePageIndex) },
                 )
             }
@@ -197,7 +160,6 @@ private fun ComicSpreadPreviewItem(
     spread: ComicPageSpread,
     pageSource: ComicPageSource,
     selected: Boolean,
-    onMetadataLoaded: (String, ComicPageMetadata) -> Unit,
     onClick: () -> Unit,
 ) {
     val tokens = readerOverlayTokens()
@@ -221,9 +183,6 @@ private fun ComicSpreadPreviewItem(
                 pageSource = pageSource,
             )
         }
-        loadedState.mapNotNull(LoadedPreviewPage::metadata).forEach { (pageId, metadata) ->
-            onMetadataLoaded(pageId, metadata)
-        }
         value = loadedState.associate { it.pageId to it.result }
         if (loadedState.any { page -> page.result == ComicPagePreviewResult.Unavailable }) {
             delay(PreviewUnavailableRetryDelayMillis)
@@ -233,9 +192,6 @@ private fun ComicSpreadPreviewItem(
                     spread = spread,
                     pageSource = pageSource,
                 )
-            }
-            retryState.mapNotNull(LoadedPreviewPage::metadata).forEach { (pageId, metadata) ->
-                onMetadataLoaded(pageId, metadata)
             }
             value = retryState.associate { it.pageId to it.result }
         }
@@ -315,17 +271,9 @@ private suspend fun loadSpreadPreviewPages(
                     page = page,
                     options = PreviewOptions,
                 )
-                val metadata = (preview as? ComicPagePreviewResult.Success)?.let {
-                    page.id to
-                        ComicPageMetadata(
-                            width = it.image.width,
-                            height = it.image.height,
-                        )
-                }
                 LoadedPreviewPage(
                     pageId = page.id,
                     result = preview,
-                    metadata = metadata,
                 )
             }
         }
@@ -405,13 +353,6 @@ private inline fun Iterable<ComicSpreadPage>.sumOfDp(
     return sum
 }
 
-private fun List<ComicPageSpec>.sortedByDistanceTo(
-    pageIndex: Int,
-): List<ComicPageSpec> = sortedWith(
-    compareBy<ComicPageSpec> { page -> kotlin.math.abs(page.pageIndex - pageIndex) }
-        .thenBy(ComicPageSpec::pageIndex),
-)
-
 private fun ComicPageSpread.previewLabel(): String {
     val indexes = pageIndexes.distinct().sorted()
     return if (indexes.size == 1) {
@@ -424,7 +365,6 @@ private fun ComicPageSpread.previewLabel(): String {
 private data class LoadedPreviewPage(
     val pageId: String,
     val result: ComicPagePreviewResult,
-    val metadata: Pair<String, ComicPageMetadata>?,
 )
 
 internal const val ComicPagePreviewStripTag = "comic-page-preview-strip"

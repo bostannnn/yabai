@@ -5,21 +5,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.example.unifiedreader.core.model.ReadableItem
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-
-private const val SpreadPlanningMaxMetadataRetries = 3
-private const val SpreadPlanningRetryDelayMillis = 750L
 
 @Composable
 internal fun ComicsPagedReaderSurface(
@@ -27,14 +17,11 @@ internal fun ComicsPagedReaderSurface(
     pages: List<ComicPageSpec>,
     pageSource: ComicPageSource,
     readerState: ComicsReaderState,
+    spreadPlanState: ComicSpreadPlanState,
     overlayVisible: Boolean,
     onToggleOverlay: () -> Unit,
     onNavigatePastEnd: () -> Unit,
 ) {
-    var pageMetadataById by remember(item.id) { mutableStateOf<Map<String, ComicPageMetadata>>(emptyMap()) }
-    var spreadPlanningFailuresById by remember(item.id) { mutableStateOf<Map<String, Int>>(emptyMap()) }
-    var degradedSpreadPlanningPageIds by remember(item.id) { mutableStateOf<Set<String>>(emptySet()) }
-    var metadataRetryNonce by remember(item.id) { mutableIntStateOf(0) }
     val coroutineScope = rememberCoroutineScope()
 
     BoxWithConstraints(
@@ -46,73 +33,17 @@ internal fun ComicsPagedReaderSurface(
             maxHeightDp = maxHeight.value,
             pageCount = pages.size,
         )
-        LaunchedEffect(
-            item.id,
-            readerState.resumeAnchorPage,
-            readerState.readingDirection,
-            readerState.spreadMode,
-            useDoublePageSpreads,
-            pages,
-            metadataRetryNonce,
-        ) {
-            val requiredIndexes = requiredMetadataIndexes(
-                currentPage = readerState.resumeAnchorPage,
-                pageCount = pages.size,
-                useDoublePageSpreads = useDoublePageSpreads,
-            )
-            val targetIndexes = backgroundMetadataIndexes(
-                currentPage = readerState.resumeAnchorPage,
-                pageCount = pages.size,
-                useDoublePageSpreads = useDoublePageSpreads,
-            ).filter { index ->
-                val pageId = pages[index].id
-                pageId !in pageMetadataById && pageId !in degradedSpreadPlanningPageIds
-            }
-            if (targetIndexes.isEmpty()) return@LaunchedEffect
-            val loadResults = targetIndexes.map { index ->
-                async {
-                    val page = pages[index]
-                    page.id to loadSpreadPlanningMetadata(
-                        item = item,
-                        page = page,
-                        pageSource = pageSource,
-                    )
-                }
-            }.awaitAll()
-            val planningUpdate = applySpreadPlanningResults(
-                pages = pages,
-                requiredIndexes = requiredIndexes,
-                loadResults = loadResults,
-                pageMetadataById = pageMetadataById,
-                spreadPlanningFailuresById = spreadPlanningFailuresById,
-                degradedSpreadPlanningPageIds = degradedSpreadPlanningPageIds,
-                maxMetadataRetries = SpreadPlanningMaxMetadataRetries,
-            )
-            if (planningUpdate.metadataByPageId != pageMetadataById) {
-                pageMetadataById = planningUpdate.metadataByPageId
-            }
-            if (planningUpdate.failureCountsByPageId != spreadPlanningFailuresById) {
-                spreadPlanningFailuresById = planningUpdate.failureCountsByPageId
-            }
-            if (planningUpdate.degradedPageIds != degradedSpreadPlanningPageIds) {
-                degradedSpreadPlanningPageIds = planningUpdate.degradedPageIds
-            }
-            if (planningUpdate.shouldRetry) {
-                delay(SpreadPlanningRetryDelayMillis)
-                metadataRetryNonce += 1
-            }
-        }
         val spreads = remember(
             pages,
             readerState.readingDirection,
             useDoublePageSpreads,
-            pageMetadataById,
+            spreadPlanState.metadataByPageId,
         ) {
             buildComicPageSpreads(
                 pages = pages,
                 readingDirection = readerState.readingDirection,
                 useDoublePageSpreads = useDoublePageSpreads,
-                pageMetadataById = pageMetadataById,
+                pageMetadataById = spreadPlanState.metadataByPageId,
             )
         }
         val pagerState = rememberPagerState(

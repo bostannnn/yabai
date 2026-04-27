@@ -112,6 +112,15 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
         page: ComicPageSpec,
     ): ByteArray? = null
 
+    protected open suspend fun pagePreviewByteSource(
+        item: ReadableItem,
+        page: ComicPageSpec,
+    ): RemoteComicPreviewByteSource = if (hasDedicatedPagePreviews) {
+        RemoteComicPreviewByteSource.DedicatedPreview
+    } else {
+        RemoteComicPreviewByteSource.CachedPage
+    }
+
     override fun getPages(
         item: ReadableItem,
     ): List<ComicPageSpec> {
@@ -133,16 +142,28 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
     ): Flow<Long> {
         val session = activeSessionFor(item) ?: return kotlinx.coroutines.flow.flowOf(0L)
         val itemKey = item.cacheIdentityKey()
+        val observableByteSources = if (hasDedicatedPagePreviews) {
+            listOf(
+                RemoteComicPreviewByteSource.DedicatedPreview,
+                RemoteComicPreviewByteSource.PageImage,
+            )
+        } else {
+            listOf(RemoteComicPreviewByteSource.CachedPage)
+        }
         val previewCacheKeys = pages
-            .map { page ->
-                pagePreviewCacheKey(
-                    pageCacheKey = pageCacheKey(
-                        baseUrl = session.baseUrl,
-                        itemKey = itemKey,
-                        pageId = page.id,
-                    ),
-                    options = options,
+            .flatMap { page ->
+                val pageCacheKey = pageCacheKey(
+                    baseUrl = session.baseUrl,
+                    itemKey = itemKey,
+                    pageId = page.id,
                 )
+                observableByteSources.map { byteSource ->
+                    pagePreviewCacheKey(
+                        pageCacheKey = pageCacheKey,
+                        options = options,
+                        byteSource = byteSource,
+                    )
+                }
             }
             .toSet()
         return previewVersionByCacheKeyFlow
@@ -150,7 +171,7 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
             .distinctUntilChanged()
     }
 
-    override suspend fun loadPageMetadata(
+    override open suspend fun loadPageMetadata(
         item: ReadableItem,
         page: ComicPageSpec,
     ): ComicPageMetadata? {
@@ -234,7 +255,12 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
             itemKey = item.cacheIdentityKey(),
             pageId = page.id,
         )
-        val previewCacheKey = pagePreviewCacheKey(cacheKey, options)
+        val previewByteSource = pagePreviewByteSource(item, page)
+        val previewCacheKey = pagePreviewCacheKey(
+            pageCacheKey = cacheKey,
+            options = options,
+            byteSource = previewByteSource,
+        )
         val requestGeneration = cacheGeneration.get()
         pagePreviewCache[previewCacheKey]?.let { return it }
         val result = withContext(ioDispatcher) {
@@ -246,8 +272,9 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
                     pageCacheKey = cacheKey,
                     previewCacheKey = previewCacheKey,
                     session = session,
+                    byteSource = previewByteSource,
                 ) ?: return@withPermit ComicPagePreviewResult.Unavailable
-                if (!hasDedicatedPagePreviews) {
+                if (previewByteSource != RemoteComicPreviewByteSource.DedicatedPreview) {
                     decodeComicPageMetadata(bytes)?.let { metadata ->
                         if (cacheGeneration.get() == requestGeneration) {
                             pageMetadataCache.put(cacheKey, metadata)
@@ -259,6 +286,9 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
         }
         if (result is ComicPagePreviewResult.Success && cacheGeneration.get() == requestGeneration) {
             pagePreviewCache.put(previewCacheKey, result)
+            if (previewByteSource != RemoteComicPreviewByteSource.DedicatedPreview) {
+                previewVersionByCacheKeyFlow.increment(previewCacheKey)
+            }
         }
         return result
     }
@@ -267,11 +297,14 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
         item: ReadableItem,
         page: ComicPageSpec,
         options: ComicPagePreviewOptions,
-    ): ComicPageMetadata? = loadCachedPagePreviewMetadata(
-        item = item,
-        page = page,
-        options = options,
-    )
+    ): ComicPageMetadata? {
+        if (hasDedicatedPagePreviews) return null
+        return loadCachedPagePreviewMetadata(
+            item = item,
+            page = page,
+            options = options,
+        )
+    }
 
     override suspend fun loadCachedPagePreviewMetadata(
         item: ReadableItem,
@@ -286,8 +319,12 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
             pageId = page.id,
         )
         pageMetadataCache[pageCacheKey]?.let { return it }
-        if (!hasDedicatedPagePreviews) return null
-        val previewCacheKey = pagePreviewCacheKey(pageCacheKey, options)
+        if (hasDedicatedPagePreviews) return null
+        val previewCacheKey = pagePreviewCacheKey(
+            pageCacheKey = pageCacheKey,
+            options = options,
+            byteSource = RemoteComicPreviewByteSource.CachedPage,
+        )
         val bytes = previewBytesCache[previewCacheKey]
             ?: previewStore?.readBytes(previewCacheKey)
             ?: return null
@@ -337,7 +374,11 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
                                         itemKey = item.cacheIdentityKey(),
                                         pageId = page.id,
                                     )
-                                    val previewCacheKey = pagePreviewCacheKey(pageCacheKey, options)
+                                    val previewCacheKey = pagePreviewCacheKey(
+                                        pageCacheKey = pageCacheKey,
+                                        options = options,
+                                        byteSource = RemoteComicPreviewByteSource.DedicatedPreview,
+                                    )
                                     if (previewBytesCache[previewCacheKey] == null) {
                                         previewPrefetchSemaphore.withPermit {
                                             warmDedicatedPreviewBytes(
@@ -447,7 +488,7 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
         }
     }
 
-    fun clear() {
+    open fun clear() {
         cacheGeneration.incrementAndGet()
         pageBitmapCache.evictAll()
         pageMetadataCache.evictAll()
@@ -472,19 +513,25 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
         pageCacheKey: String,
         previewCacheKey: String,
         session: Session,
+        byteSource: RemoteComicPreviewByteSource,
     ): ByteArray? {
         val requestGeneration = cacheGeneration.get()
-        return if (hasDedicatedPagePreviews) {
-            fetchDedicatedPreviewBytes(
+        return when (byteSource) {
+            RemoteComicPreviewByteSource.DedicatedPreview -> fetchDedicatedPreviewBytes(
                 item = item,
                 page = page,
                 previewCacheKey = previewCacheKey,
                 requestGeneration = requestGeneration,
             )
-        } else {
-            cachedPageBytesOrInFlight(
+            RemoteComicPreviewByteSource.CachedPage -> cachedPageBytesOrInFlight(
                 cacheKey = pageCacheKey,
                 requestGeneration = requestGeneration,
+            )
+            RemoteComicPreviewByteSource.PageImage -> fetchPageBytes(
+                item = item,
+                page = page,
+                cacheKey = pageCacheKey,
+                session = session,
             )
         }
     }
@@ -684,13 +731,22 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
     private fun pagePreviewCacheKey(
         pageCacheKey: String,
         options: ComicPagePreviewOptions,
-    ): String = "$pageCacheKey::preview:$PagePreviewCacheVersion:${options.targetLongEdge}:${options.maxPixelCount}"
+        byteSource: RemoteComicPreviewByteSource,
+    ): String = "$pageCacheKey::preview:$PagePreviewCacheVersion:${byteSource.cacheKeyToken}:${options.targetLongEdge}:${options.maxPixelCount}"
 
     private fun pagePreviewPrefetchKey(
         baseUrl: String,
         itemKey: String,
         options: ComicPagePreviewOptions,
     ): String = "${baseUrl.trimEnd('/')}::$itemKey::preview-prefetch:${options.targetLongEdge}:${options.maxPixelCount}"
+}
+
+enum class RemoteComicPreviewByteSource(
+    val cacheKeyToken: String,
+) {
+    DedicatedPreview("dedicated"),
+    CachedPage("cached-page"),
+    PageImage("page-image"),
 }
 
 private fun MutableStateFlow<Map<String, Long>>.increment(

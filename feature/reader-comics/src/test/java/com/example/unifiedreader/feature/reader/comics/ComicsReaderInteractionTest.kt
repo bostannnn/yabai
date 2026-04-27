@@ -44,8 +44,8 @@ class ComicsReaderInteractionTest {
     }
 
     @Test
-    fun `spread builder isolates wide pages in double page mode`() {
-        val pages = samplePages(count = 5)
+    fun `spread builder isolates wide pages without forcing following normal page solo`() {
+        val pages = samplePages(count = 6)
 
         val spreads = buildComicPageSpreads(
             pages = pages,
@@ -58,8 +58,28 @@ class ComicsReaderInteractionTest {
 
         assertEquals(listOf(0), spreads[0].pageIndexes)
         assertEquals(listOf(1), spreads[1].pageIndexes)
+        assertEquals(listOf(2, 3), spreads[2].pageIndexes)
+        assertEquals(listOf(4, 5), spreads[3].pageIndexes)
+    }
+
+    @Test
+    fun `spread builder isolates normal page before wide page`() {
+        val pages = samplePages(count = 6)
+
+        val spreads = buildComicPageSpreads(
+            pages = pages,
+            readingDirection = ComicReadingDirection.LTR,
+            useDoublePageSpreads = true,
+            pageMetadataById = mapOf(
+                pages[2].id to ComicPageMetadata(width = 2400, height = 1200),
+            ),
+        )
+
+        assertEquals(listOf(0), spreads[0].pageIndexes)
+        assertEquals(listOf(1), spreads[1].pageIndexes)
         assertEquals(listOf(2), spreads[2].pageIndexes)
         assertEquals(listOf(3, 4), spreads[3].pageIndexes)
+        assertEquals(listOf(5), spreads[4].pageIndexes)
     }
 
     @Test
