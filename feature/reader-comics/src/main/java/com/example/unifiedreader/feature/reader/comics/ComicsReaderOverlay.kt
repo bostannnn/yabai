@@ -73,7 +73,7 @@ internal fun ReaderOverlayBar(
             trailingActions = {
                 ReaderOverlayIconButton(
                     isActive = isPreferencesSheetOpen,
-                    onClick = { isPreferencesSheetOpen = true },
+                    onClick = { isPreferencesSheetOpen = !isPreferencesSheetOpen },
                 ) {
                     Icon(
                         imageVector = Icons.Default.ViewCarousel,
