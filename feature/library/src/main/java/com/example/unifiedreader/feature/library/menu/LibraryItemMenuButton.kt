@@ -152,7 +152,7 @@ private fun CompactInlineLibraryItemMenuButton(
                     drawCircle(
                         color = dotColor,
                         radius = dotRadius,
-                        center = Offset(centerX, middleY - dotSpacing),
+                        center = Offset(centerX - dotSpacing, middleY),
                     )
                     drawCircle(
                         color = dotColor,
@@ -162,7 +162,7 @@ private fun CompactInlineLibraryItemMenuButton(
                     drawCircle(
                         color = dotColor,
                         radius = dotRadius,
-                        center = Offset(centerX, middleY + dotSpacing),
+                        center = Offset(centerX + dotSpacing, middleY),
                     )
                 }
             },
