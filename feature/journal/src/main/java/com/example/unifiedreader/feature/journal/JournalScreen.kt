@@ -3,22 +3,15 @@ package com.example.unifiedreader.feature.journal
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -32,72 +25,30 @@ import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 
-enum class JournalTab(
-    val label: String,
-) {
-    Timeline("Timeline"),
-    Stats("Stats"),
-}
-
 @Composable
 fun JournalScreen(
     snapshot: JournalSnapshot,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String? = { item, _ -> item.coverUrl },
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit = { _, _ -> },
-    onDeleteEvent: (String) -> Unit,
     onDeleteItemJournal: (String) -> Unit,
     onSaveJournalEntry: (JournalItemRef, Int?, String) -> Unit,
-    onSaveGoal: (ReadingGoalPeriod, ReadingGoalMetric, Int) -> Unit,
-    onDeleteGoal: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var selectedTab by rememberSaveable { mutableStateOf(JournalTab.Timeline) }
     var deleteTarget by remember { mutableStateOf<JournalDeleteTarget?>(null) }
-    Column(modifier = modifier.fillMaxSize()) {
-        SingleChoiceSegmentedButtonRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-        ) {
-            JournalTab.entries.forEachIndexed { index, tab ->
-                SegmentedButton(
-                    selected = selectedTab == tab,
-                    onClick = { selectedTab = tab },
-                    shape = SegmentedButtonDefaults.itemShape(
-                        index = index,
-                        count = JournalTab.entries.size,
-                    ),
-                ) {
-                    Text(text = tab.label)
-                }
-            }
-        }
-        when (selectedTab) {
-            JournalTab.Timeline -> JournalTimelineContent(
-                snapshot = snapshot,
-                coverImageUrlProvider = coverImageUrlProvider,
-                onCoverVisible = onCoverVisible,
-                onRequestDeleteEvent = { eventId -> deleteTarget = JournalDeleteTarget.Event(eventId) },
-                onDeleteItemJournal = { itemId -> deleteTarget = JournalDeleteTarget.Item(itemId) },
-                onSaveJournalEntry = onSaveJournalEntry,
-                onSaveGoal = onSaveGoal,
-                onDeleteGoal = { goalId -> deleteTarget = JournalDeleteTarget.Goal(goalId) },
-            )
-            JournalTab.Stats -> JournalStatsContent(
-                snapshot = snapshot,
-                coverImageUrlProvider = coverImageUrlProvider,
-                onCoverVisible = onCoverVisible,
-            )
-        }
-    }
+    JournalStatsContent(
+        snapshot = snapshot,
+        coverImageUrlProvider = coverImageUrlProvider,
+        onCoverVisible = onCoverVisible,
+        onDeleteItemJournal = { itemId -> deleteTarget = JournalDeleteTarget.Item(itemId) },
+        onSaveJournalEntry = onSaveJournalEntry,
+        modifier = modifier,
+    )
     deleteTarget?.let { target ->
         JournalDeleteConfirmationDialog(
             target = target,
             onDismiss = { deleteTarget = null },
             onConfirm = {
                 when (target) {
-                    is JournalDeleteTarget.Event -> onDeleteEvent(target.eventId)
-                    is JournalDeleteTarget.Goal -> onDeleteGoal(target.goalId)
                     is JournalDeleteTarget.Item -> onDeleteItemJournal(target.itemId)
                 }
                 deleteTarget = null
@@ -163,98 +114,6 @@ internal fun JournalEntryEditorSheet(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-internal fun GoalEditorDialog(
-    onDismiss: () -> Unit,
-    onSave: (ReadingGoalPeriod, ReadingGoalMetric, Int) -> Unit,
-) {
-    var period by rememberSaveable { mutableStateOf(ReadingGoalPeriod.MONTH) }
-    var metric by rememberSaveable { mutableStateOf(ReadingGoalMetric.BOOKS_FINISHED) }
-    var targetText by rememberSaveable { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(text = "Reading goal") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                GoalDropdown(
-                    label = "Period",
-                    value = period.label,
-                    entries = ReadingGoalPeriod.entries,
-                    entryLabel = ReadingGoalPeriod::label,
-                    onSelected = { period = it },
-                )
-                GoalDropdown(
-                    label = "Metric",
-                    value = metric.label,
-                    entries = ReadingGoalMetric.entries,
-                    entryLabel = ReadingGoalMetric::label,
-                    onSelected = { metric = it },
-                )
-                OutlinedTextField(
-                    value = targetText,
-                    onValueChange = { targetText = it.filter(Char::isDigit) },
-                    label = { Text(text = "Target") },
-                    singleLine = true,
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    onSave(period, metric, targetText.toIntOrNull() ?: 0)
-                },
-            ) {
-                Text(text = "Save")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(text = "Cancel")
-            }
-        },
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun <T> GoalDropdown(
-    label: String,
-    value: String,
-    entries: List<T>,
-    entryLabel: (T) -> String,
-    onSelected: (T) -> Unit,
-) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it },
-    ) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text(text = label) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.menuAnchor(),
-        )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
-            entries.forEach { entry ->
-                DropdownMenuItem(
-                    text = { Text(text = entryLabel(entry)) },
-                    onClick = {
-                        expanded = false
-                        onSelected(entry)
-                    },
-                )
-            }
-        }
-    }
-}
-
 @Composable
 internal fun EmptyJournalMessage(
     text: String,
@@ -294,24 +153,10 @@ private sealed interface JournalDeleteTarget {
     val title: String
     val body: String
 
-    data class Event(
-        val eventId: String,
-    ) : JournalDeleteTarget {
-        override val title: String = "Remove timeline entry?"
-        override val body: String = "This removes only this reading event from the Journal."
-    }
-
     data class Item(
         val itemId: String,
     ) : JournalDeleteTarget {
         override val title: String = "Remove item journal?"
         override val body: String = "This removes the item reading history, rating, and private review from the Journal."
-    }
-
-    data class Goal(
-        val goalId: String,
-    ) : JournalDeleteTarget {
-        override val title: String = "Remove goal?"
-        override val body: String = "This removes the goal. Reading history and reviews stay untouched."
     }
 }

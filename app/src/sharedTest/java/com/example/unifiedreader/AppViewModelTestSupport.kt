@@ -23,8 +23,6 @@ import com.example.unifiedreader.feature.journal.JournalItemRef
 import com.example.unifiedreader.feature.journal.JournalProgressInput
 import com.example.unifiedreader.feature.journal.JournalRepository
 import com.example.unifiedreader.feature.journal.JournalSnapshot
-import com.example.unifiedreader.feature.journal.ReadingGoalMetric
-import com.example.unifiedreader.feature.journal.ReadingGoalPeriod
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryBrowsePreferences
 import com.example.unifiedreader.feature.library.LibraryBrowsePreferencesStore
@@ -1074,18 +1072,8 @@ class FakeJournalRepository : JournalRepository {
         reviewText: String,
     ) = Unit
 
-    override suspend fun deleteReadingEvent(eventId: String) = Unit
-
     override suspend fun deleteItemJournal(itemId: String) = Unit
 
-    override suspend fun saveGoal(
-        period: ReadingGoalPeriod,
-        metric: ReadingGoalMetric,
-        target: Int,
-        referenceEpochMillis: Long,
-    ) = Unit
-
-    override suspend fun deleteGoal(goalId: String) = Unit
 }
 
 class FakeComicReaderPreferencesStore : ComicReaderPreferencesStore {

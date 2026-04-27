@@ -215,20 +215,3 @@ data class ItemJournalEntryEntity(
     val reviewedAtEpochMillis: Long?,
     val updatedAtEpochMillis: Long,
 )
-
-@Entity(
-    tableName = "reading_goals",
-    indices = [
-        Index(value = ["periodType", "periodStartEpochMillis", "metric"]),
-    ],
-)
-data class ReadingGoalEntity(
-    @PrimaryKey val id: String,
-    val periodType: String,
-    val periodStartEpochMillis: Long,
-    val periodEndEpochMillis: Long,
-    val metric: String,
-    val target: Int,
-    val createdAtEpochMillis: Long,
-    val updatedAtEpochMillis: Long,
-)

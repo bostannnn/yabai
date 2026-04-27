@@ -185,11 +185,8 @@ fun UnifiedReaderScaffold(
                         snapshot = uiState.journalSnapshot,
                         coverImageUrlProvider = viewModel::coverImageUrlFor,
                         onCoverVisible = viewModel::ensureCoverCached,
-                        onDeleteEvent = viewModel::deleteJournalEvent,
                         onDeleteItemJournal = viewModel::deleteItemJournal,
                         onSaveJournalEntry = viewModel::saveJournalEntry,
-                        onSaveGoal = viewModel::saveJournalGoal,
-                        onDeleteGoal = viewModel::deleteJournalGoal,
                         modifier = Modifier.weight(1f),
                     )
 

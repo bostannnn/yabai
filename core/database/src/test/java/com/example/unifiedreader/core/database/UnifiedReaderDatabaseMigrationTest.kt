@@ -11,6 +11,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.SourceType
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -340,6 +341,37 @@ class UnifiedReaderDatabaseMigrationTest {
 
             assertTrue(columnExists(database, "journal_reading_events", "coverUrl"))
             assertTrue(columnExists(database, "item_journal_entries", "coverUrl"))
+        }
+    }
+
+    @Test
+    fun `migration 18 to 19 removes reading goals`() {
+        createTestDatabase(
+            name = "migration-18-19-${System.nanoTime()}",
+            version = 18,
+        ) { database ->
+            createVersion1Schema(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_1_2.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_2_3.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_3_4.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_4_5.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_5_6.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_6_7.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_7_8.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_8_9.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_9_10.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_10_11.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_11_12.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_12_13.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_13_14.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_14_15.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_15_16.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_16_17.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_17_18.migrate(database)
+        }.use { database ->
+            UnifiedReaderDatabaseMigrations.MIGRATION_18_19.migrate(database)
+
+            assertFalse(tableExists(database, "reading_goals"))
         }
     }
 
@@ -987,6 +1019,7 @@ private fun openRoomDatabase(
         UnifiedReaderDatabaseMigrations.MIGRATION_15_16,
         UnifiedReaderDatabaseMigrations.MIGRATION_16_17,
         UnifiedReaderDatabaseMigrations.MIGRATION_17_18,
+        UnifiedReaderDatabaseMigrations.MIGRATION_18_19,
     )
     .build()
 

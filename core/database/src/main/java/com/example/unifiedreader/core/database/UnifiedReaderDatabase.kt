@@ -18,7 +18,6 @@ import com.example.unifiedreader.core.database.entity.ItemJournalEntryEntity
 import com.example.unifiedreader.core.database.entity.JournalReadingEventEntity
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
-import com.example.unifiedreader.core.database.entity.ReadingGoalEntity
 import com.example.unifiedreader.core.database.entity.RemoteLibraryCacheEntity
 import com.example.unifiedreader.core.database.entity.ReaderSessionStateEntity
 import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
@@ -34,9 +33,8 @@ import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
         DownloadQueueEntryEntity::class,
         JournalReadingEventEntity::class,
         ItemJournalEntryEntity::class,
-        ReadingGoalEntity::class,
     ],
-    version = 18,
+    version = 19,
     exportSchema = false,
 )
 abstract class UnifiedReaderDatabase : RoomDatabase() {
@@ -686,6 +684,12 @@ object UnifiedReaderDatabaseMigrations {
             database.execSQL("ALTER TABLE item_journal_entries ADD COLUMN coverUrl TEXT")
         }
     }
+
+    val MIGRATION_18_19 = object : Migration(18, 19) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("DROP TABLE IF EXISTS reading_goals")
+        }
+    }
 }
 
 object UnifiedReaderDatabaseFactory {
@@ -714,6 +718,7 @@ object UnifiedReaderDatabaseFactory {
             UnifiedReaderDatabaseMigrations.MIGRATION_15_16,
             UnifiedReaderDatabaseMigrations.MIGRATION_16_17,
             UnifiedReaderDatabaseMigrations.MIGRATION_17_18,
+            UnifiedReaderDatabaseMigrations.MIGRATION_18_19,
         )
         .build()
 }

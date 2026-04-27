@@ -31,18 +31,7 @@ interface JournalRepository : JournalEventRecorder {
         reviewText: String,
     )
 
-    suspend fun deleteReadingEvent(eventId: String)
-
     suspend fun deleteItemJournal(itemId: String)
-
-    suspend fun saveGoal(
-        period: ReadingGoalPeriod,
-        metric: ReadingGoalMetric,
-        target: Int,
-        referenceEpochMillis: Long = System.currentTimeMillis(),
-    )
-
-    suspend fun deleteGoal(goalId: String)
 }
 
 class RoomJournalRepository(
@@ -56,13 +45,11 @@ class RoomJournalRepository(
     override fun observeSnapshot(): Flow<JournalSnapshot> = combine(
         journalDao.observeReadingEvents().map { entities -> entities.map { it.toDomain() } },
         journalDao.observeJournalEntries().map { entities -> entities.map { it.toDomain() } },
-        journalDao.observeGoals().map { entities -> entities.map { it.toDomain() } },
         remoteCatalogDao.observeItems().map { entities -> entities.map { it.toDomain() }.associateBy(ReadableItem::id) },
-    ) { events, entries, goals, catalogItemsById ->
+    ) { events, entries, catalogItemsById ->
         stateComputer.snapshot(
             events = events,
             entries = entries,
-            goals = goals,
             catalogItemsById = catalogItemsById,
         )
     }
@@ -121,52 +108,12 @@ class RoomJournalRepository(
         }
     }
 
-    override suspend fun deleteReadingEvent(
-        eventId: String,
-    ) {
-        withContext(Dispatchers.IO) {
-            journalDao.deleteReadingEvent(eventId)
-        }
-    }
-
     override suspend fun deleteItemJournal(
         itemId: String,
     ) {
         withContext(Dispatchers.IO) {
             journalDao.deleteReadingEventsForItem(itemId)
             journalDao.deleteJournalEntry(itemId)
-        }
-    }
-
-    override suspend fun saveGoal(
-        period: ReadingGoalPeriod,
-        metric: ReadingGoalMetric,
-        target: Int,
-        referenceEpochMillis: Long,
-    ) {
-        if (target <= 0) return
-        withContext(Dispatchers.IO) {
-            val now = nowEpochMillis()
-            val (start, end) = periodBounds(period, referenceEpochMillis)
-            val goal = ReadingGoal(
-                id = "${period.name}:${metric.name}:$start",
-                periodType = period,
-                periodStartEpochMillis = start,
-                periodEndEpochMillis = end,
-                metric = metric,
-                target = target,
-                createdAtEpochMillis = now,
-                updatedAtEpochMillis = now,
-            )
-            journalDao.insertGoal(goal.toEntity())
-        }
-    }
-
-    override suspend fun deleteGoal(
-        goalId: String,
-    ) {
-        withContext(Dispatchers.IO) {
-            journalDao.deleteGoal(goalId)
         }
     }
 }
@@ -177,6 +124,21 @@ internal fun buildJournalEvent(
 ): JournalReadingEvent? {
     val position = JournalPosition.from(input)
     val latestPosition = latestEvent?.let(JournalPosition::from)
+    if (
+        latestEvent != null &&
+        latestEvent.eventType != JournalReadingEventType.FINISHED &&
+        latestEvent.occurredAtEpochMillis.localDayKey() == input.occurredAtEpochMillis.localDayKey() &&
+        (input.isFinished || position.isMeaningfullyAfter(latestPosition))
+    ) {
+        val eventType = if (input.isFinished) JournalReadingEventType.FINISHED else latestEvent.eventType
+        return latestEvent.copy(
+            eventType = eventType,
+            toPercent = position.percent,
+            toPage = position.page,
+            pageCount = input.pageCount ?: input.item.pageCount,
+            occurredAtEpochMillis = input.occurredAtEpochMillis,
+        )
+    }
     val eventType = when {
         input.isFinished && latestEvent?.eventType != JournalReadingEventType.FINISHED -> JournalReadingEventType.FINISHED
         latestEvent == null -> JournalReadingEventType.STARTED
@@ -249,3 +211,5 @@ private data class JournalPosition(
 
 private const val MIN_CONTINUED_PAGE_DELTA = 3
 private const val MIN_CONTINUED_PERCENT_DELTA = 0.02
+
+private fun Long.localDayKey(): Int = localDateKey(this)

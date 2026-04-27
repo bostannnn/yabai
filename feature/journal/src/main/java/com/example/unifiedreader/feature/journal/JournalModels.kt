@@ -2,7 +2,6 @@ package com.example.unifiedreader.feature.journal
 
 import com.example.unifiedreader.core.database.entity.ItemJournalEntryEntity
 import com.example.unifiedreader.core.database.entity.JournalReadingEventEntity
-import com.example.unifiedreader.core.database.entity.ReadingGoalEntity
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
@@ -16,16 +15,9 @@ enum class JournalReadingEventType {
     FINISHED,
 }
 
-enum class ReadingGoalPeriod {
+enum class JournalPeriod {
     MONTH,
     YEAR,
-}
-
-enum class ReadingGoalMetric {
-    BOOKS_FINISHED,
-    COMICS_FINISHED,
-    PAGES_READ,
-    ACTIVE_DAYS,
 }
 
 data class JournalReadingEvent(
@@ -79,28 +71,6 @@ data class JournalItemRef(
             ?.takeUnless { it == displayTitle }
 }
 
-data class ReadingGoal(
-    val id: String,
-    val periodType: ReadingGoalPeriod,
-    val periodStartEpochMillis: Long,
-    val periodEndEpochMillis: Long,
-    val metric: ReadingGoalMetric,
-    val target: Int,
-    val createdAtEpochMillis: Long,
-    val updatedAtEpochMillis: Long,
-)
-
-data class JournalGoalProgress(
-    val goal: ReadingGoal,
-    val current: Int,
-) {
-    val isReached: Boolean
-        get() = current >= goal.target
-
-    val fraction: Float
-        get() = if (goal.target <= 0) 0f else (current.toFloat() / goal.target.toFloat()).coerceIn(0f, 1f)
-}
-
 data class JournalStats(
     val booksFinished: Int = 0,
     val comicsFinished: Int = 0,
@@ -123,13 +93,12 @@ data class JournalActivityDay(
 )
 
 data class JournalPeriodOverview(
-    val period: ReadingGoalPeriod,
+    val period: JournalPeriod,
     val periodStartEpochMillis: Long,
     val periodEndEpochMillis: Long,
     val stats: JournalStats,
     val activityDays: List<JournalActivityDay>,
     val finishedItems: List<JournalItemSummary>,
-    val goals: List<JournalGoalProgress>,
 )
 
 data class JournalItemSummary(
@@ -175,10 +144,8 @@ data class JournalSnapshot(
     val events: List<JournalReadingEvent> = emptyList(),
     val entries: List<ItemJournalEntry> = emptyList(),
     val itemSummaries: List<JournalItemSummary> = emptyList(),
-    val goals: List<ReadingGoal> = emptyList(),
     val monthStats: JournalStats = JournalStats(),
     val yearStats: JournalStats = JournalStats(),
-    val goalProgress: List<JournalGoalProgress> = emptyList(),
 ) {
     val entryByItemId: Map<String, ItemJournalEntry> by lazy {
         entries.associateBy(ItemJournalEntry::itemId)
@@ -258,30 +225,8 @@ internal fun ItemJournalEntry.toEntity(): ItemJournalEntryEntity = ItemJournalEn
     updatedAtEpochMillis = updatedAtEpochMillis,
 )
 
-internal fun ReadingGoalEntity.toDomain(): ReadingGoal = ReadingGoal(
-    id = id,
-    periodType = periodType.toReadingGoalPeriodOrDefault(),
-    periodStartEpochMillis = periodStartEpochMillis,
-    periodEndEpochMillis = periodEndEpochMillis,
-    metric = metric.toReadingGoalMetricOrDefault(),
-    target = target,
-    createdAtEpochMillis = createdAtEpochMillis,
-    updatedAtEpochMillis = updatedAtEpochMillis,
-)
-
-internal fun ReadingGoal.toEntity(): ReadingGoalEntity = ReadingGoalEntity(
-    id = id,
-    periodType = periodType.name,
-    periodStartEpochMillis = periodStartEpochMillis,
-    periodEndEpochMillis = periodEndEpochMillis,
-    metric = metric.name,
-    target = target,
-    createdAtEpochMillis = createdAtEpochMillis,
-    updatedAtEpochMillis = updatedAtEpochMillis,
-)
-
 fun periodBounds(
-    period: ReadingGoalPeriod,
+    period: JournalPeriod,
     nowEpochMillis: Long,
 ): Pair<Long, Long> {
     val calendar = Calendar.getInstance(Locale.US).apply {
@@ -290,14 +235,14 @@ fun periodBounds(
         set(Calendar.MINUTE, 0)
         set(Calendar.SECOND, 0)
         set(Calendar.MILLISECOND, 0)
-        if (period == ReadingGoalPeriod.YEAR) {
+        if (period == JournalPeriod.YEAR) {
             set(Calendar.MONTH, Calendar.JANUARY)
         }
         set(Calendar.DAY_OF_MONTH, 1)
     }
     val start = calendar.timeInMillis
     calendar.add(
-        if (period == ReadingGoalPeriod.MONTH) Calendar.MONTH else Calendar.YEAR,
+        if (period == JournalPeriod.MONTH) Calendar.MONTH else Calendar.YEAR,
         1,
     )
     return start to calendar.timeInMillis
@@ -372,9 +317,3 @@ private fun String.toReadableItemKindOrDefault(): ReadableItemKind =
 
 private fun String.toJournalReadingEventTypeOrDefault(): JournalReadingEventType =
     JournalReadingEventType.entries.firstOrNull { it.name == this } ?: JournalReadingEventType.CONTINUED
-
-private fun String.toReadingGoalPeriodOrDefault(): ReadingGoalPeriod =
-    ReadingGoalPeriod.entries.firstOrNull { it.name == this } ?: ReadingGoalPeriod.MONTH
-
-private fun String.toReadingGoalMetricOrDefault(): ReadingGoalMetric =
-    ReadingGoalMetric.entries.firstOrNull { it.name == this } ?: ReadingGoalMetric.BOOKS_FINISHED

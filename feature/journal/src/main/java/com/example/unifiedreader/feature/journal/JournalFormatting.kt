@@ -13,20 +13,6 @@ internal val JournalReadingEventType.label: String
         JournalReadingEventType.FINISHED -> "Finished"
     }
 
-internal val ReadingGoalPeriod.label: String
-    get() = when (this) {
-        ReadingGoalPeriod.MONTH -> "Monthly"
-        ReadingGoalPeriod.YEAR -> "Yearly"
-    }
-
-internal val ReadingGoalMetric.label: String
-    get() = when (this) {
-        ReadingGoalMetric.BOOKS_FINISHED -> "Books finished"
-        ReadingGoalMetric.COMICS_FINISHED -> "Comics finished"
-        ReadingGoalMetric.PAGES_READ -> "Pages read"
-        ReadingGoalMetric.ACTIVE_DAYS -> "Active days"
-    }
-
 internal fun JournalReadingEvent.progressLabel(): String {
     val pagePart = if (toPage != null && pageCount != null) {
         fromPage?.let { "$it -> $toPage / $pageCount" } ?: "$toPage / $pageCount"

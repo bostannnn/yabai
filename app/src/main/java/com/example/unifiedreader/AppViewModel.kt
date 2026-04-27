@@ -14,8 +14,6 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.downloads.DownloadEntriesSnapshot
 import com.example.unifiedreader.feature.journal.JournalItemRef
 import com.example.unifiedreader.feature.journal.JournalRepository
-import com.example.unifiedreader.feature.journal.ReadingGoalMetric
-import com.example.unifiedreader.feature.journal.ReadingGoalPeriod
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
 import com.example.unifiedreader.feature.navigation.SourceOrderMoveDirection
@@ -470,35 +468,9 @@ class AppViewModel @Inject constructor(
         }
     }
 
-    fun deleteJournalEvent(eventId: String) {
-        viewModelScope.launch {
-            journalRepository.deleteReadingEvent(eventId)
-        }
-    }
-
     fun deleteItemJournal(itemId: String) {
         viewModelScope.launch {
             journalRepository.deleteItemJournal(itemId)
-        }
-    }
-
-    fun saveJournalGoal(
-        period: ReadingGoalPeriod,
-        metric: ReadingGoalMetric,
-        target: Int,
-    ) {
-        viewModelScope.launch {
-            journalRepository.saveGoal(
-                period = period,
-                metric = metric,
-                target = target,
-            )
-        }
-    }
-
-    fun deleteJournalGoal(goalId: String) {
-        viewModelScope.launch {
-            journalRepository.deleteGoal(goalId)
         }
     }
 

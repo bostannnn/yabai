@@ -15,7 +15,6 @@ import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -24,7 +23,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
@@ -32,16 +30,15 @@ import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun JournalItemDetailSheet(
-    item: JournalItemRef,
-    events: List<JournalReadingEvent>,
-    entry: ItemJournalEntry?,
+    summary: JournalItemSummary,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onDismiss: () -> Unit,
     onReview: () -> Unit,
-    onRequestDeleteEvent: (String) -> Unit,
     onDeleteItemJournal: () -> Unit,
 ) {
+    val item = summary.item
+    val entry = summary.entry
     ModalBottomSheet(onDismissRequest = onDismiss) {
         LazyColumn(
             modifier = Modifier
@@ -84,6 +81,14 @@ fun JournalItemDetailSheet(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        val activityText = summaryActivityText(summary)
+                        if (activityText.isNotBlank()) {
+                            Text(
+                                text = activityText,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                         if (entry?.rating != null || !entry?.reviewText.isNullOrBlank()) {
                             Text(
                                 text = "${entry?.rating?.stars().orEmpty()} ${entry?.reviewText.orEmpty()}".trim(),
@@ -104,63 +109,13 @@ fun JournalItemDetailSheet(
                     }
                 }
             }
-            item {
-                Text(
-                    text = "Reading timeline",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-            if (events.isEmpty()) {
-                item {
-                    Text(
-                        text = "No reading activity recorded for this item.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            items(events.sortedByDescending(JournalReadingEvent::occurredAtEpochMillis), key = JournalReadingEvent::id) { event ->
-                JournalItemEventRow(
-                    event = event,
-                    onDelete = { onRequestDeleteEvent(event.id) },
-                )
-            }
         }
     }
 }
 
-@Composable
-private fun JournalItemEventRow(
-    event: JournalReadingEvent,
-    onDelete: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                text = event.eventType.label,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Medium,
-            )
-            Text(
-                text = event.progressLabel(),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = formatDateTime(event.occurredAtEpochMillis),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        IconButton(onClick = onDelete) {
-            Icon(imageVector = Icons.Default.Delete, contentDescription = "Remove timeline entry")
-        }
-    }
-}
+private fun summaryActivityText(
+    summary: JournalItemSummary,
+): String = listOfNotNull(
+    summary.finishedAtEpochMillis?.let { "Finished ${formatDate(it)}" },
+    summary.pagesRead.takeIf { it > 0 }?.let { "$it pages read" },
+).joinToString(" · ")

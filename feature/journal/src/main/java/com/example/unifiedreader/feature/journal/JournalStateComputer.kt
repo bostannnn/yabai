@@ -15,11 +15,10 @@ class JournalStateComputer(
     fun snapshot(
         events: List<JournalReadingEvent>,
         entries: List<ItemJournalEntry>,
-        goals: List<ReadingGoal>,
         catalogItemsById: Map<String, ReadableItem> = emptyMap(),
     ): JournalSnapshot {
-        val (monthStart, monthEnd) = periodBounds(ReadingGoalPeriod.MONTH, nowEpochMillis())
-        val (yearStart, yearEnd) = periodBounds(ReadingGoalPeriod.YEAR, nowEpochMillis())
+        val (monthStart, monthEnd) = periodBounds(JournalPeriod.MONTH, nowEpochMillis())
+        val (yearStart, yearEnd) = periodBounds(JournalPeriod.YEAR, nowEpochMillis())
         val monthEvents = events.inPeriod(monthStart, monthEnd)
         val yearEvents = events.inPeriod(yearStart, yearEnd)
         val monthStats = computeStats(monthEvents, entries.journalEntriesInPeriod(monthStart, monthEnd))
@@ -28,15 +27,8 @@ class JournalStateComputer(
             events = events.sortedByDescending(JournalReadingEvent::occurredAtEpochMillis),
             entries = entries.sortedByDescending(ItemJournalEntry::updatedAtEpochMillis),
             itemSummaries = computeItemSummaries(events, entries, catalogItemsById),
-            goals = goals.sortedWith(compareByDescending<ReadingGoal> { it.periodStartEpochMillis }.thenBy { it.metric.name }),
             monthStats = monthStats,
             yearStats = yearStats,
-            goalProgress = goals.map { goal ->
-                JournalGoalProgress(
-                    goal = goal,
-                    current = goal.currentValue(events),
-                )
-            },
         )
     }
 }
@@ -118,7 +110,7 @@ fun computeStats(
 
 fun computePeriodOverview(
     snapshot: JournalSnapshot,
-    period: ReadingGoalPeriod,
+    period: JournalPeriod,
     referenceEpochMillis: Long,
 ): JournalPeriodOverview {
     val (periodStart, periodEnd) = periodBounds(period, referenceEpochMillis)
@@ -133,32 +125,12 @@ fun computePeriodOverview(
         finishedItems = snapshot.itemSummaries
             .filter { summary -> summary.finishedAtEpochMillis in periodStart until periodEnd }
             .sortedByDescending(JournalItemSummary::finishedAtEpochMillis),
-        goals = snapshot.goals
-            .filter { goal ->
-                goal.periodType == period &&
-                    goal.periodStartEpochMillis == periodStart &&
-                    goal.periodEndEpochMillis == periodEnd
-            }
-            .map { goal ->
-                JournalGoalProgress(
-                    goal = goal,
-                    current = goal.currentValue(snapshot.events),
-                )
-            },
     )
-}
-
-fun currentGoalProgress(
-    goals: List<JournalGoalProgress>,
-    referenceEpochMillis: Long,
-): List<JournalGoalProgress> = goals.filter { progress ->
-    referenceEpochMillis in progress.goal.periodStartEpochMillis until progress.goal.periodEndEpochMillis
 }
 
 fun JournalSnapshot.firstJournalAtEpochMillis(): Long? = listOfNotNull(
     events.minOfOrNull(JournalReadingEvent::occurredAtEpochMillis),
     entries.minOfOrNull(ItemJournalEntry::updatedAtEpochMillis),
-    goals.minOfOrNull(ReadingGoal::periodStartEpochMillis),
 ).minOrNull()
 
 fun computeActivityDays(
@@ -201,24 +173,6 @@ internal fun List<ItemJournalEntry>.journalEntriesInPeriod(
 ): List<ItemJournalEntry> = filter { entry ->
     val journaledAt = entry.reviewedAtEpochMillis ?: entry.updatedAtEpochMillis
     journaledAt in startInclusive until endExclusive
-}
-
-internal fun ReadingGoal.currentValue(
-    events: List<JournalReadingEvent>,
-): Int {
-    val periodEvents = events.inPeriod(periodStartEpochMillis, periodEndEpochMillis)
-    return when (metric) {
-        ReadingGoalMetric.BOOKS_FINISHED -> periodEvents
-            .filter { it.eventType == JournalReadingEventType.FINISHED && it.itemKind == ReadableItemKind.BOOK }
-            .distinctBy(JournalReadingEvent::itemId)
-            .size
-        ReadingGoalMetric.COMICS_FINISHED -> periodEvents
-            .filter { it.eventType == JournalReadingEventType.FINISHED && it.itemKind == ReadableItemKind.COMIC }
-            .distinctBy(JournalReadingEvent::itemId)
-            .size
-        ReadingGoalMetric.PAGES_READ -> periodEvents.sumOf(JournalReadingEvent::positivePageDelta)
-        ReadingGoalMetric.ACTIVE_DAYS -> periodEvents.map(JournalReadingEvent::localDayKey).distinct().size
-    }
 }
 
 internal fun JournalReadingEvent.positivePageDelta(): Int {

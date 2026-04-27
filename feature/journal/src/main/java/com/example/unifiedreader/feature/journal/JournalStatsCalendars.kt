@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.journal
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -29,6 +31,7 @@ import java.util.Locale
 internal fun MonthActivityCalendar(
     overview: JournalPeriodOverview,
     nowEpochMillis: Long,
+    onActivityDaySelected: (JournalActivityDay) -> Unit,
 ) {
     CalendarSectionTitle(title = "Reading calendar")
     MonthGrid(
@@ -37,6 +40,8 @@ internal fun MonthActivityCalendar(
         nowEpochMillis = nowEpochMillis,
         showMonthLabel = false,
         compact = false,
+        modifier = Modifier.fillMaxWidth(),
+        onActivityDaySelected = onActivityDaySelected,
     )
 }
 
@@ -44,14 +49,18 @@ internal fun MonthActivityCalendar(
 internal fun YearActivityCalendar(
     overview: JournalPeriodOverview,
     nowEpochMillis: Long,
+    onActivityDaySelected: (JournalActivityDay) -> Unit,
 ) {
     CalendarSectionTitle(title = "Year activity")
     val daysByKey = overview.activityDays.associateBy(JournalActivityDay::localDayKey)
     BoxWithConstraints {
-        val monthsPerRow = if (maxWidth >= 520.dp) 3 else 2
+        val monthsPerRow = yearCalendarMonthColumns(maxWidth.value)
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             (Calendar.JANUARY..Calendar.DECEMBER).chunked(monthsPerRow).forEach { months ->
-                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
                     months.forEach { month ->
                         MonthGrid(
                             monthStartEpochMillis = monthStartInYear(overview.periodStartEpochMillis, month),
@@ -59,6 +68,7 @@ internal fun YearActivityCalendar(
                             nowEpochMillis = nowEpochMillis,
                             showMonthLabel = true,
                             compact = true,
+                            onActivityDaySelected = onActivityDaySelected,
                         )
                     }
                 }
@@ -86,33 +96,56 @@ private fun MonthGrid(
     showMonthLabel: Boolean,
     compact: Boolean,
     modifier: Modifier = Modifier,
+    onActivityDaySelected: (JournalActivityDay) -> Unit,
 ) {
     val cells = remember(monthStartEpochMillis) { monthCells(monthStartEpochMillis) }
-    val cellSize = if (compact) 13.dp else 24.dp
-    val cellSpacing = if (compact) 3.dp else 5.dp
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 6.dp),
-        horizontalAlignment = Alignment.Start,
-    ) {
-        if (showMonthLabel) {
-            Text(
-                text = shortMonthName(monthStartEpochMillis),
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Medium,
-            )
-        }
-        WeekdayHeader(compact = compact, cellSize = cellSize, cellSpacing = cellSpacing)
-        cells.chunked(7).forEach { week ->
-            Row(horizontalArrangement = Arrangement.spacedBy(cellSpacing)) {
-                week.forEach { cell ->
-                    CalendarDayCell(
-                        cell = cell,
-                        activity = cell?.let { daysByKey[it.localDayKey] },
-                        isToday = cell?.localDayKey == localDateKey(nowEpochMillis),
-                        compact = compact,
-                        modifier = Modifier.size(cellSize),
-                    )
+    BoxWithConstraints(modifier = modifier) {
+        val layout = monthCalendarLayout(
+            maxWidthDp = maxWidth.value,
+            daysInMonth = cells.count { cell -> cell != null },
+            compact = compact,
+        )
+        val cellSize = layout.cellSizeDp.dp
+        val cellSpacing = layout.cellSpacingDp.dp
+        Column(
+            verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 6.dp),
+            horizontalAlignment = Alignment.Start,
+        ) {
+            if (showMonthLabel) {
+                Text(
+                    text = shortMonthName(monthStartEpochMillis),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+            if (layout.isSingleRow) {
+                Row(horizontalArrangement = Arrangement.spacedBy(cellSpacing)) {
+                    cells.filterNotNull().forEach { cell ->
+                        CalendarDayCell(
+                            cell = cell,
+                            activity = daysByKey[cell.localDayKey],
+                            isToday = cell.localDayKey == localDateKey(nowEpochMillis),
+                            compact = compact,
+                            modifier = Modifier.size(cellSize),
+                            onActivityDaySelected = onActivityDaySelected,
+                        )
+                    }
+                }
+            } else {
+                WeekdayHeader(compact = compact, cellSize = cellSize, cellSpacing = cellSpacing)
+                cells.chunked(7).forEach { week ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(cellSpacing)) {
+                        week.forEach { cell ->
+                            CalendarDayCell(
+                                cell = cell,
+                                activity = cell?.let { daysByKey[it.localDayKey] },
+                                isToday = cell?.localDayKey == localDateKey(nowEpochMillis),
+                                compact = compact,
+                                modifier = Modifier.size(cellSize),
+                                onActivityDaySelected = onActivityDaySelected,
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -145,6 +178,7 @@ private fun CalendarDayCell(
     activity: JournalActivityDay?,
     isToday: Boolean,
     compact: Boolean,
+    onActivityDaySelected: (JournalActivityDay) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (cell == null) {
@@ -158,6 +192,13 @@ private fun CalendarDayCell(
             .aspectRatio(1f)
             .clip(shape)
             .background(color)
+            .then(
+                if (activity != null) {
+                    Modifier.clickable { onActivityDaySelected(activity) }
+                } else {
+                    Modifier
+                },
+            )
             .then(
                 if (isToday) {
                     Modifier.border(1.dp, MaterialTheme.colorScheme.primary, shape)

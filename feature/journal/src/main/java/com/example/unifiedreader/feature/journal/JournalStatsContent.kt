@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -41,16 +42,22 @@ fun JournalStatsContent(
     snapshot: JournalSnapshot,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String? = { item, _ -> item.coverUrl },
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit = { _, _ -> },
+    onDeleteItemJournal: (String) -> Unit,
+    onSaveJournalEntry: (JournalItemRef, Int?, String) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val now = rememberJournalNowEpochMillis()
     val firstJournalAt = remember(snapshot) { snapshot.firstJournalAtEpochMillis() }
-    var selectedMonth by rememberSaveable { mutableLongStateOf(periodBounds(ReadingGoalPeriod.MONTH, now).first) }
-    var selectedYear by rememberSaveable { mutableLongStateOf(periodBounds(ReadingGoalPeriod.YEAR, now).first) }
+    var selectedMonth by rememberSaveable { mutableLongStateOf(periodBounds(JournalPeriod.MONTH, now).first) }
+    var selectedYear by rememberSaveable { mutableLongStateOf(periodBounds(JournalPeriod.YEAR, now).first) }
+    var selectedDayDetails by remember { mutableStateOf<JournalDayDetails?>(null) }
+    var detailTarget by remember { mutableStateOf<JournalItemSummary?>(null) }
+    var editTarget by remember { mutableStateOf<JournalItemRef?>(null) }
     val firstMonth = remember(firstJournalAt, now) {
-        periodBounds(ReadingGoalPeriod.MONTH, firstJournalAt ?: now).first
+        periodBounds(JournalPeriod.MONTH, firstJournalAt ?: now).first
     }
     val firstYear = remember(firstJournalAt, now) {
-        periodBounds(ReadingGoalPeriod.YEAR, firstJournalAt ?: now).first
+        periodBounds(JournalPeriod.YEAR, firstJournalAt ?: now).first
     }
     LaunchedEffect(firstMonth, firstYear) {
         if (selectedMonth < firstMonth) selectedMonth = firstMonth
@@ -59,19 +66,20 @@ fun JournalStatsContent(
     val monthOverview = remember(snapshot, selectedMonth) {
         computePeriodOverview(
             snapshot = snapshot,
-            period = ReadingGoalPeriod.MONTH,
+            period = JournalPeriod.MONTH,
             referenceEpochMillis = selectedMonth,
         )
     }
     val yearOverview = remember(snapshot, selectedYear) {
         computePeriodOverview(
             snapshot = snapshot,
-            period = ReadingGoalPeriod.YEAR,
+            period = JournalPeriod.YEAR,
             referenceEpochMillis = selectedYear,
         )
     }
 
     LazyColumn(
+        modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(16.dp),
         contentPadding = PaddingValues(16.dp),
     ) {
@@ -80,15 +88,19 @@ fun JournalStatsContent(
                 overview = monthOverview,
                 title = monthOverview.monthLabel(),
                 canNavigatePrevious = selectedMonth > firstMonth,
-                canNavigateNext = selectedMonth < periodBounds(ReadingGoalPeriod.MONTH, now).first,
-                onPrevious = { selectedMonth = shiftPeriod(selectedMonth, ReadingGoalPeriod.MONTH, -1) },
-                onNext = { selectedMonth = shiftPeriod(selectedMonth, ReadingGoalPeriod.MONTH, 1) },
+                canNavigateNext = selectedMonth < periodBounds(JournalPeriod.MONTH, now).first,
+                onPrevious = { selectedMonth = shiftPeriod(selectedMonth, JournalPeriod.MONTH, -1) },
+                onNext = { selectedMonth = shiftPeriod(selectedMonth, JournalPeriod.MONTH, 1) },
                 coverImageUrlProvider = coverImageUrlProvider,
                 onCoverVisible = onCoverVisible,
+                onOpenItem = { summary -> detailTarget = summary },
             ) {
                 MonthActivityCalendar(
                     overview = monthOverview,
                     nowEpochMillis = now,
+                    onActivityDaySelected = { day ->
+                        selectedDayDetails = monthOverview.dayDetails(day)
+                    },
                 )
             }
         }
@@ -97,18 +109,61 @@ fun JournalStatsContent(
                 overview = yearOverview,
                 title = yearOverview.yearLabel(),
                 canNavigatePrevious = selectedYear > firstYear,
-                canNavigateNext = selectedYear < periodBounds(ReadingGoalPeriod.YEAR, now).first,
-                onPrevious = { selectedYear = shiftPeriod(selectedYear, ReadingGoalPeriod.YEAR, -1) },
-                onNext = { selectedYear = shiftPeriod(selectedYear, ReadingGoalPeriod.YEAR, 1) },
+                canNavigateNext = selectedYear < periodBounds(JournalPeriod.YEAR, now).first,
+                onPrevious = { selectedYear = shiftPeriod(selectedYear, JournalPeriod.YEAR, -1) },
+                onNext = { selectedYear = shiftPeriod(selectedYear, JournalPeriod.YEAR, 1) },
                 coverImageUrlProvider = coverImageUrlProvider,
                 onCoverVisible = onCoverVisible,
+                onOpenItem = { summary -> detailTarget = summary },
             ) {
                 YearActivityCalendar(
                     overview = yearOverview,
                     nowEpochMillis = now,
+                    onActivityDaySelected = { day ->
+                        selectedDayDetails = yearOverview.dayDetails(day)
+                    },
                 )
             }
         }
+    }
+    selectedDayDetails?.let { details ->
+        JournalDayDetailsSheet(
+            details = details,
+            coverImageUrlProvider = coverImageUrlProvider,
+            onCoverVisible = onCoverVisible,
+            onOpenItem = { summary ->
+                selectedDayDetails = null
+                detailTarget = summary
+            },
+            onDismiss = { selectedDayDetails = null },
+        )
+    }
+    detailTarget?.let { summary ->
+        JournalItemDetailSheet(
+            summary = summary,
+            coverImageUrlProvider = coverImageUrlProvider,
+            onCoverVisible = onCoverVisible,
+            onDismiss = { detailTarget = null },
+            onReview = {
+                detailTarget = null
+                editTarget = summary.item
+            },
+            onDeleteItemJournal = {
+                onDeleteItemJournal(summary.item.itemId)
+                detailTarget = null
+            },
+        )
+    }
+    editTarget?.let { item ->
+        JournalEntryEditorSheet(
+            item = item,
+            existingEntry = snapshot.entryByItemId[item.itemId],
+            onDismiss = { editTarget = null },
+            onSave = { rating, review ->
+                onSaveJournalEntry(item, rating, review)
+                editTarget = null
+            },
+        )
     }
 }
 
@@ -122,6 +177,7 @@ private fun PeriodStatsPanel(
     onNext: () -> Unit,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
+    onOpenItem: (JournalItemSummary) -> Unit,
     activityContent: @Composable () -> Unit,
 ) {
     OutlinedCard(
@@ -142,13 +198,13 @@ private fun PeriodStatsPanel(
                 canNavigatePrevious = canNavigatePrevious,
                 canNavigateNext = canNavigateNext,
             )
-            JournalStatsGoalProgressList(goals = overview.goals)
             JournalStatsMetricGrid(stats = overview.stats)
             activityContent()
             FinishedItemsRow(
                 overview = overview,
                 coverImageUrlProvider = coverImageUrlProvider,
                 onCoverVisible = onCoverVisible,
+                onOpenItem = onOpenItem,
             )
             RatingBreakdown(values = overview.stats.ratingCounts)
         }
@@ -188,14 +244,14 @@ private fun PeriodHeader(
 
 private fun shiftPeriod(
     epochMillis: Long,
-    period: ReadingGoalPeriod,
+    period: JournalPeriod,
     amount: Int,
 ): Long {
     val calendar = Calendar.getInstance(Locale.US).apply {
         timeInMillis = epochMillis
     }
     calendar.add(
-        if (period == ReadingGoalPeriod.MONTH) Calendar.MONTH else Calendar.YEAR,
+        if (period == JournalPeriod.MONTH) Calendar.MONTH else Calendar.YEAR,
         amount,
     )
     return periodBounds(period, calendar.timeInMillis).first
