@@ -6,5 +6,4 @@ internal object LibraryScreenContentTypes {
     const val LoadingState = "loading_state"
     const val EmptyState = "empty_state"
     const val GridItem = "grid_item"
-    const val DetailedItem = "detailed_item"
 }

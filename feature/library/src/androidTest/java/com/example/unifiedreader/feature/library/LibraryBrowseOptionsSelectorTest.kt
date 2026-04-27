@@ -28,7 +28,6 @@ class LibraryBrowseOptionsSelectorTest {
             MaterialTheme {
                 LibraryBrowseOptionsSelector(
                     sortMode = LibrarySortMode.LAST_READ,
-                    viewMode = LibraryViewMode.Grid,
                     gridCellSizeDp = selectedGridCellSizeDp,
                     gridSizeOptions = listOf(
                         LibraryGridSizeOption(cellSizeDp = 140, columnCount = 5),
@@ -37,13 +36,12 @@ class LibraryBrowseOptionsSelectorTest {
                     ),
                     showSortOptions = true,
                     onSortModeChanged = {},
-                    onViewModeChanged = {},
                     onGridCellSizeDpChanged = { selectedGridCellSizeDp = it },
                 )
             }
         }
 
-        composeRule.onNodeWithText("Browse: Last read · Grid · 180dp")
+        composeRule.onNodeWithText("Browse: Last read · 180dp")
             .assertExists()
             .performClick()
 

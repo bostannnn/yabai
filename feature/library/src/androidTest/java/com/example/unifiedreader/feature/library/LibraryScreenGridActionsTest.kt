@@ -36,6 +36,12 @@ class LibraryScreenGridActionsTest {
                     browseContextKey = "grid-actions",
                     items = listOf(item),
                     viewMode = LibraryViewMode.Grid,
+                    progressByItemId = mapOf(
+                        item.id to ItemProgressSummary(
+                            label = "42%",
+                            fraction = 0.42f,
+                        ),
+                    ),
                     downloadableItemIds = setOf(item.id),
                     onItemSelected = {},
                     onDownloadItem = {},
@@ -43,6 +49,8 @@ class LibraryScreenGridActionsTest {
             }
         }
 
+        composeRule.onNodeWithText("Akira 1").assertExists()
+        composeRule.onNodeWithText("42%").assertExists()
         composeRule.onNodeWithContentDescription("More actions").assertExists().performClick()
         composeRule.onNodeWithText("Download file").assertExists()
         composeRule.onNodeWithText("Mark as read").assertExists()

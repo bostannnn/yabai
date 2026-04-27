@@ -22,28 +22,25 @@ internal const val LibraryGridSizeOptionTagPrefix = "library-grid-size-option-"
 @Composable
 internal fun LibraryBrowseOptionsSelector(
     sortMode: LibrarySortMode,
-    viewMode: LibraryViewMode,
     gridCellSizeDp: Int,
     gridSizeOptions: List<LibraryGridSizeOption>,
     showSortOptions: Boolean,
     onSortModeChanged: (LibrarySortMode) -> Unit,
-    onViewModeChanged: (LibraryViewMode) -> Unit,
     onGridCellSizeDpChanged: (Int) -> Unit,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val sanitizedGridCellSizeDp = sanitizeLibraryGridCellSizeDp(gridCellSizeDp)
     Box {
         FilterChip(
-            selected = viewMode != LibraryViewMode.Grid ||
-                sanitizedGridCellSizeDp != defaultLibraryGridCellSizeDp ||
+            selected = sanitizedGridCellSizeDp != defaultLibraryGridCellSizeDp ||
                 (showSortOptions && sortMode != defaultLibrarySortMode),
             onClick = { expanded = true },
             label = {
                 Text(
                     text = if (showSortOptions) {
-                        "Browse: ${sortMode.label} · ${viewMode.label} · ${sanitizedGridCellSizeDp}dp"
+                        "Browse: ${sortMode.label} · ${sanitizedGridCellSizeDp}dp"
                     } else {
-                        "View: ${viewMode.label} · ${sanitizedGridCellSizeDp}dp"
+                        "Grid: ${sanitizedGridCellSizeDp}dp"
                     },
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -72,22 +69,6 @@ internal fun LibraryBrowseOptionsSelector(
                 }
                 HorizontalDivider()
             }
-            DropdownSectionHeader(text = "View")
-            LibraryViewMode.entries.forEach { mode ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = mode.label,
-                            fontWeight = if (mode == viewMode) FontWeight.SemiBold else FontWeight.Normal,
-                        )
-                    },
-                    onClick = {
-                        expanded = false
-                        onViewModeChanged(mode)
-                    },
-                )
-            }
-            HorizontalDivider()
             DropdownSectionHeader(text = "Grid size")
             gridSizeOptions.forEach { option ->
                 DropdownMenuItem(

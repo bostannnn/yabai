@@ -20,13 +20,14 @@ fun LibraryAnchoredItemMenu(
     onExpandedChange: (Boolean) -> Unit,
     onDeleteImportedRequested: (ReadableItem) -> Unit,
     modifier: Modifier = Modifier,
+    buttonStyle: LibraryItemMenuButtonStyle = LibraryItemMenuButtonStyle.CompactOverlay,
 ) {
     if (!expanded) {
         Box(modifier = modifier) {
             LibraryItemMenuButton(
                 onClick = { onExpandedChange(true) },
                 modifier = Modifier,
-                style = LibraryItemMenuButtonStyle.CompactOverlay,
+                style = buttonStyle,
             )
         }
         return
@@ -34,7 +35,7 @@ fun LibraryAnchoredItemMenu(
 
     LibraryItemOverflowMenu(
         modifier = modifier,
-        buttonStyle = LibraryItemMenuButtonStyle.CompactOverlay,
+        buttonStyle = buttonStyle,
         actions = buildLibraryItemMenuActions(
             isDownloading = item.id in actionContext.downloadingItemIds,
             readStatusActionState = buildReadStatusMenuActionState(

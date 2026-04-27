@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 enum class LibraryItemMenuButtonStyle {
     Tonal,
     CompactOverlay,
+    CompactInline,
 }
 
 @Composable
@@ -38,6 +39,10 @@ fun LibraryItemMenuButton(
             modifier = modifier,
         )
         LibraryItemMenuButtonStyle.CompactOverlay -> CompactOverlayLibraryItemMenuButton(
+            onClick = onClick,
+            modifier = modifier,
+        )
+        LibraryItemMenuButtonStyle.CompactInline -> CompactInlineLibraryItemMenuButton(
             onClick = onClick,
             modifier = modifier,
         )
@@ -115,5 +120,51 @@ private fun CompactOverlayLibraryItemMenuButton(
                     )
                 }
             }
+    ) {}
+}
+
+@Composable
+private fun CompactInlineLibraryItemMenuButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val dotColor = MaterialTheme.colorScheme.onSurfaceVariant
+
+    Box(
+        modifier = modifier
+            .size(32.dp)
+            .semantics {
+                contentDescription = "More actions"
+                role = Role.Button
+            }
+            .clickable(
+                interactionSource = null,
+                indication = null,
+                role = Role.Button,
+                onClick = onClick,
+            )
+            .drawWithCache {
+                val dotRadius = 1.45.dp.toPx()
+                val dotSpacing = 4.6.dp.toPx()
+                val centerX = size.width / 2f
+                val middleY = size.height / 2f
+                onDrawBehind {
+                    drawCircle(
+                        color = dotColor,
+                        radius = dotRadius,
+                        center = Offset(centerX, middleY - dotSpacing),
+                    )
+                    drawCircle(
+                        color = dotColor,
+                        radius = dotRadius,
+                        center = Offset(centerX, middleY),
+                    )
+                    drawCircle(
+                        color = dotColor,
+                        radius = dotRadius,
+                        center = Offset(centerX, middleY + dotSpacing),
+                    )
+                }
+            },
     ) {}
 }

@@ -40,28 +40,20 @@ data class ItemProgressSummary(
 }
 
 enum class LibraryViewMode {
-    Detailed,
     Grid;
 
     fun gridCells(
         maxWidth: Dp,
         maxHeight: Dp,
         gridCellSizeDp: Int = defaultLibraryGridCellSizeDp,
-    ): androidx.compose.foundation.lazy.grid.GridCells = when (this) {
-        Detailed -> if (maxWidth > maxHeight) {
-            androidx.compose.foundation.lazy.grid.GridCells.Fixed(3)
-        } else {
-            androidx.compose.foundation.lazy.grid.GridCells.Fixed(2)
-        }
-        Grid -> androidx.compose.foundation.lazy.grid.GridCells.Adaptive(
+    ): androidx.compose.foundation.lazy.grid.GridCells =
+        androidx.compose.foundation.lazy.grid.GridCells.Adaptive(
             minSize = sanitizeLibraryGridCellSizeDp(gridCellSizeDp).dp,
         )
-    }
 }
 
 internal val LibraryViewMode.label: String
     get() = when (this) {
-        LibraryViewMode.Detailed -> "Details"
         LibraryViewMode.Grid -> "Grid"
     }
 

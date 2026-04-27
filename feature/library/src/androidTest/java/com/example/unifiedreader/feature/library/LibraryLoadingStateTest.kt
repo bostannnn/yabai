@@ -31,22 +31,4 @@ class LibraryLoadingStateTest {
 
         composeRule.onNodeWithTag(LibraryGridLoadingTag).assertExists()
     }
-
-    @Test
-    fun detailed_library_loading_state_uses_detailed_skeleton() {
-        composeRule.setContent {
-            MaterialTheme {
-                LibraryScreen(
-                    selectedSource = SourceType.KAVITA,
-                    browseContextKey = "kavita:root",
-                    items = emptyList(),
-                    viewMode = LibraryViewMode.Detailed,
-                    isLoadingSource = true,
-                    onItemSelected = {},
-                )
-            }
-        }
-
-        composeRule.onNodeWithTag(LibraryDetailedLoadingTag).assertExists()
-    }
 }

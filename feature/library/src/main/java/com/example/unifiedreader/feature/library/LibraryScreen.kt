@@ -34,7 +34,7 @@ import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
-import com.example.unifiedreader.feature.library.menu.buildReadStatusMenuActionState
+import com.example.unifiedreader.feature.library.menu.LibraryItemMenuButtonStyle
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -179,7 +179,7 @@ fun LibraryScreen(
         )
 
         LazyVerticalGrid(
-            columns = viewMode.gridCells(
+            columns = LibraryViewMode.Grid.gridCells(
                 maxWidth = maxWidth,
                 maxHeight = maxHeight,
                 gridCellSizeDp = gridPresentation.selectedGridSize.cellSizeDp,
@@ -216,7 +216,6 @@ fun LibraryScreen(
                     filterFacets = filterFacets,
                     libraryTitlesById = libraryTitlesById,
                     sortMode = sortMode,
-                    viewMode = viewMode,
                     gridCellSizeDp = gridPresentation.selectedGridSize.cellSizeDp,
                     gridSizeOptions = gridPresentation.availableGridSizes,
                     showSortControl = showSortControl,
@@ -226,7 +225,6 @@ fun LibraryScreen(
                         selectedSortLetter = null
                         onSortModeChanged(it)
                     },
-                    onViewModeChanged = onViewModeChanged,
                     onGridCellSizeDpChanged = onGridCellSizeDpChanged,
                 )
             }
@@ -243,7 +241,6 @@ fun LibraryScreen(
                 ) {
                     if (isLoadingSource) {
                         LoadingLibraryState(
-                            viewMode = viewMode,
                             gridCellSizeDp = gridPresentation.selectedGridSize.cellSizeDp,
                         )
                     } else {
@@ -258,72 +255,33 @@ fun LibraryScreen(
                 items(
                     items = visibleItems,
                     key = { it.id },
-                    contentType = {
-                        if (viewMode == LibraryViewMode.Grid) {
-                            LibraryScreenContentTypes.GridItem
-                        } else {
-                            LibraryScreenContentTypes.DetailedItem
-                        }
-                    },
+                    contentType = { LibraryScreenContentTypes.GridItem },
                 ) { item ->
-                    when (viewMode) {
-                        LibraryViewMode.Detailed -> DetailedItemCard(
-                            item = item,
-                            progress = progressByItemId[item.id],
-                            isDownloaded = itemActionContext.isDownloaded(item),
-                            isDownloading = item.id in downloadingItemIds,
-                            seriesReadingDirection = seriesReadingDirectionFor(item),
-                            seriesReaderMode = seriesReaderModeFor(item),
-                            coverImageUrlProvider = coverImageUrlProvider,
-                            onClick = { onItemSelected(item) },
-                            onSeriesReadingDirectionSelected = { direction ->
-                                onSeriesDirectionSelected(item, direction)
-                            },
-                            onSeriesReaderModeSelected = { mode ->
-                                onSeriesReaderModeSelected(item, mode)
-                            },
-                            readStatusActionState = buildReadStatusMenuActionState(
-                                item = item,
-                                progress = progressByItemId[item.id],
-                                onSetReadStatus = onSetReadStatus,
-                            ),
-                            onDeleteRequested = itemDeleteRequest(item) { deleteCandidate = it },
-                            onDownloadRequested = itemDownloadRequest(
-                                item = item,
-                                downloadableItemIds = downloadableItemIds,
-                                onDownloadItem = onDownloadItem,
-                            ),
-                            onDeleteDownloadedRequested = itemDownloadedDeleteRequest(
-                                item = item,
-                                deletableDownloadedItemIds = deletableDownloadedItemIds,
-                                onDeleteDownloadedItem = onDeleteDownloadedItem,
-                            ),
-                        )
-                        LibraryViewMode.Grid -> GridCoverCard(
-                            item = item,
-                            progress = progressByItemId[item.id],
-                            isDownloaded = itemActionContext.isDownloaded(item),
-                            imageVariant = gridCoverImageVariant,
-                            coverImageUrlProvider = coverImageUrlProvider,
-                            onClick = { onItemSelected(item) },
-                            menuContent = {
-                                if (itemActionContext.hasMenuContent(item)) {
-                                    LibraryAnchoredItemMenu(
-                                        item = item,
-                                        actionContext = itemActionContext,
-                                        expanded = gridExpandedMenuItemId == item.id,
-                                        onExpandedChange = { expanded ->
-                                            gridExpandedMenuItemId = if (expanded) item.id else null
-                                        },
-                                        onDeleteImportedRequested = { deleteCandidate = it },
-                                        modifier = Modifier
-                                            .align(Alignment.TopEnd)
-                                            .padding(4.dp),
-                                    )
-                                }
-                            },
-                        )
-                    }
+                    val hasMenuContent = itemActionContext.hasMenuContent(item)
+                    GridCoverCard(
+                        item = item,
+                        progress = progressByItemId[item.id],
+                        isDownloaded = itemActionContext.isDownloaded(item),
+                        imageVariant = gridCoverImageVariant,
+                        coverImageUrlProvider = coverImageUrlProvider,
+                        onClick = { onItemSelected(item) },
+                        menuContent = if (hasMenuContent) {
+                            {
+                                LibraryAnchoredItemMenu(
+                                    item = item,
+                                    actionContext = itemActionContext,
+                                    expanded = gridExpandedMenuItemId == item.id,
+                                    onExpandedChange = { expanded ->
+                                        gridExpandedMenuItemId = if (expanded) item.id else null
+                                    },
+                                    onDeleteImportedRequested = { deleteCandidate = it },
+                                    buttonStyle = LibraryItemMenuButtonStyle.CompactInline,
+                                )
+                            }
+                        } else {
+                            null
+                        },
+                    )
                 }
             }
         }
