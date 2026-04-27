@@ -161,6 +161,7 @@ private fun sortComparator(
     LibrarySortMode.LAST_READ -> compareByDescending<IndexedValue<ReadableItem>> {
         lastReadAtEpochMillisByItemId[it.value.id] ?: Long.MIN_VALUE
     }
+        .thenBy(String.CASE_INSENSITIVE_ORDER) { it.value.title }
         .thenBy { it.index }
 
     LibrarySortMode.AUTHOR,
