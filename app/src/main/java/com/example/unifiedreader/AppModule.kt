@@ -14,10 +14,13 @@ import com.example.unifiedreader.core.network.buildHttpClient
 import com.example.unifiedreader.data.grimmory.KtorGrimmoryApi
 import com.example.unifiedreader.data.kavita.KtorKavitaApi
 import com.example.unifiedreader.core.model.progress.ProgressSyncStore
+import com.example.unifiedreader.data.repository.RemoteJournalPusher
+import com.example.unifiedreader.data.repository.RemoteJournalPusherRegistry
 import com.example.unifiedreader.data.stump.KtorStumpApi
 import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
 import com.example.unifiedreader.data.repository.SampleCatalogRepository
+import com.example.unifiedreader.data.repository.SourceRemoteJournalPusher
 import com.example.unifiedreader.feature.downloads.DownloadCompletionSideEffect
 import com.example.unifiedreader.feature.downloads.DownloadQueueStore
 import com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
@@ -214,6 +217,20 @@ object AppModule {
     fun provideJournalEventRecorder(
         repository: RoomJournalRepository,
     ): JournalEventRecorder = repository
+
+    @Provides
+    fun provideRemoteJournalPusher(
+        registry: RemoteJournalPusherRegistry,
+    ): RemoteJournalPusher = registry
+
+    @Provides
+    fun provideSourceRemoteJournalPushers(
+        kavitaRemoteJournalPusher: KavitaRemoteJournalPusher,
+        grimmoryRemoteJournalPusher: GrimmoryRemoteJournalPusher,
+    ): List<@JvmSuppressWildcards SourceRemoteJournalPusher> = listOf(
+        kavitaRemoteJournalPusher,
+        grimmoryRemoteJournalPusher,
+    )
 
     @Provides
     @Singleton

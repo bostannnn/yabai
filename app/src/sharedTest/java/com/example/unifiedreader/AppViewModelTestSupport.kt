@@ -8,8 +8,10 @@ import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.remoteLibraryId
+import com.example.unifiedreader.data.repository.JournalEntrySaveUseCase
 import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
+import com.example.unifiedreader.data.repository.RemoteJournalPusherRegistry
 import com.example.unifiedreader.feature.downloads.DownloadCompletionSideEffect
 import com.example.unifiedreader.feature.downloads.DownloadEntriesSnapshot
 import com.example.unifiedreader.feature.downloads.DownloadEntry
@@ -233,6 +235,8 @@ internal fun createViewModel(
         catalogSnapshotsUseCase = catalogSnapshotsUseCase,
         libraryStateRecomputeCoordinator = libraryStateRecomputeCoordinator,
     )
+    val remoteJournalPusher = RemoteJournalPusherRegistry(sourcePushers = emptyList())
+
     return AppViewModel(
         navigationController = navigationController,
         initialUiStateFactory = initialUiStateFactory,
@@ -326,6 +330,10 @@ internal fun createViewModel(
         remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
         progressSyncNoticeController = progressSyncNoticeController,
         journalRepository = journalRepository,
+        journalEntrySaveUseCase = JournalEntrySaveUseCase(
+            journalRepository = journalRepository,
+            remoteJournalPusher = remoteJournalPusher,
+        ),
         progressSyncStartupRetryCoordinator = progressSyncStartupRetryCoordinator ?: AppProgressSyncStartupRetryCoordinator(
             readableItemRepository = readableItemRepository,
             readerSessionStore = readerSessionStore,
@@ -338,6 +346,7 @@ internal fun createViewModel(
             ),
             remoteItemLocalAvailability = remoteItemLocalAvailability,
             remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+            remoteJournalPusher = remoteJournalPusher,
         ),
         coverPreloadController = coverPreloadController ?: AppCoverPreloadController(
             remoteCoverPreloader = RemoteCoverPreloader(

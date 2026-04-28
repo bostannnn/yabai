@@ -11,6 +11,7 @@ import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.data.repository.JournalEntrySaveUseCase
 import com.example.unifiedreader.feature.downloads.DownloadEntriesSnapshot
 import com.example.unifiedreader.journal.JournalItemRef
 import com.example.unifiedreader.journal.JournalRepository
@@ -47,6 +48,7 @@ class AppViewModel @Inject constructor(
     private val remoteSourceConnectivityStartupCoordinator: RemoteSourceConnectivityStartupCoordinator,
     private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
     private val progressSyncNoticeController: AppProgressSyncNoticeController,
+    private val journalEntrySaveUseCase: JournalEntrySaveUseCase,
     private val journalRepository: JournalRepository,
     private val progressSyncStartupRetryCoordinator: AppProgressSyncStartupRetryCoordinator,
     private val coverPreloadController: AppCoverPreloadController,
@@ -486,10 +488,12 @@ class AppViewModel @Inject constructor(
         reviewText: String,
     ) {
         viewModelScope.launch {
-            journalRepository.saveJournalEntry(
+            journalEntrySaveUseCase(
                 item = item,
                 rating = rating,
                 reviewText = reviewText,
+                candidateItems = uiState.items,
+                selectedItem = uiState.selectedItem,
             )
         }
     }

@@ -2,7 +2,9 @@ package com.example.unifiedreader
 
 import android.util.Log
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.data.repository.ReadableItemRepository
+import com.example.unifiedreader.data.repository.RemoteJournalPusher
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -17,6 +19,7 @@ class AppProgressSyncStartupRetryCoordinator @Inject constructor(
     private val flushPendingProgressOnStartupUseCase: FlushPendingProgressOnStartupUseCase,
     private val remoteItemLocalAvailability: RemoteItemLocalAvailability,
     private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
+    private val remoteJournalPusher: RemoteJournalPusher,
 ) {
     fun retryAfterHydration(
         scope: CoroutineScope,
@@ -39,6 +42,23 @@ class AppProgressSyncStartupRetryCoordinator @Inject constructor(
                 remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
             )
             val failures = flushPendingProgressOnStartupUseCase(startupProgressItems)
+            items
+                .filterStartupJournalItems(remoteSourceConnectivityPolicy)
+                .groupBy(ReadableItem::sourceType)
+                .forEach { (sourceType, sourceItems) ->
+                    runCatching {
+                        remoteJournalPusher.pushPendingJournalEntries(
+                            sourceType = sourceType,
+                            items = sourceItems,
+                        )
+                    }.onFailure { error ->
+                        Log.w(
+                            LOG_TAG,
+                            "Unable to push pending startup journal entries for $sourceType.",
+                            error,
+                        )
+                    }
+                }
             remoteSourceConnectivityPolicy.markFromSyncFailures(
                 attemptedSourceTypes = startupProgressItems.mapTo(mutableSetOf(), ReadableItem::sourceType),
                 failures = failures,
@@ -67,6 +87,13 @@ private fun List<ReadableItem>.filterStartupProgressItems(
         sourceType = item.sourceType,
         hasStoredDocument = remoteItemLocalAvailability.hasStoredDocument(item),
     )
+}
+
+private fun List<ReadableItem>.filterStartupJournalItems(
+    remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
+): List<ReadableItem> = filter { item ->
+    item.sourceType != SourceType.LOCAL &&
+        remoteSourceConnectivityPolicy.canAttemptProgressSync(item.sourceType)
 }
 
 private data class StartupRetrySnapshot(
