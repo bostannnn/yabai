@@ -5,6 +5,20 @@ import org.junit.Test
 
 class LibraryFiltersTest {
     @Test
+    fun `date added sort orders newest first and puts missing dates last`() {
+        val older = item(id = "older", title = "Older").copy(addedAtEpochMillis = 1_000L)
+        val missing = item(id = "missing", title = "Missing")
+        val newer = item(id = "newer", title = "Newer").copy(addedAtEpochMillis = 3_000L)
+
+        val sortedItems = applyLibrarySort(
+            items = listOf(older, missing, newer),
+            sortMode = LibrarySortMode.DATE_ADDED,
+        )
+
+        assertEquals(listOf(newer, older, missing), sortedItems)
+    }
+
+    @Test
     fun `last read sort falls back to title for items without progress`() {
         val recentlyRead = item(id = "recently-read", title = "Zenith")
         val unreadBeta = item(id = "unread-beta", title = "Beta")

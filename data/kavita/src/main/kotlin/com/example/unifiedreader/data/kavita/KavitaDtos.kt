@@ -51,6 +51,7 @@ internal data class KavitaSeriesDto(
     val format: Int? = null,
     val libraryId: Int? = null,
     val libraryName: String? = null,
+    val created: String? = null,
     val lastChapterAddedUtc: String? = null,
     val coverImage: String? = null,
     val publishers: List<KavitaPersonDto>? = null,
@@ -208,7 +209,7 @@ internal fun KavitaSeriesDto.toEntry(
         libraryId = remoteLibraryId,
         title = name?.takeIf(String::isNotBlank) ?: "Series $seriesId",
         format = format,
-        addedAtEpochMillis = lastChapterAddedUtc.toEpochMillisOrNull(),
+        addedAtEpochMillis = created.toEpochMillisOrNull(),
         coverUrl = buildKavitaSeriesCoverUrl(
             baseUrl = baseUrl,
             seriesId = seriesId,
