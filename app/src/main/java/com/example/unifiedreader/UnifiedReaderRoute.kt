@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Surface
@@ -34,7 +35,10 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.core.model.librarySecondaryText
+import com.example.unifiedreader.feature.journal.JournalItemReviewCard
 import com.example.unifiedreader.feature.journal.JournalItemRef
+import com.example.unifiedreader.feature.journal.rememberJournalReviewState
+import com.example.unifiedreader.feature.journal.shouldSaveJournalReview
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryViewMode
 import com.example.unifiedreader.feature.library.ResolvedLibraryCover
@@ -170,16 +174,36 @@ private fun ReaderCompletionDialogHost(
         uiState.items.firstOrNull { item -> item.id == nextItemId }
     }
     val entry = uiState.journalSnapshot.entryByItemId[item.id]
+    val reviewState = rememberJournalReviewState(
+        itemId = item.id,
+        initialRating = entry?.rating,
+        initialReviewText = entry?.reviewText.orEmpty(),
+    )
+    val journalItem = item.toJournalItemRef()
+    val saveReviewIfNeeded = {
+        if (shouldSaveJournalReview(
+                initialRating = entry?.rating,
+                initialReviewText = entry?.reviewText.orEmpty(),
+                rating = reviewState.selectedRating,
+                reviewText = reviewState.reviewText,
+            )
+        ) {
+            viewModel.saveJournalEntry(
+                item = journalItem,
+                rating = reviewState.selectedRating,
+                reviewText = reviewState.reviewText,
+            )
+        }
+    }
+    val dismissCompletion = {
+        saveReviewIfNeeded()
+        viewModel.dismissReaderCompletion()
+    }
 
     ReaderCompletionDialog(
-        item = item,
-        itemTitle = item.libraryPrimaryText(),
-        itemSubtitle = item.librarySecondaryText(),
         nextItem = nextItem,
         nextItemTitle = nextItem?.libraryPrimaryText(),
         nextItemSubtitle = nextItem?.librarySecondaryText(),
-        initialRating = entry?.rating,
-        initialReviewText = entry?.reviewText.orEmpty(),
         coverContent = { coverItem, modifier ->
             ResolvedLibraryCover(
                 item = coverItem,
@@ -188,22 +212,42 @@ private fun ReaderCompletionDialogHost(
                 modifier = modifier,
             )
         },
-        onRatingChanged = { rating, reviewText ->
-            viewModel.saveJournalEntry(
-                item = item.toJournalItemRef(),
-                rating = rating,
-                reviewText = reviewText,
-            )
+        reviewContent = {
+            JournalItemReviewCard(
+                item = journalItem,
+                reviewState = reviewState,
+                coverImageUrlProvider = viewModel::coverImageUrlFor,
+                onCoverVisible = viewModel::ensureCoverCached,
+                activityText = "Finished",
+                onRatingSelected = { rating ->
+                    viewModel.saveJournalEntry(
+                        item = journalItem,
+                        rating = rating,
+                        reviewText = reviewState.reviewText,
+                    )
+                },
+            ) {
+                TextButton(onClick = dismissCompletion) {
+                    Text(text = "Close")
+                }
+                Button(
+                    onClick = {
+                        viewModel.saveJournalEntry(
+                            item = journalItem,
+                            rating = reviewState.selectedRating,
+                            reviewText = reviewState.reviewText,
+                        )
+                    },
+                ) {
+                    Text(text = "Save review")
+                }
+            }
         },
-        onSaveReview = { rating, reviewText ->
-            viewModel.saveJournalEntry(
-                item = item.toJournalItemRef(),
-                rating = rating,
-                reviewText = reviewText,
-            )
+        onStartNext = {
+            saveReviewIfNeeded()
+            viewModel.startReaderCompletionNextItem()
         },
-        onStartNext = viewModel::startReaderCompletionNextItem,
-        onDismiss = viewModel::dismissReaderCompletion,
+        onDismiss = dismissCompletion,
     )
 }
 
