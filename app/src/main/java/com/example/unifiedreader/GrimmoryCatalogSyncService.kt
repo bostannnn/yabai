@@ -7,8 +7,12 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.data.grimmory.GrimmoryApi
 import com.example.unifiedreader.data.grimmory.GrimmoryBookCatalogEntry
 import com.example.unifiedreader.data.grimmory.GrimmorySession
+import com.example.unifiedreader.data.grimmory.pullGrimmoryJournalCache
+import com.example.unifiedreader.data.grimmory.pushDirtyGrimmoryJournalEntries
 import com.example.unifiedreader.core.model.progress.ProgressSyncStore
+import com.example.unifiedreader.journal.JournalRepository
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
+import kotlin.coroutines.cancellation.CancellationException
 
 fun interface GrimmoryApiFactory {
     fun create(
@@ -31,6 +35,7 @@ class GrimmoryCatalogSyncService(
     private val grimmoryApiFactory: GrimmoryApiFactory,
     private val remoteCatalogWriter: RemoteCatalogWriter,
     private val readerSessionStore: ReaderSessionStore? = null,
+    private val journalRepository: JournalRepository? = null,
     private val nowEpochMillis: () -> Long = System::currentTimeMillis,
 ) : GrimmoryCatalogSyncer {
     private val progressSyncStore: ProgressSyncStore? = readerSessionStore?.let(::ReaderSessionProgressStoreAdapter)
@@ -137,6 +142,28 @@ class GrimmoryCatalogSyncService(
                 )
             }
             latestSession = syncOutcome.session ?: latestSession
+            runCatching {
+                val journalPull = pullJournalCache(
+                    api = api,
+                    initialAccessToken = activeAccessToken,
+                    initialRefreshToken = activeRefreshToken,
+                    entries = fetchResult.value.entries,
+                )
+                activeAccessToken = journalPull.accessToken
+                activeRefreshToken = journalPull.refreshToken
+                latestSession = journalPull.refreshedSession ?: latestSession
+            }.onFailure { error ->
+                if (error is CancellationException) throw error
+            }
+            val journalSync = pushDirtyJournalEntries(
+                api = api,
+                initialAccessToken = activeAccessToken,
+                initialRefreshToken = activeRefreshToken,
+                entries = fetchResult.value.entries.map(GrimmoryBookCatalogEntry::item),
+            )
+            activeAccessToken = journalSync.accessToken
+            activeRefreshToken = journalSync.refreshToken
+            latestSession = journalSync.refreshedSession ?: latestSession
             GrimmoryCatalogSyncResult(
                 libraryCount = syncOutcome.libraryCount,
                 itemCount = syncOutcome.itemCount,
@@ -166,6 +193,40 @@ class GrimmoryCatalogSyncService(
             initialRefreshToken = initialRefreshToken,
             items = items,
             readerSessionStore = store,
+        )
+    }
+
+    private suspend fun pushDirtyJournalEntries(
+        api: GrimmoryApi,
+        initialAccessToken: String,
+        initialRefreshToken: String?,
+        entries: List<ReadableItem>,
+    ): GrimmoryTokenRefreshResult<Unit> = api.runWithTokenRefresh(
+        initialAccessToken = initialAccessToken,
+        initialRefreshToken = initialRefreshToken,
+    ) { accessToken ->
+        pushDirtyGrimmoryJournalEntries(
+            api = api,
+            accessToken = accessToken,
+            entries = entries,
+            journalRepository = journalRepository,
+        )
+    }
+
+    private suspend fun pullJournalCache(
+        api: GrimmoryApi,
+        initialAccessToken: String,
+        initialRefreshToken: String?,
+        entries: List<GrimmoryBookCatalogEntry>,
+    ): GrimmoryTokenRefreshResult<Unit> = api.runWithTokenRefresh(
+        initialAccessToken = initialAccessToken,
+        initialRefreshToken = initialRefreshToken,
+    ) { accessToken ->
+        pullGrimmoryJournalCache(
+            api = api,
+            accessToken = accessToken,
+            entries = entries,
+            journalRepository = journalRepository,
         )
     }
 }

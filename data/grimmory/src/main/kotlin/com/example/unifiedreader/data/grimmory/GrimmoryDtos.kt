@@ -61,10 +61,91 @@ internal data class GrimmoryBookDto(
     val dateFinished: String? = null,
     @SerialName("date_finished")
     val dateFinishedSnake: String? = null,
+    val readStatus: String? = null,
+    val personalRating: Int? = null,
     val addedOn: String? = null,
     val metadata: GrimmoryBookMetadataDto? = null,
     val pdfProgress: GrimmoryPdfProgressDto? = null,
     val epubProgress: GrimmoryEpubProgressDto? = null,
+)
+
+@Serializable
+internal data class GrimmoryPersonalRatingRequestDto(
+    val ids: List<Long>,
+    val rating: Int,
+)
+
+@Serializable
+data class GrimmoryPersonalRatingResponseDto(
+    val bookId: Long? = null,
+    val personalRating: Int? = null,
+)
+
+@Serializable
+data class GrimmoryReadingSessionPageDto(
+    val content: List<GrimmoryReadingSessionDto>? = null,
+)
+
+@Serializable
+data class GrimmoryReadingSessionDto(
+    val id: Long? = null,
+    val bookId: Long? = null,
+    val bookTitle: String? = null,
+    val bookType: String? = null,
+    val startTime: String? = null,
+    val endTime: String? = null,
+    val durationSeconds: Int? = null,
+    val startProgress: Float? = null,
+    val endProgress: Float? = null,
+    val progressDelta: Float? = null,
+    val startLocation: String? = null,
+    val endLocation: String? = null,
+    val createdAt: String? = null,
+)
+
+@Serializable
+data class GrimmoryBookNoteV2Dto(
+    val id: Long? = null,
+    val userId: Long? = null,
+    val bookId: Long? = null,
+    val cfi: String? = null,
+    val selectedText: String? = null,
+    val noteContent: String? = null,
+    val color: String? = null,
+    val chapterTitle: String? = null,
+    val createdAt: String? = null,
+    val updatedAt: String? = null,
+)
+
+@Serializable
+data class GrimmoryNotebookEntryDto(
+    val id: Long? = null,
+    val type: String? = null,
+    val bookId: Long? = null,
+    val text: String? = null,
+    val note: String? = null,
+    val color: String? = null,
+    val style: String? = null,
+    val chapterTitle: String? = null,
+    val createdAt: String? = null,
+    val updatedAt: String? = null,
+)
+
+@Serializable
+internal data class GrimmoryCreateBookNoteV2RequestDto(
+    val bookId: Long,
+    val cfi: String,
+    val selectedText: String? = null,
+    val noteContent: String,
+    val color: String? = null,
+    val chapterTitle: String? = null,
+)
+
+@Serializable
+internal data class GrimmoryUpdateBookNoteV2RequestDto(
+    val noteContent: String? = null,
+    val color: String? = null,
+    val chapterTitle: String? = null,
 )
 
 @Serializable
@@ -225,6 +306,10 @@ internal fun GrimmoryBookDto.toCatalogEntry(
         item = item,
         progress = progress,
         isExplicitUnreadReset = progressStateIncluded && progress == null,
+        personalRating = personalRating,
+        readStatus = readStatus,
+        dateFinished = dateFinished ?: dateFinishedSnake,
+        lastReadTime = lastReadTime,
     )
 }
 

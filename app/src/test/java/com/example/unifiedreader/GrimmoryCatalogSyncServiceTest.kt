@@ -13,13 +13,21 @@ import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
 import com.example.unifiedreader.data.grimmory.GrimmoryApi
 import com.example.unifiedreader.data.grimmory.GrimmoryBookCatalogEntry
+import com.example.unifiedreader.data.grimmory.GrimmoryNotebookEntryDto
 import com.example.unifiedreader.data.grimmory.GrimmoryProgressUpdate
 import com.example.unifiedreader.data.grimmory.GrimmorySession
 import com.example.unifiedreader.data.grimmory.GrimmoryUnauthorizedException
+import com.example.unifiedreader.journal.ItemJournalEntry
+import com.example.unifiedreader.journal.JournalItemRef
+import com.example.unifiedreader.journal.JournalProgressInput
+import com.example.unifiedreader.journal.JournalReadingEvent
+import com.example.unifiedreader.journal.JournalRepository
+import com.example.unifiedreader.journal.JournalSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderLocator
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
@@ -261,6 +269,42 @@ class GrimmoryCatalogSyncServiceTest {
         assertEquals("77", api.progressUpdates.single().bookFileId)
         assertEquals("fresh-access-token", result.session?.accessToken)
         assertEquals("fresh-refresh-token", result.session?.refreshToken)
+    }
+
+    @Test
+    fun `sync refreshes saved token when journal pull is unauthorized`() = runBlocking {
+        val item = grimmoryItem(remoteId = "book-1", libraryRemoteId = "g-books")
+        val api = FakeGrimmoryApi(
+            libraries = listOf(grimmoryLibrary("g-books")),
+            allBookEntries = listOf(GrimmoryBookCatalogEntry(item = item, progress = null)),
+        ).apply {
+            unauthorizedNotebookTokens += "expired-access-token"
+            refreshedSession = GrimmorySession(
+                accessToken = "fresh-access-token",
+                refreshToken = "fresh-refresh-token",
+            )
+        }
+        val journalRepository = GrimmoryRecordingJournalRepository()
+        val service = GrimmoryCatalogSyncService(
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
+            remoteCatalogWriter = RecordingRemoteCatalogWriter(),
+            journalRepository = journalRepository,
+        )
+
+        val result = service.sync(
+            GrimmoryCatalogSyncRequest(
+                displayName = "Grimmory",
+                baseUrl = "https://grimmory.example/",
+                username = "user",
+                accessToken = "expired-access-token",
+                refreshToken = "saved-refresh-token",
+            ),
+        )
+
+        assertEquals(listOf("expired-access-token", "fresh-access-token"), api.notebookAccessTokens)
+        assertEquals(listOf("saved-refresh-token"), api.refreshTokens)
+        assertEquals("fresh-access-token", result.session?.accessToken)
+        assertEquals(1, journalRepository.replaceCount)
     }
 
     @Test
@@ -556,6 +600,33 @@ private class RecordingRemoteCatalogWriter : RemoteCatalogWriter {
     }
 }
 
+private class GrimmoryRecordingJournalRepository : JournalRepository {
+    private val snapshot = MutableStateFlow(JournalSnapshot())
+    var replaceCount = 0
+
+    override fun observeSnapshot(): Flow<JournalSnapshot> = snapshot
+
+    override suspend fun recordReaderProgress(input: JournalProgressInput) = Unit
+
+    override suspend fun saveJournalEntry(item: ReadableItem, rating: Int?, reviewText: String) = Unit
+
+    override suspend fun saveJournalEntry(item: JournalItemRef, rating: Int?, reviewText: String) = Unit
+
+    override suspend fun deleteItemJournal(itemId: String) = Unit
+
+    override suspend fun replaceCleanSourceJournalCache(
+        sourceType: SourceType,
+        events: List<JournalReadingEvent>,
+        entries: List<ItemJournalEntry>,
+        preserveReviewFieldsWhenIncomingBlank: Boolean,
+        preserveRatingWhenIncomingBlank: Boolean,
+        preserveReadingEventsWhenIncomingIncomplete: Boolean,
+        readingEventReplacementItemIds: Set<String>?,
+    ) {
+        replaceCount += 1
+    }
+}
+
 private class FakeGrimmoryApi(
     private val libraries: List<Library>,
     private val allBookEntries: List<GrimmoryBookCatalogEntry>,
@@ -568,10 +639,12 @@ private class FakeGrimmoryApi(
     val libraryAccessTokens = mutableListOf<String>()
     val bookAccessTokens = mutableListOf<String>()
     val progressAccessTokens = mutableListOf<String>()
+    val notebookAccessTokens = mutableListOf<String>()
     val refreshTokens = mutableListOf<String>()
     val progressUpdates = mutableListOf<GrimmoryProgressUpdate>()
     val unauthorizedLibraryTokens = mutableSetOf<String>()
     val unauthorizedProgressTokens = mutableSetOf<String>()
+    val unauthorizedNotebookTokens = mutableSetOf<String>()
 
     override suspend fun login(
         username: String,
@@ -644,6 +717,19 @@ private class FakeGrimmoryApi(
             throw GrimmoryUnauthorizedException()
         }
         progressUpdates += progress
+    }
+
+    override suspend fun getNotebookEntriesExport(
+        accessToken: String,
+        types: List<String>,
+        search: String?,
+        sort: String,
+    ): List<GrimmoryNotebookEntryDto> {
+        notebookAccessTokens += accessToken
+        if (accessToken in unauthorizedNotebookTokens) {
+            throw GrimmoryUnauthorizedException()
+        }
+        return emptyList()
     }
 }
 

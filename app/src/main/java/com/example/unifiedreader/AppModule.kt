@@ -346,10 +346,12 @@ object AppModule {
         grimmoryApiFactory: GrimmoryApiFactory,
         remoteCatalogWriter: RemoteCatalogWriter,
         readerSessionStore: ReaderSessionStore,
+        journalRepository: JournalRepository,
     ): GrimmoryCatalogSyncer = GrimmoryCatalogSyncService(
         grimmoryApiFactory = grimmoryApiFactory,
         remoteCatalogWriter = remoteCatalogWriter,
         readerSessionStore = readerSessionStore,
+        journalRepository = journalRepository,
     )
 
     @Provides
