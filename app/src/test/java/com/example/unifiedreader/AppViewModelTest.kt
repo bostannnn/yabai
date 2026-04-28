@@ -1101,6 +1101,43 @@ class AppViewModelTest {
     }
 
     @Test
+    fun `changing library sort resets saved scroll for the selected sort context`() {
+        val first = sampleItem(
+            id = "first",
+            title = "First",
+            format = FormatType.EPUB,
+            isLocalImport = true,
+        ).copy(addedAtEpochMillis = 100L)
+        val second = sampleItem(
+            id = "second",
+            title = "Second",
+            format = FormatType.EPUB,
+            isLocalImport = true,
+        ).copy(addedAtEpochMillis = 200L)
+        val viewModel = createViewModel(
+            importedRepository = FakeLocalDocumentRepository(
+                importedItems = mutableListOf(first, second),
+            ),
+        )
+        viewModel.onSourceSelected(SourceType.LOCAL)
+        viewModel.onLibrarySortModeChanged(LibrarySortMode.DATE_ADDED)
+        val dateAddedKey = viewModel.uiState.libraryBrowseContextKey
+        val firstResetRequest = viewModel.uiState.libraryScrollToTopRequest
+        viewModel.onLibraryScrollPositionChanged(
+            contextKey = dateAddedKey,
+            position = LibraryScrollPosition(index = 9, offset = 24),
+        )
+
+        viewModel.onLibrarySortModeChanged(LibrarySortMode.TITLE)
+        viewModel.onLibrarySortModeChanged(LibrarySortMode.DATE_ADDED)
+
+        assertEquals(dateAddedKey, viewModel.uiState.libraryBrowseContextKey)
+        assertTrue(viewModel.uiState.libraryScrollToTopRequest > firstResetRequest)
+        assertEquals(LibraryScrollPosition(), viewModel.libraryScrollPositionFor(dateAddedKey))
+        assertEquals(listOf(second, first), viewModel.uiState.visibleItems)
+    }
+
+    @Test
     fun `kavita comics are grouped by series on top level and open issue list on tap`() {
         val firstIssue = sampleItem(
             id = "chapter-1",

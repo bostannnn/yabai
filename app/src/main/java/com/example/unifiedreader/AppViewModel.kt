@@ -148,6 +148,10 @@ class AppViewModel @Inject constructor(
             scope = viewModelScope,
             sortMode = sortMode,
         )
+        readerCoordinator.clearLibraryScrollPosition(uiState.libraryBrowseContextKey)
+        updateUiState { state ->
+            state.copy(libraryScrollToTopRequest = state.libraryScrollToTopRequest + 1L)
+        }
     }
 
     fun onLibraryGridCellSizeChanged(gridCellSizeDp: Int) {

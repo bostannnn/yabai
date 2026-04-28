@@ -83,6 +83,7 @@ data class AppUiState(
     val remoteDownloadActionAvailability: RemoteDownloadActionAvailability = RemoteDownloadActionAvailability(),
     val visibleItems: List<ReadableItem> = emptyList(),
     val libraryBrowseContextKey: String = "",
+    val libraryScrollToTopRequest: Long = 0L,
     val libraryShelvesState: LibraryShelvesState = LibraryShelvesState(),
     val journalSnapshot: JournalSnapshot = JournalSnapshot(),
     val progressSyncNotice: AppProgressSyncNotice? = null,

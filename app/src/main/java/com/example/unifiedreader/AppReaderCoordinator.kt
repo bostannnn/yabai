@@ -245,6 +245,12 @@ class AppReaderCoordinator @Inject constructor(
         libraryScrollPositionByContext[contextKey] = position
     }
 
+    fun clearLibraryScrollPosition(
+        contextKey: String,
+    ) {
+        libraryScrollPositionByContext.remove(contextKey)
+    }
+
     fun onBackPressed(
         stateProvider: AppUiStateProvider,
         updateState: AppUiStateUpdater,

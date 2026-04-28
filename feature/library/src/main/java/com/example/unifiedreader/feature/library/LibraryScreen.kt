@@ -71,6 +71,7 @@ fun LibraryScreen(
     onViewModeChanged: (LibraryViewMode) -> Unit = {},
     onGridCellSizeDpChanged: (Int) -> Unit = {},
     initialScrollPosition: LibraryScrollPosition = LibraryScrollPosition(),
+    scrollToTopRequest: Long = 0L,
     onScrollPositionChanged: (LibraryScrollPosition) -> Unit = {},
     onItemSelected: (ReadableItem) -> Unit,
     seriesReadingDirectionFor: (ReadableItem) -> ComicReadingDirection? = { null },
@@ -100,6 +101,7 @@ fun LibraryScreen(
     var gridExpandedMenuItemId by remember { mutableStateOf<String?>(null) }
     var openFilterPanel by rememberSaveable { mutableStateOf<LibraryFilterPanel?>(null) }
     var selectedSortLetter by rememberSaveable(sortMode) { mutableStateOf<String?>(null) }
+    var handledScrollToTopRequest by remember { mutableStateOf(scrollToTopRequest) }
     val alphabetRailVisible = showSortControl && sortMode.usesAlphabetRail && items.isNotEmpty()
     val sortLetters = remember(items, sortMode) {
         if (!sortMode.usesAlphabetRail) {
@@ -123,8 +125,24 @@ fun LibraryScreen(
             prefetchStrategy = LibraryGridScrollPrefetchStrategy,
         )
     }
+    val dateAddedTopItemId = if (showSortControl && sortMode == LibrarySortMode.DATE_ADDED) {
+        visibleItems.firstOrNull()?.id
+    } else {
+        null
+    }
     val leadingContentItemCount = 1 + if (topContent != null) 1 else 0
 
+    LaunchedEffect(scrollToTopRequest) {
+        if (scrollToTopRequest > handledScrollToTopRequest) {
+            handledScrollToTopRequest = scrollToTopRequest
+            gridState.scrollToItem(0)
+        }
+    }
+    LaunchedEffect(browseContextKey, dateAddedTopItemId) {
+        if (dateAddedTopItemId != null) {
+            gridState.scrollToItem(0)
+        }
+    }
     LaunchedEffect(selectedSortLetter, effectiveSortLetter) {
         if (selectedSortLetter != effectiveSortLetter) {
             selectedSortLetter = effectiveSortLetter

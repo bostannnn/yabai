@@ -76,8 +76,12 @@ internal suspend fun KavitaCatalogSyncService.fetchKavitaCatalog(
     val preservedEntries = series
         .asSequence()
         .filterNot { seriesEntry -> seriesEntry.id in refreshedSeriesIds }
-        .flatMap { seriesEntry -> existingItemsBySeriesId[seriesEntry.id].orEmpty().asSequence() }
-        .map(::preservedKavitaEntry)
+        .flatMap { seriesEntry ->
+            existingItemsBySeriesId[seriesEntry.id]
+                .orEmpty()
+                .asSequence()
+                .map { item -> preservedKavitaEntry(item, seriesEntry) }
+        }
         .toList()
     return KavitaCatalogFetchPlan(
         entries = refreshedEntries + preservedEntries,
@@ -123,8 +127,11 @@ private suspend fun KavitaCatalogSyncService.fullKavitaCatalogFetch(
 
 private fun preservedKavitaEntry(
     item: ReadableItem,
+    series: KavitaSeriesEntry,
 ): KavitaChapterCatalogEntry = KavitaChapterCatalogEntry(
-    item = item,
+    item = item.copy(
+        addedAtEpochMillis = series.addedAtEpochMillis ?: item.addedAtEpochMillis,
+    ),
     progress = null,
     isExplicitUnreadReset = false,
 )

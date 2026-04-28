@@ -168,7 +168,7 @@ class KavitaCatalogSyncServiceTest {
 
     @Test
     fun `fast sync preserves unchanged kavita series without refetching detail`() = runBlocking {
-        val series = kavitaSeriesEntry(id = "12", libraryId = "5")
+        val series = kavitaSeriesEntry(id = "12", libraryId = "5", addedAtEpochMillis = 500L)
         val api = FakeKavitaApi(
             libraries = listOf(kavitaLibrary("5")),
             series = listOf(series),
@@ -198,6 +198,7 @@ class KavitaCatalogSyncServiceTest {
         assertEquals(2, api.recentlyUpdatedRequests)
         assertTrue(api.progressRequests.isEmpty())
         assertEquals(listOf(SourceType.KAVITA.remoteItemId("99")), writer.lastItems.map { it.id })
+        assertEquals(500L, writer.lastItems.single().addedAtEpochMillis)
         assertEquals(3, readerSessionStore.progressByItemIdFlow.value[SourceType.KAVITA.remoteItemId("99")]?.page)
     }
 
@@ -427,6 +428,7 @@ private fun kavitaSeriesEntry(
     id: String,
     libraryId: String,
     format: FormatType = FormatType.CBZ,
+    addedAtEpochMillis: Long? = null,
     lastChapterAddedAtEpochMillis: Long = 100L,
 ): KavitaSeriesEntry = KavitaSeriesEntry(
     id = id,
@@ -434,7 +436,7 @@ private fun kavitaSeriesEntry(
     title = "Series $id",
     format = format,
     pages = 24,
-    addedAtEpochMillis = null,
+    addedAtEpochMillis = addedAtEpochMillis,
     lastChapterAddedAtEpochMillis = lastChapterAddedAtEpochMillis,
     coverUrl = "https://kavita.example/api/Image/series-cover?seriesId=$id&apiKey=seed",
 )

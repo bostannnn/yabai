@@ -152,6 +152,7 @@ fun UnifiedReaderScaffold(
                         viewMode = libraryViewMode,
                         browseContextKey = uiState.libraryBrowseContextKey,
                         initialScrollPosition = viewModel.libraryScrollPositionFor(uiState.libraryBrowseContextKey),
+                        scrollToTopRequest = uiState.libraryScrollToTopRequest,
                         coverImageUrlProvider = viewModel::coverImageUrlFor,
                         coverPrefetchKeyProvider = viewModel::coverPrefetchKeyFor,
                         onPrepareCoverSource = viewModel::prepareCoverSource,
