@@ -216,6 +216,45 @@ class KavitaCatalogSyncServiceTest {
     }
 
     @Test
+    fun `sync maps Kavita zero rating to unrated journal entry`() = runBlocking {
+        val api = FakeKavitaApi(
+            libraries = listOf(kavitaLibrary("5")),
+            series = listOf(kavitaSeriesEntry(id = "12", libraryId = "5")),
+            entriesBySeriesId = mapOf(
+                "12" to listOf(kavitaChapterEntry(chapterId = "99", libraryId = "5", seriesId = "12")),
+            ),
+            currentUserId = 1,
+            reviews = listOf(
+                KavitaUserReviewDto(
+                    id = 42,
+                    chapterId = 99,
+                    rating = 0f,
+                    createdUtc = "2026-04-07T06:00:00Z",
+                ),
+            ),
+        )
+        val journalRepository = KavitaRecordingJournalRepository()
+        val service = KavitaCatalogSyncService(
+            kavitaApiFactory = KavitaApiFactory { _ -> api },
+            remoteCatalogWriter = RecordingKavitaRemoteCatalogWriter(),
+            journalRepository = journalRepository,
+        )
+
+        service.sync(
+            request = KavitaCatalogSyncRequest(
+                displayName = "Kavita",
+                baseUrl = "https://kavita.example",
+                username = "reader",
+                accessToken = "saved-access-token",
+                refreshToken = "saved-refresh-token",
+                apiKey = "saved-api-key",
+            ),
+        )
+
+        assertEquals(null, journalRepository.lastEntries.single().rating)
+    }
+
+    @Test
     fun `fast sync preserves unchanged kavita series without refetching detail`() = runBlocking {
         val series = kavitaSeriesEntry(id = "12", libraryId = "5", addedAtEpochMillis = 500L)
         val api = FakeKavitaApi(
@@ -639,6 +678,7 @@ private class KavitaTestReaderSessionStore : ReaderSessionStore {
 private class KavitaRecordingJournalRepository : JournalRepository {
     private val snapshot = MutableStateFlow(JournalSnapshot())
     var replaceCount = 0
+    var lastEntries = emptyList<ItemJournalEntry>()
 
     override fun observeSnapshot(): Flow<JournalSnapshot> = snapshot
 
@@ -660,6 +700,7 @@ private class KavitaRecordingJournalRepository : JournalRepository {
         readingEventReplacementItemIds: Set<String>?,
     ) {
         replaceCount += 1
+        lastEntries = entries
     }
 }
 
@@ -672,6 +713,7 @@ private class FakeKavitaApi(
     private val unauthorizedSeriesRequests: Int = 0,
     private val unauthorizedJournalTokens: Set<String> = emptySet(),
     private val currentUserId: Int? = null,
+    private val reviews: List<KavitaUserReviewDto> = emptyList(),
     private val refreshedSession: KavitaSession = KavitaSession(
         accessToken = "refreshed-access-token",
         refreshToken = "refreshed-refresh-token",
@@ -772,7 +814,7 @@ private class FakeKavitaApi(
     override suspend fun getAllReviews(
         accessToken: String,
         userId: Int?,
-    ): List<KavitaUserReviewDto> = emptyList()
+    ): List<KavitaUserReviewDto> = reviews
 
     override suspend fun getReadingHistory(
         accessToken: String,

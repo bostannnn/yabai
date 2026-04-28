@@ -239,7 +239,10 @@ private fun Int.toPagePercent(pageCount: Int?): Double? {
     return toDouble() / count.toDouble()
 }
 
-private fun Float.toInternalRating(): Int = (coerceIn(0f, 5f) * 2f).roundToInt().coerceIn(1, 10)
+private fun Float.toInternalRating(): Int? {
+    if (this <= 0f) return null
+    return (coerceIn(0f, 5f) * 2f).roundToInt().coerceIn(1, 10)
+}
 
 private fun Int?.toKavitaRating(): Float = this?.coerceIn(1, 10)?.toFloat()?.div(2f) ?: 0f
 
