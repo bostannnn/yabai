@@ -197,7 +197,11 @@ suspend fun pushDirtyGrimmoryJournalEntries(
 }
 
 private fun GrimmoryBookCatalogEntry.toJournalEntry(): ItemJournalEntry? {
-    val hasJournalData = personalRating != null || dateFinished != null || lastReadTime != null
+    val isFinishedByReadStatus = readStatus.isFinishedReadStatus()
+    val hasJournalData = personalRating != null ||
+        dateFinished != null ||
+        lastReadTime != null ||
+        isFinishedByReadStatus
     if (!hasJournalData) return null
     val updatedAt = listOfNotNull(
         dateFinished?.toEpochMillisOrNull(),
@@ -266,7 +270,9 @@ private suspend fun findExistingReservedReviewNoteId(
     ?.toString()
 
 private fun GrimmoryBookCatalogEntry.toFinishedProgressJournalEvent(): JournalReadingEvent? {
-    val isFinished = progress?.isFinished == true || dateFinished != null
+    val isFinished = progress?.isFinished == true ||
+        dateFinished != null ||
+        readStatus.isFinishedReadStatus()
     if (!isFinished) return null
     val occurredAt = dateFinished?.toEpochMillisOrNull()
         ?: progress?.updatedAtEpochMillis
@@ -333,6 +339,14 @@ private fun Float?.toJournalPercent(): Double? = this
     ?.toDouble()
     ?.div(100.0)
     ?.coerceIn(0.0, 1.0)
+
+private fun String?.isFinishedReadStatus(): Boolean = when (this?.trim()?.uppercase()) {
+    "READ",
+    "FINISHED",
+    "COMPLETED",
+    "DONE" -> true
+    else -> false
+}
 
 private fun List<GrimmoryNotebookEntryDto>.firstReservedReviewNoteForBook(
     bookId: Long?,
