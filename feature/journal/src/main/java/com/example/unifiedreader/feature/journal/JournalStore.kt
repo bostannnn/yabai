@@ -12,28 +12,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
-interface JournalEventRecorder {
-    suspend fun recordReaderProgress(input: JournalProgressInput)
-}
-
-interface JournalRepository : JournalEventRecorder {
-    fun observeSnapshot(): Flow<JournalSnapshot>
-
-    suspend fun saveJournalEntry(
-        item: ReadableItem,
-        rating: Int?,
-        reviewText: String,
-    )
-
-    suspend fun saveJournalEntry(
-        item: JournalItemRef,
-        rating: Int?,
-        reviewText: String,
-    )
-
-    suspend fun deleteItemJournal(itemId: String)
-}
-
 class RoomJournalRepository(
     private val journalDao: JournalDao,
     private val remoteCatalogDao: RemoteCatalogDao,
@@ -190,14 +168,15 @@ private data class JournalPosition(
     companion object {
         fun from(input: JournalProgressInput): JournalPosition {
             val pageCount = input.pageCount ?: input.item.pageCount
+            val page = input.page
             val percent = input.percent
-                ?: if (input.page != null && pageCount != null && pageCount > 0) {
-                    input.page.toDouble() / pageCount.toDouble()
+                ?: if (page != null && pageCount != null && pageCount > 0) {
+                    page.toDouble() / pageCount.toDouble()
                 } else {
                     null
                 }
             return JournalPosition(
-                page = input.page,
+                page = page,
                 percent = percent?.coerceIn(0.0, 1.0),
             )
         }

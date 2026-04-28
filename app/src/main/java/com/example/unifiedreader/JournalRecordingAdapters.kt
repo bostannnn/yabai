@@ -2,8 +2,8 @@ package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SyncState
-import com.example.unifiedreader.feature.journal.JournalEventRecorder
-import com.example.unifiedreader.feature.journal.JournalProgressInput
+import com.example.unifiedreader.journal.JournalEventRecorder
+import com.example.unifiedreader.journal.JournalProgressInput
 import com.example.unifiedreader.feature.reader.comics.ComicReaderProgressStore
 import com.example.unifiedreader.feature.reader.core.ReaderLocator
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot

@@ -176,8 +176,10 @@ internal fun List<ItemJournalEntry>.journalEntriesInPeriod(
 }
 
 internal fun JournalReadingEvent.positivePageDelta(): Int {
-    val explicitDelta = if (fromPage != null && toPage != null) {
-        (toPage - fromPage).coerceAtLeast(0)
+    val fromPageValue = fromPage
+    val toPageValue = toPage
+    val explicitDelta = if (fromPageValue != null && toPageValue != null) {
+        (toPageValue - fromPageValue).coerceAtLeast(0)
     } else {
         null
     }

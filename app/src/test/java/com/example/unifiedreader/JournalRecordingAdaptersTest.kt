@@ -4,8 +4,8 @@ import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
-import com.example.unifiedreader.feature.journal.JournalEventRecorder
-import com.example.unifiedreader.feature.journal.JournalProgressInput
+import com.example.unifiedreader.journal.JournalEventRecorder
+import com.example.unifiedreader.journal.JournalProgressInput
 import com.example.unifiedreader.feature.reader.comics.ComicReaderProgressStore
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow

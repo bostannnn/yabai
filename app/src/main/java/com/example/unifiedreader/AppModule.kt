@@ -24,8 +24,8 @@ import com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
 import com.example.unifiedreader.feature.downloads.RemoteDownloadQueueController
 import com.example.unifiedreader.feature.downloads.RemoteDownloadWorkerRunner
 import com.example.unifiedreader.feature.downloads.RoomDownloadQueueStore
-import com.example.unifiedreader.feature.journal.JournalEventRecorder
-import com.example.unifiedreader.feature.journal.JournalRepository
+import com.example.unifiedreader.journal.JournalEventRecorder
+import com.example.unifiedreader.journal.JournalRepository
 import com.example.unifiedreader.feature.journal.RoomJournalRepository
 import com.example.unifiedreader.feature.library.DataStoreLibraryBrowsePreferencesStore
 import com.example.unifiedreader.feature.library.LibraryBrowseStateCoordinator

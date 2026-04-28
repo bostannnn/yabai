@@ -36,7 +36,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.core.model.librarySecondaryText
 import com.example.unifiedreader.feature.journal.JournalItemReviewCard
-import com.example.unifiedreader.feature.journal.JournalItemRef
+import com.example.unifiedreader.journal.JournalItemRef
 import com.example.unifiedreader.feature.journal.rememberJournalReviewState
 import com.example.unifiedreader.feature.journal.shouldSaveJournalReview
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant

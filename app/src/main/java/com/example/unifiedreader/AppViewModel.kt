@@ -12,8 +12,8 @@ import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.downloads.DownloadEntriesSnapshot
-import com.example.unifiedreader.feature.journal.JournalItemRef
-import com.example.unifiedreader.feature.journal.JournalRepository
+import com.example.unifiedreader.journal.JournalItemRef
+import com.example.unifiedreader.journal.JournalRepository
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
 import com.example.unifiedreader.feature.navigation.SourceOrderMoveDirection

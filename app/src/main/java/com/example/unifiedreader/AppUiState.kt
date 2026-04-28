@@ -16,7 +16,7 @@ import com.example.unifiedreader.feature.library.ItemProgressSummary
 import com.example.unifiedreader.feature.library.RemoteDownloadActionAvailability
 import com.example.unifiedreader.feature.library.defaultLibraryGridCellSizeDp
 import com.example.unifiedreader.feature.library.shelves.LibraryShelvesState
-import com.example.unifiedreader.feature.journal.JournalSnapshot
+import com.example.unifiedreader.journal.JournalSnapshot
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderModePreferences
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirectionPreferences
 import com.example.unifiedreader.feature.library.defaultLibrarySortMode
