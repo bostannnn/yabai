@@ -11,6 +11,9 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
 import java.time.Instant
+import java.time.LocalDateTime
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -443,9 +446,16 @@ private fun buildKavitaChapterCoverUrl(
     }
 }
 
-private fun String?.toEpochMillisOrNull(): Long? = runCatching {
-    this?.let(Instant::parse)?.toEpochMilli()
-}.getOrNull()
+private fun String?.toEpochMillisOrNull(): Long? {
+    val value = this?.takeIf(String::isNotBlank) ?: return null
+    return runCatching {
+        Instant.parse(value).toEpochMilli()
+    }.recoverCatching {
+        OffsetDateTime.parse(value).toInstant().toEpochMilli()
+    }.recoverCatching {
+        LocalDateTime.parse(value).toInstant(ZoneOffset.UTC).toEpochMilli()
+    }.getOrNull()
+}
 
 private fun KavitaChapterDto.chapterPublishers(
     series: KavitaSeriesEntry,

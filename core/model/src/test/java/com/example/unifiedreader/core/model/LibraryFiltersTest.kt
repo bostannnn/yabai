@@ -1,6 +1,7 @@
 package com.example.unifiedreader.core.model
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class LibraryFiltersTest {
@@ -55,6 +56,35 @@ class LibraryFiltersTest {
         )
 
         assertEquals(listOf(alpha, beta), sortedItems)
+    }
+
+    @Test
+    fun `comic secondary text keeps issue title when raw title is the issue title`() {
+        val issue = item(id = "issue", title = "Chapter v3").copy(
+            format = FormatType.CBZ,
+            kind = ReadableItemKind.COMIC,
+            comicMetadata = ComicMetadata(
+                series = "GIGANT",
+                issueTitle = "Chapter v3",
+            ),
+        )
+
+        assertEquals("GIGANT", issue.libraryPrimaryText())
+        assertEquals("Chapter v3", issue.librarySecondaryText())
+    }
+
+    @Test
+    fun `comic secondary text hides issue title when it duplicates series title`() {
+        val issue = item(id = "issue", title = "GIGANT").copy(
+            format = FormatType.CBZ,
+            kind = ReadableItemKind.COMIC,
+            comicMetadata = ComicMetadata(
+                series = "GIGANT",
+                issueTitle = "GIGANT",
+            ),
+        )
+
+        assertNull(issue.librarySecondaryText())
     }
 }
 

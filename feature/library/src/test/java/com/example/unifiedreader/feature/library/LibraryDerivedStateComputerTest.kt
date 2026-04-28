@@ -203,6 +203,47 @@ class LibraryDerivedStateComputerTest {
             derivedState.visibleItems.map(ReadableItem::id),
         )
     }
+
+    @Test
+    fun `root date added sort puts newest series containers first`() {
+        val libraryId = SourceType.KAVITA.remoteLibraryId("k-comics")
+        val libraries = listOf(
+            Library(
+                id = libraryId,
+                sourceType = SourceType.KAVITA,
+                title = "Kavita Comics",
+                contentType = LibraryContentType.COMICS,
+            ),
+        )
+        val olderIssue = issue(
+            id = "k-1",
+            sourceType = SourceType.KAVITA,
+            libraryId = libraryId,
+            seriesKey = "akira",
+            title = "Akira 1",
+        ).copy(addedAtEpochMillis = 100L)
+        val newerIssue = issue(
+            id = "k-2",
+            sourceType = SourceType.KAVITA,
+            libraryId = libraryId,
+            seriesKey = "blame",
+            title = "Blame 1",
+        ).copy(addedAtEpochMillis = 300L)
+
+        val derivedState = computer.compute(
+            LibraryDerivedStateInput(
+                selectedSource = SourceType.KAVITA,
+                libraries = libraries,
+                items = listOf(olderIssue, newerIssue),
+                selectedLibrarySortMode = LibrarySortMode.DATE_ADDED,
+            ),
+        )
+
+        assertEquals(
+            listOf("kavita:series:${libraryId}::blame", "kavita:series:${libraryId}::akira"),
+            derivedState.visibleItems.map(ReadableItem::id),
+        )
+    }
 }
 
 private fun issue(

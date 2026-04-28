@@ -86,7 +86,7 @@ fun ReadableItem.librarySecondaryText(): String? = when (kind) {
     ReadableItemKind.BOOK -> bookMetadata?.primaryAuthor()?.takeIf(String::isNotBlank)
     ReadableItemKind.COMIC -> {
         val issueTitle = comicMetadata?.issueTitle?.takeIf(String::isNotBlank) ?: return null
-        if (issueTitle == libraryPrimaryText() || issueTitle == title) null else issueTitle
+        if (issueTitle == libraryPrimaryText()) null else issueTitle
     }
 }
 

@@ -1083,6 +1083,10 @@ class AppViewModelTest {
 
         assertEquals(listOf(akira, leftHand, neuromancer), viewModel.uiState.visibleItems)
 
+        viewModel.onLibrarySortModeChanged(LibrarySortMode.DATE_ADDED)
+
+        assertEquals(listOf(leftHand, akira, neuromancer), viewModel.uiState.visibleItems)
+
         viewModel.onLibrarySortModeChanged(LibrarySortMode.AUTHOR)
 
         assertEquals(listOf(akira, neuromancer, leftHand), viewModel.uiState.visibleItems)

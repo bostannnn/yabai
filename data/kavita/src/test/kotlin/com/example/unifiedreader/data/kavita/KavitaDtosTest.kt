@@ -20,7 +20,7 @@ class KavitaDtosTest {
             name = "Saga",
             libraryId = 5,
             format = 1,
-            created = "2026-04-09T10:15:30Z",
+            created = "2026-04-09T10:15:30",
             lastChapterAddedUtc = "2026-04-08T10:15:30Z",
             publishers = listOf(KavitaPersonDto(name = "Image")),
             genres = listOf(KavitaGenreTagDto(title = "Sci-Fi")),
@@ -76,6 +76,54 @@ class KavitaDtosTest {
             "https://kavita.example/api/Image/chapter-cover?chapterId=21&apiKey=secret",
             entry.item.coverUrl,
         )
+    }
+
+    @Test
+    fun `series date added prefers series creation over newest chapter added timestamp`() {
+        val series = KavitaSeriesDto(
+            id = 12,
+            name = "Saga",
+            libraryId = 5,
+            format = 1,
+            created = "2026-04-01T10:15:30Z",
+            lastChapterAddedUtc = "2026-04-09T10:15:30Z",
+        ).toEntry(
+            baseUrl = "https://kavita.example",
+            apiKey = "secret",
+        ) ?: error("Expected series entry.")
+
+        assertEquals(1775038530000L, series.addedAtEpochMillis)
+    }
+
+    @Test
+    fun `series date added maps kavita local date time`() {
+        val series = KavitaSeriesDto(
+            id = 12,
+            name = "Saga",
+            libraryId = 5,
+            format = 1,
+            created = "2026-04-09T10:15:30",
+        ).toEntry(
+            baseUrl = "https://kavita.example",
+            apiKey = "secret",
+        ) ?: error("Expected series entry.")
+
+        assertEquals(1775729730000L, series.addedAtEpochMillis)
+    }
+
+    @Test
+    fun `recent update marker maps kavita local date time`() {
+        val update = KavitaGroupedSeriesDto(
+            seriesId = 12,
+            libraryId = 5,
+            created = "2026-04-09T10:15:30",
+            chapterId = 21,
+            volumeId = 7,
+            count = 1,
+        ).toUpdateEntry() ?: error("Expected update entry.")
+
+        assertEquals("12", update.seriesId)
+        assertEquals(1775729730000L, update.createdAtEpochMillis)
     }
 
     @Test
