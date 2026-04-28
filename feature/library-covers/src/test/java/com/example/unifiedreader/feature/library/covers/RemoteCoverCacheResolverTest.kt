@@ -74,6 +74,41 @@ class RemoteCoverCacheResolverTest {
         assertEquals(resolvedFile, cachedThumbnail?.file)
         assertTrue(requireNotNull(cachedThumbnail).matchesRequestedVariant)
     }
+
+    @Test
+    fun `resolveCoverFile backfills thumbnail from legacy base file name`() = runTest {
+        val currentBaseFileName = "resolver-test-cover-hash.cover"
+        val legacyBaseFileName = "resolver-test.cover"
+        val legacyOriginalFile = File(
+            File(context.filesDir, STORAGE.storageDirectoryName),
+            legacyBaseFileName,
+        ).apply {
+            parentFile?.mkdirs()
+            writeBytes(validCoverBytes())
+        }
+
+        val cachedFallback = resolver.cachedCover(
+            storage = STORAGE,
+            baseFileName = currentBaseFileName,
+            variant = LibraryCoverVariant.Grid,
+            legacyBaseFileNames = listOf(legacyBaseFileName),
+        )
+
+        assertNotNull(cachedFallback)
+        assertEquals(legacyOriginalFile, cachedFallback?.file)
+        assertFalse(requireNotNull(cachedFallback).matchesRequestedVariant)
+
+        val resolvedFile = resolver.resolveCoverFile(
+            storage = STORAGE,
+            baseFileName = currentBaseFileName,
+            variant = LibraryCoverVariant.Grid,
+            legacyBaseFileNames = listOf(legacyBaseFileName),
+            downloadOriginal = { error("Existing legacy original should not trigger a download.") },
+        )
+
+        assertTrue(resolvedFile.isFile)
+        assertTrue(resolvedFile.name.contains(currentBaseFileName.substringBeforeLast('.')))
+    }
 }
 
 private val STORAGE = RemoteCoverStorageDirectory(

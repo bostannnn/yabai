@@ -1,6 +1,7 @@
 package com.example.unifiedreader
 
 import com.example.unifiedreader.core.database.entity.toEntity
+import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEntity
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.ReadableItem
@@ -45,6 +46,7 @@ suspend fun <Entry, Session> finalizeRemoteCatalogSync(
     progressOf: (Entry) -> ReadingProgress?,
     missingRemoteClearsLocal: (Entry) -> Boolean = { false },
     remoteClearOverridesLocal: (Entry) -> Boolean = { false },
+    syncGroups: List<RemoteCatalogSyncGroupEntity> = emptyList(),
     pushDirtyProgress: suspend (items: List<ReadableItem>) -> RemoteCatalogProgressPushResult<Session>,
 ): RemoteCatalogSyncOutcome<Session> {
     val libraries = fetch.libraries
@@ -63,6 +65,7 @@ suspend fun <Entry, Session> finalizeRemoteCatalogSync(
         items = items.map { item ->
             item.toEntity(updatedAtEpochMillis = nowEpochMillis)
         },
+        syncGroups = syncGroups,
     )
     onProgress(applyingProgressMessage, 0.97f)
     pullRemoteProgress(

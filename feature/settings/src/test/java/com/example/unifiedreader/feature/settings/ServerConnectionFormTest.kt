@@ -62,6 +62,20 @@ class ServerConnectionFormTest {
     }
 
     @Test
+    fun `full sync button spinner only appears during explicit full sync`() {
+        val actionState = buildServerConnectionActionState(
+            state = formState(
+                hasStoredSession = true,
+                isConnecting = true,
+                activeAction = ServerConnectionAction.FullSync,
+            ),
+        )
+
+        assertEquals(ServerConnectionAction.FullSync, actionState.activeAction)
+        assertFalse(actionState.canSync)
+    }
+
+    @Test
     fun `stored session can sync when idle`() {
         val actionState = buildServerConnectionActionState(
             state = formState(

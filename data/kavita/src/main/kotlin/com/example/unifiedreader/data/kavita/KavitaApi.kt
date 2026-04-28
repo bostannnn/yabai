@@ -41,6 +41,10 @@ interface KavitaApi {
         apiKey: String? = null,
     ): List<KavitaSeriesEntry>
 
+    suspend fun getRecentlyUpdatedSeries(
+        accessToken: String,
+    ): List<KavitaSeriesUpdateEntry> = emptyList()
+
     suspend fun getSeriesDetail(
         accessToken: String,
         series: KavitaSeriesEntry,
@@ -101,12 +105,23 @@ data class KavitaSeriesEntry(
     val libraryId: String,
     val title: String,
     val format: com.example.unifiedreader.core.model.FormatType,
+    val pages: Int? = null,
     val addedAtEpochMillis: Long?,
+    val lastChapterAddedAtEpochMillis: Long? = null,
     val coverUrl: String?,
     val publishers: List<String> = emptyList(),
     val genres: List<String> = emptyList(),
     val tags: List<String> = emptyList(),
     val languages: List<String> = emptyList(),
+)
+
+data class KavitaSeriesUpdateEntry(
+    val seriesId: String,
+    val libraryId: String?,
+    val createdAtEpochMillis: Long?,
+    val chapterId: String?,
+    val volumeId: String?,
+    val count: Int?,
 )
 
 data class KavitaChapterCatalogEntry(
@@ -211,6 +226,21 @@ class KtorKavitaApi(
                     apiKey = resolvedApiKey,
                 )
             }
+    }
+
+    override suspend fun getRecentlyUpdatedSeries(
+        accessToken: String,
+    ): List<KavitaSeriesUpdateEntry> = authenticatedRequest {
+        val response = httpClient.post("$normalizedBaseUrl/api/Series/recently-updated-series") {
+            bearerAuth(accessToken)
+            url {
+                parameters.append("PageNumber", "0")
+                parameters.append("PageSize", "10000")
+            }
+        }
+        response.throwIfKavitaError()
+        response.body<List<KavitaGroupedSeriesDto>>()
+            .mapNotNull(KavitaGroupedSeriesDto::toUpdateEntry)
     }
 
     override suspend fun getSeriesDetail(

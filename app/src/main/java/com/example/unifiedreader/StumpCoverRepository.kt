@@ -32,6 +32,7 @@ class StumpCoverRepository @Inject constructor(
             storage = stumpCoverStorage,
             baseFileName = item.stumpCacheFileName("cover"),
             variant = variant.toCoverAssetVariant(),
+            legacyBaseFileNames = item.stumpLegacyCacheFileNames("cover"),
         )?.toCachedRemoteCover()
     }
 
@@ -44,6 +45,7 @@ class StumpCoverRepository @Inject constructor(
             storage = stumpCoverStorage,
             baseFileName = item.stumpCacheFileName("cover"),
             variant = variant.toCoverAssetVariant(),
+            legacyBaseFileNames = item.stumpLegacyCacheFileNames("cover"),
         ) { destination ->
             val session = stumpCredentialStore.activeSessionFor(item)
                 ?: error("Connect to the active Stump server before loading remote covers.")
@@ -118,7 +120,20 @@ internal fun ReadableItem.stumpCacheFileName(
 ): String = listOfNotNull(
     id.toSafeFileSegment(),
     remoteFileType?.toSafeFileSegment(),
+    coverIdentityFileSegment(),
 ).joinToString(separator = "-").plus(".$extension")
+
+internal fun ReadableItem.stumpLegacyCacheFileNames(
+    extension: String,
+): List<String> {
+    if (coverIdentityFileSegment() != null) return emptyList()
+    return listOf(
+        listOfNotNull(
+            id.toSafeFileSegment(),
+            remoteFileType?.toSafeFileSegment(),
+        ).joinToString(separator = "-").plus(".$extension"),
+    )
+}
 
 private fun CachedCoverAsset.toCachedRemoteCover(): CachedRemoteCover = CachedRemoteCover(
     uri = Uri.fromFile(file),

@@ -32,6 +32,21 @@ data class RemoteLibraryCacheEntity(
 )
 
 @Entity(
+    tableName = "remote_catalog_sync_groups",
+    primaryKeys = ["sourceType", "groupId"],
+    indices = [
+        Index(value = ["sourceType"]),
+    ],
+)
+data class RemoteCatalogSyncGroupEntity(
+    val sourceType: String,
+    val groupId: String,
+    val libraryId: String?,
+    val fingerprint: String,
+    val updatedAtEpochMillis: Long,
+)
+
+@Entity(
     tableName = "readable_items",
     indices = [
         Index(value = ["libraryId"]),
@@ -51,6 +66,7 @@ data class ReadableItemEntity(
     val kind: String,
     val pageCount: Int?,
     val coverUrl: String?,
+    @ColumnInfo(defaultValue = "NULL") val seriesCoverUrl: String? = null,
     val description: String?,
     val addedAtEpochMillis: Long?,
     val bookAuthor: String?,
@@ -84,6 +100,7 @@ data class ReadableItemLibraryEntity(
     val kind: String,
     val pageCount: Int?,
     val coverUrl: String?,
+    val seriesCoverUrl: String? = null,
     val description: String?,
     val addedAtEpochMillis: Long?,
     val bookAuthor: String?,

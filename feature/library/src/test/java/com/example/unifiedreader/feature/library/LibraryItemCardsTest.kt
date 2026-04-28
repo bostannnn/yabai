@@ -104,6 +104,24 @@ class LibraryItemCardsTest {
     }
 
     @Test
+    fun `stump series container keeps series cover identity`() {
+        val seriesCoverUrl = "https://stump.example/api/v2/series/series-7/thumbnail?updated=2"
+        val seriesItem = buildStumpSeriesContainer(
+            seriesKey = "stump:library:stump-comics::series-7",
+            issues = listOf(
+                stumpIssue(
+                    id = "issue-1",
+                    title = "Akira 001",
+                    seriesKey = "series-7",
+                    seriesCoverUrl = seriesCoverUrl,
+                ),
+            ),
+        )
+
+        assertEquals(seriesCoverUrl, seriesItem.coverUrl)
+    }
+
+    @Test
     fun `partially downloaded series keeps both download and delete actions`() {
         val firstIssue = kavitaIssue(id = "chapter-1", title = "Akira 001", seriesKey = "series-7")
         val secondIssue = kavitaIssue(id = "chapter-2", title = "Akira 002", seriesKey = "series-7")
@@ -262,6 +280,7 @@ private fun stumpIssue(
     id: String,
     title: String,
     seriesKey: String,
+    seriesCoverUrl: String? = null,
 ): ReadableItem = ReadableItem(
     id = "stump:item:$id",
     sourceType = SourceType.STUMP,
@@ -270,6 +289,7 @@ private fun stumpIssue(
     remoteFileType = seriesKey,
     title = title,
     format = FormatType.CBZ,
+    seriesCoverUrl = seriesCoverUrl,
     comicMetadata = ComicMetadata(
         series = "Akira",
         issueTitle = title,

@@ -322,12 +322,12 @@ class AppStumpRemoteSourceController @Inject constructor(
         }
     }
 
-    private suspend fun resetCoverState() {
-        remoteCoverController.resetSource(SourceType.STUMP)
-    }
-
     private fun clearPageCache() {
         comicPageSourceCacheController.clearSourcePageCache(SourceType.STUMP)
+    }
+
+    private suspend fun resetCoverState() {
+        remoteCoverController.resetSource(SourceType.STUMP)
     }
 
     private fun suppressObservedLibraryRefresh(

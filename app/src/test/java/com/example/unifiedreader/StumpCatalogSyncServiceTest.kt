@@ -2,6 +2,7 @@ package com.example.unifiedreader
 
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
+import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEntity
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.ReadableItem
@@ -283,6 +284,7 @@ private class RecordingStumpRemoteCatalogWriter(
         sourceType: SourceType,
         libraries: List<LibraryEntity>,
         items: List<ReadableItemEntity>,
+        syncGroups: List<RemoteCatalogSyncGroupEntity>,
     ) {
         lastItems = items
     }

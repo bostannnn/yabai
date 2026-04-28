@@ -5,6 +5,7 @@ import com.example.unifiedreader.core.database.dao.RemoteCatalogDao
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemLibraryEntity
+import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEntity
 import com.example.unifiedreader.core.database.entity.toDomain
 import com.example.unifiedreader.core.database.entity.toRemoteLibraryCacheEntity
 import com.example.unifiedreader.core.model.SourceType
@@ -121,15 +122,30 @@ class RoomRemoteCatalogRepository(
             .map(ReadableItemLibraryEntity::toDomain)
     }
 
+    override suspend fun getCatalogSyncGroups(
+        sourceType: SourceType,
+    ): List<RemoteCatalogSyncGroup> = withContext(ioDispatcher) {
+        remoteCatalogDao.getCatalogSyncGroupsForSourceType(sourceType.name)
+            .map { entity ->
+                RemoteCatalogSyncGroup(
+                    groupId = entity.groupId,
+                    libraryId = entity.libraryId,
+                    fingerprint = entity.fingerprint,
+                )
+            }
+    }
+
     override suspend fun replaceSourceCatalog(
         sourceType: SourceType,
         libraries: List<LibraryEntity>,
         items: List<ReadableItemEntity>,
+        syncGroups: List<RemoteCatalogSyncGroupEntity>,
     ) = withContext(ioDispatcher) {
         remoteCatalogDao.replaceSourceCatalog(
             sourceType = sourceType.name,
             libraries = libraries,
             items = items,
+            syncGroups = syncGroups,
         )
     }
 

@@ -18,6 +18,7 @@ import com.example.unifiedreader.core.database.entity.ItemJournalEntryEntity
 import com.example.unifiedreader.core.database.entity.JournalReadingEventEntity
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
+import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEntity
 import com.example.unifiedreader.core.database.entity.RemoteLibraryCacheEntity
 import com.example.unifiedreader.core.database.entity.ReaderSessionStateEntity
 import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
@@ -33,8 +34,9 @@ import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
         DownloadQueueEntryEntity::class,
         JournalReadingEventEntity::class,
         ItemJournalEntryEntity::class,
+        RemoteCatalogSyncGroupEntity::class,
     ],
-    version = 19,
+    version = 21,
     exportSchema = false,
 )
 abstract class UnifiedReaderDatabase : RoomDatabase() {
@@ -690,6 +692,35 @@ object UnifiedReaderDatabaseMigrations {
             database.execSQL("DROP TABLE IF EXISTS reading_goals")
         }
     }
+
+    val MIGRATION_19_20 = object : Migration(19, 20) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS remote_catalog_sync_groups (
+                    sourceType TEXT NOT NULL,
+                    groupId TEXT NOT NULL,
+                    libraryId TEXT,
+                    fingerprint TEXT NOT NULL,
+                    updatedAtEpochMillis INTEGER NOT NULL,
+                    PRIMARY KEY(sourceType, groupId)
+                )
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS index_remote_catalog_sync_groups_sourceType
+                ON remote_catalog_sync_groups (sourceType)
+                """.trimIndent(),
+            )
+        }
+    }
+
+    val MIGRATION_20_21 = object : Migration(20, 21) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("ALTER TABLE readable_items ADD COLUMN seriesCoverUrl TEXT DEFAULT NULL")
+        }
+    }
 }
 
 object UnifiedReaderDatabaseFactory {
@@ -719,6 +750,8 @@ object UnifiedReaderDatabaseFactory {
             UnifiedReaderDatabaseMigrations.MIGRATION_16_17,
             UnifiedReaderDatabaseMigrations.MIGRATION_17_18,
             UnifiedReaderDatabaseMigrations.MIGRATION_18_19,
+            UnifiedReaderDatabaseMigrations.MIGRATION_19_20,
+            UnifiedReaderDatabaseMigrations.MIGRATION_20_21,
         )
         .build()
 }

@@ -6,29 +6,29 @@ enum class LibraryCoverVariant(
     val height: Int,
 ) {
     Grid(
-        fileKey = "grid",
-        width = 240,
-        height = 360,
-    ),
-    GridLarge(
-        fileKey = "grid-large",
+        fileKey = "grid-v2",
         width = 480,
         height = 720,
     ),
-    GridExtraLarge(
-        fileKey = "grid-extra-large",
+    GridLarge(
+        fileKey = "grid-large-v2",
         width = 720,
         height = 1080,
     ),
+    GridExtraLarge(
+        fileKey = "grid-extra-large-v2",
+        width = 960,
+        height = 1440,
+    ),
     Shelf(
-        fileKey = "shelf",
-        width = 144,
-        height = 216,
+        fileKey = "shelf-v2",
+        width = 432,
+        height = 648,
     ),
     Detail(
-        fileKey = "detail",
-        width = 320,
-        height = 480,
+        fileKey = "detail-v2",
+        width = 960,
+        height = 1440,
     ),
 }
 

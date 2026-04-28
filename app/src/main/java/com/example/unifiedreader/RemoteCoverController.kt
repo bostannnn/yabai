@@ -52,21 +52,22 @@ class RemoteCoverController @Inject constructor(
         variant: LibraryCoverImageVariant,
     ): String? {
         val coverVariant = variant.toCoverAssetVariant()
+        val coverIdentity = item.coverIdentityFileSegment()
         sourceTypeByItemId[item.id] = item.sourceType
         val canFetchRemoteCover = remoteSourceConnectivityPolicy.canFetchCover(item.sourceType)
         if (canFetchRemoteCover) {
             scheduleCacheWarmup(item.sourceType)
         }
         val presentedUri = if (canFetchRemoteCover) {
-            visibleLibraryCoverRegistry.presentedUriFor(item.id, coverVariant)
+            visibleLibraryCoverRegistry.presentedUriFor(item.id, coverVariant, coverIdentity)
         } else {
-            visibleLibraryCoverRegistry.resolvedUriFor(item.id, coverVariant)
+            visibleLibraryCoverRegistry.resolvedUriFor(item.id, coverVariant, coverIdentity)
         }
         presentedUri?.let { return it }
         if (item.sourceType !in sourcesBeingReset) {
             cachedCoverUri(item, variant)?.let { cachedUri ->
-                visibleLibraryCoverRegistry.promoteResolvedUriImmediately(item.id, coverVariant, cachedUri)
-                return visibleLibraryCoverRegistry.presentedUriFor(item.id, coverVariant)
+                visibleLibraryCoverRegistry.promoteResolvedUriImmediately(item.id, coverVariant, cachedUri, coverIdentity)
+                return visibleLibraryCoverRegistry.presentedUriFor(item.id, coverVariant, coverIdentity)
             }
         }
         if (coverDataSources[item.sourceType]?.usesRemoteDisplayFallback == false) {
@@ -80,6 +81,7 @@ class RemoteCoverController @Inject constructor(
                 itemId = item.id,
                 variant = coverVariant,
                 uri = fallbackUri,
+                coverIdentity = coverIdentity,
             )
         }
     }
@@ -89,7 +91,8 @@ class RemoteCoverController @Inject constructor(
         variant: LibraryCoverImageVariant,
     ): String? {
         if (item.sourceType == SourceType.LOCAL) return null
-        return "remote-cover:${item.sourceType.name.lowercase()}:${item.id}:${variant.name.lowercase()}:coverv=${sourceResetVersion(item.sourceType)}"
+        val coverIdentity = item.coverIdentityFileSegment() ?: NO_COVER_IDENTITY_PREFETCH_SEGMENT
+        return "remote-cover:${item.sourceType.name.lowercase()}:${item.id}:${variant.name.lowercase()}:cover=$coverIdentity:coverv=${sourceResetVersion(item.sourceType)}"
     }
 
     fun ensureCoverCached(
@@ -99,6 +102,7 @@ class RemoteCoverController @Inject constructor(
         onError: (String) -> Unit,
     ) {
         val coverVariant = variant.toCoverAssetVariant()
+        val coverIdentity = item.coverIdentityFileSegment()
         sourceTypeByItemId[item.id] = item.sourceType
         if (!remoteSourceConnectivityPolicy.canFetchCover(item.sourceType)) return
         scheduleCacheWarmup(item.sourceType)
@@ -107,12 +111,13 @@ class RemoteCoverController @Inject constructor(
         val requestKey = RemoteCoverRequestKey(
             itemId = item.id,
             variant = variant,
+            coverIdentity = coverIdentity,
         )
         val cachedCover = dataSource.cachedCover(item, variant)
         cachedCover?.uri?.toString()
             ?.takeIf(String::isNotBlank)
             ?.let { cachedUri ->
-                visibleLibraryCoverRegistry.promoteResolvedUriWhenViewportIdle(item.id, coverVariant, cachedUri)
+                visibleLibraryCoverRegistry.promoteResolvedUriWhenViewportIdle(item.id, coverVariant, cachedUri, coverIdentity)
                 lastErrorMessageBySource.remove(item.sourceType)
                 if (cachedCover.isPersistent && cachedCover.matchesRequestedVariant) {
                     return
@@ -139,10 +144,10 @@ class RemoteCoverController @Inject constructor(
                 }
             }.onSuccess { cachedUri ->
                 if (!cachedUri.isNullOrBlank() && isActiveRequest(item, variant, requestNonce, requestSourceResetVersion)) {
-                    val currentUri = visibleLibraryCoverRegistry.presentedUriFor(item.id, coverVariant)
+                    val currentUri = visibleLibraryCoverRegistry.presentedUriFor(item.id, coverVariant, coverIdentity)
                     if (currentUri != cachedUri) {
                         Log.d(LOG_TAG, "Cached ${item.sourceType} ${variant.name.lowercase()} cover for ${item.id}: $cachedUri")
-                        visibleLibraryCoverRegistry.promoteResolvedUriWhenViewportIdle(item.id, coverVariant, cachedUri)
+                        visibleLibraryCoverRegistry.promoteResolvedUriWhenViewportIdle(item.id, coverVariant, cachedUri, coverIdentity)
                     }
                     lastErrorMessageBySource.remove(item.sourceType)
                 } else if (cachedUri.isNullOrBlank()) {
@@ -273,7 +278,7 @@ class RemoteCoverController @Inject constructor(
         variant: LibraryCoverImageVariant,
         requestNonce: Long,
         requestSourceResetVersion: Long,
-    ): Boolean = activeRequestNonceByKey[RemoteCoverRequestKey(item.id, variant)] == requestNonce &&
+    ): Boolean = activeRequestNonceByKey[RemoteCoverRequestKey(item.id, variant, item.coverIdentityFileSegment())] == requestNonce &&
         sourceResetVersion(item.sourceType) == requestSourceResetVersion &&
         sourceTypeByItemId[item.id] == item.sourceType
 
@@ -382,10 +387,12 @@ class RemoteCoverController @Inject constructor(
 private data class RemoteCoverRequestKey(
     val itemId: String,
     val variant: LibraryCoverImageVariant,
+    val coverIdentity: String?,
 )
 
 private const val LOG_TAG = "UnifiedReaderRemoteCover"
 private const val REMOTE_COVER_CACHE_CONCURRENCY = 4
+private const val NO_COVER_IDENTITY_PREFETCH_SEGMENT = "no-cover-identity"
 
 private fun defaultOnlineCoverConnectivityPolicy(): RemoteSourceConnectivityPolicy =
     RemoteSourceConnectivityPolicy().apply {

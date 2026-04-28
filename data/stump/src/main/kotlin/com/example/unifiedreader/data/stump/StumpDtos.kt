@@ -305,6 +305,7 @@ internal fun StumpMediaNodeDto.toCatalogEntry(
         kind = ReadableItemKind.COMIC,
         pageCount = pageCount?.takeIf { it > 0 },
         coverUrl = thumbnail?.url.toAbsoluteStumpUrl(baseUrl),
+        seriesCoverUrl = series.coverUrl,
         description = metadata?.summary?.takeIf(String::isNotBlank),
         comicMetadata = ComicMetadata(
             series = series.title,

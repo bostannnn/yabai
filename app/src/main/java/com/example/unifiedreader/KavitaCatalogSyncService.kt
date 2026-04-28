@@ -1,13 +1,17 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEntity
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.remoteLibraryId
 import com.example.unifiedreader.data.kavita.KavitaApi
 import com.example.unifiedreader.data.kavita.KavitaChapterCatalogEntry
 import com.example.unifiedreader.data.kavita.KavitaSession
 import com.example.unifiedreader.data.kavita.KavitaSeriesEntry
+import com.example.unifiedreader.data.kavita.KavitaSeriesUpdateEntry
+import com.example.unifiedreader.data.kavita.toReadingProgress
 import com.example.unifiedreader.core.model.progress.ProgressSyncStore
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 
@@ -91,6 +95,7 @@ class KavitaCatalogSyncService(
             var activeRefreshToken = session?.refreshToken ?: request.refreshToken
             var activeApiKey = session?.apiKey ?: request.apiKey
             var latestSession: KavitaSession? = session
+            var catalogSyncGroups: List<RemoteCatalogSyncGroupEntity> = emptyList()
             val fetchResult = api.runWithTokenRefresh(
                 initialAccessToken = activeAccessToken,
                 initialRefreshToken = activeRefreshToken,
@@ -109,6 +114,15 @@ class KavitaCatalogSyncService(
                     series = series,
                     onProgress = onProgress,
                 )
+                catalogSyncGroups = series.map { seriesEntry ->
+                    RemoteCatalogSyncGroupEntity(
+                        sourceType = SourceType.KAVITA.name,
+                        groupId = seriesEntry.id,
+                        libraryId = SourceType.KAVITA.remoteLibraryId(seriesEntry.libraryId),
+                        fingerprint = seriesEntry.catalogFingerprint(),
+                        updatedAtEpochMillis = nowEpochMillis(),
+                    )
+                }
                 RemoteCatalogFetch(
                     libraries = libraries,
                     entries = entries,
@@ -133,6 +147,7 @@ class KavitaCatalogSyncService(
                 progressOf = KavitaChapterCatalogEntry::progress,
                 missingRemoteClearsLocal = KavitaChapterCatalogEntry::isExplicitUnreadReset,
                 remoteClearOverridesLocal = { false },
+                syncGroups = catalogSyncGroups,
             ) { items ->
                 val progressSync = pushDirtyProgress(
                     api = api,
@@ -204,6 +219,27 @@ class KavitaCatalogSyncService(
     }
 }
 
+private fun KavitaSeriesEntry.catalogFingerprint(): String = listOf(
+    id,
+    libraryId,
+    title,
+    format.name,
+    pages?.toString().orEmpty(),
+    addedAtEpochMillis?.toString().orEmpty(),
+    lastChapterAddedAtEpochMillis?.toString().orEmpty(),
+    coverUrl.orEmpty(),
+    publishers.normalizedFingerprintPart(),
+    genres.normalizedFingerprintPart(),
+    tags.normalizedFingerprintPart(),
+    languages.normalizedFingerprintPart(),
+).joinToString(separator = "\u001F")
+
+private fun List<String>.normalizedFingerprintPart(): String =
+    map(String::trim)
+        .filter(String::isNotBlank)
+        .distinctBy(String::lowercase)
+        .joinToString(separator = "\u001E")
+
 data class KavitaCatalogSyncRequest(
     val displayName: String,
     val baseUrl: String,
@@ -214,7 +250,22 @@ data class KavitaCatalogSyncRequest(
     val accessToken: String? = null,
     val refreshToken: String? = null,
     val apiKey: String? = null,
+    val syncMode: KavitaCatalogSyncMode = KavitaCatalogSyncMode.FAST,
 )
+
+enum class KavitaCatalogSyncMode {
+    /**
+     * Normal user-triggered sync. Kavita detail payloads are still refreshed so chapter metadata
+     * and remote progress stay current across devices.
+     */
+    FAST,
+
+    /**
+     * Explicit cache-reset sync. It shares Kavita detail refresh semantics with normal sync,
+     * while callers can use the mode to reset local cache/state before syncing.
+     */
+    FULL,
+}
 
 data class KavitaCatalogConnectionResult(
     val libraryCount: Int,

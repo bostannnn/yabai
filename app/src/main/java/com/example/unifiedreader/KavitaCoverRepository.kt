@@ -35,6 +35,7 @@ class KavitaCoverRepository @Inject constructor(
             storage = kavitaCoverStorage,
             baseFileName = item.kavitaCacheFileName("cover"),
             variant = variant.toCoverAssetVariant(),
+            legacyBaseFileNames = item.kavitaLegacyCacheFileNames("cover"),
         )?.toCachedRemoteCover()
     }
 
@@ -47,6 +48,7 @@ class KavitaCoverRepository @Inject constructor(
             storage = kavitaCoverStorage,
             baseFileName = item.kavitaCacheFileName("cover"),
             variant = variant.toCoverAssetVariant(),
+            legacyBaseFileNames = item.kavitaLegacyCacheFileNames("cover"),
         ) { destination ->
             val session = kavitaCredentialStore.activeSessionFor(item)
                 ?: error("Connect to the active Kavita server before loading remote covers.")
@@ -99,7 +101,20 @@ internal fun ReadableItem.kavitaCacheFileName(
 ): String = listOfNotNull(
     id.toSafeFileSegment(),
     remoteFileType?.toSafeFileSegment(),
+    coverIdentityFileSegment(),
 ).joinToString(separator = "-").plus(".$extension")
+
+internal fun ReadableItem.kavitaLegacyCacheFileNames(
+    extension: String,
+): List<String> {
+    if (coverIdentityFileSegment() != null) return emptyList()
+    return listOf(
+        listOfNotNull(
+            id.toSafeFileSegment(),
+            remoteFileType?.toSafeFileSegment(),
+        ).joinToString(separator = "-").plus(".$extension"),
+    )
+}
 
 private fun CachedCoverAsset.toCachedRemoteCover(): CachedRemoteCover = CachedRemoteCover(
     uri = Uri.fromFile(file),

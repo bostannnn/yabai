@@ -8,6 +8,7 @@ import androidx.room.Transaction
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemLibraryEntity
+import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEntity
 import com.example.unifiedreader.core.database.entity.RemoteLibraryCacheEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -25,6 +26,7 @@ private const val READABLE_ITEM_LIBRARY_SELECT = """
         kind,
         pageCount,
         coverUrl,
+        seriesCoverUrl,
         CASE
             WHEN description IS NULL THEN NULL
             ELSE substr(description, 1, 512)
@@ -87,11 +89,24 @@ abstract class RemoteCatalogDao {
         username: String,
     ): List<RemoteLibraryCacheEntity>
 
+    @Query(
+        """
+        SELECT * FROM remote_catalog_sync_groups
+        WHERE sourceType = :sourceType
+        """,
+    )
+    abstract fun getCatalogSyncGroupsForSourceType(
+        sourceType: String,
+    ): List<RemoteCatalogSyncGroupEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract fun insertOrReplaceLibraries(libraries: List<LibraryEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract fun insertOrReplaceItems(items: List<ReadableItemEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract fun insertOrReplaceCatalogSyncGroups(groups: List<RemoteCatalogSyncGroupEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract fun insertOrReplaceCachedLibraries(entries: List<RemoteLibraryCacheEntity>)
@@ -101,6 +116,9 @@ abstract class RemoteCatalogDao {
 
     @Query("DELETE FROM libraries WHERE sourceType = :sourceType")
     protected abstract fun deleteLibrariesForSourceType(sourceType: String)
+
+    @Query("DELETE FROM remote_catalog_sync_groups WHERE sourceType = :sourceType")
+    protected abstract fun deleteCatalogSyncGroupsForSourceType(sourceType: String)
 
     @Query(
         """
@@ -119,11 +137,16 @@ abstract class RemoteCatalogDao {
         sourceType: String,
         libraries: List<LibraryEntity>,
         items: List<ReadableItemEntity>,
+        syncGroups: List<RemoteCatalogSyncGroupEntity> = emptyList(),
     ) {
         deleteItemsForSourceType(sourceType)
         deleteLibrariesForSourceType(sourceType)
+        deleteCatalogSyncGroupsForSourceType(sourceType)
         insertOrReplaceLibraries(libraries)
         insertOrReplaceItems(items)
+        if (syncGroups.isNotEmpty()) {
+            insertOrReplaceCatalogSyncGroups(syncGroups)
+        }
     }
 
     @Transaction

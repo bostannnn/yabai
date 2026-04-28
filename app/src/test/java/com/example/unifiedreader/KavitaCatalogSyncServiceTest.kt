@@ -2,10 +2,16 @@ package com.example.unifiedreader
 
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
+import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEntity
+import com.example.unifiedreader.core.database.entity.toDomain
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
+import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.ReadingProgress
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.SyncState
+import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
 import com.example.unifiedreader.data.kavita.KavitaApi
 import com.example.unifiedreader.data.kavita.KavitaChapterCatalogEntry
@@ -14,8 +20,15 @@ import com.example.unifiedreader.data.kavita.KavitaProgressDto
 import com.example.unifiedreader.data.kavita.KavitaProgressUpdate
 import com.example.unifiedreader.data.kavita.KavitaSeriesEntry
 import com.example.unifiedreader.data.kavita.KavitaSession
+import com.example.unifiedreader.data.kavita.KavitaSeriesUpdateEntry
 import com.example.unifiedreader.data.kavita.KavitaUnauthorizedException
+import com.example.unifiedreader.feature.reader.core.ReaderLocator
+import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
+import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
+import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import java.io.File
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -152,6 +165,219 @@ class KavitaCatalogSyncServiceTest {
 
         assertEquals(listOf(null, "refreshed-api-key"), api.seriesApiKeys)
     }
+
+    @Test
+    fun `fast sync refetches unchanged kavita series details`() = runBlocking {
+        val series = kavitaSeriesEntry(id = "12", libraryId = "5")
+        val api = FakeKavitaApi(
+            libraries = listOf(kavitaLibrary("5")),
+            series = listOf(series),
+            entriesBySeriesId = mapOf(
+                "12" to listOf(kavitaChapterEntry(chapterId = "99", libraryId = "5", seriesId = "12")),
+            ),
+        )
+        val writer = RecordingKavitaRemoteCatalogWriter()
+        val readerSessionStore = KavitaTestReaderSessionStore()
+        val service = KavitaCatalogSyncService(
+            kavitaApiFactory = KavitaApiFactory { _ -> api },
+            remoteCatalogWriter = writer,
+            readerSessionStore = readerSessionStore,
+        )
+        val request = KavitaCatalogSyncRequest(
+            displayName = "Kavita",
+            baseUrl = "https://kavita.example",
+            username = "reader",
+            accessToken = "saved-access-token",
+            apiKey = "saved-api-key",
+        )
+
+        service.sync(request = request)
+        service.sync(request = request)
+
+        assertEquals(listOf("12", "12"), api.detailRequests)
+        assertTrue(api.progressRequests.isEmpty())
+        assertEquals(listOf(SourceType.KAVITA.remoteItemId("99")), writer.lastItems.map { it.id })
+        assertEquals(3, readerSessionStore.progressByItemIdFlow.value[SourceType.KAVITA.remoteItemId("99")]?.page)
+    }
+
+    @Test
+    fun `full sync refetches unchanged kavita series details`() = runBlocking {
+        val series = kavitaSeriesEntry(id = "12", libraryId = "5")
+        val api = FakeKavitaApi(
+            libraries = listOf(kavitaLibrary("5")),
+            series = listOf(series),
+            entriesBySeriesId = mapOf(
+                "12" to listOf(kavitaChapterEntry(chapterId = "99", libraryId = "5", seriesId = "12")),
+            ),
+        )
+        val writer = RecordingKavitaRemoteCatalogWriter()
+        val service = KavitaCatalogSyncService(
+            kavitaApiFactory = KavitaApiFactory { _ -> api },
+            remoteCatalogWriter = writer,
+        )
+        val request = KavitaCatalogSyncRequest(
+            displayName = "Kavita",
+            baseUrl = "https://kavita.example",
+            username = "reader",
+            accessToken = "saved-access-token",
+            apiKey = "saved-api-key",
+            syncMode = KavitaCatalogSyncMode.FULL,
+        )
+
+        service.sync(request = request)
+        service.sync(request = request)
+
+        assertEquals(listOf("12", "12"), api.detailRequests)
+        assertEquals(listOf(SourceType.KAVITA.remoteItemId("99")), writer.lastItems.map { it.id })
+    }
+
+    @Test
+    fun `full sync does not require kavita recent update markers`() = runBlocking {
+        val series = kavitaSeriesEntry(id = "12", libraryId = "5")
+        val api = FakeKavitaApi(
+            libraries = listOf(kavitaLibrary("5")),
+            series = listOf(series),
+            recentUpdatesFailure = IllegalStateException("recent updates unavailable"),
+            entriesBySeriesId = mapOf(
+                "12" to listOf(kavitaChapterEntry(chapterId = "99", libraryId = "5", seriesId = "12")),
+            ),
+        )
+        val writer = RecordingKavitaRemoteCatalogWriter()
+        val service = KavitaCatalogSyncService(
+            kavitaApiFactory = KavitaApiFactory { _ -> api },
+            remoteCatalogWriter = writer,
+        )
+
+        service.sync(
+            request = KavitaCatalogSyncRequest(
+                displayName = "Kavita",
+                baseUrl = "https://kavita.example",
+                username = "reader",
+                accessToken = "saved-access-token",
+                apiKey = "saved-api-key",
+                syncMode = KavitaCatalogSyncMode.FULL,
+            ),
+        )
+
+        assertEquals(0, api.recentlyUpdatedRequests)
+        assertEquals(listOf("12"), api.detailRequests)
+        assertEquals(listOf(SourceType.KAVITA.remoteItemId("99")), writer.lastItems.map { it.id })
+    }
+
+    @Test
+    fun `sync refetches changed kavita series`() = runBlocking {
+        val writer = RecordingKavitaRemoteCatalogWriter()
+        val request = KavitaCatalogSyncRequest(
+            displayName = "Kavita",
+            baseUrl = "https://kavita.example",
+            username = "reader",
+            accessToken = "saved-access-token",
+            apiKey = "saved-api-key",
+        )
+        val firstApi = FakeKavitaApi(
+            libraries = listOf(kavitaLibrary("5")),
+            series = listOf(kavitaSeriesEntry(id = "12", libraryId = "5", lastChapterAddedAtEpochMillis = 100L)),
+            entriesBySeriesId = mapOf(
+                "12" to listOf(kavitaChapterEntry(chapterId = "99", libraryId = "5", seriesId = "12")),
+            ),
+        )
+        KavitaCatalogSyncService(
+            kavitaApiFactory = KavitaApiFactory { _ -> firstApi },
+            remoteCatalogWriter = writer,
+        ).sync(request = request)
+        val secondApi = FakeKavitaApi(
+            libraries = listOf(kavitaLibrary("5")),
+            series = listOf(kavitaSeriesEntry(id = "12", libraryId = "5", lastChapterAddedAtEpochMillis = 101L)),
+            entriesBySeriesId = mapOf(
+                "12" to listOf(kavitaChapterEntry(chapterId = "100", libraryId = "5", seriesId = "12")),
+            ),
+        )
+
+        KavitaCatalogSyncService(
+            kavitaApiFactory = KavitaApiFactory { _ -> secondApi },
+            remoteCatalogWriter = writer,
+        ).sync(request = request)
+
+        assertEquals(listOf("12"), secondApi.detailRequests)
+        assertEquals(listOf(SourceType.KAVITA.remoteItemId("100")), writer.lastItems.map { it.id })
+    }
+
+    @Test
+    fun `sync refetches kavita series when update marker changes`() = runBlocking {
+        val writer = RecordingKavitaRemoteCatalogWriter()
+        val request = KavitaCatalogSyncRequest(
+            displayName = "Kavita",
+            baseUrl = "https://kavita.example",
+            username = "reader",
+            accessToken = "saved-access-token",
+            apiKey = "saved-api-key",
+        )
+        val series = kavitaSeriesEntry(id = "12", libraryId = "5", lastChapterAddedAtEpochMillis = 100L)
+        val firstApi = FakeKavitaApi(
+            libraries = listOf(kavitaLibrary("5")),
+            series = listOf(series),
+            recentlyUpdatedSeries = listOf(kavitaSeriesUpdateEntry(seriesId = "12", chapterId = "99", createdAt = 100L)),
+            entriesBySeriesId = mapOf(
+                "12" to listOf(kavitaChapterEntry(chapterId = "99", libraryId = "5", seriesId = "12")),
+            ),
+        )
+        KavitaCatalogSyncService(
+            kavitaApiFactory = KavitaApiFactory { _ -> firstApi },
+            remoteCatalogWriter = writer,
+        ).sync(request = request)
+        val secondApi = FakeKavitaApi(
+            libraries = listOf(kavitaLibrary("5")),
+            series = listOf(series),
+            recentlyUpdatedSeries = listOf(kavitaSeriesUpdateEntry(seriesId = "12", chapterId = "100", createdAt = 101L)),
+            entriesBySeriesId = mapOf(
+                "12" to listOf(kavitaChapterEntry(chapterId = "100", libraryId = "5", seriesId = "12")),
+            ),
+        )
+
+        KavitaCatalogSyncService(
+            kavitaApiFactory = KavitaApiFactory { _ -> secondApi },
+            remoteCatalogWriter = writer,
+        ).sync(request = request)
+
+        assertEquals(listOf("12"), secondApi.detailRequests)
+        assertEquals(listOf(SourceType.KAVITA.remoteItemId("100")), writer.lastItems.map { it.id })
+    }
+
+    @Test
+    fun `sync removes missing kavita series`() = runBlocking {
+        val writer = RecordingKavitaRemoteCatalogWriter()
+        val request = KavitaCatalogSyncRequest(
+            displayName = "Kavita",
+            baseUrl = "https://kavita.example",
+            username = "reader",
+            accessToken = "saved-access-token",
+            apiKey = "saved-api-key",
+        )
+        FakeKavitaApi(
+            libraries = listOf(kavitaLibrary("5")),
+            series = listOf(kavitaSeriesEntry(id = "12", libraryId = "5")),
+            entriesBySeriesId = mapOf(
+                "12" to listOf(kavitaChapterEntry(chapterId = "99", libraryId = "5", seriesId = "12")),
+            ),
+        ).also { api ->
+            KavitaCatalogSyncService(
+                kavitaApiFactory = KavitaApiFactory { _ -> api },
+                remoteCatalogWriter = writer,
+            ).sync(request = request)
+        }
+
+        FakeKavitaApi(
+            libraries = listOf(kavitaLibrary("5")),
+            series = emptyList(),
+        ).also { api ->
+            KavitaCatalogSyncService(
+                kavitaApiFactory = KavitaApiFactory { _ -> api },
+                remoteCatalogWriter = writer,
+            ).sync(request = request)
+        }
+
+        assertTrue(writer.lastItems.isEmpty())
+    }
 }
 
 private fun kavitaLibrary(
@@ -168,34 +394,169 @@ private fun kavitaSeriesEntry(
     id: String,
     libraryId: String,
     format: FormatType = FormatType.CBZ,
+    lastChapterAddedAtEpochMillis: Long = 100L,
 ): KavitaSeriesEntry = KavitaSeriesEntry(
     id = id,
     libraryId = libraryId,
     title = "Series $id",
     format = format,
+    pages = 24,
     addedAtEpochMillis = null,
+    lastChapterAddedAtEpochMillis = lastChapterAddedAtEpochMillis,
     coverUrl = "https://kavita.example/api/Image/series-cover?seriesId=$id&apiKey=seed",
+)
+
+private fun kavitaChapterEntry(
+    chapterId: String,
+    libraryId: String,
+    seriesId: String,
+): KavitaChapterCatalogEntry = KavitaChapterCatalogEntry(
+    item = ReadableItem(
+        id = SourceType.KAVITA.remoteItemId(chapterId),
+        sourceType = SourceType.KAVITA,
+        libraryId = SourceType.KAVITA.remoteLibraryId(libraryId),
+        remoteId = chapterId,
+        remoteFileType = seriesId,
+        title = "Chapter $chapterId",
+        format = FormatType.CBZ,
+        pageCount = 24,
+    ),
+    progress = ReadingProgress(
+        itemId = SourceType.KAVITA.remoteItemId(chapterId),
+        locatorType = LocatorType.PAGE,
+        page = 3,
+        percent = 0.125,
+        isFinished = false,
+        updatedAtEpochMillis = 1775541600000L,
+    ),
+    isExplicitUnreadReset = false,
+)
+
+private fun kavitaSeriesUpdateEntry(
+    seriesId: String,
+    chapterId: String,
+    createdAt: Long,
+): KavitaSeriesUpdateEntry = KavitaSeriesUpdateEntry(
+    seriesId = seriesId,
+    libraryId = "5",
+    createdAtEpochMillis = createdAt,
+    chapterId = chapterId,
+    volumeId = "7",
+    count = 1,
 )
 
 private class RecordingKavitaRemoteCatalogWriter : RemoteCatalogWriter {
     var lastItems: List<ReadableItemEntity> = emptyList()
+    var syncGroups: List<RemoteCatalogSyncGroup> = emptyList()
 
     override suspend fun getItemsForSourceType(
         sourceType: SourceType,
-    ): List<ReadableItem> = emptyList()
+    ): List<ReadableItem> = lastItems
+        .filter { item -> item.sourceType == sourceType.name }
+        .map(ReadableItemEntity::toDomain)
+
+    override suspend fun getCatalogSyncGroups(
+        sourceType: SourceType,
+    ): List<RemoteCatalogSyncGroup> = syncGroups
 
     override suspend fun replaceSourceCatalog(
         sourceType: SourceType,
         libraries: List<LibraryEntity>,
         items: List<ReadableItemEntity>,
+        syncGroups: List<RemoteCatalogSyncGroupEntity>,
     ) {
         lastItems = items
+        this.syncGroups = syncGroups.map { entity ->
+            RemoteCatalogSyncGroup(
+                groupId = entity.groupId,
+                libraryId = entity.libraryId,
+                fingerprint = entity.fingerprint,
+            )
+        }
     }
+}
+
+private class KavitaTestReaderSessionStore : ReaderSessionStore {
+    private val progressByItemId = MutableStateFlow<Map<String, ReaderProgressSnapshot>>(emptyMap())
+    private val sessionByItemId = MutableStateFlow<Map<String, ReaderSessionSnapshot>>(emptyMap())
+
+    override val isHydratedFlow: StateFlow<Boolean> = MutableStateFlow(true)
+    override val progressByItemIdFlow: StateFlow<Map<String, ReaderProgressSnapshot>> = progressByItemId
+    override val sessionByItemIdFlow: StateFlow<Map<String, ReaderSessionSnapshot>> = sessionByItemId
+
+    override fun getProgress(item: ReadableItem): ReaderProgressSnapshot? = progressByItemId.value[item.id]
+
+    override fun saveProgress(
+        item: ReadableItem,
+        locator: ReaderLocator,
+        isFinished: Boolean,
+        isExplicitUnreadReset: Boolean,
+        syncState: SyncState,
+        pageCount: Int?,
+        updatedAtEpochMillis: Long,
+    ) {
+        progressByItemId.value = progressByItemId.value + (
+            item.id to ReaderProgressSnapshot(
+                itemId = item.id,
+                locatorType = locator.locatorType,
+                page = locator.page,
+                cfi = locator.cfi,
+                percent = locator.percent,
+                isFinished = isFinished,
+                isExplicitUnreadReset = isExplicitUnreadReset,
+                syncState = syncState,
+                updatedAtEpochMillis = updatedAtEpochMillis,
+            )
+        )
+    }
+
+    override suspend fun replaceProgressIfCurrent(
+        expected: ReaderProgressSnapshot,
+        replacement: ReaderProgressSnapshot?,
+    ): Boolean {
+        val current = progressByItemId.value[expected.itemId] ?: return false
+        if (current != expected) return false
+        progressByItemId.value = if (replacement == null) {
+            progressByItemId.value - expected.itemId
+        } else {
+            progressByItemId.value + (expected.itemId to replacement)
+        }
+        return true
+    }
+
+    override fun getSession(item: ReadableItem): ReaderSessionSnapshot? = sessionByItemId.value[item.id]
+
+    override fun updateSession(
+        itemId: String,
+        pageCount: Int?,
+        preferences: Map<String, String>,
+    ) {
+        sessionByItemId.value = sessionByItemId.value + (
+            itemId to ReaderSessionSnapshot(
+                itemId = itemId,
+                pageCount = pageCount,
+                preferences = preferences,
+            )
+        )
+    }
+
+    override fun clearProgress(itemId: String) {
+        progressByItemId.value = progressByItemId.value - itemId
+    }
+
+    override fun clearItem(itemId: String) {
+        clearProgress(itemId)
+        sessionByItemId.value = sessionByItemId.value - itemId
+    }
+
+    override fun restoreItem(itemId: String) = Unit
 }
 
 private class FakeKavitaApi(
     private val libraries: List<Library>,
     private val series: List<KavitaSeriesEntry>,
+    private val recentlyUpdatedSeries: List<KavitaSeriesUpdateEntry> = emptyList(),
+    private val recentUpdatesFailure: Throwable? = null,
     private val entriesBySeriesId: Map<String, List<KavitaChapterCatalogEntry>> = emptyMap(),
     private val unauthorizedSeriesRequests: Int = 0,
     private val refreshedSession: KavitaSession = KavitaSession(
@@ -205,6 +566,9 @@ private class FakeKavitaApi(
     ),
 ) : KavitaApi {
     val seriesApiKeys = mutableListOf<String?>()
+    val detailRequests = mutableListOf<String>()
+    val progressRequests = mutableListOf<String>()
+    var recentlyUpdatedRequests = 0
     private var remainingUnauthorizedSeriesRequests = unauthorizedSeriesRequests
 
     override suspend fun login(
@@ -238,15 +602,33 @@ private class FakeKavitaApi(
         return series
     }
 
+    override suspend fun getRecentlyUpdatedSeries(
+        accessToken: String,
+    ): List<KavitaSeriesUpdateEntry> {
+        recentlyUpdatedRequests += 1
+        recentUpdatesFailure?.let { throw it }
+        return recentlyUpdatedSeries
+    }
+
     override suspend fun getSeriesDetail(
         accessToken: String,
         series: KavitaSeriesEntry,
-    ): List<KavitaChapterCatalogEntry> = entriesBySeriesId[series.id].orEmpty()
+    ): List<KavitaChapterCatalogEntry> {
+        detailRequests += series.id
+        return entriesBySeriesId[series.id].orEmpty()
+    }
 
     override suspend fun getProgress(
         accessToken: String,
         chapterId: String,
-    ): KavitaProgressDto = error("Not needed in test.")
+    ): KavitaProgressDto {
+        progressRequests += chapterId
+        return KavitaProgressDto(
+            chapterId = chapterId.toIntOrNull(),
+            pageNum = 3,
+            lastModifiedUtc = "2026-04-07T06:00:00Z",
+        )
+    }
 
     override suspend fun getChapterInfo(
         accessToken: String,

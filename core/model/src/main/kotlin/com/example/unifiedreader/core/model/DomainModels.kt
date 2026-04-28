@@ -59,6 +59,7 @@ data class ReadableItem(
     val kind: ReadableItemKind = format.defaultReadableItemKind(),
     val pageCount: Int? = null,
     val coverUrl: String? = null,
+    val seriesCoverUrl: String? = null,
     val description: String? = null,
     val addedAtEpochMillis: Long? = null,
     val bookMetadata: BookMetadata? = null,
@@ -240,8 +241,7 @@ fun buildStumpSeriesContainer(
         title = seriesTitle,
         format = firstIssue.format,
         kind = ReadableItemKind.COMIC,
-        // Series containers should fetch the series thumbnail via the series id.
-        coverUrl = null,
+        coverUrl = firstIssue.seriesCoverUrl?.takeIf(String::isNotBlank),
         description = issues.firstNotNullOfOrNull { issue ->
             issue.description?.takeIf(String::isNotBlank)
         },

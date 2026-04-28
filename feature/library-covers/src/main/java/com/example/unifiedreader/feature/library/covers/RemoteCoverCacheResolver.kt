@@ -19,6 +19,7 @@ class RemoteCoverCacheResolver @Inject constructor(
         storage: RemoteCoverStorageDirectory,
         baseFileName: String,
         variant: LibraryCoverVariant,
+        legacyBaseFileNames: List<String> = emptyList(),
     ): CachedCoverAsset? {
         val thumbnailDirectory = thumbnailDirectoryName(
             storageDirectoryName = storage.storageDirectoryName,
@@ -45,6 +46,23 @@ class RemoteCoverCacheResolver @Inject constructor(
                 isPersistent = cachedCover.isPersistent,
                 matchesRequestedVariant = false,
             )
+        } ?: legacyBaseFileNames
+            .asSequence()
+            .filterNot { legacyBaseFileName -> legacyBaseFileName == baseFileName }
+            .mapNotNull { legacyBaseFileName ->
+                coverStore.cachedCoverFile(
+                    storageDirectoryName = storage.storageDirectoryName,
+                    fileName = legacyBaseFileName,
+                    legacyDirectoryName = storage.legacyDirectoryName,
+                )
+            }
+            .firstOrNull()
+            ?.let { cachedCover ->
+                CachedCoverAsset(
+                    file = cachedCover.file,
+                    isPersistent = cachedCover.isPersistent,
+                    matchesRequestedVariant = false,
+                )
         }
     }
 
@@ -52,6 +70,7 @@ class RemoteCoverCacheResolver @Inject constructor(
         storage: RemoteCoverStorageDirectory,
         baseFileName: String,
         variant: LibraryCoverVariant,
+        legacyBaseFileNames: List<String> = emptyList(),
         downloadOriginal: suspend (File) -> Unit,
     ): File {
         val cachedFile = coverStore.persistentCoverFile(
@@ -82,6 +101,19 @@ class RemoteCoverCacheResolver @Inject constructor(
                 variant = variant,
             )
         }
+        findLegacyCachedCover(
+            storage = storage,
+            baseFileName = baseFileName,
+            legacyBaseFileNames = legacyBaseFileNames,
+        )?.let { legacyCachedCover ->
+            return ensureThumbnailOrOriginal(
+                sourceFile = legacyCachedCover.file,
+                thumbnailDirectory = thumbnailDirectory,
+                thumbnailName = thumbnailName,
+                destinationThumbnailFile = thumbnailFile,
+                variant = variant,
+            )
+        }
         var resolvedFile: File? = null
         coverStore.withStorageLock(storage.storageDirectoryName) {
             val migratedFile = storage.legacyDirectoryName?.let { legacyDirectoryName ->
@@ -104,6 +136,20 @@ class RemoteCoverCacheResolver @Inject constructor(
             if (cachedFile.isFile && cachedFile.length() > 0L) {
                 resolvedFile = ensureThumbnailOrOriginal(
                     sourceFile = cachedFile,
+                    thumbnailDirectory = thumbnailDirectory,
+                    thumbnailName = thumbnailName,
+                    destinationThumbnailFile = thumbnailFile,
+                    variant = variant,
+                )
+                return@withStorageLock
+            }
+            findLegacyCachedCover(
+                storage = storage,
+                baseFileName = baseFileName,
+                legacyBaseFileNames = legacyBaseFileNames,
+            )?.let { legacyCachedCover ->
+                resolvedFile = ensureThumbnailOrOriginal(
+                    sourceFile = legacyCachedCover.file,
                     thumbnailDirectory = thumbnailDirectory,
                     thumbnailName = thumbnailName,
                     destinationThumbnailFile = thumbnailFile,
@@ -188,4 +234,20 @@ class RemoteCoverCacheResolver @Inject constructor(
         }
         return generatedThumbnail ?: sourceFile
     }
+
+    private fun findLegacyCachedCover(
+        storage: RemoteCoverStorageDirectory,
+        baseFileName: String,
+        legacyBaseFileNames: List<String>,
+    ): CachedRemoteCoverFile? = legacyBaseFileNames
+        .asSequence()
+        .filterNot { legacyBaseFileName -> legacyBaseFileName == baseFileName }
+        .mapNotNull { legacyBaseFileName ->
+            coverStore.cachedCoverFile(
+                storageDirectoryName = storage.storageDirectoryName,
+                fileName = legacyBaseFileName,
+                legacyDirectoryName = storage.legacyDirectoryName,
+            )
+        }
+        .firstOrNull()
 }

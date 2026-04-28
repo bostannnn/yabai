@@ -376,6 +376,71 @@ class UnifiedReaderDatabaseMigrationTest {
     }
 
     @Test
+    fun `migration 19 to 20 creates remote catalog sync groups`() {
+        createTestDatabase(
+            name = "migration-19-20-${System.nanoTime()}",
+            version = 19,
+        ) { database ->
+            createVersion1Schema(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_1_2.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_2_3.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_3_4.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_4_5.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_5_6.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_6_7.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_7_8.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_8_9.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_9_10.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_10_11.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_11_12.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_12_13.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_13_14.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_14_15.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_15_16.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_16_17.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_17_18.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_18_19.migrate(database)
+        }.use { database ->
+            UnifiedReaderDatabaseMigrations.MIGRATION_19_20.migrate(database)
+
+            assertTrue(tableExists(database, "remote_catalog_sync_groups"))
+        }
+    }
+
+    @Test
+    fun `migration 20 to 21 adds series cover url`() {
+        createTestDatabase(
+            name = "migration-20-21-${System.nanoTime()}",
+            version = 20,
+        ) { database ->
+            createVersion1Schema(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_1_2.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_2_3.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_3_4.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_4_5.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_5_6.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_6_7.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_7_8.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_8_9.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_9_10.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_10_11.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_11_12.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_12_13.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_13_14.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_14_15.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_15_16.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_16_17.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_17_18.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_18_19.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_19_20.migrate(database)
+        }.use { database ->
+            UnifiedReaderDatabaseMigrations.MIGRATION_20_21.migrate(database)
+
+            assertTrue(columnExists(database, "readable_items", "seriesCoverUrl"))
+        }
+    }
+
+    @Test
     fun `room migrates 8 to 9 and validates remote catalog schema`() {
         val databaseName = "migration-8-9-${System.nanoTime()}"
         createTestDatabase(
@@ -1020,6 +1085,8 @@ private fun openRoomDatabase(
         UnifiedReaderDatabaseMigrations.MIGRATION_16_17,
         UnifiedReaderDatabaseMigrations.MIGRATION_17_18,
         UnifiedReaderDatabaseMigrations.MIGRATION_18_19,
+        UnifiedReaderDatabaseMigrations.MIGRATION_19_20,
+        UnifiedReaderDatabaseMigrations.MIGRATION_20_21,
     )
     .build()
 

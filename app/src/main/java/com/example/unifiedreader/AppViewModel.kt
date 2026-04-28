@@ -649,6 +649,14 @@ class AppViewModel @Inject constructor(
         )
     }
 
+    fun fullResyncKavitaLibrary() {
+        remoteSourcesCoordinator.fullResyncKavitaLibrary(
+            stateProvider = { uiState },
+            updateState = ::updateUiState,
+            scope = viewModelScope,
+        )
+    }
+
     fun refreshStumpLibrary() {
         remoteSourcesCoordinator.refreshStumpLibrary(
             stateProvider = { uiState },

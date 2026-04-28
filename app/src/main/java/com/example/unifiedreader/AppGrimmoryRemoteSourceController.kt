@@ -235,10 +235,6 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
         }
     }
 
-    private suspend fun resetCoverState() {
-        remoteCoverController.resetSource(SourceType.GRIMMORY)
-    }
-
     private fun updateConnection(
         updateState: AppUiStateUpdater,
         transform: (GrimmoryConnectionUiState) -> GrimmoryConnectionUiState,
@@ -263,5 +259,9 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
                 ),
             )
         }
+    }
+
+    private suspend fun resetCoverState() {
+        remoteCoverController.resetSource(SourceType.GRIMMORY)
     }
 }

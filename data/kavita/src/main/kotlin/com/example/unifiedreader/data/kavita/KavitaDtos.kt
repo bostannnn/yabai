@@ -61,6 +61,16 @@ internal data class KavitaSeriesDto(
 )
 
 @Serializable
+internal data class KavitaGroupedSeriesDto(
+    val seriesId: Int? = null,
+    val libraryId: Int? = null,
+    val created: String? = null,
+    val chapterId: Int? = null,
+    val volumeId: Int? = null,
+    val count: Int? = null,
+)
+
+@Serializable
 internal data class KavitaSeriesDetailDto(
     val specials: List<KavitaChapterDto>? = null,
     val chapters: List<KavitaChapterDto>? = null,
@@ -209,7 +219,9 @@ internal fun KavitaSeriesDto.toEntry(
         libraryId = remoteLibraryId,
         title = name?.takeIf(String::isNotBlank) ?: "Series $seriesId",
         format = format,
+        pages = pages?.coerceAtLeast(0),
         addedAtEpochMillis = created.toEpochMillisOrNull(),
+        lastChapterAddedAtEpochMillis = lastChapterAddedUtc.toEpochMillisOrNull(),
         coverUrl = buildKavitaSeriesCoverUrl(
             baseUrl = baseUrl,
             seriesId = seriesId,
@@ -219,6 +231,18 @@ internal fun KavitaSeriesDto.toEntry(
         genres = genres.toFacetNames(),
         tags = tags.toTagNames(),
         languages = language.toFacetNames(),
+    )
+}
+
+internal fun KavitaGroupedSeriesDto.toUpdateEntry(): KavitaSeriesUpdateEntry? {
+    val remoteSeriesId = seriesId?.toString() ?: return null
+    return KavitaSeriesUpdateEntry(
+        seriesId = remoteSeriesId,
+        libraryId = libraryId?.toString(),
+        createdAtEpochMillis = created.toEpochMillisOrNull(),
+        chapterId = chapterId?.toString(),
+        volumeId = volumeId?.toString(),
+        count = count?.coerceAtLeast(0),
     )
 }
 

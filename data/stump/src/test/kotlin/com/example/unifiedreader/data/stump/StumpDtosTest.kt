@@ -10,11 +10,12 @@ import org.junit.Test
 class StumpDtosTest {
     @Test
     fun `series detail maps metadata facets onto media entries`() {
+        val seriesCoverUrl = "https://stump.example/api/v2/series/series-1/thumbnail"
         val series = StumpSeriesEntry(
             id = "series-1",
             libraryId = "library-1",
             title = "Saga",
-            coverUrl = null,
+            coverUrl = seriesCoverUrl,
         )
 
         val entry = StumpSeriesDetailDto(
@@ -45,6 +46,7 @@ class StumpDtosTest {
         assertEquals(listOf("Sci-Fi"), entry.item.comicMetadata?.genres)
         assertEquals(listOf("Space Opera"), entry.item.comicMetadata?.tags)
         assertEquals(listOf("English"), entry.item.comicMetadata?.languages)
+        assertEquals(seriesCoverUrl, entry.item.seriesCoverUrl)
     }
 
     @Test

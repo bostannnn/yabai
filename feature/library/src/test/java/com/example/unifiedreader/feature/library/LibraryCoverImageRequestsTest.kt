@@ -1,32 +1,43 @@
 package com.example.unifiedreader.feature.library
 
-import android.graphics.Bitmap
 import androidx.compose.ui.unit.IntSize
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class LibraryCoverImageRequestsTest {
     @Test
-    fun `libraryCoverImageRequestSize uses fixed thumbnail dimensions`() {
+    fun `libraryCoverImageRequestSize uses high quality minimum dimensions`() {
         assertEquals(
-            IntSize(240, 360),
+            IntSize(480, 720),
             libraryCoverImageRequestSize(LibraryCoverImageVariant.Grid),
         )
         assertEquals(
-            IntSize(480, 720),
+            IntSize(720, 1080),
             libraryCoverImageRequestSize(LibraryCoverImageVariant.GridLarge),
         )
         assertEquals(
-            IntSize(720, 1080),
+            IntSize(960, 1440),
             libraryCoverImageRequestSize(LibraryCoverImageVariant.GridExtraLarge),
         )
         assertEquals(
-            IntSize(144, 216),
+            IntSize(432, 648),
             libraryCoverImageRequestSize(LibraryCoverImageVariant.ShelfPreview),
         )
         assertEquals(
-            IntSize(320, 480),
+            IntSize(960, 1440),
             libraryCoverImageRequestSize(LibraryCoverImageVariant.Detailed),
+        )
+    }
+
+    @Test
+    fun `libraryCoverImageRequestSize grows for very dense displays`() {
+        assertEquals(
+            IntSize(960, 1440),
+            libraryCoverImageRequestSize(LibraryCoverImageVariant.GridExtraLarge, density = 4f),
+        )
+        assertEquals(
+            IntSize(1280, 1920),
+            libraryCoverImageRequestSize(LibraryCoverImageVariant.Detailed, density = 4f),
         )
     }
 
@@ -56,18 +67,18 @@ class LibraryCoverImageRequestsTest {
     }
 
     @Test
-    fun `shelf covers use compact software decode policy`() {
+    fun `shelf covers keep full quality decode policy`() {
         assertEquals(
             LibraryCoverImageDecodePolicy(
-                allowHardware = false,
-                bitmapConfig = Bitmap.Config.RGB_565,
+                allowHardware = true,
+                bitmapConfig = null,
             ),
             libraryCoverImageDecodePolicy(LibraryCoverImageVariant.ShelfPreview),
         )
         assertEquals(
             LibraryCoverImageDecodePolicy(
-                allowHardware = false,
-                bitmapConfig = Bitmap.Config.RGB_565,
+                allowHardware = true,
+                bitmapConfig = null,
             ),
             libraryCoverImageDecodePolicy(LibraryCoverImageVariant.ShelfRow),
         )

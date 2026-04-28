@@ -47,6 +47,7 @@ internal data class ServerConnectionFormState(
 enum class ServerConnectionAction {
     Connect,
     Sync,
+    FullSync,
 }
 
 internal data class ServerConnectionActionState(
@@ -80,6 +81,8 @@ internal fun ServerConnectionForm(
     onPasswordChanged: (String) -> Unit,
     onConnect: () -> Unit,
     onSync: () -> Unit,
+    secondarySyncLabel: String? = null,
+    onSecondarySync: (() -> Unit)? = null,
 ) {
     var isPasswordVisible by rememberSaveable { mutableStateOf(false) }
     val actionState = buildServerConnectionActionState(state)
@@ -210,19 +213,13 @@ internal fun ServerConnectionForm(
                             }
                         },
                         end = {
-                            Button(
-                                onClick = onSync,
-                                enabled = actionState.canSync,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = SettingsActionButtonMinHeight),
-                            ) {
-                                if (actionState.activeAction == ServerConnectionAction.Sync) {
-                                    SettingsButtonProgressIndicator()
-                                } else {
-                                    Text(syncLabel)
-                                }
-                            }
+                            ServerSyncButtons(
+                                syncLabel = syncLabel,
+                                secondarySyncLabel = secondarySyncLabel,
+                                actionState = actionState,
+                                onSync = onSync,
+                                onSecondarySync = onSecondarySync,
+                            )
                         },
                     )
                 } else {
@@ -239,19 +236,13 @@ internal fun ServerConnectionForm(
                             Text(connectLabel)
                         }
                     }
-                    Button(
-                        onClick = onSync,
-                        enabled = actionState.canSync,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = SettingsActionButtonMinHeight),
-                    ) {
-                        if (actionState.activeAction == ServerConnectionAction.Sync) {
-                            SettingsButtonProgressIndicator()
-                        } else {
-                            Text(syncLabel)
-                        }
-                    }
+                    ServerSyncButtons(
+                        syncLabel = syncLabel,
+                        secondarySyncLabel = secondarySyncLabel,
+                        actionState = actionState,
+                        onSync = onSync,
+                        onSecondarySync = onSecondarySync,
+                    )
                 }
             } else {
                 Button(
@@ -307,6 +298,64 @@ internal fun SettingsButtonProgressIndicator() {
         modifier = Modifier.size(SettingsButtonProgressIndicatorSize),
         strokeWidth = 2.dp,
     )
+}
+
+@Composable
+private fun ServerSyncButtons(
+    syncLabel: String,
+    secondarySyncLabel: String?,
+    actionState: ServerConnectionActionState,
+    onSync: () -> Unit,
+    onSecondarySync: (() -> Unit)?,
+) {
+    if (secondarySyncLabel == null || onSecondarySync == null) {
+        Button(
+            onClick = onSync,
+            enabled = actionState.canSync,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = SettingsActionButtonMinHeight),
+        ) {
+            if (actionState.activeAction == ServerConnectionAction.Sync) {
+                SettingsButtonProgressIndicator()
+            } else {
+                Text(syncLabel)
+            }
+        }
+        return
+    }
+
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Button(
+            onClick = onSync,
+            enabled = actionState.canSync,
+            modifier = Modifier
+                .weight(1f)
+                .heightIn(min = SettingsActionButtonMinHeight),
+        ) {
+            if (actionState.activeAction == ServerConnectionAction.Sync) {
+                SettingsButtonProgressIndicator()
+            } else {
+                Text(syncLabel)
+            }
+        }
+        Button(
+            onClick = onSecondarySync,
+            enabled = actionState.canSync,
+            modifier = Modifier
+                .weight(1f)
+                .heightIn(min = SettingsActionButtonMinHeight),
+        ) {
+            if (actionState.activeAction == ServerConnectionAction.FullSync) {
+                SettingsButtonProgressIndicator()
+            } else {
+                Text(secondarySyncLabel)
+            }
+        }
+    }
 }
 
 internal val SettingsActionButtonMinHeight = 40.dp

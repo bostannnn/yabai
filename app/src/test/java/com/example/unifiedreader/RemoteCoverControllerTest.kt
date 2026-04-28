@@ -15,6 +15,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -349,7 +350,7 @@ class RemoteCoverControllerTest {
 
         assertEquals(cachedUri.toString(), controller.coverImageUrlFor(stumpSeriesItem, LibraryCoverImageVariant.Grid))
         assertEquals(
-            "remote-cover:stump:stump:series:series-1:grid:coverv=0",
+            "remote-cover:stump:stump:series:series-1:grid:cover=no-cover-identity:coverv=0",
             controller.coverPrefetchKeyFor(stumpSeriesItem, LibraryCoverImageVariant.Grid),
         )
 
@@ -359,7 +360,7 @@ class RemoteCoverControllerTest {
         stumpDataSource.awaitClearStarted()
 
         assertEquals(
-            "remote-cover:stump:stump:series:series-1:grid:coverv=1",
+            "remote-cover:stump:stump:series:series-1:grid:cover=no-cover-identity:coverv=1",
             controller.coverPrefetchKeyFor(stumpSeriesItem, LibraryCoverImageVariant.Grid),
         )
 
@@ -368,8 +369,45 @@ class RemoteCoverControllerTest {
         advanceUntilIdle()
 
         assertEquals(
-            "remote-cover:stump:stump:series:series-1:grid:coverv=2",
+            "remote-cover:stump:stump:series:series-1:grid:cover=no-cover-identity:coverv=2",
             controller.coverPrefetchKeyFor(stumpSeriesItem, LibraryCoverImageVariant.Grid),
+        )
+    }
+
+    @Test
+    fun `cover identity keeps changed cover url from reusing stale presented uri`() {
+        val firstItem = remoteItem(
+            id = "kavita:item:same-id",
+            sourceType = SourceType.KAVITA,
+            coverUrl = "https://kavita.example/api/Image/chapter-cover?chapterId=1&apiKey=token-1",
+        )
+        val secondItem = firstItem.copy(
+            coverUrl = "https://kavita.example/api/Image/chapter-cover?chapterId=2&apiKey=token-1",
+        )
+        val firstUri = Uri.parse("file:///tmp/first-cover.png")
+        val secondUri = Uri.parse("file:///tmp/second-cover.png")
+        val kavitaDataSource = IdentityAwareKavitaCoverDataSource(
+            uriByCoverIdentity = mapOf(
+                firstItem.coverIdentityFileSegment() to firstUri,
+                secondItem.coverIdentityFileSegment() to secondUri,
+            ),
+        )
+        val controller = RemoteCoverController(
+            kavitaCoverRepository = kavitaDataSource,
+            stumpCoverRepository = EmptyStumpCoverDataSource(),
+            grimmoryCoverRepository = EmptyGrimmoryCoverDataSource(),
+            kavitaCredentialStore = FakeKavitaCredentialStore(),
+            stumpCredentialStore = FakeStumpCredentialStore(),
+            grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
+            appDispatchers = immediateAppDispatchers(),
+        )
+
+        assertEquals(firstUri.toString(), controller.coverImageUrlFor(firstItem, LibraryCoverImageVariant.Grid))
+        assertEquals(secondUri.toString(), controller.coverImageUrlFor(secondItem, LibraryCoverImageVariant.Grid))
+        assertNotEquals(
+            controller.coverPrefetchKeyFor(firstItem, LibraryCoverImageVariant.Grid),
+            controller.coverPrefetchKeyFor(secondItem, LibraryCoverImageVariant.Grid),
         )
     }
 
@@ -393,7 +431,7 @@ class RemoteCoverControllerTest {
 
         assertNull(controller.coverImageUrlFor(kavitaItem, LibraryCoverImageVariant.Grid))
         assertEquals(
-            "remote-cover:kavita:kavita:item:issue-1:grid:coverv=0",
+            "remote-cover:kavita:kavita:item:issue-1:grid:cover=${kavitaItem.coverIdentityFileSegment()}:coverv=0",
             controller.coverPrefetchKeyFor(kavitaItem, LibraryCoverImageVariant.Grid),
         )
     }
@@ -418,7 +456,7 @@ class RemoteCoverControllerTest {
 
         assertNull(controller.coverImageUrlFor(grimmoryItem, LibraryCoverImageVariant.Grid))
         assertEquals(
-            "remote-cover:grimmory:grimmory:item:book-1:grid:coverv=0",
+            "remote-cover:grimmory:grimmory:item:book-1:grid:cover=${grimmoryItem.coverIdentityFileSegment()}:coverv=0",
             controller.coverPrefetchKeyFor(grimmoryItem, LibraryCoverImageVariant.Grid),
         )
     }
@@ -646,6 +684,30 @@ private class PersistentCachedKavitaCoverDataSource(
     refreshedUri: Uri = cachedUri,
 ) : PersistentCachedCoverDataSource(cachedUri, matchesRequestedVariant, refreshedUri), KavitaCoverDataSource {
     override val sourceType: SourceType = SourceType.KAVITA
+}
+
+private class IdentityAwareKavitaCoverDataSource(
+    private val uriByCoverIdentity: Map<String?, Uri>,
+) : KavitaCoverDataSource {
+    override val sourceType: SourceType = SourceType.KAVITA
+
+    override fun cachedCover(
+        item: ReadableItem,
+        variant: LibraryCoverImageVariant,
+    ): CachedRemoteCover? = uriByCoverIdentity[item.coverIdentityFileSegment()]?.let { uri ->
+        CachedRemoteCover(
+            uri = uri,
+            isPersistent = true,
+            matchesRequestedVariant = true,
+        )
+    }
+
+    override suspend fun getCoverUri(
+        item: ReadableItem,
+        variant: LibraryCoverImageVariant,
+    ): Uri? = uriByCoverIdentity[item.coverIdentityFileSegment()]
+
+    override suspend fun clearCachedCovers() = Unit
 }
 
 private class WarmableKavitaCoverDataSource(

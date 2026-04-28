@@ -185,8 +185,9 @@ class AppKavitaRemoteSourceController @Inject constructor(
         stateProvider: AppUiStateProvider,
         updateState: AppUiStateUpdater,
         scope: CoroutineScope,
+        syncMode: KavitaCatalogSyncMode = KavitaCatalogSyncMode.FAST,
     ) {
-        when (val preparation = kavitaCoordinator.prepareRefresh(stateProvider().kavitaConnection)) {
+        when (val preparation = kavitaCoordinator.prepareRefresh(stateProvider().kavitaConnection, syncMode)) {
             KavitaSyncPreparation.MissingSession -> {
                 updateState { state ->
                     state.copy(
@@ -210,10 +211,10 @@ class AppKavitaRemoteSourceController @Inject constructor(
                     state.copy(
                         kavitaConnection = preparation.activeConnection.copy(
                             isConnecting = true,
-                            activeAction = ServerConnectionAction.Sync,
+                            activeAction = syncMode.toServerConnectionAction(),
                             syncProgressFraction = 0f,
-                            syncProgressLabel = "Preparing Kavita sync...",
-                            message = "Syncing Kavita library.",
+                            syncProgressLabel = syncMode.preparingMessage(),
+                            message = syncMode.syncingMessage(),
                             isError = false,
                         ),
                     )
@@ -239,10 +240,10 @@ class AppKavitaRemoteSourceController @Inject constructor(
                             state.copy(
                                 kavitaConnection = state.kavitaConnection.copy(
                                     isConnecting = true,
-                                    activeAction = ServerConnectionAction.Sync,
+                                    activeAction = preparation.request.syncMode.toServerConnectionAction(),
                                     syncProgressFraction = progress.fraction.coerceIn(0f, 1f),
                                     syncProgressLabel = progress.message,
-                                    message = "Syncing Kavita library.",
+                                    message = preparation.request.syncMode.syncingMessage(),
                                     isError = false,
                                 ),
                             )
@@ -325,8 +326,23 @@ class AppKavitaRemoteSourceController @Inject constructor(
         comicPageSourceCacheController.clearSourcePageCache(SourceType.KAVITA)
     }
 
+    private fun KavitaCatalogSyncMode.toServerConnectionAction(): ServerConnectionAction = when (this) {
+        KavitaCatalogSyncMode.FAST -> ServerConnectionAction.Sync
+        KavitaCatalogSyncMode.FULL -> ServerConnectionAction.FullSync
+    }
+
     private suspend fun resetCoverState() {
         remoteCoverController.resetSource(SourceType.KAVITA)
+    }
+
+    private fun KavitaCatalogSyncMode.preparingMessage(): String = when (this) {
+        KavitaCatalogSyncMode.FAST -> "Preparing Kavita fast sync..."
+        KavitaCatalogSyncMode.FULL -> "Preparing Kavita full resync..."
+    }
+
+    private fun KavitaCatalogSyncMode.syncingMessage(): String = when (this) {
+        KavitaCatalogSyncMode.FAST -> "Fast syncing Kavita library using recent changes."
+        KavitaCatalogSyncMode.FULL -> "Fully resyncing Kavita library."
     }
 
     private fun suppressObservedLibraryRefresh(

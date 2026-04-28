@@ -15,6 +15,7 @@ internal fun RemoteSourceSettingsCard(
     formState: ServerConnectionFormState,
     connectLabel: String,
     syncLabel: String,
+    secondarySyncLabel: String? = null,
     onDisplayNameChanged: (String) -> Unit,
     onBaseUrlChanged: (String) -> Unit,
     onBackupBaseUrlChanged: (String) -> Unit,
@@ -22,6 +23,7 @@ internal fun RemoteSourceSettingsCard(
     onPasswordChanged: (String) -> Unit,
     onConnect: () -> Unit,
     onSync: () -> Unit,
+    onSecondarySync: (() -> Unit)? = null,
     coverPreloadState: CoverPreloadUiState = CoverPreloadUiState(),
     preloadCoversLabel: String = "Preload covers",
     onPreloadCovers: () -> Unit = {},
@@ -40,6 +42,7 @@ internal fun RemoteSourceSettingsCard(
             state = formState,
             connectLabel = connectLabel,
             syncLabel = syncLabel,
+            secondarySyncLabel = secondarySyncLabel,
             onDisplayNameChanged = onDisplayNameChanged,
             onBaseUrlChanged = onBaseUrlChanged,
             onBackupBaseUrlChanged = onBackupBaseUrlChanged,
@@ -47,6 +50,7 @@ internal fun RemoteSourceSettingsCard(
             onPasswordChanged = onPasswordChanged,
             onConnect = onConnect,
             onSync = onSync,
+            onSecondarySync = onSecondarySync,
         )
         CoverPreloadSection(
             state = coverPreloadState,

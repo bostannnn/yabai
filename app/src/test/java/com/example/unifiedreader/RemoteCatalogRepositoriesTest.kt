@@ -4,6 +4,7 @@ import com.example.unifiedreader.core.database.dao.RemoteCatalogDao
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemLibraryEntity
+import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEntity
 import com.example.unifiedreader.core.database.entity.RemoteLibraryCacheEntity
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.LibraryContentType
@@ -171,6 +172,7 @@ private class FakeRemoteCatalogDao(
 ) : RemoteCatalogDao() {
     private val librariesState = MutableStateFlow(libraries)
     private val itemsState = MutableStateFlow(items)
+    private val syncGroupsState = MutableStateFlow<List<RemoteCatalogSyncGroupEntity>>(emptyList())
     private val cachedLibrariesByKey = mutableMapOf<Triple<String, String, String>, List<RemoteLibraryCacheEntity>>()
 
     override fun getLibraries(): List<LibraryEntity> = librariesState.value
@@ -207,12 +209,22 @@ private class FakeRemoteCatalogDao(
         username: String,
     ): List<RemoteLibraryCacheEntity> = cachedLibrariesByKey[Triple(sourceType, baseUrl, username)].orEmpty()
 
+    override fun getCatalogSyncGroupsForSourceType(
+        sourceType: String,
+    ): List<RemoteCatalogSyncGroupEntity> = syncGroupsState.value.filter { it.sourceType == sourceType }
+
     override fun insertOrReplaceLibraries(libraries: List<LibraryEntity>) {
         librariesState.value = libraries
     }
 
     override fun insertOrReplaceItems(items: List<ReadableItemEntity>) {
         itemsState.value = items
+    }
+
+    override fun insertOrReplaceCatalogSyncGroups(groups: List<RemoteCatalogSyncGroupEntity>) {
+        val replacementKeys = groups.mapTo(mutableSetOf()) { group -> group.sourceType to group.groupId }
+        syncGroupsState.value = syncGroupsState.value
+            .filterNot { group -> group.sourceType to group.groupId in replacementKeys } + groups
     }
 
     override fun insertOrReplaceCachedLibraries(entries: List<RemoteLibraryCacheEntity>) {
@@ -228,6 +240,10 @@ private class FakeRemoteCatalogDao(
 
     protected override fun deleteLibrariesForSourceType(sourceType: String) {
         librariesState.value = librariesState.value.filterNot { it.sourceType == sourceType }
+    }
+
+    protected override fun deleteCatalogSyncGroupsForSourceType(sourceType: String) {
+        syncGroupsState.value = syncGroupsState.value.filterNot { it.sourceType == sourceType }
     }
 
     protected override fun deleteCachedLibraries(

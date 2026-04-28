@@ -13,22 +13,25 @@ class VisibleLibraryCoverRegistry @Inject constructor() {
     fun presentedUriFor(
         itemId: String,
         variant: LibraryCoverVariant,
+        coverIdentity: String? = null,
     ): String? {
-        val entry = entryFor(itemId, variant)
+        val entry = entryFor(itemId, variant, coverIdentity)
         return entry.resolvedUri.value ?: entry.displayedUri
     }
 
     fun resolvedUriFor(
         itemId: String,
         variant: LibraryCoverVariant,
-    ): String? = entryFor(itemId, variant).resolvedUri.value
+        coverIdentity: String? = null,
+    ): String? = entryFor(itemId, variant, coverIdentity).resolvedUri.value
 
     fun rememberDisplayedFallbackUri(
         itemId: String,
         variant: LibraryCoverVariant,
         uri: String,
+        coverIdentity: String? = null,
     ) {
-        val entry = entryFor(itemId, variant)
+        val entry = entryFor(itemId, variant, coverIdentity)
         if (entry.resolvedUri.value != null) return
         entry.displayedUri = uri
     }
@@ -37,16 +40,18 @@ class VisibleLibraryCoverRegistry @Inject constructor() {
         itemId: String,
         variant: LibraryCoverVariant,
         uri: String,
+        coverIdentity: String? = null,
     ) {
-        entryFor(itemId, variant).promoteResolvedUri(uri)
+        entryFor(itemId, variant, coverIdentity).promoteResolvedUri(uri)
     }
 
     fun promoteResolvedUriWhenViewportIdle(
         itemId: String,
         variant: LibraryCoverVariant,
         uri: String,
+        coverIdentity: String? = null,
     ) {
-        val entry = entryFor(itemId, variant)
+        val entry = entryFor(itemId, variant, coverIdentity)
         if (viewportScrolling && entry.presentedUri != uri) {
             entry.pendingResolvedUri = uri
             return
@@ -77,7 +82,8 @@ class VisibleLibraryCoverRegistry @Inject constructor() {
     private fun entryFor(
         itemId: String,
         variant: LibraryCoverVariant,
-    ): VisibleLibraryCoverEntry = entries.getOrPut(VisibleLibraryCoverKey(itemId, variant)) {
+        coverIdentity: String?,
+    ): VisibleLibraryCoverEntry = entries.getOrPut(VisibleLibraryCoverKey(itemId, variant, coverIdentity)) {
         VisibleLibraryCoverEntry(
             resolvedUri = mutableStateOf(null),
         )
@@ -87,6 +93,7 @@ class VisibleLibraryCoverRegistry @Inject constructor() {
 private data class VisibleLibraryCoverKey(
     val itemId: String,
     val variant: LibraryCoverVariant,
+    val coverIdentity: String?,
 )
 
 private data class VisibleLibraryCoverEntry(
