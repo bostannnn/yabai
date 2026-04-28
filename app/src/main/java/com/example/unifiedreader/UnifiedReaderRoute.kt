@@ -31,7 +31,14 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.libraryPrimaryText
+import com.example.unifiedreader.core.model.librarySecondaryText
+import com.example.unifiedreader.feature.journal.JournalItemRef
+import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryViewMode
+import com.example.unifiedreader.feature.library.ResolvedLibraryCover
+import com.example.unifiedreader.feature.reader.core.ReaderCompletionDialog
 import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
 import com.example.unifiedreader.feature.reader.core.ReaderHost
 import com.example.unifiedreader.feature.reader.core.ReaderNavigationActions
@@ -124,6 +131,7 @@ fun UnifiedReaderAppContent(
                         onBack = viewModel::onBackPressed,
                         navigationActions = ReaderNavigationActions(
                             onRequestNextInSeries = viewModel::onReaderNextRequested,
+                            onRequestCompletion = viewModel::onReaderCompletionRequested,
                             currentOpenMode = uiState.selectedReaderOpenMode,
                         ),
                     )
@@ -140,10 +148,76 @@ fun UnifiedReaderAppContent(
                     notice = uiState.progressSyncNotice,
                     onDismiss = viewModel::dismissProgressSyncNotice,
                 )
+                ReaderCompletionDialogHost(
+                    uiState = uiState,
+                    viewModel = viewModel,
+                )
             }
         }
     }
 }
+
+@Composable
+private fun ReaderCompletionDialogHost(
+    uiState: AppUiState,
+    viewModel: AppViewModel,
+) {
+    val completionState = uiState.readerCompletionState ?: return
+    val item = uiState.items.firstOrNull { it.id == completionState.itemId }
+        ?: uiState.selectedItem?.takeIf { it.id == completionState.itemId }
+        ?: return
+    val nextItem = completionState.nextItemId?.let { nextItemId ->
+        uiState.items.firstOrNull { item -> item.id == nextItemId }
+    }
+    val entry = uiState.journalSnapshot.entryByItemId[item.id]
+
+    ReaderCompletionDialog(
+        item = item,
+        itemTitle = item.libraryPrimaryText(),
+        itemSubtitle = item.librarySecondaryText(),
+        nextItem = nextItem,
+        nextItemTitle = nextItem?.libraryPrimaryText(),
+        nextItemSubtitle = nextItem?.librarySecondaryText(),
+        initialRating = entry?.rating,
+        initialReviewText = entry?.reviewText.orEmpty(),
+        coverContent = { coverItem, modifier ->
+            ResolvedLibraryCover(
+                item = coverItem,
+                coverImageUrlProvider = viewModel::coverImageUrlFor,
+                imageVariant = LibraryCoverImageVariant.ShelfRow,
+                modifier = modifier,
+            )
+        },
+        onRatingChanged = { rating, reviewText ->
+            viewModel.saveJournalEntry(
+                item = item.toJournalItemRef(),
+                rating = rating,
+                reviewText = reviewText,
+            )
+        },
+        onSaveReview = { rating, reviewText ->
+            viewModel.saveJournalEntry(
+                item = item.toJournalItemRef(),
+                rating = rating,
+                reviewText = reviewText,
+            )
+        },
+        onStartNext = viewModel::startReaderCompletionNextItem,
+        onDismiss = viewModel::dismissReaderCompletion,
+    )
+}
+
+private fun ReadableItem.toJournalItemRef(): JournalItemRef = JournalItemRef(
+    itemId = id,
+    sourceType = sourceType,
+    libraryId = libraryId,
+    itemTitle = title,
+    itemPrimaryText = libraryPrimaryText(),
+    itemSecondaryText = librarySecondaryText(),
+    coverUrl = coverUrl,
+    itemKind = kind,
+    format = format,
+)
 
 @Composable
 private fun BoxScope.ProgressSyncNoticeHost(

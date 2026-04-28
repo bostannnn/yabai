@@ -43,6 +43,11 @@ enum class TopLevelDestination {
     Settings,
 }
 
+data class AppReaderCompletionState(
+    val itemId: String,
+    val nextItemId: String?,
+)
+
 data class AppUiState(
     val topLevel: TopLevelDestination = TopLevelDestination.Library,
     val sourceOrder: List<SourceType> = SourceType.entries.toList(),
@@ -82,6 +87,7 @@ data class AppUiState(
     val journalSnapshot: JournalSnapshot = JournalSnapshot(),
     val progressSyncNotice: AppProgressSyncNotice? = null,
     val sourceConnectivityBySource: Map<SourceType, SourceConnectivityState> = emptyMap(),
+    val readerCompletionState: AppReaderCompletionState? = null,
 ) {
     val selectedLibraryFilters: LibraryFilterState
         get() = libraryFiltersBySource[selectedSource] ?: LibraryFilterState()

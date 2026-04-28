@@ -32,7 +32,7 @@ fun comicsReaderFactory(
                 preferencesStore = preferencesStore,
                 onBack = onBack,
                 openMode = navigationActions.currentOpenMode,
-                onNextItemRequested = navigationActions.onRequestNextInSeries,
+                onNextItemRequested = navigationActions.onRequestCompletion,
             )
         }
     }

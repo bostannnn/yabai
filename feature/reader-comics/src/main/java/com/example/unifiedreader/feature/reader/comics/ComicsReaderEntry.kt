@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.reader.comics
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -24,6 +25,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -118,6 +120,8 @@ fun ComicsReaderScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     var progressRestoreCompleted by remember(item.id) { mutableStateOf(false) }
     var preferencesRestoreCompleted by remember(item.id) { mutableStateOf(false) }
+    var completionMonitoringReady by rememberSaveable(item.id) { mutableStateOf(false) }
+    var hasAutoRequestedCompletion by rememberSaveable(item.id) { mutableStateOf(false) }
     val overlayState = rememberReaderOverlayState(
         key = "comic-overlay-${item.id}",
         initiallyVisible = true,
@@ -176,6 +180,22 @@ fun ComicsReaderScreen(
             preferencesStore.saveSpreadMode(item, readerState.spreadMode)
         },
     )
+    val closeReader by rememberUpdatedState(
+        newValue = {
+            if (latestProgressHydrated &&
+                latestProgressRestoreCompleted &&
+                latestPreferencesHydrated &&
+                latestPreferencesRestoreCompleted
+            ) {
+                persistProgress()
+                persistResumePosition()
+            }
+            if (latestPreferencesHydrated && latestPreferencesRestoreCompleted) {
+                persistReaderPreferences()
+            }
+            onBack()
+        },
+    )
     val restoredPage = savedPagesByItemId[item.id]
     LaunchedEffect(item.id, progressHydrated, restoredPage, pages.size) {
         if (!progressHydrated) {
@@ -231,6 +251,18 @@ fun ComicsReaderScreen(
         delay(250)
         persistProgress()
         persistResumePosition()
+        val isFinished = isComicProgressFinished(
+            pageIndex = readerState.currentPage,
+            pageCount = pages.size,
+            segment = readerState.resumeSegment,
+            readingDirection = readerState.readingDirection,
+        )
+        if (completionMonitoringReady && isFinished && !hasAutoRequestedCompletion) {
+            hasAutoRequestedCompletion = true
+            onNextItemRequested()
+        } else {
+            completionMonitoringReady = true
+        }
     }
 
     LaunchedEffect(
@@ -289,6 +321,7 @@ fun ComicsReaderScreen(
             }
         }
     }
+    BackHandler(onBack = closeReader)
 
     BoxWithConstraints(
         modifier = Modifier
@@ -367,7 +400,7 @@ fun ComicsReaderScreen(
                         pageFitMode = readerState.pageFitMode,
                         spreadMode = readerState.spreadMode,
                         overlayVisible = overlayState.isVisible,
-                        onBack = onBack,
+                        onBack = closeReader,
                         onReaderModeChanged = readerState::onReaderModeChanged,
                         onReadingDirectionChanged = readerState::onReadingDirectionChanged,
                         onPageFitModeChanged = readerState::onPageFitModeChanged,

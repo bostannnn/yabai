@@ -8,6 +8,7 @@ import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
 import java.io.ByteArrayInputStream
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
@@ -50,9 +51,11 @@ import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
 import androidx.fragment.app.FragmentContainerView
 import androidx.lifecycle.lifecycleScope
+import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.feature.reader.core.ImmersiveReaderOverlay
+import com.example.unifiedreader.feature.reader.core.ReaderLocator
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import com.example.unifiedreader.feature.reader.core.findContextAncestor
@@ -94,6 +97,7 @@ fun EpubReaderScreen(
     documentUri: Uri? = null,
     documentUriProvider: (suspend (ReadableItem) -> Uri?)? = null,
     onBack: () -> Unit,
+    onCompletionRequested: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -203,6 +207,12 @@ fun EpubReaderScreen(
     var currentHref by rememberSaveable(item.id) {
         mutableStateOf(serializedInitialLocator?.href?.removeFragment()?.toString())
     }
+    var currentLocator by remember(item.id) {
+        mutableStateOf(serializedInitialLocator)
+    }
+    var hasAutoRequestedCompletion by rememberSaveable(item.id) {
+        mutableStateOf(false)
+    }
     var seekRequestId by remember { mutableIntStateOf(0) }
     var navigationRequest by remember { mutableStateOf<EpubNavigationRequest?>(null) }
     var isTocSheetOpen by rememberSaveable(item.id) { mutableStateOf(false) }
@@ -282,7 +292,71 @@ fun EpubReaderScreen(
             ?: serializedInitialLocator?.locations?.progression
             ?: currentProgress
         currentHref = serializedInitialLocator?.href?.removeFragment()?.toString()
+        currentLocator = serializedInitialLocator
     }
+    val closeReader by rememberUpdatedState(
+        newValue = {
+            if (hydrated &&
+                restoredSessionState &&
+                shouldFlushEpubReaderProgress(
+                    restoreProgressSnapshot = restoreProgressSnapshot,
+                    currentLocator = currentLocator,
+                    currentPage = currentPage,
+                    currentProgress = currentProgress,
+                )
+            ) {
+                sessionStore.saveProgress(
+                    item = item,
+                    locator = buildCurrentReaderLocator(
+                        locator = currentLocator.takeUnless { navigationRequest != null },
+                        page = currentPage.takeIf { it > 0 },
+                        percent = currentProgress,
+                    ),
+                    isFinished = pageCount > 0 && currentPage >= pageCount,
+                    syncState = SyncState.DIRTY,
+                    pageCount = pageCount.takeIf { it > 0 },
+                )
+                sessionStore.updateSession(
+                    item = item,
+                    pageCount = pageCount.takeIf { it > 0 },
+                    preferences = buildEpubPreferencesMap(
+                        EpubReaderPreferences(
+                            typographyMode = typographyMode,
+                            fontFamily = fontFamily,
+                            fontSize = fontSize,
+                            lineHeight = lineHeight,
+                            pageMargins = pageMargins,
+                            paragraphSpacing = paragraphSpacing,
+                            paragraphIndent = paragraphIndent,
+                            textAlign = textAlign,
+                            theme = theme,
+                            themeOverride = !useAppThemeDefault,
+                            layoutMode = layoutMode,
+                            layoutModeOverride = !useOrientationLayoutDefault,
+                        ),
+                    ),
+                )
+            }
+            onBack()
+        },
+    )
+    val persistFinishedProgress by rememberUpdatedState(
+        newValue = {
+            val terminalPage = pageCount.takeIf { it > 0 } ?: currentPage.takeIf { it > 0 }
+            sessionStore.saveProgress(
+                item = item,
+                locator = buildCurrentReaderLocator(
+                    locator = currentLocator.takeUnless { navigationRequest != null },
+                    page = terminalPage,
+                    percent = 1.0,
+                ),
+                isFinished = true,
+                syncState = SyncState.DIRTY,
+                pageCount = pageCount.takeIf { it > 0 },
+            )
+        },
+    )
+    BackHandler(onBack = closeReader)
 
     val publicationState by produceState<EpubPublicationState>(
         initialValue = EpubPublicationState.Loading,
@@ -354,13 +428,13 @@ fun EpubReaderScreen(
         EpubPublicationState.Loading -> EpubReaderMessage(
             title = item.title,
             body = "Opening EPUB with Readium…",
-            onBack = onBack,
+            onBack = closeReader,
         )
 
         is EpubPublicationState.Error -> EpubReaderMessage(
             title = item.title,
             body = state.message,
-            onBack = onBack,
+            onBack = closeReader,
         )
 
         is EpubPublicationState.Ready -> {
@@ -450,7 +524,7 @@ fun EpubReaderScreen(
                     EpubReaderMessage(
                         title = item.title,
                         body = "Restoring EPUB position…",
-                        onBack = onBack,
+                        onBack = closeReader,
                     )
                     return
                 }
@@ -488,6 +562,7 @@ fun EpubReaderScreen(
                             if (!initialRestoreLocked) {
                                 initialRestoreLocked = true
                             }
+                            currentLocator = locator
                             currentHref = locator.href.removeFragment().toString()
                             val bookPageCount = bookProgress.pageCount
                                 .takeIf { it > 0 }
@@ -520,9 +595,20 @@ fun EpubReaderScreen(
                                     syncState = SyncState.DIRTY,
                                     pageCount = bookPageCount ?: pageCount.takeIf { it > 0 },
                                 )
+                                val isAtEnd = currentProgress >= 0.999 ||
+                                    bookPageCount?.let { reportedPage >= it } == true
+                                if (isAtEnd && !hasAutoRequestedCompletion) {
+                                    hasAutoRequestedCompletion = true
+                                    persistFinishedProgress()
+                                    onCompletionRequested()
+                                }
                             }
                         },
                         onSurfaceTap = overlayState::toggle,
+                        onEndNavigationRequested = {
+                            persistFinishedProgress()
+                            onCompletionRequested()
+                        },
                         onFootnoteActivated = { footnote ->
                             isTocSheetOpen = false
                             isPreferencesPaneOpen = false
@@ -546,7 +632,7 @@ fun EpubReaderScreen(
                                 pageCount = pageCount,
                             ),
                             isPreferencesOpen = isPreferencesPaneOpen,
-                            onBack = onBack,
+                            onBack = closeReader,
                             onPreferencesClick = {
                                 overlayState.show()
                                 isTocSheetOpen = false
@@ -704,6 +790,7 @@ private fun ReadiumEpubNavigatorHost(
     currentProgress: Double,
     onLocationChanged: (Locator, Int, Int?) -> Unit,
     onSurfaceTap: () -> Unit,
+    onEndNavigationRequested: () -> Unit,
     onFootnoteActivated: (EpubFootnoteContent) -> Unit,
     navigationRequest: EpubNavigationRequest?,
     onNavigationRequestConsumed: () -> Unit,
@@ -714,6 +801,7 @@ private fun ReadiumEpubNavigatorHost(
     val configuration = LocalConfiguration.current
     val latestOnLocationChanged = rememberUpdatedState(onLocationChanged)
     val latestOnSurfaceTap = rememberUpdatedState(onSurfaceTap)
+    val latestOnEndNavigationRequested = rememberUpdatedState(onEndNavigationRequested)
     val latestOnFootnoteActivated = rememberUpdatedState(onFootnoteActivated)
     val latestCurrentHref = rememberUpdatedState(currentHref)
     val latestCurrentProgress = rememberUpdatedState(currentProgress)
@@ -891,7 +979,11 @@ private fun ReadiumEpubNavigatorHost(
                     }
 
                     EpubTapAction.Next -> {
-                        fragment.goForward(animated = true)
+                        if (latestCurrentProgress.value >= 0.999) {
+                            latestOnEndNavigationRequested.value()
+                        } else {
+                            fragment.goForward(animated = true)
+                        }
                         true
                     }
 
@@ -1054,6 +1146,32 @@ private fun ReaderProgressSnapshot?.needsEpubProgressionLocator(
 ): Boolean = this != null &&
     serializedLocator == null &&
     percent != null
+
+private fun shouldFlushEpubReaderProgress(
+    restoreProgressSnapshot: ReaderProgressSnapshot?,
+    currentLocator: Locator?,
+    currentPage: Int,
+    currentProgress: Double,
+): Boolean =
+    restoreProgressSnapshot != null ||
+        currentLocator != null ||
+        currentPage > 0 ||
+        currentProgress > 0.0
+
+private fun buildCurrentReaderLocator(
+    locator: Locator?,
+    page: Int?,
+    percent: Double,
+): ReaderLocator = locator?.let { currentLocator ->
+    buildReaderLocator(
+        locator = currentLocator,
+        page = page,
+    )
+} ?: ReaderLocator(
+    locatorType = LocatorType.CFI,
+    page = page,
+    percent = percent.coerceIn(0.0, 1.0),
+)
 
 private suspend fun ReaderProgressSnapshot.toProgressionFallbackLocator(
     publication: Publication,

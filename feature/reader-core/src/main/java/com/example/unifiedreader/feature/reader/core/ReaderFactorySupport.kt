@@ -7,7 +7,11 @@ import com.example.unifiedreader.core.model.ReadableItem
 fun formatReaderFactory(
     vararg formats: FormatType,
     chrome: ReaderChrome,
-    content: @Composable (item: ReadableItem, onBack: () -> Unit) -> Unit,
+    content: @Composable (
+        item: ReadableItem,
+        onBack: () -> Unit,
+        navigationActions: ReaderNavigationActions,
+    ) -> Unit,
 ): ReaderScreenFactory {
     val supportedFormats = formats.toSet()
     return object : ReaderScreenFactory {
@@ -21,7 +25,7 @@ fun formatReaderFactory(
             onBack: () -> Unit,
             navigationActions: ReaderNavigationActions,
         ) {
-            content(item, onBack)
+            content(item, onBack, navigationActions)
         }
     }
 }

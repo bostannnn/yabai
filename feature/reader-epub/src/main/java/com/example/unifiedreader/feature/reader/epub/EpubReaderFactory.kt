@@ -14,11 +14,12 @@ fun epubReaderFactory(
 ): ReaderScreenFactory = formatReaderFactory(
     FormatType.EPUB,
     chrome = ReaderChrome.Immersive,
-) { item, onBack ->
+) { item, onBack, navigationActions ->
         EpubReaderScreen(
             item = item,
             sessionStore = sessionStore,
             documentUriProvider = documentUriProvider,
             onBack = onBack,
+            onCompletionRequested = navigationActions.onRequestCompletion,
         )
 }

@@ -12,7 +12,7 @@ fun pdfReaderFactory(
 ): ReaderScreenFactory = formatReaderFactory(
     FormatType.PDF,
     chrome = ReaderChrome.Standard,
-) { item, _ ->
+) { item, _, _ ->
         PdfReaderScreen(
             item = item,
             documentUriProvider = documentUriProvider,

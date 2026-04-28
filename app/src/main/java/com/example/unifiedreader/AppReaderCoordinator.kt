@@ -79,6 +79,7 @@ class AppReaderCoordinator @Inject constructor(
                     activeReader = null,
                     selectedReaderOpenMode = ReaderOpenMode.Default,
                     selectedReaderItem = null,
+                    readerCompletionState = null,
                 )
             }
             refreshProgress()
@@ -93,6 +94,7 @@ class AppReaderCoordinator @Inject constructor(
                     activeReader = null,
                     selectedReaderOpenMode = ReaderOpenMode.Default,
                     selectedReaderItem = null,
+                    readerCompletionState = null,
                 )
             }
             refreshProgress()
@@ -261,6 +263,7 @@ class AppReaderCoordinator @Inject constructor(
                     selectedItemId = null,
                     selectedReaderOpenMode = ReaderOpenMode.Default,
                     selectedReaderItem = null,
+                    readerCompletionState = null,
                 )
                 it.selectedKavitaSeriesKey != null -> it.copy(
                     selectedKavitaSeriesKey = null,
@@ -297,6 +300,56 @@ class AppReaderCoordinator @Inject constructor(
             currentItem = currentItem,
             items = state.items,
         ) ?: return
+        onItemSelected(
+            item = nextItem,
+            updateState = updateState,
+            scope = scope,
+            refreshProgress = refreshProgress,
+            onSyncFailures = onSyncFailures,
+            openMode = ReaderOpenMode.StartFromBeginning,
+        )
+    }
+
+    fun onReaderCompletionRequested(
+        stateProvider: AppUiStateProvider,
+        updateState: AppUiStateUpdater,
+        refreshProgress: () -> Unit,
+    ) {
+        refreshProgress()
+        val state = stateProvider()
+        if (state.readerCompletionState != null) return
+        val currentItem = state.selectedItem ?: return
+        val nextItem = nextItemResolver.nextUnreadAfter(
+            currentItem = currentItem,
+            items = state.items,
+        )
+        updateState {
+            it.copy(
+                readerCompletionState = AppReaderCompletionState(
+                    itemId = currentItem.id,
+                    nextItemId = nextItem?.id,
+                ),
+            )
+        }
+    }
+
+    fun dismissReaderCompletion(
+        updateState: AppUiStateUpdater,
+    ) {
+        updateState { it.copy(readerCompletionState = null) }
+    }
+
+    fun startReaderCompletionNextItem(
+        stateProvider: AppUiStateProvider,
+        updateState: AppUiStateUpdater,
+        scope: CoroutineScope,
+        refreshProgress: () -> Unit,
+        onSyncFailures: (List<SourceProgressSyncFailure>) -> Unit,
+    ) {
+        val state = stateProvider()
+        val nextItemId = state.readerCompletionState?.nextItemId ?: return
+        val nextItem = state.items.firstOrNull { item -> item.id == nextItemId } ?: return
+        updateState { it.copy(readerCompletionState = null) }
         onItemSelected(
             item = nextItem,
             updateState = updateState,
@@ -355,6 +408,7 @@ class AppReaderCoordinator @Inject constructor(
                 activeReader = item.format,
                 selectedReaderOpenMode = openMode,
                 selectedReaderItem = selectedReaderItem,
+                readerCompletionState = null,
             )
         }
     }
