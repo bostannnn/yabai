@@ -38,13 +38,12 @@ class RemoteJournalPusherRegistry @Inject constructor(
 class JournalEntrySaveUseCase @Inject constructor(
     private val journalRepository: JournalRepository,
     private val remoteJournalPusher: RemoteJournalPusher,
+    private val readableItemRepository: ReadableItemRepository,
 ) {
     suspend operator fun invoke(
         item: JournalItemRef,
         rating: Int?,
         reviewText: String,
-        candidateItems: List<ReadableItem>,
-        selectedItem: ReadableItem?,
     ) {
         journalRepository.saveJournalEntry(
             item = item,
@@ -53,15 +52,16 @@ class JournalEntrySaveUseCase @Inject constructor(
         )
         remoteJournalPusher.pushPendingJournalEntries(
             sourceType = item.sourceType,
-            items = candidateItems.withSelectedJournalItem(selectedItem),
+            items = readableItemRepository.getItems().withJournalItem(item),
         )
     }
 }
 
-private fun List<ReadableItem>.withSelectedJournalItem(
-    selectedItem: ReadableItem?,
+private fun List<ReadableItem>.withJournalItem(
+    item: JournalItemRef,
 ): List<ReadableItem> {
-    selectedItem ?: return this
-    if (any { item -> item.id == selectedItem.id }) return this
-    return this + selectedItem
+    val sourceItems = filter { candidate -> candidate.sourceType == item.sourceType }
+    if (sourceItems.any { candidate -> candidate.id == item.itemId }) return sourceItems
+    val matchingItem = firstOrNull { candidate -> candidate.id == item.itemId }
+    return if (matchingItem == null) sourceItems else sourceItems + matchingItem
 }

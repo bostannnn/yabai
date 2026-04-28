@@ -10,8 +10,12 @@ import com.example.unifiedreader.core.database.dao.ImportedComicArchiveDao
 import com.example.unifiedreader.core.database.dao.JournalDao
 import com.example.unifiedreader.core.database.dao.ReadingProgressDao
 import com.example.unifiedreader.core.database.dao.ReaderSessionStateDao
+import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.network.buildHttpClient
+import com.example.unifiedreader.data.grimmory.GrimmoryRemoteJournalPusher
 import com.example.unifiedreader.data.grimmory.KtorGrimmoryApi
+import com.example.unifiedreader.data.kavita.KavitaRemoteJournalPusher
 import com.example.unifiedreader.data.kavita.KtorKavitaApi
 import com.example.unifiedreader.core.model.progress.ProgressSyncStore
 import com.example.unifiedreader.data.repository.RemoteJournalPusher
@@ -225,12 +229,35 @@ object AppModule {
 
     @Provides
     fun provideSourceRemoteJournalPushers(
-        kavitaRemoteJournalPusher: KavitaRemoteJournalPusher,
-        grimmoryRemoteJournalPusher: GrimmoryRemoteJournalPusher,
-    ): List<@JvmSuppressWildcards SourceRemoteJournalPusher> = listOf(
-        kavitaRemoteJournalPusher,
-        grimmoryRemoteJournalPusher,
-    )
+        kavitaSessionClient: KavitaJournalSessionClientAdapter,
+        grimmorySessionClient: GrimmoryJournalSessionClientAdapter,
+        journalRepository: JournalRepository,
+    ): List<@JvmSuppressWildcards SourceRemoteJournalPusher> {
+        val kavitaPusher = KavitaRemoteJournalPusher(
+            sessionClient = kavitaSessionClient,
+            journalRepository = journalRepository,
+        )
+        val grimmoryPusher = GrimmoryRemoteJournalPusher(
+            sessionClient = grimmorySessionClient,
+            journalRepository = journalRepository,
+        )
+        return listOf(
+            object : SourceRemoteJournalPusher {
+                override val sourceType = SourceType.KAVITA
+
+                override suspend fun pushPendingJournalEntries(
+                    items: List<ReadableItem>,
+                ) = kavitaPusher.pushPendingJournalEntries(items)
+            },
+            object : SourceRemoteJournalPusher {
+                override val sourceType = SourceType.GRIMMORY
+
+                override suspend fun pushPendingJournalEntries(
+                    items: List<ReadableItem>,
+                ) = grimmoryPusher.pushPendingJournalEntries(items)
+            },
+        )
+    }
 
     @Provides
     @Singleton

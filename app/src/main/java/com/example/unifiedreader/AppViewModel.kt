@@ -492,8 +492,6 @@ class AppViewModel @Inject constructor(
                 item = item,
                 rating = rating,
                 reviewText = reviewText,
-                candidateItems = uiState.items,
-                selectedItem = uiState.selectedItem,
             )
         }
     }

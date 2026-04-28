@@ -333,6 +333,7 @@ internal fun createViewModel(
         journalEntrySaveUseCase = JournalEntrySaveUseCase(
             journalRepository = journalRepository,
             remoteJournalPusher = remoteJournalPusher,
+            readableItemRepository = readableItemRepository,
         ),
         progressSyncStartupRetryCoordinator = progressSyncStartupRetryCoordinator ?: AppProgressSyncStartupRetryCoordinator(
             readableItemRepository = readableItemRepository,

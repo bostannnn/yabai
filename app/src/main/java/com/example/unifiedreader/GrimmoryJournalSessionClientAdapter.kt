@@ -1,23 +1,20 @@
 package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.ReadableItem
-import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.data.grimmory.GrimmoryJournalSessionClient
 import com.example.unifiedreader.data.grimmory.pushDirtyGrimmoryJournalEntries
-import com.example.unifiedreader.data.repository.SourceRemoteJournalPusher
 import com.example.unifiedreader.journal.JournalRepository
 import javax.inject.Inject
 
-class GrimmoryRemoteJournalPusher @Inject constructor(
+class GrimmoryJournalSessionClientAdapter @Inject constructor(
     private val grimmoryApiFactory: GrimmoryApiFactory,
     private val grimmoryCredentialStore: GrimmoryCredentialStore,
-    private val journalRepository: JournalRepository,
-) : SourceRemoteJournalPusher {
-    override val sourceType: SourceType = SourceType.GRIMMORY
-
+) : GrimmoryJournalSessionClient {
     private val grimmorySessionRequestRunner = GrimmoryStoredSessionRequestRunner(grimmoryCredentialStore)
 
-    override suspend fun pushPendingJournalEntries(
+    override suspend fun pushDirtyJournalEntries(
         items: List<ReadableItem>,
+        journalRepository: JournalRepository,
     ) {
         val session = grimmoryCredentialStore.sessionFlow.value ?: return
         val grimmoryItems = items.forActiveGrimmoryServer(session)

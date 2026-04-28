@@ -1,27 +1,22 @@
 package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.ReadableItem
-import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.data.kavita.KavitaJournalSessionClient
 import com.example.unifiedreader.data.kavita.pushDirtyKavitaJournalEntries
-import com.example.unifiedreader.data.repository.SourceRemoteJournalPusher
 import com.example.unifiedreader.journal.JournalRepository
 import javax.inject.Inject
 
-class KavitaRemoteJournalPusher @Inject constructor(
+class KavitaJournalSessionClientAdapter @Inject constructor(
     private val kavitaApiFactory: KavitaApiFactory,
     private val kavitaCredentialStore: KavitaCredentialStore,
-    private val journalRepository: JournalRepository,
-) : SourceRemoteJournalPusher {
-    override val sourceType: SourceType = SourceType.KAVITA
-
+) : KavitaJournalSessionClient {
     private val kavitaSessionRequestRunner = KavitaStoredSessionRequestRunner(kavitaCredentialStore)
 
-    override suspend fun pushPendingJournalEntries(
+    override suspend fun pushDirtyJournalEntries(
         items: List<ReadableItem>,
+        journalRepository: JournalRepository,
     ) {
         val session = kavitaCredentialStore.sessionFlow.value ?: return
-        val kavitaItems = items.forSource(SourceType.KAVITA)
-        if (kavitaItems.isEmpty()) return
         runWithStoredSessionAddressFailover(
             sessionStore = kavitaCredentialStore,
             session = session,
@@ -37,7 +32,7 @@ class KavitaRemoteJournalPusher @Inject constructor(
                 pushDirtyKavitaJournalEntries(
                     api = api,
                     accessToken = accessToken,
-                    entries = kavitaItems,
+                    entries = items,
                     journalRepository = journalRepository,
                 )
             }
