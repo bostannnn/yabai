@@ -96,6 +96,7 @@ class JournalDaoTest {
                     reviewText = "cached review",
                     syncState = "CLEAN",
                     remoteReviewNoteId = "note-12",
+                    remoteUpdatedAtEpochMillis = 999L,
                 ),
             )
 
@@ -109,6 +110,8 @@ class JournalDaoTest {
             assertEquals("cached review", dao.getJournalEntry("review-only-item")?.reviewText)
             assertEquals("note-12", dao.getJournalEntry("review-only-item")?.remoteReviewNoteId)
             assertEquals(null, dao.getJournalEntry("review-only-item")?.rating)
+            assertEquals(100L, dao.getJournalEntry("review-only-item")?.updatedAtEpochMillis)
+            assertEquals(null, dao.getJournalEntry("review-only-item")?.remoteUpdatedAtEpochMillis)
         } finally {
             database.close()
         }
@@ -211,6 +214,7 @@ private fun journalEntry(
     reviewText: String,
     syncState: String,
     remoteReviewNoteId: String? = null,
+    remoteUpdatedAtEpochMillis: Long? = null,
 ): ItemJournalEntryEntity = ItemJournalEntryEntity(
     itemId = itemId,
     sourceType = "KAVITA",
@@ -224,6 +228,7 @@ private fun journalEntry(
     reviewedAtEpochMillis = 100L,
     updatedAtEpochMillis = 200L,
     remoteReviewNoteId = remoteReviewNoteId,
+    remoteUpdatedAtEpochMillis = remoteUpdatedAtEpochMillis,
     syncState = syncState,
 )
 

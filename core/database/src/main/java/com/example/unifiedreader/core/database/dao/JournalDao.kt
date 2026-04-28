@@ -115,9 +115,8 @@ abstract class JournalDao {
                     entry.itemId !in mergedEntryIds &&
                     entry.hasReviewCache()
             }.map { entry ->
-                entry.copy(
-                    rating = if (preserveRatingWhenIncomingBlank) entry.rating else null,
-                    updatedAtEpochMillis = entry.reviewedAtEpochMillis ?: entry.updatedAtEpochMillis,
+                entry.toReviewOnlyCacheEntry(
+                    preserveRating = preserveRatingWhenIncomingBlank,
                 )
             }
         } else {
@@ -139,3 +138,23 @@ abstract class JournalDao {
 
 private fun ItemJournalEntryEntity.hasReviewCache(): Boolean =
     reviewText.isNotBlank() || remoteEntryId != null || remoteReviewNoteId != null
+
+private fun ItemJournalEntryEntity.toReviewOnlyCacheEntry(
+    preserveRating: Boolean,
+): ItemJournalEntryEntity = ItemJournalEntryEntity(
+    itemId = itemId,
+    sourceType = sourceType,
+    libraryId = libraryId,
+    itemTitle = itemTitle,
+    coverUrl = coverUrl,
+    itemKind = itemKind,
+    format = format,
+    rating = if (preserveRating) rating else null,
+    reviewText = reviewText,
+    reviewedAtEpochMillis = reviewedAtEpochMillis,
+    updatedAtEpochMillis = reviewedAtEpochMillis ?: 0L,
+    remoteEntryId = remoteEntryId,
+    remoteReviewNoteId = remoteReviewNoteId,
+    remoteUpdatedAtEpochMillis = null,
+    syncState = syncState,
+)
