@@ -1637,7 +1637,7 @@ class AppViewModelTest {
     }
 
     @Test
-    fun `cached kavita cover is used immediately after startup and cleared on sync`() {
+    fun `cached kavita cover is used immediately after startup and preserved on fast sync`() {
         val credentialStore = FakeKavitaCredentialStore(
             KavitaStoredSession(
                 displayName = "Home Kavita",
@@ -1695,8 +1695,11 @@ class AppViewModelTest {
         shadowOf(Looper.getMainLooper()).idle()
 
         assertEquals(listOf(SourceType.KAVITA), pageCacheController.clearedSourceTypes)
-        assertEquals(1, kavitaCoverRepository.clearCachedCoversCalls)
-        assertNull(viewModel.coverImageUrlFor(kavitaItem, LibraryCoverImageVariant.Grid))
+        assertEquals(0, kavitaCoverRepository.clearCachedCoversCalls)
+        assertEquals(
+            "file:///tmp/kavita-cover.png",
+            viewModel.coverImageUrlFor(kavitaItem, LibraryCoverImageVariant.Grid),
+        )
     }
 
     @Test
@@ -1723,6 +1726,49 @@ class AppViewModelTest {
 
         assertEquals(KavitaCatalogSyncMode.FULL, syncer.lastSyncRequest?.syncMode)
         assertEquals("Kavita library fully resynced.", viewModel.uiState.kavitaConnection.message)
+    }
+
+    @Test
+    fun `full kavita resync clears cached kavita covers`() {
+        val credentialStore = FakeKavitaCredentialStore(
+            KavitaStoredSession(
+                displayName = "Home Kavita",
+                baseUrl = "https://kavita.example",
+                username = "reader",
+                accessToken = "saved-access-token",
+                refreshToken = "saved-refresh-token",
+                apiKey = "saved-api-key",
+            ),
+        )
+        val kavitaCoverRepository = FakeKavitaCoverRepository(
+            coverUri = Uri.parse("file:///tmp/kavita-cover.png"),
+        )
+        val kavitaItem = sampleItem(
+            id = "kavita:item:issue-1",
+            title = "Kavita Issue",
+            format = FormatType.CBZ,
+        ).copy(
+            sourceType = SourceType.KAVITA,
+            libraryId = SourceType.KAVITA.remoteLibraryId("kavita-library"),
+            remoteId = "issue-1",
+            remoteFileType = "series-1",
+            coverUrl = "https://kavita.example/api/Image/chapter-cover?chapterId=issue-1&apiKey=saved-api-key",
+        )
+        val viewModel = createViewModel(
+            sampleItems = listOf(kavitaItem),
+            kavitaCatalogSyncer = FakeKavitaCatalogSyncer(),
+            kavitaCredentialStore = credentialStore,
+            kavitaCoverRepository = kavitaCoverRepository,
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+
+        viewModel.ensureCoverCached(kavitaItem, LibraryCoverImageVariant.Grid)
+        shadowOf(Looper.getMainLooper()).idle()
+        viewModel.fullResyncKavitaLibrary()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(1, kavitaCoverRepository.clearCachedCoversCalls)
+        assertNull(viewModel.coverImageUrlFor(kavitaItem, LibraryCoverImageVariant.Grid))
     }
 
     @Test

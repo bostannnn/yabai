@@ -10,8 +10,6 @@ import com.example.unifiedreader.data.kavita.KavitaApi
 import com.example.unifiedreader.data.kavita.KavitaChapterCatalogEntry
 import com.example.unifiedreader.data.kavita.KavitaSession
 import com.example.unifiedreader.data.kavita.KavitaSeriesEntry
-import com.example.unifiedreader.data.kavita.KavitaSeriesUpdateEntry
-import com.example.unifiedreader.data.kavita.toReadingProgress
 import com.example.unifiedreader.core.model.progress.ProgressSyncStore
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 
@@ -108,24 +106,20 @@ class KavitaCatalogSyncService(
                     accessToken = token,
                     apiKey = apiKey,
                 )
-                val entries = fetchSeriesEntries(
+                val catalogFetch = fetchKavitaCatalog(
                     api = api,
                     accessToken = token,
+                    libraries = libraries,
                     series = series,
+                    remoteCatalogWriter = remoteCatalogWriter,
+                    forceFullRefresh = request.syncMode == KavitaCatalogSyncMode.FULL,
+                    nowEpochMillis = nowEpochMillis(),
                     onProgress = onProgress,
                 )
-                catalogSyncGroups = series.map { seriesEntry ->
-                    RemoteCatalogSyncGroupEntity(
-                        sourceType = SourceType.KAVITA.name,
-                        groupId = seriesEntry.id,
-                        libraryId = SourceType.KAVITA.remoteLibraryId(seriesEntry.libraryId),
-                        fingerprint = seriesEntry.catalogFingerprint(),
-                        updatedAtEpochMillis = nowEpochMillis(),
-                    )
-                }
+                catalogSyncGroups = catalogFetch.syncGroups
                 RemoteCatalogFetch(
                     libraries = libraries,
-                    entries = entries,
+                    entries = catalogFetch.entries,
                 )
             }
             activeAccessToken = fetchResult.accessToken
@@ -200,7 +194,7 @@ class KavitaCatalogSyncService(
         )
     }
 
-    private suspend fun fetchSeriesEntries(
+    internal suspend fun fetchSeriesEntries(
         api: KavitaApi,
         accessToken: String,
         series: List<KavitaSeriesEntry>,
@@ -219,27 +213,6 @@ class KavitaCatalogSyncService(
     }
 }
 
-private fun KavitaSeriesEntry.catalogFingerprint(): String = listOf(
-    id,
-    libraryId,
-    title,
-    format.name,
-    pages?.toString().orEmpty(),
-    addedAtEpochMillis?.toString().orEmpty(),
-    lastChapterAddedAtEpochMillis?.toString().orEmpty(),
-    coverUrl.orEmpty(),
-    publishers.normalizedFingerprintPart(),
-    genres.normalizedFingerprintPart(),
-    tags.normalizedFingerprintPart(),
-    languages.normalizedFingerprintPart(),
-).joinToString(separator = "\u001F")
-
-private fun List<String>.normalizedFingerprintPart(): String =
-    map(String::trim)
-        .filter(String::isNotBlank)
-        .distinctBy(String::lowercase)
-        .joinToString(separator = "\u001E")
-
 data class KavitaCatalogSyncRequest(
     val displayName: String,
     val baseUrl: String,
@@ -255,14 +228,15 @@ data class KavitaCatalogSyncRequest(
 
 enum class KavitaCatalogSyncMode {
     /**
-     * Normal user-triggered sync. Kavita detail payloads are still refreshed so chapter metadata
-     * and remote progress stay current across devices.
+     * Best-effort incremental sync. It skips series whose stored fingerprint still matches the
+     * current series metadata plus Kavita's recent-update marker feed. Full resync remains the
+     * authoritative path for exact cleanup of old marker-window misses.
      */
     FAST,
 
     /**
-     * Explicit cache-reset sync. It shares Kavita detail refresh semantics with normal sync,
-     * while callers can use the mode to reset local cache/state before syncing.
+     * Authoritative catalog refresh. It refetches every series detail and does not depend on
+     * Kavita's recent-update marker endpoint.
      */
     FULL,
 }

@@ -167,7 +167,7 @@ class KavitaCatalogSyncServiceTest {
     }
 
     @Test
-    fun `fast sync refetches unchanged kavita series details`() = runBlocking {
+    fun `fast sync preserves unchanged kavita series without refetching detail`() = runBlocking {
         val series = kavitaSeriesEntry(id = "12", libraryId = "5")
         val api = FakeKavitaApi(
             libraries = listOf(kavitaLibrary("5")),
@@ -194,7 +194,8 @@ class KavitaCatalogSyncServiceTest {
         service.sync(request = request)
         service.sync(request = request)
 
-        assertEquals(listOf("12", "12"), api.detailRequests)
+        assertEquals(listOf("12"), api.detailRequests)
+        assertEquals(2, api.recentlyUpdatedRequests)
         assertTrue(api.progressRequests.isEmpty())
         assertEquals(listOf(SourceType.KAVITA.remoteItemId("99")), writer.lastItems.map { it.id })
         assertEquals(3, readerSessionStore.progressByItemIdFlow.value[SourceType.KAVITA.remoteItemId("99")]?.page)
@@ -260,6 +261,38 @@ class KavitaCatalogSyncServiceTest {
         )
 
         assertEquals(0, api.recentlyUpdatedRequests)
+        assertEquals(listOf("12"), api.detailRequests)
+        assertEquals(listOf(SourceType.KAVITA.remoteItemId("99")), writer.lastItems.map { it.id })
+    }
+
+    @Test
+    fun `fast sync falls back to detail refresh when recent update markers fail`() = runBlocking {
+        val series = kavitaSeriesEntry(id = "12", libraryId = "5")
+        val api = FakeKavitaApi(
+            libraries = listOf(kavitaLibrary("5")),
+            series = listOf(series),
+            recentUpdatesFailure = IllegalStateException("recent updates unavailable"),
+            entriesBySeriesId = mapOf(
+                "12" to listOf(kavitaChapterEntry(chapterId = "99", libraryId = "5", seriesId = "12")),
+            ),
+        )
+        val writer = RecordingKavitaRemoteCatalogWriter()
+        val service = KavitaCatalogSyncService(
+            kavitaApiFactory = KavitaApiFactory { _ -> api },
+            remoteCatalogWriter = writer,
+        )
+
+        service.sync(
+            request = KavitaCatalogSyncRequest(
+                displayName = "Kavita",
+                baseUrl = "https://kavita.example",
+                username = "reader",
+                accessToken = "saved-access-token",
+                apiKey = "saved-api-key",
+            ),
+        )
+
+        assertEquals(1, api.recentlyUpdatedRequests)
         assertEquals(listOf("12"), api.detailRequests)
         assertEquals(listOf(SourceType.KAVITA.remoteItemId("99")), writer.lastItems.map { it.id })
     }

@@ -166,7 +166,9 @@ class AppKavitaCoordinator @Inject constructor(
             activeBaseUrl = result.activeBaseUrl,
         )
         remoteSourceConnectivityPolicy.markReachable(SourceType.KAVITA)
-        clearCoverState()
+        if (preparation.request.syncMode == KavitaCatalogSyncMode.FULL) {
+            clearCoverState()
+        }
         val progressPushWarning = progressPushWarningMessage(
             sourceLabel = "Kavita",
             failures = result.progressPushFailures,
