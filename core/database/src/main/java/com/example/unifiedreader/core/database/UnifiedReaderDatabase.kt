@@ -36,7 +36,7 @@ import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
         ItemJournalEntryEntity::class,
         RemoteCatalogSyncGroupEntity::class,
     ],
-    version = 21,
+    version = 22,
     exportSchema = false,
 )
 abstract class UnifiedReaderDatabase : RoomDatabase() {
@@ -721,6 +721,30 @@ object UnifiedReaderDatabaseMigrations {
             database.execSQL("ALTER TABLE readable_items ADD COLUMN seriesCoverUrl TEXT DEFAULT NULL")
         }
     }
+
+    val MIGRATION_21_22 = object : Migration(21, 22) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("ALTER TABLE journal_reading_events ADD COLUMN remoteEventId TEXT")
+            database.execSQL("ALTER TABLE journal_reading_events ADD COLUMN remoteUpdatedAtEpochMillis INTEGER")
+            database.execSQL("ALTER TABLE journal_reading_events ADD COLUMN syncState TEXT NOT NULL DEFAULT 'CLEAN'")
+            database.execSQL("ALTER TABLE item_journal_entries ADD COLUMN remoteEntryId TEXT")
+            database.execSQL("ALTER TABLE item_journal_entries ADD COLUMN remoteReviewNoteId TEXT")
+            database.execSQL("ALTER TABLE item_journal_entries ADD COLUMN remoteUpdatedAtEpochMillis INTEGER")
+            database.execSQL("ALTER TABLE item_journal_entries ADD COLUMN syncState TEXT NOT NULL DEFAULT 'CLEAN'")
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS index_journal_reading_events_sourceType_syncState
+                ON journal_reading_events (sourceType, syncState)
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS index_item_journal_entries_sourceType_syncState
+                ON item_journal_entries (sourceType, syncState)
+                """.trimIndent(),
+            )
+        }
+    }
 }
 
 object UnifiedReaderDatabaseFactory {
@@ -752,6 +776,7 @@ object UnifiedReaderDatabaseFactory {
             UnifiedReaderDatabaseMigrations.MIGRATION_18_19,
             UnifiedReaderDatabaseMigrations.MIGRATION_19_20,
             UnifiedReaderDatabaseMigrations.MIGRATION_20_21,
+            UnifiedReaderDatabaseMigrations.MIGRATION_21_22,
         )
         .build()
 }

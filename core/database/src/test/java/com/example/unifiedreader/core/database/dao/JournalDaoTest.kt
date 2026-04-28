@@ -1,0 +1,251 @@
+package com.example.unifiedreader.core.database.dao
+
+import androidx.room.Room
+import androidx.test.core.app.ApplicationProvider
+import com.example.unifiedreader.core.database.UnifiedReaderDatabase
+import com.example.unifiedreader.core.database.entity.ItemJournalEntryEntity
+import com.example.unifiedreader.core.database.entity.JournalReadingEventEntity
+import org.junit.Assert.assertEquals
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+
+@RunWith(RobolectricTestRunner::class)
+class JournalDaoTest {
+    @Test
+    fun `replace clean source journal cache preserves dirty local entry conflicts`() {
+        val database = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            UnifiedReaderDatabase::class.java,
+        )
+            .allowMainThreadQueries()
+            .build()
+
+        try {
+            val dao = database.journalDao()
+            dao.insertJournalEntry(journalEntry(itemId = "dirty-item", reviewText = "local", syncState = "DIRTY"))
+
+            dao.replaceCleanSourceJournalCache(
+                sourceType = "KAVITA",
+                events = emptyList(),
+                entries = listOf(
+                    journalEntry(itemId = "dirty-item", reviewText = "remote", syncState = "CLEAN"),
+                    journalEntry(itemId = "clean-item", reviewText = "remote clean", syncState = "CLEAN"),
+                ),
+            )
+
+            assertEquals("local", dao.getJournalEntry("dirty-item")?.reviewText)
+            assertEquals("DIRTY", dao.getJournalEntry("dirty-item")?.syncState)
+            assertEquals("remote clean", dao.getJournalEntry("clean-item")?.reviewText)
+            assertEquals("CLEAN", dao.getJournalEntry("clean-item")?.syncState)
+        } finally {
+            database.close()
+        }
+    }
+
+    @Test
+    fun `replace clean source journal cache can preserve existing clean review fields`() {
+        val database = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            UnifiedReaderDatabase::class.java,
+        )
+            .allowMainThreadQueries()
+            .build()
+
+        try {
+            val dao = database.journalDao()
+            dao.insertJournalEntry(
+                journalEntry(
+                    itemId = "clean-item",
+                    reviewText = "cached review",
+                    syncState = "CLEAN",
+                    remoteReviewNoteId = "note-12",
+                ),
+            )
+
+            dao.replaceCleanSourceJournalCache(
+                sourceType = "KAVITA",
+                events = emptyList(),
+                entries = listOf(
+                    journalEntry(itemId = "clean-item", reviewText = "", syncState = "CLEAN"),
+                ),
+                preserveReviewFieldsWhenIncomingBlank = true,
+            )
+
+            assertEquals("cached review", dao.getJournalEntry("clean-item")?.reviewText)
+            assertEquals("note-12", dao.getJournalEntry("clean-item")?.remoteReviewNoteId)
+        } finally {
+            database.close()
+        }
+    }
+
+    @Test
+    fun `replace clean source journal cache can preserve review only clean rows`() {
+        val database = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            UnifiedReaderDatabase::class.java,
+        )
+            .allowMainThreadQueries()
+            .build()
+
+        try {
+            val dao = database.journalDao()
+            dao.insertJournalEntry(
+                journalEntry(
+                    itemId = "review-only-item",
+                    reviewText = "cached review",
+                    syncState = "CLEAN",
+                    remoteReviewNoteId = "note-12",
+                ),
+            )
+
+            dao.replaceCleanSourceJournalCache(
+                sourceType = "KAVITA",
+                events = emptyList(),
+                entries = emptyList(),
+                preserveReviewFieldsWhenIncomingBlank = true,
+            )
+
+            assertEquals("cached review", dao.getJournalEntry("review-only-item")?.reviewText)
+            assertEquals("note-12", dao.getJournalEntry("review-only-item")?.remoteReviewNoteId)
+            assertEquals(null, dao.getJournalEntry("review-only-item")?.rating)
+        } finally {
+            database.close()
+        }
+    }
+
+    @Test
+    fun `replace clean source journal cache can preserve review only rating when requested`() {
+        val database = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            UnifiedReaderDatabase::class.java,
+        )
+            .allowMainThreadQueries()
+            .build()
+
+        try {
+            val dao = database.journalDao()
+            dao.insertJournalEntry(
+                journalEntry(
+                    itemId = "review-only-item",
+                    reviewText = "cached review",
+                    syncState = "CLEAN",
+                    remoteReviewNoteId = "note-12",
+                ),
+            )
+
+            dao.replaceCleanSourceJournalCache(
+                sourceType = "KAVITA",
+                events = emptyList(),
+                entries = emptyList(),
+                preserveReviewFieldsWhenIncomingBlank = true,
+                preserveRatingWhenIncomingBlank = true,
+            )
+
+            assertEquals("cached review", dao.getJournalEntry("review-only-item")?.reviewText)
+            assertEquals(7, dao.getJournalEntry("review-only-item")?.rating)
+        } finally {
+            database.close()
+        }
+    }
+
+    @Test
+    fun `replace clean source journal cache can preserve existing clean events`() {
+        val database = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            UnifiedReaderDatabase::class.java,
+        )
+            .allowMainThreadQueries()
+            .build()
+
+        try {
+            val dao = database.journalDao()
+            dao.insertReadingEvent(journalEvent(id = "cached-event", itemId = "item-1", occurredAt = 100L))
+
+            dao.replaceCleanSourceJournalCache(
+                sourceType = "KAVITA",
+                events = listOf(journalEvent(id = "incoming-event", itemId = "item-2", occurredAt = 200L)),
+                entries = emptyList(),
+                preserveReadingEventsWhenIncomingIncomplete = true,
+            )
+
+            val eventIds = dao.getReadingEvents().map(JournalReadingEventEntity::id).toSet()
+            assertEquals(setOf("cached-event", "incoming-event"), eventIds)
+        } finally {
+            database.close()
+        }
+    }
+
+    @Test
+    fun `replace clean source journal cache can replace clean events for scoped items`() {
+        val database = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            UnifiedReaderDatabase::class.java,
+        )
+            .allowMainThreadQueries()
+            .build()
+
+        try {
+            val dao = database.journalDao()
+            dao.insertReadingEvent(journalEvent(id = "preserved-event", itemId = "item-1", occurredAt = 100L))
+            dao.insertReadingEvent(journalEvent(id = "stale-event", itemId = "item-2", occurredAt = 150L))
+
+            dao.replaceCleanSourceJournalCache(
+                sourceType = "KAVITA",
+                events = listOf(journalEvent(id = "fresh-event", itemId = "item-2", occurredAt = 200L)),
+                entries = emptyList(),
+                preserveReadingEventsWhenIncomingIncomplete = true,
+                readingEventReplacementItemIds = setOf("item-2"),
+            )
+
+            val eventIds = dao.getReadingEvents().map(JournalReadingEventEntity::id).toSet()
+            assertEquals(setOf("preserved-event", "fresh-event"), eventIds)
+        } finally {
+            database.close()
+        }
+    }
+}
+
+private fun journalEntry(
+    itemId: String,
+    reviewText: String,
+    syncState: String,
+    remoteReviewNoteId: String? = null,
+): ItemJournalEntryEntity = ItemJournalEntryEntity(
+    itemId = itemId,
+    sourceType = "KAVITA",
+    libraryId = "library",
+    itemTitle = itemId,
+    coverUrl = null,
+    itemKind = "BOOK",
+    format = "EPUB",
+    rating = 7,
+    reviewText = reviewText,
+    reviewedAtEpochMillis = 100L,
+    updatedAtEpochMillis = 200L,
+    remoteReviewNoteId = remoteReviewNoteId,
+    syncState = syncState,
+)
+
+private fun journalEvent(
+    id: String,
+    itemId: String,
+    occurredAt: Long,
+): JournalReadingEventEntity = JournalReadingEventEntity(
+    id = id,
+    itemId = itemId,
+    sourceType = "KAVITA",
+    libraryId = "library",
+    itemTitle = itemId,
+    coverUrl = null,
+    itemKind = "BOOK",
+    format = "EPUB",
+    eventType = "FINISHED",
+    fromPercent = 0.0,
+    toPercent = 1.0,
+    fromPage = null,
+    toPage = null,
+    pageCount = null,
+    occurredAtEpochMillis = occurredAt,
+    syncState = "CLEAN",
+)

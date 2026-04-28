@@ -192,6 +192,7 @@ data class DownloadQueueEntryEntity(
     indices = [
         Index(value = ["itemId"]),
         Index(value = ["occurredAtEpochMillis"]),
+        Index(value = ["sourceType", "syncState"]),
     ],
 )
 data class JournalReadingEventEntity(
@@ -210,6 +211,9 @@ data class JournalReadingEventEntity(
     val toPage: Int?,
     val pageCount: Int?,
     val occurredAtEpochMillis: Long,
+    val remoteEventId: String? = null,
+    val remoteUpdatedAtEpochMillis: Long? = null,
+    @ColumnInfo(defaultValue = "'CLEAN'") val syncState: String = "CLEAN",
 )
 
 @Entity(
@@ -217,6 +221,7 @@ data class JournalReadingEventEntity(
     indices = [
         Index(value = ["sourceType"]),
         Index(value = ["updatedAtEpochMillis"]),
+        Index(value = ["sourceType", "syncState"]),
     ],
 )
 data class ItemJournalEntryEntity(
@@ -231,4 +236,8 @@ data class ItemJournalEntryEntity(
     val reviewText: String,
     val reviewedAtEpochMillis: Long?,
     val updatedAtEpochMillis: Long,
+    val remoteEntryId: String? = null,
+    val remoteReviewNoteId: String? = null,
+    val remoteUpdatedAtEpochMillis: Long? = null,
+    @ColumnInfo(defaultValue = "'CLEAN'") val syncState: String = "CLEAN",
 )
