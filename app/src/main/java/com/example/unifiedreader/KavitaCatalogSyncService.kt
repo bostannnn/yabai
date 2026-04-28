@@ -10,8 +10,12 @@ import com.example.unifiedreader.data.kavita.KavitaApi
 import com.example.unifiedreader.data.kavita.KavitaChapterCatalogEntry
 import com.example.unifiedreader.data.kavita.KavitaSession
 import com.example.unifiedreader.data.kavita.KavitaSeriesEntry
+import com.example.unifiedreader.data.kavita.pullKavitaJournalCache
+import com.example.unifiedreader.data.kavita.pushDirtyKavitaJournalEntries
 import com.example.unifiedreader.core.model.progress.ProgressSyncStore
+import com.example.unifiedreader.journal.JournalRepository
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
+import kotlin.coroutines.cancellation.CancellationException
 
 fun interface KavitaApiFactory {
     fun create(
@@ -34,6 +38,7 @@ class KavitaCatalogSyncService(
     private val kavitaApiFactory: KavitaApiFactory,
     private val remoteCatalogWriter: RemoteCatalogWriter,
     private val readerSessionStore: ReaderSessionStore? = null,
+    private val journalRepository: JournalRepository? = null,
     private val nowEpochMillis: () -> Long = System::currentTimeMillis,
 ) : KavitaCatalogSyncer {
     private val progressSyncStore: ProgressSyncStore? = readerSessionStore?.let(::ReaderSessionProgressStoreAdapter)
@@ -159,6 +164,33 @@ class KavitaCatalogSyncService(
                 )
             }
             latestSession = syncOutcome.session ?: latestSession
+            runCatching {
+                val journalPull = pullJournalCache(
+                    api = api,
+                    initialAccessToken = activeAccessToken,
+                    initialRefreshToken = activeRefreshToken,
+                    initialApiKey = activeApiKey,
+                    libraries = fetchResult.value.libraries,
+                    entries = fetchResult.value.entries,
+                )
+                activeAccessToken = journalPull.accessToken
+                activeRefreshToken = journalPull.refreshToken
+                activeApiKey = journalPull.refreshedSession?.apiKey ?: activeApiKey
+                latestSession = journalPull.refreshedSession ?: latestSession
+            }.onFailure { error ->
+                if (error is CancellationException) throw error
+            }
+            val journalSync = pushDirtyJournalEntries(
+                api = api,
+                initialAccessToken = activeAccessToken,
+                initialRefreshToken = activeRefreshToken,
+                initialApiKey = activeApiKey,
+                entries = fetchResult.value.entries.map(KavitaChapterCatalogEntry::item),
+            )
+            activeAccessToken = journalSync.accessToken
+            activeRefreshToken = journalSync.refreshToken
+            activeApiKey = journalSync.refreshedSession?.apiKey ?: activeApiKey
+            latestSession = journalSync.refreshedSession ?: latestSession
             KavitaCatalogSyncResult(
                 libraryCount = syncOutcome.libraryCount,
                 itemCount = syncOutcome.itemCount,
@@ -191,6 +223,46 @@ class KavitaCatalogSyncService(
             initialApiKey = initialApiKey,
             items = items,
             readerSessionStore = store,
+        )
+    }
+
+    private suspend fun pushDirtyJournalEntries(
+        api: KavitaApi,
+        initialAccessToken: String,
+        initialRefreshToken: String?,
+        initialApiKey: String?,
+        entries: List<ReadableItem>,
+    ): KavitaTokenRefreshResult<Unit> = api.runWithTokenRefresh(
+        initialAccessToken = initialAccessToken,
+        initialRefreshToken = initialRefreshToken,
+        initialApiKey = initialApiKey,
+    ) { accessToken, _ ->
+        pushDirtyKavitaJournalEntries(
+            api = api,
+            accessToken = accessToken,
+            entries = entries,
+            journalRepository = journalRepository,
+        )
+    }
+
+    private suspend fun pullJournalCache(
+        api: KavitaApi,
+        initialAccessToken: String,
+        initialRefreshToken: String?,
+        initialApiKey: String?,
+        libraries: List<com.example.unifiedreader.core.model.Library>,
+        entries: List<KavitaChapterCatalogEntry>,
+    ): KavitaTokenRefreshResult<Unit> = api.runWithTokenRefresh(
+        initialAccessToken = initialAccessToken,
+        initialRefreshToken = initialRefreshToken,
+        initialApiKey = initialApiKey,
+    ) { accessToken, _ ->
+        pullKavitaJournalCache(
+            api = api,
+            accessToken = accessToken,
+            libraries = libraries,
+            entries = entries,
+            journalRepository = journalRepository,
         )
     }
 

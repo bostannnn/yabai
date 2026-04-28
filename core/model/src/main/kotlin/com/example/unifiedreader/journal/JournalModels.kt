@@ -4,6 +4,7 @@ import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.SyncState
 import java.util.Calendar
 import java.util.Locale
 import kotlinx.coroutines.flow.Flow
@@ -35,6 +36,9 @@ data class JournalReadingEvent(
     val toPage: Int?,
     val pageCount: Int?,
     val occurredAtEpochMillis: Long,
+    val remoteEventId: String? = null,
+    val remoteUpdatedAtEpochMillis: Long? = null,
+    val syncState: SyncState = SyncState.CLEAN,
 )
 
 data class ItemJournalEntry(
@@ -49,6 +53,10 @@ data class ItemJournalEntry(
     val reviewText: String,
     val reviewedAtEpochMillis: Long?,
     val updatedAtEpochMillis: Long,
+    val remoteEntryId: String? = null,
+    val remoteReviewNoteId: String? = null,
+    val remoteUpdatedAtEpochMillis: Long? = null,
+    val syncState: SyncState = SyncState.CLEAN,
 )
 
 data class JournalItemRef(
@@ -180,6 +188,32 @@ interface JournalRepository : JournalEventRecorder {
     )
 
     suspend fun deleteItemJournal(itemId: String)
+
+    suspend fun clearReadingEventsForItem(itemId: String) = Unit
+
+    suspend fun replaceCleanSourceJournalCache(
+        sourceType: SourceType,
+        events: List<JournalReadingEvent>,
+        entries: List<ItemJournalEntry>,
+        preserveReviewFieldsWhenIncomingBlank: Boolean = false,
+        preserveRatingWhenIncomingBlank: Boolean = false,
+        preserveReadingEventsWhenIncomingIncomplete: Boolean = false,
+        readingEventReplacementItemIds: Set<String>? = null,
+    ) = Unit
+
+    suspend fun getDirtyJournalEntriesForSource(
+        sourceType: SourceType,
+    ): List<ItemJournalEntry> = emptyList()
+
+    suspend fun markJournalEntrySyncState(
+        itemId: String,
+        syncState: SyncState,
+    ) = Unit
+
+    suspend fun updateJournalEntryRemoteReviewNoteId(
+        itemId: String,
+        remoteReviewNoteId: String?,
+    ) = Unit
 }
 
 fun periodBounds(
@@ -218,7 +252,7 @@ fun ReadableItem.toJournalEntry(
     coverUrl = coverUrl,
     itemKind = kind,
     format = format,
-    rating = rating?.coerceIn(1, 5),
+    rating = rating?.coerceIn(1, 10),
     reviewText = reviewText,
     reviewedAtEpochMillis = reviewedAtEpochMillis,
     updatedAtEpochMillis = updatedAtEpochMillis,
@@ -237,7 +271,7 @@ fun JournalItemRef.toJournalEntry(
     coverUrl = coverUrl,
     itemKind = itemKind,
     format = format,
-    rating = rating?.coerceIn(1, 5),
+    rating = rating?.coerceIn(1, 10),
     reviewText = reviewText,
     reviewedAtEpochMillis = reviewedAtEpochMillis,
     updatedAtEpochMillis = updatedAtEpochMillis,

@@ -4,6 +4,8 @@ import com.example.unifiedreader.core.database.dao.JournalDao
 import com.example.unifiedreader.core.database.dao.RemoteCatalogDao
 import com.example.unifiedreader.core.database.entity.toDomain
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.SyncState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -56,12 +58,18 @@ class RoomJournalRepository(
         withContext(Dispatchers.IO) {
             val now = nowEpochMillis()
             val trimmedReview = reviewText.trim()
+            val existingEntry = journalDao.getJournalEntry(item.id)?.toDomain()
             journalDao.insertJournalEntry(
                 item.toJournalEntry(
                     rating = rating,
                     reviewText = trimmedReview,
                     reviewedAtEpochMillis = now.takeIf { trimmedReview.isNotBlank() },
                     updatedAtEpochMillis = now,
+                ).copy(
+                    remoteEntryId = existingEntry?.remoteEntryId,
+                    remoteReviewNoteId = existingEntry?.remoteReviewNoteId,
+                    remoteUpdatedAtEpochMillis = existingEntry?.remoteUpdatedAtEpochMillis,
+                    syncState = item.sourceType.localJournalWriteSyncState(),
                 ).toEntity(),
             )
         }
@@ -75,12 +83,18 @@ class RoomJournalRepository(
         withContext(Dispatchers.IO) {
             val now = nowEpochMillis()
             val trimmedReview = reviewText.trim()
+            val existingEntry = journalDao.getJournalEntry(item.itemId)?.toDomain()
             journalDao.insertJournalEntry(
                 item.toJournalEntry(
                     rating = rating,
                     reviewText = trimmedReview,
                     reviewedAtEpochMillis = now.takeIf { trimmedReview.isNotBlank() },
                     updatedAtEpochMillis = now,
+                ).copy(
+                    remoteEntryId = existingEntry?.remoteEntryId,
+                    remoteReviewNoteId = existingEntry?.remoteReviewNoteId,
+                    remoteUpdatedAtEpochMillis = existingEntry?.remoteUpdatedAtEpochMillis,
+                    syncState = item.sourceType.localJournalWriteSyncState(),
                 ).toEntity(),
             )
         }
@@ -94,6 +108,68 @@ class RoomJournalRepository(
             journalDao.deleteJournalEntry(itemId)
         }
     }
+
+    override suspend fun clearReadingEventsForItem(
+        itemId: String,
+    ) {
+        withContext(Dispatchers.IO) {
+            journalDao.deleteReadingEventsForItem(itemId)
+        }
+    }
+
+    override suspend fun replaceCleanSourceJournalCache(
+        sourceType: SourceType,
+        events: List<JournalReadingEvent>,
+        entries: List<ItemJournalEntry>,
+        preserveReviewFieldsWhenIncomingBlank: Boolean,
+        preserveRatingWhenIncomingBlank: Boolean,
+        preserveReadingEventsWhenIncomingIncomplete: Boolean,
+        readingEventReplacementItemIds: Set<String>?,
+    ) {
+        withContext(Dispatchers.IO) {
+            journalDao.replaceCleanSourceJournalCache(
+                sourceType = sourceType.name,
+                events = events.map { event -> event.copy(syncState = SyncState.CLEAN).toEntity() },
+                entries = entries.map { entry -> entry.copy(syncState = SyncState.CLEAN).toEntity() },
+                preserveReviewFieldsWhenIncomingBlank = preserveReviewFieldsWhenIncomingBlank,
+                preserveRatingWhenIncomingBlank = preserveRatingWhenIncomingBlank,
+                preserveReadingEventsWhenIncomingIncomplete = preserveReadingEventsWhenIncomingIncomplete,
+                readingEventReplacementItemIds = readingEventReplacementItemIds,
+            )
+        }
+    }
+
+    override suspend fun getDirtyJournalEntriesForSource(
+        sourceType: SourceType,
+    ): List<ItemJournalEntry> = withContext(Dispatchers.IO) {
+        journalDao.getDirtyJournalEntriesForSource(sourceType.name)
+            .map { entity -> entity.toDomain() }
+    }
+
+    override suspend fun markJournalEntrySyncState(
+        itemId: String,
+        syncState: SyncState,
+    ) {
+        withContext(Dispatchers.IO) {
+            journalDao.updateJournalEntrySyncState(itemId, syncState.name)
+        }
+    }
+
+    override suspend fun updateJournalEntryRemoteReviewNoteId(
+        itemId: String,
+        remoteReviewNoteId: String?,
+    ) {
+        withContext(Dispatchers.IO) {
+            journalDao.updateJournalEntryRemoteReviewNoteId(itemId, remoteReviewNoteId)
+        }
+    }
+}
+
+private fun SourceType.localJournalWriteSyncState(): SyncState = when (this) {
+    SourceType.KAVITA,
+    SourceType.GRIMMORY -> SyncState.DIRTY
+    SourceType.STUMP,
+    SourceType.LOCAL -> SyncState.CLEAN
 }
 
 internal fun buildJournalEvent(

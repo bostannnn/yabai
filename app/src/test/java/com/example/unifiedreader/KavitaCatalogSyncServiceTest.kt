@@ -18,15 +18,24 @@ import com.example.unifiedreader.data.kavita.KavitaChapterCatalogEntry
 import com.example.unifiedreader.data.kavita.KavitaChapterInfoDto
 import com.example.unifiedreader.data.kavita.KavitaProgressDto
 import com.example.unifiedreader.data.kavita.KavitaProgressUpdate
+import com.example.unifiedreader.data.kavita.KavitaReadingHistoryItemDto
 import com.example.unifiedreader.data.kavita.KavitaSeriesEntry
 import com.example.unifiedreader.data.kavita.KavitaSession
 import com.example.unifiedreader.data.kavita.KavitaSeriesUpdateEntry
 import com.example.unifiedreader.data.kavita.KavitaUnauthorizedException
+import com.example.unifiedreader.data.kavita.KavitaUserReviewDto
+import com.example.unifiedreader.journal.ItemJournalEntry
+import com.example.unifiedreader.journal.JournalItemRef
+import com.example.unifiedreader.journal.JournalProgressInput
+import com.example.unifiedreader.journal.JournalReadingEvent
+import com.example.unifiedreader.journal.JournalRepository
+import com.example.unifiedreader.journal.JournalSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderLocator
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import java.io.File
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
@@ -164,6 +173,46 @@ class KavitaCatalogSyncServiceTest {
         )
 
         assertEquals(listOf(null, "refreshed-api-key"), api.seriesApiKeys)
+    }
+
+    @Test
+    fun `sync refreshes saved token when journal pull is unauthorized`() = runBlocking {
+        val api = FakeKavitaApi(
+            libraries = listOf(kavitaLibrary("5")),
+            series = listOf(kavitaSeriesEntry(id = "12", libraryId = "5")),
+            entriesBySeriesId = mapOf(
+                "12" to listOf(kavitaChapterEntry(chapterId = "99", libraryId = "5", seriesId = "12")),
+            ),
+            currentUserId = 1,
+            unauthorizedJournalTokens = setOf("expired-access-token"),
+            refreshedSession = KavitaSession(
+                accessToken = "fresh-access-token",
+                refreshToken = "fresh-refresh-token",
+                apiKey = "fresh-api-key",
+            ),
+        )
+        val journalRepository = KavitaRecordingJournalRepository()
+        val service = KavitaCatalogSyncService(
+            kavitaApiFactory = KavitaApiFactory { _ -> api },
+            remoteCatalogWriter = RecordingKavitaRemoteCatalogWriter(),
+            journalRepository = journalRepository,
+        )
+
+        val result = service.sync(
+            request = KavitaCatalogSyncRequest(
+                displayName = "Kavita",
+                baseUrl = "https://kavita.example",
+                username = "reader",
+                accessToken = "expired-access-token",
+                refreshToken = "saved-refresh-token",
+                apiKey = "expired-api-key",
+            ),
+        )
+
+        assertEquals(listOf("expired-access-token", "fresh-access-token"), api.currentUserAccessTokens)
+        assertEquals(listOf("saved-refresh-token"), api.refreshTokens)
+        assertEquals("fresh-access-token", result.session?.accessToken)
+        assertEquals(1, journalRepository.replaceCount)
     }
 
     @Test
@@ -587,6 +636,33 @@ private class KavitaTestReaderSessionStore : ReaderSessionStore {
     override fun restoreItem(itemId: String) = Unit
 }
 
+private class KavitaRecordingJournalRepository : JournalRepository {
+    private val snapshot = MutableStateFlow(JournalSnapshot())
+    var replaceCount = 0
+
+    override fun observeSnapshot(): Flow<JournalSnapshot> = snapshot
+
+    override suspend fun recordReaderProgress(input: JournalProgressInput) = Unit
+
+    override suspend fun saveJournalEntry(item: ReadableItem, rating: Int?, reviewText: String) = Unit
+
+    override suspend fun saveJournalEntry(item: JournalItemRef, rating: Int?, reviewText: String) = Unit
+
+    override suspend fun deleteItemJournal(itemId: String) = Unit
+
+    override suspend fun replaceCleanSourceJournalCache(
+        sourceType: SourceType,
+        events: List<JournalReadingEvent>,
+        entries: List<ItemJournalEntry>,
+        preserveReviewFieldsWhenIncomingBlank: Boolean,
+        preserveRatingWhenIncomingBlank: Boolean,
+        preserveReadingEventsWhenIncomingIncomplete: Boolean,
+        readingEventReplacementItemIds: Set<String>?,
+    ) {
+        replaceCount += 1
+    }
+}
+
 private class FakeKavitaApi(
     private val libraries: List<Library>,
     private val series: List<KavitaSeriesEntry>,
@@ -594,6 +670,8 @@ private class FakeKavitaApi(
     private val recentUpdatesFailure: Throwable? = null,
     private val entriesBySeriesId: Map<String, List<KavitaChapterCatalogEntry>> = emptyMap(),
     private val unauthorizedSeriesRequests: Int = 0,
+    private val unauthorizedJournalTokens: Set<String> = emptySet(),
+    private val currentUserId: Int? = null,
     private val refreshedSession: KavitaSession = KavitaSession(
         accessToken = "refreshed-access-token",
         refreshToken = "refreshed-refresh-token",
@@ -603,6 +681,8 @@ private class FakeKavitaApi(
     val seriesApiKeys = mutableListOf<String?>()
     val detailRequests = mutableListOf<String>()
     val progressRequests = mutableListOf<String>()
+    val currentUserAccessTokens = mutableListOf<String>()
+    val refreshTokens = mutableListOf<String>()
     var recentlyUpdatedRequests = 0
     private var remainingUnauthorizedSeriesRequests = unauthorizedSeriesRequests
 
@@ -619,7 +699,10 @@ private class FakeKavitaApi(
         refreshToken: String,
         accessToken: String?,
         apiKey: String?,
-    ): KavitaSession = refreshedSession
+    ): KavitaSession {
+        refreshTokens += refreshToken
+        return refreshedSession
+    }
 
     override suspend fun getLibraries(
         accessToken: String,
@@ -675,6 +758,26 @@ private class FakeKavitaApi(
         accessToken: String,
         progress: KavitaProgressUpdate,
     ) = Unit
+
+    override suspend fun getCurrentUserId(
+        accessToken: String,
+    ): Int? {
+        currentUserAccessTokens += accessToken
+        if (accessToken in unauthorizedJournalTokens) {
+            throw KavitaUnauthorizedException()
+        }
+        return currentUserId
+    }
+
+    override suspend fun getAllReviews(
+        accessToken: String,
+        userId: Int?,
+    ): List<KavitaUserReviewDto> = emptyList()
+
+    override suspend fun getReadingHistory(
+        accessToken: String,
+        libraryId: Int,
+    ): List<KavitaReadingHistoryItemDto> = emptyList()
 
     override suspend fun downloadPageImage(
         accessToken: String,

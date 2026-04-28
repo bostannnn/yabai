@@ -2,10 +2,9 @@ package com.example.unifiedreader.feature.journal
 
 import com.example.unifiedreader.core.database.entity.ItemJournalEntryEntity
 import com.example.unifiedreader.core.database.entity.JournalReadingEventEntity
-import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.database.entity.toDomain as journalToDomain
+import com.example.unifiedreader.core.database.entity.toEntity as journalToEntity
 import com.example.unifiedreader.core.model.ReadableItem
-import com.example.unifiedreader.core.model.ReadableItemKind
-import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.journal.periodBounds as journalPeriodBounds
 import com.example.unifiedreader.journal.toItemRef as journalToItemRef
 import com.example.unifiedreader.journal.toJournalEntry as journalToJournalEntry
@@ -24,69 +23,17 @@ typealias JournalRepository = com.example.unifiedreader.journal.JournalRepositor
 typealias JournalSnapshot = com.example.unifiedreader.journal.JournalSnapshot
 typealias JournalStats = com.example.unifiedreader.journal.JournalStats
 
-internal fun JournalReadingEventEntity.toDomain(): JournalReadingEvent = JournalReadingEvent(
-    id = id,
-    itemId = itemId,
-    sourceType = sourceType.toSourceTypeOrDefault(),
-    libraryId = libraryId,
-    itemTitle = itemTitle,
-    coverUrl = coverUrl,
-    itemKind = itemKind.toReadableItemKindOrDefault(),
-    format = format.toFormatTypeOrDefault(),
-    eventType = eventType.toJournalReadingEventTypeOrDefault(),
-    fromPercent = fromPercent,
-    toPercent = toPercent,
-    fromPage = fromPage,
-    toPage = toPage,
-    pageCount = pageCount,
-    occurredAtEpochMillis = occurredAtEpochMillis,
-)
+fun JournalReadingEventEntity.toDomain(): JournalReadingEvent =
+    journalToDomain()
 
-internal fun JournalReadingEvent.toEntity(): JournalReadingEventEntity = JournalReadingEventEntity(
-    id = id,
-    itemId = itemId,
-    sourceType = sourceType.name,
-    libraryId = libraryId,
-    itemTitle = itemTitle,
-    coverUrl = coverUrl,
-    itemKind = itemKind.name,
-    format = format.name,
-    eventType = eventType.name,
-    fromPercent = fromPercent,
-    toPercent = toPercent,
-    fromPage = fromPage,
-    toPage = toPage,
-    pageCount = pageCount,
-    occurredAtEpochMillis = occurredAtEpochMillis,
-)
+fun JournalReadingEvent.toEntity(): JournalReadingEventEntity =
+    journalToEntity()
 
-internal fun ItemJournalEntryEntity.toDomain(): ItemJournalEntry = ItemJournalEntry(
-    itemId = itemId,
-    sourceType = sourceType.toSourceTypeOrDefault(),
-    libraryId = libraryId,
-    itemTitle = itemTitle,
-    coverUrl = coverUrl,
-    itemKind = itemKind.toReadableItemKindOrDefault(),
-    format = format.toFormatTypeOrDefault(),
-    rating = rating,
-    reviewText = reviewText,
-    reviewedAtEpochMillis = reviewedAtEpochMillis,
-    updatedAtEpochMillis = updatedAtEpochMillis,
-)
+fun ItemJournalEntryEntity.toDomain(): ItemJournalEntry =
+    journalToDomain()
 
-internal fun ItemJournalEntry.toEntity(): ItemJournalEntryEntity = ItemJournalEntryEntity(
-    itemId = itemId,
-    sourceType = sourceType.name,
-    libraryId = libraryId,
-    itemTitle = itemTitle,
-    coverUrl = coverUrl,
-    itemKind = itemKind.name,
-    format = format.name,
-    rating = rating,
-    reviewText = reviewText,
-    reviewedAtEpochMillis = reviewedAtEpochMillis,
-    updatedAtEpochMillis = updatedAtEpochMillis,
-)
+fun ItemJournalEntry.toEntity(): ItemJournalEntryEntity =
+    journalToEntity()
 
 fun periodBounds(
     period: JournalPeriod,
@@ -96,7 +43,7 @@ fun periodBounds(
     nowEpochMillis = nowEpochMillis,
 )
 
-internal fun ReadableItem.toJournalEntry(
+fun ReadableItem.toJournalEntry(
     rating: Int?,
     reviewText: String,
     reviewedAtEpochMillis: Long?,
@@ -108,7 +55,7 @@ internal fun ReadableItem.toJournalEntry(
     updatedAtEpochMillis = updatedAtEpochMillis,
 )
 
-internal fun JournalItemRef.toJournalEntry(
+fun JournalItemRef.toJournalEntry(
     rating: Int?,
     reviewText: String,
     reviewedAtEpochMillis: Long?,
@@ -125,15 +72,3 @@ fun JournalReadingEvent.toItemRef(): JournalItemRef =
 
 fun ItemJournalEntry.toItemRef(): JournalItemRef =
     journalToItemRef()
-
-private fun String.toSourceTypeOrDefault(): SourceType =
-    SourceType.entries.firstOrNull { it.name == this } ?: SourceType.LOCAL
-
-private fun String.toFormatTypeOrDefault(): FormatType =
-    FormatType.entries.firstOrNull { it.name == this } ?: FormatType.EPUB
-
-private fun String.toReadableItemKindOrDefault(): ReadableItemKind =
-    ReadableItemKind.entries.firstOrNull { it.name == this } ?: ReadableItemKind.BOOK
-
-private fun String.toJournalReadingEventTypeOrDefault(): JournalReadingEventType =
-    JournalReadingEventType.entries.firstOrNull { it.name == this } ?: JournalReadingEventType.CONTINUED

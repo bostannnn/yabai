@@ -161,6 +161,65 @@ data class KavitaFileDimensionDto(
 )
 
 @Serializable
+internal data class KavitaUpdateRatingDto(
+    val seriesId: Int,
+    val chapterId: Int,
+    val userRating: Float,
+)
+
+@Serializable
+internal data class KavitaUpdateUserReviewDto(
+    val seriesId: Int,
+    val chapterId: Int,
+    val body: String?,
+)
+
+@Serializable
+data class KavitaUserReviewDto(
+    val id: Int? = null,
+    val body: String? = null,
+    val bodyJustText: String? = null,
+    val seriesId: Int? = null,
+    val chapterId: Int? = null,
+    val libraryId: Int? = null,
+    val username: String? = null,
+    val userId: Int? = null,
+    val rating: Float? = null,
+    val rawBody: String? = null,
+    val createdUtc: String? = null,
+)
+
+@Serializable
+data class KavitaReadingHistoryItemDto(
+    val sessionDataIds: List<Int>? = null,
+    val sessionId: Int? = null,
+    val startTimeUtc: String? = null,
+    val endTimeUtc: String? = null,
+    val seriesId: Int? = null,
+    val seriesName: String? = null,
+    val chapters: List<KavitaReadingHistoryChapterItemDto>? = null,
+    val libraryId: Int? = null,
+    val libraryName: String? = null,
+    val pagesRead: Int? = null,
+    val durationSeconds: Int? = null,
+    val totalPages: Int? = null,
+)
+
+@Serializable
+data class KavitaReadingHistoryChapterItemDto(
+    val chapterId: Int? = null,
+    val label: String? = null,
+    val startTimeUtc: String? = null,
+    val endTimeUtc: String? = null,
+    val pagesRead: Int? = null,
+    val durationSeconds: Int? = null,
+    val startPage: Int? = null,
+    val endPage: Int? = null,
+    val totalPages: Int? = null,
+    val completed: Boolean? = null,
+)
+
+@Serializable
 internal data class KavitaFilterV2Dto(
     val id: Int? = null,
     val name: String? = null,

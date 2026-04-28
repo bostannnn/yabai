@@ -5,6 +5,7 @@ import com.example.unifiedreader.core.network.writeBodyTo
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.ClientRequestException
+import io.ktor.client.request.delete
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -36,6 +37,10 @@ interface KavitaApi {
         accessToken: String,
     ): List<Library>
 
+    suspend fun getCurrentUserId(
+        accessToken: String,
+    ): Int? = error("Fetching the current Kavita user is not implemented.")
+
     suspend fun getSeries(
         accessToken: String,
         apiKey: String? = null,
@@ -65,6 +70,39 @@ interface KavitaApi {
         accessToken: String,
         progress: KavitaProgressUpdate,
     )
+
+    suspend fun updateChapterRating(
+        accessToken: String,
+        seriesId: Int,
+        chapterId: Int,
+        rating: Float,
+    ) {
+        error("Updating Kavita chapter ratings is not implemented.")
+    }
+
+    suspend fun updateChapterReview(
+        accessToken: String,
+        seriesId: Int,
+        chapterId: Int,
+        body: String?,
+    ): KavitaUserReviewDto = error("Updating Kavita chapter reviews is not implemented.")
+
+    suspend fun deleteChapterReview(
+        accessToken: String,
+        chapterId: Int,
+    ) {
+        error("Deleting Kavita chapter reviews is not implemented.")
+    }
+
+    suspend fun getAllReviews(
+        accessToken: String,
+        userId: Int? = null,
+    ): List<KavitaUserReviewDto> = error("Fetching Kavita reviews is not implemented.")
+
+    suspend fun getReadingHistory(
+        accessToken: String,
+        libraryId: Int,
+    ): List<KavitaReadingHistoryItemDto> = error("Fetching Kavita reading history is not implemented.")
 
     suspend fun downloadPageImage(
         accessToken: String,
@@ -200,6 +238,16 @@ class KtorKavitaApi(
             .mapNotNull(KavitaLibraryDto::toDomain)
     }
 
+    override suspend fun getCurrentUserId(
+        accessToken: String,
+    ): Int? = authenticatedRequest {
+        val response = httpClient.get("$normalizedBaseUrl/api/Account") {
+            bearerAuth(accessToken)
+        }
+        response.throwIfKavitaError()
+        response.body<KavitaUserDto>().id
+    }
+
     override suspend fun getSeries(
         accessToken: String,
         apiKey: String?,
@@ -322,6 +370,96 @@ class KtorKavitaApi(
             }
             response.throwIfKavitaError()
         }
+    }
+
+    override suspend fun updateChapterRating(
+        accessToken: String,
+        seriesId: Int,
+        chapterId: Int,
+        rating: Float,
+    ) {
+        authenticatedRequest {
+            val response = httpClient.post("$normalizedBaseUrl/api/Rating/chapter") {
+                bearerAuth(accessToken)
+                contentType(ContentType.Application.Json)
+                setBody(
+                    KavitaUpdateRatingDto(
+                        seriesId = seriesId,
+                        chapterId = chapterId,
+                        userRating = rating.coerceIn(0f, 5f),
+                    ),
+                )
+            }
+            response.throwIfKavitaError()
+        }
+    }
+
+    override suspend fun updateChapterReview(
+        accessToken: String,
+        seriesId: Int,
+        chapterId: Int,
+        body: String?,
+    ): KavitaUserReviewDto = authenticatedRequest {
+        val response = httpClient.post("$normalizedBaseUrl/api/Review/chapter") {
+            bearerAuth(accessToken)
+            contentType(ContentType.Application.Json)
+            setBody(
+                KavitaUpdateUserReviewDto(
+                    seriesId = seriesId,
+                    chapterId = chapterId,
+                    body = body,
+                ),
+            )
+        }
+        response.throwIfKavitaError()
+        response.body()
+    }
+
+    override suspend fun deleteChapterReview(
+        accessToken: String,
+        chapterId: Int,
+    ) {
+        authenticatedRequest {
+            val response = httpClient.delete("$normalizedBaseUrl/api/Review/chapter") {
+                bearerAuth(accessToken)
+                url {
+                    parameters.append("chapterId", chapterId.toString())
+                }
+            }
+            response.throwIfKavitaError()
+        }
+    }
+
+    override suspend fun getAllReviews(
+        accessToken: String,
+        userId: Int?,
+    ): List<KavitaUserReviewDto> = authenticatedRequest {
+        val response = httpClient.get("$normalizedBaseUrl/api/Review/all") {
+            bearerAuth(accessToken)
+            userId?.let { id ->
+                url {
+                    parameters.append("userId", id.toString())
+                }
+            }
+        }
+        response.throwIfKavitaError()
+        response.body()
+    }
+
+    override suspend fun getReadingHistory(
+        accessToken: String,
+        libraryId: Int,
+    ): List<KavitaReadingHistoryItemDto> = authenticatedRequest {
+        val response = httpClient.get("$normalizedBaseUrl/api/Stats/reading-history") {
+            bearerAuth(accessToken)
+            url {
+                parameters.append("Libraries", libraryId.toString())
+                parameters.append("PageNumber", "0")
+                parameters.append("PageSize", "10000")
+            }
+        }
+        response.throwIfKavitaError()
+        response.body()
     }
 
     override suspend fun downloadPageImage(

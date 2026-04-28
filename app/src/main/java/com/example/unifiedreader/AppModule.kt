@@ -332,10 +332,12 @@ object AppModule {
         kavitaApiFactory: KavitaApiFactory,
         remoteCatalogWriter: RemoteCatalogWriter,
         readerSessionStore: ReaderSessionStore,
+        journalRepository: JournalRepository,
     ): KavitaCatalogSyncer = KavitaCatalogSyncService(
         kavitaApiFactory = kavitaApiFactory,
         remoteCatalogWriter = remoteCatalogWriter,
         readerSessionStore = readerSessionStore,
+        journalRepository = journalRepository,
     )
 
     @Provides
