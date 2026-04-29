@@ -140,7 +140,7 @@ internal fun ComicPagePreviewStrip(
         ) {
             items(
                 items = spreads,
-                key = ComicPageSpread::id,
+                key = { spread -> comicSpreadPreviewStateKey(spread) },
             ) { spread ->
                 ComicSpreadPreviewItem(
                     item = item,
@@ -163,7 +163,10 @@ private fun ComicSpreadPreviewItem(
     onClick: () -> Unit,
 ) {
     val tokens = readerOverlayTokens()
-    val spreadPreviewVersion by remember(item.id, spread.id, pageSource) {
+    val spreadSignature = remember(spread.pages) {
+        comicSpreadPageSignature(spread)
+    }
+    val spreadPreviewVersion by remember(item.id, spread.id, spreadSignature, pageSource) {
         pageSource.observePagePreviewVersion(
             item = item,
             pages = spread.pages.map(ComicSpreadPage::spec),
@@ -174,7 +177,7 @@ private fun ComicSpreadPreviewItem(
         initialValue = emptyMap(),
         key1 = item.id,
         key2 = spread.id,
-        key3 = pageSource to spreadPreviewVersion,
+        key3 = Triple(spreadSignature, pageSource, spreadPreviewVersion),
     ) {
         val loadedState = withContext(Dispatchers.IO) {
             loadSpreadPreviewPages(
@@ -366,5 +369,15 @@ private data class LoadedPreviewPage(
     val pageId: String,
     val result: ComicPagePreviewResult,
 )
+
+internal fun comicSpreadPreviewStateKey(
+    spread: ComicPageSpread,
+): String = "${spread.id}:${comicSpreadPageSignature(spread)}"
+
+internal fun comicSpreadPageSignature(
+    spread: ComicPageSpread,
+): String = spread.pages.joinToString(separator = "|") { page ->
+    "${page.spec.id}:${page.spec.pageIndex}:${page.segment.idSuffix}"
+}
 
 internal const val ComicPagePreviewStripTag = "comic-page-preview-strip"

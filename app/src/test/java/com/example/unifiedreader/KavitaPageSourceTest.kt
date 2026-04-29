@@ -100,7 +100,7 @@ class KavitaPageSourceTest {
     }
 
     @Test
-    fun `page preview uses kavita thumbnail endpoint instead of full page image`() = runTest {
+    fun `page preview uses full page image instead of kavita thumbnail endpoint`() = runTest {
         val item = sampleKavitaComic(pageCount = 12)
         val api = RecordingKavitaPageApi()
         val pageSource = createPageSource(api, this)
@@ -109,8 +109,8 @@ class KavitaPageSourceTest {
         val result = pageSource.loadPagePreview(item, page)
 
         assertTrue(result is ComicPagePreviewResult.Success)
-        assertEquals(emptyList<Int>(), api.requestedPageIndexes)
-        assertEquals(listOf(3), api.requestedThumbnailPageNumbers)
+        assertEquals(listOf(3), api.requestedPageIndexes)
+        assertEquals(emptyList<Int>(), api.requestedThumbnailPageNumbers)
     }
 
     @Test
@@ -135,7 +135,7 @@ class KavitaPageSourceTest {
     }
 
     @Test
-    fun `wide kavita page preview uses full page image instead of dedicated thumbnail`() = runTest {
+    fun `wide kavita page preview uses full page image without consulting dimensions`() = runTest {
         val item = sampleKavitaComic(pageCount = 4)
         val api = RecordingKavitaPageApi().apply {
             chapterInfo = KavitaChapterInfoDto(
@@ -151,7 +151,7 @@ class KavitaPageSourceTest {
         val preview = pageSource.loadPagePreview(item, page)
 
         assertTrue(preview is ComicPagePreviewResult.Success)
-        assertEquals(listOf(true), api.requestedChapterInfoIncludeDimensions)
+        assertEquals(emptyList<Boolean>(), api.requestedChapterInfoIncludeDimensions)
         assertEquals(listOf(1), api.requestedPageIndexes)
         assertEquals(emptyList<Int>(), api.requestedThumbnailPageNumbers)
     }
@@ -173,7 +173,7 @@ class KavitaPageSourceTest {
     }
 
     @Test
-    fun `page preview falls back to dedicated thumbnail when kavita chapter dimensions fail`() = runTest {
+    fun `page preview ignores kavita chapter dimension failures`() = runTest {
         val item = sampleKavitaComic(pageCount = 4)
         val api = RecordingKavitaPageApi().apply {
             chapterInfoFailure = IllegalStateException("chapter info unavailable")
@@ -184,9 +184,9 @@ class KavitaPageSourceTest {
         val preview = pageSource.loadPagePreview(item, page)
 
         assertTrue(preview is ComicPagePreviewResult.Success)
-        assertEquals(listOf(true), api.requestedChapterInfoIncludeDimensions)
-        assertEquals(emptyList<Int>(), api.requestedPageIndexes)
-        assertEquals(listOf(2), api.requestedThumbnailPageNumbers)
+        assertEquals(emptyList<Boolean>(), api.requestedChapterInfoIncludeDimensions)
+        assertEquals(listOf(2), api.requestedPageIndexes)
+        assertEquals(emptyList<Int>(), api.requestedThumbnailPageNumbers)
     }
 
     @Test
@@ -301,7 +301,7 @@ class KavitaPageSourceTest {
     }
 
     @Test
-    fun `thumbnail preview does not populate authoritative page metadata`() = runTest {
+    fun `page image preview warms authoritative page metadata`() = runTest {
         val item = sampleKavitaComic(pageCount = 4)
         val api = RecordingKavitaPageApi()
         val pageSource = createPageSource(api, this)
@@ -313,12 +313,12 @@ class KavitaPageSourceTest {
 
         assertEquals(null, previewMetadata)
         assertEquals(ComicPageMetadata(width = 1, height = 1), metadata)
-        assertEquals(listOf(2), api.requestedThumbnailPageNumbers)
         assertEquals(listOf(2), api.requestedPageIndexes)
+        assertEquals(emptyList<Int>(), api.requestedThumbnailPageNumbers)
     }
 
     @Test
-    fun `preview prefetch warms all kavita thumbnail bytes`() = runTest {
+    fun `preview prefetch is disabled for kavita page image previews`() = runTest {
         val item = sampleKavitaComic(pageCount = 6)
         val api = RecordingKavitaPageApi()
         val dispatcher = StandardTestDispatcher(testScheduler)
@@ -328,14 +328,13 @@ class KavitaPageSourceTest {
 
         pageSource.prefetchPagePreviews(item, pages)
         scope.advanceUntilIdle()
-        pageSource.loadPagePreview(item, pages[2])
 
         assertEquals(emptyList<Int>(), api.requestedPageIndexes)
-        assertEquals(listOf(0, 1, 2, 3, 4, 5), api.requestedThumbnailPageNumbers)
+        assertEquals(emptyList<Int>(), api.requestedThumbnailPageNumbers)
     }
 
     @Test
-    fun `preview prefetch prioritizes current page before warming the rest`() = runTest {
+    fun `preview prefetch priority is ignored for kavita page image previews`() = runTest {
         val item = sampleKavitaComic(pageCount = 6)
         val api = RecordingKavitaPageApi()
         val dispatcher = StandardTestDispatcher(testScheduler)
@@ -350,40 +349,25 @@ class KavitaPageSourceTest {
         )
         scope.advanceUntilIdle()
 
-        assertEquals(listOf(3, 2, 4, 1, 5, 0), api.requestedThumbnailPageNumbers)
+        assertEquals(emptyList<Int>(), api.requestedPageIndexes)
+        assertEquals(emptyList<Int>(), api.requestedThumbnailPageNumbers)
     }
 
     @Test
-    fun `visible preview reuses in flight prefetched thumbnail request`() = runTest {
+    fun `visible preview requests the matching full page image`() = runTest {
         val item = sampleKavitaComic(pageCount = 6)
         val api = RecordingKavitaPageApi()
-        val dispatcher = StandardTestDispatcher(testScheduler)
-        val scope = TestScope(dispatcher)
-        val pageSource = createPageSource(api, scope)
+        val pageSource = createPageSource(api, this)
         val pages = pageSource.getPages(item)
-        api.beginBlockingRequests()
+        val visiblePreview = pageSource.loadPagePreview(item, pages[3])
 
-        pageSource.prefetchPagePreviews(
-            item = item,
-            pages = pages,
-            priorityPageIndex = 3,
-        )
-        scope.runCurrent()
-        api.awaitBlockedRequest()
-
-        val visiblePreview = async(UnconfinedTestDispatcher(testScheduler)) {
-            pageSource.loadPagePreview(item, pages[3])
-        }
-        runCurrent()
-        api.releaseBlockedRequests()
-
-        assertTrue(visiblePreview.await() is ComicPagePreviewResult.Success)
-        scope.advanceUntilIdle()
-        assertEquals(1, api.requestedThumbnailPageNumbers.count { it == 3 })
+        assertTrue(visiblePreview is ComicPagePreviewResult.Success)
+        assertEquals(listOf(3), api.requestedPageIndexes)
+        assertEquals(emptyList<Int>(), api.requestedThumbnailPageNumbers)
     }
 
     @Test
-    fun `page preview reuses persistent thumbnail bytes after source recreation`() = runTest {
+    fun `page image preview does not reuse persistent thumbnail bytes after source recreation`() = runTest {
         val item = sampleKavitaComic(pageCount = 12)
         val previewStoreDirectory = File(System.getProperty("java.io.tmpdir"), "kavita-preview-store-${System.nanoTime()}")
         val previewStore = PersistentComicPagePreviewStore(
@@ -410,7 +394,9 @@ class KavitaPageSourceTest {
             val result = secondSource.loadPagePreview(item, page)
 
             assertTrue(result is ComicPagePreviewResult.Success)
-            assertEquals(listOf(3), firstApi.requestedThumbnailPageNumbers)
+            assertEquals(listOf(3), firstApi.requestedPageIndexes)
+            assertEquals(emptyList<Int>(), firstApi.requestedThumbnailPageNumbers)
+            assertEquals(listOf(3), secondApi.requestedPageIndexes)
             assertEquals(emptyList<Int>(), secondApi.requestedThumbnailPageNumbers)
         } finally {
             previewStoreDirectory.deleteRecursively()
@@ -418,7 +404,7 @@ class KavitaPageSourceTest {
     }
 
     @Test
-    fun `page preview version updates after thumbnail bytes are cached`() = runTest {
+    fun `page preview version updates after page image preview bytes are cached`() = runTest {
         val item = sampleKavitaComic(pageCount = 12)
         val api = RecordingKavitaPageApi()
         val pageSource = createPageSource(api, this)
@@ -432,6 +418,8 @@ class KavitaPageSourceTest {
         val result = pageSource.loadPagePreview(item, page)
 
         assertTrue(result is ComicPagePreviewResult.Success)
+        assertEquals(listOf(3), api.requestedPageIndexes)
+        assertEquals(emptyList<Int>(), api.requestedThumbnailPageNumbers)
         assertEquals(1L, nextVersion.await())
     }
 

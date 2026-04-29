@@ -786,4 +786,4 @@ private data class PreviewPrefetchJob(
     val job: Job,
 )
 
-private const val PagePreviewCacheVersion = "v3"
+private const val PagePreviewCacheVersion = "v4"

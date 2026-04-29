@@ -3,8 +3,8 @@ package com.example.unifiedreader.feature.reader.comics
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -14,7 +14,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeGestures
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -322,31 +324,30 @@ fun ComicsReaderScreen(
         }
     }
     BackHandler(onBack = closeReader)
+    val preparationState = rememberComicReaderPreparationState(
+        item = item,
+        pages = pages,
+        pageSource = pageSource,
+    )
 
-    BoxWithConstraints(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF0A0D11)),
     ) {
+        val readyPreparation = preparationState as? ComicReaderPreparationState.Ready
+        if (readyPreparation == null) {
+            PreparingComicsReader(
+                state = preparationState,
+                modifier = Modifier.fillMaxSize(),
+            )
+            return@Box
+        }
         val spreadModeForPlan = when (readerState.readerMode) {
             ComicReaderMode.Paged -> readerState.spreadMode
             ComicReaderMode.VerticalScroll -> ComicSpreadMode.Single
         }
-        val useDoublePageSpreadsForPlan = shouldUseDoublePageSpreads(
-            spreadMode = spreadModeForPlan,
-            maxWidthDp = maxWidth.value,
-            maxHeightDp = maxHeight.value,
-            pageCount = pages.size,
-        )
-        val spreadPlanState = rememberComicSpreadPlanState(
-            item = item,
-            pages = pages,
-            pageSource = pageSource,
-            currentPage = readerState.resumeAnchorPage,
-            readingDirection = readerState.readingDirection,
-            spreadMode = spreadModeForPlan,
-            useDoublePageSpreads = useDoublePageSpreadsForPlan,
-        )
+        val spreadPlanState = readyPreparation.spreadPlanState
         ImmersiveReaderOverlay(
             overlayState = overlayState,
             autoHideDelayMillis = 0L,
@@ -461,6 +462,40 @@ fun ComicsReaderScreen(
                     }
                 }
             },
+        )
+    }
+}
+
+@Composable
+private fun PreparingComicsReader(
+    state: ComicReaderPreparationState,
+    modifier: Modifier = Modifier,
+) {
+    val tokens = readerOverlayTokens()
+    val progress = state as? ComicReaderPreparationState.Preparing
+    val progressText = progress
+        ?.takeIf { it.totalPageCount > 0 && it.loadedPageCount > 0 }
+        ?.let { "${it.loadedPageCount}/${it.totalPageCount}" }
+    Column(
+        modifier = modifier
+            .background(Color(0xFF0A0D11))
+            .padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(36.dp),
+            color = tokens.colors.accent,
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = if (progressText == null) {
+                "Preparing pages..."
+            } else {
+                "Preparing pages... $progressText"
+            },
+            color = tokens.colors.primaryText,
+            textAlign = TextAlign.Center,
         )
     }
 }

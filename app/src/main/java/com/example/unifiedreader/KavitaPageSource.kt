@@ -5,6 +5,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.data.kavita.KavitaChapterInfoDto
 import com.example.unifiedreader.data.kavita.KavitaFileDimensionDto
 import com.example.unifiedreader.feature.reader.comics.ComicPageMetadata
+import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewOptions
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 import com.example.unifiedreader.feature.reader.comics.PersistentComicPagePreviewStore
 import kotlinx.coroutines.CancellationException
@@ -49,14 +50,14 @@ class KavitaPageSource(
     override suspend fun pagePreviewByteSource(
         item: ReadableItem,
         page: ComicPageSpec,
-    ): RemoteComicPreviewByteSource {
-        val metadata = loadKavitaPageMetadata(item)[page.id]
-        return if (metadata?.isWide() == true) {
-            RemoteComicPreviewByteSource.PageImage
-        } else {
-            RemoteComicPreviewByteSource.DedicatedPreview
-        }
-    }
+    ): RemoteComicPreviewByteSource = RemoteComicPreviewByteSource.PageImage
+
+    override fun prefetchPagePreviews(
+        item: ReadableItem,
+        pages: List<ComicPageSpec>,
+        options: ComicPagePreviewOptions,
+        priorityPageIndex: Int?,
+    ) = Unit
 
     override suspend fun downloadPageBytes(
         session: KavitaStoredSession,
@@ -93,7 +94,7 @@ class KavitaPageSource(
         page: ComicPageSpec,
     ): ByteArray? {
         val chapterId = item.remoteId ?: return null
-        val pageNumber = page.id.toIntOrNull() ?: return null
+        val pageNumber = page.pageIndex + 1
         return runWithStoredSessionAddressFailover(
             sessionStore = kavitaCredentialStore,
             session = session,
