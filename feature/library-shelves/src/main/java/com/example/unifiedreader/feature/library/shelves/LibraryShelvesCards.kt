@@ -3,7 +3,6 @@ package com.example.unifiedreader.feature.library.shelves
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
@@ -27,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.feature.library.LibraryCoverActionCard
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.ResolvedLibraryCover
 
@@ -39,7 +39,7 @@ internal fun ShelfPreviewCard(
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     coverLoadingEnabled: Boolean = true,
     onClick: () -> Unit,
-    menuContent: (@Composable BoxScope.() -> Unit)? = null,
+    menuContent: (@Composable () -> Unit)? = null,
     progressFraction: Float? = null,
     isDownloaded: Boolean = false,
     isRead: Boolean = false,
@@ -53,23 +53,32 @@ internal fun ShelfPreviewCard(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
         ),
     ) {
-        Column(
+        LibraryCoverActionCard(
+            item = item,
+            title = title,
+            supportingText = supportingText,
+            trailingText = trailingText,
+            coverImageUrlProvider = { coverItem, coverVariant ->
+                if (coverLoadingEnabled) {
+                    coverImageUrlProvider(coverItem, coverVariant)
+                } else {
+                    null
+                }
+            },
+            imageVariant = LibraryCoverImageVariant.ShelfPreview,
+            isDownloaded = isDownloaded,
+            isRead = isRead,
+            onClick = onClick,
             modifier = Modifier.padding(10.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Box {
-                ShelfCover(
-                    item = item,
-                    coverImageUrlProvider = coverImageUrlProvider,
-                    onCoverVisible = { _, _ -> },
-                    coverLoadingEnabled = coverLoadingEnabled,
-                    notifyVisibleOnCompose = false,
-                    isDownloaded = isDownloaded,
-                    isRead = isRead,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(CoverAspectRatio),
-                )
+            coverModifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(CoverAspectRatio),
+            titleStyle = MaterialTheme.typography.titleSmall,
+            supportingStyle = MaterialTheme.typography.bodySmall,
+            trailingColor = MaterialTheme.colorScheme.primary,
+            metadataTopPadding = 8.dp,
+            menuContent = menuContent,
+            coverOverlay = {
                 progressFraction?.let { fraction ->
                     LinearProgressIndicator(
                         progress = { fraction.coerceIn(0f, 1f) },
@@ -82,37 +91,10 @@ internal fun ShelfPreviewCard(
                                     bottomEnd = CoverCornerRadius,
                                 ),
                             ),
-                    )
+                        )
                 }
-                menuContent?.invoke(this)
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleSmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                supportingText?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                trailingText?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-        }
+            },
+        )
     }
 }
 

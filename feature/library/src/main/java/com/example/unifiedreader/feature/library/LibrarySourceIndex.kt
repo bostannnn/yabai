@@ -45,6 +45,10 @@ internal data class LibrarySourceIndex(
         sourceType: SourceType,
     ): Map<String, String> = librariesBySource[sourceType].orEmpty()
 
+    fun rawSourceItems(
+        selectedSource: SourceType,
+    ): List<ReadableItem> = rawItemsBySource[selectedSource].orEmpty()
+
     fun resolveDownloadActionItems(
         selectedItem: ReadableItem,
     ): List<ReadableItem> = when {

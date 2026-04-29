@@ -66,7 +66,7 @@ class LibraryDerivedStateComputerTest {
     }
 
     @Test
-    fun `download availability resolves series containers without rescanning all items`() {
+    fun `download availability resolves series containers and raw shelf items`() {
         val libraries = listOf(
             Library(
                 id = SourceType.KAVITA.remoteLibraryId("k-comics"),
@@ -100,8 +100,14 @@ class LibraryDerivedStateComputerTest {
             ),
         )
 
-        assertEquals(setOf("kavita:series:${issueOne.libraryId}::akira"), derivedState.remoteDownloadActionAvailability.downloadableItemIds)
-        assertEquals(setOf("kavita:series:${issueOne.libraryId}::akira"), derivedState.remoteDownloadActionAvailability.deletableDownloadedItemIds)
+        assertEquals(
+            setOf("kavita:series:${issueOne.libraryId}::akira", issueTwo.id),
+            derivedState.remoteDownloadActionAvailability.downloadableItemIds,
+        )
+        assertEquals(
+            setOf("kavita:series:${issueOne.libraryId}::akira", issueOne.id),
+            derivedState.remoteDownloadActionAvailability.deletableDownloadedItemIds,
+        )
     }
 
     @Test

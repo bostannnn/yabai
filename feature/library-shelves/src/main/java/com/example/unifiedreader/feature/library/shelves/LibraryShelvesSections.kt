@@ -29,6 +29,7 @@ import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
 import com.example.unifiedreader.feature.library.hasMenuContent
 import com.example.unifiedreader.feature.library.isDownloaded
+import com.example.unifiedreader.feature.library.menu.LibraryItemMenuButtonStyle
 
 @Composable
 internal fun ContinueReadingShelfSection(
@@ -118,9 +119,7 @@ internal fun NextInSeriesShelfSection(
                                         onExpandedMenuChange(shelfItem.item, expanded)
                                     },
                                     onDeleteImportedRequested = onDeleteImportedRequested,
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .padding(4.dp),
+                                    buttonStyle = LibraryItemMenuButtonStyle.CompactInline,
                                 )
                             }
                         } else {
@@ -187,9 +186,7 @@ internal fun RecentlyFinishedShelfSection(
                                         onExpandedMenuChange(shelfItem.item, expanded)
                                     },
                                     onDeleteImportedRequested = onDeleteImportedRequested,
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .padding(4.dp),
+                                    buttonStyle = LibraryItemMenuButtonStyle.CompactInline,
                                 )
                             }
                         } else {
@@ -301,9 +298,7 @@ private fun ContinueReadingCarouselCard(
                         onExpandedMenuChange(shelfItem.item, expanded)
                     },
                     onDeleteImportedRequested = onDeleteImportedRequested,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(4.dp),
+                    buttonStyle = LibraryItemMenuButtonStyle.CompactInline,
                 )
             }
         } else {

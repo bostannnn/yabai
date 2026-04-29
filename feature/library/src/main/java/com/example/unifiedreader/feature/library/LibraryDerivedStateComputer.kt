@@ -52,8 +52,10 @@ class LibraryDerivedStateComputer @Inject constructor() {
             downloadingItemIds = input.downloadingRemoteItemIds,
             sourceIndex = sourceIndex,
         )
+        val downloadActionSourceItems = (sourceItems + sourceIndex.rawSourceItems(input.selectedSource))
+            .distinctBy(ReadableItem::id)
         val remoteDownloadActionAvailability = buildRemoteDownloadActionAvailability(
-            sourceItems = sourceItems,
+            sourceItems = downloadActionSourceItems,
             downloadedItemIds = input.downloadedRemoteItemIds,
             activeDownloadingItemIds = activeDownloadingItemIds,
             actionItemsProvider = sourceIndex::resolveDownloadActionItems,
