@@ -36,6 +36,8 @@ import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import java.io.File
+import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -106,6 +108,35 @@ class KavitaCatalogSyncServiceTest {
         assertTrue(progressUpdates.any { update -> update.message.startsWith("Loading Kavita series 3/3") })
         assertTrue(progressUpdates.any { update -> update.message == "Saving Kavita catalog..." })
         assertTrue(progressUpdates.any { update -> update.message == "Applying Kavita progress..." })
+    }
+
+    @Test
+    fun `sync fetches kavita series details serially`() = runBlocking {
+        val api = FakeKavitaApi(
+            libraries = listOf(kavitaLibrary("5")),
+            series = listOf(
+                kavitaSeriesEntry(id = "12", libraryId = "5"),
+                kavitaSeriesEntry(id = "13", libraryId = "5"),
+                kavitaSeriesEntry(id = "14", libraryId = "5"),
+            ),
+            detailDelayMillis = 10L,
+        )
+        val service = KavitaCatalogSyncService(
+            kavitaApiFactory = KavitaApiFactory { _ -> api },
+            remoteCatalogWriter = RecordingKavitaRemoteCatalogWriter(),
+        )
+
+        service.sync(
+            request = KavitaCatalogSyncRequest(
+                displayName = "Kavita",
+                baseUrl = "https://kavita.example",
+                username = "reader",
+                accessToken = "saved-access-token",
+                apiKey = "saved-api-key",
+            ),
+        )
+
+        assertEquals(1, api.maxConcurrentDetailRequests.get())
     }
 
     @Test
@@ -723,6 +754,7 @@ private class FakeKavitaApi(
     private val unauthorizedJournalTokens: Set<String> = emptySet(),
     private val currentUserId: Int? = null,
     private val reviews: List<KavitaUserReviewDto> = emptyList(),
+    private val detailDelayMillis: Long = 0L,
     private val refreshedSession: KavitaSession = KavitaSession(
         accessToken = "refreshed-access-token",
         refreshToken = "refreshed-refresh-token",
@@ -734,8 +766,10 @@ private class FakeKavitaApi(
     val progressRequests = mutableListOf<String>()
     val currentUserAccessTokens = mutableListOf<String>()
     val refreshTokens = mutableListOf<String>()
+    val maxConcurrentDetailRequests = AtomicInteger(0)
     var recentlyUpdatedRequests = 0
     private var remainingUnauthorizedSeriesRequests = unauthorizedSeriesRequests
+    private val inFlightDetailRequests = AtomicInteger(0)
 
     override suspend fun login(
         username: String,
@@ -783,8 +817,17 @@ private class FakeKavitaApi(
         accessToken: String,
         series: KavitaSeriesEntry,
     ): List<KavitaChapterCatalogEntry> {
-        detailRequests += series.id
-        return entriesBySeriesId[series.id].orEmpty()
+        val inFlight = inFlightDetailRequests.incrementAndGet()
+        maxConcurrentDetailRequests.accumulateAndGet(inFlight, ::maxOf)
+        try {
+            if (detailDelayMillis > 0) {
+                delay(detailDelayMillis)
+            }
+            detailRequests += series.id
+            return entriesBySeriesId[series.id].orEmpty()
+        } finally {
+            inFlightDetailRequests.decrementAndGet()
+        }
     }
 
     override suspend fun getProgress(

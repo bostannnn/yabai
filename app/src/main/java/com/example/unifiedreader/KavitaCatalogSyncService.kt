@@ -274,6 +274,7 @@ class KavitaCatalogSyncService(
     ): List<KavitaChapterCatalogEntry> = fetchSeriesEntriesWithProgress(
         sourceLabel = "Kavita",
         series = series,
+        detailRequestConcurrency = KAVITA_SERIES_DETAIL_REQUEST_CONCURRENCY,
         onProgress = { message, fraction ->
             onProgress(KavitaSyncProgress(message = message, fraction = fraction))
         },
@@ -334,3 +335,5 @@ data class KavitaCatalogSyncResult(
     val activeBaseUrl: String? = null,
     val progressPushFailures: List<Throwable> = emptyList(),
 )
+
+private const val KAVITA_SERIES_DETAIL_REQUEST_CONCURRENCY = 1
