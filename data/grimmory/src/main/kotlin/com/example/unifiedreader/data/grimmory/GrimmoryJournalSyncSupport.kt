@@ -11,6 +11,11 @@ import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 const val GRIMMORY_UNIFIED_READER_REVIEW_TITLE = "Unified Reader Review"
 const val GRIMMORY_UNIFIED_READER_REVIEW_CFI = "unified-reader-review"
@@ -53,23 +58,13 @@ suspend fun pullGrimmoryJournalCache(
     val journalEntries = entries
         .mapNotNull(GrimmoryBookCatalogEntry::toJournalEntry)
         .mergeReviewEntries(reviewLookup.entries)
-    val failedSessionItemIds = mutableSetOf<String>()
-    val sessionEvents = entries.flatMap { entry ->
-        val bookId = entry.item.remoteId ?: return@flatMap emptyList()
-        runCatching {
-            api.getReadingSessionsForBook(
-                accessToken = accessToken,
-                bookId = bookId,
-            ).toJournalEvents(entry.item)
-        }.getOrElse { error ->
-            when (error) {
-                is CancellationException,
-                is GrimmoryUnauthorizedException -> throw error
-            }
-            failedSessionItemIds += entry.item.id
-            emptyList()
-        }
-    }
+    val sessionPull = pullGrimmoryReadingSessionEvents(
+        api = api,
+        accessToken = accessToken,
+        entries = entries.filter(GrimmoryBookCatalogEntry::shouldFetchReadingSessions),
+    )
+    val failedSessionItemIds = sessionPull.failedItemIds
+    val sessionEvents = sessionPull.events
     val sessionFetchFailed = failedSessionItemIds.isNotEmpty()
     val sessionFinishedItemIds = sessionEvents
         .filter { event -> event.eventType == JournalReadingEventType.FINISHED }
@@ -97,6 +92,56 @@ suspend fun pullGrimmoryJournalCache(
         preserveRatingWhenIncomingBlank = false,
         preserveReadingEventsWhenIncomingIncomplete = sessionFetchFailed,
         readingEventReplacementItemIds = readingEventReplacementItemIds,
+    )
+}
+
+private data class GrimmoryReadingSessionPull(
+    val events: List<JournalReadingEvent>,
+    val failedItemIds: Set<String>,
+)
+
+private data class GrimmoryReadingSessionPullEntry(
+    val events: List<JournalReadingEvent>,
+    val failedItemId: String?,
+)
+
+private suspend fun pullGrimmoryReadingSessionEvents(
+    api: GrimmoryApi,
+    accessToken: String,
+    entries: List<GrimmoryBookCatalogEntry>,
+): GrimmoryReadingSessionPull = coroutineScope {
+    val limiter = Semaphore(GRIMMORY_READING_SESSION_FETCH_CONCURRENCY)
+    val pulls = entries.map { entry ->
+        async {
+            limiter.withPermit {
+                val bookId = entry.item.remoteId ?: return@withPermit GrimmoryReadingSessionPullEntry(
+                    events = emptyList(),
+                    failedItemId = null,
+                )
+                runCatching {
+                    GrimmoryReadingSessionPullEntry(
+                        events = api.getReadingSessionsForBook(
+                            accessToken = accessToken,
+                            bookId = bookId,
+                        ).toJournalEvents(entry.item),
+                        failedItemId = null,
+                    )
+                }.getOrElse { error ->
+                    when (error) {
+                        is CancellationException,
+                        is GrimmoryUnauthorizedException -> throw error
+                    }
+                    GrimmoryReadingSessionPullEntry(
+                        events = emptyList(),
+                        failedItemId = entry.item.id,
+                    )
+                }
+            }
+        }
+    }.awaitAll()
+    GrimmoryReadingSessionPull(
+        events = pulls.flatMap(GrimmoryReadingSessionPullEntry::events),
+        failedItemIds = pulls.mapNotNullTo(mutableSetOf(), GrimmoryReadingSessionPullEntry::failedItemId),
     )
 }
 
@@ -300,6 +345,12 @@ private fun GrimmoryBookCatalogEntry.toFinishedProgressJournalEvent(): JournalRe
     )
 }
 
+private fun GrimmoryBookCatalogEntry.shouldFetchReadingSessions(): Boolean =
+    progress != null ||
+        !lastReadTime.isNullOrBlank() ||
+        !dateFinished.isNullOrBlank() ||
+        readStatus.isFinishedReadStatus()
+
 private fun List<GrimmoryReadingSessionDto>.toJournalEvents(
     item: ReadableItem,
 ): List<JournalReadingEvent> = mapNotNull { session ->
@@ -368,3 +419,5 @@ private fun String?.toEpochMillisOrNull(): Long? {
         }.getOrNull()
     }
 }
+
+private const val GRIMMORY_READING_SESSION_FETCH_CONCURRENCY = 4

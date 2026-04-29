@@ -128,6 +128,7 @@ class GrimmoryCatalogSyncService(
                 missingRemoteClearsLocal = GrimmoryBookCatalogEntry::isExplicitUnreadReset,
                 remoteClearOverridesLocal = { false },
             ) { items ->
+                onProgress(GrimmorySyncProgress(message = "Uploading Grimmory progress...", fraction = 0.98f))
                 val progressSync = pushDirtyProgress(
                     api = api,
                     initialAccessToken = activeAccessToken,
@@ -143,6 +144,7 @@ class GrimmoryCatalogSyncService(
             }
             latestSession = syncOutcome.session ?: latestSession
             runCatching {
+                onProgress(GrimmorySyncProgress(message = "Loading Grimmory journal...", fraction = 0.99f))
                 val journalPull = pullJournalCache(
                     api = api,
                     initialAccessToken = activeAccessToken,
@@ -155,6 +157,7 @@ class GrimmoryCatalogSyncService(
             }.onFailure { error ->
                 if (error is CancellationException) throw error
             }
+            onProgress(GrimmorySyncProgress(message = "Syncing Grimmory journal...", fraction = 0.995f))
             val journalSync = pushDirtyJournalEntries(
                 api = api,
                 initialAccessToken = activeAccessToken,

@@ -16,7 +16,6 @@ internal suspend fun <T> runWithServerAddressFailover(
     block: suspend (baseUrl: String) -> T,
 ): RemoteServerAddressResult<T> {
     val candidates = buildList {
-        activeBaseUrl?.takeIf(String::isNotBlank)?.let(::add)
         add(baseUrl)
         backupBaseUrl?.takeIf(String::isNotBlank)?.let(::add)
     }.distinct()

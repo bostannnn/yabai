@@ -125,6 +125,44 @@ class GrimmoryJournalSyncSupportTest {
     }
 
     @Test
+    fun `grimmory pull skips reading session fetch for books without reading activity`() = runTest {
+        val unreadItem = readableItem(sourceType = SourceType.GRIMMORY, remoteId = "88", format = FormatType.EPUB)
+        val ratedItem = readableItem(sourceType = SourceType.GRIMMORY, remoteId = "89", format = FormatType.EPUB)
+        val progressedItem = readableItem(sourceType = SourceType.GRIMMORY, remoteId = "90", format = FormatType.EPUB)
+        val repository = RecordingJournalRepository()
+        val api = FakeGrimmoryApi()
+
+        pullGrimmoryJournalCache(
+            api = api,
+            accessToken = "token",
+            entries = listOf(
+                GrimmoryBookCatalogEntry(
+                    item = unreadItem,
+                    progress = null,
+                ),
+                GrimmoryBookCatalogEntry(
+                    item = ratedItem,
+                    progress = null,
+                    personalRating = 8,
+                ),
+                GrimmoryBookCatalogEntry(
+                    item = progressedItem,
+                    progress = ReadingProgress(
+                        itemId = progressedItem.id,
+                        locatorType = LocatorType.PERCENT,
+                        percent = 0.5,
+                        updatedAtEpochMillis = 1_777_400_000_000L,
+                    ),
+                ),
+            ),
+            journalRepository = repository,
+        )
+
+        assertEquals(listOf("90"), api.requestedSessionsForBooks)
+        assertEquals(listOf(8), repository.replacedEntries.map { entry -> entry.rating })
+    }
+
+    @Test
     fun `grimmory pull clears cached review when notebook lookup succeeds without reserved note`() = runTest {
         val item = readableItem(sourceType = SourceType.GRIMMORY, remoteId = "88", format = FormatType.EPUB)
         val repository = RecordingJournalRepository()

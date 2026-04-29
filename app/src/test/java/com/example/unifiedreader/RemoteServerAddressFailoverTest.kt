@@ -35,6 +35,24 @@ class RemoteServerAddressFailoverTest {
     }
 
     @Test
+    fun `run with server address failover tries primary before persisted active backup`() = runTest {
+        val attempts = mutableListOf<String>()
+
+        val result = runWithServerAddressFailover(
+            baseUrl = "https://primary.example.com",
+            backupBaseUrl = "https://backup.example.com",
+            activeBaseUrl = "https://backup.example.com",
+        ) { baseUrl ->
+            attempts += baseUrl
+            "ok"
+        }
+
+        assertEquals(listOf("https://primary.example.com"), attempts)
+        assertEquals("ok", result.value)
+        assertEquals("https://primary.example.com", result.activeBaseUrl)
+    }
+
+    @Test
     fun `run with stored session address failover persists the working address`() = runTest {
         val initialSession = FailoverTestSession(
             displayName = "Server",
