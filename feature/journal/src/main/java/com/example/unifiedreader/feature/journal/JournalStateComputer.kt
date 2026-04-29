@@ -182,16 +182,15 @@ fun computePeriodOverview(
     val periodEvents = snapshot.events.inPeriod(periodStart, periodEnd)
     val periodSessions = snapshot.sessions.overlappingPeriod(periodStart, periodEnd)
     val periodEntries = snapshot.entries.journalEntriesInPeriod(periodStart, periodEnd)
-    val periodItemIds = (
+    val readItemIds = (
         periodEvents.map(JournalReadingEvent::itemId) +
-            periodSessions.map(JournalReadingSession::itemId) +
-            periodEntries.map(ItemJournalEntry::itemId)
+            periodSessions.map(JournalReadingSession::itemId)
         ).toSet()
     val finishedItems = snapshot.itemSummaries
         .filter { summary -> summary.finishedAtEpochMillis in periodStart until periodEnd }
         .sortedByDescending(JournalItemSummary::finishedAtEpochMillis)
     val activeItems = snapshot.itemSummaries
-        .filter { summary -> summary.item.itemId in periodItemIds }
+        .filter { summary -> summary.item.itemId in readItemIds }
         .sortedByDescending(JournalItemSummary::lastActivityAtEpochMillis)
     return JournalPeriodOverview(
         period = period,
@@ -320,10 +319,16 @@ private fun computeTopFacetSections(
             rows = activeItems.topFacetRows(JournalMediaType.COMIC) { item -> item.facetMetadata().tags },
         ),
         JournalFacetSection(
-            title = "Comic authors",
+            title = "Comic writers",
             mediaType = JournalMediaType.COMIC,
-            facetType = JournalFacetType.AUTHOR,
-            rows = activeItems.topFacetRows(JournalMediaType.COMIC) { item -> item.facetMetadata().authors },
+            facetType = JournalFacetType.WRITER,
+            rows = activeItems.topFacetRows(JournalMediaType.COMIC) { item -> item.facetMetadata().writers },
+        ),
+        JournalFacetSection(
+            title = "Comic pencillers",
+            mediaType = JournalMediaType.COMIC,
+            facetType = JournalFacetType.PENCILLER,
+            rows = activeItems.topFacetRows(JournalMediaType.COMIC) { item -> item.facetMetadata().pencillers },
         ),
     ).filter { section -> section.rows.isNotEmpty() }
 }
@@ -347,7 +352,6 @@ private fun List<JournalItemSummary>.topFacetRows(
         )
     }
     .sortedWith(compareByDescending<JournalFacetRow> { it.count }.thenBy { it.label })
-    .take(8)
 
 internal fun List<JournalReadingEvent>.inPeriod(
     startInclusive: Long,

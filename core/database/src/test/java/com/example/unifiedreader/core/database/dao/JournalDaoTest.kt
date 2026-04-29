@@ -347,6 +347,195 @@ class JournalDaoTest {
             database.close()
         }
     }
+
+    @Test
+    fun `replace clean source journal cache preserves non-overlapping local clean sessions`() {
+        val database = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            UnifiedReaderDatabase::class.java,
+        )
+            .allowMainThreadQueries()
+            .build()
+
+        try {
+            val dao = database.journalDao()
+            dao.insertReadingSession(
+                journalSession(
+                    id = "local:item-1:100:200",
+                    itemId = "item-1",
+                    syncState = "CLEAN",
+                    startedAt = 100L,
+                    endedAt = 200L,
+                ),
+            )
+
+            dao.replaceCleanSourceJournalCache(
+                sourceType = "KAVITA",
+                events = emptyList(),
+                entries = emptyList(),
+                sessions = listOf(
+                    journalSession(
+                        id = "remote-session",
+                        itemId = "item-1",
+                        syncState = "CLEAN",
+                        startedAt = 300L,
+                        endedAt = 400L,
+                        remoteSessionId = "remote-1",
+                    ),
+                ),
+            )
+
+            assertEquals(
+                setOf("local:item-1:100:200", "remote-session"),
+                dao.getReadingSessionsForItem("item-1").map(JournalReadingSessionEntity::id).toSet(),
+            )
+        } finally {
+            database.close()
+        }
+    }
+
+    @Test
+    fun `replace clean source journal cache replaces overlapping local clean sessions`() {
+        val database = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            UnifiedReaderDatabase::class.java,
+        )
+            .allowMainThreadQueries()
+            .build()
+
+        try {
+            val dao = database.journalDao()
+            dao.insertReadingSession(
+                journalSession(
+                    id = "local:item-1:100:200",
+                    itemId = "item-1",
+                    syncState = "CLEAN",
+                    startedAt = 100L,
+                    endedAt = 200L,
+                ),
+            )
+
+            dao.replaceCleanSourceJournalCache(
+                sourceType = "KAVITA",
+                events = emptyList(),
+                entries = emptyList(),
+                sessions = listOf(
+                    journalSession(
+                        id = "remote-session",
+                        itemId = "item-1",
+                        syncState = "CLEAN",
+                        startedAt = 150L,
+                        endedAt = 250L,
+                        remoteSessionId = "remote-1",
+                    ),
+                ),
+            )
+
+            assertEquals(
+                listOf("remote-session"),
+                dao.getReadingSessionsForItem("item-1").map(JournalReadingSessionEntity::id),
+            )
+        } finally {
+            database.close()
+        }
+    }
+
+    @Test
+    fun `replace clean source journal cache replaces overlapping legacy dirty local sessions`() {
+        val database = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            UnifiedReaderDatabase::class.java,
+        )
+            .allowMainThreadQueries()
+            .build()
+
+        try {
+            val dao = database.journalDao()
+            dao.insertReadingSession(
+                journalSession(
+                    id = "local:item-1:100:200",
+                    itemId = "item-1",
+                    syncState = "DIRTY",
+                    startedAt = 100L,
+                    endedAt = 200L,
+                ),
+            )
+
+            dao.replaceCleanSourceJournalCache(
+                sourceType = "KAVITA",
+                events = emptyList(),
+                entries = emptyList(),
+                sessions = listOf(
+                    journalSession(
+                        id = "remote-session",
+                        itemId = "item-1",
+                        syncState = "CLEAN",
+                        startedAt = 150L,
+                        endedAt = 250L,
+                        remoteSessionId = "remote-1",
+                    ),
+                ),
+            )
+
+            assertEquals(
+                listOf("remote-session"),
+                dao.getReadingSessionsForItem("item-1").map(JournalReadingSessionEntity::id),
+            )
+        } finally {
+            database.close()
+        }
+    }
+
+    @Test
+    fun `replace clean source journal cache preserves legacy dirty local sessions as clean when not overlapping`() {
+        val database = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            UnifiedReaderDatabase::class.java,
+        )
+            .allowMainThreadQueries()
+            .build()
+
+        try {
+            val dao = database.journalDao()
+            dao.insertReadingSession(
+                journalSession(
+                    id = "local:item-1:100:200",
+                    itemId = "item-1",
+                    syncState = "DIRTY",
+                    startedAt = 100L,
+                    endedAt = 200L,
+                ),
+            )
+
+            dao.replaceCleanSourceJournalCache(
+                sourceType = "KAVITA",
+                events = emptyList(),
+                entries = emptyList(),
+                sessions = listOf(
+                    journalSession(
+                        id = "remote-session",
+                        itemId = "item-1",
+                        syncState = "CLEAN",
+                        startedAt = 300L,
+                        endedAt = 400L,
+                        remoteSessionId = "remote-1",
+                    ),
+                ),
+            )
+
+            val sessions = dao.getReadingSessionsForItem("item-1")
+            assertEquals(
+                setOf("local:item-1:100:200", "remote-session"),
+                sessions.map(JournalReadingSessionEntity::id).toSet(),
+            )
+            assertEquals(
+                setOf("CLEAN"),
+                sessions.map(JournalReadingSessionEntity::syncState).toSet(),
+            )
+        } finally {
+            database.close()
+        }
+    }
 }
 
 private fun journalEntry(
@@ -399,6 +588,9 @@ private fun journalSession(
     id: String,
     itemId: String,
     syncState: String,
+    startedAt: Long = 100L,
+    endedAt: Long = 200L,
+    remoteSessionId: String? = null,
 ): JournalReadingSessionEntity = JournalReadingSessionEntity(
     id = id,
     itemId = itemId,
@@ -409,13 +601,14 @@ private fun journalSession(
     itemKind = "BOOK",
     format = "EPUB",
     mediaType = "BOOK",
-    startedAtEpochMillis = 100L,
-    endedAtEpochMillis = 200L,
-    durationMillis = 100L,
+    startedAtEpochMillis = startedAt,
+    endedAtEpochMillis = endedAt,
+    durationMillis = endedAt - startedAt,
     fromPercent = null,
     toPercent = null,
     fromPage = null,
     toPage = null,
     pageCount = null,
+    remoteSessionId = remoteSessionId,
     syncState = syncState,
 )

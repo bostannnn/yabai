@@ -45,13 +45,13 @@ class KavitaJournalSyncSupportTest {
                 4 to listOf(
                     KavitaReadingHistoryItemDto(
                         sessionId = 123,
-                        startTimeUtc = "2026-04-21T10:00:00Z",
-                        endTimeUtc = "2026-04-21T10:30:00Z",
+                        startTimeUtc = "2026-04-21T10:00:00.1234567",
+                        endTimeUtc = "2026-04-21T10:30:00.1234567",
                         chapters = listOf(
                             KavitaReadingHistoryChapterItemDto(
                                 chapterId = 42,
-                                startTimeUtc = "2026-04-21T10:00:00Z",
-                                endTimeUtc = "2026-04-21T10:30:00Z",
+                                startTimeUtc = "2026-04-21T10:00:00.1234567",
+                                endTimeUtc = "2026-04-21T10:30:00.1234567",
                                 startPage = 1,
                                 endPage = 10,
                                 totalPages = 20,

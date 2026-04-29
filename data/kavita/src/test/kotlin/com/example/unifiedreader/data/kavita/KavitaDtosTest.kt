@@ -45,6 +45,8 @@ class KavitaDtosTest {
                             pagesRead = 9,
                             lastReadingProgressUtc = "2026-04-07T06:00:00Z",
                             volumeId = 7,
+                            writers = listOf(KavitaPersonDto(name = "Brian K. Vaughan")),
+                            pencillers = listOf(KavitaPersonDto(name = "Fiona Staples")),
                         ),
                     ),
                 ),
@@ -64,6 +66,8 @@ class KavitaDtosTest {
         assertEquals("Opening Shot", entry.item.comicMetadata?.issueTitle)
         assertEquals("1", entry.item.comicMetadata?.volume)
         assertEquals("1", entry.item.comicMetadata?.issueNumber)
+        assertEquals(listOf("Brian K. Vaughan"), entry.item.comicMetadata?.writers)
+        assertEquals(listOf("Fiona Staples"), entry.item.comicMetadata?.pencillers)
         assertEquals(listOf("Image"), entry.item.comicMetadata?.publishers)
         assertEquals(listOf("Sci-Fi"), entry.item.comicMetadata?.genres)
         assertEquals(listOf("Space Opera"), entry.item.comicMetadata?.tags)

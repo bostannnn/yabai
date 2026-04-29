@@ -11,17 +11,24 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import java.util.Calendar
@@ -284,23 +292,17 @@ private fun ReadingPacePanel(
                 PaceRow(
                     value = formatHours(hoursMillis),
                     label = "hours",
-                    perYear = paceValue(hoursMillis.toDouble() / 3_600_000.0, activeDays, 365.0),
-                    perMonth = paceValue(hoursMillis.toDouble() / 3_600_000.0, activeDays, 30.0),
-                    perDay = paceValue(hoursMillis.toDouble() / 3_600_000.0, activeDays, 1.0),
+                    average = paceValue(hoursMillis.toDouble() / 3_600_000.0, activeDays),
                 )
                 PaceRow(
                     value = formatCompactInt(pages),
                     label = "pages",
-                    perYear = paceValue(pages.toDouble(), activeDays, 365.0),
-                    perMonth = paceValue(pages.toDouble(), activeDays, 30.0),
-                    perDay = paceValue(pages.toDouble(), activeDays, 1.0),
+                    average = paceValue(pages.toDouble(), activeDays),
                 )
                 PaceRow(
                     value = completed.toString(),
                     label = mediaLabel.pluralize(),
-                    perYear = paceValue(completed.toDouble(), activeDays, 365.0),
-                    perMonth = paceValue(completed.toDouble(), activeDays, 30.0),
-                    perDay = paceValue(completed.toDouble(), activeDays, 1.0),
+                    average = paceValue(completed.toDouble(), activeDays),
                 )
             }
         }
@@ -311,9 +313,7 @@ private fun ReadingPacePanel(
 private fun PaceRow(
     value: String,
     label: String,
-    perYear: String,
-    perMonth: String,
-    perDay: String,
+    average: String,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -334,9 +334,7 @@ private fun PaceRow(
                 maxLines = 1,
             )
         }
-        PaceColumn(value = perYear, label = "per year", modifier = Modifier.weight(1f))
-        PaceColumn(value = perMonth, label = "per month", modifier = Modifier.weight(1f))
-        PaceColumn(value = perDay, label = "per day", modifier = Modifier.weight(1f))
+        PaceColumn(value = average, label = "per active day", modifier = Modifier.weight(1f))
     }
 }
 
@@ -428,12 +426,47 @@ private fun FinishedItemCard(
 }
 
 @Composable
-internal fun RatingBreakdown(
+internal fun RatingBreakdownSection(
+    bookRatings: Map<Int, Int>,
+    comicRatings: Map<Int, Int>,
+) {
+    BoxWithConstraints {
+        if (maxWidth >= 840.dp) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                RatingBreakdown(
+                    title = "Book ratings",
+                    values = bookRatings,
+                    modifier = Modifier.weight(1f),
+                )
+                RatingBreakdown(
+                    title = "Comic ratings",
+                    values = comicRatings,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                RatingBreakdown(
+                    title = "Book ratings",
+                    values = bookRatings,
+                )
+                RatingBreakdown(
+                    title = "Comic ratings",
+                    values = comicRatings,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RatingBreakdown(
     title: String,
     values: Map<Int, Int>,
+    modifier: Modifier = Modifier,
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 1.dp,
@@ -558,6 +591,7 @@ internal fun AverageReadingTimeChart(
 internal fun TopFacetSections(
     sections: List<JournalFacetSection>,
     onFacetSelected: (JournalFacetSection, JournalFacetRow) -> Unit,
+    onSeeAllSelected: (JournalFacetSection) -> Unit,
 ) {
     if (sections.isEmpty()) return
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -572,6 +606,7 @@ internal fun TopFacetSections(
                                 FacetChartCard(
                                     section = section,
                                     onFacetSelected = onFacetSelected,
+                                    onSeeAllSelected = onSeeAllSelected,
                                     modifier = Modifier.weight(1f),
                                 )
                             }
@@ -587,6 +622,7 @@ internal fun TopFacetSections(
                         FacetChartCard(
                             section = section,
                             onFacetSelected = onFacetSelected,
+                            onSeeAllSelected = onSeeAllSelected,
                         )
                     }
                 }
@@ -599,9 +635,11 @@ internal fun TopFacetSections(
 private fun FacetChartCard(
     section: JournalFacetSection,
     onFacetSelected: (JournalFacetSection, JournalFacetRow) -> Unit,
+    onSeeAllSelected: (JournalFacetSection) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val maxValue = section.rows.maxOfOrNull(JournalFacetRow::count)?.coerceAtLeast(1) ?: 1
+    val visibleRows = section.rows.take(FACET_CHART_VISIBLE_ROWS)
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
@@ -612,7 +650,18 @@ private fun FacetChartCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            StatsSectionLabel(section.title)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                StatsSectionLabel(section.title)
+                if (section.rows.size > visibleRows.size) {
+                    TextButton(onClick = { onSeeAllSelected(section) }) {
+                        Text(text = "See all")
+                    }
+                }
+            }
             section.rows.firstOrNull()?.let { top ->
                 Text(
                     text = "${top.label} leads with ${top.count} ${if (top.count == 1) "item" else "items"}.",
@@ -622,13 +671,65 @@ private fun FacetChartCard(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            section.rows.forEachIndexed { index, row ->
+            visibleRows.forEachIndexed { index, row ->
                 FacetBar(
                     row = row,
                     maxValue = maxValue,
                     color = facetColor(index),
                     onClick = { onFacetSelected(section, row) },
                 )
+            }
+        }
+    }
+}
+
+@Composable
+internal fun JournalFacetRowsDialog(
+    section: JournalFacetSection,
+    onRowSelected: (JournalFacetRow) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val maxValue = section.rows.maxOfOrNull(JournalFacetRow::count)?.coerceAtLeast(1) ?: 1
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 520.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp,
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = section.title,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(imageVector = Icons.Default.Close, contentDescription = "Close")
+                    }
+                }
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 520.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(section.rows, key = { row -> row.label }) { row ->
+                        FacetBar(
+                            row = row,
+                            maxValue = maxValue,
+                            color = facetColor(section.rows.indexOf(row)),
+                            onClick = { onRowSelected(row) },
+                        )
+                    }
+                }
             }
         }
     }
@@ -829,10 +930,9 @@ private fun paceHeadline(
 private fun paceValue(
     total: Double,
     activeDays: Int,
-    days: Double,
 ): String {
     if (activeDays <= 0 || total <= 0.0) return "0"
-    return formatDecimal(total / activeDays.toDouble() * days)
+    return formatDecimal(total / activeDays.toDouble())
 }
 
 private fun formatHours(
@@ -876,3 +976,5 @@ private fun String.pluralize(): String = when (this) {
     "comic" -> "comics"
     else -> "${this}s"
 }
+
+private const val FACET_CHART_VISIBLE_ROWS = 6

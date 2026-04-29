@@ -57,6 +57,8 @@ internal data class KavitaSeriesDto(
     val created: String? = null,
     val lastChapterAddedUtc: String? = null,
     val coverImage: String? = null,
+    val writers: List<KavitaPersonDto>? = null,
+    val pencillers: List<KavitaPersonDto>? = null,
     val publishers: List<KavitaPersonDto>? = null,
     val genres: List<KavitaGenreTagDto>? = null,
     val tags: List<KavitaTagDto>? = null,
@@ -104,6 +106,8 @@ internal data class KavitaChapterDto(
     val volumeId: Int? = null,
     val summary: String? = null,
     val volumeTitle: String? = null,
+    val writers: List<KavitaPersonDto>? = null,
+    val pencillers: List<KavitaPersonDto>? = null,
     val publishers: List<KavitaPersonDto>? = null,
     val genres: List<KavitaGenreTagDto>? = null,
     val tags: List<KavitaTagDto>? = null,
@@ -295,6 +299,8 @@ internal fun KavitaSeriesDto.toEntry(
             seriesId = seriesId,
             apiKey = apiKey,
         ),
+        writers = writers.toPersonNames(),
+        pencillers = pencillers.toPersonNames(),
         publishers = publishers.toPublisherNames(),
         genres = genres.toFacetNames(),
         tags = tags.toTagNames(),
@@ -375,6 +381,8 @@ internal fun KavitaChapterDto.toCatalogEntry(
             volume = volumeName,
             issueNumber = range?.takeIf(String::isNotBlank)
                 ?: number?.takeIf(String::isNotBlank),
+            writers = chapterWriters(series),
+            pencillers = chapterPencillers(series),
             publishers = chapterPublishers(series),
             genres = chapterGenres(series),
             tags = chapterTags(series),
@@ -526,6 +534,14 @@ private fun KavitaChapterDto.chapterPublishers(
     series: KavitaSeriesEntry,
 ): List<String> = publishers.toPublisherNames().ifEmpty { series.publishers }
 
+private fun KavitaChapterDto.chapterWriters(
+    series: KavitaSeriesEntry,
+): List<String> = writers.toPersonNames().ifEmpty { series.writers }
+
+private fun KavitaChapterDto.chapterPencillers(
+    series: KavitaSeriesEntry,
+): List<String> = pencillers.toPersonNames().ifEmpty { series.pencillers }
+
 private fun KavitaChapterDto.chapterGenres(
     series: KavitaSeriesEntry,
 ): List<String> = genres.toFacetNames().ifEmpty { series.genres }
@@ -544,6 +560,10 @@ private fun String?.toFacetNames(): List<String> = listOfNotNull(
 
 private fun List<KavitaPersonDto>?.toPublisherNames(): List<String> = orEmpty()
     .mapNotNull { publisher -> publisher.name?.trim()?.takeIf(String::isNotBlank) }
+    .distinctBy(String::lowercase)
+
+private fun List<KavitaPersonDto>?.toPersonNames(): List<String> = orEmpty()
+    .mapNotNull { person -> person.name?.trim()?.takeIf(String::isNotBlank) }
     .distinctBy(String::lowercase)
 
 private fun List<KavitaGenreTagDto>?.toFacetNames(): List<String> = orEmpty()

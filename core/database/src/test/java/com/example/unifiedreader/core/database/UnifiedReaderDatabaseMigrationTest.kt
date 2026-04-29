@@ -84,6 +84,21 @@ class UnifiedReaderDatabaseMigrationTest {
     }
 
     @Test
+    fun `migration 23 to 24 adds comic creator metadata columns`() {
+        createTestDatabase(
+            name = "migration-23-24-${System.nanoTime()}",
+            version = 23,
+        ) { database ->
+            createVersion23Schema(database)
+        }.use { database ->
+            UnifiedReaderDatabaseMigrations.MIGRATION_23_24.migrate(database)
+
+            assertTrue(columnExists(database, "readable_items", "comicWritersJson"))
+            assertTrue(columnExists(database, "readable_items", "comicPencillersJson"))
+        }
+    }
+
+    @Test
     fun `room migrates 4 to 5 and validates reader session state schema`() {
         val databaseName = "migration-4-5-${System.nanoTime()}"
         createTestDatabase(
@@ -1069,6 +1084,11 @@ private fun createVersion22Schema(database: SupportSQLiteDatabase) {
     UnifiedReaderDatabaseMigrations.MIGRATION_21_22.migrate(database)
 }
 
+private fun createVersion23Schema(database: SupportSQLiteDatabase) {
+    createVersion22Schema(database)
+    UnifiedReaderDatabaseMigrations.MIGRATION_22_23.migrate(database)
+}
+
 private fun tableExists(
     database: SupportSQLiteDatabase,
     tableName: String,
@@ -1177,6 +1197,7 @@ private fun openRoomDatabase(
         UnifiedReaderDatabaseMigrations.MIGRATION_20_21,
         UnifiedReaderDatabaseMigrations.MIGRATION_21_22,
         UnifiedReaderDatabaseMigrations.MIGRATION_22_23,
+        UnifiedReaderDatabaseMigrations.MIGRATION_23_24,
     )
     .build()
 

@@ -3,6 +3,7 @@ package com.example.unifiedreader.core.database
 import com.example.unifiedreader.core.database.entity.toDomain
 import com.example.unifiedreader.core.database.entity.toEntity
 import com.example.unifiedreader.core.model.BookMetadata
+import com.example.unifiedreader.core.model.ComicMetadata
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.LibraryContentType
@@ -49,6 +50,16 @@ class RemoteCatalogEntityMappersTest {
                 publishers = listOf("Parnassus"),
                 genres = listOf("Fantasy"),
                 tags = listOf("Wizard"),
+                languages = listOf("English"),
+            ),
+            comicMetadata = ComicMetadata(
+                series = "Saga",
+                issueTitle = "Opening Shot",
+                writers = listOf("Brian K. Vaughan"),
+                pencillers = listOf("Fiona Staples"),
+                publishers = listOf("Image"),
+                genres = listOf("Sci-Fi"),
+                tags = listOf("Space Opera"),
                 languages = listOf("English"),
             ),
         )

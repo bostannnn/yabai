@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.ResolvedLibraryCover
 
@@ -31,8 +32,18 @@ internal fun JournalItemRef.toReadableItem(): ReadableItem = ReadableItem(
     id = itemId,
     sourceType = sourceType,
     libraryId = libraryId,
+    remoteId = itemId.remoteItemIdSegment(sourceType),
     title = displayTitle,
     format = format,
     kind = itemKind,
     coverUrl = coverUrl,
 )
+
+private fun String.remoteItemIdSegment(
+    sourceType: SourceType,
+): String? {
+    val prefix = "${sourceType.name.lowercase()}:item:"
+    return takeIf { itemId -> itemId.startsWith(prefix) }
+        ?.removePrefix(prefix)
+        ?.takeIf(String::isNotBlank)
+}

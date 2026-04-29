@@ -451,6 +451,63 @@ class JournalStateComputerTest {
         assertEquals(listOf(eventOnly.id), bookGenres.rows.first { row -> row.label == "Science Fiction" }.itemIds)
     }
 
+    @Test
+    fun `top facets exclude rating-only journal entries`() {
+        val april10 = epochMillis(2026, Calendar.APRIL, 10)
+        val ratedOnly = testItem.copy(
+            id = "rated-only",
+            bookMetadata = BookMetadata(authors = listOf("Unopened Author"), genres = listOf("Unopened Genre")),
+        )
+        val snapshot = JournalStateComputer(nowEpochMillis = { april10 }).snapshot(
+            events = emptyList(),
+            sessions = emptyList(),
+            entries = listOf(
+                journalEntry(item = ratedOnly, rating = 8, updatedAtEpochMillis = april10),
+            ),
+            catalogItemsById = mapOf(ratedOnly.id to ratedOnly),
+        )
+
+        val overview = computePeriodOverview(snapshot, JournalPeriod.MONTH, april10)
+
+        assertEquals(mapOf(8 to 1), overview.stats.ratingCountsByMediaType[JournalMediaType.BOOK])
+        assertEquals(emptyList<JournalFacetSection>(), overview.topFacets)
+        assertEquals(emptyList<JournalItemSummary>(), overview.activeItems)
+    }
+
+    @Test
+    fun `top facets split comic writers and pencillers`() {
+        val april10 = epochMillis(2026, Calendar.APRIL, 10)
+        val comic = testItem.copy(
+            id = "comic",
+            sourceType = SourceType.KAVITA,
+            kind = ReadableItemKind.COMIC,
+            format = FormatType.CBZ,
+            comicMetadata = ComicMetadata(
+                series = "Saga",
+                writers = listOf("Brian K. Vaughan"),
+                pencillers = listOf("Fiona Staples"),
+                genres = listOf("Science Fiction"),
+            ),
+        )
+        val snapshot = JournalStateComputer(nowEpochMillis = { april10 }).snapshot(
+            events = emptyList(),
+            sessions = listOf(
+                journalSession(item = comic, startedAtEpochMillis = april10, endedAtEpochMillis = april10 + 1_000L),
+            ),
+            entries = emptyList(),
+            catalogItemsById = mapOf(comic.id to comic),
+        )
+
+        val overview = computePeriodOverview(snapshot, JournalPeriod.MONTH, april10)
+        val writers = overview.topFacets.first { section -> section.title == "Comic writers" }
+        val pencillers = overview.topFacets.first { section -> section.title == "Comic pencillers" }
+
+        assertEquals(JournalFacetType.WRITER, writers.facetType)
+        assertEquals(listOf(comic.id), writers.rows.single { row -> row.label == "Brian K. Vaughan" }.itemIds)
+        assertEquals(JournalFacetType.PENCILLER, pencillers.facetType)
+        assertEquals(listOf(comic.id), pencillers.rows.single { row -> row.label == "Fiona Staples" }.itemIds)
+    }
+
 
     @Test
     fun `snapshot groups timeline into one summary per item`() {

@@ -10,10 +10,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
@@ -71,6 +73,7 @@ internal fun JournalDetailsModal(
                     onCoverVisible = onCoverVisible,
                     onSaveJournalEntry = onSaveJournalEntry,
                     onDeleteItemJournal = onDeleteItemJournal,
+                    onDismiss = onDismiss,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -83,6 +86,7 @@ internal fun JournalDetailsModal(
                 onCoverVisible = onCoverVisible,
                 onSaveJournalEntry = onSaveJournalEntry,
                 onDeleteItemJournal = onDeleteItemJournal,
+                onDismiss = onDismiss,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -96,6 +100,7 @@ private fun JournalDetailsContent(
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onSaveJournalEntry: (JournalItemRef, Int?, String) -> Unit,
     onDeleteItemJournal: (String) -> Unit,
+    onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val summaries = target.summaries()
@@ -106,7 +111,7 @@ private fun JournalDetailsContent(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
-            JournalDetailsHeader(target = target)
+            JournalDetailsHeader(target = target, onDismiss = onDismiss)
         }
         if (summaries.isEmpty()) {
             item {
@@ -133,19 +138,32 @@ private fun JournalDetailsContent(
 @Composable
 private fun JournalDetailsHeader(
     target: JournalDetailsTarget,
+    onDismiss: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(
-            text = target.title,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold,
-        )
-        target.subtitle?.let { subtitle ->
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top,
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
             Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = target.title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
             )
+            target.subtitle?.let { subtitle ->
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        IconButton(onClick = onDismiss) {
+            Icon(imageVector = Icons.Default.Close, contentDescription = "Close")
         }
     }
 }

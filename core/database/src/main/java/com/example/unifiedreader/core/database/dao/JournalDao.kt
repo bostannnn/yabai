@@ -39,6 +39,12 @@ abstract class JournalDao {
     @Query("SELECT id FROM journal_reading_sessions WHERE sourceType = :sourceType AND syncState IN ('DIRTY', 'FAILED')")
     abstract fun getDirtyReadingSessionIdsForSource(sourceType: String): List<String>
 
+    @Query("SELECT * FROM journal_reading_sessions WHERE sourceType = :sourceType AND remoteSessionId IS NULL AND id LIKE 'local:%'")
+    abstract fun getLocalReadingSessionsForSource(sourceType: String): List<JournalReadingSessionEntity>
+
+    @Query("UPDATE journal_reading_sessions SET syncState = 'CLEAN' WHERE sourceType = :sourceType AND remoteSessionId IS NULL AND id LIKE 'local:%'")
+    abstract fun markLocalReadingSessionsCleanForSource(sourceType: String): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract fun insertReadingSession(session: JournalReadingSessionEntity)
 
@@ -116,7 +122,13 @@ abstract class JournalDao {
         ratingOnlyPreservationExcludedItemIds: Set<String>? = null,
     ) {
         val protectedEventIds = getDirtyReadingEventIdsForSource(sourceType).toSet()
-        val protectedSessionIds = getDirtyReadingSessionIdsForSource(sourceType).toSet()
+        markLocalReadingSessionsCleanForSource(sourceType)
+        val localSessionsToPreserve = getLocalReadingSessionsForSource(sourceType)
+            .filterNot { localSession ->
+                sessions.any { incomingSession -> incomingSession.overlaps(localSession) }
+            }
+        val localSessionIdsToPreserve = localSessionsToPreserve.mapTo(mutableSetOf(), JournalReadingSessionEntity::id)
+        val protectedSessionIds = getDirtyReadingSessionIdsForSource(sourceType).toSet() + localSessionIdsToPreserve
         val protectedEntryIds = getDirtyJournalEntryIdsForSource(sourceType).toSet()
         val cleanEntriesByItemId = if (preserveReviewFieldsWhenIncomingBlank || preserveRatingOnlyEntriesWhenIncomingMissing) {
             getCleanJournalEntriesForSource(sourceType).associateBy(ItemJournalEntryEntity::itemId)
@@ -195,7 +207,7 @@ abstract class JournalDao {
             deleteCleanJournalEntriesForSource(sourceType)
         }
         insertReadingEvents(events.filterNot { event -> event.id in protectedEventIds })
-        insertReadingSessions(sessions.filterNot { session -> session.id in protectedSessionIds })
+        insertReadingSessions(localSessionsToPreserve + sessions.filterNot { session -> session.id in protectedSessionIds })
         insertJournalEntries(mergedEntries + reviewOnlyEntries + ratingOnlyEntries)
     }
 }
@@ -240,3 +252,10 @@ private fun ItemJournalEntryEntity.toRatingOnlyCacheEntry(): ItemJournalEntryEnt
     remoteUpdatedAtEpochMillis = null,
     syncState = syncState,
 )
+
+private fun JournalReadingSessionEntity.overlaps(
+    other: JournalReadingSessionEntity,
+): Boolean =
+    itemId == other.itemId &&
+        startedAtEpochMillis < other.endedAtEpochMillis &&
+        endedAtEpochMillis > other.startedAtEpochMillis

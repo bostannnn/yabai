@@ -84,6 +84,9 @@ data class GrimmoryPersonalRatingResponseDto(
 @Serializable
 data class GrimmoryReadingSessionPageDto(
     val content: List<GrimmoryReadingSessionDto>? = null,
+    val totalPages: Int? = null,
+    val last: Boolean? = null,
+    val number: Int? = null,
 )
 
 @Serializable
@@ -93,14 +96,27 @@ data class GrimmoryReadingSessionDto(
     val bookTitle: String? = null,
     val bookType: String? = null,
     val startTime: String? = null,
+    @SerialName("start_time")
+    val startTimeSnake: String? = null,
     val endTime: String? = null,
+    @SerialName("end_time")
+    val endTimeSnake: String? = null,
     val durationSeconds: Int? = null,
+    @SerialName("duration_seconds")
+    val durationSecondsSnake: Int? = null,
+    val durationMillis: Long? = null,
     val startProgress: Float? = null,
+    @SerialName("start_progress")
+    val startProgressSnake: Float? = null,
     val endProgress: Float? = null,
+    @SerialName("end_progress")
+    val endProgressSnake: Float? = null,
     val progressDelta: Float? = null,
     val startLocation: String? = null,
     val endLocation: String? = null,
     val createdAt: String? = null,
+    @SerialName("created_at")
+    val createdAtSnake: String? = null,
 )
 
 @Serializable

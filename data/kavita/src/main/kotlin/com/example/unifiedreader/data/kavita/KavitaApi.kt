@@ -152,6 +152,8 @@ data class KavitaSeriesEntry(
     val addedAtEpochMillis: Long?,
     val lastChapterAddedAtEpochMillis: Long? = null,
     val coverUrl: String?,
+    val writers: List<String> = emptyList(),
+    val pencillers: List<String> = emptyList(),
     val publishers: List<String> = emptyList(),
     val genres: List<String> = emptyList(),
     val tags: List<String> = emptyList(),

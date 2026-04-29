@@ -16,6 +16,7 @@ import com.example.unifiedreader.journal.JournalReadingEventType
 import com.example.unifiedreader.journal.JournalReadingSession
 import com.example.unifiedreader.journal.JournalRepository
 import com.example.unifiedreader.journal.JournalSnapshot
+import java.time.Instant
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
@@ -76,6 +77,46 @@ class GrimmoryJournalSyncSupportTest {
         assertEquals(1.0, repository.replacedSessions.single().toPercent ?: -1.0, 0.0001)
         assertEquals(true, repository.replacedPreserveReadingEventsWhenIncomingIncomplete)
         assertEquals(true, repository.replacedPreserveReadingSessionsWhenIncomingIncomplete)
+    }
+
+    @Test
+    fun `grimmory pull accepts alternate session field names and millisecond durations`() = runTest {
+        val item = readableItem(sourceType = SourceType.GRIMMORY, remoteId = "88", format = FormatType.EPUB)
+        val repository = RecordingJournalRepository()
+        val api = FakeGrimmoryApi(
+            sessionsByBook = mapOf(
+                "88" to listOf(
+                    GrimmoryReadingSessionDto(
+                        id = 10,
+                        startTimeSnake = "2026-04-21T10:00:00Z",
+                        durationMillis = 45 * 60 * 1000L,
+                        startProgressSnake = 10f,
+                        endProgressSnake = 35f,
+                        createdAtSnake = "2026-04-21T10:00:00Z",
+                    ),
+                ),
+            ),
+        )
+
+        pullGrimmoryJournalCache(
+            api = api,
+            accessToken = "token",
+            entries = listOf(
+                GrimmoryBookCatalogEntry(
+                    item = item,
+                    progress = null,
+                    lastReadTime = "2026-04-21T10:45:00Z",
+                ),
+            ),
+            journalRepository = repository,
+        )
+
+        val session = repository.replacedSessions.single()
+        assertEquals(45 * 60 * 1000L, session.durationMillis)
+        assertEquals(Instant.parse("2026-04-21T10:00:00Z").toEpochMilli(), session.startedAtEpochMillis)
+        assertEquals(Instant.parse("2026-04-21T10:45:00Z").toEpochMilli(), session.endedAtEpochMillis)
+        assertEquals(0.10, session.fromPercent ?: -1.0, 0.0001)
+        assertEquals(0.35, session.toPercent ?: -1.0, 0.0001)
     }
 
     @Test

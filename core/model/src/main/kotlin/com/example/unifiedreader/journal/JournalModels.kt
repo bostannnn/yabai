@@ -233,6 +233,8 @@ data class JournalFacetSection(
 
 enum class JournalFacetType {
     AUTHOR,
+    WRITER,
+    PENCILLER,
     GENRE,
     TAG,
 }

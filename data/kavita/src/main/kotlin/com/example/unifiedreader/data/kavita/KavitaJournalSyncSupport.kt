@@ -11,6 +11,8 @@ import com.example.unifiedreader.journal.JournalReadingSession
 import com.example.unifiedreader.journal.JournalRepository
 import com.example.unifiedreader.journal.journalMediaType
 import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.roundToInt
 import kotlinx.serialization.json.Json
@@ -448,7 +450,13 @@ private fun String.parseYabaiJournalRating(): Int? = runCatching {
 
 private fun String.toEpochMillisOrNull(): Long? = runCatching {
     Instant.parse(this).toEpochMilli()
-}.getOrNull()
+}.getOrElse {
+    runCatching {
+        LocalDateTime.parse(this)
+            .toInstant(ZoneOffset.UTC)
+            .toEpochMilli()
+    }.getOrNull()
+}
 
 private val YABAI_JOURNAL_MARKER_REGEX = Regex("""(?m)^\s*YABAI_JOURNAL:(\{[^\r\n]*\})\s*$""")
 

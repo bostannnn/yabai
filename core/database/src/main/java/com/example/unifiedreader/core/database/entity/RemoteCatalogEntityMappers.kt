@@ -77,6 +77,8 @@ fun ReadableItem.toEntity(
     comicIssueTitle = comicMetadata?.issueTitle,
     comicVolume = comicMetadata?.volume,
     comicIssueNumber = comicMetadata?.issueNumber,
+    comicWritersJson = encodeMetadataValues(comicMetadata?.writers),
+    comicPencillersJson = encodeMetadataValues(comicMetadata?.pencillers),
     comicPublishersJson = encodeMetadataValues(comicMetadata?.publishers),
     comicGenresJson = encodeMetadataValues(comicMetadata?.genres),
     comicTagsJson = encodeMetadataValues(comicMetadata?.tags),
@@ -148,6 +150,8 @@ private fun ReadableItemEntity.comicMetadataOrNull(): ComicMetadata? {
         comicIssueTitle == null &&
         comicVolume == null &&
         comicIssueNumber == null &&
+        comicWritersJson == null &&
+        comicPencillersJson == null &&
         comicPublishersJson == null &&
         comicGenresJson == null &&
         comicTagsJson == null &&
@@ -160,6 +164,8 @@ private fun ReadableItemEntity.comicMetadataOrNull(): ComicMetadata? {
         issueTitle = comicIssueTitle,
         volume = comicVolume,
         issueNumber = comicIssueNumber,
+        writers = decodeMetadataValues(comicWritersJson),
+        pencillers = decodeMetadataValues(comicPencillersJson),
         publishers = decodeMetadataValues(comicPublishersJson),
         genres = decodeMetadataValues(comicGenresJson),
         tags = decodeMetadataValues(comicTagsJson),
@@ -173,6 +179,8 @@ private fun ReadableItemLibraryEntity.comicMetadataOrNull(): ComicMetadata? {
         comicIssueTitle == null &&
         comicVolume == null &&
         comicIssueNumber == null &&
+        comicWritersJson == null &&
+        comicPencillersJson == null &&
         comicPublishersJson == null &&
         comicGenresJson == null &&
         comicTagsJson == null &&
@@ -185,6 +193,8 @@ private fun ReadableItemLibraryEntity.comicMetadataOrNull(): ComicMetadata? {
         issueTitle = comicIssueTitle,
         volume = comicVolume,
         issueNumber = comicIssueNumber,
+        writers = decodeMetadataValues(comicWritersJson),
+        pencillers = decodeMetadataValues(comicPencillersJson),
         publishers = decodeMetadataValues(comicPublishersJson),
         genres = decodeMetadataValues(comicGenresJson),
         tags = decodeMetadataValues(comicTagsJson),

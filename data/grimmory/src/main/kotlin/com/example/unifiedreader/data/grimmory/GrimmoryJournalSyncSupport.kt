@@ -367,12 +367,12 @@ private fun GrimmoryBookCatalogEntry.shouldFetchReadingSessions(): Boolean =
 private fun List<GrimmoryReadingSessionDto>.toJournalEvents(
     item: ReadableItem,
 ): List<JournalReadingEvent> = mapNotNull { session ->
-    val occurredAt = session.endTime.toEpochMillisOrNull()
-        ?: session.startTime.toEpochMillisOrNull()
-        ?: session.createdAt.toEpochMillisOrNull()
+    val occurredAt = session.sessionEndTime.toEpochMillisOrNull()
+        ?: session.sessionStartTime.toEpochMillisOrNull()
+        ?: session.sessionCreatedAt.toEpochMillisOrNull()
         ?: return@mapNotNull null
-    val fromPercent = session.startProgress.toJournalPercent()
-    val toPercent = session.endProgress.toJournalPercent()
+    val fromPercent = session.sessionStartProgress.toJournalPercent()
+    val toPercent = session.sessionEndProgress.toJournalPercent()
     JournalReadingEvent(
         id = "grimmory:session:${session.id ?: item.remoteId}:$occurredAt",
         itemId = item.id,
@@ -402,14 +402,11 @@ private fun List<GrimmoryReadingSessionDto>.toJournalEvents(
 private fun List<GrimmoryReadingSessionDto>.toJournalSessions(
     item: ReadableItem,
 ): List<JournalReadingSession> = mapNotNull { session ->
-    val startedAt = session.startTime.toEpochMillisOrNull()
-        ?: session.createdAt.toEpochMillisOrNull()
+    val startedAt = session.sessionStartTime.toEpochMillisOrNull()
+        ?: session.sessionCreatedAt.toEpochMillisOrNull()
         ?: return@mapNotNull null
-    val explicitEnd = session.endTime.toEpochMillisOrNull()
-    val durationMillis = session.durationSeconds
-        ?.takeIf { seconds -> seconds > 0 }
-        ?.toLong()
-        ?.times(1_000L)
+    val explicitEnd = session.sessionEndTime.toEpochMillisOrNull()
+    val durationMillis = session.sessionDurationMillis
     val endedAt = explicitEnd
         ?: durationMillis?.let { duration -> startedAt + duration }
         ?: return@mapNotNull null
@@ -430,8 +427,8 @@ private fun List<GrimmoryReadingSessionDto>.toJournalSessions(
         startedAtEpochMillis = safeStartedAt,
         endedAtEpochMillis = safeEndedAt,
         durationMillis = safeDuration,
-        fromPercent = session.startProgress.toJournalPercent(),
-        toPercent = session.endProgress.toJournalPercent(),
+        fromPercent = session.sessionStartProgress.toJournalPercent(),
+        toPercent = session.sessionEndProgress.toJournalPercent(),
         fromPage = null,
         toPage = null,
         pageCount = item.pageCount,
@@ -440,6 +437,28 @@ private fun List<GrimmoryReadingSessionDto>.toJournalSessions(
         syncState = SyncState.CLEAN,
     )
 }
+
+private val GrimmoryReadingSessionDto.sessionStartTime: String?
+    get() = startTime ?: startTimeSnake
+
+private val GrimmoryReadingSessionDto.sessionEndTime: String?
+    get() = endTime ?: endTimeSnake
+
+private val GrimmoryReadingSessionDto.sessionCreatedAt: String?
+    get() = createdAt ?: createdAtSnake
+
+private val GrimmoryReadingSessionDto.sessionDurationMillis: Long?
+    get() = durationMillis?.takeIf { millis -> millis > 0L }
+        ?: (durationSeconds ?: durationSecondsSnake)
+            ?.takeIf { seconds -> seconds > 0 }
+            ?.toLong()
+            ?.times(1_000L)
+
+private val GrimmoryReadingSessionDto.sessionStartProgress: Float?
+    get() = startProgress ?: startProgressSnake
+
+private val GrimmoryReadingSessionDto.sessionEndProgress: Float?
+    get() = endProgress ?: endProgressSnake
 
 private fun Float?.toJournalPercent(): Double? = this
     ?.toDouble()

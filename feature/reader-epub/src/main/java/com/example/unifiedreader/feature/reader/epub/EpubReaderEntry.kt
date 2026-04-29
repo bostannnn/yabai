@@ -107,7 +107,6 @@ fun EpubReaderScreen(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val coroutineScope = rememberCoroutineScope()
     val configuration = LocalConfiguration.current
     val activity = remember(context) { context.findContextAncestor<FragmentActivity>() }
     val isLandscape = remember(
@@ -230,12 +229,12 @@ fun EpubReaderScreen(
         key = "epub-overlay-${item.id}",
         initiallyVisible = true,
     )
-    val readingSessionTracker = remember(item.id, journalReadingSessionRecorder) {
+    val readingSessionTracker = remember(item.id, journalReadingSessionRecorder, lifecycleOwner) {
         journalReadingSessionRecorder?.let { recorder ->
             ReaderActiveSessionTracker(
                 item = item,
                 recorder = recorder,
-                scope = coroutineScope,
+                scope = lifecycleOwner.lifecycleScope,
             )
         }
     }

@@ -222,7 +222,7 @@ private fun buildJournalReadingSession(
         fromPage = input.fromPage,
         toPage = input.toPage,
         pageCount = input.pageCount ?: input.item.pageCount,
-        syncState = input.item.sourceType.localJournalWriteSyncState(),
+        syncState = SyncState.CLEAN,
     )
 }
 

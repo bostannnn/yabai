@@ -24,7 +24,10 @@ import io.ktor.http.isSuccess
 import io.ktor.http.takeFrom
 import java.io.File
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.decodeFromJsonElement
 
 interface GrimmoryApi {
     suspend fun login(
@@ -384,15 +387,26 @@ class KtorGrimmoryApi(
         bookId: String,
         pageSize: Int,
     ): List<GrimmoryReadingSessionDto> = authenticatedRequest {
-        val response = httpClient.get("$normalizedBaseUrl/api/v1/reading-sessions/book/$bookId") {
-            bearerAuth(accessToken)
-            url {
-                parameters.append("page", "0")
-                parameters.append("size", pageSize.coerceIn(1, 100).toString())
+        val safePageSize = pageSize.coerceIn(1, 100)
+        val sessions = mutableListOf<GrimmoryReadingSessionDto>()
+        val seenPageFingerprints = mutableSetOf<String>()
+        var page = 0
+        while (page < GRIMMORY_READING_SESSION_MAX_PAGES) {
+            val response = httpClient.get("$normalizedBaseUrl/api/v1/reading-sessions/book/$bookId") {
+                bearerAuth(accessToken)
+                url {
+                    parameters.append("page", page.toString())
+                    parameters.append("size", safePageSize.toString())
+                }
             }
+            response.throwIfGrimmoryError()
+            val decodedPage = response.bodyAsText().decodeGrimmoryReadingSessionPage()
+            if (!seenPageFingerprints.add(decodedPage.content.fingerprint())) break
+            sessions += decodedPage.content
+            page += 1
+            if (!decodedPage.hasNextPage(page, safePageSize)) break
         }
-        response.throwIfGrimmoryError()
-        response.body<GrimmoryReadingSessionPageDto>().content.orEmpty()
+        sessions
     }
 
     override suspend fun getBookNotesV2(
@@ -547,6 +561,56 @@ class KtorGrimmoryApi(
 private val grimmoryJson = Json {
     ignoreUnknownKeys = true
     explicitNulls = false
+}
+
+private const val GRIMMORY_READING_SESSION_MAX_PAGES = 1_000
+private const val GRIMMORY_READING_SESSION_FALLBACK_MAX_PAGES = 10
+
+private data class DecodedGrimmoryReadingSessionPage(
+    val content: List<GrimmoryReadingSessionDto>,
+    val totalPages: Int?,
+    val last: Boolean?,
+) {
+    fun hasNextPage(
+        nextPage: Int,
+        pageSize: Int,
+    ): Boolean = when {
+        last == true -> false
+        totalPages != null -> nextPage < totalPages
+        content.size < pageSize -> false
+        else -> nextPage < GRIMMORY_READING_SESSION_FALLBACK_MAX_PAGES
+    }
+}
+
+private fun List<GrimmoryReadingSessionDto>.fingerprint(): String = joinToString(separator = "|") { session ->
+    listOf(
+        session.id,
+        session.bookId,
+        session.startTime,
+        session.startTimeSnake,
+        session.endTime,
+        session.endTimeSnake,
+        session.durationSeconds,
+        session.durationSecondsSnake,
+        session.durationMillis,
+    ).joinToString(separator = ":")
+}
+
+private fun String.decodeGrimmoryReadingSessionPage(): DecodedGrimmoryReadingSessionPage {
+    val element = grimmoryJson.decodeFromString<JsonElement>(this)
+    if (element is JsonArray) {
+        return DecodedGrimmoryReadingSessionPage(
+            content = grimmoryJson.decodeFromJsonElement(element),
+            totalPages = null,
+            last = true,
+        )
+    }
+    val page = grimmoryJson.decodeFromJsonElement<GrimmoryReadingSessionPageDto>(element)
+    return DecodedGrimmoryReadingSessionPage(
+        content = page.content.orEmpty(),
+        totalPages = page.totalPages,
+        last = page.last,
+    )
 }
 
 private fun String.toGrimmoryErrorMessage(

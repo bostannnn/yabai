@@ -17,6 +17,8 @@ data class ComicMetadata(
     val issueTitle: String? = null,
     val volume: String? = null,
     val issueNumber: String? = null,
+    val writers: List<String> = emptyList(),
+    val pencillers: List<String> = emptyList(),
     val publishers: List<String> = emptyList(),
     val genres: List<String> = emptyList(),
     val tags: List<String> = emptyList(),
@@ -25,6 +27,8 @@ data class ComicMetadata(
 
 data class ReadableItemFacetMetadata(
     val authors: List<String> = emptyList(),
+    val writers: List<String> = emptyList(),
+    val pencillers: List<String> = emptyList(),
     val series: List<String> = emptyList(),
     val publishers: List<String> = emptyList(),
     val genres: List<String> = emptyList(),
@@ -42,6 +46,8 @@ fun BookMetadata.normalizedAuthors(): List<String> = normalizedMetadataValues(
 
 fun ReadableItem.facetMetadata(): ReadableItemFacetMetadata = ReadableItemFacetMetadata(
     authors = bookMetadata?.normalizedAuthors().orEmpty(),
+    writers = normalizedMetadataValues(comicMetadata?.writers.orEmpty()),
+    pencillers = normalizedMetadataValues(comicMetadata?.pencillers.orEmpty()),
     series = normalizedMetadataValues(
         listOfNotNull(
             comicMetadata?.series,
@@ -64,6 +70,8 @@ fun ReadableItem.facetMetadata(): ReadableItemFacetMetadata = ReadableItemFacetM
 
 fun Iterable<ReadableItem>.aggregateFacetMetadata(): ReadableItemFacetMetadata = ReadableItemFacetMetadata(
     authors = normalizedMetadataValues(flatMap { item -> item.facetMetadata().authors }),
+    writers = normalizedMetadataValues(flatMap { item -> item.facetMetadata().writers }),
+    pencillers = normalizedMetadataValues(flatMap { item -> item.facetMetadata().pencillers }),
     series = normalizedMetadataValues(flatMap { item -> item.facetMetadata().series }),
     publishers = normalizedMetadataValues(flatMap { item -> item.facetMetadata().publishers }),
     genres = normalizedMetadataValues(flatMap { item -> item.facetMetadata().genres }),
@@ -76,4 +84,3 @@ internal fun normalizedMetadataValues(
 ): List<String> = values
     .mapNotNull { value -> value?.trim()?.takeIf(String::isNotEmpty) }
     .distinctBy { value -> value.lowercase(Locale.ROOT) }
-

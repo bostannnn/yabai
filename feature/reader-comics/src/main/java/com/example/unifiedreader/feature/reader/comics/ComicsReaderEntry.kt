@@ -25,7 +25,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -38,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
 import com.example.unifiedreader.feature.reader.core.ImmersiveReaderOverlay
@@ -124,13 +124,12 @@ fun ComicsReaderScreen(
     )
     val currentPageProgress = (readerState.currentPage + 1).toFloat() / pages.size.toFloat()
     val lifecycleOwner = LocalLifecycleOwner.current
-    val coroutineScope = rememberCoroutineScope()
-    val readingSessionTracker = remember(item.id, journalReadingSessionRecorder) {
+    val readingSessionTracker = remember(item.id, journalReadingSessionRecorder, lifecycleOwner) {
         journalReadingSessionRecorder?.let { recorder ->
             ReaderActiveSessionTracker(
                 item = item,
                 recorder = recorder,
-                scope = coroutineScope,
+                scope = lifecycleOwner.lifecycleScope,
             )
         }
     }

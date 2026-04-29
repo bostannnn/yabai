@@ -54,6 +54,7 @@ fun JournalStatsContent(
     var selectedYear by rememberSaveable { mutableLongStateOf(periodBounds(JournalPeriod.YEAR, now).first) }
     var selectedScope by rememberSaveable { mutableStateOf(JournalStatsScope.MONTH) }
     var detailsTarget by remember { mutableStateOf<JournalDetailsTarget?>(null) }
+    var facetRowsTarget by remember { mutableStateOf<JournalFacetSection?>(null) }
     val firstMonth = remember(firstJournalAt, now) {
         periodBounds(JournalPeriod.MONTH, firstJournalAt ?: now).first
     }
@@ -108,6 +109,9 @@ fun JournalStatsContent(
                             onOpenFacet = { section, row, summaries ->
                                 detailsTarget = JournalDetailsTarget.Facet(section, row, summaries)
                             },
+                            onShowAllFacetRows = { section ->
+                                facetRowsTarget = section
+                            },
                         ) {
                             MonthActivityCalendar(
                                 overview = monthOverview,
@@ -132,6 +136,9 @@ fun JournalStatsContent(
                             onOpenItem = { summary -> detailsTarget = JournalDetailsTarget.Item(summary) },
                             onOpenFacet = { section, row, summaries ->
                                 detailsTarget = JournalDetailsTarget.Facet(section, row, summaries)
+                            },
+                            onShowAllFacetRows = { section ->
+                                facetRowsTarget = section
                             },
                         ) {
                             YearActivityCalendar(
@@ -158,6 +165,20 @@ fun JournalStatsContent(
                     onDeleteItemJournal(itemId)
                 },
                 onDismiss = { detailsTarget = null },
+            )
+        }
+        facetRowsTarget?.let { section ->
+            JournalFacetRowsDialog(
+                section = section,
+                onRowSelected = { row ->
+                    facetRowsTarget = null
+                    val overview = when (selectedScope) {
+                        JournalStatsScope.MONTH -> monthOverview
+                        JournalStatsScope.YEAR -> yearOverview
+                    }
+                    detailsTarget = JournalDetailsTarget.Facet(section, row, overview.statsFacetSummaries(row))
+                },
+                onDismiss = { facetRowsTarget = null },
             )
         }
     }
@@ -195,6 +216,7 @@ private fun PeriodStatsPanel(
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onOpenItem: (JournalItemSummary) -> Unit,
     onOpenFacet: (JournalFacetSection, JournalFacetRow, List<JournalItemSummary>) -> Unit,
+    onShowAllFacetRows: (JournalFacetSection) -> Unit,
     activityContent: @Composable () -> Unit,
 ) {
     Column(
@@ -225,19 +247,16 @@ private fun PeriodStatsPanel(
             onCoverVisible = onCoverVisible,
             onOpenItem = onOpenItem,
         )
-        RatingBreakdown(
-            title = "Book ratings",
-            values = overview.stats.ratingCountsByMediaType[JournalMediaType.BOOK].orEmpty(),
-        )
-        RatingBreakdown(
-            title = "Comic ratings",
-            values = overview.stats.ratingCountsByMediaType[JournalMediaType.COMIC].orEmpty(),
+        RatingBreakdownSection(
+            bookRatings = overview.stats.ratingCountsByMediaType[JournalMediaType.BOOK].orEmpty(),
+            comicRatings = overview.stats.ratingCountsByMediaType[JournalMediaType.COMIC].orEmpty(),
         )
         TopFacetSections(
             sections = overview.topFacets,
             onFacetSelected = { section, row ->
                 onOpenFacet(section, row, overview.statsFacetSummaries(row))
             },
+            onSeeAllSelected = onShowAllFacetRows,
         )
     }
 }
