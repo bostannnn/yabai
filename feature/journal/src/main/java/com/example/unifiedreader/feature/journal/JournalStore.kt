@@ -6,6 +6,7 @@ import com.example.unifiedreader.core.database.entity.toDomain
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
+import com.example.unifiedreader.journal.journalMediaType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -19,16 +20,18 @@ class RoomJournalRepository(
     private val remoteCatalogDao: RemoteCatalogDao,
     private val stateComputer: JournalStateComputer = JournalStateComputer(),
     private val nowEpochMillis: () -> Long = System::currentTimeMillis,
-) : JournalRepository {
+) : JournalRepository, JournalReadingSessionRecorder {
     private val recordMutex = Mutex()
 
     override fun observeSnapshot(): Flow<JournalSnapshot> = combine(
         journalDao.observeReadingEvents().map { entities -> entities.map { it.toDomain() } },
+        journalDao.observeReadingSessions().map { entities -> entities.map { it.toDomain() } },
         journalDao.observeJournalEntries().map { entities -> entities.map { it.toDomain() } },
         remoteCatalogDao.observeItems().map { entities -> entities.map { it.toDomain() }.associateBy(ReadableItem::id) },
-    ) { events, entries, catalogItemsById ->
+    ) { events, sessions, entries, catalogItemsById ->
         stateComputer.snapshot(
             events = events,
+            sessions = sessions,
             entries = entries,
             catalogItemsById = catalogItemsById,
         )
@@ -47,6 +50,15 @@ class RoomJournalRepository(
                 ) ?: return@withLock
                 journalDao.insertReadingEvent(next.toEntity())
             }
+        }
+    }
+
+    override suspend fun recordReadingSession(
+        input: JournalReadingSessionInput,
+    ) {
+        withContext(Dispatchers.IO) {
+            val session = buildJournalReadingSession(input) ?: return@withContext
+            journalDao.insertReadingSession(session.toEntity())
         }
     }
 
@@ -105,6 +117,7 @@ class RoomJournalRepository(
     ) {
         withContext(Dispatchers.IO) {
             journalDao.deleteReadingEventsForItem(itemId)
+            journalDao.deleteReadingSessionsForItem(itemId)
             journalDao.deleteJournalEntry(itemId)
         }
     }
@@ -117,14 +130,24 @@ class RoomJournalRepository(
         }
     }
 
+    override suspend fun getReadingSessionsForItem(
+        itemId: String,
+    ): List<JournalReadingSession> = withContext(Dispatchers.IO) {
+        journalDao.getReadingSessionsForItem(itemId)
+            .map { entity -> entity.toDomain() }
+    }
+
     override suspend fun replaceCleanSourceJournalCache(
         sourceType: SourceType,
         events: List<JournalReadingEvent>,
         entries: List<ItemJournalEntry>,
+        sessions: List<JournalReadingSession>,
         preserveReviewFieldsWhenIncomingBlank: Boolean,
         preserveRatingWhenIncomingBlank: Boolean,
         preserveReadingEventsWhenIncomingIncomplete: Boolean,
+        preserveReadingSessionsWhenIncomingIncomplete: Boolean,
         readingEventReplacementItemIds: Set<String>?,
+        readingSessionReplacementItemIds: Set<String>?,
         journalEntryReplacementItemIds: Set<String>?,
         preserveRatingOnlyEntriesWhenIncomingMissing: Boolean,
         ratingOnlyPreservationExcludedItemIds: Set<String>?,
@@ -134,10 +157,13 @@ class RoomJournalRepository(
                 sourceType = sourceType.name,
                 events = events.map { event -> event.copy(syncState = SyncState.CLEAN).toEntity() },
                 entries = entries.map { entry -> entry.copy(syncState = SyncState.CLEAN).toEntity() },
+                sessions = sessions.map { session -> session.copy(syncState = SyncState.CLEAN).toEntity() },
                 preserveReviewFieldsWhenIncomingBlank = preserveReviewFieldsWhenIncomingBlank,
                 preserveRatingWhenIncomingBlank = preserveRatingWhenIncomingBlank,
                 preserveReadingEventsWhenIncomingIncomplete = preserveReadingEventsWhenIncomingIncomplete,
+                preserveReadingSessionsWhenIncomingIncomplete = preserveReadingSessionsWhenIncomingIncomplete,
                 readingEventReplacementItemIds = readingEventReplacementItemIds,
+                readingSessionReplacementItemIds = readingSessionReplacementItemIds,
                 journalEntryReplacementItemIds = journalEntryReplacementItemIds,
                 preserveRatingOnlyEntriesWhenIncomingMissing = preserveRatingOnlyEntriesWhenIncomingMissing,
                 ratingOnlyPreservationExcludedItemIds = ratingOnlyPreservationExcludedItemIds,
@@ -169,6 +195,35 @@ class RoomJournalRepository(
             journalDao.updateJournalEntryRemoteReviewNoteId(itemId, remoteReviewNoteId)
         }
     }
+}
+
+private fun buildJournalReadingSession(
+    input: JournalReadingSessionInput,
+): JournalReadingSession? {
+    val startedAt = minOf(input.startedAtEpochMillis, input.endedAtEpochMillis)
+    val endedAt = maxOf(input.startedAtEpochMillis, input.endedAtEpochMillis)
+    val duration = endedAt - startedAt
+    if (duration <= 0L) return null
+    return JournalReadingSession(
+        id = "local:${input.item.id}:$startedAt:$endedAt",
+        itemId = input.item.id,
+        sourceType = input.item.sourceType,
+        libraryId = input.item.libraryId,
+        itemTitle = input.item.title,
+        coverUrl = input.item.coverUrl,
+        itemKind = input.item.kind,
+        format = input.item.format,
+        mediaType = input.item.journalMediaType(),
+        startedAtEpochMillis = startedAt,
+        endedAtEpochMillis = endedAt,
+        durationMillis = duration,
+        fromPercent = input.fromPercent?.coerceIn(0.0, 1.0),
+        toPercent = input.toPercent?.coerceIn(0.0, 1.0),
+        fromPage = input.fromPage,
+        toPage = input.toPage,
+        pageCount = input.pageCount ?: input.item.pageCount,
+        syncState = input.item.sourceType.localJournalWriteSyncState(),
+    )
 }
 
 private fun SourceType.localJournalWriteSyncState(): SyncState = when (this) {

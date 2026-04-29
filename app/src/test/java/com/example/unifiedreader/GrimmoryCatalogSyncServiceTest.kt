@@ -23,6 +23,7 @@ import com.example.unifiedreader.journal.JournalItemRef
 import com.example.unifiedreader.journal.JournalProgressInput
 import com.example.unifiedreader.journal.JournalReadingEvent
 import com.example.unifiedreader.journal.JournalReadingEventType
+import com.example.unifiedreader.journal.JournalReadingSession
 import com.example.unifiedreader.journal.JournalRepository
 import com.example.unifiedreader.journal.JournalSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderLocator
@@ -641,6 +642,7 @@ private class GrimmoryRecordingJournalRepository : JournalRepository {
     var replaceCount = 0
     var lastEvents = emptyList<JournalReadingEvent>()
     var lastEntries = emptyList<ItemJournalEntry>()
+    var lastSessions = emptyList<JournalReadingSession>()
 
     override fun observeSnapshot(): Flow<JournalSnapshot> = snapshot
 
@@ -656,10 +658,13 @@ private class GrimmoryRecordingJournalRepository : JournalRepository {
         sourceType: SourceType,
         events: List<JournalReadingEvent>,
         entries: List<ItemJournalEntry>,
+        sessions: List<JournalReadingSession>,
         preserveReviewFieldsWhenIncomingBlank: Boolean,
         preserveRatingWhenIncomingBlank: Boolean,
         preserveReadingEventsWhenIncomingIncomplete: Boolean,
+        preserveReadingSessionsWhenIncomingIncomplete: Boolean,
         readingEventReplacementItemIds: Set<String>?,
+        readingSessionReplacementItemIds: Set<String>?,
         journalEntryReplacementItemIds: Set<String>?,
         preserveRatingOnlyEntriesWhenIncomingMissing: Boolean,
         ratingOnlyPreservationExcludedItemIds: Set<String>?,
@@ -667,6 +672,7 @@ private class GrimmoryRecordingJournalRepository : JournalRepository {
         replaceCount += 1
         lastEvents = events
         lastEntries = entries
+        lastSessions = sessions
     }
 }
 

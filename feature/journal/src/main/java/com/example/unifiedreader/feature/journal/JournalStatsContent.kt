@@ -9,15 +9,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -108,6 +105,9 @@ fun JournalStatsContent(
                             coverImageUrlProvider = coverImageUrlProvider,
                             onCoverVisible = onCoverVisible,
                             onOpenItem = { summary -> detailsTarget = JournalDetailsTarget.Item(summary) },
+                            onOpenFacet = { section, row, summaries ->
+                                detailsTarget = JournalDetailsTarget.Facet(section, row, summaries)
+                            },
                         ) {
                             MonthActivityCalendar(
                                 overview = monthOverview,
@@ -130,6 +130,9 @@ fun JournalStatsContent(
                             coverImageUrlProvider = coverImageUrlProvider,
                             onCoverVisible = onCoverVisible,
                             onOpenItem = { summary -> detailsTarget = JournalDetailsTarget.Item(summary) },
+                            onOpenFacet = { section, row, summaries ->
+                                detailsTarget = JournalDetailsTarget.Facet(section, row, summaries)
+                            },
                         ) {
                             YearActivityCalendar(
                                 overview = yearOverview,
@@ -191,37 +194,60 @@ private fun PeriodStatsPanel(
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onOpenItem: (JournalItemSummary) -> Unit,
+    onOpenFacet: (JournalFacetSection, JournalFacetRow, List<JournalItemSummary>) -> Unit,
     activityContent: @Composable () -> Unit,
 ) {
-    OutlinedCard(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.outlinedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-        ),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            PeriodHeader(
-                title = title,
-                onPrevious = onPrevious,
-                onNext = onNext,
-                canNavigatePrevious = canNavigatePrevious,
-                canNavigateNext = canNavigateNext,
-            )
-            JournalStatsMetricGrid(stats = overview.stats)
-            activityContent()
-            FinishedItemsRow(
-                overview = overview,
-                coverImageUrlProvider = coverImageUrlProvider,
-                onCoverVisible = onCoverVisible,
-                onOpenItem = onOpenItem,
-            )
-            RatingBreakdown(values = overview.stats.ratingCounts)
-        }
+        PeriodHeader(
+            title = title,
+            onPrevious = onPrevious,
+            onNext = onNext,
+            canNavigatePrevious = canNavigatePrevious,
+            canNavigateNext = canNavigateNext,
+        )
+        JournalStatsMetricGrid(overview = overview)
+        activityContent()
+        ReadingPacePanels(overview = overview)
+        AverageReadingTimeChart(
+            title = if (overview.period == JournalPeriod.MONTH) {
+                "Average time spent reading by hour"
+            } else {
+                "Average time spent reading by month"
+            },
+            buckets = overview.averageReadingTimeBuckets,
+        )
+        FinishedItemsRow(
+            overview = overview,
+            coverImageUrlProvider = coverImageUrlProvider,
+            onCoverVisible = onCoverVisible,
+            onOpenItem = onOpenItem,
+        )
+        RatingBreakdown(
+            title = "Book ratings",
+            values = overview.stats.ratingCountsByMediaType[JournalMediaType.BOOK].orEmpty(),
+        )
+        RatingBreakdown(
+            title = "Comic ratings",
+            values = overview.stats.ratingCountsByMediaType[JournalMediaType.COMIC].orEmpty(),
+        )
+        TopFacetSections(
+            sections = overview.topFacets,
+            onFacetSelected = { section, row ->
+                onOpenFacet(section, row, overview.statsFacetSummaries(row))
+            },
+        )
     }
+}
+
+private fun JournalPeriodOverview.statsFacetSummaries(
+    row: JournalFacetRow,
+): List<JournalItemSummary> {
+    val itemIds = row.itemIds.toSet()
+    return activeItems
+        .filter { summary -> summary.item.itemId in itemIds }
 }
 
 @Composable

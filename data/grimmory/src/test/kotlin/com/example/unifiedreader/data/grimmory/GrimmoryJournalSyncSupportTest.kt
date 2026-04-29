@@ -13,6 +13,7 @@ import com.example.unifiedreader.journal.JournalItemRef
 import com.example.unifiedreader.journal.JournalProgressInput
 import com.example.unifiedreader.journal.JournalReadingEvent
 import com.example.unifiedreader.journal.JournalReadingEventType
+import com.example.unifiedreader.journal.JournalReadingSession
 import com.example.unifiedreader.journal.JournalRepository
 import com.example.unifiedreader.journal.JournalSnapshot
 import kotlinx.coroutines.flow.Flow
@@ -70,7 +71,11 @@ class GrimmoryJournalSyncSupportTest {
         assertEquals(listOf("", ""), repository.replacedEntries.map { entry -> entry.reviewText })
         assertEquals(JournalReadingEventType.FINISHED, repository.replacedEvents.single().eventType)
         assertEquals(1.0, repository.replacedEvents.single().toPercent ?: -1.0, 0.0001)
+        assertEquals(30 * 60 * 1000L, repository.replacedSessions.single().durationMillis)
+        assertEquals(0.25, repository.replacedSessions.single().fromPercent ?: -1.0, 0.0001)
+        assertEquals(1.0, repository.replacedSessions.single().toPercent ?: -1.0, 0.0001)
         assertEquals(true, repository.replacedPreserveReadingEventsWhenIncomingIncomplete)
+        assertEquals(true, repository.replacedPreserveReadingSessionsWhenIncomingIncomplete)
     }
 
     @Test
@@ -402,9 +407,12 @@ private class RecordingJournalRepository(
     var replacedSourceType: SourceType? = null
     var replacedEvents: List<JournalReadingEvent> = emptyList()
     var replacedEntries: List<ItemJournalEntry> = emptyList()
+    var replacedSessions: List<JournalReadingSession> = emptyList()
     var replacedPreserveReviewFieldsWhenIncomingBlank: Boolean? = null
     var replacedPreserveReadingEventsWhenIncomingIncomplete: Boolean? = null
+    var replacedPreserveReadingSessionsWhenIncomingIncomplete: Boolean? = null
     var replacedReadingEventReplacementItemIds: Set<String>? = null
+    var replacedReadingSessionReplacementItemIds: Set<String>? = null
     val markedSyncStates = mutableMapOf<String, SyncState>()
     val remoteReviewNoteIds = mutableMapOf<String, String?>()
 
@@ -422,10 +430,13 @@ private class RecordingJournalRepository(
         sourceType: SourceType,
         events: List<JournalReadingEvent>,
         entries: List<ItemJournalEntry>,
+        sessions: List<JournalReadingSession>,
         preserveReviewFieldsWhenIncomingBlank: Boolean,
         preserveRatingWhenIncomingBlank: Boolean,
         preserveReadingEventsWhenIncomingIncomplete: Boolean,
+        preserveReadingSessionsWhenIncomingIncomplete: Boolean,
         readingEventReplacementItemIds: Set<String>?,
+        readingSessionReplacementItemIds: Set<String>?,
         journalEntryReplacementItemIds: Set<String>?,
         preserveRatingOnlyEntriesWhenIncomingMissing: Boolean,
         ratingOnlyPreservationExcludedItemIds: Set<String>?,
@@ -433,9 +444,12 @@ private class RecordingJournalRepository(
         replacedSourceType = sourceType
         replacedEvents = events
         replacedEntries = entries
+        replacedSessions = sessions
         replacedPreserveReviewFieldsWhenIncomingBlank = preserveReviewFieldsWhenIncomingBlank
         replacedPreserveReadingEventsWhenIncomingIncomplete = preserveReadingEventsWhenIncomingIncomplete
+        replacedPreserveReadingSessionsWhenIncomingIncomplete = preserveReadingSessionsWhenIncomingIncomplete
         replacedReadingEventReplacementItemIds = readingEventReplacementItemIds
+        replacedReadingSessionReplacementItemIds = readingSessionReplacementItemIds
     }
 
     override suspend fun getDirtyJournalEntriesForSource(sourceType: SourceType): List<ItemJournalEntry> =

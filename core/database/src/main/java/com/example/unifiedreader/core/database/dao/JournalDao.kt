@@ -7,6 +7,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import com.example.unifiedreader.core.database.entity.ItemJournalEntryEntity
 import com.example.unifiedreader.core.database.entity.JournalReadingEventEntity
+import com.example.unifiedreader.core.database.entity.JournalReadingSessionEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -28,6 +29,30 @@ abstract class JournalDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract fun insertReadingEvents(events: List<JournalReadingEventEntity>)
+
+    @Query("SELECT * FROM journal_reading_sessions ORDER BY endedAtEpochMillis DESC")
+    abstract fun observeReadingSessions(): Flow<List<JournalReadingSessionEntity>>
+
+    @Query("SELECT * FROM journal_reading_sessions WHERE itemId = :itemId ORDER BY endedAtEpochMillis DESC")
+    abstract fun getReadingSessionsForItem(itemId: String): List<JournalReadingSessionEntity>
+
+    @Query("SELECT id FROM journal_reading_sessions WHERE sourceType = :sourceType AND syncState IN ('DIRTY', 'FAILED')")
+    abstract fun getDirtyReadingSessionIdsForSource(sourceType: String): List<String>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract fun insertReadingSession(session: JournalReadingSessionEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract fun insertReadingSessions(sessions: List<JournalReadingSessionEntity>)
+
+    @Query("DELETE FROM journal_reading_sessions WHERE itemId = :itemId")
+    abstract fun deleteReadingSessionsForItem(itemId: String): Int
+
+    @Query("DELETE FROM journal_reading_sessions WHERE sourceType = :sourceType AND syncState = 'CLEAN'")
+    abstract fun deleteCleanReadingSessionsForSource(sourceType: String): Int
+
+    @Query("DELETE FROM journal_reading_sessions WHERE sourceType = :sourceType AND syncState = 'CLEAN' AND itemId IN (:itemIds)")
+    abstract fun deleteCleanReadingSessionsForSourceItems(sourceType: String, itemIds: List<String>): Int
 
     @Query("DELETE FROM journal_reading_events WHERE itemId = :itemId")
     abstract fun deleteReadingEventsForItem(itemId: String): Int
@@ -79,15 +104,19 @@ abstract class JournalDao {
         sourceType: String,
         events: List<JournalReadingEventEntity>,
         entries: List<ItemJournalEntryEntity>,
+        sessions: List<JournalReadingSessionEntity> = emptyList(),
         preserveReviewFieldsWhenIncomingBlank: Boolean = false,
         preserveRatingWhenIncomingBlank: Boolean = false,
         preserveReadingEventsWhenIncomingIncomplete: Boolean = false,
+        preserveReadingSessionsWhenIncomingIncomplete: Boolean = false,
         readingEventReplacementItemIds: Set<String>? = null,
+        readingSessionReplacementItemIds: Set<String>? = null,
         journalEntryReplacementItemIds: Set<String>? = null,
         preserveRatingOnlyEntriesWhenIncomingMissing: Boolean = false,
         ratingOnlyPreservationExcludedItemIds: Set<String>? = null,
     ) {
         val protectedEventIds = getDirtyReadingEventIdsForSource(sourceType).toSet()
+        val protectedSessionIds = getDirtyReadingSessionIdsForSource(sourceType).toSet()
         val protectedEntryIds = getDirtyJournalEntryIdsForSource(sourceType).toSet()
         val cleanEntriesByItemId = if (preserveReviewFieldsWhenIncomingBlank || preserveRatingOnlyEntriesWhenIncomingMissing) {
             getCleanJournalEntriesForSource(sourceType).associateBy(ItemJournalEntryEntity::itemId)
@@ -149,6 +178,14 @@ abstract class JournalDao {
         } else if (!preserveReadingEventsWhenIncomingIncomplete) {
             deleteCleanReadingEventsForSource(sourceType)
         }
+        if (readingSessionReplacementItemIds != null) {
+            val replaceItemIds = readingSessionReplacementItemIds.filterNot(String::isBlank)
+            if (replaceItemIds.isNotEmpty()) {
+                deleteCleanReadingSessionsForSourceItems(sourceType, replaceItemIds)
+            }
+        } else if (!preserveReadingSessionsWhenIncomingIncomplete) {
+            deleteCleanReadingSessionsForSource(sourceType)
+        }
         if (journalEntryReplacementItemIds != null) {
             val replaceItemIds = journalEntryReplacementItemIds.filterNot(String::isBlank)
             if (replaceItemIds.isNotEmpty()) {
@@ -158,6 +195,7 @@ abstract class JournalDao {
             deleteCleanJournalEntriesForSource(sourceType)
         }
         insertReadingEvents(events.filterNot { event -> event.id in protectedEventIds })
+        insertReadingSessions(sessions.filterNot { session -> session.id in protectedSessionIds })
         insertJournalEntries(mergedEntries + reviewOnlyEntries + ratingOnlyEntries)
     }
 }

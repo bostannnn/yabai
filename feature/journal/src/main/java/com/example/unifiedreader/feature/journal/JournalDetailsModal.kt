@@ -36,6 +36,12 @@ internal sealed interface JournalDetailsTarget {
     data class Item(
         val summary: JournalItemSummary,
     ) : JournalDetailsTarget
+
+    data class Facet(
+        val section: JournalFacetSection,
+        val row: JournalFacetRow,
+        val summaries: List<JournalItemSummary>,
+    ) : JournalDetailsTarget
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -92,7 +98,7 @@ private fun JournalDetailsContent(
     onDeleteItemJournal: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val summaries = target.finishedSummaries()
+    val summaries = target.summaries()
     LazyColumn(
         modifier = modifier
             .padding(horizontal = 20.dp)
@@ -105,7 +111,7 @@ private fun JournalDetailsContent(
         if (summaries.isEmpty()) {
             item {
                 Text(
-                    text = "No finished items.",
+                    text = "No items.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -183,21 +189,24 @@ private fun JournalDetailsItemCard(
     }
 }
 
-private fun JournalDetailsTarget.finishedSummaries(): List<JournalItemSummary> = when (this) {
+private fun JournalDetailsTarget.summaries(): List<JournalItemSummary> = when (this) {
     is JournalDetailsTarget.Day -> details.finishedItems
     is JournalDetailsTarget.Item -> listOf(summary)
+    is JournalDetailsTarget.Facet -> summaries
 }
 
 private val JournalDetailsTarget.title: String
     get() = when (this) {
         is JournalDetailsTarget.Day -> details.dayTitle()
         is JournalDetailsTarget.Item -> summary.item.displayTitle
+        is JournalDetailsTarget.Facet -> row.label
     }
 
 private val JournalDetailsTarget.subtitle: String?
     get() = when (this) {
         is JournalDetailsTarget.Day -> details.daySummary()
         is JournalDetailsTarget.Item -> summaryActivityText(summary).takeIf(String::isNotBlank)
+        is JournalDetailsTarget.Facet -> "${section.title} · ${row.count} items"
     }
 
 private fun JournalDayDetails.dayTitle(): String =
@@ -215,8 +224,23 @@ private fun summaryActivityText(
     summary: JournalItemSummary,
 ): String = listOfNotNull(
     summary.finishedAtEpochMillis?.let { "Finished ${formatDateTime(it)}" },
+    summary.totalReadingTimeMillis.takeIf { it > 0L }?.let { "${formatDuration(it)} reading" },
+    summary.sessionCount.takeIf { it > 0 }?.let { "$it sessions" },
     summary.pagesRead.takeIf { it > 0 }?.let { "$it pages read" },
 ).joinToString(" · ")
+
+private fun formatDuration(
+    millis: Long,
+): String {
+    val minutes = (millis / 60_000L).coerceAtLeast(1L)
+    val hours = minutes / 60L
+    val remainingMinutes = minutes % 60L
+    return if (hours > 0L) {
+        "${hours}h ${remainingMinutes}m"
+    } else {
+        "${minutes}m"
+    }
+}
 
 private fun monthName(
     month: Int,

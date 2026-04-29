@@ -7,7 +7,9 @@ import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.journal.ItemJournalEntry
 import com.example.unifiedreader.journal.JournalReadingEvent
 import com.example.unifiedreader.journal.JournalReadingEventType
+import com.example.unifiedreader.journal.JournalReadingSession
 import com.example.unifiedreader.journal.JournalRepository
+import com.example.unifiedreader.journal.journalMediaType
 import java.time.Instant
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.roundToInt
@@ -74,6 +76,7 @@ suspend fun pullKavitaJournalCache(
         }
     val historyFetchFailed = failedHistoryLibraryIds.isNotEmpty()
     val historyEvents = history.toJournalEvents(itemByRemoteChapterId)
+    val historySessions = history.toJournalSessions(itemByRemoteChapterId)
     val finishedHistoryItemIds = historyEvents
         .filter { event -> event.eventType == JournalReadingEventType.FINISHED }
         .mapTo(mutableSetOf(), JournalReadingEvent::itemId)
@@ -128,10 +131,13 @@ suspend fun pullKavitaJournalCache(
             nativeRatingsByChapterId = nativeRatingsByChapterId,
             itemByRemoteChapterId = itemByRemoteChapterId,
         ),
+        sessions = historySessions,
         preserveReviewFieldsWhenIncomingBlank = reviewLookup.shouldPreserveCachedReviews,
         preserveRatingWhenIncomingBlank = reviewLookup.shouldPreserveCachedReviews || ratingFetchFailed,
         preserveReadingEventsWhenIncomingIncomplete = historyFetchFailed,
+        preserveReadingSessionsWhenIncomingIncomplete = historyFetchFailed,
         readingEventReplacementItemIds = readingEventReplacementItemIds,
+        readingSessionReplacementItemIds = readingEventReplacementItemIds,
         preserveRatingOnlyEntriesWhenIncomingMissing = true,
         ratingOnlyPreservationExcludedItemIds = ratingOnlyPreservationExcludedItemIds,
     )
@@ -311,6 +317,53 @@ private fun List<KavitaReadingHistoryItemDto>.toJournalEvents(
             occurredAtEpochMillis = occurredAt,
             remoteEventId = session.sessionId?.toString(),
             remoteUpdatedAtEpochMillis = occurredAt,
+            syncState = SyncState.CLEAN,
+        )
+    }
+}
+
+private fun List<KavitaReadingHistoryItemDto>.toJournalSessions(
+    itemByRemoteChapterId: Map<Int, ReadableItem>,
+): List<JournalReadingSession> = flatMap { session ->
+    session.chapters.orEmpty().mapNotNull { chapter ->
+        val chapterId = chapter.chapterId ?: return@mapNotNull null
+        val item = itemByRemoteChapterId[chapterId] ?: return@mapNotNull null
+        val startedAt = chapter.startTimeUtc?.toEpochMillisOrNull()
+            ?: session.startTimeUtc?.toEpochMillisOrNull()
+            ?: return@mapNotNull null
+        val durationMillis = (chapter.durationSeconds ?: session.durationSeconds)
+            ?.takeIf { seconds -> seconds > 0 }
+            ?.toLong()
+            ?.times(1_000L)
+        val endedAt = chapter.endTimeUtc?.toEpochMillisOrNull()
+            ?: durationMillis?.let { duration -> startedAt + duration }
+            ?: session.endTimeUtc?.toEpochMillisOrNull()
+            ?: return@mapNotNull null
+        val safeStartedAt = minOf(startedAt, endedAt)
+        val safeEndedAt = maxOf(startedAt, endedAt)
+        val safeDuration = durationMillis ?: (safeEndedAt - safeStartedAt)
+        if (safeDuration <= 0L) return@mapNotNull null
+        val pageCount = chapter.totalPages ?: session.totalPages ?: item.pageCount
+        JournalReadingSession(
+            id = "kavita:session:${session.sessionId ?: 0}:$chapterId:$safeStartedAt:$safeEndedAt",
+            itemId = item.id,
+            sourceType = item.sourceType,
+            libraryId = item.libraryId,
+            itemTitle = item.title,
+            coverUrl = item.coverUrl,
+            itemKind = item.kind,
+            format = item.format,
+            mediaType = item.journalMediaType(),
+            startedAtEpochMillis = safeStartedAt,
+            endedAtEpochMillis = safeEndedAt,
+            durationMillis = safeDuration,
+            fromPercent = chapter.startPage?.toPagePercent(pageCount),
+            toPercent = chapter.endPage?.toPagePercent(pageCount),
+            fromPage = chapter.startPage,
+            toPage = chapter.endPage,
+            pageCount = pageCount,
+            remoteSessionId = session.sessionId?.toString(),
+            remoteUpdatedAtEpochMillis = safeEndedAt,
             syncState = SyncState.CLEAN,
         )
     }

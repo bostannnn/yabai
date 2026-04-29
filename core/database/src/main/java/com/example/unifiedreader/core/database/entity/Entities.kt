@@ -217,6 +217,39 @@ data class JournalReadingEventEntity(
 )
 
 @Entity(
+    tableName = "journal_reading_sessions",
+    indices = [
+        Index(value = ["itemId"]),
+        Index(value = ["sourceType"]),
+        Index(value = ["startedAtEpochMillis"]),
+        Index(value = ["endedAtEpochMillis"]),
+        Index(value = ["sourceType", "syncState"]),
+    ],
+)
+data class JournalReadingSessionEntity(
+    @PrimaryKey val id: String,
+    val itemId: String,
+    val sourceType: String,
+    val libraryId: String,
+    val itemTitle: String,
+    val coverUrl: String?,
+    val itemKind: String,
+    val format: String,
+    val mediaType: String,
+    val startedAtEpochMillis: Long,
+    val endedAtEpochMillis: Long,
+    val durationMillis: Long,
+    val fromPercent: Double?,
+    val toPercent: Double?,
+    val fromPage: Int?,
+    val toPage: Int?,
+    val pageCount: Int?,
+    val remoteSessionId: String? = null,
+    val remoteUpdatedAtEpochMillis: Long? = null,
+    @ColumnInfo(defaultValue = "'CLEAN'") val syncState: String = "CLEAN",
+)
+
+@Entity(
     tableName = "item_journal_entries",
     indices = [
         Index(value = ["sourceType"]),

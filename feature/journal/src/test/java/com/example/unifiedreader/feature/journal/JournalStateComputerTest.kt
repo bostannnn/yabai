@@ -1,10 +1,12 @@
 package com.example.unifiedreader.feature.journal
 
 import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.BookMetadata
 import com.example.unifiedreader.core.model.ComicMetadata
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.journal.classifyJournalMedia
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -154,9 +156,301 @@ class JournalStateComputerTest {
             ),
         )
 
-        assertEquals(mapOf(5 to 1), snapshot.monthStats.ratingCounts)
-        assertEquals(mapOf(5 to 1), snapshot.yearStats.ratingCounts)
+        assertEquals(mapOf(5 to 1), snapshot.monthStats.ratingCountsByMediaType[JournalMediaType.BOOK])
+        assertEquals(mapOf(5 to 1), snapshot.yearStats.ratingCountsByMediaType[JournalMediaType.BOOK])
     }
+
+    @Test
+    fun `rating stats use source aware media classification`() {
+        val now = 1_767_225_600_000L
+        val kavitaPdf = testItem.copy(
+            id = "kavita:item:pdf",
+            sourceType = SourceType.KAVITA,
+            format = FormatType.PDF,
+            kind = ReadableItemKind.BOOK,
+        )
+        val grimmoryPdf = testItem.copy(
+            id = "grimmory:item:pdf",
+            sourceType = SourceType.GRIMMORY,
+            format = FormatType.PDF,
+            kind = ReadableItemKind.COMIC,
+        )
+        val snapshot = JournalStateComputer(nowEpochMillis = { now }).snapshot(
+            events = emptyList(),
+            entries = listOf(
+                journalEntry(item = kavitaPdf, rating = 7, updatedAtEpochMillis = now),
+                journalEntry(item = grimmoryPdf, rating = 9, updatedAtEpochMillis = now),
+            ),
+            catalogItemsById = mapOf(
+                kavitaPdf.id to kavitaPdf,
+                grimmoryPdf.id to grimmoryPdf,
+            ),
+        )
+
+        assertEquals(mapOf(9 to 1), snapshot.monthStats.ratingCountsByMediaType[JournalMediaType.BOOK])
+        assertEquals(mapOf(7 to 1), snapshot.monthStats.ratingCountsByMediaType[JournalMediaType.COMIC])
+    }
+
+    @Test
+    fun `period overview splits session time across hour buckets`() {
+        val april10 = epochMillis(2026, Calendar.APRIL, 10)
+        val snapshot = JournalStateComputer(nowEpochMillis = { april10 }).snapshot(
+            events = emptyList(),
+            sessions = listOf(
+                journalSession(
+                    startedAtEpochMillis = april10 + 10 * 60 * 60 * 1000L + 45 * 60 * 1000L,
+                    endedAtEpochMillis = april10 + 11 * 60 * 60 * 1000L + 15 * 60 * 1000L,
+                ),
+            ),
+            entries = emptyList(),
+        )
+
+        val overview = computePeriodOverview(snapshot, JournalPeriod.MONTH, april10)
+
+        assertEquals(30 * 60 * 1000L, overview.stats.readingTimeMillis)
+        assertEquals(15 * 60 * 1000L / 30L, overview.averageReadingTimeBuckets[10].averageMillis)
+        assertEquals(15 * 60 * 1000L / 30L, overview.averageReadingTimeBuckets[11].averageMillis)
+    }
+
+    @Test
+    fun `stats add pages across event-only and session-only items`() {
+        val sessionItem = testItem.copy(id = "session-item")
+        val eventItem = testItem.copy(id = "event-item")
+
+        val stats = computeStats(
+            events = listOf(
+                startedEvent(
+                    item = eventItem,
+                    id = "event-pages",
+                    page = 40,
+                    percent = 0.4,
+                    fromPage = 0,
+                    fromPercent = 0.0,
+                ),
+            ),
+            sessions = listOf(
+                journalSession(
+                    item = sessionItem,
+                    startedAtEpochMillis = 1_000L,
+                    endedAtEpochMillis = 2_000L,
+                    fromPage = 0,
+                    toPage = 20,
+                ),
+            ),
+        )
+
+        assertEquals(60, stats.pagesRead)
+        assertEquals(60, stats.bookPagesRead)
+        assertEquals(0, stats.comicPagesRead)
+    }
+
+    @Test
+    fun `stats avoid double counting pages when event and session describe same item`() {
+        val stats = computeStats(
+            events = listOf(
+                startedEvent(
+                    id = "event-pages",
+                    page = 40,
+                    percent = 0.4,
+                    fromPage = 0,
+                    fromPercent = 0.0,
+                ),
+            ),
+            sessions = listOf(
+                journalSession(
+                    startedAtEpochMillis = 1_000L,
+                    endedAtEpochMillis = 2_000L,
+                    fromPage = 0,
+                    toPage = 20,
+                ),
+            ),
+        )
+
+        assertEquals(40, stats.pagesRead)
+        assertEquals(40, stats.bookPagesRead)
+    }
+
+    @Test
+    fun `stats split pages by source aware media type`() {
+        val comic = testItem.copy(
+            id = "comic",
+            sourceType = SourceType.KAVITA,
+            format = FormatType.PDF,
+            kind = ReadableItemKind.BOOK,
+        )
+        val book = testItem.copy(id = "book")
+
+        val stats = computeStats(
+            events = listOf(
+                startedEvent(
+                    item = comic,
+                    id = "comic-pages",
+                    page = 30,
+                    percent = 0.3,
+                    fromPage = 0,
+                    fromPercent = 0.0,
+                ),
+            ),
+            sessions = listOf(
+                journalSession(
+                    item = book,
+                    startedAtEpochMillis = 1_000L,
+                    endedAtEpochMillis = 2_000L,
+                    fromPage = 0,
+                    toPage = 15,
+                ),
+            ),
+        )
+
+        assertEquals(45, stats.pagesRead)
+        assertEquals(15, stats.bookPagesRead)
+        assertEquals(30, stats.comicPagesRead)
+    }
+
+    @Test
+    fun `stats split active days by media type`() {
+        val april10 = epochMillis(2026, Calendar.APRIL, 10)
+        val april11 = epochMillis(2026, Calendar.APRIL, 11)
+        val april20 = epochMillis(2026, Calendar.APRIL, 20)
+        val april21 = epochMillis(2026, Calendar.APRIL, 21)
+        val comic = testItem.copy(
+            id = "comic",
+            sourceType = SourceType.KAVITA,
+            format = FormatType.PDF,
+            kind = ReadableItemKind.BOOK,
+        )
+
+        val stats = computeStats(
+            events = listOf(
+                startedEvent(
+                    id = "book-day-1",
+                    page = 10,
+                    percent = 0.1,
+                    occurredAtEpochMillis = april10,
+                ),
+                startedEvent(
+                    id = "book-day-2",
+                    page = 20,
+                    percent = 0.2,
+                    occurredAtEpochMillis = april11,
+                ),
+            ),
+            sessions = listOf(
+                journalSession(
+                    item = comic,
+                    startedAtEpochMillis = april20,
+                    endedAtEpochMillis = april21 + 1_000L,
+                ),
+            ),
+        )
+
+        assertEquals(4, stats.activeDays)
+        assertEquals(2, stats.bookActiveDays)
+        assertEquals(2, stats.comicActiveDays)
+    }
+
+    @Test
+    fun `period reading time uses active duration proportionally instead of wall time`() {
+        val april10 = epochMillis(2026, Calendar.APRIL, 10)
+        val sessionStart = april10 + 10 * 60 * 60 * 1000L
+        val sessionEnd = april10 + 12 * 60 * 60 * 1000L
+        val snapshot = JournalStateComputer(nowEpochMillis = { april10 }).snapshot(
+            events = emptyList(),
+            sessions = listOf(
+                journalSession(
+                    startedAtEpochMillis = sessionStart,
+                    endedAtEpochMillis = sessionEnd,
+                    durationMillis = 30 * 60 * 1000L,
+                ),
+            ),
+            entries = emptyList(),
+        )
+
+        val overview = computePeriodOverview(snapshot, JournalPeriod.MONTH, april10)
+
+        assertEquals(30 * 60 * 1000L, overview.stats.readingTimeMillis)
+        assertEquals(15 * 60 * 1000L / 30L, overview.averageReadingTimeBuckets[10].averageMillis)
+        assertEquals(15 * 60 * 1000L / 30L, overview.averageReadingTimeBuckets[11].averageMillis)
+    }
+
+    @Test
+    fun `activity day finished counts use source aware media classification`() {
+        val kavitaPdf = testItem.copy(
+            id = "kavita-pdf",
+            sourceType = SourceType.KAVITA,
+            format = FormatType.PDF,
+            kind = ReadableItemKind.BOOK,
+        )
+        val grimmoryPdf = testItem.copy(
+            id = "grimmory-pdf",
+            sourceType = SourceType.GRIMMORY,
+            format = FormatType.PDF,
+            kind = ReadableItemKind.COMIC,
+        )
+
+        val activityDay = computeActivityDays(
+            listOf(
+                startedEvent(item = kavitaPdf, id = "kavita-finished", page = 100, percent = 1.0, type = JournalReadingEventType.FINISHED),
+                startedEvent(item = grimmoryPdf, id = "grimmory-finished", page = 100, percent = 1.0, type = JournalReadingEventType.FINISHED),
+            ),
+        ).single()
+
+        assertEquals(1, activityDay.finishedBooks)
+        assertEquals(1, activityDay.finishedComics)
+    }
+
+    @Test
+    fun `top facets include unknown rows with affected item ids`() {
+        val april10 = epochMillis(2026, Calendar.APRIL, 10)
+        val known = testItem.copy(
+            id = "known",
+            bookMetadata = BookMetadata(authors = listOf("Ursula Le Guin"), genres = listOf("Fantasy")),
+        )
+        val missing = testItem.copy(id = "missing")
+        val snapshot = JournalStateComputer(nowEpochMillis = { april10 }).snapshot(
+            events = emptyList(),
+            sessions = listOf(
+                journalSession(item = known, startedAtEpochMillis = april10, endedAtEpochMillis = april10 + 1_000L),
+                journalSession(item = missing, startedAtEpochMillis = april10, endedAtEpochMillis = april10 + 1_000L),
+            ),
+            entries = emptyList(),
+            catalogItemsById = mapOf(known.id to known, missing.id to missing),
+        )
+
+        val overview = computePeriodOverview(snapshot, JournalPeriod.MONTH, april10)
+        val bookGenres = overview.topFacets.first { section -> section.title == "Book genres" }
+
+        assertEquals(listOf("missing"), bookGenres.rows.first { row -> row.label == "Unknown" }.itemIds)
+    }
+
+    @Test
+    fun `top facets include event-only active items`() {
+        val april10 = epochMillis(2026, Calendar.APRIL, 10)
+        val eventOnly = testItem.copy(
+            id = "event-only",
+            bookMetadata = BookMetadata(authors = listOf("Octavia Butler"), genres = listOf("Science Fiction")),
+        )
+        val snapshot = JournalStateComputer(nowEpochMillis = { april10 }).snapshot(
+            events = listOf(
+                startedEvent(
+                    item = eventOnly,
+                    id = "event-only-progress",
+                    page = 20,
+                    percent = 0.2,
+                    occurredAtEpochMillis = april10,
+                ),
+            ),
+            sessions = emptyList(),
+            entries = emptyList(),
+            catalogItemsById = mapOf(eventOnly.id to eventOnly),
+        )
+
+        val overview = computePeriodOverview(snapshot, JournalPeriod.MONTH, april10)
+        val bookGenres = overview.topFacets.first { section -> section.title == "Book genres" }
+
+        assertEquals(listOf(eventOnly.id), bookGenres.rows.first { row -> row.label == "Science Fiction" }.itemIds)
+    }
+
 
     @Test
     fun `snapshot groups timeline into one summary per item`() {
@@ -391,21 +685,53 @@ class JournalStateComputerTest {
     )
 
     private fun journalEntry(
-        itemId: String,
+        item: ReadableItem = testItem,
+        itemId: String = item.id,
         rating: Int,
         updatedAtEpochMillis: Long,
     ): ItemJournalEntry = ItemJournalEntry(
         itemId = itemId,
-        sourceType = testItem.sourceType,
-        libraryId = testItem.libraryId,
-        itemTitle = testItem.title,
-        coverUrl = testItem.coverUrl,
-        itemKind = testItem.kind,
-        format = testItem.format,
+        sourceType = item.sourceType,
+        libraryId = item.libraryId,
+        itemTitle = item.title,
+        coverUrl = item.coverUrl,
+        itemKind = item.kind,
+        format = item.format,
         rating = rating,
         reviewText = "",
         reviewedAtEpochMillis = null,
         updatedAtEpochMillis = updatedAtEpochMillis,
+    )
+
+    private fun journalSession(
+        item: ReadableItem = testItem,
+        startedAtEpochMillis: Long,
+        endedAtEpochMillis: Long,
+        durationMillis: Long = endedAtEpochMillis - startedAtEpochMillis,
+        fromPage: Int? = null,
+        toPage: Int? = null,
+    ): JournalReadingSession = JournalReadingSession(
+        id = "session:${item.id}:$startedAtEpochMillis",
+        itemId = item.id,
+        sourceType = item.sourceType,
+        libraryId = item.libraryId,
+        itemTitle = item.title,
+        coverUrl = item.coverUrl,
+        itemKind = item.kind,
+        format = item.format,
+        mediaType = classifyJournalMedia(
+            sourceType = item.sourceType,
+            itemKind = item.kind,
+            format = item.format,
+        ),
+        startedAtEpochMillis = startedAtEpochMillis,
+        endedAtEpochMillis = endedAtEpochMillis,
+        durationMillis = durationMillis,
+        fromPercent = null,
+        toPercent = null,
+        fromPage = fromPage,
+        toPage = toPage,
+        pageCount = item.pageCount,
     )
 
 }

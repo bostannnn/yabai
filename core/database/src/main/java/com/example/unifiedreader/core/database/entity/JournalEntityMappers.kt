@@ -5,8 +5,10 @@ import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.journal.ItemJournalEntry
+import com.example.unifiedreader.journal.JournalMediaType
 import com.example.unifiedreader.journal.JournalReadingEvent
 import com.example.unifiedreader.journal.JournalReadingEventType
+import com.example.unifiedreader.journal.JournalReadingSession
 
 fun JournalReadingEventEntity.toDomain(): JournalReadingEvent = JournalReadingEvent(
     id = id,
@@ -46,6 +48,52 @@ fun JournalReadingEvent.toEntity(): JournalReadingEventEntity = JournalReadingEv
     pageCount = pageCount,
     occurredAtEpochMillis = occurredAtEpochMillis,
     remoteEventId = remoteEventId,
+    remoteUpdatedAtEpochMillis = remoteUpdatedAtEpochMillis,
+    syncState = syncState.name,
+)
+
+fun JournalReadingSessionEntity.toDomain(): JournalReadingSession = JournalReadingSession(
+    id = id,
+    itemId = itemId,
+    sourceType = sourceType.toSourceTypeOrDefault(),
+    libraryId = libraryId,
+    itemTitle = itemTitle,
+    coverUrl = coverUrl,
+    itemKind = itemKind.toReadableItemKindOrDefault(),
+    format = format.toFormatTypeOrDefault(),
+    mediaType = mediaType.toJournalMediaTypeOrDefault(),
+    startedAtEpochMillis = startedAtEpochMillis,
+    endedAtEpochMillis = endedAtEpochMillis,
+    durationMillis = durationMillis,
+    fromPercent = fromPercent,
+    toPercent = toPercent,
+    fromPage = fromPage,
+    toPage = toPage,
+    pageCount = pageCount,
+    remoteSessionId = remoteSessionId,
+    remoteUpdatedAtEpochMillis = remoteUpdatedAtEpochMillis,
+    syncState = syncState.toSyncStateOrDefault(),
+)
+
+fun JournalReadingSession.toEntity(): JournalReadingSessionEntity = JournalReadingSessionEntity(
+    id = id,
+    itemId = itemId,
+    sourceType = sourceType.name,
+    libraryId = libraryId,
+    itemTitle = itemTitle,
+    coverUrl = coverUrl,
+    itemKind = itemKind.name,
+    format = format.name,
+    mediaType = mediaType.name,
+    startedAtEpochMillis = startedAtEpochMillis,
+    endedAtEpochMillis = endedAtEpochMillis,
+    durationMillis = durationMillis,
+    fromPercent = fromPercent,
+    toPercent = toPercent,
+    fromPage = fromPage,
+    toPage = toPage,
+    pageCount = pageCount,
+    remoteSessionId = remoteSessionId,
     remoteUpdatedAtEpochMillis = remoteUpdatedAtEpochMillis,
     syncState = syncState.name,
 )
@@ -97,6 +145,9 @@ private fun String.toReadableItemKindOrDefault(): ReadableItemKind =
 
 private fun String.toJournalReadingEventTypeOrDefault(): JournalReadingEventType =
     JournalReadingEventType.entries.firstOrNull { it.name == this } ?: JournalReadingEventType.CONTINUED
+
+private fun String.toJournalMediaTypeOrDefault(): JournalMediaType =
+    JournalMediaType.entries.firstOrNull { it.name == this } ?: JournalMediaType.BOOK
 
 private fun String.toSyncStateOrDefault(): SyncState =
     SyncState.entries.firstOrNull { it.name == this } ?: SyncState.CLEAN

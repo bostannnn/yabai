@@ -11,6 +11,7 @@ import com.example.unifiedreader.journal.ItemJournalEntry
 import com.example.unifiedreader.journal.JournalItemRef
 import com.example.unifiedreader.journal.JournalProgressInput
 import com.example.unifiedreader.journal.JournalReadingEvent
+import com.example.unifiedreader.journal.JournalReadingSession
 import com.example.unifiedreader.journal.JournalRepository
 import com.example.unifiedreader.journal.JournalSnapshot
 import kotlinx.coroutines.flow.Flow
@@ -330,10 +331,13 @@ private class RecordingReadStatusJournalRepository : JournalRepository {
         sourceType: SourceType,
         events: List<JournalReadingEvent>,
         entries: List<ItemJournalEntry>,
+        sessions: List<JournalReadingSession>,
         preserveReviewFieldsWhenIncomingBlank: Boolean,
         preserveRatingWhenIncomingBlank: Boolean,
         preserveReadingEventsWhenIncomingIncomplete: Boolean,
+        preserveReadingSessionsWhenIncomingIncomplete: Boolean,
         readingEventReplacementItemIds: Set<String>?,
+        readingSessionReplacementItemIds: Set<String>?,
         journalEntryReplacementItemIds: Set<String>?,
         preserveRatingOnlyEntriesWhenIncomingMissing: Boolean,
         ratingOnlyPreservationExcludedItemIds: Set<String>?,

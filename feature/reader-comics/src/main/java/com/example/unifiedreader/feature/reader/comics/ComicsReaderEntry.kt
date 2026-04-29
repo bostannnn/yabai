@@ -25,6 +25,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -40,10 +41,12 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
 import com.example.unifiedreader.feature.reader.core.ImmersiveReaderOverlay
+import com.example.unifiedreader.feature.reader.core.ReaderActiveSessionTracker
 import com.example.unifiedreader.feature.reader.core.ReaderBottomProgressBar
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
+import com.example.unifiedreader.journal.JournalReadingSessionRecorder
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 
@@ -53,6 +56,7 @@ fun ComicsReaderScreen(
     pageSource: ComicPageSource,
     progressStore: ComicReaderProgressStore,
     preferencesStore: ComicReaderPreferencesStore,
+    journalReadingSessionRecorder: JournalReadingSessionRecorder? = null,
     onBack: () -> Unit,
     openMode: ReaderOpenMode = ReaderOpenMode.Default,
     onNextItemRequested: () -> Unit = {},
@@ -120,6 +124,16 @@ fun ComicsReaderScreen(
     )
     val currentPageProgress = (readerState.currentPage + 1).toFloat() / pages.size.toFloat()
     val lifecycleOwner = LocalLifecycleOwner.current
+    val coroutineScope = rememberCoroutineScope()
+    val readingSessionTracker = remember(item.id, journalReadingSessionRecorder) {
+        journalReadingSessionRecorder?.let { recorder ->
+            ReaderActiveSessionTracker(
+                item = item,
+                recorder = recorder,
+                scope = coroutineScope,
+            )
+        }
+    }
     var progressRestoreCompleted by remember(item.id) { mutableStateOf(false) }
     var preferencesRestoreCompleted by remember(item.id) { mutableStateOf(false) }
     var completionMonitoringReady by rememberSaveable(item.id) { mutableStateOf(false) }
@@ -182,8 +196,18 @@ fun ComicsReaderScreen(
             preferencesStore.saveSpreadMode(item, readerState.spreadMode)
         },
     )
+    val flushReadingSession by rememberUpdatedState(
+        newValue = {
+            readingSessionTracker?.flushAndReset(
+                page = readerState.currentPage + 1,
+                percent = currentPageProgress.toDouble(),
+                pageCount = pages.size,
+            )
+        },
+    )
     val closeReader by rememberUpdatedState(
         newValue = {
+            flushReadingSession()
             if (latestProgressHydrated &&
                 latestProgressRestoreCompleted &&
                 latestPreferencesHydrated &&
@@ -292,24 +316,39 @@ fun ComicsReaderScreen(
     }
 
     DisposableEffect(lifecycleOwner, item.id) {
+        readingSessionTracker?.start(
+            page = readerState.currentPage + 1,
+            percent = currentPageProgress.toDouble(),
+        )
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP) {
-                if (latestProgressHydrated &&
-                    latestProgressRestoreCompleted &&
-                    latestPreferencesHydrated &&
-                    latestPreferencesRestoreCompleted
-                ) {
-                    persistProgress()
-                    persistResumePosition()
+            when (event) {
+                Lifecycle.Event.ON_START -> {
+                    readingSessionTracker?.start(
+                        page = readerState.currentPage + 1,
+                        percent = currentPageProgress.toDouble(),
+                    )
                 }
-                if (latestPreferencesHydrated && latestPreferencesRestoreCompleted) {
-                    persistReaderPreferences()
+                Lifecycle.Event.ON_STOP -> {
+                    flushReadingSession()
+                    if (latestProgressHydrated &&
+                        latestProgressRestoreCompleted &&
+                        latestPreferencesHydrated &&
+                        latestPreferencesRestoreCompleted
+                    ) {
+                        persistProgress()
+                        persistResumePosition()
+                    }
+                    if (latestPreferencesHydrated && latestPreferencesRestoreCompleted) {
+                        persistReaderPreferences()
+                    }
                 }
+                else -> Unit
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
+            flushReadingSession()
             if (latestProgressHydrated &&
                 latestProgressRestoreCompleted &&
                 latestPreferencesHydrated &&

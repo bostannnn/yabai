@@ -28,6 +28,7 @@ import com.example.unifiedreader.journal.ItemJournalEntry
 import com.example.unifiedreader.journal.JournalItemRef
 import com.example.unifiedreader.journal.JournalProgressInput
 import com.example.unifiedreader.journal.JournalReadingEvent
+import com.example.unifiedreader.journal.JournalReadingSession
 import com.example.unifiedreader.journal.JournalRepository
 import com.example.unifiedreader.journal.JournalSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderLocator
@@ -679,6 +680,7 @@ private class KavitaRecordingJournalRepository : JournalRepository {
     private val snapshot = MutableStateFlow(JournalSnapshot())
     var replaceCount = 0
     var lastEntries = emptyList<ItemJournalEntry>()
+    var lastSessions = emptyList<JournalReadingSession>()
 
     override fun observeSnapshot(): Flow<JournalSnapshot> = snapshot
 
@@ -694,16 +696,20 @@ private class KavitaRecordingJournalRepository : JournalRepository {
         sourceType: SourceType,
         events: List<JournalReadingEvent>,
         entries: List<ItemJournalEntry>,
+        sessions: List<JournalReadingSession>,
         preserveReviewFieldsWhenIncomingBlank: Boolean,
         preserveRatingWhenIncomingBlank: Boolean,
         preserveReadingEventsWhenIncomingIncomplete: Boolean,
+        preserveReadingSessionsWhenIncomingIncomplete: Boolean,
         readingEventReplacementItemIds: Set<String>?,
+        readingSessionReplacementItemIds: Set<String>?,
         journalEntryReplacementItemIds: Set<String>?,
         preserveRatingOnlyEntriesWhenIncomingMissing: Boolean,
         ratingOnlyPreservationExcludedItemIds: Set<String>?,
     ) {
         replaceCount += 1
         lastEntries = entries
+        lastSessions = sessions
     }
 }
 

@@ -16,6 +16,7 @@ import com.example.unifiedreader.core.database.entity.DownloadQueueEntryEntity
 import com.example.unifiedreader.core.database.entity.ImportedComicArchiveEntity
 import com.example.unifiedreader.core.database.entity.ItemJournalEntryEntity
 import com.example.unifiedreader.core.database.entity.JournalReadingEventEntity
+import com.example.unifiedreader.core.database.entity.JournalReadingSessionEntity
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
 import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEntity
@@ -33,10 +34,11 @@ import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
         ReaderSessionStateEntity::class,
         DownloadQueueEntryEntity::class,
         JournalReadingEventEntity::class,
+        JournalReadingSessionEntity::class,
         ItemJournalEntryEntity::class,
         RemoteCatalogSyncGroupEntity::class,
     ],
-    version = 22,
+    version = 23,
     exportSchema = false,
 )
 abstract class UnifiedReaderDatabase : RoomDatabase() {
@@ -745,6 +747,47 @@ object UnifiedReaderDatabaseMigrations {
             )
         }
     }
+
+    val MIGRATION_22_23 = object : Migration(22, 23) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS journal_reading_sessions (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    itemId TEXT NOT NULL,
+                    sourceType TEXT NOT NULL,
+                    libraryId TEXT NOT NULL,
+                    itemTitle TEXT NOT NULL,
+                    coverUrl TEXT,
+                    itemKind TEXT NOT NULL,
+                    format TEXT NOT NULL,
+                    mediaType TEXT NOT NULL,
+                    startedAtEpochMillis INTEGER NOT NULL,
+                    endedAtEpochMillis INTEGER NOT NULL,
+                    durationMillis INTEGER NOT NULL,
+                    fromPercent REAL,
+                    toPercent REAL,
+                    fromPage INTEGER,
+                    toPage INTEGER,
+                    pageCount INTEGER,
+                    remoteSessionId TEXT,
+                    remoteUpdatedAtEpochMillis INTEGER,
+                    syncState TEXT NOT NULL DEFAULT 'CLEAN'
+                )
+                """.trimIndent(),
+            )
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_journal_reading_sessions_itemId ON journal_reading_sessions (itemId)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_journal_reading_sessions_sourceType ON journal_reading_sessions (sourceType)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_journal_reading_sessions_startedAtEpochMillis ON journal_reading_sessions (startedAtEpochMillis)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_journal_reading_sessions_endedAtEpochMillis ON journal_reading_sessions (endedAtEpochMillis)")
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS index_journal_reading_sessions_sourceType_syncState
+                ON journal_reading_sessions (sourceType, syncState)
+                """.trimIndent(),
+            )
+        }
+    }
 }
 
 object UnifiedReaderDatabaseFactory {
@@ -777,6 +820,7 @@ object UnifiedReaderDatabaseFactory {
             UnifiedReaderDatabaseMigrations.MIGRATION_19_20,
             UnifiedReaderDatabaseMigrations.MIGRATION_20_21,
             UnifiedReaderDatabaseMigrations.MIGRATION_21_22,
+            UnifiedReaderDatabaseMigrations.MIGRATION_22_23,
         )
         .build()
 }

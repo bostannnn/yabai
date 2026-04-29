@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.example.unifiedreader.core.database.UnifiedReaderDatabase
 import com.example.unifiedreader.core.database.entity.ItemJournalEntryEntity
 import com.example.unifiedreader.core.database.entity.JournalReadingEventEntity
+import com.example.unifiedreader.core.database.entity.JournalReadingSessionEntity
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -312,6 +313,40 @@ class JournalDaoTest {
             database.close()
         }
     }
+
+    @Test
+    fun `replace clean source journal cache replaces clean sessions and preserves dirty sessions`() {
+        val database = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            UnifiedReaderDatabase::class.java,
+        )
+            .allowMainThreadQueries()
+            .build()
+
+        try {
+            val dao = database.journalDao()
+            dao.insertReadingSession(journalSession(id = "dirty-session", itemId = "dirty-item", syncState = "DIRTY"))
+            dao.insertReadingSession(journalSession(id = "old-clean-session", itemId = "clean-item", syncState = "CLEAN"))
+
+            dao.replaceCleanSourceJournalCache(
+                sourceType = "KAVITA",
+                events = emptyList(),
+                entries = emptyList(),
+                sessions = listOf(journalSession(id = "new-clean-session", itemId = "clean-item", syncState = "CLEAN")),
+            )
+
+            assertEquals(
+                listOf("dirty-session"),
+                dao.getReadingSessionsForItem("dirty-item").map(JournalReadingSessionEntity::id),
+            )
+            assertEquals(
+                listOf("new-clean-session"),
+                dao.getReadingSessionsForItem("clean-item").map(JournalReadingSessionEntity::id),
+            )
+        } finally {
+            database.close()
+        }
+    }
 }
 
 private fun journalEntry(
@@ -358,4 +393,29 @@ private fun journalEvent(
     pageCount = null,
     occurredAtEpochMillis = occurredAt,
     syncState = "CLEAN",
+)
+
+private fun journalSession(
+    id: String,
+    itemId: String,
+    syncState: String,
+): JournalReadingSessionEntity = JournalReadingSessionEntity(
+    id = id,
+    itemId = itemId,
+    sourceType = "KAVITA",
+    libraryId = "library",
+    itemTitle = itemId,
+    coverUrl = null,
+    itemKind = "BOOK",
+    format = "EPUB",
+    mediaType = "BOOK",
+    startedAtEpochMillis = 100L,
+    endedAtEpochMillis = 200L,
+    durationMillis = 100L,
+    fromPercent = null,
+    toPercent = null,
+    fromPage = null,
+    toPage = null,
+    pageCount = null,
+    syncState = syncState,
 )

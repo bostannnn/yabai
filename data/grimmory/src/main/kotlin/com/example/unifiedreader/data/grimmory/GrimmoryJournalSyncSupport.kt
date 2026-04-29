@@ -6,7 +6,9 @@ import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.journal.ItemJournalEntry
 import com.example.unifiedreader.journal.JournalReadingEvent
 import com.example.unifiedreader.journal.JournalReadingEventType
+import com.example.unifiedreader.journal.JournalReadingSession
 import com.example.unifiedreader.journal.JournalRepository
+import com.example.unifiedreader.journal.journalMediaType
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
@@ -65,6 +67,7 @@ suspend fun pullGrimmoryJournalCache(
     )
     val failedSessionItemIds = sessionPull.failedItemIds
     val sessionEvents = sessionPull.events
+    val readingSessions = sessionPull.sessions
     val sessionFetchFailed = failedSessionItemIds.isNotEmpty()
     val sessionFinishedItemIds = sessionEvents
         .filter { event -> event.eventType == JournalReadingEventType.FINISHED }
@@ -88,20 +91,25 @@ suspend fun pullGrimmoryJournalCache(
         sourceType = SourceType.GRIMMORY,
         events = sessionEvents + progressEvents,
         entries = journalEntries,
+        sessions = readingSessions,
         preserveReviewFieldsWhenIncomingBlank = reviewLookup.shouldPreserveCachedReviews,
         preserveRatingWhenIncomingBlank = false,
         preserveReadingEventsWhenIncomingIncomplete = sessionFetchFailed,
+        preserveReadingSessionsWhenIncomingIncomplete = sessionFetchFailed,
         readingEventReplacementItemIds = readingEventReplacementItemIds,
+        readingSessionReplacementItemIds = readingEventReplacementItemIds,
     )
 }
 
 private data class GrimmoryReadingSessionPull(
     val events: List<JournalReadingEvent>,
+    val sessions: List<JournalReadingSession>,
     val failedItemIds: Set<String>,
 )
 
 private data class GrimmoryReadingSessionPullEntry(
     val events: List<JournalReadingEvent>,
+    val sessions: List<JournalReadingSession>,
     val failedItemId: String?,
 )
 
@@ -116,14 +124,17 @@ private suspend fun pullGrimmoryReadingSessionEvents(
             limiter.withPermit {
                 val bookId = entry.item.remoteId ?: return@withPermit GrimmoryReadingSessionPullEntry(
                     events = emptyList(),
+                    sessions = emptyList(),
                     failedItemId = null,
                 )
                 runCatching {
+                    val remoteSessions = api.getReadingSessionsForBook(
+                        accessToken = accessToken,
+                        bookId = bookId,
+                    )
                     GrimmoryReadingSessionPullEntry(
-                        events = api.getReadingSessionsForBook(
-                            accessToken = accessToken,
-                            bookId = bookId,
-                        ).toJournalEvents(entry.item),
+                        events = remoteSessions.toJournalEvents(entry.item),
+                        sessions = remoteSessions.toJournalSessions(entry.item),
                         failedItemId = null,
                     )
                 }.getOrElse { error ->
@@ -133,6 +144,7 @@ private suspend fun pullGrimmoryReadingSessionEvents(
                     }
                     GrimmoryReadingSessionPullEntry(
                         events = emptyList(),
+                        sessions = emptyList(),
                         failedItemId = entry.item.id,
                     )
                 }
@@ -141,6 +153,7 @@ private suspend fun pullGrimmoryReadingSessionEvents(
     }.awaitAll()
     GrimmoryReadingSessionPull(
         events = pulls.flatMap(GrimmoryReadingSessionPullEntry::events),
+        sessions = pulls.flatMap(GrimmoryReadingSessionPullEntry::sessions),
         failedItemIds = pulls.mapNotNullTo(mutableSetOf(), GrimmoryReadingSessionPullEntry::failedItemId),
     )
 }
@@ -382,6 +395,48 @@ private fun List<GrimmoryReadingSessionDto>.toJournalEvents(
         occurredAtEpochMillis = occurredAt,
         remoteEventId = session.id?.toString(),
         remoteUpdatedAtEpochMillis = occurredAt,
+        syncState = SyncState.CLEAN,
+    )
+}
+
+private fun List<GrimmoryReadingSessionDto>.toJournalSessions(
+    item: ReadableItem,
+): List<JournalReadingSession> = mapNotNull { session ->
+    val startedAt = session.startTime.toEpochMillisOrNull()
+        ?: session.createdAt.toEpochMillisOrNull()
+        ?: return@mapNotNull null
+    val explicitEnd = session.endTime.toEpochMillisOrNull()
+    val durationMillis = session.durationSeconds
+        ?.takeIf { seconds -> seconds > 0 }
+        ?.toLong()
+        ?.times(1_000L)
+    val endedAt = explicitEnd
+        ?: durationMillis?.let { duration -> startedAt + duration }
+        ?: return@mapNotNull null
+    val safeStartedAt = minOf(startedAt, endedAt)
+    val safeEndedAt = maxOf(startedAt, endedAt)
+    val safeDuration = durationMillis ?: (safeEndedAt - safeStartedAt)
+    if (safeDuration <= 0L) return@mapNotNull null
+    JournalReadingSession(
+        id = "grimmory:session:${session.id ?: item.remoteId}:$safeStartedAt:$safeEndedAt",
+        itemId = item.id,
+        sourceType = item.sourceType,
+        libraryId = item.libraryId,
+        itemTitle = item.title,
+        coverUrl = item.coverUrl,
+        itemKind = item.kind,
+        format = item.format,
+        mediaType = item.journalMediaType(),
+        startedAtEpochMillis = safeStartedAt,
+        endedAtEpochMillis = safeEndedAt,
+        durationMillis = safeDuration,
+        fromPercent = session.startProgress.toJournalPercent(),
+        toPercent = session.endProgress.toJournalPercent(),
+        fromPage = null,
+        toPage = null,
+        pageCount = item.pageCount,
+        remoteSessionId = session.id?.toString(),
+        remoteUpdatedAtEpochMillis = safeEndedAt,
         syncState = SyncState.CLEAN,
     )
 }

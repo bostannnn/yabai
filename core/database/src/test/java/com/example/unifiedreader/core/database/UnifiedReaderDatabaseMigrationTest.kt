@@ -68,6 +68,22 @@ class UnifiedReaderDatabaseMigrationTest {
     }
 
     @Test
+    fun `migration 22 to 23 creates journal reading sessions table`() {
+        createTestDatabase(
+            name = "migration-22-23-${System.nanoTime()}",
+            version = 22,
+        ) { database ->
+            createVersion22Schema(database)
+        }.use { database ->
+            UnifiedReaderDatabaseMigrations.MIGRATION_22_23.migrate(database)
+
+            assertTrue(tableExists(database, "journal_reading_sessions"))
+            assertTrue(indexExists(database, "index_journal_reading_sessions_itemId"))
+            assertTrue(indexExists(database, "index_journal_reading_sessions_sourceType_syncState"))
+        }
+    }
+
+    @Test
     fun `room migrates 4 to 5 and validates reader session state schema`() {
         val databaseName = "migration-4-5-${System.nanoTime()}"
         createTestDatabase(
@@ -1028,12 +1044,47 @@ private fun createVersion1Schema(database: SupportSQLiteDatabase) {
     )
 }
 
+private fun createVersion22Schema(database: SupportSQLiteDatabase) {
+    createVersion1Schema(database)
+    UnifiedReaderDatabaseMigrations.MIGRATION_1_2.migrate(database)
+    UnifiedReaderDatabaseMigrations.MIGRATION_2_3.migrate(database)
+    UnifiedReaderDatabaseMigrations.MIGRATION_3_4.migrate(database)
+    UnifiedReaderDatabaseMigrations.MIGRATION_4_5.migrate(database)
+    UnifiedReaderDatabaseMigrations.MIGRATION_5_6.migrate(database)
+    UnifiedReaderDatabaseMigrations.MIGRATION_6_7.migrate(database)
+    UnifiedReaderDatabaseMigrations.MIGRATION_7_8.migrate(database)
+    UnifiedReaderDatabaseMigrations.MIGRATION_8_9.migrate(database)
+    UnifiedReaderDatabaseMigrations.MIGRATION_9_10.migrate(database)
+    UnifiedReaderDatabaseMigrations.MIGRATION_10_11.migrate(database)
+    UnifiedReaderDatabaseMigrations.MIGRATION_11_12.migrate(database)
+    UnifiedReaderDatabaseMigrations.MIGRATION_12_13.migrate(database)
+    UnifiedReaderDatabaseMigrations.MIGRATION_13_14.migrate(database)
+    UnifiedReaderDatabaseMigrations.MIGRATION_14_15.migrate(database)
+    UnifiedReaderDatabaseMigrations.MIGRATION_15_16.migrate(database)
+    UnifiedReaderDatabaseMigrations.MIGRATION_16_17.migrate(database)
+    UnifiedReaderDatabaseMigrations.MIGRATION_17_18.migrate(database)
+    UnifiedReaderDatabaseMigrations.MIGRATION_18_19.migrate(database)
+    UnifiedReaderDatabaseMigrations.MIGRATION_19_20.migrate(database)
+    UnifiedReaderDatabaseMigrations.MIGRATION_20_21.migrate(database)
+    UnifiedReaderDatabaseMigrations.MIGRATION_21_22.migrate(database)
+}
+
 private fun tableExists(
     database: SupportSQLiteDatabase,
     tableName: String,
 ): Boolean = database.query(
     "SELECT name FROM sqlite_master WHERE type = ? AND name = ?",
     arrayOf("table", tableName),
+).use { cursor ->
+    cursor.moveToFirst()
+}
+
+private fun indexExists(
+    database: SupportSQLiteDatabase,
+    indexName: String,
+): Boolean = database.query(
+    "SELECT name FROM sqlite_master WHERE type = ? AND name = ?",
+    arrayOf("index", indexName),
 ).use { cursor ->
     cursor.moveToFirst()
 }
@@ -1125,6 +1176,7 @@ private fun openRoomDatabase(
         UnifiedReaderDatabaseMigrations.MIGRATION_19_20,
         UnifiedReaderDatabaseMigrations.MIGRATION_20_21,
         UnifiedReaderDatabaseMigrations.MIGRATION_21_22,
+        UnifiedReaderDatabaseMigrations.MIGRATION_22_23,
     )
     .build()
 

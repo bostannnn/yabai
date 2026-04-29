@@ -33,6 +33,7 @@ import com.example.unifiedreader.feature.downloads.RemoteDownloadWorkerRunner
 import com.example.unifiedreader.feature.downloads.RoomDownloadQueueStore
 import com.example.unifiedreader.journal.JournalEventRecorder
 import com.example.unifiedreader.journal.JournalRepository
+import com.example.unifiedreader.journal.JournalReadingSessionRecorder
 import com.example.unifiedreader.feature.journal.RoomJournalRepository
 import com.example.unifiedreader.feature.library.DataStoreLibraryBrowsePreferencesStore
 import com.example.unifiedreader.feature.library.LibraryBrowseStateCoordinator
@@ -221,6 +222,11 @@ object AppModule {
     fun provideJournalEventRecorder(
         repository: RoomJournalRepository,
     ): JournalEventRecorder = repository
+
+    @Provides
+    fun provideJournalReadingSessionRecorder(
+        repository: RoomJournalRepository,
+    ): JournalReadingSessionRecorder = repository
 
     @Provides
     fun provideRemoteJournalPusher(
@@ -721,6 +727,7 @@ object AppModule {
         comicPageSource: ComicPageSource,
         adapter: ComicsReaderSessionAdapter,
         journalEventRecorder: JournalEventRecorder,
+        journalReadingSessionRecorder: JournalReadingSessionRecorder,
         readerSessionStore: ReaderSessionStore,
         localDocumentRepository: LocalDocumentRepository,
         remoteDownloadDataSources: List<@JvmSuppressWildcards RemoteItemDownloadDataSource>,
@@ -733,12 +740,14 @@ object AppModule {
                 journalEventRecorder = journalEventRecorder,
             ),
             preferencesStore = adapter,
+            journalReadingSessionRecorder = journalReadingSessionRecorder,
         ),
         epubReaderFactory(
             sessionStore = JournalRecordingReaderSessionStore(
                 delegate = readerSessionStore,
                 journalEventRecorder = journalEventRecorder,
             ),
+            journalReadingSessionRecorder = journalReadingSessionRecorder,
             documentUriProvider = { item ->
                 localDocumentRepository.getDocumentUri(item)
                     ?: remoteDownloadDataSources.firstOrNull { dataSource ->

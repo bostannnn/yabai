@@ -14,6 +14,7 @@ import com.example.unifiedreader.journal.JournalItemRef
 import com.example.unifiedreader.journal.JournalProgressInput
 import com.example.unifiedreader.journal.JournalReadingEvent
 import com.example.unifiedreader.journal.JournalReadingEventType
+import com.example.unifiedreader.journal.JournalReadingSession
 import com.example.unifiedreader.journal.JournalRepository
 import com.example.unifiedreader.journal.JournalSnapshot
 import java.io.File
@@ -88,6 +89,10 @@ class KavitaJournalSyncSupportTest {
         assertEquals(JournalReadingEventType.FINISHED, repository.replacedEvents.single().eventType)
         assertEquals(0.5, repository.replacedEvents.single().toPercent ?: -1.0, 0.0001)
         assertEquals("123", repository.replacedEvents.single().remoteEventId)
+        assertEquals(30 * 60 * 1000L, repository.replacedSessions.single().durationMillis)
+        assertEquals(1, repository.replacedSessions.single().fromPage)
+        assertEquals(10, repository.replacedSessions.single().toPage)
+        assertEquals("123", repository.replacedSessions.single().remoteSessionId)
     }
 
     @Test
@@ -562,10 +567,13 @@ private class RecordingJournalRepository(
     var replacedSourceType: SourceType? = null
     var replacedEvents: List<JournalReadingEvent> = emptyList()
     var replacedEntries: List<ItemJournalEntry> = emptyList()
+    var replacedSessions: List<JournalReadingSession> = emptyList()
     var replacedPreserveReviewFieldsWhenIncomingBlank: Boolean? = null
     var replacedPreserveRatingWhenIncomingBlank: Boolean? = null
     var replacedPreserveReadingEventsWhenIncomingIncomplete: Boolean? = null
+    var replacedPreserveReadingSessionsWhenIncomingIncomplete: Boolean? = null
     var replacedReadingEventReplacementItemIds: Set<String>? = null
+    var replacedReadingSessionReplacementItemIds: Set<String>? = null
     var replacedJournalEntryReplacementItemIds: Set<String>? = null
     var replacedPreserveRatingOnlyEntriesWhenIncomingMissing: Boolean? = null
     var replacedRatingOnlyPreservationExcludedItemIds: Set<String>? = null
@@ -586,10 +594,13 @@ private class RecordingJournalRepository(
         sourceType: SourceType,
         events: List<JournalReadingEvent>,
         entries: List<ItemJournalEntry>,
+        sessions: List<JournalReadingSession>,
         preserveReviewFieldsWhenIncomingBlank: Boolean,
         preserveRatingWhenIncomingBlank: Boolean,
         preserveReadingEventsWhenIncomingIncomplete: Boolean,
+        preserveReadingSessionsWhenIncomingIncomplete: Boolean,
         readingEventReplacementItemIds: Set<String>?,
+        readingSessionReplacementItemIds: Set<String>?,
         journalEntryReplacementItemIds: Set<String>?,
         preserveRatingOnlyEntriesWhenIncomingMissing: Boolean,
         ratingOnlyPreservationExcludedItemIds: Set<String>?,
@@ -597,10 +608,13 @@ private class RecordingJournalRepository(
         replacedSourceType = sourceType
         replacedEvents = events
         replacedEntries = entries
+        replacedSessions = sessions
         replacedPreserveReviewFieldsWhenIncomingBlank = preserveReviewFieldsWhenIncomingBlank
         replacedPreserveRatingWhenIncomingBlank = preserveRatingWhenIncomingBlank
         replacedPreserveReadingEventsWhenIncomingIncomplete = preserveReadingEventsWhenIncomingIncomplete
+        replacedPreserveReadingSessionsWhenIncomingIncomplete = preserveReadingSessionsWhenIncomingIncomplete
         replacedReadingEventReplacementItemIds = readingEventReplacementItemIds
+        replacedReadingSessionReplacementItemIds = readingSessionReplacementItemIds
         replacedJournalEntryReplacementItemIds = journalEntryReplacementItemIds
         replacedPreserveRatingOnlyEntriesWhenIncomingMissing = preserveRatingOnlyEntriesWhenIncomingMissing
         replacedRatingOnlyPreservationExcludedItemIds = ratingOnlyPreservationExcludedItemIds

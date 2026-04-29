@@ -6,11 +6,13 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.reader.core.ReaderChrome
 import com.example.unifiedreader.feature.reader.core.ReaderNavigationActions
 import com.example.unifiedreader.feature.reader.core.ReaderScreenFactory
+import com.example.unifiedreader.journal.JournalReadingSessionRecorder
 
 fun comicsReaderFactory(
     pageSource: ComicPageSource,
     progressStore: ComicReaderProgressStore,
     preferencesStore: ComicReaderPreferencesStore,
+    journalReadingSessionRecorder: JournalReadingSessionRecorder? = null,
 ): ReaderScreenFactory {
     val supportedFormats = setOf(FormatType.CBZ, FormatType.CBR)
     return object : ReaderScreenFactory {
@@ -30,6 +32,7 @@ fun comicsReaderFactory(
                 pageSource = pageSource,
                 progressStore = progressStore,
                 preferencesStore = preferencesStore,
+                journalReadingSessionRecorder = journalReadingSessionRecorder,
                 onBack = onBack,
                 openMode = navigationActions.currentOpenMode,
                 onNextItemRequested = navigationActions.onRequestCompletion,
