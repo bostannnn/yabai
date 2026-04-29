@@ -11,6 +11,10 @@ import com.example.unifiedreader.journal.JournalRepository
 import java.time.Instant
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.roundToInt
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonPrimitive
 
 suspend fun pullKavitaJournalCache(
     api: KavitaApi,
@@ -88,14 +92,48 @@ suspend fun pullKavitaJournalCache(
         }
         .mapNotNull(KavitaChapterCatalogEntry::toFinishedProgressJournalEvent)
         .filterNot { event -> event.itemId in finishedHistoryItemIds }
+    val likelyRatingChapterIds = buildLikelyRatingChapterIds(
+        reviewChapterIds = reviewLookup.reviews.mapNotNull(KavitaUserReviewDto::chapterId),
+        history = history,
+        progressEvents = progressEvents,
+        itemByRemoteChapterId = itemByRemoteChapterId,
+    )
+    var ratingFetchFailed = false
+    val nativeRatingsByChapterId = likelyRatingChapterIds
+        .mapNotNull { chapterId ->
+            runCatching {
+                chapterId to api.getChapterDetailPlus(
+                    accessToken = accessToken,
+                    chapterId = chapterId,
+                )
+            }.getOrElse { error ->
+                when (error) {
+                    is CancellationException,
+                    is KavitaUnauthorizedException -> throw error
+                }
+                ratingFetchFailed = true
+                null
+            }
+        }
+        .toMap()
+    val reviewEntries = reviewLookup.reviews.toJournalEntries(itemByRemoteChapterId)
+    val ratingOnlyPreservationExcludedItemIds = nativeRatingsByChapterId.keys
+        .mapNotNull { chapterId -> itemByRemoteChapterId[chapterId]?.id }
+        .toSet()
     repository.replaceCleanSourceJournalCache(
         sourceType = SourceType.KAVITA,
         events = historyEvents + progressEvents,
-        entries = reviewLookup.reviews.toJournalEntries(itemByRemoteChapterId),
+        entries = mergeKavitaJournalEntries(
+            reviewEntries = reviewEntries,
+            nativeRatingsByChapterId = nativeRatingsByChapterId,
+            itemByRemoteChapterId = itemByRemoteChapterId,
+        ),
         preserveReviewFieldsWhenIncomingBlank = reviewLookup.shouldPreserveCachedReviews,
-        preserveRatingWhenIncomingBlank = reviewLookup.shouldPreserveCachedReviews,
+        preserveRatingWhenIncomingBlank = reviewLookup.shouldPreserveCachedReviews || ratingFetchFailed,
         preserveReadingEventsWhenIncomingIncomplete = historyFetchFailed,
         readingEventReplacementItemIds = readingEventReplacementItemIds,
+        preserveRatingOnlyEntriesWhenIncomingMissing = true,
+        ratingOnlyPreservationExcludedItemIds = ratingOnlyPreservationExcludedItemIds,
     )
 }
 
@@ -120,20 +158,39 @@ suspend fun pushDirtyKavitaJournalEntries(
             val chapterInfo = api.getChapterInfo(accessToken = accessToken, chapterId = chapterId.toString())
             val seriesId = chapterInfo.seriesId
                 ?: error("Kavita chapter $chapterId has no series id")
-            api.updateChapterRating(
-                accessToken = accessToken,
-                seriesId = seriesId,
-                chapterId = chapterId,
-                rating = entry.rating.toKavitaRating(),
-            )
-            if (entry.reviewText.isBlank()) {
-                api.deleteChapterReview(accessToken = accessToken, chapterId = chapterId)
+            val parsedReview = entry.reviewText.parseYabaiJournalReviewBody()
+            val reviewText = parsedReview.reviewText
+            val rating = entry.rating ?: parsedReview.rating
+            if (reviewText.isBlank()) {
+                if (rating == null) {
+                    api.updateChapterRating(
+                        accessToken = accessToken,
+                        seriesId = seriesId,
+                        chapterId = chapterId,
+                        rating = 0f,
+                    )
+                    api.deleteChapterReview(accessToken = accessToken, chapterId = chapterId)
+                } else {
+                    api.deleteChapterReview(accessToken = accessToken, chapterId = chapterId)
+                    api.updateChapterRating(
+                        accessToken = accessToken,
+                        seriesId = seriesId,
+                        chapterId = chapterId,
+                        rating = rating.toKavitaRating(),
+                    )
+                }
             } else {
+                api.updateChapterRating(
+                    accessToken = accessToken,
+                    seriesId = seriesId,
+                    chapterId = chapterId,
+                    rating = rating.toKavitaRating(),
+                )
                 api.updateChapterReview(
                     accessToken = accessToken,
                     seriesId = seriesId,
                     chapterId = chapterId,
-                    body = entry.reviewText,
+                    body = reviewText,
                 )
             }
         }.onSuccess {
@@ -148,11 +205,43 @@ suspend fun pushDirtyKavitaJournalEntries(
     }
 }
 
+private fun buildLikelyRatingChapterIds(
+    reviewChapterIds: List<Int>,
+    history: List<KavitaReadingHistoryItemDto>,
+    progressEvents: List<JournalReadingEvent>,
+    itemByRemoteChapterId: Map<Int, ReadableItem>,
+): Set<Int> {
+    val chapterIds = reviewChapterIds.toMutableSet()
+    history.forEach { session ->
+        session.chapters.orEmpty().mapNotNullTo(chapterIds, KavitaReadingHistoryChapterItemDto::chapterId)
+    }
+    val chapterIdByItemId = itemByRemoteChapterId.entries.associate { (chapterId, item) -> item.id to chapterId }
+    progressEvents.mapNotNullTo(chapterIds) { event -> chapterIdByItemId[event.itemId] }
+    return chapterIds
+}
+
+private fun mergeKavitaJournalEntries(
+    reviewEntries: List<ItemJournalEntry>,
+    nativeRatingsByChapterId: Map<Int, KavitaChapterDetailPlusDto>,
+    itemByRemoteChapterId: Map<Int, ReadableItem>,
+): List<ItemJournalEntry> {
+    val entriesByItemId = reviewEntries.associateBy(ItemJournalEntry::itemId).toMutableMap()
+    nativeRatingsByChapterId.forEach { (chapterId, detail) ->
+        val nativeRating = detail.toInternalRating() ?: return@forEach
+        val item = itemByRemoteChapterId[chapterId] ?: return@forEach
+        val existing = entriesByItemId[item.id]
+        entriesByItemId[item.id] = existing?.copy(rating = nativeRating)
+            ?: item.toRatingOnlyJournalEntry(rating = nativeRating)
+    }
+    return entriesByItemId.values.toList()
+}
+
 private fun List<KavitaUserReviewDto>.toJournalEntries(
     itemByRemoteChapterId: Map<Int, ReadableItem>,
 ): List<ItemJournalEntry> = mapNotNull { review ->
     val chapterId = review.chapterId ?: return@mapNotNull null
     val item = itemByRemoteChapterId[chapterId] ?: return@mapNotNull null
+    val parsedReview = review.body.orEmpty().parseYabaiJournalReviewBody()
     ItemJournalEntry(
         itemId = item.id,
         sourceType = item.sourceType,
@@ -161,12 +250,34 @@ private fun List<KavitaUserReviewDto>.toJournalEntries(
         coverUrl = item.coverUrl,
         itemKind = item.kind,
         format = item.format,
-        rating = review.rating?.toInternalRating(),
-        reviewText = review.body.orEmpty(),
+        rating = parsedReview.rating ?: review.rating?.toInternalRating(),
+        reviewText = parsedReview.reviewText,
         reviewedAtEpochMillis = review.createdUtc?.toEpochMillisOrNull(),
         updatedAtEpochMillis = review.createdUtc?.toEpochMillisOrNull() ?: System.currentTimeMillis(),
         remoteEntryId = review.id?.toString(),
         remoteUpdatedAtEpochMillis = review.createdUtc?.toEpochMillisOrNull(),
+        syncState = SyncState.CLEAN,
+    )
+}
+
+private fun ReadableItem.toRatingOnlyJournalEntry(
+    rating: Int,
+): ItemJournalEntry {
+    val now = System.currentTimeMillis()
+    return ItemJournalEntry(
+        itemId = id,
+        sourceType = sourceType,
+        libraryId = libraryId,
+        itemTitle = title,
+        coverUrl = coverUrl,
+        itemKind = kind,
+        format = format,
+        rating = rating,
+        reviewText = "",
+        reviewedAtEpochMillis = null,
+        updatedAtEpochMillis = now,
+        remoteEntryId = null,
+        remoteUpdatedAtEpochMillis = now,
         syncState = SyncState.CLEAN,
     )
 }
@@ -244,8 +355,51 @@ private fun Float.toInternalRating(): Int? {
     return (coerceIn(0f, 5f) * 2f).roundToInt().coerceIn(1, 10)
 }
 
+private fun KavitaChapterDetailPlusDto.toInternalRating(): Int? =
+    if (hasBeenRated == true) rating?.toInternalRating() else null
+
 private fun Int?.toKavitaRating(): Float = this?.coerceIn(1, 10)?.toFloat()?.div(2f) ?: 0f
+
+private data class ParsedKavitaReviewBody(
+    val reviewText: String,
+    val rating: Int?,
+)
+
+private fun String.parseYabaiJournalReviewBody(): ParsedKavitaReviewBody {
+    val markerMatch = YABAI_JOURNAL_MARKER_REGEX.findAll(this).lastOrNull()
+        ?: return ParsedKavitaReviewBody(
+            reviewText = trim(),
+            rating = null,
+        )
+    val rating = markerMatch.groupValues
+        .getOrNull(1)
+        ?.parseYabaiJournalRating()
+    val reviewText = removeRange(markerMatch.range)
+        .lines()
+        .dropLastWhile { line -> line.isBlank() }
+        .joinToString("\n")
+        .trim()
+    return ParsedKavitaReviewBody(
+        reviewText = reviewText,
+        rating = rating,
+    )
+}
+
+private fun String.parseYabaiJournalRating(): Int? = runCatching {
+    val metadata = yabaiJournalJson.decodeFromString(JsonObject.serializer(), this)
+    metadata["rating"]
+        ?.jsonPrimitive
+        ?.intOrNull
+        ?.coerceIn(1, 10)
+}.getOrNull()
 
 private fun String.toEpochMillisOrNull(): Long? = runCatching {
     Instant.parse(this).toEpochMilli()
 }.getOrNull()
+
+private val YABAI_JOURNAL_MARKER_REGEX = Regex("""(?m)^\s*YABAI_JOURNAL:(\{[^\r\n]*\})\s*$""")
+
+private val yabaiJournalJson = Json {
+    ignoreUnknownKeys = true
+    explicitNulls = false
+}

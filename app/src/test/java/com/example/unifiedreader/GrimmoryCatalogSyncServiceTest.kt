@@ -660,6 +660,9 @@ private class GrimmoryRecordingJournalRepository : JournalRepository {
         preserveRatingWhenIncomingBlank: Boolean,
         preserveReadingEventsWhenIncomingIncomplete: Boolean,
         readingEventReplacementItemIds: Set<String>?,
+        journalEntryReplacementItemIds: Set<String>?,
+        preserveRatingOnlyEntriesWhenIncomingMissing: Boolean,
+        ratingOnlyPreservationExcludedItemIds: Set<String>?,
     ) {
         replaceCount += 1
         lastEvents = events

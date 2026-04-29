@@ -207,6 +207,111 @@ class JournalDaoTest {
             database.close()
         }
     }
+
+    @Test
+    fun `replace clean source journal cache can replace clean journal entries for scoped items`() {
+        val database = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            UnifiedReaderDatabase::class.java,
+        )
+            .allowMainThreadQueries()
+            .build()
+
+        try {
+            val dao = database.journalDao()
+            dao.insertJournalEntry(journalEntry(itemId = "preserved-item", reviewText = "", syncState = "CLEAN"))
+            dao.insertJournalEntry(journalEntry(itemId = "stale-item", reviewText = "", syncState = "CLEAN"))
+
+            dao.replaceCleanSourceJournalCache(
+                sourceType = "KAVITA",
+                events = emptyList(),
+                entries = listOf(journalEntry(itemId = "stale-item", reviewText = "fresh", syncState = "CLEAN")),
+                journalEntryReplacementItemIds = setOf("stale-item"),
+            )
+
+            assertEquals(7, dao.getJournalEntry("preserved-item")?.rating)
+            assertEquals("fresh", dao.getJournalEntry("stale-item")?.reviewText)
+        } finally {
+            database.close()
+        }
+    }
+
+    @Test
+    fun `replace clean source journal cache can preserve missing rating only entries`() {
+        val database = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            UnifiedReaderDatabase::class.java,
+        )
+            .allowMainThreadQueries()
+            .build()
+
+        try {
+            val dao = database.journalDao()
+            dao.insertJournalEntry(journalEntry(itemId = "rating-only-item", reviewText = "", syncState = "CLEAN"))
+            dao.insertJournalEntry(
+                journalEntry(
+                    itemId = "review-backed-item",
+                    reviewText = "deleted remotely",
+                    syncState = "CLEAN",
+                    remoteReviewNoteId = "review-1",
+                ),
+            )
+            dao.insertJournalEntry(journalEntry(itemId = "known-empty-item", reviewText = "", syncState = "CLEAN"))
+
+            dao.replaceCleanSourceJournalCache(
+                sourceType = "KAVITA",
+                events = emptyList(),
+                entries = emptyList(),
+                preserveRatingOnlyEntriesWhenIncomingMissing = true,
+                ratingOnlyPreservationExcludedItemIds = setOf("known-empty-item"),
+            )
+
+            assertEquals(7, dao.getJournalEntry("rating-only-item")?.rating)
+            assertEquals("", dao.getJournalEntry("review-backed-item")?.reviewText)
+            assertEquals(7, dao.getJournalEntry("review-backed-item")?.rating)
+            assertEquals(null, dao.getJournalEntry("review-backed-item")?.remoteReviewNoteId)
+            assertEquals(null, dao.getJournalEntry("known-empty-item"))
+        } finally {
+            database.close()
+        }
+    }
+
+    @Test
+    fun `replace clean source journal cache preserves cached review with rating before rating only rows`() {
+        val database = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            UnifiedReaderDatabase::class.java,
+        )
+            .allowMainThreadQueries()
+            .build()
+
+        try {
+            val dao = database.journalDao()
+            dao.insertJournalEntry(
+                journalEntry(
+                    itemId = "review-with-rating",
+                    reviewText = "cached review",
+                    syncState = "CLEAN",
+                    remoteReviewNoteId = "review-1",
+                ),
+            )
+
+            dao.replaceCleanSourceJournalCache(
+                sourceType = "KAVITA",
+                events = emptyList(),
+                entries = emptyList(),
+                preserveReviewFieldsWhenIncomingBlank = true,
+                preserveRatingWhenIncomingBlank = true,
+                preserveRatingOnlyEntriesWhenIncomingMissing = true,
+            )
+
+            assertEquals("cached review", dao.getJournalEntry("review-with-rating")?.reviewText)
+            assertEquals(7, dao.getJournalEntry("review-with-rating")?.rating)
+            assertEquals("review-1", dao.getJournalEntry("review-with-rating")?.remoteReviewNoteId)
+        } finally {
+            database.close()
+        }
+    }
 }
 
 private fun journalEntry(

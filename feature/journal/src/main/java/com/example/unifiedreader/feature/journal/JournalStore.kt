@@ -125,6 +125,9 @@ class RoomJournalRepository(
         preserveRatingWhenIncomingBlank: Boolean,
         preserveReadingEventsWhenIncomingIncomplete: Boolean,
         readingEventReplacementItemIds: Set<String>?,
+        journalEntryReplacementItemIds: Set<String>?,
+        preserveRatingOnlyEntriesWhenIncomingMissing: Boolean,
+        ratingOnlyPreservationExcludedItemIds: Set<String>?,
     ) {
         withContext(Dispatchers.IO) {
             journalDao.replaceCleanSourceJournalCache(
@@ -135,6 +138,9 @@ class RoomJournalRepository(
                 preserveRatingWhenIncomingBlank = preserveRatingWhenIncomingBlank,
                 preserveReadingEventsWhenIncomingIncomplete = preserveReadingEventsWhenIncomingIncomplete,
                 readingEventReplacementItemIds = readingEventReplacementItemIds,
+                journalEntryReplacementItemIds = journalEntryReplacementItemIds,
+                preserveRatingOnlyEntriesWhenIncomingMissing = preserveRatingOnlyEntriesWhenIncomingMissing,
+                ratingOnlyPreservationExcludedItemIds = ratingOnlyPreservationExcludedItemIds,
             )
         }
     }

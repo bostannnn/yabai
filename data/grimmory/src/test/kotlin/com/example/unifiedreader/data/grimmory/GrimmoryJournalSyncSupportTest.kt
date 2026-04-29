@@ -426,6 +426,9 @@ private class RecordingJournalRepository(
         preserveRatingWhenIncomingBlank: Boolean,
         preserveReadingEventsWhenIncomingIncomplete: Boolean,
         readingEventReplacementItemIds: Set<String>?,
+        journalEntryReplacementItemIds: Set<String>?,
+        preserveRatingOnlyEntriesWhenIncomingMissing: Boolean,
+        ratingOnlyPreservationExcludedItemIds: Set<String>?,
     ) {
         replacedSourceType = sourceType
         replacedEvents = events

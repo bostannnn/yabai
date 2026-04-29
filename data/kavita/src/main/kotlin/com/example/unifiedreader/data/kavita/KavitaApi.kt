@@ -66,6 +66,11 @@ interface KavitaApi {
         includeDimensions: Boolean = false,
     ): KavitaChapterInfoDto
 
+    suspend fun getChapterDetailPlus(
+        accessToken: String,
+        chapterId: Int,
+    ): KavitaChapterDetailPlusDto = error("Fetching Kavita chapter details is not implemented.")
+
     suspend fun updateProgress(
         accessToken: String,
         progress: KavitaProgressUpdate,
@@ -345,6 +350,23 @@ class KtorKavitaApi(
         response.throwIfKavitaError()
         if (response.status == HttpStatusCode.NoContent) {
             return@authenticatedRequest KavitaChapterInfoDto()
+        }
+        response.body()
+    }
+
+    override suspend fun getChapterDetailPlus(
+        accessToken: String,
+        chapterId: Int,
+    ): KavitaChapterDetailPlusDto = authenticatedRequest {
+        val response = httpClient.get("$normalizedBaseUrl/api/Chapter/chapter-detail-plus") {
+            bearerAuth(accessToken)
+            url {
+                parameters.append("chapterId", chapterId.toString())
+            }
+        }
+        response.throwIfKavitaError()
+        if (response.status == HttpStatusCode.NoContent) {
+            return@authenticatedRequest KavitaChapterDetailPlusDto()
         }
         response.body()
     }

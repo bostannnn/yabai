@@ -113,6 +113,232 @@ class KavitaJournalSyncSupportTest {
     }
 
     @Test
+    fun `kavita pull restores legacy Yabai rating metadata and strips marker from review text`() = runTest {
+        val item = readableItem(sourceType = SourceType.KAVITA, remoteId = "42")
+        val repository = RecordingJournalRepository()
+
+        pullKavitaJournalCache(
+            api = FakeKavitaApi(
+                currentUserId = 1,
+                reviews = listOf(
+                    KavitaUserReviewDto(
+                        id = 9,
+                        body = """
+                            Keep it
+
+                            YABAI_JOURNAL:{"v":1,"rating":10}
+                        """.trimIndent(),
+                        chapterId = 42,
+                        rating = 0f,
+                        createdUtc = "2026-04-20T12:00:00Z",
+                    ),
+                ),
+            ),
+            accessToken = "token",
+            libraries = emptyList(),
+            entries = listOf(KavitaChapterCatalogEntry(item = item, progress = null)),
+            journalRepository = repository,
+        )
+
+        assertEquals(10, repository.replacedEntries.single().rating)
+        assertEquals("Keep it", repository.replacedEntries.single().reviewText)
+    }
+
+    @Test
+    fun `kavita pull restores marker only rating as blank review`() = runTest {
+        val item = readableItem(sourceType = SourceType.KAVITA, remoteId = "42")
+        val repository = RecordingJournalRepository()
+
+        pullKavitaJournalCache(
+            api = FakeKavitaApi(
+                currentUserId = 1,
+                reviews = listOf(
+                    KavitaUserReviewDto(
+                        id = 9,
+                        body = """YABAI_JOURNAL:{"v":1,"rating":8}""",
+                        chapterId = 42,
+                        rating = 0f,
+                        createdUtc = "2026-04-20T12:00:00Z",
+                    ),
+                ),
+            ),
+            accessToken = "token",
+            libraries = emptyList(),
+            entries = listOf(KavitaChapterCatalogEntry(item = item, progress = null)),
+            journalRepository = repository,
+        )
+
+        assertEquals(8, repository.replacedEntries.single().rating)
+        assertEquals("", repository.replacedEntries.single().reviewText)
+    }
+
+    @Test
+    fun `kavita dirty push cleans rating only review text and restores native rating`() = runTest {
+        val item = readableItem(sourceType = SourceType.KAVITA, remoteId = "42")
+        val repository = RecordingJournalRepository(
+            dirtyEntries = listOf(journalEntry(item = item, rating = 9, reviewText = "")),
+        )
+        val api = FakeKavitaApi(chapterInfo = KavitaChapterInfoDto(seriesId = 77))
+
+        pushDirtyKavitaJournalEntries(
+            api = api,
+            accessToken = "token",
+            entries = listOf(item),
+            journalRepository = repository,
+        )
+
+        assertEquals(4.5f, api.updatedRating ?: -1f, 0.0001f)
+        assertEquals(null, api.updatedReviewBody)
+        assertEquals(42, api.deletedReviewChapterId)
+        assertEquals(listOf("delete-review:42", "update-rating:42:4.5"), api.calls)
+        assertEquals(SyncState.CLEAN, repository.markedSyncStates[item.id])
+    }
+
+    @Test
+    fun `kavita pull restores native rating for likely history chapter without review`() = runTest {
+        val item = readableItem(sourceType = SourceType.KAVITA, remoteId = "42")
+        val repository = RecordingJournalRepository()
+        val api = FakeKavitaApi(
+            currentUserId = 1,
+            historyByLibrary = mapOf(
+                4 to listOf(
+                    KavitaReadingHistoryItemDto(
+                        sessionId = 123,
+                        chapters = listOf(
+                            KavitaReadingHistoryChapterItemDto(
+                                chapterId = 42,
+                                endTimeUtc = "2026-04-21T10:30:00Z",
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            chapterDetails = mapOf(
+                42 to KavitaChapterDetailPlusDto(rating = 4.5f, hasBeenRated = true),
+            ),
+        )
+
+        pullKavitaJournalCache(
+            api = api,
+            accessToken = "token",
+            libraries = listOf(
+                Library(
+                    id = "kavita:library:4",
+                    sourceType = SourceType.KAVITA,
+                    title = "Library",
+                    remoteId = "4",
+                    contentType = LibraryContentType.COMICS,
+                ),
+            ),
+            entries = listOf(KavitaChapterCatalogEntry(item = item, progress = null)),
+            journalRepository = repository,
+        )
+
+        assertEquals(listOf(42), api.requestedChapterDetailIds)
+        assertEquals(9, repository.replacedEntries.single().rating)
+        assertEquals("", repository.replacedEntries.single().reviewText)
+        assertEquals(null, repository.replacedJournalEntryReplacementItemIds)
+        assertEquals(true, repository.replacedPreserveRatingOnlyEntriesWhenIncomingMissing)
+        assertEquals(setOf(item.id), repository.replacedRatingOnlyPreservationExcludedItemIds)
+    }
+
+    @Test
+    fun `kavita pull only fetches native ratings for likely journal chapters`() = runTest {
+        val historyItem = readableItem(sourceType = SourceType.KAVITA, remoteId = "42")
+        val unrelatedItem = readableItem(sourceType = SourceType.KAVITA, remoteId = "43")
+        val repository = RecordingJournalRepository()
+        val api = FakeKavitaApi(
+            currentUserId = 1,
+            historyByLibrary = mapOf(
+                4 to listOf(
+                    KavitaReadingHistoryItemDto(
+                        sessionId = 123,
+                        chapters = listOf(
+                            KavitaReadingHistoryChapterItemDto(
+                                chapterId = 42,
+                                endTimeUtc = "2026-04-21T10:30:00Z",
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            chapterDetails = mapOf(
+                42 to KavitaChapterDetailPlusDto(rating = 4f, hasBeenRated = true),
+                43 to KavitaChapterDetailPlusDto(rating = 5f, hasBeenRated = true),
+            ),
+        )
+
+        pullKavitaJournalCache(
+            api = api,
+            accessToken = "token",
+            libraries = listOf(
+                Library(
+                    id = "kavita:library:4",
+                    sourceType = SourceType.KAVITA,
+                    title = "Library",
+                    remoteId = "4",
+                    contentType = LibraryContentType.COMICS,
+                ),
+            ),
+            entries = listOf(
+                KavitaChapterCatalogEntry(item = historyItem, progress = null),
+                KavitaChapterCatalogEntry(item = unrelatedItem, progress = null),
+            ),
+            journalRepository = repository,
+        )
+
+        assertEquals(listOf(42), api.requestedChapterDetailIds)
+        assertEquals(listOf(historyItem.id), repository.replacedEntries.map(ItemJournalEntry::itemId))
+        assertEquals(null, repository.replacedJournalEntryReplacementItemIds)
+        assertEquals(setOf(historyItem.id), repository.replacedRatingOnlyPreservationExcludedItemIds)
+    }
+
+    @Test
+    fun `kavita pull does not exclude failed native rating lookups from rating preservation`() = runTest {
+        val item = readableItem(sourceType = SourceType.KAVITA, remoteId = "42")
+        val repository = RecordingJournalRepository()
+        val api = FakeKavitaApi(
+            currentUserId = 1,
+            historyByLibrary = mapOf(
+                4 to listOf(
+                    KavitaReadingHistoryItemDto(
+                        sessionId = 123,
+                        chapters = listOf(
+                            KavitaReadingHistoryChapterItemDto(
+                                chapterId = 42,
+                                endTimeUtc = "2026-04-21T10:30:00Z",
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            chapterDetailFailures = mapOf(42 to IllegalStateException("detail unavailable")),
+        )
+
+        pullKavitaJournalCache(
+            api = api,
+            accessToken = "token",
+            libraries = listOf(
+                Library(
+                    id = "kavita:library:4",
+                    sourceType = SourceType.KAVITA,
+                    title = "Library",
+                    remoteId = "4",
+                    contentType = LibraryContentType.COMICS,
+                ),
+            ),
+            entries = listOf(KavitaChapterCatalogEntry(item = item, progress = null)),
+            journalRepository = repository,
+        )
+
+        assertEquals(listOf(42), api.requestedChapterDetailIds)
+        assertEquals(emptyList<ItemJournalEntry>(), repository.replacedEntries)
+        assertEquals(true, repository.replacedPreserveRatingWhenIncomingBlank)
+        assertEquals(true, repository.replacedPreserveRatingOnlyEntriesWhenIncomingMissing)
+        assertEquals(emptySet<String>(), repository.replacedRatingOnlyPreservationExcludedItemIds)
+    }
+
+    @Test
     fun `kavita pull falls back to finished progress when history is unavailable`() = runTest {
         val item = readableItem(sourceType = SourceType.KAVITA, remoteId = "42")
         val repository = RecordingJournalRepository()
@@ -337,8 +563,12 @@ private class RecordingJournalRepository(
     var replacedEvents: List<JournalReadingEvent> = emptyList()
     var replacedEntries: List<ItemJournalEntry> = emptyList()
     var replacedPreserveReviewFieldsWhenIncomingBlank: Boolean? = null
+    var replacedPreserveRatingWhenIncomingBlank: Boolean? = null
     var replacedPreserveReadingEventsWhenIncomingIncomplete: Boolean? = null
     var replacedReadingEventReplacementItemIds: Set<String>? = null
+    var replacedJournalEntryReplacementItemIds: Set<String>? = null
+    var replacedPreserveRatingOnlyEntriesWhenIncomingMissing: Boolean? = null
+    var replacedRatingOnlyPreservationExcludedItemIds: Set<String>? = null
     val markedSyncStates = mutableMapOf<String, SyncState>()
     val remoteReviewNoteIds = mutableMapOf<String, String?>()
 
@@ -360,13 +590,20 @@ private class RecordingJournalRepository(
         preserveRatingWhenIncomingBlank: Boolean,
         preserveReadingEventsWhenIncomingIncomplete: Boolean,
         readingEventReplacementItemIds: Set<String>?,
+        journalEntryReplacementItemIds: Set<String>?,
+        preserveRatingOnlyEntriesWhenIncomingMissing: Boolean,
+        ratingOnlyPreservationExcludedItemIds: Set<String>?,
     ) {
         replacedSourceType = sourceType
         replacedEvents = events
         replacedEntries = entries
         replacedPreserveReviewFieldsWhenIncomingBlank = preserveReviewFieldsWhenIncomingBlank
+        replacedPreserveRatingWhenIncomingBlank = preserveRatingWhenIncomingBlank
         replacedPreserveReadingEventsWhenIncomingIncomplete = preserveReadingEventsWhenIncomingIncomplete
         replacedReadingEventReplacementItemIds = readingEventReplacementItemIds
+        replacedJournalEntryReplacementItemIds = journalEntryReplacementItemIds
+        replacedPreserveRatingOnlyEntriesWhenIncomingMissing = preserveRatingOnlyEntriesWhenIncomingMissing
+        replacedRatingOnlyPreservationExcludedItemIds = ratingOnlyPreservationExcludedItemIds
     }
 
     override suspend fun getDirtyJournalEntriesForSource(sourceType: SourceType): List<ItemJournalEntry> =
@@ -390,9 +627,13 @@ private class FakeKavitaApi(
     private val historyFailuresByLibrary: Map<Int, Throwable> = emptyMap(),
     private val chapterInfo: KavitaChapterInfoDto = KavitaChapterInfoDto(),
     private val chapterInfoFailures: Map<String, Throwable> = emptyMap(),
+    private val chapterDetails: Map<Int, KavitaChapterDetailPlusDto> = emptyMap(),
+    private val chapterDetailFailures: Map<Int, Throwable> = emptyMap(),
 ) : KavitaApi {
     var requestedReviewUserId: Int? = null
     val requestedHistoryLibraries = mutableListOf<Int>()
+    val requestedChapterDetailIds = mutableListOf<Int>()
+    val calls = mutableListOf<String>()
     var updatedRatingSeriesId: Int? = null
     var updatedRatingChapterId: Int? = null
     var updatedRating: Float? = null
@@ -410,17 +651,25 @@ private class FakeKavitaApi(
         chapterInfoFailures[chapterId]?.let { error -> throw error }
         return chapterInfo
     }
+    override suspend fun getChapterDetailPlus(accessToken: String, chapterId: Int): KavitaChapterDetailPlusDto {
+        requestedChapterDetailIds += chapterId
+        chapterDetailFailures[chapterId]?.let { error -> throw error }
+        return chapterDetails[chapterId] ?: KavitaChapterDetailPlusDto()
+    }
     override suspend fun updateProgress(accessToken: String, progress: KavitaProgressUpdate) = Unit
     override suspend fun updateChapterRating(accessToken: String, seriesId: Int, chapterId: Int, rating: Float) {
+        calls += "update-rating:$chapterId:$rating"
         updatedRatingSeriesId = seriesId
         updatedRatingChapterId = chapterId
         updatedRating = rating
     }
     override suspend fun updateChapterReview(accessToken: String, seriesId: Int, chapterId: Int, body: String?): KavitaUserReviewDto {
+        calls += "update-review:$chapterId:${body.orEmpty()}"
         updatedReviewBody = body
         return KavitaUserReviewDto(seriesId = seriesId, chapterId = chapterId, body = body)
     }
     override suspend fun deleteChapterReview(accessToken: String, chapterId: Int) {
+        calls += "delete-review:$chapterId"
         deletedReviewChapterId = chapterId
         updatedReviewBody = null
     }

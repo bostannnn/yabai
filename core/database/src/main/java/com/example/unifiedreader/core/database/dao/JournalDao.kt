@@ -62,6 +62,9 @@ abstract class JournalDao {
     @Query("DELETE FROM item_journal_entries WHERE sourceType = :sourceType AND syncState = 'CLEAN'")
     abstract fun deleteCleanJournalEntriesForSource(sourceType: String): Int
 
+    @Query("DELETE FROM item_journal_entries WHERE sourceType = :sourceType AND syncState = 'CLEAN' AND itemId IN (:itemIds)")
+    abstract fun deleteCleanJournalEntriesForSourceItems(sourceType: String, itemIds: List<String>): Int
+
     @Query("DELETE FROM item_journal_entries WHERE itemId = :itemId")
     abstract fun deleteJournalEntry(itemId: String): Int
 
@@ -80,10 +83,13 @@ abstract class JournalDao {
         preserveRatingWhenIncomingBlank: Boolean = false,
         preserveReadingEventsWhenIncomingIncomplete: Boolean = false,
         readingEventReplacementItemIds: Set<String>? = null,
+        journalEntryReplacementItemIds: Set<String>? = null,
+        preserveRatingOnlyEntriesWhenIncomingMissing: Boolean = false,
+        ratingOnlyPreservationExcludedItemIds: Set<String>? = null,
     ) {
         val protectedEventIds = getDirtyReadingEventIdsForSource(sourceType).toSet()
         val protectedEntryIds = getDirtyJournalEntryIdsForSource(sourceType).toSet()
-        val cleanEntriesByItemId = if (preserveReviewFieldsWhenIncomingBlank) {
+        val cleanEntriesByItemId = if (preserveReviewFieldsWhenIncomingBlank || preserveRatingOnlyEntriesWhenIncomingMissing) {
             getCleanJournalEntriesForSource(sourceType).associateBy(ItemJournalEntryEntity::itemId)
         } else {
             emptyMap()
@@ -122,6 +128,19 @@ abstract class JournalDao {
         } else {
             emptyList()
         }
+        val reviewOnlyEntryIds = reviewOnlyEntries.mapTo(mutableSetOf(), ItemJournalEntryEntity::itemId)
+        val ratingOnlyPreservationExcludedIds = ratingOnlyPreservationExcludedItemIds.orEmpty()
+        val ratingOnlyEntries = if (preserveRatingOnlyEntriesWhenIncomingMissing) {
+            cleanEntriesByItemId.values.filter { entry ->
+                entry.itemId !in protectedEntryIds &&
+                    entry.itemId !in mergedEntryIds &&
+                    entry.itemId !in reviewOnlyEntryIds &&
+                    entry.itemId !in ratingOnlyPreservationExcludedIds &&
+                    entry.rating != null
+            }.map(ItemJournalEntryEntity::toRatingOnlyCacheEntry)
+        } else {
+            emptyList()
+        }
         if (readingEventReplacementItemIds != null) {
             val replaceItemIds = readingEventReplacementItemIds.filterNot(String::isBlank)
             if (replaceItemIds.isNotEmpty()) {
@@ -130,9 +149,16 @@ abstract class JournalDao {
         } else if (!preserveReadingEventsWhenIncomingIncomplete) {
             deleteCleanReadingEventsForSource(sourceType)
         }
-        deleteCleanJournalEntriesForSource(sourceType)
+        if (journalEntryReplacementItemIds != null) {
+            val replaceItemIds = journalEntryReplacementItemIds.filterNot(String::isBlank)
+            if (replaceItemIds.isNotEmpty()) {
+                deleteCleanJournalEntriesForSourceItems(sourceType, replaceItemIds)
+            }
+        } else {
+            deleteCleanJournalEntriesForSource(sourceType)
+        }
         insertReadingEvents(events.filterNot { event -> event.id in protectedEventIds })
-        insertJournalEntries(mergedEntries + reviewOnlyEntries)
+        insertJournalEntries(mergedEntries + reviewOnlyEntries + ratingOnlyEntries)
     }
 }
 
@@ -155,6 +181,24 @@ private fun ItemJournalEntryEntity.toReviewOnlyCacheEntry(
     updatedAtEpochMillis = reviewedAtEpochMillis ?: 0L,
     remoteEntryId = remoteEntryId,
     remoteReviewNoteId = remoteReviewNoteId,
+    remoteUpdatedAtEpochMillis = null,
+    syncState = syncState,
+)
+
+private fun ItemJournalEntryEntity.toRatingOnlyCacheEntry(): ItemJournalEntryEntity = ItemJournalEntryEntity(
+    itemId = itemId,
+    sourceType = sourceType,
+    libraryId = libraryId,
+    itemTitle = itemTitle,
+    coverUrl = coverUrl,
+    itemKind = itemKind,
+    format = format,
+    rating = rating,
+    reviewText = "",
+    reviewedAtEpochMillis = reviewedAtEpochMillis,
+    updatedAtEpochMillis = updatedAtEpochMillis,
+    remoteEntryId = null,
+    remoteReviewNoteId = null,
     remoteUpdatedAtEpochMillis = null,
     syncState = syncState,
 )

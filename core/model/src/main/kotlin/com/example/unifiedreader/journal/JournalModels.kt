@@ -199,6 +199,9 @@ interface JournalRepository : JournalEventRecorder {
         preserveRatingWhenIncomingBlank: Boolean = false,
         preserveReadingEventsWhenIncomingIncomplete: Boolean = false,
         readingEventReplacementItemIds: Set<String>? = null,
+        journalEntryReplacementItemIds: Set<String>? = null,
+        preserveRatingOnlyEntriesWhenIncomingMissing: Boolean = false,
+        ratingOnlyPreservationExcludedItemIds: Set<String>? = null,
     ) = Unit
 
     suspend fun getDirtyJournalEntriesForSource(

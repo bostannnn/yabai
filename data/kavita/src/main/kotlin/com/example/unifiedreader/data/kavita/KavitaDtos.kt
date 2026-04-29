@@ -152,6 +152,12 @@ data class KavitaChapterInfoDto(
 )
 
 @Serializable
+data class KavitaChapterDetailPlusDto(
+    val rating: Float? = null,
+    val hasBeenRated: Boolean? = null,
+)
+
+@Serializable
 data class KavitaFileDimensionDto(
     val width: Int? = null,
     val height: Int? = null,
