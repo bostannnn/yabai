@@ -39,6 +39,9 @@ abstract class JournalDao {
     @Query("SELECT id FROM journal_reading_sessions WHERE sourceType = :sourceType AND syncState IN ('DIRTY', 'FAILED')")
     abstract fun getDirtyReadingSessionIdsForSource(sourceType: String): List<String>
 
+    @Query("SELECT * FROM journal_reading_sessions WHERE sourceType = :sourceType AND syncState IN ('DIRTY', 'FAILED') ORDER BY endedAtEpochMillis ASC")
+    abstract fun getDirtyReadingSessionsForSource(sourceType: String): List<JournalReadingSessionEntity>
+
     @Query("SELECT * FROM journal_reading_sessions WHERE sourceType = :sourceType AND remoteSessionId IS NULL AND id LIKE 'local:%'")
     abstract fun getLocalReadingSessionsForSource(sourceType: String): List<JournalReadingSessionEntity>
 
@@ -59,6 +62,12 @@ abstract class JournalDao {
 
     @Query("DELETE FROM journal_reading_sessions WHERE sourceType = :sourceType AND syncState = 'CLEAN' AND itemId IN (:itemIds)")
     abstract fun deleteCleanReadingSessionsForSourceItems(sourceType: String, itemIds: List<String>): Int
+
+    @Query("DELETE FROM journal_reading_sessions WHERE id IN (:sessionIds)")
+    abstract fun deleteReadingSessionsByIds(sessionIds: List<String>): Int
+
+    @Query("UPDATE journal_reading_sessions SET syncState = :syncState WHERE id = :sessionId")
+    abstract fun updateReadingSessionSyncState(sessionId: String, syncState: String): Int
 
     @Query("DELETE FROM journal_reading_events WHERE itemId = :itemId")
     abstract fun deleteReadingEventsForItem(itemId: String): Int
@@ -122,13 +131,19 @@ abstract class JournalDao {
         ratingOnlyPreservationExcludedItemIds: Set<String>? = null,
     ) {
         val protectedEventIds = getDirtyReadingEventIdsForSource(sourceType).toSet()
-        markLocalReadingSessionsCleanForSource(sourceType)
         val localSessionsToPreserve = getLocalReadingSessionsForSource(sourceType)
             .filterNot { localSession ->
                 sessions.any { incomingSession -> incomingSession.overlaps(localSession) }
             }
         val localSessionIdsToPreserve = localSessionsToPreserve.mapTo(mutableSetOf(), JournalReadingSessionEntity::id)
-        val protectedSessionIds = getDirtyReadingSessionIdsForSource(sourceType).toSet() + localSessionIdsToPreserve
+        val dirtySessionIdsToReplace = getDirtyReadingSessionsForSource(sourceType)
+            .filter { dirtySession ->
+                sessions.any { incomingSession -> incomingSession.overlaps(dirtySession) }
+            }
+            .mapTo(mutableSetOf(), JournalReadingSessionEntity::id)
+        val protectedSessionIds = getDirtyReadingSessionIdsForSource(sourceType).toSet() -
+            dirtySessionIdsToReplace +
+            localSessionIdsToPreserve
         val protectedEntryIds = getDirtyJournalEntryIdsForSource(sourceType).toSet()
         val cleanEntriesByItemId = if (preserveReviewFieldsWhenIncomingBlank || preserveRatingOnlyEntriesWhenIncomingMissing) {
             getCleanJournalEntriesForSource(sourceType).associateBy(ItemJournalEntryEntity::itemId)
@@ -197,6 +212,9 @@ abstract class JournalDao {
             }
         } else if (!preserveReadingSessionsWhenIncomingIncomplete) {
             deleteCleanReadingSessionsForSource(sourceType)
+        }
+        if (dirtySessionIdsToReplace.isNotEmpty()) {
+            deleteReadingSessionsByIds(dirtySessionIdsToReplace.toList())
         }
         if (journalEntryReplacementItemIds != null) {
             val replaceItemIds = journalEntryReplacementItemIds.filterNot(String::isBlank)

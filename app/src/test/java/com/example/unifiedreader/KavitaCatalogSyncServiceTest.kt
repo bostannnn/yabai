@@ -21,7 +21,6 @@ import com.example.unifiedreader.data.kavita.KavitaProgressUpdate
 import com.example.unifiedreader.data.kavita.KavitaReadingHistoryItemDto
 import com.example.unifiedreader.data.kavita.KavitaSeriesEntry
 import com.example.unifiedreader.data.kavita.KavitaSession
-import com.example.unifiedreader.data.kavita.KavitaSeriesUpdateEntry
 import com.example.unifiedreader.data.kavita.KavitaUnauthorizedException
 import com.example.unifiedreader.data.kavita.KavitaUserReviewDto
 import com.example.unifiedreader.journal.ItemJournalEntry
@@ -172,6 +171,39 @@ class KavitaCatalogSyncServiceTest {
     }
 
     @Test
+    fun `sync reports kavita journal push failures`() = runBlocking {
+        val chapter = kavitaChapterEntry(chapterId = "99", libraryId = "5", seriesId = "12")
+        val api = FakeKavitaApi(
+            libraries = listOf(kavitaLibrary("5")),
+            series = listOf(kavitaSeriesEntry(id = "12", libraryId = "5")),
+            entriesBySeriesId = mapOf("12" to listOf(chapter)),
+        )
+        val service = KavitaCatalogSyncService(
+            kavitaApiFactory = KavitaApiFactory { _ -> api },
+            remoteCatalogWriter = RecordingKavitaRemoteCatalogWriter(),
+            journalRepository = KavitaRecordingJournalRepository(
+                dirtyEntries = listOf(journalEntry(chapter.item, rating = 8)),
+            ),
+        )
+
+        val result = service.sync(
+            request = KavitaCatalogSyncRequest(
+                displayName = "Kavita",
+                baseUrl = "https://kavita.example",
+                username = "reader",
+                accessToken = "saved-access-token",
+                apiKey = "saved-api-key",
+            ),
+        )
+
+        assertEquals(1, result.progressPushFailures.size)
+        assertEquals(
+            "Not needed in test.",
+            result.progressPushFailures.single().message,
+        )
+    }
+
+    @Test
     fun `sync retries with refreshed api key after token refresh`() = runBlocking {
         val api = FakeKavitaApi(
             libraries = listOf(kavitaLibrary("5")),
@@ -287,7 +319,7 @@ class KavitaCatalogSyncServiceTest {
     }
 
     @Test
-    fun `fast sync preserves unchanged kavita series without refetching detail`() = runBlocking {
+    fun `sync refetches unchanged kavita series details`() = runBlocking {
         val series = kavitaSeriesEntry(id = "12", libraryId = "5", addedAtEpochMillis = 500L)
         val api = FakeKavitaApi(
             libraries = listOf(kavitaLibrary("5")),
@@ -314,47 +346,15 @@ class KavitaCatalogSyncServiceTest {
         service.sync(request = request)
         service.sync(request = request)
 
-        assertEquals(listOf("12"), api.detailRequests)
-        assertEquals(2, api.recentlyUpdatedRequests)
+        assertEquals(listOf("12", "12"), api.detailRequests)
+        assertEquals(0, api.recentlyUpdatedRequests)
         assertTrue(api.progressRequests.isEmpty())
         assertEquals(listOf(SourceType.KAVITA.remoteItemId("99")), writer.lastItems.map { it.id })
-        assertEquals(500L, writer.lastItems.single().addedAtEpochMillis)
         assertEquals(3, readerSessionStore.progressByItemIdFlow.value[SourceType.KAVITA.remoteItemId("99")]?.page)
     }
 
     @Test
-    fun `full sync refetches unchanged kavita series details`() = runBlocking {
-        val series = kavitaSeriesEntry(id = "12", libraryId = "5")
-        val api = FakeKavitaApi(
-            libraries = listOf(kavitaLibrary("5")),
-            series = listOf(series),
-            entriesBySeriesId = mapOf(
-                "12" to listOf(kavitaChapterEntry(chapterId = "99", libraryId = "5", seriesId = "12")),
-            ),
-        )
-        val writer = RecordingKavitaRemoteCatalogWriter()
-        val service = KavitaCatalogSyncService(
-            kavitaApiFactory = KavitaApiFactory { _ -> api },
-            remoteCatalogWriter = writer,
-        )
-        val request = KavitaCatalogSyncRequest(
-            displayName = "Kavita",
-            baseUrl = "https://kavita.example",
-            username = "reader",
-            accessToken = "saved-access-token",
-            apiKey = "saved-api-key",
-            syncMode = KavitaCatalogSyncMode.FULL,
-        )
-
-        service.sync(request = request)
-        service.sync(request = request)
-
-        assertEquals(listOf("12", "12"), api.detailRequests)
-        assertEquals(listOf(SourceType.KAVITA.remoteItemId("99")), writer.lastItems.map { it.id })
-    }
-
-    @Test
-    fun `full sync does not require kavita recent update markers`() = runBlocking {
+    fun `sync does not require kavita recent update markers`() = runBlocking {
         val series = kavitaSeriesEntry(id = "12", libraryId = "5")
         val api = FakeKavitaApi(
             libraries = listOf(kavitaLibrary("5")),
@@ -377,43 +377,10 @@ class KavitaCatalogSyncServiceTest {
                 username = "reader",
                 accessToken = "saved-access-token",
                 apiKey = "saved-api-key",
-                syncMode = KavitaCatalogSyncMode.FULL,
             ),
         )
 
         assertEquals(0, api.recentlyUpdatedRequests)
-        assertEquals(listOf("12"), api.detailRequests)
-        assertEquals(listOf(SourceType.KAVITA.remoteItemId("99")), writer.lastItems.map { it.id })
-    }
-
-    @Test
-    fun `fast sync falls back to detail refresh when recent update markers fail`() = runBlocking {
-        val series = kavitaSeriesEntry(id = "12", libraryId = "5")
-        val api = FakeKavitaApi(
-            libraries = listOf(kavitaLibrary("5")),
-            series = listOf(series),
-            recentUpdatesFailure = IllegalStateException("recent updates unavailable"),
-            entriesBySeriesId = mapOf(
-                "12" to listOf(kavitaChapterEntry(chapterId = "99", libraryId = "5", seriesId = "12")),
-            ),
-        )
-        val writer = RecordingKavitaRemoteCatalogWriter()
-        val service = KavitaCatalogSyncService(
-            kavitaApiFactory = KavitaApiFactory { _ -> api },
-            remoteCatalogWriter = writer,
-        )
-
-        service.sync(
-            request = KavitaCatalogSyncRequest(
-                displayName = "Kavita",
-                baseUrl = "https://kavita.example",
-                username = "reader",
-                accessToken = "saved-access-token",
-                apiKey = "saved-api-key",
-            ),
-        )
-
-        assertEquals(1, api.recentlyUpdatedRequests)
         assertEquals(listOf("12"), api.detailRequests)
         assertEquals(listOf(SourceType.KAVITA.remoteItemId("99")), writer.lastItems.map { it.id })
     }
@@ -442,47 +409,6 @@ class KavitaCatalogSyncServiceTest {
         val secondApi = FakeKavitaApi(
             libraries = listOf(kavitaLibrary("5")),
             series = listOf(kavitaSeriesEntry(id = "12", libraryId = "5", lastChapterAddedAtEpochMillis = 101L)),
-            entriesBySeriesId = mapOf(
-                "12" to listOf(kavitaChapterEntry(chapterId = "100", libraryId = "5", seriesId = "12")),
-            ),
-        )
-
-        KavitaCatalogSyncService(
-            kavitaApiFactory = KavitaApiFactory { _ -> secondApi },
-            remoteCatalogWriter = writer,
-        ).sync(request = request)
-
-        assertEquals(listOf("12"), secondApi.detailRequests)
-        assertEquals(listOf(SourceType.KAVITA.remoteItemId("100")), writer.lastItems.map { it.id })
-    }
-
-    @Test
-    fun `sync refetches kavita series when update marker changes`() = runBlocking {
-        val writer = RecordingKavitaRemoteCatalogWriter()
-        val request = KavitaCatalogSyncRequest(
-            displayName = "Kavita",
-            baseUrl = "https://kavita.example",
-            username = "reader",
-            accessToken = "saved-access-token",
-            apiKey = "saved-api-key",
-        )
-        val series = kavitaSeriesEntry(id = "12", libraryId = "5", lastChapterAddedAtEpochMillis = 100L)
-        val firstApi = FakeKavitaApi(
-            libraries = listOf(kavitaLibrary("5")),
-            series = listOf(series),
-            recentlyUpdatedSeries = listOf(kavitaSeriesUpdateEntry(seriesId = "12", chapterId = "99", createdAt = 100L)),
-            entriesBySeriesId = mapOf(
-                "12" to listOf(kavitaChapterEntry(chapterId = "99", libraryId = "5", seriesId = "12")),
-            ),
-        )
-        KavitaCatalogSyncService(
-            kavitaApiFactory = KavitaApiFactory { _ -> firstApi },
-            remoteCatalogWriter = writer,
-        ).sync(request = request)
-        val secondApi = FakeKavitaApi(
-            libraries = listOf(kavitaLibrary("5")),
-            series = listOf(series),
-            recentlyUpdatedSeries = listOf(kavitaSeriesUpdateEntry(seriesId = "12", chapterId = "100", createdAt = 101L)),
             entriesBySeriesId = mapOf(
                 "12" to listOf(kavitaChapterEntry(chapterId = "100", libraryId = "5", seriesId = "12")),
             ),
@@ -585,19 +511,6 @@ private fun kavitaChapterEntry(
         updatedAtEpochMillis = 1775541600000L,
     ),
     isExplicitUnreadReset = false,
-)
-
-private fun kavitaSeriesUpdateEntry(
-    seriesId: String,
-    chapterId: String,
-    createdAt: Long,
-): KavitaSeriesUpdateEntry = KavitaSeriesUpdateEntry(
-    seriesId = seriesId,
-    libraryId = "5",
-    createdAtEpochMillis = createdAt,
-    chapterId = chapterId,
-    volumeId = "7",
-    count = 1,
 )
 
 private class RecordingKavitaRemoteCatalogWriter : RemoteCatalogWriter {
@@ -707,7 +620,9 @@ private class KavitaTestReaderSessionStore : ReaderSessionStore {
     override fun restoreItem(itemId: String) = Unit
 }
 
-private class KavitaRecordingJournalRepository : JournalRepository {
+private class KavitaRecordingJournalRepository(
+    private val dirtyEntries: List<ItemJournalEntry> = emptyList(),
+) : JournalRepository {
     private val snapshot = MutableStateFlow(JournalSnapshot())
     var replaceCount = 0
     var lastEntries = emptyList<ItemJournalEntry>()
@@ -722,6 +637,10 @@ private class KavitaRecordingJournalRepository : JournalRepository {
     override suspend fun saveJournalEntry(item: JournalItemRef, rating: Int?, reviewText: String) = Unit
 
     override suspend fun deleteItemJournal(itemId: String) = Unit
+
+    override suspend fun getDirtyJournalEntriesForSource(
+        sourceType: SourceType,
+    ): List<ItemJournalEntry> = dirtyEntries.filter { entry -> entry.sourceType == sourceType }
 
     override suspend fun replaceCleanSourceJournalCache(
         sourceType: SourceType,
@@ -744,10 +663,28 @@ private class KavitaRecordingJournalRepository : JournalRepository {
     }
 }
 
+private fun journalEntry(
+    item: ReadableItem,
+    rating: Int? = null,
+    reviewText: String = "",
+): ItemJournalEntry = ItemJournalEntry(
+    itemId = item.id,
+    sourceType = item.sourceType,
+    libraryId = item.libraryId,
+    itemTitle = item.title,
+    coverUrl = item.coverUrl,
+    itemKind = item.kind,
+    format = item.format,
+    rating = rating,
+    reviewText = reviewText,
+    reviewedAtEpochMillis = null,
+    updatedAtEpochMillis = 1_000L,
+    syncState = SyncState.DIRTY,
+)
+
 private class FakeKavitaApi(
     private val libraries: List<Library>,
     private val series: List<KavitaSeriesEntry>,
-    private val recentlyUpdatedSeries: List<KavitaSeriesUpdateEntry> = emptyList(),
     private val recentUpdatesFailure: Throwable? = null,
     private val entriesBySeriesId: Map<String, List<KavitaChapterCatalogEntry>> = emptyMap(),
     private val unauthorizedSeriesRequests: Int = 0,
@@ -807,10 +744,10 @@ private class FakeKavitaApi(
 
     override suspend fun getRecentlyUpdatedSeries(
         accessToken: String,
-    ): List<KavitaSeriesUpdateEntry> {
+    ): List<com.example.unifiedreader.data.kavita.KavitaSeriesUpdateEntry> {
         recentlyUpdatedRequests += 1
         recentUpdatesFailure?.let { throw it }
-        return recentlyUpdatedSeries
+        return emptyList()
     }
 
     override suspend fun getSeriesDetail(

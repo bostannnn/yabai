@@ -15,11 +15,13 @@ class GrimmoryJournalSessionClientAdapter @Inject constructor(
     override suspend fun pushDirtyJournalEntries(
         items: List<ReadableItem>,
         journalRepository: JournalRepository,
-    ) {
-        val session = grimmoryCredentialStore.sessionFlow.value ?: return
+        pushJournalEntries: Boolean,
+        pushReadingSessions: Boolean,
+    ): List<Throwable> {
+        val session = grimmoryCredentialStore.sessionFlow.value ?: return emptyList()
         val grimmoryItems = items.forActiveGrimmoryServer(session)
-        if (grimmoryItems.isEmpty()) return
-        runWithStoredSessionAddressFailover(
+        if (grimmoryItems.isEmpty()) return emptyList()
+        return runWithStoredSessionAddressFailover(
             sessionStore = grimmoryCredentialStore,
             session = session,
             createApi = grimmoryApiFactory::create,
@@ -36,6 +38,8 @@ class GrimmoryJournalSessionClientAdapter @Inject constructor(
                     accessToken = accessToken,
                     entries = grimmoryItems,
                     journalRepository = journalRepository,
+                    pushJournalEntries = pushJournalEntries,
+                    pushReadingSessions = pushReadingSessions,
                 )
             }
         }

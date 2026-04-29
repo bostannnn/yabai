@@ -190,10 +190,14 @@ suspend fun pushDirtyGrimmoryJournalEntries(
     accessToken: String,
     entries: List<ReadableItem>,
     journalRepository: JournalRepository?,
-) {
-    val repository = journalRepository ?: return
+    pushJournalEntries: Boolean = true,
+    pushReadingSessions: Boolean = true,
+): List<Throwable> {
+    val repository = journalRepository ?: return emptyList()
+    if (!pushJournalEntries && !pushReadingSessions) return emptyList()
+    val failures = mutableListOf<Throwable>()
     val itemById = entries.associateBy(ReadableItem::id)
-    repository.getDirtyJournalEntriesForSource(SourceType.GRIMMORY).forEach { entry ->
+    if (pushJournalEntries) repository.getDirtyJournalEntriesForSource(SourceType.GRIMMORY).forEach { entry ->
         var syncedRemoteReviewNoteId = entry.remoteReviewNoteId
         runCatching {
             val item = itemById[entry.itemId] ?: error("No Grimmory catalog item for journal entry ${entry.itemId}")
@@ -249,9 +253,76 @@ suspend fun pushDirtyGrimmoryJournalEntries(
                 is CancellationException,
                 is GrimmoryUnauthorizedException -> throw error
             }
+            failures += error
             repository.markJournalEntrySyncState(entry.itemId, SyncState.FAILED)
         }
     }
+    if (pushReadingSessions) repository.getDirtyReadingSessionsForSource(SourceType.GRIMMORY)
+        .filter { session -> session.itemId in itemById }
+        .forEach { session ->
+            runCatching {
+                val item = itemById[session.itemId] ?: error("No Grimmory catalog item for reading session ${session.itemId}")
+                api.createReadingSession(
+                    accessToken = accessToken,
+                    session = session.toGrimmoryReadingSessionRequest(item),
+                )
+            }.onSuccess {
+                repository.markReadingSessionSyncState(session.id, SyncState.CLEAN)
+            }.onFailure { error ->
+                when (error) {
+                    is CancellationException,
+                    is GrimmoryUnauthorizedException -> throw error
+                }
+                failures += error
+                repository.markReadingSessionSyncState(session.id, SyncState.FAILED)
+            }
+        }
+    return failures
+}
+
+private fun JournalReadingSession.toGrimmoryReadingSessionRequest(
+    item: ReadableItem,
+): GrimmoryReadingSessionRequest {
+    val startProgress = fromPercent?.toGrimmorySessionProgress()
+    val endProgress = toPercent?.toGrimmorySessionProgress()
+    val remoteBookId = item.remoteId
+        ?: error("Grimmory reading session $id has no remote book id")
+    return GrimmoryReadingSessionRequest(
+        bookId = remoteBookId.toLongOrNull()
+            ?: error("Grimmory reading session $id has non-numeric remote book id: $remoteBookId"),
+        bookType = item.remoteFileType ?: item.format.name,
+        startTime = Instant.ofEpochMilli(startedAtEpochMillis).toString(),
+        endTime = Instant.ofEpochMilli(endedAtEpochMillis).toString(),
+        durationSeconds = durationMillis.toDurationSeconds(),
+        durationFormatted = durationMillis.toDurationLabel(),
+        startProgress = startProgress,
+        endProgress = endProgress,
+        progressDelta = if (startProgress != null && endProgress != null) {
+            endProgress - startProgress
+        } else {
+            null
+        },
+        startLocation = fromPage?.toString(),
+        endLocation = toPage?.toString(),
+    )
+}
+
+private fun Double.toGrimmorySessionProgress(): Float =
+    (coerceIn(0.0, 1.0) * 100.0).toFloat()
+
+private fun Long.toDurationSeconds(): Int =
+    div(1_000L).coerceAtLeast(1L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+
+private fun Long.toDurationLabel(): String {
+    val totalSeconds = toDurationSeconds()
+    val hours = totalSeconds / 3_600
+    val minutes = (totalSeconds % 3_600) / 60
+    val seconds = totalSeconds % 60
+    return buildList {
+        if (hours > 0) add("${hours}h")
+        if (minutes > 0) add("${minutes}m")
+        if (seconds > 0 || isEmpty()) add("${seconds}s")
+    }.joinToString(" ")
 }
 
 private fun GrimmoryBookCatalogEntry.toJournalEntry(): ItemJournalEntry? {

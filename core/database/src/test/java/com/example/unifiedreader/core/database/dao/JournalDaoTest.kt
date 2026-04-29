@@ -487,7 +487,7 @@ class JournalDaoTest {
     }
 
     @Test
-    fun `replace clean source journal cache preserves legacy dirty local sessions as clean when not overlapping`() {
+    fun `replace clean source journal cache preserves non-overlapping dirty local sessions as dirty`() {
         val database = Room.inMemoryDatabaseBuilder(
             ApplicationProvider.getApplicationContext(),
             UnifiedReaderDatabase::class.java,
@@ -529,8 +529,57 @@ class JournalDaoTest {
                 sessions.map(JournalReadingSessionEntity::id).toSet(),
             )
             assertEquals(
-                setOf("CLEAN"),
-                sessions.map(JournalReadingSessionEntity::syncState).toSet(),
+                mapOf(
+                    "local:item-1:100:200" to "DIRTY",
+                    "remote-session" to "CLEAN",
+                ),
+                sessions.associate { session -> session.id to session.syncState },
+            )
+        } finally {
+            database.close()
+        }
+    }
+
+    @Test
+    fun `replace clean source journal cache replaces overlapping failed local sessions`() {
+        val database = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            UnifiedReaderDatabase::class.java,
+        )
+            .allowMainThreadQueries()
+            .build()
+
+        try {
+            val dao = database.journalDao()
+            dao.insertReadingSession(
+                journalSession(
+                    id = "local:item-1:100:200",
+                    itemId = "item-1",
+                    syncState = "FAILED",
+                    startedAt = 100L,
+                    endedAt = 200L,
+                ),
+            )
+
+            dao.replaceCleanSourceJournalCache(
+                sourceType = "KAVITA",
+                events = emptyList(),
+                entries = emptyList(),
+                sessions = listOf(
+                    journalSession(
+                        id = "remote-session",
+                        itemId = "item-1",
+                        syncState = "CLEAN",
+                        startedAt = 150L,
+                        endedAt = 250L,
+                        remoteSessionId = "remote-1",
+                    ),
+                ),
+            )
+
+            assertEquals(
+                listOf("remote-session"),
+                dao.getReadingSessionsForItem("item-1").map(JournalReadingSessionEntity::id),
             )
         } finally {
             database.close()

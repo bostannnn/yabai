@@ -8,7 +8,9 @@ interface GrimmoryJournalSessionClient {
     suspend fun pushDirtyJournalEntries(
         items: List<ReadableItem>,
         journalRepository: JournalRepository,
-    )
+        pushJournalEntries: Boolean,
+        pushReadingSessions: Boolean,
+    ): List<Throwable>
 }
 
 class GrimmoryRemoteJournalPusher(
@@ -17,12 +19,16 @@ class GrimmoryRemoteJournalPusher(
 ) {
     suspend fun pushPendingJournalEntries(
         items: List<ReadableItem>,
-    ) {
+        pushJournalEntries: Boolean = true,
+        pushReadingSessions: Boolean = true,
+    ): List<Throwable> {
         val grimmoryItems = items.filter { item -> item.sourceType == SourceType.GRIMMORY }
-        if (grimmoryItems.isEmpty()) return
-        sessionClient.pushDirtyJournalEntries(
+        if (grimmoryItems.isEmpty() || (!pushJournalEntries && !pushReadingSessions)) return emptyList()
+        return sessionClient.pushDirtyJournalEntries(
             items = grimmoryItems,
             journalRepository = journalRepository,
+            pushJournalEntries = pushJournalEntries,
+            pushReadingSessions = pushReadingSessions,
         )
     }
 }

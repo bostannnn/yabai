@@ -9,6 +9,7 @@ import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadingProgress
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
 import com.example.unifiedreader.data.grimmory.GrimmoryApi
@@ -109,6 +110,38 @@ class GrimmoryCatalogSyncServiceTest {
         assertEquals(listOf(SourceType.GRIMMORY.remoteLibraryId("g-books")), writer.libraries.map(LibraryEntity::id))
         assertEquals(listOf(SourceType.GRIMMORY.remoteItemId("book-1")), writer.items.map(ReadableItemEntity::id))
         assertEquals(1775046600000L, writer.items.single().updatedAtEpochMillis)
+    }
+
+    @Test
+    fun `sync reports grimmory journal push failures`() = runBlocking {
+        val library = grimmoryLibrary("g-books")
+        val item = grimmoryItem(remoteId = "book-1", libraryRemoteId = "g-books")
+        val api = FakeGrimmoryApi(
+            libraries = listOf(library),
+            allBookEntries = listOf(GrimmoryBookCatalogEntry(item = item, progress = null)),
+        )
+        val service = GrimmoryCatalogSyncService(
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
+            remoteCatalogWriter = RecordingRemoteCatalogWriter(),
+            journalRepository = GrimmoryRecordingJournalRepository(
+                dirtyEntries = listOf(journalEntry(item, rating = 8)),
+            ),
+        )
+
+        val result = service.sync(
+            GrimmoryCatalogSyncRequest(
+                displayName = "Grimmory",
+                baseUrl = "https://grimmory.example/",
+                username = "user",
+                password = "password",
+            ),
+        )
+
+        assertEquals(1, result.progressPushFailures.size)
+        assertEquals(
+            "Updating Grimmory rating is not implemented.",
+            result.progressPushFailures.single().message,
+        )
     }
 
     @Test
@@ -637,7 +670,9 @@ private class RecordingRemoteCatalogWriter : RemoteCatalogWriter {
     }
 }
 
-private class GrimmoryRecordingJournalRepository : JournalRepository {
+private class GrimmoryRecordingJournalRepository(
+    private val dirtyEntries: List<ItemJournalEntry> = emptyList(),
+) : JournalRepository {
     private val snapshot = MutableStateFlow(JournalSnapshot())
     var replaceCount = 0
     var lastEvents = emptyList<JournalReadingEvent>()
@@ -653,6 +688,10 @@ private class GrimmoryRecordingJournalRepository : JournalRepository {
     override suspend fun saveJournalEntry(item: JournalItemRef, rating: Int?, reviewText: String) = Unit
 
     override suspend fun deleteItemJournal(itemId: String) = Unit
+
+    override suspend fun getDirtyJournalEntriesForSource(
+        sourceType: SourceType,
+    ): List<ItemJournalEntry> = dirtyEntries.filter { entry -> entry.sourceType == sourceType }
 
     override suspend fun replaceCleanSourceJournalCache(
         sourceType: SourceType,
@@ -675,6 +714,25 @@ private class GrimmoryRecordingJournalRepository : JournalRepository {
         lastSessions = sessions
     }
 }
+
+private fun journalEntry(
+    item: ReadableItem,
+    rating: Int? = null,
+    reviewText: String = "",
+): ItemJournalEntry = ItemJournalEntry(
+    itemId = item.id,
+    sourceType = item.sourceType,
+    libraryId = item.libraryId,
+    itemTitle = item.title,
+    coverUrl = item.coverUrl,
+    itemKind = item.kind,
+    format = item.format,
+    rating = rating,
+    reviewText = reviewText,
+    reviewedAtEpochMillis = null,
+    updatedAtEpochMillis = 1_000L,
+    syncState = SyncState.DIRTY,
+)
 
 private class FakeGrimmoryApi(
     private val libraries: List<Library>,

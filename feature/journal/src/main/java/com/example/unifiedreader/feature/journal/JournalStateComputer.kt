@@ -330,7 +330,7 @@ private fun computeTopFacetSections(
             facetType = JournalFacetType.PENCILLER,
             rows = activeItems.topFacetRows(JournalMediaType.COMIC) { item -> item.facetMetadata().pencillers },
         ),
-    ).filter { section -> section.rows.isNotEmpty() }
+    )
 }
 
 private fun List<JournalItemSummary>.topFacetRows(

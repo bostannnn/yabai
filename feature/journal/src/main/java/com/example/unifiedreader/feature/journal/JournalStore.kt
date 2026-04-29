@@ -178,6 +178,13 @@ class RoomJournalRepository(
             .map { entity -> entity.toDomain() }
     }
 
+    override suspend fun getDirtyReadingSessionsForSource(
+        sourceType: SourceType,
+    ): List<JournalReadingSession> = withContext(Dispatchers.IO) {
+        journalDao.getDirtyReadingSessionsForSource(sourceType.name)
+            .map { entity -> entity.toDomain() }
+    }
+
     override suspend fun markJournalEntrySyncState(
         itemId: String,
         syncState: SyncState,
@@ -193,6 +200,15 @@ class RoomJournalRepository(
     ) {
         withContext(Dispatchers.IO) {
             journalDao.updateJournalEntryRemoteReviewNoteId(itemId, remoteReviewNoteId)
+        }
+    }
+
+    override suspend fun markReadingSessionSyncState(
+        sessionId: String,
+        syncState: SyncState,
+    ) {
+        withContext(Dispatchers.IO) {
+            journalDao.updateReadingSessionSyncState(sessionId, syncState.name)
         }
     }
 }
@@ -222,7 +238,7 @@ private fun buildJournalReadingSession(
         fromPage = input.fromPage,
         toPage = input.toPage,
         pageCount = input.pageCount ?: input.item.pageCount,
-        syncState = SyncState.CLEAN,
+        syncState = input.syncState ?: SyncState.CLEAN,
     )
 }
 

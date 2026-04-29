@@ -29,16 +29,9 @@ internal suspend fun pushDirtyGrimmoryProgress(
         .forEach { progress ->
         val item = itemsById[progress.itemId] ?: return@forEach
         if (progress.syncState != SyncState.DIRTY && progress.syncState != SyncState.FAILED) return@forEach
+        val remoteItemId = item.remoteId ?: return@forEach
         val update = if (progress.isExplicitUnreadReset) {
-            GrimmoryProgressUpdate(
-                bookId = item.remoteId ?: return@forEach,
-                bookFileId = item.remoteFileId,
-                bookType = item.remoteFileType ?: item.format.name,
-                positionData = "0",
-                percent = 0.0,
-                clearsFinishedState = true,
-                updatedAtEpochMillis = progress.updatedAtEpochMillis,
-            )
+            null
         } else {
             progress.toGrimmoryProgressUpdate(item) ?: return@forEach
         }
@@ -47,10 +40,17 @@ internal suspend fun pushDirtyGrimmoryProgress(
                 initialAccessToken = activeAccessToken,
                 initialRefreshToken = activeRefreshToken,
             ) { token ->
-                api.updateProgress(
-                    accessToken = token,
-                    progress = update,
-                )
+                if (progress.isExplicitUnreadReset) {
+                    api.resetBookProgress(
+                        accessToken = token,
+                        bookId = remoteItemId,
+                    )
+                } else {
+                    api.updateProgress(
+                        accessToken = token,
+                        progress = checkNotNull(update),
+                    )
+                }
             }
         }.onSuccess {
             activeAccessToken = it.accessToken

@@ -558,6 +558,7 @@ class KavitaJournalSyncSupportTest {
         assertEquals(SyncState.CLEAN, repository.markedSyncStates[successfulItem.id])
         assertEquals(43, api.updatedRatingChapterId)
     }
+
 }
 
 private class RecordingJournalRepository(

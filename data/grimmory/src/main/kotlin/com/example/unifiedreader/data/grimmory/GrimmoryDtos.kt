@@ -120,6 +120,21 @@ data class GrimmoryReadingSessionDto(
 )
 
 @Serializable
+internal data class GrimmoryReadingSessionRequestDto(
+    val bookId: Long,
+    val bookType: String? = null,
+    val startTime: String,
+    val endTime: String,
+    val durationSeconds: Int,
+    val durationFormatted: String? = null,
+    val startProgress: Float? = null,
+    val endProgress: Float? = null,
+    val progressDelta: Float? = null,
+    val startLocation: String? = null,
+    val endLocation: String? = null,
+)
+
+@Serializable
 data class GrimmoryBookNoteV2Dto(
     val id: Long? = null,
     val userId: Long? = null,

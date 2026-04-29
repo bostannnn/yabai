@@ -94,6 +94,11 @@ interface GrimmoryApi {
         progress: GrimmoryProgressUpdate,
     ): Unit = error("Updating Grimmory progress is not implemented.")
 
+    suspend fun resetBookProgress(
+        accessToken: String,
+        bookId: String,
+    ): Unit = error("Resetting Grimmory progress is not implemented.")
+
     suspend fun updatePersonalRating(
         accessToken: String,
         bookId: String,
@@ -110,6 +115,11 @@ interface GrimmoryApi {
         bookId: String,
         pageSize: Int = 100,
     ): List<GrimmoryReadingSessionDto> = error("Fetching Grimmory reading sessions is not implemented.")
+
+    suspend fun createReadingSession(
+        accessToken: String,
+        session: GrimmoryReadingSessionRequest,
+    ): Unit = error("Creating Grimmory reading sessions is not implemented.")
 
     suspend fun getBookNotesV2(
         accessToken: String,
@@ -186,6 +196,20 @@ data class GrimmoryProgressUpdate(
     val isFinished: Boolean = false,
     val clearsFinishedState: Boolean = false,
     val updatedAtEpochMillis: Long? = null,
+)
+
+data class GrimmoryReadingSessionRequest(
+    val bookId: Long,
+    val bookType: String?,
+    val startTime: String,
+    val endTime: String,
+    val durationSeconds: Int,
+    val durationFormatted: String?,
+    val startProgress: Float?,
+    val endProgress: Float?,
+    val progressDelta: Float?,
+    val startLocation: String?,
+    val endLocation: String?,
 )
 
 data class GrimmoryBookCatalogEntry(
@@ -349,6 +373,24 @@ class KtorGrimmoryApi(
         }
     }
 
+    override suspend fun resetBookProgress(
+        accessToken: String,
+        bookId: String,
+    ) {
+        val parsedBookId = bookId.toLongOrNull()
+            ?: error("Grimmory bookId must be numeric: $bookId")
+        authenticatedRequest {
+            val response = httpClient.post("$normalizedBaseUrl/api/v1/books/reset-progress?type=BOOKLORE") {
+                bearerAuth(accessToken)
+                contentType(ContentType.Application.Json)
+                setBody(listOf(parsedBookId))
+            }
+            if (!response.status.isSuccess()) {
+                response.throwIfGrimmoryError()
+            }
+        }
+    }
+
     override suspend fun updatePersonalRating(
         accessToken: String,
         bookId: String,
@@ -407,6 +449,18 @@ class KtorGrimmoryApi(
             if (!decodedPage.hasNextPage(page, safePageSize)) break
         }
         sessions
+    }
+
+    override suspend fun createReadingSession(
+        accessToken: String,
+        session: GrimmoryReadingSessionRequest,
+    ): Unit = authenticatedRequest {
+        val response = httpClient.post("$normalizedBaseUrl/api/v1/reading-sessions") {
+            bearerAuth(accessToken)
+            contentType(ContentType.Application.Json)
+            setBody(session.toRequestDto())
+        }
+        response.throwIfGrimmoryError()
     }
 
     override suspend fun getBookNotesV2(
@@ -612,6 +666,21 @@ private fun String.decodeGrimmoryReadingSessionPage(): DecodedGrimmoryReadingSes
         last = page.last,
     )
 }
+
+private fun GrimmoryReadingSessionRequest.toRequestDto(): GrimmoryReadingSessionRequestDto =
+    GrimmoryReadingSessionRequestDto(
+        bookId = bookId,
+        bookType = bookType,
+        startTime = startTime,
+        endTime = endTime,
+        durationSeconds = durationSeconds,
+        durationFormatted = durationFormatted,
+        startProgress = startProgress,
+        endProgress = endProgress,
+        progressDelta = progressDelta,
+        startLocation = startLocation,
+        endLocation = endLocation,
+    )
 
 private fun String.toGrimmoryErrorMessage(
     statusDescription: String,

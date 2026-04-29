@@ -261,7 +261,7 @@ class GrimmoryProgressSyncServiceTest {
     }
 
     @Test
-    fun `unread reset Grimmory progress explicitly clears finished state`() = runBlocking {
+    fun `unread reset Grimmory progress uses reset endpoint`() = runBlocking {
         val item = grimmoryItem(remoteId = "book-1")
         val readerSessionStore = ProgressSyncTestReaderSessionStore().apply {
             saveProgress(
@@ -289,10 +289,8 @@ class GrimmoryProgressSyncServiceTest {
 
         service.pushPendingProgress(listOf(item))
 
-        val update = api.progressUpdates.single()
-        assertEquals(true, update.clearsFinishedState)
-        assertEquals(false, update.isFinished)
-        assertEquals(456L, update.updatedAtEpochMillis)
+        assertEquals(emptyList<GrimmoryProgressUpdate>(), api.progressUpdates)
+        assertEquals(listOf("book-1"), api.resetProgressBookIds)
         assertNull(readerSessionStore.getProgress(item))
     }
 
@@ -452,6 +450,7 @@ private class RecordingGrimmoryApi(
     private val beforeUpdateThrows: (suspend () -> Unit)? = null,
 ) : GrimmoryApi {
     val progressUpdates = mutableListOf<GrimmoryProgressUpdate>()
+    val resetProgressBookIds = mutableListOf<String>()
     val requestedBookIds = mutableListOf<String>()
 
     override suspend fun login(
@@ -492,5 +491,14 @@ private class RecordingGrimmoryApi(
         beforeUpdateThrows?.invoke()
         updateError?.let { throw it }
         progressUpdates += progress
+    }
+
+    override suspend fun resetBookProgress(
+        accessToken: String,
+        bookId: String,
+    ) {
+        beforeUpdateThrows?.invoke()
+        updateError?.let { throw it }
+        resetProgressBookIds += bookId
     }
 }

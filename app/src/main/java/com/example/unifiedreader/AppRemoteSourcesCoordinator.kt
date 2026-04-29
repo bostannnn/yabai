@@ -174,15 +174,7 @@ class AppRemoteSourcesCoordinator @Inject constructor(
         updateState: AppUiStateUpdater,
         scope: CoroutineScope,
     ) {
-        kavitaController.refresh(stateProvider, updateState, scope, KavitaCatalogSyncMode.FAST)
-    }
-
-    fun fullResyncKavitaLibrary(
-        stateProvider: AppUiStateProvider,
-        updateState: AppUiStateUpdater,
-        scope: CoroutineScope,
-    ) {
-        kavitaController.refresh(stateProvider, updateState, scope, KavitaCatalogSyncMode.FULL)
+        kavitaController.refresh(stateProvider, updateState, scope)
     }
 
     fun refreshStumpLibrary(

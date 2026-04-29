@@ -9,6 +9,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.remoteLibraryId
 import com.example.unifiedreader.data.repository.JournalEntrySaveUseCase
+import com.example.unifiedreader.data.repository.FlushPendingRemoteArtifactsUseCase
 import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
 import com.example.unifiedreader.data.repository.RemoteJournalPusherRegistry
@@ -274,8 +275,13 @@ internal fun createViewModel(
             pendingProgressFlushCoordinator = AppPendingProgressFlushCoordinator(
                 readerSessionStore = readerSessionStore,
                 readableItemRepository = readableItemRepository,
-                flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
-                    sourceProgressSyncRegistry = sourceProgressSyncRegistry,
+                journalRepository = journalRepository,
+                flushPendingRemoteArtifactsUseCase = FlushPendingRemoteArtifactsUseCase(
+                    flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
+                        sourceProgressSyncRegistry = sourceProgressSyncRegistry,
+                    ),
+                    remoteJournalPusher = remoteJournalPusher,
+                    sourceJournalPushers = emptyList(),
                 ),
                 remoteItemLocalAvailability = remoteItemLocalAvailability,
                 remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
@@ -332,22 +338,28 @@ internal fun createViewModel(
         journalRepository = journalRepository,
         journalEntrySaveUseCase = JournalEntrySaveUseCase(
             journalRepository = journalRepository,
-            remoteJournalPusher = remoteJournalPusher,
+            flushPendingRemoteArtifactsUseCase = FlushPendingRemoteArtifactsUseCase(
+                flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
+                    sourceProgressSyncRegistry = sourceProgressSyncRegistry,
+                ),
+                remoteJournalPusher = remoteJournalPusher,
+                sourceJournalPushers = emptyList(),
+            ),
             readableItemRepository = readableItemRepository,
         ),
         progressSyncStartupRetryCoordinator = progressSyncStartupRetryCoordinator ?: AppProgressSyncStartupRetryCoordinator(
             readableItemRepository = readableItemRepository,
             readerSessionStore = readerSessionStore,
             remoteCatalogReadiness = remoteCatalogReadiness,
-            flushPendingProgressOnStartupUseCase = FlushPendingProgressOnStartupUseCase(
-                progressSyncStore = ReaderSessionProgressStoreAdapter(readerSessionStore),
+            flushPendingRemoteArtifactsUseCase = FlushPendingRemoteArtifactsUseCase(
                 flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
                     sourceProgressSyncRegistry = sourceProgressSyncRegistry,
                 ),
+                remoteJournalPusher = remoteJournalPusher,
+                sourceJournalPushers = emptyList(),
             ),
             remoteItemLocalAvailability = remoteItemLocalAvailability,
             remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
-            remoteJournalPusher = remoteJournalPusher,
         ),
         coverPreloadController = coverPreloadController ?: AppCoverPreloadController(
             remoteCoverPreloader = RemoteCoverPreloader(

@@ -278,6 +278,7 @@ data class JournalReadingSessionInput(
     val pageCount: Int? = null,
     val fromPercent: Double? = null,
     val toPercent: Double? = null,
+    val syncState: SyncState? = null,
 )
 
 interface JournalEventRecorder {
@@ -329,6 +330,10 @@ interface JournalRepository : JournalEventRecorder {
         sourceType: SourceType,
     ): List<ItemJournalEntry> = emptyList()
 
+    suspend fun getDirtyReadingSessionsForSource(
+        sourceType: SourceType,
+    ): List<JournalReadingSession> = emptyList()
+
     suspend fun markJournalEntrySyncState(
         itemId: String,
         syncState: SyncState,
@@ -337,6 +342,11 @@ interface JournalRepository : JournalEventRecorder {
     suspend fun updateJournalEntryRemoteReviewNoteId(
         itemId: String,
         remoteReviewNoteId: String?,
+    ) = Unit
+
+    suspend fun markReadingSessionSyncState(
+        sessionId: String,
+        syncState: SyncState,
     ) = Unit
 }
 

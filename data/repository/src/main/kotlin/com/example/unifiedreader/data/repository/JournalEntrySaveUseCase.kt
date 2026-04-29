@@ -11,15 +11,19 @@ interface RemoteJournalPusher {
     suspend fun pushPendingJournalEntries(
         sourceType: SourceType,
         items: List<ReadableItem>,
-    )
+        artifacts: Set<RemoteSyncArtifact>,
+    ): List<Throwable>
 }
 
-interface SourceRemoteJournalPusher {
-    val sourceType: SourceType
+interface SourceRemoteJournalPusher : SourceRemoteArtifactSupport {
+    override val sourceType: SourceType
+    override val supportedArtifacts: Set<RemoteSyncArtifact>
+        get() = setOf(RemoteSyncArtifact.JOURNAL_ENTRY)
 
     suspend fun pushPendingJournalEntries(
         items: List<ReadableItem>,
-    )
+        artifacts: Set<RemoteSyncArtifact>,
+    ): List<Throwable>
 }
 
 class RemoteJournalPusherRegistry @Inject constructor(
@@ -28,16 +32,17 @@ class RemoteJournalPusherRegistry @Inject constructor(
     override suspend fun pushPendingJournalEntries(
         sourceType: SourceType,
         items: List<ReadableItem>,
-    ) {
+        artifacts: Set<RemoteSyncArtifact>,
+    ): List<Throwable> =
         sourcePushers
             .firstOrNull { pusher -> pusher.sourceType == sourceType }
-            ?.pushPendingJournalEntries(items)
-    }
+            ?.pushPendingJournalEntries(items, artifacts)
+            .orEmpty()
 }
 
 class JournalEntrySaveUseCase @Inject constructor(
     private val journalRepository: JournalRepository,
-    private val remoteJournalPusher: RemoteJournalPusher,
+    private val flushPendingRemoteArtifactsUseCase: FlushPendingRemoteArtifactsUseCase,
     private val readableItemRepository: ReadableItemRepository,
 ) {
     suspend operator fun invoke(
@@ -50,9 +55,11 @@ class JournalEntrySaveUseCase @Inject constructor(
             rating = rating,
             reviewText = reviewText,
         )
-        remoteJournalPusher.pushPendingJournalEntries(
-            sourceType = item.sourceType,
-            items = readableItemRepository.getItems().withJournalItem(item),
+        flushPendingRemoteArtifactsUseCase(
+            RemoteArtifactFlushRequest(
+                items = readableItemRepository.getItems().withJournalItem(item),
+                artifacts = setOf(RemoteSyncArtifact.JOURNAL_ENTRY),
+            ),
         )
     }
 }

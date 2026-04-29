@@ -470,7 +470,11 @@ class JournalStateComputerTest {
         val overview = computePeriodOverview(snapshot, JournalPeriod.MONTH, april10)
 
         assertEquals(mapOf(8 to 1), overview.stats.ratingCountsByMediaType[JournalMediaType.BOOK])
-        assertEquals(emptyList<JournalFacetSection>(), overview.topFacets)
+        assertEquals(
+            listOf("Book genres", "Book authors", "Comic genres", "Comic tags", "Comic writers", "Comic pencillers"),
+            overview.topFacets.map(JournalFacetSection::title),
+        )
+        assertEquals(emptyList<JournalFacetRow>(), overview.topFacets.flatMap(JournalFacetSection::rows))
         assertEquals(emptyList<JournalItemSummary>(), overview.activeItems)
     }
 

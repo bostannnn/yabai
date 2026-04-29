@@ -8,7 +8,8 @@ interface KavitaJournalSessionClient {
     suspend fun pushDirtyJournalEntries(
         items: List<ReadableItem>,
         journalRepository: JournalRepository,
-    )
+        pushJournalEntries: Boolean,
+    ): List<Throwable>
 }
 
 class KavitaRemoteJournalPusher(
@@ -17,12 +18,14 @@ class KavitaRemoteJournalPusher(
 ) {
     suspend fun pushPendingJournalEntries(
         items: List<ReadableItem>,
-    ) {
+        pushJournalEntries: Boolean = true,
+    ): List<Throwable> {
         val kavitaItems = items.filter { item -> item.sourceType == SourceType.KAVITA }
-        if (kavitaItems.isEmpty()) return
-        sessionClient.pushDirtyJournalEntries(
+        if (kavitaItems.isEmpty() || !pushJournalEntries) return emptyList()
+        return sessionClient.pushDirtyJournalEntries(
             items = kavitaItems,
             journalRepository = journalRepository,
+            pushJournalEntries = pushJournalEntries,
         )
     }
 }

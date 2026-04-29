@@ -20,6 +20,7 @@ import com.example.unifiedreader.data.kavita.KtorKavitaApi
 import com.example.unifiedreader.core.model.progress.ProgressSyncStore
 import com.example.unifiedreader.data.repository.RemoteJournalPusher
 import com.example.unifiedreader.data.repository.RemoteJournalPusherRegistry
+import com.example.unifiedreader.data.repository.RemoteSyncArtifact
 import com.example.unifiedreader.data.stump.KtorStumpApi
 import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
@@ -226,7 +227,13 @@ object AppModule {
     @Provides
     fun provideJournalReadingSessionRecorder(
         repository: RoomJournalRepository,
-    ): JournalReadingSessionRecorder = repository
+        remoteItemLocalAvailability: RemoteItemLocalAvailability,
+        remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
+    ): JournalReadingSessionRecorder = RemoteAwareJournalReadingSessionRecorder(
+        delegate = repository,
+        remoteItemLocalAvailability = remoteItemLocalAvailability,
+        remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+    )
 
     @Provides
     fun provideRemoteJournalPusher(
@@ -250,17 +257,31 @@ object AppModule {
         return listOf(
             object : SourceRemoteJournalPusher {
                 override val sourceType = SourceType.KAVITA
+                override val supportedArtifacts = setOf(RemoteSyncArtifact.JOURNAL_ENTRY)
 
                 override suspend fun pushPendingJournalEntries(
                     items: List<ReadableItem>,
-                ) = kavitaPusher.pushPendingJournalEntries(items)
+                    artifacts: Set<RemoteSyncArtifact>,
+                ) = kavitaPusher.pushPendingJournalEntries(
+                    items = items,
+                    pushJournalEntries = RemoteSyncArtifact.JOURNAL_ENTRY in artifacts,
+                )
             },
             object : SourceRemoteJournalPusher {
                 override val sourceType = SourceType.GRIMMORY
+                override val supportedArtifacts = setOf(
+                    RemoteSyncArtifact.JOURNAL_ENTRY,
+                    RemoteSyncArtifact.READING_SESSION,
+                )
 
                 override suspend fun pushPendingJournalEntries(
                     items: List<ReadableItem>,
-                ) = grimmoryPusher.pushPendingJournalEntries(items)
+                    artifacts: Set<RemoteSyncArtifact>,
+                ) = grimmoryPusher.pushPendingJournalEntries(
+                    items = items,
+                    pushJournalEntries = RemoteSyncArtifact.JOURNAL_ENTRY in artifacts,
+                    pushReadingSessions = RemoteSyncArtifact.READING_SESSION in artifacts,
+                )
             },
         )
     }

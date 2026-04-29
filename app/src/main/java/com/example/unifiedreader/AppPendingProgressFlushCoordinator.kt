@@ -5,9 +5,16 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
+import com.example.unifiedreader.data.repository.FlushPendingRemoteArtifactsUseCase
+import com.example.unifiedreader.data.repository.RemoteArtifactFlushRequest
 import com.example.unifiedreader.data.repository.ReadableItemRepository
+import com.example.unifiedreader.data.repository.RemoteSyncArtifact
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
+import com.example.unifiedreader.journal.ItemJournalEntry
+import com.example.unifiedreader.journal.JournalReadingSession
+import com.example.unifiedreader.journal.JournalRepository
+import com.example.unifiedreader.journal.JournalSnapshot
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
@@ -21,7 +28,8 @@ import kotlinx.coroutines.launch
 class AppPendingProgressFlushCoordinator @Inject constructor(
     private val readerSessionStore: ReaderSessionStore,
     private val readableItemRepository: ReadableItemRepository,
-    private val flushPendingSourceProgressUseCase: FlushPendingSourceProgressUseCase,
+    private val journalRepository: JournalRepository,
+    private val flushPendingRemoteArtifactsUseCase: FlushPendingRemoteArtifactsUseCase,
     private val remoteItemLocalAvailability: RemoteItemLocalAvailability,
     private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
 ) {
@@ -44,26 +52,28 @@ class AppPendingProgressFlushCoordinator @Inject constructor(
         scope.launch {
             combine(
                 readerSessionStore.progressByItemIdFlow.map(::pendingProgressKeys),
+                journalRepository.observeSnapshot().map(::pendingJournalKeys),
                 readableItemRepository.observeItems(),
                 remoteSourceConnectivityPolicy.reachabilityFlow,
-            ) { pendingProgressKeys, catalogItems, reachabilityBySource ->
+            ) { pendingProgressKeys, pendingJournalKeys, catalogItems, reachabilityBySource ->
+                val pendingSyncKeys = (pendingProgressKeys + pendingJournalKeys).sortedBy(PendingRemoteSyncKey::sortKey)
                 PendingProgressObservation(
-                    pendingProgressKeys = pendingProgressKeys,
+                    pendingSyncKeys = pendingSyncKeys,
                     catalogItems = catalogItems,
                     reachabilityBySource = reachabilityBySource,
-                    resolvablePendingItemIds = pendingProgressKeys.resolvableIn(catalogItems),
+                    resolvablePendingItemIds = pendingSyncKeys.resolvableIn(catalogItems),
                 )
             }
                 .distinctUntilChanged { previous, next ->
-                    previous.pendingProgressKeys == next.pendingProgressKeys &&
+                    previous.pendingSyncKeys == next.pendingSyncKeys &&
                         previous.resolvablePendingItemIds == next.resolvablePendingItemIds &&
                         previous.reachabilityBySource == next.reachabilityBySource
                 }
                 .debounce(PENDING_PROGRESS_DEBOUNCE_MILLIS)
                 .collect { observation ->
-                    val pendingProgressKeys = observation.pendingProgressKeys
+                    val pendingSyncKeys = observation.pendingSyncKeys
                     retainedProgressItemsById.keys.retainAll(
-                        pendingProgressKeys.mapTo(mutableSetOf(), PendingProgressKey::itemId),
+                        pendingSyncKeys.mapTo(mutableSetOf(), PendingRemoteSyncKey::itemId),
                     )
                     val remoteItems = observation.catalogItems
                         .withPendingSyncItems(stateProvider().selectedItem)
@@ -71,7 +81,7 @@ class AppPendingProgressFlushCoordinator @Inject constructor(
                             remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
                         )
                     val flushFingerprint = PendingProgressFlushFingerprint(
-                        pendingProgressKeys = pendingProgressKeys,
+                        pendingSyncKeys = pendingSyncKeys,
                         itemIds = remoteItems.map(ReadableItem::id),
                     )
                     if (remoteItems.isNotEmpty() && flushFingerprint != lastSuccessfulAutoFlush) {
@@ -111,24 +121,26 @@ class AppPendingProgressFlushCoordinator @Inject constructor(
         onSyncFailures: (List<SourceProgressSyncFailure>) -> Unit,
     ): List<SourceProgressSyncFailure> {
         if (remoteItems.isEmpty()) return emptyList()
-        val failures = flushPendingSourceProgressUseCase(remoteItems)
+        val allFailures = flushPendingRemoteArtifactsUseCase(
+            RemoteArtifactFlushRequest(items = remoteItems),
+        )
         remoteSourceConnectivityPolicy.markFromSyncFailures(
             attemptedSourceTypes = remoteItems.mapTo(mutableSetOf(), ReadableItem::sourceType),
-            failures = failures,
+            failures = allFailures,
         )
-        val reportableFailures = failures.withoutDownloadedReachabilityFailures(
+        val reportableFailures = allFailures.withoutDownloadedReachabilityFailures(
             attemptedItems = remoteItems,
             remoteItemLocalAvailability = remoteItemLocalAvailability,
         )
         reportableFailures.forEach { failure ->
             Log.w(
                 LOG_TAG,
-                "Unable to push pending remote progress for ${failure.sourceType}.",
+                "Unable to push pending remote artifact for ${failure.sourceType}.",
                 failure.throwable,
             )
         }
         onSyncFailures(reportableFailures)
-        return failures
+        return allFailures
     }
 
     private fun List<ReadableItem>.withPendingSyncItems(
@@ -155,43 +167,75 @@ private fun List<ReadableItem>.withoutUnavailableProgressSources(
 
 private fun pendingProgressKeys(
     progressByItemId: Map<String, ReaderProgressSnapshot>,
-): List<PendingProgressKey> = progressByItemId.values
+): List<PendingRemoteSyncKey> = progressByItemId.values
     .filter(ReaderProgressSnapshot::isPendingSync)
     .sortedBy(ReaderProgressSnapshot::itemId)
     .map { progress ->
-        PendingProgressKey(
+        PendingRemoteSyncKey(
+            artifact = RemoteSyncArtifact.PROGRESS,
             itemId = progress.itemId,
             syncState = progress.syncState.name,
             updatedAtEpochMillis = progress.updatedAtEpochMillis,
         )
     }
 
-private fun ReaderProgressSnapshot.isPendingSync(): Boolean =
-    syncState == SyncState.DIRTY || syncState == SyncState.FAILED
+private fun pendingJournalKeys(
+    snapshot: JournalSnapshot,
+): List<PendingRemoteSyncKey> =
+    snapshot.entries.mapNotNull(ItemJournalEntry::pendingRemoteSyncKey) +
+        snapshot.sessions.mapNotNull(JournalReadingSession::pendingRemoteSyncKey)
 
-private data class PendingProgressKey(
+private fun ItemJournalEntry.pendingRemoteSyncKey(): PendingRemoteSyncKey? =
+    syncState.takeIf(SyncState::isPendingSync)?.let { state ->
+        PendingRemoteSyncKey(
+            artifact = RemoteSyncArtifact.JOURNAL_ENTRY,
+            itemId = itemId,
+            syncState = state.name,
+            updatedAtEpochMillis = updatedAtEpochMillis,
+        )
+    }
+
+private fun JournalReadingSession.pendingRemoteSyncKey(): PendingRemoteSyncKey? =
+    syncState.takeIf(SyncState::isPendingSync)?.let { state ->
+        PendingRemoteSyncKey(
+            artifact = RemoteSyncArtifact.READING_SESSION,
+            itemId = itemId,
+            syncState = state.name,
+            updatedAtEpochMillis = endedAtEpochMillis,
+        )
+    }
+
+private fun ReaderProgressSnapshot.isPendingSync(): Boolean = syncState.isPendingSync()
+
+private fun SyncState.isPendingSync(): Boolean =
+    this == SyncState.DIRTY || this == SyncState.FAILED
+
+private data class PendingRemoteSyncKey(
+    val artifact: RemoteSyncArtifact,
     val itemId: String,
     val syncState: String,
     val updatedAtEpochMillis: Long?,
-)
+) {
+    val sortKey: String = "${artifact.name}:$itemId:${updatedAtEpochMillis ?: 0L}:$syncState"
+}
 
 private data class PendingProgressObservation(
-    val pendingProgressKeys: List<PendingProgressKey>,
+    val pendingSyncKeys: List<PendingRemoteSyncKey>,
     val catalogItems: List<ReadableItem>,
     val reachabilityBySource: Map<SourceType, SourceConnectivityState>,
     val resolvablePendingItemIds: Set<String>,
 )
 
 private data class PendingProgressFlushFingerprint(
-    val pendingProgressKeys: List<PendingProgressKey>,
+    val pendingSyncKeys: List<PendingRemoteSyncKey>,
     val itemIds: List<String>,
 )
 
-private fun List<PendingProgressKey>.resolvableIn(
+private fun List<PendingRemoteSyncKey>.resolvableIn(
     catalogItems: List<ReadableItem>,
 ): Set<String> {
     if (isEmpty() || catalogItems.isEmpty()) return emptySet()
-    val pendingItemIds = mapTo(mutableSetOf(), PendingProgressKey::itemId)
+    val pendingItemIds = mapTo(mutableSetOf(), PendingRemoteSyncKey::itemId)
     return catalogItems.asSequence()
         .map(ReadableItem::id)
         .filter(pendingItemIds::contains)

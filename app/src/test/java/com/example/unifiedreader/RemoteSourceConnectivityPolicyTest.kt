@@ -9,21 +9,21 @@ import org.junit.Test
 
 class RemoteSourceConnectivityPolicyTest {
     @Test
-    fun `remote work is blocked until source is online`() {
+    fun `remote work gates by operation type and reachability`() {
         val policy = RemoteSourceConnectivityPolicy()
 
         assertEquals(SourceConnectivityState.Unknown, policy.reachabilityFor(SourceType.KAVITA))
         assertFalse(policy.canOpenRemoteItem(SourceType.KAVITA))
         assertFalse(policy.canFetchCover(SourceType.KAVITA))
         assertFalse(policy.canScheduleDownload(SourceType.KAVITA))
-        assertFalse(policy.canAttemptProgressSync(SourceType.KAVITA))
+        assertTrue(policy.canAttemptProgressSync(SourceType.KAVITA))
 
         policy.markChecking(SourceType.KAVITA)
 
         assertFalse(policy.canOpenRemoteItem(SourceType.KAVITA))
         assertFalse(policy.canFetchCover(SourceType.KAVITA))
         assertFalse(policy.canScheduleDownload(SourceType.KAVITA))
-        assertFalse(policy.canAttemptProgressSync(SourceType.KAVITA))
+        assertTrue(policy.canAttemptProgressSync(SourceType.KAVITA))
 
         policy.markUnavailable(SourceType.KAVITA)
 
@@ -38,6 +38,8 @@ class RemoteSourceConnectivityPolicyTest {
         assertTrue(policy.canFetchCover(SourceType.KAVITA))
         assertTrue(policy.canScheduleDownload(SourceType.KAVITA))
         assertTrue(policy.canAttemptProgressSync(SourceType.KAVITA))
+
+        assertFalse(policy.canAttemptProgressSync(SourceType.LOCAL))
     }
 
     @Test

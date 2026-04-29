@@ -93,7 +93,6 @@ class AppKavitaCoordinator @Inject constructor(
 
     internal fun prepareRefresh(
         connection: KavitaConnectionUiState,
-        syncMode: KavitaCatalogSyncMode,
     ): KavitaSyncPreparation {
         return when (
             val refreshInput = prepareRemoteRefreshInput(
@@ -134,15 +133,11 @@ class AppKavitaCoordinator @Inject constructor(
                         accessToken = savedSession.accessToken,
                         refreshToken = savedSession.refreshToken,
                         apiKey = savedSession.apiKey,
-                        syncMode = syncMode,
                     ),
                     activeConnection = refreshInput.connection,
                     fallbackSession = savedSession,
                     successConnectionMessage = connectionSuccessMessage(
-                        message = when (syncMode) {
-                            KavitaCatalogSyncMode.FAST -> "Kavita fast sync completed. Full resync is available for exact cleanup."
-                            KavitaCatalogSyncMode.FULL -> "Kavita library fully resynced."
-                        },
+                        message = "Kavita library synced.",
                         cleartextWarningMessage = refreshInput.cleartextWarningMessage,
                     ),
                     failurePrefix = "Unable to sync Kavita",
@@ -166,9 +161,7 @@ class AppKavitaCoordinator @Inject constructor(
             activeBaseUrl = result.activeBaseUrl,
         )
         remoteSourceConnectivityPolicy.markReachable(SourceType.KAVITA)
-        if (preparation.request.syncMode == KavitaCatalogSyncMode.FULL) {
-            clearCoverState()
-        }
+        clearCoverState()
         val progressPushWarning = progressPushWarningMessage(
             sourceLabel = "Kavita",
             failures = result.progressPushFailures,

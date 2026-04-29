@@ -57,7 +57,7 @@ class RemoteSourceConnectivityPolicy @Inject constructor() {
 
     fun canAttemptProgressSync(
         sourceType: SourceType,
-    ): Boolean = isReachable(sourceType)
+    ): Boolean = sourceType != SourceType.LOCAL && !isUnavailable(sourceType)
 
     fun canFlushStartupProgress(
         sourceType: SourceType,

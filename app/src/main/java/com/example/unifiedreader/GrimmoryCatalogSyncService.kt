@@ -172,7 +172,7 @@ class GrimmoryCatalogSyncService(
                 itemCount = syncOutcome.itemCount,
                 supportedFormatCounts = syncOutcome.supportedFormatCounts,
                 session = latestSession,
-                progressPushFailures = syncOutcome.progressPushFailures,
+                progressPushFailures = syncOutcome.progressPushFailures + journalSync.value,
             )
         }
         return result.value.copy(activeBaseUrl = result.activeBaseUrl)
@@ -204,7 +204,7 @@ class GrimmoryCatalogSyncService(
         initialAccessToken: String,
         initialRefreshToken: String?,
         entries: List<ReadableItem>,
-    ): GrimmoryTokenRefreshResult<Unit> = api.runWithTokenRefresh(
+    ): GrimmoryTokenRefreshResult<List<Throwable>> = api.runWithTokenRefresh(
         initialAccessToken = initialAccessToken,
         initialRefreshToken = initialRefreshToken,
     ) { accessToken ->

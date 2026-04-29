@@ -94,8 +94,12 @@ class KavitaProgressSyncService @Inject constructor(
                 SourceProgressSyncFailure(
                     sourceType = sourceType,
                     throwable = throwable,
+                    blocksDependentArtifacts = throwable.blocksDependentRemoteArtifacts(),
                 )
             }
         }
     }
 }
+
+private fun Throwable.blocksDependentRemoteArtifacts(): Boolean =
+    isRemoteServerAddressRetryableFailure() || this is com.example.unifiedreader.data.kavita.KavitaUnauthorizedException

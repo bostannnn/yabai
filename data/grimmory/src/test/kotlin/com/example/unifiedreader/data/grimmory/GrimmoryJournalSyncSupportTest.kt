@@ -16,6 +16,7 @@ import com.example.unifiedreader.journal.JournalReadingEventType
 import com.example.unifiedreader.journal.JournalReadingSession
 import com.example.unifiedreader.journal.JournalRepository
 import com.example.unifiedreader.journal.JournalSnapshot
+import com.example.unifiedreader.journal.journalMediaType
 import java.time.Instant
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -439,10 +440,57 @@ class GrimmoryJournalSyncSupportTest {
         assertEquals(SyncState.FAILED, repository.markedSyncStates[item.id])
         assertTrue(item.id !in repository.remoteReviewNoteIds)
     }
+
+    @Test
+    fun `grimmory dirty push uploads reading sessions`() = runTest {
+        val item = readableItem(sourceType = SourceType.GRIMMORY, remoteId = "88", format = FormatType.EPUB)
+        val session = journalSession(item = item)
+        val repository = RecordingJournalRepository(
+            dirtySessions = listOf(session),
+        )
+        val api = FakeGrimmoryApi()
+
+        pushDirtyGrimmoryJournalEntries(
+            api = api,
+            accessToken = "token",
+            entries = listOf(item),
+            journalRepository = repository,
+        )
+
+        assertEquals(88L, api.createdReadingSessions.single().bookId)
+        assertEquals("EPUB", api.createdReadingSessions.single().bookType)
+        assertEquals(600, api.createdReadingSessions.single().durationSeconds)
+        assertEquals(10f, api.createdReadingSessions.single().startProgress ?: -1f, 0.0001f)
+        assertEquals(40f, api.createdReadingSessions.single().endProgress ?: -1f, 0.0001f)
+        assertEquals(SyncState.CLEAN, repository.markedSessionSyncStates[session.id])
+    }
+
+    @Test
+    fun `grimmory dirty journal-only push skips reading sessions`() = runTest {
+        val item = readableItem(sourceType = SourceType.GRIMMORY, remoteId = "88", format = FormatType.EPUB)
+        val session = journalSession(item = item)
+        val repository = RecordingJournalRepository(
+            dirtySessions = listOf(session),
+        )
+        val api = FakeGrimmoryApi()
+
+        pushDirtyGrimmoryJournalEntries(
+            api = api,
+            accessToken = "token",
+            entries = listOf(item),
+            journalRepository = repository,
+            pushJournalEntries = true,
+            pushReadingSessions = false,
+        )
+
+        assertTrue(api.createdReadingSessions.isEmpty())
+        assertTrue(repository.markedSessionSyncStates.isEmpty())
+    }
 }
 
 private class RecordingJournalRepository(
     private val dirtyEntries: List<ItemJournalEntry> = emptyList(),
+    private val dirtySessions: List<JournalReadingSession> = emptyList(),
 ) : JournalRepository {
     private val snapshot = MutableStateFlow(JournalSnapshot())
     var replacedSourceType: SourceType? = null
@@ -455,6 +503,7 @@ private class RecordingJournalRepository(
     var replacedReadingEventReplacementItemIds: Set<String>? = null
     var replacedReadingSessionReplacementItemIds: Set<String>? = null
     val markedSyncStates = mutableMapOf<String, SyncState>()
+    val markedSessionSyncStates = mutableMapOf<String, SyncState>()
     val remoteReviewNoteIds = mutableMapOf<String, String?>()
 
     override fun observeSnapshot(): Flow<JournalSnapshot> = snapshot
@@ -496,8 +545,15 @@ private class RecordingJournalRepository(
     override suspend fun getDirtyJournalEntriesForSource(sourceType: SourceType): List<ItemJournalEntry> =
         dirtyEntries.filter { entry -> entry.sourceType == sourceType }
 
+    override suspend fun getDirtyReadingSessionsForSource(sourceType: SourceType): List<JournalReadingSession> =
+        dirtySessions.filter { session -> session.sourceType == sourceType }
+
     override suspend fun markJournalEntrySyncState(itemId: String, syncState: SyncState) {
         markedSyncStates[itemId] = syncState
+    }
+
+    override suspend fun markReadingSessionSyncState(sessionId: String, syncState: SyncState) {
+        markedSessionSyncStates[sessionId] = syncState
     }
 
     override suspend fun updateJournalEntryRemoteReviewNoteId(itemId: String, remoteReviewNoteId: String?) {
@@ -523,6 +579,7 @@ private class FakeGrimmoryApi(
     val requestedSessionsForBooks = mutableListOf<String>()
     var requestedNotebookTypes: List<String> = emptyList()
     var requestedNotebookSearch: String? = null
+    val createdReadingSessions = mutableListOf<GrimmoryReadingSessionRequest>()
 
     override suspend fun login(username: String, password: String): GrimmorySession = error("Unused")
     override suspend fun getLibraries(accessToken: String): List<Library> = emptyList()
@@ -539,6 +596,9 @@ private class FakeGrimmoryApi(
         requestedSessionsForBooks += bookId
         sessionFailuresByBook[bookId]?.let { error -> throw error }
         return sessionsByBook[bookId].orEmpty()
+    }
+    override suspend fun createReadingSession(accessToken: String, session: GrimmoryReadingSessionRequest) {
+        createdReadingSessions += session
     }
     override suspend fun getBookNotesV2(accessToken: String, bookId: String): List<GrimmoryBookNoteV2Dto> =
         notesByBook[bookId].orEmpty().also {
@@ -615,5 +675,28 @@ private fun journalEntry(
     reviewText = reviewText,
     reviewedAtEpochMillis = 100L,
     updatedAtEpochMillis = 200L,
+    syncState = SyncState.DIRTY,
+)
+
+private fun journalSession(
+    item: ReadableItem,
+): JournalReadingSession = JournalReadingSession(
+    id = "local:${item.id}:1000:601000",
+    itemId = item.id,
+    sourceType = item.sourceType,
+    libraryId = item.libraryId,
+    itemTitle = item.title,
+    coverUrl = item.coverUrl,
+    itemKind = item.kind,
+    format = item.format,
+    mediaType = item.journalMediaType(),
+    startedAtEpochMillis = 1_000L,
+    endedAtEpochMillis = 601_000L,
+    durationMillis = 600_000L,
+    fromPercent = 0.1,
+    toPercent = 0.4,
+    fromPage = 2,
+    toPage = 8,
+    pageCount = item.pageCount,
     syncState = SyncState.DIRTY,
 )

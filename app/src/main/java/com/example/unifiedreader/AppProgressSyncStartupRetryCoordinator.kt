@@ -3,8 +3,9 @@ package com.example.unifiedreader
 import android.util.Log
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.data.repository.FlushPendingRemoteArtifactsUseCase
+import com.example.unifiedreader.data.repository.RemoteArtifactFlushRequest
 import com.example.unifiedreader.data.repository.ReadableItemRepository
-import com.example.unifiedreader.data.repository.RemoteJournalPusher
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -16,10 +17,9 @@ class AppProgressSyncStartupRetryCoordinator @Inject constructor(
     private val readableItemRepository: ReadableItemRepository,
     private val readerSessionStore: ReaderSessionStore,
     private val remoteCatalogReadiness: RemoteCatalogReadiness,
-    private val flushPendingProgressOnStartupUseCase: FlushPendingProgressOnStartupUseCase,
+    private val flushPendingRemoteArtifactsUseCase: FlushPendingRemoteArtifactsUseCase,
     private val remoteItemLocalAvailability: RemoteItemLocalAvailability,
     private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
-    private val remoteJournalPusher: RemoteJournalPusher,
 ) {
     fun retryAfterHydration(
         scope: CoroutineScope,
@@ -41,36 +41,29 @@ class AppProgressSyncStartupRetryCoordinator @Inject constructor(
                 remoteItemLocalAvailability = remoteItemLocalAvailability,
                 remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
             )
-            val failures = flushPendingProgressOnStartupUseCase(startupProgressItems)
-            items
-                .filterStartupJournalItems(remoteSourceConnectivityPolicy)
-                .groupBy(ReadableItem::sourceType)
-                .forEach { (sourceType, sourceItems) ->
-                    runCatching {
-                        remoteJournalPusher.pushPendingJournalEntries(
-                            sourceType = sourceType,
-                            items = sourceItems,
-                        )
-                    }.onFailure { error ->
-                        Log.w(
-                            LOG_TAG,
-                            "Unable to push pending startup journal entries for $sourceType.",
-                            error,
-                        )
-                    }
+            val startupJournalItems = items.filterStartupJournalItems(remoteSourceConnectivityPolicy)
+            val allFailures = flushPendingRemoteArtifactsUseCase(
+                RemoteArtifactFlushRequest(
+                    items = (startupProgressItems + startupJournalItems).distinctBy(ReadableItem::id),
+                ),
+            )
+            val attemptedSourceTypes = startupProgressItems
+                .mapTo(mutableSetOf(), ReadableItem::sourceType)
+                .also { sourceTypes ->
+                    sourceTypes += startupJournalItems.map(ReadableItem::sourceType)
                 }
             remoteSourceConnectivityPolicy.markFromSyncFailures(
-                attemptedSourceTypes = startupProgressItems.mapTo(mutableSetOf(), ReadableItem::sourceType),
-                failures = failures,
+                attemptedSourceTypes = attemptedSourceTypes,
+                failures = allFailures,
             )
-            val reportableFailures = failures.withoutDownloadedReachabilityFailures(
-                attemptedItems = startupProgressItems,
+            val reportableFailures = allFailures.withoutDownloadedReachabilityFailures(
+                attemptedItems = startupProgressItems + startupJournalItems,
                 remoteItemLocalAvailability = remoteItemLocalAvailability,
             )
             reportableFailures.forEach { failure ->
                 Log.w(
                     LOG_TAG,
-                    "Unable to push pending startup progress for ${failure.sourceType}.",
+                    "Unable to push pending startup remote artifact for ${failure.sourceType}.",
                     failure.throwable,
                 )
             }

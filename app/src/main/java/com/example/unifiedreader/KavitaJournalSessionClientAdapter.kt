@@ -15,9 +15,10 @@ class KavitaJournalSessionClientAdapter @Inject constructor(
     override suspend fun pushDirtyJournalEntries(
         items: List<ReadableItem>,
         journalRepository: JournalRepository,
-    ) {
-        val session = kavitaCredentialStore.sessionFlow.value ?: return
-        runWithStoredSessionAddressFailover(
+        pushJournalEntries: Boolean,
+    ): List<Throwable> {
+        val session = kavitaCredentialStore.sessionFlow.value ?: return emptyList()
+        return runWithStoredSessionAddressFailover(
             sessionStore = kavitaCredentialStore,
             session = session,
             createApi = kavitaApiFactory::create,
@@ -34,6 +35,7 @@ class KavitaJournalSessionClientAdapter @Inject constructor(
                     accessToken = accessToken,
                     entries = items,
                     journalRepository = journalRepository,
+                    pushJournalEntries = pushJournalEntries,
                 )
             }
         }

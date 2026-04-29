@@ -367,17 +367,20 @@ internal fun FinishedItemsRow(
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onOpenItem: (JournalItemSummary) -> Unit,
 ) {
-    if (overview.finishedItems.isEmpty()) return
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         StatsSectionLabel("Finished")
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(overview.finishedItems, key = { summary -> summary.item.itemId }) { summary ->
-                FinishedItemCard(
-                    summary = summary,
-                    coverImageUrlProvider = coverImageUrlProvider,
-                    onCoverVisible = onCoverVisible,
-                    onOpen = { onOpenItem(summary) },
-                )
+        if (overview.finishedItems.isEmpty()) {
+            EmptyStatsMessage("No finished items yet")
+        } else {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(overview.finishedItems, key = { summary -> summary.item.itemId }) { summary ->
+                    FinishedItemCard(
+                        summary = summary,
+                        coverImageUrlProvider = coverImageUrlProvider,
+                        onCoverVisible = onCoverVisible,
+                        onOpen = { onOpenItem(summary) },
+                    )
+                }
             }
         }
     }
@@ -505,9 +508,8 @@ internal fun AverageReadingTimeChart(
     title: String,
     buckets: List<JournalTimeBucket>,
 ) {
-    if (buckets.isEmpty() || buckets.all { bucket -> bucket.averageMillis <= 0L }) return
-    val maxBucket = buckets.maxBy { bucket -> bucket.averageMillis }
-    val maxValue = maxBucket.averageMillis.coerceAtLeast(1L)
+    val maxBucket = buckets.maxByOrNull { bucket -> bucket.averageMillis }
+    val maxValue = maxBucket?.averageMillis?.coerceAtLeast(1L) ?: 1L
     val gridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.62f)
     val barColor = MaterialTheme.colorScheme.tertiary
     Surface(
@@ -521,64 +523,68 @@ internal fun AverageReadingTimeChart(
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             StatsSectionLabel(title)
-            Text(
-                text = "Most reading happens around ${maxBucket.label}, averaging ${formatDuration(maxBucket.averageMillis)}.",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Medium,
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(176.dp),
-            ) {
-                Canvas(modifier = Modifier.matchParentSize()) {
-                    val rowHeight = size.height / 4f
-                    repeat(4) { index ->
-                        val y = rowHeight * index
-                        drawLine(
-                            color = gridColor,
-                            start = Offset(0f, y),
-                            end = Offset(size.width, y),
-                            strokeWidth = 1.dp.toPx(),
-                        )
-                    }
-                }
-                Row(
+            if (maxBucket == null || maxBucket.averageMillis <= 0L) {
+                EmptyStatsMessage("No reading sessions yet")
+            } else {
+                Text(
+                    text = "Most reading happens around ${maxBucket.label}, averaging ${formatDuration(maxBucket.averageMillis)}.",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Medium,
+                )
+                Box(
                     modifier = Modifier
-                        .matchParentSize()
-                        .padding(top = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.Bottom,
+                        .fillMaxWidth()
+                        .height(176.dp),
                 ) {
-                    buckets.forEach { bucket ->
-                        val fraction = (bucket.averageMillis.toFloat() / maxValue.toFloat()).coerceIn(0f, 1f)
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxWidth(),
-                                contentAlignment = Alignment.BottomCenter,
-                            ) {
-                                if (bucket.averageMillis > 0L) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth(0.72f)
-                                            .height((132f * fraction).coerceAtLeast(6f).dp)
-                                            .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                                            .background(barColor),
-                                    )
-                                }
-                            }
-                            Text(
-                                text = bucket.label,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
+                    Canvas(modifier = Modifier.matchParentSize()) {
+                        val rowHeight = size.height / 4f
+                        repeat(4) { index ->
+                            val y = rowHeight * index
+                            drawLine(
+                                color = gridColor,
+                                start = Offset(0f, y),
+                                end = Offset(size.width, y),
+                                strokeWidth = 1.dp.toPx(),
                             )
+                        }
+                    }
+                    Row(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.Bottom,
+                    ) {
+                        buckets.forEach { bucket ->
+                            val fraction = (bucket.averageMillis.toFloat() / maxValue.toFloat()).coerceIn(0f, 1f)
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxWidth(),
+                                    contentAlignment = Alignment.BottomCenter,
+                                ) {
+                                    if (bucket.averageMillis > 0L) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth(0.72f)
+                                                .height((132f * fraction).coerceAtLeast(6f).dp)
+                                                .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                                .background(barColor),
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = bucket.label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                )
+                            }
                         }
                     }
                 }
@@ -593,14 +599,12 @@ internal fun TopFacetSections(
     onFacetSelected: (JournalFacetSection, JournalFacetRow) -> Unit,
     onSeeAllSelected: (JournalFacetSection) -> Unit,
 ) {
-    if (sections.isEmpty()) return
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         StatsSectionLabel("Most read metadata")
         BoxWithConstraints {
-            val visibleSections = sections.filter { section -> section.rows.isNotEmpty() }
             if (maxWidth >= 840.dp) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    visibleSections.chunked(2).forEach { pair ->
+                    sections.chunked(2).forEach { pair ->
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             pair.forEach { section ->
                                 FacetChartCard(
@@ -618,7 +622,7 @@ internal fun TopFacetSections(
                 }
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    visibleSections.forEach { section ->
+                    sections.forEach { section ->
                         FacetChartCard(
                             section = section,
                             onFacetSelected = onFacetSelected,
@@ -671,13 +675,17 @@ private fun FacetChartCard(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            visibleRows.forEachIndexed { index, row ->
-                FacetBar(
-                    row = row,
-                    maxValue = maxValue,
-                    color = facetColor(index),
-                    onClick = { onFacetSelected(section, row) },
-                )
+            if (visibleRows.isEmpty()) {
+                EmptyStatsMessage("No metadata yet")
+            } else {
+                visibleRows.forEachIndexed { index, row ->
+                    FacetBar(
+                        row = row,
+                        maxValue = maxValue,
+                        color = facetColor(index),
+                        onClick = { onFacetSelected(section, row) },
+                    )
+                }
             }
         }
     }

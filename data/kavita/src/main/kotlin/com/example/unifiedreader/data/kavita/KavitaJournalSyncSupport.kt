@@ -155,8 +155,11 @@ suspend fun pushDirtyKavitaJournalEntries(
     accessToken: String,
     entries: List<ReadableItem>,
     journalRepository: JournalRepository?,
-) {
-    val repository = journalRepository ?: return
+    pushJournalEntries: Boolean = true,
+): List<Throwable> {
+    val repository = journalRepository ?: return emptyList()
+    if (!pushJournalEntries) return emptyList()
+    val failures = mutableListOf<Throwable>()
     val itemById = entries.associateBy(ReadableItem::id)
     repository.getDirtyJournalEntriesForSource(SourceType.KAVITA).forEach { entry ->
         runCatching {
@@ -208,9 +211,11 @@ suspend fun pushDirtyKavitaJournalEntries(
                 is CancellationException,
                 is KavitaUnauthorizedException -> throw error
             }
+            failures += error
             repository.markJournalEntrySyncState(entry.itemId, SyncState.FAILED)
         }
     }
+    return failures
 }
 
 private fun buildLikelyRatingChapterIds(

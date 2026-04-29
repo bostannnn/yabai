@@ -1,11 +1,9 @@
 package com.example.unifiedreader
 
-import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEntity
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
-import com.example.unifiedreader.core.model.remoteLibraryId
 import com.example.unifiedreader.data.kavita.KavitaApi
 import com.example.unifiedreader.data.kavita.KavitaChapterCatalogEntry
 import com.example.unifiedreader.data.kavita.KavitaSession
@@ -98,7 +96,6 @@ class KavitaCatalogSyncService(
             var activeRefreshToken = session?.refreshToken ?: request.refreshToken
             var activeApiKey = session?.apiKey ?: request.apiKey
             var latestSession: KavitaSession? = session
-            var catalogSyncGroups: List<RemoteCatalogSyncGroupEntity> = emptyList()
             val fetchResult = api.runWithTokenRefresh(
                 initialAccessToken = activeAccessToken,
                 initialRefreshToken = activeRefreshToken,
@@ -116,12 +113,8 @@ class KavitaCatalogSyncService(
                     accessToken = token,
                     libraries = libraries,
                     series = series,
-                    remoteCatalogWriter = remoteCatalogWriter,
-                    forceFullRefresh = request.syncMode == KavitaCatalogSyncMode.FULL,
-                    nowEpochMillis = nowEpochMillis(),
                     onProgress = onProgress,
                 )
-                catalogSyncGroups = catalogFetch.syncGroups
                 RemoteCatalogFetch(
                     libraries = libraries,
                     entries = catalogFetch.entries,
@@ -146,7 +139,6 @@ class KavitaCatalogSyncService(
                 progressOf = KavitaChapterCatalogEntry::progress,
                 missingRemoteClearsLocal = KavitaChapterCatalogEntry::isExplicitUnreadReset,
                 remoteClearOverridesLocal = { false },
-                syncGroups = catalogSyncGroups,
             ) { items ->
                 val progressSync = pushDirtyProgress(
                     api = api,
@@ -197,7 +189,7 @@ class KavitaCatalogSyncService(
                 supportedFormatCounts = syncOutcome.supportedFormatCounts,
                 libraries = fetchResult.value.libraries,
                 session = latestSession,
-                progressPushFailures = syncOutcome.progressPushFailures,
+                progressPushFailures = syncOutcome.progressPushFailures + journalSync.value,
             )
         }
         return result.value.copy(activeBaseUrl = result.activeBaseUrl)
@@ -232,7 +224,7 @@ class KavitaCatalogSyncService(
         initialRefreshToken: String?,
         initialApiKey: String?,
         entries: List<ReadableItem>,
-    ): KavitaTokenRefreshResult<Unit> = api.runWithTokenRefresh(
+    ): KavitaTokenRefreshResult<List<Throwable>> = api.runWithTokenRefresh(
         initialAccessToken = initialAccessToken,
         initialRefreshToken = initialRefreshToken,
         initialApiKey = initialApiKey,
@@ -296,23 +288,7 @@ data class KavitaCatalogSyncRequest(
     val accessToken: String? = null,
     val refreshToken: String? = null,
     val apiKey: String? = null,
-    val syncMode: KavitaCatalogSyncMode = KavitaCatalogSyncMode.FAST,
 )
-
-enum class KavitaCatalogSyncMode {
-    /**
-     * Best-effort incremental sync. It skips series whose stored fingerprint still matches the
-     * current series metadata plus Kavita's recent-update marker feed. Full resync remains the
-     * authoritative path for exact cleanup of old marker-window misses.
-     */
-    FAST,
-
-    /**
-     * Authoritative catalog refresh. It refetches every series detail and does not depend on
-     * Kavita's recent-update marker endpoint.
-     */
-    FULL,
-}
 
 data class KavitaCatalogConnectionResult(
     val libraryCount: Int,

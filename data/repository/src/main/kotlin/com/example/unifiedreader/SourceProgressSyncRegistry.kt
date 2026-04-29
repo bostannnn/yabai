@@ -2,6 +2,7 @@ package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.data.repository.RemoteSyncArtifact
 import javax.inject.Inject
 import kotlin.jvm.JvmSuppressWildcards
 import kotlin.coroutines.cancellation.CancellationException
@@ -9,6 +10,8 @@ import kotlin.coroutines.cancellation.CancellationException
 data class SourceProgressSyncFailure(
     val sourceType: SourceType,
     val throwable: Throwable,
+    val artifact: RemoteSyncArtifact? = null,
+    val blocksDependentArtifacts: Boolean = false,
 )
 
 class SourceProgressSyncRegistry @Inject constructor(
@@ -48,6 +51,7 @@ class SourceProgressSyncRegistry @Inject constructor(
                 failures += SourceProgressSyncFailure(
                     sourceType = sync.sourceType,
                     throwable = throwable,
+                    blocksDependentArtifacts = true,
                 )
             }
         }
