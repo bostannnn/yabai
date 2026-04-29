@@ -167,10 +167,10 @@ internal fun RatingBreakdown(
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.Bottom,
         ) {
-            (1..5).forEach { rating ->
+            (1..10).forEach { rating ->
                 val count = values[rating] ?: 0
                 RatingBar(
                     rating = rating,
@@ -205,8 +205,8 @@ private fun RatingBar(
         Box(
             modifier = Modifier
                 .height(78.dp)
-                .width(18.dp)
-                .clip(RoundedCornerShape(9.dp))
+                .width(14.dp)
+                .clip(RoundedCornerShape(7.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
             contentAlignment = Alignment.BottomCenter,
         ) {
@@ -215,7 +215,7 @@ private fun RatingBar(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(barHeight)
-                        .clip(RoundedCornerShape(9.dp))
+                        .clip(RoundedCornerShape(7.dp))
                         .background(MaterialTheme.colorScheme.primary),
                 )
             }

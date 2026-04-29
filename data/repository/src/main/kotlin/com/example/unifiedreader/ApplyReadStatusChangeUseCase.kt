@@ -6,6 +6,8 @@ import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.core.model.supportsManualReadStatusAction
 import com.example.unifiedreader.core.model.progress.ProgressSyncLocator
 import com.example.unifiedreader.core.model.progress.ProgressSyncStore
+import com.example.unifiedreader.journal.JournalProgressInput
+import com.example.unifiedreader.journal.JournalRepository
 import javax.inject.Inject
 
 data class ReadStatusChangeResult(
@@ -16,6 +18,7 @@ data class ReadStatusChangeResult(
 class ApplyReadStatusChangeUseCase @Inject constructor(
     private val progressSyncStore: ProgressSyncStore,
     private val flushPendingSourceProgressUseCase: FlushPendingSourceProgressUseCase,
+    private val journalRepository: JournalRepository? = null,
 ) {
     suspend operator fun invoke(
         item: ReadableItem,
@@ -24,10 +27,16 @@ class ApplyReadStatusChangeUseCase @Inject constructor(
         if (!item.supportsManualReadStatusAction()) {
             return ReadStatusChangeResult(applied = false)
         }
+        val updatedAtEpochMillis = System.currentTimeMillis()
         applyLocalReadStatus(
             item = item,
             markAsRead = markAsRead,
-            updatedAtEpochMillis = System.currentTimeMillis(),
+            updatedAtEpochMillis = updatedAtEpochMillis,
+        )
+        updateLocalJournalReadStatus(
+            item = item,
+            markAsRead = markAsRead,
+            updatedAtEpochMillis = updatedAtEpochMillis,
         )
         return ReadStatusChangeResult(
             applied = true,
@@ -54,6 +63,28 @@ class ApplyReadStatusChangeUseCase @Inject constructor(
         )
         if (!markAsRead) {
             progressSyncStore.clearLocalReaderPosition(item)
+        }
+    }
+
+    private suspend fun updateLocalJournalReadStatus(
+        item: ReadableItem,
+        markAsRead: Boolean,
+        updatedAtEpochMillis: Long,
+    ) {
+        val repository = journalRepository ?: return
+        if (markAsRead) {
+            repository.recordReaderProgress(
+                JournalProgressInput(
+                    item = item,
+                    page = item.pageCount,
+                    percent = 1.0,
+                    pageCount = item.pageCount,
+                    isFinished = true,
+                    occurredAtEpochMillis = updatedAtEpochMillis,
+                ),
+            )
+        } else {
+            repository.clearReadingEventsForItem(item.id)
         }
     }
 }

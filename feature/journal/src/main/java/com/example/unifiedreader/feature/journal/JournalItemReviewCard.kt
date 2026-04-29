@@ -10,9 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
@@ -184,34 +181,52 @@ fun JournalRatingEditor(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
-            text = selectedRating?.let { "$it / 5" } ?: "No rating",
+            text = selectedRating?.let { "$it / 10" } ?: "No rating",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Row(
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            (1..5).forEach { rating ->
-                val isSelected = selectedRating != null && rating <= selectedRating
-                IconButton(
-                    onClick = { onRatingSelected(rating) },
-                    modifier = Modifier.size(42.dp),
+            listOf(1..5, 6..10).forEach { rowRatings ->
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.Star,
-                        contentDescription = "$rating star rating",
-                        modifier = Modifier.size(30.dp),
-                        tint = if (isSelected) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
-                        },
-                    )
+                    rowRatings.forEach { rating ->
+                        JournalRatingButton(
+                            rating = rating,
+                            isSelected = selectedRating != null && rating <= selectedRating,
+                            onClick = { onRatingSelected(rating) },
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun JournalRatingButton(
+    rating: Int,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+) {
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier.size(34.dp),
+    ) {
+        Text(
+            text = rating.toString(),
+            style = MaterialTheme.typography.labelLarge,
+            color = if (isSelected) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.62f)
+            },
+        )
     }
 }
 

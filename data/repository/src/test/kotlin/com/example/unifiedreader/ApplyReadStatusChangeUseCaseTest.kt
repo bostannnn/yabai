@@ -7,6 +7,13 @@ import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.core.model.progress.ProgressSyncLocator
 import com.example.unifiedreader.core.model.progress.ProgressSyncSnapshot
 import com.example.unifiedreader.core.model.progress.ProgressSyncStore
+import com.example.unifiedreader.journal.ItemJournalEntry
+import com.example.unifiedreader.journal.JournalItemRef
+import com.example.unifiedreader.journal.JournalProgressInput
+import com.example.unifiedreader.journal.JournalReadingEvent
+import com.example.unifiedreader.journal.JournalRepository
+import com.example.unifiedreader.journal.JournalSnapshot
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.test.runTest
@@ -26,6 +33,7 @@ class ApplyReadStatusChangeUseCaseTest {
     @Test
     fun `mark as read updates local progress and syncs clean state`() = runTest {
         val store = TestProgressSyncStore()
+        val journalRepository = RecordingReadStatusJournalRepository()
         val sync = RecordingSourceProgressSync(
             sourceType = SourceType.GRIMMORY,
             onPush = { items, sessionStore ->
@@ -51,6 +59,7 @@ class ApplyReadStatusChangeUseCaseTest {
             flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
                 SourceProgressSyncRegistry(listOf(sync)),
             ),
+            journalRepository = journalRepository,
         )
 
         val result = useCase(
@@ -65,11 +74,14 @@ class ApplyReadStatusChangeUseCaseTest {
         assertEquals(1.0, snapshot.percent ?: -1.0, 0.0001)
         assertEquals(SyncState.CLEAN, snapshot.syncState)
         assertEquals(listOf(listOf(grimmoryBook().id)), sync.invocations)
+        assertEquals(grimmoryBook().id, journalRepository.recordedProgress.single().item.id)
+        assertTrue(journalRepository.recordedProgress.single().isFinished)
     }
 
     @Test
     fun `mark as unread clears local progress after successful sync`() = runTest {
         val store = TestProgressSyncStore()
+        val journalRepository = RecordingReadStatusJournalRepository()
         store.saveProgress(
             item = grimmoryBook(),
             locator = ProgressSyncLocator(
@@ -92,6 +104,7 @@ class ApplyReadStatusChangeUseCaseTest {
                     ),
                 ),
             ),
+            journalRepository = journalRepository,
         )
 
         val result = useCase(
@@ -102,6 +115,7 @@ class ApplyReadStatusChangeUseCaseTest {
         assertTrue(result.applied)
         assertTrue(result.syncFailures.isEmpty())
         assertNull(store.progressByItemIdFlow.value[grimmoryBook().id])
+        assertEquals(listOf(grimmoryBook().id), journalRepository.clearedReadingEventItemIds)
     }
 
     @Test
@@ -289,6 +303,38 @@ private class RecordingSourceProgressSync(
         onPush(items, TestProgressSyncStore.activeStore ?: error("No active test store"))
         return emptyList()
     }
+}
+
+private class RecordingReadStatusJournalRepository : JournalRepository {
+    private val snapshot = MutableStateFlow(JournalSnapshot())
+    val recordedProgress = mutableListOf<JournalProgressInput>()
+    val clearedReadingEventItemIds = mutableListOf<String>()
+
+    override fun observeSnapshot(): Flow<JournalSnapshot> = snapshot
+
+    override suspend fun recordReaderProgress(input: JournalProgressInput) {
+        recordedProgress += input
+    }
+
+    override suspend fun saveJournalEntry(item: ReadableItem, rating: Int?, reviewText: String) = Unit
+
+    override suspend fun saveJournalEntry(item: JournalItemRef, rating: Int?, reviewText: String) = Unit
+
+    override suspend fun deleteItemJournal(itemId: String) = Unit
+
+    override suspend fun clearReadingEventsForItem(itemId: String) {
+        clearedReadingEventItemIds += itemId
+    }
+
+    override suspend fun replaceCleanSourceJournalCache(
+        sourceType: SourceType,
+        events: List<JournalReadingEvent>,
+        entries: List<ItemJournalEntry>,
+        preserveReviewFieldsWhenIncomingBlank: Boolean,
+        preserveRatingWhenIncomingBlank: Boolean,
+        preserveReadingEventsWhenIncomingIncomplete: Boolean,
+        readingEventReplacementItemIds: Set<String>?,
+    ) = Unit
 }
 
 private class TestProgressSyncStore : ProgressSyncStore {

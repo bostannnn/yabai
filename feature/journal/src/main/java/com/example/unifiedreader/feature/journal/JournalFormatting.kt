@@ -27,8 +27,8 @@ internal fun JournalReadingEvent.progressLabel(): String {
 }
 
 internal fun Int.stars(): String = buildString {
-    repeat(this@stars.coerceIn(1, 5)) { append("*") }
-    repeat(5 - this@stars.coerceIn(1, 5)) { append("·") }
+    repeat(this@stars.coerceIn(1, 10)) { append("*") }
+    repeat(10 - this@stars.coerceIn(1, 10)) { append("·") }
 }
 
 internal fun SourceType.displayName(): String = name.displayName()

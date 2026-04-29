@@ -90,6 +90,6 @@ private sealed interface JournalDeleteTarget {
         val itemId: String,
     ) : JournalDeleteTarget {
         override val title: String = "Remove item journal?"
-        override val body: String = "This removes the item reading history, rating, and private review from the Journal."
+        override val body: String = "This removes the local Journal entry and cached reading history for this item. Remote ratings and reviews are not cleared."
     }
 }

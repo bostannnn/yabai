@@ -73,6 +73,37 @@ class ComicsReaderRestoreSmokeTest {
     }
 
     @Test
+    fun reader_persists_latest_page_before_back_callback_closes_reader() {
+        val item = smokeTestItem()
+        val progressStore = SmokeProgressStore(
+            initialPages = mapOf(item.id to 1),
+        )
+        val preferencesStore = SmokePreferencesStore()
+        val pageSource = SmokeComicPageSource(pageCount = 3)
+        progressStore.enablePersistence()
+
+        composeRule.setReaderContent(
+            item = item,
+            pageSource = pageSource,
+            progressStore = progressStore,
+            preferencesStore = preferencesStore,
+            onBeforeClose = {
+                assertEquals(2, progressStore.persistedPages[item.id])
+            },
+        )
+
+        composeRule.waitForText("2 / 3")
+        composeRule.onNodeWithTag(comicGestureSurfaceTag("spread-1-full"))
+            .performTouchInput { swipeLeft() }
+        composeRule.waitForText("3 / 3")
+
+        composeRule.onNodeWithContentDescription("Back to library").performClick()
+
+        composeRule.waitForText("Reader closed")
+        assertEquals(2, progressStore.persistedPages[item.id])
+    }
+
+    @Test
     fun reader_persists_latest_page_when_activity_stops() {
         val item = smokeTestItem()
         val progressStore = SmokeProgressStore(
