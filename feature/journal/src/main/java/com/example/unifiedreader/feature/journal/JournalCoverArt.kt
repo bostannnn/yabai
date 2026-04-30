@@ -1,12 +1,11 @@
 package com.example.unifiedreader.feature.journal
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
-import com.example.unifiedreader.feature.library.ResolvedLibraryCover
+import com.example.unifiedreader.feature.library.VisibleResolvedLibraryCover
 
 @Composable
 internal fun JournalCoverArt(
@@ -17,12 +16,10 @@ internal fun JournalCoverArt(
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit = { _, _ -> },
 ) {
     val readableItem = item.toReadableItem()
-    LaunchedEffect(readableItem.id, imageVariant) {
-        onCoverVisible(readableItem, imageVariant)
-    }
-    ResolvedLibraryCover(
+    VisibleResolvedLibraryCover(
         item = readableItem,
         coverImageUrlProvider = coverImageUrlProvider,
+        onCoverVisible = onCoverVisible,
         imageVariant = imageVariant,
         modifier = modifier,
     )

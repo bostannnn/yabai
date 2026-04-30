@@ -41,7 +41,7 @@ import com.example.unifiedreader.feature.journal.rememberJournalReviewState
 import com.example.unifiedreader.feature.journal.shouldSaveJournalReview
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryViewMode
-import com.example.unifiedreader.feature.library.ResolvedLibraryCover
+import com.example.unifiedreader.feature.library.VisibleResolvedLibraryCover
 import com.example.unifiedreader.feature.reader.core.ReaderCompletionDialog
 import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
 import com.example.unifiedreader.feature.reader.core.ReaderHost
@@ -205,9 +205,10 @@ private fun ReaderCompletionDialogHost(
         nextItemTitle = nextItem?.libraryPrimaryText(),
         nextItemSubtitle = nextItem?.librarySecondaryText(),
         coverContent = { coverItem, modifier ->
-            ResolvedLibraryCover(
+            VisibleResolvedLibraryCover(
                 item = coverItem,
                 coverImageUrlProvider = viewModel::coverImageUrlFor,
+                onCoverVisible = viewModel::ensureCoverCached,
                 imageVariant = LibraryCoverImageVariant.ShelfRow,
                 modifier = modifier,
             )
