@@ -3,6 +3,7 @@ package com.example.unifiedreader.feature.library
 import android.content.SharedPreferences
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.example.unifiedreader.core.model.FormatType
@@ -48,6 +49,7 @@ internal fun Preferences.toLibraryBrowsePreferences(): LibraryBrowsePreferences 
     gridCellSizeDp = sanitizeLibraryGridCellSizeDp(
         this[gridCellSizeKey()] ?: defaultLibraryGridCellSizeDp,
     ),
+    fadeReadItems = this[fadeReadItemsKey()] ?: false,
 )
 
 internal fun MutablePreferences.writeFilterState(
@@ -104,6 +106,16 @@ internal fun MutablePreferences.writeGridCellSizeDp(
     }
 }
 
+internal fun MutablePreferences.writeFadeReadItems(
+    fadeReadItems: Boolean,
+) {
+    if (fadeReadItems) {
+        this[fadeReadItemsKey()] = true
+    } else {
+        remove(fadeReadItemsKey())
+    }
+}
+
 internal fun loadStartupLibraryBrowsePreferences(
     startupPreferences: SharedPreferences,
 ): LibraryBrowsePreferences = LibraryBrowsePreferences(
@@ -153,6 +165,7 @@ internal fun loadStartupLibraryBrowsePreferences(
             defaultLibraryGridCellSizeDp,
         ),
     ),
+    fadeReadItems = startupPreferences.getBoolean(fadeReadItemsStorageKey(), false),
 )
 
 internal fun writeStartupLibraryBrowsePreferences(
@@ -190,6 +203,11 @@ internal fun writeStartupLibraryBrowsePreferences(
             remove(gridCellSizeStorageKey())
         } else {
             putInt(gridCellSizeStorageKey(), gridCellSizeDp)
+        }
+        if (preferences.fadeReadItems) {
+            putBoolean(fadeReadItemsStorageKey(), true)
+        } else {
+            remove(fadeReadItemsStorageKey())
         }
         commit()
     }
@@ -377,6 +395,8 @@ private fun filterPanelsKey(
 
 private fun gridCellSizeKey(): Preferences.Key<Int> = intPreferencesKey(gridCellSizeStorageKey())
 
+private fun fadeReadItemsKey(): Preferences.Key<Boolean> = booleanPreferencesKey(fadeReadItemsStorageKey())
+
 private fun sortModeStorageKey(
     sourceType: SourceType,
 ): String = "library_sort_mode_${sourceType.keySuffix()}"
@@ -422,6 +442,8 @@ private fun filterPanelsStorageKey(
 ): String = "library_filter_panels_${sourceType.keySuffix()}"
 
 private fun gridCellSizeStorageKey(): String = "library_grid_cell_size_dp"
+
+private fun fadeReadItemsStorageKey(): String = "library_fade_read_items"
 
 private fun SourceType.keySuffix(): String = name.lowercase(Locale.ROOT)
 

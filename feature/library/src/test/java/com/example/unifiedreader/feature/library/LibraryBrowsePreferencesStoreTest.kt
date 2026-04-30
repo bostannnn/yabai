@@ -176,6 +176,29 @@ class LibraryBrowsePreferencesStoreTest {
     }
 
     @Test
+    fun `persists fade read items preference`() = runBlocking {
+        val file = File.createTempFile("library-browse-fade-read", ".preferences_pb")
+        val startupPreferences = testStartupPreferences()
+        val dataStore = PreferenceDataStoreFactory.create(
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+            produceFile = { file },
+        )
+        val store = DataStoreLibraryBrowsePreferencesStore(
+            dataStore = dataStore,
+            startupPreferences = startupPreferences,
+        )
+
+        store.setFadeReadItems(true)
+
+        val preferences = store.preferencesFlow.first { current ->
+            current.fadeReadItems
+        }
+
+        assertEquals(true, preferences.fadeReadItems)
+        assertEquals(true, loadStartupLibraryBrowsePreferences(startupPreferences).fadeReadItems)
+    }
+
+    @Test
     fun `io fallback retries and resumes preferences observation`() = runBlocking {
         val dataStore = RecoveringPreferencesDataStore()
         val store = DataStoreLibraryBrowsePreferencesStore(

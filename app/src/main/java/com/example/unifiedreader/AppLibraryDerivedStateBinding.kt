@@ -11,6 +11,9 @@ internal fun AppUiState.toLibraryDerivedStateInput(): LibraryDerivedStateInput =
     selectedLibrarySearchQuery = selectedLibrarySearchQuery,
     selectedLibrarySortMode = selectedLibrarySortMode,
     progressByItemId = progressByItemId,
+    ratingByItemId = journalSnapshot.entryByItemId.mapNotNull { (itemId, entry) ->
+        entry.rating?.let { rating -> itemId to rating }
+    }.toMap(),
     downloadedRemoteItemIds = downloadedRemoteItemIds,
     locallyAvailableRemoteItemIds = locallyAvailableRemoteItemIds,
     downloadingRemoteItemIds = downloadingRemoteItemIds,
@@ -25,6 +28,7 @@ internal fun AppUiState.withLibraryDerivedState(
     selectedLibraryFilterFacets = derivedState.selectedLibraryFilterFacets,
     selectedSourceLibraryTitlesById = derivedState.selectedSourceLibraryTitlesById,
     displayProgressByItemId = derivedState.displayProgressByItemId,
+    displayRatingByItemId = derivedState.displayRatingByItemId,
     remoteDownloadActionAvailability = derivedState.remoteDownloadActionAvailability,
     visibleItems = derivedState.visibleItems,
     libraryBrowseContextKey = derivedState.libraryBrowseContextKey,

@@ -47,6 +47,8 @@ fun LibraryScreen(
     items: List<ReadableItem>,
     viewMode: LibraryViewMode,
     progressByItemId: Map<String, ItemProgressSummary> = emptyMap(),
+    ratingByItemId: Map<String, LibraryRatingBadgeState> = emptyMap(),
+    fadeReadItems: Boolean = false,
     locallyAvailableItemIds: Set<String> = emptySet(),
     downloadableItemIds: Set<String> = emptySet(),
     deletableDownloadedItemIds: Set<String> = emptySet(),
@@ -70,6 +72,7 @@ fun LibraryScreen(
     onSortModeChanged: (LibrarySortMode) -> Unit = {},
     onViewModeChanged: (LibraryViewMode) -> Unit = {},
     onGridCellSizeDpChanged: (Int) -> Unit = {},
+    onFadeReadItemsChanged: (Boolean) -> Unit = {},
     initialScrollPosition: LibraryScrollPosition = LibraryScrollPosition(),
     scrollToTopRequest: Long = 0L,
     onScrollPositionChanged: (LibraryScrollPosition) -> Unit = {},
@@ -236,6 +239,7 @@ fun LibraryScreen(
                     sortMode = sortMode,
                     gridCellSizeDp = gridPresentation.selectedGridSize.cellSizeDp,
                     gridSizeOptions = gridPresentation.availableGridSizes,
+                    fadeReadItems = fadeReadItems,
                     showSortControl = showSortControl,
                     onOpenFilterPanel = { openFilterPanel = it },
                     onClearFilters = onClearFilters,
@@ -244,6 +248,7 @@ fun LibraryScreen(
                         onSortModeChanged(it)
                     },
                     onGridCellSizeDpChanged = onGridCellSizeDpChanged,
+                    onFadeReadItemsChanged = onFadeReadItemsChanged,
                 )
             }
 
@@ -279,7 +284,9 @@ fun LibraryScreen(
                     GridCoverCard(
                         item = item,
                         progress = progressByItemId[item.id],
+                        rating = ratingByItemId[item.id],
                         isDownloaded = itemActionContext.isDownloaded(item),
+                        fadeRead = fadeReadItems,
                         imageVariant = gridCoverImageVariant,
                         coverImageUrlProvider = coverImageUrlProvider,
                         onClick = { onItemSelected(item) },

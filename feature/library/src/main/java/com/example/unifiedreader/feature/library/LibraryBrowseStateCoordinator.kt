@@ -14,6 +14,7 @@ data class LibraryBrowseState(
     val sortsBySource: Map<SourceType, LibrarySortMode> = emptyMap(),
     val filterPanelsBySource: Map<SourceType, List<LibraryFilterPanel>> = emptyMap(),
     val gridCellSizeDp: Int = defaultLibraryGridCellSizeDp,
+    val fadeReadItems: Boolean = false,
 )
 
 class LibraryBrowseStateCoordinator(
@@ -29,6 +30,7 @@ class LibraryBrowseStateCoordinator(
             sortsBySource = preferences.sortsBySource,
             filterPanelsBySource = preferences.filterPanelsBySource,
             gridCellSizeDp = preferences.gridCellSizeDp,
+            fadeReadItems = preferences.fadeReadItems,
         )
     }
 
@@ -105,6 +107,13 @@ class LibraryBrowseStateCoordinator(
         gridCellSizeDp = sanitizeLibraryGridCellSizeDp(gridCellSizeDp),
     )
 
+    fun updateFadeReadItems(
+        currentState: LibraryBrowseState,
+        fadeReadItems: Boolean,
+    ): LibraryBrowseState = currentState.copy(
+        fadeReadItems = fadeReadItems,
+    )
+
     suspend fun persistFilters(
         sourceType: SourceType,
         filters: LibraryFilterState,
@@ -140,6 +149,14 @@ class LibraryBrowseStateCoordinator(
     ) {
         preferencesStore.setGridCellSizeDp(
             gridCellSizeDp = gridCellSizeDp,
+        )
+    }
+
+    suspend fun persistFadeReadItems(
+        fadeReadItems: Boolean,
+    ) {
+        preferencesStore.setFadeReadItems(
+            fadeReadItems = fadeReadItems,
         )
     }
 }

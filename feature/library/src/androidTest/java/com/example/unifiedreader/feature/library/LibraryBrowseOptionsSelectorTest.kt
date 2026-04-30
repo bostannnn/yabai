@@ -34,9 +34,11 @@ class LibraryBrowseOptionsSelectorTest {
                         LibraryGridSizeOption(cellSizeDp = 180, columnCount = 4),
                         LibraryGridSizeOption(cellSizeDp = 240, columnCount = 3),
                     ),
+                    fadeReadItems = false,
                     showSortOptions = true,
                     onSortModeChanged = {},
                     onGridCellSizeDpChanged = { selectedGridCellSizeDp = it },
+                    onFadeReadItemsChanged = {},
                 )
             }
         }

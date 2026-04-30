@@ -8,6 +8,7 @@ internal fun AppUiState.toLibraryBrowseState(): LibraryBrowseState = LibraryBrow
     sortsBySource = librarySortsBySource,
     filterPanelsBySource = libraryFilterPanelsBySource,
     gridCellSizeDp = libraryGridCellSizeDp,
+    fadeReadItems = libraryFadeReadItems,
 )
 
 internal fun AppUiState.withLibraryBrowseState(
@@ -18,4 +19,5 @@ internal fun AppUiState.withLibraryBrowseState(
     librarySortsBySource = browseState.sortsBySource,
     libraryFilterPanelsBySource = browseState.filterPanelsBySource,
     libraryGridCellSizeDp = browseState.gridCellSizeDp,
+    libraryFadeReadItems = browseState.fadeReadItems,
 )

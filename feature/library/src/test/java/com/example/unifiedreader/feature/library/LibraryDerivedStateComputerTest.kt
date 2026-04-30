@@ -66,6 +66,50 @@ class LibraryDerivedStateComputerTest {
     }
 
     @Test
+    fun `equal rating maps reuse cached derived state`() {
+        val libraries = listOf(
+            Library(
+                id = SourceType.KAVITA.remoteLibraryId("k-comics"),
+                sourceType = SourceType.KAVITA,
+                title = "Kavita Comics",
+                contentType = LibraryContentType.COMICS,
+            ),
+        )
+        val item = issue(
+            id = "k-1",
+            sourceType = SourceType.KAVITA,
+            libraryId = SourceType.KAVITA.remoteLibraryId("k-comics"),
+            seriesKey = "akira",
+            title = "Akira 1",
+        )
+        val baseInput = LibraryDerivedStateInput(
+            selectedSource = SourceType.KAVITA,
+            libraries = libraries,
+            items = listOf(item),
+            selectedKavitaSeriesKey = item.libraryId + "::akira",
+            progressByItemId = mapOf(
+                item.id to ItemProgressSummary(
+                    label = "Finished",
+                    fraction = 1f,
+                    isFinished = true,
+                ),
+            ),
+            ratingByItemId = mapOf(item.id to 9),
+        )
+
+        val first = computer.compute(baseInput)
+        val second = computer.compute(
+            baseInput.copy(
+                ratingByItemId = buildMap {
+                    put(item.id, 9)
+                },
+            ),
+        )
+
+        assertSame(first, second)
+    }
+
+    @Test
     fun `download availability resolves series containers and raw shelf items`() {
         val libraries = listOf(
             Library(
@@ -248,6 +292,80 @@ class LibraryDerivedStateComputerTest {
         assertEquals(
             listOf("kavita:series:${libraryId}::blame", "kavita:series:${libraryId}::akira"),
             derivedState.visibleItems.map(ReadableItem::id),
+        )
+    }
+
+    @Test
+    fun `read rated items expose rating badge state`() {
+        val item = issue(
+            id = "k-1",
+            sourceType = SourceType.KAVITA,
+            libraryId = SourceType.KAVITA.remoteLibraryId("k-comics"),
+            seriesKey = "akira",
+            title = "Akira 1",
+        )
+
+        val derivedState = computer.compute(
+            LibraryDerivedStateInput(
+                selectedSource = SourceType.KAVITA,
+                libraries = emptyList(),
+                items = listOf(item),
+                selectedKavitaSeriesKey = item.libraryId + "::akira",
+                progressByItemId = mapOf(
+                    item.id to ItemProgressSummary(
+                        label = "Finished",
+                        fraction = 1f,
+                        isFinished = true,
+                    ),
+                ),
+                ratingByItemId = mapOf(item.id to 9),
+            ),
+        )
+
+        assertEquals("4.5", derivedState.displayRatingByItemId[item.id]?.label)
+    }
+
+    @Test
+    fun `root series containers expose average rating from rated issues`() {
+        val libraryId = SourceType.KAVITA.remoteLibraryId("k-comics")
+        val libraries = listOf(
+            Library(
+                id = libraryId,
+                sourceType = SourceType.KAVITA,
+                title = "Kavita Comics",
+                contentType = LibraryContentType.COMICS,
+            ),
+        )
+        val issueOne = issue(
+            id = "k-1",
+            sourceType = SourceType.KAVITA,
+            libraryId = libraryId,
+            seriesKey = "akira",
+            title = "Akira 1",
+        )
+        val issueTwo = issue(
+            id = "k-2",
+            sourceType = SourceType.KAVITA,
+            libraryId = libraryId,
+            seriesKey = "akira",
+            title = "Akira 2",
+        )
+
+        val derivedState = computer.compute(
+            LibraryDerivedStateInput(
+                selectedSource = SourceType.KAVITA,
+                libraries = libraries,
+                items = listOf(issueOne, issueTwo),
+                ratingByItemId = mapOf(
+                    issueOne.id to 8,
+                    issueTwo.id to 10,
+                ),
+            ),
+        )
+
+        assertEquals(
+            "Avg 4.5",
+            derivedState.displayRatingByItemId["kavita:series:${libraryId}::akira"]?.label,
         )
     }
 }

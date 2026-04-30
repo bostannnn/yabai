@@ -34,6 +34,7 @@ class LibraryDerivedStateComputer @Inject constructor() {
             selectedLibrarySearchQuery = input.selectedLibrarySearchQuery,
             selectedLibrarySortMode = input.selectedLibrarySortMode,
             progressByItemId = input.progressByItemId,
+            ratingByItemId = input.ratingByItemId,
             downloadedRemoteItemIds = input.downloadedRemoteItemIds,
             locallyAvailableRemoteItemIds = input.locallyAvailableRemoteItemIds,
             downloadingRemoteItemIds = input.downloadingRemoteItemIds,
@@ -47,6 +48,11 @@ class LibraryDerivedStateComputer @Inject constructor() {
         )
         val displayProgressByItemId = buildDisplayProgressByItemId(
             input = input,
+        )
+        val displayRatingByItemId = buildDisplayRatingByItemId(
+            input = input,
+            sourceIndex = sourceIndex,
+            progressByItemId = displayProgressByItemId,
         )
         val activeDownloadingItemIds = buildActiveDownloadingItemIds(
             downloadingItemIds = input.downloadingRemoteItemIds,
@@ -83,6 +89,7 @@ class LibraryDerivedStateComputer @Inject constructor() {
             ),
             selectedSourceLibraryTitlesById = sourceIndex.selectedSourceLibraryTitlesById(input.selectedSource),
             displayProgressByItemId = displayProgressByItemId,
+            displayRatingByItemId = displayRatingByItemId,
             remoteDownloadActionAvailability = remoteDownloadActionAvailability,
             visibleItems = visibleItems,
             libraryBrowseContextKey = buildLibraryBrowseContextKey(input),
@@ -109,6 +116,11 @@ class LibraryDerivedStateComputer @Inject constructor() {
             ),
             selectedSourceLibraryTitlesById = sourceIndex.selectedSourceLibraryTitlesById(input.selectedSource),
             displayProgressByItemId = input.progressByItemId,
+            displayRatingByItemId = buildDisplayRatingByItemId(
+                input = input,
+                sourceIndex = sourceIndex,
+                progressByItemId = input.progressByItemId,
+            ),
             remoteDownloadActionAvailability = RemoteDownloadActionAvailability(),
             visibleItems = buildVisibleLibraryItems(
                 sourceItems = sourceItems,
@@ -160,6 +172,48 @@ class LibraryDerivedStateComputer @Inject constructor() {
         downloadingItemIds.forEach { downloadingItemId ->
             val downloadingItem = sourceIndex.itemById(downloadingItemId) ?: return@forEach
             addAll(sourceIndex.trackedRemoteDownloadItemIds(downloadingItem))
+        }
+    }
+}
+
+private fun buildDisplayRatingByItemId(
+    input: LibraryDerivedStateInput,
+    sourceIndex: LibrarySourceIndex,
+    progressByItemId: Map<String, ItemProgressSummary>,
+): Map<String, LibraryRatingBadgeState> = buildMap {
+    input.ratingByItemId.forEach { (itemId, rating) ->
+        if (progressByItemId[itemId]?.isComplete == true) {
+            put(itemId, itemRatingBadgeState(rating))
+        }
+    }
+    if (input.isSeriesBrowseActive) return@buildMap
+    when (input.selectedSource) {
+        SourceType.KAVITA -> putSeriesAverageRatings(
+            issuesBySeriesKey = sourceIndex.issueGroupsFor(SourceType.KAVITA),
+            ratingByItemId = input.ratingByItemId,
+            seriesContainerId = ::kavitaSeriesContainerId,
+        )
+
+        SourceType.STUMP -> putSeriesAverageRatings(
+            issuesBySeriesKey = sourceIndex.issueGroupsFor(SourceType.STUMP),
+            ratingByItemId = input.ratingByItemId,
+            seriesContainerId = ::stumpSeriesContainerId,
+        )
+
+        SourceType.GRIMMORY,
+        SourceType.LOCAL -> Unit
+    }
+}
+
+private fun MutableMap<String, LibraryRatingBadgeState>.putSeriesAverageRatings(
+    issuesBySeriesKey: Map<String, List<ReadableItem>>,
+    ratingByItemId: Map<String, Int>,
+    seriesContainerId: (String) -> String,
+) {
+    issuesBySeriesKey.forEach { (seriesKey, issues) ->
+        val ratings = issues.mapNotNull { issue -> ratingByItemId[issue.id] }
+        seriesAverageRatingBadgeState(ratings)?.let { badgeState ->
+            put(seriesContainerId(seriesKey), badgeState)
         }
     }
 }
@@ -289,6 +343,7 @@ private data class LibraryDerivedStateCacheKey(
     val selectedLibrarySearchQuery: String,
     val selectedLibrarySortMode: com.example.unifiedreader.core.model.LibrarySortMode,
     val progressByItemId: IdentityBox<Map<*, *>>,
+    val ratingByItemId: Map<*, *>,
     val downloadedRemoteItemIds: IdentityBox<Set<*>>,
     val locallyAvailableRemoteItemIds: IdentityBox<Set<*>>,
     val downloadingRemoteItemIds: IdentityBox<Set<*>>,
@@ -302,6 +357,7 @@ private data class LibraryDerivedStateCacheKey(
         selectedLibrarySearchQuery: String,
         selectedLibrarySortMode: com.example.unifiedreader.core.model.LibrarySortMode,
         progressByItemId: Map<*, *>,
+        ratingByItemId: Map<*, *>,
         downloadedRemoteItemIds: Set<*>,
         locallyAvailableRemoteItemIds: Set<*>,
         downloadingRemoteItemIds: Set<*>,
@@ -314,6 +370,7 @@ private data class LibraryDerivedStateCacheKey(
         selectedLibrarySearchQuery = selectedLibrarySearchQuery,
         selectedLibrarySortMode = selectedLibrarySortMode,
         progressByItemId = IdentityBox(progressByItemId),
+        ratingByItemId = ratingByItemId,
         downloadedRemoteItemIds = IdentityBox(downloadedRemoteItemIds),
         locallyAvailableRemoteItemIds = IdentityBox(locallyAvailableRemoteItemIds),
         downloadingRemoteItemIds = IdentityBox(downloadingRemoteItemIds),

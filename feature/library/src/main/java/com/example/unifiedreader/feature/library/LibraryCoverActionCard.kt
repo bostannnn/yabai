@@ -29,6 +29,7 @@ fun LibraryCoverActionCard(
     imageVariant: LibraryCoverImageVariant,
     isDownloaded: Boolean,
     isRead: Boolean,
+    fadeRead: Boolean = false,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     coverModifier: Modifier = Modifier.fillMaxWidth(),
@@ -56,6 +57,7 @@ fun LibraryCoverActionCard(
                 coverImageUrlProvider = coverImageUrlProvider,
                 isDownloaded = isDownloaded,
                 isRead = isRead,
+                fadeRead = fadeRead,
                 imageVariant = imageVariant,
                 modifier = coverModifier,
             )

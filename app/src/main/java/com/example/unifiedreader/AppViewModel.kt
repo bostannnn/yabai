@@ -164,6 +164,14 @@ class AppViewModel @Inject constructor(
         )
     }
 
+    fun onLibraryFadeReadItemsChanged(fadeReadItems: Boolean) {
+        libraryBrowseController.onLibraryFadeReadItemsChanged(
+            updateState = ::updateUiState,
+            scope = viewModelScope,
+            fadeReadItems = fadeReadItems,
+        )
+    }
+
     fun onLibraryFilterPanelsChanged(
         sourceType: SourceType,
         panels: List<LibraryFilterPanel>,

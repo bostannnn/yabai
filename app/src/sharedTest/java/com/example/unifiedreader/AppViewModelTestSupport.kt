@@ -1237,6 +1237,14 @@ class FakeLibraryBrowsePreferencesStore(
             ),
         )
     }
+
+    override suspend fun setFadeReadItems(
+        fadeReadItems: Boolean,
+    ) {
+        mutablePreferencesFlow.value = mutablePreferencesFlow.value.copy(
+            fadeReadItems = fadeReadItems,
+        )
+    }
 }
 
 class FakeReaderSessionStore(

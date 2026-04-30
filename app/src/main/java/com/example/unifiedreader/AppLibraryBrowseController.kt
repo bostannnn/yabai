@@ -156,6 +156,24 @@ class AppLibraryBrowseController @Inject constructor(
         }
     }
 
+    fun onLibraryFadeReadItemsChanged(
+        updateState: AppUiStateUpdater,
+        scope: CoroutineScope,
+        fadeReadItems: Boolean,
+    ) {
+        updateLibraryBrowseState(
+            updateState = updateState,
+        ) { state ->
+            libraryBrowseStateCoordinator.updateFadeReadItems(
+                currentState = state,
+                fadeReadItems = fadeReadItems,
+            )
+        }
+        scope.launch {
+            libraryBrowseStateCoordinator.persistFadeReadItems(fadeReadItems)
+        }
+    }
+
     private inline fun updateLibraryBrowseState(
         updateState: AppUiStateUpdater,
         crossinline transform: (LibraryBrowseState) -> LibraryBrowseState,

@@ -13,6 +13,7 @@ import com.example.unifiedreader.core.model.belongsToKavitaSeries
 import com.example.unifiedreader.core.model.belongsToStumpSeries
 import com.example.unifiedreader.core.model.resolveLibraryFilterPanels
 import com.example.unifiedreader.feature.library.ItemProgressSummary
+import com.example.unifiedreader.feature.library.LibraryRatingBadgeState
 import com.example.unifiedreader.feature.library.RemoteDownloadActionAvailability
 import com.example.unifiedreader.feature.library.defaultLibraryGridCellSizeDp
 import com.example.unifiedreader.feature.library.shelves.LibraryShelvesState
@@ -63,6 +64,7 @@ data class AppUiState(
     val librarySortsBySource: Map<SourceType, LibrarySortMode> = emptyMap(),
     val libraryFilterPanelsBySource: Map<SourceType, List<LibraryFilterPanel>> = emptyMap(),
     val libraryGridCellSizeDp: Int = defaultLibraryGridCellSizeDp,
+    val libraryFadeReadItems: Boolean = false,
     val progressByItemId: Map<String, ItemProgressSummary> = emptyMap(),
     val downloadedRemoteItemIds: Set<String> = emptySet(),
     val locallyAvailableRemoteItemIds: Set<String> = emptySet(),
@@ -80,6 +82,7 @@ data class AppUiState(
     val selectedLibraryFilterFacets: LibraryFilterFacets = LibraryFilterFacets(),
     val selectedSourceLibraryTitlesById: Map<String, String> = emptyMap(),
     val displayProgressByItemId: Map<String, ItemProgressSummary> = emptyMap(),
+    val displayRatingByItemId: Map<String, LibraryRatingBadgeState> = emptyMap(),
     val remoteDownloadActionAvailability: RemoteDownloadActionAvailability = RemoteDownloadActionAvailability(),
     val visibleItems: List<ReadableItem> = emptyList(),
     val libraryBrowseContextKey: String = "",

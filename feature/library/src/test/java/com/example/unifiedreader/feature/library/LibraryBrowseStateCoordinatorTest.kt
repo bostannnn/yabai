@@ -30,6 +30,7 @@ class LibraryBrowseStateCoordinatorTest {
                     ),
                 ),
                 gridCellSizeDp = 140,
+                fadeReadItems = true,
             ),
         )
         val coordinator = LibraryBrowseStateCoordinator(preferencesStore)
@@ -46,6 +47,7 @@ class LibraryBrowseStateCoordinatorTest {
         )
         assertEquals("earthsea", restoredState.searchQueriesBySource[SourceType.LOCAL])
         assertEquals(140, restoredState.gridCellSizeDp)
+        assertEquals(true, restoredState.fadeReadItems)
     }
 
     @Test
@@ -145,11 +147,13 @@ class LibraryBrowseStateCoordinatorTest {
             panels = panels,
         )
         coordinator.persistGridCellSizeDp(140)
+        coordinator.persistFadeReadItems(true)
 
         assertEquals(filters, preferencesStore.preferencesFlow.value.filtersBySource[SourceType.LOCAL])
         assertEquals(LibrarySortMode.TITLE, preferencesStore.preferencesFlow.value.sortsBySource[SourceType.LOCAL])
         assertEquals(panels, preferencesStore.preferencesFlow.value.filterPanelsBySource[SourceType.GRIMMORY])
         assertEquals(140, preferencesStore.preferencesFlow.value.gridCellSizeDp)
+        assertEquals(true, preferencesStore.preferencesFlow.value.fadeReadItems)
     }
 }
 
@@ -201,6 +205,14 @@ private class FakeLibraryBrowsePreferencesStore(
     ) {
         state.value = state.value.copy(
             gridCellSizeDp = sanitizeLibraryGridCellSizeDp(gridCellSizeDp),
+        )
+    }
+
+    override suspend fun setFadeReadItems(
+        fadeReadItems: Boolean,
+    ) {
+        state.value = state.value.copy(
+            fadeReadItems = fadeReadItems,
         )
     }
 }

@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.shadow
@@ -42,6 +43,7 @@ fun LibraryCover(
     coverUrl: String? = item.coverUrl,
     isDownloaded: Boolean = false,
     isRead: Boolean = false,
+    fadeRead: Boolean = false,
     downloadBadgeBottomInset: Dp = 0.dp,
     imageVariant: LibraryCoverImageVariant = LibraryCoverImageVariant.Grid,
     modifier: Modifier = Modifier,
@@ -73,27 +75,34 @@ fun LibraryCover(
             ),
         contentAlignment = Alignment.Center,
     ) {
-        val imageUrl = coverUrl?.takeIf(String::isNotBlank)
-        if (imageUrl != null) {
-            BucketedCoverImage(
-                identityKey = item.id,
-                imageUrl = imageUrl,
-                contentDescription = item.title,
-                variant = imageVariant,
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .alpha(if (fadeRead && isRead) ReadCoverFadeAlpha else 1f),
+            contentAlignment = Alignment.Center,
+        ) {
+            val imageUrl = coverUrl?.takeIf(String::isNotBlank)
+            if (imageUrl != null) {
+                BucketedCoverImage(
+                    identityKey = item.id,
+                    imageUrl = imageUrl,
+                    contentDescription = item.title,
+                    variant = imageVariant,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                Text(
+                    text = formatBadgeText(item.format),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            CoverSurfaceTreatment(
+                coverStyle = coverStyle,
                 modifier = Modifier.fillMaxSize(),
             )
-        } else {
-            Text(
-                text = formatBadgeText(item.format),
-                style = MaterialTheme.typography.titleMedium,
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-            )
         }
-        CoverSurfaceTreatment(
-            coverStyle = coverStyle,
-            modifier = Modifier.fillMaxSize(),
-        )
         if (isRead) {
             Box(
                 modifier = Modifier
@@ -358,6 +367,7 @@ fun ResolvedLibraryCover(
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     isDownloaded: Boolean = false,
     isRead: Boolean = false,
+    fadeRead: Boolean = false,
     downloadBadgeBottomInset: Dp = 0.dp,
     imageVariant: LibraryCoverImageVariant = LibraryCoverImageVariant.Grid,
     modifier: Modifier = Modifier,
@@ -367,11 +377,14 @@ fun ResolvedLibraryCover(
         coverUrl = coverImageUrlProvider(item, imageVariant),
         isDownloaded = isDownloaded,
         isRead = isRead,
+        fadeRead = fadeRead,
         downloadBadgeBottomInset = downloadBadgeBottomInset,
         imageVariant = imageVariant,
         modifier = modifier,
     )
 }
+
+private const val ReadCoverFadeAlpha = 0.42f
 
 @Composable
 internal fun BucketedCoverImage(

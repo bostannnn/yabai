@@ -30,6 +30,7 @@ data class LibraryBrowsePreferences(
     val sortsBySource: Map<SourceType, LibrarySortMode> = emptyMap(),
     val filterPanelsBySource: Map<SourceType, List<LibraryFilterPanel>> = emptyMap(),
     val gridCellSizeDp: Int = defaultLibraryGridCellSizeDp,
+    val fadeReadItems: Boolean = false,
 )
 
 interface LibraryBrowsePreferencesStore {
@@ -52,6 +53,10 @@ interface LibraryBrowsePreferencesStore {
 
     suspend fun setGridCellSizeDp(
         gridCellSizeDp: Int,
+    )
+
+    suspend fun setFadeReadItems(
+        fadeReadItems: Boolean,
     )
 }
 
@@ -145,6 +150,19 @@ class DataStoreLibraryBrowsePreferencesStore(
         }
         val updatedPreferences = latestPreferences.get().copy(
             gridCellSizeDp = sanitizedGridCellSizeDp,
+        )
+        latestPreferences.set(updatedPreferences)
+        writeStartupPreferences(updatedPreferences)
+    }
+
+    override suspend fun setFadeReadItems(
+        fadeReadItems: Boolean,
+    ) {
+        dataStore.edit { preferences ->
+            preferences.writeFadeReadItems(fadeReadItems)
+        }
+        val updatedPreferences = latestPreferences.get().copy(
+            fadeReadItems = fadeReadItems,
         )
         latestPreferences.set(updatedPreferences)
         writeStartupPreferences(updatedPreferences)

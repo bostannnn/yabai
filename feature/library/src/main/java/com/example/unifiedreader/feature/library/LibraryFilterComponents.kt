@@ -82,11 +82,13 @@ internal fun LibraryFilterSummary(
     sortMode: LibrarySortMode,
     gridCellSizeDp: Int,
     gridSizeOptions: List<LibraryGridSizeOption>,
+    fadeReadItems: Boolean,
     showSortControl: Boolean,
     onOpenFilterPanel: (LibraryFilterPanel) -> Unit,
     onClearFilters: () -> Unit,
     onSortModeChanged: (LibrarySortMode) -> Unit,
     onGridCellSizeDpChanged: (Int) -> Unit,
+    onFadeReadItemsChanged: (Boolean) -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -122,9 +124,11 @@ internal fun LibraryFilterSummary(
             sortMode = sortMode,
             gridCellSizeDp = gridCellSizeDp,
             gridSizeOptions = gridSizeOptions,
+            fadeReadItems = fadeReadItems,
             showSortOptions = showSortControl,
             onSortModeChanged = onSortModeChanged,
             onGridCellSizeDpChanged = onGridCellSizeDpChanged,
+            onFadeReadItemsChanged = onFadeReadItemsChanged,
         )
     }
 }

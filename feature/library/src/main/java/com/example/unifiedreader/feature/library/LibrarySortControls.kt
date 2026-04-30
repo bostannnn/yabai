@@ -1,6 +1,10 @@
 package com.example.unifiedreader.feature.library
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
@@ -11,10 +15,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.LibrarySortMode
 
 internal const val LibraryGridSizeOptionTagPrefix = "library-grid-size-option-"
@@ -24,15 +30,18 @@ internal fun LibraryBrowseOptionsSelector(
     sortMode: LibrarySortMode,
     gridCellSizeDp: Int,
     gridSizeOptions: List<LibraryGridSizeOption>,
+    fadeReadItems: Boolean,
     showSortOptions: Boolean,
     onSortModeChanged: (LibrarySortMode) -> Unit,
     onGridCellSizeDpChanged: (Int) -> Unit,
+    onFadeReadItemsChanged: (Boolean) -> Unit,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val sanitizedGridCellSizeDp = sanitizeLibraryGridCellSizeDp(gridCellSizeDp)
     Box {
         FilterChip(
             selected = sanitizedGridCellSizeDp != defaultLibraryGridCellSizeDp ||
+                fadeReadItems ||
                 (showSortOptions && sortMode != defaultLibrarySortMode),
             onClick = { expanded = true },
             label = {
@@ -69,6 +78,26 @@ internal fun LibraryBrowseOptionsSelector(
                 }
                 HorizontalDivider()
             }
+            DropdownSectionHeader(text = "View")
+            DropdownMenuItem(
+                text = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
+                            checked = fadeReadItems,
+                            onCheckedChange = null,
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Fade read books",
+                            fontWeight = if (fadeReadItems) FontWeight.SemiBold else FontWeight.Normal,
+                        )
+                    }
+                },
+                onClick = {
+                    onFadeReadItemsChanged(!fadeReadItems)
+                },
+            )
+            HorizontalDivider()
             DropdownSectionHeader(text = "Grid size")
             gridSizeOptions.forEach { option ->
                 DropdownMenuItem(

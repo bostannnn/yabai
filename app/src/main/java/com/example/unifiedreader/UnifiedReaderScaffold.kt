@@ -178,6 +178,7 @@ fun UnifiedReaderScaffold(
                         onSortModeChanged = viewModel::onLibrarySortModeChanged,
                         onViewModeChanged = onLibraryViewModeChanged,
                         onGridCellSizeDpChanged = viewModel::onLibraryGridCellSizeChanged,
+                        onFadeReadItemsChanged = viewModel::onLibraryFadeReadItemsChanged,
                         showSortControl = !uiState.isSeriesBrowseActive,
                         modifier = Modifier.weight(1f),
                     )
