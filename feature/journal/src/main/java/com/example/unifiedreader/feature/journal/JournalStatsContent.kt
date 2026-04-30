@@ -106,9 +106,6 @@ fun JournalStatsContent(
                             coverImageUrlProvider = coverImageUrlProvider,
                             onCoverVisible = onCoverVisible,
                             onOpenItem = { summary -> detailsTarget = JournalDetailsTarget.Item(summary) },
-                            onShowAllItems = { summaries, title ->
-                                detailsTarget = JournalDetailsTarget.ItemList(title, summaries)
-                            },
                             onOpenFacet = { section, row, summaries ->
                                 detailsTarget = JournalDetailsTarget.Facet(section, row, summaries)
                             },
@@ -137,9 +134,6 @@ fun JournalStatsContent(
                             coverImageUrlProvider = coverImageUrlProvider,
                             onCoverVisible = onCoverVisible,
                             onOpenItem = { summary -> detailsTarget = JournalDetailsTarget.Item(summary) },
-                            onShowAllItems = { summaries, title ->
-                                detailsTarget = JournalDetailsTarget.ItemList(title, summaries)
-                            },
                             onOpenFacet = { section, row, summaries ->
                                 detailsTarget = JournalDetailsTarget.Facet(section, row, summaries)
                             },
@@ -221,7 +215,6 @@ private fun PeriodStatsPanel(
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onOpenItem: (JournalItemSummary) -> Unit,
-    onShowAllItems: (List<JournalItemSummary>, String) -> Unit,
     onOpenFacet: (JournalFacetSection, JournalFacetRow, List<JournalItemSummary>) -> Unit,
     onShowAllFacetRows: (JournalFacetSection) -> Unit,
     activityContent: @Composable () -> Unit,
@@ -253,14 +246,12 @@ private fun PeriodStatsPanel(
             coverImageUrlProvider = coverImageUrlProvider,
             onCoverVisible = onCoverVisible,
             onOpenItem = onOpenItem,
-            onShowAll = onShowAllItems,
         )
         NeedsRatingItemsRow(
             overview = overview,
             coverImageUrlProvider = coverImageUrlProvider,
             onCoverVisible = onCoverVisible,
             onOpenItem = onOpenItem,
-            onShowAll = onShowAllItems,
         )
         RatingBreakdownSection(
             bookRatings = overview.stats.ratingCountsByMediaType[JournalMediaType.BOOK].orEmpty(),

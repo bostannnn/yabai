@@ -80,6 +80,7 @@ class GrimmoryDtosTest {
                 pageCount = 320,
                 authors = listOf("Ada Author"),
                 publisher = "Tor",
+                categories = listOf("Literary Fiction"),
                 tags = listOf("Speculative"),
                 language = "English",
             ),
@@ -98,6 +99,7 @@ class GrimmoryDtosTest {
         assertEquals("Ada Author", item.bookMetadata?.author)
         assertEquals(listOf("Ada Author"), item.bookMetadata?.authors)
         assertEquals(listOf("Tor"), item.bookMetadata?.publishers)
+        assertEquals(listOf("Literary Fiction"), item.bookMetadata?.genres)
         assertEquals(listOf("Speculative"), item.bookMetadata?.tags)
         assertEquals(listOf("English"), item.bookMetadata?.languages)
         assertEquals(320, item.pageCount)

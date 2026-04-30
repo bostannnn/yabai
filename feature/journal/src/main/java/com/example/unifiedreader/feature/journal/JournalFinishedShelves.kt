@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,15 +23,9 @@ import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 
-internal const val JournalFinishedShelfPreviewLimit = 50
-
 internal fun finishedItemsNeedingRating(
     overview: JournalPeriodOverview,
 ): List<JournalItemSummary> = overview.finishedItems.filter { summary -> summary.entry?.rating == null }
-
-internal fun journalFinishedShelfPreviewItems(
-    items: List<JournalItemSummary>,
-): List<JournalItemSummary> = items.take(JournalFinishedShelfPreviewLimit)
 
 @Composable
 internal fun FinishedItemsRow(
@@ -40,17 +33,14 @@ internal fun FinishedItemsRow(
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onOpenItem: (JournalItemSummary) -> Unit,
-    onShowAll: (List<JournalItemSummary>, String) -> Unit,
 ) {
     JournalFinishedShelf(
         title = "Finished",
         emptyText = "No finished items yet",
         items = overview.finishedItems,
-        seeAllLabel = "See all ${overview.periodLabel()} finished",
         coverImageUrlProvider = coverImageUrlProvider,
         onCoverVisible = onCoverVisible,
         onOpenItem = onOpenItem,
-        onShowAll = onShowAll,
     )
 }
 
@@ -60,17 +50,14 @@ internal fun NeedsRatingItemsRow(
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onOpenItem: (JournalItemSummary) -> Unit,
-    onShowAll: (List<JournalItemSummary>, String) -> Unit,
 ) {
     JournalFinishedShelf(
         title = "Needs rating",
         emptyText = "No unrated finished items",
         items = finishedItemsNeedingRating(overview),
-        seeAllLabel = "See all ${overview.periodLabel()} unrated",
         coverImageUrlProvider = coverImageUrlProvider,
         onCoverVisible = onCoverVisible,
         onOpenItem = onOpenItem,
-        onShowAll = onShowAll,
     )
 }
 
@@ -79,11 +66,9 @@ private fun JournalFinishedShelf(
     title: String,
     emptyText: String,
     items: List<JournalItemSummary>,
-    seeAllLabel: String,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onOpenItem: (JournalItemSummary) -> Unit,
-    onShowAll: (List<JournalItemSummary>, String) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
@@ -92,17 +77,12 @@ private fun JournalFinishedShelf(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             StatsSectionLabel(title)
-            if (items.size > JournalFinishedShelfPreviewLimit) {
-                TextButton(onClick = { onShowAll(items, seeAllLabel) }) {
-                    Text(text = seeAllLabel)
-                }
-            }
         }
         if (items.isEmpty()) {
             EmptyStatsMessage(emptyText)
         } else {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(journalFinishedShelfPreviewItems(items), key = { summary -> summary.item.itemId }) { summary ->
+                items(items, key = { summary -> summary.item.itemId }) { summary ->
                     FinishedItemCard(
                         summary = summary,
                         coverImageUrlProvider = coverImageUrlProvider,

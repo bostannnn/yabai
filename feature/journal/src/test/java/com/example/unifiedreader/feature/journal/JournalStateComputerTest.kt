@@ -400,7 +400,7 @@ class JournalStateComputerTest {
     }
 
     @Test
-    fun `top facets include unknown rows with affected item ids`() {
+    fun `top facets omit items without metadata values`() {
         val april10 = epochMillis(2026, Calendar.APRIL, 10)
         val known = testItem.copy(
             id = "known",
@@ -434,7 +434,8 @@ class JournalStateComputerTest {
         val overview = computePeriodOverview(snapshot, JournalPeriod.MONTH, april10)
         val bookGenres = overview.topFacets.first { section -> section.title == "Book genres" }
 
-        assertEquals(listOf("missing"), bookGenres.rows.first { row -> row.label == "Unknown" }.itemIds)
+        assertEquals(listOf(known.id), bookGenres.rows.single { row -> row.label == "Fantasy" }.itemIds)
+        assertEquals(emptyList<JournalFacetRow>(), bookGenres.rows.filter { row -> row.itemIds.contains(missing.id) })
     }
 
     @Test
@@ -464,6 +465,38 @@ class JournalStateComputerTest {
         val bookGenres = overview.topFacets.first { section -> section.title == "Book genres" }
 
         assertEquals(listOf(finished.id), bookGenres.rows.first { row -> row.label == "Science Fiction" }.itemIds)
+    }
+
+    @Test
+    fun `top facets match catalog metadata when journal item id is stale`() {
+        val april10 = epochMillis(2026, Calendar.APRIL, 10)
+        val eventItem = testItem.copy(id = "stale-id", title = "Same Book")
+        val catalogItem = testItem.copy(
+            id = "fresh-id",
+            title = "Same Book",
+            bookMetadata = BookMetadata(genres = listOf("Fantasy")),
+        )
+        val snapshot = JournalStateComputer(nowEpochMillis = { april10 }).snapshot(
+            events = listOf(
+                startedEvent(
+                    item = eventItem,
+                    id = "stale-finished",
+                    page = 100,
+                    percent = 1.0,
+                    type = JournalReadingEventType.FINISHED,
+                    occurredAtEpochMillis = april10,
+                ),
+            ),
+            sessions = emptyList(),
+            entries = emptyList(),
+            catalogItemsById = mapOf(catalogItem.id to catalogItem),
+        )
+
+        val overview = computePeriodOverview(snapshot, JournalPeriod.MONTH, april10)
+        val bookGenres = overview.topFacets.first { section -> section.title == "Book genres" }
+
+        assertEquals(listOf(eventItem.id), bookGenres.rows.single { row -> row.label == "Fantasy" }.itemIds)
+        assertEquals(emptyList<JournalFacetRow>(), bookGenres.rows.filter { row -> row.label == "Unknown" })
     }
 
     @Test
@@ -597,11 +630,11 @@ class JournalStateComputerTest {
     }
 
     @Test
-    fun `finished shelf helpers limit preview and keep only unrated finished items`() {
+    fun `finished shelf helper keeps only unrated finished items`() {
         val april10 = epochMillis(2026, Calendar.APRIL, 10)
         val rated = testItem.copy(id = "rated")
         val unrated = testItem.copy(id = "unrated")
-        val extraFinishedItems = (1..JournalFinishedShelfPreviewLimit).map { index ->
+        val extraFinishedItems = (1..30).map { index ->
             testItem.copy(id = "extra-$index")
         }
         val allFinishedItems = listOf(rated, unrated) + extraFinishedItems
@@ -624,7 +657,6 @@ class JournalStateComputerTest {
 
         val overview = computePeriodOverview(snapshot, JournalPeriod.MONTH, april10)
 
-        assertEquals(JournalFinishedShelfPreviewLimit, journalFinishedShelfPreviewItems(overview.finishedItems).size)
         assertEquals(
             allFinishedItems.map(ReadableItem::id).toSet() - rated.id,
             finishedItemsNeedingRating(overview).map { summary -> summary.item.itemId }.toSet(),

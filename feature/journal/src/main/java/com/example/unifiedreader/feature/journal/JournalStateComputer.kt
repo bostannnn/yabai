@@ -5,8 +5,11 @@ import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.facetMetadata
+import com.example.unifiedreader.core.model.libraryDisplayLabel
+import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.core.model.primaryAuthor
 import com.example.unifiedreader.journal.classifyJournalMedia
+import com.example.unifiedreader.journal.journalMediaType
 import java.util.Calendar
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -64,23 +67,30 @@ fun computeItemSummaries(
     val eventGroups = events.groupBy(JournalReadingEvent::itemId)
     val sessionGroups = sessions.groupBy(JournalReadingSession::itemId)
     val itemIds = (eventGroups.keys + sessionGroups.keys + entriesByItemId.keys).toSet()
+    val catalogLookup = JournalCatalogItemLookup(catalogItemsById.values)
     return itemIds.mapNotNull { itemId ->
         val itemEvents = eventGroups[itemId].orEmpty()
             .sortedBy(JournalReadingEvent::occurredAtEpochMillis)
         val itemSessions = sessionGroups[itemId].orEmpty()
             .sortedBy(JournalReadingSession::startedAtEpochMillis)
         val entry = entriesByItemId[itemId]
+        val catalogItem = catalogLookup.find(
+            itemId = itemId,
+            events = itemEvents,
+            sessions = itemSessions,
+            entry = entry,
+        )
         val item = summaryItemRef(
             events = itemEvents,
             sessions = itemSessions,
             entry = entry,
-            catalogItem = catalogItemsById[itemId],
+            catalogItem = catalogItem,
         ) ?: return@mapNotNull null
         JournalItemSummary(
             item = item,
             events = itemEvents,
             sessions = itemSessions,
-            catalogItem = catalogItemsById[itemId],
+            catalogItem = catalogItem,
             entry = entry,
         )
     }.sortedByDescending(JournalItemSummary::lastActivityAtEpochMillis)
@@ -337,11 +347,11 @@ private fun List<JournalItemSummary>.topFacetRows(
     mediaType: JournalMediaType,
     values: (ReadableItem) -> List<String>,
 ): List<JournalFacetRow> = filter { summary ->
-    summary.item.mediaType() == mediaType
+    (summary.catalogItem?.journalMediaType() ?: summary.item.mediaType()) == mediaType
 }.flatMap { summary ->
     val item = summary.catalogItem
     val labels = if (item == null) emptyList() else values(item)
-    labels.ifEmpty { listOf(UNKNOWN_FACET_LABEL) }.map { label ->
+    labels.map { label ->
         label to summary.item.itemId
     }
 }.groupBy({ (label, _) -> label }, { (_, itemId) -> itemId })
@@ -352,6 +362,93 @@ private fun List<JournalItemSummary>.topFacetRows(
         )
     }
     .sortedWith(compareByDescending<JournalFacetRow> { it.count }.thenBy { it.label })
+
+private class JournalCatalogItemLookup(
+    catalogItems: Collection<ReadableItem>,
+) {
+    private val byId = catalogItems.associateBy(ReadableItem::id)
+    private val byKey = catalogItems
+        .flatMap { item -> item.journalCatalogMatchKeys().map { key -> key to item } }
+        .groupBy({ (key, _) -> key }, { (_, item) -> item })
+
+    fun find(
+        itemId: String,
+        events: List<JournalReadingEvent>,
+        sessions: List<JournalReadingSession>,
+        entry: ItemJournalEntry?,
+    ): ReadableItem? {
+        byId[itemId]?.let { return it }
+        val keys = buildList {
+            events.asReversed().forEach { event -> addAll(event.journalCatalogMatchKeys()) }
+            sessions.asReversed().forEach { session -> addAll(session.journalCatalogMatchKeys()) }
+            entry?.let { journalEntry -> addAll(journalEntry.journalCatalogMatchKeys()) }
+        }
+        keys.forEach { key ->
+            byKey[key]?.singleOrNull()?.let { return it }
+        }
+        return null
+    }
+}
+
+private fun ReadableItem.journalCatalogMatchKeys(): List<JournalCatalogMatchKey> = listOfNotNull(
+    title,
+    libraryDisplayLabel(),
+    libraryPrimaryText(),
+).distinctBy(String::normalizedJournalCatalogText)
+    .flatMap { title ->
+        listOf(
+            JournalCatalogMatchKey(
+                sourceType = sourceType,
+                libraryId = libraryId,
+                title = title.normalizedJournalCatalogText(),
+                format = format,
+            ),
+            JournalCatalogMatchKey(
+                sourceType = sourceType,
+                libraryId = null,
+                title = title.normalizedJournalCatalogText(),
+                format = format,
+            ),
+        )
+    }
+
+private fun JournalReadingEvent.journalCatalogMatchKeys(): List<JournalCatalogMatchKey> =
+    journalCatalogMatchKeys(sourceType, libraryId, itemTitle, format)
+
+private fun JournalReadingSession.journalCatalogMatchKeys(): List<JournalCatalogMatchKey> =
+    journalCatalogMatchKeys(sourceType, libraryId, itemTitle, format)
+
+private fun ItemJournalEntry.journalCatalogMatchKeys(): List<JournalCatalogMatchKey> =
+    journalCatalogMatchKeys(sourceType, libraryId, itemTitle, format)
+
+private fun journalCatalogMatchKeys(
+    sourceType: SourceType,
+    libraryId: String,
+    title: String,
+    format: FormatType,
+): List<JournalCatalogMatchKey> = listOf(
+    JournalCatalogMatchKey(
+        sourceType = sourceType,
+        libraryId = libraryId,
+        title = title.normalizedJournalCatalogText(),
+        format = format,
+    ),
+    JournalCatalogMatchKey(
+        sourceType = sourceType,
+        libraryId = null,
+        title = title.normalizedJournalCatalogText(),
+        format = format,
+    ),
+)
+
+private data class JournalCatalogMatchKey(
+    val sourceType: SourceType,
+    val libraryId: String?,
+    val title: String,
+    val format: FormatType,
+)
+
+private fun String.normalizedJournalCatalogText(): String = trim().lowercase(Locale.ROOT)
 
 internal fun List<JournalReadingEvent>.inPeriod(
     startInclusive: Long,
@@ -587,5 +684,3 @@ private fun <K> Map<K, Int>.enumOrder(
 ): Map<K, Int> = entries.mapNotNull { entry ->
     get(entry)?.let { count -> entry to count }
 }.toMap()
-
-private const val UNKNOWN_FACET_LABEL = "Unknown"
