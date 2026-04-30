@@ -10,6 +10,7 @@ import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibraryFileLocation
+import com.example.unifiedreader.core.model.LibraryReadingStatus
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.defaultVisibleLibraryFilterPanels
@@ -59,6 +60,7 @@ internal fun MutablePreferences.writeFilterState(
     writeEncodedValues(formatFilterKey(sourceType), filters.formats.map(FormatType::name))
     writeEncodedValues(librariesFilterKey(sourceType), filters.libraries)
     writeEncodedValues(fileLocationsFilterKey(sourceType), filters.fileLocations.map(LibraryFileLocation::name))
+    writeEncodedValues(readingStatusesFilterKey(sourceType), filters.readingStatuses.map(LibraryReadingStatus::name))
     writeEncodedValues(authorsFilterKey(sourceType), filters.authors)
     writeEncodedValues(seriesFilterKey(sourceType), filters.series)
     writeEncodedValues(publishersFilterKey(sourceType), filters.publishers)
@@ -127,6 +129,9 @@ internal fun loadStartupLibraryBrowsePreferences(
                 fileLocations = decodeEnumValues<LibraryFileLocation>(
                     startupPreferences.getString(fileLocationsFilterStorageKey(sourceType), null),
                 ),
+                readingStatuses = decodeEnumValues<LibraryReadingStatus>(
+                    startupPreferences.getString(readingStatusesFilterStorageKey(sourceType), null),
+                ),
                 authors = decodeStringValues(startupPreferences.getString(authorsFilterStorageKey(sourceType), null)),
                 series = decodeStringValues(startupPreferences.getString(seriesFilterStorageKey(sourceType), null)),
                 publishers = decodeStringValues(startupPreferences.getString(publishersFilterStorageKey(sourceType), null)),
@@ -178,6 +183,7 @@ internal fun writeStartupLibraryBrowsePreferences(
             writeEncodedValues(formatFilterStorageKey(sourceType), filters.formats.map(FormatType::name))
             writeEncodedValues(librariesFilterStorageKey(sourceType), filters.libraries)
             writeEncodedValues(fileLocationsFilterStorageKey(sourceType), filters.fileLocations.map(LibraryFileLocation::name))
+            writeEncodedValues(readingStatusesFilterStorageKey(sourceType), filters.readingStatuses.map(LibraryReadingStatus::name))
             writeEncodedValues(authorsFilterStorageKey(sourceType), filters.authors)
             writeEncodedValues(seriesFilterStorageKey(sourceType), filters.series)
             writeEncodedValues(publishersFilterStorageKey(sourceType), filters.publishers)
@@ -219,6 +225,7 @@ private fun Preferences.decodeFilterState(
     formats = decodeEnumValues<FormatType>(this[formatFilterKey(sourceType)]),
     libraries = decodeStringValues(this[librariesFilterKey(sourceType)]),
     fileLocations = decodeEnumValues<LibraryFileLocation>(this[fileLocationsFilterKey(sourceType)]),
+    readingStatuses = decodeEnumValues<LibraryReadingStatus>(this[readingStatusesFilterKey(sourceType)]),
     authors = decodeStringValues(this[authorsFilterKey(sourceType)]),
     series = decodeStringValues(this[seriesFilterKey(sourceType)]),
     publishers = decodeStringValues(this[publishersFilterKey(sourceType)]),
@@ -365,6 +372,10 @@ private fun fileLocationsFilterKey(
     sourceType: SourceType,
 ): Preferences.Key<String> = stringPreferencesKey(fileLocationsFilterStorageKey(sourceType))
 
+private fun readingStatusesFilterKey(
+    sourceType: SourceType,
+): Preferences.Key<String> = stringPreferencesKey(readingStatusesFilterStorageKey(sourceType))
+
 private fun authorsFilterKey(
     sourceType: SourceType,
 ): Preferences.Key<String> = stringPreferencesKey(authorsFilterStorageKey(sourceType))
@@ -412,6 +423,10 @@ private fun librariesFilterStorageKey(
 private fun fileLocationsFilterStorageKey(
     sourceType: SourceType,
 ): String = "library_filter_file_locations_${sourceType.keySuffix()}"
+
+private fun readingStatusesFilterStorageKey(
+    sourceType: SourceType,
+): String = "library_filter_reading_statuses_${sourceType.keySuffix()}"
 
 private fun authorsFilterStorageKey(
     sourceType: SourceType,

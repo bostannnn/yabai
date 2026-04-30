@@ -596,6 +596,41 @@ class JournalStateComputerTest {
         assertEquals(listOf(comic.id), pencillers.rows.single { row -> row.label == "Fiona Staples" }.itemIds)
     }
 
+    @Test
+    fun `finished shelf helpers limit preview and keep only unrated finished items`() {
+        val april10 = epochMillis(2026, Calendar.APRIL, 10)
+        val rated = testItem.copy(id = "rated")
+        val unrated = testItem.copy(id = "unrated")
+        val extraFinishedItems = (1..JournalFinishedShelfPreviewLimit).map { index ->
+            testItem.copy(id = "extra-$index")
+        }
+        val allFinishedItems = listOf(rated, unrated) + extraFinishedItems
+        val snapshot = JournalStateComputer(nowEpochMillis = { april10 }).snapshot(
+            events = allFinishedItems.map { item ->
+                startedEvent(
+                    item = item,
+                    id = "${item.id}-finished",
+                    page = 100,
+                    percent = 1.0,
+                    type = JournalReadingEventType.FINISHED,
+                    occurredAtEpochMillis = april10,
+                )
+            },
+            entries = listOf(
+                journalEntry(item = rated, rating = 8, updatedAtEpochMillis = april10),
+            ),
+            catalogItemsById = allFinishedItems.associateBy(ReadableItem::id),
+        )
+
+        val overview = computePeriodOverview(snapshot, JournalPeriod.MONTH, april10)
+
+        assertEquals(JournalFinishedShelfPreviewLimit, journalFinishedShelfPreviewItems(overview.finishedItems).size)
+        assertEquals(
+            allFinishedItems.map(ReadableItem::id).toSet() - rated.id,
+            finishedItemsNeedingRating(overview).map { summary -> summary.item.itemId }.toSet(),
+        )
+    }
+
 
     @Test
     fun `snapshot groups timeline into one summary per item`() {

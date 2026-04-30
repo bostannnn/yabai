@@ -2,10 +2,13 @@ package com.example.unifiedreader.feature.library
 
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.LibraryFilterState
+import com.example.unifiedreader.core.model.LibraryReadingStatus
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.buildContextualLibraryFilterFacets
+import com.example.unifiedreader.core.model.isKavitaSeriesContainer
+import com.example.unifiedreader.core.model.isStumpSeriesContainer
 import com.example.unifiedreader.core.model.kavitaSeriesContainerId
 import com.example.unifiedreader.core.model.stumpSeriesContainerId
 import java.util.Base64
@@ -50,6 +53,12 @@ class LibraryDerivedStateComputer @Inject constructor() {
             input = input,
             sourceIndex = sourceIndex,
         )
+        val readingStatusByItemId = buildReadingStatusByItemId(
+            input = input,
+            sourceIndex = sourceIndex,
+            sourceItems = sourceItems,
+            progressByItemId = displayProgressByItemId,
+        )
         val displayRatingByItemId = buildDisplayRatingByItemId(
             input = input,
             sourceIndex = sourceIndex,
@@ -79,6 +88,7 @@ class LibraryDerivedStateComputer @Inject constructor() {
             sortMode = input.selectedLibrarySortMode,
             downloadedRemoteItemIds = input.locallyAvailableRemoteItemIds,
             lastReadAtEpochMillisByItemId = lastReadAtEpochMillisByItemId,
+            readingStatusByItemId = readingStatusByItemId,
             forceSeriesIssueOrder = input.isSeriesBrowseActive,
         )
         return LibraryDerivedState(
@@ -87,6 +97,7 @@ class LibraryDerivedStateComputer @Inject constructor() {
                 items = sourceItems,
                 filters = input.selectedLibraryFilters,
                 downloadedRemoteItemIds = input.locallyAvailableRemoteItemIds,
+                readingStatusProvider = { item -> readingStatusByItemId[item.id] },
             ),
             selectedSourceLibraryTitlesById = sourceIndex.selectedSourceLibraryTitlesById(input.selectedSource),
             displayProgressByItemId = displayProgressByItemId,
@@ -112,12 +123,19 @@ class LibraryDerivedStateComputer @Inject constructor() {
             input = input,
             sourceIndex = sourceIndex,
         )
+        val readingStatusByItemId = buildReadingStatusByItemId(
+            input = input,
+            sourceIndex = sourceIndex,
+            sourceItems = sourceItems,
+            progressByItemId = displayProgressByItemId,
+        )
         return LibraryDerivedState(
             sourceItems = sourceItems,
             selectedLibraryFilterFacets = buildContextualLibraryFilterFacets(
                 sourceItems,
                 downloadedRemoteItemIds = emptySet(),
                 filters = input.selectedLibraryFilters,
+                readingStatusProvider = { item -> readingStatusByItemId[item.id] },
             ),
             selectedSourceLibraryTitlesById = sourceIndex.selectedSourceLibraryTitlesById(input.selectedSource),
             displayProgressByItemId = displayProgressByItemId,
@@ -138,6 +156,7 @@ class LibraryDerivedStateComputer @Inject constructor() {
                     sourceIndex = sourceIndex,
                     progressByItemId = displayProgressByItemId,
                 ),
+                readingStatusByItemId = readingStatusByItemId,
                 forceSeriesIssueOrder = input.isSeriesBrowseActive,
             ),
             libraryBrowseContextKey = buildLibraryBrowseContextKey(input),
@@ -231,6 +250,54 @@ private fun buildDisplayRatingByItemId(
     }
 }
 
+private fun buildReadingStatusByItemId(
+    input: LibraryDerivedStateInput,
+    sourceIndex: LibrarySourceIndex,
+    sourceItems: List<ReadableItem>,
+    progressByItemId: Map<String, ItemProgressSummary>,
+): Map<String, LibraryReadingStatus> = sourceItems.associate { item ->
+    item.id to item.libraryReadingStatus(
+        input = input,
+        sourceIndex = sourceIndex,
+        progressByItemId = progressByItemId,
+    )
+}
+
+private fun ReadableItem.libraryReadingStatus(
+    input: LibraryDerivedStateInput,
+    sourceIndex: LibrarySourceIndex,
+    progressByItemId: Map<String, ItemProgressSummary>,
+): LibraryReadingStatus {
+    if (!input.isSeriesBrowseActive) {
+        val seriesIssueProgress = when {
+            isKavitaSeriesContainer() -> remoteId?.let { seriesKey ->
+                sourceIndex.issueGroupsFor(SourceType.KAVITA)[seriesKey]
+            }
+
+            isStumpSeriesContainer() -> remoteId?.let { seriesKey ->
+                sourceIndex.issueGroupsFor(SourceType.STUMP)[seriesKey]
+            }
+
+            else -> null
+        }?.map { issue -> progressByItemId[issue.id] }
+        if (!seriesIssueProgress.isNullOrEmpty()) {
+            return when {
+                seriesIssueProgress.all { progress -> progress?.isComplete == true } -> LibraryReadingStatus.FINISHED
+                seriesIssueProgress.any { progress -> progress?.hasStarted == true || progress?.isComplete == true } ->
+                    LibraryReadingStatus.IN_PROGRESS
+
+                else -> LibraryReadingStatus.NOT_STARTED
+            }
+        }
+    }
+    val progress = progressByItemId[id]
+    return when {
+        progress?.isComplete == true -> LibraryReadingStatus.FINISHED
+        progress?.hasStarted == true -> LibraryReadingStatus.IN_PROGRESS
+        else -> LibraryReadingStatus.NOT_STARTED
+    }
+}
+
 private fun MutableMap<String, LibraryRatingBadgeState>.putSeriesAverageRatings(
     issuesBySeriesKey: Map<String, List<ReadableItem>>,
     ratingByItemId: Map<String, Int>,
@@ -302,6 +369,8 @@ private fun LibraryFilterState.keyFragment(): String = buildString {
     append(libraries.sortedWith(String.CASE_INSENSITIVE_ORDER).joinToString(",") { value -> value.keyComponent() })
     append(";locations=")
     append(fileLocations.map { location -> location.name }.sorted().joinToString(","))
+    append(";reading_statuses=")
+    append(readingStatuses.map { status -> status.name }.sorted().joinToString(","))
     append(";authors=")
     append(authors.sortedWith(String.CASE_INSENSITIVE_ORDER).joinToString(",") { value -> value.keyComponent() })
     append(";series=")

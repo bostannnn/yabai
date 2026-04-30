@@ -5,6 +5,7 @@ import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.LibraryFilterState
+import com.example.unifiedreader.core.model.LibraryReadingStatus
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
@@ -108,6 +109,52 @@ class LibraryDerivedStateComputerTest {
         )
 
         assertSame(first, second)
+    }
+
+    @Test
+    fun `reading status filter treats partially read root series as in progress`() {
+        val libraryId = SourceType.KAVITA.remoteLibraryId("k-comics")
+        val issueOne = issue(
+            id = "k-1",
+            sourceType = SourceType.KAVITA,
+            libraryId = libraryId,
+            seriesKey = "akira",
+            title = "Akira 1",
+        )
+        val issueTwo = issue(
+            id = "k-2",
+            sourceType = SourceType.KAVITA,
+            libraryId = libraryId,
+            seriesKey = "akira",
+            title = "Akira 2",
+        )
+
+        val derivedState = computer.compute(
+            LibraryDerivedStateInput(
+                selectedSource = SourceType.KAVITA,
+                libraries = listOf(
+                    Library(
+                        id = libraryId,
+                        sourceType = SourceType.KAVITA,
+                        title = "Kavita Comics",
+                        contentType = LibraryContentType.COMICS,
+                    ),
+                ),
+                items = listOf(issueOne, issueTwo),
+                selectedLibraryFilters = LibraryFilterState(
+                    readingStatuses = setOf(LibraryReadingStatus.IN_PROGRESS),
+                ),
+                progressByItemId = mapOf(
+                    issueOne.id to ItemProgressSummary(
+                        label = "50%",
+                        fraction = 0.5f,
+                        lastReadAtEpochMillis = 1_000L,
+                    ),
+                ),
+            ),
+        )
+
+        assertEquals(listOf("Akira"), derivedState.visibleItems.map(ReadableItem::title))
     }
 
     @Test

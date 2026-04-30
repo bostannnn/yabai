@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.library
 
 import com.example.unifiedreader.core.model.LibraryFilterState
+import com.example.unifiedreader.core.model.LibraryReadingStatus
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.applyLibraryFilters
@@ -16,12 +17,14 @@ fun buildVisibleLibraryItems(
     sortMode: LibrarySortMode,
     downloadedRemoteItemIds: Set<String> = emptySet(),
     lastReadAtEpochMillisByItemId: Map<String, Long> = emptyMap(),
+    readingStatusByItemId: Map<String, LibraryReadingStatus> = emptyMap(),
     forceSeriesIssueOrder: Boolean = false,
 ): List<ReadableItem> {
     val filteredItems = applyLibraryFilters(
         items = sourceItems,
         filters = filterState,
         downloadedRemoteItemIds = downloadedRemoteItemIds,
+        readingStatusProvider = { item -> readingStatusByItemId[item.id] },
     )
     val searchedItems = applyLibrarySearch(
         items = filteredItems,

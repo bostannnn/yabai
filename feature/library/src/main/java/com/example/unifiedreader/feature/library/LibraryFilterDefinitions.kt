@@ -10,6 +10,7 @@ internal fun LibraryFilterPanel.selectedCount(
     LibraryFilterPanel.Format -> filterState.formats.size
     LibraryFilterPanel.Library -> filterState.libraries.size
     LibraryFilterPanel.Location -> filterState.fileLocations.size
+    LibraryFilterPanel.ReadingStatus -> filterState.readingStatuses.size
     LibraryFilterPanel.Author -> filterState.authors.size
     LibraryFilterPanel.Series -> filterState.series.size
     LibraryFilterPanel.Publisher -> filterState.publishers.size
@@ -27,6 +28,7 @@ internal fun LibraryFilterPanel.isEnabled(
     LibraryFilterPanel.Library -> libraryTitlesById.isNotEmpty() &&
         (filterFacets.libraries.isNotEmpty() || filterState.libraries.isNotEmpty())
     LibraryFilterPanel.Location -> filterFacets.fileLocations.isNotEmpty() || filterState.fileLocations.isNotEmpty()
+    LibraryFilterPanel.ReadingStatus -> true
     LibraryFilterPanel.Author -> filterFacets.authors.isNotEmpty() || filterState.authors.isNotEmpty()
     LibraryFilterPanel.Series -> filterFacets.series.isNotEmpty() || filterState.series.isNotEmpty()
     LibraryFilterPanel.Publisher -> filterFacets.publishers.isNotEmpty() || filterState.publishers.isNotEmpty()

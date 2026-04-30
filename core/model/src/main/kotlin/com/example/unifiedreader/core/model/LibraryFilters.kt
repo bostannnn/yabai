@@ -7,6 +7,7 @@ data class LibraryFilterState(
     val formats: Set<FormatType> = emptySet(),
     val libraries: Set<String> = emptySet(),
     val fileLocations: Set<LibraryFileLocation> = emptySet(),
+    val readingStatuses: Set<LibraryReadingStatus> = emptySet(),
     val authors: Set<String> = emptySet(),
     val series: Set<String> = emptySet(),
     val publishers: Set<String> = emptySet(),
@@ -18,6 +19,7 @@ data class LibraryFilterState(
         get() = formats.isEmpty() &&
             libraries.isEmpty() &&
             fileLocations.isEmpty() &&
+            readingStatuses.isEmpty() &&
             authors.isEmpty() &&
             series.isEmpty() &&
             publishers.isEmpty() &&
@@ -34,6 +36,7 @@ fun LibraryFilterState.visibleInPanels(
         formats = formats.takeIf { LibraryFilterPanel.Format in panels }.orEmpty(),
         libraries = libraries.takeIf { LibraryFilterPanel.Library in panels }.orEmpty(),
         fileLocations = fileLocations.takeIf { LibraryFilterPanel.Location in panels }.orEmpty(),
+        readingStatuses = readingStatuses.takeIf { LibraryFilterPanel.ReadingStatus in panels }.orEmpty(),
         authors = authors.takeIf { LibraryFilterPanel.Author in panels }.orEmpty(),
         series = series.takeIf { LibraryFilterPanel.Series in panels }.orEmpty(),
         publishers = publishers.takeIf { LibraryFilterPanel.Publisher in panels }.orEmpty(),
@@ -71,6 +74,12 @@ enum class LibraryFileLocation {
     LOCAL,
 }
 
+enum class LibraryReadingStatus {
+    NOT_STARTED,
+    IN_PROGRESS,
+    FINISHED,
+}
+
 enum class LibrarySortMode {
     DATE_ADDED,
     LAST_READ,
@@ -83,6 +92,7 @@ fun applyLibraryFilters(
     items: List<ReadableItem>,
     filters: LibraryFilterState,
     downloadedRemoteItemIds: Set<String> = emptySet(),
+    readingStatusProvider: (ReadableItem) -> LibraryReadingStatus? = { null },
 ): List<ReadableItem> {
     if (filters.isEmpty) return items
     return items.filter { item ->
@@ -90,6 +100,7 @@ fun applyLibraryFilters(
         filters.formats.matches(item.format) &&
             filters.libraries.matches(item.libraryId) &&
             filters.fileLocations.matches(item.fileLocation(downloadedRemoteItemIds)) &&
+            filters.readingStatuses.matches(readingStatusProvider(item)) &&
             filters.authors.matchesAny(facetMetadata.authors) &&
             filters.series.matchesAny(facetMetadata.series) &&
             filters.publishers.matchesAny(facetMetadata.publishers) &&
@@ -192,51 +203,61 @@ fun buildContextualLibraryFilterFacets(
     items: List<ReadableItem>,
     filters: LibraryFilterState,
     downloadedRemoteItemIds: Set<String> = emptySet(),
+    readingStatusProvider: (ReadableItem) -> LibraryReadingStatus? = { null },
 ): LibraryFilterFacets = LibraryFilterFacets(
     formats = applyLibraryFilters(
         items = items,
         filters = filters.copy(formats = emptySet()),
         downloadedRemoteItemIds = downloadedRemoteItemIds,
+        readingStatusProvider = readingStatusProvider,
     ).map(ReadableItem::format).distinctByEnumOrder(),
     libraries = applyLibraryFilters(
         items = items,
         filters = filters.copy(libraries = emptySet()),
         downloadedRemoteItemIds = downloadedRemoteItemIds,
+        readingStatusProvider = readingStatusProvider,
     ).map(ReadableItem::libraryId).distinctByTextOrder(),
     fileLocations = applyLibraryFilters(
         items = items,
         filters = filters.copy(fileLocations = emptySet()),
         downloadedRemoteItemIds = downloadedRemoteItemIds,
+        readingStatusProvider = readingStatusProvider,
     ).map { item -> item.fileLocation(downloadedRemoteItemIds) }.distinctByEnumOrder(),
     authors = applyLibraryFilters(
         items = items,
         filters = filters.copy(authors = emptySet()),
         downloadedRemoteItemIds = downloadedRemoteItemIds,
+        readingStatusProvider = readingStatusProvider,
     ).flatMap { item -> item.facetMetadata().authors }.distinctByAuthorOrder(),
     series = applyLibraryFilters(
         items = items,
         filters = filters.copy(series = emptySet()),
         downloadedRemoteItemIds = downloadedRemoteItemIds,
+        readingStatusProvider = readingStatusProvider,
     ).flatMap { item -> item.facetMetadata().series }.distinctByTextOrder(),
     publishers = applyLibraryFilters(
         items = items,
         filters = filters.copy(publishers = emptySet()),
         downloadedRemoteItemIds = downloadedRemoteItemIds,
+        readingStatusProvider = readingStatusProvider,
     ).flatMap { item -> item.facetMetadata().publishers }.distinctByTextOrder(),
     genres = applyLibraryFilters(
         items = items,
         filters = filters.copy(genres = emptySet()),
         downloadedRemoteItemIds = downloadedRemoteItemIds,
+        readingStatusProvider = readingStatusProvider,
     ).flatMap { item -> item.facetMetadata().genres }.distinctByTextOrder(),
     tags = applyLibraryFilters(
         items = items,
         filters = filters.copy(tags = emptySet()),
         downloadedRemoteItemIds = downloadedRemoteItemIds,
+        readingStatusProvider = readingStatusProvider,
     ).flatMap { item -> item.facetMetadata().tags }.distinctByTextOrder(),
     languages = applyLibraryFilters(
         items = items,
         filters = filters.copy(languages = emptySet()),
         downloadedRemoteItemIds = downloadedRemoteItemIds,
+        readingStatusProvider = readingStatusProvider,
     ).flatMap { item -> item.facetMetadata().languages }.distinctByTextOrder(),
 )
 

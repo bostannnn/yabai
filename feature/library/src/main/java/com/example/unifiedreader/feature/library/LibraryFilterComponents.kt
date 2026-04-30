@@ -45,6 +45,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.example.unifiedreader.core.model.LibraryFilterFacets
 import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibraryFilterState
+import com.example.unifiedreader.core.model.LibraryReadingStatus
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.authorFacetKey
@@ -208,6 +209,25 @@ internal fun LibraryFilterPanelDialog(
                     onClick = {
                         onFilterStateChanged(
                             filterState.copy(fileLocations = filterState.fileLocations.toggle(location)),
+                        )
+                    },
+                )
+            }
+        }
+
+        LibraryFilterPanel.ReadingStatus -> CompactFacetDialog(
+            title = "Reading status",
+            hasActiveFilters = filterState.readingStatuses.isNotEmpty(),
+            onClearFilters = { onFilterStateChanged(filterState.copy(readingStatuses = emptySet())) },
+            onDismiss = onDismiss,
+        ) {
+            LibraryReadingStatus.entries.forEach { status ->
+                FilterToggleChip(
+                    label = status.label,
+                    selected = status in filterState.readingStatuses,
+                    onClick = {
+                        onFilterStateChanged(
+                            filterState.copy(readingStatuses = filterState.readingStatuses.toggle(status)),
                         )
                     },
                 )

@@ -5,6 +5,7 @@ import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ComicMetadata
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.LibraryFileLocation
+import com.example.unifiedreader.core.model.LibraryReadingStatus
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
@@ -120,6 +121,13 @@ internal val LibraryFileLocation.label: String
     get() = when (this) {
         LibraryFileLocation.SERVER -> "Server"
         LibraryFileLocation.LOCAL -> "Local"
+    }
+
+internal val LibraryReadingStatus.label: String
+    get() = when (this) {
+        LibraryReadingStatus.NOT_STARTED -> "Not started"
+        LibraryReadingStatus.IN_PROGRESS -> "In progress"
+        LibraryReadingStatus.FINISHED -> "Finished"
     }
 
 internal fun ReadableItem.sortFilterLetter(

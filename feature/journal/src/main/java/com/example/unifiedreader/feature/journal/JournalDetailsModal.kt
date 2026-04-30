@@ -39,6 +39,11 @@ internal sealed interface JournalDetailsTarget {
         val summary: JournalItemSummary,
     ) : JournalDetailsTarget
 
+    data class ItemList(
+        val listTitle: String,
+        val summaries: List<JournalItemSummary>,
+    ) : JournalDetailsTarget
+
     data class Facet(
         val section: JournalFacetSection,
         val row: JournalFacetRow,
@@ -210,6 +215,7 @@ private fun JournalDetailsItemCard(
 private fun JournalDetailsTarget.summaries(): List<JournalItemSummary> = when (this) {
     is JournalDetailsTarget.Day -> details.finishedItems
     is JournalDetailsTarget.Item -> listOf(summary)
+    is JournalDetailsTarget.ItemList -> summaries
     is JournalDetailsTarget.Facet -> summaries
 }
 
@@ -217,6 +223,7 @@ private val JournalDetailsTarget.title: String
     get() = when (this) {
         is JournalDetailsTarget.Day -> details.dayTitle()
         is JournalDetailsTarget.Item -> summary.item.displayTitle
+        is JournalDetailsTarget.ItemList -> listTitle
         is JournalDetailsTarget.Facet -> row.label
     }
 
@@ -224,6 +231,7 @@ private val JournalDetailsTarget.subtitle: String?
     get() = when (this) {
         is JournalDetailsTarget.Day -> details.daySummary()
         is JournalDetailsTarget.Item -> summaryActivityText(summary).takeIf(String::isNotBlank)
+        is JournalDetailsTarget.ItemList -> "${summaries.size} items"
         is JournalDetailsTarget.Facet -> "${section.title} · ${row.count} items"
     }
 

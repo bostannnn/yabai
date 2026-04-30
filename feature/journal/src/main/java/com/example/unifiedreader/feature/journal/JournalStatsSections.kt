@@ -361,74 +361,6 @@ private fun PaceColumn(
 }
 
 @Composable
-internal fun FinishedItemsRow(
-    overview: JournalPeriodOverview,
-    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
-    onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
-    onOpenItem: (JournalItemSummary) -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        StatsSectionLabel("Finished")
-        if (overview.finishedItems.isEmpty()) {
-            EmptyStatsMessage("No finished items yet")
-        } else {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(overview.finishedItems, key = { summary -> summary.item.itemId }) { summary ->
-                    FinishedItemCard(
-                        summary = summary,
-                        coverImageUrlProvider = coverImageUrlProvider,
-                        onCoverVisible = onCoverVisible,
-                        onOpen = { onOpenItem(summary) },
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun FinishedItemCard(
-    summary: JournalItemSummary,
-    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
-    onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
-    onOpen: () -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .width(92.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .clickable(onClick = onOpen)
-            .padding(4.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        JournalCoverArt(
-            item = summary.item,
-            coverImageUrlProvider = coverImageUrlProvider,
-            onCoverVisible = onCoverVisible,
-            modifier = Modifier
-                .width(72.dp)
-                .aspectRatio(0.68f),
-        )
-        Text(
-            text = summary.item.displayTitle,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Medium,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-        summary.item.displaySubtitle?.let { subtitle ->
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-    }
-}
-
-@Composable
 internal fun RatingBreakdownSection(
     bookRatings: Map<Int, Int>,
     comicRatings: Map<Int, Int>,
@@ -853,7 +785,7 @@ private fun RatingBar(
 }
 
 @Composable
-private fun StatsSectionLabel(
+internal fun StatsSectionLabel(
     text: String,
 ) {
     Text(
@@ -865,7 +797,7 @@ private fun StatsSectionLabel(
 }
 
 @Composable
-private fun EmptyStatsMessage(
+internal fun EmptyStatsMessage(
     text: String,
 ) {
     Box(

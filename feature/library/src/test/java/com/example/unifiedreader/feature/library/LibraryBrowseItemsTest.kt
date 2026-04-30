@@ -2,6 +2,8 @@ package com.example.unifiedreader.feature.library
 
 import com.example.unifiedreader.core.model.ComicMetadata
 import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.LibraryFilterState
+import com.example.unifiedreader.core.model.LibraryReadingStatus
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
@@ -91,6 +93,29 @@ class LibraryBrowseItemsTest {
         )
 
         assertEquals(listOf(strongLaterIssue, weakEarlierIssue), visibleItems)
+    }
+
+    @Test
+    fun `reading status filter limits visible items`() {
+        val notStarted = seriesIssue(id = "1", title = "Saga 1")
+        val inProgress = seriesIssue(id = "2", title = "Saga 2")
+        val finished = seriesIssue(id = "3", title = "Saga 3")
+
+        val visibleItems = buildVisibleLibraryItems(
+            sourceItems = listOf(notStarted, inProgress, finished),
+            filterState = LibraryFilterState(
+                readingStatuses = setOf(LibraryReadingStatus.IN_PROGRESS, LibraryReadingStatus.FINISHED),
+            ),
+            searchQuery = "",
+            sortMode = LibrarySortMode.TITLE,
+            readingStatusByItemId = mapOf(
+                notStarted.id to LibraryReadingStatus.NOT_STARTED,
+                inProgress.id to LibraryReadingStatus.IN_PROGRESS,
+                finished.id to LibraryReadingStatus.FINISHED,
+            ),
+        )
+
+        assertEquals(listOf(inProgress, finished), visibleItems)
     }
 }
 
