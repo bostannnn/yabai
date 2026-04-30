@@ -587,9 +587,11 @@ private fun FacetChartCard(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = FACET_CHART_HEADER_MIN_HEIGHT),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.Top,
             ) {
                 StatsSectionLabel(section.title)
                 if (section.rows.size > visibleRows.size) {
@@ -918,3 +920,4 @@ private fun String.pluralize(): String = when (this) {
 }
 
 private const val FACET_CHART_VISIBLE_ROWS = 6
+private val FACET_CHART_HEADER_MIN_HEIGHT = 48.dp
