@@ -3,6 +3,7 @@ package com.example.unifiedreader
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
 import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEntity
+import com.example.unifiedreader.core.model.BookMetadata
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.LocatorType
@@ -110,6 +111,56 @@ class GrimmoryCatalogSyncServiceTest {
         assertEquals(listOf(SourceType.GRIMMORY.remoteLibraryId("g-books")), writer.libraries.map(LibraryEntity::id))
         assertEquals(listOf(SourceType.GRIMMORY.remoteItemId("book-1")), writer.items.map(ReadableItemEntity::id))
         assertEquals(1775046600000L, writer.items.single().updatedAtEpochMillis)
+    }
+
+    @Test
+    fun `sync enriches grimmory journal books with detail genres before writing catalog`() = runBlocking {
+        val writer = RecordingRemoteCatalogWriter()
+        val library = grimmoryLibrary("g-books")
+        val listItem = grimmoryItem(
+            remoteId = "book-1",
+            libraryRemoteId = "g-books",
+            title = "Book without list genres",
+        )
+        val detailItem = listItem.copy(
+            bookMetadata = BookMetadata(
+                authors = listOf("Ada Author"),
+                genres = listOf("Classics", "Fiction"),
+            ),
+        )
+        val api = FakeGrimmoryApi(
+            libraries = listOf(library),
+            allBookEntries = listOf(
+                GrimmoryBookCatalogEntry(
+                    item = listItem,
+                    progress = null,
+                    personalRating = 8,
+                    lastReadTime = "2026-04-21T10:00:00Z",
+                ),
+            ),
+            detailedBookEntries = mapOf(
+                "book-1" to GrimmoryBookCatalogEntry(
+                    item = detailItem,
+                    progress = null,
+                ),
+            ),
+        )
+        val service = GrimmoryCatalogSyncService(
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
+            remoteCatalogWriter = writer,
+        )
+
+        service.sync(
+            GrimmoryCatalogSyncRequest(
+                displayName = "Grimmory",
+                baseUrl = "https://grimmory.example/",
+                username = "user",
+                password = "password",
+            ),
+        )
+
+        assertEquals(listOf("access-token:book-1"), api.detailBookRequests)
+        assertEquals("Classics^_Fiction", writer.items.single().bookGenresJson)
     }
 
     @Test
@@ -737,6 +788,7 @@ private fun journalEntry(
 private class FakeGrimmoryApi(
     private val libraries: List<Library>,
     private val allBookEntries: List<GrimmoryBookCatalogEntry>,
+    private val detailedBookEntries: Map<String, GrimmoryBookCatalogEntry> = emptyMap(),
 ) : GrimmoryApi {
     var lastLogin: Pair<String, String>? = null
     var refreshedSession = GrimmorySession(
@@ -749,6 +801,7 @@ private class FakeGrimmoryApi(
     val notebookAccessTokens = mutableListOf<String>()
     val refreshTokens = mutableListOf<String>()
     val progressUpdates = mutableListOf<GrimmoryProgressUpdate>()
+    val detailBookRequests = mutableListOf<String>()
     val unauthorizedLibraryTokens = mutableSetOf<String>()
     val unauthorizedProgressTokens = mutableSetOf<String>()
     val unauthorizedNotebookTokens = mutableSetOf<String>()
@@ -802,8 +855,9 @@ private class FakeGrimmoryApi(
         accessToken: String,
         bookId: String,
     ): GrimmoryBookCatalogEntry? {
-        bookAccessTokens += accessToken
-        return allBookEntries.firstOrNull { entry -> entry.item.remoteId == bookId }
+        detailBookRequests += "$accessToken:$bookId"
+        return detailedBookEntries[bookId]
+            ?: allBookEntries.firstOrNull { entry -> entry.item.remoteId == bookId }
     }
 
     override fun bookContentUrl(

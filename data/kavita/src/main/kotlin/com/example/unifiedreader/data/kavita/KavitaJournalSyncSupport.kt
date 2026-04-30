@@ -180,9 +180,13 @@ suspend fun pushDirtyKavitaJournalEntries(
                         chapterId = chapterId,
                         rating = 0f,
                     )
-                    api.deleteChapterReview(accessToken = accessToken, chapterId = chapterId)
+                    if (entry.remoteEntryId != null) {
+                        api.deleteChapterReview(accessToken = accessToken, chapterId = chapterId)
+                    }
                 } else {
-                    api.deleteChapterReview(accessToken = accessToken, chapterId = chapterId)
+                    if (entry.remoteEntryId != null) {
+                        api.deleteChapterReview(accessToken = accessToken, chapterId = chapterId)
+                    }
                     api.updateChapterRating(
                         accessToken = accessToken,
                         seriesId = seriesId,

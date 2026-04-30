@@ -7,6 +7,7 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.data.grimmory.GrimmoryApi
 import com.example.unifiedreader.data.grimmory.GrimmoryBookCatalogEntry
 import com.example.unifiedreader.data.grimmory.GrimmorySession
+import com.example.unifiedreader.data.grimmory.enrichGrimmoryJournalCatalogMetadata
 import com.example.unifiedreader.data.grimmory.pullGrimmoryJournalCache
 import com.example.unifiedreader.data.grimmory.pushDirtyGrimmoryJournalEntries
 import com.example.unifiedreader.core.model.progress.ProgressSyncStore
@@ -103,7 +104,11 @@ class GrimmoryCatalogSyncService(
                 onProgress(GrimmorySyncProgress(message = "Loading Grimmory libraries...", fraction = 0.1f))
                 val libraries = api.getLibraries(accessToken = token)
                 onProgress(GrimmorySyncProgress(message = "Loading Grimmory books...", fraction = 0.55f))
-                val bookEntries = api.getAllBookEntries(accessToken = token)
+                val bookEntries = enrichGrimmoryJournalCatalogMetadata(
+                    api = api,
+                    accessToken = token,
+                    entries = api.getAllBookEntries(accessToken = token),
+                )
                 RemoteCatalogFetch(
                     libraries = libraries,
                     entries = bookEntries,

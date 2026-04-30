@@ -178,7 +178,7 @@ class KavitaJournalSyncSupportTest {
     }
 
     @Test
-    fun `kavita dirty push cleans rating only review text and restores native rating`() = runTest {
+    fun `kavita dirty push rating only entry updates native rating without deleting missing review`() = runTest {
         val item = readableItem(sourceType = SourceType.KAVITA, remoteId = "42")
         val repository = RecordingJournalRepository(
             dirtyEntries = listOf(journalEntry(item = item, rating = 9, reviewText = "")),
@@ -194,6 +194,34 @@ class KavitaJournalSyncSupportTest {
 
         assertEquals(4.5f, api.updatedRating ?: -1f, 0.0001f)
         assertEquals(null, api.updatedReviewBody)
+        assertEquals(null, api.deletedReviewChapterId)
+        assertEquals(listOf("update-rating:42:4.5"), api.calls)
+        assertEquals(SyncState.CLEAN, repository.markedSyncStates[item.id])
+    }
+
+    @Test
+    fun `kavita dirty push rating only entry deletes known existing review before updating native rating`() = runTest {
+        val item = readableItem(sourceType = SourceType.KAVITA, remoteId = "42")
+        val repository = RecordingJournalRepository(
+            dirtyEntries = listOf(
+                journalEntry(
+                    item = item,
+                    rating = 9,
+                    reviewText = "",
+                    remoteEntryId = "13",
+                ),
+            ),
+        )
+        val api = FakeKavitaApi(chapterInfo = KavitaChapterInfoDto(seriesId = 77))
+
+        pushDirtyKavitaJournalEntries(
+            api = api,
+            accessToken = "token",
+            entries = listOf(item),
+            journalRepository = repository,
+        )
+
+        assertEquals(4.5f, api.updatedRating ?: -1f, 0.0001f)
         assertEquals(42, api.deletedReviewChapterId)
         assertEquals(listOf("delete-review:42", "update-rating:42:4.5"), api.calls)
         assertEquals(SyncState.CLEAN, repository.markedSyncStates[item.id])
@@ -496,7 +524,7 @@ class KavitaJournalSyncSupportTest {
     }
 
     @Test
-    fun `kavita dirty push clears remote rating when local rating is null`() = runTest {
+    fun `kavita dirty push clears remote rating without deleting missing review when local rating is null`() = runTest {
         val item = readableItem(sourceType = SourceType.KAVITA, remoteId = "42")
         val repository = RecordingJournalRepository(
             dirtyEntries = listOf(journalEntry(item = item, rating = null, reviewText = "")),
@@ -511,7 +539,36 @@ class KavitaJournalSyncSupportTest {
         )
 
         assertEquals(0f, api.updatedRating ?: -1f, 0.0001f)
+        assertEquals(null, api.deletedReviewChapterId)
+        assertEquals(listOf("update-rating:42:0.0"), api.calls)
+        assertEquals(SyncState.CLEAN, repository.markedSyncStates[item.id])
+    }
+
+    @Test
+    fun `kavita dirty push clears known remote review when local rating is null`() = runTest {
+        val item = readableItem(sourceType = SourceType.KAVITA, remoteId = "42")
+        val repository = RecordingJournalRepository(
+            dirtyEntries = listOf(
+                journalEntry(
+                    item = item,
+                    rating = null,
+                    reviewText = "",
+                    remoteEntryId = "13",
+                ),
+            ),
+        )
+        val api = FakeKavitaApi(chapterInfo = KavitaChapterInfoDto(seriesId = 77))
+
+        pushDirtyKavitaJournalEntries(
+            api = api,
+            accessToken = "token",
+            entries = listOf(item),
+            journalRepository = repository,
+        )
+
+        assertEquals(0f, api.updatedRating ?: -1f, 0.0001f)
         assertEquals(42, api.deletedReviewChapterId)
+        assertEquals(listOf("update-rating:42:0.0", "delete-review:42"), api.calls)
         assertEquals(SyncState.CLEAN, repository.markedSyncStates[item.id])
     }
 
@@ -724,6 +781,7 @@ private fun journalEntry(
     item: ReadableItem,
     rating: Int?,
     reviewText: String,
+    remoteEntryId: String? = null,
 ): ItemJournalEntry = ItemJournalEntry(
     itemId = item.id,
     sourceType = item.sourceType,
@@ -736,5 +794,6 @@ private fun journalEntry(
     reviewText = reviewText,
     reviewedAtEpochMillis = 100L,
     updatedAtEpochMillis = 200L,
+    remoteEntryId = remoteEntryId,
     syncState = SyncState.DIRTY,
 )
