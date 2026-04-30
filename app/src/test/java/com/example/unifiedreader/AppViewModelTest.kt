@@ -1331,7 +1331,7 @@ class AppViewModelTest {
     }
 
     @Test
-    fun `kavita root series does not synthesize aggregate progress from finished issues`() {
+    fun `kavita root series does not synthesize aggregate progress unless every issue is finished`() {
         val firstIssue = sampleItem(
             id = "chapter-1",
             title = "Akira 001",
@@ -1374,6 +1374,56 @@ class AppViewModelTest {
 
         assertEquals(true, seriesItem.isKavitaSeriesContainer())
         assertNull(progress)
+    }
+
+    @Test
+    fun `kavita root series exposes completed progress when every issue is finished`() {
+        val firstIssue = sampleItem(
+            id = "chapter-1",
+            title = "Akira 001",
+            format = FormatType.CBZ,
+        ).copy(
+            remoteId = "chapter-1",
+            remoteFileType = "series-7",
+            pageCount = 10,
+            comicMetadata = ComicMetadata(series = "Akira", issueTitle = "Issue 1"),
+        )
+        val secondIssue = sampleItem(
+            id = "chapter-2",
+            title = "Akira 002",
+            format = FormatType.CBZ,
+        ).copy(
+            remoteId = "chapter-2",
+            remoteFileType = "series-7",
+            pageCount = 10,
+            comicMetadata = ComicMetadata(series = "Akira", issueTitle = "Issue 2"),
+        )
+        val readerSessionStore = FakeReaderSessionStore().apply {
+            listOf(firstIssue, secondIssue).forEachIndexed { index, issue ->
+                saveProgress(
+                    item = issue,
+                    locator = com.example.unifiedreader.feature.reader.core.ReaderLocator(
+                        locatorType = LocatorType.PAGE,
+                        page = 9,
+                    ),
+                    isFinished = true,
+                    pageCount = 10,
+                    updatedAtEpochMillis = 1_000L + index,
+                )
+            }
+        }
+        val viewModel = createViewModel(
+            sampleItems = listOf(firstIssue, secondIssue),
+            readerSessionStore = readerSessionStore,
+        )
+
+        val seriesItem = viewModel.uiState.visibleItems.single()
+        val progress = viewModel.uiState.displayProgressByItemId[seriesItem.id]
+
+        assertEquals(true, seriesItem.isKavitaSeriesContainer())
+        assertEquals(true, progress?.isFinished)
+        assertEquals(1f, progress?.fraction)
+        assertEquals(1_001L, progress?.lastReadAtEpochMillis)
     }
 
     @Test
@@ -1432,7 +1482,7 @@ class AppViewModelTest {
     }
 
     @Test
-    fun `stump root series does not synthesize aggregate progress from finished issues`() {
+    fun `stump root series exposes completed progress when every issue is finished`() {
         val firstIssue = sampleItem(
             id = "stump-issue-1",
             title = "Akira 001",
@@ -1481,7 +1531,9 @@ class AppViewModelTest {
         val progress = viewModel.uiState.displayProgressByItemId[seriesItem.id]
 
         assertTrue(seriesItem.isStumpSeriesContainer())
-        assertNull(progress)
+        assertEquals(true, progress?.isFinished)
+        assertEquals(1f, progress?.fraction)
+        assertEquals(1_001L, progress?.lastReadAtEpochMillis)
     }
 
     @Test

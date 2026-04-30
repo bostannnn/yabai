@@ -12,6 +12,7 @@ import com.example.unifiedreader.core.model.remoteLibraryId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LibraryDerivedStateComputerTest {
@@ -199,6 +200,110 @@ class LibraryDerivedStateComputerTest {
         assertEquals(progressByItemId, derivedState.displayProgressByItemId)
         assertEquals(1, derivedState.visibleItems.size)
         assertNull(derivedState.displayProgressByItemId[derivedState.visibleItems.single().id])
+    }
+
+    @Test
+    fun `root series containers expose read progress when every issue is finished`() {
+        val libraryId = SourceType.KAVITA.remoteLibraryId("k-comics")
+        val libraries = listOf(
+            Library(
+                id = libraryId,
+                sourceType = SourceType.KAVITA,
+                title = "Kavita Comics",
+                contentType = LibraryContentType.COMICS,
+            ),
+        )
+        val issueOne = issue(
+            id = "k-1",
+            sourceType = SourceType.KAVITA,
+            libraryId = libraryId,
+            seriesKey = "akira",
+            title = "Akira 1",
+        )
+        val issueTwo = issue(
+            id = "k-2",
+            sourceType = SourceType.KAVITA,
+            libraryId = libraryId,
+            seriesKey = "akira",
+            title = "Akira 2",
+        )
+
+        val derivedState = computer.compute(
+            LibraryDerivedStateInput(
+                selectedSource = SourceType.KAVITA,
+                libraries = libraries,
+                items = listOf(issueOne, issueTwo),
+                selectedLibrarySortMode = LibrarySortMode.TITLE,
+                progressByItemId = mapOf(
+                    issueOne.id to ItemProgressSummary(
+                        label = "Finished",
+                        fraction = 1f,
+                        lastReadAtEpochMillis = 10L,
+                        isFinished = true,
+                    ),
+                    issueTwo.id to ItemProgressSummary(
+                        label = "Finished",
+                        fraction = 1f,
+                        lastReadAtEpochMillis = 20L,
+                        isFinished = true,
+                    ),
+                ),
+            ),
+        )
+
+        val seriesProgress = derivedState.displayProgressByItemId["kavita:series:${libraryId}::akira"]
+        assertTrue(seriesProgress?.isComplete == true)
+        assertEquals(20L, seriesProgress?.lastReadAtEpochMillis)
+    }
+
+    @Test
+    fun `stump root series containers expose read progress when every issue is finished`() {
+        val libraryId = SourceType.STUMP.remoteLibraryId("s-comics")
+        val libraries = listOf(
+            Library(
+                id = libraryId,
+                sourceType = SourceType.STUMP,
+                title = "Stump Comics",
+                contentType = LibraryContentType.COMICS,
+            ),
+        )
+        val issueOne = issue(
+            id = "s-1",
+            sourceType = SourceType.STUMP,
+            libraryId = libraryId,
+            seriesKey = "blame",
+            title = "Blame 1",
+        )
+        val issueTwo = issue(
+            id = "s-2",
+            sourceType = SourceType.STUMP,
+            libraryId = libraryId,
+            seriesKey = "blame",
+            title = "Blame 2",
+        )
+
+        val derivedState = computer.compute(
+            LibraryDerivedStateInput(
+                selectedSource = SourceType.STUMP,
+                libraries = libraries,
+                items = listOf(issueOne, issueTwo),
+                selectedLibrarySortMode = LibrarySortMode.TITLE,
+                progressByItemId = mapOf(
+                    issueOne.id to ItemProgressSummary(
+                        label = "Finished",
+                        fraction = 1f,
+                        isFinished = true,
+                    ),
+                    issueTwo.id to ItemProgressSummary(
+                        label = "Finished",
+                        fraction = 1f,
+                        isFinished = true,
+                    ),
+                ),
+            ),
+        )
+
+        assertTrue(derivedState.displayProgressByItemId["stump:series:${libraryId}::blame"]?.isComplete == true)
     }
 
     @Test
