@@ -265,7 +265,7 @@ private fun JournalPeriodOverview.statsFacetSummaries(
     row: JournalFacetRow,
 ): List<JournalItemSummary> {
     val itemIds = row.itemIds.toSet()
-    return activeItems
+    return finishedItems
         .filter { summary -> summary.item.itemId in itemIds }
 }
 

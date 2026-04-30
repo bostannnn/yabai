@@ -216,7 +216,7 @@ fun computePeriodOverview(
             periodEnd = periodEnd,
         ),
         topFacets = computeTopFacetSections(
-            activeItems = activeItems,
+            finishedItems = finishedItems,
         ),
     )
 }
@@ -291,44 +291,44 @@ private fun computeAverageReadingTimeBuckets(
 }
 
 private fun computeTopFacetSections(
-    activeItems: List<JournalItemSummary>,
+    finishedItems: List<JournalItemSummary>,
 ): List<JournalFacetSection> {
     return listOf(
         JournalFacetSection(
             title = "Book genres",
             mediaType = JournalMediaType.BOOK,
             facetType = JournalFacetType.GENRE,
-            rows = activeItems.topFacetRows(JournalMediaType.BOOK) { item -> item.facetMetadata().genres },
+            rows = finishedItems.topFacetRows(JournalMediaType.BOOK) { item -> item.facetMetadata().genres },
         ),
         JournalFacetSection(
             title = "Book authors",
             mediaType = JournalMediaType.BOOK,
             facetType = JournalFacetType.AUTHOR,
-            rows = activeItems.topFacetRows(JournalMediaType.BOOK) { item -> item.facetMetadata().authors },
+            rows = finishedItems.topFacetRows(JournalMediaType.BOOK) { item -> item.facetMetadata().authors },
         ),
         JournalFacetSection(
             title = "Comic genres",
             mediaType = JournalMediaType.COMIC,
             facetType = JournalFacetType.GENRE,
-            rows = activeItems.topFacetRows(JournalMediaType.COMIC) { item -> item.facetMetadata().genres },
+            rows = finishedItems.topFacetRows(JournalMediaType.COMIC) { item -> item.facetMetadata().genres },
         ),
         JournalFacetSection(
             title = "Comic tags",
             mediaType = JournalMediaType.COMIC,
             facetType = JournalFacetType.TAG,
-            rows = activeItems.topFacetRows(JournalMediaType.COMIC) { item -> item.facetMetadata().tags },
+            rows = finishedItems.topFacetRows(JournalMediaType.COMIC) { item -> item.facetMetadata().tags },
         ),
         JournalFacetSection(
             title = "Comic writers",
             mediaType = JournalMediaType.COMIC,
             facetType = JournalFacetType.WRITER,
-            rows = activeItems.topFacetRows(JournalMediaType.COMIC) { item -> item.facetMetadata().writers },
+            rows = finishedItems.topFacetRows(JournalMediaType.COMIC) { item -> item.facetMetadata().writers },
         ),
         JournalFacetSection(
             title = "Comic pencillers",
             mediaType = JournalMediaType.COMIC,
             facetType = JournalFacetType.PENCILLER,
-            rows = activeItems.topFacetRows(JournalMediaType.COMIC) { item -> item.facetMetadata().pencillers },
+            rows = finishedItems.topFacetRows(JournalMediaType.COMIC) { item -> item.facetMetadata().pencillers },
         ),
     )
 }

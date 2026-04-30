@@ -408,11 +408,25 @@ class JournalStateComputerTest {
         )
         val missing = testItem.copy(id = "missing")
         val snapshot = JournalStateComputer(nowEpochMillis = { april10 }).snapshot(
-            events = emptyList(),
-            sessions = listOf(
-                journalSession(item = known, startedAtEpochMillis = april10, endedAtEpochMillis = april10 + 1_000L),
-                journalSession(item = missing, startedAtEpochMillis = april10, endedAtEpochMillis = april10 + 1_000L),
+            events = listOf(
+                startedEvent(
+                    item = known,
+                    id = "known-finished",
+                    page = 100,
+                    percent = 1.0,
+                    type = JournalReadingEventType.FINISHED,
+                    occurredAtEpochMillis = april10,
+                ),
+                startedEvent(
+                    item = missing,
+                    id = "missing-finished",
+                    page = 100,
+                    percent = 1.0,
+                    type = JournalReadingEventType.FINISHED,
+                    occurredAtEpochMillis = april10,
+                ),
             ),
+            sessions = emptyList(),
             entries = emptyList(),
             catalogItemsById = mapOf(known.id to known, missing.id to missing),
         )
@@ -424,31 +438,94 @@ class JournalStateComputerTest {
     }
 
     @Test
-    fun `top facets include event-only active items`() {
+    fun `top facets include event-only finished items`() {
         val april10 = epochMillis(2026, Calendar.APRIL, 10)
-        val eventOnly = testItem.copy(
-            id = "event-only",
+        val finished = testItem.copy(
+            id = "finished",
             bookMetadata = BookMetadata(authors = listOf("Octavia Butler"), genres = listOf("Science Fiction")),
         )
         val snapshot = JournalStateComputer(nowEpochMillis = { april10 }).snapshot(
             events = listOf(
                 startedEvent(
-                    item = eventOnly,
-                    id = "event-only-progress",
-                    page = 20,
-                    percent = 0.2,
+                    item = finished,
+                    id = "finished-event",
+                    page = 100,
+                    percent = 1.0,
+                    type = JournalReadingEventType.FINISHED,
                     occurredAtEpochMillis = april10,
                 ),
             ),
             sessions = emptyList(),
             entries = emptyList(),
-            catalogItemsById = mapOf(eventOnly.id to eventOnly),
+            catalogItemsById = mapOf(finished.id to finished),
         )
 
         val overview = computePeriodOverview(snapshot, JournalPeriod.MONTH, april10)
         val bookGenres = overview.topFacets.first { section -> section.title == "Book genres" }
 
-        assertEquals(listOf(eventOnly.id), bookGenres.rows.first { row -> row.label == "Science Fiction" }.itemIds)
+        assertEquals(listOf(finished.id), bookGenres.rows.first { row -> row.label == "Science Fiction" }.itemIds)
+    }
+
+    @Test
+    fun `top facets exclude unfinished active items`() {
+        val april10 = epochMillis(2026, Calendar.APRIL, 10)
+        val started = testItem.copy(
+            id = "started",
+            bookMetadata = BookMetadata(authors = listOf("Started Author"), genres = listOf("Started Genre")),
+        )
+        val continued = testItem.copy(
+            id = "continued",
+            bookMetadata = BookMetadata(authors = listOf("Continued Author"), genres = listOf("Continued Genre")),
+        )
+        val sessionOnly = testItem.copy(
+            id = "session-only",
+            bookMetadata = BookMetadata(authors = listOf("Session Author"), genres = listOf("Session Genre")),
+        )
+        val finished = testItem.copy(
+            id = "finished",
+            bookMetadata = BookMetadata(authors = listOf("Finished Author"), genres = listOf("Finished Genre")),
+        )
+        val snapshot = JournalStateComputer(nowEpochMillis = { april10 }).snapshot(
+            events = listOf(
+                startedEvent(
+                    item = started,
+                    id = "started-event",
+                    page = 20,
+                    percent = 0.2,
+                    occurredAtEpochMillis = april10,
+                ),
+                startedEvent(
+                    item = continued,
+                    id = "continued-event",
+                    page = 40,
+                    percent = 0.4,
+                    type = JournalReadingEventType.CONTINUED,
+                    occurredAtEpochMillis = april10,
+                ),
+                startedEvent(
+                    item = finished,
+                    id = "finished-event",
+                    page = 100,
+                    percent = 1.0,
+                    type = JournalReadingEventType.FINISHED,
+                    occurredAtEpochMillis = april10,
+                ),
+            ),
+            sessions = listOf(
+                journalSession(item = sessionOnly, startedAtEpochMillis = april10, endedAtEpochMillis = april10 + 1_000L),
+            ),
+            entries = emptyList(),
+            catalogItemsById = listOf(started, continued, sessionOnly, finished).associateBy(ReadableItem::id),
+        )
+
+        val overview = computePeriodOverview(snapshot, JournalPeriod.MONTH, april10)
+        val bookGenres = overview.topFacets.first { section -> section.title == "Book genres" }
+        val bookAuthors = overview.topFacets.first { section -> section.title == "Book authors" }
+
+        assertEquals(setOf(started.id, continued.id, sessionOnly.id, finished.id), overview.activeItems.map { it.item.itemId }.toSet())
+        assertEquals(listOf(finished.id), bookGenres.rows.single { row -> row.label == "Finished Genre" }.itemIds)
+        assertEquals(listOf(finished.id), bookAuthors.rows.single { row -> row.label == "Finished Author" }.itemIds)
+        assertEquals(emptyList<JournalFacetRow>(), bookGenres.rows.filter { row -> row.label != "Finished Genre" })
     }
 
     @Test
@@ -494,10 +571,17 @@ class JournalStateComputerTest {
             ),
         )
         val snapshot = JournalStateComputer(nowEpochMillis = { april10 }).snapshot(
-            events = emptyList(),
-            sessions = listOf(
-                journalSession(item = comic, startedAtEpochMillis = april10, endedAtEpochMillis = april10 + 1_000L),
+            events = listOf(
+                startedEvent(
+                    item = comic,
+                    id = "comic-finished",
+                    page = 100,
+                    percent = 1.0,
+                    type = JournalReadingEventType.FINISHED,
+                    occurredAtEpochMillis = april10,
+                ),
             ),
+            sessions = emptyList(),
             entries = emptyList(),
             catalogItemsById = mapOf(comic.id to comic),
         )
