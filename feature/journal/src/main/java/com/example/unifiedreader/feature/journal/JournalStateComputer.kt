@@ -216,7 +216,12 @@ fun computePeriodOverview(
             periodStart = periodStart,
             periodEnd = periodEnd,
         ),
-        activityDays = computeActivityDays(periodEvents),
+        activityDays = computeActivityDays(
+            events = periodEvents,
+            sessions = periodSessions,
+            periodStart = periodStart,
+            periodEnd = periodEnd,
+        ),
         finishedItems = finishedItems,
         activeItems = activeItems,
         averageReadingTimeBuckets = computeAverageReadingTimeBuckets(
@@ -239,30 +244,77 @@ fun JournalSnapshot.firstJournalAtEpochMillis(): Long? = listOfNotNull(
 
 fun computeActivityDays(
     events: List<JournalReadingEvent>,
-): List<JournalActivityDay> = events
-    .groupBy(JournalReadingEvent::localDayKey)
-    .map { (dayKey, dayEvents) ->
-        val calendar = Calendar.getInstance(Locale.US).apply {
-            timeInMillis = dayEvents.minOf(JournalReadingEvent::occurredAtEpochMillis)
+    sessions: List<JournalReadingSession> = emptyList(),
+    periodStart: Long? = null,
+    periodEnd: Long? = null,
+): List<JournalActivityDay> {
+    val dayAccumulators = mutableMapOf<Int, JournalActivityDayAccumulator>()
+    events.groupBy(JournalReadingEvent::localDayKey).forEach { (dayKey, dayEvents) ->
+        val accumulator = dayAccumulators.getOrPut(dayKey) { JournalActivityDayAccumulator(dayKey) }
+        accumulator.pagesRead += dayEvents.sumOf(JournalReadingEvent::positivePageDelta)
+        accumulator.eventCount += dayEvents.size
+        accumulator.finishedBooks += dayEvents.count { event ->
+            event.eventType == JournalReadingEventType.FINISHED &&
+                event.mediaType() == JournalMediaType.BOOK
         }
-        JournalActivityDay(
-            localDayKey = dayKey,
-            year = calendar.get(Calendar.YEAR),
-            month = calendar.get(Calendar.MONTH),
-            dayOfMonth = calendar.get(Calendar.DAY_OF_MONTH),
-            pagesRead = dayEvents.sumOf(JournalReadingEvent::positivePageDelta),
-            eventCount = dayEvents.size,
-            finishedBooks = dayEvents.count { event ->
-                event.eventType == JournalReadingEventType.FINISHED &&
-                    event.mediaType() == JournalMediaType.BOOK
-            },
-            finishedComics = dayEvents.count { event ->
-                event.eventType == JournalReadingEventType.FINISHED &&
-                    event.mediaType() == JournalMediaType.COMIC
-            },
-        )
+        accumulator.finishedComics += dayEvents.count { event ->
+            event.eventType == JournalReadingEventType.FINISHED &&
+                event.mediaType() == JournalMediaType.COMIC
+        }
     }
-    .sortedWith(compareBy<JournalActivityDay> { it.year }.thenBy { it.month }.thenBy { it.dayOfMonth })
+    val eventItemIds = events.map(JournalReadingEvent::itemId).toSet()
+    sessions.filterNot { session -> session.itemId in eventItemIds }.forEach { session ->
+        val activeDayKeys = session.activeDayKeys(periodStart, periodEnd)
+        if (activeDayKeys.isEmpty()) return@forEach
+        val pageDelta = session.positivePageDelta()
+        activeDayKeys.forEachIndexed { index, dayKey ->
+            val accumulator = dayAccumulators.getOrPut(dayKey) { JournalActivityDayAccumulator(dayKey) }
+            accumulator.pagesRead += splitSessionPages(pageDelta, activeDayKeys.size, index)
+            accumulator.eventCount += 1
+        }
+    }
+    return dayAccumulators.values
+        .map { accumulator ->
+            val calendar = accumulator.calendar()
+            JournalActivityDay(
+                localDayKey = accumulator.localDayKey,
+                year = calendar.get(Calendar.YEAR),
+                month = calendar.get(Calendar.MONTH),
+                dayOfMonth = calendar.get(Calendar.DAY_OF_MONTH),
+                pagesRead = accumulator.pagesRead,
+                eventCount = accumulator.eventCount,
+                finishedBooks = accumulator.finishedBooks,
+                finishedComics = accumulator.finishedComics,
+            )
+        }
+        .sortedWith(compareBy<JournalActivityDay> { it.year }.thenBy { it.month }.thenBy { it.dayOfMonth })
+}
+
+private class JournalActivityDayAccumulator(
+    val localDayKey: Int,
+) {
+    var pagesRead: Int = 0
+    var eventCount: Int = 0
+    var finishedBooks: Int = 0
+    var finishedComics: Int = 0
+
+    fun calendar(): Calendar = Calendar.getInstance(Locale.US).apply {
+        clear()
+        set(Calendar.YEAR, localDayKey / 1000)
+        set(Calendar.DAY_OF_YEAR, localDayKey % 1000)
+    }
+}
+
+private fun splitSessionPages(
+    pageDelta: Int,
+    dayCount: Int,
+    dayIndex: Int,
+): Int {
+    if (pageDelta <= 0 || dayCount <= 0) return 0
+    val base = pageDelta / dayCount
+    val remainder = pageDelta % dayCount
+    return base + if (dayIndex < remainder) 1 else 0
+}
 
 private fun computeAverageReadingTimeBuckets(
     sessions: List<JournalReadingSession>,

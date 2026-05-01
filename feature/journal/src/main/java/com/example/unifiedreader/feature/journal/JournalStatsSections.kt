@@ -7,8 +7,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -537,17 +539,26 @@ internal fun TopFacetSections(
             if (maxWidth >= 840.dp) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     sections.chunked(2).forEach { pair ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(
+                            modifier = Modifier.height(IntrinsicSize.Min),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
                             pair.forEach { section ->
                                 FacetChartCard(
                                     section = section,
                                     onFacetSelected = onFacetSelected,
                                     onSeeAllSelected = onSeeAllSelected,
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight(),
                                 )
                             }
                             if (pair.size == 1) {
-                                Box(modifier = Modifier.weight(1f))
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight(),
+                                )
                             }
                         }
                     }
@@ -575,9 +586,11 @@ private fun FacetChartCard(
     modifier: Modifier = Modifier,
 ) {
     val maxValue = section.rows.maxOfOrNull(JournalFacetRow::count)?.coerceAtLeast(1) ?: 1
-    val visibleRows = section.rows.take(FACET_CHART_VISIBLE_ROWS)
+    val visibleRows = section.rows.take(section.visibleFacetRowCount())
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = FACET_CHART_CARD_MIN_HEIGHT),
         shape = RoundedCornerShape(8.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 1.dp,
@@ -587,11 +600,9 @@ private fun FacetChartCard(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = FACET_CHART_HEADER_MIN_HEIGHT),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 StatsSectionLabel(section.title)
                 if (section.rows.size > visibleRows.size) {
@@ -612,17 +623,87 @@ private fun FacetChartCard(
             if (visibleRows.isEmpty()) {
                 EmptyStatsMessage("No metadata yet")
             } else {
-                visibleRows.forEachIndexed { index, row ->
-                    FacetBar(
-                        row = row,
+                when {
+                    section.mediaType == JournalMediaType.BOOK &&
+                        section.facetType == JournalFacetType.GENRE -> FacetBarRows(
+                        rows = visibleRows,
                         maxValue = maxValue,
-                        color = facetColor(index),
-                        onClick = { onFacetSelected(section, row) },
+                        onFacetSelected = { row -> onFacetSelected(section, row) },
                     )
+
+                    section.mediaType == JournalMediaType.BOOK &&
+                        section.facetType == JournalFacetType.AUTHOR -> FacetTokenGridRows(
+                        rows = visibleRows,
+                        colorForIndex = { index -> facetColor(index) },
+                        onFacetSelected = { row -> onFacetSelected(section, row) },
+                    )
+
+                    section.mediaType == JournalMediaType.COMIC &&
+                        section.facetType == JournalFacetType.GENRE -> FacetBarRows(
+                        rows = visibleRows,
+                        maxValue = maxValue,
+                        onFacetSelected = { row -> onFacetSelected(section, row) },
+                    )
+
+                    section.mediaType == JournalMediaType.COMIC &&
+                        section.facetType == JournalFacetType.TAG -> FacetHeatChipRows(
+                        rows = visibleRows,
+                        maxValue = maxValue,
+                        colorForIndex = { index -> facetColor(index) },
+                        onFacetSelected = { row -> onFacetSelected(section, row) },
+                    )
+
+                    section.mediaType == JournalMediaType.COMIC &&
+                        section.facetType == JournalFacetType.WRITER -> FacetCreditsRows(
+                        rows = visibleRows,
+                        colorForIndex = { index -> facetColor(index) },
+                        contentColorForIndex = { index -> facetContentColor(index) },
+                        onFacetSelected = { row -> onFacetSelected(section, row) },
+                    )
+
+                    section.mediaType == JournalMediaType.COMIC &&
+                        section.facetType == JournalFacetType.PENCILLER -> FacetCreditsRows(
+                        rows = visibleRows,
+                        colorForIndex = { index -> facetColor(index) },
+                        contentColorForIndex = { index -> facetContentColor(index) },
+                        onFacetSelected = { row -> onFacetSelected(section, row) },
+                    )
+
+                    else -> {
+                        visibleRows.forEachIndexed { index, row ->
+                            FacetBar(
+                                row = row,
+                                maxValue = maxValue,
+                                color = facetColor(index),
+                                onClick = { onFacetSelected(section, row) },
+                            )
+                        }
+                    }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun FacetBarRows(
+    rows: List<JournalFacetRow>,
+    maxValue: Int,
+    onFacetSelected: (JournalFacetRow) -> Unit,
+) {
+    rows.forEachIndexed { index, row ->
+        FacetBar(
+            row = row,
+            maxValue = maxValue,
+            color = facetColor(index),
+            onClick = { onFacetSelected(row) },
+        )
+    }
+}
+
+private fun JournalFacetSection.visibleFacetRowCount(): Int = when (facetType) {
+    JournalFacetType.TAG -> 12
+    else -> FACET_CHART_VISIBLE_ROWS
 }
 
 @Composable
@@ -834,6 +915,23 @@ private fun facetColor(
     }
 }
 
+@Composable
+private fun facetContentColor(
+    index: Int,
+): Color {
+    val scheme = MaterialTheme.colorScheme
+    return when (index % 7) {
+        0 -> scheme.onPrimary
+        1 -> scheme.onTertiary
+        2 -> scheme.onSecondary
+        3 -> scheme.onError
+        4 -> scheme.onPrimaryContainer
+        5 -> scheme.onTertiaryContainer
+        else -> scheme.onSecondaryContainer
+    }
+}
+
+@Composable
 private fun averageLabel(
     total: Double,
     period: JournalPeriod,
@@ -920,4 +1018,4 @@ private fun String.pluralize(): String = when (this) {
 }
 
 private const val FACET_CHART_VISIBLE_ROWS = 6
-private val FACET_CHART_HEADER_MIN_HEIGHT = 48.dp
+private val FACET_CHART_CARD_MIN_HEIGHT = 300.dp

@@ -400,6 +400,32 @@ class JournalStateComputerTest {
     }
 
     @Test
+    fun `period overview activity days include session only reading`() {
+        val april10 = epochMillis(2026, Calendar.APRIL, 10)
+        val snapshot = JournalStateComputer(nowEpochMillis = { april10 }).snapshot(
+            events = emptyList(),
+            sessions = listOf(
+                journalSession(
+                    startedAtEpochMillis = april10 + 10 * 60 * 60 * 1000L,
+                    endedAtEpochMillis = april10 + 11 * 60 * 60 * 1000L,
+                    fromPage = 0,
+                    toPage = 20,
+                ),
+            ),
+            entries = emptyList(),
+        )
+
+        val overview = computePeriodOverview(snapshot, JournalPeriod.MONTH, april10)
+        val activityDay = overview.activityDays.single()
+
+        assertEquals(10, activityDay.dayOfMonth)
+        assertEquals(20, activityDay.pagesRead)
+        assertEquals(1, activityDay.eventCount)
+        assertEquals(20, overview.stats.pagesRead)
+        assertEquals(60 * 60 * 1000L, overview.stats.readingTimeMillis)
+    }
+
+    @Test
     fun `top facets omit items without metadata values`() {
         val april10 = epochMillis(2026, Calendar.APRIL, 10)
         val known = testItem.copy(

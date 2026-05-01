@@ -230,9 +230,10 @@ private fun PeriodStatsPanel(
             canNavigatePrevious = canNavigatePrevious,
             canNavigateNext = canNavigateNext,
         )
-        JournalStatsMetricGrid(overview = overview)
-        activityContent()
-        ReadingPacePanels(overview = overview)
+        JournalActivityDashboard(
+            overview = overview,
+            activityContent = activityContent,
+        )
         AverageReadingTimeChart(
             title = if (overview.period == JournalPeriod.MONTH) {
                 "Average time spent reading by hour"
