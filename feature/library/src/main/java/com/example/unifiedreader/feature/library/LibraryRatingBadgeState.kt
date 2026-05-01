@@ -9,6 +9,10 @@ data class LibraryRatingBadgeState(
 
 internal fun itemRatingBadgeState(
     rating: Int,
+): LibraryRatingBadgeState = ratingBadgeState(rating)
+
+fun ratingBadgeState(
+    rating: Int,
 ): LibraryRatingBadgeState {
     val label = ratingValueLabel(rating)
     return LibraryRatingBadgeState(

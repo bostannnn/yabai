@@ -2,6 +2,7 @@ package com.example.unifiedreader.feature.journal
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
@@ -22,6 +23,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
+import com.example.unifiedreader.feature.library.RatingBadge
+import com.example.unifiedreader.feature.library.ratingBadgeState
 
 internal fun finishedItemsNeedingRating(
     overview: JournalPeriodOverview,
@@ -110,14 +113,24 @@ private fun FinishedItemCard(
             .padding(4.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        JournalCoverArt(
-            item = summary.item,
-            coverImageUrlProvider = coverImageUrlProvider,
-            onCoverVisible = onCoverVisible,
-            modifier = Modifier
-                .width(72.dp)
-                .aspectRatio(0.68f),
-        )
+        Box {
+            JournalCoverArt(
+                item = summary.item,
+                coverImageUrlProvider = coverImageUrlProvider,
+                onCoverVisible = onCoverVisible,
+                modifier = Modifier
+                    .width(72.dp)
+                    .aspectRatio(0.68f),
+            )
+            summary.entry?.rating?.let { rating ->
+                RatingBadge(
+                    state = ratingBadgeState(rating),
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(6.dp),
+                )
+            }
+        }
         Text(
             text = summary.item.displayTitle,
             style = MaterialTheme.typography.labelMedium,

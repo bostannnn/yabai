@@ -18,7 +18,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 
 @Composable
-internal fun LibraryRatingBadge(
+fun RatingBadge(
     state: LibraryRatingBadgeState,
     modifier: Modifier = Modifier,
 ) {
@@ -48,4 +48,15 @@ internal fun LibraryRatingBadge(
             )
         }
     }
+}
+
+@Composable
+internal fun LibraryRatingBadge(
+    state: LibraryRatingBadgeState,
+    modifier: Modifier = Modifier,
+) {
+    RatingBadge(
+        state = state,
+        modifier = modifier,
+    )
 }
