@@ -1,6 +1,6 @@
 package com.example.unifiedreader
 
-import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.ComicReaderFormats
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.data.kavita.KavitaChapterInfoDto
 import com.example.unifiedreader.data.kavita.KavitaFileDimensionDto
@@ -19,12 +19,13 @@ import kotlinx.coroutines.async
 class KavitaPageSource(
     private val kavitaApiFactory: KavitaApiFactory,
     private val kavitaCredentialStore: KavitaCredentialStore,
+    private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + ioDispatcher),
     previewStore: PersistentComicPagePreviewStore? = null,
 ) : RemoteComicPageSource<KavitaStoredSession>(
     sourceType = com.example.unifiedreader.core.model.SourceType.KAVITA,
-    supportedFormats = setOf(FormatType.CBZ),
+    supportedFormats = ComicReaderFormats,
     missingSessionMessage = "Connect to Kavita before reading remote comics.",
     ioDispatcher = ioDispatcher,
     scope = scope,
@@ -85,6 +86,8 @@ class KavitaPageSource(
                     apiKey = apiKey,
                 )
             }
+        }.also {
+            remoteSourceConnectivityPolicy.recordReaderContentSuccess(com.example.unifiedreader.core.model.SourceType.KAVITA)
         }
     }
 
@@ -114,7 +117,19 @@ class KavitaPageSource(
                     apiKey = apiKey,
                 )
             }
+        }.also {
+            remoteSourceConnectivityPolicy.recordReaderContentSuccess(com.example.unifiedreader.core.model.SourceType.KAVITA)
         }
+    }
+
+    override fun onReaderContentFailure(
+        item: ReadableItem,
+        throwable: Throwable,
+    ) {
+        remoteSourceConnectivityPolicy.recordReaderContentFailure(
+            sourceType = com.example.unifiedreader.core.model.SourceType.KAVITA,
+            throwable = throwable,
+        )
     }
 
     override fun clear() {

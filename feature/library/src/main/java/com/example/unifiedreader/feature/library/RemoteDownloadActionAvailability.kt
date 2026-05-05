@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.library
 
-import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.AppReadableFormats
+import com.example.unifiedreader.core.model.ComicReaderFormats
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.isKavitaSeriesContainer
@@ -81,8 +82,8 @@ private fun buildActiveDownloadingItemIds(
 }
 
 fun ReadableItem.supportsOfflineDownload(): Boolean = when (sourceType) {
-    SourceType.GRIMMORY -> format == FormatType.EPUB || format == FormatType.PDF
-    SourceType.KAVITA -> format == FormatType.CBZ || isKavitaSeriesContainer()
-    SourceType.STUMP -> format == FormatType.CBZ || format == FormatType.CBR || isStumpSeriesContainer()
+    SourceType.GRIMMORY -> format in AppReadableFormats
+    SourceType.KAVITA -> format in AppReadableFormats || isKavitaSeriesContainer()
+    SourceType.STUMP -> format in ComicReaderFormats || isStumpSeriesContainer()
     SourceType.LOCAL -> false
 }

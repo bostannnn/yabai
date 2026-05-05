@@ -121,6 +121,11 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
         RemoteComicPreviewByteSource.CachedPage
     }
 
+    protected open fun onReaderContentFailure(
+        item: ReadableItem,
+        throwable: Throwable,
+    ) = Unit
+
     override fun getPages(
         item: ReadableItem,
     ): List<ComicPageSpec> {
@@ -685,14 +690,19 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
                 return cachedBytes
             }
             inFlightByteRequests[requestKey] ?: scope.async {
-                val bytes = runCatching {
-                    val activeSession = activeSessionFor(item) ?: return@runCatching null
+                val bytes = try {
+                    val activeSession = activeSessionFor(item) ?: return@async null
                     downloadPageBytes(
                         session = activeSession,
                         item = item,
                         page = page,
                     )
-                }.getOrNull()
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: Throwable) {
+                    onReaderContentFailure(item, error)
+                    null
+                }
                 if (bytes != null && cacheGeneration.get() == requestGeneration) {
                     synchronized(byteRequestLock) {
                         if (cacheGeneration.get() == requestGeneration) {

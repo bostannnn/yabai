@@ -131,7 +131,7 @@ class GrimmoryDtosTest {
     }
 
     @Test
-    fun skipsComicArchiveFormatsBecauseKavitaOwnsCbrAndCbz() {
+    fun mapsComicArchiveFormatsToComicItems() {
         val item = GrimmoryBookDto(
             id = 7,
             libraryId = 2,
@@ -148,7 +148,9 @@ class GrimmoryDtosTest {
             baseUrl = "https://grimmory.example",
         )
 
-        assertNull(item)
+        requireNotNull(item)
+        assertEquals(FormatType.CBR, item.format)
+        assertEquals(ReadableItemKind.COMIC, item.kind)
     }
 
     @Test

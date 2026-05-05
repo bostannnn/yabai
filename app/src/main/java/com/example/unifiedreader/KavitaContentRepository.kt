@@ -1,7 +1,7 @@
 package com.example.unifiedreader
 
 import android.content.Context
-import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.AppReadableFormats
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -17,7 +17,7 @@ class KavitaContentRepository @Inject constructor(
     context = context,
     sourceType = SourceType.KAVITA,
     storageDirectoryName = "kavita-documents",
-    supportedFormats = setOf(FormatType.CBZ),
+    supportedFormats = AppReadableFormats,
     sessionStore = kavitaCredentialStore,
     missingSessionMessage = "Connect to Kavita before downloading remote comics.",
 ) {

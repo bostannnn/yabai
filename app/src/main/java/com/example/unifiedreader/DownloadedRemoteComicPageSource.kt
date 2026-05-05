@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.isComicReaderFormat
 import com.example.unifiedreader.feature.downloads.downloadDataSourceFor
 import com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
@@ -49,6 +50,7 @@ class DownloadedRemoteComicPageSource @Inject constructor(
     )
     private val entryCacheCoordinator = DownloadedRemoteComicEntryCacheCoordinator(archiveEntryCache)
     private val archiveDiagnosticsByItemId = ConcurrentHashMap<String, DownloadedComicArchiveDiagnostic>()
+    private val archiveFormatByItemId = ConcurrentHashMap<String, FormatType>()
 
     init {
         cacheInvalidationDispatcher.register(::invalidateItemCaches)
@@ -56,7 +58,7 @@ class DownloadedRemoteComicPageSource @Inject constructor(
 
     fun hasStoredDocument(
         item: ReadableItem,
-    ): Boolean = storedDocumentUriFor(item) != null && item.format.supportedComicDownloadFormat()
+    ): Boolean = storedDocumentUriFor(item) != null && item.format.isComicReaderFormat()
 
     override fun getPages(
         item: ReadableItem,
@@ -79,7 +81,7 @@ class DownloadedRemoteComicPageSource @Inject constructor(
     override fun pagesUnavailableDiagnostic(
         item: ReadableItem,
     ): ComicPagesUnavailableDiagnostic {
-        val unsupportedFormatMessage = if (!item.format.supportedComicDownloadFormat()) {
+        val unsupportedFormatMessage = if (!item.format.isComicReaderFormat()) {
             "Downloaded comic reader supports CBZ/CBR only."
         } else {
             null
@@ -310,12 +312,11 @@ class DownloadedRemoteComicPageSource @Inject constructor(
         item: ReadableItem,
     ): List<String>? {
         val uri = storedDocumentUriFor(item) ?: return null
-        val codec = comicArchiveCodecs.firstOrNull { codec -> codec.format == item.format } ?: return null
         return entryCacheCoordinator.entryNamesFor(item.id) {
-            codec.listImageEntries(
-                context = context,
-                uri = uri,
-            )
+            val resolvedArchive = resolveArchiveCodecAndEntries(item = item, uri = uri)
+                ?: return@entryNamesFor emptyList()
+            archiveFormatByItemId[item.id] = resolvedArchive.codec.format
+            resolvedArchive.imageEntries
         }
     }
 
@@ -323,23 +324,51 @@ class DownloadedRemoteComicPageSource @Inject constructor(
         item: ReadableItem,
     ) {
         val uri = storedDocumentUriFor(item) ?: return
-        val codec = comicArchiveCodecs.firstOrNull { codec -> codec.format == item.format } ?: return
         val firstBytes = readFirstBytes(uri, byteCount = 12)
-        val allEntries = codec.listEntries(
-            context = context,
-            uri = uri,
-        )
-        val imageEntries = codec.listImageEntries(
-            context = context,
-            uri = uri,
-        )
+        val resolvedArchive = resolveArchiveCodecAndEntries(item = item, uri = uri) ?: return
+        archiveFormatByItemId[item.id] = resolvedArchive.codec.format
         archiveDiagnosticsByItemId[item.id] = DownloadedComicArchiveDiagnostic(
             fileBytes = uri.fileLengthOrNull(),
             firstBytesHex = firstBytes?.toHexString(),
-            allEntryCount = allEntries.size,
-            imageEntryCount = imageEntries.size,
-            firstEntryNames = allEntries.take(5),
+            allEntryCount = resolvedArchive.allEntries.size,
+            imageEntryCount = resolvedArchive.imageEntries.size,
+            firstEntryNames = resolvedArchive.allEntries.take(5),
         )
+    }
+
+    private suspend fun resolveArchiveCodecAndEntries(
+        item: ReadableItem,
+        uri: Uri,
+    ): ResolvedComicArchive? {
+        val codecs = prioritizedCodecs(item)
+        var firstResolvedArchive: ResolvedComicArchive? = null
+        codecs.forEach { codec ->
+            val allEntries = codec.listEntries(
+                context = context,
+                uri = uri,
+            )
+            val imageEntries = allEntries.filter(String::isImageEntryName).sortedWith(NaturalPageOrderComparator)
+            val resolvedArchive = ResolvedComicArchive(
+                codec = codec,
+                allEntries = allEntries,
+                imageEntries = imageEntries,
+            )
+            if (firstResolvedArchive == null) {
+                firstResolvedArchive = resolvedArchive
+            }
+            if (imageEntries.isNotEmpty()) {
+                return resolvedArchive
+            }
+        }
+        return firstResolvedArchive
+    }
+
+    private fun prioritizedCodecs(
+        item: ReadableItem,
+    ): List<ComicArchiveCodec> {
+        val preferredFormat = archiveFormatByItemId[item.id] ?: item.format
+        val preferredCodec = comicArchiveCodecs.firstOrNull { codec -> codec.format == preferredFormat }
+        return listOfNotNull(preferredCodec) + comicArchiveCodecs.filterNot { codec -> codec === preferredCodec }
     }
 
     private suspend fun readFirstBytes(
@@ -375,7 +404,7 @@ class DownloadedRemoteComicPageSource @Inject constructor(
             uri = uri.toString(),
             displayName = item.title,
             title = item.title,
-            format = item.format,
+            format = archiveFormatByItemId[item.id] ?: item.format,
             pageCount = entryNames.size,
             pageEntryNames = entryNames,
             coverUri = item.coverUrl,
@@ -398,9 +427,16 @@ class DownloadedRemoteComicPageSource @Inject constructor(
     ) {
         entryCacheCoordinator.invalidate(itemId)
         archiveDiagnosticsByItemId.remove(itemId)
+        archiveFormatByItemId.remove(itemId)
         comicPageLoader.clear(itemId)
     }
 }
+
+private data class ResolvedComicArchive(
+    val codec: ComicArchiveCodec,
+    val allEntries: List<String>,
+    val imageEntries: List<String>,
+)
 
 private data class DownloadedComicArchiveDiagnostic(
     val fileBytes: Long?,
@@ -422,11 +458,4 @@ private fun List<String>.toComicPageSpecs(
         pageIndex = index,
         contentDescription = "${item.title} page ${index + 1}",
     )
-}
-
-private fun FormatType.supportedComicDownloadFormat(): Boolean = when (this) {
-    FormatType.CBZ,
-    FormatType.CBR -> true
-    FormatType.PDF,
-    FormatType.EPUB -> false
 }

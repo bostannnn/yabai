@@ -14,6 +14,7 @@ import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 import java.io.File
+import java.io.IOException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -48,6 +49,47 @@ class StumpPageSourceTest {
         assertTrue(firstResult is ComicPageLoadResult.Success)
         assertTrue(secondResult is ComicPageLoadResult.Success)
         assertEquals(1, api.requestedPageIndexes.count { it == 3 })
+    }
+
+    @Test
+    fun `successful stump page load marks source reachable`() = runTest {
+        val item = sampleStumpComic(pageCount = 12)
+        val api = RecordingStumpPageApi()
+        val connectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markUnavailable(SourceType.STUMP)
+        }
+        val pageSource = createPageSource(
+            api = api,
+            scope = this,
+            remoteSourceConnectivityPolicy = connectivityPolicy,
+        )
+        val page = ComicPageSpec(id = "3", pageIndex = 3, contentDescription = "Page 4")
+
+        pageSource.loadPageImage(item, page, ComicPageLoadPriority.Visible)
+
+        assertEquals(RemoteSourceReachability.Reachable, connectivityPolicy.reachabilityFor(SourceType.STUMP))
+    }
+
+    @Test
+    fun `failed stump page load marks source unavailable`() = runTest {
+        val item = sampleStumpComic(pageCount = 12)
+        val api = RecordingStumpPageApi().apply {
+            pageImageFailure = IOException("timeout")
+        }
+        val connectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markReachable(SourceType.STUMP)
+        }
+        val pageSource = createPageSource(
+            api = api,
+            scope = this,
+            remoteSourceConnectivityPolicy = connectivityPolicy,
+        )
+        val page = ComicPageSpec(id = "3", pageIndex = 3, contentDescription = "Page 4")
+
+        val result = pageSource.loadPageImage(item, page, ComicPageLoadPriority.Visible)
+
+        assertTrue(result is ComicPageLoadResult.Failure)
+        assertEquals(RemoteSourceReachability.Unavailable, connectivityPolicy.reachabilityFor(SourceType.STUMP))
     }
 
     @Test
@@ -241,9 +283,11 @@ private fun createPageSource(
             refreshToken = "refresh-token",
         ),
     ),
+    remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
 ): StumpPageSource = StumpPageSource(
     stumpApiFactory = StumpApiFactory { _ -> api },
     stumpCredentialStore = credentialStore,
+    remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
     ioDispatcher = scope.coroutineContext[ContinuationInterceptor] as kotlinx.coroutines.CoroutineDispatcher,
     scope = scope,
 )
@@ -286,6 +330,7 @@ private class TestStumpCredentialStore(
 
 private class RecordingStumpPageApi : StumpApi {
     val requestedPageIndexes = mutableListOf<Int>()
+    var pageImageFailure: Throwable? = null
     var blockRequests: Boolean = false
     private var blockedRequestStarted = CompletableDeferred<Unit>()
     private var releaseBlockedRequests = CompletableDeferred<Unit>()
@@ -339,6 +384,7 @@ private class RecordingStumpPageApi : StumpApi {
         pageIndex: Int,
     ): ByteArray {
         requestedPageIndexes += pageIndex
+        pageImageFailure?.let { throw it }
         if (blockRequests) {
             blockedRequestStarted.complete(Unit)
             releaseBlockedRequests.await()

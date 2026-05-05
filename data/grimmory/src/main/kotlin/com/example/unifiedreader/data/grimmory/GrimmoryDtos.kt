@@ -7,6 +7,7 @@ import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.readableFormatFromTypeOrExtension
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
 import java.time.Instant
@@ -315,7 +316,7 @@ internal fun GrimmoryBookDto.toCatalogEntry(
         remoteFileType = primaryFile?.bookType?.takeIf(String::isNotBlank) ?: format.name,
         title = itemTitle,
         format = format,
-        kind = ReadableItemKind.BOOK,
+        kind = format.defaultGrimmoryItemKind(),
         pageCount = metadata?.pageCount,
         coverUrl = metadata?.thumbnailUrl.toAbsoluteGrimmoryCoverUrl(
             baseUrl = baseUrl,
@@ -375,15 +376,18 @@ private fun String?.toAbsoluteGrimmoryCoverUrl(
 }
 
 private fun GrimmoryBookFileDto.toFormatType(): FormatType? {
-    val normalizedType = bookType?.trim()?.uppercase()
-    val normalizedExtension = extension?.trim()?.lowercase()
-        ?: fileName?.substringAfterLast('.', missingDelimiterValue = "")?.lowercase()
-    return when {
-        normalizedType == "EPUB" || normalizedExtension == "epub" -> FormatType.EPUB
-        normalizedType == "PDF" || normalizedExtension == "pdf" -> FormatType.PDF
-        // CBZ/CBR are handled by the Kavita/local comic readers, not Grimmory.
-        else -> null
-    }
+    return readableFormatFromTypeOrExtension(
+        type = bookType,
+        extension = extension,
+        fileName = fileName,
+    )
+}
+
+private fun FormatType.defaultGrimmoryItemKind(): ReadableItemKind = when (this) {
+    FormatType.CBZ,
+    FormatType.CBR -> ReadableItemKind.COMIC
+    FormatType.EPUB,
+    FormatType.PDF -> ReadableItemKind.BOOK
 }
 
 internal fun String.toEpochMillisOrNull(): Long? = runCatching {

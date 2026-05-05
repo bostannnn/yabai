@@ -1,10 +1,15 @@
 package com.example.unifiedreader.data.kavita
 
+import com.example.unifiedreader.core.model.FormatType
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -12,6 +17,75 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class KavitaApiTest {
+    @Test
+    fun `series detail uses supplemental chapter info for production format mapping`() = runBlocking {
+        val httpClient = HttpClient(
+            MockEngine { request ->
+                when (request.url.encodedPath) {
+                    "/api/Series/series-detail" -> {
+                        assertEquals("12", request.url.parameters["seriesId"])
+                        respondJson(
+                            """
+                            {
+                              "chapters": [
+                                {
+                                  "id": 21,
+                                  "title": "Issue 1",
+                                  "pages": 22
+                                }
+                              ]
+                            }
+                            """.trimIndent(),
+                        )
+                    }
+                    "/api/Reader/chapter-info" -> {
+                        assertEquals("21", request.url.parameters["chapterId"])
+                        assertEquals("true", request.url.parameters["includeDimensions"])
+                        respondJson(
+                            """
+                            {
+                              "pageDimensions": [
+                                {
+                                  "fileName": "Invincible 001.cbr"
+                                }
+                              ]
+                            }
+                            """.trimIndent(),
+                        )
+                    }
+                    else -> error("Unexpected request path: ${request.url.encodedPath}")
+                }
+            },
+        ) {
+            install(ContentNegotiation) {
+                json(
+                    Json {
+                        ignoreUnknownKeys = true
+                        explicitNulls = false
+                    },
+                )
+            }
+        }
+        val api = KtorKavitaApi(
+            httpClient = httpClient,
+            baseUrl = "http://kavita.example",
+        )
+
+        val entries = api.getSeriesDetail(
+            accessToken = "token",
+            series = KavitaSeriesEntry(
+                id = "12",
+                libraryId = "5",
+                title = "Invincible",
+                format = FormatType.CBZ,
+                addedAtEpochMillis = null,
+                coverUrl = null,
+            ),
+        )
+
+        assertEquals(FormatType.CBR, entries.single().item.format)
+    }
+
     @Test
     fun `chapter info no-content response maps to empty dto`() = runBlocking {
         val httpClient = HttpClient(
@@ -46,4 +120,10 @@ class KavitaApiTest {
 
         assertEquals(KavitaChapterInfoDto(), chapterInfo)
     }
+
+    private fun MockRequestHandleScope.respondJson(content: String) = respond(
+        content = content,
+        status = HttpStatusCode.OK,
+        headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
+    )
 }

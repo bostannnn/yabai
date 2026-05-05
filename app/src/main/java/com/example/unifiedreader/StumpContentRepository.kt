@@ -1,7 +1,7 @@
 package com.example.unifiedreader
 
 import android.content.Context
-import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.ComicReaderFormats
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -17,7 +17,7 @@ class StumpContentRepository @Inject constructor(
     context = context,
     sourceType = SourceType.STUMP,
     storageDirectoryName = "stump-documents",
-    supportedFormats = setOf(FormatType.CBZ, FormatType.CBR),
+    supportedFormats = ComicReaderFormats,
     sessionStore = stumpCredentialStore,
     missingSessionMessage = "Connect to Stump before downloading remote comics.",
 ) {

@@ -22,6 +22,7 @@ import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 import com.example.unifiedreader.feature.reader.comics.PersistentComicPagePreviewStore
 import java.io.File
+import java.io.IOException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -59,6 +60,47 @@ class KavitaPageSourceTest {
         assertTrue(firstResult is com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult.Success)
         assertTrue(secondResult is com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult.Success)
         assertEquals(1, api.requestedPageIndexes.count { it == 3 })
+    }
+
+    @Test
+    fun `successful kavita page load marks source reachable`() = runTest {
+        val item = sampleKavitaComic(pageCount = 12)
+        val api = RecordingKavitaPageApi()
+        val connectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markUnavailable(SourceType.KAVITA)
+        }
+        val pageSource = createPageSource(
+            api = api,
+            scope = this,
+            remoteSourceConnectivityPolicy = connectivityPolicy,
+        )
+        val page = ComicPageSpec(id = "3", pageIndex = 3, contentDescription = "Page 4")
+
+        pageSource.loadPageImage(item, page, ComicPageLoadPriority.Visible)
+
+        assertEquals(RemoteSourceReachability.Reachable, connectivityPolicy.reachabilityFor(SourceType.KAVITA))
+    }
+
+    @Test
+    fun `failed kavita page load marks source unavailable`() = runTest {
+        val item = sampleKavitaComic(pageCount = 12)
+        val api = RecordingKavitaPageApi().apply {
+            pageImageFailure = IOException("timeout")
+        }
+        val connectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markReachable(SourceType.KAVITA)
+        }
+        val pageSource = createPageSource(
+            api = api,
+            scope = this,
+            remoteSourceConnectivityPolicy = connectivityPolicy,
+        )
+        val page = ComicPageSpec(id = "3", pageIndex = 3, contentDescription = "Page 4")
+
+        val result = pageSource.loadPageImage(item, page, ComicPageLoadPriority.Visible)
+
+        assertTrue(result is ComicPageLoadResult.Failure)
+        assertEquals(RemoteSourceReachability.Unavailable, connectivityPolicy.reachabilityFor(SourceType.KAVITA))
     }
 
     @Test
@@ -587,9 +629,11 @@ private fun createPageSource(
         ),
     ),
     previewStore: PersistentComicPagePreviewStore? = null,
+    remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
 ): KavitaPageSource = KavitaPageSource(
     kavitaApiFactory = KavitaApiFactory { _ -> api },
     kavitaCredentialStore = credentialStore,
+    remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
     ioDispatcher = scope.coroutineContext[ContinuationInterceptor] as kotlinx.coroutines.CoroutineDispatcher,
     scope = scope,
     previewStore = previewStore,
@@ -637,6 +681,7 @@ private class RecordingKavitaPageApi : KavitaApi {
     val requestedChapterInfoIncludeDimensions = mutableListOf<Boolean>()
     var chapterInfo = KavitaChapterInfoDto()
     var chapterInfoFailure: Throwable? = null
+    var pageImageFailure: Throwable? = null
     var blockRequests: Boolean = false
     private var blockedRequestCount = 0
     private var blockedRequestStarted = CompletableDeferred<Unit>()
@@ -694,6 +739,7 @@ private class RecordingKavitaPageApi : KavitaApi {
         apiKey: String?,
     ): ByteArray {
         requestedPageIndexes += pageIndex
+        pageImageFailure?.let { throw it }
         if (blockRequests) {
             blockedRequestCount += 1
             blockedRequestStarted.complete(Unit)

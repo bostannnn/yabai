@@ -206,7 +206,7 @@ class AppViewModelTest {
     }
 
     @Test
-    fun `unavailable remote item open shows notice and keeps reader closed`() {
+    fun `remote item open waits while source probe is checking`() {
         val remoteComic = sampleItem(
             id = "kavita-cbz",
             title = "Remote Comic",
@@ -218,7 +218,7 @@ class AppViewModelTest {
         )
         val progressSync = BlockingSourceProgressSync(sourceType = SourceType.KAVITA)
         val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy().apply {
-            markUnavailable(SourceType.KAVITA)
+            markChecking(SourceType.KAVITA)
         }
         val viewModel = createViewModel(
             sampleItems = listOf(remoteComic),
@@ -330,7 +330,7 @@ class AppViewModelTest {
     }
 
     @Test
-    fun `remote progress sync network failure keeps online reader closed and shows unavailable notice`() {
+    fun `remote progress sync network failure still opens reader and marks source unavailable`() {
         val remoteBook = sampleItem(
             id = "grimmory-epub",
             title = "Remote Book",
@@ -340,20 +340,25 @@ class AppViewModelTest {
             libraryId = SourceType.GRIMMORY.remoteLibraryId("grimmory-books"),
             remoteId = "grimmory-epub",
         )
+        val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markReachable(SourceType.GRIMMORY)
+        }
         val viewModel = createViewModel(
             sampleItems = listOf(remoteBook),
             sourceProgressSyncs = listOf(NetworkFailingSourceProgressSync(sourceType = SourceType.GRIMMORY)),
+            remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
         )
 
         viewModel.onItemSelected(remoteBook)
         shadowOf(Looper.getMainLooper()).idle()
 
-        assertNull(viewModel.uiState.selectedItemId)
-        assertNull(viewModel.uiState.activeReader)
+        assertEquals(remoteBook.id, viewModel.uiState.selectedItemId)
+        assertEquals(FormatType.EPUB, viewModel.uiState.activeReader)
         assertEquals(
-            "Grimmory local network cannot be accessed. Only downloaded items can be opened.",
+            "Unable to sync Grimmory progress: Network unavailable",
             viewModel.uiState.progressSyncNotice?.message,
         )
+        assertEquals(RemoteSourceReachability.Unavailable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.GRIMMORY))
     }
 
     @Test

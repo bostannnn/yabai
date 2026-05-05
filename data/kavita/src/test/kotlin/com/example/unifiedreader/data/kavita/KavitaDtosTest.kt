@@ -116,6 +116,64 @@ class KavitaDtosTest {
     }
 
     @Test
+    fun `series format maps pdf book entries`() {
+        val series = KavitaSeriesDto(
+            id = 12,
+            name = "Guide",
+            libraryId = 5,
+            format = 4,
+        ).toEntry(
+            baseUrl = "https://kavita.example",
+            apiKey = null,
+        ) ?: error("Expected series entry.")
+
+        assertEquals(FormatType.PDF, series.format)
+    }
+
+    @Test
+    fun `chapter info file extension can resolve cbr archive format`() {
+        val format = KavitaChapterInfoDto(
+            pageDimensions = listOf(
+                KavitaFileDimensionDto(fileName = "Invincible 001.cbr"),
+            ),
+        ).resolvedFormat(fallback = FormatType.CBZ)
+
+        assertEquals(FormatType.CBR, format)
+    }
+
+    @Test
+    fun `series detail uses supplemental file extension to classify cbr chapters`() {
+        val series = KavitaSeriesDto(
+            id = 12,
+            name = "Invincible",
+            libraryId = 5,
+            format = 1,
+        ).toEntry(
+            baseUrl = "https://kavita.example",
+            apiKey = null,
+        ) ?: error("Expected series entry.")
+
+        val entries = KavitaSeriesDetailDto(
+            chapters = listOf(
+                KavitaChapterDto(
+                    id = 21,
+                    title = "Issue 1",
+                    pages = 22,
+                ),
+            ),
+        ).toCatalogEntries(
+            series = series,
+            supplementalChapterInfoByChapterId = mapOf(
+                "21" to KavitaChapterInfoDto(
+                    pageDimensions = listOf(KavitaFileDimensionDto(fileName = "Invincible 001.cbr")),
+                ),
+            ),
+        )
+
+        assertEquals(FormatType.CBR, entries.single().item.format)
+    }
+
+    @Test
     fun `recent update marker maps kavita local date time`() {
         val update = KavitaGroupedSeriesDto(
             seriesId = 12,

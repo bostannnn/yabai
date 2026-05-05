@@ -5,16 +5,26 @@ import kotlin.coroutines.cancellation.CancellationException
 internal suspend fun KavitaSeriesDetailDto.resolveSupplementalIssueTitles(
     fetchChapterInfo: suspend (chapterId: String) -> KavitaChapterInfoDto,
 ): Map<String, String> {
-    val overrides = linkedMapOf<String, String>()
+    return resolveSupplementalChapterInfo(fetchChapterInfo)
+        .mapNotNull { (chapterId, info) ->
+            val resolved = resolvedChapters().firstOrNull { chapter ->
+                chapter.chapter.id?.toString() == chapterId
+            } ?: return@mapNotNull null
+            info.preferredKavitaIssueTitleFallback(
+                volumeName = resolved.volumeName,
+            )?.let { title -> chapterId to title }
+        }
+        .toMap()
+}
+
+internal suspend fun KavitaSeriesDetailDto.resolveSupplementalChapterInfo(
+    fetchChapterInfo: suspend (chapterId: String) -> KavitaChapterInfoDto,
+): Map<String, KavitaChapterInfoDto> {
+    val chapterInfoById = linkedMapOf<String, KavitaChapterInfoDto>()
     resolvedChapters().forEach { resolved ->
         val chapterId = resolved.chapter.id?.toString() ?: return@forEach
-        if (resolved.chapter.preferredIssueTitle(resolved.volumeName) != null) {
-            return@forEach
-        }
-        val fallbackTitle = try {
-            fetchChapterInfo(chapterId).preferredKavitaIssueTitleFallback(
-                volumeName = resolved.volumeName,
-            )
+        val chapterInfo = try {
+            fetchChapterInfo(chapterId)
         } catch (throwable: Throwable) {
             when (throwable) {
                 is CancellationException,
@@ -22,9 +32,9 @@ internal suspend fun KavitaSeriesDetailDto.resolveSupplementalIssueTitles(
                 else -> null
             }
         }
-        fallbackTitle?.let { overrides[chapterId] = it }
+        chapterInfo?.let { chapterInfoById[chapterId] = it }
     }
-    return overrides
+    return chapterInfoById
 }
 
 internal data class KavitaResolvedSeriesChapter(

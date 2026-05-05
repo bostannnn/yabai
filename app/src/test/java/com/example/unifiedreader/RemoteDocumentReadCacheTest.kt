@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.remoteLibraryId
 import com.example.unifiedreader.data.grimmory.GrimmoryApi
@@ -16,7 +17,6 @@ import java.io.File
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -55,24 +55,84 @@ class RemoteDocumentReadCacheTest {
     }
 
     @Test
-    fun `offline grimmory epub read does not fetch reader cache`() = runTest {
+    fun `successful grimmory reader cache fetch marks source reachable`() = runTest {
         File(context.cacheDir, "grimmory-reader-documents").deleteRecursively()
         val api = RecordingGrimmoryReadApi()
+        val connectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markUnavailable(SourceType.GRIMMORY)
+        }
         val cache = RemoteDocumentReadCache(
             context = context,
             grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(
                 initialSession = grimmoryStoredSession(),
             ),
-            remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy().apply {
-                markUnavailable(SourceType.GRIMMORY)
-            },
+            remoteSourceConnectivityPolicy = connectivityPolicy,
         )
 
         val uri = cache.documentUriForReading(grimmoryDocumentItem())
 
-        assertNull(uri)
-        assertTrue(api.downloadedBookIds.isEmpty())
+        assertNotNull(uri)
+        assertEquals(listOf("book-1"), api.downloadedBookIds)
+        assertEquals(RemoteSourceReachability.Reachable, connectivityPolicy.reachabilityFor(SourceType.GRIMMORY))
+    }
+
+    @Test
+    fun `cached grimmory reader cache reuse does not mark source reachable`() = runTest {
+        File(context.cacheDir, "grimmory-reader-documents").deleteRecursively()
+        val api = RecordingGrimmoryReadApi()
+        val connectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markReachable(SourceType.GRIMMORY)
+        }
+        val cache = RemoteDocumentReadCache(
+            context = context,
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
+            grimmoryCredentialStore = FakeGrimmoryCredentialStore(
+                initialSession = grimmoryStoredSession(),
+            ),
+            remoteSourceConnectivityPolicy = connectivityPolicy,
+        )
+        val item = grimmoryDocumentItem()
+        assertNotNull(cache.documentUriForReading(item))
+        connectivityPolicy.markUnavailable(SourceType.GRIMMORY)
+
+        assertNotNull(cache.documentUriForReading(item))
+
+        assertEquals(listOf("book-1"), api.downloadedBookIds)
+        assertEquals(RemoteSourceReachability.Unavailable, connectivityPolicy.reachabilityFor(SourceType.GRIMMORY))
+    }
+
+    @Test
+    fun `cached grimmory reader cache opens while source probe is checking`() = runTest {
+        File(context.cacheDir, "grimmory-reader-documents").deleteRecursively()
+        val api = RecordingGrimmoryReadApi()
+        val item = grimmoryDocumentItem()
+        val connectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markReachable(SourceType.GRIMMORY)
+        }
+        val cache = RemoteDocumentReadCache(
+            context = context,
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
+            grimmoryCredentialStore = FakeGrimmoryCredentialStore(
+                initialSession = grimmoryStoredSession(),
+            ),
+            remoteSourceConnectivityPolicy = connectivityPolicy,
+        )
+        assertNotNull(cache.documentUriForReading(item))
+        connectivityPolicy.markChecking(SourceType.GRIMMORY)
+        val checkingCache = RemoteDocumentReadCache(
+            context = context,
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
+            grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            remoteSourceConnectivityPolicy = connectivityPolicy,
+        )
+
+        val uri = checkingCache.documentUriForReading(item)
+
+        assertNotNull(uri)
+        assertTrue(checkingCache.hasCachedDocument(item))
+        assertEquals(listOf("book-1"), api.downloadedBookIds)
+        assertEquals(SourceConnectivityState.Checking, connectivityPolicy.reachabilityFor(SourceType.GRIMMORY))
     }
 }
 

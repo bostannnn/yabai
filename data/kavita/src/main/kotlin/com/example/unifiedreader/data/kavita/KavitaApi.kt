@@ -310,7 +310,7 @@ class KtorKavitaApi(
         }
         response.throwIfKavitaError()
         val detail = response.body<KavitaSeriesDetailDto>()
-        val issueTitleOverridesByChapterId = detail.resolveSupplementalIssueTitles { chapterId ->
+        val supplementalChapterInfoByChapterId = detail.resolveSupplementalChapterInfo { chapterId ->
             getChapterInfo(
                 accessToken = accessToken,
                 chapterId = chapterId,
@@ -319,7 +319,7 @@ class KtorKavitaApi(
         }
         detail.toCatalogEntries(
             series = series,
-            issueTitleOverridesByChapterId = issueTitleOverridesByChapterId,
+            supplementalChapterInfoByChapterId = supplementalChapterInfoByChapterId,
         )
     }
 

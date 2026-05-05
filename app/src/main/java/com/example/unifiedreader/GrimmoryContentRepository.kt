@@ -1,8 +1,8 @@
 package com.example.unifiedreader
 
 import android.content.Context
+import com.example.unifiedreader.core.model.AppReadableFormats
 import com.example.unifiedreader.core.model.ReadableItem
-import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.SourceType
 import java.io.File
 
@@ -17,7 +17,7 @@ class GrimmoryContentRepository(
     context = context,
     sourceType = SourceType.GRIMMORY,
     storageDirectoryName = "grimmory-documents",
-    supportedFormats = setOf(FormatType.EPUB, FormatType.PDF),
+    supportedFormats = AppReadableFormats,
     sessionStore = grimmoryCredentialStore,
     missingSessionMessage = "Connect to the active Grimmory server before opening remote books.",
 ), GrimmoryContentDataSource {

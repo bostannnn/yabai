@@ -8,6 +8,7 @@ import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadingProgress
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.toReadableFormatTypeOrNull
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
 import java.time.Instant
@@ -323,6 +324,7 @@ internal fun KavitaGroupedSeriesDto.toUpdateEntry(): KavitaSeriesUpdateEntry? {
 internal fun KavitaSeriesDetailDto.toCatalogEntries(
     series: KavitaSeriesEntry,
     issueTitleOverridesByChapterId: Map<String, String> = emptyMap(),
+    supplementalChapterInfoByChapterId: Map<String, KavitaChapterInfoDto> = emptyMap(),
 ): List<KavitaChapterCatalogEntry> {
     val baseUrl = series.coverUrl
         ?.substringBefore("/api/Image/", missingDelimiterValue = "")
@@ -334,12 +336,15 @@ internal fun KavitaSeriesDetailDto.toCatalogEntries(
     return resolvedChapters()
         .mapNotNull { resolved ->
             val chapterId = resolved.chapter.id?.toString() ?: return@mapNotNull null
+            val supplementalChapterInfo = supplementalChapterInfoByChapterId[chapterId]
             resolved.chapter.toCatalogEntry(
                 series = series,
                 volumeName = resolved.volumeName,
                 baseUrl = baseUrl,
                 apiKey = apiKey,
-                issueTitleOverride = issueTitleOverridesByChapterId[chapterId],
+                issueTitleOverride = issueTitleOverridesByChapterId[chapterId]
+                    ?: supplementalChapterInfo?.preferredKavitaIssueTitleFallback(resolved.volumeName),
+                formatOverride = supplementalChapterInfo?.resolvedFormat(fallback = series.format),
             )
         }
         .distinctBy { entry -> entry.item.id }
@@ -352,6 +357,7 @@ internal fun KavitaChapterDto.toCatalogEntry(
     baseUrl: String?,
     apiKey: String?,
     issueTitleOverride: String? = null,
+    formatOverride: FormatType? = null,
 ): KavitaChapterCatalogEntry? {
     val chapterId = id?.toString() ?: return null
     val pageCount = pages?.coerceAtLeast(0) ?: 0
@@ -364,7 +370,7 @@ internal fun KavitaChapterDto.toCatalogEntry(
         remoteFileId = volumeId?.toString(),
         remoteFileType = series.id,
         title = issueTitle ?: series.title,
-        format = series.format,
+        format = formatOverride ?: series.format,
         pageCount = pageCount.takeIf { it > 0 },
         coverUrl = baseUrl?.let { resolvedBaseUrl ->
             buildKavitaChapterCoverUrl(
@@ -476,10 +482,25 @@ internal fun KavitaChapterDto.preferredIssueTitle(
 )
 
 private fun Int?.toFormatType(): FormatType? = when (this) {
-    KAVITA_FORMAT_IMAGE,
+    KAVITA_FORMAT_IMAGE -> FormatType.CBZ
     KAVITA_FORMAT_ARCHIVE -> FormatType.CBZ
+    KAVITA_FORMAT_EPUB -> FormatType.EPUB
+    KAVITA_FORMAT_PDF -> FormatType.PDF
     else -> null
 }
+
+fun KavitaChapterInfoDto.resolvedFormat(
+    fallback: FormatType? = null,
+): FormatType? = pageDimensions.orEmpty()
+    .asSequence()
+    .mapNotNull { dimension ->
+        dimension.fileName
+            ?.substringAfterLast('.', missingDelimiterValue = "")
+            .toReadableFormatTypeOrNull()
+    }
+    .firstOrNull()
+    ?: seriesFormat.toFormatType()
+    ?: fallback
 
 private fun Int?.toLibraryContentType(): LibraryContentType = when (this) {
     KAVITA_LIBRARY_TYPE_BOOK,
@@ -576,6 +597,8 @@ private fun List<KavitaTagDto>?.toTagNames(): List<String> = orEmpty()
 
 private const val KAVITA_FORMAT_IMAGE = 0
 private const val KAVITA_FORMAT_ARCHIVE = 1
+private const val KAVITA_FORMAT_EPUB = 3
+private const val KAVITA_FORMAT_PDF = 4
 private const val KAVITA_LIBRARY_TYPE_BOOK = 0
 private const val KAVITA_LIBRARY_TYPE_COMIC = 1
 private const val KAVITA_LIBRARY_TYPE_COMIC_FLEXIBLE = 2

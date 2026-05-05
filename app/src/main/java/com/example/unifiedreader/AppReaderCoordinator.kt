@@ -18,6 +18,7 @@ class AppReaderCoordinator @Inject constructor(
     private val nextItemResolver: AppReaderNextItemResolver,
     private val readableAccessResolver: ReadableAccessResolver,
     private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
+    private val remoteReaderContentPreparer: RemoteReaderContentPreparer,
 ) {
     private var readerSelectionRequestId = 0
     private val libraryScrollPositionByContext =
@@ -137,6 +138,22 @@ class AppReaderCoordinator @Inject constructor(
                 return
             }
 
+            ReadableAccessDecision.PrepareRemoteFile -> {
+                scope.launch {
+                    prepareRemoteFileAndOpen(
+                        item = item,
+                        selectedReaderItem = selectedReaderItem,
+                        openMode = openMode,
+                        hasProgressSync = hasProgressSync,
+                        requestId = requestId,
+                        updateState = updateState,
+                        refreshProgress = refreshProgress,
+                        onSyncFailures = onSyncFailures,
+                    )
+                }
+                return
+            }
+
             is ReadableAccessDecision.BlockedRemoteUnavailable -> {
                 onSyncFailures(
                     listOf(
@@ -155,21 +172,21 @@ class AppReaderCoordinator @Inject constructor(
             scope.launch {
                 val failures = syncItemProgressUseCase(item).fold(
                     onSuccess = {
-                        remoteSourceConnectivityPolicy.markReachable(item.sourceType)
+                        remoteSourceConnectivityPolicy.recordProgressSyncSuccess(item.sourceType)
                         emptyList()
                     },
                     onFailure = { throwable ->
                         if (throwable.isRemoteServerAddressRetryableFailure()) {
-                            remoteSourceConnectivityPolicy.markUnavailable(item.sourceType)
+                            remoteSourceConnectivityPolicy.recordProgressSyncFailure(item.sourceType, throwable)
                             Log.w(LOG_TAG, "Unable to reach ${item.sourceType} before opening ${item.id}.", throwable)
                             listOf(
                                 SourceProgressSyncFailure(
                                     sourceType = item.sourceType,
-                                    throwable = RemoteSourceUnavailableException(item.sourceType),
+                                    throwable = throwable,
                                 ),
                             )
                         } else {
-                            remoteSourceConnectivityPolicy.markReachable(item.sourceType)
+                            remoteSourceConnectivityPolicy.recordProgressSyncFailure(item.sourceType, throwable)
                             listOf(
                                 SourceProgressSyncFailure(
                                     sourceType = item.sourceType,
@@ -184,7 +201,6 @@ class AppReaderCoordinator @Inject constructor(
                 }
                 if (readerSelectionRequestId != requestId) return@launch
                 onSyncFailures(failures)
-                if (failures.any { failure -> failure.throwable is RemoteSourceUnavailableException }) return@launch
                 refreshProgress()
                 openReader(
                     item = item,
@@ -203,6 +219,58 @@ class AppReaderCoordinator @Inject constructor(
         }
     }
 
+    private suspend fun prepareRemoteFileAndOpen(
+        item: ReadableItem,
+        selectedReaderItem: ReadableItem?,
+        openMode: ReaderOpenMode,
+        hasProgressSync: Boolean,
+        requestId: Int,
+        updateState: AppUiStateUpdater,
+        refreshProgress: () -> Unit,
+        onSyncFailures: (List<SourceProgressSyncFailure>) -> Unit,
+    ) {
+        if (hasProgressSync) {
+            val failures = syncItemProgressUseCase(item).fold(
+                onSuccess = {
+                    remoteSourceConnectivityPolicy.recordProgressSyncSuccess(item.sourceType)
+                    emptyList()
+                },
+                onFailure = { throwable ->
+                    remoteSourceConnectivityPolicy.recordProgressSyncFailure(item.sourceType, throwable)
+                    listOf(
+                        SourceProgressSyncFailure(
+                            sourceType = item.sourceType,
+                            throwable = throwable,
+                        ),
+                    )
+                },
+            )
+            failures.forEach { failure ->
+                Log.w(LOG_TAG, "Unable to sync progress before opening ${item.id}.", failure.throwable)
+            }
+            if (readerSelectionRequestId != requestId) return
+            onSyncFailures(failures)
+            refreshProgress()
+        }
+        when (val result = remoteReaderContentPreparer.prepare(item)) {
+            RemoteReaderContentPreparationResult.Ready -> {
+                refreshProgress()
+                if (readerSelectionRequestId != requestId) return
+                openReader(
+                    item = item,
+                    selectedReaderItem = selectedReaderItem,
+                    openMode = openMode,
+                    updateState = updateState,
+                )
+            }
+
+            is RemoteReaderContentPreparationResult.Failure -> {
+                if (readerSelectionRequestId != requestId) return
+                onSyncFailures(listOf(result.failure))
+            }
+        }
+    }
+
     private suspend fun syncProgressForDownloadedItem(
         item: ReadableItem,
         refreshProgress: () -> Unit,
@@ -211,12 +279,12 @@ class AppReaderCoordinator @Inject constructor(
         var isReachabilityFailure = false
         val failure = syncItemProgressUseCase(item).fold(
             onSuccess = {
-                remoteSourceConnectivityPolicy.markReachable(item.sourceType)
+                remoteSourceConnectivityPolicy.recordProgressSyncSuccess(item.sourceType)
                 null
             },
             onFailure = { throwable ->
                 isReachabilityFailure = throwable.isRemoteServerAddressRetryableFailure()
-                remoteSourceConnectivityPolicy.markFromFailure(
+                remoteSourceConnectivityPolicy.recordProgressSyncFailure(
                     sourceType = item.sourceType,
                     throwable = throwable,
                 )

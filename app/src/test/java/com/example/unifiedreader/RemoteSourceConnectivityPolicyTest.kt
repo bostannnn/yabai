@@ -13,7 +13,7 @@ class RemoteSourceConnectivityPolicyTest {
         val policy = RemoteSourceConnectivityPolicy()
 
         assertEquals(SourceConnectivityState.Unknown, policy.reachabilityFor(SourceType.KAVITA))
-        assertFalse(policy.canOpenRemoteItem(SourceType.KAVITA))
+        assertTrue(policy.canOpenRemoteItem(SourceType.KAVITA))
         assertFalse(policy.canFetchCover(SourceType.KAVITA))
         assertFalse(policy.canScheduleDownload(SourceType.KAVITA))
         assertTrue(policy.canAttemptProgressSync(SourceType.KAVITA))
@@ -27,7 +27,7 @@ class RemoteSourceConnectivityPolicyTest {
 
         policy.markUnavailable(SourceType.KAVITA)
 
-        assertFalse(policy.canOpenRemoteItem(SourceType.KAVITA))
+        assertTrue(policy.canOpenRemoteItem(SourceType.KAVITA))
         assertFalse(policy.canFetchCover(SourceType.KAVITA))
         assertFalse(policy.canScheduleDownload(SourceType.KAVITA))
         assertFalse(policy.canAttemptProgressSync(SourceType.KAVITA))
@@ -39,6 +39,7 @@ class RemoteSourceConnectivityPolicyTest {
         assertTrue(policy.canScheduleDownload(SourceType.KAVITA))
         assertTrue(policy.canAttemptProgressSync(SourceType.KAVITA))
 
+        assertFalse(policy.canOpenRemoteItem(SourceType.LOCAL))
         assertFalse(policy.canAttemptProgressSync(SourceType.LOCAL))
     }
 

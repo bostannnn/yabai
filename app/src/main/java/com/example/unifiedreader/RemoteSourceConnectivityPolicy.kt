@@ -27,13 +27,17 @@ class RemoteSourceConnectivityPolicy @Inject constructor() {
         sourceType: SourceType,
     ): Boolean = reachabilityFor(sourceType) == SourceConnectivityState.Offline
 
+    fun canAttemptReaderContent(
+        sourceType: SourceType,
+    ): Boolean = sourceType != SourceType.LOCAL && reachabilityFor(sourceType) != SourceConnectivityState.Checking
+
     fun canOpenRemoteItem(
         sourceType: SourceType,
-    ): Boolean = isReachable(sourceType)
+    ): Boolean = canAttemptReaderContent(sourceType)
 
     fun canAttemptRemoteOpen(
         sourceType: SourceType,
-    ): Boolean = canOpenRemoteItem(sourceType)
+    ): Boolean = canAttemptReaderContent(sourceType)
 
     fun canFetchCover(
         sourceType: SourceType,
@@ -121,6 +125,32 @@ class RemoteSourceConnectivityPolicy @Inject constructor() {
         } else {
             markReachable(sourceType)
         }
+    }
+
+    fun recordReaderContentSuccess(
+        sourceType: SourceType,
+    ) {
+        markReachable(sourceType)
+    }
+
+    fun recordReaderContentFailure(
+        sourceType: SourceType,
+        throwable: Throwable,
+    ) {
+        markFromFailure(sourceType, throwable)
+    }
+
+    fun recordProgressSyncSuccess(
+        sourceType: SourceType,
+    ) {
+        markReachable(sourceType)
+    }
+
+    fun recordProgressSyncFailure(
+        sourceType: SourceType,
+        throwable: Throwable,
+    ) {
+        markFromFailure(sourceType, throwable)
     }
 
     fun markFromSyncFailures(

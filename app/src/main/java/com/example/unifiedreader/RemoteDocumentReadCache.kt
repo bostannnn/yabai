@@ -2,12 +2,13 @@ package com.example.unifiedreader
 
 import android.content.Context
 import android.net.Uri
-import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.isBookReaderFormat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -20,49 +21,66 @@ class RemoteDocumentReadCache @Inject constructor(
     private val readCacheMutex = Mutex()
     private val grimmoryRequestRunner = GrimmoryStoredSessionRequestRunner(grimmoryCredentialStore)
 
+    fun hasCachedDocument(
+        item: ReadableItem,
+    ): Boolean = supportsReadCache(item) && readCacheFileFor(item).hasReadableContent()
+
     suspend fun documentUriForReading(
         item: ReadableItem,
     ): Uri? {
         if (!supportsReadCache(item)) return null
-        if (!remoteSourceConnectivityPolicy.canOpenRemoteItem(item.sourceType)) return null
+        val file = readCacheFileFor(item)
+        if (file.hasReadableContent()) return Uri.fromFile(file)
+        if (!remoteSourceConnectivityPolicy.canAttemptReaderContent(item.sourceType)) return null
         val session = grimmoryCredentialStore.activeSessionFor(item) ?: return null
         val remoteItemId = item.remoteId ?: return null
-        val file = readCacheFileFor(item)
+        var downloadedFromNetwork = false
         readCacheMutex.withLock {
-            if (file.isFile && file.length() > 0L) return@withLock
-            writeGrimmoryCacheFile(
-                destination = file,
-                targetDescription = "reader cache for ${item.title}",
-            ) { temporaryFile ->
-                runWithStoredSessionAddressFailover(
-                    sessionStore = grimmoryCredentialStore,
-                    session = session,
-                    createApi = grimmoryApiFactory::create,
-                    withActiveBaseUrl = { currentSession, activeBaseUrl ->
-                        currentSession.copy(activeBaseUrl = activeBaseUrl)
-                    },
-                ) { api, activeSession ->
-                    grimmoryRequestRunner.run(
-                        api = api,
-                        session = activeSession,
-                    ) { accessToken ->
-                        api.downloadBookContent(
-                            accessToken = accessToken,
-                            bookId = remoteItemId,
-                            bookType = item.remoteFileType ?: item.format.name,
-                            destination = temporaryFile,
-                        )
+            if (file.hasReadableContent()) return@withLock
+            try {
+                writeGrimmoryCacheFile(
+                    destination = file,
+                    targetDescription = "reader cache for ${item.title}",
+                ) { temporaryFile ->
+                    runWithStoredSessionAddressFailover(
+                        sessionStore = grimmoryCredentialStore,
+                        session = session,
+                        createApi = grimmoryApiFactory::create,
+                        withActiveBaseUrl = { currentSession, activeBaseUrl ->
+                            currentSession.copy(activeBaseUrl = activeBaseUrl)
+                        },
+                    ) { api, activeSession ->
+                        grimmoryRequestRunner.run(
+                            api = api,
+                            session = activeSession,
+                        ) { accessToken ->
+                            api.downloadBookContent(
+                                accessToken = accessToken,
+                                bookId = remoteItemId,
+                                bookType = item.remoteFileType ?: item.format.name,
+                                destination = temporaryFile,
+                            )
+                        }
                     }
                 }
+                downloadedFromNetwork = true
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                remoteSourceConnectivityPolicy.recordReaderContentFailure(SourceType.GRIMMORY, error)
+                throw error
             }
         }
-        return Uri.fromFile(file).takeIf { file.isFile && file.length() > 0L }
+        if (downloadedFromNetwork) {
+            remoteSourceConnectivityPolicy.recordReaderContentSuccess(SourceType.GRIMMORY)
+        }
+        return Uri.fromFile(file).takeIf { file.hasReadableContent() }
     }
 
     private fun supportsReadCache(
         item: ReadableItem,
     ): Boolean = item.sourceType == SourceType.GRIMMORY &&
-        (item.format == FormatType.EPUB || item.format == FormatType.PDF)
+        item.format.isBookReaderFormat()
 
     private fun readCacheFileFor(
         item: ReadableItem,
@@ -74,3 +92,5 @@ class RemoteDocumentReadCache @Inject constructor(
         )
     }
 }
+
+private fun File.hasReadableContent(): Boolean = isFile && length() > 0L

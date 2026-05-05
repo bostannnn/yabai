@@ -19,6 +19,15 @@ interface RemoteItemDownloadDataSource {
         item: ReadableItem,
     ): Uri? = storedDocumentUri(item) ?: downloadToLocalStorage(item)
 
+    suspend fun prepareDocumentForReading(
+        item: ReadableItem,
+    ): RemoteItemDownloadResult? = getDocumentUri(item)?.let { uri ->
+        RemoteItemDownloadResult(
+            uri = uri,
+            downloadedFromNetwork = false,
+        )
+    }
+
     suspend fun downloadToLocalStorage(
         item: ReadableItem,
     ): Uri?
@@ -31,3 +40,8 @@ interface RemoteItemDownloadDataSource {
         item: ReadableItem,
     ): Boolean
 }
+
+data class RemoteItemDownloadResult(
+    val uri: Uri,
+    val downloadedFromNetwork: Boolean,
+)

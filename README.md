@@ -1,8 +1,9 @@
 # yabai
 
-yabai is an experimental Android reader app for self-hosted book and comic servers.
+yabai is an experimental Android reader app for self-hosted book and comic servers or local files reading.
 
-The app is mainly built as a client for Kavita and Grimmory, with very basic experimental support for Stump. It focuses on keeping a local reading library usable across server-backed and offline content.
+I've built it in a spare time as a hobby, because I couldn't find a reader that i've liked. 
+It was made for my tablet and I didn't test it on a phone. 
 
 ## Supported formats
 

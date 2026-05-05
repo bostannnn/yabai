@@ -6,6 +6,7 @@ import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
+import com.example.unifiedreader.feature.downloads.RemoteItemDownloadResult
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -40,10 +41,20 @@ abstract class RemoteDocumentDownloadRepository<Session : StoredSourceSession>(
 
     final override suspend fun downloadToLocalStorage(
         item: ReadableItem,
-    ): Uri? {
+    ): Uri? = prepareDocumentForReading(item)?.uri
+
+    final override suspend fun prepareDocumentForReading(
+        item: ReadableItem,
+    ): RemoteItemDownloadResult? {
         if (!supports(item)) return null
-        storedDocumentUri(item)?.let { return it }
+        storedDocumentUri(item)?.let { uri ->
+            return RemoteItemDownloadResult(
+                uri = uri,
+                downloadedFromNetwork = false,
+            )
+        }
         val file = localFileFor(item)
+        var downloadedFromNetwork = false
         documentDownloadMutex.withLock {
             storedDocumentUri(item)?.let { return@withLock }
             val session = sessionStore.activeSessionFor(item) ?: error(missingSessionMessage)
@@ -55,8 +66,14 @@ abstract class RemoteDocumentDownloadRepository<Session : StoredSourceSession>(
                 destination = file,
             )
             onStoredDocumentChanged(item)
+            downloadedFromNetwork = true
         }
-        return storedDocumentUri(item)
+        return storedDocumentUri(item)?.let { uri ->
+            RemoteItemDownloadResult(
+                uri = uri,
+                downloadedFromNetwork = downloadedFromNetwork,
+            )
+        }
     }
 
     final override suspend fun storedDocumentItemIds(

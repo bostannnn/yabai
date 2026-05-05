@@ -296,6 +296,10 @@ internal fun createViewModel(
                 remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
             ),
             remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+            remoteReaderContentPreparer = RemoteReaderContentPreparer(
+                remoteDownloadDataSources = remoteDownloadDataSources,
+                remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+            ),
         ),
         remoteSourcesCoordinator = AppRemoteSourcesCoordinator(
             kavitaController = AppKavitaRemoteSourceController(

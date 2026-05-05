@@ -677,10 +677,12 @@ object AppModule {
     fun provideKavitaPageSource(
         kavitaApiFactory: KavitaApiFactory,
         kavitaCredentialStore: KavitaCredentialStore,
+        remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
         previewStore: PersistentComicPagePreviewStore,
     ): KavitaPageSource = KavitaPageSource(
         kavitaApiFactory = kavitaApiFactory,
         kavitaCredentialStore = kavitaCredentialStore,
+        remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
         previewStore = previewStore,
     )
 
@@ -689,9 +691,11 @@ object AppModule {
     fun provideStumpPageSource(
         stumpApiFactory: StumpApiFactory,
         stumpCredentialStore: StumpCredentialStore,
+        remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
     ): StumpPageSource = StumpPageSource(
         stumpApiFactory = stumpApiFactory,
         stumpCredentialStore = stumpCredentialStore,
+        remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
     )
 
     @Provides
@@ -778,6 +782,11 @@ object AppModule {
             },
         ),
         pdfReaderFactory(
+            sessionStore = JournalRecordingReaderSessionStore(
+                delegate = readerSessionStore,
+                journalEventRecorder = journalEventRecorder,
+            ),
+            journalReadingSessionRecorder = journalReadingSessionRecorder,
             documentUriProvider = { item ->
                 localDocumentRepository.getDocumentUri(item)
                     ?: remoteDownloadDataSources.firstOrNull { dataSource ->
