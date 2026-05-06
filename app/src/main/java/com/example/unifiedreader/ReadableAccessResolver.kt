@@ -38,7 +38,7 @@ class ReadableAccessResolver @Inject constructor(
         if (remoteItemLocalAvailability.canStoreDocument(item)) {
             return ReadableAccessDecision.PrepareRemoteFile
         }
-        return ReadableAccessDecision.RemoteStream
+        return ReadableAccessDecision.PrepareRemoteFile
     }
 }
 

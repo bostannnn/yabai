@@ -1379,6 +1379,31 @@ class BlockingSourceProgressSync(
     }
 }
 
+class BlockingFailingSourceProgressSync(
+    override val sourceType: SourceType,
+    private val throwable: Throwable = IllegalStateException("Sync unavailable"),
+) : SourceProgressSync {
+    private val failureGate = CompletableDeferred<Unit>()
+    var syncItemCalls: Int = 0
+        private set
+
+    override suspend fun syncItem(
+        item: ReadableItem,
+    ) {
+        syncItemCalls += 1
+        failureGate.await()
+        throw throwable
+    }
+
+    override suspend fun pushPendingProgress(
+        items: List<ReadableItem>,
+    ): List<SourceProgressSyncFailure> = emptyList()
+
+    fun allowFailure() {
+        failureGate.complete(Unit)
+    }
+}
+
 class FailingSourceProgressSync(
     override val sourceType: SourceType,
 ) : SourceProgressSync {

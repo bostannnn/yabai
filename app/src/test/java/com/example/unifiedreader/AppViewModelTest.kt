@@ -55,7 +55,7 @@ import org.robolectric.Shadows.shadowOf
 class AppViewModelTest {
     @Test
     fun `on item selected opens reader and back returns to library`() {
-        val sampleItem = sampleItem(format = FormatType.EPUB)
+        val sampleItem = sampleItem(format = FormatType.EPUB, isLocalImport = true)
         val viewModel = createViewModel(
             sampleItems = listOf(sampleItem),
         )
@@ -206,6 +206,50 @@ class AppViewModelTest {
     }
 
     @Test
+    fun `downloaded item stale progress failure does not show against new selection`() {
+        val downloadedComic = sampleItem(
+            id = "kavita-cbz",
+            title = "Downloaded Comic",
+            format = FormatType.CBZ,
+        ).copy(
+            sourceType = SourceType.KAVITA,
+            libraryId = SourceType.KAVITA.remoteLibraryId("kavita-comics"),
+            remoteId = "chapter-1",
+        )
+        val localItem = sampleItem(
+            id = "local-epub",
+            title = "Local Book",
+            format = FormatType.EPUB,
+            isLocalImport = true,
+        )
+        val progressSync = BlockingFailingSourceProgressSync(sourceType = SourceType.KAVITA)
+        val viewModel = createViewModel(
+            sampleItems = listOf(downloadedComic, localItem),
+            importedRepository = FakeLocalDocumentRepository(
+                importedDocumentUris = mutableMapOf(localItem.id to Uri.parse("content://imports/local-book.epub")),
+            ),
+            remoteDownloadDataSources = listOf(
+                FakeGrimmoryContentRepository(),
+                FakeRemoteDownloadDataSource(
+                    sourceType = SourceType.KAVITA,
+                    storedItemIds = mutableSetOf(downloadedComic.id),
+                ),
+            ),
+            sourceProgressSyncs = listOf(progressSync),
+        )
+
+        viewModel.onItemSelected(downloadedComic)
+        shadowOf(Looper.getMainLooper()).idle()
+        viewModel.onItemSelected(localItem)
+        progressSync.allowFailure()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(localItem.id, viewModel.uiState.selectedItemId)
+        assertEquals(FormatType.EPUB, viewModel.uiState.activeReader)
+        assertNull(viewModel.uiState.progressSyncNotice)
+    }
+
+    @Test
     fun `remote item open waits while source probe is checking`() {
         val remoteComic = sampleItem(
             id = "kavita-cbz",
@@ -330,7 +374,7 @@ class AppViewModelTest {
     }
 
     @Test
-    fun `remote progress sync network failure still opens reader and marks source unavailable`() {
+    fun `remote progress sync network failure keeps reader closed and marks source unavailable`() {
         val remoteBook = sampleItem(
             id = "grimmory-epub",
             title = "Remote Book",
@@ -352,13 +396,60 @@ class AppViewModelTest {
         viewModel.onItemSelected(remoteBook)
         shadowOf(Looper.getMainLooper()).idle()
 
-        assertEquals(remoteBook.id, viewModel.uiState.selectedItemId)
-        assertEquals(FormatType.EPUB, viewModel.uiState.activeReader)
+        assertNull(viewModel.uiState.selectedItemId)
+        assertNull(viewModel.uiState.activeReader)
         assertEquals(
             "Unable to sync Grimmory progress: Network unavailable",
             viewModel.uiState.progressSyncNotice?.message,
         )
         assertEquals(RemoteSourceReachability.Unavailable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.GRIMMORY))
+    }
+
+    @Test
+    fun `series selection prevents stale remote open from previous item`() {
+        val remoteBook = sampleItem(
+            id = "grimmory-epub",
+            title = "Remote Book",
+            format = FormatType.EPUB,
+        ).copy(
+            sourceType = SourceType.GRIMMORY,
+            libraryId = SourceType.GRIMMORY.remoteLibraryId("grimmory-books"),
+            remoteId = "grimmory-epub",
+        )
+        val firstIssue = sampleItem(
+            id = "chapter-1",
+            title = "Akira 001",
+            format = FormatType.CBZ,
+        ).copy(
+            remoteId = "chapter-1",
+            remoteFileType = "series-7",
+            comicMetadata = ComicMetadata(series = "Akira", issueTitle = "Issue 1"),
+        )
+        val secondIssue = sampleItem(
+            id = "chapter-2",
+            title = "Akira 002",
+            format = FormatType.CBZ,
+        ).copy(
+            remoteId = "chapter-2",
+            remoteFileType = "series-7",
+            comicMetadata = ComicMetadata(series = "Akira", issueTitle = "Issue 2"),
+        )
+        val progressSync = BlockingSourceProgressSync(sourceType = SourceType.GRIMMORY)
+        val viewModel = createViewModel(
+            sampleItems = listOf(remoteBook, firstIssue, secondIssue),
+            sourceProgressSyncs = listOf(progressSync),
+        )
+        val seriesItem = viewModel.uiState.visibleItems.single()
+
+        viewModel.onItemSelected(remoteBook)
+        shadowOf(Looper.getMainLooper()).idle()
+        viewModel.onItemSelected(seriesItem)
+        progressSync.allowCompletion()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals("Akira", viewModel.uiState.selectedKavitaSeriesTitle)
+        assertNull(viewModel.uiState.selectedItemId)
+        assertNull(viewModel.uiState.activeReader)
     }
 
     @Test

@@ -92,11 +92,24 @@ class ReadableAccessResolverTest {
         assertEquals(ReadableAccessDecision.BlockedRemoteUnavailable(SourceType.KAVITA), resolver.resolve(item))
     }
 
+    @Test
+    fun `non streamable remote file without download support fails through preparation path`() {
+        val item = remoteItem(sourceType = SourceType.KAVITA, format = FormatType.PDF)
+        val resolver = resolverFor(
+            sourceType = SourceType.KAVITA,
+            isReachable = true,
+            includeDataSource = false,
+        )
+
+        assertEquals(ReadableAccessDecision.PrepareRemoteFile, resolver.resolve(item))
+    }
+
     private fun resolverFor(
         sourceType: SourceType,
         isReachable: Boolean = true,
         isChecking: Boolean = false,
         storedItemIds: Set<String> = emptySet(),
+        includeDataSource: Boolean = true,
     ): ReadableAccessResolver {
         val connectivityPolicy = RemoteSourceConnectivityPolicy().apply {
             if (isChecking) {
@@ -109,7 +122,11 @@ class ReadableAccessResolverTest {
         }
         return ReadableAccessResolver(
             remoteItemLocalAvailability = RemoteItemLocalAvailability(
-                listOf(TestDownloadDataSource(sourceType = sourceType, storedItemIds = storedItemIds)),
+                if (includeDataSource) {
+                    listOf(TestDownloadDataSource(sourceType = sourceType, storedItemIds = storedItemIds))
+                } else {
+                    emptyList()
+                },
             ),
             remoteSourceConnectivityPolicy = connectivityPolicy,
         )

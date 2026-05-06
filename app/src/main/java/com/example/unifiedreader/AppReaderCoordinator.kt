@@ -71,6 +71,7 @@ class AppReaderCoordinator @Inject constructor(
         openMode: ReaderOpenMode = ReaderOpenMode.Default,
         skipProgressSyncBeforeOpen: Boolean = false,
     ) {
+        val requestId = ++readerSelectionRequestId
         if (item.isKavitaSeriesContainer()) {
             updateState { state ->
                 state.copy(
@@ -103,7 +104,6 @@ class AppReaderCoordinator @Inject constructor(
         }
         val accessDecision = readableAccessResolver.resolve(item)
         val hasProgressSync = !skipProgressSyncBeforeOpen && syncItemProgressUseCase.hasSyncFor(item)
-        val requestId = ++readerSelectionRequestId
         selectedReaderItem?.let { retainedItem ->
             pendingProgressFlushCoordinator.retainProgressItem(retainedItem)
         }
@@ -130,6 +130,7 @@ class AppReaderCoordinator @Inject constructor(
                     scope.launch {
                         syncProgressForDownloadedItem(
                             item = item,
+                            requestId = requestId,
                             refreshProgress = refreshProgress,
                             onSyncFailures = onSyncFailures,
                         )
@@ -170,38 +171,16 @@ class AppReaderCoordinator @Inject constructor(
         }
         if (hasProgressSync) {
             scope.launch {
-                val failures = syncItemProgressUseCase(item).fold(
-                    onSuccess = {
-                        remoteSourceConnectivityPolicy.recordProgressSyncSuccess(item.sourceType)
-                        emptyList()
-                    },
-                    onFailure = { throwable ->
-                        if (throwable.isRemoteServerAddressRetryableFailure()) {
-                            remoteSourceConnectivityPolicy.recordProgressSyncFailure(item.sourceType, throwable)
-                            Log.w(LOG_TAG, "Unable to reach ${item.sourceType} before opening ${item.id}.", throwable)
-                            listOf(
-                                SourceProgressSyncFailure(
-                                    sourceType = item.sourceType,
-                                    throwable = throwable,
-                                ),
-                            )
-                        } else {
-                            remoteSourceConnectivityPolicy.recordProgressSyncFailure(item.sourceType, throwable)
-                            listOf(
-                                SourceProgressSyncFailure(
-                                    sourceType = item.sourceType,
-                                    throwable = throwable,
-                                ),
-                            )
-                        }
-                    },
-                )
+                val failures = syncProgressBeforeOpen(item)
                 failures.forEach { failure ->
                     Log.w(LOG_TAG, "Unable to sync progress before opening ${item.id}.", failure.throwable)
                 }
                 if (readerSelectionRequestId != requestId) return@launch
                 onSyncFailures(failures)
                 refreshProgress()
+                if (failures.any { failure -> failure.throwable.isRemoteServerAddressRetryableFailure() }) {
+                    return@launch
+                }
                 openReader(
                     item = item,
                     selectedReaderItem = selectedReaderItem,
@@ -230,21 +209,7 @@ class AppReaderCoordinator @Inject constructor(
         onSyncFailures: (List<SourceProgressSyncFailure>) -> Unit,
     ) {
         if (hasProgressSync) {
-            val failures = syncItemProgressUseCase(item).fold(
-                onSuccess = {
-                    remoteSourceConnectivityPolicy.recordProgressSyncSuccess(item.sourceType)
-                    emptyList()
-                },
-                onFailure = { throwable ->
-                    remoteSourceConnectivityPolicy.recordProgressSyncFailure(item.sourceType, throwable)
-                    listOf(
-                        SourceProgressSyncFailure(
-                            sourceType = item.sourceType,
-                            throwable = throwable,
-                        ),
-                    )
-                },
-            )
+            val failures = syncProgressBeforeOpen(item)
             failures.forEach { failure ->
                 Log.w(LOG_TAG, "Unable to sync progress before opening ${item.id}.", failure.throwable)
             }
@@ -273,6 +238,7 @@ class AppReaderCoordinator @Inject constructor(
 
     private suspend fun syncProgressForDownloadedItem(
         item: ReadableItem,
+        requestId: Int,
         refreshProgress: () -> Unit,
         onSyncFailures: (List<SourceProgressSyncFailure>) -> Unit,
     ) {
@@ -294,12 +260,34 @@ class AppReaderCoordinator @Inject constructor(
                 )
             },
         )
+        if (readerSelectionRequestId != requestId) return
         if (failure == null) {
             refreshProgress()
         } else if (!isReachabilityFailure) {
             onSyncFailures(listOf(failure))
         }
     }
+
+    private suspend fun syncProgressBeforeOpen(
+        item: ReadableItem,
+    ): List<SourceProgressSyncFailure> = syncItemProgressUseCase(item).fold(
+        onSuccess = {
+            remoteSourceConnectivityPolicy.recordProgressSyncSuccess(item.sourceType)
+            emptyList()
+        },
+        onFailure = { throwable ->
+            if (throwable.isRemoteServerAddressRetryableFailure()) {
+                Log.w(LOG_TAG, "Unable to reach ${item.sourceType} before opening ${item.id}.", throwable)
+            }
+            remoteSourceConnectivityPolicy.recordProgressSyncFailure(item.sourceType, throwable)
+            listOf(
+                SourceProgressSyncFailure(
+                    sourceType = item.sourceType,
+                    throwable = throwable,
+                ),
+            )
+        },
+    )
 
     fun libraryScrollPositionFor(
         contextKey: String,
