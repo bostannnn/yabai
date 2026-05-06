@@ -190,6 +190,10 @@ class KtorKavitaApi(
     private val httpClient: HttpClient,
     baseUrl: String,
 ) : KavitaApi {
+    private companion object {
+        const val MaxSupplementalChapterInfoRequestsPerSeries = 50
+    }
+
     private val normalizedBaseUrl = baseUrl.trimEnd('/')
     private var activeApiKey: String? = null
 
@@ -310,7 +314,9 @@ class KtorKavitaApi(
         }
         response.throwIfKavitaError()
         val detail = response.body<KavitaSeriesDetailDto>()
-        val supplementalChapterInfoByChapterId = detail.resolveSupplementalChapterInfo { chapterId ->
+        val supplementalChapterInfoByChapterId = detail.resolveSupplementalChapterInfo(
+            maxRequests = MaxSupplementalChapterInfoRequestsPerSeries,
+        ) { chapterId ->
             getChapterInfo(
                 accessToken = accessToken,
                 chapterId = chapterId,

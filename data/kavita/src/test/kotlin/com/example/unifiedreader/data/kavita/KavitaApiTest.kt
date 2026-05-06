@@ -18,7 +18,8 @@ import org.junit.Test
 
 class KavitaApiTest {
     @Test
-    fun `series detail uses supplemental chapter info for missing-title production format mapping`() = runBlocking {
+    fun `series detail uses bounded supplemental chapter info for missing-title production format mapping`() = runBlocking {
+        var chapterInfoRequests = 0
         val httpClient = HttpClient(
             MockEngine { request ->
                 when (request.url.encodedPath) {
@@ -38,6 +39,7 @@ class KavitaApiTest {
                         )
                     }
                     "/api/Reader/chapter-info" -> {
+                        chapterInfoRequests += 1
                         assertEquals("21", request.url.parameters["chapterId"])
                         assertEquals("true", request.url.parameters["includeDimensions"])
                         respondJson(
@@ -82,7 +84,84 @@ class KavitaApiTest {
             ),
         )
 
+        assertEquals(1, chapterInfoRequests)
         assertEquals(FormatType.CBR, entries.single().item.format)
+    }
+
+    @Test
+    fun `series detail caps supplemental chapter info requests for unresolved titles`() = runBlocking {
+        var chapterInfoRequests = 0
+        val chapterJson = (1..60).joinToString(separator = ",") { chapterId ->
+            """
+            {
+              "id": $chapterId,
+              "pages": 22
+            }
+            """.trimIndent()
+        }
+        val httpClient = HttpClient(
+            MockEngine { request ->
+                when (request.url.encodedPath) {
+                    "/api/Series/series-detail" -> {
+                        respondJson(
+                            """
+                            {
+                              "chapters": [
+                                $chapterJson
+                              ]
+                            }
+                            """.trimIndent(),
+                        )
+                    }
+                    "/api/Reader/chapter-info" -> {
+                        chapterInfoRequests += 1
+                        assertEquals("true", request.url.parameters["includeDimensions"])
+                        respondJson(
+                            """
+                            {
+                              "pageDimensions": [
+                                {
+                                  "fileName": "Invincible ${request.url.parameters["chapterId"]}.cbr"
+                                }
+                              ]
+                            }
+                            """.trimIndent(),
+                        )
+                    }
+                    else -> error("Unexpected request path: ${request.url.encodedPath}")
+                }
+            },
+        ) {
+            install(ContentNegotiation) {
+                json(
+                    Json {
+                        ignoreUnknownKeys = true
+                        explicitNulls = false
+                    },
+                )
+            }
+        }
+        val api = KtorKavitaApi(
+            httpClient = httpClient,
+            baseUrl = "http://kavita.example",
+        )
+
+        val entries = api.getSeriesDetail(
+            accessToken = "token",
+            series = KavitaSeriesEntry(
+                id = "12",
+                libraryId = "5",
+                title = "Invincible",
+                format = FormatType.CBZ,
+                addedAtEpochMillis = null,
+                coverUrl = null,
+            ),
+        )
+
+        assertEquals(50, chapterInfoRequests)
+        assertEquals(60, entries.size)
+        assertEquals(FormatType.CBR, entries.first { entry -> entry.item.remoteId == "50" }.item.format)
+        assertEquals(FormatType.CBZ, entries.first { entry -> entry.item.remoteId == "51" }.item.format)
     }
 
     @Test

@@ -3,9 +3,13 @@ package com.example.unifiedreader.data.kavita
 import kotlin.coroutines.cancellation.CancellationException
 
 internal suspend fun KavitaSeriesDetailDto.resolveSupplementalIssueTitles(
+    maxRequests: Int = Int.MAX_VALUE,
     fetchChapterInfo: suspend (chapterId: String) -> KavitaChapterInfoDto,
 ): Map<String, String> {
-    return resolveSupplementalChapterInfo(fetchChapterInfo)
+    return resolveSupplementalChapterInfo(
+        maxRequests = maxRequests,
+        fetchChapterInfo = fetchChapterInfo,
+    )
         .mapNotNull { (chapterId, info) ->
             val resolved = resolvedChapters().firstOrNull { chapter ->
                 chapter.chapter.id?.toString() == chapterId
@@ -18,12 +22,14 @@ internal suspend fun KavitaSeriesDetailDto.resolveSupplementalIssueTitles(
 }
 
 internal suspend fun KavitaSeriesDetailDto.resolveSupplementalChapterInfo(
+    maxRequests: Int = Int.MAX_VALUE,
     fetchChapterInfo: suspend (chapterId: String) -> KavitaChapterInfoDto,
 ): Map<String, KavitaChapterInfoDto> {
     val chapterInfoById = linkedMapOf<String, KavitaChapterInfoDto>()
     resolvedChapters()
         .filter { resolved -> resolved.chapter.preferredIssueTitle(resolved.volumeName) == null }
         .distinctBy { resolved -> resolved.chapter.id?.toString() }
+        .take(maxRequests.coerceAtLeast(0))
         .forEach { resolved ->
             val chapterId = resolved.chapter.id?.toString() ?: return@forEach
             val chapterInfo = try {
