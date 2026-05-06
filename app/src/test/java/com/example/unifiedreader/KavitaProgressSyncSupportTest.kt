@@ -223,6 +223,103 @@ class KavitaProgressSyncSupportTest {
     }
 
     @Test
+    fun `Kavita upload uses catalog ids without fetching chapter info`() = runTest {
+        val item = ReadableItem(
+            id = "kavita:item:42",
+            sourceType = SourceType.KAVITA,
+            libraryId = "kavita:library:5",
+            remoteId = "42",
+            remoteFileId = "7",
+            remoteFileType = "12",
+            title = "Chapter 42",
+            format = FormatType.CBZ,
+            pageCount = 28,
+        )
+        val store = TestKavitaReaderSessionStore()
+        store.saveProgress(
+            item = item,
+            locator = ReaderLocator(
+                locatorType = LocatorType.PAGE,
+                page = 3,
+            ),
+            syncState = SyncState.DIRTY,
+            updatedAtEpochMillis = 123L,
+        )
+        val api = RecordingKavitaApi(
+            chapterInfo = KavitaChapterInfoDto(
+                libraryId = 99,
+                seriesId = 99,
+                volumeId = 99,
+                pages = 99,
+            ),
+        )
+
+        pushDirtyKavitaProgress(
+            api = api,
+            initialAccessToken = "access-token",
+            initialRefreshToken = null,
+            initialApiKey = null,
+            items = listOf(item),
+            readerSessionStore = store,
+        )
+
+        val update = api.progressUpdates.single()
+        assertEquals(0, api.chapterInfoRequests)
+        assertEquals(5, update.libraryId)
+        assertEquals(12, update.seriesId)
+        assertEquals(7, update.volumeId)
+        assertEquals(42, update.chapterId)
+        assertEquals(3, update.pageNum)
+    }
+
+    @Test
+    fun `finished Kavita upload fetches chapter info when catalog page count is unknown`() = runTest {
+        val item = ReadableItem(
+            id = "kavita:item:42",
+            sourceType = SourceType.KAVITA,
+            libraryId = "kavita:library:5",
+            remoteId = "42",
+            remoteFileId = "7",
+            remoteFileType = "12",
+            title = "Chapter 42",
+            format = FormatType.CBZ,
+            pageCount = null,
+        )
+        val store = TestKavitaReaderSessionStore()
+        store.saveProgress(
+            item = item,
+            locator = ReaderLocator(
+                locatorType = LocatorType.PAGE,
+                page = 3,
+            ),
+            isFinished = true,
+            syncState = SyncState.DIRTY,
+            updatedAtEpochMillis = 123L,
+        )
+        val api = RecordingKavitaApi(
+            chapterInfo = KavitaChapterInfoDto(
+                libraryId = 5,
+                seriesId = 12,
+                volumeId = 7,
+                pages = 28,
+            ),
+        )
+
+        pushDirtyKavitaProgress(
+            api = api,
+            initialAccessToken = "access-token",
+            initialRefreshToken = null,
+            initialApiKey = null,
+            items = listOf(item),
+            readerSessionStore = store,
+        )
+
+        val update = api.progressUpdates.single()
+        assertEquals(1, api.chapterInfoRequests)
+        assertEquals(28, update.pageNum)
+    }
+
+    @Test
     fun `cancelled Kavita upload rethrows without marking progress failed`() = runTest {
         val item = ReadableItem(
             id = "kavita:item:42",
@@ -279,6 +376,7 @@ private class RecordingKavitaApi(
     private val updateError: Throwable? = null,
 ) : KavitaApi {
     val progressUpdates = mutableListOf<KavitaProgressUpdate>()
+    var chapterInfoRequests = 0
 
     override suspend fun login(
         username: String,
@@ -314,7 +412,10 @@ private class RecordingKavitaApi(
         accessToken: String,
         chapterId: String,
         includeDimensions: Boolean,
-    ): KavitaChapterInfoDto = chapterInfo
+    ): KavitaChapterInfoDto {
+        chapterInfoRequests += 1
+        return chapterInfo
+    }
 
     override suspend fun updateProgress(
         accessToken: String,

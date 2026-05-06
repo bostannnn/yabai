@@ -480,6 +480,33 @@ fun KavitaChapterInfoDto.toProgressUpdate(
     )
 }
 
+fun ReadableItem.toKavitaProgressUpdate(
+    page: Int,
+    isFinished: Boolean,
+    updatedAtEpochMillis: Long,
+): KavitaProgressUpdate? {
+    val chapterId = remoteId?.toIntOrNull() ?: return null
+    val volumeId = remoteFileId?.toIntOrNull() ?: return null
+    val seriesId = remoteFileType?.toIntOrNull() ?: return null
+    val libraryId = libraryId.substringAfterLast(':', missingDelimiterValue = "")
+        .toIntOrNull()
+        ?: return null
+    val safePageCount = (pageCount ?: 0).coerceAtLeast(0)
+    if (isFinished && safePageCount <= 0) return null
+    val remotePage = when {
+        isFinished && safePageCount > 0 -> safePageCount
+        else -> page.coerceAtLeast(0)
+    }
+    return KavitaProgressUpdate(
+        libraryId = libraryId,
+        seriesId = seriesId,
+        volumeId = volumeId,
+        chapterId = chapterId,
+        pageNum = remotePage,
+        updatedAtEpochMillis = updatedAtEpochMillis,
+    )
+}
+
 private fun KavitaChapterDto.toReadingProgress(
     itemId: String,
     pageCount: Int,

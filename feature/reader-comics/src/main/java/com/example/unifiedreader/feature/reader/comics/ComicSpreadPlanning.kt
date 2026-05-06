@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.reader.comics
 
 import com.example.unifiedreader.core.model.ReadableItem
+import kotlinx.coroutines.CancellationException
 
 internal data class ComicSpreadPlanningUpdate(
     val metadataByPageId: Map<String, ComicPageMetadata>,
@@ -108,14 +109,25 @@ internal suspend fun loadSpreadPlanningMetadata(
     page: ComicPageSpec,
     pageSource: ComicPageSource,
 ): ComicPageMetadata? {
-    pageSource.loadPageMetadata(item, page)?.let { return it }
-    return when (
-        val imageResult = pageSource.loadPageImage(
+    try {
+        pageSource.loadPageMetadata(item, page)?.let { return it }
+    } catch (error: CancellationException) {
+        throw error
+    } catch (_: Throwable) {
+        // Metadata is only used to refine spread layout; page loading can still provide dimensions.
+    }
+    val imageResult = try {
+        pageSource.loadPageImage(
             item = item,
             page = page,
             priority = ComicPageLoadPriority.Prefetch,
         )
-    ) {
+    } catch (error: CancellationException) {
+        throw error
+    } catch (_: Throwable) {
+        return null
+    }
+    return when (imageResult) {
         is ComicPageLoadResult.Success -> ComicPageMetadata(
             width = imageResult.image.width,
             height = imageResult.image.height,

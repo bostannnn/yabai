@@ -5,7 +5,6 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.data.kavita.KavitaChapterInfoDto
 import com.example.unifiedreader.data.kavita.KavitaFileDimensionDto
 import com.example.unifiedreader.feature.reader.comics.ComicPageMetadata
-import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewOptions
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 import com.example.unifiedreader.feature.reader.comics.PersistentComicPagePreviewStore
 import kotlinx.coroutines.CancellationException
@@ -36,7 +35,8 @@ class KavitaPageSource(
     private val inFlightMetadataByItemKey = mutableMapOf<String, Deferred<KavitaMetadataLoadResult>>()
     private val metadataLock = Any()
 
-    override val hasDedicatedPagePreviews: Boolean = true
+    override val pagePreviewStrategy: RemoteComicPagePreviewStrategy =
+        RemoteComicPagePreviewStrategy.PageImagePreview
 
     override fun activeSessionFor(
         item: ReadableItem,
@@ -47,18 +47,6 @@ class KavitaPageSource(
         page: ComicPageSpec,
     ): ComicPageMetadata? = loadKavitaPageMetadata(item)[page.id]
         ?: super.loadPageMetadata(item, page)
-
-    override suspend fun pagePreviewByteSource(
-        item: ReadableItem,
-        page: ComicPageSpec,
-    ): RemoteComicPreviewByteSource = RemoteComicPreviewByteSource.PageImage
-
-    override fun prefetchPagePreviews(
-        item: ReadableItem,
-        pages: List<ComicPageSpec>,
-        options: ComicPagePreviewOptions,
-        priorityPageIndex: Int?,
-    ) = Unit
 
     override suspend fun downloadPageBytes(
         session: KavitaStoredSession,
@@ -83,37 +71,6 @@ class KavitaPageSource(
                     accessToken = accessToken,
                     chapterId = chapterId,
                     pageIndex = pageIndex,
-                    apiKey = apiKey,
-                )
-            }
-        }.also {
-            remoteSourceConnectivityPolicy.recordReaderContentSuccess(com.example.unifiedreader.core.model.SourceType.KAVITA)
-        }
-    }
-
-    override suspend fun downloadPagePreviewBytes(
-        session: KavitaStoredSession,
-        item: ReadableItem,
-        page: ComicPageSpec,
-    ): ByteArray? {
-        val chapterId = item.remoteId ?: return null
-        val pageNumber = page.pageIndex + 1
-        return runWithStoredSessionAddressFailover(
-            sessionStore = kavitaCredentialStore,
-            session = session,
-            createApi = kavitaApiFactory::create,
-            withActiveBaseUrl = { currentSession, activeBaseUrl ->
-                currentSession.copy(activeBaseUrl = activeBaseUrl)
-            },
-        ) { api, activeSession ->
-            sessionRequestRunner.run(
-                api = api,
-                session = activeSession,
-            ) { accessToken, apiKey ->
-                api.downloadPageThumbnail(
-                    accessToken = accessToken,
-                    chapterId = chapterId,
-                    pageNumber = pageNumber,
                     apiKey = apiKey,
                 )
             }

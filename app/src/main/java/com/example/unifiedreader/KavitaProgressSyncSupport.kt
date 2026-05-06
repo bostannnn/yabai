@@ -2,6 +2,7 @@ package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.data.kavita.KavitaApi
+import com.example.unifiedreader.data.kavita.toKavitaProgressUpdate
 import com.example.unifiedreader.data.kavita.toProgressUpdate
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
@@ -35,13 +36,17 @@ internal suspend fun pushDirtyKavitaProgress(
                 initialRefreshToken = activeRefreshToken,
                 initialApiKey = initialApiKey,
             ) { token, _ ->
-                val chapterInfo = api.getChapterInfo(
+                val progressPage = if (progress.isExplicitUnreadReset) 0 else progress.page ?: 0
+                val update = item.toKavitaProgressUpdate(
+                    page = progressPage,
+                    isFinished = progress.isFinished,
+                    updatedAtEpochMillis = progress.updatedAtEpochMillis,
+                ) ?: api.getChapterInfo(
                     accessToken = token,
                     chapterId = chapterId,
-                )
-                val update = chapterInfo.toProgressUpdate(
+                ).toProgressUpdate(
                     item = item,
-                    page = if (progress.isExplicitUnreadReset) 0 else progress.page ?: 0,
+                    page = progressPage,
                     isFinished = progress.isFinished,
                     updatedAtEpochMillis = progress.updatedAtEpochMillis,
                 ) ?: return@runWithTokenRefresh false

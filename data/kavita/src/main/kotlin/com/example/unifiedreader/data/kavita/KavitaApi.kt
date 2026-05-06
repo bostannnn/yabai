@@ -5,6 +5,7 @@ import com.example.unifiedreader.core.network.writeBodyTo
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.ClientRequestException
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.delete
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
@@ -192,6 +193,9 @@ class KtorKavitaApi(
 ) : KavitaApi {
     private companion object {
         const val MaxSupplementalChapterInfoRequestsPerSeries = 50
+        const val ReaderMetadataRequestTimeoutMillis = 30_000L
+        const val ReaderImageRequestTimeoutMillis = 45_000L
+        const val ReaderDownloadRequestTimeoutMillis = 120_000L
     }
 
     private val normalizedBaseUrl = baseUrl.trimEnd('/')
@@ -350,6 +354,10 @@ class KtorKavitaApi(
     ): KavitaChapterInfoDto = authenticatedRequest {
         val response = httpClient.get("$normalizedBaseUrl/api/Reader/chapter-info") {
             bearerAuth(accessToken)
+            timeout {
+                requestTimeoutMillis = ReaderMetadataRequestTimeoutMillis
+                socketTimeoutMillis = ReaderMetadataRequestTimeoutMillis
+            }
             url {
                 parameters.append("chapterId", chapterId)
                 parameters.append("includeDimensions", includeDimensions.toString())
@@ -500,6 +508,10 @@ class KtorKavitaApi(
     ): ByteArray = authenticatedRequest {
         val response = httpClient.get("$normalizedBaseUrl/api/Reader/image") {
             bearerAuth(accessToken)
+            timeout {
+                requestTimeoutMillis = ReaderImageRequestTimeoutMillis
+                socketTimeoutMillis = ReaderImageRequestTimeoutMillis
+            }
             apiKey?.takeIf(String::isNotBlank)?.let { key ->
                 header("x-api-key", key)
             }
@@ -523,6 +535,10 @@ class KtorKavitaApi(
     ): ByteArray = authenticatedRequest {
         val response = httpClient.get("$normalizedBaseUrl/api/Reader/thumbnail") {
             bearerAuth(accessToken)
+            timeout {
+                requestTimeoutMillis = ReaderImageRequestTimeoutMillis
+                socketTimeoutMillis = ReaderImageRequestTimeoutMillis
+            }
             apiKey?.takeIf(String::isNotBlank)?.let { key ->
                 header("x-api-key", key)
             }
@@ -566,6 +582,10 @@ class KtorKavitaApi(
             httpClient.prepareGet {
                 url.takeFrom("$normalizedBaseUrl/api/Download/chapter")
                 bearerAuth(accessToken)
+                timeout {
+                    requestTimeoutMillis = ReaderDownloadRequestTimeoutMillis
+                    socketTimeoutMillis = ReaderDownloadRequestTimeoutMillis
+                }
                 apiKey?.takeIf(String::isNotBlank)?.let { key ->
                     header("x-api-key", key)
                 }

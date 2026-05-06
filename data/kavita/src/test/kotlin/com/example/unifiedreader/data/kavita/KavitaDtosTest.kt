@@ -613,4 +613,79 @@ class KavitaDtosTest {
         assertEquals(listOf("22"), requestedChapterIds)
         assertEquals(setOf("22"), supplementalInfo.keys)
     }
+
+    @Test
+    fun `progress update can be built from catalog item ids`() {
+        val item = com.example.unifiedreader.core.model.ReadableItem(
+            id = SourceType.KAVITA.remoteItemId("42"),
+            sourceType = SourceType.KAVITA,
+            libraryId = SourceType.KAVITA.remoteLibraryId("5"),
+            remoteId = "42",
+            remoteFileId = "7",
+            remoteFileType = "12",
+            title = "Chapter 42",
+            format = FormatType.CBZ,
+            pageCount = 28,
+        )
+
+        val update = item.toKavitaProgressUpdate(
+            page = 3,
+            isFinished = false,
+            updatedAtEpochMillis = 123L,
+        )
+
+        assertNotNull(update)
+        assertEquals(5, update?.libraryId)
+        assertEquals(12, update?.seriesId)
+        assertEquals(7, update?.volumeId)
+        assertEquals(42, update?.chapterId)
+        assertEquals(3, update?.pageNum)
+        assertEquals(123L, update?.updatedAtEpochMillis)
+    }
+
+    @Test
+    fun `finished catalog item progress update uses last page`() {
+        val item = com.example.unifiedreader.core.model.ReadableItem(
+            id = SourceType.KAVITA.remoteItemId("42"),
+            sourceType = SourceType.KAVITA,
+            libraryId = SourceType.KAVITA.remoteLibraryId("5"),
+            remoteId = "42",
+            remoteFileId = "7",
+            remoteFileType = "12",
+            title = "Chapter 42",
+            format = FormatType.CBZ,
+            pageCount = 28,
+        )
+
+        val update = item.toKavitaProgressUpdate(
+            page = 3,
+            isFinished = true,
+            updatedAtEpochMillis = 123L,
+        )
+
+        assertEquals(28, update?.pageNum)
+    }
+
+    @Test
+    fun `finished catalog item progress update requires known page count`() {
+        val item = com.example.unifiedreader.core.model.ReadableItem(
+            id = SourceType.KAVITA.remoteItemId("42"),
+            sourceType = SourceType.KAVITA,
+            libraryId = SourceType.KAVITA.remoteLibraryId("5"),
+            remoteId = "42",
+            remoteFileId = "7",
+            remoteFileType = "12",
+            title = "Chapter 42",
+            format = FormatType.CBZ,
+            pageCount = null,
+        )
+
+        val update = item.toKavitaProgressUpdate(
+            page = 3,
+            isFinished = true,
+            updatedAtEpochMillis = 123L,
+        )
+
+        assertNull(update)
+    }
 }
