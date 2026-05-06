@@ -222,6 +222,7 @@ fun PdfReaderScreen(
     }
     val latestPageIndex by rememberUpdatedState(currentPageIndex)
     val latestPageCount by rememberUpdatedState(pageCount)
+    val latestInitialRestoreCompleted by rememberUpdatedState(initialRestoreCompleted)
     val flushReadingSession by rememberUpdatedState(
         newValue = {
             if (latestPageCount > 0) {
@@ -253,7 +254,7 @@ fun PdfReaderScreen(
     )
     val startReadingSession by rememberUpdatedState(
         newValue = {
-            if (latestPageCount > 0) {
+            if (latestPageCount > 0 && latestInitialRestoreCompleted) {
                 tracker?.start(
                     page = latestPageIndex + 1,
                     percent = (latestPageIndex + 1).toDouble() / latestPageCount.toDouble(),
