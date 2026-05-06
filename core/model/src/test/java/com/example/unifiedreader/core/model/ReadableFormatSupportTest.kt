@@ -17,9 +17,13 @@ class ReadableFormatSupportTest {
 
     @Test
     fun `readable format resolves from type extension or file name`() {
+        assertEquals(FormatType.EPUB, readableFormatFromTypeOrExtension(type = "EPUB", extension = "pdf"))
+        assertEquals(FormatType.PDF, readableFormatFromTypeOrExtension(type = null, extension = "pdf"))
+        assertEquals(FormatType.CBZ, readableFormatFromTypeOrExtension(type = null, extension = "cbz"))
+        assertEquals(FormatType.CBZ, readableFormatFromTypeOrExtension(type = null, extension = "zip"))
+        assertEquals(FormatType.CBR, readableFormatFromTypeOrExtension(type = null, extension = "cbr"))
         assertEquals(FormatType.CBR, readableFormatFromTypeOrExtension(type = null, extension = "rar"))
         assertEquals(FormatType.CBZ, readableFormatFromTypeOrExtension(type = null, extension = null, fileName = "Issue.cbz"))
-        assertEquals(FormatType.EPUB, readableFormatFromTypeOrExtension(type = "EPUB", extension = "pdf"))
         assertNull(readableFormatFromTypeOrExtension(type = "mobi", extension = null, fileName = "book.mobi"))
     }
 }

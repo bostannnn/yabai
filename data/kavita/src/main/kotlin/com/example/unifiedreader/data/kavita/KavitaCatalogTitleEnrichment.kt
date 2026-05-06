@@ -21,19 +21,22 @@ internal suspend fun KavitaSeriesDetailDto.resolveSupplementalChapterInfo(
     fetchChapterInfo: suspend (chapterId: String) -> KavitaChapterInfoDto,
 ): Map<String, KavitaChapterInfoDto> {
     val chapterInfoById = linkedMapOf<String, KavitaChapterInfoDto>()
-    resolvedChapters().forEach { resolved ->
-        val chapterId = resolved.chapter.id?.toString() ?: return@forEach
-        val chapterInfo = try {
-            fetchChapterInfo(chapterId)
-        } catch (throwable: Throwable) {
-            when (throwable) {
-                is CancellationException,
-                is KavitaUnauthorizedException -> throw throwable
-                else -> null
+    resolvedChapters()
+        .filter { resolved -> resolved.chapter.preferredIssueTitle(resolved.volumeName) == null }
+        .distinctBy { resolved -> resolved.chapter.id?.toString() }
+        .forEach { resolved ->
+            val chapterId = resolved.chapter.id?.toString() ?: return@forEach
+            val chapterInfo = try {
+                fetchChapterInfo(chapterId)
+            } catch (throwable: Throwable) {
+                when (throwable) {
+                    is CancellationException,
+                    is KavitaUnauthorizedException -> throw throwable
+                    else -> null
+                }
             }
+            chapterInfo?.let { chapterInfoById[chapterId] = it }
         }
-        chapterInfo?.let { chapterInfoById[chapterId] = it }
-    }
     return chapterInfoById
 }
 

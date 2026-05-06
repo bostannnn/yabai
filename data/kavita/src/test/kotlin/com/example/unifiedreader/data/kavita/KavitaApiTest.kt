@@ -18,7 +18,7 @@ import org.junit.Test
 
 class KavitaApiTest {
     @Test
-    fun `series detail uses supplemental chapter info for production format mapping`() = runBlocking {
+    fun `series detail uses supplemental chapter info for missing-title production format mapping`() = runBlocking {
         val httpClient = HttpClient(
             MockEngine { request ->
                 when (request.url.encodedPath) {
@@ -30,7 +30,6 @@ class KavitaApiTest {
                               "chapters": [
                                 {
                                   "id": 21,
-                                  "title": "Issue 1",
                                   "pages": 22
                                 }
                               ]
@@ -83,6 +82,71 @@ class KavitaApiTest {
             ),
         )
 
+        assertEquals(FormatType.CBR, entries.single().item.format)
+    }
+
+    @Test
+    fun `series detail uses chapter files for titled production format mapping without supplemental request`() = runBlocking {
+        var chapterInfoRequests = 0
+        val httpClient = HttpClient(
+            MockEngine { request ->
+                when (request.url.encodedPath) {
+                    "/api/Series/series-detail" -> {
+                        respondJson(
+                            """
+                            {
+                              "chapters": [
+                                {
+                                  "id": 21,
+                                  "title": "Issue 1",
+                                  "pages": 22,
+                                  "files": [
+                                    {
+                                      "filePath": "/comics/Invincible 001.cbr",
+                                      "format": 1
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                            """.trimIndent(),
+                        )
+                    }
+                    "/api/Reader/chapter-info" -> {
+                        chapterInfoRequests += 1
+                        respondJson("{}")
+                    }
+                    else -> error("Unexpected request path: ${request.url.encodedPath}")
+                }
+            },
+        ) {
+            install(ContentNegotiation) {
+                json(
+                    Json {
+                        ignoreUnknownKeys = true
+                        explicitNulls = false
+                    },
+                )
+            }
+        }
+        val api = KtorKavitaApi(
+            httpClient = httpClient,
+            baseUrl = "http://kavita.example",
+        )
+
+        val entries = api.getSeriesDetail(
+            accessToken = "token",
+            series = KavitaSeriesEntry(
+                id = "12",
+                libraryId = "5",
+                title = "Invincible",
+                format = FormatType.CBZ,
+                addedAtEpochMillis = null,
+                coverUrl = null,
+            ),
+        )
+
+        assertEquals(0, chapterInfoRequests)
         assertEquals(FormatType.CBR, entries.single().item.format)
     }
 

@@ -8,6 +8,7 @@ import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadingProgress
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.readableFormatFromTypeOrExtension
 import com.example.unifiedreader.core.model.toReadableFormatTypeOrNull
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
@@ -113,6 +114,15 @@ internal data class KavitaChapterDto(
     val genres: List<KavitaGenreTagDto>? = null,
     val tags: List<KavitaTagDto>? = null,
     val language: String? = null,
+    val files: List<KavitaChapterFileDto>? = null,
+)
+
+@Serializable
+internal data class KavitaChapterFileDto(
+    val fileName: String? = null,
+    val filePath: String? = null,
+    val extension: String? = null,
+    val format: Int? = null,
 )
 
 @Serializable
@@ -333,7 +343,15 @@ internal fun KavitaSeriesDetailDto.toCatalogEntries(
         ?.substringAfter("apiKey=", missingDelimiterValue = "")
         ?.substringBefore('&')
         ?.takeIf(String::isNotBlank)
-    return resolvedChapters()
+    val resolvedChapters = resolvedChapters()
+    val chapterFileFormatById = resolvedChapters
+        .mapNotNull { resolved ->
+            val chapterId = resolved.chapter.id?.toString() ?: return@mapNotNull null
+            val format = resolved.chapter.resolvedFormat() ?: return@mapNotNull null
+            chapterId to format
+        }
+        .toMap()
+    return resolvedChapters
         .mapNotNull { resolved ->
             val chapterId = resolved.chapter.id?.toString() ?: return@mapNotNull null
             val supplementalChapterInfo = supplementalChapterInfoByChapterId[chapterId]
@@ -344,7 +362,8 @@ internal fun KavitaSeriesDetailDto.toCatalogEntries(
                 apiKey = apiKey,
                 issueTitleOverride = issueTitleOverridesByChapterId[chapterId]
                     ?: supplementalChapterInfo?.preferredKavitaIssueTitleFallback(resolved.volumeName),
-                formatOverride = supplementalChapterInfo?.resolvedFormat(fallback = series.format),
+                formatOverride = chapterFileFormatById[chapterId]
+                    ?: supplementalChapterInfo?.resolvedFormat(fallback = series.format),
             )
         }
         .distinctBy { entry -> entry.item.id }
@@ -501,6 +520,38 @@ fun KavitaChapterInfoDto.resolvedFormat(
     .firstOrNull()
     ?: seriesFormat.toFormatType()
     ?: fallback
+
+private fun KavitaChapterDto.resolvedFormat(): FormatType? = files.orEmpty()
+    .let { files ->
+        files.asSequence()
+            .mapNotNull(KavitaChapterFileDto::extensionResolvedFormat)
+            .firstOrNull()
+            ?: files.asSequence()
+                .mapNotNull(KavitaChapterFileDto::specificNumericFormat)
+                .firstOrNull()
+    }
+
+private fun KavitaChapterFileDto.extensionResolvedFormat(): FormatType? =
+    sequenceOf(fileName, filePath)
+        .mapNotNull { fileName ->
+            readableFormatFromTypeOrExtension(
+                type = null,
+                extension = extension,
+                fileName = fileName,
+            )
+        }
+        .firstOrNull()
+        ?: readableFormatFromTypeOrExtension(
+            type = null,
+            extension = extension,
+            fileName = null,
+        )
+
+private fun KavitaChapterFileDto.specificNumericFormat(): FormatType? = when (format) {
+    KAVITA_FORMAT_EPUB -> FormatType.EPUB
+    KAVITA_FORMAT_PDF -> FormatType.PDF
+    else -> null
+}
 
 private fun Int?.toLibraryContentType(): LibraryContentType = when (this) {
     KAVITA_LIBRARY_TYPE_BOOK,

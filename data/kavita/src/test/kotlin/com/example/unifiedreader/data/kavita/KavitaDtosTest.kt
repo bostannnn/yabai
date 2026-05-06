@@ -174,6 +174,156 @@ class KavitaDtosTest {
     }
 
     @Test
+    fun `series detail uses chapter file extension to classify titled cbr chapters`() {
+        val series = KavitaSeriesDto(
+            id = 12,
+            name = "Invincible",
+            libraryId = 5,
+            format = 1,
+        ).toEntry(
+            baseUrl = "https://kavita.example",
+            apiKey = null,
+        ) ?: error("Expected series entry.")
+
+        val entries = KavitaSeriesDetailDto(
+            chapters = listOf(
+                KavitaChapterDto(
+                    id = 21,
+                    title = "Issue 1",
+                    pages = 22,
+                    files = listOf(
+                        KavitaChapterFileDto(
+                            filePath = "/comics/Invincible 001.cbr",
+                            format = 1,
+                        ),
+                    ),
+                ),
+            ),
+        ).toCatalogEntries(
+            series = series,
+        )
+
+        assertEquals(FormatType.CBR, entries.single().item.format)
+    }
+
+    @Test
+    fun `series detail uses duplicate chapter file metadata before deduping`() {
+        val series = KavitaSeriesDto(
+            id = 12,
+            name = "Invincible",
+            libraryId = 5,
+            format = 1,
+        ).toEntry(
+            baseUrl = "https://kavita.example",
+            apiKey = null,
+        ) ?: error("Expected series entry.")
+
+        val entries = KavitaSeriesDetailDto(
+            chapters = listOf(
+                KavitaChapterDto(
+                    id = 21,
+                    title = "Issue 1",
+                    pages = 22,
+                ),
+            ),
+            volumes = listOf(
+                KavitaVolumeDto(
+                    id = 7,
+                    name = "1",
+                    chapters = listOf(
+                        KavitaChapterDto(
+                            id = 21,
+                            title = "Issue 1",
+                            pages = 22,
+                            files = listOf(
+                                KavitaChapterFileDto(
+                                    fileName = "Invincible 001.cbr",
+                                    format = 1,
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ).toCatalogEntries(
+            series = series,
+        )
+
+        assertEquals(1, entries.size)
+        assertEquals(FormatType.CBR, entries.single().item.format)
+    }
+
+    @Test
+    fun `series detail prefers file extension over earlier generic archive file format`() {
+        val series = KavitaSeriesDto(
+            id = 12,
+            name = "Invincible",
+            libraryId = 5,
+            format = 1,
+        ).toEntry(
+            baseUrl = "https://kavita.example",
+            apiKey = null,
+        ) ?: error("Expected series entry.")
+
+        val entries = KavitaSeriesDetailDto(
+            chapters = listOf(
+                KavitaChapterDto(
+                    id = 21,
+                    title = "Issue 1",
+                    pages = 22,
+                    files = listOf(
+                        KavitaChapterFileDto(
+                            format = 1,
+                        ),
+                        KavitaChapterFileDto(
+                            fileName = "Invincible 001.cbr",
+                            format = 1,
+                        ),
+                    ),
+                ),
+            ),
+        ).toCatalogEntries(
+            series = series,
+        )
+
+        assertEquals(FormatType.CBR, entries.single().item.format)
+    }
+
+    @Test
+    fun `series detail falls back from extensionless file name to file path format`() {
+        val series = KavitaSeriesDto(
+            id = 12,
+            name = "Invincible",
+            libraryId = 5,
+            format = 1,
+        ).toEntry(
+            baseUrl = "https://kavita.example",
+            apiKey = null,
+        ) ?: error("Expected series entry.")
+
+        val entries = KavitaSeriesDetailDto(
+            chapters = listOf(
+                KavitaChapterDto(
+                    id = 21,
+                    title = "Issue 1",
+                    pages = 22,
+                    files = listOf(
+                        KavitaChapterFileDto(
+                            fileName = "Invincible 001",
+                            filePath = "/comics/Invincible 001.cbr",
+                            format = 1,
+                        ),
+                    ),
+                ),
+            ),
+        ).toCatalogEntries(
+            series = series,
+        )
+
+        assertEquals(FormatType.CBR, entries.single().item.format)
+    }
+
+    @Test
     fun `recent update marker maps kavita local date time`() {
         val update = KavitaGroupedSeriesDto(
             seriesId = 12,
@@ -430,5 +580,37 @@ class KavitaDtosTest {
         }
 
         assertEquals(mapOf("21" to "One Piece Volume 02"), overrides)
+    }
+
+    @Test
+    fun `supplemental chapter info fetches only unique chapters with unresolved titles`() = runBlocking {
+        val requestedChapterIds = mutableListOf<String>()
+        val supplementalInfo = KavitaSeriesDetailDto(
+            chapters = listOf(
+                KavitaChapterDto(
+                    id = 21,
+                    title = "Issue 1",
+                    pages = 22,
+                ),
+                KavitaChapterDto(
+                    id = 22,
+                    pages = 24,
+                ),
+            ),
+            storylineChapters = listOf(
+                KavitaChapterDto(
+                    id = 22,
+                    pages = 24,
+                ),
+            ),
+        ).resolveSupplementalChapterInfo { chapterId ->
+            requestedChapterIds += chapterId
+            KavitaChapterInfoDto(
+                pageDimensions = listOf(KavitaFileDimensionDto(fileName = "Issue $chapterId.cbr")),
+            )
+        }
+
+        assertEquals(listOf("22"), requestedChapterIds)
+        assertEquals(setOf("22"), supplementalInfo.keys)
     }
 }
