@@ -52,6 +52,23 @@ class StumpPageSourceTest {
     }
 
     @Test
+    fun `stump remote page source supports cbr comics`() = runTest {
+        val item = sampleStumpComic(
+            pageCount = 2,
+            format = FormatType.CBR,
+        )
+        val api = RecordingStumpPageApi()
+        val pageSource = createPageSource(api, this)
+
+        val pages = pageSource.getPages(item)
+        val result = pageSource.loadPageImage(item, pages.first(), ComicPageLoadPriority.Visible)
+
+        assertEquals(listOf("0", "1"), pages.map { page -> page.id })
+        assertTrue(result is ComicPageLoadResult.Success)
+        assertEquals(listOf(0), api.requestedPageIndexes)
+    }
+
+    @Test
     fun `successful stump page load marks source reachable`() = runTest {
         val item = sampleStumpComic(pageCount = 12)
         val api = RecordingStumpPageApi()
@@ -294,6 +311,7 @@ private fun createPageSource(
 
 private fun sampleStumpComic(
     pageCount: Int,
+    format: FormatType = FormatType.CBZ,
 ): ReadableItem = ReadableItem(
     id = SourceType.STUMP.remoteItemId("media-1"),
     sourceType = SourceType.STUMP,
@@ -302,7 +320,7 @@ private fun sampleStumpComic(
     remoteFileId = null,
     remoteFileType = null,
     title = "Remote Comic",
-    format = FormatType.CBZ,
+    format = format,
     pageCount = pageCount,
     coverUrl = null,
     description = null,

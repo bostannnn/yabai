@@ -63,6 +63,23 @@ class KavitaPageSourceTest {
     }
 
     @Test
+    fun `kavita remote page source supports cbr comics`() = runTest {
+        val item = sampleKavitaComic(
+            pageCount = 2,
+            format = FormatType.CBR,
+        )
+        val api = RecordingKavitaPageApi()
+        val pageSource = createPageSource(api, this)
+
+        val pages = pageSource.getPages(item)
+        val result = pageSource.loadPageImage(item, pages.first(), ComicPageLoadPriority.Visible)
+
+        assertEquals(listOf("0", "1"), pages.map { page -> page.id })
+        assertTrue(result is ComicPageLoadResult.Success)
+        assertEquals(listOf(0), api.requestedPageIndexes)
+    }
+
+    @Test
     fun `successful kavita page load marks source reachable`() = runTest {
         val item = sampleKavitaComic(pageCount = 12)
         val api = RecordingKavitaPageApi()
@@ -641,6 +658,7 @@ private fun createPageSource(
 
 private fun sampleKavitaComic(
     pageCount: Int,
+    format: FormatType = FormatType.CBZ,
 ): ReadableItem = ReadableItem(
     id = SourceType.KAVITA.remoteItemId("chapter-1"),
     sourceType = SourceType.KAVITA,
@@ -649,7 +667,7 @@ private fun sampleKavitaComic(
     remoteFileId = null,
     remoteFileType = null,
     title = "Remote Comic",
-    format = FormatType.CBZ,
+    format = format,
     pageCount = pageCount,
     coverUrl = null,
     description = null,

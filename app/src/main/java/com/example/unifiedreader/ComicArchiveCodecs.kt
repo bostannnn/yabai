@@ -159,7 +159,7 @@ internal class RarComicArchiveCodec(
     private suspend fun ensureLocalArchiveFile(
         uri: Uri,
     ): File = withContext(Dispatchers.IO) {
-        val cacheDirectory = File(context.cacheDir, "comic-archives").apply {
+        val cacheDirectory = File(context.cacheDir, RAR_ARCHIVE_CACHE_DIRECTORY).apply {
             mkdirs()
         }
         val suffix = if (matchesFileName(uri.toString())) "cbr" else "archive"
@@ -196,6 +196,14 @@ internal class RarComicArchiveCodec(
         header: FileHeader,
     ): String = header.fileName?.takeIf { it.isNotBlank() }
         ?: header.fileNameString
+
+    companion object {
+        fun clearLocalArchiveCache(
+            context: Context,
+        ) {
+            File(context.cacheDir, RAR_ARCHIVE_CACHE_DIRECTORY).deleteRecursively()
+        }
+    }
 }
 
 private fun android.content.ContentResolver.queryArchiveSignature(
@@ -243,6 +251,7 @@ private fun shouldRefreshArchiveCache(
 
 private const val UNKNOWN_ARCHIVE_SIGNATURE = "unknown"
 private const val UNKNOWN_SIGNATURE_CACHE_TTL_MS = 60_000L
+private const val RAR_ARCHIVE_CACHE_DIRECTORY = "comic-archives"
 
 @VisibleForTesting(otherwise = VisibleForTesting.NONE)
 internal object ComicArchiveCodecsTestAccess {

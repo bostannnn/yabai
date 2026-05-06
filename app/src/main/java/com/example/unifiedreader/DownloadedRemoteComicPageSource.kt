@@ -38,10 +38,7 @@ class DownloadedRemoteComicPageSource @Inject constructor(
     previewStore: PersistentComicPagePreviewStore? = null,
 ) : ComicPageSource {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val comicArchiveCodecs: List<ComicArchiveCodec> = listOf(
-        ZipComicArchiveCodec,
-        RarComicArchiveCodec(context),
-    )
+    private val comicArchiveCodecs: List<ComicArchiveCodec> = defaultDownloadedRemoteComicArchiveCodecs(context)
     private val comicPageLoader = LocalComicPageLoader(
         context = context,
         comicArchiveCodecs = comicArchiveCodecs,
@@ -425,12 +422,25 @@ class DownloadedRemoteComicPageSource @Inject constructor(
     private fun invalidateItemCaches(
         itemId: String,
     ) {
+        RarComicArchiveCodec.clearLocalArchiveCache(context)
         entryCacheCoordinator.invalidate(itemId)
         archiveDiagnosticsByItemId.remove(itemId)
         archiveFormatByItemId.remove(itemId)
         comicPageLoader.clear(itemId)
     }
 }
+
+@androidx.annotation.VisibleForTesting(otherwise = androidx.annotation.VisibleForTesting.NONE)
+internal fun downloadedRemoteComicArchiveCodecFormats(
+    context: Context,
+): List<FormatType> = defaultDownloadedRemoteComicArchiveCodecs(context).map(ComicArchiveCodec::format)
+
+private fun defaultDownloadedRemoteComicArchiveCodecs(
+    context: Context,
+): List<ComicArchiveCodec> = listOf(
+    ZipComicArchiveCodec,
+    RarComicArchiveCodec(context),
+)
 
 private data class ResolvedComicArchive(
     val codec: ComicArchiveCodec,

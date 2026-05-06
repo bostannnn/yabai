@@ -10,12 +10,15 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.remoteLibraryId
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
+import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
+import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 import com.example.unifiedreader.feature.reader.comics.PersistentComicPagePreviewStore
 import java.io.File
 import java.io.ByteArrayOutputStream
 import java.io.FileOutputStream
+import java.util.zip.CRC32
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlinx.coroutines.flow.toList
@@ -28,6 +31,15 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class DownloadedRemoteComicPageSourceTest {
+    @Test
+    fun `downloaded remote comic source resolves both zip and rar archive codecs`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+
+        val formats = downloadedRemoteComicArchiveCodecFormats(context)
+
+        assertEquals(listOf(FormatType.CBZ, FormatType.CBR), formats)
+    }
+
     @Test
     fun `observe pages replaces catalog fallback with downloaded archive entries`() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
@@ -54,6 +66,90 @@ class DownloadedRemoteComicPageSourceTest {
         assertEquals(2, emissions.size)
         assertEquals(5, emissions.first().size)
         assertEquals(listOf("001.jpg", "003.jpg"), emissions.last().map { page -> page.id })
+    }
+
+    @Test
+    fun `downloaded archive reading tolerates cbr catalog metadata for zip bytes`() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val item = testDownloadedComic(
+            id = "chapter-wrong-format",
+            pageCount = 1,
+            format = FormatType.CBR,
+        )
+        val archiveFile = File(context.cacheDir, "wrong-format-downloaded-page-source-test.cbr").apply {
+            parentFile?.mkdirs()
+            rewriteZip(
+                "001.png" to testPngBytes(),
+            )
+        }
+        val pageSource = DownloadedRemoteComicPageSource(
+            context = context,
+            remoteDownloadDataSources = listOf(TestStoredRemoteItemDownloadDataSource(item.id, archiveFile)),
+            archiveEntryCache = DownloadedRemoteComicArchiveEntryCache(),
+            cacheInvalidationDispatcher = DownloadedRemoteComicCacheInvalidationDispatcher(),
+        )
+
+        val pages = pageSource.observePages(item).toList().last()
+        val result = pageSource.loadPageImage(item, pages.single(), ComicPageLoadPriority.Visible)
+
+        assertEquals(listOf("001.png"), pages.map { page -> page.id })
+        assertTrue(result is ComicPageLoadResult.Success)
+    }
+
+    @Test
+    fun `downloaded archive reading tolerates cbz catalog metadata for cbr extension`() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val item = testDownloadedComic(
+            id = "chapter-wrong-extension",
+            pageCount = 1,
+            format = FormatType.CBZ,
+        )
+        val archiveFile = File(context.cacheDir, "wrong-extension-downloaded-page-source-test.cbr").apply {
+            parentFile?.mkdirs()
+            rewriteZip(
+                "001.png" to testPngBytes(),
+            )
+        }
+        val pageSource = DownloadedRemoteComicPageSource(
+            context = context,
+            remoteDownloadDataSources = listOf(TestStoredRemoteItemDownloadDataSource(item.id, archiveFile)),
+            archiveEntryCache = DownloadedRemoteComicArchiveEntryCache(),
+            cacheInvalidationDispatcher = DownloadedRemoteComicCacheInvalidationDispatcher(),
+        )
+
+        val pages = pageSource.observePages(item).toList().last()
+        val result = pageSource.loadPageImage(item, pages.single(), ComicPageLoadPriority.Visible)
+
+        assertEquals(listOf("001.png"), pages.map { page -> page.id })
+        assertTrue(result is ComicPageLoadResult.Success)
+    }
+
+    @Test
+    fun `downloaded archive reading loads real cbr archive pages`() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val item = testDownloadedComic(
+            id = "chapter-real-cbr",
+            pageCount = 1,
+            format = FormatType.CBR,
+        )
+        val archiveFile = File(context.cacheDir, "real-cbr-downloaded-page-source-test.cbr").apply {
+            parentFile?.mkdirs()
+            rewriteStoredRar(
+                "001.png" to testPngBytes(),
+            )
+        }
+        val pageSource = DownloadedRemoteComicPageSource(
+            context = context,
+            remoteDownloadDataSources = listOf(TestStoredRemoteItemDownloadDataSource(item.id, archiveFile)),
+            archiveEntryCache = DownloadedRemoteComicArchiveEntryCache(),
+            cacheInvalidationDispatcher = DownloadedRemoteComicCacheInvalidationDispatcher(),
+        )
+
+        val pages = pageSource.observePages(item).toList().last()
+        val result = pageSource.loadPageImage(item, pages.single(), ComicPageLoadPriority.Visible)
+
+        assertEquals(listOf("001.png"), pages.map { page -> page.id })
+        assertTrue(result is ComicPageLoadResult.Success)
     }
 
     @Test
@@ -176,6 +272,35 @@ class DownloadedRemoteComicPageSourceTest {
         assertTrue(preview is ComicPagePreviewResult.Success)
         assertTrue(previewDirectory.listFiles().orEmpty().any { file -> file.isFile && file.length() > 0L })
     }
+
+    @Test
+    fun `downloaded comic invalidation clears copied rar archive cache`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val item = testDownloadedComic(
+            id = "chapter-rar-cache",
+            pageCount = 1,
+            format = FormatType.CBR,
+        )
+        val dispatcher = DownloadedRemoteComicCacheInvalidationDispatcher()
+        val archiveFile = File(context.cacheDir, "rar-cache-invalidation-source.cbr").apply {
+            parentFile?.mkdirs()
+            writeBytes(byteArrayOf(1))
+        }
+        val rarCacheFile = File(context.cacheDir, "comic-archives/copied.cbr").apply {
+            parentFile?.mkdirs()
+            writeBytes(byteArrayOf(2))
+        }
+        DownloadedRemoteComicPageSource(
+            context = context,
+            remoteDownloadDataSources = listOf(TestStoredRemoteItemDownloadDataSource(item.id, archiveFile)),
+            archiveEntryCache = DownloadedRemoteComicArchiveEntryCache(),
+            cacheInvalidationDispatcher = dispatcher,
+        )
+
+        dispatcher.invalidate(item.id)
+
+        assertTrue(!rarCacheFile.exists())
+    }
 }
 
 private class TestStoredRemoteItemDownloadDataSource(
@@ -186,7 +311,7 @@ private class TestStoredRemoteItemDownloadDataSource(
 
     override fun supports(
         item: ReadableItem,
-    ): Boolean = item.sourceType == sourceType && item.format == FormatType.CBZ
+    ): Boolean = item.sourceType == sourceType && item.format in setOf(FormatType.CBZ, FormatType.CBR)
 
     override fun storedDocumentUri(
         item: ReadableItem,
@@ -219,6 +344,81 @@ private fun File.rewriteZip(
     }
 }
 
+private fun File.rewriteStoredRar(
+    vararg entries: Pair<String, ByteArray>,
+) {
+    writeBytes(storedRarBytes(*entries))
+}
+
+private fun storedRarBytes(
+    vararg entries: Pair<String, ByteArray>,
+): ByteArray = ByteArrayOutputStream().use { output ->
+    output.write(byteArrayOf(0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x00))
+    output.write(rarHeader(type = 0x73, flags = 0x0000, body = ByteArray(6)))
+    entries.forEach { (name, bytes) ->
+        val nameBytes = name.toByteArray(Charsets.UTF_8)
+        val body = ByteArrayOutputStream().use { header ->
+            header.writeIntLe(bytes.size)
+            header.writeIntLe(bytes.size)
+            header.write(0x03)
+            header.writeIntLe(bytes.rarCrc32())
+            header.writeIntLe(0)
+            header.write(20)
+            header.write(0x30)
+            header.writeShortLe(nameBytes.size)
+            header.writeIntLe(0x20)
+            header.write(nameBytes)
+            header.toByteArray()
+        }
+        output.write(rarHeader(type = 0x74, flags = 0x8000, body = body))
+        output.write(bytes)
+    }
+    output.write(byteArrayOf(0xC4.toByte(), 0x3D, 0x7B, 0x00, 0x40, 0x07, 0x00))
+    output.toByteArray()
+}
+
+private fun rarHeader(
+    type: Int,
+    flags: Int,
+    body: ByteArray,
+): ByteArray {
+    val headerSize = 7 + body.size
+    val bytesForCrc = ByteArrayOutputStream().use { output ->
+        output.write(type)
+        output.writeShortLe(flags)
+        output.writeShortLe(headerSize)
+        output.write(body)
+        output.toByteArray()
+    }
+    return ByteArrayOutputStream().use { output ->
+        output.writeShortLe(bytesForCrc.rarCrc32() and 0xFFFF)
+        output.write(bytesForCrc)
+        output.toByteArray()
+    }
+}
+
+private fun ByteArrayOutputStream.writeShortLe(
+    value: Int,
+) {
+    write(value and 0xFF)
+    write(value ushr 8 and 0xFF)
+}
+
+private fun ByteArrayOutputStream.writeIntLe(
+    value: Int,
+) {
+    write(value and 0xFF)
+    write(value ushr 8 and 0xFF)
+    write(value ushr 16 and 0xFF)
+    write(value ushr 24 and 0xFF)
+}
+
+private fun ByteArray.rarCrc32(): Int {
+    val crc = CRC32()
+    crc.update(this)
+    return crc.value.toInt()
+}
+
 private fun testPngBytes(): ByteArray {
     val bitmap = Bitmap.createBitmap(32, 48, Bitmap.Config.ARGB_8888)
     bitmap.eraseColor(Color.WHITE)
@@ -231,12 +431,13 @@ private fun testPngBytes(): ByteArray {
 private fun testDownloadedComic(
     id: String,
     pageCount: Int?,
+    format: FormatType = FormatType.CBZ,
 ): ReadableItem = ReadableItem(
     id = SourceType.KAVITA.remoteItemId(id),
     sourceType = SourceType.KAVITA,
     libraryId = SourceType.KAVITA.remoteLibraryId("library"),
     remoteId = id,
     title = "Downloaded Comic",
-    format = FormatType.CBZ,
+    format = format,
     pageCount = pageCount,
 )
