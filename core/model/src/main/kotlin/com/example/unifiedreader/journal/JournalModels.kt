@@ -26,14 +26,14 @@ enum class JournalMediaType {
 }
 
 fun classifyJournalMedia(
+    @Suppress("UNUSED_PARAMETER")
     sourceType: SourceType,
     itemKind: ReadableItemKind,
+    @Suppress("UNUSED_PARAMETER")
     format: FormatType,
-): JournalMediaType = when {
-    sourceType == SourceType.KAVITA && format == FormatType.PDF -> JournalMediaType.COMIC
-    sourceType == SourceType.GRIMMORY && format == FormatType.PDF -> JournalMediaType.BOOK
-    itemKind == ReadableItemKind.COMIC -> JournalMediaType.COMIC
-    else -> JournalMediaType.BOOK
+): JournalMediaType = when (itemKind) {
+    ReadableItemKind.COMIC -> JournalMediaType.COMIC
+    ReadableItemKind.BOOK -> JournalMediaType.BOOK
 }
 
 fun ReadableItem.journalMediaType(): JournalMediaType = classifyJournalMedia(

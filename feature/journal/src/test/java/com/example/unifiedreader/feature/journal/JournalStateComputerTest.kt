@@ -161,7 +161,7 @@ class JournalStateComputerTest {
     }
 
     @Test
-    fun `rating stats use source aware media classification`() {
+    fun `rating stats use item kind for PDF media classification`() {
         val now = 1_767_225_600_000L
         val kavitaPdf = testItem.copy(
             id = "kavita:item:pdf",
@@ -187,8 +187,8 @@ class JournalStateComputerTest {
             ),
         )
 
-        assertEquals(mapOf(9 to 1), snapshot.monthStats.ratingCountsByMediaType[JournalMediaType.BOOK])
-        assertEquals(mapOf(7 to 1), snapshot.monthStats.ratingCountsByMediaType[JournalMediaType.COMIC])
+        assertEquals(mapOf(7 to 1), snapshot.monthStats.ratingCountsByMediaType[JournalMediaType.BOOK])
+        assertEquals(mapOf(9 to 1), snapshot.monthStats.ratingCountsByMediaType[JournalMediaType.COMIC])
     }
 
     @Test
@@ -271,20 +271,20 @@ class JournalStateComputerTest {
     }
 
     @Test
-    fun `stats split pages by source aware media type`() {
-        val comic = testItem.copy(
-            id = "comic",
+    fun `stats split pages by item kind media type`() {
+        val pdfBook = testItem.copy(
+            id = "pdf-book",
             sourceType = SourceType.KAVITA,
             format = FormatType.PDF,
             kind = ReadableItemKind.BOOK,
         )
-        val book = testItem.copy(id = "book")
+        val comic = testItem.copy(id = "comic", kind = ReadableItemKind.COMIC)
 
         val stats = computeStats(
             events = listOf(
                 startedEvent(
-                    item = comic,
-                    id = "comic-pages",
+                    item = pdfBook,
+                    id = "pdf-book-pages",
                     page = 30,
                     percent = 0.3,
                     fromPage = 0,
@@ -293,7 +293,7 @@ class JournalStateComputerTest {
             ),
             sessions = listOf(
                 journalSession(
-                    item = book,
+                    item = comic,
                     startedAtEpochMillis = 1_000L,
                     endedAtEpochMillis = 2_000L,
                     fromPage = 0,
@@ -303,8 +303,8 @@ class JournalStateComputerTest {
         )
 
         assertEquals(45, stats.pagesRead)
-        assertEquals(15, stats.bookPagesRead)
-        assertEquals(30, stats.comicPagesRead)
+        assertEquals(30, stats.bookPagesRead)
+        assertEquals(15, stats.comicPagesRead)
     }
 
     @Test
@@ -313,8 +313,8 @@ class JournalStateComputerTest {
         val april11 = epochMillis(2026, Calendar.APRIL, 11)
         val april20 = epochMillis(2026, Calendar.APRIL, 20)
         val april21 = epochMillis(2026, Calendar.APRIL, 21)
-        val comic = testItem.copy(
-            id = "comic",
+        val pdfBook = testItem.copy(
+            id = "pdf-book",
             sourceType = SourceType.KAVITA,
             format = FormatType.PDF,
             kind = ReadableItemKind.BOOK,
@@ -337,7 +337,7 @@ class JournalStateComputerTest {
             ),
             sessions = listOf(
                 journalSession(
-                    item = comic,
+                    item = pdfBook,
                     startedAtEpochMillis = april20,
                     endedAtEpochMillis = april21 + 1_000L,
                 ),
@@ -345,8 +345,8 @@ class JournalStateComputerTest {
         )
 
         assertEquals(4, stats.activeDays)
-        assertEquals(2, stats.bookActiveDays)
-        assertEquals(2, stats.comicActiveDays)
+        assertEquals(4, stats.bookActiveDays)
+        assertEquals(0, stats.comicActiveDays)
     }
 
     @Test
@@ -374,7 +374,7 @@ class JournalStateComputerTest {
     }
 
     @Test
-    fun `activity day finished counts use source aware media classification`() {
+    fun `activity day finished counts use item kind media classification`() {
         val kavitaPdf = testItem.copy(
             id = "kavita-pdf",
             sourceType = SourceType.KAVITA,
