@@ -45,6 +45,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
@@ -69,6 +72,7 @@ fun PdfReaderScreen(
     onCompletionRequested: () -> Unit = {},
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     val documentUriState by rememberDocumentUriState(
         item = item,
@@ -159,8 +163,8 @@ fun PdfReaderScreen(
     }
     val latestPageIndex by rememberUpdatedState(currentPageIndex)
     val latestPageCount by rememberUpdatedState(pageCount)
-    DisposableEffect(item.id, tracker) {
-        onDispose {
+    val flushReadingSession by rememberUpdatedState(
+        newValue = {
             if (latestPageCount > 0) {
                 tracker?.flushAndReset(
                     page = latestPageIndex + 1,
@@ -168,6 +172,31 @@ fun PdfReaderScreen(
                     pageCount = latestPageCount,
                 )
             }
+        },
+    )
+    val startReadingSession by rememberUpdatedState(
+        newValue = {
+            if (latestPageCount > 0) {
+                tracker?.start(
+                    page = latestPageIndex + 1,
+                    percent = (latestPageIndex + 1).toDouble() / latestPageCount.toDouble(),
+                )
+            }
+        },
+    )
+    DisposableEffect(lifecycleOwner, item.id, tracker) {
+        startReadingSession()
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> startReadingSession()
+                Lifecycle.Event.ON_STOP -> flushReadingSession()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            flushReadingSession()
         }
     }
 
