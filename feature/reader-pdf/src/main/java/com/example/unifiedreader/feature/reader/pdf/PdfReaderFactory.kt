@@ -15,14 +15,15 @@ fun pdfReaderFactory(
     documentUriProvider: suspend (ReadableItem) -> Uri? = { null },
 ): ReaderScreenFactory = formatReaderFactory(
     FormatType.PDF,
-    chrome = ReaderChrome.Standard,
-) { item, _, navigationActions ->
+    chrome = ReaderChrome.Immersive,
+) { item, onBack, navigationActions ->
         PdfReaderScreen(
             item = item,
             documentUriProvider = documentUriProvider,
             sessionStore = sessionStore,
             journalReadingSessionRecorder = journalReadingSessionRecorder,
             openMode = navigationActions.currentOpenMode,
+            onBack = onBack,
             onCompletionRequested = navigationActions.onRequestCompletion,
         )
 }

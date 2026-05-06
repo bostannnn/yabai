@@ -27,11 +27,13 @@ fun ReaderOverlayIconButton(
     onClick: () -> Unit,
     isActive: Boolean = false,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     val tokens = readerOverlayTokens()
     IconButton(
         onClick = onClick,
+        enabled = enabled,
         modifier = modifier
             .background(
                 if (isActive) tokens.colors.selectedContainer else Color.Transparent,

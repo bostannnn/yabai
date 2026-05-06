@@ -782,7 +782,10 @@ object AppModule {
             },
         ),
         pdfReaderFactory(
-            sessionStore = readerSessionStore,
+            sessionStore = JournalRecordingReaderSessionStore(
+                delegate = readerSessionStore,
+                journalEventRecorder = journalEventRecorder,
+            ),
             journalReadingSessionRecorder = journalReadingSessionRecorder,
             documentUriProvider = { item ->
                 localDocumentRepository.getDocumentUri(item)

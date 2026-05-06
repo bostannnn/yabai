@@ -1,6 +1,7 @@
 package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.journal.JournalEventRecorder
 import com.example.unifiedreader.journal.JournalProgressInput
@@ -42,7 +43,7 @@ class JournalRecordingReaderSessionStore(
             journalEventRecorder.recordReaderProgress(
                 JournalProgressInput(
                     item = item,
-                    page = locator.page,
+                    page = locator.toJournalPage(),
                     percent = locator.percent,
                     pageCount = pageCount ?: item.pageCount,
                     isFinished = isFinished,
@@ -110,4 +111,11 @@ class JournalRecordingComicReaderProgressStore(
             )
         }
     }
+}
+
+private fun ReaderLocator.toJournalPage(): Int? = when (locatorType) {
+    LocatorType.PAGE -> page?.plus(1)
+    LocatorType.CFI,
+    LocatorType.PERCENT,
+    -> page
 }

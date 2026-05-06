@@ -331,20 +331,43 @@ class GrimmoryProgressSyncServiceTest {
         val snapshot = checkNotNull(readerSessionStore.getProgress(item))
         assertEquals(SyncState.DIRTY, snapshot.syncState)
     }
+
+    @Test
+    fun `pdf progress upload converts zero based local page to one based Grimmory page`() {
+        val item = grimmoryItem(
+            remoteId = "pdf-book",
+            format = FormatType.PDF,
+        )
+        val snapshot = ReaderProgressSnapshot(
+            itemId = item.id,
+            locatorType = LocatorType.PAGE,
+            page = 4,
+            percent = 0.5,
+            syncState = SyncState.DIRTY,
+            updatedAtEpochMillis = 20L,
+        )
+
+        val update = checkNotNull(snapshot.toGrimmoryProgressUpdate(item))
+
+        assertEquals("PDF", update.bookType)
+        assertEquals("5", update.positionData)
+        assertEquals(0.5, update.percent, 0.0001)
+    }
 }
 
 private fun grimmoryItem(
     remoteId: String?,
     id: String = remoteId?.let(SourceType.GRIMMORY::remoteItemId) ?: "missing-remote-id",
+    format: FormatType = FormatType.EPUB,
 ): ReadableItem = ReadableItem(
     id = id,
     sourceType = SourceType.GRIMMORY,
     libraryId = SourceType.GRIMMORY.remoteLibraryId("books"),
     remoteId = remoteId,
     remoteFileId = remoteId?.let { "$it-file" },
-    remoteFileType = FormatType.EPUB.name,
+    remoteFileType = format.name,
     title = remoteId ?: id,
-    format = FormatType.EPUB,
+    format = format,
 )
 
 private class ProgressSyncTestGrimmoryCredentialStore(

@@ -30,6 +30,9 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":feature:reader-core"))
     implementation(platform(libs.androidx.compose.bom))
+    implementation("androidx.compose.foundation:foundation")
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
+    implementation(libs.androidx.activity.compose)
 }

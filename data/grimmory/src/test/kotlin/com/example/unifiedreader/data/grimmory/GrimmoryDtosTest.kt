@@ -380,6 +380,30 @@ class GrimmoryDtosTest {
         assertEquals(0.5, item.progress?.percent ?: 0.0, 0.0001)
         assertEquals(false, item.isExplicitUnreadReset)
     }
+
+    @Test
+    fun pdfProgressPullConvertsOneBasedRemotePageToZeroBasedLocalPage() {
+        val item = GrimmoryBookDto(
+            id = 12,
+            libraryId = 4,
+            primaryFile = GrimmoryBookFileDto(
+                bookType = "PDF",
+                extension = "pdf",
+            ),
+            lastReadTime = "2026-04-17T19:25:51Z",
+            pdfProgress = GrimmoryPdfProgressDto(
+                page = 5,
+                percentage = 50f,
+            ),
+        ).toCatalogEntry(
+            baseUrl = "https://grimmory.example",
+        )
+
+        requireNotNull(item)
+        assertEquals(FormatType.PDF, item.item.format)
+        assertEquals(4, item.progress?.page)
+        assertEquals(0.5, item.progress?.percent ?: 0.0, 0.0001)
+    }
 }
 
 private val testJson = Json {
