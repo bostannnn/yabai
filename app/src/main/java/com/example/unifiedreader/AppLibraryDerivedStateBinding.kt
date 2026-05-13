@@ -2,6 +2,7 @@ package com.example.unifiedreader
 
 import com.example.unifiedreader.feature.library.LibraryDerivedState
 import com.example.unifiedreader.feature.library.LibraryDerivedStateInput
+import com.example.unifiedreader.feature.library.LibraryOrderedItemScope
 
 internal fun AppUiState.toLibraryDerivedStateInput(): LibraryDerivedStateInput = LibraryDerivedStateInput(
     selectedSource = selectedSource,
@@ -19,6 +20,14 @@ internal fun AppUiState.toLibraryDerivedStateInput(): LibraryDerivedStateInput =
     downloadingRemoteItemIds = downloadingRemoteItemIds,
     selectedKavitaSeriesKey = selectedKavitaSeriesKey,
     selectedStumpSeriesKey = selectedStumpSeriesKey,
+    orderedItemScope = selectedKavitaReadingListItemIds
+        .takeIf { isKavitaReadingListActive }
+        ?.let { itemIds ->
+            LibraryOrderedItemScope(
+                key = kavitaReadingLists.selectedReadingListId.orEmpty(),
+                itemIds = itemIds,
+            )
+        },
 )
 
 internal fun AppUiState.withLibraryDerivedState(

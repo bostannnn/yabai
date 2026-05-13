@@ -175,11 +175,12 @@ fun UnifiedReaderScaffold(
                         onSetReadStatus = viewModel::onSetReadStatus,
                         onFilterStateChanged = viewModel::onLibraryFiltersChanged,
                         onClearFilters = viewModel::clearLibraryFilters,
+                        onReadingListSelected = viewModel::onKavitaReadingListSelected,
                         onSortModeChanged = viewModel::onLibrarySortModeChanged,
                         onViewModeChanged = onLibraryViewModeChanged,
                         onGridCellSizeDpChanged = viewModel::onLibraryGridCellSizeChanged,
                         onFadeReadItemsChanged = viewModel::onLibraryFadeReadItemsChanged,
-                        showSortControl = !uiState.isSeriesBrowseActive,
+                        showSortControl = !uiState.isSeriesBrowseActive && !uiState.isKavitaReadingListActive,
                         modifier = Modifier.weight(1f),
                     )
 

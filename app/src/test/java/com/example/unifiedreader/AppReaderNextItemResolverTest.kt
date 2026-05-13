@@ -8,9 +8,11 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
+import com.example.unifiedreader.feature.library.LibraryOrderedItemContinuationResolver
 import com.example.unifiedreader.feature.library.LibrarySeriesContinuationResolver
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class AppReaderNextItemResolverTest {
@@ -38,6 +40,7 @@ class AppReaderNextItemResolverTest {
             ),
             readerSessionStore = sessionStore,
             seriesContinuationResolver = LibrarySeriesContinuationResolver(),
+            orderedItemContinuationResolver = LibraryOrderedItemContinuationResolver(),
         )
 
         val nextItem = resolver.nextUnreadAfter(
@@ -46,6 +49,54 @@ class AppReaderNextItemResolverTest {
         )
 
         assertEquals(thirdIssue, nextItem)
+    }
+
+    @Test
+    fun `next item resolution follows active ordered item scope`() {
+        val firstIssue = issue(id = "1", issueNumber = "1")
+        val secondIssue = issue(id = "2", issueNumber = "2")
+        val thirdIssue = issue(id = "3", issueNumber = "3")
+        val resolver = AppReaderNextItemResolver(
+            libraryStateAssembler = AppLibraryStateAssembler(
+                localDocumentRepository = FakeLocalDocumentRepository(),
+                remoteDownloadDataSources = emptyList(),
+            ),
+            readerSessionStore = FakeReaderSessionStore(),
+            seriesContinuationResolver = LibrarySeriesContinuationResolver(),
+            orderedItemContinuationResolver = LibraryOrderedItemContinuationResolver(),
+        )
+
+        val nextItem = resolver.nextUnreadAfter(
+            currentItem = firstIssue,
+            items = listOf(firstIssue, secondIssue, thirdIssue),
+            orderedItemIds = listOf(firstIssue.id, thirdIssue.id, secondIssue.id),
+        )
+
+        assertEquals(thirdIssue, nextItem)
+    }
+
+    @Test
+    fun `next item resolution does not fall back outside active ordered item scope`() {
+        val firstIssue = issue(id = "1", issueNumber = "1")
+        val secondIssue = issue(id = "2", issueNumber = "2")
+        val thirdIssue = issue(id = "3", issueNumber = "3")
+        val resolver = AppReaderNextItemResolver(
+            libraryStateAssembler = AppLibraryStateAssembler(
+                localDocumentRepository = FakeLocalDocumentRepository(),
+                remoteDownloadDataSources = emptyList(),
+            ),
+            readerSessionStore = FakeReaderSessionStore(),
+            seriesContinuationResolver = LibrarySeriesContinuationResolver(),
+            orderedItemContinuationResolver = LibraryOrderedItemContinuationResolver(),
+        )
+
+        val nextItem = resolver.nextUnreadAfter(
+            currentItem = secondIssue,
+            items = listOf(firstIssue, secondIssue, thirdIssue),
+            orderedItemIds = listOf(firstIssue.id, secondIssue.id),
+        )
+
+        assertNull(nextItem)
     }
 }
 

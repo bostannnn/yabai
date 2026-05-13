@@ -6,12 +6,15 @@ import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.ReadingListItemRef
+import com.example.unifiedreader.core.model.ReadingListSummary
 import com.example.unifiedreader.core.model.ReadingProgress
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.readableFormatFromTypeOrExtension
 import com.example.unifiedreader.core.model.toReadableFormatTypeOrNull
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
+import com.example.unifiedreader.core.model.remoteReadingListId
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
@@ -75,6 +78,22 @@ internal data class KavitaGroupedSeriesDto(
     val chapterId: Int? = null,
     val volumeId: Int? = null,
     val count: Int? = null,
+)
+
+@Serializable
+internal data class KavitaReadingListDto(
+    val id: Int? = null,
+    val title: String? = null,
+    val summary: String? = null,
+    val itemCount: Int? = null,
+    val coverImage: String? = null,
+)
+
+@Serializable
+internal data class KavitaReadingListItemDto(
+    val id: Int? = null,
+    val order: Int? = null,
+    val chapterId: Int? = null,
 )
 
 @Serializable
@@ -328,6 +347,38 @@ internal fun KavitaGroupedSeriesDto.toUpdateEntry(): KavitaSeriesUpdateEntry? {
         chapterId = chapterId?.toString(),
         volumeId = volumeId?.toString(),
         count = count?.coerceAtLeast(0),
+    )
+}
+
+internal fun KavitaReadingListDto.toDomain(
+    baseUrl: String,
+    apiKey: String?,
+): ReadingListSummary? {
+    val remoteId = id?.toString() ?: return null
+    return ReadingListSummary(
+        id = SourceType.KAVITA.remoteReadingListId(remoteId),
+        sourceType = SourceType.KAVITA,
+        remoteId = remoteId,
+        title = title?.takeIf(String::isNotBlank) ?: "Reading list $remoteId",
+        summary = summary?.takeIf(String::isNotBlank),
+        itemCount = itemCount?.coerceAtLeast(0) ?: 0,
+        coverUrl = buildKavitaReadingListCoverUrl(
+            baseUrl = baseUrl,
+            readingListId = remoteId,
+            apiKey = apiKey,
+        ),
+    )
+}
+
+internal fun KavitaReadingListItemDto.toDomain(
+    readingListRemoteId: String,
+): ReadingListItemRef? {
+    val remoteChapterId = chapterId?.toString() ?: return null
+    return ReadingListItemRef(
+        readingListId = SourceType.KAVITA.remoteReadingListId(readingListRemoteId),
+        sourceType = SourceType.KAVITA,
+        itemId = SourceType.KAVITA.remoteItemId(remoteChapterId),
+        order = order ?: id ?: 0,
     )
 }
 
@@ -612,6 +663,20 @@ private fun buildKavitaChapterCoverUrl(
     append(baseUrl.trimEnd('/'))
     append("/api/Image/chapter-cover?chapterId=")
     append(chapterId)
+    apiKey?.takeIf(String::isNotBlank)?.let { key ->
+        append("&apiKey=")
+        append(key)
+    }
+}
+
+private fun buildKavitaReadingListCoverUrl(
+    baseUrl: String,
+    readingListId: String,
+    apiKey: String?,
+): String = buildString {
+    append(baseUrl.trimEnd('/'))
+    append("/api/Image/readinglist-cover?readingListId=")
+    append(readingListId)
     apiKey?.takeIf(String::isNotBlank)?.let { key ->
         append("&apiKey=")
         append(key)

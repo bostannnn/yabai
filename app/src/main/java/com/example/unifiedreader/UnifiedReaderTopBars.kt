@@ -212,7 +212,7 @@ private fun LibraryTopBarTitle(
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back to series list",
+                    contentDescription = "Back to source library",
                 )
             }
         }

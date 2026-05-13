@@ -21,6 +21,7 @@ data class LibraryDerivedStateInput(
     val downloadingRemoteItemIds: Set<String> = emptySet(),
     val selectedKavitaSeriesKey: String? = null,
     val selectedStumpSeriesKey: String? = null,
+    val orderedItemScope: LibraryOrderedItemScope? = null,
 )
 
 data class LibraryDerivedState(

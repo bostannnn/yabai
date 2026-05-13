@@ -19,6 +19,7 @@ fun buildVisibleLibraryItems(
     lastReadAtEpochMillisByItemId: Map<String, Long> = emptyMap(),
     readingStatusByItemId: Map<String, LibraryReadingStatus> = emptyMap(),
     forceSeriesIssueOrder: Boolean = false,
+    preserveInputOrder: Boolean = false,
 ): List<ReadableItem> {
     val filteredItems = applyLibraryFilters(
         items = sourceItems,
@@ -34,8 +35,12 @@ fun buildVisibleLibraryItems(
         } else {
             null
         },
+        preserveInputOrder = preserveInputOrder,
     )
     if (searchQuery.isNotBlank()) {
+        return searchedItems
+    }
+    if (preserveInputOrder) {
         return searchedItems
     }
     return if (forceSeriesIssueOrder) {

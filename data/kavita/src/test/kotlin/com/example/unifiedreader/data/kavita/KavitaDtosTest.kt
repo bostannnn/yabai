@@ -4,6 +4,7 @@ import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
+import com.example.unifiedreader.core.model.remoteReadingListId
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -13,6 +14,32 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class KavitaDtosTest {
+    @Test
+    fun `reading list summaries and items map to stable domain ids`() {
+        val summary = KavitaReadingListDto(
+            id = 42,
+            title = "Civil War",
+            summary = "Marvel event",
+            itemCount = 84,
+        ).toDomain(
+            baseUrl = "https://kavita.example",
+            apiKey = "secret",
+        ) ?: error("Expected reading list summary.")
+        val item = KavitaReadingListItemDto(
+            id = 9,
+            order = 3,
+            chapterId = 77,
+        ).toDomain(readingListRemoteId = "42") ?: error("Expected reading list item.")
+
+        assertEquals(SourceType.KAVITA.remoteReadingListId("42"), summary.id)
+        assertEquals("Civil War", summary.title)
+        assertEquals(84, summary.itemCount)
+        assertEquals("https://kavita.example/api/Image/readinglist-cover?readingListId=42&apiKey=secret", summary.coverUrl)
+        assertEquals(summary.id, item.readingListId)
+        assertEquals(SourceType.KAVITA.remoteItemId("77"), item.itemId)
+        assertEquals(3, item.order)
+    }
+
     @Test
     fun `series detail maps archive chapters into Kavita comic items`() {
         val series = KavitaSeriesDto(

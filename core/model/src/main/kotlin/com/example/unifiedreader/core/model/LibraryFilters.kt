@@ -114,13 +114,14 @@ fun applyLibrarySearch(
     items: List<ReadableItem>,
     query: String,
     tieBreaker: Comparator<ReadableItem>? = null,
+    preserveInputOrder: Boolean = false,
 ): List<ReadableItem> {
     val tokens = query.normalizedSearchText()
         .split(Regex("\\s+"))
         .filter(String::isNotBlank)
     if (tokens.isEmpty()) return items
     val phrase = tokens.joinToString(" ")
-    return items
+    val matches = items
         .mapIndexedNotNull { index, item ->
             item.librarySearchRank(tokens, phrase)?.let { rank ->
                 LibrarySearchMatch(
@@ -130,6 +131,10 @@ fun applyLibrarySearch(
                 )
             }
         }
+    if (preserveInputOrder) {
+        return matches.map(LibrarySearchMatch::item)
+    }
+    return matches
         .sortedWith(librarySearchMatchComparator(tieBreaker))
         .map(LibrarySearchMatch::item)
 }

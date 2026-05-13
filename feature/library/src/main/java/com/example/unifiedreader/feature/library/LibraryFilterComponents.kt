@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,8 +23,15 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -85,12 +93,31 @@ internal fun LibraryFilterSummary(
     gridSizeOptions: List<LibraryGridSizeOption>,
     fadeReadItems: Boolean,
     showSortControl: Boolean,
+    lockedSortLabel: String? = null,
+    readingListScopeState: LibraryReadingListScopeState = LibraryReadingListScopeState(),
+    onOpenReadingListScope: () -> Unit = {},
     onOpenFilterPanel: (LibraryFilterPanel) -> Unit,
     onClearFilters: () -> Unit,
     onSortModeChanged: (LibrarySortMode) -> Unit,
     onGridCellSizeDpChanged: (Int) -> Unit,
     onFadeReadItemsChanged: (Boolean) -> Unit,
 ) {
+    var filtersMenuExpanded by rememberSaveable { mutableStateOf(false) }
+    val filterOptions = remember(filterPanels, filterState, filterFacets, libraryTitlesById) {
+        filterPanels.map { panel ->
+            LibraryFilterPanelSummary(
+                panel = panel,
+                selectedCount = panel.selectedCount(filterState),
+                enabled = panel.isEnabled(
+                    filterState = filterState,
+                    filterFacets = filterFacets,
+                    libraryTitlesById = libraryTitlesById,
+                ),
+            )
+        }
+    }
+    val activeFilterOptions = filterOptions.filter { option -> option.selectedCount > 0 }
+    val filtersEnabled = filterOptions.any { option -> option.enabled } || !filterState.isEmpty
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -102,21 +129,78 @@ internal fun LibraryFilterSummary(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            filterPanels.forEach { panel ->
+            if (readingListScopeState.shouldShow) {
+                val selectedOption = readingListScopeState.selectedOption
                 LibraryFacetChip(
-                    label = panel.label,
-                    count = panel.selectedCount(filterState),
-                    enabled = panel.isEnabled(
-                        filterState = filterState,
-                        filterFacets = filterFacets,
-                        libraryTitlesById = libraryTitlesById,
-                    ),
-                    onClick = { onOpenFilterPanel(panel) },
+                    label = selectedOption?.let { option -> "Reading list: ${option.title}" } ?: "Reading list",
+                    count = 0,
+                    selected = selectedOption != null,
+                    showCount = false,
+                    enabled = readingListScopeState.shouldShow,
+                    onClick = onOpenReadingListScope,
                 )
             }
-            if (!filterState.isEmpty) {
-                TextButton(onClick = onClearFilters) {
-                    Text(text = "Clear")
+            activeFilterOptions.forEach { option ->
+                LibraryFacetChip(
+                    label = option.panel.label,
+                    count = option.selectedCount,
+                    enabled = option.enabled,
+                    onClick = { onOpenFilterPanel(option.panel) },
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Box {
+            FilterChip(
+                selected = !filterState.isEmpty,
+                enabled = filtersEnabled,
+                onClick = { filtersMenuExpanded = true },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.FilterList,
+                        contentDescription = null,
+                        modifier = Modifier.size(FilterChipDefaults.IconSize),
+                    )
+                },
+                label = {
+                    Text(
+                        text = "Filters",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                },
+            )
+            DropdownMenu(
+                expanded = filtersMenuExpanded,
+                onDismissRequest = { filtersMenuExpanded = false },
+            ) {
+                if (!filterState.isEmpty) {
+                    DropdownMenuItem(
+                        text = { Text(text = "Clear filters") },
+                        onClick = {
+                            filtersMenuExpanded = false
+                            onClearFilters()
+                        },
+                    )
+                    HorizontalDivider()
+                }
+                filterOptions.forEach { option ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = if (option.selectedCount > 0) {
+                                    "${option.panel.label} (${option.selectedCount})"
+                                } else {
+                                    option.panel.label
+                                },
+                            )
+                        },
+                        enabled = option.enabled,
+                        onClick = {
+                            filtersMenuExpanded = false
+                            onOpenFilterPanel(option.panel)
+                        },
+                    )
                 }
             }
         }
@@ -127,6 +211,7 @@ internal fun LibraryFilterSummary(
             gridSizeOptions = gridSizeOptions,
             fadeReadItems = fadeReadItems,
             showSortOptions = showSortControl,
+            lockedSortLabel = lockedSortLabel,
             onSortModeChanged = onSortModeChanged,
             onGridCellSizeDpChanged = onGridCellSizeDpChanged,
             onFadeReadItemsChanged = onFadeReadItemsChanged,
@@ -134,20 +219,28 @@ internal fun LibraryFilterSummary(
     }
 }
 
+private data class LibraryFilterPanelSummary(
+    val panel: LibraryFilterPanel,
+    val selectedCount: Int,
+    val enabled: Boolean,
+)
+
 @Composable
 private fun LibraryFacetChip(
     label: String,
     count: Int,
     enabled: Boolean,
     onClick: () -> Unit,
+    selected: Boolean = count > 0,
+    showCount: Boolean = true,
 ) {
     FilterChip(
-        selected = count > 0,
+        selected = selected,
         enabled = enabled,
         onClick = onClick,
         label = {
             Text(
-                text = if (count > 0) "$label ($count)" else label,
+                text = if (showCount && count > 0) "$label ($count)" else label,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -315,6 +408,70 @@ internal fun LibraryFilterPanelDialog(
 }
 
 @Composable
+internal fun LibraryReadingListScopeDialog(
+    state: LibraryReadingListScopeState,
+    onReadingListSelected: (String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    if (state.options.isEmpty() && (state.isLoadingOptions || state.errorMessage != null)) {
+        FilterDialogScaffold(
+            title = "Reading lists",
+            hasActiveFilters = state.selectedOptionId != null,
+            onClearFilters = {
+                onReadingListSelected(null)
+                onDismiss()
+            },
+            onDismiss = onDismiss,
+            modifier = Modifier
+                .widthIn(max = 420.dp)
+                .fillMaxWidth(),
+        ) {
+            Text(
+                text = state.errorMessage ?: "Loading reading lists...",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        return
+    }
+    val titleById = remember(state.options) {
+        state.options.associate { option -> option.id to option.readingListLabel() }
+    }
+    SearchableTextFacetDialog(
+        title = "Reading lists",
+        values = state.options.map(LibraryReadingListScopeOption::id),
+        selectedValues = setOfNotNull(state.selectedOptionId),
+        valueLabel = { id -> titleById[id] ?: id },
+        valueKey = { id -> id },
+        supportingMessage = state.errorMessage,
+        onToggleValue = { id ->
+            onReadingListSelected(
+                if (state.selectedOptionId == id) {
+                    null
+                } else {
+                    id
+                },
+            )
+            onDismiss()
+        },
+        hasActiveFilters = state.selectedOptionId != null,
+        onClearFilters = {
+            onReadingListSelected(null)
+            onDismiss()
+        },
+        letterKey = { value -> value },
+        onDismiss = onDismiss,
+    )
+}
+
+private fun LibraryReadingListScopeOption.readingListLabel(): String =
+    if (itemCount > 0) {
+        "$title ($itemCount)"
+    } else {
+        title
+    }
+
+@Composable
 private fun CompactFacetDialog(
     title: String,
     hasActiveFilters: Boolean,
@@ -346,6 +503,8 @@ private fun SearchableTextFacetDialog(
     values: List<String>,
     selectedValues: Set<String>,
     valueLabel: (String) -> String = { it },
+    valueKey: (String) -> String = { value -> valueLabel(value).lowercase() },
+    supportingMessage: String? = null,
     onToggleValue: (String) -> Unit,
     hasActiveFilters: Boolean,
     onClearFilters: () -> Unit,
@@ -354,8 +513,12 @@ private fun SearchableTextFacetDialog(
 ) {
     var query by rememberSaveable(title) { mutableStateOf("") }
     var selectedLetter by rememberSaveable(title) { mutableStateOf<String?>(null) }
-    val displayValues = remember(values, selectedValues, valueLabel) {
-        (values + selectedValues).distinctBy { value -> valueLabel(value).lowercase() }
+    val displayValues = remember(values, selectedValues, valueKey) {
+        searchableFacetDisplayValues(
+            values = values,
+            selectedValues = selectedValues,
+            valueKey = valueKey,
+        )
     }
     val searchedValues = remember(displayValues, query, valueLabel) {
         val normalizedQuery = query.trim()
@@ -389,6 +552,13 @@ private fun SearchableTextFacetDialog(
             .fillMaxWidth(),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            supportingMessage?.takeIf(String::isNotBlank)?.let { message ->
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
             OutlinedTextField(
                 value = query,
                 onValueChange = {
@@ -443,6 +613,12 @@ private fun SearchableTextFacetDialog(
         }
     }
 }
+
+internal fun searchableFacetDisplayValues(
+    values: List<String>,
+    selectedValues: Set<String>,
+    valueKey: (String) -> String,
+): List<String> = (values + selectedValues).distinctBy(valueKey)
 
 @Composable
 private fun FilterDialogScaffold(

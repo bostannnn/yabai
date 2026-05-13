@@ -112,6 +112,90 @@ class LibraryDerivedStateComputerTest {
     }
 
     @Test
+    fun `ordered item scope flattens Kavita issues and preserves scope order`() {
+        val libraryId = SourceType.KAVITA.remoteLibraryId("k-comics")
+        val first = issue(
+            id = "1",
+            sourceType = SourceType.KAVITA,
+            libraryId = libraryId,
+            seriesKey = "akira",
+            title = "Akira 1",
+        )
+        val second = issue(
+            id = "2",
+            sourceType = SourceType.KAVITA,
+            libraryId = libraryId,
+            seriesKey = "akira",
+            title = "Akira 2",
+        )
+
+        val derivedState = computer.compute(
+            LibraryDerivedStateInput(
+                selectedSource = SourceType.KAVITA,
+                libraries = emptyList(),
+                items = listOf(first, second),
+                selectedLibrarySortMode = LibrarySortMode.TITLE,
+                orderedItemScope = LibraryOrderedItemScope(
+                    key = "reading-list",
+                    itemIds = listOf(second.id, first.id),
+                ),
+            ),
+        )
+
+        assertEquals(listOf(second.id, first.id), derivedState.visibleItems.map(ReadableItem::id))
+    }
+
+    @Test
+    fun `ordered item scope applies reading status filters without changing list order`() {
+        val libraryId = SourceType.KAVITA.remoteLibraryId("k-comics")
+        val first = issue(
+            id = "1",
+            sourceType = SourceType.KAVITA,
+            libraryId = libraryId,
+            seriesKey = "akira",
+            title = "Akira 1",
+        )
+        val second = issue(
+            id = "2",
+            sourceType = SourceType.KAVITA,
+            libraryId = libraryId,
+            seriesKey = "akira",
+            title = "Akira 2",
+        )
+        val finished = issue(
+            id = "3",
+            sourceType = SourceType.KAVITA,
+            libraryId = libraryId,
+            seriesKey = "akira",
+            title = "Akira 3",
+        )
+
+        val derivedState = computer.compute(
+            LibraryDerivedStateInput(
+                selectedSource = SourceType.KAVITA,
+                libraries = emptyList(),
+                items = listOf(first, second, finished),
+                selectedLibraryFilters = LibraryFilterState(
+                    readingStatuses = setOf(LibraryReadingStatus.NOT_STARTED),
+                ),
+                progressByItemId = mapOf(
+                    finished.id to ItemProgressSummary(
+                        label = "Finished",
+                        fraction = 1f,
+                        isFinished = true,
+                    ),
+                ),
+                orderedItemScope = LibraryOrderedItemScope(
+                    key = "reading-list",
+                    itemIds = listOf(second.id, finished.id, first.id),
+                ),
+            ),
+        )
+
+        assertEquals(listOf(second.id, first.id), derivedState.visibleItems.map(ReadableItem::id))
+    }
+
+    @Test
     fun `reading status filter treats partially read root series as in progress`() {
         val libraryId = SourceType.KAVITA.remoteLibraryId("k-comics")
         val issueOne = issue(

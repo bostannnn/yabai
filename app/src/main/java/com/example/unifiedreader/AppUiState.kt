@@ -6,6 +6,8 @@ import com.example.unifiedreader.core.model.LibraryFilterFacets
 import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
+import com.example.unifiedreader.core.model.ReadingListItemRef
+import com.example.unifiedreader.core.model.ReadingListSummary
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SourceConnectivityState
@@ -14,6 +16,8 @@ import com.example.unifiedreader.core.model.belongsToStumpSeries
 import com.example.unifiedreader.core.model.resolveLibraryFilterPanels
 import com.example.unifiedreader.feature.library.ItemProgressSummary
 import com.example.unifiedreader.feature.library.LibraryRatingBadgeState
+import com.example.unifiedreader.feature.library.LibraryReadingListScopeOption
+import com.example.unifiedreader.feature.library.LibraryReadingListScopeState
 import com.example.unifiedreader.feature.library.RemoteDownloadActionAvailability
 import com.example.unifiedreader.feature.library.defaultLibraryGridCellSizeDp
 import com.example.unifiedreader.feature.library.shelves.LibraryShelvesState
@@ -49,6 +53,16 @@ data class AppReaderCompletionState(
     val nextItemId: String?,
 )
 
+data class AppKavitaReadingListState(
+    val summaries: List<ReadingListSummary> = emptyList(),
+    val itemsByReadingListId: Map<String, List<ReadingListItemRef>> = emptyMap(),
+    val selectedReadingListId: String? = null,
+    val loadingSelectedReadingListId: String? = null,
+    val isLoadingSummaries: Boolean = false,
+    val isLoadingSelectedItems: Boolean = false,
+    val errorMessage: String? = null,
+)
+
 data class AppUiState(
     val topLevel: TopLevelDestination = TopLevelDestination.Library,
     val sourceOrder: List<SourceType> = SourceType.entries.toList(),
@@ -78,6 +92,7 @@ data class AppUiState(
     val grimmoryConnection: GrimmoryConnectionUiState = GrimmoryConnectionUiState(),
     val selectedKavitaSeriesKey: String? = null,
     val selectedStumpSeriesKey: String? = null,
+    val kavitaReadingLists: AppKavitaReadingListState = AppKavitaReadingListState(),
     val sourceItems: List<ReadableItem> = emptyList(),
     val selectedLibraryFilterFacets: LibraryFilterFacets = LibraryFilterFacets(),
     val selectedSourceLibraryTitlesById: Map<String, String> = emptyMap(),
@@ -140,11 +155,26 @@ data class AppUiState(
 
     val selectedSeriesTitle: String?
         get() = when (selectedSource) {
-            SourceType.KAVITA -> selectedKavitaSeriesTitle
+            SourceType.KAVITA -> selectedKavitaSeriesTitle ?: selectedKavitaReadingListTitle
             SourceType.STUMP -> selectedStumpSeriesTitle
             SourceType.GRIMMORY,
             SourceType.LOCAL -> null
         }
+
+    val selectedKavitaReadingListTitle: String?
+        get() = kavitaReadingLists.selectedReadingListId?.let { readingListId ->
+            kavitaReadingLists.summaries.firstOrNull { summary -> summary.id == readingListId }?.title
+        }
+
+    val isKavitaReadingListActive: Boolean
+        get() = selectedSource == SourceType.KAVITA && kavitaReadingLists.selectedReadingListId != null
+
+    val selectedKavitaReadingListItemIds: List<String>
+        get() = kavitaReadingLists.selectedReadingListId
+            ?.let { readingListId -> kavitaReadingLists.itemsByReadingListId[readingListId] }
+            .orEmpty()
+            .sortedBy(ReadingListItemRef::order)
+            .map(ReadingListItemRef::itemId)
 
     val shouldShowLibraryShelves: Boolean
         get() = shouldReserveLibraryShelvesSlot &&
@@ -152,8 +182,23 @@ data class AppUiState(
 
     val shouldReserveLibraryShelvesSlot: Boolean
         get() = selectedLibrarySearchQuery.isBlank() &&
-            !isSeriesBrowseActive
+            !isSeriesBrowseActive &&
+            !isKavitaReadingListActive
 
     val selectedSourceConnectivity: SourceConnectivityState
         get() = sourceConnectivityBySource[selectedSource] ?: SourceConnectivityState.Unknown
 }
+
+fun AppUiState.kavitaReadingListScopeState(): LibraryReadingListScopeState = LibraryReadingListScopeState(
+    options = kavitaReadingLists.summaries.map { summary ->
+        LibraryReadingListScopeOption(
+            id = summary.id,
+            title = summary.title,
+            itemCount = summary.itemCount,
+        )
+    },
+    selectedOptionId = kavitaReadingLists.selectedReadingListId,
+    isLoadingOptions = kavitaReadingLists.isLoadingSummaries,
+    isLoadingSelectedItems = kavitaReadingLists.isLoadingSelectedItems,
+    errorMessage = kavitaReadingLists.errorMessage,
+)

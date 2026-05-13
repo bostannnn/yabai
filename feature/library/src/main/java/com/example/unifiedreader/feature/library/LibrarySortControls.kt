@@ -3,12 +3,17 @@ package com.example.unifiedreader.feature.library
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -32,6 +37,7 @@ internal fun LibraryBrowseOptionsSelector(
     gridSizeOptions: List<LibraryGridSizeOption>,
     fadeReadItems: Boolean,
     showSortOptions: Boolean,
+    lockedSortLabel: String? = null,
     onSortModeChanged: (LibrarySortMode) -> Unit,
     onGridCellSizeDpChanged: (Int) -> Unit,
     onFadeReadItemsChanged: (Boolean) -> Unit,
@@ -42,14 +48,24 @@ internal fun LibraryBrowseOptionsSelector(
         FilterChip(
             selected = sanitizedGridCellSizeDp != defaultLibraryGridCellSizeDp ||
                 fadeReadItems ||
-                (showSortOptions && sortMode != defaultLibrarySortMode),
+                (showSortOptions && sortMode != defaultLibrarySortMode) ||
+                lockedSortLabel != null,
             onClick = { expanded = true },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Default.Tune,
+                    contentDescription = null,
+                    modifier = Modifier.size(FilterChipDefaults.IconSize),
+                )
+            },
             label = {
                 Text(
-                    text = if (showSortOptions) {
-                        "Browse: ${sortMode.label} · ${sanitizedGridCellSizeDp}dp"
+                    text = if (lockedSortLabel != null) {
+                        "Order"
+                    } else if (showSortOptions) {
+                        sortMode.label
                     } else {
-                        "Grid: ${sanitizedGridCellSizeDp}dp"
+                        "View"
                     },
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -60,7 +76,15 @@ internal fun LibraryBrowseOptionsSelector(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
-            if (showSortOptions) {
+            if (lockedSortLabel != null) {
+                DropdownSectionHeader(text = "Order")
+                DropdownMenuItem(
+                    text = { Text(text = lockedSortLabel) },
+                    enabled = false,
+                    onClick = {},
+                )
+                HorizontalDivider()
+            } else if (showSortOptions) {
                 DropdownSectionHeader(text = "Sort")
                 LibrarySortMode.entries.forEach { mode ->
                     DropdownMenuItem(

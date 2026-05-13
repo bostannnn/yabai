@@ -45,6 +45,7 @@ class AppViewModel @Inject constructor(
     private val comicReaderModeController: AppComicReaderModeController,
     private val readerCoordinator: AppReaderCoordinator,
     private val remoteSourcesCoordinator: AppRemoteSourcesCoordinator,
+    private val kavitaReadingListController: AppKavitaReadingListController,
     private val remoteSourceConnectivityStartupCoordinator: RemoteSourceConnectivityStartupCoordinator,
     private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
     private val progressSyncNoticeController: AppProgressSyncNoticeController,
@@ -141,6 +142,16 @@ class AppViewModel @Inject constructor(
             updateState = ::updateUiState,
             scope = viewModelScope,
         )
+    }
+
+    fun onKavitaReadingListSelected(readingListId: String?) {
+        kavitaReadingListController.onReadingListSelected(
+            readingListId = readingListId,
+            currentState = uiState,
+            updateState = ::updateUiState,
+            scope = viewModelScope,
+        )
+        readerCoordinator.clearLibraryScrollPosition(uiState.libraryBrowseContextKey)
     }
 
     fun onLibrarySortModeChanged(sortMode: LibrarySortMode) {
@@ -743,6 +754,10 @@ class AppViewModel @Inject constructor(
         remoteSourcesCoordinator.observeStoredSessions(
             scope = viewModelScope,
             stateProvider = { uiState },
+            updateState = ::updateUiState,
+        )
+        kavitaReadingListController.observeStoredSession(
+            scope = viewModelScope,
             updateState = ::updateUiState,
         )
         viewModelScope.launch {

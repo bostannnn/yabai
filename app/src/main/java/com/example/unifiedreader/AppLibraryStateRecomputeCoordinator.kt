@@ -260,6 +260,8 @@ private data class AppLibraryDerivedStateSignature(
     val downloadingRemoteItemIds: IdentityBox<Set<*>>,
     val selectedKavitaSeriesKey: String?,
     val selectedStumpSeriesKey: String?,
+    val selectedKavitaReadingListId: String?,
+    val selectedKavitaReadingListItemIds: List<String>,
 )
 
 private data class AppLibraryShelvesStateSignature(
@@ -282,6 +284,8 @@ private fun AppUiState.libraryDerivedStateSignature(): AppLibraryDerivedStateSig
     downloadingRemoteItemIds = IdentityBox(downloadingRemoteItemIds),
     selectedKavitaSeriesKey = selectedKavitaSeriesKey,
     selectedStumpSeriesKey = selectedStumpSeriesKey,
+    selectedKavitaReadingListId = kavitaReadingLists.selectedReadingListId,
+    selectedKavitaReadingListItemIds = selectedKavitaReadingListItemIds,
 )
 
 private fun AppUiState.libraryShelvesStateSignature(): AppLibraryShelvesStateSignature = AppLibraryShelvesStateSignature(

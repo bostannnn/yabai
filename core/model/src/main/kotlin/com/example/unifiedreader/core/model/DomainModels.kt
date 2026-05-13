@@ -40,6 +40,23 @@ data class Library(
     val contentType: LibraryContentType = LibraryContentType.UNKNOWN,
 )
 
+data class ReadingListSummary(
+    val id: String,
+    val sourceType: SourceType,
+    val remoteId: String,
+    val title: String,
+    val summary: String? = null,
+    val itemCount: Int = 0,
+    val coverUrl: String? = null,
+)
+
+data class ReadingListItemRef(
+    val readingListId: String,
+    val sourceType: SourceType,
+    val itemId: String,
+    val order: Int,
+)
+
 enum class LibraryContentType {
     BOOKS,
     COMICS,
@@ -112,6 +129,10 @@ fun SourceType.remoteLibraryId(
 fun SourceType.remoteItemId(
     remoteId: String,
 ): String = "${name.lowercase()}:item:$remoteId"
+
+fun SourceType.remoteReadingListId(
+    remoteId: String,
+): String = "${name.lowercase()}:reading-list:$remoteId"
 
 fun kavitaSeriesContainerId(
     seriesKey: String,

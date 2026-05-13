@@ -57,6 +57,12 @@ class AppReaderCoordinator @Inject constructor(
                 selectedReaderItem = null,
                 selectedKavitaSeriesKey = null,
                 selectedStumpSeriesKey = null,
+                kavitaReadingLists = state.kavitaReadingLists.copy(
+                    selectedReadingListId = null,
+                    loadingSelectedReadingListId = null,
+                    isLoadingSelectedItems = false,
+                    errorMessage = null,
+                ),
             )
         }
     }
@@ -77,6 +83,12 @@ class AppReaderCoordinator @Inject constructor(
                 state.copy(
                     selectedKavitaSeriesKey = item.remoteId,
                     selectedStumpSeriesKey = null,
+                    kavitaReadingLists = state.kavitaReadingLists.copy(
+                        selectedReadingListId = null,
+                        loadingSelectedReadingListId = null,
+                        isLoadingSelectedItems = false,
+                        errorMessage = null,
+                    ),
                     selectedItemId = null,
                     activeReader = null,
                     selectedReaderOpenMode = ReaderOpenMode.Default,
@@ -92,6 +104,12 @@ class AppReaderCoordinator @Inject constructor(
                 state.copy(
                     selectedStumpSeriesKey = item.remoteId,
                     selectedKavitaSeriesKey = null,
+                    kavitaReadingLists = state.kavitaReadingLists.copy(
+                        selectedReadingListId = null,
+                        loadingSelectedReadingListId = null,
+                        isLoadingSelectedItems = false,
+                        errorMessage = null,
+                    ),
                     selectedItemId = null,
                     activeReader = null,
                     selectedReaderOpenMode = ReaderOpenMode.Default,
@@ -333,6 +351,14 @@ class AppReaderCoordinator @Inject constructor(
                 it.selectedStumpSeriesKey != null -> it.copy(
                     selectedStumpSeriesKey = null,
                 )
+                it.kavitaReadingLists.selectedReadingListId != null -> it.copy(
+                    kavitaReadingLists = it.kavitaReadingLists.copy(
+                        selectedReadingListId = null,
+                        loadingSelectedReadingListId = null,
+                        isLoadingSelectedItems = false,
+                        errorMessage = null,
+                    ),
+                )
                 it.selectedItemId != null -> it.copy(selectedItemId = null)
                 else -> it
             }
@@ -361,6 +387,7 @@ class AppReaderCoordinator @Inject constructor(
         val nextItem = nextItemResolver.nextUnreadAfter(
             currentItem = currentItem,
             items = state.items,
+            orderedItemIds = state.selectedKavitaReadingListItemIds,
         ) ?: return
         onItemSelected(
             item = nextItem,
@@ -384,6 +411,7 @@ class AppReaderCoordinator @Inject constructor(
         val nextItem = nextItemResolver.nextUnreadAfter(
             currentItem = currentItem,
             items = state.items,
+            orderedItemIds = state.selectedKavitaReadingListItemIds,
         )
         updateState {
             it.copy(

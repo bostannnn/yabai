@@ -62,6 +62,8 @@ fun LibraryScreen(
     sortMode: LibrarySortMode = defaultLibrarySortMode,
     gridCellSizeDp: Int = defaultLibraryGridCellSizeDp,
     showSortControl: Boolean = true,
+    lockedSortLabel: String? = null,
+    readingListScopeState: LibraryReadingListScopeState = LibraryReadingListScopeState(),
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String? = { item, _ -> item.coverUrl },
     coverPrefetchKeyProvider: (ReadableItem, LibraryCoverImageVariant) -> String? = coverImageUrlProvider,
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit = { _, _ -> },
@@ -69,6 +71,7 @@ fun LibraryScreen(
     topContent: (@Composable () -> Unit)? = null,
     onFilterStateChanged: (LibraryFilterState) -> Unit = {},
     onClearFilters: () -> Unit = {},
+    onReadingListSelected: (String?) -> Unit = {},
     onSortModeChanged: (LibrarySortMode) -> Unit = {},
     onViewModeChanged: (LibraryViewMode) -> Unit = {},
     onGridCellSizeDpChanged: (Int) -> Unit = {},
@@ -103,6 +106,7 @@ fun LibraryScreen(
     var deleteCandidate by remember { mutableStateOf<ReadableItem?>(null) }
     var gridExpandedMenuItemId by remember { mutableStateOf<String?>(null) }
     var openFilterPanel by rememberSaveable { mutableStateOf<LibraryFilterPanel?>(null) }
+    var isReadingListDialogOpen by rememberSaveable { mutableStateOf(false) }
     var selectedSortLetter by rememberSaveable(sortMode) { mutableStateOf<String?>(null) }
     var handledScrollToTopRequest by remember { mutableStateOf(scrollToTopRequest) }
     val alphabetRailVisible = showSortControl && sortMode.usesAlphabetRail && items.isNotEmpty()
@@ -241,6 +245,9 @@ fun LibraryScreen(
                     gridSizeOptions = gridPresentation.availableGridSizes,
                     fadeReadItems = fadeReadItems,
                     showSortControl = showSortControl,
+                    lockedSortLabel = lockedSortLabel,
+                    readingListScopeState = readingListScopeState,
+                    onOpenReadingListScope = { isReadingListDialogOpen = true },
                     onOpenFilterPanel = { openFilterPanel = it },
                     onClearFilters = onClearFilters,
                     onSortModeChanged = {
@@ -351,6 +358,13 @@ fun LibraryScreen(
             libraryTitlesById = libraryTitlesById,
             onFilterStateChanged = onFilterStateChanged,
             onDismiss = { openFilterPanel = null },
+        )
+    }
+    if (isReadingListDialogOpen) {
+        LibraryReadingListScopeDialog(
+            state = readingListScopeState,
+            onReadingListSelected = onReadingListSelected,
+            onDismiss = { isReadingListDialogOpen = false },
         )
     }
 }

@@ -120,7 +120,8 @@ fun UnifiedReaderAppContent(
         BackHandler(
             enabled = isReaderMode ||
                 uiState.selectedKavitaSeriesKey != null ||
-                uiState.selectedStumpSeriesKey != null,
+                uiState.selectedStumpSeriesKey != null ||
+                uiState.isKavitaReadingListActive,
             onBack = viewModel::onBackPressed,
         )
         Surface(

@@ -12,6 +12,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
+import com.example.unifiedreader.feature.library.LibraryReadingListScopeState
 import com.example.unifiedreader.feature.library.LibraryScreen
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
 import com.example.unifiedreader.feature.library.LibraryViewMode
@@ -43,6 +44,7 @@ internal fun LibraryRoute(
     onSetReadStatus: (ReadableItem, Boolean) -> Unit,
     onFilterStateChanged: (LibraryFilterState) -> Unit,
     onClearFilters: () -> Unit,
+    onReadingListSelected: (String?) -> Unit,
     onSortModeChanged: (LibrarySortMode) -> Unit,
     onViewModeChanged: (LibraryViewMode) -> Unit,
     onGridCellSizeDpChanged: (Int) -> Unit,
@@ -83,7 +85,8 @@ internal fun LibraryRoute(
             downloadableItemIds = uiState.remoteDownloadActionAvailability.downloadableItemIds,
             deletableDownloadedItemIds = uiState.remoteDownloadActionAvailability.deletableDownloadedItemIds,
             downloadingItemIds = uiState.remoteDownloadActionAvailability.activeDownloadingItemIds,
-            isLoadingSource = !uiState.isSelectedSourceHydrated,
+            isLoadingSource = !uiState.isSelectedSourceHydrated ||
+                (uiState.selectedSource == SourceType.KAVITA && uiState.kavitaReadingLists.isLoadingSelectedItems),
             filterState = uiState.selectedLibraryFilters,
             filterPanels = uiState.selectedLibraryFilterPanels,
             filterFacets = uiState.selectedLibraryFilterFacets,
@@ -92,6 +95,12 @@ internal fun LibraryRoute(
             sortMode = uiState.selectedLibrarySortMode,
             gridCellSizeDp = uiState.libraryGridCellSizeDp,
             showSortControl = showSortControl,
+            lockedSortLabel = "List order".takeIf { uiState.isKavitaReadingListActive },
+            readingListScopeState = if (uiState.selectedSource == SourceType.KAVITA) {
+                uiState.kavitaReadingListScopeState()
+            } else {
+                LibraryReadingListScopeState()
+            },
             coverImageUrlProvider = coverImageUrlProvider,
             coverPrefetchKeyProvider = coverPrefetchKeyProvider,
             onCoverVisible = onCoverVisible,
@@ -115,6 +124,7 @@ internal fun LibraryRoute(
             },
             onFilterStateChanged = onFilterStateChanged,
             onClearFilters = onClearFilters,
+            onReadingListSelected = onReadingListSelected,
             onSortModeChanged = onSortModeChanged,
             onViewModeChanged = onViewModeChanged,
             onGridCellSizeDpChanged = onGridCellSizeDpChanged,

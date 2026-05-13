@@ -33,6 +33,7 @@ class LibraryDerivedStateComputer @Inject constructor() {
             selectedSource = input.selectedSource,
             selectedKavitaSeriesKey = input.selectedKavitaSeriesKey,
             selectedStumpSeriesKey = input.selectedStumpSeriesKey,
+            orderedItemScope = input.orderedItemScope,
             selectedLibraryFilters = input.selectedLibraryFilters,
             selectedLibrarySearchQuery = input.selectedLibrarySearchQuery,
             selectedLibrarySortMode = input.selectedLibrarySortMode,
@@ -44,11 +45,7 @@ class LibraryDerivedStateComputer @Inject constructor() {
         )
         derivedStateCache[cacheKey]?.let { return it }
 
-        val sourceItems = sourceIndex.sourceItems(
-            selectedSource = input.selectedSource,
-            selectedKavitaSeriesKey = input.selectedKavitaSeriesKey,
-            selectedStumpSeriesKey = input.selectedStumpSeriesKey,
-        )
+        val sourceItems = sourceIndex.sourceItems(input)
         val displayProgressByItemId = buildDisplayProgressByItemId(
             input = input,
             sourceIndex = sourceIndex,
@@ -90,6 +87,7 @@ class LibraryDerivedStateComputer @Inject constructor() {
             lastReadAtEpochMillisByItemId = lastReadAtEpochMillisByItemId,
             readingStatusByItemId = readingStatusByItemId,
             forceSeriesIssueOrder = input.isSeriesBrowseActive,
+            preserveInputOrder = input.orderedItemScope != null,
         )
         return LibraryDerivedState(
             sourceItems = sourceItems,
@@ -114,11 +112,7 @@ class LibraryDerivedStateComputer @Inject constructor() {
         input: LibraryDerivedStateInput,
     ): LibraryDerivedState {
         val sourceIndex = sourceIndexFor(input)
-        val sourceItems = sourceIndex.sourceItems(
-            selectedSource = input.selectedSource,
-            selectedKavitaSeriesKey = input.selectedKavitaSeriesKey,
-            selectedStumpSeriesKey = input.selectedStumpSeriesKey,
-        )
+        val sourceItems = sourceIndex.sourceItems(input)
         val displayProgressByItemId = buildDisplayProgressByItemId(
             input = input,
             sourceIndex = sourceIndex,
@@ -158,6 +152,7 @@ class LibraryDerivedStateComputer @Inject constructor() {
                 ),
                 readingStatusByItemId = readingStatusByItemId,
                 forceSeriesIssueOrder = input.isSeriesBrowseActive,
+                preserveInputOrder = input.orderedItemScope != null,
             ),
             libraryBrowseContextKey = buildLibraryBrowseContextKey(input),
         )
@@ -219,6 +214,22 @@ class LibraryDerivedStateComputer @Inject constructor() {
             addAll(sourceIndex.trackedRemoteDownloadItemIds(downloadingItem))
         }
     }
+}
+
+private fun LibrarySourceIndex.sourceItems(
+    input: LibraryDerivedStateInput,
+): List<ReadableItem> {
+    input.orderedItemScope?.let { scope ->
+        return scope.itemIds
+            .mapNotNull(::itemById)
+            .filter { item -> item.sourceType == input.selectedSource }
+            .distinctBy(ReadableItem::id)
+    }
+    return sourceItems(
+        selectedSource = input.selectedSource,
+        selectedKavitaSeriesKey = input.selectedKavitaSeriesKey,
+        selectedStumpSeriesKey = input.selectedStumpSeriesKey,
+    )
 }
 
 private fun buildDisplayRatingByItemId(
@@ -341,6 +352,8 @@ private fun buildLibraryBrowseContextKey(
 ): String = when (input.selectedSource) {
     SourceType.KAVITA -> input.selectedKavitaSeriesKey?.let { seriesKey ->
         "kavita:series:${seriesKey.keyComponent()}:${libraryBrowseStateKeySuffix(input)}"
+    } ?: input.orderedItemScope?.let { scope ->
+        "kavita:ordered:${scope.key.keyComponent()}:${libraryBrowseStateKeySuffix(input)}"
     } ?: "kavita:root:${libraryBrowseStateKeySuffix(input)}"
 
     SourceType.STUMP -> input.selectedStumpSeriesKey?.let { seriesKey ->
@@ -451,6 +464,7 @@ private data class LibraryDerivedStateCacheKey(
     val selectedSource: SourceType,
     val selectedKavitaSeriesKey: String?,
     val selectedStumpSeriesKey: String?,
+    val orderedItemScope: LibraryOrderedItemScope?,
     val selectedLibraryFilters: LibraryFilterState,
     val selectedLibrarySearchQuery: String,
     val selectedLibrarySortMode: com.example.unifiedreader.core.model.LibrarySortMode,
@@ -465,6 +479,7 @@ private data class LibraryDerivedStateCacheKey(
         selectedSource: SourceType,
         selectedKavitaSeriesKey: String?,
         selectedStumpSeriesKey: String?,
+        orderedItemScope: LibraryOrderedItemScope?,
         selectedLibraryFilters: LibraryFilterState,
         selectedLibrarySearchQuery: String,
         selectedLibrarySortMode: com.example.unifiedreader.core.model.LibrarySortMode,
@@ -478,6 +493,7 @@ private data class LibraryDerivedStateCacheKey(
         selectedSource = selectedSource,
         selectedKavitaSeriesKey = selectedKavitaSeriesKey,
         selectedStumpSeriesKey = selectedStumpSeriesKey,
+        orderedItemScope = orderedItemScope,
         selectedLibraryFilters = selectedLibraryFilters,
         selectedLibrarySearchQuery = selectedLibrarySearchQuery,
         selectedLibrarySortMode = selectedLibrarySortMode,
