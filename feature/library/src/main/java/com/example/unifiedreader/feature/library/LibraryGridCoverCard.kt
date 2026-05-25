@@ -25,6 +25,7 @@ internal fun GridCoverCard(
     isSelected: Boolean = false,
     onClick: () -> Unit,
     onSelectionToggle: () -> Unit = {},
+    onSelectionStart: (() -> Unit)? = null,
     menuContent: (@Composable () -> Unit)? = null,
 ) {
     val progressLabel = progress
@@ -40,6 +41,7 @@ internal fun GridCoverCard(
         isRead = progress?.isComplete == true,
         fadeRead = fadeRead,
         onClick = if (isSelectionMode) onSelectionToggle else onClick,
+        onLongClick = onSelectionStart.takeUnless { isSelectionMode },
         modifier = Modifier
             .fillMaxWidth()
             .testTag("library-grid-card-${item.id}"),

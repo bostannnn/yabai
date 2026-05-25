@@ -80,6 +80,11 @@ fun LibraryScreen(
     initialScrollPosition: LibraryScrollPosition = LibraryScrollPosition(),
     scrollToTopRequest: Long = 0L,
     onScrollPositionChanged: (LibraryScrollPosition) -> Unit = {},
+    isDownloadSelectionMode: Boolean = false,
+    selectedDownloadItemIds: List<String> = emptyList(),
+    onDownloadSelectionModeChanged: (Boolean) -> Unit = {},
+    onSelectedDownloadItemIdsChanged: (List<String>) -> Unit = {},
+    onSelectableDownloadItemIdsChanged: (Set<String>) -> Unit = {},
     onItemSelected: (ReadableItem) -> Unit,
     seriesReadingDirectionFor: (ReadableItem) -> ComicReadingDirection? = { null },
     onSeriesDirectionSelected: (ReadableItem, ComicReadingDirection) -> Unit = { _, _ -> },
@@ -87,7 +92,6 @@ fun LibraryScreen(
     onSeriesReaderModeSelected: (ReadableItem, ComicReaderMode) -> Unit = { _, _ -> },
     onDeleteImportedItem: (ReadableItem) -> Unit = {},
     onDownloadItem: (ReadableItem) -> Unit = {},
-    onDownloadItems: (List<ReadableItem>) -> Unit = {},
     onDeleteDownloadedItem: (ReadableItem) -> Unit = {},
     onSetReadStatus: (ReadableItem, Boolean) -> Unit = { _, _ -> },
 ) {
@@ -111,10 +115,6 @@ fun LibraryScreen(
     var isReadingListDialogOpen by rememberSaveable { mutableStateOf(false) }
     var selectedSortLetter by rememberSaveable(sortMode) { mutableStateOf<String?>(null) }
     var handledScrollToTopRequest by remember { mutableStateOf(scrollToTopRequest) }
-    var isSelectionMode by rememberSaveable(browseContextKey) { mutableStateOf(false) }
-    var selectedDownloadItemIds by rememberSaveable(browseContextKey) {
-        mutableStateOf(emptyList<String>())
-    }
     val alphabetRailVisible = showSortControl && sortMode.usesAlphabetRail && items.isNotEmpty()
     val sortLetters = remember(items, sortMode) {
         if (!sortMode.usesAlphabetRail) {
@@ -141,7 +141,6 @@ fun LibraryScreen(
     val selectedDownloadItemIdSet = selectedDownloadItemIds
         .filter { itemId -> itemId in selectableDownloadItemIds }
         .toSet()
-    val selectionToolbarVisible = selectableDownloadItemIds.isNotEmpty() || isSelectionMode
     val gridState = remember(browseContextKey) {
         LazyGridState(
             firstVisibleItemIndex = initialScrollPosition.index,
@@ -155,8 +154,7 @@ fun LibraryScreen(
         null
     }
     val leadingContentItemCount = 1 +
-        (if (topContent != null) 1 else 0) +
-        (if (selectionToolbarVisible) 1 else 0)
+        (if (topContent != null) 1 else 0)
     var previousDateAddedTopItemId by remember(browseContextKey) {
         mutableStateOf(dateAddedTopItemId)
     }
@@ -202,36 +200,38 @@ fun LibraryScreen(
             onCoverViewportScrollingChanged(false)
         }
     }
-    LaunchedEffect(selectableDownloadItemIds, selectedDownloadItemIds, isSelectionMode) {
+    LaunchedEffect(browseContextKey, selectableDownloadItemIds) {
+        onSelectableDownloadItemIdsChanged(selectableDownloadItemIds)
+    }
+    LaunchedEffect(browseContextKey, selectableDownloadItemIds, selectedDownloadItemIds, isDownloadSelectionMode) {
         val sanitizedSelection = selectedDownloadItemIds.filter { itemId -> itemId in selectableDownloadItemIds }
         if (sanitizedSelection != selectedDownloadItemIds) {
-            selectedDownloadItemIds = sanitizedSelection
+            onSelectedDownloadItemIdsChanged(sanitizedSelection)
         }
-        if (selectableDownloadItemIds.isEmpty() && isSelectionMode) {
-            isSelectionMode = false
-        }
-    }
-
-    fun updateSelectionMode(enabled: Boolean) {
-        isSelectionMode = enabled
-        if (!enabled) {
-            selectedDownloadItemIds = emptyList()
+        if (selectableDownloadItemIds.isEmpty() && isDownloadSelectionMode) {
+            onDownloadSelectionModeChanged(false)
         }
     }
 
     fun toggleDownloadSelection(item: ReadableItem) {
         if (item.id !in selectableDownloadItemIds) return
-        selectedDownloadItemIds = selectedDownloadItemIdSet
-            .toggle(item.id)
-            .let { selectedIds -> visibleItems.map(ReadableItem::id).filter { it in selectedIds } }
+        onSelectedDownloadItemIdsChanged(
+            selectedDownloadItemIdSet
+                .toggle(item.id)
+                .let { selectedIds -> visibleItems.map(ReadableItem::id).filter { it in selectedIds } },
+        )
     }
 
-    fun downloadSelectedItems() {
-        val selectedItems = visibleItems.filter { item -> item.id in selectedDownloadItemIdSet }
-        if (selectedItems.isEmpty()) return
-        onDownloadItems(selectedItems)
-        selectedDownloadItemIds = emptyList()
-        isSelectionMode = false
+    fun startDownloadSelection(item: ReadableItem) {
+        if (item.id !in selectableDownloadItemIds) return
+        onDownloadSelectionModeChanged(true)
+        if (item.id !in selectedDownloadItemIdSet) {
+            onSelectedDownloadItemIdsChanged(
+                visibleItems
+                    .map(ReadableItem::id)
+                    .filter { itemId -> itemId == item.id || itemId in selectedDownloadItemIdSet },
+            )
+        }
     }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
@@ -317,28 +317,6 @@ fun LibraryScreen(
                 )
             }
 
-            if (selectionToolbarVisible) {
-                item(
-                    key = "selection-toolbar",
-                    contentType = LibraryScreenContentTypes.SelectionToolbar,
-                    span = { GridItemSpan(maxLineSpan) },
-                ) {
-                    LibrarySelectionToolbar(
-                        isSelectionMode = isSelectionMode,
-                        selectedCount = selectedDownloadItemIdSet.size,
-                        selectableCount = selectableDownloadItemIds.size,
-                        onSelectionModeChanged = ::updateSelectionMode,
-                        onSelectAll = {
-                            selectedDownloadItemIds = visibleItems
-                                .map(ReadableItem::id)
-                                .filter { itemId -> itemId in selectableDownloadItemIds }
-                        },
-                        onClearSelection = { selectedDownloadItemIds = emptyList() },
-                        onDownloadSelected = ::downloadSelectedItems,
-                    )
-                }
-            }
-
             if (visibleItems.isEmpty()) {
                 item(
                     key = "empty-state",
@@ -381,10 +359,15 @@ fun LibraryScreen(
                         } else {
                             itemPrimaryText(item)
                         },
-                        isSelectionMode = isSelectionMode,
+                        isSelectionMode = isDownloadSelectionMode,
                         isSelected = item.id in selectedDownloadItemIdSet,
                         onClick = { onItemSelected(item) },
                         onSelectionToggle = { toggleDownloadSelection(item) },
+                        onSelectionStart = if (item.id in selectableDownloadItemIds) {
+                            { startDownloadSelection(item) }
+                        } else {
+                            null
+                        },
                         menuContent = if (hasMenuContent) {
                             {
                                 LibraryAnchoredItemMenu(

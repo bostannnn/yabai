@@ -9,9 +9,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.SourceType
@@ -41,6 +46,56 @@ fun UnifiedReaderScaffold(
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val drawerScope = rememberCoroutineScope()
+    var isLibraryDownloadSelectionMode by rememberSaveable(uiState.libraryBrowseContextKey) {
+        mutableStateOf(false)
+    }
+    var selectedDownloadItemIds by rememberSaveable(uiState.libraryBrowseContextKey) {
+        mutableStateOf<List<String>>(emptyList())
+    }
+    var selectableDownloadItemIds by remember(uiState.libraryBrowseContextKey) {
+        mutableStateOf<Set<String>>(emptySet())
+    }
+    val selectedDownloadItemIdSet = selectedDownloadItemIds
+        .filter { itemId -> itemId in selectableDownloadItemIds }
+        .toSet()
+
+    LaunchedEffect(
+        selectableDownloadItemIds,
+        selectedDownloadItemIds,
+        isLibraryDownloadSelectionMode,
+    ) {
+        val sanitizedSelection = selectedDownloadItemIds
+            .filter { itemId -> itemId in selectableDownloadItemIds }
+        if (sanitizedSelection != selectedDownloadItemIds) {
+            selectedDownloadItemIds = sanitizedSelection
+        }
+        if (selectableDownloadItemIds.isEmpty() && isLibraryDownloadSelectionMode) {
+            isLibraryDownloadSelectionMode = false
+            selectedDownloadItemIds = emptyList()
+        }
+    }
+
+    fun updateLibraryDownloadSelectionMode(enabled: Boolean) {
+        isLibraryDownloadSelectionMode = enabled
+        if (!enabled) {
+            selectedDownloadItemIds = emptyList()
+        }
+    }
+
+    fun selectAllLibraryDownloadItems() {
+        selectedDownloadItemIds = uiState.visibleItems
+            .map { item -> item.id }
+            .filter { itemId -> itemId in selectableDownloadItemIds }
+    }
+
+    fun downloadSelectedLibraryItems() {
+        val selectedItems = uiState.visibleItems
+            .filter { item -> item.id in selectedDownloadItemIdSet }
+        if (selectedItems.isEmpty()) return
+        viewModel.onDownloadRemoteItems(selectedItems)
+        updateLibraryDownloadSelectionMode(false)
+    }
+
     val kavitaReadingDirectionLibraries = remember(
         uiState.kavitaConnection.availableLibraries,
         uiState.comicReadingDirectionPreferences,
@@ -115,6 +170,11 @@ fun UnifiedReaderScaffold(
                         sourceConnectivity = uiState.selectedSourceConnectivity,
                         searchQuery = uiState.selectedLibrarySearchQuery,
                         seriesTitle = uiState.selectedSeriesTitle,
+                        downloadSelectionState = LibraryDownloadSelectionTopBarState(
+                            isSelectionMode = isLibraryDownloadSelectionMode,
+                            selectedCount = selectedDownloadItemIdSet.size,
+                            selectableCount = selectableDownloadItemIds.size,
+                        ),
                         onSourceConnectivityClick = viewModel::retrySelectedSourceConnection,
                         onDrawerClick = {
                             drawerScope.launch {
@@ -124,6 +184,9 @@ fun UnifiedReaderScaffold(
                         onSearchQueryChanged = viewModel::onLibrarySearchQueryChanged,
                         downloadBadgeCount = viewModel.downloadsSnapshot.badgeCount,
                         onDownloadsClick = viewModel::showDownloadsSheet,
+                        onDownloadSelectionModeChanged = ::updateLibraryDownloadSelectionMode,
+                        onSelectAllDownloadItems = ::selectAllLibraryDownloadItems,
+                        onDownloadSelectedItems = ::downloadSelectedLibraryItems,
                         onImportLocalFileClick = onImportLocalFileClick,
                         onLeaveSeries = viewModel::onBackPressed,
                     )
@@ -164,6 +227,15 @@ fun UnifiedReaderScaffold(
                                 position = position,
                             )
                         },
+                        isDownloadSelectionMode = isLibraryDownloadSelectionMode,
+                        selectedDownloadItemIds = selectedDownloadItemIds,
+                        onDownloadSelectionModeChanged = ::updateLibraryDownloadSelectionMode,
+                        onSelectedDownloadItemIdsChanged = { selectedIds ->
+                            selectedDownloadItemIds = selectedIds
+                        },
+                        onSelectableDownloadItemIdsChanged = { selectableIds ->
+                            selectableDownloadItemIds = selectableIds
+                        },
                         onItemSelected = viewModel::onItemSelected,
                         seriesReadingDirectionFor = viewModel::seriesReadingDirectionFor,
                         onSeriesDirectionSelected = viewModel::onSeriesDirectionSelected,
@@ -171,7 +243,6 @@ fun UnifiedReaderScaffold(
                         onSeriesReaderModeSelected = viewModel::onSeriesReaderModeSelected,
                         onDeleteImportedItem = viewModel::onDeleteImportedItem,
                         onDownloadRemoteItem = viewModel::onDownloadRemoteItem,
-                        onDownloadRemoteItems = viewModel::onDownloadRemoteItems,
                         onDeleteRemoteLocalFile = viewModel::onDeleteRemoteLocalFile,
                         onSetReadStatus = viewModel::onSetReadStatus,
                         onFilterStateChanged = viewModel::onLibraryFiltersChanged,

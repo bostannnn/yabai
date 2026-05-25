@@ -1,6 +1,8 @@
 package com.example.unifiedreader.feature.library
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
@@ -22,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 fun LibraryCoverActionCard(
     item: ReadableItem,
     title: String,
@@ -31,6 +34,7 @@ fun LibraryCoverActionCard(
     isRead: Boolean,
     fadeRead: Boolean = false,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     coverModifier: Modifier = Modifier.fillMaxWidth(),
     titleStyle: TextStyle = MaterialTheme.typography.labelMedium,
@@ -50,7 +54,10 @@ fun LibraryCoverActionCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onClick),
+                .libraryCoverClickable(
+                    onClick = onClick,
+                    onLongClick = onLongClick,
+                ),
         ) {
             ResolvedLibraryCover(
                 item = item,
@@ -75,7 +82,10 @@ fun LibraryCoverActionCard(
             ) {
                 Text(
                     text = title,
-                    modifier = Modifier.clickable(onClick = onClick),
+                    modifier = Modifier.libraryCoverClickable(
+                        onClick = onClick,
+                        onLongClick = onLongClick,
+                    ),
                     style = titleStyle,
                     color = titleColor,
                     maxLines = 1,
@@ -107,4 +117,17 @@ fun LibraryCoverActionCard(
             }
         }
     }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+private fun Modifier.libraryCoverClickable(
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)?,
+): Modifier = if (onLongClick == null) {
+    clickable(onClick = onClick)
+} else {
+    combinedClickable(
+        onClick = onClick,
+        onLongClick = onLongClick,
+    )
 }

@@ -18,10 +18,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
@@ -45,11 +47,15 @@ fun LibraryTopBar(
     sourceConnectivity: SourceConnectivityState,
     searchQuery: String,
     seriesTitle: String?,
+    downloadSelectionState: LibraryDownloadSelectionTopBarState = LibraryDownloadSelectionTopBarState(),
     onSourceConnectivityClick: () -> Unit,
     onDrawerClick: () -> Unit,
     onSearchQueryChanged: (String) -> Unit,
     downloadBadgeCount: Int,
     onDownloadsClick: () -> Unit,
+    onDownloadSelectionModeChanged: (Boolean) -> Unit = {},
+    onSelectAllDownloadItems: () -> Unit = {},
+    onDownloadSelectedItems: () -> Unit = {},
     onImportLocalFileClick: () -> Unit,
     onLeaveSeries: () -> Unit,
 ) {
@@ -58,15 +64,52 @@ fun LibraryTopBar(
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
-        val compactToolbar = maxWidth < 760.dp
-        if (compactToolbar) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Row(
+        if (downloadSelectionState.isSelectionMode) {
+            LibraryDownloadSelectionTopBar(
+                state = downloadSelectionState,
+                onCancel = { onDownloadSelectionModeChanged(false) },
+                onSelectAll = onSelectAllDownloadItems,
+                onDownloadSelected = onDownloadSelectedItems,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        } else {
+            val compactToolbar = maxWidth < 760.dp
+            if (compactToolbar) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        LibraryTopBarTitle(
+                            selectedSource = selectedSource,
+                            sourceConnectivity = sourceConnectivity,
+                            seriesTitle = seriesTitle,
+                            onSourceConnectivityClick = onSourceConnectivityClick,
+                            onDrawerClick = onDrawerClick,
+                            onLeaveSeries = onLeaveSeries,
+                            modifier = Modifier.weight(1f),
+                        )
+                        LibraryToolbarActions(
+                            downloadBadgeCount = downloadBadgeCount,
+                            onDownloadsClick = onDownloadsClick,
+                            downloadSelectionEnabled = downloadSelectionState.selectableCount > 0,
+                            onDownloadSelectionClick = { onDownloadSelectionModeChanged(true) },
+                            onImportLocalFileClick = onImportLocalFileClick,
+                        )
+                    }
+                    LibrarySearchField(
+                        query = searchQuery,
+                        onQueryChanged = onSearchQueryChanged,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            } else {
+                Box(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                    contentAlignment = Alignment.Center,
                 ) {
                     LibraryTopBarTitle(
                         selectedSource = selectedSource,
@@ -75,53 +118,36 @@ fun LibraryTopBar(
                         onSourceConnectivityClick = onSourceConnectivityClick,
                         onDrawerClick = onDrawerClick,
                         onLeaveSeries = onLeaveSeries,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .widthIn(max = 320.dp),
+                    )
+                    LibrarySearchField(
+                        query = searchQuery,
+                        onQueryChanged = onSearchQueryChanged,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .widthIn(min = 280.dp, max = 340.dp),
                     )
                     LibraryToolbarActions(
                         downloadBadgeCount = downloadBadgeCount,
                         onDownloadsClick = onDownloadsClick,
+                        downloadSelectionEnabled = downloadSelectionState.selectableCount > 0,
+                        onDownloadSelectionClick = { onDownloadSelectionModeChanged(true) },
                         onImportLocalFileClick = onImportLocalFileClick,
+                        modifier = Modifier.align(Alignment.CenterEnd),
                     )
                 }
-                LibrarySearchField(
-                    query = searchQuery,
-                    onQueryChanged = onSearchQueryChanged,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        } else {
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center,
-            ) {
-                LibraryTopBarTitle(
-                    selectedSource = selectedSource,
-                    sourceConnectivity = sourceConnectivity,
-                    seriesTitle = seriesTitle,
-                    onSourceConnectivityClick = onSourceConnectivityClick,
-                    onDrawerClick = onDrawerClick,
-                    onLeaveSeries = onLeaveSeries,
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .widthIn(max = 320.dp),
-                )
-                LibrarySearchField(
-                    query = searchQuery,
-                    onQueryChanged = onSearchQueryChanged,
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .widthIn(min = 280.dp, max = 340.dp),
-                )
-                LibraryToolbarActions(
-                    downloadBadgeCount = downloadBadgeCount,
-                    onDownloadsClick = onDownloadsClick,
-                    onImportLocalFileClick = onImportLocalFileClick,
-                    modifier = Modifier.align(Alignment.CenterEnd),
-                )
             }
         }
     }
 }
+
+data class LibraryDownloadSelectionTopBarState(
+    val isSelectionMode: Boolean = false,
+    val selectedCount: Int = 0,
+    val selectableCount: Int = 0,
+)
 
 @Composable
 fun SettingsTopBar(
@@ -375,6 +401,8 @@ private fun LibrarySearchField(
 private fun LibraryToolbarActions(
     downloadBadgeCount: Int = 0,
     onDownloadsClick: (() -> Unit)? = null,
+    downloadSelectionEnabled: Boolean = false,
+    onDownloadSelectionClick: (() -> Unit)? = null,
     onImportLocalFileClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -402,6 +430,22 @@ private fun LibraryToolbarActions(
                 }
             }
         }
+        onDownloadSelectionClick?.let { handler ->
+            IconButton(
+                enabled = downloadSelectionEnabled,
+                onClick = handler,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Checklist,
+                    contentDescription = "Select items to download",
+                    tint = if (downloadSelectionEnabled) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    },
+                )
+            }
+        }
         IconButton(onClick = onImportLocalFileClick) {
             Icon(
                 imageVector = Icons.Default.Add,
@@ -410,5 +454,61 @@ private fun LibraryToolbarActions(
         }
     }
 }
+
+@Composable
+private fun LibraryDownloadSelectionTopBar(
+    state: LibraryDownloadSelectionTopBarState,
+    onCancel: () -> Unit,
+    onSelectAll: () -> Unit,
+    onDownloadSelected: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(
+            onClick = onCancel,
+            modifier = Modifier.size(36.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Cancel selection",
+            )
+        }
+        Text(
+            text = selectedDownloadsLabel(state.selectedCount),
+            style = MaterialTheme.typography.titleMedium,
+            maxLines = 1,
+            modifier = Modifier.weight(1f),
+        )
+        IconButton(
+            enabled = state.selectedCount < state.selectableCount,
+            onClick = onSelectAll,
+        ) {
+            Icon(
+                imageVector = Icons.Default.SelectAll,
+                contentDescription = "Select all downloadable items",
+            )
+        }
+        IconButton(
+            enabled = state.selectedCount > 0,
+            onClick = onDownloadSelected,
+        ) {
+            Icon(
+                imageVector = Icons.Default.Download,
+                contentDescription = "Download selected items",
+            )
+        }
+    }
+}
+
+private fun selectedDownloadsLabel(selectedCount: Int): String =
+    if (selectedCount == 1) {
+        "1 selected"
+    } else {
+        "$selectedCount selected"
+    }
 
 private const val LibrarySearchFieldTag = "library-search-field"
