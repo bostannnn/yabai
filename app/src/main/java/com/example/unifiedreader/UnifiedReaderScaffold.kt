@@ -55,21 +55,43 @@ fun UnifiedReaderScaffold(
     var selectableDownloadItemIds by remember(uiState.libraryBrowseContextKey) {
         mutableStateOf<Set<String>>(emptySet())
     }
+    var hasScreenSelectableDownloadIds by remember(uiState.libraryBrowseContextKey) {
+        mutableStateOf(false)
+    }
+    val visibleDownloadableItemIds = remember(
+        uiState.visibleItems,
+        uiState.remoteDownloadActionAvailability.downloadableItemIds,
+        uiState.remoteDownloadActionAvailability.activeDownloadingItemIds,
+    ) {
+        uiState.visibleItems
+            .asSequence()
+            .map { item -> item.id }
+            .filter { itemId ->
+                itemId in uiState.remoteDownloadActionAvailability.downloadableItemIds &&
+                    itemId !in uiState.remoteDownloadActionAvailability.activeDownloadingItemIds
+            }
+            .toSet()
+    }
+    val effectiveSelectableDownloadItemIds = if (hasScreenSelectableDownloadIds) {
+        selectableDownloadItemIds
+    } else {
+        visibleDownloadableItemIds
+    }
     val selectedDownloadItemIdSet = selectedDownloadItemIds
-        .filter { itemId -> itemId in selectableDownloadItemIds }
+        .filter { itemId -> itemId in effectiveSelectableDownloadItemIds }
         .toSet()
 
     LaunchedEffect(
-        selectableDownloadItemIds,
+        effectiveSelectableDownloadItemIds,
         selectedDownloadItemIds,
         isLibraryDownloadSelectionMode,
     ) {
         val sanitizedSelection = selectedDownloadItemIds
-            .filter { itemId -> itemId in selectableDownloadItemIds }
+            .filter { itemId -> itemId in effectiveSelectableDownloadItemIds }
         if (sanitizedSelection != selectedDownloadItemIds) {
             selectedDownloadItemIds = sanitizedSelection
         }
-        if (selectableDownloadItemIds.isEmpty() && isLibraryDownloadSelectionMode) {
+        if (effectiveSelectableDownloadItemIds.isEmpty() && isLibraryDownloadSelectionMode) {
             isLibraryDownloadSelectionMode = false
             selectedDownloadItemIds = emptyList()
         }
@@ -85,7 +107,7 @@ fun UnifiedReaderScaffold(
     fun selectAllLibraryDownloadItems() {
         selectedDownloadItemIds = uiState.visibleItems
             .map { item -> item.id }
-            .filter { itemId -> itemId in selectableDownloadItemIds }
+            .filter { itemId -> itemId in effectiveSelectableDownloadItemIds }
     }
 
     fun downloadSelectedLibraryItems() {
@@ -173,7 +195,7 @@ fun UnifiedReaderScaffold(
                         downloadSelectionState = LibraryDownloadSelectionTopBarState(
                             isSelectionMode = isLibraryDownloadSelectionMode,
                             selectedCount = selectedDownloadItemIdSet.size,
-                            selectableCount = selectableDownloadItemIds.size,
+                            selectableCount = effectiveSelectableDownloadItemIds.size,
                         ),
                         onSourceConnectivityClick = viewModel::retrySelectedSourceConnection,
                         onDrawerClick = {
@@ -234,6 +256,7 @@ fun UnifiedReaderScaffold(
                             selectedDownloadItemIds = selectedIds
                         },
                         onSelectableDownloadItemIdsChanged = { selectableIds ->
+                            hasScreenSelectableDownloadIds = true
                             selectableDownloadItemIds = selectableIds
                         },
                         onItemSelected = viewModel::onItemSelected,
