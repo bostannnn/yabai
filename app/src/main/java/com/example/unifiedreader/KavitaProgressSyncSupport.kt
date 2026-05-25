@@ -28,7 +28,18 @@ internal suspend fun pushDirtyKavitaProgress(
         .sortedBy(ReaderProgressSnapshot::updatedAtEpochMillis)
 
     dirtyProgress.forEach { progress ->
-        val item = itemById[progress.itemId] ?: return@forEach
+        val item = itemById[progress.itemId]
+        if (item == null) {
+            readerSessionStore.replaceProgressIfCurrent(
+                expected = progress,
+                replacement = if (progress.isExplicitUnreadReset) {
+                    null
+                } else {
+                    progress.copy(syncState = SyncState.CLEAN)
+                },
+            )
+            return@forEach
+        }
         val chapterId = item.remoteId ?: return@forEach
         runCatching {
             api.runWithTokenRefresh(

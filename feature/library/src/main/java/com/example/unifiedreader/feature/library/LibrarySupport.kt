@@ -69,6 +69,37 @@ internal fun itemPrimaryText(
     item: ReadableItem,
 ): String = item.libraryPrimaryText()
 
+internal fun itemSeriesBrowsePrimaryText(
+    item: ReadableItem,
+): String {
+    if (item.kind != ReadableItemKind.COMIC) return itemPrimaryText(item)
+    val metadata = item.comicMetadata ?: return itemPrimaryText(item)
+    val series = metadata.series?.trim()?.takeIf(String::isNotBlank)
+    val issueNumber = metadata.issueNumber?.trim()?.takeIf(String::isNotBlank)
+    val issueNumberLabel = issueNumber?.let { number -> "Issue $number" }
+    val issueTitle = metadata.issueTitle
+        ?.trim()
+        ?.takeIf(String::isNotBlank)
+        ?.withoutSeriesPrefix(series)
+        ?.withoutIssueNumberPrefix(issueNumber)
+        ?.takeIf(String::isNotBlank)
+        ?.takeUnless { title -> series != null && title.equals(series, ignoreCase = true) }
+        ?.takeUnless { title -> issueNumberLabel != null && title.equals(issueNumberLabel, ignoreCase = true) }
+    val fallbackTitle = item.title
+        .trim()
+        .takeIf(String::isNotBlank)
+        ?.withoutSeriesPrefix(series)
+        ?.withoutIssueNumberPrefix(issueNumber)
+        ?.takeIf(String::isNotBlank)
+        ?.takeUnless { title -> series != null && title.equals(series, ignoreCase = true) }
+    val label = listOfNotNull(issueNumberLabel, issueTitle)
+        .distinctBy { part -> part.lowercase() }
+        .joinToString(" - ")
+    return label.ifBlank {
+        issueTitle ?: fallbackTitle ?: itemPrimaryText(item)
+    }
+}
+
 internal fun itemSecondaryText(
     item: ReadableItem,
 ): String? = item.librarySecondaryText()
@@ -139,6 +170,30 @@ internal fun formatBadgeText(formatType: FormatType): String = when (formatType)
     FormatType.CBR -> "CBR"
     FormatType.EPUB -> "EPUB"
     FormatType.PDF -> ""
+}
+
+private fun String.withoutSeriesPrefix(
+    series: String?,
+): String {
+    if (series.isNullOrBlank() || !startsWith(series, ignoreCase = true)) return this
+    return drop(series.length)
+        .trim()
+        .trimStart('-', ':', '.', '#')
+        .trim()
+}
+
+private fun String.withoutIssueNumberPrefix(
+    issueNumber: String?,
+): String {
+    val number = issueNumber?.trim()?.takeIf(String::isNotBlank) ?: return this
+    val escapedNumber = Regex.escape(number)
+    val patterns = listOf(
+        Regex("""(?i)^issue\s+#?$escapedNumber\b\s*[-:.\s]*"""),
+        Regex("""^#?$escapedNumber\b\s*[-:.\s]*"""),
+    )
+    return patterns.fold(this) { value, pattern ->
+        value.replaceFirst(pattern, "").trim()
+    }
 }
 
 internal fun <T> Set<T>.toggle(value: T): Set<T> =

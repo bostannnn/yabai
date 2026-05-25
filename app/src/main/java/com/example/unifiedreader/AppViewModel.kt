@@ -414,6 +414,16 @@ class AppViewModel @Inject constructor(
         )
     }
 
+    fun onDownloadRemoteItems(items: List<ReadableItem>) {
+        remoteDownloadController.onDownloadRemoteItems(
+            stateProvider = { uiState },
+            updateState = ::updateUiState,
+            scope = viewModelScope,
+            items = items,
+            canScheduleSource = remoteSourceConnectivityPolicy::canScheduleDownload,
+        )
+    }
+
     fun onDeleteRemoteLocalFile(item: ReadableItem) {
         remoteDownloadController.onDeleteRemoteLocalFile(
             stateProvider = { uiState },

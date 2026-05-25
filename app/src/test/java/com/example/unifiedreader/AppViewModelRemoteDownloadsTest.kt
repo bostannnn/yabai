@@ -233,6 +233,50 @@ class AppViewModelRemoteDownloadsTest {
     }
 
     @Test
+    fun `download selected kavita issues enqueues one batch and marks all local`() {
+        val firstIssue = sampleItem(
+            id = "chapter-1",
+            title = "Akira 001",
+            format = FormatType.CBZ,
+        ).copy(
+            remoteId = "chapter-1",
+            remoteFileType = "series-7",
+            comicMetadata = ComicMetadata(series = "Akira", issueTitle = "Issue 1"),
+        )
+        val secondIssue = sampleItem(
+            id = "chapter-2",
+            title = "Akira 002",
+            format = FormatType.CBZ,
+        ).copy(
+            remoteId = "chapter-2",
+            remoteFileType = "series-7",
+            comicMetadata = ComicMetadata(series = "Akira", issueTitle = "Issue 2"),
+        )
+        val viewModel = createViewModel(
+            sampleItems = listOf(firstIssue, secondIssue),
+            remoteDownloadDataSources = listOf(
+                FakeGrimmoryContentRepository(),
+                FakeRemoteDownloadDataSource(SourceType.KAVITA),
+            ),
+        )
+        val seriesItem = viewModel.uiState.visibleItems.single()
+
+        viewModel.onDownloadRemoteItems(listOf(firstIssue, secondIssue))
+        waitForUiState {
+            viewModel.uiState.downloadedRemoteItemIds.containsAll(listOf(firstIssue.id, secondIssue.id))
+        }
+
+        val entry = viewModel.downloadsSnapshot.completedEntries.single()
+        assertEquals(2, entry.totalItemCount)
+        assertEquals("2 selected items", entry.selectedItemTitle)
+        assertEquals(setOf(firstIssue.id, secondIssue.id), viewModel.uiState.downloadedRemoteItemIds)
+        assertEquals(
+            setOf(firstIssue.id, secondIssue.id, seriesItem.id),
+            viewModel.uiState.locallyAvailableRemoteItemIds,
+        )
+    }
+
+    @Test
     fun `partially downloaded kavita series stays local but still exposes series download action`() {
         val firstIssue = sampleItem(
             id = "chapter-1",

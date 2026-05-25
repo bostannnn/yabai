@@ -20,6 +20,44 @@ import org.junit.Test
 
 class LibraryItemCardsTest {
     @Test
+    fun `series browse title prefers issue number and issue title`() {
+        val item = ReadableItem(
+            id = "kavita:item:chapter-1",
+            sourceType = SourceType.KAVITA,
+            libraryId = "kavita:library:k-comics",
+            remoteId = "chapter-1",
+            title = "Conan the Barbarian (2024)",
+            format = FormatType.CBZ,
+            comicMetadata = ComicMetadata(
+                series = "Conan the Barbarian (2024)",
+                issueTitle = "Bound in Black Stone",
+                issueNumber = "1",
+            ),
+        )
+
+        assertEquals("Issue 1 - Bound in Black Stone", itemSeriesBrowsePrimaryText(item))
+    }
+
+    @Test
+    fun `series browse title falls back to issue number without repeating series`() {
+        val item = ReadableItem(
+            id = "kavita:item:chapter-1",
+            sourceType = SourceType.KAVITA,
+            libraryId = "kavita:library:k-comics",
+            remoteId = "chapter-1",
+            title = "Conan the Barbarian (2024)",
+            format = FormatType.CBZ,
+            comicMetadata = ComicMetadata(
+                series = "Conan the Barbarian (2024)",
+                issueTitle = "Conan the Barbarian (2024)",
+                issueNumber = "1",
+            ),
+        )
+
+        assertEquals("Issue 1", itemSeriesBrowsePrimaryText(item))
+    }
+
+    @Test
     fun `remote cover prefetch includes every remote source`() {
         assertTrue(shouldPrefetchRemoteCover(kavitaIssue(id = "chapter-1", title = "Akira 001", seriesKey = "series-7")))
         assertTrue(shouldPrefetchRemoteCover(stumpIssue(id = "issue-1", title = "Akira 001", seriesKey = "series-7")))

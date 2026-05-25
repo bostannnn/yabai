@@ -39,6 +39,32 @@ class RemoteDownloadQueueControllerTest {
     }
 
     @Test
+    fun `enqueueBatch stores selected files in one queued entry`() = runTest {
+        val store = InMemoryDownloadQueueStore()
+        val scheduler = RecordingDownloadWorkScheduler()
+        val controller = RemoteDownloadQueueController(
+            store = store,
+            scheduler = scheduler,
+            remoteDownloadDataSources = listOf(TestRemoteItemDownloadDataSource()),
+        )
+        val first = testReadableItem("book-1")
+        val second = testReadableItem("book-2")
+
+        val result = controller.enqueueBatch(
+            selectedItems = listOf(first, second),
+            allItems = listOf(first, second),
+        )
+
+        val entry = store.entries.single()
+        assertFalse(result.isError)
+        assertEquals("Queued 2 files for download.", result.message)
+        assertEquals("2 selected items", entry.selectedItemTitle)
+        assertEquals(listOf("book-1", "book-2"), entry.actionItems.map(QueuedDownloadItem::id))
+        assertEquals(setOf("book-1", "book-2"), entry.trackedItemIds)
+        assertEquals(listOf(entry.id), scheduler.scheduledEntryIds)
+    }
+
+    @Test
     fun `enqueue rejects overlapping active entries`() = runTest {
         val store = InMemoryDownloadQueueStore(
             initialEntries = listOf(

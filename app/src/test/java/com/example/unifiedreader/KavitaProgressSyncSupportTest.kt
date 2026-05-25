@@ -223,6 +223,52 @@ class KavitaProgressSyncSupportTest {
     }
 
     @Test
+    fun `missing Kavita catalog item marks dirty progress clean without upload`() = runTest {
+        val item = ReadableItem(
+            id = "kavita:item:42",
+            sourceType = SourceType.KAVITA,
+            libraryId = "kavita:library:5",
+            remoteId = "42",
+            title = "Chapter 42",
+            format = FormatType.EPUB,
+            pageCount = 28,
+        )
+        val store = TestKavitaReaderSessionStore()
+        store.saveProgress(
+            item = item,
+            locator = ReaderLocator(
+                locatorType = LocatorType.PAGE,
+                page = 3,
+            ),
+            syncState = SyncState.DIRTY,
+            updatedAtEpochMillis = 123L,
+        )
+        val api = RecordingKavitaApi(
+            chapterInfo = KavitaChapterInfoDto(
+                libraryId = 5,
+                seriesId = 12,
+                volumeId = 7,
+                pages = 28,
+            ),
+        )
+
+        val result = pushDirtyKavitaProgress(
+            api = api,
+            initialAccessToken = "access-token",
+            initialRefreshToken = null,
+            initialApiKey = null,
+            items = emptyList(),
+            readerSessionStore = store,
+        )
+
+        val snapshot = checkNotNull(store.progressByItemIdFlow.value[item.id])
+        assertTrue(result.value.isEmpty())
+        assertTrue(api.progressUpdates.isEmpty())
+        assertEquals(0, api.chapterInfoRequests)
+        assertEquals(SyncState.CLEAN, snapshot.syncState)
+    }
+
+    @Test
     fun `Kavita upload uses catalog ids without fetching chapter info`() = runTest {
         val item = ReadableItem(
             id = "kavita:item:42",

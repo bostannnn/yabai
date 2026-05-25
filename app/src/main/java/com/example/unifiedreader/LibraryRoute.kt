@@ -40,6 +40,7 @@ internal fun LibraryRoute(
     onSeriesReaderModeSelected: (ReadableItem, ComicReaderMode) -> Unit,
     onDeleteImportedItem: (ReadableItem) -> Unit,
     onDownloadRemoteItem: (ReadableItem) -> Unit,
+    onDownloadRemoteItems: (List<ReadableItem>) -> Unit,
     onDeleteRemoteLocalFile: (ReadableItem) -> Unit,
     onSetReadStatus: (ReadableItem, Boolean) -> Unit,
     onFilterStateChanged: (LibraryFilterState) -> Unit,
@@ -95,6 +96,7 @@ internal fun LibraryRoute(
             sortMode = uiState.selectedLibrarySortMode,
             gridCellSizeDp = uiState.libraryGridCellSizeDp,
             showSortControl = showSortControl,
+            preferIssueLabels = uiState.isSeriesBrowseActive,
             lockedSortLabel = "List order".takeIf { uiState.isKavitaReadingListActive },
             readingListScopeState = if (uiState.selectedSource == SourceType.KAVITA) {
                 uiState.kavitaReadingListScopeState()
@@ -139,6 +141,7 @@ internal fun LibraryRoute(
             onSeriesReaderModeSelected = onSeriesReaderModeSelected,
             onDeleteImportedItem = onDeleteImportedItem,
             onDownloadItem = onDownloadRemoteItem,
+            onDownloadItems = onDownloadRemoteItems,
             onDeleteDownloadedItem = onDeleteRemoteLocalFile,
             onSetReadStatus = onSetReadStatus,
         )

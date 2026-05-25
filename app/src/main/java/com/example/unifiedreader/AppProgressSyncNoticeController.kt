@@ -1,6 +1,7 @@
 package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.displayName
+import com.example.unifiedreader.data.repository.RemoteSyncArtifact
 import javax.inject.Inject
 
 data class AppProgressSyncNotice(
@@ -48,11 +49,21 @@ private fun List<SourceProgressSyncFailure>.toProgressSyncNoticeMessage(): Strin
         failures.first().throwable.takeIf { throwable -> throwable is RemoteSourceUnavailableException }?.let { throwable ->
             return throwable.userFacingMessage()
         }
-        return "Unable to sync ${sourceType.displayName()} progress: ${failures.first().throwable.userFacingMessage()}"
+        val artifactLabel = failures.first().artifact.syncNoticeLabel()
+        return "Unable to sync ${sourceType.displayName()} $artifactLabel: ${
+            failures.first().throwable.userFacingMessage()
+        }"
     }
     return "Unable to sync progress for ${
         groupedFailures.keys.joinToString { sourceType -> sourceType.displayName() }
     }."
+}
+
+private fun RemoteSyncArtifact?.syncNoticeLabel(): String = when (this) {
+    RemoteSyncArtifact.JOURNAL_ENTRY -> "journal"
+    RemoteSyncArtifact.READING_SESSION -> "reading sessions"
+    RemoteSyncArtifact.PROGRESS,
+    null -> "progress"
 }
 
 internal fun progressPushWarningMessage(

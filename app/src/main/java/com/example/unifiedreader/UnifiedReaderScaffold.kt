@@ -171,6 +171,7 @@ fun UnifiedReaderScaffold(
                         onSeriesReaderModeSelected = viewModel::onSeriesReaderModeSelected,
                         onDeleteImportedItem = viewModel::onDeleteImportedItem,
                         onDownloadRemoteItem = viewModel::onDownloadRemoteItem,
+                        onDownloadRemoteItems = viewModel::onDownloadRemoteItems,
                         onDeleteRemoteLocalFile = viewModel::onDeleteRemoteLocalFile,
                         onSetReadStatus = viewModel::onSetReadStatus,
                         onFilterStateChanged = viewModel::onLibraryFiltersChanged,

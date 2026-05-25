@@ -162,8 +162,12 @@ suspend fun pushDirtyKavitaJournalEntries(
     val failures = mutableListOf<Throwable>()
     val itemById = entries.associateBy(ReadableItem::id)
     repository.getDirtyJournalEntriesForSource(SourceType.KAVITA).forEach { entry ->
+        val item = itemById[entry.itemId]
+        if (item == null) {
+            repository.markJournalEntrySyncState(entry.itemId, SyncState.CLEAN)
+            return@forEach
+        }
         runCatching {
-            val item = itemById[entry.itemId] ?: error("No Kavita catalog item for journal entry ${entry.itemId}")
             val chapterId = item.remoteId?.toIntOrNull()
                 ?: error("Kavita journal entry ${entry.itemId} has no numeric chapter id")
             val chapterInfo = api.getChapterInfo(accessToken = accessToken, chapterId = chapterId.toString())

@@ -31,6 +31,22 @@ class AppRemoteDownloadController @Inject constructor(
         }
     }
 
+    fun onDownloadRemoteItems(
+        stateProvider: () -> AppUiState,
+        updateState: AppUiStateUpdater,
+        scope: CoroutineScope,
+        items: List<ReadableItem>,
+        canScheduleSource: (SourceType) -> Boolean,
+    ) {
+        scope.launch {
+            remoteDownloadQueueController.enqueueBatch(
+                selectedItems = items,
+                allItems = stateProvider().items,
+                canScheduleSource = canScheduleSource,
+            )
+        }
+    }
+
     fun scheduleQueuedDownloads(
         scope: CoroutineScope,
         canScheduleSource: (SourceType) -> Boolean,

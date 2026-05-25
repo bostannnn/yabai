@@ -573,20 +573,21 @@ class KavitaJournalSyncSupportTest {
     }
 
     @Test
-    fun `kavita dirty push marks unresolved catalog entry failed`() = runTest {
+    fun `kavita dirty push marks unresolved catalog entry clean without retry failure`() = runTest {
         val item = readableItem(sourceType = SourceType.KAVITA, remoteId = "42")
         val repository = RecordingJournalRepository(
             dirtyEntries = listOf(journalEntry(item = item, rating = 7, reviewText = "Keep it")),
         )
 
-        pushDirtyKavitaJournalEntries(
+        val failures = pushDirtyKavitaJournalEntries(
             api = FakeKavitaApi(),
             accessToken = "token",
             entries = emptyList(),
             journalRepository = repository,
         )
 
-        assertEquals(SyncState.FAILED, repository.markedSyncStates[item.id])
+        assertTrue(failures.isEmpty())
+        assertEquals(SyncState.CLEAN, repository.markedSyncStates[item.id])
     }
 
     @Test

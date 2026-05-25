@@ -3,6 +3,7 @@ package com.example.unifiedreader.feature.library
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Checkbox
 import androidx.compose.ui.Alignment
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -19,7 +20,11 @@ internal fun GridCoverCard(
     fadeRead: Boolean,
     imageVariant: LibraryCoverImageVariant,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
+    title: String = itemPrimaryText(item),
+    isSelectionMode: Boolean = false,
+    isSelected: Boolean = false,
     onClick: () -> Unit,
+    onSelectionToggle: () -> Unit = {},
     menuContent: (@Composable () -> Unit)? = null,
 ) {
     val progressLabel = progress
@@ -28,13 +33,13 @@ internal fun GridCoverCard(
 
     LibraryCoverActionCard(
         item = item,
-        title = itemPrimaryText(item),
+        title = title,
         coverImageUrlProvider = coverImageUrlProvider,
         imageVariant = imageVariant,
         isDownloaded = isDownloaded,
         isRead = progress?.isComplete == true,
         fadeRead = fadeRead,
-        onClick = onClick,
+        onClick = if (isSelectionMode) onSelectionToggle else onClick,
         modifier = Modifier
             .fillMaxWidth()
             .testTag("library-grid-card-${item.id}"),
@@ -42,15 +47,26 @@ internal fun GridCoverCard(
             .fillMaxWidth()
             .aspectRatio(2f / 3f),
         trailingText = progressLabel,
-        menuContent = menuContent,
-        coverOverlay = if (rating != null) {
+        menuContent = menuContent.takeUnless { isSelectionMode },
+        coverOverlay = if (rating != null || isSelectionMode) {
             {
-                LibraryRatingBadge(
-                    state = rating,
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(6.dp),
-                )
+                rating?.let { state ->
+                    LibraryRatingBadge(
+                        state = state,
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(6.dp),
+                    )
+                }
+                if (isSelectionMode) {
+                    Checkbox(
+                        checked = isSelected,
+                        onCheckedChange = { onSelectionToggle() },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp),
+                    )
+                }
             }
         } else {
             null
