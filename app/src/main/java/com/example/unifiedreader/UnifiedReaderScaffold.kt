@@ -163,7 +163,11 @@ fun UnifiedReaderScaffold(
         drawerState = drawerState,
         sourceOrder = uiState.sourceOrder,
         selectedDestination = when (uiState.topLevel) {
-            TopLevelDestination.Library -> SourceNavigationDestination.Source(uiState.selectedSource)
+            TopLevelDestination.Library -> if (uiState.selectedSource == SourceType.KAVITA) {
+                SourceNavigationDestination.KavitaSection(uiState.kavitaLibrarySection)
+            } else {
+                SourceNavigationDestination.Source(uiState.selectedSource)
+            }
             TopLevelDestination.Journal -> SourceNavigationDestination.Journal
             TopLevelDestination.Settings -> SourceNavigationDestination.Settings
         },
@@ -173,6 +177,7 @@ fun UnifiedReaderScaffold(
             }
             when (destination) {
                 is SourceNavigationDestination.Source -> viewModel.openLibrarySource(destination.sourceType)
+                is SourceNavigationDestination.KavitaSection -> viewModel.openKavitaLibrarySection(destination.section)
                 SourceNavigationDestination.Journal -> viewModel.onTopLevelSelected(TopLevelDestination.Journal)
                 SourceNavigationDestination.Settings -> viewModel.onTopLevelSelected(TopLevelDestination.Settings)
             }
@@ -191,7 +196,7 @@ fun UnifiedReaderScaffold(
                         selectedSource = uiState.selectedSource,
                         sourceConnectivity = uiState.selectedSourceConnectivity,
                         searchQuery = uiState.selectedLibrarySearchQuery,
-                        seriesTitle = uiState.selectedSeriesTitle,
+                        seriesTitle = uiState.selectedLibraryContextTitle,
                         downloadSelectionState = LibraryDownloadSelectionTopBarState(
                             isSelectionMode = isLibraryDownloadSelectionMode,
                             selectedCount = selectedDownloadItemIdSet.size,

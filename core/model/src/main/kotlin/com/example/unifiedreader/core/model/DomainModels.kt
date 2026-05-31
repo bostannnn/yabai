@@ -57,6 +57,23 @@ data class ReadingListItemRef(
     val order: Int,
 )
 
+data class CollectionSummary(
+    val id: String,
+    val sourceType: SourceType,
+    val remoteId: String,
+    val title: String,
+    val summary: String? = null,
+    val itemCount: Int = 0,
+    val coverUrl: String? = null,
+)
+
+data class CollectionSeriesRef(
+    val collectionId: String,
+    val sourceType: SourceType,
+    val seriesKey: String,
+    val order: Int,
+)
+
 enum class LibraryContentType {
     BOOKS,
     COMICS,
@@ -134,6 +151,10 @@ fun SourceType.remoteReadingListId(
     remoteId: String,
 ): String = "${name.lowercase()}:reading-list:$remoteId"
 
+fun SourceType.remoteCollectionId(
+    remoteId: String,
+): String = "${name.lowercase()}:collection:$remoteId"
+
 fun kavitaSeriesContainerId(
     seriesKey: String,
 ): String = "kavita:series:$seriesKey"
@@ -204,6 +225,13 @@ fun ReadableItem.comicSeriesPreferenceKey(): String? {
 fun ReadableItem.belongsToKavitaSeries(
     seriesKey: String,
 ): Boolean = kavitaSeriesGroupKey() == seriesKey
+
+fun ReadableItem.kavitaCatalogSeriesKey(): String? {
+    if (sourceType != SourceType.KAVITA) return null
+    if (isKavitaSeriesContainer()) return remoteId?.takeIf(String::isNotBlank)
+    val seriesId = remoteFileType?.takeIf(String::isNotBlank) ?: return null
+    return "$libraryId::$seriesId"
+}
 
 fun ReadableItem.belongsToStumpSeries(
     seriesKey: String,

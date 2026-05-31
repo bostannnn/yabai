@@ -121,7 +121,8 @@ fun UnifiedReaderAppContent(
             enabled = isReaderMode ||
                 uiState.selectedKavitaSeriesKey != null ||
                 uiState.selectedStumpSeriesKey != null ||
-                uiState.isKavitaReadingListActive,
+                uiState.isKavitaScopeActive ||
+                uiState.isKavitaVisualSectionActive,
             onBack = viewModel::onBackPressed,
         )
         Surface(

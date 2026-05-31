@@ -9,6 +9,7 @@ import com.example.unifiedreader.core.model.LibraryReadingStatus
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -603,6 +604,76 @@ class LibraryDerivedStateComputerTest {
             "Avg 4.5",
             derivedState.displayRatingByItemId["kavita:series:${libraryId}::akira"]?.label,
         )
+    }
+
+    @Test
+    fun `collection scope shows matching Kavita series containers`() {
+        val libraryId = SourceType.KAVITA.remoteLibraryId("k-comics")
+        val first = issue(
+            id = "1",
+            sourceType = SourceType.KAVITA,
+            libraryId = libraryId,
+            seriesKey = "akira",
+            title = "Akira 1",
+        )
+        val second = issue(
+            id = "2",
+            sourceType = SourceType.KAVITA,
+            libraryId = libraryId,
+            seriesKey = "akira",
+            title = "Akira 2",
+        )
+        val other = issue(
+            id = "3",
+            sourceType = SourceType.KAVITA,
+            libraryId = libraryId,
+            seriesKey = "blame",
+            title = "Blame 1",
+        )
+
+        val derivedState = computer.compute(
+            LibraryDerivedStateInput(
+                selectedSource = SourceType.KAVITA,
+                libraries = emptyList(),
+                items = listOf(first, second, other),
+                selectedKavitaCollectionId = "kavita:collection:7",
+                selectedKavitaCollectionSeriesKeys = setOf("$libraryId::akira"),
+            ),
+        )
+
+        assertEquals(listOf("kavita:series:${libraryId}::akira"), derivedState.visibleItems.map(ReadableItem::id))
+    }
+
+    @Test
+    fun `collection scope includes matching Kavita book items`() {
+        val libraryId = SourceType.KAVITA.remoteLibraryId("k-books")
+        val book = ReadableItem(
+            id = SourceType.KAVITA.remoteItemId("book-1"),
+            sourceType = SourceType.KAVITA,
+            libraryId = libraryId,
+            remoteId = "book-1",
+            remoteFileType = "series-9",
+            title = "Collected Novel",
+            format = FormatType.EPUB,
+        )
+        val other = book.copy(
+            id = SourceType.KAVITA.remoteItemId("book-2"),
+            remoteId = "book-2",
+            remoteFileType = "series-10",
+            title = "Other Novel",
+        )
+
+        val derivedState = computer.compute(
+            LibraryDerivedStateInput(
+                selectedSource = SourceType.KAVITA,
+                libraries = emptyList(),
+                items = listOf(book, other),
+                selectedKavitaCollectionId = "kavita:collection:9",
+                selectedKavitaCollectionSeriesKeys = setOf("$libraryId::series-9"),
+            ),
+        )
+
+        assertEquals(listOf(book.id), derivedState.visibleItems.map(ReadableItem::id))
     }
 }
 

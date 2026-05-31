@@ -1,6 +1,8 @@
 package com.example.unifiedreader.data.kavita
 
 import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.remoteLibraryId
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
@@ -17,6 +19,53 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class KavitaApiTest {
+    @Test
+    fun `collection series request uses collection id and maps series keys`() = runBlocking {
+        var requests = 0
+        val httpClient = HttpClient(
+            MockEngine { request ->
+                requests += 1
+                assertEquals("/api/Series/series-by-collection", request.url.encodedPath)
+                assertEquals("7", request.url.parameters["collectionId"])
+                assertEquals(null, request.url.parameters["collectionTagId"])
+                assertEquals("0", request.url.parameters["PageNumber"])
+                assertEquals("10000", request.url.parameters["PageSize"])
+                respondJson(
+                    """
+                    [
+                      {
+                        "id": 12,
+                        "libraryId": 5,
+                        "name": "KonoSuba"
+                      }
+                    ]
+                    """.trimIndent(),
+                )
+            },
+        ) {
+            install(ContentNegotiation) {
+                json(
+                    Json {
+                        ignoreUnknownKeys = true
+                        explicitNulls = false
+                    },
+                )
+            }
+        }
+        val api = KtorKavitaApi(
+            httpClient = httpClient,
+            baseUrl = "http://kavita.example",
+        )
+
+        val seriesRefs = api.getCollectionSeries(
+            accessToken = "token",
+            collectionRemoteId = "7",
+        )
+
+        assertEquals(1, requests)
+        assertEquals("${SourceType.KAVITA.remoteLibraryId("5")}::12", seriesRefs.single().seriesKey)
+    }
+
     @Test
     fun `series detail uses bounded supplemental chapter info for missing-title production format mapping`() = runBlocking {
         var chapterInfoRequests = 0

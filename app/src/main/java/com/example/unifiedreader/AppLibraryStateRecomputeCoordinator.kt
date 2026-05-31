@@ -262,6 +262,8 @@ private data class AppLibraryDerivedStateSignature(
     val selectedStumpSeriesKey: String?,
     val selectedKavitaReadingListId: String?,
     val selectedKavitaReadingListItemIds: List<String>,
+    val selectedKavitaCollectionId: String?,
+    val selectedKavitaCollectionSeriesKeys: Set<String>,
 )
 
 private data class AppLibraryShelvesStateSignature(
@@ -286,6 +288,8 @@ private fun AppUiState.libraryDerivedStateSignature(): AppLibraryDerivedStateSig
     selectedStumpSeriesKey = selectedStumpSeriesKey,
     selectedKavitaReadingListId = kavitaReadingLists.selectedReadingListId,
     selectedKavitaReadingListItemIds = selectedKavitaReadingListItemIds,
+    selectedKavitaCollectionId = kavitaReadingLists.selectedCollectionId,
+    selectedKavitaCollectionSeriesKeys = selectedKavitaCollectionSeriesKeys,
 )
 
 private fun AppUiState.libraryShelvesStateSignature(): AppLibraryShelvesStateSignature = AppLibraryShelvesStateSignature(

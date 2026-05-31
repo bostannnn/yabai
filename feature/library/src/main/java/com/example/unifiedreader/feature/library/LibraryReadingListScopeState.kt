@@ -22,4 +22,10 @@ data class LibraryReadingListScopeOption(
     val id: String,
     val title: String,
     val itemCount: Int,
+    val kind: LibraryReadingListScopeOptionKind = LibraryReadingListScopeOptionKind.ReadingList,
 )
+
+enum class LibraryReadingListScopeOptionKind {
+    Collection,
+    ReadingList,
+}

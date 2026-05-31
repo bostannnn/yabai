@@ -20,6 +20,8 @@ internal fun AppUiState.toLibraryDerivedStateInput(): LibraryDerivedStateInput =
     downloadingRemoteItemIds = downloadingRemoteItemIds,
     selectedKavitaSeriesKey = selectedKavitaSeriesKey,
     selectedStumpSeriesKey = selectedStumpSeriesKey,
+    selectedKavitaCollectionId = kavitaReadingLists.selectedCollectionId,
+    selectedKavitaCollectionSeriesKeys = selectedKavitaCollectionSeriesKeys,
     orderedItemScope = selectedKavitaReadingListItemIds
         .takeIf { isKavitaReadingListActive }
         ?.let { itemIds ->

@@ -1,6 +1,8 @@
 package com.example.unifiedreader.data.kavita
 
 import com.example.unifiedreader.core.model.ComicMetadata
+import com.example.unifiedreader.core.model.CollectionSeriesRef
+import com.example.unifiedreader.core.model.CollectionSummary
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.LibraryContentType
@@ -13,6 +15,7 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.readableFormatFromTypeOrExtension
 import com.example.unifiedreader.core.model.toReadableFormatTypeOrNull
 import com.example.unifiedreader.core.model.remoteItemId
+import com.example.unifiedreader.core.model.remoteCollectionId
 import com.example.unifiedreader.core.model.remoteLibraryId
 import com.example.unifiedreader.core.model.remoteReadingListId
 import java.time.Instant
@@ -94,6 +97,15 @@ internal data class KavitaReadingListItemDto(
     val id: Int? = null,
     val order: Int? = null,
     val chapterId: Int? = null,
+)
+
+@Serializable
+internal data class KavitaCollectionDto(
+    val id: Int? = null,
+    val title: String? = null,
+    val summary: String? = null,
+    val itemCount: Int? = null,
+    val coverImage: String? = null,
 )
 
 @Serializable
@@ -379,6 +391,40 @@ internal fun KavitaReadingListItemDto.toDomain(
         sourceType = SourceType.KAVITA,
         itemId = SourceType.KAVITA.remoteItemId(remoteChapterId),
         order = order ?: id ?: 0,
+    )
+}
+
+internal fun KavitaCollectionDto.toDomain(
+    baseUrl: String,
+    apiKey: String?,
+): CollectionSummary? {
+    val remoteId = id?.toString() ?: return null
+    return CollectionSummary(
+        id = SourceType.KAVITA.remoteCollectionId(remoteId),
+        sourceType = SourceType.KAVITA,
+        remoteId = remoteId,
+        title = title?.takeIf(String::isNotBlank) ?: "Collection $remoteId",
+        summary = summary?.takeIf(String::isNotBlank),
+        itemCount = itemCount?.coerceAtLeast(0) ?: 0,
+        coverUrl = buildKavitaCollectionCoverUrl(
+            baseUrl = baseUrl,
+            collectionId = remoteId,
+            apiKey = apiKey,
+        ),
+    )
+}
+
+internal fun KavitaSeriesDto.toCollectionSeriesRef(
+    collectionRemoteId: String,
+    order: Int,
+): CollectionSeriesRef? {
+    val remoteSeriesId = id?.toString() ?: return null
+    val remoteLibraryId = libraryId?.toString() ?: return null
+    return CollectionSeriesRef(
+        collectionId = SourceType.KAVITA.remoteCollectionId(collectionRemoteId),
+        sourceType = SourceType.KAVITA,
+        seriesKey = "${SourceType.KAVITA.remoteLibraryId(remoteLibraryId)}::$remoteSeriesId",
+        order = order,
     )
 }
 
@@ -677,6 +723,20 @@ private fun buildKavitaReadingListCoverUrl(
     append(baseUrl.trimEnd('/'))
     append("/api/Image/readinglist-cover?readingListId=")
     append(readingListId)
+    apiKey?.takeIf(String::isNotBlank)?.let { key ->
+        append("&apiKey=")
+        append(key)
+    }
+}
+
+private fun buildKavitaCollectionCoverUrl(
+    baseUrl: String,
+    collectionId: String,
+    apiKey: String?,
+): String = buildString {
+    append(baseUrl.trimEnd('/'))
+    append("/api/Image/collection-cover?collectionTagId=")
+    append(collectionId)
     apiKey?.takeIf(String::isNotBlank)?.let { key ->
         append("&apiKey=")
         append(key)

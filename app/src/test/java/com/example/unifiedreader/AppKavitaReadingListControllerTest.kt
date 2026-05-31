@@ -1,9 +1,13 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.CollectionSeriesRef
+import com.example.unifiedreader.core.model.CollectionSummary
+import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.ReadingListItemRef
 import com.example.unifiedreader.core.model.ReadingListSummary
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.remoteCollectionId
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteReadingListId
 import com.example.unifiedreader.data.kavita.KavitaApi
@@ -62,6 +66,7 @@ class AppKavitaReadingListControllerTest {
         advanceUntilIdle()
 
         assertEquals(secondListId, state.kavitaReadingLists.selectedReadingListId)
+        assertEquals(KavitaLibrarySection.ReadingLists, state.kavitaLibrarySection)
         assertFalse(state.kavitaReadingLists.isLoadingSelectedItems)
         assertEquals(emptyList<String>(), fakeApi.itemRequests)
     }
@@ -101,6 +106,80 @@ class AppKavitaReadingListControllerTest {
             state.kavitaReadingLists.itemsByReadingListId.getValue(readingListId).map(ReadingListItemRef::itemId),
         )
         assertEquals(listOf("42"), fakeApi.itemRequests)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `collection selection loads collection series and clears reading list selection`() = runTest {
+        val readingListId = SourceType.KAVITA.remoteReadingListId("42")
+        val collectionId = SourceType.KAVITA.remoteCollectionId("9")
+        val fakeApi = FakeKavitaReadingListApi(
+            collectionSeriesByRemoteId = mapOf(
+                "9" to listOf(collectionSeries(collectionRemoteId = "9", seriesKey = "kavita:library:1::100")),
+            ),
+        )
+        val controller = controller(fakeApi)
+        var state = AppUiState(
+            kavitaReadingLists = AppKavitaReadingListState(
+                summaries = listOf(readingListSummary(remoteId = "42", title = "Old List", itemCount = 1)),
+                selectedReadingListId = readingListId,
+            ),
+        )
+        val updateState: AppUiStateUpdater = { reducer -> state = reducer(state) }
+
+        controller.onReadingListSelected(
+            readingListId = collectionId,
+            currentState = state,
+            updateState = updateState,
+            scope = this,
+        )
+        advanceUntilIdle()
+
+        assertEquals(null, state.kavitaReadingLists.selectedReadingListId)
+        assertEquals(collectionId, state.kavitaReadingLists.selectedCollectionId)
+        assertEquals(KavitaLibrarySection.Collections, state.kavitaLibrarySection)
+        assertFalse(state.kavitaReadingLists.isLoadingSelectedItems)
+        assertEquals(
+            listOf("kavita:library:1::100"),
+            state.kavitaReadingLists.seriesByCollectionId.getValue(collectionId).map(CollectionSeriesRef::seriesKey),
+        )
+        assertEquals(listOf("9"), fakeApi.collectionRequests)
+    }
+
+    @Test
+    fun `sync refresh reloads summaries invalidates cached details and refetches selected collection`() = runTest {
+        val collectionId = SourceType.KAVITA.remoteCollectionId("9")
+        val fakeApi = FakeKavitaReadingListApi(
+            collections = listOf(collectionSummary(remoteId = "9", title = "Updated Collection", itemCount = 1)),
+            collectionSeriesByRemoteId = mapOf(
+                "9" to listOf(collectionSeries(collectionRemoteId = "9", seriesKey = "kavita:library:1::new")),
+            ),
+        )
+        val controller = controller(fakeApi)
+        var state = AppUiState(
+            kavitaReadingLists = AppKavitaReadingListState(
+                collections = listOf(collectionSummary(remoteId = "9", title = "Old Collection", itemCount = 1)),
+                seriesByCollectionId = mapOf(
+                    collectionId to listOf(
+                        collectionSeries(collectionRemoteId = "9", seriesKey = "kavita:library:1::old"),
+                    ),
+                ),
+                selectedCollectionId = collectionId,
+            ),
+        )
+        val updateState: AppUiStateUpdater = { reducer -> state = reducer(state) }
+
+        controller.refreshAfterKavitaSync(
+            stateProvider = { state },
+            updateState = updateState,
+        )
+
+        assertEquals("Updated Collection", state.kavitaReadingLists.collections.single().title)
+        assertEquals(
+            listOf("kavita:library:1::new"),
+            state.kavitaReadingLists.seriesByCollectionId.getValue(collectionId).map(CollectionSeriesRef::seriesKey),
+        )
+        assertEquals(listOf("9"), fakeApi.collectionRequests)
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -448,10 +527,15 @@ private fun storedSession(
 private class FakeKavitaReadingListApi(
     var summaries: List<ReadingListSummary> = emptyList(),
     var itemsByRemoteId: Map<String, List<ReadingListItemRef>> = emptyMap(),
+    var collections: List<CollectionSummary> = emptyList(),
+    var collectionSeriesByRemoteId: Map<String, List<CollectionSeriesRef>> = emptyMap(),
     val onSummariesRequested: suspend () -> Unit = {},
     val onItemsRequested: suspend () -> Unit = {},
+    val onCollectionsRequested: suspend () -> Unit = {},
+    val onCollectionSeriesRequested: suspend () -> Unit = {},
 ) : KavitaApi {
     val itemRequests = mutableListOf<String>()
+    val collectionRequests = mutableListOf<String>()
 
     override suspend fun login(
         username: String,
@@ -488,6 +572,23 @@ private class FakeKavitaReadingListApi(
         itemRequests += readingListRemoteId
         onItemsRequested()
         return itemsByRemoteId[readingListRemoteId].orEmpty()
+    }
+
+    override suspend fun getCollections(
+        accessToken: String,
+        apiKey: String?,
+    ): List<CollectionSummary> {
+        onCollectionsRequested()
+        return collections
+    }
+
+    override suspend fun getCollectionSeries(
+        accessToken: String,
+        collectionRemoteId: String,
+    ): List<CollectionSeriesRef> {
+        collectionRequests += collectionRemoteId
+        onCollectionSeriesRequested()
+        return collectionSeriesByRemoteId[collectionRemoteId].orEmpty()
     }
 
     override suspend fun getSeriesDetail(
@@ -551,6 +652,18 @@ private fun readingListSummary(
     itemCount = itemCount,
 )
 
+private fun collectionSummary(
+    remoteId: String,
+    title: String,
+    itemCount: Int,
+): CollectionSummary = CollectionSummary(
+    id = SourceType.KAVITA.remoteCollectionId(remoteId),
+    sourceType = SourceType.KAVITA,
+    remoteId = remoteId,
+    title = title,
+    itemCount = itemCount,
+)
+
 private fun readingListItem(
     readingListRemoteId: String,
     itemRemoteId: String,
@@ -559,5 +672,16 @@ private fun readingListItem(
     readingListId = SourceType.KAVITA.remoteReadingListId(readingListRemoteId),
     sourceType = SourceType.KAVITA,
     itemId = SourceType.KAVITA.remoteItemId(itemRemoteId),
+    order = order,
+)
+
+private fun collectionSeries(
+    collectionRemoteId: String,
+    seriesKey: String,
+    order: Int = 0,
+): CollectionSeriesRef = CollectionSeriesRef(
+    collectionId = SourceType.KAVITA.remoteCollectionId(collectionRemoteId),
+    sourceType = SourceType.KAVITA,
+    seriesKey = seriesKey,
     order = order,
 )

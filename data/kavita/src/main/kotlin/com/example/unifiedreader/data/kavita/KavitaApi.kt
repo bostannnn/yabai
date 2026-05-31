@@ -1,6 +1,8 @@
 package com.example.unifiedreader.data.kavita
 
 import com.example.unifiedreader.core.model.Library
+import com.example.unifiedreader.core.model.CollectionSeriesRef
+import com.example.unifiedreader.core.model.CollectionSummary
 import com.example.unifiedreader.core.model.ReadingListItemRef
 import com.example.unifiedreader.core.model.ReadingListSummary
 import com.example.unifiedreader.core.network.writeBodyTo
@@ -62,6 +64,16 @@ interface KavitaApi {
         accessToken: String,
         readingListRemoteId: String,
     ): List<ReadingListItemRef> = emptyList()
+
+    suspend fun getCollections(
+        accessToken: String,
+        apiKey: String? = null,
+    ): List<CollectionSummary> = emptyList()
+
+    suspend fun getCollectionSeries(
+        accessToken: String,
+        collectionRemoteId: String,
+    ): List<CollectionSeriesRef> = emptyList()
 
     suspend fun getSeriesDetail(
         accessToken: String,
@@ -355,6 +367,49 @@ class KtorKavitaApi(
         response.body<List<KavitaReadingListItemDto>>()
             .mapNotNull { item -> item.toDomain(readingListRemoteId) }
             .sortedBy(ReadingListItemRef::order)
+    }
+
+    override suspend fun getCollections(
+        accessToken: String,
+        apiKey: String?,
+    ): List<CollectionSummary> = authenticatedRequest {
+        val response = httpClient.get("$normalizedBaseUrl/api/Collection") {
+            bearerAuth(accessToken)
+            url {
+                parameters.append("ownedOnly", "false")
+                parameters.append("sortByLastModified", "false")
+            }
+        }
+        response.throwIfKavitaError()
+        response.body<List<KavitaCollectionDto>>()
+            .mapNotNull { collection ->
+                collection.toDomain(
+                    baseUrl = normalizedBaseUrl,
+                    apiKey = apiKey ?: activeApiKey,
+                )
+            }
+    }
+
+    override suspend fun getCollectionSeries(
+        accessToken: String,
+        collectionRemoteId: String,
+    ): List<CollectionSeriesRef> = authenticatedRequest {
+        val response = httpClient.get("$normalizedBaseUrl/api/Series/series-by-collection") {
+            bearerAuth(accessToken)
+            url {
+                parameters.append("collectionId", collectionRemoteId)
+                parameters.append("PageNumber", "0")
+                parameters.append("PageSize", "10000")
+            }
+        }
+        response.throwIfKavitaError()
+        response.body<List<KavitaSeriesDto>>()
+            .mapIndexedNotNull { index, series ->
+                series.toCollectionSeriesRef(
+                    collectionRemoteId = collectionRemoteId,
+                    order = index,
+                )
+            }
     }
 
     override suspend fun getSeriesDetail(

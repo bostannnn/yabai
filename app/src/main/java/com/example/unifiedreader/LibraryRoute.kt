@@ -6,16 +6,20 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
 import com.example.unifiedreader.feature.library.LibraryReadingListScopeState
 import com.example.unifiedreader.feature.library.LibraryScreen
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
 import com.example.unifiedreader.feature.library.LibraryViewMode
+import com.example.unifiedreader.feature.library.KavitaScopeLandingItem
+import com.example.unifiedreader.feature.library.KavitaScopeLandingScreen
 import com.example.unifiedreader.feature.library.shelves.LibraryShelvesTopSlot
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
@@ -78,80 +82,132 @@ internal fun LibraryRoute(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
     ) {
-        LibraryScreen(
-            selectedSource = uiState.selectedSource,
-            browseContextKey = browseContextKey,
-            items = uiState.visibleItems,
-            viewMode = viewMode,
-            progressByItemId = uiState.displayProgressByItemId,
-            ratingByItemId = uiState.displayRatingByItemId,
-            fadeReadItems = uiState.libraryFadeReadItems,
-            locallyAvailableItemIds = uiState.locallyAvailableRemoteItemIds,
-            downloadableItemIds = uiState.remoteDownloadActionAvailability.downloadableItemIds,
-            deletableDownloadedItemIds = uiState.remoteDownloadActionAvailability.deletableDownloadedItemIds,
-            downloadingItemIds = uiState.remoteDownloadActionAvailability.activeDownloadingItemIds,
-            isLoadingSource = !uiState.isSelectedSourceHydrated ||
-                (uiState.selectedSource == SourceType.KAVITA && uiState.kavitaReadingLists.isLoadingSelectedItems),
-            filterState = uiState.selectedLibraryFilters,
-            filterPanels = uiState.selectedLibraryFilterPanels,
-            filterFacets = uiState.selectedLibraryFilterFacets,
-            libraryTitlesById = uiState.selectedSourceLibraryTitlesById,
-            searchQuery = uiState.selectedLibrarySearchQuery,
-            sortMode = uiState.selectedLibrarySortMode,
-            gridCellSizeDp = uiState.libraryGridCellSizeDp,
-            showSortControl = showSortControl,
-            preferIssueLabels = uiState.isSeriesBrowseActive,
-            lockedSortLabel = "List order".takeIf { uiState.isKavitaReadingListActive },
-            readingListScopeState = if (uiState.selectedSource == SourceType.KAVITA) {
-                uiState.kavitaReadingListScopeState()
-            } else {
-                LibraryReadingListScopeState()
-            },
-            coverImageUrlProvider = coverImageUrlProvider,
-            coverPrefetchKeyProvider = coverPrefetchKeyProvider,
-            onCoverVisible = onCoverVisible,
-            onCoverViewportScrollingChanged = onCoverViewportScrollingChanged,
-            topContent = if (uiState.shouldReserveLibraryShelvesSlot) {
-                @Composable {
-                    LibraryShelvesTopSlot(
-                        browseContextKey = browseContextKey,
-                        shouldReserveSlot = uiState.shouldReserveLibraryShelvesSlot,
-                        state = uiState.libraryShelvesState,
-                        itemActionContext = itemActionContext,
-                        coverImageUrlProvider = coverImageUrlProvider,
-                        coverPrefetchKeyProvider = coverPrefetchKeyProvider,
-                        onCoverVisible = onCoverVisible,
-                        onItemSelected = onItemSelected,
-                        onDeleteImportedItem = onDeleteImportedItem,
-                    )
-                }
-            } else {
-                null
-            },
-            onFilterStateChanged = onFilterStateChanged,
-            onClearFilters = onClearFilters,
-            onReadingListSelected = onReadingListSelected,
-            onSortModeChanged = onSortModeChanged,
-            onViewModeChanged = onViewModeChanged,
-            onGridCellSizeDpChanged = onGridCellSizeDpChanged,
-            onFadeReadItemsChanged = onFadeReadItemsChanged,
-            initialScrollPosition = initialScrollPosition,
-            scrollToTopRequest = scrollToTopRequest,
-            onScrollPositionChanged = onScrollPositionChanged,
-            isDownloadSelectionMode = isDownloadSelectionMode,
-            selectedDownloadItemIds = selectedDownloadItemIds,
-            onDownloadSelectionModeChanged = onDownloadSelectionModeChanged,
-            onSelectedDownloadItemIdsChanged = onSelectedDownloadItemIdsChanged,
-            onSelectableDownloadItemIdsChanged = onSelectableDownloadItemIdsChanged,
-            onItemSelected = onItemSelected,
-            seriesReadingDirectionFor = seriesReadingDirectionFor,
-            onSeriesDirectionSelected = onSeriesDirectionSelected,
-            seriesReaderModeFor = seriesReaderModeFor,
-            onSeriesReaderModeSelected = onSeriesReaderModeSelected,
-            onDeleteImportedItem = onDeleteImportedItem,
-            onDownloadItem = onDownloadRemoteItem,
-            onDeleteDownloadedItem = onDeleteRemoteLocalFile,
-            onSetReadStatus = onSetReadStatus,
+        if (uiState.isKavitaVisualSectionActive) {
+            KavitaScopeLandingScreen(
+                title = uiState.kavitaLibrarySection.displayName(),
+                items = uiState.kavitaScopeLandingItems(),
+                isLoading = !uiState.isSelectedSourceHydrated || uiState.kavitaReadingLists.isLoadingSummaries,
+                errorMessage = uiState.kavitaReadingLists.errorMessage,
+                searchQuery = uiState.selectedLibrarySearchQuery,
+                gridCellSizeDp = uiState.libraryGridCellSizeDp,
+                browseContextKey = browseContextKey,
+                emptyMessage = when (uiState.kavitaLibrarySection) {
+                    KavitaLibrarySection.Collections -> "No Kavita collections yet"
+                    KavitaLibrarySection.ReadingLists -> "No Kavita reading lists yet"
+                    KavitaLibrarySection.Home -> "No Kavita lists yet"
+                },
+                coverImageUrlProvider = coverImageUrlProvider,
+                coverPrefetchKeyProvider = coverPrefetchKeyProvider,
+                onCoverVisible = onCoverVisible,
+                onCoverViewportScrollingChanged = onCoverViewportScrollingChanged,
+                onItemSelected = onReadingListSelected,
+            )
+        } else {
+            LibraryScreen(
+                selectedSource = uiState.selectedSource,
+                browseContextKey = browseContextKey,
+                items = uiState.visibleItems,
+                viewMode = viewMode,
+                progressByItemId = uiState.displayProgressByItemId,
+                ratingByItemId = uiState.displayRatingByItemId,
+                fadeReadItems = uiState.libraryFadeReadItems,
+                locallyAvailableItemIds = uiState.locallyAvailableRemoteItemIds,
+                downloadableItemIds = uiState.remoteDownloadActionAvailability.downloadableItemIds,
+                deletableDownloadedItemIds = uiState.remoteDownloadActionAvailability.deletableDownloadedItemIds,
+                downloadingItemIds = uiState.remoteDownloadActionAvailability.activeDownloadingItemIds,
+                isLoadingSource = !uiState.isSelectedSourceHydrated ||
+                    (uiState.selectedSource == SourceType.KAVITA && uiState.kavitaReadingLists.isLoadingSelectedItems),
+                filterState = uiState.selectedLibraryFilters,
+                filterPanels = uiState.selectedLibraryFilterPanels,
+                filterFacets = uiState.selectedLibraryFilterFacets,
+                libraryTitlesById = uiState.selectedSourceLibraryTitlesById,
+                searchQuery = uiState.selectedLibrarySearchQuery,
+                sortMode = uiState.selectedLibrarySortMode,
+                gridCellSizeDp = uiState.libraryGridCellSizeDp,
+                showSortControl = showSortControl,
+                preferIssueLabels = uiState.isSeriesBrowseActive,
+                lockedSortLabel = "List order".takeIf { uiState.isKavitaReadingListActive },
+                readingListScopeState = if (uiState.selectedSource == SourceType.KAVITA) {
+                    uiState.kavitaReadingListScopeState()
+                } else {
+                    LibraryReadingListScopeState()
+                },
+                coverImageUrlProvider = coverImageUrlProvider,
+                coverPrefetchKeyProvider = coverPrefetchKeyProvider,
+                onCoverVisible = onCoverVisible,
+                onCoverViewportScrollingChanged = onCoverViewportScrollingChanged,
+                topContent = if (uiState.shouldReserveLibraryShelvesSlot) {
+                    @Composable {
+                        LibraryShelvesTopSlot(
+                            browseContextKey = browseContextKey,
+                            shouldReserveSlot = uiState.shouldReserveLibraryShelvesSlot,
+                            state = uiState.libraryShelvesState,
+                            itemActionContext = itemActionContext,
+                            coverImageUrlProvider = coverImageUrlProvider,
+                            coverPrefetchKeyProvider = coverPrefetchKeyProvider,
+                            onCoverVisible = onCoverVisible,
+                            onItemSelected = onItemSelected,
+                            onDeleteImportedItem = onDeleteImportedItem,
+                        )
+                    }
+                } else {
+                    null
+                },
+                onFilterStateChanged = onFilterStateChanged,
+                onClearFilters = onClearFilters,
+                onReadingListSelected = onReadingListSelected,
+                onSortModeChanged = onSortModeChanged,
+                onViewModeChanged = onViewModeChanged,
+                onGridCellSizeDpChanged = onGridCellSizeDpChanged,
+                onFadeReadItemsChanged = onFadeReadItemsChanged,
+                initialScrollPosition = initialScrollPosition,
+                scrollToTopRequest = scrollToTopRequest,
+                onScrollPositionChanged = onScrollPositionChanged,
+                isDownloadSelectionMode = isDownloadSelectionMode,
+                selectedDownloadItemIds = selectedDownloadItemIds,
+                onDownloadSelectionModeChanged = onDownloadSelectionModeChanged,
+                onSelectedDownloadItemIdsChanged = onSelectedDownloadItemIdsChanged,
+                onSelectableDownloadItemIdsChanged = onSelectableDownloadItemIdsChanged,
+                onItemSelected = onItemSelected,
+                seriesReadingDirectionFor = seriesReadingDirectionFor,
+                onSeriesDirectionSelected = onSeriesDirectionSelected,
+                seriesReaderModeFor = seriesReaderModeFor,
+                onSeriesReaderModeSelected = onSeriesReaderModeSelected,
+                onDeleteImportedItem = onDeleteImportedItem,
+                onDownloadItem = onDownloadRemoteItem,
+                onDeleteDownloadedItem = onDeleteRemoteLocalFile,
+                onSetReadStatus = onSetReadStatus,
+            )
+        }
+    }
+}
+
+private fun AppUiState.kavitaScopeLandingItems(): List<KavitaScopeLandingItem> = when (kavitaLibrarySection) {
+    KavitaLibrarySection.Collections -> kavitaReadingLists.collections.map { collection ->
+        KavitaScopeLandingItem(
+            id = collection.id,
+            title = collection.title,
+            itemCount = collection.itemCount,
+            summary = collection.summary,
+            coverUrl = collection.coverUrl,
+            sourceType = collection.sourceType,
+            remoteId = collection.remoteId,
+            coverCacheScope = "collection",
         )
     }
+
+    KavitaLibrarySection.ReadingLists -> kavitaReadingLists.summaries.map { summary ->
+        KavitaScopeLandingItem(
+            id = summary.id,
+            title = summary.title,
+            itemCount = summary.itemCount,
+            summary = summary.summary,
+            coverUrl = summary.coverUrl,
+            sourceType = summary.sourceType,
+            remoteId = summary.remoteId,
+            coverCacheScope = "reading-list",
+        )
+    }
+
+    KavitaLibrarySection.Home -> emptyList()
 }

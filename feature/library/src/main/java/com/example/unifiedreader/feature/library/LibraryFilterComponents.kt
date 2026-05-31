@@ -132,7 +132,7 @@ internal fun LibraryFilterSummary(
             if (readingListScopeState.shouldShow) {
                 val selectedOption = readingListScopeState.selectedOption
                 LibraryFacetChip(
-                    label = selectedOption?.let { option -> "Reading list: ${option.title}" } ?: "Reading list",
+                    label = selectedOption?.chipLabel() ?: "Kavita lists",
                     count = 0,
                     selected = selectedOption != null,
                     showCount = false,
@@ -415,7 +415,7 @@ internal fun LibraryReadingListScopeDialog(
 ) {
     if (state.options.isEmpty() && (state.isLoadingOptions || state.errorMessage != null)) {
         FilterDialogScaffold(
-            title = "Reading lists",
+            title = "Kavita lists",
             hasActiveFilters = state.selectedOptionId != null,
             onClearFilters = {
                 onReadingListSelected(null)
@@ -427,49 +427,144 @@ internal fun LibraryReadingListScopeDialog(
                 .fillMaxWidth(),
         ) {
             Text(
-                text = state.errorMessage ?: "Loading reading lists...",
+                text = state.errorMessage ?: "Loading Kavita lists...",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         return
     }
-    val titleById = remember(state.options) {
-        state.options.associate { option -> option.id to option.readingListLabel() }
+    SearchableKavitaScopeDialog(
+        state = state,
+        onReadingListSelected = onReadingListSelected,
+        onDismiss = onDismiss,
+    )
+}
+
+@Composable
+private fun SearchableKavitaScopeDialog(
+    state: LibraryReadingListScopeState,
+    onReadingListSelected: (String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var query by rememberSaveable("kavita-lists") { mutableStateOf("") }
+    val filteredOptions = remember(state.options, query) {
+        val normalizedQuery = query.trim()
+        if (normalizedQuery.isEmpty()) {
+            state.options
+        } else {
+            state.options.filter { option ->
+                option.scopeLabel().contains(normalizedQuery, ignoreCase = true)
+            }
+        }
     }
-    SearchableTextFacetDialog(
-        title = "Reading lists",
-        values = state.options.map(LibraryReadingListScopeOption::id),
-        selectedValues = setOfNotNull(state.selectedOptionId),
-        valueLabel = { id -> titleById[id] ?: id },
-        valueKey = { id -> id },
-        supportingMessage = state.errorMessage,
-        onToggleValue = { id ->
-            onReadingListSelected(
-                if (state.selectedOptionId == id) {
-                    null
-                } else {
-                    id
-                },
-            )
-            onDismiss()
-        },
+    val optionsByKind = remember(filteredOptions) {
+        filteredOptions.groupBy(LibraryReadingListScopeOption::kind)
+    }
+    val sectionKinds = listOf(
+        LibraryReadingListScopeOptionKind.Collection,
+        LibraryReadingListScopeOptionKind.ReadingList,
+    ).filter { kind -> optionsByKind[kind].orEmpty().isNotEmpty() }
+    val viewportHeight = searchableFacetViewportHeight(filteredOptions.size)
+    FilterDialogScaffold(
+        title = "Kavita lists",
         hasActiveFilters = state.selectedOptionId != null,
         onClearFilters = {
             onReadingListSelected(null)
             onDismiss()
         },
-        letterKey = { value -> value },
         onDismiss = onDismiss,
-    )
+        modifier = Modifier
+            .widthIn(max = 560.dp)
+            .fillMaxWidth(),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            state.errorMessage?.takeIf(String::isNotBlank)?.let { message ->
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text(text = "Search Kavita lists") },
+            )
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(viewportHeight),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                if (filteredOptions.isEmpty()) {
+                    item(key = "empty") {
+                        Text(
+                            text = "No matches",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 12.dp),
+                        )
+                    }
+                }
+                sectionKinds.forEachIndexed { sectionIndex, kind ->
+                    if (sectionIndex > 0) {
+                        item(key = "divider-${kind.name}") {
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
+                        }
+                    }
+                    item(key = "header-${kind.name}") {
+                        Text(
+                            text = kind.sectionTitle(),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                        )
+                    }
+                    items(
+                        items = optionsByKind[kind].orEmpty(),
+                        key = LibraryReadingListScopeOption::id,
+                    ) { option ->
+                        TextFacetRow(
+                            value = option.scopeLabel(),
+                            selected = option.id == state.selectedOptionId,
+                            available = true,
+                            onClick = {
+                                onReadingListSelected(
+                                    if (state.selectedOptionId == option.id) {
+                                        null
+                                    } else {
+                                        option.id
+                                    },
+                                )
+                                onDismiss()
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
-private fun LibraryReadingListScopeOption.readingListLabel(): String =
+private fun LibraryReadingListScopeOption.scopeLabel(): String =
     if (itemCount > 0) {
         "$title ($itemCount)"
     } else {
         title
     }
+
+private fun LibraryReadingListScopeOption.chipLabel(): String = when (kind) {
+    LibraryReadingListScopeOptionKind.Collection -> "Collection: $title"
+    LibraryReadingListScopeOptionKind.ReadingList -> "Reading list: $title"
+}
+
+private fun LibraryReadingListScopeOptionKind.sectionTitle(): String = when (this) {
+    LibraryReadingListScopeOptionKind.Collection -> "Collections"
+    LibraryReadingListScopeOptionKind.ReadingList -> "Reading lists"
+}
 
 @Composable
 private fun CompactFacetDialog(

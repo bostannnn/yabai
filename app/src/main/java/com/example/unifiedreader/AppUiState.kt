@@ -1,11 +1,14 @@
 package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.CollectionSeriesRef
+import com.example.unifiedreader.core.model.CollectionSummary
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.LibraryFilterFacets
 import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
+import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.ReadingListItemRef
 import com.example.unifiedreader.core.model.ReadingListSummary
 import com.example.unifiedreader.core.model.ReadableItem
@@ -13,10 +16,12 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.belongsToKavitaSeries
 import com.example.unifiedreader.core.model.belongsToStumpSeries
+import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.core.model.resolveLibraryFilterPanels
 import com.example.unifiedreader.feature.library.ItemProgressSummary
 import com.example.unifiedreader.feature.library.LibraryRatingBadgeState
 import com.example.unifiedreader.feature.library.LibraryReadingListScopeOption
+import com.example.unifiedreader.feature.library.LibraryReadingListScopeOptionKind
 import com.example.unifiedreader.feature.library.LibraryReadingListScopeState
 import com.example.unifiedreader.feature.library.RemoteDownloadActionAvailability
 import com.example.unifiedreader.feature.library.defaultLibraryGridCellSizeDp
@@ -58,6 +63,10 @@ data class AppKavitaReadingListState(
     val itemsByReadingListId: Map<String, List<ReadingListItemRef>> = emptyMap(),
     val selectedReadingListId: String? = null,
     val loadingSelectedReadingListId: String? = null,
+    val collections: List<CollectionSummary> = emptyList(),
+    val seriesByCollectionId: Map<String, List<CollectionSeriesRef>> = emptyMap(),
+    val selectedCollectionId: String? = null,
+    val loadingSelectedCollectionId: String? = null,
     val isLoadingSummaries: Boolean = false,
     val isLoadingSelectedItems: Boolean = false,
     val errorMessage: String? = null,
@@ -67,6 +76,7 @@ data class AppUiState(
     val topLevel: TopLevelDestination = TopLevelDestination.Library,
     val sourceOrder: List<SourceType> = SourceType.entries.toList(),
     val selectedSource: SourceType = SourceType.KAVITA,
+    val kavitaLibrarySection: KavitaLibrarySection = KavitaLibrarySection.Home,
     val selectedItemId: String? = null,
     val activeReader: FormatType? = null,
     val selectedReaderOpenMode: ReaderOpenMode = ReaderOpenMode.Default,
@@ -155,19 +165,44 @@ data class AppUiState(
 
     val selectedSeriesTitle: String?
         get() = when (selectedSource) {
-            SourceType.KAVITA -> selectedKavitaSeriesTitle ?: selectedKavitaReadingListTitle
+            SourceType.KAVITA -> selectedKavitaSeriesTitle ?: selectedKavitaCollectionTitle ?: selectedKavitaReadingListTitle
             SourceType.STUMP -> selectedStumpSeriesTitle
             SourceType.GRIMMORY,
             SourceType.LOCAL -> null
         }
+
+    val selectedLibraryContextTitle: String?
+        get() = selectedSeriesTitle ?: selectedKavitaLibrarySectionTitle
+
+    val selectedKavitaLibrarySectionTitle: String?
+        get() = kavitaLibrarySection
+            .takeIf { selectedSource == SourceType.KAVITA && it != KavitaLibrarySection.Home }
+            ?.displayName()
 
     val selectedKavitaReadingListTitle: String?
         get() = kavitaReadingLists.selectedReadingListId?.let { readingListId ->
             kavitaReadingLists.summaries.firstOrNull { summary -> summary.id == readingListId }?.title
         }
 
+    val selectedKavitaCollectionTitle: String?
+        get() = kavitaReadingLists.selectedCollectionId?.let { collectionId ->
+            kavitaReadingLists.collections.firstOrNull { collection -> collection.id == collectionId }?.title
+        }
+
     val isKavitaReadingListActive: Boolean
         get() = selectedSource == SourceType.KAVITA && kavitaReadingLists.selectedReadingListId != null
+
+    val isKavitaCollectionActive: Boolean
+        get() = selectedSource == SourceType.KAVITA && kavitaReadingLists.selectedCollectionId != null
+
+    val isKavitaScopeActive: Boolean
+        get() = isKavitaReadingListActive || isKavitaCollectionActive
+
+    val isKavitaVisualSectionActive: Boolean
+        get() = selectedSource == SourceType.KAVITA &&
+            kavitaLibrarySection != KavitaLibrarySection.Home &&
+            !isSeriesBrowseActive &&
+            !isKavitaScopeActive
 
     val selectedKavitaReadingListItemIds: List<String>
         get() = kavitaReadingLists.selectedReadingListId
@@ -176,6 +211,13 @@ data class AppUiState(
             .sortedBy(ReadingListItemRef::order)
             .map(ReadingListItemRef::itemId)
 
+    val selectedKavitaCollectionSeriesKeys: Set<String>
+        get() = kavitaReadingLists.selectedCollectionId
+            ?.let { collectionId -> kavitaReadingLists.seriesByCollectionId[collectionId] }
+            .orEmpty()
+            .sortedBy(CollectionSeriesRef::order)
+            .mapTo(linkedSetOf(), CollectionSeriesRef::seriesKey)
+
     val shouldShowLibraryShelves: Boolean
         get() = shouldReserveLibraryShelvesSlot &&
             (libraryShelvesState.hasContent || libraryShelvesState.isLoading)
@@ -183,21 +225,30 @@ data class AppUiState(
     val shouldReserveLibraryShelvesSlot: Boolean
         get() = selectedLibrarySearchQuery.isBlank() &&
             !isSeriesBrowseActive &&
-            !isKavitaReadingListActive
+            !isKavitaScopeActive &&
+            !isKavitaVisualSectionActive
 
     val selectedSourceConnectivity: SourceConnectivityState
         get() = sourceConnectivityBySource[selectedSource] ?: SourceConnectivityState.Unknown
 }
 
 fun AppUiState.kavitaReadingListScopeState(): LibraryReadingListScopeState = LibraryReadingListScopeState(
-    options = kavitaReadingLists.summaries.map { summary ->
+    options = kavitaReadingLists.collections.map { collection ->
+        LibraryReadingListScopeOption(
+            id = collection.id,
+            title = collection.title,
+            itemCount = collection.itemCount,
+            kind = LibraryReadingListScopeOptionKind.Collection,
+        )
+    } + kavitaReadingLists.summaries.map { summary ->
         LibraryReadingListScopeOption(
             id = summary.id,
             title = summary.title,
             itemCount = summary.itemCount,
+            kind = LibraryReadingListScopeOptionKind.ReadingList,
         )
     },
-    selectedOptionId = kavitaReadingLists.selectedReadingListId,
+    selectedOptionId = kavitaReadingLists.selectedCollectionId ?: kavitaReadingLists.selectedReadingListId,
     isLoadingOptions = kavitaReadingLists.isLoadingSummaries,
     isLoadingSelectedItems = kavitaReadingLists.isLoadingSelectedItems,
     errorMessage = kavitaReadingLists.errorMessage,

@@ -1,5 +1,8 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.CollectionSummary
+import com.example.unifiedreader.core.model.KavitaLibrarySection
+import com.example.unifiedreader.core.model.ReadingListSummary
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.data.kavita.KavitaApi
 import javax.inject.Inject
@@ -56,33 +59,59 @@ class AppKavitaReadingListController @Inject constructor(
         updateState: AppUiStateUpdater,
         scope: CoroutineScope,
     ) {
+        val selectedScope = readingListId?.toKavitaScopeSelection()
         updateState { state ->
-            val selectedItemsCached = readingListId != null &&
-                state.kavitaReadingLists.itemsByReadingListId.containsKey(readingListId)
+            val selectedItemsCached = when (selectedScope) {
+                is KavitaScopeSelection.Collection ->
+                    state.kavitaReadingLists.seriesByCollectionId.containsKey(selectedScope.id)
+
+                is KavitaScopeSelection.ReadingList ->
+                    state.kavitaReadingLists.itemsByReadingListId.containsKey(selectedScope.id)
+
+                null -> false
+            }
             state.copy(
                 selectedKavitaSeriesKey = null,
+                kavitaLibrarySection = selectedScope?.sectionForSelection() ?: state.kavitaLibrarySection,
                 kavitaReadingLists = state.kavitaReadingLists.copy(
-                    selectedReadingListId = readingListId,
-                    loadingSelectedReadingListId = if (readingListId != null && !selectedItemsCached) {
-                        readingListId
-                    } else {
-                        null
-                    },
-                    isLoadingSelectedItems = readingListId != null && !selectedItemsCached,
+                    selectedReadingListId = (selectedScope as? KavitaScopeSelection.ReadingList)?.id,
+                    loadingSelectedReadingListId = (selectedScope as? KavitaScopeSelection.ReadingList)
+                        ?.id
+                        ?.takeUnless { selectedItemsCached },
+                    selectedCollectionId = (selectedScope as? KavitaScopeSelection.Collection)?.id,
+                    loadingSelectedCollectionId = (selectedScope as? KavitaScopeSelection.Collection)
+                        ?.id
+                        ?.takeUnless { selectedItemsCached },
+                    isLoadingSelectedItems = selectedScope != null && !selectedItemsCached,
                     errorMessage = null,
                 ),
                 libraryScrollToTopRequest = state.libraryScrollToTopRequest + 1L,
             )
         }
-        if (readingListId == null) return
-        if (currentState.kavitaReadingLists.itemsByReadingListId.containsKey(readingListId)) return
+        if (selectedScope == null) return
+        val selectedItemsCached = when (selectedScope) {
+            is KavitaScopeSelection.Collection ->
+                currentState.kavitaReadingLists.seriesByCollectionId.containsKey(selectedScope.id)
+
+            is KavitaScopeSelection.ReadingList ->
+                currentState.kavitaReadingLists.itemsByReadingListId.containsKey(selectedScope.id)
+        }
+        if (selectedItemsCached) return
         val session = kavitaCredentialStore.sessionFlow.value ?: return
         scope.launch {
-            loadItems(
-                session = session,
-                readingListId = readingListId,
-                updateState = updateState,
-            )
+            when (selectedScope) {
+                is KavitaScopeSelection.Collection -> loadCollectionSeries(
+                    session = session,
+                    collectionId = selectedScope.id,
+                    updateState = updateState,
+                )
+
+                is KavitaScopeSelection.ReadingList -> loadItems(
+                    session = session,
+                    readingListId = selectedScope.id,
+                    updateState = updateState,
+                )
+            }
         }
     }
 
@@ -102,12 +131,22 @@ class AppKavitaReadingListController @Inject constructor(
             invalidateCachedItems = true,
         )
         if (!refreshed) return
-        val selectedReadingListId = stateProvider().kavitaReadingLists.selectedReadingListId ?: return
-        loadItems(
-            session = session,
-            readingListId = selectedReadingListId,
-            updateState = updateState,
-        )
+        val state = stateProvider().kavitaReadingLists
+        state.selectedCollectionId?.let { collectionId ->
+            loadCollectionSeries(
+                session = session,
+                collectionId = collectionId,
+                updateState = updateState,
+            )
+            return
+        }
+        state.selectedReadingListId?.let { selectedReadingListId ->
+            loadItems(
+                session = session,
+                readingListId = selectedReadingListId,
+                updateState = updateState,
+            )
+        }
     }
 
     private suspend fun loadSummaries(
@@ -131,9 +170,15 @@ class AppKavitaReadingListController @Inject constructor(
                     api = api,
                     session = activeSession,
                 ) { accessToken, apiKey ->
-                    api.getReadingLists(
-                        accessToken = accessToken,
-                        apiKey = apiKey,
+                    KavitaScopeSummaries(
+                        readingLists = api.getReadingLists(
+                            accessToken = accessToken,
+                            apiKey = apiKey,
+                        ),
+                        collections = api.getCollections(
+                            accessToken = accessToken,
+                            apiKey = apiKey,
+                        ),
                     )
                 }
             }
@@ -147,28 +192,45 @@ class AppKavitaReadingListController @Inject constructor(
                 if (!isObservedSessionCurrent(requestSessionIdentity)) {
                     return@updateState state
                 }
-                val summaryIds = summaries.mapTo(hashSetOf()) { summary -> summary.id }
+                val readingListIds = summaries.readingLists.mapTo(hashSetOf()) { summary -> summary.id }
+                val collectionIds = summaries.collections.mapTo(hashSetOf()) { collection -> collection.id }
                 val loadingSelectedReadingListId = if (invalidateCachedItems) {
                     null
                 } else {
                     state.kavitaReadingLists.loadingSelectedReadingListId
-                        ?.takeIf(summaryIds::contains)
+                        ?.takeIf(readingListIds::contains)
+                }
+                val loadingSelectedCollectionId = if (invalidateCachedItems) {
+                    null
+                } else {
+                    state.kavitaReadingLists.loadingSelectedCollectionId
+                        ?.takeIf(collectionIds::contains)
                 }
                 state.copy(
                     kavitaReadingLists = state.kavitaReadingLists.copy(
-                        summaries = summaries,
+                        summaries = summaries.readingLists,
                         itemsByReadingListId = if (invalidateCachedItems) {
                             emptyMap()
                         } else {
                             state.kavitaReadingLists.itemsByReadingListId
-                                .filterKeys(summaryIds::contains)
+                                .filterKeys(readingListIds::contains)
+                        },
+                        collections = summaries.collections,
+                        seriesByCollectionId = if (invalidateCachedItems) {
+                            emptyMap()
+                        } else {
+                            state.kavitaReadingLists.seriesByCollectionId
+                                .filterKeys(collectionIds::contains)
                         },
                         selectedReadingListId = state.kavitaReadingLists.selectedReadingListId
-                            ?.takeIf(summaryIds::contains),
+                            ?.takeIf(readingListIds::contains),
+                        selectedCollectionId = state.kavitaReadingLists.selectedCollectionId
+                            ?.takeIf(collectionIds::contains),
                         loadingSelectedReadingListId = loadingSelectedReadingListId,
+                        loadingSelectedCollectionId = loadingSelectedCollectionId,
                         isLoadingSummaries = false,
                         isLoadingSelectedItems = state.kavitaReadingLists.isLoadingSelectedItems &&
-                            loadingSelectedReadingListId != null,
+                            (loadingSelectedReadingListId != null || loadingSelectedCollectionId != null),
                         errorMessage = null,
                     ),
                 )
@@ -185,7 +247,7 @@ class AppKavitaReadingListController @Inject constructor(
                 state.copy(
                     kavitaReadingLists = state.kavitaReadingLists.copy(
                         isLoadingSummaries = false,
-                        errorMessage = "Unable to load Kavita reading lists: ${throwable.userFacingMessage()}",
+                        errorMessage = "Unable to load Kavita lists: ${throwable.userFacingMessage()}",
                     ),
                 )
             }
@@ -283,6 +345,96 @@ class AppKavitaReadingListController @Inject constructor(
         }
     }
 
+    private suspend fun loadCollectionSeries(
+        session: KavitaStoredSession,
+        collectionId: String,
+        updateState: AppUiStateUpdater,
+    ) {
+        val requestSessionIdentity = KavitaReadingListSessionIdentity.from(session)
+        val remoteId = collectionId.substringAfterLast(':', missingDelimiterValue = collectionId)
+        var shouldLoad = false
+        updateState { state ->
+            if (state.kavitaReadingLists.selectedCollectionId != collectionId) {
+                return@updateState state
+            }
+            shouldLoad = true
+            state.copy(
+                kavitaReadingLists = state.kavitaReadingLists.copy(
+                    loadingSelectedCollectionId = collectionId,
+                    isLoadingSelectedItems = true,
+                    errorMessage = null,
+                ),
+            )
+        }
+        if (!shouldLoad) return
+        runSuspendCatchingPreservingCancellation {
+            runWithReadingListAddressFailover(session) { api, activeSession ->
+                sessionRequestRunner.run(
+                    api = api,
+                    session = activeSession,
+                ) { accessToken, _ ->
+                    api.getCollectionSeries(
+                        accessToken = accessToken,
+                        collectionRemoteId = remoteId,
+                    )
+                }
+            }
+        }.onSuccess { seriesRefs ->
+            if (!isObservedSessionCurrent(requestSessionIdentity)) {
+                return@onSuccess
+            }
+            remoteSourceConnectivityPolicy.markReachable(SourceType.KAVITA)
+            updateState { state ->
+                if (!isObservedSessionCurrent(requestSessionIdentity)) {
+                    return@updateState state
+                }
+                val isCurrentLoad = state.kavitaReadingLists.loadingSelectedCollectionId == collectionId
+                val isCurrentSelection = state.kavitaReadingLists.selectedCollectionId == collectionId
+                state.copy(
+                    kavitaReadingLists = state.kavitaReadingLists.copy(
+                        seriesByCollectionId = state.kavitaReadingLists.seriesByCollectionId +
+                            (collectionId to seriesRefs),
+                        loadingSelectedCollectionId = if (isCurrentLoad) {
+                            null
+                        } else {
+                            state.kavitaReadingLists.loadingSelectedCollectionId
+                        },
+                        isLoadingSelectedItems = if (isCurrentLoad) {
+                            false
+                        } else {
+                            state.kavitaReadingLists.isLoadingSelectedItems
+                        },
+                        errorMessage = if (isCurrentSelection) {
+                            null
+                        } else {
+                            state.kavitaReadingLists.errorMessage
+                        },
+                    ),
+                )
+            }
+        }.onFailure { throwable ->
+            if (!isObservedSessionCurrent(requestSessionIdentity)) {
+                return@onFailure
+            }
+            remoteSourceConnectivityPolicy.markFromFailure(SourceType.KAVITA, throwable)
+            updateState { state ->
+                if (!isObservedSessionCurrent(requestSessionIdentity)) {
+                    return@updateState state
+                }
+                if (state.kavitaReadingLists.loadingSelectedCollectionId != collectionId) {
+                    return@updateState state
+                }
+                state.copy(
+                    kavitaReadingLists = state.kavitaReadingLists.copy(
+                        loadingSelectedCollectionId = null,
+                        isLoadingSelectedItems = false,
+                        errorMessage = "Unable to load Kavita collection: ${throwable.userFacingMessage()}",
+                    ),
+                )
+            }
+        }
+    }
+
     private fun isObservedSessionCurrent(
         requestSessionIdentity: KavitaReadingListSessionIdentity,
     ): Boolean = when (val state = observedSessionState) {
@@ -323,4 +475,31 @@ private data class KavitaReadingListSessionIdentity(
             username = session.username,
         )
     }
+}
+
+private data class KavitaScopeSummaries(
+    val readingLists: List<ReadingListSummary>,
+    val collections: List<CollectionSummary>,
+)
+
+private sealed interface KavitaScopeSelection {
+    val id: String
+
+    data class Collection(
+        override val id: String,
+    ) : KavitaScopeSelection
+
+    data class ReadingList(
+        override val id: String,
+    ) : KavitaScopeSelection
+}
+
+private fun String.toKavitaScopeSelection(): KavitaScopeSelection = when {
+    startsWith("kavita:collection:") -> KavitaScopeSelection.Collection(this)
+    else -> KavitaScopeSelection.ReadingList(this)
+}
+
+private fun KavitaScopeSelection.sectionForSelection(): KavitaLibrarySection = when (this) {
+    is KavitaScopeSelection.Collection -> KavitaLibrarySection.Collections
+    is KavitaScopeSelection.ReadingList -> KavitaLibrarySection.ReadingLists
 }

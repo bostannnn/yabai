@@ -2,6 +2,7 @@ package com.example.unifiedreader.data.kavita
 
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.remoteCollectionId
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
 import com.example.unifiedreader.core.model.remoteReadingListId
@@ -38,6 +39,35 @@ class KavitaDtosTest {
         assertEquals(summary.id, item.readingListId)
         assertEquals(SourceType.KAVITA.remoteItemId("77"), item.itemId)
         assertEquals(3, item.order)
+    }
+
+    @Test
+    fun `collection summaries and series map to stable domain ids`() {
+        val summary = KavitaCollectionDto(
+            id = 7,
+            title = "KonoSuba",
+            summary = "All KonoSuba works",
+            itemCount = 3,
+        ).toDomain(
+            baseUrl = "https://kavita.example",
+            apiKey = "secret",
+        ) ?: error("Expected collection summary.")
+        val seriesRef = KavitaSeriesDto(
+            id = 12,
+            libraryId = 5,
+            name = "KonoSuba",
+        ).toCollectionSeriesRef(
+            collectionRemoteId = "7",
+            order = 2,
+        ) ?: error("Expected collection series ref.")
+
+        assertEquals(SourceType.KAVITA.remoteCollectionId("7"), summary.id)
+        assertEquals("KonoSuba", summary.title)
+        assertEquals(3, summary.itemCount)
+        assertEquals("https://kavita.example/api/Image/collection-cover?collectionTagId=7&apiKey=secret", summary.coverUrl)
+        assertEquals(summary.id, seriesRef.collectionId)
+        assertEquals("${SourceType.KAVITA.remoteLibraryId("5")}::12", seriesRef.seriesKey)
+        assertEquals(2, seriesRef.order)
     }
 
     @Test
