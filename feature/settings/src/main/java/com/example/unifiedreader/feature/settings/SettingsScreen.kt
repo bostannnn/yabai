@@ -65,6 +65,7 @@ fun SettingsScreen(
     onPreloadKavitaCovers: () -> Unit,
     onRetryFailedKavitaCovers: () -> Unit,
     onCancelKavitaCoverPreload: () -> Unit,
+    onClearKavitaCoverCache: () -> Unit,
     onStumpDisplayNameChanged: (String) -> Unit,
     onStumpBaseUrlChanged: (String) -> Unit,
     onStumpBackupBaseUrlChanged: (String) -> Unit,
@@ -75,6 +76,7 @@ fun SettingsScreen(
     onPreloadStumpCovers: () -> Unit,
     onRetryFailedStumpCovers: () -> Unit,
     onCancelStumpCoverPreload: () -> Unit,
+    onClearStumpCoverCache: () -> Unit,
     onGrimmoryDisplayNameChanged: (String) -> Unit,
     onGrimmoryBaseUrlChanged: (String) -> Unit,
     onGrimmoryBackupBaseUrlChanged: (String) -> Unit,
@@ -85,6 +87,7 @@ fun SettingsScreen(
     onPreloadGrimmoryCovers: () -> Unit,
     onRetryFailedGrimmoryCovers: () -> Unit,
     onCancelGrimmoryCoverPreload: () -> Unit,
+    onClearGrimmoryCoverCache: () -> Unit,
 ) {
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize(),
@@ -137,6 +140,7 @@ fun SettingsScreen(
                             onPreloadKavitaCovers = onPreloadKavitaCovers,
                             onRetryFailedKavitaCovers = onRetryFailedKavitaCovers,
                             onCancelKavitaCoverPreload = onCancelKavitaCoverPreload,
+                            onClearKavitaCoverCache = onClearKavitaCoverCache,
                             onLibraryDirectionSelected = onLibraryDirectionSelected,
                             onLibraryReaderModeSelected = onLibraryReaderModeSelected,
                         )
@@ -152,6 +156,7 @@ fun SettingsScreen(
                             onPreloadGrimmoryCovers = onPreloadGrimmoryCovers,
                             onRetryFailedGrimmoryCovers = onRetryFailedGrimmoryCovers,
                             onCancelGrimmoryCoverPreload = onCancelGrimmoryCoverPreload,
+                            onClearGrimmoryCoverCache = onClearGrimmoryCoverCache,
                         )
                         SettingsSectionId.Stump -> StumpSettingsCard(
                             stumpConnection = stumpConnection,
@@ -167,6 +172,7 @@ fun SettingsScreen(
                             onPreloadStumpCovers = onPreloadStumpCovers,
                             onRetryFailedStumpCovers = onRetryFailedStumpCovers,
                             onCancelStumpCoverPreload = onCancelStumpCoverPreload,
+                            onClearStumpCoverCache = onClearStumpCoverCache,
                             onLibraryDirectionSelected = onLibraryDirectionSelected,
                             onLibraryReaderModeSelected = onLibraryReaderModeSelected,
                         )
@@ -207,6 +213,7 @@ fun SettingsScreen(
                         onPreloadKavitaCovers = onPreloadKavitaCovers,
                         onRetryFailedKavitaCovers = onRetryFailedKavitaCovers,
                         onCancelKavitaCoverPreload = onCancelKavitaCoverPreload,
+                        onClearKavitaCoverCache = onClearKavitaCoverCache,
                         onLibraryDirectionSelected = onLibraryDirectionSelected,
                         onLibraryReaderModeSelected = onLibraryReaderModeSelected,
                     )
@@ -224,6 +231,7 @@ fun SettingsScreen(
                         onPreloadGrimmoryCovers = onPreloadGrimmoryCovers,
                         onRetryFailedGrimmoryCovers = onRetryFailedGrimmoryCovers,
                         onCancelGrimmoryCoverPreload = onCancelGrimmoryCoverPreload,
+                        onClearGrimmoryCoverCache = onClearGrimmoryCoverCache,
                     )
                 },
                 stumpCard = {
@@ -241,6 +249,7 @@ fun SettingsScreen(
                         onPreloadStumpCovers = onPreloadStumpCovers,
                         onRetryFailedStumpCovers = onRetryFailedStumpCovers,
                         onCancelStumpCoverPreload = onCancelStumpCoverPreload,
+                        onClearStumpCoverCache = onClearStumpCoverCache,
                         onLibraryDirectionSelected = onLibraryDirectionSelected,
                         onLibraryReaderModeSelected = onLibraryReaderModeSelected,
                     )
@@ -265,6 +274,7 @@ private fun KavitaSettingsCard(
     onPreloadKavitaCovers: () -> Unit,
     onRetryFailedKavitaCovers: () -> Unit,
     onCancelKavitaCoverPreload: () -> Unit,
+    onClearKavitaCoverCache: () -> Unit,
     onLibraryDirectionSelected: (String, ComicReadingDirection) -> Unit,
     onLibraryReaderModeSelected: (String, ComicReaderMode) -> Unit,
 ) {
@@ -286,6 +296,7 @@ private fun KavitaSettingsCard(
         onPreloadCovers = onPreloadKavitaCovers,
         onRetryFailedCovers = onRetryFailedKavitaCovers,
         onCancelPreload = onCancelKavitaCoverPreload,
+        onClearCachedCovers = onClearKavitaCoverCache,
         readingDirectionLibraries = kavitaReadingDirectionLibraries,
         readerModeLibraries = kavitaReaderModeLibraries,
         onLibraryDirectionSelected = onLibraryDirectionSelected,
@@ -306,6 +317,7 @@ private fun GrimmorySettingsCard(
     onPreloadGrimmoryCovers: () -> Unit,
     onRetryFailedGrimmoryCovers: () -> Unit,
     onCancelGrimmoryCoverPreload: () -> Unit,
+    onClearGrimmoryCoverCache: () -> Unit,
 ) {
     RemoteSourceSettingsCard(
         title = "Grimmory",
@@ -325,6 +337,7 @@ private fun GrimmorySettingsCard(
         onPreloadCovers = onPreloadGrimmoryCovers,
         onRetryFailedCovers = onRetryFailedGrimmoryCovers,
         onCancelPreload = onCancelGrimmoryCoverPreload,
+        onClearCachedCovers = onClearGrimmoryCoverCache,
     )
 }
 
@@ -343,6 +356,7 @@ private fun StumpSettingsCard(
     onPreloadStumpCovers: () -> Unit,
     onRetryFailedStumpCovers: () -> Unit,
     onCancelStumpCoverPreload: () -> Unit,
+    onClearStumpCoverCache: () -> Unit,
     onLibraryDirectionSelected: (String, ComicReadingDirection) -> Unit,
     onLibraryReaderModeSelected: (String, ComicReaderMode) -> Unit,
 ) {
@@ -364,6 +378,7 @@ private fun StumpSettingsCard(
         onPreloadCovers = onPreloadStumpCovers,
         onRetryFailedCovers = onRetryFailedStumpCovers,
         onCancelPreload = onCancelStumpCoverPreload,
+        onClearCachedCovers = onClearStumpCoverCache,
         readingDirectionLibraries = stumpReadingDirectionLibraries,
         readerModeLibraries = stumpReaderModeLibraries,
         onLibraryDirectionSelected = onLibraryDirectionSelected,

@@ -327,7 +327,7 @@ class AppStumpRemoteSourceController @Inject constructor(
     }
 
     private suspend fun resetCoverState() {
-        remoteCoverController.resetSource(SourceType.STUMP)
+        remoteCoverController.refreshSourceAfterCatalogSync(SourceType.STUMP)
     }
 
     private fun suppressObservedLibraryRefresh(

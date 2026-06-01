@@ -733,6 +733,14 @@ class AppViewModel @Inject constructor(
         )
     }
 
+    fun clearCachedCovers(sourceType: SourceType) {
+        coverPreloadController.clearCachedCovers(
+            sourceType = sourceType,
+            updateState = ::updateUiState,
+            scope = viewModelScope,
+        )
+    }
+
     internal suspend fun importDocument(uri: Uri): Boolean {
         val result = libraryActionsCoordinator.importDocument(uri)
         val importedItem = result.importedItem

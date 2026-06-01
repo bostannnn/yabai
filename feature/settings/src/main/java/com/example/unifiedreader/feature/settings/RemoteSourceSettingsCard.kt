@@ -29,6 +29,7 @@ internal fun RemoteSourceSettingsCard(
     onPreloadCovers: () -> Unit = {},
     onRetryFailedCovers: () -> Unit = {},
     onCancelPreload: () -> Unit = {},
+    onClearCachedCovers: () -> Unit = {},
     readingDirectionLibraries: List<ReadingDirectionLibraryUiState> = emptyList(),
     readerModeLibraries: List<ReaderModeLibraryUiState> = emptyList(),
     onLibraryDirectionSelected: (String, ComicReadingDirection) -> Unit = { _, _ -> },
@@ -58,6 +59,7 @@ internal fun RemoteSourceSettingsCard(
             onPreloadCovers = onPreloadCovers,
             onRetryFailedCovers = onRetryFailedCovers,
             onCancelPreload = onCancelPreload,
+            onClearCachedCovers = onClearCachedCovers,
         )
         ComicReadingDirectionSettingsSection(
             libraries = readingDirectionLibraries,

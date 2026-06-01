@@ -315,6 +315,7 @@ fun UnifiedReaderScaffold(
                         onPreloadKavitaCovers = { viewModel.preloadCovers(SourceType.KAVITA) },
                         onRetryFailedKavitaCovers = { viewModel.retryFailedCovers(SourceType.KAVITA) },
                         onCancelKavitaCoverPreload = { viewModel.cancelCoverPreload(SourceType.KAVITA) },
+                        onClearKavitaCoverCache = { viewModel.clearCachedCovers(SourceType.KAVITA) },
                         onStumpDisplayNameChanged = viewModel::onStumpDisplayNameChanged,
                         onStumpBaseUrlChanged = viewModel::onStumpBaseUrlChanged,
                         onStumpBackupBaseUrlChanged = viewModel::onStumpBackupBaseUrlChanged,
@@ -325,6 +326,7 @@ fun UnifiedReaderScaffold(
                         onPreloadStumpCovers = { viewModel.preloadCovers(SourceType.STUMP) },
                         onRetryFailedStumpCovers = { viewModel.retryFailedCovers(SourceType.STUMP) },
                         onCancelStumpCoverPreload = { viewModel.cancelCoverPreload(SourceType.STUMP) },
+                        onClearStumpCoverCache = { viewModel.clearCachedCovers(SourceType.STUMP) },
                         onGrimmoryDisplayNameChanged = viewModel::onGrimmoryDisplayNameChanged,
                         onGrimmoryBaseUrlChanged = viewModel::onGrimmoryBaseUrlChanged,
                         onGrimmoryBackupBaseUrlChanged = viewModel::onGrimmoryBackupBaseUrlChanged,
@@ -335,6 +337,7 @@ fun UnifiedReaderScaffold(
                         onPreloadGrimmoryCovers = { viewModel.preloadCovers(SourceType.GRIMMORY) },
                         onRetryFailedGrimmoryCovers = { viewModel.retryFailedCovers(SourceType.GRIMMORY) },
                         onCancelGrimmoryCoverPreload = { viewModel.cancelCoverPreload(SourceType.GRIMMORY) },
+                        onClearGrimmoryCoverCache = { viewModel.clearCachedCovers(SourceType.GRIMMORY) },
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -382,6 +385,7 @@ private fun SettingsRoute(
     onPreloadKavitaCovers: () -> Unit,
     onRetryFailedKavitaCovers: () -> Unit,
     onCancelKavitaCoverPreload: () -> Unit,
+    onClearKavitaCoverCache: () -> Unit,
     onStumpDisplayNameChanged: (String) -> Unit,
     onStumpBaseUrlChanged: (String) -> Unit,
     onStumpBackupBaseUrlChanged: (String) -> Unit,
@@ -392,6 +396,7 @@ private fun SettingsRoute(
     onPreloadStumpCovers: () -> Unit,
     onRetryFailedStumpCovers: () -> Unit,
     onCancelStumpCoverPreload: () -> Unit,
+    onClearStumpCoverCache: () -> Unit,
     onGrimmoryDisplayNameChanged: (String) -> Unit,
     onGrimmoryBaseUrlChanged: (String) -> Unit,
     onGrimmoryBackupBaseUrlChanged: (String) -> Unit,
@@ -402,6 +407,7 @@ private fun SettingsRoute(
     onPreloadGrimmoryCovers: () -> Unit,
     onRetryFailedGrimmoryCovers: () -> Unit,
     onCancelGrimmoryCoverPreload: () -> Unit,
+    onClearGrimmoryCoverCache: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -448,6 +454,7 @@ private fun SettingsRoute(
             onPreloadKavitaCovers = onPreloadKavitaCovers,
             onRetryFailedKavitaCovers = onRetryFailedKavitaCovers,
             onCancelKavitaCoverPreload = onCancelKavitaCoverPreload,
+            onClearKavitaCoverCache = onClearKavitaCoverCache,
             onStumpDisplayNameChanged = onStumpDisplayNameChanged,
             onStumpBaseUrlChanged = onStumpBaseUrlChanged,
             onStumpBackupBaseUrlChanged = onStumpBackupBaseUrlChanged,
@@ -458,6 +465,7 @@ private fun SettingsRoute(
             onPreloadStumpCovers = onPreloadStumpCovers,
             onRetryFailedStumpCovers = onRetryFailedStumpCovers,
             onCancelStumpCoverPreload = onCancelStumpCoverPreload,
+            onClearStumpCoverCache = onClearStumpCoverCache,
             onGrimmoryDisplayNameChanged = onGrimmoryDisplayNameChanged,
             onGrimmoryBaseUrlChanged = onGrimmoryBaseUrlChanged,
             onGrimmoryBackupBaseUrlChanged = onGrimmoryBackupBaseUrlChanged,
@@ -468,6 +476,7 @@ private fun SettingsRoute(
             onPreloadGrimmoryCovers = onPreloadGrimmoryCovers,
             onRetryFailedGrimmoryCovers = onRetryFailedGrimmoryCovers,
             onCancelGrimmoryCoverPreload = onCancelGrimmoryCoverPreload,
+            onClearGrimmoryCoverCache = onClearGrimmoryCoverCache,
         )
     }
 }

@@ -21,40 +21,60 @@ internal fun CoverPreloadSection(
     onPreloadCovers: () -> Unit,
     onRetryFailedCovers: () -> Unit,
     onCancelPreload: () -> Unit,
+    onClearCachedCovers: () -> Unit,
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        Button(
+            onClick = onPreloadCovers,
+            enabled = state.canStart,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = SettingsActionButtonMinHeight),
+        ) {
+            if (state.isRunning) {
+                SettingsButtonProgressIndicator()
+            } else {
+                Text(label)
+            }
+        }
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Button(
-                onClick = onPreloadCovers,
-                enabled = state.canStart,
-                modifier = Modifier
-                    .weight(1f)
-                    .heightIn(min = SettingsActionButtonMinHeight),
-            ) {
-                if (state.isRunning) {
-                    SettingsButtonProgressIndicator()
-                } else {
-                    Text(label)
-                }
-            }
             if (state.isRunning) {
                 OutlinedButton(
                     onClick = onCancelPreload,
-                    modifier = Modifier.heightIn(min = SettingsActionButtonMinHeight),
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = SettingsActionButtonMinHeight),
                 ) {
                     Text("Cancel")
                 }
-            } else if (state.canRetryFailed) {
+            } else {
                 OutlinedButton(
-                    onClick = onRetryFailedCovers,
-                    modifier = Modifier.heightIn(min = SettingsActionButtonMinHeight),
+                    onClick = onClearCachedCovers,
+                    enabled = state.canClearCache,
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = SettingsActionButtonMinHeight),
                 ) {
-                    Text("Retry failed")
+                    if (state.isClearingCache) {
+                        SettingsButtonProgressIndicator()
+                    } else {
+                        Text("Remove cache")
+                    }
+                }
+                if (state.canRetryFailed) {
+                    OutlinedButton(
+                        onClick = onRetryFailedCovers,
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = SettingsActionButtonMinHeight),
+                    ) {
+                        Text("Retry failed")
+                    }
                 }
             }
         }

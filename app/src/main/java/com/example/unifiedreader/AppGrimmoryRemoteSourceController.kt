@@ -262,6 +262,6 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
     }
 
     private suspend fun resetCoverState() {
-        remoteCoverController.resetSource(SourceType.GRIMMORY)
+        remoteCoverController.refreshSourceAfterCatalogSync(SourceType.GRIMMORY)
     }
 }

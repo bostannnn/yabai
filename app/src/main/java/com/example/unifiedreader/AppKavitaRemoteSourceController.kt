@@ -335,7 +335,7 @@ class AppKavitaRemoteSourceController @Inject constructor(
     }
 
     private suspend fun resetCoverState() {
-        remoteCoverController.resetSource(SourceType.KAVITA)
+        remoteCoverController.refreshSourceAfterCatalogSync(SourceType.KAVITA)
     }
 
     private fun suppressObservedLibraryRefresh(

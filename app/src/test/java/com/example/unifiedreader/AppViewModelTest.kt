@@ -1826,7 +1826,7 @@ class AppViewModelTest {
     }
 
     @Test
-    fun `cached kavita cover is used immediately after startup and cleared on kavita sync`() {
+    fun `cached kavita cover is used immediately after startup and preserved on kavita sync`() {
         val credentialStore = FakeKavitaCredentialStore(
             KavitaStoredSession(
                 displayName = "Home Kavita",
@@ -1884,7 +1884,47 @@ class AppViewModelTest {
         shadowOf(Looper.getMainLooper()).idle()
 
         assertEquals(listOf(SourceType.KAVITA), pageCacheController.clearedSourceTypes)
+        assertEquals(0, kavitaCoverRepository.clearCachedCoversCalls)
+        assertEquals(
+            "file:///tmp/kavita-cover.png",
+            viewModel.coverImageUrlFor(kavitaItem, LibraryCoverImageVariant.Grid),
+        )
+    }
+
+    @Test
+    fun `clear cached kavita covers removes cached cover on demand`() {
+        val kavitaCoverRepository = FakeKavitaCoverRepository(
+            coverUri = Uri.parse("file:///tmp/kavita-cover.png"),
+        )
+        val kavitaItem = sampleItem(
+            id = "kavita:item:issue-1",
+            title = "Kavita Issue",
+            format = FormatType.CBZ,
+        ).copy(
+            sourceType = SourceType.KAVITA,
+            libraryId = SourceType.KAVITA.remoteLibraryId("kavita-library"),
+            remoteId = "issue-1",
+            remoteFileType = "series-1",
+            coverUrl = "https://kavita.example/api/Image/chapter-cover?chapterId=issue-1&apiKey=saved-api-key",
+        )
+        val viewModel = createViewModel(
+            sampleItems = listOf(kavitaItem),
+            kavitaCoverRepository = kavitaCoverRepository,
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+
+        viewModel.ensureCoverCached(kavitaItem, LibraryCoverImageVariant.Grid)
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(
+            "file:///tmp/kavita-cover.png",
+            viewModel.coverImageUrlFor(kavitaItem, LibraryCoverImageVariant.Grid),
+        )
+
+        viewModel.clearCachedCovers(SourceType.KAVITA)
+        shadowOf(Looper.getMainLooper()).idle()
+
         assertEquals(1, kavitaCoverRepository.clearCachedCoversCalls)
+        assertEquals("Cover cache removed.", viewModel.uiState.kavitaConnection.coverPreload.message)
         assertNull(viewModel.coverImageUrlFor(kavitaItem, LibraryCoverImageVariant.Grid))
     }
 
@@ -2173,7 +2213,7 @@ class AppViewModelTest {
     }
 
     @Test
-    fun `refresh stump uses stored session and clears stump caches`() {
+    fun `refresh stump uses stored session and preserves stump cover cache`() {
         val credentialStore = FakeStumpCredentialStore(
             StumpStoredSession(
                 displayName = "Home Stump",
@@ -2235,8 +2275,11 @@ class AppViewModelTest {
         assertEquals(SourceType.STUMP, viewModel.uiState.selectedSource)
         assertEquals("Stump library synced.", viewModel.uiState.stumpConnection.message)
         assertEquals(listOf(SourceType.STUMP), pageCacheController.clearedSourceTypes)
-        assertEquals(1, stumpCoverRepository.clearCachedCoversCalls)
-        assertNull(viewModel.coverImageUrlFor(stumpItem, LibraryCoverImageVariant.Grid))
+        assertEquals(0, stumpCoverRepository.clearCachedCoversCalls)
+        assertEquals(
+            "file:///tmp/stump-cover.png",
+            viewModel.coverImageUrlFor(stumpItem, LibraryCoverImageVariant.Grid),
+        )
     }
 
     @Test
@@ -2413,8 +2456,11 @@ class AppViewModelTest {
         assertEquals("saved-refresh-token", syncer.lastRequest?.refreshToken)
         assertEquals(SourceType.GRIMMORY, viewModel.uiState.selectedSource)
         assertEquals("Grimmory library synced.", viewModel.uiState.grimmoryConnection.message)
-        assertEquals(1, grimmoryCoverRepository.clearCachedCoversCalls)
-        assertNull(viewModel.coverImageUrlFor(grimmoryItem, LibraryCoverImageVariant.Grid))
+        assertEquals(0, grimmoryCoverRepository.clearCachedCoversCalls)
+        assertEquals(
+            "file:///tmp/grimmory-cover.png",
+            viewModel.coverImageUrlFor(grimmoryItem, LibraryCoverImageVariant.Grid),
+        )
     }
 
     @Test

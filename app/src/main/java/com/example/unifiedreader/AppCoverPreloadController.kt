@@ -15,6 +15,7 @@ class AppCoverPreloadController @Inject constructor(
     private val remoteCoverController: RemoteCoverController,
 ) {
     private val activeJobsBySource = mutableMapOf<SourceType, Job>()
+    private val activeClearCacheJobsBySource = mutableMapOf<SourceType, Job>()
     private val activeProgressBySource = mutableMapOf<SourceType, RemoteCoverPreloadProgress>()
     private val failedTargetsBySource = mutableMapOf<SourceType, List<RemoteCoverPreloadTarget>>()
     private val cancellingSources = mutableSetOf<SourceType>()
@@ -88,6 +89,49 @@ class AppCoverPreloadController @Inject constructor(
                 isError = false,
                 failedItems = failedTargetsBySource[sourceType].orEmpty().toPendingFailureUiItems(),
             )
+        }
+    }
+
+    fun clearCachedCovers(
+        sourceType: SourceType,
+        updateState: AppUiStateUpdater,
+        scope: CoroutineScope,
+    ) {
+        if (activeJobsBySource[sourceType]?.isActive == true) return
+        if (activeClearCacheJobsBySource[sourceType]?.isActive == true) return
+        updatePreloadState(updateState, sourceType) {
+            CoverPreloadUiState(
+                isClearingCache = true,
+                message = "Removing cover cache.",
+                isError = false,
+            )
+        }
+        val job = scope.launch {
+            runSuspendCatchingPreservingCancellation {
+                remoteCoverController.resetSource(sourceType)
+            }.onSuccess {
+                failedTargetsBySource.remove(sourceType)
+                updatePreloadState(updateState, sourceType) {
+                    CoverPreloadUiState(
+                        message = "Cover cache removed.",
+                        isError = false,
+                    )
+                }
+            }.onFailure { throwable ->
+                updatePreloadState(updateState, sourceType) {
+                    CoverPreloadUiState(
+                        message = "Unable to remove cover cache: ${throwable.userFacingMessage()}",
+                        isError = true,
+                        failedItems = failedTargetsBySource[sourceType].orEmpty().toPendingFailureUiItems(),
+                    )
+                }
+            }
+        }
+        activeClearCacheJobsBySource[sourceType] = job
+        job.invokeOnCompletion {
+            if (activeClearCacheJobsBySource[sourceType] === job) {
+                activeClearCacheJobsBySource.remove(sourceType)
+            }
         }
     }
 

@@ -210,6 +210,13 @@ class RemoteCoverController @Inject constructor(
         }
     }
 
+    fun refreshSourceAfterCatalogSync(
+        sourceType: SourceType,
+    ) {
+        bumpSourceResetVersion(sourceType)
+        clearSource(sourceType)
+    }
+
     fun removeMissingItems(
         activeItemIds: Set<String>,
     ) {
