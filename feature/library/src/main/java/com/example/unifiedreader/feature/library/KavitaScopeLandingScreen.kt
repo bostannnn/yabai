@@ -1,18 +1,13 @@
 package com.example.unifiedreader.feature.library
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -34,9 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -163,7 +155,7 @@ fun KavitaScopeLandingScreen(
                 end = gridEndPadding,
                 bottom = 16.dp,
             ),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item(
@@ -204,13 +196,13 @@ fun KavitaScopeLandingScreen(
                 else -> items(
                     items = visibleItems,
                     key = KavitaScopeLandingItem::id,
+                    contentType = { LibraryScreenContentTypes.GridItem },
                 ) { item ->
                     KavitaScopeLandingCard(
                         item = item,
                         coverItem = visibleCoverItemsById[item.id] ?: item.toCoverItem(),
                         imageVariant = imageVariant,
                         coverImageUrlProvider = coverImageUrlProvider,
-                        onCoverVisible = onCoverVisible,
                         onClick = { onItemSelected(item.id) },
                     )
                 }
@@ -283,107 +275,44 @@ private fun KavitaScopeLandingCard(
     coverItem: ReadableItem,
     imageVariant: LibraryCoverImageVariant,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
-    onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onClick: () -> Unit,
 ) {
-    val colors = MaterialTheme.colorScheme
-    val shape = RoundedCornerShape(8.dp)
-    Surface(
+    LibraryCoverActionCard(
+        item = coverItem,
+        title = item.title,
+        coverImageUrlProvider = coverImageUrlProvider,
+        imageVariant = imageVariant,
+        isDownloaded = false,
+        isRead = false,
+        fadeRead = false,
+        onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .testTag("kavita-scope-card-${item.id}")
-            .clickable(onClick = onClick),
-        shape = shape,
-        color = colors.surfaceContainerHigh,
-        tonalElevation = 2.dp,
-        shadowElevation = 2.dp,
-    ) {
-        Column {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(2f / 3f)
-                    .shadow(2.dp, shape, clip = false)
-                    .clip(shape)
-                    .background(kavitaScopeCoverBackdrop())
-                    .border(
-                        width = 1.dp,
-                        color = colors.outlineVariant.copy(alpha = 0.54f),
-                        shape = shape,
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                KavitaScopeLandingCover(
-                    item = item,
-                    coverItem = coverItem,
-                    imageVariant = imageVariant,
-                    coverImageUrlProvider = coverImageUrlProvider,
-                    onCoverVisible = onCoverVisible,
-                    modifier = Modifier.fillMaxSize(),
-                )
-                if (item.itemCount > 0) {
-                    KavitaScopeCountBadge(
-                        count = item.itemCount,
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp),
-                    )
-                }
-            }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 44.dp)
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = item.title,
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = colors.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+            .testTag("kavita-scope-card-${item.id}"),
+        coverModifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(2f / 3f),
+        coverOverlay = if (item.itemCount > 0) {
+            {
+                KavitaScopeCountBadge(
+                    count = item.itemCount,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp),
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun KavitaScopeLandingCover(
-    item: KavitaScopeLandingItem,
-    coverItem: ReadableItem,
-    imageVariant: LibraryCoverImageVariant,
-    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
-    onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    LaunchedEffect(coverItem.id, coverItem.coverUrl, imageVariant) {
-        onCoverVisible(coverItem, imageVariant)
-    }
-    val coverUrl = coverImageUrlProvider(coverItem, imageVariant)?.takeIf(String::isNotBlank)
-    if (coverUrl != null) {
-        BucketedCoverImage(
-            identityKey = coverItem.id,
-            imageUrl = coverUrl,
-            contentDescription = item.title,
-            variant = imageVariant,
-            modifier = modifier,
-        )
-    } else {
-        Box(
-            modifier = modifier,
-            contentAlignment = Alignment.Center,
-        ) {
+        } else {
+            null
+        },
+        emptyCoverContent = {
             Text(
                 text = item.title.initialsFallback(),
                 style = MaterialTheme.typography.titleLarge,
                 color = Color.White,
                 fontWeight = FontWeight.Bold,
             )
-        }
-    }
+        },
+    )
 }
 
 private fun KavitaScopeLandingItem.toCoverItem(): ReadableItem = ReadableItem(
@@ -437,18 +366,6 @@ private fun KavitaScopeLandingEmptyState(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
-}
-
-@Composable
-private fun kavitaScopeCoverBackdrop(): Brush {
-    val colors = MaterialTheme.colorScheme
-    return Brush.linearGradient(
-        colors = listOf(
-            Color(0xFF22313A),
-            colors.primary.copy(alpha = 0.50f),
-            Color(0xFF101820),
-        ),
-    )
 }
 
 private fun Int.itemCountLabel(): String =

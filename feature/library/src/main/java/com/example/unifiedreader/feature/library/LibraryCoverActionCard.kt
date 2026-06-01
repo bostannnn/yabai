@@ -49,6 +49,7 @@ fun LibraryCoverActionCard(
     metadataVerticalSpacing: Dp = 3.dp,
     menuContent: (@Composable () -> Unit)? = null,
     coverOverlay: (@Composable BoxScope.() -> Unit)? = null,
+    emptyCoverContent: (@Composable BoxScope.() -> Unit)? = null,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         Box(
@@ -67,6 +68,7 @@ fun LibraryCoverActionCard(
                 fadeRead = fadeRead,
                 imageVariant = imageVariant,
                 modifier = coverModifier,
+                emptyCoverContent = emptyCoverContent,
             )
             coverOverlay?.invoke(this)
         }

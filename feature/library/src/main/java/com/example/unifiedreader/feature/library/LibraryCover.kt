@@ -3,6 +3,7 @@ package com.example.unifiedreader.feature.library
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -47,6 +48,7 @@ fun LibraryCover(
     downloadBadgeBottomInset: Dp = 0.dp,
     imageVariant: LibraryCoverImageVariant = LibraryCoverImageVariant.Grid,
     modifier: Modifier = Modifier,
+    emptyCoverContent: (@Composable BoxScope.() -> Unit)? = null,
 ) {
     val colors = MaterialTheme.colorScheme
     val coverStyle = libraryCoverStyle(imageVariant)
@@ -90,6 +92,8 @@ fun LibraryCover(
                     variant = imageVariant,
                     modifier = Modifier.fillMaxSize(),
                 )
+            } else if (emptyCoverContent != null) {
+                emptyCoverContent()
             } else {
                 Text(
                     text = formatBadgeText(item.format),
@@ -371,6 +375,7 @@ fun ResolvedLibraryCover(
     downloadBadgeBottomInset: Dp = 0.dp,
     imageVariant: LibraryCoverImageVariant = LibraryCoverImageVariant.Grid,
     modifier: Modifier = Modifier,
+    emptyCoverContent: (@Composable BoxScope.() -> Unit)? = null,
 ) {
     LibraryCover(
         item = item,
@@ -381,6 +386,7 @@ fun ResolvedLibraryCover(
         downloadBadgeBottomInset = downloadBadgeBottomInset,
         imageVariant = imageVariant,
         modifier = modifier,
+        emptyCoverContent = emptyCoverContent,
     )
 }
 

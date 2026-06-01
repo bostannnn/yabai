@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.library
 
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
@@ -18,6 +19,7 @@ fun VisibleResolvedLibraryCover(
     downloadBadgeBottomInset: Dp = 0.dp,
     imageVariant: LibraryCoverImageVariant = LibraryCoverImageVariant.Grid,
     modifier: Modifier = Modifier,
+    emptyCoverContent: (@Composable BoxScope.() -> Unit)? = null,
 ) {
     LaunchedEffect(item.id, item.coverUrl, imageVariant) {
         onCoverVisible(item, imageVariant)
@@ -31,5 +33,6 @@ fun VisibleResolvedLibraryCover(
         downloadBadgeBottomInset = downloadBadgeBottomInset,
         imageVariant = imageVariant,
         modifier = modifier,
+        emptyCoverContent = emptyCoverContent,
     )
 }

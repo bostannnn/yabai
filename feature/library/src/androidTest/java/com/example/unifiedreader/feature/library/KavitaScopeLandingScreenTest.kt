@@ -49,6 +49,8 @@ class KavitaScopeLandingScreenTest {
         composeRule.onNodeWithText("Collections").assertExists()
         composeRule.onNodeWithText("2 Items").assertExists()
         composeRule.onNodeWithText("Alan Moore").assertExists()
+        composeRule.onNodeWithText("AM").assertExists()
+        composeRule.onNodeWithText("CBZ").assertDoesNotExist()
 
         composeRule.onNodeWithTag("kavita-scope-card-kavita:collection:1")
             .performClick()
