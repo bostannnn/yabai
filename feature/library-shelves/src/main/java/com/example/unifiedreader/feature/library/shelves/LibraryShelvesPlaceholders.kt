@@ -14,12 +14,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 internal const val LibraryShelvesSlotPlaceholderTag = "library-shelves-slot-placeholder"
 
@@ -27,44 +27,46 @@ internal const val LibraryShelvesSlotPlaceholderTag = "library-shelves-slot-plac
 internal fun ShelfPreviewPlaceholderRow(
     modifier: Modifier = Modifier,
 ) {
+    val semanticColors = UnifiedReaderThemeTokens.colors
+    val presentation = UnifiedReaderThemeTokens.presentation
     Row(
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(presentation.shelfItemSpacing),
     ) {
         repeat(ShelfPreviewPlaceholderCount) {
             Column(
                 modifier = Modifier.width(ShelfPreviewPlaceholderWidth),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(presentation.shelfItemSpacing),
             ) {
                 Box(
                     modifier = Modifier
                         .width(ShelfPreviewPlaceholderWidth)
                         .aspectRatio(ShelfPreviewPlaceholderAspectRatio)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                        .clip(RoundedCornerShape(presentation.coverCornerRadius))
+                        .background(semanticColors.surfaceOverlay),
                 )
                 Box(
                     modifier = Modifier
                         .width(94.dp)
                         .height(12.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                        .clip(RoundedCornerShape(presentation.chipCornerRadius))
+                        .background(semanticColors.surfaceSelected.copy(alpha = 0.54f)),
                 )
                 Box(
                     modifier = Modifier
                         .padding(top = 2.dp)
                         .width(72.dp)
                         .height(10.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                        .clip(RoundedCornerShape(presentation.chipCornerRadius))
+                        .background(semanticColors.sourceAccent.copy(alpha = 0.25f)),
                 )
                 Box(
                     modifier = Modifier
                         .padding(top = 2.dp)
                         .width(84.dp)
                         .height(10.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                        .clip(RoundedCornerShape(presentation.chipCornerRadius))
+                        .background(semanticColors.syncAccent.copy(alpha = 0.25f)),
                 )
             }
         }
@@ -75,6 +77,8 @@ internal fun ShelfPreviewPlaceholderRow(
 internal fun LibraryShelvesSlotPlaceholder(
     modifier: Modifier = Modifier,
 ) {
+    val semanticColors = UnifiedReaderThemeTokens.colors
+    val presentation = UnifiedReaderThemeTokens.presentation
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
@@ -82,30 +86,34 @@ internal fun LibraryShelvesSlotPlaceholder(
     ) {
         Card(
             modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(presentation.cardCornerRadius),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                containerColor = semanticColors.surfaceRaised,
             ),
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                    .padding(
+                        horizontal = presentation.shelfCardHorizontalPadding,
+                        vertical = presentation.shelfCardVerticalPadding,
+                    ),
+                verticalArrangement = Arrangement.spacedBy(presentation.shelfItemSpacing),
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Box(
                         modifier = Modifier
                             .width(154.dp)
                             .height(18.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                            .clip(RoundedCornerShape(presentation.chipCornerRadius))
+                            .background(semanticColors.surfaceSelected.copy(alpha = 0.5f)),
                     )
                     Box(
                         modifier = Modifier
                             .width(72.dp)
                             .height(12.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                            .clip(RoundedCornerShape(presentation.chipCornerRadius))
+                            .background(semanticColors.sourceAccent.copy(alpha = 0.24f)),
                     )
                 }
                 ShelfPreviewPlaceholderRow()

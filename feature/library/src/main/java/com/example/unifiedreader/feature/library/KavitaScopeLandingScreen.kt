@@ -38,6 +38,7 @@ import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 data class KavitaScopeLandingItem(
@@ -332,10 +333,12 @@ private fun KavitaScopeCountBadge(
     count: Int,
     modifier: Modifier = Modifier,
 ) {
+    val semanticColors = UnifiedReaderThemeTokens.colors
+    val presentation = UnifiedReaderThemeTokens.presentation
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.96f),
+        shape = RoundedCornerShape(presentation.chipCornerRadius),
+        color = semanticColors.surfaceSelected.copy(alpha = 0.96f),
         tonalElevation = 2.dp,
         shadowElevation = 2.dp,
     ) {
@@ -343,7 +346,7 @@ private fun KavitaScopeCountBadge(
             text = count.toString(),
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            color = semanticColors.onSurfaceSelected,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
         )

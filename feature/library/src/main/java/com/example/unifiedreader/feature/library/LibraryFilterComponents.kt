@@ -58,6 +58,7 @@ import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.authorFacetKey
 import com.example.unifiedreader.core.model.displayName
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 @Composable
 internal fun EmptyLibraryState(
@@ -155,6 +156,8 @@ internal fun LibraryFilterSummary(
                 selected = !filterState.isEmpty,
                 enabled = filtersEnabled,
                 onClick = { filtersMenuExpanded = true },
+                colors = libraryAccentFilterChipColors(),
+                shape = libraryAccentFilterChipShape(),
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.FilterList,
@@ -238,6 +241,8 @@ private fun LibraryFacetChip(
         selected = selected,
         enabled = enabled,
         onClick = onClick,
+        colors = libraryAccentFilterChipColors(),
+        shape = libraryAccentFilterChipShape(),
         label = {
             Text(
                 text = if (showCount && count > 0) "$label ($count)" else label,
@@ -724,6 +729,7 @@ private fun FilterDialogScaffold(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
+    val presentation = UnifiedReaderThemeTokens.presentation
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -732,14 +738,17 @@ private fun FilterDialogScaffold(
             modifier = Modifier
                 .padding(24.dp)
                 .then(modifier),
-            shape = RoundedCornerShape(28.dp),
+            shape = RoundedCornerShape(presentation.cardCornerRadius),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 6.dp,
             shadowElevation = 12.dp,
         ) {
             Column(
-                modifier = Modifier.padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp),
+                modifier = Modifier.padding(
+                    horizontal = presentation.shelfCardHorizontalPadding + 10.dp,
+                    vertical = presentation.shelfCardVerticalPadding + 12.dp,
+                ),
+                verticalArrangement = Arrangement.spacedBy(presentation.shelfItemSpacing + 6.dp),
             ) {
                 Text(
                     text = title,
@@ -805,12 +814,13 @@ private fun AlphabetRailItem(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    val backgroundColor = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-    val textColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary
+    val semanticColors = UnifiedReaderThemeTokens.colors
+    val backgroundColor = if (selected) semanticColors.surfaceSelected else Color.Transparent
+    val textColor = if (selected) semanticColors.onSurfaceSelected else semanticColors.sourceAccent
     Text(
         text = label,
         modifier = Modifier
-            .background(backgroundColor, RoundedCornerShape(8.dp))
+            .background(backgroundColor, libraryAccentFilterChipShape())
             .clickable(onClick = onClick)
             .padding(horizontal = 4.dp, vertical = 2.dp),
         style = MaterialTheme.typography.labelSmall,
@@ -880,6 +890,8 @@ private fun FilterToggleChip(
     FilterChip(
         selected = selected,
         onClick = onClick,
+        colors = libraryAccentFilterChipColors(),
+        shape = libraryAccentFilterChipShape(),
         label = {
             Text(
                 text = label,

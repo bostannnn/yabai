@@ -22,6 +22,7 @@ rootProject.name = "yabai"
 include(
     ":app",
     ":core:common",
+    ":core:ui-theme",
     ":core:model",
     ":core:network",
     ":core:database",

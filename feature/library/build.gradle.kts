@@ -28,6 +28,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":core:ui-theme"))
     implementation(project(":core:model"))
     implementation(project(":feature:library-covers"))
     implementation(project(":feature:reader-preferences"))

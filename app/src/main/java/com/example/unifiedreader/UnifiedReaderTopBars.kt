@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -34,12 +35,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 @Composable
 fun LibraryTopBar(
@@ -263,22 +266,27 @@ private fun SourceConnectivityIndicator(
 ) {
     if (sourceType == SourceType.LOCAL) return
     val colors = MaterialTheme.colorScheme
-    val (label, containerColor, contentColor) = when (state) {
+    val semanticColors = UnifiedReaderThemeTokens.colors
+    val presentation = UnifiedReaderThemeTokens.presentation
+    val style = when (state) {
         SourceConnectivityState.Unknown -> return
-        SourceConnectivityState.Checking -> Triple(
-            "Checking",
-            colors.surfaceVariant.copy(alpha = 0.62f),
-            colors.onSurfaceVariant,
+        SourceConnectivityState.Checking -> SourceConnectivityIndicatorStyle(
+            label = "Checking",
+            containerColor = colors.surfaceContainerHighest.copy(alpha = 0.9f),
+            contentColor = colors.onSurfaceVariant,
+            borderColor = colors.outlineVariant,
         )
-        SourceConnectivityState.Online -> Triple(
-            "Online",
-            colors.primaryContainer.copy(alpha = 0.72f),
-            colors.onPrimaryContainer,
+        SourceConnectivityState.Online -> SourceConnectivityIndicatorStyle(
+            label = "Online",
+            containerColor = semanticColors.syncAccentContainer,
+            contentColor = semanticColors.onSyncAccentContainer,
+            borderColor = semanticColors.syncAccent,
         )
-        SourceConnectivityState.Offline -> Triple(
-            "Offline",
-            colors.errorContainer.copy(alpha = 0.86f),
-            colors.onErrorContainer,
+        SourceConnectivityState.Offline -> SourceConnectivityIndicatorStyle(
+            label = "Offline",
+            containerColor = colors.errorContainer.copy(alpha = 0.94f),
+            contentColor = colors.onErrorContainer,
+            borderColor = colors.error,
         )
     }
     Spacer(modifier = Modifier.size(2.dp))
@@ -289,18 +297,26 @@ private fun SourceConnectivityIndicator(
     }
     Surface(
         modifier = clickModifier,
-        shape = RoundedCornerShape(8.dp),
-        color = containerColor,
+        shape = RoundedCornerShape(presentation.chipCornerRadius),
+        color = style.containerColor,
+        border = BorderStroke(1.dp, style.borderColor.copy(alpha = 0.7f)),
     ) {
         Text(
-            text = label,
-            color = contentColor,
+            text = style.label,
+            color = style.contentColor,
             style = MaterialTheme.typography.labelSmall,
             maxLines = 1,
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
         )
     }
 }
+
+private data class SourceConnectivityIndicatorStyle(
+    val label: String,
+    val containerColor: Color,
+    val contentColor: Color,
+    val borderColor: Color,
+)
 
 @Composable
 private fun AppSectionHeader(
@@ -337,20 +353,35 @@ private fun LibrarySearchField(
     modifier: Modifier = Modifier,
 ) {
     val colors = MaterialTheme.colorScheme
+    val semanticColors = UnifiedReaderThemeTokens.colors
+    val presentation = UnifiedReaderThemeTokens.presentation
+    val active = query.isNotEmpty()
     BasicTextField(
         value = query,
         onValueChange = onQueryChanged,
         modifier = modifier
-            .height(40.dp)
+            .height(presentation.searchHeight)
             .testTag(LibrarySearchFieldTag),
         singleLine = true,
         textStyle = MaterialTheme.typography.bodyMedium.copy(color = colors.onSurface),
-        cursorBrush = SolidColor(colors.primary),
+        cursorBrush = SolidColor(semanticColors.sourceAccent),
         decorationBox = { innerTextField ->
             Surface(
                 modifier = Modifier.fillMaxSize(),
-                shape = RoundedCornerShape(12.dp),
-                color = colors.surfaceVariant.copy(alpha = 0.18f),
+                shape = RoundedCornerShape(presentation.controlCornerRadius),
+                color = if (active) {
+                    colors.surfaceContainerHigh.copy(alpha = 0.92f)
+                } else {
+                    colors.surfaceContainerHigh.copy(alpha = 0.52f)
+                },
+                border = BorderStroke(
+                    1.dp,
+                    if (active) {
+                        semanticColors.sourceAccent.copy(alpha = 0.82f)
+                    } else {
+                        colors.outlineVariant.copy(alpha = 0.36f)
+                    },
+                ),
             ) {
                 Row(
                     modifier = Modifier
@@ -362,7 +393,7 @@ private fun LibrarySearchField(
                     Icon(
                         imageVector = Icons.Default.Search,
                         contentDescription = null,
-                        tint = colors.onSurfaceVariant,
+                        tint = if (active) semanticColors.sourceAccent else colors.onSurfaceVariant,
                         modifier = Modifier.size(20.dp),
                     )
                     Box(

@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 @Composable
 fun LibraryCover(
@@ -51,12 +52,17 @@ fun LibraryCover(
     emptyCoverContent: (@Composable BoxScope.() -> Unit)? = null,
 ) {
     val colors = MaterialTheme.colorScheme
-    val coverStyle = libraryCoverStyle(imageVariant)
+    val semanticColors = UnifiedReaderThemeTokens.colors
+    val presentation = UnifiedReaderThemeTokens.presentation
+    val coverStyle = libraryCoverStyle(
+        variant = imageVariant,
+        cornerRadius = presentation.coverCornerRadius,
+    )
     val coverBorderColor = colors.outlineVariant.copy(alpha = coverStyle.borderAlpha)
     val coverBackdrop = Brush.linearGradient(
         colors = listOf(
             Color(0xFF283846),
-            colors.primary.copy(alpha = 0.48f),
+            semanticColors.readerAccent.copy(alpha = 0.48f),
             Color(0xFF111820),
         ),
     )
@@ -124,15 +130,15 @@ fun LibraryCover(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(end = 6.dp, bottom = 6.dp + downloadBadgeBottomInset),
-                shape = RoundedCornerShape(8.dp),
-                color = colors.primaryContainer.copy(alpha = 0.96f),
+                shape = RoundedCornerShape(presentation.chipCornerRadius),
+                color = semanticColors.surfaceSelected.copy(alpha = 0.96f),
                 tonalElevation = 2.dp,
                 shadowElevation = 3.dp,
             ) {
                 Icon(
                     imageVector = Icons.Default.Download,
                     contentDescription = "Downloaded",
-                    tint = colors.onPrimaryContainer,
+                    tint = semanticColors.onSurfaceSelected,
                     modifier = Modifier
                         .padding(4.dp)
                         .size(16.dp),
@@ -328,12 +334,15 @@ private data class LibraryCoverStyle(
     val topSheenHeightFraction: Float,
 )
 
-private fun libraryCoverStyle(variant: LibraryCoverImageVariant): LibraryCoverStyle = when (variant) {
+private fun libraryCoverStyle(
+    variant: LibraryCoverImageVariant,
+    cornerRadius: Dp,
+): LibraryCoverStyle = when (variant) {
     LibraryCoverImageVariant.Grid,
     LibraryCoverImageVariant.GridLarge,
     LibraryCoverImageVariant.GridExtraLarge -> LibraryCoverStyle(
         elevation = 8.dp,
-        shape = RoundedCornerShape(6.dp),
+        shape = RoundedCornerShape(cornerRadius),
         borderAlpha = 0.64f,
         spineWidthFraction = 0.064f,
         highlightWidthFraction = 0.0040f,
@@ -341,7 +350,7 @@ private fun libraryCoverStyle(variant: LibraryCoverImageVariant): LibraryCoverSt
     )
     LibraryCoverImageVariant.Detailed -> LibraryCoverStyle(
         elevation = 7.dp,
-        shape = RoundedCornerShape(6.dp),
+        shape = RoundedCornerShape(cornerRadius),
         borderAlpha = 0.60f,
         spineWidthFraction = 0.064f,
         highlightWidthFraction = 0.0040f,
@@ -349,7 +358,7 @@ private fun libraryCoverStyle(variant: LibraryCoverImageVariant): LibraryCoverSt
     )
     LibraryCoverImageVariant.ShelfPreview -> LibraryCoverStyle(
         elevation = 6.dp,
-        shape = RoundedCornerShape(5.dp),
+        shape = RoundedCornerShape(cornerRadius),
         borderAlpha = 0.58f,
         spineWidthFraction = 0.060f,
         highlightWidthFraction = 0.0038f,
@@ -357,7 +366,7 @@ private fun libraryCoverStyle(variant: LibraryCoverImageVariant): LibraryCoverSt
     )
     LibraryCoverImageVariant.ShelfRow -> LibraryCoverStyle(
         elevation = 3.dp,
-        shape = RoundedCornerShape(4.dp),
+        shape = RoundedCornerShape(cornerRadius),
         borderAlpha = 0.56f,
         spineWidthFraction = 0.056f,
         highlightWidthFraction = 0.0036f,

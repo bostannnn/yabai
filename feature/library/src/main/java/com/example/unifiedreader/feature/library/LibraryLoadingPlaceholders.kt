@@ -11,12 +11,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import kotlin.math.max
 
 internal const val LibraryGridLoadingTag = "library-grid-loading"
@@ -69,26 +69,28 @@ private fun GridLoadingLibraryState(
 private fun GridLoadingCard(
     modifier: Modifier = Modifier,
 ) {
+    val semanticColors = UnifiedReaderThemeTokens.colors
+    val presentation = UnifiedReaderThemeTokens.presentation
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(presentation.shelfItemSpacing),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(LibraryLoadingCoverAspectRatio)
-                .clip(RoundedCornerShape(16.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                .clip(RoundedCornerShape(presentation.coverCornerRadius))
+                .background(semanticColors.surfaceOverlay),
         )
         LoadingLine(
             width = 92.dp,
             height = 12.dp,
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            containerColor = semanticColors.surfaceSelected.copy(alpha = 0.54f),
         )
         LoadingLine(
             width = 68.dp,
             height = 10.dp,
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            containerColor = semanticColors.sourceAccent.copy(alpha = 0.26f),
         )
     }
 }
@@ -97,7 +99,7 @@ private fun GridLoadingCard(
 private fun LoadingLine(
     width: androidx.compose.ui.unit.Dp,
     height: androidx.compose.ui.unit.Dp,
-    containerColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    containerColor: androidx.compose.ui.graphics.Color,
 ) {
     Box(
         modifier = Modifier

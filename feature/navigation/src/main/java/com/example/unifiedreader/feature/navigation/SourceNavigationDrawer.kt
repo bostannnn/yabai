@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
@@ -37,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 sealed interface SourceNavigationDestination {
     data class Source(
@@ -115,11 +117,8 @@ fun SourceNavigationDrawer(
                                 contentDescription = null,
                             )
                         },
-                        colors = NavigationDrawerItemDefaults.colors(
-                            selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                            selectedTextColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                        ),
+                        colors = sourceNavigationItemColors(),
+                        shape = sourceNavigationItemShape(),
                         modifier = Modifier.fillMaxWidth(),
                     )
                     NavigationDrawerItem(
@@ -132,11 +131,8 @@ fun SourceNavigationDrawer(
                                 contentDescription = null,
                             )
                         },
-                        colors = NavigationDrawerItemDefaults.colors(
-                            selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                            selectedTextColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                        ),
+                        colors = sourceNavigationItemColors(),
+                        shape = sourceNavigationItemShape(),
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -183,6 +179,7 @@ private fun KavitaNavigationGroup(
                 )
             },
             colors = sourceNavigationItemColors(),
+            shape = sourceNavigationItemShape(),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(start = 16.dp),
@@ -211,14 +208,22 @@ private fun SourceNavigationItem(
             )
         },
         colors = sourceNavigationItemColors(),
+        shape = sourceNavigationItemShape(),
     )
 }
 
 @Composable
 private fun sourceNavigationItemColors() = NavigationDrawerItemDefaults.colors(
-    selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-    selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
-    selectedTextColor = MaterialTheme.colorScheme.onSecondaryContainer,
+    selectedContainerColor = UnifiedReaderThemeTokens.colors.surfaceSelected,
+    selectedIconColor = UnifiedReaderThemeTokens.colors.onSurfaceSelected,
+    selectedTextColor = UnifiedReaderThemeTokens.colors.onSurfaceSelected,
+    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+)
+
+@Composable
+private fun sourceNavigationItemShape() = RoundedCornerShape(
+    UnifiedReaderThemeTokens.presentation.controlCornerRadius,
 )
 
 private fun SourceNavigationDestination.isSelectedKavitaSection(

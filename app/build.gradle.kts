@@ -53,6 +53,7 @@ android {
 
 dependencies {
     implementation(project(":core:common"))
+    implementation(project(":core:ui-theme"))
     implementation(project(":core:model"))
     implementation(project(":core:network"))
     implementation(project(":core:database"))

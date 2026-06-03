@@ -51,6 +51,8 @@ internal fun LibraryBrowseOptionsSelector(
                 (showSortOptions && sortMode != defaultLibrarySortMode) ||
                 lockedSortLabel != null,
             onClick = { expanded = true },
+            colors = libraryAccentFilterChipColors(),
+            shape = libraryAccentFilterChipShape(),
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Default.Tune,

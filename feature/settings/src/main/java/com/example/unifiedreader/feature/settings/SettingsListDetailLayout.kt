@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 @Composable
 internal fun SettingsListDetailLayout(
@@ -34,6 +35,7 @@ internal fun SettingsListDetailLayout(
     header: @Composable () -> Unit,
     detailContent: @Composable (SettingsSectionId) -> Unit,
 ) {
+    val presentation = UnifiedReaderThemeTokens.presentation
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.TopCenter,
@@ -55,13 +57,16 @@ internal fun SettingsListDetailLayout(
             )
             Surface(
                 modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(28.dp),
+                shape = RoundedCornerShape(presentation.cardCornerRadius),
                 color = MaterialTheme.colorScheme.surface,
             ) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(
+                        horizontal = presentation.shelfCardHorizontalPadding + 6.dp,
+                        vertical = presentation.shelfCardVerticalPadding + 8.dp,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(presentation.shelfItemSpacing + 4.dp),
                 ) {
                     item {
                         header()
@@ -82,14 +87,19 @@ private fun SettingsSectionListPane(
     onSectionSelected: (SettingsSectionId) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val semanticColors = UnifiedReaderThemeTokens.colors
+    val presentation = UnifiedReaderThemeTokens.presentation
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(28.dp),
+        shape = RoundedCornerShape(presentation.cardCornerRadius),
         color = MaterialTheme.colorScheme.surface,
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(
+                horizontal = presentation.shelfCardHorizontalPadding + 2.dp,
+                vertical = presentation.shelfCardVerticalPadding + 4.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(presentation.shelfItemSpacing),
         ) {
             Text(
                 text = "Sections",
@@ -100,19 +110,19 @@ private fun SettingsSectionListPane(
             sections.forEach { section ->
                 val selected = section.id == selectedSectionId
                 val itemColor = if (selected) {
-                    MaterialTheme.colorScheme.secondaryContainer
+                    semanticColors.surfaceSelected
                 } else {
                     MaterialTheme.colorScheme.surface
                 }
                 val textColor = if (selected) {
-                    MaterialTheme.colorScheme.onSecondaryContainer
+                    semanticColors.onSurfaceSelected
                 } else {
                     MaterialTheme.colorScheme.onSurface
                 }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(18.dp))
+                        .clip(RoundedCornerShape(presentation.controlCornerRadius))
                         .background(itemColor)
                         .clickable { onSectionSelected(section.id) }
                         .padding(horizontal = 14.dp, vertical = 12.dp),

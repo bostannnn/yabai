@@ -1,15 +1,23 @@
 package com.example.unifiedreader.feature.settings
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,6 +27,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.Library
@@ -30,6 +40,7 @@ import com.example.unifiedreader.feature.settings.direction.ComicReadingDirectio
 import com.example.unifiedreader.feature.settings.direction.ReadingDirectionLibraryUiState
 import com.example.unifiedreader.feature.settings.mode.ComicReaderModeSettingsSection
 import com.example.unifiedreader.feature.settings.mode.ReaderModeLibraryUiState
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 internal const val DefaultKavitaServerUrl = "http://192.168.50.60:5000/"
 internal const val DefaultKavitaBackupServerUrl = "http://100.84.32.88:5000/"
@@ -423,12 +434,10 @@ private fun ThemeSettingsCard(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             themeOptions.forEach { option ->
-                FilterChip(
+                ThemeModePreviewChip(
+                    option = option,
                     selected = option == themeMode,
                     onClick = { onThemeModeSelected(option) },
-                    label = {
-                        Text(text = option.label)
-                    },
                 )
             }
         }
@@ -437,6 +446,51 @@ private fun ThemeSettingsCard(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+@Composable
+private fun ThemeModePreviewChip(
+    option: ThemeMode,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val semanticColors = UnifiedReaderThemeTokens.colors
+    val presentation = UnifiedReaderThemeTokens.presentation
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        shape = RoundedCornerShape(presentation.chipCornerRadius),
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = semanticColors.surfaceSelected,
+            selectedLabelColor = semanticColors.onSurfaceSelected,
+        ),
+        label = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ThemeModeSwatches(swatches = option.previewSwatches)
+                Text(text = option.label)
+            }
+        },
+    )
+}
+
+@Composable
+private fun ThemeModeSwatches(
+    swatches: ThemePreviewSwatches,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        listOf(swatches.surface, swatches.reader, swatches.sync, swatches.source).forEach { color ->
+            Box(
+                modifier = Modifier
+                    .size(width = 12.dp, height = 12.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(Color(color))
+                    .border(
+                        BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)),
+                        RoundedCornerShape(3.dp),
+                    ),
+            )
+        }
     }
 }
 

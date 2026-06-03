@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.library
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
@@ -87,7 +88,7 @@ fun LibraryCoverActionCard(
                     modifier = Modifier.libraryCoverClickable(
                         onClick = onClick,
                         onLongClick = onLongClick,
-                    ),
+                    ).then(title.marqueeModifier()),
                     style = titleStyle,
                     color = titleColor,
                     maxLines = 1,
@@ -122,6 +123,14 @@ fun LibraryCoverActionCard(
 }
 
 @OptIn(ExperimentalFoundationApi::class)
+private fun String.marqueeModifier(): Modifier =
+    if (length >= LibraryCardTitleMarqueeMinLength) {
+        Modifier.basicMarquee(iterations = Int.MAX_VALUE)
+    } else {
+        Modifier
+    }
+
+@OptIn(ExperimentalFoundationApi::class)
 private fun Modifier.libraryCoverClickable(
     onClick: () -> Unit,
     onLongClick: (() -> Unit)?,
@@ -133,3 +142,5 @@ private fun Modifier.libraryCoverClickable(
         onLongClick = onLongClick,
     )
 }
+
+private const val LibraryCardTitleMarqueeMinLength = 32

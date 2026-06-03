@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 @Composable
 internal fun SettingsCard(
@@ -19,13 +20,17 @@ internal fun SettingsCard(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit = {},
 ) {
+    val presentation = UnifiedReaderThemeTokens.presentation
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(28.dp),
+        shape = RoundedCornerShape(presentation.cardCornerRadius),
     ) {
         Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(
+                horizontal = presentation.shelfCardHorizontalPadding + 6.dp,
+                vertical = presentation.shelfCardVerticalPadding + 8.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(presentation.shelfItemSpacing),
         ) {
             Text(
                 text = title,

@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.library.shelves
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,12 +24,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.LibraryCoverActionCard
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.ResolvedLibraryCover
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 @Composable
 internal fun ShelfPreviewCard(
@@ -43,14 +46,19 @@ internal fun ShelfPreviewCard(
     progressFraction: Float? = null,
     isDownloaded: Boolean = false,
     isRead: Boolean = false,
+    accentColor: Color = MaterialTheme.colorScheme.primary,
 ) {
+    val semanticColors = UnifiedReaderThemeTokens.colors
+    val presentation = UnifiedReaderThemeTokens.presentation
     Card(
         modifier = Modifier
             .width(ShelfPreviewCardWidth)
             .height(ShelfPreviewCardHeight)
             .clickable(onClick = onClick),
+        shape = RoundedCornerShape(presentation.cardCornerRadius),
+        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.18f)),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+            containerColor = semanticColors.surfaceOverlay.copy(alpha = 0.72f),
         ),
     ) {
         LibraryCoverActionCard(
@@ -69,13 +77,13 @@ internal fun ShelfPreviewCard(
             isDownloaded = isDownloaded,
             isRead = isRead,
             onClick = onClick,
-            modifier = Modifier.padding(10.dp),
+            modifier = Modifier.padding(presentation.shelfItemSpacing),
             coverModifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(CoverAspectRatio),
             titleStyle = MaterialTheme.typography.titleSmall,
             supportingStyle = MaterialTheme.typography.bodySmall,
-            trailingColor = MaterialTheme.colorScheme.primary,
+            trailingColor = accentColor,
             metadataTopPadding = 8.dp,
             menuContent = menuContent,
             coverOverlay = {
@@ -87,11 +95,13 @@ internal fun ShelfPreviewCard(
                             .fillMaxWidth()
                             .clip(
                                 RoundedCornerShape(
-                                    bottomStart = CoverCornerRadius,
-                                    bottomEnd = CoverCornerRadius,
+                                    bottomStart = presentation.coverCornerRadius,
+                                    bottomEnd = presentation.coverCornerRadius,
                                 ),
                             ),
-                        )
+                        color = semanticColors.readerAccent,
+                        trackColor = semanticColors.surfaceSelected.copy(alpha = 0.38f),
+                    )
                 }
             },
         )
@@ -113,13 +123,15 @@ internal fun ShelfListRow(
     isDownloaded: Boolean = false,
     isRead: Boolean = false,
 ) {
+    val semanticColors = UnifiedReaderThemeTokens.colors
+    val presentation = UnifiedReaderThemeTokens.presentation
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(presentation.cardCornerRadius))
             .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(horizontal = presentation.shelfCardHorizontalPadding, vertical = presentation.shelfCardVerticalPadding),
+        horizontalArrangement = Arrangement.spacedBy(presentation.shelfItemSpacing),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -142,10 +154,12 @@ internal fun ShelfListRow(
                         .fillMaxWidth()
                         .clip(
                             RoundedCornerShape(
-                                bottomStart = CoverCornerRadius,
-                                bottomEnd = CoverCornerRadius,
+                                bottomStart = presentation.coverCornerRadius,
+                                bottomEnd = presentation.coverCornerRadius,
                             ),
-                        ),
+                    ),
+                    color = semanticColors.readerAccent,
+                    trackColor = semanticColors.surfaceSelected.copy(alpha = 0.34f),
                 )
             }
         }
@@ -169,7 +183,7 @@ internal fun ShelfListRow(
             Text(
                 text = trailingText,
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary,
+                color = semanticColors.readerAccent,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -217,5 +231,4 @@ internal fun ShelfCover(
 
 private val ShelfPreviewCardWidth = 132.dp
 private val ShelfPreviewCardHeight = 242.dp
-private val CoverCornerRadius = 4.dp
 private const val CoverAspectRatio = 0.72f

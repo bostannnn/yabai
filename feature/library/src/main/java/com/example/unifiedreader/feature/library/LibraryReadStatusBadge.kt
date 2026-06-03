@@ -14,15 +14,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 @Composable
 internal fun LibraryReadStatusBadge(
     modifier: Modifier = Modifier,
 ) {
+    val semanticColors = UnifiedReaderThemeTokens.colors
+    val presentation = UnifiedReaderThemeTokens.presentation
     Surface(
         modifier = modifier,
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.96f),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(presentation.chipCornerRadius),
+        color = semanticColors.readerAccent.copy(alpha = 0.96f),
         tonalElevation = 2.dp,
     ) {
         Row(
@@ -33,13 +36,13 @@ internal fun LibraryReadStatusBadge(
             Icon(
                 imageVector = Icons.Default.CheckCircle,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                tint = semanticColors.onReaderAccent,
                 modifier = Modifier.size(14.dp),
             )
             Text(
                 text = "Read",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                color = semanticColors.onReaderAccent,
             )
         }
     }

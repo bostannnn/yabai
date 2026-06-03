@@ -27,6 +27,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":core:ui-theme"))
     implementation(project(":core:model"))
     implementation(libs.androidx.datastore.preferences)
     implementation(platform(libs.androidx.compose.bom))

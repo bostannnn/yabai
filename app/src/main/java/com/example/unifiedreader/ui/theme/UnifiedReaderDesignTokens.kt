@@ -18,6 +18,30 @@ internal val UnifiedReaderShapes = Shapes(
     extraLarge = RoundedCornerShape(24.dp),
 )
 
+internal val Terminal95UnifiedReaderShapes = Shapes(
+    extraSmall = RoundedCornerShape(0.dp),
+    small = RoundedCornerShape(2.dp),
+    medium = RoundedCornerShape(4.dp),
+    large = RoundedCornerShape(6.dp),
+    extraLarge = RoundedCornerShape(8.dp),
+)
+
+internal val CrimsonCourtUnifiedReaderShapes = Shapes(
+    extraSmall = RoundedCornerShape(4.dp),
+    small = RoundedCornerShape(8.dp),
+    medium = RoundedCornerShape(12.dp),
+    large = RoundedCornerShape(22.dp),
+    extraLarge = RoundedCornerShape(32.dp),
+)
+
+internal val PanelPopUnifiedReaderShapes = Shapes(
+    extraSmall = RoundedCornerShape(2.dp),
+    small = RoundedCornerShape(4.dp),
+    medium = RoundedCornerShape(8.dp),
+    large = RoundedCornerShape(8.dp),
+    extraLarge = RoundedCornerShape(8.dp),
+)
+
 internal val UnifiedReaderTypography = Typography(
     displayLarge = TextStyle(
         fontFamily = FontFamily.Default,
@@ -109,6 +133,89 @@ internal val UnifiedReaderTypography = Typography(
         fontSize = 11.sp,
         lineHeight = 16.sp,
     ),
+)
+
+internal val Terminal95UnifiedReaderTypography = UnifiedReaderTypography.withFamilies(
+    displayFamily = FontFamily.Monospace,
+    titleFamily = FontFamily.Monospace,
+    bodyFamily = FontFamily.Monospace,
+    labelFamily = FontFamily.Monospace,
+).copy(
+    titleMedium = UnifiedReaderTypography.titleMedium.copy(
+        fontFamily = FontFamily.Monospace,
+        fontWeight = FontWeight.Bold,
+        fontSize = 15.sp,
+        lineHeight = 20.sp,
+    ),
+    labelLarge = UnifiedReaderTypography.labelLarge.copy(
+        fontFamily = FontFamily.Monospace,
+        fontWeight = FontWeight.Bold,
+    ),
+    labelMedium = UnifiedReaderTypography.labelMedium.copy(
+        fontFamily = FontFamily.Monospace,
+        fontWeight = FontWeight.Bold,
+    ),
+)
+
+internal val CrimsonCourtUnifiedReaderTypography = UnifiedReaderTypography.withFamilies(
+    displayFamily = FontFamily.Serif,
+    titleFamily = FontFamily.Serif,
+    bodyFamily = FontFamily.Default,
+    labelFamily = FontFamily.Serif,
+).copy(
+    headlineMedium = UnifiedReaderTypography.headlineMedium.copy(
+        fontFamily = FontFamily.Serif,
+        fontWeight = FontWeight.Bold,
+    ),
+    headlineSmall = UnifiedReaderTypography.headlineSmall.copy(
+        fontFamily = FontFamily.Serif,
+        fontWeight = FontWeight.Bold,
+    ),
+    titleMedium = UnifiedReaderTypography.titleMedium.copy(
+        fontFamily = FontFamily.Serif,
+        fontWeight = FontWeight.Bold,
+    ),
+    labelLarge = UnifiedReaderTypography.labelLarge.copy(
+        fontFamily = FontFamily.Serif,
+        fontWeight = FontWeight.Bold,
+    ),
+)
+
+internal val PanelPopUnifiedReaderTypography = UnifiedReaderTypography.copy(
+    displayLarge = UnifiedReaderTypography.displayLarge.copy(fontWeight = FontWeight.ExtraBold),
+    displayMedium = UnifiedReaderTypography.displayMedium.copy(fontWeight = FontWeight.ExtraBold),
+    displaySmall = UnifiedReaderTypography.displaySmall.copy(fontWeight = FontWeight.ExtraBold),
+    headlineLarge = UnifiedReaderTypography.headlineLarge.copy(fontWeight = FontWeight.ExtraBold),
+    headlineMedium = UnifiedReaderTypography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold),
+    headlineSmall = UnifiedReaderTypography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
+    titleLarge = UnifiedReaderTypography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+    titleMedium = UnifiedReaderTypography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+    titleSmall = UnifiedReaderTypography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
+    labelLarge = UnifiedReaderTypography.labelLarge.copy(fontWeight = FontWeight.ExtraBold),
+    labelMedium = UnifiedReaderTypography.labelMedium.copy(fontWeight = FontWeight.ExtraBold),
+)
+
+private fun Typography.withFamilies(
+    displayFamily: FontFamily,
+    titleFamily: FontFamily,
+    bodyFamily: FontFamily,
+    labelFamily: FontFamily,
+): Typography = copy(
+    displayLarge = displayLarge.copy(fontFamily = displayFamily),
+    displayMedium = displayMedium.copy(fontFamily = displayFamily),
+    displaySmall = displaySmall.copy(fontFamily = displayFamily),
+    headlineLarge = headlineLarge.copy(fontFamily = displayFamily),
+    headlineMedium = headlineMedium.copy(fontFamily = displayFamily),
+    headlineSmall = headlineSmall.copy(fontFamily = displayFamily),
+    titleLarge = titleLarge.copy(fontFamily = titleFamily),
+    titleMedium = titleMedium.copy(fontFamily = titleFamily),
+    titleSmall = titleSmall.copy(fontFamily = titleFamily),
+    bodyLarge = bodyLarge.copy(fontFamily = bodyFamily),
+    bodyMedium = bodyMedium.copy(fontFamily = bodyFamily),
+    bodySmall = bodySmall.copy(fontFamily = bodyFamily),
+    labelLarge = labelLarge.copy(fontFamily = labelFamily),
+    labelMedium = labelMedium.copy(fontFamily = labelFamily),
+    labelSmall = labelSmall.copy(fontFamily = labelFamily),
 )
 
 internal object UnifiedReaderPalette {

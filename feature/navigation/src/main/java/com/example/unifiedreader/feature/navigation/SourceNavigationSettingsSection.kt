@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 @Composable
 fun SourceNavigationSettingsSection(
@@ -78,9 +79,11 @@ private fun SourceOrderRow(
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
 ) {
+    val semanticColors = UnifiedReaderThemeTokens.colors
+    val presentation = UnifiedReaderThemeTokens.presentation
     Surface(
         shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.32f),
+        color = semanticColors.surfaceRaised.copy(alpha = 0.82f),
     ) {
         Row(
             modifier = Modifier
@@ -104,13 +107,13 @@ private fun SourceOrderRow(
                     )
                     if (isStartupSource) {
                         Surface(
-                            shape = MaterialTheme.shapes.small,
-                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(presentation.chipCornerRadius),
+                            color = semanticColors.syncAccent,
                         ) {
                             Text(
                                 text = "Startup",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                color = semanticColors.onSyncAccent,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                             )
                         }

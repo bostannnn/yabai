@@ -14,9 +14,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 internal val ItemProgressSummary.isComplete: Boolean
     get() = isFinished || fraction >= 0.999f
@@ -41,6 +41,7 @@ internal val ItemProgressSummary.progressDetailLabel: String
 internal fun ProgressSummary(
     progress: ItemProgressSummary,
 ) {
+    val semanticColors = UnifiedReaderThemeTokens.colors
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
             text = progress.progressDetailLabel,
@@ -55,6 +56,8 @@ internal fun ProgressSummary(
                 modifier = Modifier
                     .fillMaxWidth()
                     .alpha(0.92f),
+                color = semanticColors.readerAccent,
+                trackColor = semanticColors.surfaceSelected.copy(alpha = 0.34f),
             )
         }
     }
@@ -65,23 +68,24 @@ internal fun LibraryCoverProgressBar(
     progress: ItemProgressSummary,
     modifier: Modifier = Modifier,
 ) {
+    val semanticColors = UnifiedReaderThemeTokens.colors
     val clampedFraction = progress.fraction.coerceIn(0f, 1f)
     val barShape = androidx.compose.foundation.shape.RoundedCornerShape(
         bottomStart = 4.dp,
         bottomEnd = 4.dp,
     )
 
-    Box(
-        modifier = modifier
-            .height(7.dp)
-            .clip(barShape)
-            .background(Color.Black.copy(alpha = 0.42f)),
-    ) {
+        Box(
+            modifier = modifier
+                .height(7.dp)
+                .clip(barShape)
+                .background(semanticColors.readerScrim.copy(alpha = 0.42f)),
+        ) {
         Box(
             modifier = Modifier
                 .fillMaxHeight()
                 .fillMaxWidth(clampedFraction)
-                .background(MaterialTheme.colorScheme.primary),
+                .background(semanticColors.readerAccent),
         )
     }
 }

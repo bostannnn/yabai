@@ -1,14 +1,20 @@
 package com.example.unifiedreader.feature.library.shelves
 
 import android.text.format.DateUtils
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -18,6 +24,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -30,6 +38,7 @@ import com.example.unifiedreader.feature.library.LibraryItemActionContext
 import com.example.unifiedreader.feature.library.hasMenuContent
 import com.example.unifiedreader.feature.library.isDownloaded
 import com.example.unifiedreader.feature.library.menu.LibraryItemMenuButtonStyle
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 @Composable
 internal fun ContinueReadingShelfSection(
@@ -45,12 +54,16 @@ internal fun ContinueReadingShelfSection(
     onSeeAll: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val semanticColors = UnifiedReaderThemeTokens.colors
     val previewItems = items.take(ShelfPreviewItemLimit)
     ShelfSectionCard(
         title = "Continue Reading",
         count = items.size,
         showSeeAll = items.size > SeeAllThreshold,
         onSeeAll = onSeeAll,
+        accentColor = semanticColors.readerAccent,
+        accentContainerColor = semanticColors.readerAccentContainer,
+        accentContentColor = semanticColors.onReaderAccentContainer,
         modifier = modifier,
     ) {
         if (previewContentEnabled) {
@@ -88,12 +101,16 @@ internal fun NextInSeriesShelfSection(
     onSeeAll: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val semanticColors = UnifiedReaderThemeTokens.colors
     val previewItems = items.take(ShelfPreviewItemLimit)
     ShelfSectionCard(
         title = "Up Next",
         count = items.size,
         showSeeAll = items.size > SeeAllThreshold,
         onSeeAll = onSeeAll,
+        accentColor = semanticColors.sourceAccent,
+        accentContainerColor = semanticColors.sourceAccentContainer,
+        accentContentColor = semanticColors.onSourceAccentContainer,
         modifier = modifier,
     ) {
         if (previewContentEnabled) {
@@ -109,6 +126,7 @@ internal fun NextInSeriesShelfSection(
                         coverImageUrlProvider = coverImageUrlProvider,
                         coverLoadingEnabled = coverLoadingEnabled,
                         onClick = { onItemSelected(shelfItem.item) },
+                        accentColor = semanticColors.sourceAccent,
                         menuContent = if (hasMenuContent) {
                             {
                                 LibraryAnchoredItemMenu(
@@ -150,12 +168,16 @@ internal fun RecentlyFinishedShelfSection(
     onSeeAll: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val semanticColors = UnifiedReaderThemeTokens.colors
     val previewItems = items.take(ShelfPreviewItemLimit)
     ShelfSectionCard(
         title = "Recently Finished",
         count = items.size,
         showSeeAll = items.size > SeeAllThreshold,
         onSeeAll = onSeeAll,
+        accentColor = semanticColors.syncAccent,
+        accentContainerColor = semanticColors.syncAccentContainer,
+        accentContentColor = semanticColors.onSyncAccentContainer,
         modifier = modifier,
     ) {
         if (previewContentEnabled) {
@@ -176,6 +198,7 @@ internal fun RecentlyFinishedShelfSection(
                         coverImageUrlProvider = coverImageUrlProvider,
                         coverLoadingEnabled = coverLoadingEnabled,
                         onClick = { onItemSelected(shelfItem.item) },
+                        accentColor = semanticColors.syncAccent,
                         menuContent = if (hasMenuContent) {
                             {
                                 LibraryAnchoredItemMenu(
@@ -218,20 +241,35 @@ private fun ShelfSectionCard(
     count: Int,
     showSeeAll: Boolean,
     onSeeAll: () -> Unit,
+    accentColor: Color,
+    accentContainerColor: Color,
+    accentContentColor: Color,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
+    val presentation = UnifiedReaderThemeTokens.presentation
     Card(
         modifier = modifier,
+        shape = RoundedCornerShape(presentation.cardCornerRadius),
+        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.26f)),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            containerColor = UnifiedReaderThemeTokens.colors.surfaceRaised,
         ),
     ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(presentation.accentRailWidth)
+                .background(accentColor),
+        )
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(
+                    horizontal = presentation.shelfCardHorizontalPadding,
+                    vertical = presentation.shelfCardVerticalPadding,
+                ),
+            verticalArrangement = Arrangement.spacedBy(presentation.shelfItemSpacing),
         ) {
             Row(
                 modifier = Modifier
@@ -240,26 +278,47 @@ private fun ShelfSectionCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top,
             ) {
-                Column(
+                Row(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.Top,
                 ) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 2.dp)
+                            .width(presentation.accentRailWidth)
+                            .height(34.dp)
+                            .clip(RoundedCornerShape(presentation.chipCornerRadius))
+                            .background(accentColor),
                     )
-                    Text(
-                        text = shelfCountLabel(count),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = shelfCountLabel(count),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = accentContentColor,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(presentation.chipCornerRadius))
+                                .background(accentContainerColor)
+                                .padding(horizontal = 8.dp, vertical = 2.dp),
+                        )
+                    }
                 }
                 if (showSeeAll) {
                     TextButton(onClick = onSeeAll) {
-                        Text(text = "See all")
+                        Text(
+                            text = "See all",
+                            color = accentColor,
+                        )
                     }
                 }
             }
@@ -280,6 +339,7 @@ private fun ContinueReadingCarouselCard(
     onDeleteImportedRequested: (ReadableItem) -> Unit,
 ) {
     val hasMenuContent = itemActionContext.hasMenuContent(shelfItem.item)
+    val semanticColors = UnifiedReaderThemeTokens.colors
     ShelfPreviewCard(
         item = shelfItem.item,
         title = shelfItem.item.libraryPrimaryText(),
@@ -288,6 +348,7 @@ private fun ContinueReadingCarouselCard(
         coverImageUrlProvider = coverImageUrlProvider,
         coverLoadingEnabled = coverLoadingEnabled,
         onClick = onClick,
+        accentColor = semanticColors.readerAccent,
         menuContent = if (hasMenuContent) {
             {
                 LibraryAnchoredItemMenu(
