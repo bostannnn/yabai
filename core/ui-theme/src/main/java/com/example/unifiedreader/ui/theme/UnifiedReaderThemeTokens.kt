@@ -44,6 +44,37 @@ data class UnifiedReaderPresentationTokens(
     val accentRailWidth: Dp,
 )
 
+enum class UnifiedReaderSurfaceTreatment {
+    Plain,
+    TerminalGrid,
+    GothicVignette,
+    ComicHalftone,
+    BlueprintGrid,
+    VhsScanlines,
+    DossierPaper,
+}
+
+enum class UnifiedReaderProgressTreatment {
+    Solid,
+    Segmented,
+    TapeCounter,
+    Dashed,
+}
+
+enum class UnifiedReaderBorderTreatment {
+    Single,
+    Double,
+    Ink,
+    Dashed,
+}
+
+@Immutable
+data class UnifiedReaderPersonalityTokens(
+    val surfaceTreatment: UnifiedReaderSurfaceTreatment,
+    val progressTreatment: UnifiedReaderProgressTreatment,
+    val borderTreatment: UnifiedReaderBorderTreatment,
+)
+
 val LocalUnifiedReaderSemanticColors = staticCompositionLocalOf {
     UnifiedReaderSemanticColors(
         appBackground = Color(0xFFFFF8F0),
@@ -84,6 +115,14 @@ val LocalUnifiedReaderPresentationTokens = staticCompositionLocalOf {
     )
 }
 
+val LocalUnifiedReaderPersonalityTokens = staticCompositionLocalOf {
+    UnifiedReaderPersonalityTokens(
+        surfaceTreatment = UnifiedReaderSurfaceTreatment.Plain,
+        progressTreatment = UnifiedReaderProgressTreatment.Solid,
+        borderTreatment = UnifiedReaderBorderTreatment.Single,
+    )
+}
+
 object UnifiedReaderThemeTokens {
     val colors: UnifiedReaderSemanticColors
         @androidx.compose.runtime.Composable
@@ -92,4 +131,8 @@ object UnifiedReaderThemeTokens {
     val presentation: UnifiedReaderPresentationTokens
         @androidx.compose.runtime.Composable
         get() = LocalUnifiedReaderPresentationTokens.current
+
+    val personality: UnifiedReaderPersonalityTokens
+        @androidx.compose.runtime.Composable
+        get() = LocalUnifiedReaderPersonalityTokens.current
 }

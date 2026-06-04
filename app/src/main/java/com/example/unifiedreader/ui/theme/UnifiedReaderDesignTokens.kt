@@ -42,6 +42,30 @@ internal val PanelPopUnifiedReaderShapes = Shapes(
     extraLarge = RoundedCornerShape(8.dp),
 )
 
+internal val BlueprintUnifiedReaderShapes = Shapes(
+    extraSmall = RoundedCornerShape(0.dp),
+    small = RoundedCornerShape(2.dp),
+    medium = RoundedCornerShape(4.dp),
+    large = RoundedCornerShape(6.dp),
+    extraLarge = RoundedCornerShape(8.dp),
+)
+
+internal val VhsNightUnifiedReaderShapes = Shapes(
+    extraSmall = RoundedCornerShape(4.dp),
+    small = RoundedCornerShape(8.dp),
+    medium = RoundedCornerShape(12.dp),
+    large = RoundedCornerShape(16.dp),
+    extraLarge = RoundedCornerShape(20.dp),
+)
+
+internal val DetectiveFileUnifiedReaderShapes = Shapes(
+    extraSmall = RoundedCornerShape(1.dp),
+    small = RoundedCornerShape(3.dp),
+    medium = RoundedCornerShape(6.dp),
+    large = RoundedCornerShape(8.dp),
+    extraLarge = RoundedCornerShape(10.dp),
+)
+
 internal val UnifiedReaderTypography = Typography(
     displayLarge = TextStyle(
         fontFamily = FontFamily.Default,
@@ -193,6 +217,53 @@ internal val PanelPopUnifiedReaderTypography = UnifiedReaderTypography.copy(
     titleSmall = UnifiedReaderTypography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
     labelLarge = UnifiedReaderTypography.labelLarge.copy(fontWeight = FontWeight.ExtraBold),
     labelMedium = UnifiedReaderTypography.labelMedium.copy(fontWeight = FontWeight.ExtraBold),
+)
+
+internal val BlueprintUnifiedReaderTypography = UnifiedReaderTypography.copy(
+    titleMedium = UnifiedReaderTypography.titleMedium.copy(
+        fontFamily = FontFamily.Monospace,
+        fontWeight = FontWeight.Bold,
+        fontSize = 15.sp,
+    ),
+    titleSmall = UnifiedReaderTypography.titleSmall.copy(
+        fontFamily = FontFamily.Monospace,
+        fontWeight = FontWeight.Bold,
+    ),
+    labelLarge = UnifiedReaderTypography.labelLarge.copy(
+        fontFamily = FontFamily.Monospace,
+        fontWeight = FontWeight.Bold,
+    ),
+    labelMedium = UnifiedReaderTypography.labelMedium.copy(
+        fontFamily = FontFamily.Monospace,
+        fontWeight = FontWeight.Bold,
+    ),
+    labelSmall = UnifiedReaderTypography.labelSmall.copy(
+        fontFamily = FontFamily.Monospace,
+    ),
+)
+
+internal val VhsNightUnifiedReaderTypography = UnifiedReaderTypography.copy(
+    headlineSmall = UnifiedReaderTypography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+    titleLarge = UnifiedReaderTypography.titleLarge.copy(fontWeight = FontWeight.Bold),
+    titleMedium = UnifiedReaderTypography.titleMedium.copy(fontWeight = FontWeight.Bold),
+    labelLarge = UnifiedReaderTypography.labelLarge.copy(fontWeight = FontWeight.Bold),
+    labelMedium = UnifiedReaderTypography.labelMedium.copy(fontWeight = FontWeight.Bold),
+)
+
+internal val DetectiveFileUnifiedReaderTypography = UnifiedReaderTypography.withFamilies(
+    displayFamily = FontFamily.Serif,
+    titleFamily = FontFamily.Serif,
+    bodyFamily = FontFamily.Default,
+    labelFamily = FontFamily.Monospace,
+).copy(
+    titleMedium = UnifiedReaderTypography.titleMedium.copy(
+        fontFamily = FontFamily.Serif,
+        fontWeight = FontWeight.Bold,
+    ),
+    labelMedium = UnifiedReaderTypography.labelMedium.copy(
+        fontFamily = FontFamily.Monospace,
+        fontWeight = FontWeight.Bold,
+    ),
 )
 
 private fun Typography.withFamilies(

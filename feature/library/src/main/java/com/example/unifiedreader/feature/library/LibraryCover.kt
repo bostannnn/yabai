@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
+import com.example.unifiedreader.ui.theme.unifiedReaderContentOverlay
 
 @Composable
 fun LibraryCover(
@@ -54,6 +55,7 @@ fun LibraryCover(
     val colors = MaterialTheme.colorScheme
     val semanticColors = UnifiedReaderThemeTokens.colors
     val presentation = UnifiedReaderThemeTokens.presentation
+    val personality = UnifiedReaderThemeTokens.personality
     val coverStyle = libraryCoverStyle(
         variant = imageVariant,
         cornerRadius = presentation.coverCornerRadius,
@@ -111,6 +113,14 @@ fun LibraryCover(
             CoverSurfaceTreatment(
                 coverStyle = coverStyle,
                 modifier = Modifier.fillMaxSize(),
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .unifiedReaderContentOverlay(
+                        treatment = personality.surfaceTreatment,
+                        accentColor = semanticColors.readerAccent,
+                    ),
             )
         }
         if (isRead) {

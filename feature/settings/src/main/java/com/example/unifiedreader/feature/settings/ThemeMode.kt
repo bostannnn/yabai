@@ -121,6 +121,41 @@ enum class ThemeMode(
             source = 0xFF8A6500,
         ),
     ),
+    Blueprint(
+        storageValue = "blueprint",
+        label = "Blueprint",
+        description = "Use drafting-blue surfaces, precise cyan linework, and technical diagram accents.",
+        previewSwatches = ThemePreviewSwatches(
+            surface = 0xFF071A2E,
+            reader = 0xFF9BE7FF,
+            sync = 0xFFFFC857,
+            source = 0xFFB8D8FF,
+        ),
+        isDark = true,
+    ),
+    VhsNight(
+        storageValue = "vhs_night",
+        label = "VHS Night",
+        description = "Use washed analog blacks, faded cyan, tracking red, and tape-label surfaces.",
+        previewSwatches = ThemePreviewSwatches(
+            surface = 0xFF12131B,
+            reader = 0xFF78D8E8,
+            sync = 0xFFFF5C7A,
+            source = 0xFFE1D7BA,
+        ),
+        isDark = true,
+    ),
+    DetectiveFile(
+        storageValue = "detective_file",
+        label = "Detective File",
+        description = "Use manila folder surfaces, typewriter ink, evidence red, and case-file blue.",
+        previewSwatches = ThemePreviewSwatches(
+            surface = 0xFFF3E4C2,
+            reader = 0xFF233D5A,
+            sync = 0xFFB3362D,
+            source = 0xFF8A6B2F,
+        ),
+    ),
     Light(
         storageValue = "light",
         label = "Light",

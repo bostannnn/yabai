@@ -7,6 +7,7 @@ This app now has a real theme system, not just a few color swaps. A theme can af
 - Shape
 - Typography
 - Density and spacing
+- Personality treatments such as grids, scanlines, halftone, dossier paper, vignette, and themed progress styles
 - Component accents such as shelves, drawer selection, filter chips, progress bars, badges, top bars, and settings chips
 
 The visual redesign is not "done forever." The current pass gives the app a stronger design foundation and three bold theme directions. There is still room to make themes affect more component behavior, motion, imagery, reader chrome, and source-specific identity.
@@ -28,6 +29,10 @@ The visual redesign is not "done forever." The current pass gives the app a stro
 
 - `core/ui-theme/src/main/java/com/example/unifiedreader/ui/theme/UnifiedReaderThemeTokens.kt`
   - Exposes shared semantic color tokens and presentation tokens to feature modules.
+  - Exposes personality tokens for reusable surface, progress, and border treatments.
+
+- `core/ui-theme/src/main/java/com/example/unifiedreader/ui/theme/UnifiedReaderTreatmentModifiers.kt`
+  - Provides primitive Compose drawing modifiers for theme-specific surface patterns, intentional content overlays, progress treatments, and border treatments.
 
 ## How To Add A New Theme
 
@@ -141,7 +146,22 @@ The visual redesign is not "done forever." The current pass gives the app a stro
    - `searchHeight`
    - `accentRailWidth`
 
-7. Compile.
+7. Set personality tokens.
+
+   Edit `ThemeMode.toPersonalityTokens()` in `UnifiedReaderTheme.kt`.
+
+   Current treatment examples:
+
+   - `Terminal95` uses terminal grid surfaces and segmented progress.
+   - `CrimsonCourt` uses gothic vignette surfaces and heavier/double borders.
+   - `PanelPop` uses halftone surfaces, segmented progress, and inkier borders.
+   - `Blueprint` uses drafting-grid surfaces, dashed progress, and technical borders.
+   - `VhsNight` uses scanline surfaces and tape-counter progress.
+   - `DetectiveFile` uses dossier-paper surfaces and segmented progress.
+
+   Use surface patterns behind readable content, and use content overlays only when the treatment should intentionally sit over the content, such as theme preview swatches or cover art.
+
+8. Compile.
 
    Recommended minimum check:
 
@@ -149,7 +169,7 @@ The visual redesign is not "done forever." The current pass gives the app a stro
    ./gradlew :core:ui-theme:compileDebugKotlin :feature:settings:compileDebugKotlin :feature:library:compileDebugKotlin :feature:library-shelves:compileDebugKotlin :feature:navigation:compileDebugKotlin :app:compileDebugKotlin
    ```
 
-8. Check visually on a real device.
+9. Check visually on a real device.
 
    Especially check:
 
@@ -270,6 +290,7 @@ Themes currently affect:
 - Library progress bars
 - Read and rating badges
 - Library shelves, shelf headers, count pills, cards, placeholders, and accent rails
+- Theme-personality effects on settings swatches, shelf surfaces, loading placeholders, covers, and progress bars
 
 ## What Still Could Improve
 

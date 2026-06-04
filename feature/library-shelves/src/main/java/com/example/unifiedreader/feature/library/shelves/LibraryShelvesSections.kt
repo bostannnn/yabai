@@ -1,7 +1,6 @@
 package com.example.unifiedreader.feature.library.shelves
 
 import android.text.format.DateUtils
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -38,7 +37,10 @@ import com.example.unifiedreader.feature.library.LibraryItemActionContext
 import com.example.unifiedreader.feature.library.hasMenuContent
 import com.example.unifiedreader.feature.library.isDownloaded
 import com.example.unifiedreader.feature.library.menu.LibraryItemMenuButtonStyle
+import com.example.unifiedreader.ui.theme.UnifiedReaderBorderTreatment
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
+import com.example.unifiedreader.ui.theme.unifiedReaderBorderTreatment
+import com.example.unifiedreader.ui.theme.unifiedReaderSurfacePattern
 
 @Composable
 internal fun ContinueReadingShelfSection(
@@ -248,81 +250,107 @@ private fun ShelfSectionCard(
     content: @Composable () -> Unit,
 ) {
     val presentation = UnifiedReaderThemeTokens.presentation
+    val personality = UnifiedReaderThemeTokens.personality
+    val borderWidth = when (personality.borderTreatment) {
+        UnifiedReaderBorderTreatment.Double,
+        UnifiedReaderBorderTreatment.Ink -> 2.dp
+        else -> 1.dp
+    }
+    val borderAlpha = when (personality.borderTreatment) {
+        UnifiedReaderBorderTreatment.Dashed -> 0.46f
+        UnifiedReaderBorderTreatment.Ink -> 0.56f
+        UnifiedReaderBorderTreatment.Double -> 0.36f
+        else -> 0.26f
+    }
     Card(
-        modifier = modifier,
+        modifier = modifier.unifiedReaderBorderTreatment(
+            treatment = personality.borderTreatment,
+            color = accentColor,
+            cornerRadius = presentation.cardCornerRadius,
+            width = borderWidth,
+            alpha = borderAlpha,
+        ),
         shape = RoundedCornerShape(presentation.cardCornerRadius),
-        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.26f)),
         colors = CardDefaults.cardColors(
             containerColor = UnifiedReaderThemeTokens.colors.surfaceRaised,
         ),
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(presentation.accentRailWidth)
-                .background(accentColor),
-        )
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(
-                    horizontal = presentation.shelfCardHorizontalPadding,
-                    vertical = presentation.shelfCardVerticalPadding,
+                .unifiedReaderSurfacePattern(
+                    treatment = personality.surfaceTreatment,
+                    accentColor = accentColor,
                 ),
-            verticalArrangement = Arrangement.spacedBy(presentation.shelfItemSpacing),
         ) {
-            Row(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = ShelfSectionHeaderMinHeight),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top,
+                    .height(presentation.accentRailWidth)
+                    .background(accentColor),
+            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        horizontal = presentation.shelfCardHorizontalPadding,
+                        vertical = presentation.shelfCardVerticalPadding,
+                    ),
+                verticalArrangement = Arrangement.spacedBy(presentation.shelfItemSpacing),
             ) {
                 Row(
-                    modifier = Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = ShelfSectionHeaderMinHeight),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.Top,
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .padding(top = 2.dp)
-                            .width(presentation.accentRailWidth)
-                            .height(34.dp)
-                            .clip(RoundedCornerShape(presentation.chipCornerRadius))
-                            .background(accentColor),
-                    )
-                    Column(
+                    Row(
                         modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.Top,
                     ) {
-                        Text(
-                            text = title,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            text = shelfCountLabel(count),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = accentContentColor,
+                        Box(
                             modifier = Modifier
+                                .padding(top = 2.dp)
+                                .width(presentation.accentRailWidth)
+                                .height(34.dp)
                                 .clip(RoundedCornerShape(presentation.chipCornerRadius))
-                                .background(accentContainerColor)
-                                .padding(horizontal = 8.dp, vertical = 2.dp),
+                                .background(accentColor),
                         )
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Text(
+                                text = title,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = shelfCountLabel(count),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = accentContentColor,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(presentation.chipCornerRadius))
+                                    .background(accentContainerColor)
+                                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                            )
+                        }
+                    }
+                    if (showSeeAll) {
+                        TextButton(onClick = onSeeAll) {
+                            Text(
+                                text = "See all",
+                                color = accentColor,
+                            )
+                        }
                     }
                 }
-                if (showSeeAll) {
-                    TextButton(onClick = onSeeAll) {
-                        Text(
-                            text = "See all",
-                            color = accentColor,
-                        )
-                    }
-                }
+                content()
             }
-            content()
         }
     }
 }

@@ -1,6 +1,5 @@
 package com.example.unifiedreader.feature.library.shelves
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,7 +15,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,6 +30,10 @@ import com.example.unifiedreader.feature.library.LibraryCoverActionCard
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.ResolvedLibraryCover
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
+import com.example.unifiedreader.ui.theme.UnifiedReaderBorderTreatment
+import com.example.unifiedreader.ui.theme.unifiedReaderBorderTreatment
+import com.example.unifiedreader.ui.theme.unifiedReaderProgressTreatment
+import com.example.unifiedreader.ui.theme.unifiedReaderSurfacePattern
 
 @Composable
 internal fun ShelfPreviewCard(
@@ -50,61 +52,92 @@ internal fun ShelfPreviewCard(
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
     val presentation = UnifiedReaderThemeTokens.presentation
+    val personality = UnifiedReaderThemeTokens.personality
+    val borderWidth = when (personality.borderTreatment) {
+        UnifiedReaderBorderTreatment.Double,
+        UnifiedReaderBorderTreatment.Ink -> 2.dp
+        else -> 1.dp
+    }
+    val borderAlpha = when (personality.borderTreatment) {
+        UnifiedReaderBorderTreatment.Dashed -> 0.42f
+        UnifiedReaderBorderTreatment.Ink -> 0.52f
+        UnifiedReaderBorderTreatment.Double -> 0.34f
+        else -> 0.18f
+    }
     Card(
         modifier = Modifier
             .width(ShelfPreviewCardWidth)
             .height(ShelfPreviewCardHeight)
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick)
+            .unifiedReaderBorderTreatment(
+                treatment = personality.borderTreatment,
+                color = accentColor,
+                cornerRadius = presentation.cardCornerRadius,
+                width = borderWidth,
+                alpha = borderAlpha,
+            ),
         shape = RoundedCornerShape(presentation.cardCornerRadius),
-        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.18f)),
         colors = CardDefaults.cardColors(
             containerColor = semanticColors.surfaceOverlay.copy(alpha = 0.72f),
         ),
     ) {
-        LibraryCoverActionCard(
-            item = item,
-            title = title,
-            supportingText = supportingText,
-            trailingText = trailingText,
-            coverImageUrlProvider = { coverItem, coverVariant ->
-                if (coverLoadingEnabled) {
-                    coverImageUrlProvider(coverItem, coverVariant)
-                } else {
-                    null
-                }
-            },
-            imageVariant = LibraryCoverImageVariant.ShelfPreview,
-            isDownloaded = isDownloaded,
-            isRead = isRead,
-            onClick = onClick,
-            modifier = Modifier.padding(presentation.shelfItemSpacing),
-            coverModifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(CoverAspectRatio),
-            titleStyle = MaterialTheme.typography.titleSmall,
-            supportingStyle = MaterialTheme.typography.bodySmall,
-            trailingColor = accentColor,
-            metadataTopPadding = 8.dp,
-            menuContent = menuContent,
-            coverOverlay = {
-                progressFraction?.let { fraction ->
-                    LinearProgressIndicator(
-                        progress = { fraction.coerceIn(0f, 1f) },
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .clip(
-                                RoundedCornerShape(
-                                    bottomStart = presentation.coverCornerRadius,
-                                    bottomEnd = presentation.coverCornerRadius,
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .unifiedReaderSurfacePattern(
+                    treatment = personality.surfaceTreatment,
+                    accentColor = accentColor,
+                ),
+        ) {
+            LibraryCoverActionCard(
+                item = item,
+                title = title,
+                supportingText = supportingText,
+                trailingText = trailingText,
+                coverImageUrlProvider = { coverItem, coverVariant ->
+                    if (coverLoadingEnabled) {
+                        coverImageUrlProvider(coverItem, coverVariant)
+                    } else {
+                        null
+                    }
+                },
+                imageVariant = LibraryCoverImageVariant.ShelfPreview,
+                isDownloaded = isDownloaded,
+                isRead = isRead,
+                onClick = onClick,
+                modifier = Modifier.padding(presentation.shelfItemSpacing),
+                coverModifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(CoverAspectRatio),
+                titleStyle = MaterialTheme.typography.titleSmall,
+                supportingStyle = MaterialTheme.typography.bodySmall,
+                trailingColor = accentColor,
+                metadataTopPadding = 8.dp,
+                menuContent = menuContent,
+                coverOverlay = {
+                    progressFraction?.let { fraction ->
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .height(7.dp)
+                                .clip(
+                                    RoundedCornerShape(
+                                        bottomStart = presentation.coverCornerRadius,
+                                        bottomEnd = presentation.coverCornerRadius,
+                                    ),
+                                )
+                                .unifiedReaderProgressTreatment(
+                                    treatment = personality.progressTreatment,
+                                    fraction = fraction,
+                                    progressColor = semanticColors.readerAccent,
+                                    trackColor = semanticColors.surfaceSelected.copy(alpha = 0.38f),
                                 ),
-                            ),
-                        color = semanticColors.readerAccent,
-                        trackColor = semanticColors.surfaceSelected.copy(alpha = 0.38f),
-                    )
-                }
-            },
-        )
+                        )
+                    }
+                },
+            )
+        }
     }
 }
 
@@ -125,6 +158,7 @@ internal fun ShelfListRow(
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
     val presentation = UnifiedReaderThemeTokens.presentation
+    val personality = UnifiedReaderThemeTokens.personality
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -147,19 +181,23 @@ internal fun ShelfListRow(
                 modifier = Modifier.fillMaxSize(),
             )
             progressFraction?.let { fraction ->
-                LinearProgressIndicator(
-                    progress = { fraction.coerceIn(0f, 1f) },
+                Box(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
+                        .height(7.dp)
                         .clip(
                             RoundedCornerShape(
                                 bottomStart = presentation.coverCornerRadius,
                                 bottomEnd = presentation.coverCornerRadius,
                             ),
-                    ),
-                    color = semanticColors.readerAccent,
-                    trackColor = semanticColors.surfaceSelected.copy(alpha = 0.34f),
+                        )
+                        .unifiedReaderProgressTreatment(
+                            treatment = personality.progressTreatment,
+                            fraction = fraction,
+                            progressColor = semanticColors.readerAccent,
+                            trackColor = semanticColors.surfaceSelected.copy(alpha = 0.34f),
+                        ),
                 )
             }
         }
