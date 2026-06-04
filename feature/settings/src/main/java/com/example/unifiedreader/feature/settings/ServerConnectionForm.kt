@@ -47,6 +47,7 @@ internal data class ServerConnectionFormState(
 enum class ServerConnectionAction {
     Connect,
     Sync,
+    FastSync,
     FullSync,
 }
 
@@ -349,7 +350,10 @@ private fun ServerSyncButtons(
                 .weight(1f)
                 .heightIn(min = SettingsActionButtonMinHeight),
         ) {
-            if (actionState.activeAction == ServerConnectionAction.FullSync) {
+            if (
+                actionState.activeAction == ServerConnectionAction.FullSync ||
+                actionState.activeAction == ServerConnectionAction.FastSync
+            ) {
                 SettingsButtonProgressIndicator()
             } else {
                 Text(secondarySyncLabel)

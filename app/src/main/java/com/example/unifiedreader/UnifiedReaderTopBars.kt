@@ -1,6 +1,7 @@
 package com.example.unifiedreader
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -15,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -23,10 +23,12 @@ import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +40,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
@@ -51,9 +55,11 @@ fun LibraryTopBar(
     searchQuery: String,
     seriesTitle: String?,
     downloadSelectionState: LibraryDownloadSelectionTopBarState = LibraryDownloadSelectionTopBarState(),
+    refreshState: LibraryRefreshTopBarState = LibraryRefreshTopBarState(),
     onSourceConnectivityClick: () -> Unit,
     onDrawerClick: () -> Unit,
     onSearchQueryChanged: (String) -> Unit,
+    onRefreshClick: () -> Unit = {},
     downloadBadgeCount: Int,
     onDownloadsClick: () -> Unit,
     onDownloadSelectionModeChanged: (Boolean) -> Unit = {},
@@ -96,6 +102,8 @@ fun LibraryTopBar(
                             modifier = Modifier.weight(1f),
                         )
                         LibraryToolbarActions(
+                            refreshState = refreshState,
+                            onRefreshClick = onRefreshClick,
                             downloadBadgeCount = downloadBadgeCount,
                             onDownloadsClick = onDownloadsClick,
                             downloadSelectionEnabled = downloadSelectionState.selectableCount > 0,
@@ -133,6 +141,8 @@ fun LibraryTopBar(
                             .widthIn(min = 280.dp, max = 340.dp),
                     )
                     LibraryToolbarActions(
+                        refreshState = refreshState,
+                        onRefreshClick = onRefreshClick,
                         downloadBadgeCount = downloadBadgeCount,
                         onDownloadsClick = onDownloadsClick,
                         downloadSelectionEnabled = downloadSelectionState.selectableCount > 0,
@@ -150,6 +160,12 @@ data class LibraryDownloadSelectionTopBarState(
     val isSelectionMode: Boolean = false,
     val selectedCount: Int = 0,
     val selectableCount: Int = 0,
+)
+
+data class LibraryRefreshTopBarState(
+    val isVisible: Boolean = false,
+    val isEnabled: Boolean = false,
+    val isRefreshing: Boolean = false,
 )
 
 @Composable
@@ -430,6 +446,8 @@ private fun LibrarySearchField(
 
 @Composable
 private fun LibraryToolbarActions(
+    refreshState: LibraryRefreshTopBarState = LibraryRefreshTopBarState(),
+    onRefreshClick: () -> Unit = {},
     downloadBadgeCount: Int = 0,
     onDownloadsClick: (() -> Unit)? = null,
     downloadSelectionEnabled: Boolean = false,
@@ -442,6 +460,37 @@ private fun LibraryToolbarActions(
         horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (refreshState.isVisible) {
+            val isRefreshEnabled = refreshState.isEnabled && !refreshState.isRefreshing
+            IconButton(
+                enabled = isRefreshEnabled,
+                onClick = onRefreshClick,
+                modifier = Modifier.semantics {
+                    contentDescription = if (refreshState.isRefreshing) {
+                        "Kavita fast sync in progress"
+                    } else {
+                        "Fast sync Kavita library"
+                    }
+                },
+            ) {
+                if (refreshState.isRefreshing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = null,
+                        tint = if (isRefreshEnabled) {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                        },
+                    )
+                }
+            }
+        }
         onDownloadsClick?.let { handler ->
             IconButton(onClick = handler) {
                 BadgedBox(

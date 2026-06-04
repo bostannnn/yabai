@@ -14,16 +14,37 @@ android {
         applicationId = "com.example.unifiedreader"
         minSdk = 28
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
     }
 
+    val releaseSigningStoreFile = providers.environmentVariable("ANDROID_SIGNING_STORE_FILE").orNull
+    val releaseSigningStorePassword = providers.environmentVariable("ANDROID_SIGNING_STORE_PASSWORD").orNull
+    val releaseSigningKeyAlias = providers.environmentVariable("ANDROID_SIGNING_KEY_ALIAS").orNull
+    val releaseSigningKeyPassword = providers.environmentVariable("ANDROID_SIGNING_KEY_PASSWORD").orNull
+    val releaseSigningConfig = if (
+        !releaseSigningStoreFile.isNullOrBlank() &&
+        !releaseSigningStorePassword.isNullOrBlank() &&
+        !releaseSigningKeyAlias.isNullOrBlank() &&
+        !releaseSigningKeyPassword.isNullOrBlank()
+    ) {
+        signingConfigs.create("release") {
+            storeFile = file(releaseSigningStoreFile)
+            storePassword = releaseSigningStorePassword
+            keyAlias = releaseSigningKeyAlias
+            keyPassword = releaseSigningKeyPassword
+        }
+    } else {
+        null
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            releaseSigningConfig?.let { signingConfig = it }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",

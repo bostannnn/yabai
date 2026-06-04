@@ -35,7 +35,7 @@ class RemoteServerAddressFailoverTest {
     }
 
     @Test
-    fun `run with server address failover tries primary before persisted active backup`() = runTest {
+    fun `run with server address failover tries persisted active backup first`() = runTest {
         val attempts = mutableListOf<String>()
 
         val result = runWithServerAddressFailover(
@@ -47,9 +47,9 @@ class RemoteServerAddressFailoverTest {
             "ok"
         }
 
-        assertEquals(listOf("https://primary.example.com"), attempts)
+        assertEquals(listOf("https://backup.example.com"), attempts)
         assertEquals("ok", result.value)
-        assertEquals("https://primary.example.com", result.activeBaseUrl)
+        assertEquals("https://backup.example.com", result.activeBaseUrl)
     }
 
     @Test

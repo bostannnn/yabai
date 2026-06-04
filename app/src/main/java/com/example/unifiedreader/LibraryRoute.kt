@@ -125,7 +125,8 @@ internal fun LibraryRoute(
                 sortMode = uiState.selectedLibrarySortMode,
                 gridCellSizeDp = uiState.libraryGridCellSizeDp,
                 showSortControl = showSortControl,
-                preferIssueLabels = uiState.isSeriesBrowseActive,
+                preferIssueLabels = uiState.isSeriesBrowseActive || uiState.isKavitaReadingListActive,
+                includeSeriesInIssueLabels = uiState.isKavitaReadingListActive,
                 lockedSortLabel = "List order".takeIf { uiState.isKavitaReadingListActive },
                 readingListScopeState = if (uiState.selectedSource == SourceType.KAVITA) {
                     uiState.kavitaReadingListScopeState()

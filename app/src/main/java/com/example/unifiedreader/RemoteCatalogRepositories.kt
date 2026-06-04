@@ -149,6 +149,19 @@ class RoomRemoteCatalogRepository(
         )
     }
 
+    override suspend fun applySourceCatalogDelta(
+        delta: RemoteCatalogDelta,
+    ) = withContext(ioDispatcher) {
+        remoteCatalogDao.applySourceCatalogDelta(
+            sourceType = delta.sourceType.name,
+            libraries = delta.libraries,
+            upsertItems = delta.upsertItems,
+            removeItemIds = delta.removeItemIds.toList(),
+            syncGroups = delta.syncGroups,
+            removeSyncGroupIds = delta.removeSyncGroupIds.toList(),
+        )
+    }
+
     override suspend fun getCachedLibraries(
         sourceType: SourceType,
         baseUrl: String,

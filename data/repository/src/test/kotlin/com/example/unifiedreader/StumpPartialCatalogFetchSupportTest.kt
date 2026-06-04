@@ -165,6 +165,10 @@ private class StumpPartialFetchTestWriter(
         items: List<ReadableItemEntity>,
         syncGroups: List<RemoteCatalogSyncGroupEntity>,
     ) = error("Not needed in test.")
+
+    override suspend fun applySourceCatalogDelta(
+        delta: RemoteCatalogDelta,
+    ) = error("Not needed in test.")
 }
 
 private class StumpPartialFetchApi(

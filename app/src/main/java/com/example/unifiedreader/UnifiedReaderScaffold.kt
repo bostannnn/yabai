@@ -30,6 +30,7 @@ import com.example.unifiedreader.feature.navigation.SourceNavigationSettingsSect
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import com.example.unifiedreader.feature.settings.SettingsScreen
+import com.example.unifiedreader.feature.settings.ServerConnectionAction
 import com.example.unifiedreader.feature.settings.direction.ReadingDirectionLibraryUiState
 import com.example.unifiedreader.feature.settings.direction.buildComicReadingDirectionLibraryRows
 import com.example.unifiedreader.feature.settings.mode.ReaderModeLibraryUiState
@@ -202,6 +203,17 @@ fun UnifiedReaderScaffold(
                             selectedCount = selectedDownloadItemIdSet.size,
                             selectableCount = effectiveSelectableDownloadItemIds.size,
                         ),
+                        refreshState = LibraryRefreshTopBarState(
+                            isVisible = uiState.selectedSource == SourceType.KAVITA &&
+                                uiState.kavitaConnection.hasStoredSession,
+                            isEnabled = uiState.selectedSource == SourceType.KAVITA &&
+                                uiState.kavitaConnection.hasStoredSession &&
+                                !uiState.kavitaConnection.isConnecting,
+                            isRefreshing = uiState.selectedSource == SourceType.KAVITA &&
+                                uiState.kavitaConnection.hasStoredSession &&
+                                uiState.kavitaConnection.isConnecting &&
+                                uiState.kavitaConnection.activeAction == ServerConnectionAction.FastSync,
+                        ),
                         onSourceConnectivityClick = viewModel::retrySelectedSourceConnection,
                         onDrawerClick = {
                             drawerScope.launch {
@@ -209,6 +221,7 @@ fun UnifiedReaderScaffold(
                             }
                         },
                         onSearchQueryChanged = viewModel::onLibrarySearchQueryChanged,
+                        onRefreshClick = viewModel::fastSyncKavitaLibraryInPlace,
                         downloadBadgeCount = viewModel.downloadsSnapshot.badgeCount,
                         onDownloadsClick = viewModel::showDownloadsSheet,
                         onDownloadSelectionModeChanged = ::updateLibraryDownloadSelectionMode,
@@ -312,6 +325,7 @@ fun UnifiedReaderScaffold(
                         onKavitaPasswordChanged = viewModel::onKavitaPasswordChanged,
                         onConnectKavita = viewModel::connectKavitaServer,
                         onSyncKavita = viewModel::refreshKavitaLibrary,
+                        onFastSyncKavita = viewModel::fastSyncKavitaLibrary,
                         onPreloadKavitaCovers = { viewModel.preloadCovers(SourceType.KAVITA) },
                         onRetryFailedKavitaCovers = { viewModel.retryFailedCovers(SourceType.KAVITA) },
                         onCancelKavitaCoverPreload = { viewModel.cancelCoverPreload(SourceType.KAVITA) },
@@ -382,6 +396,7 @@ private fun SettingsRoute(
     onKavitaPasswordChanged: (String) -> Unit,
     onConnectKavita: () -> Unit,
     onSyncKavita: () -> Unit,
+    onFastSyncKavita: () -> Unit,
     onPreloadKavitaCovers: () -> Unit,
     onRetryFailedKavitaCovers: () -> Unit,
     onCancelKavitaCoverPreload: () -> Unit,
@@ -451,6 +466,7 @@ private fun SettingsRoute(
             onKavitaPasswordChanged = onKavitaPasswordChanged,
             onConnectKavita = onConnectKavita,
             onSyncKavita = onSyncKavita,
+            onFastSyncKavita = onFastSyncKavita,
             onPreloadKavitaCovers = onPreloadKavitaCovers,
             onRetryFailedKavitaCovers = onRetryFailedKavitaCovers,
             onCancelKavitaCoverPreload = onCancelKavitaCoverPreload,

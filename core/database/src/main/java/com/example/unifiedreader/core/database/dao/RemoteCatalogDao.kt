@@ -51,6 +51,7 @@ private const val READABLE_ITEM_LIBRARY_SELECT = """
         comicLanguagesJson
     FROM readable_items
 """
+private const val SQLITE_BIND_SAFE_CHUNK_SIZE = 900
 
 @Dao
 abstract class RemoteCatalogDao {
@@ -116,11 +117,23 @@ abstract class RemoteCatalogDao {
     @Query("DELETE FROM readable_items WHERE sourceType = :sourceType")
     protected abstract fun deleteItemsForSourceType(sourceType: String)
 
+    @Query("DELETE FROM readable_items WHERE sourceType = :sourceType AND id IN (:itemIds)")
+    protected abstract fun deleteItemsForSourceTypeByIds(
+        sourceType: String,
+        itemIds: List<String>,
+    )
+
     @Query("DELETE FROM libraries WHERE sourceType = :sourceType")
     protected abstract fun deleteLibrariesForSourceType(sourceType: String)
 
     @Query("DELETE FROM remote_catalog_sync_groups WHERE sourceType = :sourceType")
     protected abstract fun deleteCatalogSyncGroupsForSourceType(sourceType: String)
+
+    @Query("DELETE FROM remote_catalog_sync_groups WHERE sourceType = :sourceType AND groupId IN (:groupIds)")
+    protected abstract fun deleteCatalogSyncGroupsForSourceTypeByIds(
+        sourceType: String,
+        groupIds: List<String>,
+    )
 
     @Query(
         """
@@ -146,6 +159,35 @@ abstract class RemoteCatalogDao {
         deleteCatalogSyncGroupsForSourceType(sourceType)
         insertOrReplaceLibraries(libraries)
         insertOrReplaceItems(items)
+        if (syncGroups.isNotEmpty()) {
+            insertOrReplaceCatalogSyncGroups(syncGroups)
+        }
+    }
+
+    @Transaction
+    open fun applySourceCatalogDelta(
+        sourceType: String,
+        libraries: List<LibraryEntity>,
+        upsertItems: List<ReadableItemEntity>,
+        removeItemIds: List<String> = emptyList(),
+        syncGroups: List<RemoteCatalogSyncGroupEntity> = emptyList(),
+        removeSyncGroupIds: List<String> = emptyList(),
+    ) {
+        deleteLibrariesForSourceType(sourceType)
+        insertOrReplaceLibraries(libraries)
+        if (removeItemIds.isNotEmpty()) {
+            removeItemIds.chunked(SQLITE_BIND_SAFE_CHUNK_SIZE).forEach { chunk ->
+                deleteItemsForSourceTypeByIds(sourceType, chunk)
+            }
+        }
+        if (upsertItems.isNotEmpty()) {
+            insertOrReplaceItems(upsertItems)
+        }
+        if (removeSyncGroupIds.isNotEmpty()) {
+            removeSyncGroupIds.chunked(SQLITE_BIND_SAFE_CHUNK_SIZE).forEach { chunk ->
+                deleteCatalogSyncGroupsForSourceTypeByIds(sourceType, chunk)
+            }
+        }
         if (syncGroups.isNotEmpty()) {
             insertOrReplaceCatalogSyncGroups(syncGroups)
         }

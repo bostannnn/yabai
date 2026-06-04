@@ -71,6 +71,15 @@ internal fun itemPrimaryText(
 
 internal fun itemSeriesBrowsePrimaryText(
     item: ReadableItem,
+): String = itemIssueBrowsePrimaryText(item, includeSeries = false)
+
+internal fun itemMixedIssueBrowsePrimaryText(
+    item: ReadableItem,
+): String = itemIssueBrowsePrimaryText(item, includeSeries = true)
+
+private fun itemIssueBrowsePrimaryText(
+    item: ReadableItem,
+    includeSeries: Boolean,
 ): String {
     if (item.kind != ReadableItemKind.COMIC) return itemPrimaryText(item)
     val metadata = item.comicMetadata ?: return itemPrimaryText(item)
@@ -92,11 +101,12 @@ internal fun itemSeriesBrowsePrimaryText(
         ?.withoutIssueNumberPrefix(issueNumber)
         ?.takeIf(String::isNotBlank)
         ?.takeUnless { title -> series != null && title.equals(series, ignoreCase = true) }
-    val label = listOfNotNull(issueNumberLabel, issueTitle)
+    val title = issueTitle ?: fallbackTitle
+    val label = listOfNotNull(series.takeIf { includeSeries }, issueNumberLabel, title)
         .distinctBy { part -> part.lowercase() }
         .joinToString(" - ")
     return label.ifBlank {
-        issueTitle ?: fallbackTitle ?: itemPrimaryText(item)
+        title ?: itemPrimaryText(item)
     }
 }
 

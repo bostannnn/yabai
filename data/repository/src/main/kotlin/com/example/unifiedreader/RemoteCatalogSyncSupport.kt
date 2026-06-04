@@ -68,7 +68,7 @@ suspend fun <Entry, Session> finalizeRemoteCatalogSync(
         syncGroups = syncGroups,
     )
     onProgress(applyingProgressMessage, 0.97f)
-    pullRemoteProgress(
+    applyRemoteCatalogProgress(
         entries = entries,
         progressSyncStore = progressSyncStore,
         nowEpochMillis = nowEpochMillis,
@@ -141,7 +141,7 @@ fun shouldReportSeriesProgress(
     return shouldReport
 }
 
-private fun <Entry> pullRemoteProgress(
+fun <Entry> applyRemoteCatalogProgress(
     entries: List<Entry>,
     progressSyncStore: ProgressSyncStore?,
     nowEpochMillis: Long,
@@ -166,6 +166,14 @@ private fun <Entry> pullRemoteProgress(
             ),
         )
     }
+}
+
+fun clearRemoteCatalogProgressItems(
+    itemIds: Set<String>,
+    progressSyncStore: ProgressSyncStore?,
+) {
+    val store = progressSyncStore ?: return
+    itemIds.forEach(store::clearItem)
 }
 
 private suspend fun clearStaleRemoteProgress(

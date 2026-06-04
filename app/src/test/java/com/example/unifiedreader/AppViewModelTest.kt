@@ -17,6 +17,7 @@ import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
+import com.example.unifiedreader.core.model.buildKavitaSeriesContainer
 import com.example.unifiedreader.core.model.isKavitaSeriesContainer
 import com.example.unifiedreader.core.model.isStumpSeriesContainer
 import com.example.unifiedreader.core.model.remoteItemId
@@ -1889,6 +1890,61 @@ class AppViewModelTest {
             "file:///tmp/kavita-cover.png",
             viewModel.coverImageUrlFor(kavitaItem, LibraryCoverImageVariant.Grid),
         )
+    }
+
+    @Test
+    fun `library fast sync preserves selected kavita series`() {
+        val credentialStore = FakeKavitaCredentialStore(
+            KavitaStoredSession(
+                displayName = "Home Kavita",
+                baseUrl = "https://kavita.example",
+                username = "reader",
+                accessToken = "saved-access-token",
+                refreshToken = "saved-refresh-token",
+                apiKey = "saved-api-key",
+            ),
+        )
+        val syncer = FakeKavitaCatalogSyncer(
+            result = KavitaCatalogSyncResult(
+                libraryCount = 1,
+                itemCount = 1,
+                supportedFormatCounts = mapOf(FormatType.CBZ to 1),
+            ),
+        )
+        val kavitaIssue = sampleItem(
+            id = "kavita:item:issue-1",
+            title = "Issue 1",
+            format = FormatType.CBZ,
+        ).copy(
+            sourceType = SourceType.KAVITA,
+            libraryId = SourceType.KAVITA.remoteLibraryId("kavita-library"),
+            remoteId = "issue-1",
+            remoteFileType = "series-1",
+            comicMetadata = ComicMetadata(series = "Series 1"),
+        )
+        val seriesKey = "${kavitaIssue.libraryId}::series-1"
+        val seriesContainer = buildKavitaSeriesContainer(
+            seriesKey = seriesKey,
+            issues = listOf(kavitaIssue),
+        )
+        val viewModel = createViewModel(
+            sampleItems = listOf(kavitaIssue),
+            kavitaCatalogSyncer = syncer,
+            kavitaCredentialStore = credentialStore,
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+
+        viewModel.onItemSelected(seriesContainer)
+        shadowOf(Looper.getMainLooper()).idle()
+        viewModel.fastSyncKavitaLibraryInPlace()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(seriesKey, viewModel.uiState.selectedKavitaSeriesKey)
+        assertEquals(TopLevelDestination.Library, viewModel.uiState.topLevel)
+        assertEquals(SourceType.KAVITA, viewModel.uiState.selectedSource)
+        assertEquals(false, syncer.lastFastSyncRequest?.pullUnchangedProgressDuringFastSync)
+        assertEquals(false, syncer.lastFastSyncRequest?.pullJournalDuringFastSync)
+        assertEquals("Kavita fast sync complete.", viewModel.uiState.kavitaConnection.message)
     }
 
     @Test

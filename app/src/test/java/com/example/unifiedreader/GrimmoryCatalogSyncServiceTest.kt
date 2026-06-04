@@ -160,7 +160,7 @@ class GrimmoryCatalogSyncServiceTest {
         )
 
         assertEquals(listOf("access-token:book-1"), api.detailBookRequests)
-        assertEquals("Classics^_Fiction", writer.items.single().bookGenresJson)
+        assertEquals("Classics\u001FFiction", writer.items.single().bookGenresJson)
     }
 
     @Test
@@ -718,6 +718,14 @@ private class RecordingRemoteCatalogWriter : RemoteCatalogWriter {
         replacedSourceType = sourceType
         this.libraries = libraries
         this.items = items
+    }
+
+    override suspend fun applySourceCatalogDelta(
+        delta: RemoteCatalogDelta,
+    ) {
+        replacedSourceType = delta.sourceType
+        libraries = delta.libraries
+        items = delta.upsertItems
     }
 }
 

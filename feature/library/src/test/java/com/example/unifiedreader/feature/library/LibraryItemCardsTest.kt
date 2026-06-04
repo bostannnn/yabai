@@ -58,6 +58,44 @@ class LibraryItemCardsTest {
     }
 
     @Test
+    fun `mixed issue title includes series issue number and issue title`() {
+        val item = ReadableItem(
+            id = "kavita:item:chapter-2",
+            sourceType = SourceType.KAVITA,
+            libraryId = "kavita:library:k-comics",
+            remoteId = "chapter-2",
+            title = "Dark Knights of Steel 002",
+            format = FormatType.CBZ,
+            comicMetadata = ComicMetadata(
+                series = "Dark Knights of Steel",
+                issueTitle = "Distant Thunder",
+                issueNumber = "2",
+            ),
+        )
+
+        assertEquals("Dark Knights of Steel - Issue 2 - Distant Thunder", itemMixedIssueBrowsePrimaryText(item))
+    }
+
+    @Test
+    fun `mixed issue title avoids repeating series from issue title`() {
+        val item = ReadableItem(
+            id = "kavita:item:chapter-3",
+            sourceType = SourceType.KAVITA,
+            libraryId = "kavita:library:k-comics",
+            remoteId = "chapter-3",
+            title = "Dark Knights of Steel",
+            format = FormatType.CBZ,
+            comicMetadata = ComicMetadata(
+                series = "Dark Knights of Steel",
+                issueTitle = "Dark Knights of Steel - Issue 3 - The Gathering Storm",
+                issueNumber = "3",
+            ),
+        )
+
+        assertEquals("Dark Knights of Steel - Issue 3 - The Gathering Storm", itemMixedIssueBrowsePrimaryText(item))
+    }
+
+    @Test
     fun `remote cover prefetch includes every remote source`() {
         assertTrue(shouldPrefetchRemoteCover(kavitaIssue(id = "chapter-1", title = "Akira 001", seriesKey = "series-7")))
         assertTrue(shouldPrefetchRemoteCover(stumpIssue(id = "issue-1", title = "Akira 001", seriesKey = "series-7")))

@@ -578,6 +578,7 @@ class FakeKavitaCatalogSyncer(
 ) : KavitaCatalogSyncer {
     var lastConnectRequest: KavitaCatalogSyncRequest? = null
     var lastSyncRequest: KavitaCatalogSyncRequest? = null
+    var lastFastSyncRequest: KavitaCatalogSyncRequest? = null
 
     override suspend fun connect(
         request: KavitaCatalogSyncRequest,
@@ -592,6 +593,15 @@ class FakeKavitaCatalogSyncer(
         onProgress: (KavitaSyncProgress) -> Unit,
     ): KavitaCatalogSyncResult {
         lastSyncRequest = request
+        failure?.let { throw it }
+        return result
+    }
+
+    override suspend fun fastSync(
+        request: KavitaCatalogSyncRequest,
+        onProgress: (KavitaSyncProgress) -> Unit,
+    ): KavitaCatalogSyncResult {
+        lastFastSyncRequest = request
         failure?.let { throw it }
         return result
     }

@@ -171,6 +171,7 @@ class AppKavitaCoordinator @Inject constructor(
             itemCount = result.itemCount,
             supportedFormatCounts = result.supportedFormatCounts,
             availableLibraries = result.libraries,
+            hasCatalogChanges = true,
             connection = preparation.activeConnection.copy(
                 password = "",
                 hasStoredSession = true,
@@ -179,6 +180,64 @@ class AppKavitaCoordinator @Inject constructor(
                 syncProgressLabel = null,
                 message = listOfNotNull(preparation.successConnectionMessage, progressPushWarning)
                     .joinToString(" "),
+                isError = progressPushWarning != null,
+            ),
+        )
+    }.getOrElse { throwable ->
+        remoteSourceConnectivityPolicy.markFromFailure(SourceType.KAVITA, throwable)
+        KavitaSyncExecutionResult.Failure(
+            message = "${preparation.failurePrefix}: ${throwable.userFacingMessage()}",
+            connection = preparation.activeConnection.copy(
+                isConnecting = false,
+                syncProgressFraction = null,
+                syncProgressLabel = null,
+                message = "${preparation.failurePrefix}: ${throwable.userFacingMessage()}",
+                isError = true,
+            ),
+        )
+    }
+
+    internal suspend fun executeFastSync(
+        preparation: KavitaSyncPreparation.Ready,
+        clearCoverState: suspend () -> Unit,
+        onProgress: (KavitaSyncProgress) -> Unit = {},
+    ): KavitaSyncExecutionResult = runSuspendCatchingPreservingCancellation {
+        val result = kavitaCatalogSyncer.fastSync(
+            request = preparation.request,
+            onProgress = onProgress,
+        )
+        persistSession(
+            preparation = preparation,
+            session = result.session,
+            activeBaseUrl = result.activeBaseUrl,
+        )
+        remoteSourceConnectivityPolicy.markReachable(SourceType.KAVITA)
+        if (result.hasCatalogChanges) {
+            clearCoverState()
+        }
+        val progressPushWarning = progressPushWarningMessage(
+            sourceLabel = "Kavita",
+            failures = result.progressPushFailures,
+        )
+        KavitaSyncExecutionResult.Success(
+            libraryCount = result.libraryCount,
+            itemCount = result.itemCount,
+            supportedFormatCounts = result.supportedFormatCounts,
+            availableLibraries = result.libraries,
+            hasCatalogChanges = result.hasCatalogChanges,
+            connection = preparation.activeConnection.copy(
+                password = "",
+                hasStoredSession = true,
+                isConnecting = false,
+                syncProgressFraction = null,
+                syncProgressLabel = null,
+                message = listOfNotNull(
+                    preparation.successConnectionMessage.replaceFirst(
+                        oldValue = "Kavita library synced.",
+                        newValue = "Kavita fast sync complete.",
+                    ),
+                    progressPushWarning,
+                ).joinToString(" "),
                 isError = progressPushWarning != null,
             ),
         )
@@ -318,6 +377,7 @@ internal sealed interface KavitaSyncExecutionResult {
         val itemCount: Int,
         val supportedFormatCounts: Map<FormatType, Int>,
         val availableLibraries: List<Library>,
+        val hasCatalogChanges: Boolean = true,
         val connection: KavitaConnectionUiState,
     ) : KavitaSyncExecutionResult
 

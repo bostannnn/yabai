@@ -692,6 +692,23 @@ class AppViewModel @Inject constructor(
         )
     }
 
+    fun fastSyncKavitaLibrary() {
+        remoteSourcesCoordinator.fastSyncKavitaLibrary(
+            stateProvider = { uiState },
+            updateState = ::updateUiState,
+            scope = viewModelScope,
+        )
+    }
+
+    fun fastSyncKavitaLibraryInPlace() {
+        remoteSourcesCoordinator.fastSyncKavitaLibrary(
+            stateProvider = { uiState },
+            updateState = ::updateUiState,
+            scope = viewModelScope,
+            preserveLibraryContext = true,
+        )
+    }
+
     fun refreshStumpLibrary() {
         remoteSourcesCoordinator.refreshStumpLibrary(
             stateProvider = { uiState },

@@ -224,6 +224,55 @@ class AppKavitaRemoteSourceController @Inject constructor(
         }
     }
 
+    fun fastRefresh(
+        stateProvider: AppUiStateProvider,
+        updateState: AppUiStateUpdater,
+        scope: CoroutineScope,
+        preserveLibraryContext: Boolean = false,
+    ) {
+        when (val preparation = kavitaCoordinator.prepareRefresh(stateProvider().kavitaConnection)) {
+            KavitaSyncPreparation.MissingSession -> {
+                updateState { state ->
+                    state.copy(
+                        kavitaConnection = state.kavitaConnection.copy(
+                            message = "Connect to Kavita before fast syncing the library.",
+                            activeAction = null,
+                            isError = true,
+                        ),
+                    )
+                }
+            }
+            is KavitaSyncPreparation.Invalid -> {
+                updateState { state ->
+                    state.copy(
+                        kavitaConnection = preparation.connection.copy(activeAction = null),
+                    )
+                }
+            }
+            is KavitaSyncPreparation.Ready -> {
+                updateState { state ->
+                    state.copy(
+                        kavitaConnection = preparation.activeConnection.copy(
+                            isConnecting = true,
+                            activeAction = ServerConnectionAction.FastSync,
+                            syncProgressFraction = 0f,
+                            syncProgressLabel = "Preparing Kavita fast sync...",
+                            message = "Fast syncing Kavita library.",
+                            isError = false,
+                        ),
+                    )
+                }
+                startFastSync(
+                    preparation = preparation,
+                    stateProvider = stateProvider,
+                    updateState = updateState,
+                    scope = scope,
+                    preserveLibraryContext = preserveLibraryContext,
+                )
+            }
+        }
+    }
+
     private fun startSync(
         preparation: KavitaSyncPreparation.Ready,
         stateProvider: AppUiStateProvider,
@@ -275,6 +324,87 @@ class AppKavitaRemoteSourceController @Inject constructor(
                                 availableLibraries = result.availableLibraries,
                             ),
                         )
+                    }
+                    kavitaReadingListController.refreshAfterKavitaSync(
+                        stateProvider = stateProvider,
+                        updateState = updateState,
+                    )
+                }
+                is KavitaSyncExecutionResult.Failure -> {
+                    clearSuppressedObservedLibraryRefresh(preparation.request.baseUrl, preparation.request.username)
+                    updateState { state ->
+                        state.copy(
+                            kavitaConnection = result.connection.copy(activeAction = null),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun startFastSync(
+        preparation: KavitaSyncPreparation.Ready,
+        stateProvider: AppUiStateProvider,
+        updateState: AppUiStateUpdater,
+        scope: CoroutineScope,
+        preserveLibraryContext: Boolean,
+    ) {
+        scope.launch {
+            suppressObservedLibraryRefresh(preparation.request.baseUrl, preparation.request.username)
+            when (
+                val result = kavitaCoordinator.executeFastSync(
+                    preparation = preparation,
+                    clearCoverState = ::resetCoverState,
+                    onProgress = { progress ->
+                        updateState { state ->
+                            state.copy(
+                                kavitaConnection = state.kavitaConnection.copy(
+                                    isConnecting = true,
+                                    activeAction = ServerConnectionAction.FastSync,
+                                    syncProgressFraction = progress.fraction.coerceIn(0f, 1f),
+                                    syncProgressLabel = progress.message,
+                                    message = "Fast syncing Kavita library.",
+                                    isError = false,
+                                ),
+                            )
+                        }
+                    },
+                )
+            ) {
+                is KavitaSyncExecutionResult.Success -> {
+                    remoteLibraryCacheStore.replaceCachedLibraries(
+                        sourceType = SourceType.KAVITA,
+                        baseUrl = preparation.request.baseUrl,
+                        username = preparation.request.username,
+                        libraries = result.availableLibraries,
+                    )
+                    if (result.hasCatalogChanges) {
+                        clearPageCache()
+                    }
+                    updateState { state ->
+                        val syncedConnection = result.connection.copy(
+                            activeAction = null,
+                            availableLibraries = result.availableLibraries,
+                        )
+                        val syncedReadingLists = state.kavitaReadingLists.copy(
+                            errorMessage = null,
+                        )
+                        if (preserveLibraryContext) {
+                            state.copy(
+                                kavitaReadingLists = syncedReadingLists,
+                                kavitaConnection = syncedConnection,
+                            )
+                        } else {
+                            state.copy(
+                                topLevel = TopLevelDestination.Library,
+                                selectedSource = SourceType.KAVITA,
+                                selectedItemId = null,
+                                activeReader = null,
+                                selectedKavitaSeriesKey = null,
+                                kavitaReadingLists = syncedReadingLists,
+                                kavitaConnection = syncedConnection,
+                            )
+                        }
                     }
                     kavitaReadingListController.refreshAfterKavitaSync(
                         stateProvider = stateProvider,

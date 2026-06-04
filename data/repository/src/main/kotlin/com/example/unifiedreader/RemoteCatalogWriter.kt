@@ -12,6 +12,15 @@ data class RemoteCatalogSyncGroup(
     val fingerprint: String,
 )
 
+data class RemoteCatalogDelta(
+    val sourceType: SourceType,
+    val libraries: List<LibraryEntity>,
+    val upsertItems: List<ReadableItemEntity>,
+    val removeItemIds: Set<String> = emptySet(),
+    val syncGroups: List<RemoteCatalogSyncGroupEntity> = emptyList(),
+    val removeSyncGroupIds: Set<String> = emptySet(),
+)
+
 interface RemoteCatalogWriter {
     suspend fun getItemsForSourceType(
         sourceType: SourceType,
@@ -26,5 +35,9 @@ interface RemoteCatalogWriter {
         libraries: List<LibraryEntity>,
         items: List<ReadableItemEntity>,
         syncGroups: List<RemoteCatalogSyncGroupEntity> = emptyList(),
+    )
+
+    suspend fun applySourceCatalogDelta(
+        delta: RemoteCatalogDelta,
     )
 }

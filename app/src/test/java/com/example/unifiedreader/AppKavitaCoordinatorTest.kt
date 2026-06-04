@@ -37,6 +37,73 @@ class AppKavitaCoordinatorTest {
     }
 
     @Test
+    fun `execute fast sync skips cover reset when catalog is unchanged`() = runTest {
+        val coordinator = AppKavitaCoordinator(
+            kavitaCatalogSyncer = FakeKavitaCatalogSyncer(
+                result = KavitaCatalogSyncResult(
+                    libraryCount = 1,
+                    itemCount = 1,
+                    supportedFormatCounts = emptyMap(),
+                ),
+            ),
+            kavitaCredentialStore = FakeKavitaCredentialStore(),
+            remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
+        )
+        val preparation = coordinator.prepareConnect(
+            KavitaConnectionUiState(
+                displayName = "Kavita",
+                baseUrl = "https://kavita.example",
+                username = "reader",
+                password = "secret",
+            ),
+        ) as KavitaSyncPreparation.Ready
+        var coverResetCount = 0
+
+        val result = coordinator.executeFastSync(
+            preparation = preparation,
+            clearCoverState = { coverResetCount += 1 },
+        )
+
+        assertTrue(result is KavitaSyncExecutionResult.Success)
+        assertEquals(0, coverResetCount)
+        assertEquals(false, (result as KavitaSyncExecutionResult.Success).hasCatalogChanges)
+    }
+
+    @Test
+    fun `execute fast sync resets covers when catalog changed`() = runTest {
+        val coordinator = AppKavitaCoordinator(
+            kavitaCatalogSyncer = FakeKavitaCatalogSyncer(
+                result = KavitaCatalogSyncResult(
+                    libraryCount = 1,
+                    itemCount = 1,
+                    supportedFormatCounts = emptyMap(),
+                    catalogChangedItemIds = setOf("kavita:item:99"),
+                ),
+            ),
+            kavitaCredentialStore = FakeKavitaCredentialStore(),
+            remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
+        )
+        val preparation = coordinator.prepareConnect(
+            KavitaConnectionUiState(
+                displayName = "Kavita",
+                baseUrl = "https://kavita.example",
+                username = "reader",
+                password = "secret",
+            ),
+        ) as KavitaSyncPreparation.Ready
+        var coverResetCount = 0
+
+        val result = coordinator.executeFastSync(
+            preparation = preparation,
+            clearCoverState = { coverResetCount += 1 },
+        )
+
+        assertTrue(result is KavitaSyncExecutionResult.Success)
+        assertEquals(1, coverResetCount)
+        assertEquals(true, (result as KavitaSyncExecutionResult.Success).hasCatalogChanges)
+    }
+
+    @Test
     fun `execute connect rethrows cancellation`() = runTest {
         val credentialStore = FakeKavitaCredentialStore()
         val coordinator = AppKavitaCoordinator(

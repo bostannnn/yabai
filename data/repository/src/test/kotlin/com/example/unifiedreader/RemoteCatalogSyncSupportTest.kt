@@ -261,6 +261,14 @@ private class SupportTestRemoteCatalogWriter(
         replacedLibraries = libraries
         replacedItems = items
     }
+
+    override suspend fun applySourceCatalogDelta(
+        delta: RemoteCatalogDelta,
+    ) {
+        replacedSourceType = delta.sourceType
+        replacedLibraries = delta.libraries
+        replacedItems = delta.upsertItems
+    }
 }
 
 private class RecordingProgressSyncStore : ProgressSyncStore {

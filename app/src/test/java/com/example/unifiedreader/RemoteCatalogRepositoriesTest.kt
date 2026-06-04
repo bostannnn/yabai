@@ -163,7 +163,145 @@ class RemoteCatalogRepositoriesTest {
 
         assertEquals(listOf("Comics"), cachedLibraries.map { it.title })
     }
+
+    @Test
+    fun `room remote catalog repository applies source catalog delta`() = runBlocking {
+        val unchangedItem = remoteCatalogItem(
+            sourceType = SourceType.KAVITA,
+            remoteId = "unchanged",
+            title = "Unchanged",
+        )
+        val removedItem = remoteCatalogItem(
+            sourceType = SourceType.KAVITA,
+            remoteId = "removed",
+            title = "Removed",
+        )
+        val otherSourceItem = remoteCatalogItem(
+            sourceType = SourceType.GRIMMORY,
+            remoteId = "other",
+            title = "Other",
+        )
+        val dao = FakeRemoteCatalogDao(
+            libraries = listOf(
+                LibraryEntity(
+                    id = SourceType.KAVITA.remoteLibraryId("old-comics"),
+                    sourceType = SourceType.KAVITA.name,
+                    title = "Old Comics",
+                    remoteId = "old-comics",
+                    contentType = LibraryContentType.COMICS.name,
+                ),
+            ),
+            items = listOf(unchangedItem, removedItem, otherSourceItem),
+        )
+        val repository = RoomRemoteCatalogRepository(
+            remoteCatalogDao = dao,
+            ioDispatcher = Dispatchers.Unconfined,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
+        )
+
+        repository.applySourceCatalogDelta(
+            RemoteCatalogDelta(
+                sourceType = SourceType.KAVITA,
+                libraries = listOf(
+                    LibraryEntity(
+                        id = SourceType.KAVITA.remoteLibraryId("new-comics"),
+                        sourceType = SourceType.KAVITA.name,
+                        title = "New Comics",
+                        remoteId = "new-comics",
+                        contentType = LibraryContentType.COMICS.name,
+                    ),
+                ),
+                upsertItems = listOf(
+                    remoteCatalogItem(
+                        sourceType = SourceType.KAVITA,
+                        remoteId = "changed",
+                        title = "Changed",
+                    ),
+                ),
+                removeItemIds = setOf(removedItem.id),
+                syncGroups = listOf(
+                    RemoteCatalogSyncGroupEntity(
+                        sourceType = SourceType.KAVITA.name,
+                        groupId = "new-group",
+                        libraryId = SourceType.KAVITA.remoteLibraryId("new-comics"),
+                        fingerprint = "fingerprint",
+                        updatedAtEpochMillis = 1_000L,
+                    ),
+                ),
+            ),
+        )
+
+        assertEquals(
+            setOf("Unchanged", "Changed"),
+            repository.getItemsForSourceType(SourceType.KAVITA).map { item -> item.title }.toSet(),
+        )
+        assertEquals(listOf("Other"), repository.getItemsForSourceType(SourceType.GRIMMORY).map { item -> item.title })
+        assertEquals(listOf("new-group"), repository.getCatalogSyncGroups(SourceType.KAVITA).map { group -> group.groupId })
+    }
+
+    @Test
+    fun `room remote catalog repository chunks large source catalog delta deletes`() = runBlocking {
+        val dao = FakeRemoteCatalogDao(
+            libraries = emptyList(),
+            items = emptyList(),
+        )
+        val repository = RoomRemoteCatalogRepository(
+            remoteCatalogDao = dao,
+            ioDispatcher = Dispatchers.Unconfined,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
+        )
+
+        repository.applySourceCatalogDelta(
+            RemoteCatalogDelta(
+                sourceType = SourceType.KAVITA,
+                libraries = emptyList(),
+                upsertItems = emptyList(),
+                removeItemIds = (1..1_200).map { index -> "item-$index" }.toSet(),
+                removeSyncGroupIds = (1..1_200).map { index -> "group-$index" }.toSet(),
+            ),
+        )
+
+        assertEquals(listOf(900, 300), dao.deletedItemBatchSizes)
+        assertEquals(listOf(900, 300), dao.deletedSyncGroupBatchSizes)
+    }
 }
+
+private fun remoteCatalogItem(
+    sourceType: SourceType,
+    remoteId: String,
+    title: String,
+): ReadableItemEntity = ReadableItemEntity(
+    id = sourceType.remoteItemId(remoteId),
+    sourceType = sourceType.name,
+    libraryId = sourceType.remoteLibraryId("library"),
+    remoteId = remoteId,
+    isLocalImport = false,
+    remoteFileId = remoteId,
+    remoteFileType = "series",
+    title = title,
+    format = FormatType.CBZ.name,
+    kind = ReadableItemKind.COMIC.name,
+    pageCount = 24,
+    coverUrl = null,
+    description = null,
+    addedAtEpochMillis = null,
+    bookAuthor = null,
+    bookAuthorsJson = null,
+    bookSeriesName = null,
+    bookPublishersJson = null,
+    bookGenresJson = null,
+    bookTagsJson = null,
+    bookLanguagesJson = null,
+    comicSeries = null,
+    comicIssueTitle = null,
+    comicVolume = null,
+    comicIssueNumber = null,
+    comicPublishersJson = null,
+    comicGenresJson = null,
+    comicTagsJson = null,
+    comicLanguagesJson = null,
+    updatedAtEpochMillis = 1_000L,
+)
 
 private class FakeRemoteCatalogDao(
     libraries: List<LibraryEntity>,
@@ -174,6 +312,8 @@ private class FakeRemoteCatalogDao(
     private val itemsState = MutableStateFlow(items)
     private val syncGroupsState = MutableStateFlow<List<RemoteCatalogSyncGroupEntity>>(emptyList())
     private val cachedLibrariesByKey = mutableMapOf<Triple<String, String, String>, List<RemoteLibraryCacheEntity>>()
+    val deletedItemBatchSizes = mutableListOf<Int>()
+    val deletedSyncGroupBatchSizes = mutableListOf<Int>()
 
     override fun getLibraries(): List<LibraryEntity> = librariesState.value
 
@@ -214,11 +354,13 @@ private class FakeRemoteCatalogDao(
     ): List<RemoteCatalogSyncGroupEntity> = syncGroupsState.value.filter { it.sourceType == sourceType }
 
     override fun insertOrReplaceLibraries(libraries: List<LibraryEntity>) {
-        librariesState.value = libraries
+        val replacementIds = libraries.mapTo(mutableSetOf(), LibraryEntity::id)
+        librariesState.value = librariesState.value.filterNot { library -> library.id in replacementIds } + libraries
     }
 
     override fun insertOrReplaceItems(items: List<ReadableItemEntity>) {
-        itemsState.value = items
+        val replacementIds = items.mapTo(mutableSetOf(), ReadableItemEntity::id)
+        itemsState.value = itemsState.value.filterNot { item -> item.id in replacementIds } + items
     }
 
     override fun insertOrReplaceCatalogSyncGroups(groups: List<RemoteCatalogSyncGroupEntity>) {
@@ -238,12 +380,32 @@ private class FakeRemoteCatalogDao(
         itemsState.value = itemsState.value.filterNot { it.sourceType == sourceType }
     }
 
+    protected override fun deleteItemsForSourceTypeByIds(
+        sourceType: String,
+        itemIds: List<String>,
+    ) {
+        deletedItemBatchSizes += itemIds.size
+        itemsState.value = itemsState.value.filterNot { item ->
+            item.sourceType == sourceType && item.id in itemIds
+        }
+    }
+
     protected override fun deleteLibrariesForSourceType(sourceType: String) {
         librariesState.value = librariesState.value.filterNot { it.sourceType == sourceType }
     }
 
     protected override fun deleteCatalogSyncGroupsForSourceType(sourceType: String) {
         syncGroupsState.value = syncGroupsState.value.filterNot { it.sourceType == sourceType }
+    }
+
+    protected override fun deleteCatalogSyncGroupsForSourceTypeByIds(
+        sourceType: String,
+        groupIds: List<String>,
+    ) {
+        deletedSyncGroupBatchSizes += groupIds.size
+        syncGroupsState.value = syncGroupsState.value.filterNot { group ->
+            group.sourceType == sourceType && group.groupId in groupIds
+        }
     }
 
     protected override fun deleteCachedLibraries(

@@ -63,6 +63,7 @@ fun LibraryScreen(
     gridCellSizeDp: Int = defaultLibraryGridCellSizeDp,
     showSortControl: Boolean = true,
     preferIssueLabels: Boolean = false,
+    includeSeriesInIssueLabels: Boolean = false,
     lockedSortLabel: String? = null,
     readingListScopeState: LibraryReadingListScopeState = LibraryReadingListScopeState(),
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String? = { item, _ -> item.coverUrl },
@@ -354,10 +355,10 @@ fun LibraryScreen(
                         fadeRead = fadeReadItems,
                         imageVariant = gridCoverImageVariant,
                         coverImageUrlProvider = coverImageUrlProvider,
-                        title = if (preferIssueLabels) {
-                            itemSeriesBrowsePrimaryText(item)
-                        } else {
-                            itemPrimaryText(item)
+                        title = when {
+                            preferIssueLabels && includeSeriesInIssueLabels -> itemMixedIssueBrowsePrimaryText(item)
+                            preferIssueLabels -> itemSeriesBrowsePrimaryText(item)
+                            else -> itemPrimaryText(item)
                         },
                         isSelectionMode = isDownloadSelectionMode,
                         isSelected = item.id in selectedDownloadItemIdSet,

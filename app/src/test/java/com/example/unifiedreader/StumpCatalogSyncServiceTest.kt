@@ -288,6 +288,12 @@ private class RecordingStumpRemoteCatalogWriter(
     ) {
         lastItems = items
     }
+
+    override suspend fun applySourceCatalogDelta(
+        delta: RemoteCatalogDelta,
+    ) {
+        lastItems = delta.upsertItems
+    }
 }
 
 private class FakeStumpCatalogApi(
