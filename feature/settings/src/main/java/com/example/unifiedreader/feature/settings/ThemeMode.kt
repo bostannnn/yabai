@@ -126,7 +126,7 @@ enum class ThemeMode(
         label = "Blueprint",
         description = "Use drafting-blue surfaces, precise cyan linework, and technical diagram accents.",
         previewSwatches = ThemePreviewSwatches(
-            surface = 0xFF071A2E,
+            surface = 0xFF092139,
             reader = 0xFF9BE7FF,
             sync = 0xFFFFC857,
             source = 0xFFB8D8FF,
@@ -138,8 +138,8 @@ enum class ThemeMode(
         label = "VHS Night",
         description = "Use washed analog blacks, faded cyan, tracking red, and tape-label surfaces.",
         previewSwatches = ThemePreviewSwatches(
-            surface = 0xFF12131B,
-            reader = 0xFF78D8E8,
+            surface = 0xFF171720,
+            reader = 0xFF86CAD5,
             sync = 0xFFFF5C7A,
             source = 0xFFE1D7BA,
         ),

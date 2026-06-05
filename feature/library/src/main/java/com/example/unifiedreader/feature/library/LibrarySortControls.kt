@@ -51,6 +51,12 @@ internal fun LibraryBrowseOptionsSelector(
                 (showSortOptions && sortMode != defaultLibrarySortMode) ||
                 lockedSortLabel != null,
             onClick = { expanded = true },
+            modifier = Modifier.libraryAccentChipTreatment(
+                selected = sanitizedGridCellSizeDp != defaultLibraryGridCellSizeDp ||
+                    fadeReadItems ||
+                    (showSortOptions && sortMode != defaultLibrarySortMode) ||
+                    lockedSortLabel != null,
+            ),
             colors = libraryAccentFilterChipColors(),
             shape = libraryAccentFilterChipShape(),
             leadingIcon = {

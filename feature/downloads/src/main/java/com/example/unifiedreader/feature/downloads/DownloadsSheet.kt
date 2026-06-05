@@ -42,6 +42,9 @@ import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.core.model.librarySecondaryText
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.ResolvedLibraryCover
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
+import com.example.unifiedreader.ui.theme.unifiedReaderComponentTreatment
+import com.example.unifiedreader.ui.theme.unifiedReaderSurfacePattern
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,11 +60,35 @@ fun DownloadsSheet(
     onClearCompleted: () -> Unit,
     onOpenEntry: (String) -> Unit,
 ) {
+    val semanticColors = UnifiedReaderThemeTokens.colors
+    val presentation = UnifiedReaderThemeTokens.presentation
+    val sheetRecipe = UnifiedReaderThemeTokens.components.sheet
+    val sheetShape = RoundedCornerShape(
+        topStart = presentation.cardCornerRadius,
+        topEnd = presentation.cardCornerRadius,
+    )
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        modifier = Modifier.unifiedReaderComponentTreatment(
+            recipe = sheetRecipe,
+            accentColor = semanticColors.readerAccent,
+            secondaryColor = semanticColors.syncAccent,
+            overlayColor = MaterialTheme.colorScheme.onSurface,
+            shape = sheetShape,
+        ),
+        containerColor = semanticColors.surfaceBase,
+        shape = sheetShape,
     ) {
         Column(
-            modifier = Modifier.padding(bottom = 24.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .unifiedReaderSurfacePattern(
+                    treatment = sheetRecipe.surfaceTreatment,
+                    accentColor = semanticColors.readerAccent,
+                    overlayColor = MaterialTheme.colorScheme.onSurface,
+                    intensity = sheetRecipe.patternIntensity,
+                )
+                .padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Row(

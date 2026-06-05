@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.library.shelves
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,6 +33,7 @@ import com.example.unifiedreader.feature.library.ResolvedLibraryCover
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import com.example.unifiedreader.ui.theme.UnifiedReaderBorderTreatment
 import com.example.unifiedreader.ui.theme.unifiedReaderBorderTreatment
+import com.example.unifiedreader.ui.theme.unifiedReaderComponentTreatment
 import com.example.unifiedreader.ui.theme.unifiedReaderProgressTreatment
 import com.example.unifiedreader.ui.theme.unifiedReaderSurfacePattern
 
@@ -59,10 +61,10 @@ internal fun ShelfPreviewCard(
         else -> 1.dp
     }
     val borderAlpha = when (personality.borderTreatment) {
-        UnifiedReaderBorderTreatment.Dashed -> 0.42f
-        UnifiedReaderBorderTreatment.Ink -> 0.52f
-        UnifiedReaderBorderTreatment.Double -> 0.34f
-        else -> 0.18f
+        UnifiedReaderBorderTreatment.Dashed -> 0.10f
+        UnifiedReaderBorderTreatment.Ink -> 0.14f
+        UnifiedReaderBorderTreatment.Double -> 0.09f
+        else -> 0.05f
     }
     Card(
         modifier = Modifier
@@ -159,10 +161,22 @@ internal fun ShelfListRow(
     val semanticColors = UnifiedReaderThemeTokens.colors
     val presentation = UnifiedReaderThemeTokens.presentation
     val personality = UnifiedReaderThemeTokens.personality
+    val metadataRecipe = UnifiedReaderThemeTokens.components.metadata
+    val rowShape = RoundedCornerShape(presentation.cardCornerRadius)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(presentation.cardCornerRadius))
+            .clip(rowShape)
+            .background(
+                semanticColors.surfaceRaised.copy(alpha = metadataRecipe.containerAlpha),
+            )
+            .unifiedReaderComponentTreatment(
+                recipe = metadataRecipe,
+                accentColor = semanticColors.readerAccent,
+                secondaryColor = semanticColors.syncAccent,
+                overlayColor = MaterialTheme.colorScheme.onSurface,
+                shape = rowShape,
+            )
             .clickable(onClick = onClick)
             .padding(horizontal = presentation.shelfCardHorizontalPadding, vertical = presentation.shelfCardVerticalPadding),
         horizontalArrangement = Arrangement.spacedBy(presentation.shelfItemSpacing),

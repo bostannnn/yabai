@@ -1,10 +1,12 @@
 package com.example.unifiedreader
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -47,6 +49,7 @@ import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
+import com.example.unifiedreader.ui.theme.unifiedReaderComponentTreatment
 
 @Composable
 fun LibraryTopBar(
@@ -68,11 +71,7 @@ fun LibraryTopBar(
     onImportLocalFileClick: () -> Unit,
     onLeaveSeries: () -> Unit,
 ) {
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-    ) {
+    ThemedTopBarContainer {
         if (downloadSelectionState.isSelectionMode) {
             LibraryDownloadSelectionTopBar(
                 state = downloadSelectionState,
@@ -173,11 +172,7 @@ fun SettingsTopBar(
     onDrawerClick: () -> Unit,
     onImportLocalFileClick: () -> Unit,
 ) {
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-    ) {
+    ThemedTopBarContainer {
         Box(
             modifier = Modifier.fillMaxWidth(),
             contentAlignment = Alignment.Center,
@@ -202,11 +197,7 @@ fun JournalTopBar(
     onDrawerClick: () -> Unit,
     onImportLocalFileClick: () -> Unit,
 ) {
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-    ) {
+    ThemedTopBarContainer {
         Box(
             modifier = Modifier.fillMaxWidth(),
             contentAlignment = Alignment.Center,
@@ -224,6 +215,31 @@ fun JournalTopBar(
             )
         }
     }
+}
+
+@Composable
+private fun ThemedTopBarContainer(
+    modifier: Modifier = Modifier,
+    content: @Composable BoxWithConstraintsScope.() -> Unit,
+) {
+    val themeColors = UnifiedReaderThemeTokens.colors
+    val chromeRecipe = UnifiedReaderThemeTokens.components.chrome
+    BoxWithConstraints(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(
+                themeColors.surfaceBase.copy(alpha = chromeRecipe.containerAlpha * 0.46f),
+            )
+            .unifiedReaderComponentTreatment(
+                recipe = chromeRecipe,
+                accentColor = themeColors.readerAccent,
+                secondaryColor = themeColors.syncAccent,
+                overlayColor = MaterialTheme.colorScheme.onSurface,
+                shape = RoundedCornerShape(0.dp),
+            )
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        content = content,
+    )
 }
 
 @Composable
@@ -371,6 +387,8 @@ private fun LibrarySearchField(
     val colors = MaterialTheme.colorScheme
     val semanticColors = UnifiedReaderThemeTokens.colors
     val presentation = UnifiedReaderThemeTokens.presentation
+    val componentRecipe = UnifiedReaderThemeTokens.components.control
+    val controlShape = RoundedCornerShape(presentation.controlCornerRadius)
     val active = query.isNotEmpty()
     BasicTextField(
         value = query,
@@ -383,21 +401,38 @@ private fun LibrarySearchField(
         cursorBrush = SolidColor(semanticColors.sourceAccent),
         decorationBox = { innerTextField ->
             Surface(
-                modifier = Modifier.fillMaxSize(),
-                shape = RoundedCornerShape(presentation.controlCornerRadius),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .unifiedReaderComponentTreatment(
+                        recipe = componentRecipe,
+                        accentColor = semanticColors.sourceAccent,
+                        secondaryColor = semanticColors.syncAccent,
+                        overlayColor = colors.onSurface,
+                        shape = controlShape,
+                        active = active,
+                    ),
+                shape = controlShape,
                 color = if (active) {
-                    colors.surfaceContainerHigh.copy(alpha = 0.92f)
+                    colors.surfaceContainerHigh.copy(
+                        alpha = maxOf(0.92f, componentRecipe.containerAlpha),
+                    )
                 } else {
-                    colors.surfaceContainerHigh.copy(alpha = 0.52f)
+                    colors.surfaceContainerHigh.copy(
+                        alpha = maxOf(0.52f, componentRecipe.containerAlpha),
+                    )
                 },
-                border = BorderStroke(
-                    1.dp,
-                    if (active) {
-                        semanticColors.sourceAccent.copy(alpha = 0.82f)
-                    } else {
-                        colors.outlineVariant.copy(alpha = 0.36f)
-                    },
-                ),
+                border = if (componentRecipe.borderAlpha > 0f) {
+                    null
+                } else {
+                    BorderStroke(
+                        1.dp,
+                        if (active) {
+                            semanticColors.sourceAccent.copy(alpha = 0.82f)
+                        } else {
+                            colors.outlineVariant.copy(alpha = 0.36f)
+                        },
+                    )
+                },
             ) {
                 Row(
                     modifier = Modifier

@@ -45,6 +45,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -58,7 +62,10 @@ import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.authorFacetKey
 import com.example.unifiedreader.core.model.displayName
+import com.example.unifiedreader.ui.theme.UnifiedReaderSelectionTreatment
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
+import com.example.unifiedreader.ui.theme.unifiedReaderComponentTreatment
+import com.example.unifiedreader.ui.theme.unifiedReaderSurfacePattern
 
 @Composable
 internal fun EmptyLibraryState(
@@ -156,6 +163,9 @@ internal fun LibraryFilterSummary(
                 selected = !filterState.isEmpty,
                 enabled = filtersEnabled,
                 onClick = { filtersMenuExpanded = true },
+                modifier = Modifier.libraryAccentChipTreatment(
+                    selected = !filterState.isEmpty,
+                ),
                 colors = libraryAccentFilterChipColors(),
                 shape = libraryAccentFilterChipShape(),
                 leadingIcon = {
@@ -241,6 +251,7 @@ private fun LibraryFacetChip(
         selected = selected,
         enabled = enabled,
         onClick = onClick,
+        modifier = Modifier.libraryAccentChipTreatment(selected = selected),
         colors = libraryAccentFilterChipColors(),
         shape = libraryAccentFilterChipShape(),
         label = {
@@ -494,8 +505,11 @@ private fun SearchableKavitaScopeDialog(
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .libraryAccentTextFieldTreatment(selected = query.isNotEmpty()),
                 singleLine = true,
+                shape = libraryAccentTextFieldShape(),
                 label = { Text(text = "Search Kavita lists") },
             )
             LazyColumn(
@@ -665,8 +679,11 @@ private fun SearchableTextFacetDialog(
                     query = it
                     selectedLetter = null
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .libraryAccentTextFieldTreatment(selected = query.isNotEmpty()),
                 singleLine = true,
+                shape = libraryAccentTextFieldShape(),
                 label = { Text(text = "Search $title") },
             )
             Row(
@@ -730,6 +747,9 @@ private fun FilterDialogScaffold(
     content: @Composable () -> Unit,
 ) {
     val presentation = UnifiedReaderThemeTokens.presentation
+    val semanticColors = UnifiedReaderThemeTokens.colors
+    val sheetRecipe = UnifiedReaderThemeTokens.components.sheet
+    val sheetShape = RoundedCornerShape(presentation.cardCornerRadius)
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -737,17 +757,31 @@ private fun FilterDialogScaffold(
         Surface(
             modifier = Modifier
                 .padding(24.dp)
-                .then(modifier),
-            shape = RoundedCornerShape(presentation.cardCornerRadius),
-            color = MaterialTheme.colorScheme.surface,
+                .then(modifier)
+                .unifiedReaderComponentTreatment(
+                    recipe = sheetRecipe,
+                    accentColor = semanticColors.readerAccent,
+                    secondaryColor = semanticColors.syncAccent,
+                    overlayColor = MaterialTheme.colorScheme.onSurface,
+                    shape = sheetShape,
+                ),
+            shape = sheetShape,
+            color = semanticColors.surfaceBase,
             tonalElevation = 6.dp,
             shadowElevation = 12.dp,
         ) {
             Column(
-                modifier = Modifier.padding(
-                    horizontal = presentation.shelfCardHorizontalPadding + 10.dp,
-                    vertical = presentation.shelfCardVerticalPadding + 12.dp,
-                ),
+                modifier = Modifier
+                    .unifiedReaderSurfacePattern(
+                        treatment = sheetRecipe.surfaceTreatment,
+                        accentColor = semanticColors.readerAccent,
+                        overlayColor = MaterialTheme.colorScheme.onSurface,
+                        intensity = sheetRecipe.patternIntensity,
+                    )
+                    .padding(
+                        horizontal = presentation.shelfCardHorizontalPadding + 10.dp,
+                        vertical = presentation.shelfCardVerticalPadding + 12.dp,
+                    ),
                 verticalArrangement = Arrangement.spacedBy(presentation.shelfItemSpacing + 6.dp),
             ) {
                 Text(
@@ -782,12 +816,27 @@ internal fun AlphabetRail(
     onLetterSelected: (String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val presentation = UnifiedReaderThemeTokens.presentation
+    val semanticColors = UnifiedReaderThemeTokens.colors
+    val railRecipe = UnifiedReaderThemeTokens.components.rail
+    val railShape = RoundedCornerShape(presentation.controlCornerRadius)
     LazyColumn(
         modifier = modifier
-            .width(28.dp)
+            .width(presentation.alphabetRailWidth)
             .heightIn(
                 min = SearchableFacetViewportMinHeight,
                 max = SearchableFacetViewportMaxHeight,
+            )
+            .clip(railShape)
+            .background(
+                semanticColors.surfaceBase.copy(alpha = railRecipe.containerAlpha),
+            )
+            .unifiedReaderComponentTreatment(
+                recipe = railRecipe,
+                accentColor = semanticColors.readerAccent,
+                secondaryColor = semanticColors.syncAccent,
+                overlayColor = MaterialTheme.colorScheme.onSurface,
+                shape = railShape,
             ),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -815,12 +864,57 @@ private fun AlphabetRailItem(
     onClick: () -> Unit,
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
-    val backgroundColor = if (selected) semanticColors.surfaceSelected else Color.Transparent
-    val textColor = if (selected) semanticColors.onSurfaceSelected else semanticColors.sourceAccent
+    val selectionTreatment = UnifiedReaderThemeTokens.components.rail.selectionTreatment
+    val backgroundColor = when {
+        !selected -> Color.Transparent
+        selectionTreatment == UnifiedReaderSelectionTreatment.Inverse -> semanticColors.readerAccent
+        selectionTreatment == UnifiedReaderSelectionTreatment.Stamp -> semanticColors.syncAccentContainer
+        selectionTreatment == UnifiedReaderSelectionTreatment.Underline ||
+            selectionTreatment == UnifiedReaderSelectionTreatment.SideMark -> Color.Transparent
+        else -> semanticColors.surfaceSelected
+    }
+    val textColor = when {
+        !selected -> semanticColors.sourceAccent
+        selectionTreatment == UnifiedReaderSelectionTreatment.Inverse -> semanticColors.onReaderAccent
+        selectionTreatment == UnifiedReaderSelectionTreatment.Stamp -> semanticColors.onSyncAccentContainer
+        selectionTreatment == UnifiedReaderSelectionTreatment.Underline ||
+            selectionTreatment == UnifiedReaderSelectionTreatment.SideMark -> semanticColors.readerAccent
+        else -> semanticColors.onSurfaceSelected
+    }
+    val selectedDecoration = if (selected) {
+        Modifier.drawWithCache {
+            val stroke = 2.dp.toPx().coerceAtLeast(1f)
+            onDrawWithContent {
+                drawContent()
+                when (selectionTreatment) {
+                    UnifiedReaderSelectionTreatment.Underline -> drawLine(
+                        color = semanticColors.syncAccent,
+                        start = Offset(2.dp.toPx(), size.height - stroke / 2f),
+                        end = Offset(size.width - 2.dp.toPx(), size.height - stroke / 2f),
+                        strokeWidth = stroke,
+                    )
+                    UnifiedReaderSelectionTreatment.SideMark -> drawRect(
+                        color = semanticColors.readerAccent,
+                        size = Size(stroke, size.height),
+                    )
+                    UnifiedReaderSelectionTreatment.Stamp -> {
+                        drawRect(
+                            color = semanticColors.syncAccent.copy(alpha = 0.72f),
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke),
+                        )
+                    }
+                    else -> Unit
+                }
+            }
+        }
+    } else {
+        Modifier
+    }
     Text(
         text = label,
         modifier = Modifier
             .background(backgroundColor, libraryAccentFilterChipShape())
+            .then(selectedDecoration)
             .clickable(onClick = onClick)
             .padding(horizontal = 4.dp, vertical = 2.dp),
         style = MaterialTheme.typography.labelSmall,
@@ -890,6 +984,7 @@ private fun FilterToggleChip(
     FilterChip(
         selected = selected,
         onClick = onClick,
+        modifier = Modifier.libraryAccentChipTreatment(selected = selected),
         colors = libraryAccentFilterChipColors(),
         shape = libraryAccentFilterChipShape(),
         label = {

@@ -29,6 +29,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
+import com.example.unifiedreader.ui.theme.unifiedReaderComponentTreatment
+import com.example.unifiedreader.ui.theme.unifiedReaderSurfacePattern
 
 internal sealed interface JournalDetailsTarget {
     data class Day(
@@ -57,14 +60,29 @@ internal fun JournalDetailsModal(
     onDeleteItemJournal: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val semanticColors = UnifiedReaderThemeTokens.colors
+    val presentation = UnifiedReaderThemeTokens.presentation
+    val sheetRecipe = UnifiedReaderThemeTokens.components.sheet
+    val dialogShape = RoundedCornerShape(presentation.cardCornerRadius)
+    val sheetShape = RoundedCornerShape(
+        topStart = presentation.cardCornerRadius,
+        topEnd = presentation.cardCornerRadius,
+    )
     if (useDialog) {
         Dialog(onDismissRequest = onDismiss) {
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .widthIn(max = 380.dp),
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surface,
+                    .widthIn(max = 380.dp)
+                    .unifiedReaderComponentTreatment(
+                        recipe = sheetRecipe,
+                        accentColor = semanticColors.readerAccent,
+                        secondaryColor = semanticColors.syncAccent,
+                        overlayColor = MaterialTheme.colorScheme.onSurface,
+                        shape = dialogShape,
+                    ),
+                shape = dialogShape,
+                color = semanticColors.surfaceBase,
                 tonalElevation = 6.dp,
             ) {
                 JournalDetailsContent(
@@ -79,7 +97,18 @@ internal fun JournalDetailsModal(
             }
         }
     } else {
-        ModalBottomSheet(onDismissRequest = onDismiss) {
+        ModalBottomSheet(
+            onDismissRequest = onDismiss,
+            modifier = Modifier.unifiedReaderComponentTreatment(
+                recipe = sheetRecipe,
+                accentColor = semanticColors.readerAccent,
+                secondaryColor = semanticColors.syncAccent,
+                overlayColor = MaterialTheme.colorScheme.onSurface,
+                shape = sheetShape,
+            ),
+            containerColor = semanticColors.surfaceBase,
+            shape = sheetShape,
+        ) {
             JournalDetailsContent(
                 target = target,
                 coverImageUrlProvider = coverImageUrlProvider,
@@ -104,8 +133,16 @@ private fun JournalDetailsContent(
     modifier: Modifier = Modifier,
 ) {
     val summaries = target.summaries()
+    val semanticColors = UnifiedReaderThemeTokens.colors
+    val sheetRecipe = UnifiedReaderThemeTokens.components.sheet
     LazyColumn(
         modifier = modifier
+            .unifiedReaderSurfacePattern(
+                treatment = sheetRecipe.surfaceTreatment,
+                accentColor = semanticColors.readerAccent,
+                overlayColor = MaterialTheme.colorScheme.onSurface,
+                intensity = sheetRecipe.patternIntensity,
+            )
             .padding(horizontal = 20.dp)
             .padding(top = 20.dp, bottom = 28.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),

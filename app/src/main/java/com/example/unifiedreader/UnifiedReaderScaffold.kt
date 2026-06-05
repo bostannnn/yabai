@@ -35,6 +35,8 @@ import com.example.unifiedreader.feature.settings.direction.ReadingDirectionLibr
 import com.example.unifiedreader.feature.settings.direction.buildComicReadingDirectionLibraryRows
 import com.example.unifiedreader.feature.settings.mode.ReaderModeLibraryUiState
 import com.example.unifiedreader.feature.settings.mode.buildComicReaderModeLibraryRows
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
+import com.example.unifiedreader.ui.theme.unifiedReaderSurfacePattern
 import kotlinx.coroutines.launch
 
 @Composable
@@ -45,6 +47,8 @@ fun UnifiedReaderScaffold(
     onImportLocalFileClick: () -> Unit,
     viewModel: AppViewModel,
 ) {
+    val themeColors = UnifiedReaderThemeTokens.colors
+    val appBackgroundRecipe = UnifiedReaderThemeTokens.components.appBackground
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val drawerScope = rememberCoroutineScope()
     var isLibraryDownloadSelectionMode by rememberSaveable(uiState.libraryBrowseContextKey) {
@@ -190,6 +194,12 @@ fun UnifiedReaderScaffold(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .unifiedReaderSurfacePattern(
+                        treatment = appBackgroundRecipe.surfaceTreatment,
+                        accentColor = themeColors.readerAccent,
+                        overlayColor = MaterialTheme.colorScheme.onBackground,
+                        intensity = appBackgroundRecipe.patternIntensity,
+                    )
                     .padding(innerPadding),
             ) {
                 when (uiState.topLevel) {

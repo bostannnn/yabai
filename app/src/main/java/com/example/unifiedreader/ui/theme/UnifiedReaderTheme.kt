@@ -398,17 +398,17 @@ private val BlueprintUnifiedReaderColorScheme = darkColorScheme(
     onError = Color(0xFF690005),
     errorContainer = Color(0xFF93000A),
     onErrorContainer = Color(0xFFFFDAD6),
-    background = Color(0xFF04101F),
+    background = Color(0xFF06182A),
     onBackground = Color(0xFFE5F3FF),
-    surface = Color(0xFF071A2E),
+    surface = Color(0xFF092139),
     onSurface = Color(0xFFE5F3FF),
-    surfaceDim = Color(0xFF04101F),
+    surfaceDim = Color(0xFF06182A),
     surfaceBright = Color(0xFF2D435B),
-    surfaceContainerLowest = Color(0xFF020914),
-    surfaceContainerLow = Color(0xFF0B2036),
-    surfaceContainer = Color(0xFF112A44),
-    surfaceContainerHigh = Color(0xFF193650),
-    surfaceContainerHighest = Color(0xFF24435F),
+    surfaceContainerLowest = Color(0xFF03111F),
+    surfaceContainerLow = Color(0xFF0D2740),
+    surfaceContainer = Color(0xFF13304B),
+    surfaceContainerHigh = Color(0xFF1A3A57),
+    surfaceContainerHighest = Color(0xFF254965),
     surfaceVariant = Color(0xFF324A64),
     onSurfaceVariant = Color(0xFFC4D6E8),
     outline = Color(0xFF8BCBE0),
@@ -420,9 +420,9 @@ private val BlueprintUnifiedReaderColorScheme = darkColorScheme(
 )
 
 private val VhsNightUnifiedReaderColorScheme = darkColorScheme(
-    primary = Color(0xFF78D8E8),
-    onPrimary = Color(0xFF00363D),
-    primaryContainer = Color(0xFF1A515A),
+    primary = Color(0xFF86CAD5),
+    onPrimary = Color(0xFF082F35),
+    primaryContainer = Color(0xFF29474D),
     onPrimaryContainer = Color(0xFFC5F3FA),
     secondary = Color(0xFFFF5C7A),
     onSecondary = Color(0xFF570014),
@@ -436,20 +436,20 @@ private val VhsNightUnifiedReaderColorScheme = darkColorScheme(
     onError = Color(0xFF690005),
     errorContainer = Color(0xFF93000A),
     onErrorContainer = Color(0xFFFFDAD6),
-    background = Color(0xFF090A10),
+    background = Color(0xFF101018),
     onBackground = Color(0xFFECEAF4),
-    surface = Color(0xFF12131B),
+    surface = Color(0xFF171720),
     onSurface = Color(0xFFECEAF4),
-    surfaceDim = Color(0xFF090A10),
+    surfaceDim = Color(0xFF101018),
     surfaceBright = Color(0xFF3A3945),
-    surfaceContainerLowest = Color(0xFF05060B),
-    surfaceContainerLow = Color(0xFF181922),
-    surfaceContainer = Color(0xFF21222D),
-    surfaceContainerHigh = Color(0xFF2C2C39),
-    surfaceContainerHighest = Color(0xFF383746),
-    surfaceVariant = Color(0xFF4A4655),
+    surfaceContainerLowest = Color(0xFF0B0B11),
+    surfaceContainerLow = Color(0xFF1D1C26),
+    surfaceContainer = Color(0xFF25242F),
+    surfaceContainerHigh = Color(0xFF302F3B),
+    surfaceContainerHighest = Color(0xFF3B3948),
+    surfaceVariant = Color(0xFF4C4856),
     onSurfaceVariant = Color(0xFFD0C9D9),
-    outline = Color(0xFFA59CAE),
+    outline = Color(0xFF9B94A2),
     outlineVariant = Color(0xFF544F60),
     inverseSurface = Color(0xFFECEAF4),
     inverseOnSurface = Color(0xFF2C2C39),
@@ -500,6 +500,7 @@ private data class UnifiedReaderResolvedTheme(
     val semanticColors: UnifiedReaderSemanticColors,
     val presentationTokens: UnifiedReaderPresentationTokens,
     val personalityTokens: UnifiedReaderPersonalityTokens,
+    val componentTokens: UnifiedReaderComponentTokens,
     val typography: Typography,
     val shapes: Shapes,
     val isDark: Boolean,
@@ -536,6 +537,7 @@ fun UnifiedReaderTheme(
         LocalUnifiedReaderSemanticColors provides resolvedTheme.semanticColors,
         LocalUnifiedReaderPresentationTokens provides resolvedTheme.presentationTokens,
         LocalUnifiedReaderPersonalityTokens provides resolvedTheme.personalityTokens,
+        LocalUnifiedReaderComponentTokens provides resolvedTheme.componentTokens,
     ) {
         MaterialTheme(
             colorScheme = resolvedTheme.colorScheme,
@@ -577,6 +579,7 @@ private fun resolveUnifiedReaderTheme(
         semanticColors = colorScheme.toSemanticColors(isDark = isDark),
         presentationTokens = themeMode.toPresentationTokens(),
         personalityTokens = themeMode.toPersonalityTokens(),
+        componentTokens = themeMode.toComponentTokens(),
         typography = themeMode.toTypography(),
         shapes = themeMode.toShapes(),
         isDark = isDark,
@@ -642,6 +645,7 @@ private fun ThemeMode.toPresentationTokens(): UnifiedReaderPresentationTokens = 
         shelfItemSpacing = 8.dp,
         searchHeight = 36.dp,
         accentRailWidth = 5.dp,
+        alphabetRailWidth = 30.dp,
     )
     ThemeMode.CrimsonCourt -> UnifiedReaderPresentationTokens(
         cardCornerRadius = 22.dp,
@@ -653,6 +657,7 @@ private fun ThemeMode.toPresentationTokens(): UnifiedReaderPresentationTokens = 
         shelfItemSpacing = 14.dp,
         searchHeight = 42.dp,
         accentRailWidth = 5.dp,
+        alphabetRailWidth = 30.dp,
     )
     ThemeMode.PanelPop -> UnifiedReaderPresentationTokens(
         cardCornerRadius = 8.dp,
@@ -664,6 +669,7 @@ private fun ThemeMode.toPresentationTokens(): UnifiedReaderPresentationTokens = 
         shelfItemSpacing = 10.dp,
         searchHeight = 38.dp,
         accentRailWidth = 6.dp,
+        alphabetRailWidth = 30.dp,
     )
     ThemeMode.Blueprint -> UnifiedReaderPresentationTokens(
         cardCornerRadius = 6.dp,
@@ -675,6 +681,7 @@ private fun ThemeMode.toPresentationTokens(): UnifiedReaderPresentationTokens = 
         shelfItemSpacing = 9.dp,
         searchHeight = 38.dp,
         accentRailWidth = 3.dp,
+        alphabetRailWidth = 32.dp,
     )
     ThemeMode.VhsNight -> UnifiedReaderPresentationTokens(
         cardCornerRadius = 16.dp,
@@ -686,6 +693,7 @@ private fun ThemeMode.toPresentationTokens(): UnifiedReaderPresentationTokens = 
         shelfItemSpacing = 12.dp,
         searchHeight = 40.dp,
         accentRailWidth = 5.dp,
+        alphabetRailWidth = 30.dp,
     )
     ThemeMode.DetectiveFile -> UnifiedReaderPresentationTokens(
         cardCornerRadius = 8.dp,
@@ -697,6 +705,7 @@ private fun ThemeMode.toPresentationTokens(): UnifiedReaderPresentationTokens = 
         shelfItemSpacing = 10.dp,
         searchHeight = 38.dp,
         accentRailWidth = 4.dp,
+        alphabetRailWidth = 32.dp,
     )
     else -> UnifiedReaderPresentationTokens(
         cardCornerRadius = 18.dp,
@@ -708,6 +717,7 @@ private fun ThemeMode.toPresentationTokens(): UnifiedReaderPresentationTokens = 
         shelfItemSpacing = 12.dp,
         searchHeight = 40.dp,
         accentRailWidth = 4.dp,
+        alphabetRailWidth = 28.dp,
     )
 }
 

@@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -32,6 +33,9 @@ import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
 import com.example.unifiedreader.feature.library.hasMenuContent
 import com.example.unifiedreader.feature.library.isDownloaded
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
+import com.example.unifiedreader.ui.theme.unifiedReaderComponentTreatment
+import com.example.unifiedreader.ui.theme.unifiedReaderSurfacePattern
 
 internal sealed interface LibraryShelfSheetState {
     val title: String
@@ -70,6 +74,13 @@ internal fun LibraryShelfItemsSheet(
     onItemSelected: (ReadableItem) -> Unit,
     onDeleteImportedItem: (ReadableItem) -> Unit,
 ) {
+    val semanticColors = UnifiedReaderThemeTokens.colors
+    val presentation = UnifiedReaderThemeTokens.presentation
+    val sheetRecipe = UnifiedReaderThemeTokens.components.sheet
+    val sheetShape = RoundedCornerShape(
+        topStart = presentation.cardCornerRadius,
+        topEnd = presentation.cardCornerRadius,
+    )
     val listState = rememberLazyListState()
     var expandedMenuItemId by remember(sheet) { mutableStateOf<String?>(null) }
     LaunchedEffect(sheet) {
@@ -78,9 +89,26 @@ internal fun LibraryShelfItemsSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        modifier = Modifier.unifiedReaderComponentTreatment(
+            recipe = sheetRecipe,
+            accentColor = semanticColors.readerAccent,
+            secondaryColor = semanticColors.syncAccent,
+            overlayColor = MaterialTheme.colorScheme.onSurface,
+            shape = sheetShape,
+        ),
+        containerColor = semanticColors.surfaceBase,
+        shape = sheetShape,
     ) {
         Column(
-            modifier = Modifier.padding(bottom = 24.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .unifiedReaderSurfacePattern(
+                    treatment = sheetRecipe.surfaceTreatment,
+                    accentColor = semanticColors.readerAccent,
+                    overlayColor = MaterialTheme.colorScheme.onSurface,
+                    intensity = sheetRecipe.patternIntensity,
+                )
+                .padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Row(

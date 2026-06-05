@@ -42,6 +42,7 @@ data class UnifiedReaderPresentationTokens(
     val shelfItemSpacing: Dp,
     val searchHeight: Dp,
     val accentRailWidth: Dp,
+    val alphabetRailWidth: Dp,
 )
 
 enum class UnifiedReaderSurfaceTreatment {
@@ -67,6 +68,49 @@ enum class UnifiedReaderBorderTreatment {
     Ink,
     Dashed,
 }
+
+enum class UnifiedReaderFrameTreatment {
+    None,
+    Terminal,
+    Ornate,
+    Comic,
+    Blueprint,
+    Vhs,
+    Dossier,
+}
+
+enum class UnifiedReaderSelectionTreatment {
+    Fill,
+    Inverse,
+    Underline,
+    SideMark,
+    Stamp,
+}
+
+@Immutable
+data class UnifiedReaderComponentRecipe(
+    val surfaceTreatment: UnifiedReaderSurfaceTreatment = UnifiedReaderSurfaceTreatment.Plain,
+    val borderTreatment: UnifiedReaderBorderTreatment = UnifiedReaderBorderTreatment.Single,
+    val frameTreatment: UnifiedReaderFrameTreatment = UnifiedReaderFrameTreatment.None,
+    val selectionTreatment: UnifiedReaderSelectionTreatment = UnifiedReaderSelectionTreatment.Fill,
+    val patternIntensity: Float = 0f,
+    val borderAlpha: Float = 0f,
+    val frameAlpha: Float = 0f,
+    val borderWidth: Dp = 1.dp,
+    val containerAlpha: Float = 0f,
+)
+
+@Immutable
+data class UnifiedReaderComponentTokens(
+    val appBackground: UnifiedReaderComponentRecipe = UnifiedReaderComponentRecipe(),
+    val chrome: UnifiedReaderComponentRecipe = UnifiedReaderComponentRecipe(),
+    val control: UnifiedReaderComponentRecipe = UnifiedReaderComponentRecipe(),
+    val sheet: UnifiedReaderComponentRecipe = UnifiedReaderComponentRecipe(),
+    val metadata: UnifiedReaderComponentRecipe = UnifiedReaderComponentRecipe(),
+    val rail: UnifiedReaderComponentRecipe = UnifiedReaderComponentRecipe(
+        containerAlpha = 0.94f,
+    ),
+)
 
 @Immutable
 data class UnifiedReaderPersonalityTokens(
@@ -112,6 +156,7 @@ val LocalUnifiedReaderPresentationTokens = staticCompositionLocalOf {
         shelfItemSpacing = 12.dp,
         searchHeight = 40.dp,
         accentRailWidth = 4.dp,
+        alphabetRailWidth = 28.dp,
     )
 }
 
@@ -121,6 +166,10 @@ val LocalUnifiedReaderPersonalityTokens = staticCompositionLocalOf {
         progressTreatment = UnifiedReaderProgressTreatment.Solid,
         borderTreatment = UnifiedReaderBorderTreatment.Single,
     )
+}
+
+val LocalUnifiedReaderComponentTokens = staticCompositionLocalOf {
+    UnifiedReaderComponentTokens()
 }
 
 object UnifiedReaderThemeTokens {
@@ -135,4 +184,8 @@ object UnifiedReaderThemeTokens {
     val personality: UnifiedReaderPersonalityTokens
         @androidx.compose.runtime.Composable
         get() = LocalUnifiedReaderPersonalityTokens.current
+
+    val components: UnifiedReaderComponentTokens
+        @androidx.compose.runtime.Composable
+        get() = LocalUnifiedReaderComponentTokens.current
 }

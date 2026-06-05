@@ -257,10 +257,10 @@ private fun ShelfSectionCard(
         else -> 1.dp
     }
     val borderAlpha = when (personality.borderTreatment) {
-        UnifiedReaderBorderTreatment.Dashed -> 0.46f
-        UnifiedReaderBorderTreatment.Ink -> 0.56f
-        UnifiedReaderBorderTreatment.Double -> 0.36f
-        else -> 0.26f
+        UnifiedReaderBorderTreatment.Dashed -> 0.14f
+        UnifiedReaderBorderTreatment.Ink -> 0.18f
+        UnifiedReaderBorderTreatment.Double -> 0.12f
+        else -> 0.08f
     }
     Card(
         modifier = modifier.unifiedReaderBorderTreatment(

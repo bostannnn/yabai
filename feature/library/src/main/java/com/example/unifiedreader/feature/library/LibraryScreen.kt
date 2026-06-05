@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.layout.NestedPrefetchScope
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -390,24 +389,17 @@ fun LibraryScreen(
             }
         }
         if (alphabetRailVisible) {
-            Surface(
+            AlphabetRail(
+                letters = sortLetters,
+                selectedLetter = effectiveSortLetter,
+                onLetterSelected = { letter ->
+                    selectedSortLetter = if (effectiveSortLetter == letter) null else letter
+                },
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
-                    .padding(end = 8.dp),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
-                tonalElevation = 2.dp,
-                shadowElevation = 2.dp,
-            ) {
-                AlphabetRail(
-                    letters = sortLetters,
-                    selectedLetter = effectiveSortLetter,
-                    onLetterSelected = { letter ->
-                        selectedSortLetter = if (effectiveSortLetter == letter) null else letter
-                    },
-                    modifier = Modifier.padding(vertical = 6.dp),
-                )
-            }
+                    .padding(end = 8.dp)
+                    .padding(vertical = 6.dp),
+            )
         }
     }
 
