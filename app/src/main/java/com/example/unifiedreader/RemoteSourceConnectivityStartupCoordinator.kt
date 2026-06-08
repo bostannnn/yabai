@@ -2,6 +2,7 @@ package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.data.kavita.KAVITA_REFRESH_TOKEN_MISSING_MESSAGE
 import com.example.unifiedreader.data.kavita.KavitaUnauthorizedException
 import com.example.unifiedreader.data.stump.StumpUnauthorizedException
 import javax.inject.Inject
@@ -95,20 +96,24 @@ class KavitaRemoteSourceHealthCheck @Inject constructor(
                 currentSession.copy(activeBaseUrl = activeBaseUrl)
             },
         ) { api, activeSession ->
-            val refreshToken = activeSession.refreshToken?.takeIf(String::isNotBlank)
-                ?: throw KavitaUnauthorizedException()
-            val refreshedSession = api.refreshSession(
-                refreshToken = refreshToken,
-                accessToken = activeSession.accessToken,
-                apiKey = activeSession.apiKey,
-            )
-            kavitaCredentialStore.save(
-                activeSession.copy(
-                    accessToken = refreshedSession.accessToken,
-                    refreshToken = refreshedSession.refreshToken,
-                    apiKey = refreshedSession.apiKey ?: activeSession.apiKey,
-                ),
-            )
+            try {
+                api.getLibraries(activeSession.accessToken)
+            } catch (_: KavitaUnauthorizedException) {
+                val refreshToken = activeSession.refreshToken?.takeIf(String::isNotBlank)
+                    ?: throw KavitaUnauthorizedException(KAVITA_REFRESH_TOKEN_MISSING_MESSAGE)
+                val refreshedSession = api.refreshSession(
+                    refreshToken = refreshToken,
+                    accessToken = activeSession.accessToken,
+                    apiKey = activeSession.apiKey,
+                )
+                kavitaCredentialStore.save(
+                    activeSession.copy(
+                        accessToken = refreshedSession.accessToken,
+                        refreshToken = refreshedSession.refreshToken,
+                        apiKey = refreshedSession.apiKey ?: activeSession.apiKey,
+                    ),
+                )
+            }
         }
         return RemoteSourceHealthCheckResult.Online
     }

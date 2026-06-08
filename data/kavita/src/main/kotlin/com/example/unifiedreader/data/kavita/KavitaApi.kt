@@ -25,6 +25,10 @@ import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.http.takeFrom
 import java.io.File
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 interface KavitaApi {
     suspend fun login(
@@ -209,7 +213,17 @@ data class KavitaProgressUpdate(
     val updatedAtEpochMillis: Long,
 )
 
-class KavitaUnauthorizedException : RuntimeException("Kavita access token expired.")
+const val KAVITA_ACCESS_TOKEN_REJECTED_MESSAGE = "Kavita access token was rejected."
+const val KAVITA_LOGIN_REJECTED_MESSAGE =
+    "Kavita login was rejected. Check username and password."
+const val KAVITA_REFRESH_TOKEN_REJECTED_MESSAGE =
+    "Kavita refresh token was rejected. Sign in to Kavita again."
+const val KAVITA_REFRESH_TOKEN_MISSING_MESSAGE =
+    "Kavita saved session has no refresh token. Sign in to Kavita again."
+
+class KavitaUnauthorizedException(
+    message: String = KAVITA_ACCESS_TOKEN_REJECTED_MESSAGE,
+) : RuntimeException(message)
 
 class KtorKavitaApi(
     private val httpClient: HttpClient,
@@ -238,7 +252,9 @@ class KtorKavitaApi(
                 ),
             )
         }
-        response.throwIfKavitaError()
+        response.throwIfKavitaError(
+            unauthorizedMessage = KAVITA_LOGIN_REJECTED_MESSAGE,
+        )
         return response.body<KavitaUserDto>().toSession().also { session ->
             activeApiKey = session.apiKey
         }
@@ -258,7 +274,9 @@ class KtorKavitaApi(
                 ),
             )
         }
-        response.throwIfKavitaError()
+        response.throwIfKavitaError(
+            unauthorizedMessage = KAVITA_REFRESH_TOKEN_REJECTED_MESSAGE,
+        )
         return response.body<KavitaTokenRequestDto>().toSession(
             apiKey = apiKey ?: activeApiKey,
         ).also { session ->
@@ -715,18 +733,57 @@ private suspend fun <T> authenticatedRequest(
     block()
 } catch (exception: ClientRequestException) {
     if (exception.response.status == HttpStatusCode.Unauthorized) {
-        throw KavitaUnauthorizedException()
+        throw KavitaUnauthorizedException(KAVITA_ACCESS_TOKEN_REJECTED_MESSAGE)
     }
     throw exception
 }
 
-private suspend fun HttpResponse.throwIfKavitaError() {
+private suspend fun HttpResponse.throwIfKavitaError(
+    unauthorizedMessage: String = KAVITA_ACCESS_TOKEN_REJECTED_MESSAGE,
+) {
     if (status == HttpStatusCode.Unauthorized) {
-        throw KavitaUnauthorizedException()
+        throw KavitaUnauthorizedException(unauthorizedMessage)
     }
     if (!status.isSuccess()) {
-        error(bodyAsText().ifBlank { status.description })
+        error(bodyAsText().kavitaHttpErrorMessage(status))
     }
+}
+
+private fun String.kavitaHttpErrorMessage(
+    status: HttpStatusCode,
+): String {
+    val statusLabel = "${status.value} ${status.description}"
+    val summary = problemDetailsSummary(status)
+    return if (summary == null) {
+        "Kavita request failed ($statusLabel)."
+    } else {
+        "Kavita request failed ($statusLabel): $summary"
+    }
+}
+
+private fun String.problemDetailsSummary(
+    status: HttpStatusCode,
+): String? {
+    if (isBlank()) return null
+    val parsed = runCatching {
+        KavitaErrorBodyJson.parseToJsonElement(this).jsonObject
+    }.getOrNull() ?: return trim().takeUnless { body ->
+        body.equals(status.description, ignoreCase = true)
+    }
+    val title = parsed["title"]
+        ?.jsonPrimitive
+        ?.contentOrNull
+        ?.takeUnless { title -> title.equals(status.description, ignoreCase = true) }
+    val detail = parsed["detail"]?.jsonPrimitive?.contentOrNull
+    val message = parsed["message"]?.jsonPrimitive?.contentOrNull
+    return listOfNotNull(title, detail, message)
+        .distinct()
+        .joinToString(separator = " - ")
+        .takeIf(String::isNotBlank)
+}
+
+private val KavitaErrorBodyJson = Json {
+    ignoreUnknownKeys = true
 }
 
 private fun String.resolveAgainst(

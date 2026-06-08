@@ -1,6 +1,7 @@
 package com.example.unifiedreader
 
 import com.example.unifiedreader.data.kavita.KavitaApi
+import com.example.unifiedreader.data.kavita.KAVITA_REFRESH_TOKEN_MISSING_MESSAGE
 import com.example.unifiedreader.data.kavita.KavitaSession
 import com.example.unifiedreader.data.kavita.KavitaUnauthorizedException
 
@@ -23,9 +24,9 @@ internal suspend fun <T> KavitaApi.runWithTokenRefresh(
         refreshToken = initialRefreshToken,
         refreshedSession = null,
     )
-} catch (exception: KavitaUnauthorizedException) {
+} catch (_: KavitaUnauthorizedException) {
     val refreshToken = initialRefreshToken?.takeIf(String::isNotBlank)
-        ?: throw exception
+        ?: throw KavitaUnauthorizedException(KAVITA_REFRESH_TOKEN_MISSING_MESSAGE)
     val refreshedSession = refreshSession(
         refreshToken = refreshToken,
         accessToken = initialAccessToken,
@@ -47,7 +48,7 @@ internal class KavitaStoredSessionRequestRunner(
         isUnauthorized = { throwable -> throwable is KavitaUnauthorizedException },
         refreshSession = { api: KavitaApi, session: KavitaStoredSession ->
             val refreshToken = session.refreshToken?.takeIf(String::isNotBlank)
-                ?: throw KavitaUnauthorizedException()
+                ?: throw KavitaUnauthorizedException(KAVITA_REFRESH_TOKEN_MISSING_MESSAGE)
             val refreshedSession = api.refreshSession(
                 refreshToken = refreshToken,
                 accessToken = session.accessToken,

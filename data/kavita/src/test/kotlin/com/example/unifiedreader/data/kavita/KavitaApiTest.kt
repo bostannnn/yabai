@@ -16,9 +16,116 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.fail
 import org.junit.Test
 
 class KavitaApiTest {
+    @Test
+    fun `login unauthorized reports login rejection`() = runBlocking {
+        val httpClient = HttpClient(
+            MockEngine {
+                respondJson(
+                    """{"message":"invalid-login"}""",
+                    status = HttpStatusCode.Unauthorized,
+                )
+            },
+        ) {
+            install(ContentNegotiation) {
+                json(
+                    Json {
+                        ignoreUnknownKeys = true
+                        explicitNulls = false
+                    },
+                )
+            }
+        }
+        val api = KtorKavitaApi(
+            httpClient = httpClient,
+            baseUrl = "http://kavita.example",
+        )
+
+        try {
+            api.login(
+                username = "reader",
+                password = "wrong",
+            )
+            fail("Expected login rejection.")
+        } catch (exception: KavitaUnauthorizedException) {
+            assertEquals(KAVITA_LOGIN_REJECTED_MESSAGE, exception.message)
+        }
+    }
+
+    @Test
+    fun `refresh session unauthorized reports refresh token rejection`() = runBlocking {
+        val httpClient = HttpClient(
+            MockEngine {
+                respondJson(
+                    """{"message":"invalid-token"}""",
+                    status = HttpStatusCode.Unauthorized,
+                )
+            },
+        ) {
+            install(ContentNegotiation) {
+                json(
+                    Json {
+                        ignoreUnknownKeys = true
+                        explicitNulls = false
+                    },
+                )
+            }
+        }
+        val api = KtorKavitaApi(
+            httpClient = httpClient,
+            baseUrl = "http://kavita.example",
+        )
+
+        try {
+            api.refreshSession(
+                refreshToken = "stale-refresh",
+                accessToken = "still-valid-access",
+                apiKey = "api-key",
+            )
+            fail("Expected refresh token rejection.")
+        } catch (exception: KavitaUnauthorizedException) {
+            assertEquals(KAVITA_REFRESH_TOKEN_REJECTED_MESSAGE, exception.message)
+        }
+    }
+
+    @Test
+    fun `cover download problem response is summarized for users`() = runBlocking {
+        val httpClient = HttpClient(
+            MockEngine {
+                respond(
+                    content = """
+                        {
+                          "type": "https://tools.ietf.org/html/rfc9110#section-15.5.5",
+                          "title": "Not Found",
+                          "status": 404,
+                          "traceId": "00-test"
+                        }
+                    """.trimIndent(),
+                    status = HttpStatusCode.NotFound,
+                    headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
+                )
+            },
+        )
+        val api = KtorKavitaApi(
+            httpClient = httpClient,
+            baseUrl = "http://kavita.example",
+        )
+
+        try {
+            api.downloadCover(
+                accessToken = "access",
+                coverUrl = "http://kavita.example/api/Image/chapter-cover?chapterId=1",
+                apiKey = "api-key",
+            )
+            fail("Expected cover download failure.")
+        } catch (exception: IllegalStateException) {
+            assertEquals("Kavita request failed (404 Not Found).", exception.message)
+        }
+    }
+
     @Test
     fun `collection series request uses collection id and maps series keys`() = runBlocking {
         var requests = 0
@@ -313,9 +420,12 @@ class KavitaApiTest {
         assertEquals(KavitaChapterInfoDto(), chapterInfo)
     }
 
-    private fun MockRequestHandleScope.respondJson(content: String) = respond(
+    private fun MockRequestHandleScope.respondJson(
+        content: String,
+        status: HttpStatusCode = HttpStatusCode.OK,
+    ) = respond(
         content = content,
-        status = HttpStatusCode.OK,
+        status = status,
         headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
     )
 }

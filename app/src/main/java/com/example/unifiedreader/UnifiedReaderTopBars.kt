@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -44,6 +45,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
@@ -117,9 +119,10 @@ fun LibraryTopBar(
                     )
                 }
             } else {
-                Box(
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     LibraryTopBarTitle(
                         selectedSource = selectedSource,
@@ -128,16 +131,12 @@ fun LibraryTopBar(
                         onSourceConnectivityClick = onSourceConnectivityClick,
                         onDrawerClick = onDrawerClick,
                         onLeaveSeries = onLeaveSeries,
-                        modifier = Modifier
-                            .align(Alignment.CenterStart)
-                            .widthIn(max = 320.dp),
+                        modifier = Modifier.weight(1f),
                     )
                     LibrarySearchField(
                         query = searchQuery,
                         onQueryChanged = onSearchQueryChanged,
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .widthIn(min = 280.dp, max = 340.dp),
+                        modifier = Modifier.width(ExpandedLibrarySearchWidth),
                     )
                     LibraryToolbarActions(
                         refreshState = refreshState,
@@ -147,7 +146,6 @@ fun LibraryTopBar(
                         downloadSelectionEnabled = downloadSelectionState.selectableCount > 0,
                         onDownloadSelectionClick = { onDownloadSelectionModeChanged(true) },
                         onImportLocalFileClick = onImportLocalFileClick,
-                        modifier = Modifier.align(Alignment.CenterEnd),
                     )
                 }
             }
@@ -281,6 +279,8 @@ private fun LibraryTopBarTitle(
             text = seriesTitle ?: selectedSource.displayName(),
             style = MaterialTheme.typography.titleMedium,
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
         )
         SourceConnectivityIndicator(
             sourceType = selectedSource,
@@ -374,6 +374,8 @@ private fun AppSectionHeader(
             text = title,
             style = MaterialTheme.typography.titleMedium,
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
         )
     }
 }
@@ -626,4 +628,5 @@ private fun selectedDownloadsLabel(selectedCount: Int): String =
         "$selectedCount selected"
     }
 
+private val ExpandedLibrarySearchWidth = 340.dp
 private const val LibrarySearchFieldTag = "library-search-field"

@@ -1,5 +1,7 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.library.buildLibraryCoverPreloadTargets
 import com.example.unifiedreader.feature.settings.CoverPreloadFailureUiItem
@@ -137,7 +139,7 @@ class AppCoverPreloadController @Inject constructor(
 
     private fun startPreload(
         sourceType: SourceType,
-        items: List<com.example.unifiedreader.core.model.ReadableItem>,
+        items: List<ReadableItem>,
         retryTargets: List<RemoteCoverPreloadTarget>?,
         updateState: AppUiStateUpdater,
         scope: CoroutineScope,
@@ -275,22 +277,87 @@ class AppCoverPreloadController @Inject constructor(
     }
 }
 
-private fun List<RemoteCoverPreloadFailure>.toFailureUiItems(): List<CoverPreloadFailureUiItem> =
-    take(MAX_FAILURES_TO_SHOW).map { failure ->
+internal fun List<RemoteCoverPreloadFailure>.toFailureUiItems(): List<CoverPreloadFailureUiItem> =
+    groupedFailuresByItemForPreloadUi().take(MAX_FAILURES_TO_SHOW).map { failures ->
+        val failure = failures.first()
         CoverPreloadFailureUiItem(
-            title = failure.item.title,
-            variant = failure.variant.name,
-            reason = failure.reason,
+            title = failure.item.coverPreloadFailureTitle(),
+            variant = failures.map { preloadFailure -> preloadFailure.variant.name }
+                .distinct()
+                .coverVariantSummary(),
+            reason = failures.map { preloadFailure -> preloadFailure.reason.readableCoverFailureReason() }
+                .distinct()
+                .joinToString(separator = "; "),
         )
     }
 
-private fun List<RemoteCoverPreloadTarget>.toPendingFailureUiItems(): List<CoverPreloadFailureUiItem> =
-    take(MAX_FAILURES_TO_SHOW).map { target ->
+internal fun List<RemoteCoverPreloadTarget>.toPendingFailureUiItems(): List<CoverPreloadFailureUiItem> =
+    groupedTargetsByItemForPreloadUi().take(MAX_FAILURES_TO_SHOW).map { targets ->
+        val target = targets.first()
         CoverPreloadFailureUiItem(
-            title = target.item.title,
-            variant = target.variant.name,
+            title = target.item.coverPreloadFailureTitle(),
+            variant = targets.map { pendingTarget -> pendingTarget.variant.name }
+                .distinct()
+                .coverVariantSummary(),
             reason = "Retry pending.",
         )
     }
 
+private fun List<RemoteCoverPreloadFailure>.groupedFailuresByItemForPreloadUi(): List<List<RemoteCoverPreloadFailure>> =
+    groupBy { failure -> failure.item.id }.values.toList()
+
+private fun List<RemoteCoverPreloadTarget>.groupedTargetsByItemForPreloadUi(): List<List<RemoteCoverPreloadTarget>> =
+    groupBy { target -> target.item.id }.values.toList()
+
+private fun ReadableItem.coverPreloadFailureTitle(): String {
+    if (kind != ReadableItemKind.COMIC) return title
+    val metadata = comicMetadata ?: return title
+    val series = metadata.series?.trim()?.takeIf(String::isNotBlank)
+    val issueNumberLabel = metadata.issueNumber
+        ?.trim()
+        ?.takeIf(String::isNotBlank)
+        ?.let { number -> "Issue $number" }
+    val issueTitle = metadata.issueTitle
+        ?.trim()
+        ?.takeIf(String::isNotBlank)
+        ?.takeUnless { candidate -> series != null && candidate.equals(series, ignoreCase = true) }
+        ?.takeUnless { candidate -> issueNumberLabel != null && candidate.equals(issueNumberLabel, ignoreCase = true) }
+    return listOfNotNull(
+        series,
+        issueNumberLabel,
+        issueTitle ?: title.trim().takeIf(String::isNotBlank),
+    )
+        .distinctBy { part -> part.lowercase() }
+        .joinToString(" - ")
+        .ifBlank { title }
+}
+
+private fun List<String>.coverVariantSummary(): String = when (size) {
+    0 -> "cover"
+    1 -> single()
+    else -> {
+        val preview = take(MAX_VARIANTS_TO_LIST).joinToString(separator = ", ")
+        if (size > MAX_VARIANTS_TO_LIST) {
+            "$size variants ($preview, ...)"
+        } else {
+            "$size variants ($preview)"
+        }
+    }
+}
+
+private fun String.readableCoverFailureReason(): String {
+    val trimmed = trim()
+    if (trimmed.isEmpty()) return "Remote cover request failed."
+    if (!trimmed.startsWith("{")) return trimmed
+    val status = JsonStatusRegex.find(trimmed)?.groupValues?.getOrNull(1)
+    val title = JsonTitleRegex.find(trimmed)?.groupValues?.getOrNull(1)
+    return listOfNotNull(status, title)
+        .takeIf(List<String>::isNotEmpty)
+        ?.joinToString(separator = " ")
+        ?: "Remote cover request failed."
+}
+
+private val JsonStatusRegex = Regex("\"status\"\\s*:\\s*(\\d+)")
+private val JsonTitleRegex = Regex("\"title\"\\s*:\\s*\"([^\"]+)\"")
+private const val MAX_VARIANTS_TO_LIST = 3
 private const val MAX_FAILURES_TO_SHOW = 8

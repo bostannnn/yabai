@@ -16,6 +16,7 @@ import com.example.unifiedreader.data.kavita.KavitaProgressDto
 import com.example.unifiedreader.data.kavita.KavitaProgressUpdate
 import com.example.unifiedreader.data.kavita.KavitaSeriesEntry
 import com.example.unifiedreader.data.kavita.KavitaSession
+import com.example.unifiedreader.data.kavita.KavitaUnauthorizedException
 import com.example.unifiedreader.data.stump.StumpApi
 import com.example.unifiedreader.data.stump.StumpMediaCatalogEntry
 import com.example.unifiedreader.data.stump.StumpSeriesEntry
@@ -117,10 +118,34 @@ class RemoteSourceConnectivityStartupCoordinatorTest {
     }
 
     @Test
-    fun `source startup health checks refresh sessions without fetching catalogs`() = runTest {
+    fun `kavita startup health check accepts current access token before refreshing`() = runTest {
         val kavitaApi = RecordingStartupKavitaApi()
-        val stumpApi = RecordingStartupStumpApi()
-        val grimmoryApi = RecordingStartupGrimmoryApi()
+        val kavitaStore = FakeKavitaCredentialStore(
+            initialSession = KavitaStoredSession(
+                displayName = "Kavita",
+                baseUrl = "https://kavita",
+                username = "reader",
+                accessToken = "current-access",
+                refreshToken = "old-refresh",
+                apiKey = "old-api-key",
+            ),
+        )
+
+        KavitaRemoteSourceHealthCheck(
+            kavitaApiFactory = KavitaApiFactory { kavitaApi },
+            kavitaCredentialStore = kavitaStore,
+        ).check()
+
+        assertEquals(1, kavitaApi.getLibrariesCalls)
+        assertEquals(0, kavitaApi.refreshSessionCalls)
+        assertEquals("current-access", kavitaStore.sessionFlow.value?.accessToken)
+    }
+
+    @Test
+    fun `kavita startup health check refreshes after rejected access token`() = runTest {
+        val kavitaApi = RecordingStartupKavitaApi(
+            unauthorizedLibraryTokens = setOf("old-access"),
+        )
         val kavitaStore = FakeKavitaCredentialStore(
             initialSession = KavitaStoredSession(
                 displayName = "Kavita",
@@ -131,6 +156,22 @@ class RemoteSourceConnectivityStartupCoordinatorTest {
                 apiKey = "old-api-key",
             ),
         )
+
+        KavitaRemoteSourceHealthCheck(
+            kavitaApiFactory = KavitaApiFactory { kavitaApi },
+            kavitaCredentialStore = kavitaStore,
+        ).check()
+
+        assertEquals(1, kavitaApi.getLibrariesCalls)
+        assertEquals(1, kavitaApi.refreshSessionCalls)
+        assertEquals("new-access", kavitaStore.sessionFlow.value?.accessToken)
+        assertEquals("new-refresh", kavitaStore.sessionFlow.value?.refreshToken)
+    }
+
+    @Test
+    fun `non-kavita source startup health checks refresh sessions without fetching catalogs`() = runTest {
+        val stumpApi = RecordingStartupStumpApi()
+        val grimmoryApi = RecordingStartupGrimmoryApi()
         val stumpStore = FakeStumpCredentialStore(
             initialSession = StumpStoredSession(
                 displayName = "Stump",
@@ -150,10 +191,6 @@ class RemoteSourceConnectivityStartupCoordinatorTest {
             ),
         )
 
-        KavitaRemoteSourceHealthCheck(
-            kavitaApiFactory = KavitaApiFactory { kavitaApi },
-            kavitaCredentialStore = kavitaStore,
-        ).check()
         StumpRemoteSourceHealthCheck(
             stumpApiFactory = StumpApiFactory { stumpApi },
             stumpCredentialStore = stumpStore,
@@ -163,9 +200,6 @@ class RemoteSourceConnectivityStartupCoordinatorTest {
             grimmoryCredentialStore = grimmoryStore,
         ).check()
 
-        assertEquals(1, kavitaApi.refreshSessionCalls)
-        assertEquals(0, kavitaApi.getLibrariesCalls)
-        assertEquals("new-access", kavitaStore.sessionFlow.value?.accessToken)
         assertEquals(1, stumpApi.refreshSessionCalls)
         assertEquals(0, stumpApi.getLibrariesCalls)
         assertEquals("new-access", stumpStore.sessionFlow.value?.accessToken)
@@ -190,7 +224,9 @@ private class FakeRemoteSourceHealthCheck(
     }
 }
 
-private class RecordingStartupKavitaApi : KavitaApi {
+private class RecordingStartupKavitaApi(
+    private val unauthorizedLibraryTokens: Set<String> = emptySet(),
+) : KavitaApi {
     var refreshSessionCalls = 0
     var getLibrariesCalls = 0
 
@@ -211,6 +247,9 @@ private class RecordingStartupKavitaApi : KavitaApi {
 
     override suspend fun getLibraries(accessToken: String): List<Library> {
         getLibrariesCalls += 1
+        if (accessToken in unauthorizedLibraryTokens) {
+            throw KavitaUnauthorizedException()
+        }
         return emptyList()
     }
 
