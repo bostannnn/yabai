@@ -46,4 +46,13 @@ internal val DetectiveFileComponentTokens = UnifiedReaderComponentTokens(
         frameAlpha = 0.16f,
         containerAlpha = 0.90f,
     ),
+    backToTop = UnifiedReaderComponentRecipe(
+        surfaceTreatment = UnifiedReaderSurfaceTreatment.DossierPaper,
+        borderTreatment = UnifiedReaderBorderTreatment.Dashed,
+        frameTreatment = UnifiedReaderFrameTreatment.Dossier,
+        selectionTreatment = UnifiedReaderSelectionTreatment.Stamp,
+        patternIntensity = 0.42f,
+        frameAlpha = 0.16f,
+        containerAlpha = 0.96f,
+    ),
 )

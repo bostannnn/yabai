@@ -45,4 +45,13 @@ internal val BlueprintComponentTokens = UnifiedReaderComponentTokens(
         frameAlpha = 0.16f,
         containerAlpha = 0.82f,
     ),
+    backToTop = UnifiedReaderComponentRecipe(
+        surfaceTreatment = UnifiedReaderSurfaceTreatment.BlueprintGrid,
+        borderTreatment = UnifiedReaderBorderTreatment.Dashed,
+        frameTreatment = UnifiedReaderFrameTreatment.Blueprint,
+        selectionTreatment = UnifiedReaderSelectionTreatment.SideMark,
+        patternIntensity = 0.52f,
+        frameAlpha = 0.16f,
+        containerAlpha = 0.90f,
+    ),
 )

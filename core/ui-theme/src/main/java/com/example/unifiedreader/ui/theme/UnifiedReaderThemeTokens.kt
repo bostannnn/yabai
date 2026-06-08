@@ -110,6 +110,9 @@ data class UnifiedReaderComponentTokens(
     val rail: UnifiedReaderComponentRecipe = UnifiedReaderComponentRecipe(
         containerAlpha = 0.94f,
     ),
+    val backToTop: UnifiedReaderComponentRecipe = UnifiedReaderComponentRecipe(
+        containerAlpha = 0.94f,
+    ),
 )
 
 @Immutable
@@ -156,7 +159,7 @@ val LocalUnifiedReaderPresentationTokens = staticCompositionLocalOf {
         shelfItemSpacing = 12.dp,
         searchHeight = 40.dp,
         accentRailWidth = 4.dp,
-        alphabetRailWidth = 28.dp,
+        alphabetRailWidth = 40.dp,
     )
 }
 

@@ -215,7 +215,7 @@ internal fun String.filterLetter(
     letterKey: (String) -> String,
 ): String? {
     val first = letterKey(this).trim().firstOrNull() ?: return null
-    return if (first.isLetterOrDigit()) {
+    return if (first.isLetter()) {
         first.uppercaseChar().toString()
     } else {
         "#"

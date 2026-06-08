@@ -43,4 +43,12 @@ internal val VhsNightComponentTokens = UnifiedReaderComponentTokens(
         frameAlpha = 0.10f,
         containerAlpha = 0.78f,
     ),
+    backToTop = UnifiedReaderComponentRecipe(
+        surfaceTreatment = UnifiedReaderSurfaceTreatment.VhsScanlines,
+        frameTreatment = UnifiedReaderFrameTreatment.Vhs,
+        selectionTreatment = UnifiedReaderSelectionTreatment.Underline,
+        patternIntensity = 0.46f,
+        frameAlpha = 0.10f,
+        containerAlpha = 0.88f,
+    ),
 )

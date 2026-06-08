@@ -1,10 +1,15 @@
 package com.example.unifiedreader.feature.library
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.LazyGridLayoutInfo
 import androidx.compose.foundation.lazy.grid.LazyGridPrefetchScope
@@ -18,9 +23,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -37,6 +44,7 @@ import com.example.unifiedreader.feature.library.menu.LibraryItemMenuButtonStyle
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -113,27 +121,26 @@ fun LibraryScreen(
     var gridExpandedMenuItemId by remember { mutableStateOf<String?>(null) }
     var openFilterPanel by rememberSaveable { mutableStateOf<LibraryFilterPanel?>(null) }
     var isReadingListDialogOpen by rememberSaveable { mutableStateOf(false) }
-    var selectedSortLetter by rememberSaveable(sortMode) { mutableStateOf<String?>(null) }
     var handledScrollToTopRequest by remember { mutableStateOf(scrollToTopRequest) }
+    val coroutineScope = rememberCoroutineScope()
     val availableSortModes = remember(items, sortMode) {
         librarySortModesAvailableFor(items = items, selectedSortMode = sortMode)
     }
-    val alphabetRailVisible = showSortControl && sortMode.usesAlphabetRail && items.isNotEmpty()
-    val sortLetters = remember(items, sortMode) {
+    val itemAlphabetSections = remember(items, sortMode) {
         if (!sortMode.usesAlphabetRail) {
             emptyList()
         } else {
-            items.mapNotNull { item -> item.sortFilterLetter(sortMode) }
-                .distinct()
-                .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it })
+            items.map { item -> item.sortFilterLetter(sortMode) }
         }
     }
-    val effectiveSortLetter = selectedSortLetter?.takeIf { showSortControl && it in sortLetters }
-    val visibleItems = remember(items, sortMode, effectiveSortLetter) {
-        effectiveSortLetter?.let { letter ->
-            items.filter { item -> item.sortFilterLetter(sortMode) == letter }
-        } ?: items
+    val sortLetters = remember(itemAlphabetSections) {
+        alphabetNavigationSections(itemAlphabetSections.filterNotNull())
     }
+    val alphabetSectionStarts = remember(itemAlphabetSections) {
+        alphabetSectionStarts(itemAlphabetSections)
+    }
+    val alphabetRailVisible = showSortControl && searchQuery.isBlank() && sortLetters.isNotEmpty()
+    val visibleItems = items
     val selectableDownloadItemIds = remember(visibleItems, downloadableItemIds, downloadingItemIds) {
         visibleItems
             .asSequence()
@@ -158,6 +165,19 @@ fun LibraryScreen(
     }
     val leadingContentItemCount = 1 +
         (if (topContent != null) 1 else 0)
+    val activeSortLetter by remember(
+        gridState,
+        itemAlphabetSections,
+        leadingContentItemCount,
+    ) {
+        derivedStateOf {
+            activeAlphabetSection(
+                sectionKeys = itemAlphabetSections,
+                firstVisibleItemIndex = gridState.firstVisibleItemIndex,
+                leadingContentItemCount = leadingContentItemCount,
+            )
+        }
+    }
     var previousDateAddedTopItemId by remember(browseContextKey) {
         mutableStateOf(dateAddedTopItemId)
     }
@@ -177,11 +197,6 @@ fun LibraryScreen(
             gridState.scrollToItem(0)
         }
         previousDateAddedTopItemId = dateAddedTopItemId
-    }
-    LaunchedEffect(selectedSortLetter, effectiveSortLetter) {
-        if (selectedSortLetter != effectiveSortLetter) {
-            selectedSortLetter = effectiveSortLetter
-        }
     }
     LaunchedEffect(browseContextKey, gridState) {
         snapshotFlow {
@@ -238,8 +253,9 @@ fun LibraryScreen(
     }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val gridEndPadding = if (alphabetRailVisible) {
-            libraryGridAlphabetRailEndPaddingDp
+        val navigationControlsCanAppear = alphabetRailVisible || visibleItems.isNotEmpty()
+        val gridEndPadding = if (navigationControlsCanAppear) {
+            libraryGridNavigationEndPaddingDp
         } else {
             libraryGridEndPaddingDp
         }
@@ -312,10 +328,7 @@ fun LibraryScreen(
                     onOpenReadingListScope = { isReadingListDialogOpen = true },
                     onOpenFilterPanel = { openFilterPanel = it },
                     onClearFilters = onClearFilters,
-                    onSortModeChanged = {
-                        selectedSortLetter = null
-                        onSortModeChanged(it)
-                    },
+                    onSortModeChanged = onSortModeChanged,
                     onGridCellSizeDpChanged = onGridCellSizeDpChanged,
                     onFadeReadItemsChanged = onFadeReadItemsChanged,
                 )
@@ -395,18 +408,65 @@ fun LibraryScreen(
                 }
             }
         }
-        if (alphabetRailVisible) {
-            AlphabetRail(
-                letters = sortLetters,
-                selectedLetter = effectiveSortLetter,
-                onLetterSelected = { letter ->
-                    selectedSortLetter = if (effectiveSortLetter == letter) null else letter
-                },
+        val showBackToTop by remember(
+            gridState,
+            leadingContentItemCount,
+            gridPresentation.selectedGridSize.columnCount,
+        ) {
+            derivedStateOf {
+                shouldShowLibraryBackToTop(
+                    firstVisibleItemIndex = gridState.firstVisibleItemIndex,
+                    firstVisibleItemScrollOffset = gridState.firstVisibleItemScrollOffset,
+                    leadingContentItemCount = leadingContentItemCount,
+                    columnCount = gridPresentation.selectedGridSize.columnCount,
+                )
+            }
+        }
+        if (alphabetRailVisible || showBackToTop) {
+            Column(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
-                    .padding(end = 8.dp)
-                    .padding(vertical = 6.dp),
-            )
+                    .fillMaxHeight()
+                    .padding(end = 8.dp, top = 8.dp, bottom = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                if (alphabetRailVisible) {
+                    AlphabetNavigationRail(
+                        sections = sortLetters,
+                        activeSection = activeSortLetter,
+                        onSectionSelected = { section ->
+                            alphabetSectionStarts[section]?.let { itemIndex ->
+                                coroutineScope.launch {
+                                    gridState.scrollToItem(
+                                        leadingContentItemCount + itemIndex,
+                                    )
+                                }
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                    )
+                } else {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+                AnimatedVisibility(visible = showBackToTop) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        if (alphabetRailVisible) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                        LibraryBackToTopButton(
+                            onClick = {
+                                coroutineScope.launch {
+                                    if (gridState.firstVisibleItemIndex <= 80) {
+                                        gridState.animateScrollToItem(0)
+                                    } else {
+                                        gridState.scrollToItem(0)
+                                    }
+                                }
+                            },
+                        )
+                    }
+                }
+            }
         }
     }
 

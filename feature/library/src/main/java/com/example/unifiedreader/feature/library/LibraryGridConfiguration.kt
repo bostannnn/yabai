@@ -20,7 +20,7 @@ internal val supportedLibraryGridCellSizesDp: List<Int> = listOf(
 internal val libraryGridHorizontalSpacingDp: Dp = 16.dp
 internal val libraryGridStartPaddingDp: Dp = 16.dp
 internal val libraryGridEndPaddingDp: Dp = 16.dp
-internal val libraryGridAlphabetRailEndPaddingDp: Dp = 56.dp
+internal val libraryGridNavigationEndPaddingDp: Dp = 56.dp
 
 internal data class LibraryGridSizeOption(
     val cellSizeDp: Int,

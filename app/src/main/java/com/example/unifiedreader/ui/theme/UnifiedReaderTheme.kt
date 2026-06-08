@@ -645,7 +645,7 @@ private fun ThemeMode.toPresentationTokens(): UnifiedReaderPresentationTokens = 
         shelfItemSpacing = 8.dp,
         searchHeight = 36.dp,
         accentRailWidth = 5.dp,
-        alphabetRailWidth = 30.dp,
+        alphabetRailWidth = 40.dp,
     )
     ThemeMode.CrimsonCourt -> UnifiedReaderPresentationTokens(
         cardCornerRadius = 22.dp,
@@ -657,7 +657,7 @@ private fun ThemeMode.toPresentationTokens(): UnifiedReaderPresentationTokens = 
         shelfItemSpacing = 14.dp,
         searchHeight = 42.dp,
         accentRailWidth = 5.dp,
-        alphabetRailWidth = 30.dp,
+        alphabetRailWidth = 40.dp,
     )
     ThemeMode.PanelPop -> UnifiedReaderPresentationTokens(
         cardCornerRadius = 8.dp,
@@ -669,7 +669,7 @@ private fun ThemeMode.toPresentationTokens(): UnifiedReaderPresentationTokens = 
         shelfItemSpacing = 10.dp,
         searchHeight = 38.dp,
         accentRailWidth = 6.dp,
-        alphabetRailWidth = 30.dp,
+        alphabetRailWidth = 40.dp,
     )
     ThemeMode.Blueprint -> UnifiedReaderPresentationTokens(
         cardCornerRadius = 6.dp,
@@ -681,7 +681,7 @@ private fun ThemeMode.toPresentationTokens(): UnifiedReaderPresentationTokens = 
         shelfItemSpacing = 9.dp,
         searchHeight = 38.dp,
         accentRailWidth = 3.dp,
-        alphabetRailWidth = 32.dp,
+        alphabetRailWidth = 42.dp,
     )
     ThemeMode.VhsNight -> UnifiedReaderPresentationTokens(
         cardCornerRadius = 16.dp,
@@ -693,7 +693,7 @@ private fun ThemeMode.toPresentationTokens(): UnifiedReaderPresentationTokens = 
         shelfItemSpacing = 12.dp,
         searchHeight = 40.dp,
         accentRailWidth = 5.dp,
-        alphabetRailWidth = 30.dp,
+        alphabetRailWidth = 40.dp,
     )
     ThemeMode.DetectiveFile -> UnifiedReaderPresentationTokens(
         cardCornerRadius = 8.dp,
@@ -705,7 +705,7 @@ private fun ThemeMode.toPresentationTokens(): UnifiedReaderPresentationTokens = 
         shelfItemSpacing = 10.dp,
         searchHeight = 38.dp,
         accentRailWidth = 4.dp,
-        alphabetRailWidth = 32.dp,
+        alphabetRailWidth = 42.dp,
     )
     else -> UnifiedReaderPresentationTokens(
         cardCornerRadius = 18.dp,
@@ -717,7 +717,7 @@ private fun ThemeMode.toPresentationTokens(): UnifiedReaderPresentationTokens = 
         shelfItemSpacing = 12.dp,
         searchHeight = 40.dp,
         accentRailWidth = 4.dp,
-        alphabetRailWidth = 28.dp,
+        alphabetRailWidth = 40.dp,
     )
 }
 

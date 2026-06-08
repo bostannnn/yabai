@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -18,6 +17,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
@@ -38,18 +38,16 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -62,10 +60,10 @@ import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.authorFacetKey
 import com.example.unifiedreader.core.model.displayName
-import com.example.unifiedreader.ui.theme.UnifiedReaderSelectionTreatment
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import com.example.unifiedreader.ui.theme.unifiedReaderComponentTreatment
 import com.example.unifiedreader.ui.theme.unifiedReaderSurfacePattern
+import kotlinx.coroutines.launch
 
 @Composable
 internal fun EmptyLibraryState(
@@ -628,12 +626,15 @@ private fun SearchableTextFacetDialog(
     onDismiss: () -> Unit,
 ) {
     var query by rememberSaveable(title) { mutableStateOf("") }
-    var selectedLetter by rememberSaveable(title) { mutableStateOf<String?>(null) }
-    val displayValues = remember(values, selectedValues, valueKey) {
+    val coroutineScope = rememberCoroutineScope()
+    val gridState = remember(title) { LazyGridState() }
+    val displayValues = remember(values, selectedValues, valueKey, valueLabel, letterKey) {
         searchableFacetDisplayValues(
             values = values,
             selectedValues = selectedValues,
             valueKey = valueKey,
+            valueLabel = valueLabel,
+            letterKey = letterKey,
         )
     }
     val searchedValues = remember(displayValues, query, valueLabel) {
@@ -645,19 +646,30 @@ private fun SearchableTextFacetDialog(
         }
     }
     val availableLetters = remember(searchedValues, letterKey, valueLabel) {
-        searchedValues
-            .mapNotNull { value -> valueLabel(value).filterLetter(letterKey) }
-            .distinct()
-            .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it })
+        alphabetNavigationSections(
+            searchedValues.mapNotNull { value -> valueLabel(value).filterLetter(letterKey) },
+        )
     }
-    val effectiveLetter = selectedLetter?.takeIf { it in availableLetters }
-    val visibleValues = remember(searchedValues, effectiveLetter, letterKey, valueLabel) {
-        effectiveLetter?.let { letter ->
-            searchedValues.filter { value -> valueLabel(value).filterLetter(letterKey) == letter }
-        } ?: searchedValues
+    val valueAlphabetSections = remember(searchedValues, letterKey, valueLabel) {
+        searchedValues.map { value -> valueLabel(value).filterLetter(letterKey) }
+    }
+    val alphabetSectionStarts = remember(valueAlphabetSections) {
+        alphabetSectionStarts(valueAlphabetSections)
+    }
+    val activeLetter by remember(gridState, valueAlphabetSections) {
+        derivedStateOf {
+            activeAlphabetSection(
+                sectionKeys = valueAlphabetSections,
+                firstVisibleItemIndex = gridState.firstVisibleItemIndex,
+                leadingContentItemCount = 0,
+            )
+        }
     }
     val availableValues = remember(values) { values.toSet() }
-    val viewportHeight = searchableFacetViewportHeight(visibleValues.size)
+    val viewportHeight = searchableFacetViewportHeight(searchedValues.size)
+    LaunchedEffect(query) {
+        gridState.scrollToItem(0)
+    }
     FilterDialogScaffold(
         title = title,
         hasActiveFilters = hasActiveFilters,
@@ -677,10 +689,7 @@ private fun SearchableTextFacetDialog(
             }
             OutlinedTextField(
                 value = query,
-                onValueChange = {
-                    query = it
-                    selectedLetter = null
-                },
+                onValueChange = { query = it },
                 modifier = Modifier
                     .fillMaxWidth()
                     .libraryAccentTextFieldTreatment(selected = query.isNotEmpty()),
@@ -694,13 +703,14 @@ private fun SearchableTextFacetDialog(
             ) {
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 180.dp),
+                    state = gridState,
                     modifier = Modifier
                         .weight(1f)
                         .height(viewportHeight),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    if (visibleValues.isEmpty()) {
+                    if (searchedValues.isEmpty()) {
                         item(span = { GridItemSpan(maxLineSpan) }) {
                             Text(
                                 text = "No matches",
@@ -710,7 +720,7 @@ private fun SearchableTextFacetDialog(
                             )
                         }
                     }
-                    items(visibleValues, key = { it }) { value ->
+                    items(searchedValues, key = { it }) { value ->
                         TextFacetRow(
                             value = valueLabel(value),
                             selected = value in selectedValues,
@@ -719,15 +729,20 @@ private fun SearchableTextFacetDialog(
                         )
                     }
                 }
-                AlphabetRail(
-                    letters = availableLetters,
-                    selectedLetter = effectiveLetter,
-                    onLetterSelected = { letter ->
-                        selectedLetter = if (effectiveLetter == letter) null else letter
-                    },
-                    modifier = Modifier
-                        .height(viewportHeight),
-                )
+                if (availableLetters.isNotEmpty()) {
+                    AlphabetNavigationRail(
+                        sections = availableLetters,
+                        activeSection = activeLetter,
+                        onSectionSelected = { section ->
+                            alphabetSectionStarts[section]?.let { valueIndex ->
+                                coroutineScope.launch {
+                                    gridState.scrollToItem(valueIndex)
+                                }
+                            }
+                        },
+                        modifier = Modifier.height(viewportHeight),
+                    )
+                }
             }
         }
     }
@@ -737,7 +752,21 @@ internal fun searchableFacetDisplayValues(
     values: List<String>,
     selectedValues: Set<String>,
     valueKey: (String) -> String,
-): List<String> = (values + selectedValues).distinctBy(valueKey)
+    valueLabel: (String) -> String = { it },
+    letterKey: (String) -> String = { it },
+): List<String> = (values + selectedValues)
+    .distinctBy(valueKey)
+    .sortedWith(searchableFacetDisplayComparator(valueLabel, letterKey))
+
+private fun searchableFacetDisplayComparator(
+    valueLabel: (String) -> String,
+    letterKey: (String) -> String,
+): Comparator<String> = Comparator { left, right ->
+    letterKey(valueLabel(left)).compareTo(letterKey(valueLabel(right)), ignoreCase = true)
+        .takeIf { it != 0 }
+        ?: valueLabel(left).compareTo(valueLabel(right), ignoreCase = true).takeIf { it != 0 }
+        ?: left.compareTo(right, ignoreCase = true)
+}
 
 @Composable
 private fun FilterDialogScaffold(
@@ -809,120 +838,6 @@ private fun FilterDialogScaffold(
             }
         }
     }
-}
-
-@Composable
-internal fun AlphabetRail(
-    letters: List<String>,
-    selectedLetter: String?,
-    onLetterSelected: (String?) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val presentation = UnifiedReaderThemeTokens.presentation
-    val semanticColors = UnifiedReaderThemeTokens.colors
-    val railRecipe = UnifiedReaderThemeTokens.components.rail
-    val railShape = RoundedCornerShape(presentation.controlCornerRadius)
-    LazyColumn(
-        modifier = modifier
-            .width(presentation.alphabetRailWidth)
-            .heightIn(
-                min = SearchableFacetViewportMinHeight,
-                max = SearchableFacetViewportMaxHeight,
-            )
-            .clip(railShape)
-            .background(
-                semanticColors.surfaceBase.copy(alpha = railRecipe.containerAlpha),
-            )
-            .unifiedReaderComponentTreatment(
-                recipe = railRecipe,
-                accentColor = semanticColors.readerAccent,
-                secondaryColor = semanticColors.syncAccent,
-                overlayColor = MaterialTheme.colorScheme.onSurface,
-                shape = railShape,
-            ),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        item(key = "all") {
-            AlphabetRailItem(
-                label = "All",
-                selected = selectedLetter == null,
-                onClick = { onLetterSelected(null) },
-            )
-        }
-        items(letters, key = { it }) { letter ->
-            AlphabetRailItem(
-                label = letter,
-                selected = selectedLetter == letter,
-                onClick = { onLetterSelected(letter) },
-            )
-        }
-    }
-}
-
-@Composable
-private fun AlphabetRailItem(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    val semanticColors = UnifiedReaderThemeTokens.colors
-    val selectionTreatment = UnifiedReaderThemeTokens.components.rail.selectionTreatment
-    val backgroundColor = when {
-        !selected -> Color.Transparent
-        selectionTreatment == UnifiedReaderSelectionTreatment.Inverse -> semanticColors.readerAccent
-        selectionTreatment == UnifiedReaderSelectionTreatment.Stamp -> semanticColors.syncAccentContainer
-        selectionTreatment == UnifiedReaderSelectionTreatment.Underline ||
-            selectionTreatment == UnifiedReaderSelectionTreatment.SideMark -> Color.Transparent
-        else -> semanticColors.surfaceSelected
-    }
-    val textColor = when {
-        !selected -> semanticColors.sourceAccent
-        selectionTreatment == UnifiedReaderSelectionTreatment.Inverse -> semanticColors.onReaderAccent
-        selectionTreatment == UnifiedReaderSelectionTreatment.Stamp -> semanticColors.onSyncAccentContainer
-        selectionTreatment == UnifiedReaderSelectionTreatment.Underline ||
-            selectionTreatment == UnifiedReaderSelectionTreatment.SideMark -> semanticColors.readerAccent
-        else -> semanticColors.onSurfaceSelected
-    }
-    val selectedDecoration = if (selected) {
-        Modifier.drawWithCache {
-            val stroke = 2.dp.toPx().coerceAtLeast(1f)
-            onDrawWithContent {
-                drawContent()
-                when (selectionTreatment) {
-                    UnifiedReaderSelectionTreatment.Underline -> drawLine(
-                        color = semanticColors.syncAccent,
-                        start = Offset(2.dp.toPx(), size.height - stroke / 2f),
-                        end = Offset(size.width - 2.dp.toPx(), size.height - stroke / 2f),
-                        strokeWidth = stroke,
-                    )
-                    UnifiedReaderSelectionTreatment.SideMark -> drawRect(
-                        color = semanticColors.readerAccent,
-                        size = Size(stroke, size.height),
-                    )
-                    UnifiedReaderSelectionTreatment.Stamp -> {
-                        drawRect(
-                            color = semanticColors.syncAccent.copy(alpha = 0.72f),
-                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke),
-                        )
-                    }
-                    else -> Unit
-                }
-            }
-        }
-    } else {
-        Modifier
-    }
-    Text(
-        text = label,
-        modifier = Modifier
-            .background(backgroundColor, libraryAccentFilterChipShape())
-            .then(selectedDecoration)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 4.dp, vertical = 2.dp),
-        style = MaterialTheme.typography.labelSmall,
-        color = textColor,
-        maxLines = 1,
-    )
 }
 
 @Composable

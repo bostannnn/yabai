@@ -1,13 +1,17 @@
 package com.example.unifiedreader.feature.library
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -21,11 +25,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,6 +42,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 
 data class KavitaScopeLandingItem(
     val id: String,
@@ -68,7 +72,7 @@ fun KavitaScopeLandingScreen(
     onItemSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var selectedLetter by rememberSaveable(title, searchQuery) { mutableStateOf<String?>(null) }
+    val coroutineScope = rememberCoroutineScope()
     val searchedItems = remember(items, searchQuery) {
         val query = searchQuery.trim()
         items
@@ -80,32 +84,35 @@ fun KavitaScopeLandingScreen(
             .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { item -> item.title })
     }
     val sortLetters = remember(searchedItems) {
-        searchedItems
-            .mapNotNull { item -> item.title.filterLetter { it } }
-            .distinct()
-            .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it })
+        alphabetNavigationSections(
+            searchedItems.mapNotNull { item -> item.title.filterLetter { it } },
+        )
     }
-    val effectiveLetter = selectedLetter?.takeIf { it in sortLetters }
-    val visibleItems = remember(searchedItems, effectiveLetter) {
-        effectiveLetter?.let { letter ->
-            searchedItems.filter { item -> item.title.filterLetter { it } == letter }
-        } ?: searchedItems
+    val itemAlphabetSections = remember(searchedItems) {
+        searchedItems.map { item -> item.title.filterLetter { it } }
     }
-    val visibleCoverItems = remember(visibleItems) {
-        visibleItems.map(KavitaScopeLandingItem::toCoverItem)
+    val alphabetSectionStarts = remember(itemAlphabetSections) {
+        alphabetSectionStarts(itemAlphabetSections)
+    }
+    val visibleCoverItems = remember(searchedItems) {
+        searchedItems.map(KavitaScopeLandingItem::toCoverItem)
     }
     val visibleCoverItemsById = remember(visibleCoverItems) {
         visibleCoverItems.associateBy(ReadableItem::id)
     }
     val alphabetRailVisible = sortLetters.size > 1 && searchedItems.isNotEmpty()
-    val gridState = remember(title) { LazyGridState() }
-
-    LaunchedEffect(selectedLetter, effectiveLetter) {
-        if (selectedLetter != effectiveLetter) {
-            selectedLetter = effectiveLetter
+    val gridState = remember(browseContextKey) { LazyGridState() }
+    val activeLetter by remember(gridState, itemAlphabetSections) {
+        derivedStateOf {
+            activeAlphabetSection(
+                sectionKeys = itemAlphabetSections,
+                firstVisibleItemIndex = gridState.firstVisibleItemIndex,
+                leadingContentItemCount = 1,
+            )
         }
     }
-    LaunchedEffect(title, searchQuery, effectiveLetter) {
+
+    LaunchedEffect(browseContextKey, searchQuery) {
         gridState.scrollToItem(0)
     }
     LaunchedEffect(gridState, onCoverViewportScrollingChanged) {
@@ -120,8 +127,9 @@ fun KavitaScopeLandingScreen(
     }
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        val gridEndPadding = if (alphabetRailVisible) {
-            libraryGridAlphabetRailEndPaddingDp
+        val navigationControlsCanAppear = alphabetRailVisible || searchedItems.isNotEmpty()
+        val gridEndPadding = if (navigationControlsCanAppear) {
+            libraryGridNavigationEndPaddingDp
         } else {
             libraryGridEndPaddingDp
         }
@@ -180,7 +188,7 @@ fun KavitaScopeLandingScreen(
                     )
                 }
 
-                visibleItems.isEmpty() -> item(
+                searchedItems.isEmpty() -> item(
                     key = "kavita-scope-empty",
                     span = { GridItemSpan(maxLineSpan) },
                 ) {
@@ -194,7 +202,7 @@ fun KavitaScopeLandingScreen(
                 }
 
                 else -> items(
-                    items = visibleItems,
+                    items = searchedItems,
                     key = KavitaScopeLandingItem::id,
                     contentType = { LibraryScreenContentTypes.GridItem },
                 ) { item ->
@@ -208,22 +216,61 @@ fun KavitaScopeLandingScreen(
                 }
             }
         }
-        if (alphabetRailVisible) {
-            Surface(
+        val showBackToTop by remember(
+            gridState,
+            gridPresentation.selectedGridSize.columnCount,
+        ) {
+            derivedStateOf {
+                shouldShowLibraryBackToTop(
+                    firstVisibleItemIndex = gridState.firstVisibleItemIndex,
+                    firstVisibleItemScrollOffset = gridState.firstVisibleItemScrollOffset,
+                    leadingContentItemCount = 1,
+                    columnCount = gridPresentation.selectedGridSize.columnCount,
+                )
+            }
+        }
+        if (alphabetRailVisible || showBackToTop) {
+            Column(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
-                    .padding(end = 8.dp),
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
-                tonalElevation = 2.dp,
-                shadowElevation = 2.dp,
+                    .fillMaxHeight()
+                    .padding(end = 8.dp, top = 8.dp, bottom = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                AlphabetRail(
-                    letters = sortLetters,
-                    selectedLetter = effectiveLetter,
-                    onLetterSelected = { letter -> selectedLetter = letter },
-                    modifier = Modifier.padding(vertical = 6.dp),
-                )
+                if (alphabetRailVisible) {
+                    AlphabetNavigationRail(
+                        sections = sortLetters,
+                        activeSection = activeLetter,
+                        onSectionSelected = { section ->
+                            alphabetSectionStarts[section]?.let { itemIndex ->
+                                coroutineScope.launch {
+                                    gridState.scrollToItem(1 + itemIndex)
+                                }
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                    )
+                } else {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+                AnimatedVisibility(visible = showBackToTop) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        if (alphabetRailVisible) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                        LibraryBackToTopButton(
+                            onClick = {
+                                coroutineScope.launch {
+                                    if (gridState.firstVisibleItemIndex <= 80) {
+                                        gridState.animateScrollToItem(0)
+                                    } else {
+                                        gridState.scrollToItem(0)
+                                    }
+                                }
+                            },
+                        )
+                    }
+                }
             }
         }
     }

@@ -87,4 +87,14 @@ private fun expressiveComponentTokens(
         borderWidth = borderWidth,
         containerAlpha = 0.76f,
     ),
+    backToTop = UnifiedReaderComponentRecipe(
+        surfaceTreatment = surfaceTreatment,
+        borderTreatment = borderTreatment,
+        frameTreatment = frameTreatment,
+        selectionTreatment = selectionTreatment,
+        patternIntensity = 0.38f,
+        frameAlpha = 0.14f,
+        borderWidth = borderWidth,
+        containerAlpha = 0.88f,
+    ),
 )

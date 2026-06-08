@@ -85,4 +85,82 @@ class LibraryScreenGridActionsTest {
         composeRule.onNodeWithText("Akira").assertExists()
         composeRule.onNodeWithText("12").assertExists()
     }
+
+    @Test
+    fun alphabetNavigationHiddenDuringSearch() {
+        val items = listOf(
+            ReadableItem(
+                id = "kavita:item:batman",
+                sourceType = SourceType.KAVITA,
+                libraryId = "kavita:library:comics",
+                remoteId = "batman",
+                title = "Batman",
+                format = FormatType.CBZ,
+            ),
+            ReadableItem(
+                id = "kavita:item:catwoman",
+                sourceType = SourceType.KAVITA,
+                libraryId = "kavita:library:comics",
+                remoteId = "catwoman",
+                title = "Catwoman",
+                format = FormatType.CBZ,
+            ),
+        )
+
+        composeRule.setContent {
+            MaterialTheme {
+                LibraryScreen(
+                    selectedSource = SourceType.KAVITA,
+                    browseContextKey = "grid-search-alphabet",
+                    items = items,
+                    viewMode = LibraryViewMode.Grid,
+                    sortMode = LibrarySortMode.TITLE,
+                    searchQuery = "bat",
+                    onItemSelected = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithContentDescription("Jump to B").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("Jump to C").assertDoesNotExist()
+    }
+
+    @Test
+    fun alphabetNavigationShownWhenSearchIsBlank() {
+        val items = listOf(
+            ReadableItem(
+                id = "kavita:item:batman",
+                sourceType = SourceType.KAVITA,
+                libraryId = "kavita:library:comics",
+                remoteId = "batman",
+                title = "Batman",
+                format = FormatType.CBZ,
+            ),
+            ReadableItem(
+                id = "kavita:item:catwoman",
+                sourceType = SourceType.KAVITA,
+                libraryId = "kavita:library:comics",
+                remoteId = "catwoman",
+                title = "Catwoman",
+                format = FormatType.CBZ,
+            ),
+        )
+
+        composeRule.setContent {
+            MaterialTheme {
+                LibraryScreen(
+                    selectedSource = SourceType.KAVITA,
+                    browseContextKey = "grid-blank-search-alphabet",
+                    items = items,
+                    viewMode = LibraryViewMode.Grid,
+                    sortMode = LibrarySortMode.TITLE,
+                    searchQuery = "",
+                    onItemSelected = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithContentDescription("Jump to B").assertExists()
+        composeRule.onNodeWithContentDescription("Jump to C").assertExists()
+    }
 }
