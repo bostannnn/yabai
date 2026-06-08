@@ -13,11 +13,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -29,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
+import com.example.unifiedreader.ui.theme.UnifiedReaderModalBottomSheet
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import com.example.unifiedreader.ui.theme.unifiedReaderComponentTreatment
 import com.example.unifiedreader.ui.theme.unifiedReaderSurfacePattern
@@ -49,7 +48,6 @@ internal sealed interface JournalDetailsTarget {
     ) : JournalDetailsTarget
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun JournalDetailsModal(
     target: JournalDetailsTarget,
@@ -64,10 +62,6 @@ internal fun JournalDetailsModal(
     val presentation = UnifiedReaderThemeTokens.presentation
     val sheetRecipe = UnifiedReaderThemeTokens.components.sheet
     val dialogShape = RoundedCornerShape(presentation.cardCornerRadius)
-    val sheetShape = RoundedCornerShape(
-        topStart = presentation.cardCornerRadius,
-        topEnd = presentation.cardCornerRadius,
-    )
     if (useDialog) {
         Dialog(onDismissRequest = onDismiss) {
             Surface(
@@ -97,17 +91,8 @@ internal fun JournalDetailsModal(
             }
         }
     } else {
-        ModalBottomSheet(
+        UnifiedReaderModalBottomSheet(
             onDismissRequest = onDismiss,
-            modifier = Modifier.unifiedReaderComponentTreatment(
-                recipe = sheetRecipe,
-                accentColor = semanticColors.readerAccent,
-                secondaryColor = semanticColors.syncAccent,
-                overlayColor = MaterialTheme.colorScheme.onSurface,
-                shape = sheetShape,
-            ),
-            containerColor = semanticColors.surfaceBase,
-            shape = sheetShape,
         ) {
             JournalDetailsContent(
                 target = target,

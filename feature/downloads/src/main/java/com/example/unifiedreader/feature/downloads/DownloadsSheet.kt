@@ -22,12 +22,10 @@ import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Card
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,11 +40,10 @@ import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.core.model.librarySecondaryText
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.ResolvedLibraryCover
+import com.example.unifiedreader.ui.theme.UnifiedReaderModalBottomSheet
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
-import com.example.unifiedreader.ui.theme.unifiedReaderComponentTreatment
 import com.example.unifiedreader.ui.theme.unifiedReaderSurfacePattern
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadsSheet(
     snapshot: DownloadEntriesSnapshot,
@@ -61,23 +58,9 @@ fun DownloadsSheet(
     onOpenEntry: (String) -> Unit,
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
-    val presentation = UnifiedReaderThemeTokens.presentation
     val sheetRecipe = UnifiedReaderThemeTokens.components.sheet
-    val sheetShape = RoundedCornerShape(
-        topStart = presentation.cardCornerRadius,
-        topEnd = presentation.cardCornerRadius,
-    )
-    ModalBottomSheet(
+    UnifiedReaderModalBottomSheet(
         onDismissRequest = onDismiss,
-        modifier = Modifier.unifiedReaderComponentTreatment(
-            recipe = sheetRecipe,
-            accentColor = semanticColors.readerAccent,
-            secondaryColor = semanticColors.syncAccent,
-            overlayColor = MaterialTheme.colorScheme.onSurface,
-            shape = sheetShape,
-        ),
-        containerColor = semanticColors.surfaceBase,
-        shape = sheetShape,
     ) {
         Column(
             modifier = Modifier

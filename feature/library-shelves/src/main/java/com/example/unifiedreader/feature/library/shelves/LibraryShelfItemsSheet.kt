@@ -11,9 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,7 +19,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -33,8 +30,8 @@ import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
 import com.example.unifiedreader.feature.library.hasMenuContent
 import com.example.unifiedreader.feature.library.isDownloaded
+import com.example.unifiedreader.ui.theme.UnifiedReaderModalBottomSheet
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
-import com.example.unifiedreader.ui.theme.unifiedReaderComponentTreatment
 import com.example.unifiedreader.ui.theme.unifiedReaderSurfacePattern
 
 internal sealed interface LibraryShelfSheetState {
@@ -63,7 +60,6 @@ internal sealed interface LibraryShelfSheetState {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun LibraryShelfItemsSheet(
     sheet: LibraryShelfSheetState,
@@ -75,29 +71,15 @@ internal fun LibraryShelfItemsSheet(
     onDeleteImportedItem: (ReadableItem) -> Unit,
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
-    val presentation = UnifiedReaderThemeTokens.presentation
     val sheetRecipe = UnifiedReaderThemeTokens.components.sheet
-    val sheetShape = RoundedCornerShape(
-        topStart = presentation.cardCornerRadius,
-        topEnd = presentation.cardCornerRadius,
-    )
     val listState = rememberLazyListState()
     var expandedMenuItemId by remember(sheet) { mutableStateOf<String?>(null) }
     LaunchedEffect(sheet) {
         listState.scrollToItem(0)
     }
 
-    ModalBottomSheet(
+    UnifiedReaderModalBottomSheet(
         onDismissRequest = onDismiss,
-        modifier = Modifier.unifiedReaderComponentTreatment(
-            recipe = sheetRecipe,
-            accentColor = semanticColors.readerAccent,
-            secondaryColor = semanticColors.syncAccent,
-            overlayColor = MaterialTheme.colorScheme.onSurface,
-            shape = sheetShape,
-        ),
-        containerColor = semanticColors.surfaceBase,
-        shape = sheetShape,
     ) {
         Column(
             modifier = Modifier
