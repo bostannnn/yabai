@@ -6,12 +6,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -127,8 +124,7 @@ fun KavitaScopeLandingScreen(
     }
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        val navigationControlsCanAppear = alphabetRailVisible || searchedItems.isNotEmpty()
-        val gridEndPadding = if (navigationControlsCanAppear) {
+        val gridEndPadding = if (alphabetRailVisible) {
             libraryGridNavigationEndPaddingDp
         } else {
             libraryGridEndPaddingDp
@@ -229,49 +225,46 @@ fun KavitaScopeLandingScreen(
                 )
             }
         }
-        if (alphabetRailVisible || showBackToTop) {
-            Column(
+        if (alphabetRailVisible) {
+            AlphabetNavigationRail(
+                sections = sortLetters,
+                activeSection = activeLetter,
+                onSectionSelected = { section ->
+                    alphabetSectionStarts[section]?.let { itemIndex ->
+                        coroutineScope.launch {
+                            gridState.scrollToItem(1 + itemIndex)
+                        }
+                    }
+                },
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
-                    .fillMaxHeight()
-                    .padding(end = 8.dp, top = 8.dp, bottom = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                if (alphabetRailVisible) {
-                    AlphabetNavigationRail(
-                        sections = sortLetters,
-                        activeSection = activeLetter,
-                        onSectionSelected = { section ->
-                            alphabetSectionStarts[section]?.let { itemIndex ->
-                                coroutineScope.launch {
-                                    gridState.scrollToItem(1 + itemIndex)
-                                }
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                    )
-                } else {
-                    Spacer(modifier = Modifier.weight(1f))
-                }
-                AnimatedVisibility(visible = showBackToTop) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        if (alphabetRailVisible) {
-                            Spacer(modifier = Modifier.height(8.dp))
+                    .padding(end = 8.dp, top = 8.dp, bottom = 8.dp),
+            )
+        }
+        AnimatedVisibility(
+            visible = showBackToTop,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(
+                    end = if (alphabetRailVisible) {
+                        libraryGridNavigationEndPaddingDp + 12.dp
+                    } else {
+                        libraryGridEndPaddingDp
+                    },
+                    bottom = 24.dp,
+                ),
+        ) {
+            LibraryBackToTopButton(
+                onClick = {
+                    coroutineScope.launch {
+                        if (gridState.firstVisibleItemIndex <= 80) {
+                            gridState.animateScrollToItem(0)
+                        } else {
+                            gridState.scrollToItem(0)
                         }
-                        LibraryBackToTopButton(
-                            onClick = {
-                                coroutineScope.launch {
-                                    if (gridState.firstVisibleItemIndex <= 80) {
-                                        gridState.animateScrollToItem(0)
-                                    } else {
-                                        gridState.scrollToItem(0)
-                                    }
-                                }
-                            },
-                        )
                     }
-                }
-            }
+                },
+            )
         }
     }
 }

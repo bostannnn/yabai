@@ -4,12 +4,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.LazyGridLayoutInfo
 import androidx.compose.foundation.lazy.grid.LazyGridPrefetchScope
@@ -253,8 +249,7 @@ fun LibraryScreen(
     }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val navigationControlsCanAppear = alphabetRailVisible || visibleItems.isNotEmpty()
-        val gridEndPadding = if (navigationControlsCanAppear) {
+        val gridEndPadding = if (alphabetRailVisible) {
             libraryGridNavigationEndPaddingDp
         } else {
             libraryGridEndPaddingDp
@@ -422,51 +417,48 @@ fun LibraryScreen(
                 )
             }
         }
-        if (alphabetRailVisible || showBackToTop) {
-            Column(
+        if (alphabetRailVisible) {
+            AlphabetNavigationRail(
+                sections = sortLetters,
+                activeSection = activeSortLetter,
+                onSectionSelected = { section ->
+                    alphabetSectionStarts[section]?.let { itemIndex ->
+                        coroutineScope.launch {
+                            gridState.scrollToItem(
+                                leadingContentItemCount + itemIndex,
+                            )
+                        }
+                    }
+                },
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
-                    .fillMaxHeight()
-                    .padding(end = 8.dp, top = 8.dp, bottom = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                if (alphabetRailVisible) {
-                    AlphabetNavigationRail(
-                        sections = sortLetters,
-                        activeSection = activeSortLetter,
-                        onSectionSelected = { section ->
-                            alphabetSectionStarts[section]?.let { itemIndex ->
-                                coroutineScope.launch {
-                                    gridState.scrollToItem(
-                                        leadingContentItemCount + itemIndex,
-                                    )
-                                }
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                    )
-                } else {
-                    Spacer(modifier = Modifier.weight(1f))
-                }
-                AnimatedVisibility(visible = showBackToTop) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        if (alphabetRailVisible) {
-                            Spacer(modifier = Modifier.height(8.dp))
+                    .padding(end = 8.dp, top = 8.dp, bottom = 8.dp),
+            )
+        }
+        AnimatedVisibility(
+            visible = showBackToTop,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(
+                    end = if (alphabetRailVisible) {
+                        libraryGridNavigationEndPaddingDp + 12.dp
+                    } else {
+                        libraryGridEndPaddingDp
+                    },
+                    bottom = 24.dp,
+                ),
+        ) {
+            LibraryBackToTopButton(
+                onClick = {
+                    coroutineScope.launch {
+                        if (gridState.firstVisibleItemIndex <= 80) {
+                            gridState.animateScrollToItem(0)
+                        } else {
+                            gridState.scrollToItem(0)
                         }
-                        LibraryBackToTopButton(
-                            onClick = {
-                                coroutineScope.launch {
-                                    if (gridState.firstVisibleItemIndex <= 80) {
-                                        gridState.animateScrollToItem(0)
-                                    } else {
-                                        gridState.scrollToItem(0)
-                                    }
-                                }
-                            },
-                        )
                     }
-                }
-            }
+                },
+            )
         }
     }
 

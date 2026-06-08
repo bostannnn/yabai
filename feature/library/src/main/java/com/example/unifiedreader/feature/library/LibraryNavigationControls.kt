@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,15 +16,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.VerticalAlignTop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,24 +58,7 @@ internal fun AlphabetNavigationRail(
     val railRecipe = UnifiedReaderThemeTokens.components.rail
     val railShape = RoundedCornerShape(presentation.controlCornerRadius)
     val currentOnSectionSelected by rememberUpdatedState(onSectionSelected)
-    var railHeightPx by remember { mutableIntStateOf(0) }
-    var draggedSection by remember { mutableStateOf<String?>(null) }
-
-    fun selectSectionAt(position: Offset) {
-        if (railHeightPx <= 0) return
-        val sectionIndex = (
-            position.y.coerceIn(0f, railHeightPx.toFloat() - 1f) /
-                railHeightPx.toFloat() *
-                sections.size
-            )
-            .toInt()
-            .coerceIn(sections.indices)
-        val section = sections[sectionIndex]
-        if (section != draggedSection) {
-            draggedSection = section
-            currentOnSectionSelected(section)
-        }
-    }
+    val railHeightPx = remember { mutableIntStateOf(0) }
 
     Box(
         modifier = modifier
@@ -88,7 +68,7 @@ internal fun AlphabetNavigationRail(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .onSizeChanged { size -> railHeightPx = size.height }
+                .onSizeChanged { size -> railHeightPx.intValue = size.height }
                 .clip(railShape)
                 .background(
                     semanticColors.surfaceBase.copy(alpha = railRecipe.containerAlpha),
@@ -100,15 +80,31 @@ internal fun AlphabetNavigationRail(
                     overlayColor = MaterialTheme.colorScheme.onSurface,
                     shape = railShape,
                 )
-                .pointerInput(sections, railHeightPx) {
+                .pointerInput(sections, railHeightPx.intValue) {
+                    var lastSelectedSection: String? = null
+                    fun selectSectionAt(position: Offset) {
+                        if (railHeightPx.intValue <= 0) return
+                        val sectionIndex = (
+                            position.y.coerceIn(0f, railHeightPx.intValue.toFloat() - 1f) /
+                                railHeightPx.intValue.toFloat() *
+                                sections.size
+                            )
+                            .toInt()
+                            .coerceIn(sections.indices)
+                        val section = sections[sectionIndex]
+                        if (section != lastSelectedSection) {
+                            lastSelectedSection = section
+                            currentOnSectionSelected(section)
+                        }
+                    }
                     detectVerticalDragGestures(
                         onDragStart = ::selectSectionAt,
                         onVerticalDrag = { change, _ ->
                             change.consume()
                             selectSectionAt(change.position)
                         },
-                        onDragEnd = { draggedSection = null },
-                        onDragCancel = { draggedSection = null },
+                        onDragEnd = { lastSelectedSection = null },
+                        onDragCancel = { lastSelectedSection = null },
                     )
                 },
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -116,32 +112,10 @@ internal fun AlphabetNavigationRail(
             sections.forEach { section ->
                 AlphabetNavigationItem(
                     label = section,
-                    selected = activeSection == section || draggedSection == section,
+                    selected = activeSection == section,
                     onClick = { currentOnSectionSelected(section) },
                     modifier = Modifier.weight(1f),
                 )
-            }
-        }
-
-        draggedSection?.let { section ->
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .offset(x = (-58).dp)
-                    .size(48.dp),
-                shape = RoundedCornerShape(presentation.controlCornerRadius),
-                color = semanticColors.readerAccentContainer,
-                contentColor = semanticColors.onReaderAccentContainer,
-                tonalElevation = 4.dp,
-                shadowElevation = 4.dp,
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = section,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
             }
         }
     }
@@ -176,7 +150,6 @@ private fun AlphabetNavigationItem(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(backgroundColor)
             .testTag(AlphabetNavigationSectionTagPrefix + label)
             .semantics {
                 contentDescription = "Jump to $label"
@@ -189,8 +162,16 @@ private fun AlphabetNavigationItem(
             ),
         contentAlignment = Alignment.Center,
     ) {
+        val selectedMarker = if (selected && backgroundColor != Color.Transparent) {
+            Modifier
+                .background(backgroundColor, RoundedCornerShape(4.dp))
+                .padding(horizontal = 4.dp, vertical = 1.dp)
+        } else {
+            Modifier.padding(horizontal = 2.dp, vertical = 1.dp)
+        }
         Text(
             text = label,
+            modifier = selectedMarker,
             style = MaterialTheme.typography.labelSmall,
             color = textColor,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,

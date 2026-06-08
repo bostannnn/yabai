@@ -159,7 +159,7 @@ val LocalUnifiedReaderPresentationTokens = staticCompositionLocalOf {
         shelfItemSpacing = 12.dp,
         searchHeight = 40.dp,
         accentRailWidth = 4.dp,
-        alphabetRailWidth = 40.dp,
+        alphabetRailWidth = 28.dp,
     )
 }
 
