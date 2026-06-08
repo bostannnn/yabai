@@ -59,6 +59,21 @@ class LibraryFiltersTest {
     }
 
     @Test
+    fun `issue count sort orders largest series first and puts missing counts last`() {
+        val singleIssue = item(id = "single", title = "Zulu Single").copy(issueCount = 1)
+        val missing = item(id = "missing", title = "Missing")
+        val longSeries = item(id = "long", title = "Long Series").copy(issueCount = 12)
+        val tieByTitle = item(id = "tie", title = "Alpha Tie").copy(issueCount = 1)
+
+        val sortedItems = applyLibrarySort(
+            items = listOf(singleIssue, missing, longSeries, tieByTitle),
+            sortMode = LibrarySortMode.ISSUE_COUNT,
+        )
+
+        assertEquals(listOf(longSeries, tieByTitle, singleIssue, missing), sortedItems)
+    }
+
+    @Test
     fun `comic secondary text keeps issue title when raw title is the issue title`() {
         val issue = item(id = "issue", title = "Chapter v3").copy(
             format = FormatType.CBZ,

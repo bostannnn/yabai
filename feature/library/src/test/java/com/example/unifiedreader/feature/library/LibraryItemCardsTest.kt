@@ -198,6 +198,19 @@ class LibraryItemCardsTest {
     }
 
     @Test
+    fun `series container exposes issue count`() {
+        val firstIssue = kavitaIssue(id = "chapter-1", title = "Akira 001", seriesKey = "series-7")
+        val secondIssue = kavitaIssue(id = "chapter-2", title = "Akira 002", seriesKey = "series-7")
+
+        val seriesItem = buildKavitaSeriesContainer(
+            seriesKey = "kavita:library:k-comics::series-7",
+            issues = listOf(firstIssue, secondIssue),
+        )
+
+        assertEquals(2, seriesItem.issueCount)
+    }
+
+    @Test
     fun `partially downloaded series keeps both download and delete actions`() {
         val firstIssue = kavitaIssue(id = "chapter-1", title = "Akira 001", seriesKey = "series-7")
         val secondIssue = kavitaIssue(id = "chapter-2", title = "Akira 002", seriesKey = "series-7")

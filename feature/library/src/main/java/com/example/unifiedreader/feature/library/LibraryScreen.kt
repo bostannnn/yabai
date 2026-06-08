@@ -115,6 +115,9 @@ fun LibraryScreen(
     var isReadingListDialogOpen by rememberSaveable { mutableStateOf(false) }
     var selectedSortLetter by rememberSaveable(sortMode) { mutableStateOf<String?>(null) }
     var handledScrollToTopRequest by remember { mutableStateOf(scrollToTopRequest) }
+    val availableSortModes = remember(items, sortMode) {
+        librarySortModesAvailableFor(items = items, selectedSortMode = sortMode)
+    }
     val alphabetRailVisible = showSortControl && sortMode.usesAlphabetRail && items.isNotEmpty()
     val sortLetters = remember(items, sortMode) {
         if (!sortMode.usesAlphabetRail) {
@@ -303,6 +306,7 @@ fun LibraryScreen(
                     gridSizeOptions = gridPresentation.availableGridSizes,
                     fadeReadItems = fadeReadItems,
                     showSortControl = showSortControl,
+                    availableSortModes = availableSortModes,
                     lockedSortLabel = lockedSortLabel,
                     readingListScopeState = readingListScopeState,
                     onOpenReadingListScope = { isReadingListDialogOpen = true },
@@ -354,6 +358,9 @@ fun LibraryScreen(
                         fadeRead = fadeReadItems,
                         imageVariant = gridCoverImageVariant,
                         coverImageUrlProvider = coverImageUrlProvider,
+                        issueCountBadge = item.issueCount.takeIf { count ->
+                            showSortControl && sortMode == LibrarySortMode.ISSUE_COUNT && count != null && count > 0
+                        },
                         title = when {
                             preferIssueLabels && includeSeriesInIssueLabels -> itemMixedIssueBrowsePrimaryText(item)
                             preferIssueLabels -> itemSeriesBrowsePrimaryText(item)
@@ -430,6 +437,16 @@ fun LibraryScreen(
             onReadingListSelected = onReadingListSelected,
             onDismiss = { isReadingListDialogOpen = false },
         )
+    }
+}
+
+private fun librarySortModesAvailableFor(
+    items: List<ReadableItem>,
+    selectedSortMode: LibrarySortMode,
+): List<LibrarySortMode> {
+    val hasIssueCounts = items.any { item -> item.issueCount != null }
+    return LibrarySortMode.entries.filter { mode ->
+        mode != LibrarySortMode.ISSUE_COUNT || hasIssueCounts || selectedSortMode == LibrarySortMode.ISSUE_COUNT
     }
 }
 

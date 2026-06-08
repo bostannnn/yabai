@@ -20,6 +20,7 @@ internal fun GridCoverCard(
     fadeRead: Boolean,
     imageVariant: LibraryCoverImageVariant,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
+    issueCountBadge: Int? = null,
     title: String = itemPrimaryText(item),
     isSelectionMode: Boolean = false,
     isSelected: Boolean = false,
@@ -50,8 +51,16 @@ internal fun GridCoverCard(
             .aspectRatio(2f / 3f),
         trailingText = progressLabel,
         menuContent = menuContent.takeUnless { isSelectionMode },
-        coverOverlay = if (rating != null || isSelectionMode) {
+        coverOverlay = if (rating != null || issueCountBadge != null || isSelectionMode) {
             {
+                issueCountBadge?.takeUnless { isSelectionMode }?.let { count ->
+                    LibraryCountBadge(
+                        count = count,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(6.dp),
+                    )
+                }
                 rating?.let { state ->
                     LibraryRatingBadge(
                         state = state,

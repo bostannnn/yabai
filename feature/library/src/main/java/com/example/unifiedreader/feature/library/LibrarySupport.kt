@@ -147,6 +147,7 @@ internal val LibrarySortMode.label: String
         LibrarySortMode.AUTHOR -> "Author"
         LibrarySortMode.TITLE -> "Title"
         LibrarySortMode.SERIES -> "Series"
+        LibrarySortMode.ISSUE_COUNT -> "Number of issues"
     }
 
 internal val LibrarySortMode.usesAlphabetRail: Boolean
@@ -155,7 +156,8 @@ internal val LibrarySortMode.usesAlphabetRail: Boolean
         LibrarySortMode.TITLE,
         LibrarySortMode.SERIES -> true
         LibrarySortMode.DATE_ADDED,
-        LibrarySortMode.LAST_READ -> false
+        LibrarySortMode.LAST_READ,
+        LibrarySortMode.ISSUE_COUNT -> false
     }
 
 internal val LibraryFileLocation.label: String

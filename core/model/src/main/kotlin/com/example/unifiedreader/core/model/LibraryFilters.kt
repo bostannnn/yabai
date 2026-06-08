@@ -86,6 +86,7 @@ enum class LibrarySortMode {
     AUTHOR,
     TITLE,
     SERIES,
+    ISSUE_COUNT,
 }
 
 fun applyLibraryFilters(
@@ -176,6 +177,12 @@ private fun sortComparator(
 
     LibrarySortMode.LAST_READ -> compareByDescending<IndexedValue<ReadableItem>> {
         lastReadAtEpochMillisByItemId[it.value.id] ?: Long.MIN_VALUE
+    }
+        .thenBy(String.CASE_INSENSITIVE_ORDER) { it.value.title }
+        .thenBy { it.index }
+
+    LibrarySortMode.ISSUE_COUNT -> compareByDescending<IndexedValue<ReadableItem>> {
+        it.value.issueCount ?: Int.MIN_VALUE
     }
         .thenBy(String.CASE_INSENSITIVE_ORDER) { it.value.title }
         .thenBy { it.index }
@@ -354,6 +361,7 @@ fun ReadableItem.libraryAlphabetKey(
     LibrarySortMode.AUTHOR -> facetMetadata().authors.firstOrNull()?.authorFacetKey() ?: libraryDisplayLabel()
     LibrarySortMode.TITLE -> title.trim().takeIf(String::isNotEmpty)
     LibrarySortMode.SERIES -> facetMetadata().series.firstOrNull() ?: libraryPrimaryText()
+    LibrarySortMode.ISSUE_COUNT -> null
 }
 
 private fun ReadableItem.librarySortKey(

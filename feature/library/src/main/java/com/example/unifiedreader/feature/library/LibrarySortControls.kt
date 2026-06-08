@@ -37,6 +37,7 @@ internal fun LibraryBrowseOptionsSelector(
     gridSizeOptions: List<LibraryGridSizeOption>,
     fadeReadItems: Boolean,
     showSortOptions: Boolean,
+    availableSortModes: List<LibrarySortMode> = LibrarySortMode.entries,
     lockedSortLabel: String? = null,
     onSortModeChanged: (LibrarySortMode) -> Unit,
     onGridCellSizeDpChanged: (Int) -> Unit,
@@ -94,7 +95,7 @@ internal fun LibraryBrowseOptionsSelector(
                 HorizontalDivider()
             } else if (showSortOptions) {
                 DropdownSectionHeader(text = "Sort")
-                LibrarySortMode.entries.forEach { mode ->
+                availableSortModes.forEach { mode ->
                     DropdownMenuItem(
                         text = {
                             Text(

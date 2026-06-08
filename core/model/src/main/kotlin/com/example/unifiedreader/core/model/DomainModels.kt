@@ -96,6 +96,7 @@ data class ReadableItem(
     val seriesCoverUrl: String? = null,
     val description: String? = null,
     val addedAtEpochMillis: Long? = null,
+    val issueCount: Int? = null,
     val bookMetadata: BookMetadata? = null,
     val comicMetadata: ComicMetadata? = null,
 )
@@ -260,6 +261,7 @@ fun buildKavitaSeriesContainer(
             issue.description?.takeIf(String::isNotBlank)
         },
         addedAtEpochMillis = issues.mapNotNull(ReadableItem::addedAtEpochMillis).maxOrNull(),
+        issueCount = issueCount,
         comicMetadata = ComicMetadata(
             series = seriesTitle,
             issueTitle = if (issueCount == 1) "1 issue" else "$issueCount issues",
@@ -295,6 +297,7 @@ fun buildStumpSeriesContainer(
             issue.description?.takeIf(String::isNotBlank)
         },
         addedAtEpochMillis = issues.mapNotNull(ReadableItem::addedAtEpochMillis).maxOrNull(),
+        issueCount = issueCount,
         comicMetadata = ComicMetadata(
             series = seriesTitle,
             issueTitle = if (issueCount == 1) "1 issue" else "$issueCount issues",

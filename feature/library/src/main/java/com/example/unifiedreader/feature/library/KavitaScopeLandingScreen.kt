@@ -38,7 +38,6 @@ import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
-import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 data class KavitaScopeLandingItem(
@@ -295,7 +294,7 @@ private fun KavitaScopeLandingCard(
             .aspectRatio(2f / 3f),
         coverOverlay = if (item.itemCount > 0) {
             {
-                KavitaScopeCountBadge(
+                LibraryCountBadge(
                     count = item.itemCount,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -327,31 +326,6 @@ private fun KavitaScopeLandingItem.toCoverItem(): ReadableItem = ReadableItem(
     kind = ReadableItemKind.COMIC,
     coverUrl = coverUrl,
 )
-
-@Composable
-private fun KavitaScopeCountBadge(
-    count: Int,
-    modifier: Modifier = Modifier,
-) {
-    val semanticColors = UnifiedReaderThemeTokens.colors
-    val presentation = UnifiedReaderThemeTokens.presentation
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(presentation.chipCornerRadius),
-        color = semanticColors.surfaceSelected.copy(alpha = 0.96f),
-        tonalElevation = 2.dp,
-        shadowElevation = 2.dp,
-    ) {
-        Text(
-            text = count.toString(),
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            style = MaterialTheme.typography.labelMedium,
-            color = semanticColors.onSurfaceSelected,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-        )
-    }
-}
 
 @Composable
 private fun KavitaScopeLandingEmptyState(

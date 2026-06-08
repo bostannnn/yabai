@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import org.junit.Rule
@@ -54,5 +55,34 @@ class LibraryScreenGridActionsTest {
         composeRule.onNodeWithContentDescription("More actions").assertExists().performClick()
         composeRule.onNodeWithText("Download file").assertExists()
         composeRule.onNodeWithText("Mark as read").assertExists()
+    }
+
+    @Test
+    fun gridModeShowsIssueCountBadgeForIssueCountSort() {
+        val item = ReadableItem(
+            id = "kavita:series:1",
+            sourceType = SourceType.KAVITA,
+            libraryId = "kavita:library:comics",
+            remoteId = "series-1",
+            title = "Akira",
+            format = FormatType.CBZ,
+            issueCount = 12,
+        )
+
+        composeRule.setContent {
+            MaterialTheme {
+                LibraryScreen(
+                    selectedSource = SourceType.KAVITA,
+                    browseContextKey = "grid-issue-count",
+                    items = listOf(item),
+                    viewMode = LibraryViewMode.Grid,
+                    sortMode = LibrarySortMode.ISSUE_COUNT,
+                    onItemSelected = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Akira").assertExists()
+        composeRule.onNodeWithText("12").assertExists()
     }
 }

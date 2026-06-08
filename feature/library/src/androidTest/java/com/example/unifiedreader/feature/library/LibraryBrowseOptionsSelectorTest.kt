@@ -3,6 +3,7 @@ package com.example.unifiedreader.feature.library
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -53,5 +54,40 @@ class LibraryBrowseOptionsSelectorTest {
             .performClick()
 
         assertEquals(140, selectedGridCellSizeDp)
+    }
+
+    @Test
+    fun browseMenuShowsIssueCountSortWhenAvailable() {
+        var selectedSortMode by mutableStateOf(LibrarySortMode.LAST_READ)
+
+        composeRule.setContent {
+            MaterialTheme {
+                LibraryBrowseOptionsSelector(
+                    sortMode = selectedSortMode,
+                    gridCellSizeDp = defaultLibraryGridCellSizeDp,
+                    gridSizeOptions = listOf(
+                        LibraryGridSizeOption(cellSizeDp = 180, columnCount = 4),
+                    ),
+                    fadeReadItems = false,
+                    showSortOptions = true,
+                    availableSortModes = listOf(
+                        LibrarySortMode.LAST_READ,
+                        LibrarySortMode.ISSUE_COUNT,
+                    ),
+                    onSortModeChanged = { selectedSortMode = it },
+                    onGridCellSizeDpChanged = {},
+                    onFadeReadItemsChanged = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Browse: Last read · 180dp")
+            .assertExists()
+            .performClick()
+        composeRule.onNodeWithText("Number of issues")
+            .assertExists()
+            .performClick()
+
+        assertEquals(LibrarySortMode.ISSUE_COUNT, selectedSortMode)
     }
 }
