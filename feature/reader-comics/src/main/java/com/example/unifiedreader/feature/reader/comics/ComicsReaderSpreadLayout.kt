@@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,6 +32,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.input.nestedscroll.NestedScrollDispatcher
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -53,6 +55,8 @@ private val StitchedSpreadOverlap = 1.dp
 private const val StitchedSpreadMaxDimensionDeltaFraction = 0.05f
 private const val StitchedSpreadSampleCount = 24
 private const val StitchedSpreadMaxAverageEdgeDistance = 0.08f
+private const val FallbackCompositePageDimension = 1_000
+private const val MinimumSpreadPageAspectRatio = 0.5f
 
 @Composable
 internal fun ComicSpreadPager(
@@ -62,7 +66,6 @@ internal fun ComicSpreadPager(
     readingDirection: ComicReadingDirection,
     pageFitMode: ComicPageFitMode,
     isZoomed: Boolean,
-    overlayVisible: Boolean,
     pageSource: ComicPageSource,
     pagerState: androidx.compose.foundation.pager.PagerState,
     onZoomStateChanged: (Boolean) -> Unit,
@@ -73,7 +76,7 @@ internal fun ComicSpreadPager(
 ) {
     HorizontalPager(
         state = pagerState,
-        userScrollEnabled = !isZoomed,
+        userScrollEnabled = true,
         reverseLayout = readingDirection == ComicReadingDirection.RTL,
         modifier = Modifier
             .fillMaxSize()
@@ -92,7 +95,6 @@ internal fun ComicSpreadPager(
             isActiveSpread = spread.pageIndexes.contains(currentPage),
             readingDirection = readingDirection,
             pageFitMode = pageFitMode,
-            overlayVisible = overlayVisible,
             onZoomStateChanged = onZoomStateChanged,
             onInteraction = onInteraction,
             onToggleOverlay = onToggleOverlay,
@@ -110,7 +112,6 @@ private fun ComicSpreadSurface(
     isActiveSpread: Boolean,
     readingDirection: ComicReadingDirection,
     pageFitMode: ComicPageFitMode,
-    overlayVisible: Boolean,
     onZoomStateChanged: (Boolean) -> Unit,
     onInteraction: () -> Unit,
     onToggleOverlay: () -> Unit,
@@ -118,6 +119,8 @@ private fun ComicSpreadSurface(
     onNavigateNext: () -> Unit,
 ) {
     val viewportState = rememberComicPageViewportState(pageId = spread.id)
+    val animationScope = rememberCoroutineScope()
+    val nestedScrollDispatcher = remember { NestedScrollDispatcher() }
     var containerSize by remember(spread.id) { mutableStateOf(IntSize.Zero) }
     val pageLoadResults by produceState<Map<String, ComicPageLoadResult?>>(
         initialValue = emptyMap(),
@@ -148,26 +151,16 @@ private fun ComicSpreadSurface(
         )
     }
 
-    LaunchedEffect(
-        isActiveSpread,
-        viewportState.isZoomed,
-        pageFitMode,
-        containerSize,
-        imageSize,
-    ) {
+    LaunchedEffect(pageFitMode, containerSize, imageSize) {
         viewportState.reconcileLayout(
             containerSize = containerSize,
             imageSize = imageSize,
             fitMode = pageFitMode,
         )
+    }
+    LaunchedEffect(isActiveSpread, viewportState.isZoomed) {
         if (isActiveSpread) {
-            onZoomStateChanged(
-                viewportState.canPan(
-                    containerSize = containerSize,
-                    imageSize = imageSize,
-                    fitMode = pageFitMode,
-                ),
-            )
+            onZoomStateChanged(viewportState.isZoomed)
         }
     }
 
@@ -190,7 +183,8 @@ private fun ComicSpreadSurface(
                     viewportState = viewportState,
                     readingDirection = readingDirection,
                     pageFitMode = pageFitMode,
-                    overlayVisible = overlayVisible,
+                    animationScope = animationScope,
+                    nestedScrollDispatcher = nestedScrollDispatcher,
                     onInteraction = onInteraction,
                     onToggleOverlay = onToggleOverlay,
                     onNavigatePrevious = onNavigatePrevious,
@@ -278,7 +272,7 @@ private fun FitSpreadContent(
 ) {
     val pageAspectRatios = remember(loadedImagesByPageId, spread.pages) {
         spread.pages.map { page ->
-            page.adjustedAspectRatio(loadedImagesByPageId[page.spec.id]).coerceAtLeast(0.5f)
+            page.layoutWeight(loadedImagesByPageId)
         }
     }
     val compositeSize = remember(pageLoadResults, spread.pages) {
@@ -608,21 +602,53 @@ private fun compositeImageSize(
     spread: ComicPageSpread,
     pageLoadResults: Map<String, ComicPageLoadResult?>,
 ): IntSize {
-    val loadedImageSizes = spread.pages.mapNotNull { page ->
-        (pageLoadResults[page.spec.id] as? ComicPageLoadResult.Success)?.image?.let { image ->
-            IntSize(
-                width = max(1, (image.width * page.segment.widthFraction).roundToInt()),
-                height = image.height,
-            )
-        }
+    val pageSizes = spread.pages.map { page ->
+        val image = (pageLoadResults[page.spec.id] as? ComicPageLoadResult.Success)?.image
+        val sourceWidth = image?.width
+            ?: page.metadata?.width?.takeIf { it > 0 }
+            ?: FallbackCompositePageDimension
+        val sourceHeight = image?.height
+            ?: page.metadata?.height?.takeIf { it > 0 }
+            ?: FallbackCompositePageDimension
+        IntSize(
+            width = (sourceWidth * page.segment.widthFraction).roundToInt().coerceAtLeast(1),
+            height = sourceHeight,
+        )
     }
-    if (loadedImageSizes.isEmpty()) {
-        return IntSize.Zero
-    }
-    return IntSize(
-        width = loadedImageSizes.sumOf(IntSize::width),
-        height = loadedImageSizes.maxOf(IntSize::height),
+    return equalHeightCompositeImageSize(
+        imageSizes = pageSizes,
+        minimumAspectRatio = MinimumSpreadPageAspectRatio.takeIf { spread.pages.size > 1 },
     )
+}
+
+internal fun equalHeightCompositeImageSize(
+    imageSizes: List<IntSize>,
+    minimumAspectRatio: Float? = null,
+): IntSize {
+    val validSizes = imageSizes
+        .filter { it.width > 0 && it.height > 0 }
+        .map { size ->
+            if (minimumAspectRatio == null) {
+                size
+            } else {
+                IntSize(
+                    width = max(
+                        size.width,
+                        (size.height * minimumAspectRatio).roundToInt(),
+                    ),
+                    height = size.height,
+                )
+            }
+        }
+    if (validSizes.isEmpty()) return IntSize.Zero
+
+    val commonHeight = validSizes.maxOf(IntSize::height)
+    val combinedWidth = validSizes.sumOf { size ->
+        (size.width.toDouble() * commonHeight / size.height)
+            .roundToInt()
+            .coerceAtLeast(1)
+    }
+    return IntSize(width = combinedWidth, height = commonHeight)
 }
 
 private val ComicPageSpread.isSoloCover: Boolean
@@ -667,7 +693,8 @@ private fun ComicPageSpread.isLikelyStitchedSpread(
 
 private fun ComicSpreadPage.layoutWeight(
     loadedImagesByPageId: Map<String, ImageBitmap?>,
-): Float = adjustedAspectRatio(loadedImagesByPageId[spec.id]).coerceAtLeast(0.5f)
+): Float = adjustedAspectRatio(loadedImagesByPageId[spec.id])
+    .coerceAtLeast(MinimumSpreadPageAspectRatio)
 
 private fun ComicSpreadPage.adjustedAspectRatio(
     image: ImageBitmap?,

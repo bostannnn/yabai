@@ -12,16 +12,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollDispatcher
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
@@ -62,10 +65,88 @@ class ComicsReaderGestureModifierTest {
         }
 
         composeRule.onNodeWithTag("overlay-state").assertContentDescriptionEquals("overlay-hidden")
-        composeRule.onNodeWithTag("gesture-surface").performTouchInput { click(center) }
-        composeRule.mainClock.advanceTimeBy(500)
-        composeRule.waitForIdle()
+        tapGestureSurface(TapPosition.Center)
         composeRule.onNodeWithTag("overlay-state").assertContentDescriptionEquals("overlay-visible")
+
+        tapGestureSurface(TapPosition.Center)
+        composeRule.onNodeWithTag("overlay-state").assertContentDescriptionEquals("overlay-hidden")
+    }
+
+    @Test
+    fun hiddenOverlayEdgeTapsNavigateInLtr() {
+        composeRule.setContent {
+            GestureSurfaceHarness(readingDirection = ComicReadingDirection.LTR)
+        }
+
+        composeRule.onNodeWithTag("overlay-state").assertContentDescriptionEquals("overlay-hidden")
+        composeRule.onNodeWithTag("nav-state").assertContentDescriptionEquals("nav-0")
+
+        tapGestureSurface(TapPosition.LeftEdge)
+        composeRule.onNodeWithTag("nav-state").assertContentDescriptionEquals("nav--1")
+        composeRule.onNodeWithTag("overlay-state").assertContentDescriptionEquals("overlay-hidden")
+
+        tapGestureSurface(TapPosition.RightEdge)
+        composeRule.onNodeWithTag("nav-state").assertContentDescriptionEquals("nav-0")
+        composeRule.onNodeWithTag("overlay-state").assertContentDescriptionEquals("overlay-hidden")
+    }
+
+    @Test
+    fun visibleOverlayEdgeTapsNavigateInLtr() {
+        composeRule.setContent {
+            GestureSurfaceHarness(
+                readingDirection = ComicReadingDirection.LTR,
+                initialOverlayVisible = true,
+            )
+        }
+
+        composeRule.onNodeWithTag("overlay-state").assertContentDescriptionEquals("overlay-visible")
+        composeRule.onNodeWithTag("nav-state").assertContentDescriptionEquals("nav-0")
+
+        tapGestureSurface(TapPosition.RightEdge)
+        composeRule.onNodeWithTag("nav-state").assertContentDescriptionEquals("nav-1")
+        composeRule.onNodeWithTag("overlay-state").assertContentDescriptionEquals("overlay-visible")
+
+        tapGestureSurface(TapPosition.LeftEdge)
+        composeRule.onNodeWithTag("nav-state").assertContentDescriptionEquals("nav-0")
+        composeRule.onNodeWithTag("overlay-state").assertContentDescriptionEquals("overlay-visible")
+    }
+
+    @Test
+    fun edgeTapsMirrorNavigationInRtl() {
+        composeRule.setContent {
+            GestureSurfaceHarness(readingDirection = ComicReadingDirection.RTL)
+        }
+
+        tapGestureSurface(TapPosition.LeftEdge)
+        composeRule.onNodeWithTag("nav-state").assertContentDescriptionEquals("nav-1")
+
+        tapGestureSurface(TapPosition.RightEdge)
+        composeRule.onNodeWithTag("nav-state").assertContentDescriptionEquals("nav-0")
+    }
+
+    @Test
+    fun edgeTapsUseUpdatedReadingDirection() {
+        lateinit var updateReadingDirection: (ComicReadingDirection) -> Unit
+
+        composeRule.setContent {
+            var readingDirection by remember { mutableStateOf(ComicReadingDirection.LTR) }
+            updateReadingDirection = { readingDirection = it }
+            GestureSurfaceHarness(readingDirection = readingDirection)
+        }
+
+        tapGestureSurface(TapPosition.LeftEdge)
+        composeRule.onNodeWithTag("nav-state").assertContentDescriptionEquals("nav--1")
+
+        composeRule.runOnIdle {
+            updateReadingDirection(ComicReadingDirection.RTL)
+        }
+        composeRule.waitForIdle()
+
+        tapGestureSurface(TapPosition.LeftEdge)
+        composeRule.onNodeWithTag("nav-state").assertContentDescriptionEquals("nav-0")
+
+        tapGestureSurface(TapPosition.RightEdge)
+        composeRule.onNodeWithTag("nav-state").assertContentDescriptionEquals("nav--1")
     }
 
     @Test
@@ -88,13 +169,82 @@ class ComicsReaderGestureModifierTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("zoom-state").assertContentDescriptionEquals("zoom-active")
     }
+
+    @Test
+    fun doubleTapZoomsTowardTappedSide() {
+        composeRule.setContent {
+            GestureSurfaceHarness(readingDirection = ComicReadingDirection.LTR)
+        }
+
+        composeRule.onNodeWithTag("gesture-surface").performTouchInput { doubleClick(centerLeft) }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("zoom-state").assertContentDescriptionEquals("zoom-active")
+        composeRule.onNodeWithTag("viewport-state").assertContentDescriptionEquals("offset-right")
+    }
+
+    @Test
+    fun zoomedPanHandsEdgeRemainderToPager() {
+        composeRule.setContent {
+            GesturePagerHarness(
+                readingDirection = ComicReadingDirection.LTR,
+                initialPage = 1,
+            )
+        }
+
+        composeRule.onNodeWithTag("gesture-surface").performTouchInput { doubleClick(centerLeft) }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("gesture-surface").performTouchInput { swipeRight() }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("pager-page").assertContentDescriptionEquals("page-0")
+    }
+
+    @Test
+    fun zoomedEdgeTapsDoNotNavigatePages() {
+        composeRule.setContent {
+            GestureSurfaceHarness(readingDirection = ComicReadingDirection.LTR)
+        }
+
+        composeRule.onNodeWithTag("gesture-surface").performTouchInput { doubleClick(centerLeft) }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("zoom-state").assertContentDescriptionEquals("zoom-active")
+        composeRule.onNodeWithTag("nav-state").assertContentDescriptionEquals("nav-0")
+
+        tapGestureSurface(TapPosition.RightEdge)
+        composeRule.onNodeWithTag("nav-state").assertContentDescriptionEquals("nav-0")
+
+        tapGestureSurface(TapPosition.LeftEdge)
+        composeRule.onNodeWithTag("nav-state").assertContentDescriptionEquals("nav-0")
+    }
+
+    private fun tapGestureSurface(position: TapPosition) {
+        composeRule.onNodeWithTag("gesture-surface").performTouchInput {
+            click(
+                when (position) {
+                    TapPosition.LeftEdge -> Offset(width * 0.1f, height / 2f)
+                    TapPosition.Center -> center
+                    TapPosition.RightEdge -> Offset(width * 0.9f, height / 2f)
+                },
+            )
+        }
+        composeRule.mainClock.advanceTimeBy(500)
+        composeRule.waitForIdle()
+    }
+}
+
+private enum class TapPosition {
+    LeftEdge,
+    Center,
+    RightEdge,
 }
 
 @Composable
 private fun GesturePagerHarness(
     readingDirection: ComicReadingDirection,
+    initialPage: Int = 0,
 ) {
-    val pagerState = rememberPagerState(pageCount = { 2 })
+    val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { 2 })
     HorizontalPager(
         state = pagerState,
         reverseLayout = readingDirection == ComicReadingDirection.RTL,
@@ -116,11 +266,14 @@ private fun GesturePagerHarness(
 @Composable
 private fun GestureSurfaceHarness(
     readingDirection: ComicReadingDirection,
+    initialOverlayVisible: Boolean = false,
 ) {
     val viewportState = rememberComicPageViewportState(pageId = "test-page")
+    val animationScope = rememberCoroutineScope()
+    val nestedScrollDispatcher = remember { NestedScrollDispatcher() }
     val imageSize = IntSize(width = 1200, height = 1800)
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
-    var overlayVisible by remember { mutableStateOf(false) }
+    var overlayVisible by remember { mutableStateOf(initialOverlayVisible) }
     var navigateCount by remember { mutableIntStateOf(0) }
 
     Box(
@@ -139,7 +292,8 @@ private fun GestureSurfaceHarness(
                     viewportState = viewportState,
                     readingDirection = readingDirection,
                     pageFitMode = ComicPageFitMode.FitPage,
-                    overlayVisible = overlayVisible,
+                    animationScope = animationScope,
+                    nestedScrollDispatcher = nestedScrollDispatcher,
                     onInteraction = {},
                     onToggleOverlay = { overlayVisible = !overlayVisible },
                     onNavigatePrevious = { navigateCount-- },
@@ -162,6 +316,17 @@ private fun GestureSurfaceHarness(
                 contentDescription = if (viewportState.isZoomed) "zoom-active" else "zoom-idle"
             }
             .testTag("zoom-state"),
+    )
+    Box(
+        modifier = Modifier
+            .semantics {
+                contentDescription = when {
+                    viewportState.offset.x > 1f -> "offset-right"
+                    viewportState.offset.x < -1f -> "offset-left"
+                    else -> "offset-center"
+                }
+            }
+            .testTag("viewport-state"),
     )
     Box(
         modifier = Modifier

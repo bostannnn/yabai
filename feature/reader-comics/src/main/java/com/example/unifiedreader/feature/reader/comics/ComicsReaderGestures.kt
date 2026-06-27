@@ -1,20 +1,27 @@
 package com.example.unifiedreader.feature.reader.comics
 
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.calculatePan
-import androidx.compose.foundation.gestures.calculateZoom
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollDispatcher
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.Velocity
+import com.example.unifiedreader.feature.reader.core.detectReaderZoomGestures
+import com.example.unifiedreader.feature.reader.core.ReaderPanAxis
+import kotlin.math.roundToInt
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 private const val NavigationZoneFraction = 0.25f
 
@@ -31,26 +38,19 @@ internal fun Modifier.comicGestureModifier(
     viewportState: ComicPageViewportState,
     readingDirection: ComicReadingDirection,
     pageFitMode: ComicPageFitMode,
-    overlayVisible: Boolean,
+    animationScope: CoroutineScope,
+    nestedScrollDispatcher: NestedScrollDispatcher,
     onInteraction: () -> Unit,
     onToggleOverlay: () -> Unit,
     onNavigatePrevious: () -> Unit,
     onNavigateNext: () -> Unit,
 ): Modifier = fillMaxSize()
-    .graphicsLayer {
-        scaleX = viewportState.scale
-        scaleY = viewportState.scale
-        translationX = viewportState.offset.x
-        translationY = viewportState.offset.y
-    }
-    .pointerInput(gestureKey) {
+    .clipToBounds()
+    .nestedScroll(ReaderZoomNestedScrollConnection, nestedScrollDispatcher)
+    .pointerInput(gestureKey, containerSize, imageSize, readingDirection, pageFitMode) {
         detectTapGestures(
             onTap = { tapOffset ->
                 if (containerSize.width == 0) {
-                    return@detectTapGestures
-                }
-                if (!overlayVisible) {
-                    onToggleOverlay()
                     return@detectTapGestures
                 }
                 when (
@@ -74,9 +74,11 @@ internal fun Modifier.comicGestureModifier(
                     }
                 }
             },
-            onDoubleTap = {
+            onDoubleTap = { tapOffset ->
                 onInteraction()
-                viewportState.toggleZoom(
+                viewportState.animateZoomToggle(
+                    coroutineScope = animationScope,
+                    focalPoint = tapOffset,
                     containerSize = containerSize,
                     imageSize = imageSize,
                     fitMode = pageFitMode,
@@ -84,63 +86,109 @@ internal fun Modifier.comicGestureModifier(
             },
         )
     }
-    .pointerInput(gestureKey, containerSize) {
-        awaitEachGesture {
-            awaitFirstDown(requireUnconsumed = false)
-            var gestureOngoing = true
-            var transformActive = false
-            while (gestureOngoing) {
-                val event = awaitPointerEvent(pass = PointerEventPass.Main)
-                val pressedPointers = event.changes.filter { it.pressed }
-                if (pressedPointers.size > 1) {
-                    transformActive = true
-                    val zoom = event.calculateZoom()
-                    val pan = event.calculatePan()
-                    if (zoom != 1f || pan != Offset.Zero) {
-                        onInteraction()
-                        viewportState.onGesture(
-                            zoomChange = zoom,
-                            panChange = pan,
-                            containerSize = containerSize,
-                            imageSize = imageSize,
-                            fitMode = pageFitMode,
-                        )
-                        event.changes
-                            .filter { it.positionChanged() }
-                            .forEach { it.consume() }
-                    }
-                }
-                gestureOngoing = event.changes.any { !it.changedToUpIgnoreConsumed() }
-            }
-            if (transformActive) {
-                onInteraction()
-            }
-        }
-    }
-    .then(
-        if (viewportState.isZoomed) {
-            Modifier.pointerInput(gestureKey, containerSize, imageSize, pageFitMode) {
-                detectDragGestures { change, dragAmount ->
-                    if (!viewportState.canPan(containerSize, imageSize, pageFitMode)) {
-                        return@detectDragGestures
-                    }
-                    onInteraction()
-                    change.consume()
-                    viewportState.onPan(
-                        panChange = Offset(
-                            x = dragAmount.x,
-                            y = dragAmount.y,
-                        ),
-                        containerSize = containerSize,
-                        imageSize = imageSize,
-                        fitMode = pageFitMode,
+    .pointerInput(gestureKey, containerSize, imageSize, pageFitMode) {
+        detectReaderZoomGestures(
+            viewportCenter = { containerSize.center },
+            canPan = { panIntent ->
+                viewportState.canPan(
+                    panIntent = panIntent,
+                    containerSize = containerSize,
+                    imageSize = imageSize,
+                    fitMode = pageFitMode,
+                )
+            },
+            onPointerDown = viewportState::stopAnimation,
+            onTransformStart = onInteraction,
+            onPan = { panChange ->
+                viewportState.onPan(
+                    panChange = panChange,
+                    containerSize = containerSize,
+                    imageSize = imageSize,
+                    fitMode = pageFitMode,
+                )
+            },
+            onPanRemainder = { axis, consumed, available ->
+                if (axis == ReaderPanAxis.Horizontal && available.x != 0f) {
+                    nestedScrollDispatcher.dispatchPostScroll(
+                        consumed = consumed,
+                        available = Offset(x = available.x, y = 0f),
+                        source = NestedScrollSource.UserInput,
                     )
                 }
-            }
-        } else {
-            Modifier
-        },
-    )
+            },
+            onTransform = { centroid, panChange, zoomChange ->
+                viewportState.onGesture(
+                    centroid = centroid,
+                    zoomChange = zoomChange,
+                    panChange = panChange,
+                    containerSize = containerSize,
+                    imageSize = imageSize,
+                    fitMode = pageFitMode,
+                )
+            },
+            onTransformEnd = { flingVelocity, panAxis ->
+                val consumedVelocity = viewportState.launchFling(
+                    coroutineScope = animationScope,
+                    initialVelocity = flingVelocity,
+                    density = this,
+                    containerSize = containerSize,
+                    imageSize = imageSize,
+                    fitMode = pageFitMode,
+                )
+                val availableX = flingVelocity.x - consumedVelocity.x
+                if (panAxis == ReaderPanAxis.Horizontal) {
+                    animationScope.launch {
+                        nestedScrollDispatcher.dispatchPostFling(
+                            consumed = Velocity(consumedVelocity.x, consumedVelocity.y),
+                            available = Velocity(availableX, 0f),
+                        )
+                    }
+                }
+            },
+        )
+    }
+    .semantics {
+        stateDescription = "${(viewportState.scale * 100f).roundToInt()}% zoom"
+        customActions = listOf(
+            CustomAccessibilityAction(label = "Zoom in") {
+                viewportState.animateZoomBy(
+                    coroutineScope = animationScope,
+                    zoomFactor = 1.5f,
+                    focalPoint = containerSize.center,
+                    containerSize = containerSize,
+                    imageSize = imageSize,
+                    fitMode = pageFitMode,
+                )
+                true
+            },
+            CustomAccessibilityAction(label = "Zoom out") {
+                viewportState.animateZoomBy(
+                    coroutineScope = animationScope,
+                    zoomFactor = 1f / 1.5f,
+                    focalPoint = containerSize.center,
+                    containerSize = containerSize,
+                    imageSize = imageSize,
+                    fitMode = pageFitMode,
+                )
+                true
+            },
+            CustomAccessibilityAction(label = "Reset zoom") {
+                viewportState.animateReset(
+                    coroutineScope = animationScope,
+                    containerSize = containerSize,
+                    imageSize = imageSize,
+                    fitMode = pageFitMode,
+                )
+                true
+            },
+        )
+    }
+    .graphicsLayer {
+        scaleX = viewportState.scale
+        scaleY = viewportState.scale
+        translationX = viewportState.offset.x
+        translationY = viewportState.offset.y
+    }
 
 internal fun resolveReaderTapAction(
     tapX: Float,
@@ -161,3 +209,8 @@ internal fun resolveReaderTapAction(
         else -> ReaderTapAction.ToggleOverlay
     }
 }
+
+private val IntSize.center: Offset
+    get() = Offset(width / 2f, height / 2f)
+
+private object ReaderZoomNestedScrollConnection : NestedScrollConnection

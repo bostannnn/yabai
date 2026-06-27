@@ -18,7 +18,6 @@ internal fun ComicsPagedReaderSurface(
     pageSource: ComicPageSource,
     readerState: ComicsReaderState,
     spreadPlanState: ComicSpreadPlanState,
-    overlayVisible: Boolean,
     onToggleOverlay: () -> Unit,
     onNavigatePastEnd: () -> Unit,
 ) {
@@ -86,7 +85,6 @@ internal fun ComicsPagedReaderSurface(
             readingDirection = readerState.readingDirection,
             pageFitMode = readerState.pageFitMode,
             isZoomed = readerState.isCurrentPageZoomed,
-            overlayVisible = overlayVisible,
             pageSource = pageSource,
             pagerState = pagerState,
             onZoomStateChanged = readerState::onCurrentPageZoomChanged,

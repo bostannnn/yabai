@@ -405,7 +405,6 @@ fun ComicsReaderScreen(
                             pageSource = pageSource,
                             readerState = readerState,
                             spreadPlanState = spreadPlanState,
-                            overlayVisible = overlayState.isVisible,
                             onToggleOverlay = overlayState::toggle,
                             onNavigatePastEnd = {
                                 persistCompletedProgress()
