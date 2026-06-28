@@ -29,7 +29,12 @@ class RemoteSourceConnectivityPolicy @Inject constructor() {
 
     fun canAttemptReaderContent(
         sourceType: SourceType,
-    ): Boolean = sourceType != SourceType.LOCAL && reachabilityFor(sourceType) != SourceConnectivityState.Checking
+    ): Boolean = sourceType != SourceType.LOCAL && when (reachabilityFor(sourceType)) {
+        SourceConnectivityState.Checking,
+        SourceConnectivityState.Offline -> false
+        SourceConnectivityState.Online,
+        SourceConnectivityState.Unknown -> true
+    }
 
     fun canOpenRemoteItem(
         sourceType: SourceType,
@@ -180,5 +185,5 @@ object RemoteSourceReachability {
 class RemoteSourceUnavailableException(
     sourceType: SourceType,
 ) : RuntimeException(
-    "${sourceType.displayName()} local network cannot be accessed. Only downloaded items can be opened.",
+    "${sourceType.displayName()} local network cannot be accessed. Only downloaded or cached items can be opened.",
 )

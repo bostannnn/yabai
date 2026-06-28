@@ -328,7 +328,15 @@ private fun SourceConnectivityIndicator(
         Modifier
     }
     Surface(
-        modifier = clickModifier,
+        modifier = clickModifier.semantics {
+            contentDescription = when (state) {
+                SourceConnectivityState.Checking -> "${sourceType.displayName()} connection is checking"
+                SourceConnectivityState.Online -> "${sourceType.displayName()} connection is online"
+                SourceConnectivityState.Offline ->
+                    "${sourceType.displayName()} connection is offline. Downloaded and cached content only. Retry connection."
+                SourceConnectivityState.Unknown -> ""
+            }
+        },
         shape = RoundedCornerShape(presentation.chipCornerRadius),
         color = style.containerColor,
         border = BorderStroke(1.dp, style.borderColor.copy(alpha = 0.7f)),

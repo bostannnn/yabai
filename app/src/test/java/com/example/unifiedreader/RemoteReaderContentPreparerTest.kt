@@ -18,33 +18,28 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class RemoteReaderContentPreparerTest {
     @Test
-    fun `cached preparation result does not mark source reachable`() = runTest {
+    fun `stored document preparation does not mark source reachable while offline`() = runTest {
         val policy = RemoteSourceConnectivityPolicy().apply {
             markUnavailable(SourceType.KAVITA)
         }
+        val dataSource = TestReaderPreparationDownloadDataSource(
+            storedUri = Uri.parse("file:///tmp/cached.pdf"),
+        )
         val preparer = RemoteReaderContentPreparer(
-            remoteDownloadDataSources = listOf(
-                TestReaderPreparationDownloadDataSource(
-                    result = RemoteItemDownloadResult(
-                        uri = Uri.parse("file:///tmp/cached.pdf"),
-                        downloadedFromNetwork = false,
-                    ),
-                ),
-            ),
+            remoteDownloadDataSources = listOf(dataSource),
             remoteSourceConnectivityPolicy = policy,
         )
 
         val result = preparer.prepare(remoteItem())
 
         assertTrue(result is RemoteReaderContentPreparationResult.Ready)
+        assertEquals(0, dataSource.prepareDocumentForReadingCalls)
         assertEquals(RemoteSourceReachability.Unavailable, policy.reachabilityFor(SourceType.KAVITA))
     }
 
     @Test
     fun `network preparation result marks source reachable`() = runTest {
-        val policy = RemoteSourceConnectivityPolicy().apply {
-            markUnavailable(SourceType.KAVITA)
-        }
+        val policy = RemoteSourceConnectivityPolicy()
         val preparer = RemoteReaderContentPreparer(
             remoteDownloadDataSources = listOf(
                 TestReaderPreparationDownloadDataSource(
@@ -62,24 +57,55 @@ class RemoteReaderContentPreparerTest {
         assertTrue(result is RemoteReaderContentPreparationResult.Ready)
         assertEquals(RemoteSourceReachability.Reachable, policy.reachabilityFor(SourceType.KAVITA))
     }
+
+    @Test
+    fun `missing document preparation is blocked while source is offline`() = runTest {
+        val policy = RemoteSourceConnectivityPolicy().apply {
+            markUnavailable(SourceType.KAVITA)
+        }
+        val dataSource = TestReaderPreparationDownloadDataSource(
+            result = RemoteItemDownloadResult(
+                uri = Uri.parse("file:///tmp/downloaded.pdf"),
+                downloadedFromNetwork = true,
+            ),
+        )
+        val preparer = RemoteReaderContentPreparer(
+            remoteDownloadDataSources = listOf(dataSource),
+            remoteSourceConnectivityPolicy = policy,
+        )
+
+        val result = preparer.prepare(remoteItem())
+
+        assertTrue(result is RemoteReaderContentPreparationResult.Failure)
+        assertTrue((result as RemoteReaderContentPreparationResult.Failure).failure.throwable is RemoteSourceUnavailableException)
+        assertEquals(0, dataSource.prepareDocumentForReadingCalls)
+        assertEquals(RemoteSourceReachability.Unavailable, policy.reachabilityFor(SourceType.KAVITA))
+    }
 }
 
 private class TestReaderPreparationDownloadDataSource(
-    private val result: RemoteItemDownloadResult?,
+    private val result: RemoteItemDownloadResult? = null,
+    private val storedUri: Uri? = null,
 ) : RemoteItemDownloadDataSource {
     override val sourceType: SourceType = SourceType.KAVITA
 
+    var prepareDocumentForReadingCalls: Int = 0
+        private set
+
     override fun storedDocumentUri(
         item: ReadableItem,
-    ): Uri? = null
+    ): Uri? = storedUri
 
     override suspend fun prepareDocumentForReading(
         item: ReadableItem,
-    ): RemoteItemDownloadResult? = result
+    ): RemoteItemDownloadResult? {
+        prepareDocumentForReadingCalls += 1
+        return result
+    }
 
     override suspend fun downloadToLocalStorage(
         item: ReadableItem,
-    ): Uri? = result?.uri
+    ): Uri? = storedUri ?: result?.uri
 
     override suspend fun storedDocumentItemIds(
         items: List<ReadableItem>,

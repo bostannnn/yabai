@@ -278,7 +278,7 @@ class AppViewModelTest {
         assertNull(viewModel.uiState.activeReader)
         assertEquals(0, progressSync.syncItemCalls)
         assertEquals(
-            "Kavita local network cannot be accessed. Only downloaded items can be opened.",
+            "Kavita local network cannot be accessed. Only downloaded or cached items can be opened.",
             viewModel.uiState.progressSyncNotice?.message,
         )
     }
@@ -404,6 +404,44 @@ class AppViewModelTest {
             viewModel.uiState.progressSyncNotice?.message,
         )
         assertEquals(RemoteSourceReachability.Unavailable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.GRIMMORY))
+    }
+
+    @Test
+    fun `remote progress sync network failure prevents remote file preparation`() {
+        val remoteBook = sampleItem(
+            id = "kavita-pdf",
+            title = "Remote PDF",
+            format = FormatType.PDF,
+        ).copy(
+            sourceType = SourceType.KAVITA,
+            libraryId = SourceType.KAVITA.remoteLibraryId("kavita-books"),
+            remoteId = "book-1",
+        )
+        val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markReachable(SourceType.KAVITA)
+        }
+        val kavitaDownloadDataSource = FakeRemoteDownloadDataSource(sourceType = SourceType.KAVITA)
+        val viewModel = createViewModel(
+            sampleItems = listOf(remoteBook),
+            remoteDownloadDataSources = listOf(
+                FakeGrimmoryContentRepository(),
+                kavitaDownloadDataSource,
+            ),
+            sourceProgressSyncs = listOf(NetworkFailingSourceProgressSync(sourceType = SourceType.KAVITA)),
+            remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+        )
+
+        viewModel.onItemSelected(remoteBook)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertNull(viewModel.uiState.selectedItemId)
+        assertNull(viewModel.uiState.activeReader)
+        assertEquals(0, kavitaDownloadDataSource.downloadToLocalStorageCalls)
+        assertEquals(
+            "Unable to sync Kavita progress: Network unavailable",
+            viewModel.uiState.progressSyncNotice?.message,
+        )
+        assertEquals(RemoteSourceReachability.Unavailable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
     }
 
     @Test

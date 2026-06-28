@@ -17,6 +17,7 @@ import java.io.File
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -58,9 +59,7 @@ class RemoteDocumentReadCacheTest {
     fun `successful grimmory reader cache fetch marks source reachable`() = runTest {
         File(context.cacheDir, "grimmory-reader-documents").deleteRecursively()
         val api = RecordingGrimmoryReadApi()
-        val connectivityPolicy = RemoteSourceConnectivityPolicy().apply {
-            markUnavailable(SourceType.GRIMMORY)
-        }
+        val connectivityPolicy = RemoteSourceConnectivityPolicy()
         val cache = RemoteDocumentReadCache(
             context = context,
             grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
@@ -75,6 +74,29 @@ class RemoteDocumentReadCacheTest {
         assertNotNull(uri)
         assertEquals(listOf("book-1"), api.downloadedBookIds)
         assertEquals(RemoteSourceReachability.Reachable, connectivityPolicy.reachabilityFor(SourceType.GRIMMORY))
+    }
+
+    @Test
+    fun `missing grimmory reader cache does not fetch while source is offline`() = runTest {
+        File(context.cacheDir, "grimmory-reader-documents").deleteRecursively()
+        val api = RecordingGrimmoryReadApi()
+        val connectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markUnavailable(SourceType.GRIMMORY)
+        }
+        val cache = RemoteDocumentReadCache(
+            context = context,
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
+            grimmoryCredentialStore = FakeGrimmoryCredentialStore(
+                initialSession = grimmoryStoredSession(),
+            ),
+            remoteSourceConnectivityPolicy = connectivityPolicy,
+        )
+
+        val uri = cache.documentUriForReading(grimmoryDocumentItem())
+
+        assertNull(uri)
+        assertEquals(emptyList<String>(), api.downloadedBookIds)
+        assertEquals(RemoteSourceReachability.Unavailable, connectivityPolicy.reachabilityFor(SourceType.GRIMMORY))
     }
 
     @Test

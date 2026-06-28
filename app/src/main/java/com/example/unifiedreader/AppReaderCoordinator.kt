@@ -272,6 +272,20 @@ class AppReaderCoordinator @Inject constructor(
             if (readerSelectionRequestId != requestId) return
             onSyncFailures(failures)
             refreshProgress()
+            if (failures.any { failure -> failure.throwable.isRemoteServerAddressRetryableFailure() }) {
+                return
+            }
+        }
+        if (!remoteSourceConnectivityPolicy.canAttemptReaderContent(item.sourceType)) {
+            onSyncFailures(
+                listOf(
+                    SourceProgressSyncFailure(
+                        sourceType = item.sourceType,
+                        throwable = RemoteSourceUnavailableException(item.sourceType),
+                    ),
+                ),
+            )
+            return
         }
         when (val result = remoteReaderContentPreparer.prepare(item)) {
             RemoteReaderContentPreparationResult.Ready -> {

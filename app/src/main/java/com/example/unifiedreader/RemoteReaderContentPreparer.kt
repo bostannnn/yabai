@@ -21,6 +21,17 @@ class RemoteReaderContentPreparer @Inject constructor(
                     throwable = IllegalStateException("Offline download is not supported for ${item.title}."),
                 ),
             )
+        if (dataSource.storedDocumentUri(item) != null) {
+            return RemoteReaderContentPreparationResult.Ready
+        }
+        if (!remoteSourceConnectivityPolicy.canAttemptReaderContent(item.sourceType)) {
+            return RemoteReaderContentPreparationResult.Failure(
+                SourceProgressSyncFailure(
+                    sourceType = item.sourceType,
+                    throwable = RemoteSourceUnavailableException(item.sourceType),
+                ),
+            )
+        }
         return runCatching {
             dataSource.prepareDocumentForReading(item)
                 ?: error("Unable to prepare ${item.title} for reading.")

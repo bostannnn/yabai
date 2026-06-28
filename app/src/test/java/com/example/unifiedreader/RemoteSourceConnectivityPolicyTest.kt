@@ -14,6 +14,7 @@ class RemoteSourceConnectivityPolicyTest {
 
         assertEquals(SourceConnectivityState.Unknown, policy.reachabilityFor(SourceType.KAVITA))
         assertTrue(policy.canOpenRemoteItem(SourceType.KAVITA))
+        assertTrue(policy.canAttemptReaderContent(SourceType.KAVITA))
         assertFalse(policy.canFetchCover(SourceType.KAVITA))
         assertFalse(policy.canScheduleDownload(SourceType.KAVITA))
         assertTrue(policy.canAttemptProgressSync(SourceType.KAVITA))
@@ -21,13 +22,15 @@ class RemoteSourceConnectivityPolicyTest {
         policy.markChecking(SourceType.KAVITA)
 
         assertFalse(policy.canOpenRemoteItem(SourceType.KAVITA))
+        assertFalse(policy.canAttemptReaderContent(SourceType.KAVITA))
         assertFalse(policy.canFetchCover(SourceType.KAVITA))
         assertFalse(policy.canScheduleDownload(SourceType.KAVITA))
         assertTrue(policy.canAttemptProgressSync(SourceType.KAVITA))
 
         policy.markUnavailable(SourceType.KAVITA)
 
-        assertTrue(policy.canOpenRemoteItem(SourceType.KAVITA))
+        assertFalse(policy.canOpenRemoteItem(SourceType.KAVITA))
+        assertFalse(policy.canAttemptReaderContent(SourceType.KAVITA))
         assertFalse(policy.canFetchCover(SourceType.KAVITA))
         assertFalse(policy.canScheduleDownload(SourceType.KAVITA))
         assertFalse(policy.canAttemptProgressSync(SourceType.KAVITA))
@@ -35,11 +38,13 @@ class RemoteSourceConnectivityPolicyTest {
         policy.markReachable(SourceType.KAVITA)
 
         assertTrue(policy.canOpenRemoteItem(SourceType.KAVITA))
+        assertTrue(policy.canAttemptReaderContent(SourceType.KAVITA))
         assertTrue(policy.canFetchCover(SourceType.KAVITA))
         assertTrue(policy.canScheduleDownload(SourceType.KAVITA))
         assertTrue(policy.canAttemptProgressSync(SourceType.KAVITA))
 
         assertFalse(policy.canOpenRemoteItem(SourceType.LOCAL))
+        assertFalse(policy.canAttemptReaderContent(SourceType.LOCAL))
         assertFalse(policy.canAttemptProgressSync(SourceType.LOCAL))
     }
 

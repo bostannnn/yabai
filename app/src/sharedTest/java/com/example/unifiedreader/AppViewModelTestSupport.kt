@@ -1001,9 +1001,13 @@ class FakeRemoteDownloadDataSource(
         null
     }
 
+    var downloadToLocalStorageCalls: Int = 0
+        private set
+
     override suspend fun downloadToLocalStorage(
         item: ReadableItem,
     ): Uri? {
+        downloadToLocalStorageCalls += 1
         downloadFailure?.let { throw it }
         if (!supports(item)) return null
         if (item.id in failingItemIds) return null

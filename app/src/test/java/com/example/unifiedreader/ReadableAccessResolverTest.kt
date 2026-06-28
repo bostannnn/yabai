@@ -1,12 +1,15 @@
 package com.example.unifiedreader
 
+import android.app.Application
 import android.net.Uri
+import androidx.test.core.app.ApplicationProvider
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.remoteLibraryId
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
+import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -59,7 +62,7 @@ class ReadableAccessResolverTest {
     }
 
     @Test
-    fun `stored remote file opens locally regardless of transport policy`() {
+    fun `offline downloaded remote file opens locally`() {
         val item = remoteItem(sourceType = SourceType.GRIMMORY, format = FormatType.CBZ)
         val resolver = resolverFor(
             sourceType = SourceType.GRIMMORY,
@@ -71,14 +74,34 @@ class ReadableAccessResolverTest {
     }
 
     @Test
-    fun `missing stored remote file attempts remote preparation when source was previously offline`() {
+    fun `offline cached readable file opens locally where supported`() {
+        val item = remoteItem(sourceType = SourceType.GRIMMORY, format = FormatType.EPUB)
+        val connectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markUnavailable(SourceType.GRIMMORY)
+        }
+        val resolver = ReadableAccessResolver(
+            remoteItemLocalAvailability = RemoteItemLocalAvailability(
+                remoteDownloadDataSources = emptyList(),
+                remoteDocumentReadCache = cachedReadCacheFor(
+                    item = item,
+                    connectivityPolicy = connectivityPolicy,
+                ),
+            ),
+            remoteSourceConnectivityPolicy = connectivityPolicy,
+        )
+
+        assertEquals(ReadableAccessDecision.DownloadedRemoteFile, resolver.resolve(item))
+    }
+
+    @Test
+    fun `missing remote file is blocked while source is offline`() {
         val item = remoteItem(sourceType = SourceType.KAVITA, format = FormatType.PDF)
         val resolver = resolverFor(
             sourceType = SourceType.KAVITA,
             isReachable = false,
         )
 
-        assertEquals(ReadableAccessDecision.PrepareRemoteFile, resolver.resolve(item))
+        assertEquals(ReadableAccessDecision.BlockedRemoteUnavailable(SourceType.KAVITA), resolver.resolve(item))
     }
 
     @Test
@@ -131,6 +154,24 @@ class ReadableAccessResolverTest {
             remoteSourceConnectivityPolicy = connectivityPolicy,
         )
     }
+}
+
+private fun cachedReadCacheFor(
+    item: ReadableItem,
+    connectivityPolicy: RemoteSourceConnectivityPolicy,
+): RemoteDocumentReadCache {
+    val context = ApplicationProvider.getApplicationContext<Application>()
+    File(context.cacheDir, "grimmory-reader-documents").apply {
+        deleteRecursively()
+        mkdirs()
+    }.resolve(item.grimmoryCacheFileName(item.format.name.lowercase()))
+        .writeText("cached document")
+    return RemoteDocumentReadCache(
+        context = context,
+        grimmoryApiFactory = GrimmoryApiFactory { error("Unexpected remote read for cached item.") },
+        grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+        remoteSourceConnectivityPolicy = connectivityPolicy,
+    )
 }
 
 private class TestDownloadDataSource(
