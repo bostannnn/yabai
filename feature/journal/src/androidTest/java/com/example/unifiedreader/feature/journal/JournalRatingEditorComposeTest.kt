@@ -5,13 +5,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertContentDescriptionContains
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertEquals
@@ -51,7 +52,7 @@ class JournalRatingEditorComposeTest {
     }
 
     @Test
-    fun draggingAcrossStarsPreviewsAndCommitsFinalRating() {
+    fun draggingAcrossStarGuttersPreviewsAndCommitsFinalRating() {
         var rating by mutableStateOf<Int?>(null)
         val selections = mutableListOf<Int?>()
         setEditorContent(
@@ -65,7 +66,7 @@ class JournalRatingEditorComposeTest {
         composeRule.onNodeWithTag(JournalRatingStarsTag).performTouchInput {
             down(position = Offset(width * 0.05f, height / 2f))
             moveTo(position = Offset(width * 0.42f, height / 2f))
-            moveTo(position = fourAndHalfStarPosition())
+            moveTo(position = gutterBeforeFinalStarPosition())
         }
 
         composeRule.onNodeWithText("Selecting 4.5").assertExists()
@@ -86,7 +87,7 @@ class JournalRatingEditorComposeTest {
     }
 
     @Test
-    fun clearRatingButtonClearsSelectedRating() {
+    fun tappingSelectedRatingAgainClearsRatingWithoutSeparateButton() {
         var rating by mutableStateOf<Int?>(9)
         val selections = mutableListOf<Int?>()
         setEditorContent(
@@ -97,7 +98,13 @@ class JournalRatingEditorComposeTest {
             },
         )
 
-        composeRule.onNodeWithTag(JournalRatingClearTag).performClick()
+        assertEquals(
+            0,
+            composeRule.onAllNodesWithTag(JournalRatingClearTag).fetchSemanticsNodes().size,
+        )
+        composeRule.onNodeWithTag(JournalRatingStarsTag).performTouchInput {
+            click(fourAndHalfStarPosition())
+        }
 
         composeRule.runOnIdle {
             assertEquals(null, rating)
@@ -116,7 +123,7 @@ class JournalRatingEditorComposeTest {
 
         val actionLabels = composeRule.onNodeWithTag(JournalRatingStarsTag)
             .fetchSemanticsNode()
-            .config[SemanticsProperties.CustomActions]
+            .config[SemanticsActions.CustomActions]
             .map { action -> action.label }
         val rateActionLabels = (1..10)
             .map { value -> "Rate ${journalRatingValueLabel(value)} stars" }
@@ -125,7 +132,7 @@ class JournalRatingEditorComposeTest {
 
         val rateFourAndHalfAction = composeRule.onNodeWithTag(JournalRatingStarsTag)
             .fetchSemanticsNode()
-            .config[SemanticsProperties.CustomActions]
+            .config[SemanticsActions.CustomActions]
             .first { action -> action.label == "Rate 4.5 stars" }
         composeRule.runOnIdle {
             assertTrue(rateFourAndHalfAction.action())
@@ -136,17 +143,39 @@ class JournalRatingEditorComposeTest {
 
         val ratedActionLabels = composeRule.onNodeWithTag(JournalRatingStarsTag)
             .fetchSemanticsNode()
-            .config[SemanticsProperties.CustomActions]
+            .config[SemanticsActions.CustomActions]
             .map { action -> action.label }
         assertEquals(rateActionLabels + "Clear rating", ratedActionLabels)
 
         val clearAction = composeRule.onNodeWithTag(JournalRatingStarsTag)
             .fetchSemanticsNode()
-            .config[SemanticsProperties.CustomActions]
+            .config[SemanticsActions.CustomActions]
             .first { action -> action.label == "Clear rating" }
         composeRule.runOnIdle {
             assertTrue(clearAction.action())
             assertEquals(null, rating)
+        }
+    }
+
+    @Test
+    fun accessibilityClickClearsSelectedRatingWhenHintIsExposed() {
+        var rating by mutableStateOf<Int?>(9)
+        val selections = mutableListOf<Int?>()
+        setEditorContent(
+            selectedRating = { rating },
+            onRatingSelected = { selected ->
+                rating = selected
+                selections += selected
+            },
+        )
+
+        composeRule.onNodeWithTag(JournalRatingStarsTag)
+            .assertContentDescriptionContains("Tap again to clear")
+            .performSemanticsAction(SemanticsActions.OnClick)
+
+        composeRule.runOnIdle {
+            assertEquals(null, rating)
+            assertEquals(listOf(null), selections)
         }
     }
 
@@ -166,4 +195,17 @@ class JournalRatingEditorComposeTest {
 
     private fun androidx.compose.ui.test.TouchInjectionScope.fourAndHalfStarPosition(): Offset =
         Offset(width * 0.86f, height / 2f)
+
+    private fun androidx.compose.ui.test.TouchInjectionScope.gutterBeforeFinalStarPosition(): Offset {
+        val unitWidth = width / ((5f * StarSlotWeight) + (4f * StarGapWeight))
+        val starSlotWidth = unitWidth * StarSlotWeight
+        val starGapWidth = unitWidth * StarGapWeight
+        val fourthStarEnd = (4f * starSlotWidth) + (3f * starGapWidth)
+        return Offset(fourthStarEnd + (starGapWidth * 0.75f), height / 2f)
+    }
+
+    private companion object {
+        const val StarSlotWeight = 46f
+        const val StarGapWeight = 6f
+    }
 }

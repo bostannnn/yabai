@@ -17,11 +17,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.StarHalf
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -44,6 +43,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -53,10 +53,7 @@ import kotlin.math.floor
 private const val MaxRating = 10
 private const val MaxStars = 5
 private val RatingStarSlotSize = 46.dp
-private val MinRatingStarSlotSize = 34.dp
 private val RatingStarGap = 6.dp
-private val RatingClearButtonSize = 48.dp
-private val RatingClearButtonGap = 4.dp
 
 internal const val JournalRatingStarsTag = "journal-rating-stars"
 internal const val JournalRatingClearTag = "journal-rating-clear"
@@ -69,7 +66,6 @@ fun JournalRatingEditor(
     val safeRating = selectedRating?.coerceIn(1, MaxRating)
     var previewRating by remember { mutableStateOf<Int?>(null) }
     val displayedRating = previewRating ?: safeRating
-    val hapticFeedback = LocalHapticFeedback.current
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -89,11 +85,6 @@ fun JournalRatingEditor(
             previewRating = previewRating,
             onPreviewRatingChanged = { previewRating = it },
             onRatingSelected = onRatingSelected,
-            onClearRating = {
-                previewRating = null
-                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                onRatingSelected(null)
-            },
         )
     }
 }
@@ -105,98 +96,31 @@ private fun JournalRatingControls(
     previewRating: Int?,
     onPreviewRatingChanged: (Int?) -> Unit,
     onRatingSelected: (Int?) -> Unit,
-    onClearRating: () -> Unit,
 ) {
     BoxWithConstraints(
         modifier = Modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center,
     ) {
-        val fitsInline = ratingControlsFitInline(maxWidth)
-        val starSlotSize = ratingStarSlotSizeFor(
-            maxWidth = maxWidth,
-            includeClearButton = fitsInline,
+        JournalRatingStars(
+            displayedRating = displayedRating,
+            selectedRating = selectedRating,
+            previewRating = previewRating,
+            onPreviewRatingChanged = onPreviewRatingChanged,
+            onRatingSelected = onRatingSelected,
+            starSlotSize = ratingStarSlotSizeFor(maxWidth),
         )
-        val stars: @Composable () -> Unit = {
-            JournalRatingStars(
-                displayedRating = displayedRating,
-                selectedRating = selectedRating,
-                previewRating = previewRating,
-                onPreviewRatingChanged = onPreviewRatingChanged,
-                onRatingSelected = onRatingSelected,
-                starSlotSize = starSlotSize,
-            )
-        }
-        val clearButton: @Composable () -> Unit = {
-            IconButton(
-                onClick = onClearRating,
-                enabled = selectedRating != null,
-                modifier = Modifier
-                    .size(RatingClearButtonSize)
-                    .testTag(JournalRatingClearTag),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = "Clear rating",
-                    tint = if (selectedRating != null) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
-                    },
-                )
-            }
-        }
-
-        if (fitsInline) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(
-                    space = RatingClearButtonGap,
-                    alignment = Alignment.CenterHorizontally,
-                ),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                stars()
-                clearButton()
-            }
-        } else {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                stars()
-                clearButton()
-            }
-        }
     }
 }
 
-internal fun ratingControlsFitInline(maxWidth: Dp): Boolean =
-    ratingStarRowWidth(
-        starSlotSize = MinRatingStarSlotSize,
-        starGap = RatingStarGap,
-    ) + RatingClearButtonGap + RatingClearButtonSize <= maxWidth
-
-internal fun ratingStarSlotSizeFor(
-    maxWidth: Dp,
-    includeClearButton: Boolean,
-): Dp {
-    val reservedWidth = if (includeClearButton) {
-        RatingClearButtonSize + RatingClearButtonGap
-    } else {
-        0.dp
-    }
-    val availableForStars = (maxWidth - reservedWidth).coerceAtLeast(0.dp)
+internal fun ratingStarSlotSizeFor(maxWidth: Dp): Dp {
+    val availableForStars = maxWidth.coerceAtLeast(0.dp)
     val availableForSlots = (
         availableForStars - (RatingStarGap.value * (MaxStars - 1)).dp
     ).coerceAtLeast(0.dp)
     val computedSlotSize = (availableForSlots.value / MaxStars).dp
-    return if (includeClearButton) {
-        computedSlotSize.coerceIn(MinRatingStarSlotSize, RatingStarSlotSize)
-    } else {
-        computedSlotSize
-            .coerceAtMost(RatingStarSlotSize)
-            .coerceAtLeast(0.dp)
-    }
+    return computedSlotSize
+        .coerceAtMost(RatingStarSlotSize)
+        .coerceAtLeast(0.dp)
 }
 
 @Composable
@@ -240,16 +164,28 @@ private fun JournalRatingStars(
             .height(54.dp)
             .testTag(JournalRatingStarsTag)
             .semantics {
-                contentDescription = "Rating, ${journalRatingLabel(displayedRating)}"
+                contentDescription = journalRatingContentDescription(
+                    displayedRating = displayedRating,
+                    selectedRating = selectedRating,
+                )
                 customActions = journalRatingAccessibilityActions(
                     selectedRating = selectedRating,
                     onRatingSelected = onRatingSelected,
                 )
+                if (selectedRating != null && displayedRating == selectedRating) {
+                    onClick(label = "Clear rating") {
+                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onRatingSelected(null)
+                        true
+                    }
+                }
             }
-            .pointerInput(onRatingSelected, starSlotWidthPx, starGapWidthPx) {
+            .pointerInput(onRatingSelected, selectedRating, starSlotWidthPx, starGapWidthPx) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
+                    val downPosition = down.position
                     var currentRating = updatePreview(down.position.x)
+                    var movedPastTouchSlop = false
                     var shouldCommit = false
                     down.consume()
                     try {
@@ -260,25 +196,32 @@ private fun JournalRatingStars(
                                 currentRating = null
                                 break
                             }
+                            currentRating = updatePreview(change.position.x) ?: currentRating
+                            movedPastTouchSlop = movedPastTouchSlop ||
+                                change.position.isPastTouchSlopFrom(
+                                    origin = downPosition,
+                                    touchSlop = viewConfiguration.touchSlop,
+                                )
                             if (!change.pressed || change.changedToUpIgnoreConsumed()) {
                                 shouldCommit = true
                                 change.consume()
                                 break
                             }
                             if (change.positionChanged()) {
-                                ratingFromStarRowOffset(
-                                    offsetX = change.position.x,
-                                    starSlotWidth = starSlotWidthPx,
-                                    starGapWidth = starGapWidthPx,
-                                )?.let {
-                                    currentRating = updatePreview(change.position.x)
-                                }
                                 change.consume()
                             }
                         }
                     } finally {
-                        if (shouldCommit) {
-                            currentRating?.let(onRatingSelected)
+                        if (shouldCommit && currentRating != null) {
+                            val nextRating = ratingSelectionForRelease(
+                                selectedRating = selectedRating,
+                                resolvedRating = currentRating,
+                                movedPastTouchSlop = movedPastTouchSlop,
+                            )
+                            if (nextRating == null) {
+                                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                            }
+                            onRatingSelected(nextRating)
                         }
                         onPreviewRatingChanged(null)
                         lastFeedbackRating = null
@@ -381,6 +324,18 @@ internal fun journalRatingValueLabel(rating: Int): String {
     }
 }
 
+private fun journalRatingContentDescription(
+    displayedRating: Int?,
+    selectedRating: Int?,
+): String {
+    val ratingLabel = journalRatingLabel(displayedRating)
+    return if (selectedRating != null && displayedRating == selectedRating) {
+        "Rating, $ratingLabel. Tap again to clear"
+    } else {
+        "Rating, $ratingLabel"
+    }
+}
+
 private fun journalRatingAccessibilityActions(
     selectedRating: Int?,
     onRatingSelected: (Int?) -> Unit,
@@ -404,6 +359,16 @@ private fun journalRatingAccessibilityActions(
     )
 }
 
+internal fun ratingSelectionForRelease(
+    selectedRating: Int?,
+    resolvedRating: Int,
+    movedPastTouchSlop: Boolean,
+): Int? = if (!movedPastTouchSlop && selectedRating == resolvedRating) {
+    null
+} else {
+    resolvedRating
+}
+
 internal fun ratingFromStarRowOffset(
     offsetX: Float,
     starSlotWidth: Float,
@@ -414,11 +379,17 @@ internal fun ratingFromStarRowOffset(
     val totalWidth = (starSlotWidth * starCount) + (starGapWidth * (starCount - 1))
     val clampedOffset = offsetX.coerceIn(0f, totalWidth)
     val starPitch = starSlotWidth + starGapWidth
-    val starIndex = floor(clampedOffset / starPitch)
+    val starIndex = floor((clampedOffset + (starGapWidth / 2f)) / starPitch)
         .toInt()
         .coerceAtMost(starCount - 1)
-    val starOffset = clampedOffset - (starIndex * starPitch)
-    if (starOffset > starSlotWidth) return null
+        .coerceAtLeast(0)
+    val starOffset = (clampedOffset - (starIndex * starPitch))
+        .coerceIn(0f, starSlotWidth)
     val halfStep = if (starOffset < starSlotWidth / 2f) 1 else 2
     return ((starIndex * 2) + halfStep).coerceIn(1, starCount * 2)
 }
+
+private fun Offset.isPastTouchSlopFrom(
+    origin: Offset,
+    touchSlop: Float,
+): Boolean = (this - origin).getDistance() > touchSlop

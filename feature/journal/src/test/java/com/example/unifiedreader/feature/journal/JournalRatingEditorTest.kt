@@ -2,9 +2,7 @@ package com.example.unifiedreader.feature.journal
 
 import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class JournalRatingEditorTest {
@@ -34,10 +32,11 @@ class JournalRatingEditorTest {
     }
 
     @Test
-    fun `star row offset ignores gutters between star slots`() {
-        assertNull(mappedRating(offsetX = 41f))
-        assertNull(mappedRating(offsetX = 44f))
-        assertNull(mappedRating(offsetX = 47f))
+    fun `star row offset resolves gutters to nearest star slot`() {
+        assertEquals(2, mappedRating(offsetX = 41f))
+        assertEquals(2, mappedRating(offsetX = 43.9f))
+        assertEquals(3, mappedRating(offsetX = 44f))
+        assertEquals(3, mappedRating(offsetX = 47f))
         assertEquals(3, mappedRating(offsetX = 48f))
     }
 
@@ -51,27 +50,51 @@ class JournalRatingEditorTest {
     }
 
     @Test
-    fun `rating controls shrink inline stars to avoid dialog overflow`() {
-        assertTrue(ratingControlsFitInline(320.dp))
-        assertEquals(46.dp, ratingStarSlotSizeFor(maxWidth = 320.dp, includeClearButton = true))
+    fun `rating star slots use full size when row has enough width`() {
+        assertEquals(46.dp, ratingStarSlotSizeFor(maxWidth = 320.dp))
+        assertEquals(46.dp, ratingStarSlotSizeFor(maxWidth = 258.dp))
+    }
 
-        assertTrue(ratingControlsFitInline(258.dp))
+    @Test
+    fun `rating star slots shrink when the row is narrow`() {
         assertEquals(
-            36.4f,
-            ratingStarSlotSizeFor(maxWidth = 258.dp, includeClearButton = true).value,
+            44f,
+            ratingStarSlotSizeFor(maxWidth = 244.dp).value,
+            0.001f,
+        )
+
+        assertEquals(
+            25.2f,
+            ratingStarSlotSizeFor(maxWidth = 150.dp).value,
             0.001f,
         )
     }
 
     @Test
-    fun `rating controls stack and shrink stars when inline controls cannot fit`() {
-        assertFalse(ratingControlsFitInline(244.dp))
-
-        val stackedSlotSize = ratingStarSlotSizeFor(
-            maxWidth = 150.dp,
-            includeClearButton = false,
+    fun `rating release clears only when a tap repeats the selected value`() {
+        assertNull(
+            ratingSelectionForRelease(
+                selectedRating = 9,
+                resolvedRating = 9,
+                movedPastTouchSlop = false,
+            ),
         )
-        assertEquals(25.2f, stackedSlotSize.value, 0.001f)
+        assertEquals(
+            9,
+            ratingSelectionForRelease(
+                selectedRating = 9,
+                resolvedRating = 9,
+                movedPastTouchSlop = true,
+            ),
+        )
+        assertEquals(
+            8,
+            ratingSelectionForRelease(
+                selectedRating = 9,
+                resolvedRating = 8,
+                movedPastTouchSlop = false,
+            ),
+        )
     }
 
     private fun mappedRating(
