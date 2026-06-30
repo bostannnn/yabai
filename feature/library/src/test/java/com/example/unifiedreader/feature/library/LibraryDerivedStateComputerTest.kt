@@ -4,6 +4,7 @@ import com.example.unifiedreader.core.model.ComicMetadata
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.LibraryContentType
+import com.example.unifiedreader.core.model.LibraryFileLocation
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibraryReadingStatus
 import com.example.unifiedreader.core.model.LibrarySortMode
@@ -194,6 +195,41 @@ class LibraryDerivedStateComputerTest {
         )
 
         assertEquals(listOf(second.id, first.id), derivedState.visibleItems.map(ReadableItem::id))
+    }
+
+    @Test
+    fun `quick local filter uses known locally available remote ids`() {
+        val libraryId = SourceType.GRIMMORY.remoteLibraryId("grimmory-books")
+        val item = ReadableItem(
+            id = SourceType.GRIMMORY.remoteItemId("book-1"),
+            sourceType = SourceType.GRIMMORY,
+            libraryId = libraryId,
+            remoteId = "book-1",
+            title = "Remote Book",
+            format = FormatType.EPUB,
+        )
+
+        val derivedState = computer.computeQuick(
+            LibraryDerivedStateInput(
+                selectedSource = SourceType.GRIMMORY,
+                libraries = listOf(
+                    Library(
+                        id = libraryId,
+                        sourceType = SourceType.GRIMMORY,
+                        title = "Grimmory Books",
+                        contentType = LibraryContentType.BOOKS,
+                    ),
+                ),
+                items = listOf(item),
+                selectedLibraryFilters = LibraryFilterState(
+                    fileLocations = setOf(LibraryFileLocation.LOCAL),
+                ),
+                locallyAvailableRemoteItemIds = setOf(item.id),
+            ),
+        )
+
+        assertEquals(listOf(item.id), derivedState.visibleItems.map(ReadableItem::id))
+        assertEquals(listOf(LibraryFileLocation.LOCAL), derivedState.selectedLibraryFilterFacets.fileLocations)
     }
 
     @Test

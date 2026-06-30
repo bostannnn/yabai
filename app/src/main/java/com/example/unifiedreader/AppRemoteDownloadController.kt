@@ -105,9 +105,10 @@ class AppRemoteDownloadController @Inject constructor(
         scope.launch {
             val result = libraryActionsCoordinator.deleteRemoteLocalFile(item, stateProvider().items)
             updateState { state ->
-                state.copy(
+                state.withRemoteItemLocalState(
                     downloadedRemoteItemIds = result.downloadedRemoteItemIds,
                     locallyAvailableRemoteItemIds = result.locallyAvailableRemoteItemIds,
+                    isKnown = true,
                 )
             }
         }

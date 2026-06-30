@@ -130,7 +130,7 @@ class LibraryDerivedStateComputer @Inject constructor() {
             sourceItems = sourceItems,
             selectedLibraryFilterFacets = buildContextualLibraryFilterFacets(
                 sourceItems,
-                downloadedRemoteItemIds = emptySet(),
+                downloadedRemoteItemIds = input.locallyAvailableRemoteItemIds,
                 filters = input.selectedLibraryFilters,
                 readingStatusProvider = { item -> readingStatusByItemId[item.id] },
             ),
@@ -147,7 +147,7 @@ class LibraryDerivedStateComputer @Inject constructor() {
                 filterState = input.selectedLibraryFilters,
                 searchQuery = input.selectedLibrarySearchQuery,
                 sortMode = input.selectedLibrarySortMode,
-                downloadedRemoteItemIds = emptySet(),
+                downloadedRemoteItemIds = input.locallyAvailableRemoteItemIds,
                 lastReadAtEpochMillisByItemId = lastReadAtEpochMillisByItemId(
                     input = input,
                     sourceIndex = sourceIndex,

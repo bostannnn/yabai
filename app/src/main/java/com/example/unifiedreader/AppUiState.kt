@@ -4,6 +4,7 @@ import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.CollectionSeriesRef
 import com.example.unifiedreader.core.model.CollectionSummary
 import com.example.unifiedreader.core.model.Library
+import com.example.unifiedreader.core.model.LibraryFileLocation
 import com.example.unifiedreader.core.model.LibraryFilterFacets
 import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibraryFilterState
@@ -17,7 +18,11 @@ import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.belongsToKavitaSeries
 import com.example.unifiedreader.core.model.belongsToStumpSeries
 import com.example.unifiedreader.core.model.displayName
+import com.example.unifiedreader.core.model.kavitaSeriesContainerId
+import com.example.unifiedreader.core.model.kavitaSeriesGroupKey
 import com.example.unifiedreader.core.model.resolveLibraryFilterPanels
+import com.example.unifiedreader.core.model.stumpSeriesContainerId
+import com.example.unifiedreader.core.model.stumpSeriesGroupKey
 import com.example.unifiedreader.feature.library.ItemProgressSummary
 import com.example.unifiedreader.feature.library.LibraryRatingBadgeState
 import com.example.unifiedreader.feature.library.LibraryReadingListScopeOption
@@ -42,6 +47,7 @@ internal data class AppCatalogSnapshot(
     val items: List<ReadableItem>,
     val downloadedRemoteItemIds: Set<String>,
     val locallyAvailableRemoteItemIds: Set<String>,
+    val includesRemoteItemLocalState: Boolean,
     val progressByItemId: Map<String, ItemProgressSummary>,
     val hydratedSources: Set<SourceType>,
     val themeMode: ThemeMode,
@@ -92,6 +98,10 @@ data class AppUiState(
     val progressByItemId: Map<String, ItemProgressSummary> = emptyMap(),
     val downloadedRemoteItemIds: Set<String> = emptySet(),
     val locallyAvailableRemoteItemIds: Set<String> = emptySet(),
+    val remoteItemLocalStateItemIds: Set<String> = emptySet(),
+    val remoteItemLocalAvailabilityScopeIds: Set<String> = emptySet(),
+    val isRemoteItemLocalStateKnown: Boolean = false,
+    val isRemoteItemLocalStateRefreshing: Boolean = false,
     val downloadingRemoteItemIds: Set<String> = emptySet(),
     val hydratedSources: Set<SourceType> = emptySet(),
     val themeMode: ThemeMode = ThemeMode.SystemDynamic,
@@ -135,6 +145,11 @@ data class AppUiState(
 
     val isSelectedSourceHydrated: Boolean
         get() = selectedSource in hydratedSources
+
+    val isSelectedLibraryLocalAvailabilityPending: Boolean
+        get() = selectedSource != SourceType.LOCAL &&
+            LibraryFileLocation.LOCAL in selectedLibraryFilters.fileLocations &&
+            (!isRemoteItemLocalStateKnown || isRemoteItemLocalStateRefreshing)
 
     val isSeriesBrowseActive: Boolean
         get() = when (selectedSource) {
@@ -230,6 +245,57 @@ data class AppUiState(
 
     val selectedSourceConnectivity: SourceConnectivityState
         get() = sourceConnectivityBySource[selectedSource] ?: SourceConnectivityState.Unknown
+}
+
+internal fun AppUiState.withRemoteItemLocalState(
+    downloadedRemoteItemIds: Set<String>,
+    locallyAvailableRemoteItemIds: Set<String>,
+    itemIds: Set<String> = items.remoteItemLocalStateScopeItemIds(),
+    availabilityScopeIds: Set<String> = items.remoteItemLocalAvailabilityScopeIds(),
+    isKnown: Boolean = true,
+    isRefreshing: Boolean = false,
+): AppUiState = copy(
+    downloadedRemoteItemIds = downloadedRemoteItemIds,
+    locallyAvailableRemoteItemIds = locallyAvailableRemoteItemIds,
+    remoteItemLocalStateItemIds = itemIds,
+    remoteItemLocalAvailabilityScopeIds = availabilityScopeIds,
+    isRemoteItemLocalStateKnown = isKnown,
+    isRemoteItemLocalStateRefreshing = isRefreshing,
+)
+
+internal fun AppUiState.withRemoteItemLocalStateRefreshPending(
+    itemIds: Set<String> = items.remoteItemLocalStateScopeItemIds(),
+    availabilityScopeIds: Set<String> = items.remoteItemLocalAvailabilityScopeIds(),
+): AppUiState {
+    val hasKnownStateForScope = isRemoteItemLocalStateKnown &&
+        remoteItemLocalStateItemIds == itemIds &&
+        remoteItemLocalAvailabilityScopeIds == availabilityScopeIds
+    return copy(
+        remoteItemLocalStateItemIds = itemIds,
+        remoteItemLocalAvailabilityScopeIds = availabilityScopeIds,
+        isRemoteItemLocalStateKnown = hasKnownStateForScope,
+        isRemoteItemLocalStateRefreshing = true,
+    )
+}
+
+internal fun List<ReadableItem>.remoteItemLocalStateScopeItemIds(): Set<String> = buildSet {
+    this@remoteItemLocalStateScopeItemIds.forEach { item ->
+        if (item.sourceType != SourceType.LOCAL) {
+            add(item.id)
+        }
+    }
+}
+
+internal fun List<ReadableItem>.remoteItemLocalAvailabilityScopeIds(): Set<String> = buildSet {
+    addAll(remoteItemLocalStateScopeItemIds())
+    this@remoteItemLocalAvailabilityScopeIds.forEach { item ->
+        when (item.sourceType) {
+            SourceType.KAVITA -> item.kavitaSeriesGroupKey()?.let(::kavitaSeriesContainerId)
+            SourceType.STUMP -> item.stumpSeriesGroupKey()?.let(::stumpSeriesContainerId)
+            SourceType.GRIMMORY,
+            SourceType.LOCAL -> null
+        }?.let(::add)
+    }
 }
 
 fun AppUiState.kavitaReadingListScopeState(): LibraryReadingListScopeState = LibraryReadingListScopeState(

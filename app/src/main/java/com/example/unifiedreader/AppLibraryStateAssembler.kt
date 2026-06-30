@@ -90,6 +90,7 @@ class AppLibraryStateAssembler @Inject constructor(
             items = items,
             downloadedRemoteItemIds = remoteItemLocalState.downloadedItemIds,
             locallyAvailableRemoteItemIds = remoteItemLocalState.locallyAvailableItemIds,
+            includesRemoteItemLocalState = includeRemoteItemLocalState,
             progressByItemId = buildProgressSummaries(
                 items = items,
                 progressByItemId = progressByItemId,

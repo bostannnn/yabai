@@ -21,6 +21,10 @@ class AppInitialUiStateFactory @Inject constructor(
             progressByItemId = snapshot.progressByItemId,
             downloadedRemoteItemIds = snapshot.downloadedRemoteItemIds,
             locallyAvailableRemoteItemIds = snapshot.locallyAvailableRemoteItemIds,
+            remoteItemLocalStateItemIds = snapshot.items.remoteItemLocalStateScopeItemIds(),
+            remoteItemLocalAvailabilityScopeIds = snapshot.items.remoteItemLocalAvailabilityScopeIds(),
+            isRemoteItemLocalStateKnown = snapshot.includesRemoteItemLocalState,
+            isRemoteItemLocalStateRefreshing = !snapshot.includesRemoteItemLocalState,
             hydratedSources = snapshot.hydratedSources,
             themeMode = snapshot.themeMode,
         )

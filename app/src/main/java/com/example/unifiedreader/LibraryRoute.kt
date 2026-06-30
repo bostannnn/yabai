@@ -116,7 +116,8 @@ internal fun LibraryRoute(
                 deletableDownloadedItemIds = uiState.remoteDownloadActionAvailability.deletableDownloadedItemIds,
                 downloadingItemIds = uiState.remoteDownloadActionAvailability.activeDownloadingItemIds,
                 isLoadingSource = !uiState.isSelectedSourceHydrated ||
-                    (uiState.selectedSource == SourceType.KAVITA && uiState.kavitaReadingLists.isLoadingSelectedItems),
+                    (uiState.selectedSource == SourceType.KAVITA && uiState.kavitaReadingLists.isLoadingSelectedItems) ||
+                    uiState.isSelectedLibraryLocalAvailabilityPending,
                 filterState = uiState.selectedLibraryFilters,
                 filterPanels = uiState.selectedLibraryFilterPanels,
                 filterFacets = uiState.selectedLibraryFilterFacets,
