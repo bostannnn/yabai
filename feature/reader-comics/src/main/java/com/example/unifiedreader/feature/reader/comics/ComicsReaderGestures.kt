@@ -9,19 +9,15 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollDispatcher
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.Velocity
 import com.example.unifiedreader.feature.reader.core.detectReaderZoomGestures
-import com.example.unifiedreader.feature.reader.core.ReaderPanAxis
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 
 private const val NavigationZoneFraction = 0.25f
 
@@ -107,15 +103,6 @@ internal fun Modifier.comicGestureModifier(
                     fitMode = pageFitMode,
                 )
             },
-            onPanRemainder = { axis, consumed, available ->
-                if (axis == ReaderPanAxis.Horizontal && available.x != 0f) {
-                    nestedScrollDispatcher.dispatchPostScroll(
-                        consumed = consumed,
-                        available = Offset(x = available.x, y = 0f),
-                        source = NestedScrollSource.UserInput,
-                    )
-                }
-            },
             onTransform = { centroid, panChange, zoomChange ->
                 viewportState.onGesture(
                     centroid = centroid,
@@ -126,8 +113,8 @@ internal fun Modifier.comicGestureModifier(
                     fitMode = pageFitMode,
                 )
             },
-            onTransformEnd = { flingVelocity, panAxis ->
-                val consumedVelocity = viewportState.launchFling(
+            onTransformEnd = { flingVelocity, _ ->
+                viewportState.launchFling(
                     coroutineScope = animationScope,
                     initialVelocity = flingVelocity,
                     density = this,
@@ -135,15 +122,6 @@ internal fun Modifier.comicGestureModifier(
                     imageSize = imageSize,
                     fitMode = pageFitMode,
                 )
-                val availableX = flingVelocity.x - consumedVelocity.x
-                if (panAxis == ReaderPanAxis.Horizontal) {
-                    animationScope.launch {
-                        nestedScrollDispatcher.dispatchPostFling(
-                            consumed = Velocity(consumedVelocity.x, consumedVelocity.y),
-                            available = Velocity(availableX, 0f),
-                        )
-                    }
-                }
             },
         )
     }

@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -76,10 +77,13 @@ internal fun ComicSpreadPager(
 ) {
     HorizontalPager(
         state = pagerState,
-        userScrollEnabled = true,
+        userScrollEnabled = !isZoomed,
+        contentPadding = PaddingValues(0.dp),
+        pageSpacing = 0.dp,
         reverseLayout = readingDirection == ComicReadingDirection.RTL,
         modifier = Modifier
             .fillMaxSize()
+            .clipToBounds()
             .comicTerminalSwipeNavigation(
                 isAtLastSpread = pagerState.currentPage >= spreads.lastIndex,
                 isZoomed = isZoomed,
@@ -88,19 +92,25 @@ internal fun ComicSpreadPager(
             ),
     ) { spreadIndex ->
         val spread = spreads[spreadIndex]
-        ComicSpreadSurface(
-            item = item,
-            spread = spread,
-            pageSource = pageSource,
-            isActiveSpread = spread.pageIndexes.contains(currentPage),
-            readingDirection = readingDirection,
-            pageFitMode = pageFitMode,
-            onZoomStateChanged = onZoomStateChanged,
-            onInteraction = onInteraction,
-            onToggleOverlay = onToggleOverlay,
-            onNavigatePrevious = { onNavigatePrevious(spreadIndex) },
-            onNavigateNext = { onNavigateNext(spreadIndex) },
-        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clipToBounds(),
+        ) {
+            ComicSpreadSurface(
+                item = item,
+                spread = spread,
+                pageSource = pageSource,
+                isActiveSpread = spread.pageIndexes.contains(currentPage),
+                readingDirection = readingDirection,
+                pageFitMode = pageFitMode,
+                onZoomStateChanged = onZoomStateChanged,
+                onInteraction = onInteraction,
+                onToggleOverlay = onToggleOverlay,
+                onNavigatePrevious = { onNavigatePrevious(spreadIndex) },
+                onNavigateNext = { onNavigateNext(spreadIndex) },
+            )
+        }
     }
 }
 
@@ -165,12 +175,15 @@ private fun ComicSpreadSurface(
     }
 
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .clipToBounds(),
         contentAlignment = Alignment.Center,
     ) {
         Surface(
             modifier = Modifier
                 .fillMaxSize()
+                .clipToBounds()
                 .onSizeChanged { containerSize = it },
             color = Color(0xFF0A0D11),
             tonalElevation = 0.dp,

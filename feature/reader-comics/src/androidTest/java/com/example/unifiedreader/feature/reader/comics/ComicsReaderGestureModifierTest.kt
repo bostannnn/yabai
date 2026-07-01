@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -184,7 +185,7 @@ class ComicsReaderGestureModifierTest {
     }
 
     @Test
-    fun zoomedPanHandsEdgeRemainderToPager() {
+    fun zoomedPanAtPreviousEdgeDoesNotMovePager() {
         composeRule.setContent {
             GesturePagerHarness(
                 readingDirection = ComicReadingDirection.LTR,
@@ -195,6 +196,20 @@ class ComicsReaderGestureModifierTest {
         composeRule.onNodeWithTag("gesture-surface").performTouchInput { doubleClick(centerLeft) }
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("gesture-surface").performTouchInput { swipeRight() }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("pager-page").assertContentDescriptionEquals("page-1")
+    }
+
+    @Test
+    fun zoomedPanAtNextEdgeDoesNotMovePager() {
+        composeRule.setContent {
+            GesturePagerHarness(readingDirection = ComicReadingDirection.LTR)
+        }
+
+        composeRule.onNodeWithTag("gesture-surface").performTouchInput { doubleClick(centerRight) }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("gesture-surface").performTouchInput { swipeLeft() }
         composeRule.waitForIdle()
 
         composeRule.onNodeWithTag("pager-page").assertContentDescriptionEquals("page-0")
@@ -245,8 +260,10 @@ private fun GesturePagerHarness(
     initialPage: Int = 0,
 ) {
     val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { 2 })
+    var isZoomed by remember { mutableStateOf(false) }
     HorizontalPager(
         state = pagerState,
+        userScrollEnabled = !isZoomed,
         reverseLayout = readingDirection == ComicReadingDirection.RTL,
         modifier = Modifier.fillMaxSize(),
     ) { pageIndex ->
@@ -258,7 +275,11 @@ private fun GesturePagerHarness(
                 }
                 .testTag("pager-page"),
         ) {
-            GestureSurfaceHarness(readingDirection = readingDirection)
+            GestureSurfaceHarness(
+                readingDirection = readingDirection,
+                isActivePage = pagerState.currentPage == pageIndex,
+                onZoomStateChanged = { isZoomed = it },
+            )
         }
     }
 }
@@ -267,6 +288,8 @@ private fun GesturePagerHarness(
 private fun GestureSurfaceHarness(
     readingDirection: ComicReadingDirection,
     initialOverlayVisible: Boolean = false,
+    isActivePage: Boolean = true,
+    onZoomStateChanged: (Boolean) -> Unit = {},
 ) {
     val viewportState = rememberComicPageViewportState(pageId = "test-page")
     val animationScope = rememberCoroutineScope()
@@ -275,6 +298,12 @@ private fun GestureSurfaceHarness(
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
     var overlayVisible by remember { mutableStateOf(initialOverlayVisible) }
     var navigateCount by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(isActivePage, viewportState.isZoomed) {
+        if (isActivePage) {
+            onZoomStateChanged(viewportState.isZoomed)
+        }
+    }
 
     Box(
         modifier = Modifier
