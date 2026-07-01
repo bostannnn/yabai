@@ -148,6 +148,56 @@ class KavitaCoverRepositoryTest {
         assertEquals("access-token", api.requestedAccessTokens.single())
         assertEquals("api-key", api.requestedApiKeys.single())
     }
+
+    @Test
+    fun `cachedCover reuses primary address cache while connected through backup address`() = runTest {
+        val repository = KavitaCoverRepository(
+            kavitaApiFactory = KavitaApiFactory { error("Backup-address cache reuse should not hit the API.") },
+            kavitaCredentialStore = FakeKavitaCredentialStore(
+                KavitaStoredSession(
+                    displayName = "Kavita",
+                    baseUrl = "http://primary.example:5000",
+                    backupBaseUrl = "http://backup.example:5000",
+                    activeBaseUrl = "http://backup.example:5000",
+                    username = "reader",
+                    accessToken = "access-token",
+                    refreshToken = "refresh-token",
+                    apiKey = "api-key",
+                ),
+            ),
+            coverCacheResolver = coverCacheResolver,
+        )
+        val backupItem = sampleItem(
+            id = "kavita:item:issue-address-reuse",
+            title = "Address Reuse Issue",
+            format = com.example.unifiedreader.core.model.FormatType.CBZ,
+        ).copy(
+            sourceType = com.example.unifiedreader.core.model.SourceType.KAVITA,
+            libraryId = "kavita:library:k-comics",
+            remoteId = "issue-address-reuse",
+            remoteFileType = "12",
+            coverUrl = "http://backup.example:5000/api/Image/chapter-cover?chapterId=1&apiKey=new",
+        )
+        val primaryItem = backupItem.copy(
+            coverUrl = "http://primary.example:5000/api/Image/chapter-cover?chapterId=1&apiKey=old",
+        )
+        val cachedPrimaryFile = File(
+            File(context.filesDir, KAVITA_COVER_DIRECTORY_NAME),
+            primaryItem.kavitaCacheFileName("cover"),
+        ).apply {
+            parentFile?.mkdirs()
+            writeBytes(validCoverBytes())
+        }
+
+        store.warmStorageDirectoryIndex(storageDirectoryName = KAVITA_COVER_DIRECTORY_NAME)
+
+        val cachedFallback = repository.cachedCover(backupItem, LibraryCoverImageVariant.Grid)
+
+        assertNotNull(cachedFallback)
+        assertEquals(Uri.fromFile(cachedPrimaryFile), cachedFallback?.uri)
+        assertTrue(requireNotNull(cachedFallback).isPersistent)
+        assertFalse(cachedFallback.matchesRequestedVariant)
+    }
 }
 
 private class RecordingCoverKavitaApi : KavitaApi {

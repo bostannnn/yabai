@@ -35,7 +35,10 @@ class KavitaCoverRepository @Inject constructor(
             storage = kavitaCoverStorage,
             baseFileName = item.kavitaCacheFileName("cover"),
             variant = variant.toCoverAssetVariant(),
-            legacyBaseFileNames = item.kavitaLegacyCacheFileNames("cover"),
+            legacyBaseFileNames = item.kavitaLegacyCacheFileNames(
+                extension = "cover",
+                session = kavitaCredentialStore.activeSessionFor(item),
+            ),
         )?.toCachedRemoteCover()
     }
 
@@ -48,7 +51,10 @@ class KavitaCoverRepository @Inject constructor(
             storage = kavitaCoverStorage,
             baseFileName = item.kavitaCacheFileName("cover"),
             variant = variant.toCoverAssetVariant(),
-            legacyBaseFileNames = item.kavitaLegacyCacheFileNames("cover"),
+            legacyBaseFileNames = item.kavitaLegacyCacheFileNames(
+                extension = "cover",
+                session = kavitaCredentialStore.activeSessionFor(item),
+            ),
         ) { destination ->
             val session = kavitaCredentialStore.activeSessionFor(item)
                 ?: error("Connect to the active Kavita server before loading remote covers.")
@@ -98,17 +104,24 @@ class KavitaCoverRepository @Inject constructor(
 
 internal fun ReadableItem.kavitaCacheFileName(
     extension: String,
+    coverUrl: String? = this.coverUrl,
 ): String = listOfNotNull(
     id.toSafeFileSegment(),
     remoteFileType?.toSafeFileSegment(),
-    coverIdentityFileSegment(),
+    coverIdentityFileSegment(coverUrl),
 ).joinToString(separator = "-").plus(".$extension")
 
 internal fun ReadableItem.kavitaLegacyCacheFileNames(
     extension: String,
+    session: StoredSourceSession? = null,
 ): List<String> {
-    if (coverIdentityFileSegment() != null) return emptyList()
-    return listOf(
+    val alternateAddressFileNames = alternateAddressCoverCacheFileNames(
+        extension = extension,
+        session = session,
+        cacheFileName = ReadableItem::kavitaCacheFileName,
+    )
+    if (coverIdentityFileSegment() != null) return alternateAddressFileNames
+    return alternateAddressFileNames + listOf(
         listOfNotNull(
             id.toSafeFileSegment(),
             remoteFileType?.toSafeFileSegment(),

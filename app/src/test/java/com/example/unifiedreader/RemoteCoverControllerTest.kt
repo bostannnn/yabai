@@ -17,6 +17,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -138,6 +139,89 @@ class RemoteCoverControllerTest {
 
         assertEquals(cachedUri.toString(), controller.coverImageUrlFor(stumpItem, LibraryCoverImageVariant.Grid))
         assertEquals(0, stumpDataSource.getCoverUriCalls)
+    }
+
+    @Test
+    fun `ensureCoverCached backfills downloaded cover while source is offline`() = runTest {
+        val fallbackUri = Uri.parse("file:///tmp/downloaded-stump-cover.png")
+        val thumbnailUri = Uri.parse("file:///tmp/downloaded-stump-cover-grid.jpg")
+        val connectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markUnavailable(SourceType.STUMP)
+        }
+        val stumpDataSource = BackfilledStumpCoverDataSource(
+            fallbackUri = fallbackUri,
+            thumbnailUri = thumbnailUri,
+        )
+        val backfiller = RecordingDownloadedRemoteCoverBackfiller(
+            onBackfill = stumpDataSource::markBackfilled,
+        )
+        val controller = RemoteCoverController(
+            kavitaCoverRepository = EmptyKavitaCoverDataSource(),
+            stumpCoverRepository = stumpDataSource,
+            grimmoryCoverRepository = EmptyGrimmoryCoverDataSource(),
+            kavitaCredentialStore = FakeKavitaCredentialStore(),
+            stumpCredentialStore = FakeStumpCredentialStore(),
+            grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            remoteSourceConnectivityPolicy = connectivityPolicy,
+            visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
+            downloadedRemoteCoverBackfiller = backfiller,
+            appDispatchers = immediateAppDispatchers(),
+        )
+        val stumpItem = remoteItem(
+            id = "stump:item:downloaded-offline",
+            sourceType = SourceType.STUMP,
+            coverUrl = "https://stump.example/api/v1/media/downloaded-offline/thumbnail",
+        )
+
+        assertNull(controller.coverImageUrlFor(stumpItem, LibraryCoverImageVariant.Grid))
+
+        controller.ensureCoverCached(stumpItem, LibraryCoverImageVariant.Grid, this) {}
+        advanceUntilIdle()
+
+        assertEquals(thumbnailUri.toString(), controller.coverImageUrlFor(stumpItem, LibraryCoverImageVariant.Grid))
+        assertEquals(1, backfiller.backfillCalls)
+        assertEquals(1, stumpDataSource.getCoverUriCalls)
+    }
+
+    @Test
+    fun `ensureCoverCached falls back to remote cover when downloaded cover backfill fails`() = runTest {
+        val remoteUri = Uri.parse("file:///tmp/remote-stump-cover-grid.jpg")
+        val connectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markReachable(SourceType.STUMP)
+        }
+        val stumpDataSource = BackfilledStumpCoverDataSource(
+            fallbackUri = Uri.parse("file:///tmp/downloaded-stump-cover.png"),
+            thumbnailUri = remoteUri,
+        )
+        val backfiller = RecordingDownloadedRemoteCoverBackfiller(
+            onBackfill = { error("Downloaded cover backfill failed.") },
+        )
+        val errors = mutableListOf<String>()
+        val controller = RemoteCoverController(
+            kavitaCoverRepository = EmptyKavitaCoverDataSource(),
+            stumpCoverRepository = stumpDataSource,
+            grimmoryCoverRepository = EmptyGrimmoryCoverDataSource(),
+            kavitaCredentialStore = FakeKavitaCredentialStore(),
+            stumpCredentialStore = FakeStumpCredentialStore(),
+            grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            remoteSourceConnectivityPolicy = connectivityPolicy,
+            visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
+            downloadedRemoteCoverBackfiller = backfiller,
+            appDispatchers = immediateAppDispatchers(),
+        )
+        val stumpItem = remoteItem(
+            id = "stump:item:downloaded-corrupt",
+            sourceType = SourceType.STUMP,
+            coverUrl = "https://stump.example/api/v1/media/downloaded-corrupt/thumbnail",
+        )
+
+        controller.ensureCoverCached(stumpItem, LibraryCoverImageVariant.Grid, this, errors::add)
+        advanceUntilIdle()
+
+        assertEquals(remoteUri.toString(), controller.coverImageUrlFor(stumpItem, LibraryCoverImageVariant.Grid))
+        assertEquals(1, backfiller.backfillCalls)
+        assertEquals(1, stumpDataSource.getCoverUriCalls)
+        assertTrue(errors.isEmpty())
     }
 
     @Test
@@ -751,6 +835,63 @@ private class PersistentCachedStumpCoverDataSource(
     refreshedUri: Uri = cachedUri,
 ) : PersistentCachedCoverDataSource(cachedUri, matchesRequestedVariant, refreshedUri), StumpCoverDataSource {
     override val sourceType: SourceType = SourceType.STUMP
+}
+
+private class BackfilledStumpCoverDataSource(
+    private val fallbackUri: Uri,
+    private val thumbnailUri: Uri,
+) : StumpCoverDataSource {
+    override val sourceType: SourceType = SourceType.STUMP
+    var getCoverUriCalls: Int = 0
+        private set
+    private var cachedCover: CachedRemoteCover? = null
+
+    fun markBackfilled() {
+        cachedCover = CachedRemoteCover(
+            uri = fallbackUri,
+            isPersistent = true,
+            matchesRequestedVariant = false,
+        )
+    }
+
+    override fun cachedCover(
+        item: ReadableItem,
+        variant: LibraryCoverImageVariant,
+    ): CachedRemoteCover? = cachedCover
+
+    override suspend fun getCoverUri(
+        item: ReadableItem,
+        variant: LibraryCoverImageVariant,
+    ): Uri? {
+        getCoverUriCalls += 1
+        cachedCover = CachedRemoteCover(
+            uri = thumbnailUri,
+            isPersistent = true,
+            matchesRequestedVariant = true,
+        )
+        return thumbnailUri
+    }
+
+    override suspend fun clearCachedCovers() = Unit
+}
+
+private class RecordingDownloadedRemoteCoverBackfiller(
+    private val onBackfill: () -> Unit,
+) : DownloadedRemoteCoverBackfiller {
+    var backfillCalls: Int = 0
+        private set
+
+    override fun hasStoredDocument(
+        item: ReadableItem,
+    ): Boolean = true
+
+    override suspend fun backfillOriginalCoverFromStoredDocument(
+        item: ReadableItem,
+    ): Boolean {
+        backfillCalls += 1
+        onBackfill()
+        return true
+    }
 }
 
 private fun remoteItem(

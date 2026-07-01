@@ -16,11 +16,39 @@ internal fun String.toStableCacheHashSegment(): String {
     return digest.take(8).joinToString(separator = "") { byte -> "%02x".format(byte) }
 }
 
-internal fun ReadableItem.coverIdentityFileSegment(): String? = coverUrl
+internal fun ReadableItem.coverIdentityFileSegment(): String? = coverIdentityFileSegment(coverUrl)
+
+internal fun ReadableItem.coverIdentityFileSegment(
+    coverUrl: String?,
+): String? = coverUrl
     ?.takeIf(String::isNotBlank)
     ?.toCoverCacheIdentity()
     ?.toStableCacheHashSegment()
     ?.let { hash -> "cover-$hash" }
+
+internal fun ReadableItem.alternateAddressCoverCacheFileNames(
+    extension: String,
+    session: StoredSourceSession?,
+    cacheFileName: ReadableItem.(extension: String, coverUrl: String?) -> String,
+): List<String> {
+    val originalCoverUrl = coverUrl?.takeIf(String::isNotBlank) ?: return emptyList()
+    val sourceSession = session?.takeIf { it.sourceType == sourceType } ?: return emptyList()
+    val baseFileName = cacheFileName(extension, originalCoverUrl)
+    return sourceSession.baseUrlCandidates()
+        .asSequence()
+        .mapNotNull { baseUrl ->
+            rewriteRemoteAssetUrlForServerAddress(
+                url = originalCoverUrl,
+                session = sourceSession,
+                targetBaseUrl = baseUrl,
+            )
+        }
+        .filter { candidateCoverUrl -> candidateCoverUrl != originalCoverUrl }
+        .map { candidateCoverUrl -> cacheFileName(extension, candidateCoverUrl) }
+        .filter { fileName -> fileName != baseFileName }
+        .distinct()
+        .toList()
+}
 
 private fun String.toCoverCacheIdentity(): String = runCatching {
     val uri = URI(this)
@@ -44,17 +72,24 @@ private fun String.toCoverCacheIdentity(): String = runCatching {
 
 internal fun ReadableItem.grimmoryCacheFileName(
     extension: String,
+    coverUrl: String? = this.coverUrl,
 ): String = listOfNotNull(
     id.toSafeFileSegment(),
     remoteFileId?.toSafeFileSegment(),
-    coverIdentityFileSegment(),
+    coverIdentityFileSegment(coverUrl),
 ).joinToString(separator = "-").plus(".$extension")
 
 internal fun ReadableItem.grimmoryLegacyCacheFileNames(
     extension: String,
+    session: StoredSourceSession? = null,
 ): List<String> {
-    if (coverIdentityFileSegment() != null) return emptyList()
-    return listOf(
+    val alternateAddressFileNames = alternateAddressCoverCacheFileNames(
+        extension = extension,
+        session = session,
+        cacheFileName = ReadableItem::grimmoryCacheFileName,
+    )
+    if (coverIdentityFileSegment() != null) return alternateAddressFileNames
+    return alternateAddressFileNames + listOf(
         listOfNotNull(
             id.toSafeFileSegment(),
             remoteFileId?.toSafeFileSegment(),

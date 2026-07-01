@@ -9,6 +9,7 @@ import com.example.unifiedreader.feature.library.covers.VisibleLibraryCoverRegis
 import java.net.URI
 import dagger.hilt.android.scopes.ViewModelScoped
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -27,6 +28,7 @@ class RemoteCoverController @Inject constructor(
     private val grimmoryCredentialStore: GrimmoryCredentialStore,
     private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy = defaultOnlineCoverConnectivityPolicy(),
     private val visibleLibraryCoverRegistry: VisibleLibraryCoverRegistry,
+    private val downloadedRemoteCoverBackfiller: DownloadedRemoteCoverBackfiller = NoOpDownloadedRemoteCoverBackfiller,
     private val appDispatchers: AppDispatchers = AppDispatchers(),
 ) {
     private val coverDataSources = listOf<RemoteCoverDataSource>(
@@ -104,8 +106,12 @@ class RemoteCoverController @Inject constructor(
         val coverVariant = variant.toCoverAssetVariant()
         val coverIdentity = item.coverIdentityFileSegment()
         sourceTypeByItemId[item.id] = item.sourceType
-        if (!remoteSourceConnectivityPolicy.canFetchCover(item.sourceType)) return
-        scheduleCacheWarmup(item.sourceType)
+        val canFetchRemoteCover = remoteSourceConnectivityPolicy.canFetchCover(item.sourceType)
+        val canBackfillDownloadedCover = downloadedRemoteCoverBackfiller.hasStoredDocument(item)
+        if (!canFetchRemoteCover && !canBackfillDownloadedCover) return
+        if (canFetchRemoteCover) {
+            scheduleCacheWarmup(item.sourceType)
+        }
         val dataSource = coverDataSources[item.sourceType] ?: return
         if (item.sourceType in sourcesBeingReset) return
         val requestKey = RemoteCoverRequestKey(
@@ -138,7 +144,16 @@ class RemoteCoverController @Inject constructor(
                         ) {
                             refreshedCachedCover.uri.toString().takeIf(String::isNotBlank)
                         } else {
-                            dataSource.getCoverUri(item, variant)?.toString()
+                            val downloadedCoverUri = downloadedCoverUriOrNull(
+                                dataSource = dataSource,
+                                item = item,
+                                variant = variant,
+                            )
+                            downloadedCoverUri ?: if (canFetchRemoteCover) {
+                                dataSource.getCoverUri(item, variant)?.toString()
+                            } else {
+                                refreshedCachedCover?.uri?.toString()
+                            }
                         }
                     }
                 }
@@ -175,6 +190,27 @@ class RemoteCoverController @Inject constructor(
             if (coverRequestJobsByKey[requestKey] === job) {
                 coverRequestJobsByKey.remove(requestKey)
             }
+        }
+    }
+
+    private suspend fun downloadedCoverUriOrNull(
+        dataSource: RemoteCoverDataSource,
+        item: ReadableItem,
+        variant: LibraryCoverImageVariant,
+    ): String? {
+        if (!downloadedRemoteCoverBackfiller.hasStoredDocument(item)) return null
+        return try {
+            if (downloadedRemoteCoverBackfiller.backfillOriginalCoverFromStoredDocument(item)) {
+                dataSource.getCoverUri(item, variant)?.toString()
+                    ?: dataSource.cachedCover(item, variant)?.uri?.toString()
+            } else {
+                null
+            }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (throwable: Throwable) {
+            Log.w(LOG_TAG, "Unable to backfill ${item.sourceType} cover from downloaded file for ${item.id}.", throwable)
+            null
         }
     }
 

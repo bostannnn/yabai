@@ -33,7 +33,10 @@ class GrimmoryCoverRepository @Inject constructor(
             storage = grimmoryCoverStorage,
             baseFileName = item.grimmoryCacheFileName("cover"),
             variant = variant.toCoverAssetVariant(),
-            legacyBaseFileNames = item.grimmoryLegacyCacheFileNames("cover"),
+            legacyBaseFileNames = item.grimmoryLegacyCacheFileNames(
+                extension = "cover",
+                session = grimmoryCredentialStore.activeSessionFor(item),
+            ),
         )?.toCachedRemoteCover()
     }
 
@@ -46,7 +49,10 @@ class GrimmoryCoverRepository @Inject constructor(
             storage = grimmoryCoverStorage,
             baseFileName = item.grimmoryCacheFileName("cover"),
             variant = variant.toCoverAssetVariant(),
-            legacyBaseFileNames = item.grimmoryLegacyCacheFileNames("cover"),
+            legacyBaseFileNames = item.grimmoryLegacyCacheFileNames(
+                extension = "cover",
+                session = grimmoryCredentialStore.activeSessionFor(item),
+            ),
         ) { destination ->
             val session = grimmoryCredentialStore.activeSessionFor(item)
                 ?: error("Connect to the active Grimmory server before loading remote covers.")

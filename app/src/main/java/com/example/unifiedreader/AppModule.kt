@@ -295,9 +295,23 @@ object AppModule {
     @Provides
     fun provideDownloadCompletionSideEffects(
         sourceProgressSyncs: List<@JvmSuppressWildcards SourceProgressSync>,
+        downloadedRemoteCoverCacheBackfillSideEffect: DownloadedRemoteCoverCacheBackfillSideEffect,
     ): List<@JvmSuppressWildcards DownloadCompletionSideEffect> = listOf(
+        downloadedRemoteCoverCacheBackfillSideEffect,
         SourceProgressSyncDownloadCompletionSideEffect(sourceProgressSyncs),
     )
+
+    @Provides
+    @Singleton
+    fun provideDownloadedRemoteCoverBackfiller(
+        backfiller: DownloadedRemoteCoverCacheBackfiller,
+    ): DownloadedRemoteCoverBackfiller = backfiller
+
+    @Provides
+    @Singleton
+    fun provideDownloadedPdfCoverRenderer(
+        renderer: AndroidDownloadedPdfCoverRenderer,
+    ): DownloadedPdfCoverRenderer = renderer
 
     @Provides
     @Singleton

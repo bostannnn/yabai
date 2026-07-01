@@ -67,9 +67,19 @@ internal suspend fun <Session : StoredSourceSession, Api, T> runWithStoredSessio
 internal fun rewriteRemoteAssetUrlForActiveServer(
     url: String?,
     session: StoredSourceSession?,
+): String? = rewriteRemoteAssetUrlForServerAddress(
+    url = url,
+    session = session,
+    targetBaseUrl = session?.activeBaseUrl,
+)
+
+internal fun rewriteRemoteAssetUrlForServerAddress(
+    url: String?,
+    session: StoredSourceSession?,
+    targetBaseUrl: String?,
 ): String? {
     if (url.isNullOrBlank() || session == null) return url
-    val activeBaseUrl = session.activeBaseUrl?.takeIf(String::isNotBlank) ?: return url
+    val activeBaseUrl = targetBaseUrl?.takeIf(String::isNotBlank) ?: return url
     return runCatching {
         val assetUri = URI(url)
         if (!assetUri.isAbsolute) return url

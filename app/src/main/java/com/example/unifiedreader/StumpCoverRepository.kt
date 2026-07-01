@@ -32,7 +32,10 @@ class StumpCoverRepository @Inject constructor(
             storage = stumpCoverStorage,
             baseFileName = item.stumpCacheFileName("cover"),
             variant = variant.toCoverAssetVariant(),
-            legacyBaseFileNames = item.stumpLegacyCacheFileNames("cover"),
+            legacyBaseFileNames = item.stumpLegacyCacheFileNames(
+                extension = "cover",
+                session = stumpCredentialStore.activeSessionFor(item),
+            ),
         )?.toCachedRemoteCover()
     }
 
@@ -45,7 +48,10 @@ class StumpCoverRepository @Inject constructor(
             storage = stumpCoverStorage,
             baseFileName = item.stumpCacheFileName("cover"),
             variant = variant.toCoverAssetVariant(),
-            legacyBaseFileNames = item.stumpLegacyCacheFileNames("cover"),
+            legacyBaseFileNames = item.stumpLegacyCacheFileNames(
+                extension = "cover",
+                session = stumpCredentialStore.activeSessionFor(item),
+            ),
         ) { destination ->
             val session = stumpCredentialStore.activeSessionFor(item)
                 ?: error("Connect to the active Stump server before loading remote covers.")
@@ -117,17 +123,24 @@ class StumpCoverRepository @Inject constructor(
 
 internal fun ReadableItem.stumpCacheFileName(
     extension: String,
+    coverUrl: String? = this.coverUrl,
 ): String = listOfNotNull(
     id.toSafeFileSegment(),
     remoteFileType?.toSafeFileSegment(),
-    coverIdentityFileSegment(),
+    coverIdentityFileSegment(coverUrl),
 ).joinToString(separator = "-").plus(".$extension")
 
 internal fun ReadableItem.stumpLegacyCacheFileNames(
     extension: String,
+    session: StoredSourceSession? = null,
 ): List<String> {
-    if (coverIdentityFileSegment() != null) return emptyList()
-    return listOf(
+    val alternateAddressFileNames = alternateAddressCoverCacheFileNames(
+        extension = extension,
+        session = session,
+        cacheFileName = ReadableItem::stumpCacheFileName,
+    )
+    if (coverIdentityFileSegment() != null) return alternateAddressFileNames
+    return alternateAddressFileNames + listOf(
         listOfNotNull(
             id.toSafeFileSegment(),
             remoteFileType?.toSafeFileSegment(),
