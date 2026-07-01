@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -37,9 +35,16 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
@@ -73,6 +78,13 @@ fun LibraryTopBar(
     onImportLocalFileClick: () -> Unit,
     onLeaveSeries: () -> Unit,
 ) {
+    var searchModeOpen by remember(selectedSource) { mutableStateOf(searchQuery.isNotBlank()) }
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.isNotBlank()) {
+            searchModeOpen = true
+        }
+    }
+
     ThemedTopBarContainer {
         if (downloadSelectionState.isSelectionMode) {
             LibraryDownloadSelectionTopBar(
@@ -84,71 +96,151 @@ fun LibraryTopBar(
             )
         } else {
             val compactToolbar = maxWidth < 760.dp
-            if (compactToolbar) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        LibraryTopBarTitle(
-                            selectedSource = selectedSource,
-                            sourceConnectivity = sourceConnectivity,
-                            seriesTitle = seriesTitle,
-                            onSourceConnectivityClick = onSourceConnectivityClick,
-                            onDrawerClick = onDrawerClick,
-                            onLeaveSeries = onLeaveSeries,
-                            modifier = Modifier.weight(1f),
-                        )
-                        LibraryToolbarActions(
-                            refreshState = refreshState,
-                            onRefreshClick = onRefreshClick,
-                            downloadBadgeCount = downloadBadgeCount,
-                            onDownloadsClick = onDownloadsClick,
-                            downloadSelectionEnabled = downloadSelectionState.selectableCount > 0,
-                            onDownloadSelectionClick = { onDownloadSelectionModeChanged(true) },
-                            onImportLocalFileClick = onImportLocalFileClick,
-                        )
-                    }
-                    LibrarySearchField(
-                        query = searchQuery,
-                        onQueryChanged = onSearchQueryChanged,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
+            if (searchModeOpen || searchQuery.isNotBlank()) {
+                LibrarySearchModeTopBar(
+                    query = searchQuery,
+                    onQueryChanged = onSearchQueryChanged,
+                    compactToolbar = compactToolbar,
+                    onClose = {
+                        searchModeOpen = false
+                        if (searchQuery.isNotEmpty()) {
+                            onSearchQueryChanged("")
+                        }
+                    },
+                )
             } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    LibraryTopBarTitle(
-                        selectedSource = selectedSource,
-                        sourceConnectivity = sourceConnectivity,
-                        seriesTitle = seriesTitle,
-                        onSourceConnectivityClick = onSourceConnectivityClick,
-                        onDrawerClick = onDrawerClick,
-                        onLeaveSeries = onLeaveSeries,
-                        modifier = Modifier.weight(1f),
-                    )
-                    LibrarySearchField(
-                        query = searchQuery,
-                        onQueryChanged = onSearchQueryChanged,
-                        modifier = Modifier.width(ExpandedLibrarySearchWidth),
-                    )
-                    LibraryToolbarActions(
-                        refreshState = refreshState,
-                        onRefreshClick = onRefreshClick,
-                        downloadBadgeCount = downloadBadgeCount,
-                        onDownloadsClick = onDownloadsClick,
-                        downloadSelectionEnabled = downloadSelectionState.selectableCount > 0,
-                        onDownloadSelectionClick = { onDownloadSelectionModeChanged(true) },
-                        onImportLocalFileClick = onImportLocalFileClick,
-                    )
-                }
+                LibraryRestingTopBar(
+                    selectedSource = selectedSource,
+                    sourceConnectivity = sourceConnectivity,
+                    seriesTitle = seriesTitle,
+                    refreshState = refreshState,
+                    downloadSelectionState = downloadSelectionState,
+                    downloadBadgeCount = downloadBadgeCount,
+                    onSourceConnectivityClick = onSourceConnectivityClick,
+                    onDrawerClick = onDrawerClick,
+                    onSearchClick = { searchModeOpen = true },
+                    onRefreshClick = onRefreshClick,
+                    onDownloadsClick = onDownloadsClick,
+                    onDownloadSelectionModeChanged = onDownloadSelectionModeChanged,
+                    onImportLocalFileClick = onImportLocalFileClick,
+                    onLeaveSeries = onLeaveSeries,
+                )
             }
+        }
+    }
+}
+
+@Composable
+private fun LibraryRestingTopBar(
+    selectedSource: SourceType,
+    sourceConnectivity: SourceConnectivityState,
+    seriesTitle: String?,
+    refreshState: LibraryRefreshTopBarState,
+    downloadSelectionState: LibraryDownloadSelectionTopBarState,
+    downloadBadgeCount: Int,
+    onSourceConnectivityClick: () -> Unit,
+    onDrawerClick: () -> Unit,
+    onSearchClick: () -> Unit,
+    onRefreshClick: () -> Unit,
+    onDownloadsClick: () -> Unit,
+    onDownloadSelectionModeChanged: (Boolean) -> Unit,
+    onImportLocalFileClick: () -> Unit,
+    onLeaveSeries: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        LibraryTopBarTitle(
+            selectedSource = selectedSource,
+            sourceConnectivity = sourceConnectivity,
+            seriesTitle = seriesTitle,
+            onSourceConnectivityClick = onSourceConnectivityClick,
+            onDrawerClick = onDrawerClick,
+            onLeaveSeries = onLeaveSeries,
+            modifier = Modifier.weight(1f),
+        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onSearchClick) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Search library",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            LibraryToolbarActions(
+                refreshState = refreshState,
+                onRefreshClick = onRefreshClick,
+                downloadBadgeCount = downloadBadgeCount,
+                onDownloadsClick = onDownloadsClick,
+                downloadSelectionEnabled = downloadSelectionState.selectableCount > 0,
+                onDownloadSelectionClick = { onDownloadSelectionModeChanged(true) },
+                onImportLocalFileClick = onImportLocalFileClick,
+            )
+        }
+    }
+}
+
+@Composable
+private fun LibrarySearchModeTopBar(
+    query: String,
+    onQueryChanged: (String) -> Unit,
+    compactToolbar: Boolean,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (compactToolbar) {
+        Row(
+            modifier = modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(
+                onClick = onClose,
+                modifier = Modifier.size(36.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Close search",
+                )
+            }
+            LibrarySearchField(
+                query = query,
+                onQueryChanged = onQueryChanged,
+                autoFocus = true,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    } else {
+        Box(
+            modifier = modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center,
+        ) {
+            IconButton(
+                onClick = onClose,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .size(36.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Close search",
+                )
+            }
+            LibrarySearchField(
+                query = query,
+                onQueryChanged = onQueryChanged,
+                autoFocus = true,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .fillMaxWidth(WideLibrarySearchWidthFraction)
+                    .widthIn(max = ExpandedLibrarySearchMaxWidth),
+            )
         }
     }
 }
@@ -393,6 +485,7 @@ private fun LibrarySearchField(
     query: String,
     onQueryChanged: (String) -> Unit,
     modifier: Modifier = Modifier,
+    autoFocus: Boolean = false,
 ) {
     val colors = MaterialTheme.colorScheme
     val semanticColors = UnifiedReaderThemeTokens.colors
@@ -400,11 +493,21 @@ private fun LibrarySearchField(
     val componentRecipe = UnifiedReaderThemeTokens.components.control
     val controlShape = RoundedCornerShape(presentation.controlCornerRadius)
     val active = query.isNotEmpty()
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(autoFocus) {
+        if (autoFocus) {
+            focusRequester.requestFocus()
+        }
+    }
+
     BasicTextField(
         value = query,
         onValueChange = onQueryChanged,
         modifier = modifier
             .height(presentation.searchHeight)
+            .focusRequester(focusRequester)
+            .semantics { contentDescription = "Library search query" }
             .testTag(LibrarySearchFieldTag),
         singleLine = true,
         textStyle = MaterialTheme.typography.bodyMedium.copy(color = colors.onSurface),
@@ -636,5 +739,6 @@ private fun selectedDownloadsLabel(selectedCount: Int): String =
         "$selectedCount selected"
     }
 
-private val ExpandedLibrarySearchWidth = 340.dp
+private val ExpandedLibrarySearchMaxWidth = 640.dp
+private const val WideLibrarySearchWidthFraction = 0.62f
 private const val LibrarySearchFieldTag = "library-search-field"

@@ -248,6 +248,7 @@ class UnifiedReaderAppFlowTest {
         composeRule.waitForText("Некрополи Петербурга")
         composeRule.waitForText("Remote Book")
 
+        composeRule.onNodeWithContentDescription("Search library").performClick()
         composeRule.onNodeWithTag("library-search-field").performTextInput("петербурга")
 
         composeRule.waitForText("Некрополи Петербурга")
