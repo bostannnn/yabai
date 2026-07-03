@@ -15,6 +15,7 @@ import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.core.model.buildKavitaSeriesContainer
@@ -22,6 +23,7 @@ import com.example.unifiedreader.core.model.isKavitaSeriesContainer
 import com.example.unifiedreader.core.model.isStumpSeriesContainer
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
+import com.example.unifiedreader.data.repository.RemoteSyncArtifact
 import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
 import com.example.unifiedreader.data.grimmory.GrimmorySession
@@ -38,11 +40,14 @@ import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
 import com.example.unifiedreader.feature.settings.ThemeMode
+import com.example.unifiedreader.journal.JournalItemRef
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
+import java.io.IOException
+import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -305,7 +310,277 @@ class AppViewModelTest {
     }
 
     @Test
-    fun `startup pending progress pushes downloaded remote items while reachability is unknown`() {
+    fun `network availability retries pending remote sync automatically`() {
+        val remoteComic = sampleItem(
+            id = "kavita-cbz",
+            title = "Downloaded Comic",
+            format = FormatType.CBZ,
+        ).copy(
+            sourceType = SourceType.KAVITA,
+            libraryId = SourceType.KAVITA.remoteLibraryId("kavita-comics"),
+            remoteId = "chapter-1",
+        )
+        val readerSessionStore = FakeReaderSessionStore().apply {
+            saveProgress(
+                item = remoteComic,
+                locator = com.example.unifiedreader.feature.reader.core.ReaderLocator(
+                    locatorType = LocatorType.PAGE,
+                    page = 10,
+                ),
+                syncState = SyncState.DIRTY,
+                pageCount = remoteComic.pageCount,
+            )
+        }
+        val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy()
+        val healthCheck = RetryableRemoteSourceHealthCheck(
+            firstFailure = IOException("timeout"),
+        )
+        val progressSync = BlockingSourceProgressSync(sourceType = SourceType.KAVITA)
+        val networkConnectivityMonitor = FakeAppNetworkConnectivityMonitor(initialAvailable = false)
+
+        createViewModel(
+            sampleItems = listOf(remoteComic),
+            readerSessionStore = readerSessionStore,
+            sourceProgressSyncs = listOf(progressSync),
+            remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+            remoteSourceHealthChecks = listOf(healthCheck),
+            appNetworkConnectivityMonitor = networkConnectivityMonitor,
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+        shadowOf(Looper.getMainLooper()).idleFor(2, TimeUnit.SECONDS)
+
+        assertEquals(RemoteSourceReachability.Unavailable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(0, progressSync.pushPendingProgressCalls)
+
+        networkConnectivityMonitor.setNetworkAvailable(true)
+        shadowOf(Looper.getMainLooper()).idle()
+        shadowOf(Looper.getMainLooper()).idleFor(2, TimeUnit.SECONDS)
+
+        assertEquals(RemoteSourceReachability.Reachable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(2, healthCheck.callCount)
+        assertEquals(1, progressSync.pushPendingProgressCalls)
+    }
+
+    @Test
+    fun `network availability flushes pending remote sync after failed online attempt`() {
+        val remoteComic = sampleItem(
+            id = "kavita-cbz",
+            title = "Downloaded Comic",
+            format = FormatType.CBZ,
+        ).copy(
+            sourceType = SourceType.KAVITA,
+            libraryId = SourceType.KAVITA.remoteLibraryId("kavita-comics"),
+            remoteId = "chapter-1",
+        )
+        val readerSessionStore = FakeReaderSessionStore().apply {
+            saveProgress(
+                item = remoteComic,
+                locator = com.example.unifiedreader.feature.reader.core.ReaderLocator(
+                    locatorType = LocatorType.PAGE,
+                    page = 10,
+                ),
+                syncState = SyncState.DIRTY,
+                pageCount = remoteComic.pageCount,
+            )
+        }
+        val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markReachable(SourceType.KAVITA)
+        }
+        val healthCheck = AlwaysOnlineRemoteSourceHealthCheck(sourceType = SourceType.KAVITA)
+        val progressSync = RetryablePendingSourceProgressSync(
+            sourceType = SourceType.KAVITA,
+            firstFailure = IOException("timeout"),
+        )
+        val networkConnectivityMonitor = FakeAppNetworkConnectivityMonitor(initialAvailable = false)
+
+        createViewModel(
+            sampleItems = listOf(remoteComic),
+            readerSessionStore = readerSessionStore,
+            sourceProgressSyncs = listOf(progressSync),
+            remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+            remoteSourceHealthChecks = listOf(healthCheck),
+            appNetworkConnectivityMonitor = networkConnectivityMonitor,
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+        shadowOf(Looper.getMainLooper()).idleFor(2, TimeUnit.SECONDS)
+
+        assertEquals(RemoteSourceReachability.Unavailable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(1, progressSync.pushPendingProgressCalls)
+
+        networkConnectivityMonitor.setNetworkAvailable(true)
+        shadowOf(Looper.getMainLooper()).idle()
+        shadowOf(Looper.getMainLooper()).idleFor(2, TimeUnit.SECONDS)
+
+        assertEquals(RemoteSourceReachability.Reachable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(2, healthCheck.callCount)
+        assertEquals(2, progressSync.pushPendingProgressCalls)
+    }
+
+    @Test
+    fun `initial network availability does not retry pending offline source until network returns`() {
+        val remoteComic = sampleItem(
+            id = "kavita-cbz",
+            title = "Downloaded Comic",
+            format = FormatType.CBZ,
+        ).copy(
+            sourceType = SourceType.KAVITA,
+            libraryId = SourceType.KAVITA.remoteLibraryId("kavita-comics"),
+            remoteId = "chapter-1",
+        )
+        val readerSessionStore = FakeReaderSessionStore().apply {
+            saveProgress(
+                item = remoteComic,
+                locator = com.example.unifiedreader.feature.reader.core.ReaderLocator(
+                    locatorType = LocatorType.PAGE,
+                    page = 10,
+                ),
+                syncState = SyncState.DIRTY,
+                pageCount = remoteComic.pageCount,
+            )
+        }
+        val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy()
+        val healthCheck = RetryableRemoteSourceHealthCheck(
+            firstFailure = IOException("timeout"),
+        )
+        val progressSync = BlockingSourceProgressSync(sourceType = SourceType.KAVITA)
+        val networkConnectivityMonitor = FakeAppNetworkConnectivityMonitor(initialAvailable = true)
+
+        createViewModel(
+            sampleItems = listOf(remoteComic),
+            readerSessionStore = readerSessionStore,
+            sourceProgressSyncs = listOf(progressSync),
+            remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+            remoteSourceHealthChecks = listOf(healthCheck),
+            appNetworkConnectivityMonitor = networkConnectivityMonitor,
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+        shadowOf(Looper.getMainLooper()).idleFor(2, TimeUnit.SECONDS)
+
+        assertEquals(RemoteSourceReachability.Unavailable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(1, healthCheck.callCount)
+        assertEquals(0, progressSync.pushPendingProgressCalls)
+
+        networkConnectivityMonitor.setNetworkAvailable(false)
+        shadowOf(Looper.getMainLooper()).idle()
+        networkConnectivityMonitor.setNetworkAvailable(true)
+        shadowOf(Looper.getMainLooper()).idle()
+        shadowOf(Looper.getMainLooper()).idleFor(2, TimeUnit.SECONDS)
+
+        assertEquals(RemoteSourceReachability.Reachable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(2, healthCheck.callCount)
+        assertEquals(1, progressSync.pushPendingProgressCalls)
+    }
+
+    @Test
+    fun `offline read status change queues pending progress without notice or sync attempt`() {
+        val remoteComic = sampleItem(
+            id = "kavita-cbz",
+            title = "Downloaded Comic",
+            format = FormatType.CBZ,
+        ).copy(
+            sourceType = SourceType.KAVITA,
+            libraryId = SourceType.KAVITA.remoteLibraryId("kavita-comics"),
+            remoteId = "chapter-1",
+        )
+        val progressSync = BlockingSourceProgressSync(sourceType = SourceType.KAVITA)
+        val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markUnavailable(SourceType.KAVITA)
+        }
+        val viewModel = createViewModel(
+            sampleItems = listOf(remoteComic),
+            sourceProgressSyncs = listOf(progressSync),
+            remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+        )
+
+        viewModel.onSetReadStatus(remoteComic, markAsRead = true)
+        shadowOf(Looper.getMainLooper()).idle()
+        shadowOf(Looper.getMainLooper()).idleFor(2, TimeUnit.SECONDS)
+
+        val group = viewModel.uiState.pendingRemoteSyncSummary.groups.single()
+        assertNull(viewModel.uiState.progressSyncNotice)
+        assertEquals(0, progressSync.pushPendingProgressCalls)
+        assertEquals(SourceType.KAVITA, group.sourceType)
+        assertEquals(SourceConnectivityState.Offline, group.connectivityState)
+        assertEquals(1, group.queuedCount)
+        assertEquals(0, group.failedCount)
+        assertEquals(RemoteSyncArtifact.PROGRESS, group.items.single().artifact)
+    }
+
+    @Test
+    fun `offline journal save queues pending journal entry without notice or sync attempt`() {
+        val remoteComic = sampleItem(
+            id = "kavita-cbz",
+            title = "Downloaded Comic",
+            format = FormatType.CBZ,
+        ).copy(
+            sourceType = SourceType.KAVITA,
+            libraryId = SourceType.KAVITA.remoteLibraryId("kavita-comics"),
+            remoteId = "chapter-1",
+        )
+        val progressSync = BlockingSourceProgressSync(sourceType = SourceType.KAVITA)
+        val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markUnavailable(SourceType.KAVITA)
+        }
+        val viewModel = createViewModel(
+            sampleItems = listOf(remoteComic),
+            journalRepository = FakeJournalRepository(),
+            sourceProgressSyncs = listOf(progressSync),
+            remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+        )
+
+        viewModel.saveJournalEntry(
+            item = remoteComic.toJournalItemRef(),
+            rating = 4,
+            reviewText = "Good offline notes",
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+        shadowOf(Looper.getMainLooper()).idleFor(2, TimeUnit.SECONDS)
+
+        val group = viewModel.uiState.pendingRemoteSyncSummary.groups.single()
+        assertNull(viewModel.uiState.progressSyncNotice)
+        assertEquals(0, progressSync.pushPendingProgressCalls)
+        assertEquals(SourceType.KAVITA, group.sourceType)
+        assertEquals(SourceConnectivityState.Offline, group.connectivityState)
+        assertEquals(1, group.queuedCount)
+        assertEquals(0, group.failedCount)
+        assertEquals(RemoteSyncArtifact.JOURNAL_ENTRY, group.items.single().artifact)
+    }
+
+    @Test
+    fun `online read status sync failure shows notice after real attempt`() {
+        val remoteComic = sampleItem(
+            id = "kavita-cbz",
+            title = "Downloaded Comic",
+            format = FormatType.CBZ,
+        ).copy(
+            sourceType = SourceType.KAVITA,
+            libraryId = SourceType.KAVITA.remoteLibraryId("kavita-comics"),
+            remoteId = "chapter-1",
+        )
+        val progressSync = FailingPendingSourceProgressSync(sourceType = SourceType.KAVITA)
+        val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markReachable(SourceType.KAVITA)
+        }
+        val viewModel = createViewModel(
+            sampleItems = listOf(remoteComic),
+            sourceProgressSyncs = listOf(progressSync),
+            remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+        )
+
+        viewModel.onSetReadStatus(remoteComic, markAsRead = true)
+        shadowOf(Looper.getMainLooper()).idle()
+        shadowOf(Looper.getMainLooper()).idleFor(2, TimeUnit.SECONDS)
+
+        assertEquals(1, progressSync.pushPendingProgressCalls)
+        assertEquals(
+            "Unable to sync Kavita progress: Sync unavailable",
+            viewModel.uiState.progressSyncNotice?.message,
+        )
+        assertEquals("Sync unavailable", viewModel.uiState.pendingRemoteSyncSummary.groups.single().lastAttempt?.errorMessage)
+    }
+
+    @Test
+    fun `startup pending progress pushes downloaded remote items when source is online`() {
         val remoteComic = sampleItem(
             id = "kavita-cbz",
             title = "Downloaded Comic",
@@ -2736,3 +3011,76 @@ private class RetryableRemoteSourceHealthCheck(
         return RemoteSourceHealthCheckResult.Online
     }
 }
+
+private class AlwaysOnlineRemoteSourceHealthCheck(
+    override val sourceType: SourceType,
+) : RemoteSourceHealthCheck {
+    var callCount = 0
+        private set
+
+    override suspend fun check(): RemoteSourceHealthCheckResult {
+        callCount += 1
+        return RemoteSourceHealthCheckResult.Online
+    }
+}
+
+private class RetryablePendingSourceProgressSync(
+    override val sourceType: SourceType,
+    private val firstFailure: Throwable,
+) : SourceProgressSync {
+    var pushPendingProgressCalls: Int = 0
+        private set
+
+    override suspend fun syncItem(
+        item: ReadableItem,
+    ) = Unit
+
+    override suspend fun pushPendingProgress(
+        items: List<ReadableItem>,
+    ): List<SourceProgressSyncFailure> {
+        pushPendingProgressCalls += 1
+        if (pushPendingProgressCalls == 1) {
+            return listOf(
+                SourceProgressSyncFailure(
+                    sourceType = sourceType,
+                    throwable = firstFailure,
+                ),
+            )
+        }
+        return emptyList()
+    }
+}
+
+private class FailingPendingSourceProgressSync(
+    override val sourceType: SourceType,
+    private val throwable: Throwable = IllegalStateException("Sync unavailable"),
+) : SourceProgressSync {
+    var pushPendingProgressCalls: Int = 0
+        private set
+
+    override suspend fun syncItem(
+        item: ReadableItem,
+    ) = Unit
+
+    override suspend fun pushPendingProgress(
+        items: List<ReadableItem>,
+    ): List<SourceProgressSyncFailure> {
+        pushPendingProgressCalls += 1
+        return listOf(
+            SourceProgressSyncFailure(
+                sourceType = sourceType,
+                throwable = throwable,
+            ),
+        )
+    }
+}
+
+private fun ReadableItem.toJournalItemRef(): JournalItemRef = JournalItemRef(
+    itemId = id,
+    sourceType = sourceType,
+    libraryId = libraryId,
+    itemTitle = title,
+    coverUrl = coverUrl,
+    itemKind = kind,
+    format = format,
+)

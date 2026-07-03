@@ -79,6 +79,12 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideAppNetworkConnectivityMonitor(
+        monitor: AndroidAppNetworkConnectivityMonitor,
+    ): AppNetworkConnectivityMonitor = monitor
+
+    @Provides
+    @Singleton
     fun provideSourceNavigationPreferencesStore(
         @ApplicationContext context: Context,
     ): SourceNavigationPreferencesStore = DataStoreSourceNavigationPreferencesStore(context)

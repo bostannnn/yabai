@@ -18,11 +18,10 @@ import com.example.unifiedreader.journal.JournalSnapshot
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class AppPendingProgressFlushCoordinator @Inject constructor(
@@ -34,7 +33,10 @@ class AppPendingProgressFlushCoordinator @Inject constructor(
     private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
 ) {
     private val retainedProgressItemsById = linkedMapOf<String, ReadableItem>()
-    private var lastSuccessfulAutoFlush: PendingProgressFlushFingerprint? = null
+    private val syncAttemptBySource = linkedMapOf<SourceType, AppRemoteSyncAttempt>()
+    private var lastAutoFlushAttempt: PendingProgressFlushFingerprint? = null
+    private var lastPendingRemoteSyncSummary = AppPendingRemoteSyncSummary()
+    private var pendingRemoteSyncSummaryReporter: ((AppPendingRemoteSyncSummary) -> Unit)? = null
 
     fun retainProgressItem(
         item: ReadableItem,
@@ -48,17 +50,24 @@ class AppPendingProgressFlushCoordinator @Inject constructor(
         catalogItemsProvider: () -> List<ReadableItem>,
         stateProvider: AppUiStateProvider,
         onSyncFailures: (List<SourceProgressSyncFailure>) -> Unit,
+        onPendingRemoteSyncSummaryChanged: (AppPendingRemoteSyncSummary) -> Unit = {},
     ) {
+        pendingRemoteSyncSummaryReporter = onPendingRemoteSyncSummaryChanged
         scope.launch {
             combine(
-                readerSessionStore.progressByItemIdFlow.map(::pendingProgressKeys),
-                journalRepository.observeSnapshot().map(::pendingJournalKeys),
+                readerSessionStore.progressByItemIdFlow,
+                journalRepository.observeSnapshot(),
                 readableItemRepository.observeItems(),
                 remoteSourceConnectivityPolicy.reachabilityFlow,
-            ) { pendingProgressKeys, pendingJournalKeys, catalogItems, reachabilityBySource ->
-                val pendingSyncKeys = (pendingProgressKeys + pendingJournalKeys).sortedBy(PendingRemoteSyncKey::sortKey)
+            ) { progressByItemId, journalSnapshot, catalogItems, reachabilityBySource ->
+                val pendingSyncKeys = pendingSyncKeys(
+                    progressByItemId = progressByItemId,
+                    journalSnapshot = journalSnapshot,
+                )
                 PendingProgressObservation(
                     pendingSyncKeys = pendingSyncKeys,
+                    progressByItemId = progressByItemId,
+                    journalSnapshot = journalSnapshot,
                     catalogItems = catalogItems,
                     reachabilityBySource = reachabilityBySource,
                     resolvablePendingItemIds = pendingSyncKeys.resolvableIn(catalogItems),
@@ -67,7 +76,9 @@ class AppPendingProgressFlushCoordinator @Inject constructor(
                 .distinctUntilChanged { previous, next ->
                     previous.pendingSyncKeys == next.pendingSyncKeys &&
                         previous.resolvablePendingItemIds == next.resolvablePendingItemIds &&
-                        previous.reachabilityBySource == next.reachabilityBySource
+                        previous.reachabilityBySource == next.reachabilityBySource &&
+                        previous.progressByItemId == next.progressByItemId &&
+                        previous.journalSnapshot == next.journalSnapshot
                 }
                 .debounce(PENDING_PROGRESS_DEBOUNCE_MILLIS)
                 .collect { observation ->
@@ -77,21 +88,30 @@ class AppPendingProgressFlushCoordinator @Inject constructor(
                     )
                     val remoteItems = observation.catalogItems
                         .withPendingSyncItems(stateProvider().selectedItem)
+                        .withPendingSyncKeys(pendingSyncKeys)
                         .withoutUnavailableProgressSources(
                             remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
                         )
+                    publishPendingRemoteSyncSummary(
+                        summary = buildPendingRemoteSyncSummary(
+                            progressByItemId = observation.progressByItemId,
+                            journalSnapshot = observation.journalSnapshot,
+                            catalogItems = observation.catalogItems.withPendingSyncItems(stateProvider().selectedItem),
+                            reachabilityBySource = observation.reachabilityBySource,
+                            attemptsBySource = syncAttemptBySource,
+                        ),
+                        reporter = onPendingRemoteSyncSummaryChanged,
+                    )
                     val flushFingerprint = PendingProgressFlushFingerprint(
-                        pendingSyncKeys = pendingSyncKeys,
+                        pendingSyncKeys = pendingSyncKeys.toFlushFingerprintKeys(),
                         itemIds = remoteItems.map(ReadableItem::id),
                     )
-                    if (remoteItems.isNotEmpty() && flushFingerprint != lastSuccessfulAutoFlush) {
-                        val failures = flushPendingRemoteProgress(
+                    if (remoteItems.isNotEmpty() && flushFingerprint != lastAutoFlushAttempt) {
+                        lastAutoFlushAttempt = flushFingerprint
+                        flushPendingRemoteProgress(
                             remoteItems = remoteItems,
                             onSyncFailures = onSyncFailures,
                         )
-                        if (failures.isEmpty()) {
-                            lastSuccessfulAutoFlush = flushFingerprint
-                        }
                     }
                 }
         }
@@ -104,11 +124,22 @@ class AppPendingProgressFlushCoordinator @Inject constructor(
         onSyncFailures: (List<SourceProgressSyncFailure>) -> Unit,
     ) {
         scope.launch {
+            val pendingSyncKeys = pendingSyncKeys(
+                progressByItemId = readerSessionStore.progressByItemIdFlow.value,
+                journalSnapshot = journalRepository.observeSnapshot().first(),
+            )
             val remoteItems = catalogItems
                 .withPendingSyncItems(selectedItem)
+                .withPendingSyncKeys(pendingSyncKeys)
                 .withoutUnavailableProgressSources(
                     remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
                 )
+            if (remoteItems.isNotEmpty()) {
+                lastAutoFlushAttempt = PendingProgressFlushFingerprint(
+                    pendingSyncKeys = pendingSyncKeys.toFlushFingerprintKeys(),
+                    itemIds = remoteItems.map(ReadableItem::id),
+                )
+            }
             flushPendingRemoteProgress(
                 remoteItems = remoteItems,
                 onSyncFailures = onSyncFailures,
@@ -116,16 +147,53 @@ class AppPendingProgressFlushCoordinator @Inject constructor(
         }
     }
 
+    suspend fun recordRemoteSyncAttempt(
+        attemptedSourceTypes: Set<SourceType>,
+        failures: List<SourceProgressSyncFailure>,
+        attemptedItems: List<ReadableItem> = emptyList(),
+    ) {
+        if (attemptedSourceTypes.isEmpty()) return
+        rememberAttemptedPendingFingerprint(attemptedItems)
+        recordSyncAttempts(
+            attemptedAtEpochMillis = System.currentTimeMillis(),
+            attemptedSourceTypes = attemptedSourceTypes,
+            failures = failures,
+        )
+    }
+
+    private suspend fun rememberAttemptedPendingFingerprint(
+        attemptedItems: List<ReadableItem>,
+    ) {
+        if (attemptedItems.isEmpty()) return
+        val pendingSyncKeys = pendingSyncKeys(
+            progressByItemId = readerSessionStore.progressByItemIdFlow.value,
+            journalSnapshot = journalRepository.observeSnapshot().first(),
+        )
+        val attemptedPendingItems = attemptedItems.withPendingSyncKeys(pendingSyncKeys)
+        if (attemptedPendingItems.isEmpty()) return
+        lastAutoFlushAttempt = PendingProgressFlushFingerprint(
+            pendingSyncKeys = pendingSyncKeys.toFlushFingerprintKeys(),
+            itemIds = attemptedPendingItems.map(ReadableItem::id),
+        )
+    }
+
     private suspend fun flushPendingRemoteProgress(
         remoteItems: List<ReadableItem>,
         onSyncFailures: (List<SourceProgressSyncFailure>) -> Unit,
     ): List<SourceProgressSyncFailure> {
         if (remoteItems.isEmpty()) return emptyList()
+        val attemptedSourceTypes = remoteItems.mapTo(mutableSetOf(), ReadableItem::sourceType)
+        val attemptedAt = System.currentTimeMillis()
         val allFailures = flushPendingRemoteArtifactsUseCase(
             RemoteArtifactFlushRequest(items = remoteItems),
         )
         remoteSourceConnectivityPolicy.markFromSyncFailures(
-            attemptedSourceTypes = remoteItems.mapTo(mutableSetOf(), ReadableItem::sourceType),
+            attemptedSourceTypes = attemptedSourceTypes,
+            failures = allFailures,
+        )
+        recordSyncAttempts(
+            attemptedAtEpochMillis = attemptedAt,
+            attemptedSourceTypes = attemptedSourceTypes,
             failures = allFailures,
         )
         val reportableFailures = allFailures.withoutDownloadedReachabilityFailures(
@@ -143,6 +211,31 @@ class AppPendingProgressFlushCoordinator @Inject constructor(
         return allFailures
     }
 
+    private fun recordSyncAttempts(
+        attemptedAtEpochMillis: Long,
+        attemptedSourceTypes: Set<SourceType>,
+        failures: List<SourceProgressSyncFailure>,
+    ) {
+        val failuresBySource = failures.groupBy(SourceProgressSyncFailure::sourceType)
+        attemptedSourceTypes.forEach { sourceType ->
+            val failure = failuresBySource[sourceType]?.firstOrNull()
+            syncAttemptBySource[sourceType] = AppRemoteSyncAttempt(
+                attemptedAtEpochMillis = attemptedAtEpochMillis,
+                errorMessage = failure?.throwable?.userFacingMessage(),
+                artifact = failure?.artifact,
+            )
+        }
+        publishPendingRemoteSyncSummary(lastPendingRemoteSyncSummary.withAttempts(syncAttemptBySource))
+    }
+
+    private fun publishPendingRemoteSyncSummary(
+        summary: AppPendingRemoteSyncSummary,
+        reporter: (AppPendingRemoteSyncSummary) -> Unit = pendingRemoteSyncSummaryReporter ?: {},
+    ) {
+        lastPendingRemoteSyncSummary = summary
+        reporter(summary)
+    }
+
     private fun List<ReadableItem>.withPendingSyncItems(
         item: ReadableItem?,
     ): List<ReadableItem> {
@@ -154,6 +247,14 @@ class AppPendingProgressFlushCoordinator @Inject constructor(
         }
         return itemsById.values.toList()
     }
+}
+
+private fun List<ReadableItem>.withPendingSyncKeys(
+    pendingSyncKeys: List<PendingRemoteSyncKey>,
+): List<ReadableItem> {
+    if (isEmpty() || pendingSyncKeys.isEmpty()) return emptyList()
+    val pendingItemIds = pendingSyncKeys.mapTo(mutableSetOf(), PendingRemoteSyncKey::itemId)
+    return filter { item -> item.id in pendingItemIds }
 }
 
 private fun List<ReadableItem>.withoutUnavailableProgressSources(
@@ -168,7 +269,7 @@ private fun List<ReadableItem>.withoutUnavailableProgressSources(
 private fun pendingProgressKeys(
     progressByItemId: Map<String, ReaderProgressSnapshot>,
 ): List<PendingRemoteSyncKey> = progressByItemId.values
-    .filter(ReaderProgressSnapshot::isPendingSync)
+    .filter(ReaderProgressSnapshot::isPendingRemoteSync)
     .sortedBy(ReaderProgressSnapshot::itemId)
     .map { progress ->
         PendingRemoteSyncKey(
@@ -205,10 +306,15 @@ private fun JournalReadingSession.pendingRemoteSyncKey(): PendingRemoteSyncKey? 
         )
     }
 
-private fun ReaderProgressSnapshot.isPendingSync(): Boolean = syncState.isPendingSync()
+private fun pendingSyncKeys(
+    progressByItemId: Map<String, ReaderProgressSnapshot>,
+    journalSnapshot: JournalSnapshot,
+): List<PendingRemoteSyncKey> = (
+    pendingProgressKeys(progressByItemId) + pendingJournalKeys(journalSnapshot)
+    ).sortedBy(PendingRemoteSyncKey::sortKey)
 
 private fun SyncState.isPendingSync(): Boolean =
-    this == SyncState.DIRTY || this == SyncState.FAILED
+    toPendingRemoteSyncItemState() != null
 
 private data class PendingRemoteSyncKey(
     val artifact: RemoteSyncArtifact,
@@ -217,19 +323,25 @@ private data class PendingRemoteSyncKey(
     val updatedAtEpochMillis: Long?,
 ) {
     val sortKey: String = "${artifact.name}:$itemId:${updatedAtEpochMillis ?: 0L}:$syncState"
+    val flushFingerprintKey: String = "${artifact.name}:$itemId:${updatedAtEpochMillis ?: 0L}"
 }
 
 private data class PendingProgressObservation(
     val pendingSyncKeys: List<PendingRemoteSyncKey>,
+    val progressByItemId: Map<String, ReaderProgressSnapshot>,
+    val journalSnapshot: JournalSnapshot,
     val catalogItems: List<ReadableItem>,
     val reachabilityBySource: Map<SourceType, SourceConnectivityState>,
     val resolvablePendingItemIds: Set<String>,
 )
 
 private data class PendingProgressFlushFingerprint(
-    val pendingSyncKeys: List<PendingRemoteSyncKey>,
+    val pendingSyncKeys: List<String>,
     val itemIds: List<String>,
 )
+
+private fun List<PendingRemoteSyncKey>.toFlushFingerprintKeys(): List<String> =
+    map(PendingRemoteSyncKey::flushFingerprintKey).distinct().sorted()
 
 private fun List<PendingRemoteSyncKey>.resolvableIn(
     catalogItems: List<ReadableItem>,

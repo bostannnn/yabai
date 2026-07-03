@@ -526,11 +526,13 @@ class AppReaderCoordinator @Inject constructor(
         catalogItemsProvider: () -> List<ReadableItem>,
         stateProvider: AppUiStateProvider,
         onSyncFailures: (List<SourceProgressSyncFailure>) -> Unit,
+        onPendingRemoteSyncSummaryChanged: (AppPendingRemoteSyncSummary) -> Unit,
     ) = pendingProgressFlushCoordinator.observeDirtyProgress(
         scope = scope,
         catalogItemsProvider = catalogItemsProvider,
         stateProvider = stateProvider,
         onSyncFailures = onSyncFailures,
+        onPendingRemoteSyncSummaryChanged = onPendingRemoteSyncSummaryChanged,
     )
 
     fun flushPendingProgress(
@@ -543,6 +545,16 @@ class AppReaderCoordinator @Inject constructor(
         selectedItem = selectedItem,
         scope = scope,
         onSyncFailures = onSyncFailures,
+    )
+
+    suspend fun recordRemoteSyncAttempt(
+        attemptedSourceTypes: Set<SourceType>,
+        failures: List<SourceProgressSyncFailure>,
+        attemptedItems: List<ReadableItem> = emptyList(),
+    ) = pendingProgressFlushCoordinator.recordRemoteSyncAttempt(
+        attemptedSourceTypes = attemptedSourceTypes,
+        failures = failures,
+        attemptedItems = attemptedItems,
     )
 
     private fun openReader(

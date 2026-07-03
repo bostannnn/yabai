@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,11 +20,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.example.unifiedreader.core.model.LibraryFilterPanel
+import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.core.model.resolveLibraryFilterPanels
+import com.example.unifiedreader.data.repository.RemoteSyncArtifact
 import com.example.unifiedreader.feature.downloads.DownloadsSheet
 import com.example.unifiedreader.feature.journal.JournalScreen
 import com.example.unifiedreader.feature.library.LibraryViewMode
+import com.example.unifiedreader.feature.library.shelves.LibraryShelfBrowserKind
+import com.example.unifiedreader.feature.library.shelves.browserState
 import com.example.unifiedreader.feature.navigation.SourceNavigationDestination
 import com.example.unifiedreader.feature.navigation.SourceNavigationDrawer
 import com.example.unifiedreader.feature.navigation.SourceNavigationSettingsSection
@@ -31,12 +37,17 @@ import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import com.example.unifiedreader.feature.settings.SettingsScreen
 import com.example.unifiedreader.feature.settings.ServerConnectionAction
+import com.example.unifiedreader.feature.settings.SyncSettingsItemRow
+import com.example.unifiedreader.feature.settings.SyncSettingsSourceGroup
+import com.example.unifiedreader.feature.settings.SyncSettingsUiState
 import com.example.unifiedreader.feature.settings.direction.ReadingDirectionLibraryUiState
 import com.example.unifiedreader.feature.settings.direction.buildComicReadingDirectionLibraryRows
 import com.example.unifiedreader.feature.settings.mode.ReaderModeLibraryUiState
 import com.example.unifiedreader.feature.settings.mode.buildComicReaderModeLibraryRows
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import com.example.unifiedreader.ui.theme.unifiedReaderSurfacePattern
+import java.text.DateFormat
+import java.util.Date
 import kotlinx.coroutines.launch
 
 @Composable
@@ -62,6 +73,14 @@ fun UnifiedReaderScaffold(
     }
     var hasScreenSelectableDownloadIds by remember(uiState.libraryBrowseContextKey) {
         mutableStateOf(false)
+    }
+    var activeLibraryShelfBrowserKind by rememberSaveable(uiState.libraryBrowseContextKey) {
+        mutableStateOf<LibraryShelfBrowserKind?>(null)
+    }
+    val activeLibraryShelfBrowser = if (uiState.topLevel == TopLevelDestination.Library) {
+        activeLibraryShelfBrowserKind?.let(uiState.libraryShelvesState::browserState)
+    } else {
+        null
     }
     val visibleDownloadableItemIds = remember(
         uiState.visibleItems,
@@ -100,6 +119,16 @@ fun UnifiedReaderScaffold(
             isLibraryDownloadSelectionMode = false
             selectedDownloadItemIds = emptyList()
         }
+    }
+    LaunchedEffect(uiState.topLevel, activeLibraryShelfBrowserKind, activeLibraryShelfBrowser) {
+        if (uiState.topLevel != TopLevelDestination.Library ||
+            activeLibraryShelfBrowserKind != null && activeLibraryShelfBrowser == null
+        ) {
+            activeLibraryShelfBrowserKind = null
+        }
+    }
+    BackHandler(enabled = activeLibraryShelfBrowser != null) {
+        activeLibraryShelfBrowserKind = null
     }
 
     fun updateLibraryDownloadSelectionMode(enabled: Boolean) {
@@ -203,43 +232,45 @@ fun UnifiedReaderScaffold(
                     .padding(innerPadding),
             ) {
                 when (uiState.topLevel) {
-                    TopLevelDestination.Library -> LibraryTopBar(
-                        selectedSource = uiState.selectedSource,
-                        sourceConnectivity = uiState.selectedSourceConnectivity,
-                        searchQuery = uiState.selectedLibrarySearchQuery,
-                        seriesTitle = uiState.selectedLibraryContextTitle,
-                        downloadSelectionState = LibraryDownloadSelectionTopBarState(
-                            isSelectionMode = isLibraryDownloadSelectionMode,
-                            selectedCount = selectedDownloadItemIdSet.size,
-                            selectableCount = effectiveSelectableDownloadItemIds.size,
-                        ),
-                        refreshState = LibraryRefreshTopBarState(
-                            isVisible = uiState.selectedSource == SourceType.KAVITA &&
-                                uiState.kavitaConnection.hasStoredSession,
-                            isEnabled = uiState.selectedSource == SourceType.KAVITA &&
-                                uiState.kavitaConnection.hasStoredSession &&
-                                !uiState.kavitaConnection.isConnecting,
-                            isRefreshing = uiState.selectedSource == SourceType.KAVITA &&
-                                uiState.kavitaConnection.hasStoredSession &&
-                                uiState.kavitaConnection.isConnecting &&
-                                uiState.kavitaConnection.activeAction == ServerConnectionAction.FastSync,
-                        ),
-                        onSourceConnectivityClick = viewModel::retrySelectedSourceConnection,
-                        onDrawerClick = {
-                            drawerScope.launch {
-                                drawerState.open()
-                            }
-                        },
-                        onSearchQueryChanged = viewModel::onLibrarySearchQueryChanged,
-                        onRefreshClick = viewModel::fastSyncKavitaLibraryInPlace,
-                        downloadBadgeCount = viewModel.downloadsSnapshot.badgeCount,
-                        onDownloadsClick = viewModel::showDownloadsSheet,
-                        onDownloadSelectionModeChanged = ::updateLibraryDownloadSelectionMode,
-                        onSelectAllDownloadItems = ::selectAllLibraryDownloadItems,
-                        onDownloadSelectedItems = ::downloadSelectedLibraryItems,
-                        onImportLocalFileClick = onImportLocalFileClick,
-                        onLeaveSeries = viewModel::onBackPressed,
-                    )
+                    TopLevelDestination.Library -> if (activeLibraryShelfBrowser == null) {
+                        LibraryTopBar(
+                            selectedSource = uiState.selectedSource,
+                            sourceConnectivity = uiState.selectedSourceConnectivity,
+                            searchQuery = uiState.selectedLibrarySearchQuery,
+                            seriesTitle = uiState.selectedLibraryContextTitle,
+                            downloadSelectionState = LibraryDownloadSelectionTopBarState(
+                                isSelectionMode = isLibraryDownloadSelectionMode,
+                                selectedCount = selectedDownloadItemIdSet.size,
+                                selectableCount = effectiveSelectableDownloadItemIds.size,
+                            ),
+                            refreshState = LibraryRefreshTopBarState(
+                                isVisible = uiState.selectedSource == SourceType.KAVITA &&
+                                    uiState.kavitaConnection.hasStoredSession,
+                                isEnabled = uiState.selectedSource == SourceType.KAVITA &&
+                                    uiState.kavitaConnection.hasStoredSession &&
+                                    !uiState.kavitaConnection.isConnecting,
+                                isRefreshing = uiState.selectedSource == SourceType.KAVITA &&
+                                    uiState.kavitaConnection.hasStoredSession &&
+                                    uiState.kavitaConnection.isConnecting &&
+                                    uiState.kavitaConnection.activeAction == ServerConnectionAction.FastSync,
+                            ),
+                            onSourceConnectivityClick = viewModel::retrySelectedSourceConnection,
+                            onDrawerClick = {
+                                drawerScope.launch {
+                                    drawerState.open()
+                                }
+                            },
+                            onSearchQueryChanged = viewModel::onLibrarySearchQueryChanged,
+                            onRefreshClick = viewModel::fastSyncKavitaLibraryInPlace,
+                            downloadBadgeCount = viewModel.downloadsSnapshot.badgeCount,
+                            onDownloadsClick = viewModel::showDownloadsSheet,
+                            onDownloadSelectionModeChanged = ::updateLibraryDownloadSelectionMode,
+                            onSelectAllDownloadItems = ::selectAllLibraryDownloadItems,
+                            onDownloadSelectedItems = ::downloadSelectedLibraryItems,
+                            onImportLocalFileClick = onImportLocalFileClick,
+                            onLeaveSeries = viewModel::onBackPressed,
+                        )
+                    }
 
                     TopLevelDestination.Journal -> JournalTopBar(
                         onDrawerClick = {
@@ -304,6 +335,8 @@ fun UnifiedReaderScaffold(
                         onGridCellSizeDpChanged = viewModel::onLibraryGridCellSizeChanged,
                         onFadeReadItemsChanged = viewModel::onLibraryFadeReadItemsChanged,
                         showSortControl = !uiState.isSeriesBrowseActive && !uiState.isKavitaReadingListActive,
+                        activeShelfBrowserKind = activeLibraryShelfBrowserKind,
+                        onActiveShelfBrowserKindChanged = { activeLibraryShelfBrowserKind = it },
                         modifier = Modifier.weight(1f),
                     )
 
@@ -323,6 +356,7 @@ fun UnifiedReaderScaffold(
                         kavitaReaderModeLibraries = kavitaReaderModeLibraries,
                         stumpReaderModeLibraries = stumpReaderModeLibraries,
                         onThemeModeSelected = viewModel::onThemeModeSelected,
+                        onRetrySync = viewModel::retryPendingRemoteSync,
                         onMoveSourceUp = viewModel::moveSourceUp,
                         onMoveSourceDown = viewModel::moveSourceDown,
                         onLibraryFilterPanelsChanged = viewModel::onLibraryFilterPanelsChanged,
@@ -394,6 +428,7 @@ private fun SettingsRoute(
     kavitaReaderModeLibraries: List<ReaderModeLibraryUiState>,
     stumpReaderModeLibraries: List<ReaderModeLibraryUiState>,
     onThemeModeSelected: (com.example.unifiedreader.feature.settings.ThemeMode) -> Unit,
+    onRetrySync: () -> Unit,
     onMoveSourceUp: (SourceType) -> Unit,
     onMoveSourceDown: (SourceType) -> Unit,
     onLibraryFilterPanelsChanged: (SourceType, List<LibraryFilterPanel>) -> Unit,
@@ -448,7 +483,9 @@ private fun SettingsRoute(
             kavitaConnection = uiState.kavitaConnection,
             stumpConnection = uiState.stumpConnection,
             grimmoryConnection = uiState.grimmoryConnection,
+            syncSettings = uiState.pendingRemoteSyncSummary.toSyncSettingsUiState(),
             onThemeModeSelected = onThemeModeSelected,
+            onRetrySync = onRetrySync,
             libraryFilterPanelsBySource = SourceType.entries.associateWith { sourceType ->
                 resolveLibraryFilterPanels(
                     sourceType = sourceType,
@@ -506,3 +543,54 @@ private fun SettingsRoute(
         )
     }
 }
+
+private fun AppPendingRemoteSyncSummary.toSyncSettingsUiState(): SyncSettingsUiState = SyncSettingsUiState(
+    pendingCount = totalCount,
+    queuedCount = queuedCount,
+    failedCount = failedCount,
+    sourceGroups = groups.map { group ->
+        SyncSettingsSourceGroup(
+            sourceLabel = group.sourceType.displayName(),
+            stateLabel = group.syncStatusLabel(),
+            queuedCount = group.queuedCount,
+            failedCount = group.failedCount,
+            lastAttemptLabel = group.lastAttempt?.attemptedAtEpochMillis?.let { attemptedAt ->
+                "Last attempt: ${attemptedAt.toSettingsDateTimeLabel()}"
+            },
+            lastError = group.lastAttempt?.errorMessage,
+            items = group.items.map { item ->
+                SyncSettingsItemRow(
+                    title = item.itemTitle,
+                    subtitle = item.itemSubtitle,
+                    artifactLabel = item.artifact.settingsLabel(),
+                    stateLabel = item.state.settingsLabel(),
+                    updatedAtLabel = item.updatedAtEpochMillis?.let { updatedAt ->
+                        "Updated ${updatedAt.toSettingsDateTimeLabel()}"
+                    },
+                )
+            },
+        )
+    },
+)
+
+private fun AppPendingRemoteSyncSourceGroup.syncStatusLabel(): String = when {
+    failedCount > 0 -> "Needs retry"
+    connectivityState == SourceConnectivityState.Offline -> "Offline"
+    connectivityState == SourceConnectivityState.Checking -> "Checking"
+    connectivityState == SourceConnectivityState.Online -> "Online"
+    else -> "Queued"
+}
+
+private fun RemoteSyncArtifact.settingsLabel(): String = when (this) {
+    RemoteSyncArtifact.PROGRESS -> "Progress"
+    RemoteSyncArtifact.JOURNAL_ENTRY -> "Journal entry"
+    RemoteSyncArtifact.READING_SESSION -> "Reading session"
+}
+
+private fun AppPendingRemoteSyncItemState.settingsLabel(): String = when (this) {
+    AppPendingRemoteSyncItemState.QUEUED -> "Queued"
+    AppPendingRemoteSyncItemState.FAILED -> "Failed"
+}
+
+private fun Long.toSettingsDateTimeLabel(): String =
+    DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(this))

@@ -9,15 +9,12 @@ class AppLibraryReadStatusController @Inject constructor(
         item: ReadableItem,
         markAsRead: Boolean,
         onProgressChanged: () -> Unit,
-        onSyncFailures: (List<SourceProgressSyncFailure>) -> Unit,
     ) {
         val result = applyReadStatusChangeUseCase(
             item = item,
             markAsRead = markAsRead,
         )
         if (!result.applied) return
-        onProgressChanged()
-        onSyncFailures(result.syncFailures)
         onProgressChanged()
     }
 }

@@ -20,7 +20,10 @@ import com.example.unifiedreader.feature.library.LibraryScrollPosition
 import com.example.unifiedreader.feature.library.LibraryViewMode
 import com.example.unifiedreader.feature.library.KavitaScopeLandingItem
 import com.example.unifiedreader.feature.library.KavitaScopeLandingScreen
+import com.example.unifiedreader.feature.library.shelves.LibraryShelfBrowserKind
+import com.example.unifiedreader.feature.library.shelves.LibraryShelfItemsBrowser
 import com.example.unifiedreader.feature.library.shelves.LibraryShelvesTopSlot
+import com.example.unifiedreader.feature.library.shelves.browserState
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 
@@ -59,10 +62,20 @@ internal fun LibraryRoute(
     onGridCellSizeDpChanged: (Int) -> Unit,
     onFadeReadItemsChanged: (Boolean) -> Unit,
     showSortControl: Boolean,
+    activeShelfBrowserKind: LibraryShelfBrowserKind? = null,
+    onActiveShelfBrowserKindChanged: (LibraryShelfBrowserKind?) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     LaunchedEffect(uiState.selectedSource) {
         onPrepareCoverSource(uiState.selectedSource)
+    }
+    val activeShelfBrowser = activeShelfBrowserKind?.let { kind ->
+        uiState.libraryShelvesState.browserState(kind)
+    }
+    LaunchedEffect(activeShelfBrowserKind, activeShelfBrowser) {
+        if (activeShelfBrowserKind != null && activeShelfBrowser == null) {
+            onActiveShelfBrowserKindChanged(null)
+        }
     }
     val itemActionContext = LibraryItemActionContext(
         progressByItemId = uiState.displayProgressByItemId,
@@ -82,7 +95,23 @@ internal fun LibraryRoute(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
     ) {
-        if (uiState.isKavitaVisualSectionActive) {
+        if (activeShelfBrowser != null) {
+            LibraryShelfItemsBrowser(
+                browser = activeShelfBrowser,
+                browseContextKey = "$browseContextKey:shelf:${activeShelfBrowser.kind.name}",
+                itemActionContext = itemActionContext,
+                coverImageUrlProvider = coverImageUrlProvider,
+                coverPrefetchKeyProvider = coverPrefetchKeyProvider,
+                onCoverVisible = onCoverVisible,
+                onCoverViewportScrollingChanged = onCoverViewportScrollingChanged,
+                onBack = { onActiveShelfBrowserKindChanged(null) },
+                onItemSelected = { item ->
+                    onActiveShelfBrowserKindChanged(null)
+                    onItemSelected(item)
+                },
+                onDeleteImportedItem = onDeleteImportedItem,
+            )
+        } else if (uiState.isKavitaVisualSectionActive) {
             KavitaScopeLandingScreen(
                 title = uiState.kavitaLibrarySection.displayName(),
                 items = uiState.kavitaScopeLandingItems(),
@@ -149,6 +178,7 @@ internal fun LibraryRoute(
                             coverPrefetchKeyProvider = coverPrefetchKeyProvider,
                             onCoverVisible = onCoverVisible,
                             onItemSelected = onItemSelected,
+                            onBrowseShelf = onActiveShelfBrowserKindChanged,
                             onDeleteImportedItem = onDeleteImportedItem,
                         )
                     }

@@ -11,6 +11,7 @@ import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.data.repository.JournalEntrySaveUseCase
 import com.example.unifiedreader.feature.downloads.DownloadEntriesSnapshot
@@ -49,6 +50,7 @@ class AppViewModel @Inject constructor(
     private val kavitaReadingListController: AppKavitaReadingListController,
     private val remoteSourceConnectivityStartupCoordinator: RemoteSourceConnectivityStartupCoordinator,
     private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
+    private val appNetworkConnectivityMonitor: AppNetworkConnectivityMonitor,
     private val progressSyncNoticeController: AppProgressSyncNoticeController,
     private val journalEntrySaveUseCase: JournalEntrySaveUseCase,
     private val journalRepository: JournalRepository,
@@ -70,6 +72,8 @@ class AppViewModel @Inject constructor(
     var isUnsupportedImportDialogVisible by mutableStateOf(false)
         private set
     private var lastDownloadedAvailabilitySignature: Set<String>? = null
+    private var lastNetworkPendingRetryFingerprint: String? = null
+    private var lastNetworkAvailability: Boolean? = null
 
     init {
         viewModelScope.launch {
@@ -393,6 +397,54 @@ class AppViewModel @Inject constructor(
         )
     }
 
+    fun retryPendingRemoteSync() {
+        retryPendingRemoteSync(uiState.pendingRemoteSyncSummary)
+    }
+
+    private fun retryPendingRemoteSync(
+        pendingRemoteSyncSummary: AppPendingRemoteSyncSummary,
+        extraSourceTypes: Set<SourceType> = emptySet(),
+        flushAfterProbe: Boolean = true,
+    ) {
+        val pendingSourceTypes = pendingRemoteSyncSummary.groups
+            .mapTo(linkedSetOf(), AppPendingRemoteSyncSourceGroup::sourceType)
+            .also { sourceTypes -> sourceTypes += extraSourceTypes }
+            .filter { sourceType -> sourceType != SourceType.LOCAL }
+            .toSet()
+        if (pendingSourceTypes.isEmpty()) return
+        viewModelScope.launch {
+            val probeFailures = pendingSourceTypes.mapNotNull { sourceType ->
+                when (val result = remoteSourceConnectivityStartupCoordinator.retrySource(sourceType)) {
+                    RemoteSourceConnectivityProbeResult.NoHealthCheck,
+                    RemoteSourceConnectivityProbeResult.NotConfigured,
+                    RemoteSourceConnectivityProbeResult.Online -> null
+                    is RemoteSourceConnectivityProbeResult.Offline -> SourceProgressSyncFailure(
+                        sourceType = sourceType,
+                        throwable = result.throwable,
+                    )
+                    is RemoteSourceConnectivityProbeResult.Failed -> SourceProgressSyncFailure(
+                        sourceType = sourceType,
+                        throwable = result.throwable,
+                    )
+                }
+            }
+            if (probeFailures.isNotEmpty()) {
+                readerCoordinator.recordRemoteSyncAttempt(
+                    attemptedSourceTypes = probeFailures.mapTo(mutableSetOf(), SourceProgressSyncFailure::sourceType),
+                    failures = probeFailures,
+                )
+            }
+            if (flushAfterProbe) {
+                readerCoordinator.flushPendingProgress(
+                    catalogItems = catalogStateCoordinator.catalogItems(),
+                    selectedItem = uiState.selectedItem,
+                    scope = viewModelScope,
+                    onSyncFailures = ::reportProgressSyncFailures,
+                )
+            }
+        }
+    }
+
     fun onDeleteImportedItem(item: ReadableItem) {
         viewModelScope.launch {
             deleteImportedItem(item)
@@ -447,7 +499,6 @@ class AppViewModel @Inject constructor(
                 item = item,
                 markAsRead = markAsRead,
                 onProgressChanged = ::refreshProgress,
-                onSyncFailures = ::reportProgressSyncFailures,
             )
         }
     }
@@ -827,10 +878,38 @@ class AppViewModel @Inject constructor(
             catalogItemsProvider = catalogStateCoordinator::catalogItems,
             stateProvider = { uiState },
             onSyncFailures = ::reportProgressSyncFailures,
+            onPendingRemoteSyncSummaryChanged = { summary ->
+                updateUiState { state ->
+                    state.copy(pendingRemoteSyncSummary = summary)
+                }
+            },
         )
+        viewModelScope.launch {
+            appNetworkConnectivityMonitor.networkAvailableFlow.collect { isNetworkAvailable ->
+                val previousAvailability = lastNetworkAvailability
+                lastNetworkAvailability = isNetworkAvailable
+                if (!isNetworkAvailable) {
+                    lastNetworkPendingRetryFingerprint = null
+                    return@collect
+                }
+                if (previousAvailability != false) return@collect
+                val unavailableSourceTypes = remoteSourceConnectivityPolicy.reachabilityFlow.value
+                    .unavailableRemoteSourceTypes()
+                if (unavailableSourceTypes.isEmpty()) return@collect
+                val retryFingerprint = unavailableSourceTypes.networkRetryFingerprint()
+                if (retryFingerprint == lastNetworkPendingRetryFingerprint) return@collect
+                lastNetworkPendingRetryFingerprint = retryFingerprint
+                retryPendingRemoteSync(
+                    pendingRemoteSyncSummary = uiState.pendingRemoteSyncSummary,
+                    extraSourceTypes = unavailableSourceTypes,
+                    flushAfterProbe = true,
+                )
+            }
+        }
         progressSyncStartupRetryCoordinator.retryAfterHydration(
             scope = viewModelScope,
             onSyncFailures = ::reportProgressSyncFailures,
+            onSyncAttempt = readerCoordinator::recordRemoteSyncAttempt,
         )
         catalogStateCoordinator.observeCatalog(
             scope = viewModelScope,
@@ -886,6 +965,21 @@ class AppViewModel @Inject constructor(
             failures = failures,
             updateState = ::updateUiState,
         )
+    }
+}
+
+private fun Set<SourceType>.networkRetryFingerprint(): String {
+    return filter { sourceType -> sourceType != SourceType.LOCAL }
+        .distinct()
+        .sortedBy(SourceType::ordinal)
+        .joinToString(":") { sourceType -> sourceType.name }
+}
+
+private fun Map<SourceType, SourceConnectivityState>.unavailableRemoteSourceTypes(): Set<SourceType> {
+    return entries.mapNotNullTo(linkedSetOf()) { (sourceType, state) ->
+        sourceType.takeIf {
+            sourceType != SourceType.LOCAL && state == SourceConnectivityState.Offline
+        }
     }
 }
 

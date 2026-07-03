@@ -17,8 +17,9 @@ class AppProgressSyncNoticeController @Inject constructor() {
         failures: List<SourceProgressSyncFailure>,
         updateState: AppUiStateUpdater,
     ) {
-        if (failures.isEmpty()) return
-        val message = failures.toProgressSyncNoticeMessage()
+        val reportableFailures = failures.filterNot(SourceProgressSyncFailure::isQueuedOfflineFailure)
+        if (reportableFailures.isEmpty()) return
+        val message = reportableFailures.toProgressSyncNoticeMessage()
         updateState { state ->
             state.copy(
                 progressSyncNotice = AppProgressSyncNotice(
@@ -41,6 +42,9 @@ class AppProgressSyncNoticeController @Inject constructor() {
         }
     }
 }
+
+private fun SourceProgressSyncFailure.isQueuedOfflineFailure(): Boolean =
+    artifact != null && throwable is RemoteSourceUnavailableException
 
 private fun List<SourceProgressSyncFailure>.toProgressSyncNoticeMessage(): String {
     val groupedFailures = groupBy(SourceProgressSyncFailure::sourceType)

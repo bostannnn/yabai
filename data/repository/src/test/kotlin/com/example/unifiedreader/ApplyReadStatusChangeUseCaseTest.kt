@@ -20,7 +20,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -32,34 +31,11 @@ class ApplyReadStatusChangeUseCaseTest {
     }
 
     @Test
-    fun `mark as read updates local progress and syncs clean state`() = runTest {
+    fun `mark as read updates local progress as dirty for coordinator flush`() = runTest {
         val store = TestProgressSyncStore()
         val journalRepository = RecordingReadStatusJournalRepository()
-        val sync = RecordingSourceProgressSync(
-            sourceType = SourceType.GRIMMORY,
-            onPush = { items, sessionStore ->
-                val item = items.single()
-                val snapshot = checkNotNull(sessionStore.getProgress(item))
-                sessionStore.saveProgress(
-                    item = item,
-                    locator = ProgressSyncLocator(
-                        locatorType = snapshot.locatorType,
-                        page = snapshot.page,
-                        cfi = snapshot.cfi,
-                        percent = snapshot.percent,
-                    ),
-                    isFinished = snapshot.isFinished,
-                    isExplicitUnreadReset = snapshot.isExplicitUnreadReset,
-                    syncState = SyncState.CLEAN,
-                    updatedAtEpochMillis = snapshot.updatedAtEpochMillis,
-                )
-            },
-        )
         val useCase = ApplyReadStatusChangeUseCase(
             progressSyncStore = store,
-            flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
-                SourceProgressSyncRegistry(listOf(sync)),
-            ),
             journalRepository = journalRepository,
         )
 
@@ -70,17 +46,15 @@ class ApplyReadStatusChangeUseCaseTest {
 
         val snapshot = store.progressByItemIdFlow.value.getValue(grimmoryBook().id)
         assertTrue(result.applied)
-        assertTrue(result.syncFailures.isEmpty())
         assertTrue(snapshot.isFinished)
         assertEquals(1.0, snapshot.percent ?: -1.0, 0.0001)
-        assertEquals(SyncState.CLEAN, snapshot.syncState)
-        assertEquals(listOf(listOf(grimmoryBook().id)), sync.invocations)
+        assertEquals(SyncState.DIRTY, snapshot.syncState)
         assertEquals(grimmoryBook().id, journalRepository.recordedProgress.single().item.id)
         assertTrue(journalRepository.recordedProgress.single().isFinished)
     }
 
     @Test
-    fun `mark as unread clears local progress after successful sync`() = runTest {
+    fun `mark as unread leaves local unread reset dirty for coordinator flush`() = runTest {
         val store = TestProgressSyncStore()
         val journalRepository = RecordingReadStatusJournalRepository()
         store.saveProgress(
@@ -93,18 +67,6 @@ class ApplyReadStatusChangeUseCaseTest {
         )
         val useCase = ApplyReadStatusChangeUseCase(
             progressSyncStore = store,
-            flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
-                SourceProgressSyncRegistry(
-                    listOf(
-                        RecordingSourceProgressSync(
-                            sourceType = SourceType.GRIMMORY,
-                            onPush = { items, sessionStore ->
-                                sessionStore.clearProgress(items.single().id)
-                            },
-                        ),
-                    ),
-                ),
-            ),
             journalRepository = journalRepository,
         )
 
@@ -114,8 +76,11 @@ class ApplyReadStatusChangeUseCaseTest {
         )
 
         assertTrue(result.applied)
-        assertTrue(result.syncFailures.isEmpty())
-        assertNull(store.progressByItemIdFlow.value[grimmoryBook().id])
+        val snapshot = store.progressByItemIdFlow.value.getValue(grimmoryBook().id)
+        assertFalse(snapshot.isFinished)
+        assertTrue(snapshot.isExplicitUnreadReset)
+        assertEquals(0.0, snapshot.percent ?: -1.0, 0.0001)
+        assertEquals(SyncState.DIRTY, snapshot.syncState)
         assertEquals(listOf(grimmoryBook().id), journalRepository.clearedReadingEventItemIds)
     }
 
@@ -134,9 +99,6 @@ class ApplyReadStatusChangeUseCaseTest {
         )
         val useCase = ApplyReadStatusChangeUseCase(
             progressSyncStore = store,
-            flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
-                SourceProgressSyncRegistry(emptyList()),
-            ),
         )
 
         val result = useCase(
@@ -154,7 +116,7 @@ class ApplyReadStatusChangeUseCaseTest {
     }
 
     @Test
-    fun `failed sync leaves unread reset dirty for retry`() = runTest {
+    fun `mark as unread keeps unread reset dirty for retry`() = runTest {
         val store = TestProgressSyncStore()
         val item = grimmoryBook()
         store.saveProgress(
@@ -168,16 +130,6 @@ class ApplyReadStatusChangeUseCaseTest {
         )
         val useCase = ApplyReadStatusChangeUseCase(
             progressSyncStore = store,
-            flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
-                SourceProgressSyncRegistry(
-                    listOf(
-                        RecordingSourceProgressSync(
-                            sourceType = SourceType.GRIMMORY,
-                            failure = IllegalStateException("boom"),
-                        ),
-                    ),
-                ),
-            ),
         )
 
         val result = useCase(
@@ -187,7 +139,6 @@ class ApplyReadStatusChangeUseCaseTest {
 
         val snapshot = store.progressByItemIdFlow.value.getValue(item.id)
         assertTrue(result.applied)
-        assertEquals(1, result.syncFailures.size)
         assertFalse(snapshot.isFinished)
         assertTrue(snapshot.isExplicitUnreadReset)
         assertEquals(0.0, snapshot.percent ?: -1.0, 0.0001)

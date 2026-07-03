@@ -66,6 +66,25 @@ class RemoteSourceConnectivityStartupCoordinatorTest {
     }
 
     @Test
+    fun `retry source returns offline probe failure`() = runTest {
+        val policy = RemoteSourceConnectivityPolicy()
+        val coordinator = RemoteSourceConnectivityStartupCoordinator(
+            healthChecks = listOf(
+                FakeRemoteSourceHealthCheck(
+                    failure = IOException("timeout"),
+                ),
+            ),
+            remoteSourceConnectivityPolicy = policy,
+        )
+
+        val result = coordinator.retrySource(SourceType.KAVITA)
+
+        assertEquals(RemoteSourceReachability.Unavailable, policy.reachabilityFor(SourceType.KAVITA))
+        val offline = result as RemoteSourceConnectivityProbeResult.Offline
+        assertEquals("timeout", offline.throwable.message)
+    }
+
+    @Test
     fun `startup probe surfaces auth or protocol failure without classifying source online or offline`() = runTest {
         val failure = IllegalStateException("Unauthorized")
         val policy = RemoteSourceConnectivityPolicy()

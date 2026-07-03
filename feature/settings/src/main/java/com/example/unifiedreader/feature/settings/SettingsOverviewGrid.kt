@@ -19,6 +19,7 @@ internal fun SettingsOverviewGrid(
     useSingleLaneCards: Boolean,
     header: @Composable () -> Unit,
     themeCard: @Composable () -> Unit,
+    syncCard: @Composable () -> Unit,
     supplementarySection: SettingsSupplementarySection?,
     libraryFiltersCard: @Composable () -> Unit,
     kavitaCard: @Composable () -> Unit,
@@ -44,6 +45,9 @@ internal fun SettingsOverviewGrid(
             }
             item {
                 themeCard()
+            }
+            item {
+                syncCard()
             }
             supplementarySection?.let { section ->
                 item {

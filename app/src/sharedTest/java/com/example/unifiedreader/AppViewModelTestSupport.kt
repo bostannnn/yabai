@@ -6,7 +6,9 @@ import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.core.model.remoteLibraryId
 import com.example.unifiedreader.data.repository.JournalEntrySaveUseCase
 import com.example.unifiedreader.data.repository.FlushPendingRemoteArtifactsUseCase
@@ -26,6 +28,7 @@ import com.example.unifiedreader.journal.JournalItemRef
 import com.example.unifiedreader.journal.JournalProgressInput
 import com.example.unifiedreader.journal.JournalRepository
 import com.example.unifiedreader.journal.JournalSnapshot
+import com.example.unifiedreader.journal.ItemJournalEntry
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryBrowsePreferences
 import com.example.unifiedreader.feature.library.LibraryBrowsePreferencesStore
@@ -103,6 +106,7 @@ internal fun createViewModel(
     sourceProgressSyncs: List<SourceProgressSync> = emptyList(),
     remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy = onlineRemoteSourceConnectivityPolicy(),
     remoteSourceHealthChecks: List<RemoteSourceHealthCheck> = emptyList(),
+    appNetworkConnectivityMonitor: AppNetworkConnectivityMonitor = FakeAppNetworkConnectivityMonitor(),
     appStartupTasks: AppStartupTasks = AppStartupTasks {},
     coverPreloadController: AppCoverPreloadController? = null,
     readerFactories: List<@JvmSuppressWildcards ReaderScreenFactory> = emptyList(),
@@ -258,9 +262,6 @@ internal fun createViewModel(
         libraryReadStatusController = AppLibraryReadStatusController(
             applyReadStatusChangeUseCase = ApplyReadStatusChangeUseCase(
                 progressSyncStore = ReaderSessionProgressStoreAdapter(readerSessionStore),
-                flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
-                    sourceProgressSyncRegistry = sourceProgressSyncRegistry,
-                ),
             ),
         ),
         comicReadingDirectionController = AppComicReadingDirectionController(
@@ -347,22 +348,16 @@ internal fun createViewModel(
         kavitaReadingListController = kavitaReadingListController,
         remoteSourceConnectivityStartupCoordinator = remoteSourceConnectivityStartupCoordinator,
         remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+        appNetworkConnectivityMonitor = appNetworkConnectivityMonitor,
         progressSyncNoticeController = progressSyncNoticeController,
         journalRepository = journalRepository,
         journalEntrySaveUseCase = JournalEntrySaveUseCase(
             journalRepository = journalRepository,
-            flushPendingRemoteArtifactsUseCase = FlushPendingRemoteArtifactsUseCase(
-                flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
-                    sourceProgressSyncRegistry = sourceProgressSyncRegistry,
-                ),
-                remoteJournalPusher = remoteJournalPusher,
-                sourceJournalPushers = emptyList(),
-            ),
-            readableItemRepository = readableItemRepository,
         ),
         progressSyncStartupRetryCoordinator = progressSyncStartupRetryCoordinator ?: AppProgressSyncStartupRetryCoordinator(
             readableItemRepository = readableItemRepository,
             readerSessionStore = readerSessionStore,
+            journalRepository = journalRepository,
             remoteCatalogReadiness = remoteCatalogReadiness,
             flushPendingRemoteArtifactsUseCase = FlushPendingRemoteArtifactsUseCase(
                 flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
@@ -399,6 +394,20 @@ private fun onlineRemoteSourceConnectivityPolicy(): RemoteSourceConnectivityPoli
         markReachable(SourceType.STUMP)
         markReachable(SourceType.GRIMMORY)
     }
+
+class FakeAppNetworkConnectivityMonitor(
+    initialAvailable: Boolean = false,
+) : AppNetworkConnectivityMonitor {
+    private val networkAvailable = MutableStateFlow(initialAvailable)
+
+    override val networkAvailableFlow: StateFlow<Boolean> = networkAvailable
+
+    fun setNetworkAvailable(
+        available: Boolean,
+    ) {
+        networkAvailable.value = available
+    }
+}
 
 class FakeComicPageSourceCacheController : ComicPageSourceCacheController {
     val clearedSourceTypes = mutableListOf<SourceType>()
@@ -1183,16 +1192,87 @@ class FakeJournalRepository : JournalRepository {
         item: ReadableItem,
         rating: Int?,
         reviewText: String,
-    ) = Unit
+    ) {
+        saveEntry(
+            itemId = item.id,
+            sourceType = item.sourceType,
+            libraryId = item.libraryId,
+            itemTitle = item.title,
+            coverUrl = item.coverUrl,
+            itemKind = item.kind,
+            format = item.format,
+            rating = rating,
+            reviewText = reviewText,
+        )
+    }
 
     override suspend fun saveJournalEntry(
         item: JournalItemRef,
         rating: Int?,
         reviewText: String,
-    ) = Unit
+    ) {
+        saveEntry(
+            itemId = item.itemId,
+            sourceType = item.sourceType,
+            libraryId = item.libraryId,
+            itemTitle = item.displayTitle,
+            coverUrl = item.coverUrl,
+            itemKind = item.itemKind,
+            format = item.format,
+            rating = rating,
+            reviewText = reviewText,
+        )
+    }
 
-    override suspend fun deleteItemJournal(itemId: String) = Unit
+    override suspend fun deleteItemJournal(itemId: String) {
+        snapshotFlow.value = snapshotFlow.value.copy(
+            entries = snapshotFlow.value.entries.filterNot { entry -> entry.itemId == itemId },
+        )
+    }
 
+    private fun saveEntry(
+        itemId: String,
+        sourceType: SourceType,
+        libraryId: String,
+        itemTitle: String,
+        coverUrl: String?,
+        itemKind: ReadableItemKind,
+        format: FormatType,
+        rating: Int?,
+        reviewText: String,
+    ) {
+        val now = System.currentTimeMillis()
+        val trimmedReview = reviewText.trim()
+        val existingEntry = snapshotFlow.value.entryByItemId[itemId]
+        val entry = ItemJournalEntry(
+            itemId = itemId,
+            sourceType = sourceType,
+            libraryId = libraryId,
+            itemTitle = itemTitle,
+            coverUrl = coverUrl,
+            itemKind = itemKind,
+            format = format,
+            rating = rating,
+            reviewText = trimmedReview,
+            reviewedAtEpochMillis = now.takeIf { trimmedReview.isNotBlank() },
+            updatedAtEpochMillis = now,
+            remoteEntryId = existingEntry?.remoteEntryId,
+            remoteReviewNoteId = existingEntry?.remoteReviewNoteId,
+            remoteUpdatedAtEpochMillis = existingEntry?.remoteUpdatedAtEpochMillis,
+            syncState = sourceType.localJournalWriteSyncState(),
+        )
+        snapshotFlow.value = snapshotFlow.value.copy(
+            entries = snapshotFlow.value.entries.filterNot { candidate -> candidate.itemId == itemId } + entry,
+        )
+    }
+
+}
+
+private fun SourceType.localJournalWriteSyncState(): SyncState = when (this) {
+    SourceType.KAVITA,
+    SourceType.GRIMMORY -> SyncState.DIRTY
+    SourceType.STUMP,
+    SourceType.LOCAL -> SyncState.CLEAN
 }
 
 class FakeComicReaderPreferencesStore : ComicReaderPreferencesStore {

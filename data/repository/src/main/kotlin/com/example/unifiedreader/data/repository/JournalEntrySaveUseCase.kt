@@ -42,8 +42,6 @@ class RemoteJournalPusherRegistry @Inject constructor(
 
 class JournalEntrySaveUseCase @Inject constructor(
     private val journalRepository: JournalRepository,
-    private val flushPendingRemoteArtifactsUseCase: FlushPendingRemoteArtifactsUseCase,
-    private val readableItemRepository: ReadableItemRepository,
 ) {
     suspend operator fun invoke(
         item: JournalItemRef,
@@ -55,20 +53,5 @@ class JournalEntrySaveUseCase @Inject constructor(
             rating = rating,
             reviewText = reviewText,
         )
-        flushPendingRemoteArtifactsUseCase(
-            RemoteArtifactFlushRequest(
-                items = readableItemRepository.getItems().withJournalItem(item),
-                artifacts = setOf(RemoteSyncArtifact.JOURNAL_ENTRY),
-            ),
-        )
     }
-}
-
-private fun List<ReadableItem>.withJournalItem(
-    item: JournalItemRef,
-): List<ReadableItem> {
-    val sourceItems = filter { candidate -> candidate.sourceType == item.sourceType }
-    if (sourceItems.any { candidate -> candidate.id == item.itemId }) return sourceItems
-    val matchingItem = firstOrNull { candidate -> candidate.id == item.itemId }
-    return if (matchingItem == null) sourceItems else sourceItems + matchingItem
 }

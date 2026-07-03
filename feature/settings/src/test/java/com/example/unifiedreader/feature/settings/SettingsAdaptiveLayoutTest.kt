@@ -62,6 +62,7 @@ class SettingsAdaptiveLayoutTest {
         )
 
         assertFalse(withoutSupplementary.any { section -> section.id == SettingsSectionId.Supplementary })
+        assertTrue(withoutSupplementary.any { section -> section.id == SettingsSectionId.Sync })
         assertTrue(withSupplementary.any { section -> section.id == SettingsSectionId.Supplementary })
         assertEquals(SettingsSectionId.Theme, withSupplementary.first().id)
     }

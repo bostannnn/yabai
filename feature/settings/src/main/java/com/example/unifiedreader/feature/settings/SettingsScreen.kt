@@ -63,7 +63,9 @@ fun SettingsScreen(
     kavitaConnection: KavitaConnectionUiState,
     stumpConnection: StumpConnectionUiState,
     grimmoryConnection: GrimmoryConnectionUiState,
+    syncSettings: SyncSettingsUiState = SyncSettingsUiState(),
     onThemeModeSelected: (ThemeMode) -> Unit,
+    onRetrySync: () -> Unit = {},
     onLibraryFilterPanelsChanged: (SourceType, List<LibraryFilterPanel>) -> Unit,
     supplementarySection: SettingsSupplementarySection? = null,
     onLibraryDirectionSelected: (String, ComicReadingDirection) -> Unit,
@@ -135,6 +137,10 @@ fun SettingsScreen(
                             themeMode = themeMode,
                             onThemeModeSelected = onThemeModeSelected,
                         )
+                        SettingsSectionId.Sync -> SyncSettingsCard(
+                            state = syncSettings,
+                            onRetrySync = onRetrySync,
+                        )
                         SettingsSectionId.Supplementary -> supplementarySection?.content?.invoke()
                         SettingsSectionId.LibraryFilters -> LibraryFilterSettingsSection(
                             filterPanelsBySource = libraryFilterPanelsBySource,
@@ -204,6 +210,12 @@ fun SettingsScreen(
                     ThemeSettingsCard(
                         themeMode = themeMode,
                         onThemeModeSelected = onThemeModeSelected,
+                    )
+                },
+                syncCard = {
+                    SyncSettingsCard(
+                        state = syncSettings,
+                        onRetrySync = onRetrySync,
                     )
                 },
                 supplementarySection = supplementarySection,

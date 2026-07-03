@@ -17,7 +17,7 @@ class RemoteSourceConnectivityPolicyTest {
         assertTrue(policy.canAttemptReaderContent(SourceType.KAVITA))
         assertFalse(policy.canFetchCover(SourceType.KAVITA))
         assertFalse(policy.canScheduleDownload(SourceType.KAVITA))
-        assertTrue(policy.canAttemptProgressSync(SourceType.KAVITA))
+        assertFalse(policy.canAttemptProgressSync(SourceType.KAVITA))
 
         policy.markChecking(SourceType.KAVITA)
 
@@ -25,7 +25,7 @@ class RemoteSourceConnectivityPolicyTest {
         assertFalse(policy.canAttemptReaderContent(SourceType.KAVITA))
         assertFalse(policy.canFetchCover(SourceType.KAVITA))
         assertFalse(policy.canScheduleDownload(SourceType.KAVITA))
-        assertTrue(policy.canAttemptProgressSync(SourceType.KAVITA))
+        assertFalse(policy.canAttemptProgressSync(SourceType.KAVITA))
 
         policy.markUnavailable(SourceType.KAVITA)
 

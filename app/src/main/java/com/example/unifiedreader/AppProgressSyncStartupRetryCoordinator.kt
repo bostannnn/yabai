@@ -7,15 +7,20 @@ import com.example.unifiedreader.data.repository.FlushPendingRemoteArtifactsUseC
 import com.example.unifiedreader.data.repository.RemoteArtifactFlushRequest
 import com.example.unifiedreader.data.repository.ReadableItemRepository
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
+import com.example.unifiedreader.journal.JournalRepository
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
+private typealias RemoteSyncAttemptRecorder =
+    suspend (Set<SourceType>, List<SourceProgressSyncFailure>, List<ReadableItem>) -> Unit
+
 class AppProgressSyncStartupRetryCoordinator @Inject constructor(
     private val readableItemRepository: ReadableItemRepository,
     private val readerSessionStore: ReaderSessionStore,
+    private val journalRepository: JournalRepository,
     private val remoteCatalogReadiness: RemoteCatalogReadiness,
     private val flushPendingRemoteArtifactsUseCase: FlushPendingRemoteArtifactsUseCase,
     private val remoteItemLocalAvailability: RemoteItemLocalAvailability,
@@ -24,6 +29,7 @@ class AppProgressSyncStartupRetryCoordinator @Inject constructor(
     fun retryAfterHydration(
         scope: CoroutineScope,
         onSyncFailures: (List<SourceProgressSyncFailure>) -> Unit,
+        onSyncAttempt: RemoteSyncAttemptRecorder = { _, _, _ -> },
     ) {
         scope.launch {
             val items = combine(
@@ -37,11 +43,13 @@ class AppProgressSyncStartupRetryCoordinator @Inject constructor(
                 )
             }.first { snapshot -> snapshot.ready }.items
 
-            val startupProgressItems = items.filterStartupProgressItems(
+            val pendingItemIds = pendingRemoteSyncItemIds()
+            val pendingItems = items.filter { item -> item.id in pendingItemIds }
+            val startupProgressItems = pendingItems.filterStartupProgressItems(
                 remoteItemLocalAvailability = remoteItemLocalAvailability,
                 remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
             )
-            val startupJournalItems = items.filterStartupJournalItems(remoteSourceConnectivityPolicy)
+            val startupJournalItems = pendingItems.filterStartupJournalItems(remoteSourceConnectivityPolicy)
             val allFailures = flushPendingRemoteArtifactsUseCase(
                 RemoteArtifactFlushRequest(
                     items = (startupProgressItems + startupJournalItems).distinctBy(ReadableItem::id),
@@ -56,6 +64,11 @@ class AppProgressSyncStartupRetryCoordinator @Inject constructor(
                 attemptedSourceTypes = attemptedSourceTypes,
                 failures = allFailures,
             )
+            onSyncAttempt(
+                attemptedSourceTypes,
+                allFailures,
+                (startupProgressItems + startupJournalItems).distinctBy(ReadableItem::id),
+            )
             val reportableFailures = allFailures.withoutDownloadedReachabilityFailures(
                 attemptedItems = startupProgressItems + startupJournalItems,
                 remoteItemLocalAvailability = remoteItemLocalAvailability,
@@ -69,6 +82,21 @@ class AppProgressSyncStartupRetryCoordinator @Inject constructor(
             }
             onSyncFailures(reportableFailures)
         }
+    }
+
+    private suspend fun pendingRemoteSyncItemIds(): Set<String> {
+        val progressItemIds = readerSessionStore.progressByItemIdFlow.value.values
+            .asSequence()
+            .filter { progress -> progress.isPendingRemoteSync() }
+            .map { progress -> progress.itemId }
+        val journalSnapshot = journalRepository.observeSnapshot().first()
+        val journalEntryItemIds = journalSnapshot.entries.asSequence()
+            .filter { entry -> entry.syncState.toPendingRemoteSyncItemState() != null }
+            .map { entry -> entry.itemId }
+        val readingSessionItemIds = journalSnapshot.sessions.asSequence()
+            .filter { session -> session.syncState.toPendingRemoteSyncItemState() != null }
+            .map { session -> session.itemId }
+        return (progressItemIds + journalEntryItemIds + readingSessionItemIds).toSet()
     }
 }
 

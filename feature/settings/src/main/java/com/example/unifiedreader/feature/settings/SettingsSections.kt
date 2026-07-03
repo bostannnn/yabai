@@ -10,6 +10,7 @@ data class SettingsSupplementarySection(
 
 internal enum class SettingsSectionId {
     Theme,
+    Sync,
     Supplementary,
     LibraryFilters,
     Kavita,
@@ -29,6 +30,10 @@ internal fun buildSettingsSectionDescriptors(
         SettingsSectionDescriptor(
             id = SettingsSectionId.Theme,
             title = "Theme",
+        ),
+        SettingsSectionDescriptor(
+            id = SettingsSectionId.Sync,
+            title = "Sync",
         ),
     )
     supplementarySection?.let { section ->

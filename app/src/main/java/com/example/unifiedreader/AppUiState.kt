@@ -125,6 +125,7 @@ data class AppUiState(
     val libraryShelvesState: LibraryShelvesState = LibraryShelvesState(),
     val journalSnapshot: JournalSnapshot = JournalSnapshot(),
     val progressSyncNotice: AppProgressSyncNotice? = null,
+    val pendingRemoteSyncSummary: AppPendingRemoteSyncSummary = AppPendingRemoteSyncSummary(),
     val sourceConnectivityBySource: Map<SourceType, SourceConnectivityState> = emptyMap(),
     val readerCompletionState: AppReaderCompletionState? = null,
 ) {

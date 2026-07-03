@@ -26,6 +26,18 @@ sealed interface RemoteSourceHealthCheckResult {
     data object Online : RemoteSourceHealthCheckResult
 }
 
+sealed interface RemoteSourceConnectivityProbeResult {
+    data object NoHealthCheck : RemoteSourceConnectivityProbeResult
+    data object NotConfigured : RemoteSourceConnectivityProbeResult
+    data object Online : RemoteSourceConnectivityProbeResult
+    data class Offline(
+        val throwable: Throwable,
+    ) : RemoteSourceConnectivityProbeResult
+    data class Failed(
+        val throwable: Throwable,
+    ) : RemoteSourceConnectivityProbeResult
+}
+
 class RemoteSourceConnectivityStartupCoordinator @Inject constructor(
     private val healthChecks: List<@JvmSuppressWildcards RemoteSourceHealthCheck>,
     private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
@@ -46,31 +58,39 @@ class RemoteSourceConnectivityStartupCoordinator @Inject constructor(
 
     suspend fun retrySource(
         sourceType: SourceType,
-    ) {
-        val healthCheck = healthChecks.firstOrNull { check -> check.sourceType == sourceType } ?: return
-        checkSource(healthCheck)
-    }
+    ): RemoteSourceConnectivityProbeResult =
+        healthChecks.firstOrNull { check -> check.sourceType == sourceType }
+            ?.let { healthCheck -> checkSource(healthCheck) }
+            ?: RemoteSourceConnectivityProbeResult.NoHealthCheck
 
     private suspend fun checkSource(
         healthCheck: RemoteSourceHealthCheck,
-    ) {
+    ): RemoteSourceConnectivityProbeResult {
         remoteSourceConnectivityPolicy.markChecking(healthCheck.sourceType)
         sourceErrors.update { current -> current - healthCheck.sourceType }
-        runCatching {
+        return runCatching {
             healthCheck.check()
         }.fold(
             onSuccess = { checked ->
                 when (checked) {
-                    RemoteSourceHealthCheckResult.NotConfigured -> remoteSourceConnectivityPolicy.clear(healthCheck.sourceType)
-                    RemoteSourceHealthCheckResult.Online -> remoteSourceConnectivityPolicy.markReachable(healthCheck.sourceType)
+                    RemoteSourceHealthCheckResult.NotConfigured -> {
+                        remoteSourceConnectivityPolicy.clear(healthCheck.sourceType)
+                        RemoteSourceConnectivityProbeResult.NotConfigured
+                    }
+                    RemoteSourceHealthCheckResult.Online -> {
+                        remoteSourceConnectivityPolicy.markReachable(healthCheck.sourceType)
+                        RemoteSourceConnectivityProbeResult.Online
+                    }
                 }
             },
             onFailure = { throwable ->
                 if (throwable.isRemoteServerAddressRetryableFailure()) {
                     remoteSourceConnectivityPolicy.markUnavailable(healthCheck.sourceType)
+                    RemoteSourceConnectivityProbeResult.Offline(throwable)
                 } else {
                     remoteSourceConnectivityPolicy.clear(healthCheck.sourceType)
                     sourceErrors.update { current -> current + (healthCheck.sourceType to throwable) }
+                    RemoteSourceConnectivityProbeResult.Failed(throwable)
                 }
             },
         )

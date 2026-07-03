@@ -3,6 +3,7 @@ package com.example.unifiedreader
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.data.repository.FlushPendingRemoteArtifactsUseCase
@@ -13,7 +14,10 @@ import com.example.unifiedreader.data.repository.SourceRemoteJournalPusher
 import com.example.unifiedreader.feature.reader.core.ReaderLocator
 import com.example.unifiedreader.journal.JournalItemRef
 import com.example.unifiedreader.journal.JournalProgressInput
+import com.example.unifiedreader.journal.ItemJournalEntry
+import com.example.unifiedreader.journal.JournalMediaType
 import com.example.unifiedreader.journal.JournalRepository
+import com.example.unifiedreader.journal.JournalReadingSession
 import com.example.unifiedreader.journal.JournalSnapshot
 import java.io.IOException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -81,7 +85,7 @@ class AppPendingProgressFlushCoordinatorTest {
     }
 
     @Test
-    fun `dirty progress for unknown source attempts once`() = runTest {
+    fun `dirty progress for unknown source waits until source is online`() = runTest {
         val item = downloadedRemotePendingItem()
         val readerSessionStore = FakeReaderSessionStore().apply {
             saveProgress(
@@ -117,6 +121,14 @@ class AppPendingProgressFlushCoordinatorTest {
         )
 
         runCurrent()
+        advanceTimeBy(1600)
+        runCurrent()
+
+        assertTrue(sync.invocations.isEmpty())
+        assertTrue(reportedFailures.isEmpty())
+        assertEquals(RemoteSourceReachability.Unknown, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+
+        remoteSourceConnectivityPolicy.markReachable(SourceType.KAVITA)
         advanceTimeBy(1600)
         runCurrent()
 
@@ -262,6 +274,238 @@ class AppPendingProgressFlushCoordinatorTest {
 
         assertEquals(listOf(listOf(item.id)), sync.invocations)
         assertEquals(listOf(emptyList<SourceProgressSyncFailure>()), reportedFailures)
+    }
+
+    @Test
+    fun `unavailable source exposes queued pending remote sync without reporting failure`() = runTest {
+        val item = downloadedRemotePendingItem()
+        val readerSessionStore = FakeReaderSessionStore().apply {
+            saveProgress(
+                item = item,
+                locator = ReaderLocator(
+                    locatorType = LocatorType.PAGE,
+                    page = 4,
+                ),
+                syncState = SyncState.DIRTY,
+                pageCount = item.pageCount,
+                updatedAtEpochMillis = 123L,
+            )
+        }
+        val sync = RecordingPendingSourceProgressSync(sourceType = SourceType.KAVITA)
+        val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markUnavailable(SourceType.KAVITA)
+        }
+        val coordinator = testPendingProgressFlushCoordinator(
+            readerSessionStore = readerSessionStore,
+            readableItemRepository = FakeReadableItemRepository(items = listOf(item)),
+            flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
+                sourceProgressSyncRegistry = SourceProgressSyncRegistry(listOf(sync)),
+            ),
+            remoteItemLocalAvailability = RemoteItemLocalAvailability(emptyList()),
+            remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+            journalRepository = StaticJournalRepository(
+                JournalSnapshot(
+                    entries = listOf(testJournalEntry(item, SyncState.FAILED)),
+                    sessions = listOf(testReadingSession(item, SyncState.DIRTY)),
+                ),
+            ),
+        )
+        val reportedFailures = mutableListOf<List<SourceProgressSyncFailure>>()
+        val summaries = mutableListOf<AppPendingRemoteSyncSummary>()
+
+        coordinator.observeDirtyProgress(
+            scope = backgroundScope,
+            catalogItemsProvider = { listOf(item) },
+            stateProvider = { AppUiState() },
+            onSyncFailures = reportedFailures::add,
+            onPendingRemoteSyncSummaryChanged = summaries::add,
+        )
+
+        advanceTimeBy(1600)
+        runCurrent()
+
+        assertTrue(sync.invocations.isEmpty())
+        assertTrue(reportedFailures.isEmpty())
+        val group = summaries.last().groups.single()
+        assertEquals(SourceType.KAVITA, group.sourceType)
+        assertEquals(SourceConnectivityState.Offline, group.connectivityState)
+        assertEquals(2, group.queuedCount)
+        assertEquals(1, group.failedCount)
+        assertEquals(
+            setOf(
+                RemoteSyncArtifact.PROGRESS,
+                RemoteSyncArtifact.JOURNAL_ENTRY,
+                RemoteSyncArtifact.READING_SESSION,
+            ),
+            group.items.mapTo(mutableSetOf(), AppPendingRemoteSyncItem::artifact),
+        )
+    }
+
+    @Test
+    fun `explicit retry probe failure annotates queued pending remote sync`() = runTest {
+        val item = downloadedRemotePendingItem()
+        val readerSessionStore = FakeReaderSessionStore().apply {
+            saveProgress(
+                item = item,
+                locator = ReaderLocator(
+                    locatorType = LocatorType.PAGE,
+                    page = 4,
+                ),
+                syncState = SyncState.DIRTY,
+                pageCount = item.pageCount,
+                updatedAtEpochMillis = 123L,
+            )
+        }
+        val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markUnavailable(SourceType.KAVITA)
+        }
+        val coordinator = testPendingProgressFlushCoordinator(
+            readerSessionStore = readerSessionStore,
+            readableItemRepository = FakeReadableItemRepository(items = listOf(item)),
+            flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
+                sourceProgressSyncRegistry = SourceProgressSyncRegistry(
+                    listOf(RecordingPendingSourceProgressSync(sourceType = SourceType.KAVITA)),
+                ),
+            ),
+            remoteItemLocalAvailability = RemoteItemLocalAvailability(emptyList()),
+            remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+        )
+        val summaries = mutableListOf<AppPendingRemoteSyncSummary>()
+
+        coordinator.observeDirtyProgress(
+            scope = backgroundScope,
+            catalogItemsProvider = { listOf(item) },
+            stateProvider = { AppUiState() },
+            onSyncFailures = {},
+            onPendingRemoteSyncSummaryChanged = summaries::add,
+        )
+
+        advanceTimeBy(1600)
+        runCurrent()
+        coordinator.recordRemoteSyncAttempt(
+            attemptedSourceTypes = setOf(SourceType.KAVITA),
+            failures = listOf(
+                SourceProgressSyncFailure(
+                    sourceType = SourceType.KAVITA,
+                    throwable = RemoteSourceUnavailableException(SourceType.KAVITA),
+                ),
+            ),
+        )
+
+        val lastAttempt = summaries.last().groups.single().lastAttempt
+        assertEquals(
+            "Kavita local network cannot be accessed. Only downloaded or cached items can be opened.",
+            lastAttempt?.errorMessage,
+        )
+        assertTrue(lastAttempt?.attemptedAtEpochMillis != null)
+    }
+
+    @Test
+    fun `online pending progress failure is reported and annotates sync queue`() = runTest {
+        val item = downloadedRemotePendingItem()
+        val readerSessionStore = FakeReaderSessionStore().apply {
+            saveProgress(
+                item = item,
+                locator = ReaderLocator(
+                    locatorType = LocatorType.PAGE,
+                    page = 4,
+                ),
+                syncState = SyncState.DIRTY,
+                pageCount = item.pageCount,
+                updatedAtEpochMillis = 123L,
+            )
+        }
+        val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markReachable(SourceType.KAVITA)
+        }
+        val coordinator = testPendingProgressFlushCoordinator(
+            readerSessionStore = readerSessionStore,
+            readableItemRepository = FakeReadableItemRepository(items = listOf(item)),
+            flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
+                sourceProgressSyncRegistry = SourceProgressSyncRegistry(
+                    listOf(
+                        RecordingPendingSourceProgressSync(
+                            sourceType = SourceType.KAVITA,
+                            failure = IllegalStateException("Progress rejected"),
+                        ),
+                    ),
+                ),
+            ),
+            remoteItemLocalAvailability = RemoteItemLocalAvailability(emptyList()),
+            remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+        )
+        val reportedFailures = mutableListOf<List<SourceProgressSyncFailure>>()
+        val summaries = mutableListOf<AppPendingRemoteSyncSummary>()
+
+        coordinator.observeDirtyProgress(
+            scope = backgroundScope,
+            catalogItemsProvider = { listOf(item) },
+            stateProvider = { AppUiState() },
+            onSyncFailures = reportedFailures::add,
+            onPendingRemoteSyncSummaryChanged = summaries::add,
+        )
+
+        advanceTimeBy(1600)
+        runCurrent()
+
+        assertEquals("Progress rejected", reportedFailures.single().single().throwable.message)
+        val lastAttempt = summaries.last().groups.single().lastAttempt
+        assertEquals("Progress rejected", lastAttempt?.errorMessage)
+        assertTrue(lastAttempt?.attemptedAtEpochMillis != null)
+    }
+
+    @Test
+    fun `online pending progress failure is not auto retried when marked failed`() = runTest {
+        val item = downloadedRemotePendingItem()
+        val readerSessionStore = FakeReaderSessionStore().apply {
+            saveProgress(
+                item = item,
+                locator = ReaderLocator(
+                    locatorType = LocatorType.PAGE,
+                    page = 4,
+                ),
+                syncState = SyncState.DIRTY,
+                pageCount = item.pageCount,
+                updatedAtEpochMillis = 123L,
+            )
+        }
+        val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markReachable(SourceType.KAVITA)
+        }
+        val sync = MarkingFailedPendingSourceProgressSync(
+            sourceType = SourceType.KAVITA,
+            readerSessionStore = readerSessionStore,
+            failure = IllegalStateException("Progress rejected"),
+        )
+        val coordinator = testPendingProgressFlushCoordinator(
+            readerSessionStore = readerSessionStore,
+            readableItemRepository = FakeReadableItemRepository(items = listOf(item)),
+            flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
+                sourceProgressSyncRegistry = SourceProgressSyncRegistry(listOf(sync)),
+            ),
+            remoteItemLocalAvailability = RemoteItemLocalAvailability(emptyList()),
+            remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+        )
+        val reportedFailures = mutableListOf<List<SourceProgressSyncFailure>>()
+        val summaries = mutableListOf<AppPendingRemoteSyncSummary>()
+
+        coordinator.observeDirtyProgress(
+            scope = backgroundScope,
+            catalogItemsProvider = { listOf(item) },
+            stateProvider = { AppUiState() },
+            onSyncFailures = reportedFailures::add,
+            onPendingRemoteSyncSummaryChanged = summaries::add,
+        )
+
+        advanceTimeBy(1600)
+        runCurrent()
+        advanceTimeBy(1600)
+        runCurrent()
+
+        assertEquals(listOf(listOf(item.id)), sync.invocations)
+        assertEquals(1, reportedFailures.size)
+        assertEquals(SyncState.FAILED, readerSessionStore.progressByItemIdFlow.value[item.id]?.syncState)
+        assertEquals(1, summaries.last().groups.single().failedCount)
     }
 
     @Test
@@ -466,6 +710,65 @@ class AppPendingProgressFlushCoordinatorTest {
         assertEquals(RemoteSourceReachability.Unavailable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
         assertEquals(listOf(emptyList<SourceProgressSyncFailure>()), reportedFailures)
     }
+
+    @Test
+    fun `mixed catalog suppresses downloaded pending reachability failure using pending items only`() = runTest {
+        val pendingItem = downloadedRemotePendingItem()
+        val cleanStreamedItem = pendingItem.copy(
+            id = "kavita:item:clean-streamed",
+            remoteId = "clean-streamed",
+            title = "Clean Streamed Comic",
+        )
+        val readerSessionStore = FakeReaderSessionStore().apply {
+            saveProgress(
+                item = pendingItem,
+                locator = ReaderLocator(
+                    locatorType = LocatorType.PAGE,
+                    page = 4,
+                ),
+                syncState = SyncState.DIRTY,
+                pageCount = pendingItem.pageCount,
+                updatedAtEpochMillis = 123L,
+            )
+        }
+        val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markReachable(SourceType.KAVITA)
+        }
+        val sync = RecordingPendingSourceProgressSync(
+            sourceType = SourceType.KAVITA,
+            failure = IOException("Connect timeout has expired"),
+        )
+        val coordinator = testPendingProgressFlushCoordinator(
+            readerSessionStore = readerSessionStore,
+            readableItemRepository = FakeReadableItemRepository(items = listOf(pendingItem, cleanStreamedItem)),
+            flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
+                sourceProgressSyncRegistry = SourceProgressSyncRegistry(listOf(sync)),
+            ),
+            remoteItemLocalAvailability = RemoteItemLocalAvailability(
+                listOf(
+                    FakeRemoteDownloadDataSource(
+                        sourceType = SourceType.KAVITA,
+                        storedItemIds = mutableSetOf(pendingItem.id),
+                    ),
+                ),
+            ),
+            remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+        )
+        val reportedFailures = mutableListOf<List<SourceProgressSyncFailure>>()
+
+        coordinator.flushPendingProgress(
+            catalogItems = listOf(pendingItem, cleanStreamedItem),
+            selectedItem = pendingItem,
+            scope = backgroundScope,
+            onSyncFailures = reportedFailures::add,
+        )
+
+        runCurrent()
+
+        assertEquals(listOf(listOf(pendingItem.id)), sync.invocations)
+        assertEquals(RemoteSourceReachability.Unavailable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(listOf(emptyList<SourceProgressSyncFailure>()), reportedFailures)
+    }
 }
 
 private fun testPendingProgressFlushCoordinator(
@@ -475,10 +778,11 @@ private fun testPendingProgressFlushCoordinator(
     remoteItemLocalAvailability: RemoteItemLocalAvailability,
     remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
     remoteJournalPusher: RemoteJournalPusher = NoOpRemoteJournalPusher,
+    journalRepository: JournalRepository = EmptyJournalRepository,
 ): AppPendingProgressFlushCoordinator = AppPendingProgressFlushCoordinator(
     readerSessionStore = readerSessionStore,
     readableItemRepository = readableItemRepository,
-    journalRepository = EmptyJournalRepository,
+    journalRepository = journalRepository,
     flushPendingRemoteArtifactsUseCase = FlushPendingRemoteArtifactsUseCase(
         flushPendingSourceProgressUseCase = flushPendingSourceProgressUseCase,
         remoteJournalPusher = remoteJournalPusher,
@@ -507,6 +811,70 @@ private object EmptyJournalRepository : JournalRepository {
 
     override suspend fun deleteItemJournal(itemId: String) = Unit
 }
+
+private class StaticJournalRepository(
+    private val snapshot: JournalSnapshot,
+) : JournalRepository {
+    override fun observeSnapshot() = flowOf(snapshot)
+
+    override suspend fun recordReaderProgress(input: JournalProgressInput) = Unit
+
+    override suspend fun saveJournalEntry(
+        item: ReadableItem,
+        rating: Int?,
+        reviewText: String,
+    ) = Unit
+
+    override suspend fun saveJournalEntry(
+        item: JournalItemRef,
+        rating: Int?,
+        reviewText: String,
+    ) = Unit
+
+    override suspend fun deleteItemJournal(itemId: String) = Unit
+}
+
+private fun testJournalEntry(
+    item: ReadableItem,
+    syncState: SyncState,
+): ItemJournalEntry = ItemJournalEntry(
+    itemId = item.id,
+    sourceType = item.sourceType,
+    libraryId = item.libraryId,
+    itemTitle = item.title,
+    coverUrl = item.coverUrl,
+    itemKind = item.kind,
+    format = item.format,
+    rating = 4,
+    reviewText = "Worth keeping.",
+    reviewedAtEpochMillis = 200L,
+    updatedAtEpochMillis = 200L,
+    syncState = syncState,
+)
+
+private fun testReadingSession(
+    item: ReadableItem,
+    syncState: SyncState,
+): JournalReadingSession = JournalReadingSession(
+    id = "${item.id}:session:1",
+    itemId = item.id,
+    sourceType = item.sourceType,
+    libraryId = item.libraryId,
+    itemTitle = item.title,
+    coverUrl = item.coverUrl,
+    itemKind = item.kind,
+    format = item.format,
+    mediaType = JournalMediaType.COMIC,
+    startedAtEpochMillis = 300L,
+    endedAtEpochMillis = 400L,
+    durationMillis = 100L,
+    fromPercent = null,
+    toPercent = null,
+    fromPage = 1,
+    toPage = 4,
+    pageCount = item.pageCount,
+    syncState = syncState,
+)
 
 private object NoOpRemoteJournalPusher : RemoteJournalPusher {
     override suspend fun pushPendingJournalEntries(
@@ -581,6 +949,37 @@ private class RecordingPendingSourceProgressSync(
             )
         }
         return emptyList()
+    }
+}
+
+private class MarkingFailedPendingSourceProgressSync(
+    override val sourceType: SourceType,
+    private val readerSessionStore: FakeReaderSessionStore,
+    private val failure: Throwable,
+) : SourceProgressSync {
+    val invocations = mutableListOf<List<String>>()
+
+    override suspend fun syncItem(
+        item: ReadableItem,
+    ) = Unit
+
+    override suspend fun pushPendingProgress(
+        items: List<ReadableItem>,
+    ): List<SourceProgressSyncFailure> {
+        invocations += items.map(ReadableItem::id)
+        items.forEach { item ->
+            val progress = readerSessionStore.progressByItemIdFlow.value[item.id] ?: return@forEach
+            readerSessionStore.replaceProgressIfCurrent(
+                expected = progress,
+                replacement = progress.copy(syncState = SyncState.FAILED),
+            )
+        }
+        return listOf(
+            SourceProgressSyncFailure(
+                sourceType = sourceType,
+                throwable = failure,
+            ),
+        )
     }
 }
 

@@ -12,12 +12,10 @@ import javax.inject.Inject
 
 data class ReadStatusChangeResult(
     val applied: Boolean,
-    val syncFailures: List<SourceProgressSyncFailure> = emptyList(),
 )
 
 class ApplyReadStatusChangeUseCase @Inject constructor(
     private val progressSyncStore: ProgressSyncStore,
-    private val flushPendingSourceProgressUseCase: FlushPendingSourceProgressUseCase,
     private val journalRepository: JournalRepository? = null,
 ) {
     suspend operator fun invoke(
@@ -38,10 +36,7 @@ class ApplyReadStatusChangeUseCase @Inject constructor(
             markAsRead = markAsRead,
             updatedAtEpochMillis = updatedAtEpochMillis,
         )
-        return ReadStatusChangeResult(
-            applied = true,
-            syncFailures = flushPendingSourceProgressUseCase(listOf(item)),
-        )
+        return ReadStatusChangeResult(applied = true)
     }
 
     private fun applyLocalReadStatus(
