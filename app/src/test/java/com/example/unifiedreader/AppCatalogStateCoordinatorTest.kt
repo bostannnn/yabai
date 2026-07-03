@@ -32,7 +32,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class AppCatalogStateCoordinatorTest {
     @Test
-    fun `local filter is pending while remote local availability is unknown`() {
+    fun `local filter is pending only while remote local availability is unknown`() {
         val state = AppUiState(
             selectedSource = SourceType.KAVITA,
             libraryFiltersBySource = mapOf(
@@ -44,7 +44,7 @@ class AppCatalogStateCoordinatorTest {
 
         assertTrue(state.isSelectedLibraryLocalAvailabilityPending)
         assertFalse(state.copy(isRemoteItemLocalStateKnown = true).isSelectedLibraryLocalAvailabilityPending)
-        assertTrue(
+        assertFalse(
             state.copy(
                 isRemoteItemLocalStateKnown = true,
                 isRemoteItemLocalStateRefreshing = true,
@@ -408,7 +408,7 @@ class AppCatalogStateCoordinatorTest {
     }
 
     @Test
-    fun `known empty local filter is pending while availability refresh discovers downloads`() = runTest {
+    fun `known empty local filter renders while availability refresh discovers downloads`() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val appDispatchers = AppDispatchers(
             io = dispatcher,
@@ -503,7 +503,7 @@ class AppCatalogStateCoordinatorTest {
 
         assertTrue(state.isRemoteItemLocalStateKnown)
         assertTrue(state.isRemoteItemLocalStateRefreshing)
-        assertTrue(state.isSelectedLibraryLocalAvailabilityPending)
+        assertFalse(state.isSelectedLibraryLocalAvailabilityPending)
         assertTrue(state.visibleItems.isEmpty())
 
         pendingAvailabilityRefresh.complete(Unit)
@@ -623,7 +623,7 @@ class AppCatalogStateCoordinatorTest {
         val quickSnapshotState = publishedStates.first()
         assertTrue(quickSnapshotState.isRemoteItemLocalStateKnown)
         assertTrue(quickSnapshotState.isRemoteItemLocalStateRefreshing)
-        assertTrue(quickSnapshotState.isSelectedLibraryLocalAvailabilityPending)
+        assertFalse(quickSnapshotState.isSelectedLibraryLocalAvailabilityPending)
         assertTrue(quickSnapshotState.visibleItems.isEmpty())
 
         pendingAvailabilityRefresh.complete(Unit)

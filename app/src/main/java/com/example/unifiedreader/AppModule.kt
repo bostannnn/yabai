@@ -121,6 +121,12 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideRemoteItemLocalStateCache(
+        @ApplicationContext context: Context,
+    ): RemoteItemLocalStateCache = SharedPreferencesRemoteItemLocalStateCache(context)
+
+    @Provides
+    @Singleton
     fun provideComicReadingDirectionPreferencesStore(
         @ApplicationContext context: Context,
     ): ComicReadingDirectionPreferencesStore = DataStoreComicReadingDirectionPreferencesStore(context)

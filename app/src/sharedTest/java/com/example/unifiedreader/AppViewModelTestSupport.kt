@@ -108,6 +108,7 @@ internal fun createViewModel(
     remoteSourceHealthChecks: List<RemoteSourceHealthCheck> = emptyList(),
     appNetworkConnectivityMonitor: AppNetworkConnectivityMonitor = FakeAppNetworkConnectivityMonitor(),
     appStartupTasks: AppStartupTasks = AppStartupTasks {},
+    remoteItemLocalStateCache: RemoteItemLocalStateCache = EmptyRemoteItemLocalStateCache,
     coverPreloadController: AppCoverPreloadController? = null,
     readerFactories: List<@JvmSuppressWildcards ReaderScreenFactory> = emptyList(),
     progressSyncNoticeController: AppProgressSyncNoticeController = AppProgressSyncNoticeController(),
@@ -133,6 +134,7 @@ internal fun createViewModel(
     val libraryStateAssembler = AppLibraryStateAssembler(
         localDocumentRepository = importedRepository,
         remoteDownloadDataSources = remoteDownloadDataSources,
+        remoteItemLocalStateCache = remoteItemLocalStateCache,
     )
     val libraryProgressRefreshCoordinator = AppLibraryProgressRefreshCoordinator(
         libraryStateAssembler = libraryStateAssembler,

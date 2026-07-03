@@ -48,6 +48,7 @@ internal data class AppCatalogSnapshot(
     val downloadedRemoteItemIds: Set<String>,
     val locallyAvailableRemoteItemIds: Set<String>,
     val includesRemoteItemLocalState: Boolean,
+    val remoteItemLocalStateKnownSourceLibraryScopeIds: Set<String>,
     val progressByItemId: Map<String, ItemProgressSummary>,
     val hydratedSources: Set<SourceType>,
     val themeMode: ThemeMode,
@@ -100,6 +101,7 @@ data class AppUiState(
     val locallyAvailableRemoteItemIds: Set<String> = emptySet(),
     val remoteItemLocalStateItemIds: Set<String> = emptySet(),
     val remoteItemLocalAvailabilityScopeIds: Set<String> = emptySet(),
+    val remoteItemLocalStateKnownSourceLibraryScopeIds: Set<String> = emptySet(),
     val isRemoteItemLocalStateKnown: Boolean = false,
     val isRemoteItemLocalStateRefreshing: Boolean = false,
     val downloadingRemoteItemIds: Set<String> = emptySet(),
@@ -150,7 +152,15 @@ data class AppUiState(
     val isSelectedLibraryLocalAvailabilityPending: Boolean
         get() = selectedSource != SourceType.LOCAL &&
             LibraryFileLocation.LOCAL in selectedLibraryFilters.fileLocations &&
-            (!isRemoteItemLocalStateKnown || isRemoteItemLocalStateRefreshing)
+            !isSelectedLibraryRemoteItemLocalStateKnown
+
+    private val isSelectedLibraryRemoteItemLocalStateKnown: Boolean
+        get() {
+            val requiredScopeIds = selectedLibraryRemoteItemLocalStateSourceLibraryScopeIds()
+            return isRemoteItemLocalStateKnown ||
+                (requiredScopeIds.isNotEmpty() &&
+                    remoteItemLocalStateKnownSourceLibraryScopeIds.containsAll(requiredScopeIds))
+        }
 
     val isSeriesBrowseActive: Boolean
         get() = when (selectedSource) {
@@ -254,13 +264,21 @@ internal fun AppUiState.withRemoteItemLocalState(
     itemIds: Set<String> = items.remoteItemLocalStateScopeItemIds(),
     availabilityScopeIds: Set<String> = items.remoteItemLocalAvailabilityScopeIds(),
     isKnown: Boolean = true,
+    knownSourceLibraryScopeIds: Set<String> = if (isKnown) {
+        items.remoteItemLocalStateSourceLibraryScopeIds()
+    } else {
+        emptySet()
+    },
     isRefreshing: Boolean = false,
 ): AppUiState = copy(
     downloadedRemoteItemIds = downloadedRemoteItemIds,
     locallyAvailableRemoteItemIds = locallyAvailableRemoteItemIds,
     remoteItemLocalStateItemIds = itemIds,
     remoteItemLocalAvailabilityScopeIds = availabilityScopeIds,
-    isRemoteItemLocalStateKnown = isKnown,
+    remoteItemLocalStateKnownSourceLibraryScopeIds = knownSourceLibraryScopeIds,
+    isRemoteItemLocalStateKnown = isKnown && knownSourceLibraryScopeIds.containsAll(
+        items.remoteItemLocalStateSourceLibraryScopeIds(),
+    ),
     isRemoteItemLocalStateRefreshing = isRefreshing,
 )
 
@@ -271,13 +289,45 @@ internal fun AppUiState.withRemoteItemLocalStateRefreshPending(
     val hasKnownStateForScope = isRemoteItemLocalStateKnown &&
         remoteItemLocalStateItemIds == itemIds &&
         remoteItemLocalAvailabilityScopeIds == availabilityScopeIds
+    val knownSourceLibraryScopeIds = if (
+        remoteItemLocalStateItemIds == itemIds &&
+        remoteItemLocalAvailabilityScopeIds == availabilityScopeIds
+    ) {
+        remoteItemLocalStateKnownSourceLibraryScopeIds.ifEmpty {
+            if (isRemoteItemLocalStateKnown) {
+                items.remoteItemLocalStateSourceLibraryScopeIds()
+            } else {
+                emptySet()
+            }
+        }
+    } else {
+        emptySet()
+    }
     return copy(
         remoteItemLocalStateItemIds = itemIds,
         remoteItemLocalAvailabilityScopeIds = availabilityScopeIds,
-        isRemoteItemLocalStateKnown = hasKnownStateForScope,
+        remoteItemLocalStateKnownSourceLibraryScopeIds = knownSourceLibraryScopeIds,
+        isRemoteItemLocalStateKnown = hasKnownStateForScope &&
+            knownSourceLibraryScopeIds.containsAll(items.remoteItemLocalStateSourceLibraryScopeIds()),
         isRemoteItemLocalStateRefreshing = true,
     )
 }
+
+private fun AppUiState.selectedLibraryRemoteItemLocalStateSourceLibraryScopeIds(): Set<String> {
+    if (selectedSource == SourceType.LOCAL) return emptySet()
+    val selectedLibraryIds = selectedLibraryFilters.libraries
+    return items.asSequence()
+        .filter { item -> item.sourceType == selectedSource }
+        .filter { item -> selectedLibraryIds.isEmpty() || item.libraryId in selectedLibraryIds }
+        .mapTo(linkedSetOf()) { item -> item.remoteItemLocalStateSourceLibraryScopeId() }
+}
+
+internal fun List<ReadableItem>.remoteItemLocalStateSourceLibraryScopeIds(): Set<String> =
+    asSequence()
+        .filter { item -> item.sourceType != SourceType.LOCAL }
+        .mapTo(linkedSetOf()) { item -> item.remoteItemLocalStateSourceLibraryScopeId() }
+
+internal fun ReadableItem.remoteItemLocalStateSourceLibraryScopeId(): String = "${sourceType.name}:$libraryId"
 
 internal fun List<ReadableItem>.remoteItemLocalStateScopeItemIds(): Set<String> = buildSet {
     this@remoteItemLocalStateScopeItemIds.forEach { item ->

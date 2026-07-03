@@ -23,8 +23,13 @@ class AppInitialUiStateFactory @Inject constructor(
             locallyAvailableRemoteItemIds = snapshot.locallyAvailableRemoteItemIds,
             remoteItemLocalStateItemIds = snapshot.items.remoteItemLocalStateScopeItemIds(),
             remoteItemLocalAvailabilityScopeIds = snapshot.items.remoteItemLocalAvailabilityScopeIds(),
-            isRemoteItemLocalStateKnown = snapshot.includesRemoteItemLocalState,
-            isRemoteItemLocalStateRefreshing = !snapshot.includesRemoteItemLocalState,
+            remoteItemLocalStateKnownSourceLibraryScopeIds = snapshot.remoteItemLocalStateKnownSourceLibraryScopeIds,
+            isRemoteItemLocalStateKnown = snapshot.remoteItemLocalStateKnownSourceLibraryScopeIds.containsAll(
+                snapshot.items.remoteItemLocalStateSourceLibraryScopeIds(),
+            ),
+            isRemoteItemLocalStateRefreshing = !snapshot.remoteItemLocalStateKnownSourceLibraryScopeIds.containsAll(
+                snapshot.items.remoteItemLocalStateSourceLibraryScopeIds(),
+            ),
             hydratedSources = snapshot.hydratedSources,
             themeMode = snapshot.themeMode,
         )

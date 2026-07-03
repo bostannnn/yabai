@@ -70,29 +70,67 @@ class AppCatalogStateCoordinator @Inject constructor(
                 catalogItems = snapshot.catalogItems
                 val remoteItemLocalStateItemIds = snapshot.items.remoteItemLocalStateScopeItemIds()
                 val remoteItemLocalAvailabilityScopeIds = snapshot.items.remoteItemLocalAvailabilityScopeIds()
+                val remoteItemLocalStateSourceLibraryScopeIds =
+                    snapshot.items.remoteItemLocalStateSourceLibraryScopeIds()
+                val snapshotKnownSourceLibraryScopeIds = snapshot.remoteItemLocalStateKnownSourceLibraryScopeIds
+                val snapshotKnownScopes = snapshot.items.remoteItemLocalStateCacheScopes()
+                    .filter { scope -> scope.sourceLibraryScopeId in snapshotKnownSourceLibraryScopeIds }
+                val snapshotKnownItemIds = snapshotKnownScopes
+                    .flatMapTo(linkedSetOf()) { scope -> scope.itemIds }
+                val snapshotKnownAvailabilityScopeIds = snapshotKnownScopes
+                    .flatMapTo(linkedSetOf()) { scope -> scope.availabilityScopeIds }
                 val activeItemIds = snapshot.items.mapTo(mutableSetOf(), ReadableItem::id)
                 remoteCoverController.removeMissingItems(activeItemIds)
                 updateState { state ->
-                    val downloadedRemoteItemIds = if (snapshot.includesRemoteItemLocalState) {
-                        snapshot.downloadedRemoteItemIds
-                    } else {
-                        state.downloadedRemoteItemIds.filterTo(mutableSetOf()) { itemId ->
-                            itemId in remoteItemLocalStateItemIds
-                        }
-                    }
-                    val locallyAvailableRemoteItemIds = if (snapshot.includesRemoteItemLocalState) {
-                        snapshot.locallyAvailableRemoteItemIds
-                    } else {
-                        state.locallyAvailableRemoteItemIds.filterTo(mutableSetOf()) { itemId ->
-                            itemId in remoteItemLocalAvailabilityScopeIds
-                        }
-                    }
-                    val hasKnownRemoteItemLocalStateForScope = state.isRemoteItemLocalStateKnown &&
+                    val hasCompatibleRemoteItemLocalStateScope =
                         state.remoteItemLocalStateItemIds == remoteItemLocalStateItemIds &&
-                        state.remoteItemLocalAvailabilityScopeIds == remoteItemLocalAvailabilityScopeIds
-                    val isRemoteItemLocalStateKnown = snapshot.includesRemoteItemLocalState ||
-                        hasKnownRemoteItemLocalStateForScope
-                    val isRemoteItemLocalStateRefreshing = !snapshot.includesRemoteItemLocalState
+                            state.remoteItemLocalAvailabilityScopeIds == remoteItemLocalAvailabilityScopeIds
+                    val retainedDownloadedRemoteItemIds = if (hasCompatibleRemoteItemLocalStateScope) {
+                        state.downloadedRemoteItemIds.filterTo(mutableSetOf()) { itemId ->
+                            itemId in remoteItemLocalStateItemIds &&
+                                (!snapshot.includesRemoteItemLocalState || itemId !in snapshotKnownItemIds)
+                        }
+                    } else {
+                        mutableSetOf()
+                    }
+                    val downloadedRemoteItemIds = if (snapshot.includesRemoteItemLocalState) {
+                        retainedDownloadedRemoteItemIds + snapshot.downloadedRemoteItemIds
+                    } else {
+                        retainedDownloadedRemoteItemIds
+                    }
+                    val retainedLocallyAvailableRemoteItemIds =
+                        if (hasCompatibleRemoteItemLocalStateScope) {
+                            state.locallyAvailableRemoteItemIds.filterTo(mutableSetOf()) { itemId ->
+                                itemId in remoteItemLocalAvailabilityScopeIds &&
+                                    (!snapshot.includesRemoteItemLocalState ||
+                                        itemId !in snapshotKnownAvailabilityScopeIds)
+                            }
+                        } else {
+                            mutableSetOf()
+                        }
+                    val locallyAvailableRemoteItemIds = if (snapshot.includesRemoteItemLocalState) {
+                        retainedLocallyAvailableRemoteItemIds + snapshot.locallyAvailableRemoteItemIds
+                    } else {
+                        retainedLocallyAvailableRemoteItemIds
+                    }
+                    val retainedKnownSourceLibraryScopeIds = if (hasCompatibleRemoteItemLocalStateScope) {
+                        state.remoteItemLocalStateKnownSourceLibraryScopeIds.ifEmpty {
+                            if (state.isRemoteItemLocalStateKnown) {
+                                remoteItemLocalStateSourceLibraryScopeIds
+                            } else {
+                                emptySet()
+                            }
+                        }
+                    } else {
+                        emptySet()
+                    }
+                    val remoteItemLocalStateKnownSourceLibraryScopeIds =
+                        retainedKnownSourceLibraryScopeIds + snapshotKnownSourceLibraryScopeIds
+                    val isRemoteItemLocalStateKnown =
+                        remoteItemLocalStateKnownSourceLibraryScopeIds.containsAll(
+                            remoteItemLocalStateSourceLibraryScopeIds,
+                        )
+                    val isRemoteItemLocalStateRefreshing = remoteItemLocalStateSourceLibraryScopeIds.isNotEmpty()
                     state.copy(
                         libraries = snapshot.libraries,
                         items = snapshot.items,
@@ -101,6 +139,7 @@ class AppCatalogStateCoordinator @Inject constructor(
                         locallyAvailableRemoteItemIds = locallyAvailableRemoteItemIds,
                         remoteItemLocalStateItemIds = remoteItemLocalStateItemIds,
                         remoteItemLocalAvailabilityScopeIds = remoteItemLocalAvailabilityScopeIds,
+                        remoteItemLocalStateKnownSourceLibraryScopeIds = remoteItemLocalStateKnownSourceLibraryScopeIds,
                         isRemoteItemLocalStateKnown = isRemoteItemLocalStateKnown,
                         isRemoteItemLocalStateRefreshing = isRemoteItemLocalStateRefreshing,
                         hydratedSources = snapshot.hydratedSources,
@@ -179,6 +218,7 @@ class AppCatalogStateCoordinator @Inject constructor(
                             itemIds = requestedItemIds,
                             availabilityScopeIds = requestedAvailabilityScopeIds,
                             isKnown = true,
+                            knownSourceLibraryScopeIds = remoteItemLocalState.knownSourceLibraryScopeIds,
                             isRefreshing = false,
                         )
                     }
@@ -212,6 +252,7 @@ class AppCatalogStateCoordinator @Inject constructor(
                     itemIds = requestedItemIds,
                     availabilityScopeIds = requestedAvailabilityScopeIds,
                     isKnown = state.isRemoteItemLocalStateKnown,
+                    knownSourceLibraryScopeIds = state.remoteItemLocalStateKnownSourceLibraryScopeIds,
                     isRefreshing = false,
                 )
             }
@@ -232,6 +273,7 @@ private data class RemoteItemLocalStateRefreshAnchor(
     val locallyAvailableRemoteItemIds: Set<String>,
     val itemIds: Set<String>,
     val availabilityScopeIds: Set<String>,
+    val knownSourceLibraryScopeIds: Set<String>,
     val isKnown: Boolean,
     val isRefreshing: Boolean,
 )
@@ -242,6 +284,7 @@ private fun AppUiState.remoteItemLocalStateRefreshAnchor(): RemoteItemLocalState
         locallyAvailableRemoteItemIds = locallyAvailableRemoteItemIds,
         itemIds = remoteItemLocalStateItemIds,
         availabilityScopeIds = remoteItemLocalAvailabilityScopeIds,
+        knownSourceLibraryScopeIds = remoteItemLocalStateKnownSourceLibraryScopeIds,
         isKnown = isRemoteItemLocalStateKnown,
         isRefreshing = isRemoteItemLocalStateRefreshing,
     )

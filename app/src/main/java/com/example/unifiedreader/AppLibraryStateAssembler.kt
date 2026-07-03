@@ -18,11 +18,13 @@ import javax.inject.Inject
 data class RemoteItemLocalState(
     val downloadedItemIds: Set<String>,
     val locallyAvailableItemIds: Set<String>,
+    val knownSourceLibraryScopeIds: Set<String> = emptySet(),
 )
 
 class AppLibraryStateAssembler @Inject constructor(
     private val localDocumentRepository: LocalDocumentDataSource,
     private val remoteDownloadDataSources: List<@JvmSuppressWildcards RemoteItemDownloadDataSource>,
+    private val remoteItemLocalStateCache: RemoteItemLocalStateCache = EmptyRemoteItemLocalStateCache,
 ) {
     fun buildProgressSummaries(
         items: List<ReadableItem>,
@@ -43,10 +45,22 @@ class AppLibraryStateAssembler @Inject constructor(
                 addAll(dataSource.storedDocumentItemIds(items))
             }
         }
-        return RemoteItemLocalState(
+        val state = RemoteItemLocalState(
             downloadedItemIds = downloadedItemIds,
             locallyAvailableItemIds = downloadedItemIds + downloadedItemIds.downloadedSeriesContainerIds(items),
+            knownSourceLibraryScopeIds = items.remoteItemLocalStateSourceLibraryScopeIds(),
         )
+        remoteItemLocalStateCache.store(
+            items = items,
+            state = state,
+        )
+        return state
+    }
+
+    fun loadCachedRemoteItemLocalState(
+        items: List<ReadableItem>,
+    ): RemoteItemLocalState? {
+        return remoteItemLocalStateCache.load(items)
     }
 
     private fun Set<String>.downloadedSeriesContainerIds(
@@ -76,21 +90,34 @@ class AppLibraryStateAssembler @Inject constructor(
         includeRemoteItemLocalState: Boolean = false,
     ): AppCatalogSnapshot {
         val items = catalogItems + importedItems
-        val remoteItemLocalState = if (includeRemoteItemLocalState) {
-            loadRemoteItemLocalState(items)
+        val cachedRemoteItemLocalState = if (!includeRemoteItemLocalState) {
+            loadCachedRemoteItemLocalState(items)
         } else {
-            RemoteItemLocalState(
+            null
+        }
+        val remoteItemLocalState = when {
+            includeRemoteItemLocalState -> loadRemoteItemLocalState(items)
+            cachedRemoteItemLocalState != null -> cachedRemoteItemLocalState
+            else -> RemoteItemLocalState(
                 downloadedItemIds = emptySet(),
                 locallyAvailableItemIds = emptySet(),
+                knownSourceLibraryScopeIds = emptySet(),
             )
         }
+        val remoteItemLocalStateKnownSourceLibraryScopeIds = when {
+            includeRemoteItemLocalState -> items.remoteItemLocalStateSourceLibraryScopeIds()
+            cachedRemoteItemLocalState != null -> cachedRemoteItemLocalState.knownSourceLibraryScopeIds
+            else -> emptySet()
+        }
+        val includesRemoteItemLocalState = remoteItemLocalStateKnownSourceLibraryScopeIds.isNotEmpty()
         return AppCatalogSnapshot(
             libraries = libraries,
             catalogItems = catalogItems,
             items = items,
             downloadedRemoteItemIds = remoteItemLocalState.downloadedItemIds,
             locallyAvailableRemoteItemIds = remoteItemLocalState.locallyAvailableItemIds,
-            includesRemoteItemLocalState = includeRemoteItemLocalState,
+            includesRemoteItemLocalState = includesRemoteItemLocalState,
+            remoteItemLocalStateKnownSourceLibraryScopeIds = remoteItemLocalStateKnownSourceLibraryScopeIds,
             progressByItemId = buildProgressSummaries(
                 items = items,
                 progressByItemId = progressByItemId,
