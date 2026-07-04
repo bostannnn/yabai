@@ -747,47 +747,55 @@ internal class LocalComicPageLoader(
             cacheKey = cacheKey,
             generation = requestGeneration,
         )
-        var cancelledBestEffortRequest: Deferred<ByteArray?>? = null
+        suspend fun readAndCacheEntryBytes(): ByteArray? {
+            val bytes = codec.readEntryBytes(
+                context = context,
+                uri = Uri.parse(record.uri),
+                entryName = entryName,
+            )
+            currentCoroutineContext().ensureActive()
+            if (bytes != null && generationFor(itemId) == requestGeneration) {
+                synchronized(byteRequestLock) {
+                    if (generationFor(itemId) == requestGeneration) {
+                        pageBytesCache.put(cacheKey, bytes)
+                    }
+                }
+            }
+            return bytes
+        }
+
+        if (priority == ComicPageLoadPriority.Visible) {
+            var cancelledBestEffortRequest: Deferred<ByteArray?>? = null
+            var requestToAwait: Deferred<ByteArray?>? = null
+            synchronized(byteRequestLock) {
+                pageBytesCache[cacheKey]?.let { cachedBytes ->
+                    return cachedBytes
+                }
+                val existingRequest = inFlightByteRequests[requestKey]
+                if (existingRequest != null) {
+                    if (existingRequest.priority == ComicPageLoadPriority.Prefetch) {
+                        inFlightByteRequests.remove(requestKey)
+                        cancelledBestEffortRequest = existingRequest.deferred
+                    } else {
+                        requestToAwait = existingRequest.deferred
+                    }
+                }
+            }
+            cancelledBestEffortRequest?.cancel()
+            requestToAwait?.let { request -> return request.await() }
+            return readAndCacheEntryBytes()
+        }
+
         val request = synchronized(byteRequestLock) {
             pageBytesCache[cacheKey]?.let { cachedBytes ->
                 return cachedBytes
             }
             val existingRequest = inFlightByteRequests[requestKey]
             if (existingRequest != null) {
-                if (priority == ComicPageLoadPriority.Visible &&
-                    existingRequest.priority == ComicPageLoadPriority.Prefetch
-                ) {
-                    inFlightByteRequests.remove(requestKey)
-                    cancelledBestEffortRequest = existingRequest.deferred
-                } else {
-                    return@synchronized existingRequest.deferred
-                }
+                return@synchronized existingRequest.deferred
             }
             scope.async(Dispatchers.IO) {
-                suspend fun readAndCacheEntryBytes(): ByteArray? {
-                    val bytes = codec.readEntryBytes(
-                        context = context,
-                        uri = Uri.parse(record.uri),
-                        entryName = entryName,
-                    )
-                    currentCoroutineContext().ensureActive()
-                    if (bytes != null && generationFor(itemId) == requestGeneration) {
-                        synchronized(byteRequestLock) {
-                            if (generationFor(itemId) == requestGeneration) {
-                                pageBytesCache.put(cacheKey, bytes)
-                            }
-                        }
-                    }
-                    return bytes
-                }
-
-                if (priority == ComicPageLoadPriority.Visible) {
-                    readerWorkCoordinator.runVisiblePageLoad(itemId) {
-                        readAndCacheEntryBytes()
-                    }
-                } else {
-                    readAndCacheEntryBytes()
-                }
+                readAndCacheEntryBytes()
             }.also { deferred ->
                 inFlightByteRequests[requestKey] = LocalInFlightByteRequest(
                     priority = priority,
@@ -802,7 +810,6 @@ internal class LocalComicPageLoader(
                 }
             }
         }
-        cancelledBestEffortRequest?.cancel()
         return request.await()
     }
 

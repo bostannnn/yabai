@@ -14,7 +14,6 @@ import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import java.io.File
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -137,7 +136,7 @@ class LocalComicPageLoaderTest {
     }
 
     @Test
-    fun `cancelled visible caller keeps coordinator busy until archive read finishes`() = runTest {
+    fun `cancelled visible caller cancels archive read and releases coordinator`() = runTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val codec = RecordingComicArchiveCodec()
         val dispatcher = StandardTestDispatcher(testScheduler)
@@ -161,13 +160,12 @@ class LocalComicPageLoaderTest {
         assertTrue(readerWorkCoordinator.hasVisiblePageLoads)
 
         visibleLoad.cancel()
-        runCurrent()
+        visibleLoad.join()
 
-        assertTrue(readerWorkCoordinator.hasVisiblePageLoads)
+        assertFalse(readerWorkCoordinator.hasVisiblePageLoads)
 
-        val visibleWorkerJobs = scope.coroutineContext[Job]?.children?.toList().orEmpty()
         codec.releaseBlockedReads()
-        visibleWorkerJobs.forEach { it.join() }
+        scope.advanceUntilIdle()
         assertFalse(readerWorkCoordinator.hasVisiblePageLoads)
     }
 

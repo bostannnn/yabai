@@ -5,6 +5,8 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
+import android.os.SystemClock
+import android.util.Log
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
@@ -20,14 +22,20 @@ import com.example.unifiedreader.feature.library.covers.RemoteCoverStorageDirect
 import com.example.unifiedreader.feature.library.covers.STUMP_COVER_DIRECTORY_NAME
 import com.example.unifiedreader.feature.library.covers.STUMP_LEGACY_COVER_DIRECTORY_NAME
 import com.example.unifiedreader.feature.library.covers.writeCoverCacheFile
+import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.ByteArrayOutputStream
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.jvm.JvmSuppressWildcards
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Singleton
@@ -39,11 +47,15 @@ class DownloadedRemoteCoverCacheBackfiller @Inject constructor(
     private val stumpCredentialStore: StumpCredentialStore,
     private val grimmoryCredentialStore: GrimmoryCredentialStore,
     private val pdfCoverRenderer: DownloadedPdfCoverRenderer,
+    private val readerWorkCoordinator: ReaderWorkCoordinator = ReaderWorkCoordinator(),
 ) : DownloadedRemoteCoverBackfiller {
     private val comicArchiveCodecs = listOf(
         ZipComicArchiveCodec,
         RarComicArchiveCodec(context),
     )
+    private val deferredBackfillScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val deferredBackfillLock = Any()
+    private val deferredBackfillJobsByItemId = mutableMapOf<String, Job>()
 
     override fun hasStoredDocument(
         item: ReadableItem,
@@ -57,6 +69,35 @@ class DownloadedRemoteCoverCacheBackfiller @Inject constructor(
         item.format in BackfillableCoverFormats &&
         remoteDownloadDataSources.downloadDataSourceFor(item) != null
 
+    fun shouldDeferBackfillForReader(): Boolean = readerWorkCoordinator.isReaderOpeningOrActive
+
+    fun scheduleBackfillOriginalCoverFromStoredDocument(
+        item: ReadableItem,
+    ): Job = synchronized(deferredBackfillLock) {
+        deferredBackfillJobsByItemId[item.id]?.takeIf { it.isActive } ?: run {
+            val job = deferredBackfillScope.launch(start = CoroutineStart.LAZY) {
+                try {
+                    backfillOriginalCoverFromStoredDocument(item)
+                } finally {
+                    synchronized(deferredBackfillLock) {
+                        if (deferredBackfillJobsByItemId[item.id] === coroutineContext[Job]) {
+                            deferredBackfillJobsByItemId.remove(item.id)
+                        }
+                    }
+                }
+            }
+            deferredBackfillJobsByItemId[item.id] = job
+            job.start()
+            job
+        }
+    }
+
+    internal fun scheduledBackfillJobFor(
+        itemId: String,
+    ): Job? = synchronized(deferredBackfillLock) {
+        deferredBackfillJobsByItemId[itemId]
+    }
+
     override suspend fun backfillOriginalCoverFromStoredDocument(
         item: ReadableItem,
     ): Boolean {
@@ -65,10 +106,24 @@ class DownloadedRemoteCoverCacheBackfiller @Inject constructor(
             ?: return false
         val target = item.coverBackfillTarget() ?: return false
         if (target.hasCachedCover()) return true
+        if (readerWorkCoordinator.isReaderOpeningOrActive) {
+            Log.d(LOG_TAG, "Deferring downloaded cover backfill for ${item.id}; reader is opening or active.")
+        }
+        readerWorkCoordinator.awaitBackgroundWorkAllowed()
+        if (target.hasCachedCover()) return true
+        val startedAt = SystemClock.elapsedRealtime()
+        Log.d(LOG_TAG, "Downloaded cover backfill start item=${item.id} format=${item.format}.")
         val coverBytes = coverBytesFor(
             item = item,
             uri = storedUri,
-        )?.takeIf(ByteArray::isNotEmpty) ?: return false
+        )?.takeIf(ByteArray::isNotEmpty) ?: run {
+            Log.d(
+                LOG_TAG,
+                "Downloaded cover backfill unavailable item=${item.id} duration=${SystemClock.elapsedRealtime() - startedAt}ms.",
+            )
+            return false
+        }
+        readerWorkCoordinator.awaitBackgroundWorkAllowed()
         return coverStore.withStorageLock(target.storage.storageDirectoryName) {
             if (target.hasCachedCover()) return@withStorageLock true
             val destination = coverStore.persistentCoverFile(
@@ -85,6 +140,10 @@ class DownloadedRemoteCoverCacheBackfiller @Inject constructor(
                 storageDirectoryName = target.storage.storageDirectoryName,
                 fileName = target.baseFileName,
                 file = destination,
+            )
+            Log.d(
+                LOG_TAG,
+                "Downloaded cover backfill finish item=${item.id} bytes=${coverBytes.size} duration=${SystemClock.elapsedRealtime() - startedAt}ms.",
             )
             true
         }
@@ -104,11 +163,14 @@ class DownloadedRemoteCoverCacheBackfiller @Inject constructor(
     private suspend fun coverBytesFor(
         item: ReadableItem,
         uri: Uri,
-    ): ByteArray? = when (item.format) {
-        FormatType.CBZ,
-        FormatType.CBR -> comicCoverBytesFor(item, uri)
-        FormatType.EPUB -> epubCoverBytesFor(uri)
-        FormatType.PDF -> pdfCoverRenderer.coverBytes(uri)
+    ): ByteArray? {
+        readerWorkCoordinator.awaitBackgroundWorkAllowed()
+        return when (item.format) {
+            FormatType.CBZ,
+            FormatType.CBR -> comicCoverBytesFor(item, uri)
+            FormatType.EPUB -> epubCoverBytesFor(uri)
+            FormatType.PDF -> pdfCoverRenderer.coverBytes(uri)
+        }
     }
 
     private suspend fun comicCoverBytesFor(
@@ -118,10 +180,12 @@ class DownloadedRemoteCoverCacheBackfiller @Inject constructor(
         val preferredCodec = comicArchiveCodecs.firstOrNull { codec -> codec.format == item.format }
         val codecs = listOfNotNull(preferredCodec) + comicArchiveCodecs.filterNot { codec -> codec === preferredCodec }
         codecs.forEach { codec ->
+            readerWorkCoordinator.awaitBackgroundWorkAllowed()
             val coverEntryName = codec.listImageEntries(
                 context = context,
                 uri = uri,
             ).firstOrNull() ?: return@forEach
+            readerWorkCoordinator.awaitBackgroundWorkAllowed()
             codec.readEntryBytes(
                 context = context,
                 uri = uri,
@@ -134,10 +198,12 @@ class DownloadedRemoteCoverCacheBackfiller @Inject constructor(
     private suspend fun epubCoverBytesFor(
         uri: Uri,
     ): ByteArray? {
+        readerWorkCoordinator.awaitBackgroundWorkAllowed()
         val coverEntryName = extractEpubMetadata(
             context = context,
             uri = uri,
         )?.coverEntryName ?: return null
+        readerWorkCoordinator.awaitBackgroundWorkAllowed()
         return readZipEntryBytes(
             context = context,
             uri = uri,
@@ -253,19 +319,16 @@ class DownloadedRemoteCoverCacheBackfillSideEffect @Inject constructor(
     override suspend fun onDownloadCompleted(
         item: ReadableItem,
     ) {
+        if (backfiller.shouldDeferBackfillForReader()) {
+            Log.d(LOG_TAG, "Scheduling downloaded cover backfill after reader idle for ${item.id}.")
+            backfiller.scheduleBackfillOriginalCoverFromStoredDocument(item)
+            return
+        }
         backfiller.backfillOriginalCoverFromStoredDocument(item)
     }
 }
 
-internal object NoOpDownloadedRemoteCoverBackfiller : DownloadedRemoteCoverBackfiller {
-    override fun hasStoredDocument(
-        item: ReadableItem,
-    ): Boolean = false
-
-    override suspend fun backfillOriginalCoverFromStoredDocument(
-        item: ReadableItem,
-    ): Boolean = false
-}
+private const val LOG_TAG = "DownloadedCoverBackfill"
 
 private val BackfillableCoverFormats = setOf(
     FormatType.CBZ,

@@ -864,55 +864,63 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
             cacheKey = cacheKey,
             generation = requestGeneration,
         )
-        var cancelledBestEffortRequest: Deferred<ByteArray?>? = null
+        suspend fun downloadAndCachePageBytes(): ByteArray? {
+            val bytes = try {
+                val activeSession = activeSessionFor(item) ?: return null
+                downloadPageBytes(
+                    session = activeSession,
+                    item = item,
+                    page = page,
+                )
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                onReaderContentFailure(item, error)
+                null
+            }
+            currentCoroutineContext().ensureActive()
+            if (bytes != null && cacheGeneration.get() == requestGeneration) {
+                synchronized(byteRequestLock) {
+                    if (cacheGeneration.get() == requestGeneration) {
+                        pageBytesCache.put(cacheKey, bytes)
+                    }
+                }
+            }
+            return bytes
+        }
+
+        if (priority == ComicPageLoadPriority.Visible) {
+            var cancelledBestEffortRequest: Deferred<ByteArray?>? = null
+            var requestToAwait: Deferred<ByteArray?>? = null
+            synchronized(byteRequestLock) {
+                pageBytesCache[cacheKey]?.let { cachedBytes ->
+                    return cachedBytes
+                }
+                val existingRequest = inFlightByteRequests[requestKey]
+                if (existingRequest != null) {
+                    if (existingRequest.priority == ComicPageLoadPriority.Prefetch) {
+                        inFlightByteRequests.remove(requestKey)
+                        cancelledBestEffortRequest = existingRequest.deferred
+                    } else {
+                        requestToAwait = existingRequest.deferred
+                    }
+                }
+            }
+            cancelledBestEffortRequest?.cancel()
+            requestToAwait?.let { request -> return request.await() }
+            return downloadAndCachePageBytes()
+        }
+
         val request = synchronized(byteRequestLock) {
             pageBytesCache[cacheKey]?.let { cachedBytes ->
                 return cachedBytes
             }
             val existingRequest = inFlightByteRequests[requestKey]
             if (existingRequest != null) {
-                if (priority == ComicPageLoadPriority.Visible &&
-                    existingRequest.priority == ComicPageLoadPriority.Prefetch
-                ) {
-                    inFlightByteRequests.remove(requestKey)
-                    cancelledBestEffortRequest = existingRequest.deferred
-                } else {
-                    return@synchronized existingRequest.deferred
-                }
+                return@synchronized existingRequest.deferred
             }
             scope.async {
-                suspend fun downloadAndCachePageBytes(): ByteArray? {
-                    val bytes = try {
-                        val activeSession = activeSessionFor(item) ?: return null
-                        downloadPageBytes(
-                            session = activeSession,
-                            item = item,
-                            page = page,
-                        )
-                    } catch (error: CancellationException) {
-                        throw error
-                    } catch (error: Throwable) {
-                        onReaderContentFailure(item, error)
-                        null
-                    }
-                    currentCoroutineContext().ensureActive()
-                    if (bytes != null && cacheGeneration.get() == requestGeneration) {
-                        synchronized(byteRequestLock) {
-                            if (cacheGeneration.get() == requestGeneration) {
-                                pageBytesCache.put(cacheKey, bytes)
-                            }
-                        }
-                    }
-                    return bytes
-                }
-
-                if (priority == ComicPageLoadPriority.Visible) {
-                    readerWorkCoordinator.runVisiblePageLoad(item.id) {
-                        downloadAndCachePageBytes()
-                    }
-                } else {
-                    downloadAndCachePageBytes()
-                }
+                downloadAndCachePageBytes()
             }.also { deferred ->
                 inFlightByteRequests[requestKey] = RemoteInFlightByteRequest(
                     priority = priority,
@@ -927,7 +935,6 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
                 }
             }
         }
-        cancelledBestEffortRequest?.cancel()
         return request.await()
     }
 

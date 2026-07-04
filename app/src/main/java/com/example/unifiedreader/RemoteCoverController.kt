@@ -28,7 +28,6 @@ class RemoteCoverController @Inject constructor(
     private val grimmoryCredentialStore: GrimmoryCredentialStore,
     private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy = defaultOnlineCoverConnectivityPolicy(),
     private val visibleLibraryCoverRegistry: VisibleLibraryCoverRegistry,
-    private val downloadedRemoteCoverBackfiller: DownloadedRemoteCoverBackfiller = NoOpDownloadedRemoteCoverBackfiller,
     private val appDispatchers: AppDispatchers = AppDispatchers(),
 ) {
     private val coverDataSources = listOf<RemoteCoverDataSource>(
@@ -107,8 +106,6 @@ class RemoteCoverController @Inject constructor(
         val coverIdentity = item.coverIdentityFileSegment()
         sourceTypeByItemId[item.id] = item.sourceType
         val canFetchRemoteCover = remoteSourceConnectivityPolicy.canFetchCover(item.sourceType)
-        val canBackfillDownloadedCover = downloadedRemoteCoverBackfiller.hasStoredDocument(item)
-        if (!canFetchRemoteCover && !canBackfillDownloadedCover) return
         if (canFetchRemoteCover) {
             scheduleCacheWarmup(item.sourceType)
         }
@@ -129,14 +126,15 @@ class RemoteCoverController @Inject constructor(
                     return
                 }
             }
+        if (!canFetchRemoteCover) return
         if (requestKey in pendingCoverKeys) return
         pendingCoverKeys += requestKey
         val requestNonce = nextRequestNonce++
         val requestSourceResetVersion = sourceResetVersion(item.sourceType)
         activeRequestNonceByKey[requestKey] = requestNonce
         val job = scope.launch {
-            runCatching {
-                withContext(appDispatchers.io) {
+            try {
+                val cachedUri = withContext(appDispatchers.io) {
                     coverRequestSemaphore.withPermit {
                         val refreshedCachedCover = dataSource.cachedCover(item, variant)
                         if (refreshedCachedCover?.isPersistent == true &&
@@ -144,20 +142,10 @@ class RemoteCoverController @Inject constructor(
                         ) {
                             refreshedCachedCover.uri.toString().takeIf(String::isNotBlank)
                         } else {
-                            val downloadedCoverUri = downloadedCoverUriOrNull(
-                                dataSource = dataSource,
-                                item = item,
-                                variant = variant,
-                            )
-                            downloadedCoverUri ?: if (canFetchRemoteCover) {
-                                dataSource.getCoverUri(item, variant)?.toString()
-                            } else {
-                                refreshedCachedCover?.uri?.toString()
-                            }
+                            dataSource.getCoverUri(item, variant)?.toString()
                         }
                     }
                 }
-            }.onSuccess { cachedUri ->
                 if (!cachedUri.isNullOrBlank() && isActiveRequest(item, variant, requestNonce, requestSourceResetVersion)) {
                     val currentUri = visibleLibraryCoverRegistry.presentedUriFor(item.id, coverVariant, coverIdentity)
                     if (currentUri != cachedUri) {
@@ -168,17 +156,18 @@ class RemoteCoverController @Inject constructor(
                 } else if (cachedUri.isNullOrBlank()) {
                     Log.w(LOG_TAG, "${item.sourceType} ${variant.name.lowercase()} cover cache returned no URI for ${item.id}.")
                 }
-            }.onFailure { throwable ->
-                if (!isActiveRequest(item, variant, requestNonce, requestSourceResetVersion)) {
-                    return@onFailure
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (throwable: Throwable) {
+                if (isActiveRequest(item, variant, requestNonce, requestSourceResetVersion)) {
+                    Log.w(LOG_TAG, "Unable to cache ${item.sourceType} ${variant.name.lowercase()} cover for ${item.id}.", throwable)
+                    val message = "Unable to load ${item.sourceType.name.lowercase().replaceFirstChar(Char::titlecase)} covers: ${throwable.userFacingMessage()}"
+                    if (lastErrorMessageBySource[item.sourceType] != message) {
+                        lastErrorMessageBySource[item.sourceType] = message
+                        onError(message)
+                    }
                 }
-                Log.w(LOG_TAG, "Unable to cache ${item.sourceType} ${variant.name.lowercase()} cover for ${item.id}.", throwable)
-                val message = "Unable to load ${item.sourceType.name.lowercase().replaceFirstChar(Char::titlecase)} covers: ${throwable.userFacingMessage()}"
-                if (lastErrorMessageBySource[item.sourceType] != message) {
-                    lastErrorMessageBySource[item.sourceType] = message
-                    onError(message)
-                }
-            }.also {
+            } finally {
                 if (activeRequestNonceByKey[requestKey] == requestNonce) {
                     activeRequestNonceByKey.remove(requestKey)
                     pendingCoverKeys -= requestKey
@@ -190,27 +179,6 @@ class RemoteCoverController @Inject constructor(
             if (coverRequestJobsByKey[requestKey] === job) {
                 coverRequestJobsByKey.remove(requestKey)
             }
-        }
-    }
-
-    private suspend fun downloadedCoverUriOrNull(
-        dataSource: RemoteCoverDataSource,
-        item: ReadableItem,
-        variant: LibraryCoverImageVariant,
-    ): String? {
-        if (!downloadedRemoteCoverBackfiller.hasStoredDocument(item)) return null
-        return try {
-            if (downloadedRemoteCoverBackfiller.backfillOriginalCoverFromStoredDocument(item)) {
-                dataSource.getCoverUri(item, variant)?.toString()
-                    ?: dataSource.cachedCover(item, variant)?.uri?.toString()
-            } else {
-                null
-            }
-        } catch (cancellation: CancellationException) {
-            throw cancellation
-        } catch (throwable: Throwable) {
-            Log.w(LOG_TAG, "Unable to backfill ${item.sourceType} cover from downloaded file for ${item.id}.", throwable)
-            null
         }
     }
 

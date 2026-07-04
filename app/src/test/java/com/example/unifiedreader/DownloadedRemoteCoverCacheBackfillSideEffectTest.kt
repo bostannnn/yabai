@@ -13,17 +13,23 @@ import com.example.unifiedreader.core.model.remoteLibraryId
 import com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
 import com.example.unifiedreader.feature.library.covers.KAVITA_COVER_DIRECTORY_NAME
 import com.example.unifiedreader.feature.library.covers.PersistentRemoteCoverStore
+import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.After
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class DownloadedRemoteCoverCacheBackfillSideEffectTest {
     private val context = ApplicationProvider.getApplicationContext<Application>()
@@ -119,6 +125,64 @@ class DownloadedRemoteCoverCacheBackfillSideEffectTest {
         assertTrue(cachedCover.isFile)
         assertTrue(cachedCover.length() > 0L)
         assertTrue(Uri.fromFile(pdfFile) in pdfRenderer.requestedUris)
+    }
+
+    @Test
+    fun `download completion defers downloaded cover backfill while reader session is active`() = runTest {
+        val item = ReadableItem(
+            id = SourceType.KAVITA.remoteItemId("chapter-reader-active"),
+            sourceType = SourceType.KAVITA,
+            libraryId = SourceType.KAVITA.remoteLibraryId("library-1"),
+            remoteId = "chapter-reader-active",
+            remoteFileType = "series-1",
+            title = "Reader Active Comic",
+            format = FormatType.CBZ,
+            coverUrl = "https://kavita.example/api/Image/chapter-cover?chapterId=active&apiKey=secret",
+        )
+        val archiveFile = File(context.cacheDir, "downloaded-cover-backfill.cbz").apply {
+            writeCbzCoverArchive(coverBytes = downloadedCoverBytes())
+        }
+        val readerWorkCoordinator = ReaderWorkCoordinator(
+            openingGraceMillis = 0L,
+            backgroundRetryDelayMillis = 1L,
+        )
+        val readerLease = readerWorkCoordinator.beginReaderSession(item.id)
+        val backfiller = DownloadedRemoteCoverCacheBackfiller(
+            context = context,
+            remoteDownloadDataSources = listOf(
+                StoredDocumentDownloadDataSource(
+                    sourceType = SourceType.KAVITA,
+                    storedUrisByItemId = mapOf(item.id to Uri.fromFile(archiveFile)),
+                ),
+            ),
+            coverStore = PersistentRemoteCoverStore(context),
+            kavitaCredentialStore = FakeKavitaCredentialStore(),
+            stumpCredentialStore = FakeStumpCredentialStore(),
+            grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            pdfCoverRenderer = FakeDownloadedPdfCoverRenderer(),
+            readerWorkCoordinator = readerWorkCoordinator,
+        )
+        val effect = DownloadedRemoteCoverCacheBackfillSideEffect(backfiller)
+        val cachedCover = File(
+            File(context.filesDir, KAVITA_COVER_DIRECTORY_NAME),
+            item.kavitaCacheFileName("cover"),
+        )
+
+        val backfillJob = async {
+            effect.onDownloadCompleted(item)
+        }
+        runCurrent()
+
+        assertFalse(backfillJob.isActive)
+        backfillJob.await()
+        assertFalse(cachedCover.exists())
+
+        val deferredBackfillJob = requireNotNull(backfiller.scheduledBackfillJobFor(item.id))
+        readerLease.close()
+        deferredBackfillJob.join()
+
+        assertTrue(cachedCover.isFile)
+        assertTrue(cachedCover.length() > 0L)
     }
 }
 

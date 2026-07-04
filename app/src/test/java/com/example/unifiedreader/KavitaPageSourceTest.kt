@@ -519,7 +519,7 @@ class KavitaPageSourceTest {
     }
 
     @Test
-    fun `cancelled visible caller keeps coordinator busy until page request finishes`() = runTest {
+    fun `cancelled visible caller cancels page request and releases coordinator`() = runTest {
         val item = sampleKavitaComic(pageCount = 12)
         val api = RecordingKavitaPageApi()
         val dispatcher = StandardTestDispatcher(testScheduler)
@@ -541,9 +541,9 @@ class KavitaPageSourceTest {
         assertTrue(readerWorkCoordinator.hasVisiblePageLoads)
 
         visibleLoad.cancel()
-        runCurrent()
+        visibleLoad.join()
 
-        assertTrue(readerWorkCoordinator.hasVisiblePageLoads)
+        assertFalse(readerWorkCoordinator.hasVisiblePageLoads)
 
         api.releaseBlockedRequests()
         scope.advanceUntilIdle()
