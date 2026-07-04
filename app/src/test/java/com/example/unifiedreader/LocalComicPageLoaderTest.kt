@@ -193,7 +193,7 @@ class LocalComicPageLoaderTest {
         loader.trimMemoryCaches(
             ReaderMemoryTrimRequest.dropPreviewsAndDistantPages(
                 ReaderPageCacheRetention(
-                    itemId = item.id,
+                    item = item,
                     pageIds = setOf("0.png", "1.png"),
                 ),
             ),
@@ -213,6 +213,71 @@ class LocalComicPageLoaderTest {
         assertEquals(1, codec.requestedEntryNames.count { it == "0.png" })
         assertEquals(2, codec.requestedEntryNames.count { it == "3.png" })
         assertEquals(2, codec.requestedEntryNames.count { it == "2.png" })
+    }
+
+    @Test
+    fun `trim does not retain another item whose key contains active item id`() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val codec = RecordingComicArchiveCodec()
+        val loader = LocalComicPageLoader(
+            context = context,
+            comicArchiveCodecs = listOf(codec),
+            scope = TestScope(StandardTestDispatcher(testScheduler)),
+        )
+        val activeItem = sampleLocalComic(pageCount = 5).copy(id = "comic")
+        val otherItem = sampleLocalComic(pageCount = 5).copy(id = "other-comic")
+        val record = sampleLocalRecord(pageCount = 5)
+
+        loader.loadPageImage(activeItem, record, "0.png", ComicPageLoadPriority.Visible)
+        loader.loadPageImage(otherItem, record, "0.png", ComicPageLoadPriority.Visible)
+
+        loader.trimMemoryCaches(
+            ReaderMemoryTrimRequest.dropPreviewsAndDistantPages(
+                ReaderPageCacheRetention(
+                    item = activeItem,
+                    pageIds = setOf("0.png"),
+                ),
+            ),
+        )
+
+        loader.loadPageImage(activeItem, record, "0.png", ComicPageLoadPriority.Visible)
+        loader.loadPageImage(otherItem, record, "0.png", ComicPageLoadPriority.Visible)
+
+        assertEquals(3, codec.requestedEntryNames.count { it == "0.png" })
+    }
+
+    @Test
+    fun `trim prevents in flight visible load from repopulating caches`() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val codec = RecordingComicArchiveCodec()
+        val loader = LocalComicPageLoader(
+            context = context,
+            comicArchiveCodecs = listOf(codec),
+            scope = TestScope(StandardTestDispatcher(testScheduler)),
+        )
+        val item = sampleLocalComic(pageCount = 5)
+        val record = sampleLocalRecord(pageCount = 5)
+        codec.beginBlockingReads()
+
+        val visibleLoad = async(UnconfinedTestDispatcher(testScheduler)) {
+            loader.loadPageImage(item, record, "0.png", ComicPageLoadPriority.Visible)
+        }
+        codec.awaitBlockedRead()
+
+        loader.trimMemoryCaches(
+            ReaderMemoryTrimRequest.dropPreviewsAndDistantPages(
+                ReaderPageCacheRetention(
+                    item = item,
+                    pageIds = setOf("0.png"),
+                ),
+            ),
+        )
+        codec.releaseBlockedReads()
+        visibleLoad.await()
+
+        loader.loadPageImage(item, record, "0.png", ComicPageLoadPriority.Visible)
+
+        assertEquals(2, codec.requestedEntryNames.count { it == "0.png" })
     }
 
     @Test

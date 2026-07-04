@@ -637,6 +637,7 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
             clear()
             return
         }
+        cacheGeneration.incrementAndGet()
         cancelBestEffortWorkForMemoryTrim()
         pagePreviewCache.evictAll()
         previewBytesCache.evictAll()
@@ -674,13 +675,34 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
     private fun trimPageBitmapCache(
         retention: ReaderPageCacheRetention?,
     ) {
-        if (retention == null) {
+        val retainedPageCacheKeys = retainedPageCacheKeys(retention)
+        if (retainedPageCacheKeys.isEmpty()) {
             pageBitmapCache.evictAll()
             return
         }
         pageBitmapCache.snapshot().keys
-            .filterNot(retention::shouldRetainPageCacheKey)
+            .filterNot(retainedPageCacheKeys::contains)
             .forEach(pageBitmapCache::remove)
+    }
+
+    private fun retainedPageCacheKeys(
+        retention: ReaderPageCacheRetention?,
+    ): Set<String> {
+        if (retention == null ||
+            retention.pageIds.isEmpty() ||
+            retention.item.sourceType != sourceType
+        ) {
+            return emptySet()
+        }
+        val session = activeSessionFor(retention.item) ?: return emptySet()
+        val itemKey = retention.item.cacheIdentityKey()
+        return retention.pageIds.mapTo(linkedSetOf()) { pageId ->
+            pageCacheKey(
+                baseUrl = session.baseUrl,
+                itemKey = itemKey,
+                pageId = pageId,
+            )
+        }
     }
 
     private suspend fun fetchPreviewBytes(

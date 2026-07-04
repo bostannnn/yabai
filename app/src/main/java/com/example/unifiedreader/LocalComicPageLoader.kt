@@ -616,8 +616,7 @@ internal class LocalComicPageLoader(
     fun clearAll() {
         val byteRequestsToCancel = mutableListOf<Deferred<ByteArray?>>()
         synchronized(byteRequestLock) {
-            baseCacheGeneration += 1
-            cacheGenerationByItemId.clear()
+            advanceAllCacheGenerationsLocked()
             byteRequestsToCancel += inFlightByteRequests.values.map(LocalInFlightByteRequest::deferred)
             byteRequestsToCancel += inFlightPreviewByteRequests.values.map(LocalInFlightByteRequest::deferred)
             inFlightByteRequests.clear()
@@ -645,6 +644,9 @@ internal class LocalComicPageLoader(
         if (request.mode == ReaderMemoryTrimMode.ClearAll) {
             clearAll()
             return
+        }
+        synchronized(byteRequestLock) {
+            advanceAllCacheGenerationsLocked()
         }
         cancelBestEffortWorkForMemoryTrim()
         pagePreviewCache.evictAll()
@@ -690,9 +692,15 @@ internal class LocalComicPageLoader(
             return
         }
         pageBitmapCache.snapshot().keys
-            .filterNot(retention::shouldRetainPageCacheKey)
+            .filterNot { cacheKey -> retention.shouldRetainLocalPageCacheKey(cacheKey) }
             .forEach(pageBitmapCache::remove)
     }
+
+    private fun ReaderPageCacheRetention.shouldRetainLocalPageCacheKey(
+        cacheKey: String,
+    ): Boolean = pageIds.isNotEmpty() &&
+        cacheKey.startsWith("$itemId::") &&
+        pageIds.any { pageId -> cacheKey.endsWith("::$pageId") }
 
     private suspend fun decodePageImage(
         itemId: String,
@@ -931,6 +939,14 @@ internal class LocalComicPageLoader(
         itemId: String,
     ): Int = synchronized(byteRequestLock) {
         cacheGenerationByItemId[itemId] ?: baseCacheGeneration
+    }
+
+    private fun advanceAllCacheGenerationsLocked() {
+        baseCacheGeneration = maxOf(
+            baseCacheGeneration,
+            cacheGenerationByItemId.values.maxOrNull() ?: baseCacheGeneration,
+        ) + 1
+        cacheGenerationByItemId.clear()
     }
 
     private companion object {

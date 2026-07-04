@@ -29,18 +29,14 @@ data class ReaderMemoryTrimRequest(
 }
 
 data class ReaderPageCacheRetention(
-    val itemId: String,
+    val item: ReadableItem,
     val pageIds: Set<String>,
 ) {
+    val itemId: String = item.id
+
     init {
         require(itemId.isNotBlank()) { "itemId must not be blank" }
     }
-
-    fun shouldRetainPageCacheKey(
-        cacheKey: String,
-    ): Boolean = pageIds.isNotEmpty() &&
-        cacheKey.contains(itemId) &&
-        pageIds.any { pageId -> cacheKey.endsWith("::$pageId") }
 }
 
 fun readerMemoryTrimRequestForAndroid(
@@ -69,7 +65,7 @@ fun readerPageCacheRetentionFor(
         .mapTo(linkedSetOf(), ComicPageSpec::id)
     if (retainedPageIds.isEmpty()) return null
     return ReaderPageCacheRetention(
-        itemId = item.id,
+        item = item,
         pageIds = retainedPageIds,
     )
 }

@@ -172,10 +172,19 @@ class CompositeComicPageSource(
     override fun trimReaderMemoryCaches(
         request: ReaderMemoryTrimRequest,
     ) {
-        localComicPageSource.trimMemoryCaches(request)
-        downloadedRemoteComicPageSource.trimMemoryCaches(request)
-        kavitaPageSource.trimMemoryCaches(request)
-        stumpPageSource.trimMemoryCaches(request)
+        val retainingSource = request.retention?.item?.let(::pageSourceFor)
+        localComicPageSource.trimMemoryCaches(
+            request.forSource(localComicPageSource, retainingSource),
+        )
+        downloadedRemoteComicPageSource.trimMemoryCaches(
+            request.forSource(downloadedRemoteComicPageSource, retainingSource),
+        )
+        kavitaPageSource.trimMemoryCaches(
+            request.forSource(kavitaPageSource, retainingSource),
+        )
+        stumpPageSource.trimMemoryCaches(
+            request.forSource(stumpPageSource, retainingSource),
+        )
     }
 
     private fun pageSourceFor(
@@ -186,5 +195,13 @@ class CompositeComicPageSource(
         item.sourceType == SourceType.KAVITA -> kavitaPageSource
         item.sourceType == SourceType.STUMP -> stumpPageSource
         else -> null
+    }
+
+    private fun ReaderMemoryTrimRequest.forSource(
+        source: ComicPageSource,
+        retainingSource: ComicPageSource?,
+    ): ReaderMemoryTrimRequest {
+        if (retention == null || source === retainingSource) return this
+        return copy(retention = null)
     }
 }
