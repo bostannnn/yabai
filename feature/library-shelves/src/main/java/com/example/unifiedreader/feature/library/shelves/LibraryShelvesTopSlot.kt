@@ -22,6 +22,7 @@ fun LibraryShelvesTopSlot(
     coverPrefetchKeyProvider: (ReadableItem, LibraryCoverImageVariant) -> String? = coverImageUrlProvider,
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onItemSelected: (ReadableItem) -> Unit,
+    onBrowseShelf: (LibraryShelfBrowserKind) -> Unit = {},
     onDeleteImportedItem: (ReadableItem) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -69,6 +70,7 @@ fun LibraryShelvesTopSlot(
             coverPrefetchKeyProvider = coverPrefetchKeyProvider,
             onCoverVisible = onCoverVisible,
             onItemSelected = onItemSelected,
+            onBrowseShelf = onBrowseShelf,
             onDeleteImportedItem = onDeleteImportedItem,
             modifier = modifier,
         )

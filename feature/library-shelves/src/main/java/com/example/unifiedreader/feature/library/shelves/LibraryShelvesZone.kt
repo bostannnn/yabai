@@ -26,13 +26,13 @@ fun LibraryShelvesZone(
     coverPrefetchKeyProvider: (ReadableItem, LibraryCoverImageVariant) -> String? = coverImageUrlProvider,
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onItemSelected: (ReadableItem) -> Unit,
+    onBrowseShelf: (LibraryShelfBrowserKind) -> Unit = {},
     onDeleteImportedItem: (ReadableItem) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     if (!state.hasContent) return
 
     val previewDatasetSignature = remember(state) { previewDatasetSignature(state) }
-    var activeSheet by remember(state) { mutableStateOf<LibraryShelfSheetState?>(null) }
     var previewExpandedMenuItemId by remember(browseContextKey, previewDatasetSignature) {
         mutableStateOf<String?>(null)
     }
@@ -69,7 +69,7 @@ fun LibraryShelvesZone(
                         previewExpandedMenuItemId = if (expanded) item.id else null
                     },
                     onDeleteImportedRequested = { deleteCandidate = it },
-                    onOpenSheet = { activeSheet = it },
+                    onBrowseShelf = onBrowseShelf,
                     coverLoadingEnabled = true,
                     itemModifier = Modifier.weight(1f),
                 )
@@ -90,27 +90,12 @@ fun LibraryShelvesZone(
                         previewExpandedMenuItemId = if (expanded) item.id else null
                     },
                     onDeleteImportedRequested = { deleteCandidate = it },
-                    onOpenSheet = { activeSheet = it },
+                    onBrowseShelf = onBrowseShelf,
                     coverLoadingEnabled = true,
                     itemModifier = Modifier.fillMaxWidth(),
                 )
             }
         }
-    }
-
-    activeSheet?.let { sheet ->
-        LibraryShelfItemsSheet(
-            sheet = sheet,
-            itemActionContext = itemActionContext,
-            coverImageUrlProvider = coverImageUrlProvider,
-            onCoverVisible = onCoverVisible,
-            onDismiss = { activeSheet = null },
-            onItemSelected = { item ->
-                activeSheet = null
-                onItemSelected(item)
-            },
-            onDeleteImportedItem = { deleteCandidate = it },
-        )
     }
 
     deleteCandidate?.let { item ->
@@ -135,7 +120,7 @@ private fun ShelfSections(
     expandedMenuItemId: String?,
     onExpandedMenuChange: (ReadableItem, Boolean) -> Unit,
     onDeleteImportedRequested: (ReadableItem) -> Unit,
-    onOpenSheet: (LibraryShelfSheetState) -> Unit,
+    onBrowseShelf: (LibraryShelfBrowserKind) -> Unit,
     coverLoadingEnabled: Boolean,
     itemModifier: Modifier,
 ) {
@@ -151,7 +136,7 @@ private fun ShelfSections(
             onExpandedMenuChange = onExpandedMenuChange,
             onDeleteImportedRequested = onDeleteImportedRequested,
             onSeeAll = {
-                onOpenSheet(LibraryShelfSheetState.ContinueReading(state.continueReading))
+                onBrowseShelf(LibraryShelfBrowserKind.ContinueReading)
             },
             modifier = itemModifier,
         )
@@ -168,7 +153,7 @@ private fun ShelfSections(
             onExpandedMenuChange = onExpandedMenuChange,
             onDeleteImportedRequested = onDeleteImportedRequested,
             onSeeAll = {
-                onOpenSheet(LibraryShelfSheetState.NextInSeries(state.nextInSeries))
+                onBrowseShelf(LibraryShelfBrowserKind.NextInSeries)
             },
             modifier = itemModifier,
         )
@@ -185,7 +170,7 @@ private fun ShelfSections(
             onExpandedMenuChange = onExpandedMenuChange,
             onDeleteImportedRequested = onDeleteImportedRequested,
             onSeeAll = {
-                onOpenSheet(LibraryShelfSheetState.RecentlyFinished(state.recentlyFinished))
+                onBrowseShelf(LibraryShelfBrowserKind.RecentlyFinished)
             },
             modifier = itemModifier,
         )

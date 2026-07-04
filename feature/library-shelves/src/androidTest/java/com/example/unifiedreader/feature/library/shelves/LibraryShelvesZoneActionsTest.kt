@@ -1,6 +1,10 @@
 package com.example.unifiedreader.feature.library.shelves
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -62,13 +66,13 @@ class LibraryShelvesZoneActionsTest {
     }
 
     @Test
-    fun shelfItemsSheetRowsShowVisibleActionsButton() {
+    fun shelfItemsBrowserRowsShowVisibleActionsButton() {
         val item = comicItem("continue-2")
 
         composeRule.setContent {
             MaterialTheme {
-                LibraryShelfItemsSheet(
-                    sheet = LibraryShelfSheetState.ContinueReading(
+                LibraryShelfItemsBrowser(
+                    browser = LibraryShelfBrowserState.ContinueReading(
                         items = listOf(
                             ContinueReadingShelfItem(
                                 item = item,
@@ -82,7 +86,7 @@ class LibraryShelvesZoneActionsTest {
                     ),
                     coverImageUrlProvider = { _, _ -> null },
                     onCoverVisible = { _, _ -> },
-                    onDismiss = {},
+                    onBack = {},
                     onItemSelected = {},
                     onDeleteImportedItem = {},
                 )
@@ -92,6 +96,55 @@ class LibraryShelvesZoneActionsTest {
         composeRule.onNodeWithText("Continue Reading").assertExists()
         composeRule.onNodeWithContentDescription("More actions").assertExists().performClick()
         composeRule.onNodeWithText("Download file").assertExists()
+    }
+
+    @Test
+    fun seeAllOpensBrowserAndBackReturnsToShelves() {
+        val shelfItems = (1..5).map { index ->
+            ContinueReadingShelfItem(
+                item = comicItem("continue-see-all-$index"),
+                progress = progress(),
+            )
+        }
+
+        composeRule.setContent {
+            var activeShelfKind by remember { mutableStateOf<LibraryShelfBrowserKind?>(null) }
+            val shelvesState = LibraryShelvesState(continueReading = shelfItems)
+            val browserState = activeShelfKind?.let(shelvesState::browserState)
+
+            MaterialTheme {
+                if (browserState != null) {
+                    LibraryShelfItemsBrowser(
+                        browser = browserState,
+                        itemActionContext = LibraryItemActionContext(),
+                        coverImageUrlProvider = { _, _ -> null },
+                        onCoverVisible = { _, _ -> },
+                        onBack = { activeShelfKind = null },
+                        onItemSelected = {},
+                        onDeleteImportedItem = {},
+                    )
+                } else {
+                    LibraryShelvesZone(
+                        state = shelvesState,
+                        itemActionContext = LibraryItemActionContext(),
+                        coverImageUrlProvider = { _, _ -> null },
+                        onCoverVisible = { _, _ -> },
+                        onItemSelected = {},
+                        onBrowseShelf = { shelfKind -> activeShelfKind = shelfKind },
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithText("See all").assertExists().performClick()
+
+        composeRule.onNodeWithContentDescription("Back").assertExists()
+        composeRule.onNodeWithText("Search shelf").assertExists()
+        composeRule.onNodeWithText("5 items").assertExists()
+
+        composeRule.onNodeWithContentDescription("Back").performClick()
+
+        composeRule.onNodeWithText("See all").assertExists()
     }
 }
 

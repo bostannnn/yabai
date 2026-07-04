@@ -149,6 +149,7 @@ internal fun ShelfListRow(
     title: String,
     supportingText: String,
     trailingText: String,
+    metadataText: String? = null,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     coverLoadingEnabled: Boolean = true,
@@ -157,12 +158,24 @@ internal fun ShelfListRow(
     progressFraction: Float? = null,
     isDownloaded: Boolean = false,
     isRead: Boolean = false,
+    compact: Boolean = false,
+    notifyCoverVisibleOnCompose: Boolean = true,
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
     val presentation = UnifiedReaderThemeTokens.presentation
     val personality = UnifiedReaderThemeTokens.personality
     val metadataRecipe = UnifiedReaderThemeTokens.components.metadata
     val rowShape = RoundedCornerShape(presentation.cardCornerRadius)
+    val coverSize = if (compact) {
+        36.dp to 52.dp
+    } else {
+        42.dp to 58.dp
+    }
+    val verticalPadding = if (compact) {
+        (presentation.shelfCardVerticalPadding - 2.dp).coerceAtLeast(6.dp)
+    } else {
+        presentation.shelfCardVerticalPadding
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -178,18 +191,17 @@ internal fun ShelfListRow(
                 shape = rowShape,
             )
             .clickable(onClick = onClick)
-            .padding(horizontal = presentation.shelfCardHorizontalPadding, vertical = presentation.shelfCardVerticalPadding),
+            .padding(horizontal = presentation.shelfCardHorizontalPadding, vertical = verticalPadding),
         horizontalArrangement = Arrangement.spacedBy(presentation.shelfItemSpacing),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            modifier = Modifier.size(width = 42.dp, height = 58.dp),
-        ) {
+        Box(modifier = Modifier.size(width = coverSize.first, height = coverSize.second)) {
             ShelfCover(
                 item = item,
                 coverImageUrlProvider = coverImageUrlProvider,
                 onCoverVisible = onCoverVisible,
                 coverLoadingEnabled = coverLoadingEnabled,
+                notifyVisibleOnCompose = notifyCoverVisibleOnCompose,
                 isDownloaded = isDownloaded,
                 isRead = isRead,
                 modifier = Modifier.fillMaxSize(),
@@ -239,6 +251,15 @@ internal fun ShelfListRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            metadataText?.let { metadata ->
+                Text(
+                    text = metadata,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
         menuContent?.invoke()
     }
@@ -251,19 +272,15 @@ internal fun ShelfCover(
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     coverLoadingEnabled: Boolean = true,
     notifyVisibleOnCompose: Boolean = true,
+    imageVariant: LibraryCoverImageVariant = LibraryCoverImageVariant.ShelfRow,
     isDownloaded: Boolean = false,
     isRead: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    LaunchedEffect(item.id, coverLoadingEnabled, notifyVisibleOnCompose) {
+    LaunchedEffect(item.id, coverLoadingEnabled, notifyVisibleOnCompose, imageVariant) {
         if (coverLoadingEnabled && notifyVisibleOnCompose) {
-            onCoverVisible(item, LibraryCoverImageVariant.ShelfRow)
+            onCoverVisible(item, imageVariant)
         }
-    }
-    val variant = if (notifyVisibleOnCompose) {
-        LibraryCoverImageVariant.ShelfRow
-    } else {
-        LibraryCoverImageVariant.ShelfPreview
     }
     ResolvedLibraryCover(
         item = item,
@@ -276,7 +293,7 @@ internal fun ShelfCover(
         },
         isDownloaded = isDownloaded,
         isRead = isRead,
-        imageVariant = variant,
+        imageVariant = imageVariant,
         modifier = modifier,
     )
 }
