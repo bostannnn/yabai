@@ -49,6 +49,7 @@ import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesSna
 import com.example.unifiedreader.feature.reader.comics.ComicReaderPreferencesStore
 import com.example.unifiedreader.feature.reader.comics.ComicReaderProgressStore
 import com.example.unifiedreader.feature.reader.core.ReaderScreenFactory
+import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderModePreferences
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderModePreferencesStore
@@ -85,6 +86,7 @@ internal fun createViewModel(
     settingsStateCoordinator: SettingsStateCoordinator = SettingsStateCoordinator(settingsPreferencesStore),
     settingsController: AppSettingsController = AppSettingsController(settingsStateCoordinator),
     sourceNavigationPreferencesStore: SourceNavigationPreferencesStore = FakeSourceNavigationPreferencesStore(),
+    activeRouteStore: AppActiveRouteStore = FakeAppActiveRouteStore(),
     libraryBrowsePreferencesStore: LibraryBrowsePreferencesStore = FakeLibraryBrowsePreferencesStore(),
     libraryBrowseStateCoordinator: LibraryBrowseStateCoordinator = LibraryBrowseStateCoordinator(libraryBrowsePreferencesStore),
     libraryBrowseController: AppLibraryBrowseController = AppLibraryBrowseController(libraryBrowseStateCoordinator),
@@ -131,6 +133,7 @@ internal fun createViewModel(
         io = Dispatchers.Unconfined,
         default = Dispatchers.Unconfined,
     )
+    val readerWorkCoordinator = ReaderWorkCoordinator()
     val libraryStateAssembler = AppLibraryStateAssembler(
         localDocumentRepository = importedRepository,
         remoteDownloadDataSources = remoteDownloadDataSources,
@@ -244,6 +247,7 @@ internal fun createViewModel(
     )
     val initialUiStateFactory = AppInitialUiStateFactory(
         navigationController = navigationController,
+        activeRouteStore = activeRouteStore,
         appStateHydrator = appStateHydrator,
         catalogSnapshotsUseCase = catalogSnapshotsUseCase,
         libraryStateRecomputeCoordinator = libraryStateRecomputeCoordinator,
@@ -252,6 +256,7 @@ internal fun createViewModel(
 
     return AppViewModel(
         navigationController = navigationController,
+        activeRouteStore = activeRouteStore,
         initialUiStateFactory = initialUiStateFactory,
         libraryBrowseController = libraryBrowseController,
         settingsController = settingsController,
@@ -310,6 +315,7 @@ internal fun createViewModel(
                 remoteDownloadDataSources = remoteDownloadDataSources,
                 remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
             ),
+            readerWorkCoordinator = readerWorkCoordinator,
         ),
         remoteSourcesCoordinator = AppRemoteSourcesCoordinator(
             kavitaController = AppKavitaRemoteSourceController(
@@ -381,11 +387,13 @@ internal fun createViewModel(
             ),
             remoteCoverController = remoteCoverController,
         ),
+        comicPageSourceCacheController = comicPageSourceCacheController,
         comicPageSource = pageSource,
         comicReaderProgressStore = progressStore,
         comicReaderPreferencesStore = preferencesStore,
         readerSessionStore = readerSessionStore,
         readerFactories = readerFactories,
+        readerWorkCoordinator = readerWorkCoordinator,
         libraryStateRecomputeCoordinator = libraryStateRecomputeCoordinator,
     )
 }
@@ -413,11 +421,27 @@ class FakeAppNetworkConnectivityMonitor(
 
 class FakeComicPageSourceCacheController : ComicPageSourceCacheController {
     val clearedSourceTypes = mutableListOf<SourceType>()
+    val trimRequests = mutableListOf<ReaderMemoryTrimRequest>()
+    var clearReaderMemoryCachesCalls = 0
+        private set
 
     override fun clearSourcePageCache(
         sourceType: SourceType,
     ) {
         clearedSourceTypes += sourceType
+    }
+
+    override fun clearReaderMemoryCaches() {
+        clearReaderMemoryCachesCalls += 1
+    }
+
+    override fun trimReaderMemoryCaches(
+        request: ReaderMemoryTrimRequest,
+    ) {
+        trimRequests += request
+        if (request.mode == ReaderMemoryTrimMode.ClearAll) {
+            clearReaderMemoryCaches()
+        }
     }
 }
 
@@ -573,6 +597,19 @@ class FakeSourceNavigationPreferencesStore(
 
     override suspend fun setSourceOrder(sourceOrder: List<SourceType>) {
         preferencesState.value = SourceNavigationPreferences(sourceOrder = sourceOrder)
+    }
+}
+
+class FakeAppActiveRouteStore(
+    initialSnapshot: AppActiveRouteSnapshot? = null,
+) : AppActiveRouteStore {
+    var snapshot: AppActiveRouteSnapshot? = initialSnapshot
+        private set
+
+    override fun restore(): AppActiveRouteSnapshot? = snapshot
+
+    override fun save(snapshot: AppActiveRouteSnapshot) {
+        this.snapshot = snapshot
     }
 }
 
@@ -1439,6 +1476,8 @@ class FakeReaderSessionStore(
         progressByItemId
     override val sessionByItemIdFlow: StateFlow<Map<String, com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot>> =
         sessionByItemId
+    var flushPendingWritesCalls: Int = 0
+        private set
 
     override fun getProgress(item: ReadableItem) = progressByItemId.value[item.id]
 
@@ -1472,6 +1511,10 @@ class FakeReaderSessionStore(
     }
 
     override fun getSession(item: ReadableItem) = sessionByItemId.value[item.id]
+
+    override suspend fun flushPendingWrites() {
+        flushPendingWritesCalls += 1
+    }
 
     override suspend fun replaceProgressIfCurrent(
         expected: com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot,

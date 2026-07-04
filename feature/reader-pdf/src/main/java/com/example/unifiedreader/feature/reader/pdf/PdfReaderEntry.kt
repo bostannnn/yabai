@@ -100,6 +100,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.util.LinkedHashMap
 import kotlin.math.roundToInt
@@ -261,12 +262,11 @@ fun PdfReaderScreen(
             }
         },
     )
-    val closeReader by rememberUpdatedState(
+    val persistPdfProgress by rememberUpdatedState(
         newValue = {
-            flushReadingSession()
             if (shouldPersistPdfProgress(
                     pageCount = latestPageCount,
-                    initialRestoreCompleted = initialRestoreCompleted,
+                    initialRestoreCompleted = latestInitialRestoreCompleted,
                     userNavigated = userNavigated,
                 )
             ) {
@@ -276,6 +276,20 @@ fun PdfReaderScreen(
                     pageCount = latestPageCount,
                 )
             }
+        },
+    )
+    val flushSessionStoreWrites by rememberUpdatedState(
+        newValue = {
+            runBlocking {
+                sessionStore?.flushPendingWrites()
+            }
+        },
+    )
+    val closeReader by rememberUpdatedState(
+        newValue = {
+            flushReadingSession()
+            persistPdfProgress()
+            flushSessionStoreWrites()
             onBack()
         },
     )
@@ -294,7 +308,11 @@ fun PdfReaderScreen(
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_START -> startReadingSession()
-                Lifecycle.Event.ON_STOP -> flushReadingSession()
+                Lifecycle.Event.ON_STOP -> {
+                    flushReadingSession()
+                    persistPdfProgress()
+                    flushSessionStoreWrites()
+                }
                 else -> Unit
             }
         }
@@ -302,6 +320,8 @@ fun PdfReaderScreen(
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
             flushReadingSession()
+            persistPdfProgress()
+            flushSessionStoreWrites()
         }
     }
     BackHandler(onBack = closeReader)
@@ -333,6 +353,7 @@ fun PdfReaderScreen(
                 pageCount = pageCount,
                 isFinished = true,
             )
+            flushSessionStoreWrites()
             flushReadingSession()
             onCompletionRequested()
         } else {

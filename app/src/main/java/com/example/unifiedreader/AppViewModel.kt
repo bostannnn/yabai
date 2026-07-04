@@ -27,15 +27,18 @@ import com.example.unifiedreader.feature.reader.core.ReaderScreenFactory
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
+import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import com.example.unifiedreader.feature.settings.ThemeMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlin.jvm.JvmSuppressWildcards
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 @HiltViewModel
 class AppViewModel @Inject constructor(
     private val navigationController: AppNavigationController,
+    private val activeRouteStore: AppActiveRouteStore,
     initialUiStateFactory: AppInitialUiStateFactory,
     private val libraryBrowseController: AppLibraryBrowseController,
     private val settingsController: AppSettingsController,
@@ -56,11 +59,13 @@ class AppViewModel @Inject constructor(
     private val journalRepository: JournalRepository,
     private val progressSyncStartupRetryCoordinator: AppProgressSyncStartupRetryCoordinator,
     private val coverPreloadController: AppCoverPreloadController,
+    private val comicPageSourceCacheController: ComicPageSourceCacheController,
     val comicPageSource: ComicPageSource,
     val comicReaderProgressStore: ComicReaderProgressStore,
     val comicReaderPreferencesStore: ComicReaderPreferencesStore,
     val readerSessionStore: ReaderSessionStore,
     val readerFactories: List<@JvmSuppressWildcards ReaderScreenFactory>,
+    val readerWorkCoordinator: ReaderWorkCoordinator,
     private val libraryStateRecomputeCoordinator: AppLibraryStateRecomputeCoordinator,
 ) : ViewModel() {
     var uiState by mutableStateOf(initialUiStateFactory.create())
@@ -394,6 +399,35 @@ class AppViewModel @Inject constructor(
             selectedItem = uiState.selectedItem,
             scope = viewModelScope,
             onSyncFailures = ::reportProgressSyncFailures,
+        )
+    }
+
+    fun onAppStopped() {
+        activeRouteStore.save(uiState.toActiveRouteSnapshot())
+        flushPendingRemoteProgress()
+        runBlocking {
+            readerSessionStore.flushPendingWrites()
+        }
+        comicPageSourceCacheController.clearReaderMemoryCaches()
+    }
+
+    fun onTrimMemory(
+        level: Int,
+    ) {
+        val request = readerMemoryTrimRequestForAndroid(
+            level = level,
+            retention = activeReaderPageCacheRetention(),
+        ) ?: return
+        comicPageSourceCacheController.trimReaderMemoryCaches(request)
+    }
+
+    private fun activeReaderPageCacheRetention(): ReaderPageCacheRetention? {
+        val item = uiState.selectedItem?.takeIf { uiState.activeReader != null } ?: return null
+        val pages = comicPageSource.getPages(item)
+        return readerPageCacheRetentionFor(
+            item = item,
+            pages = pages,
+            currentPageIndex = comicReaderProgressStore.loadPage(item),
         )
     }
 
@@ -955,9 +989,11 @@ class AppViewModel @Inject constructor(
             scope = viewModelScope,
             publishState = { nextState ->
                 uiState = nextState
+                activeRouteStore.save(nextState.toActiveRouteSnapshot())
             },
         )
     }
+
     private fun reportProgressSyncFailures(
         failures: List<SourceProgressSyncFailure>,
     ) {

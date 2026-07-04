@@ -162,7 +162,7 @@ class StumpPageSourceTest {
     }
 
     @Test
-    fun `metadata warmup shares in flight page request with visible load`() = runTest {
+    fun `visible load interrupts in flight metadata page request`() = runTest {
         val item = sampleStumpComic(pageCount = 12)
         val api = RecordingStumpPageApi()
         val pageSource = createPageSource(api, this)
@@ -176,16 +176,17 @@ class StumpPageSourceTest {
         val imageLoad = async(UnconfinedTestDispatcher(testScheduler)) {
             pageSource.loadPageImage(item, page, ComicPageLoadPriority.Visible)
         }
+        runCurrent()
         api.releaseBlockedRequests()
 
         metadataLoad.await()
         imageLoad.await()
 
-        assertEquals(1, api.requestedPageIndexes.count { it == 3 })
+        assertEquals(2, api.requestedPageIndexes.count { it == 3 })
     }
 
     @Test
-    fun `visible load reuses in flight prefetched page request`() = runTest {
+    fun `visible load interrupts in flight prefetched page request`() = runTest {
         val item = sampleStumpComic(pageCount = 12)
         val api = RecordingStumpPageApi()
         val dispatcher = StandardTestDispatcher(testScheduler)
@@ -210,7 +211,7 @@ class StumpPageSourceTest {
         visibleLoad.await()
         scope.advanceUntilIdle()
 
-        assertEquals(1, api.requestedPageIndexes.count { it == 3 })
+        assertEquals(2, api.requestedPageIndexes.count { it == 3 })
     }
 
     @Test

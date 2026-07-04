@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.reader.comics
 
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import kotlinx.coroutines.CancellationException
 
 internal data class ComicSpreadPlanningUpdate(
@@ -108,6 +109,7 @@ internal suspend fun loadSpreadPlanningMetadata(
     item: ReadableItem,
     page: ComicPageSpec,
     pageSource: ComicPageSource,
+    readerWorkCoordinator: ReaderWorkCoordinator? = null,
 ): ComicPageMetadata? {
     try {
         pageSource.loadPageMetadata(item, page)?.let { return it }
@@ -116,6 +118,7 @@ internal suspend fun loadSpreadPlanningMetadata(
     } catch (_: Throwable) {
         // Metadata is only used to refine spread layout; page loading can still provide dimensions.
     }
+    readerWorkCoordinator?.awaitReaderBestEffortWorkAllowed()
     val imageResult = try {
         pageSource.loadPageImage(
             item = item,

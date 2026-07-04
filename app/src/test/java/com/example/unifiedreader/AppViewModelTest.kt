@@ -1,6 +1,8 @@
 package com.example.unifiedreader
 
 import android.app.Application
+import android.content.ComponentCallbacks2
+import android.content.Context
 import android.net.Uri
 import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
@@ -13,6 +15,7 @@ import com.example.unifiedreader.core.model.LibraryFileLocation
 import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
+import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceConnectivityState
@@ -73,6 +76,233 @@ class AppViewModelTest {
         viewModel.onBackPressed()
         assertNull(viewModel.uiState.selectedItemId)
         assertNull(viewModel.uiState.activeReader)
+    }
+
+    @Test
+    fun `persisted active reader route restores selected item and progress on recreation`() {
+        val item = sampleItem(
+            id = "reader-book",
+            title = "Reader Book",
+            format = FormatType.CBZ,
+        )
+        val activeRouteStore = FakeAppActiveRouteStore()
+        val readerSessionStore = FakeReaderSessionStore().apply {
+            saveProgress(
+                item = item,
+                locator = com.example.unifiedreader.feature.reader.core.ReaderLocator(
+                    locatorType = LocatorType.PAGE,
+                    page = 4,
+                ),
+                pageCount = 10,
+            )
+        }
+        val firstViewModel = createViewModel(
+            sampleItems = listOf(item),
+            activeRouteStore = activeRouteStore,
+            readerSessionStore = readerSessionStore,
+        )
+
+        firstViewModel.onItemSelected(item)
+
+        assertEquals(item.id, activeRouteStore.snapshot?.readerItemId)
+        assertEquals(FormatType.CBZ, activeRouteStore.snapshot?.readerFormat)
+
+        val recreatedViewModel = createViewModel(
+            sampleItems = listOf(item),
+            activeRouteStore = activeRouteStore,
+            readerSessionStore = readerSessionStore,
+        )
+
+        assertEquals(item.id, recreatedViewModel.uiState.selectedItemId)
+        assertEquals(FormatType.CBZ, recreatedViewModel.uiState.activeReader)
+        assertEquals(SourceType.KAVITA, recreatedViewModel.uiState.selectedSource)
+        assertEquals("Resume on page 5 of 10", recreatedViewModel.uiState.progressByItemId[item.id]?.label)
+    }
+
+    @Test
+    fun `persisted off catalog active reader route restores fallback reader item`() {
+        val downloadedOnlyItem = sampleItem(
+            id = "downloaded-only-reader",
+            title = "Downloaded Only Reader",
+            format = FormatType.CBZ,
+        ).copy(
+            remoteFileId = "file-42",
+            remoteFileType = "cbz",
+            comicMetadata = ComicMetadata(series = "Downloaded Series", issueTitle = "Issue 42"),
+        )
+        val activeRouteStore = FakeAppActiveRouteStore().apply {
+            save(
+                AppActiveRouteSnapshot(
+                    topLevel = TopLevelDestination.Library,
+                    selectedSource = downloadedOnlyItem.sourceType,
+                    kavitaLibrarySection = KavitaLibrarySection.Home,
+                    readerItemId = downloadedOnlyItem.id,
+                    readerFormat = downloadedOnlyItem.format,
+                    readerFallbackItem = downloadedOnlyItem,
+                ),
+            )
+        }
+
+        val recreatedViewModel = createViewModel(
+            sampleItems = emptyList(),
+            activeRouteStore = activeRouteStore,
+        )
+
+        assertEquals(downloadedOnlyItem.id, recreatedViewModel.uiState.selectedItemId)
+        assertEquals(FormatType.CBZ, recreatedViewModel.uiState.activeReader)
+        assertEquals(downloadedOnlyItem, recreatedViewModel.uiState.selectedReaderItem)
+        assertEquals(downloadedOnlyItem, recreatedViewModel.uiState.selectedItem)
+    }
+
+    @Test
+    fun `shared preferences active route store persists fallback reader item`() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        context.getSharedPreferences("unified_reader_active_route", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
+        val downloadedOnlyItem = sampleItem(
+            id = "downloaded-only-reader",
+            title = "Downloaded Only Reader",
+            format = FormatType.CBZ,
+        ).copy(
+            remoteFileId = "file-42",
+            remoteFileType = "cbz",
+            comicMetadata = ComicMetadata(series = "Downloaded Series", issueTitle = "Issue 42"),
+        )
+        val store = SharedPreferencesAppActiveRouteStore(context)
+
+        store.save(
+            AppActiveRouteSnapshot(
+                topLevel = TopLevelDestination.Library,
+                selectedSource = downloadedOnlyItem.sourceType,
+                kavitaLibrarySection = KavitaLibrarySection.Home,
+                readerItemId = downloadedOnlyItem.id,
+                readerFormat = downloadedOnlyItem.format,
+                readerFallbackItem = downloadedOnlyItem,
+            ),
+        )
+
+        val restored = SharedPreferencesAppActiveRouteStore(context).restore()
+
+        assertEquals(downloadedOnlyItem.id, restored?.readerItemId)
+        assertEquals(downloadedOnlyItem, restored?.readerFallbackItem)
+    }
+
+    @Test
+    fun `persisted library series sub-screen restores on recreation`() {
+        val seriesKey = "${SourceType.KAVITA.remoteLibraryId("k-comics")}::series-7"
+        val firstIssue = sampleItem(
+            id = "chapter-1",
+            title = "Akira 001",
+            format = FormatType.CBZ,
+        ).copy(
+            remoteFileType = "series-7",
+            comicMetadata = ComicMetadata(series = "Akira", issueTitle = "Issue 1"),
+        )
+        val secondIssue = sampleItem(
+            id = "chapter-2",
+            title = "Akira 002",
+            format = FormatType.CBZ,
+        ).copy(
+            remoteFileType = "series-7",
+            comicMetadata = ComicMetadata(series = "Akira", issueTitle = "Issue 2"),
+        )
+        val activeRouteStore = FakeAppActiveRouteStore()
+        val firstViewModel = createViewModel(
+            sampleItems = listOf(firstIssue, secondIssue),
+            activeRouteStore = activeRouteStore,
+        )
+        val seriesItem = firstViewModel.uiState.visibleItems.single()
+
+        firstViewModel.onItemSelected(seriesItem)
+
+        assertEquals(seriesKey, activeRouteStore.snapshot?.selectedKavitaSeriesKey)
+
+        val recreatedViewModel = createViewModel(
+            sampleItems = listOf(firstIssue, secondIssue),
+            activeRouteStore = activeRouteStore,
+        )
+
+        assertEquals(seriesKey, recreatedViewModel.uiState.selectedKavitaSeriesKey)
+        assertEquals(
+            listOf(firstIssue.id, secondIssue.id),
+            recreatedViewModel.uiState.visibleItems.map(ReadableItem::id),
+        )
+        assertNull(recreatedViewModel.uiState.activeReader)
+    }
+
+    @Test
+    fun `app stop persists active route and clears reader memory caches`() {
+        val item = sampleItem(
+            id = "reader-book",
+            title = "Reader Book",
+            format = FormatType.CBZ,
+        )
+        val activeRouteStore = FakeAppActiveRouteStore()
+        val pageCacheController = FakeComicPageSourceCacheController()
+        val readerSessionStore = FakeReaderSessionStore()
+        val viewModel = createViewModel(
+            sampleItems = listOf(item),
+            activeRouteStore = activeRouteStore,
+            readerSessionStore = readerSessionStore,
+            comicPageSourceCacheController = pageCacheController,
+        )
+
+        viewModel.onItemSelected(item)
+        viewModel.onAppStopped()
+
+        assertEquals(item.id, activeRouteStore.snapshot?.readerItemId)
+        assertEquals(1, readerSessionStore.flushPendingWritesCalls)
+        assertEquals(1, pageCacheController.clearReaderMemoryCachesCalls)
+    }
+
+    @Test
+    fun `ui hidden trim drops previews and distant pages around active reader page`() {
+        val item = sampleItem(
+            id = "reader-book",
+            title = "Reader Book",
+            format = FormatType.CBZ,
+        )
+        val pageCacheController = FakeComicPageSourceCacheController()
+        val progressStore = FakeComicReaderProgressStore().apply {
+            savePage(
+                item = item,
+                pageIndex = 2,
+                pageCount = 5,
+                isFinished = false,
+            )
+        }
+        val viewModel = createViewModel(
+            sampleItems = listOf(item),
+            pageSource = FakeComicPageSource(pageCounts = mapOf(item.id to 5)),
+            progressStore = progressStore,
+            comicPageSourceCacheController = pageCacheController,
+        )
+
+        viewModel.onItemSelected(item)
+        viewModel.onTrimMemory(ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN)
+
+        val request = pageCacheController.trimRequests.single()
+        assertEquals(ReaderMemoryTrimMode.DropPreviewsAndDistantPages, request.mode)
+        assertEquals(
+            setOf("reader-book-1", "reader-book-2", "reader-book-3"),
+            request.retention?.pageIds,
+        )
+        assertEquals(0, pageCacheController.clearReaderMemoryCachesCalls)
+    }
+
+    @Test
+    fun `critical trim clears reader memory caches`() {
+        val pageCacheController = FakeComicPageSourceCacheController()
+        val viewModel = createViewModel(
+            comicPageSourceCacheController = pageCacheController,
+        )
+
+        viewModel.onTrimMemory(ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL)
+
+        assertEquals(ReaderMemoryTrimMode.ClearAll, pageCacheController.trimRequests.single().mode)
+        assertEquals(1, pageCacheController.clearReaderMemoryCachesCalls)
     }
 
     @Test

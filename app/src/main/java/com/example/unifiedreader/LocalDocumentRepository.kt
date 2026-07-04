@@ -14,6 +14,7 @@ import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 import com.example.unifiedreader.feature.reader.comics.PersistentComicPagePreviewStore
+import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -32,6 +33,7 @@ class LocalDocumentRepository private constructor(
     private val coverSupport: LocalDocumentCoverSupport,
     private val onItemImported: (String) -> Unit,
     private val previewStore: PersistentComicPagePreviewStore?,
+    private val readerWorkCoordinator: ReaderWorkCoordinator,
 ) : LocalDocumentDataSource, LocalComicDocumentDataSource, LocalDocumentHydrator {
     private val coverWarmupSemaphore = Semaphore(permits = 3)
     private val coverMutationMutex = Mutex()
@@ -47,6 +49,7 @@ class LocalDocumentRepository private constructor(
         comicArchiveCodecs = comicArchiveCodecs,
         scope = scope,
         previewStore = previewStore,
+        readerWorkCoordinator = readerWorkCoordinator,
     )
 
     constructor(
@@ -56,6 +59,7 @@ class LocalDocumentRepository private constructor(
         scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
         onItemImported: (String) -> Unit = {},
         previewStore: PersistentComicPagePreviewStore? = null,
+        readerWorkCoordinator: ReaderWorkCoordinator = ReaderWorkCoordinator(),
     ) : this(
         context = context,
         importedComicArchiveDao = importedComicArchiveDao,
@@ -65,6 +69,7 @@ class LocalDocumentRepository private constructor(
         coverSupport = LocalCoverCache(context, defaultComicArchiveCodecs(context)),
         onItemImported = onItemImported,
         previewStore = previewStore,
+        readerWorkCoordinator = readerWorkCoordinator,
     )
 
     override val isHydratedFlow = store.isHydratedFlow
@@ -226,12 +231,19 @@ class LocalDocumentRepository private constructor(
     ) {
         val record = store.findRecord(item.id) ?: return
         if (pages.isEmpty()) return
+        val prefetchPages = pages.distinctBy(ComicPageSpec::pageIndex)
+        val entryNames = prefetchPages.mapNotNull { page ->
+            record.pageEntryNames.getOrNull(page.pageIndex)
+        }
+        if (entryNames.isEmpty()) return
+        val priorityEntryIndex = prefetchPages.indexOfFirst { page -> page.pageIndex == priorityPageIndex }
+            .takeIf { index -> index >= 0 }
         comicPageLoader.prefetchPagePreviews(
             item = item,
             record = record,
-            entryNames = record.pageEntryNames,
+            entryNames = entryNames,
             options = options,
-            priorityPageIndex = priorityPageIndex,
+            priorityPageIndex = priorityEntryIndex,
         )
     }
 
@@ -265,6 +277,18 @@ class LocalDocumentRepository private constructor(
         )
     }
 
+    override fun clearReaderMemoryCaches() {
+        RarComicArchiveCodec.clearLocalArchiveCache(context)
+        comicPageLoader.clearAll()
+    }
+
+    override fun trimReaderMemoryCaches(
+        request: ReaderMemoryTrimRequest,
+    ) {
+        RarComicArchiveCodec.clearLocalArchiveCache(context)
+        comicPageLoader.trimMemoryCaches(request)
+    }
+
     private fun warmImportedCovers(
         itemIds: List<String>,
     ) {
@@ -294,6 +318,7 @@ class LocalDocumentRepository private constructor(
             coverSupport: LocalDocumentCoverSupport,
             onItemImported: (String) -> Unit = {},
             previewStore: PersistentComicPagePreviewStore? = null,
+            readerWorkCoordinator: ReaderWorkCoordinator = ReaderWorkCoordinator(),
         ): LocalDocumentRepository = LocalDocumentRepository(
             context = context,
             importedComicArchiveDao = importedComicArchiveDao,
@@ -303,6 +328,7 @@ class LocalDocumentRepository private constructor(
             coverSupport = coverSupport,
             onItemImported = onItemImported,
             previewStore = previewStore,
+            readerWorkCoordinator = readerWorkCoordinator,
         )
     }
 }

@@ -17,6 +17,7 @@ import com.example.unifiedreader.feature.reader.comics.ComicPagePrefetchWindow
 import com.example.unifiedreader.feature.reader.comics.ComicPageSource
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 import com.example.unifiedreader.feature.reader.comics.PersistentComicPagePreviewStore
+import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -36,6 +37,7 @@ class DownloadedRemoteComicPageSource @Inject constructor(
     private val archiveEntryCache: DownloadedRemoteComicArchiveEntryCache,
     cacheInvalidationDispatcher: DownloadedRemoteComicCacheInvalidationDispatcher,
     previewStore: PersistentComicPagePreviewStore? = null,
+    readerWorkCoordinator: ReaderWorkCoordinator = ReaderWorkCoordinator(),
 ) : ComicPageSource {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val comicArchiveCodecs: List<ComicArchiveCodec> = defaultDownloadedRemoteComicArchiveCodecs(context)
@@ -44,6 +46,7 @@ class DownloadedRemoteComicPageSource @Inject constructor(
         comicArchiveCodecs = comicArchiveCodecs,
         scope = scope,
         previewStore = previewStore,
+        readerWorkCoordinator = readerWorkCoordinator,
     )
     private val entryCacheCoordinator = DownloadedRemoteComicEntryCacheCoordinator(archiveEntryCache)
     private val archiveDiagnosticsByItemId = ConcurrentHashMap<String, DownloadedComicArchiveDiagnostic>()
@@ -248,12 +251,19 @@ class DownloadedRemoteComicPageSource @Inject constructor(
         val entryNames = archiveEntryCache.get(item.id).orEmpty()
         if (entryNames.isEmpty()) return
         val record = localRecordForCachedEntries(item = item, entryNames = entryNames) ?: return
+        val prefetchPages = pages.distinctBy(ComicPageSpec::pageIndex)
+        val prefetchEntryNames = prefetchPages.mapNotNull { page ->
+            entryNames.getOrNull(page.pageIndex)
+        }
+        if (prefetchEntryNames.isEmpty()) return
+        val priorityEntryIndex = prefetchPages.indexOfFirst { page -> page.pageIndex == priorityPageIndex }
+            .takeIf { index -> index >= 0 }
         comicPageLoader.prefetchPagePreviews(
             item = item,
             record = record,
-            entryNames = entryNames,
+            entryNames = prefetchEntryNames,
             options = options,
-            priorityPageIndex = priorityPageIndex,
+            priorityPageIndex = priorityEntryIndex,
         )
     }
 
@@ -427,6 +437,18 @@ class DownloadedRemoteComicPageSource @Inject constructor(
         archiveDiagnosticsByItemId.remove(itemId)
         archiveFormatByItemId.remove(itemId)
         comicPageLoader.clear(itemId)
+    }
+
+    fun clearMemoryCaches() {
+        RarComicArchiveCodec.clearLocalArchiveCache(context)
+        comicPageLoader.clearAll()
+    }
+
+    fun trimMemoryCaches(
+        request: ReaderMemoryTrimRequest,
+    ) {
+        RarComicArchiveCodec.clearLocalArchiveCache(context)
+        comicPageLoader.trimMemoryCaches(request)
     }
 }
 

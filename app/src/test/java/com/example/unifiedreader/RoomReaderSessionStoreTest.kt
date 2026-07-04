@@ -97,6 +97,30 @@ class RoomReaderSessionStoreTest {
     }
 
     @Test
+    fun `flush pending writes persists queued progress`() = runTest {
+        val progressDao = FakeReadingProgressDaoForStore()
+        val store = RoomReaderSessionStore(
+            readingProgressDao = progressDao,
+            readerSessionStateDao = RecordingReaderSessionStateDao(),
+            writeScope = CoroutineScope(coroutineContext),
+        )
+        val item = testItem()
+
+        store.hydrate()
+        store.saveProgress(
+            item = item,
+            locator = com.example.unifiedreader.feature.reader.core.ReaderLocator(
+                locatorType = com.example.unifiedreader.core.model.LocatorType.PAGE,
+                page = 4,
+            ),
+            pageCount = 12,
+        )
+        store.flushPendingWrites()
+
+        assertEquals(4, progressDao.entities.single().page)
+    }
+
+    @Test
     fun `clear item drops queued session upsert instead of recreating default row`() = runTest {
         val sessionDao = RecordingReaderSessionStateDao()
         val store = RoomReaderSessionStore(

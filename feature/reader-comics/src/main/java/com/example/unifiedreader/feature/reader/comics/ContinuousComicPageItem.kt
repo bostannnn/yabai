@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -23,15 +24,22 @@ internal fun ContinuousComicPageItem(
     page: ComicPageSpec,
     pageSource: ComicPageSource,
     shouldLoadImage: Boolean,
+    metadataLoadingEnabled: Boolean,
     contentWidth: Dp,
     fallbackPlaceholderHeight: Dp,
+    onVisiblePageLoaded: (Int) -> Unit,
     onToggleOverlay: () -> Unit,
 ) {
     val pageMetadata by produceState<ComicPageMetadata?>(
         initialValue = null,
         key1 = item.id,
         key2 = page.id,
+        key3 = metadataLoadingEnabled,
     ) {
+        if (!metadataLoadingEnabled) {
+            value = null
+            return@produceState
+        }
         value = pageSource.loadPageMetadata(item, page)
     }
     val pageResult by produceState<ComicPageLoadResult?>(
@@ -49,6 +57,11 @@ internal fun ContinuousComicPageItem(
             page = page,
             priority = ComicPageLoadPriority.Visible,
         )
+    }
+    LaunchedEffect(shouldLoadImage, page.pageIndex, pageResult) {
+        if (shouldLoadImage && pageResult != null) {
+            onVisiblePageLoaded(page.pageIndex)
+        }
     }
     val placeholderHeight = remember(contentWidth, fallbackPlaceholderHeight, pageMetadata) {
         continuousReaderPlaceholderHeight(

@@ -3,6 +3,7 @@ package com.example.unifiedreader
 import com.example.unifiedreader.core.model.ComicReaderFormats
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
+import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -14,12 +15,14 @@ class StumpPageSource(
     private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + ioDispatcher),
+    readerWorkCoordinator: ReaderWorkCoordinator = ReaderWorkCoordinator(),
 ) : RemoteComicPageSource<StumpStoredSession>(
     sourceType = com.example.unifiedreader.core.model.SourceType.STUMP,
     supportedFormats = ComicReaderFormats,
     missingSessionMessage = "Connect to Stump before reading remote comics.",
     ioDispatcher = ioDispatcher,
     scope = scope,
+    readerWorkCoordinator = readerWorkCoordinator,
 ) {
     private val sessionRequestRunner = StumpStoredSessionRequestRunner(stumpCredentialStore)
 

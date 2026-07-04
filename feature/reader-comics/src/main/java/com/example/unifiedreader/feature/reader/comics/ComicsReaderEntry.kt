@@ -43,10 +43,12 @@ import com.example.unifiedreader.feature.reader.core.ReaderActiveSessionTracker
 import com.example.unifiedreader.feature.reader.core.ReaderBottomProgressBar
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
+import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.journal.JournalReadingSessionRecorder
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
 
 @Composable
 fun ComicsReaderScreen(
@@ -57,6 +59,7 @@ fun ComicsReaderScreen(
     journalReadingSessionRecorder: JournalReadingSessionRecorder? = null,
     onBack: () -> Unit,
     openMode: ReaderOpenMode = ReaderOpenMode.Default,
+    readerWorkCoordinator: ReaderWorkCoordinator? = null,
     onNextItemRequested: () -> Unit = {},
 ) {
     val overlayTokens = readerOverlayTokens()
@@ -133,6 +136,7 @@ fun ComicsReaderScreen(
     }
     var progressRestoreCompleted by remember(item.id) { mutableStateOf(false) }
     var preferencesRestoreCompleted by remember(item.id) { mutableStateOf(false) }
+    var loadedVisiblePageIndexes by remember(item.id, pages) { mutableStateOf<Set<Int>>(emptySet()) }
     var completionMonitoringReady by rememberSaveable(item.id) { mutableStateOf(false) }
     var hasAutoRequestedCompletion by rememberSaveable(item.id) { mutableStateOf(false) }
     val overlayState = rememberReaderOverlayState(
@@ -202,6 +206,16 @@ fun ComicsReaderScreen(
             )
         },
     )
+    val onVisiblePagesLoaded by rememberUpdatedState(
+        newValue = { pageIndexes: Collection<Int> ->
+            val sanitizedIndexes = pageIndexes
+                .filter { pageIndex -> pageIndex in pages.indices }
+                .toSet()
+            if (sanitizedIndexes.isNotEmpty() && !loadedVisiblePageIndexes.containsAll(sanitizedIndexes)) {
+                loadedVisiblePageIndexes = loadedVisiblePageIndexes + sanitizedIndexes
+            }
+        },
+    )
     val closeReader by rememberUpdatedState(
         newValue = {
             flushReadingSession()
@@ -215,6 +229,9 @@ fun ComicsReaderScreen(
             }
             if (latestPreferencesHydrated && latestPreferencesRestoreCompleted) {
                 persistReaderPreferences()
+            }
+            runBlocking {
+                progressStore.flushPendingWrites()
             }
             onBack()
         },
@@ -338,6 +355,9 @@ fun ComicsReaderScreen(
                     if (latestPreferencesHydrated && latestPreferencesRestoreCompleted) {
                         persistReaderPreferences()
                     }
+                    runBlocking {
+                        progressStore.flushPendingWrites()
+                    }
                 }
                 else -> Unit
             }
@@ -356,6 +376,9 @@ fun ComicsReaderScreen(
             }
             if (latestPreferencesHydrated && latestPreferencesRestoreCompleted) {
                 persistReaderPreferences()
+            }
+            runBlocking {
+                progressStore.flushPendingWrites()
             }
         }
     }
@@ -384,6 +407,8 @@ fun ComicsReaderScreen(
             readingDirection = readerState.readingDirection,
             spreadMode = spreadModeForPlan,
             useDoublePageSpreads = useDoublePageSpreadsForPlan,
+            metadataLoadingEnabled = readerState.currentPage in loadedVisiblePageIndexes,
+            readerWorkCoordinator = readerWorkCoordinator,
         )
         ImmersiveReaderOverlay(
             overlayState = overlayState,
@@ -405,6 +430,8 @@ fun ComicsReaderScreen(
                             pageSource = pageSource,
                             readerState = readerState,
                             spreadPlanState = spreadPlanState,
+                            loadedVisiblePageIndexes = loadedVisiblePageIndexes,
+                            onVisiblePagesLoaded = onVisiblePagesLoaded,
                             onToggleOverlay = overlayState::toggle,
                             onNavigatePastEnd = {
                                 persistCompletedProgress()
@@ -417,6 +444,9 @@ fun ComicsReaderScreen(
                             pages = pages,
                             pageSource = pageSource,
                             readerState = readerState,
+                            loadedVisiblePageIndexes = loadedVisiblePageIndexes,
+                            metadataLoadingEnabled = readerState.currentPage in loadedVisiblePageIndexes,
+                            onVisiblePagesLoaded = onVisiblePagesLoaded,
                             onToggleOverlay = overlayState::toggle,
                             onNavigatePastEnd = {
                                 persistCompletedProgress()
@@ -461,6 +491,8 @@ fun ComicsReaderScreen(
                             spreadMode = spreadModeForPlan,
                             spreadPlanState = spreadPlanState,
                             pageSource = pageSource,
+                            readerWorkCoordinator = readerWorkCoordinator,
+                            previewLoadingEnabled = readerState.currentPage in loadedVisiblePageIndexes,
                             applySafeGesturesPadding = false,
                             onPageSelected = { targetPage ->
                                 when (readerState.readerMode) {

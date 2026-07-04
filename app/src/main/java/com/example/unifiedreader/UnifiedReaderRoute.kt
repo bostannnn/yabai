@@ -1,7 +1,9 @@
 package com.example.unifiedreader
 
 import android.content.ContentResolver
+import android.content.ComponentCallbacks2
 import android.content.Intent
+import android.content.res.Configuration
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -94,15 +96,35 @@ fun UnifiedReaderAppContent(
     onImportLocalFileClick: () -> Unit,
 ) {
     val uiState = viewModel.uiState
+    val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var libraryViewMode by rememberSaveable { mutableStateOf(LibraryViewMode.Grid) }
+
+    DisposableEffect(context, viewModel) {
+        val applicationContext = context.applicationContext
+        val callbacks = object : ComponentCallbacks2 {
+            override fun onConfigurationChanged(newConfig: Configuration) = Unit
+
+            override fun onLowMemory() {
+                viewModel.onTrimMemory(ComponentCallbacks2.TRIM_MEMORY_COMPLETE)
+            }
+
+            override fun onTrimMemory(level: Int) {
+                viewModel.onTrimMemory(level)
+            }
+        }
+        applicationContext.registerComponentCallbacks(callbacks)
+        onDispose {
+            applicationContext.unregisterComponentCallbacks(callbacks)
+        }
+    }
 
     DisposableEffect(lifecycleOwner, viewModel) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 viewModel.refreshProgress()
             } else if (event == Lifecycle.Event.ON_STOP) {
-                viewModel.flushPendingRemoteProgress()
+                viewModel.onAppStopped()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -135,6 +157,7 @@ fun UnifiedReaderAppContent(
                         item = uiState.selectedItem!!,
                         factories = viewModel.readerFactories,
                         onBack = viewModel::onBackPressed,
+                        readerWorkCoordinator = viewModel.readerWorkCoordinator,
                         navigationActions = ReaderNavigationActions(
                             onRequestNextInSeries = viewModel::onReaderNextRequested,
                             onRequestCompletion = viewModel::onReaderCompletionRequested,

@@ -32,10 +32,15 @@ internal fun ComicsContinuousReaderSurface(
     pages: List<ComicPageSpec>,
     pageSource: ComicPageSource,
     readerState: ComicsReaderState,
+    loadedVisiblePageIndexes: Set<Int>,
+    metadataLoadingEnabled: Boolean,
+    onVisiblePagesLoaded: (Collection<Int>) -> Unit,
     onToggleOverlay: () -> Unit,
     onNavigatePastEnd: () -> Unit,
 ) {
     var hasTriggeredPastEndNavigation by remember(item.id) { mutableStateOf(false) }
+    var settledPageIndexForPrefetch by remember(item.id) { mutableStateOf<Int?>(null) }
+    var lastPrefetchedPageIndex by remember(item.id) { mutableStateOf<Int?>(null) }
     val listState = rememberLazyListState(
         initialFirstVisibleItemIndex = readerState.resumeAnchorPage.coerceIn(0, pages.lastIndex),
     )
@@ -99,7 +104,6 @@ internal fun ComicsContinuousReaderSurface(
         }
 
         LaunchedEffect(item.id, listState, pages.size) {
-            var lastPrefetchedPageIndex: Int? = null
             snapshotFlow { listState.currentVisiblePosition(pageCount = pages.size) }
                 .filterNotNull()
                 .distinctUntilChanged { previous, next ->
@@ -111,16 +115,22 @@ internal fun ComicsContinuousReaderSurface(
                         pageIndex = position.pageIndex,
                         offsetRatio = position.offsetRatio,
                     )
-                    if (lastPrefetchedPageIndex != position.pageIndex) {
-                        lastPrefetchedPageIndex = position.pageIndex
-                        pageSource.prefetchAround(
-                            item = item,
-                            settledPageIndex = position.pageIndex,
-                            pageCount = pages.size,
-                            window = continuousReaderPrefetchWindow(),
-                        )
-                    }
+                    settledPageIndexForPrefetch = position.pageIndex
                 }
+        }
+
+        LaunchedEffect(item.id, settledPageIndexForPrefetch, loadedVisiblePageIndexes, pages.size) {
+            val pageIndex = settledPageIndexForPrefetch ?: return@LaunchedEffect
+            if (pageIndex !in loadedVisiblePageIndexes || lastPrefetchedPageIndex == pageIndex) {
+                return@LaunchedEffect
+            }
+            lastPrefetchedPageIndex = pageIndex
+            pageSource.prefetchAround(
+                item = item,
+                settledPageIndex = pageIndex,
+                pageCount = pages.size,
+                window = continuousReaderPrefetchWindow(),
+            )
         }
 
         LazyColumn(
@@ -141,11 +151,13 @@ internal fun ComicsContinuousReaderSurface(
                     page = page,
                     pageSource = pageSource,
                     shouldLoadImage = page.pageIndex in activePageWindow,
+                    metadataLoadingEnabled = metadataLoadingEnabled,
                     contentWidth = contentWidth,
                     fallbackPlaceholderHeight = continuousReaderFallbackPlaceholderHeight(
                         contentWidth = contentWidth,
                         viewportHeight = maxHeight,
                     ),
+                    onVisiblePageLoaded = { pageIndex -> onVisiblePagesLoaded(listOf(pageIndex)) },
                     onToggleOverlay = onToggleOverlay,
                 )
             }

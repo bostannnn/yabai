@@ -68,6 +68,7 @@ import com.example.unifiedreader.journal.JournalReadingSessionRecorder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.readium.r2.navigator.HyperlinkNavigator
 import org.readium.r2.navigator.epub.EpubDefaults
@@ -310,13 +311,8 @@ fun EpubReaderScreen(
         currentHref = serializedInitialLocator?.href?.removeFragment()?.toString()
         currentLocator = serializedInitialLocator
     }
-    val closeReader by rememberUpdatedState(
+    val persistReaderState by rememberUpdatedState(
         newValue = {
-            readingSessionTracker?.flushAndReset(
-                page = currentPage.takeIf { it > 0 },
-                percent = currentProgress,
-                pageCount = pageCount.takeIf { it > 0 },
-            )
             if (hydrated &&
                 restoredSessionState &&
                 shouldFlushEpubReaderProgress(
@@ -358,6 +354,24 @@ fun EpubReaderScreen(
                     ),
                 )
             }
+        },
+    )
+    val flushSessionStoreWrites by rememberUpdatedState(
+        newValue = {
+            runBlocking {
+                sessionStore.flushPendingWrites()
+            }
+        },
+    )
+    val closeReader by rememberUpdatedState(
+        newValue = {
+            readingSessionTracker?.flushAndReset(
+                page = currentPage.takeIf { it > 0 },
+                percent = currentProgress,
+                pageCount = pageCount.takeIf { it > 0 },
+            )
+            persistReaderState()
+            flushSessionStoreWrites()
             onBack()
         },
     )
@@ -399,7 +413,11 @@ fun EpubReaderScreen(
                         percent = currentProgress,
                     )
                 }
-                Lifecycle.Event.ON_STOP -> flushReadingSession()
+                Lifecycle.Event.ON_STOP -> {
+                    flushReadingSession()
+                    persistReaderState()
+                    flushSessionStoreWrites()
+                }
                 else -> Unit
             }
         }
@@ -407,6 +425,8 @@ fun EpubReaderScreen(
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
             flushReadingSession()
+            persistReaderState()
+            flushSessionStoreWrites()
         }
     }
     BackHandler(onBack = closeReader)

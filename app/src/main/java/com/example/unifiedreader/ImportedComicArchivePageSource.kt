@@ -99,4 +99,14 @@ class LocalComicPageSource(
             window = window,
         )
     }
+
+    fun clearMemoryCaches() {
+        localComicDocumentDataSource.clearReaderMemoryCaches()
+    }
+
+    fun trimMemoryCaches(
+        request: ReaderMemoryTrimRequest,
+    ) {
+        localComicDocumentDataSource.trimReaderMemoryCaches(request)
+    }
 }

@@ -101,6 +101,16 @@ interface LocalComicDocumentDataSource {
             pageCount = pageCount,
         )
     }
+
+    fun clearReaderMemoryCaches() = Unit
+
+    fun trimReaderMemoryCaches(
+        request: ReaderMemoryTrimRequest,
+    ) {
+        if (request.mode == ReaderMemoryTrimMode.ClearAll) {
+            clearReaderMemoryCaches()
+        }
+    }
 }
 
 internal const val LOCAL_LIBRARY_ID = "local-imports"

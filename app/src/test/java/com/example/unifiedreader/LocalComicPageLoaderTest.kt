@@ -10,9 +10,11 @@ import com.example.unifiedreader.feature.reader.comics.ComicPagePrefetchWindow
 import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewOptions
 import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewResult
 import com.example.unifiedreader.feature.reader.comics.PersistentComicPagePreviewStore
+import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import java.io.File
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -21,6 +23,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -30,7 +33,7 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class LocalComicPageLoaderTest {
     @Test
-    fun `metadata warmup shares in flight archive read with visible load`() = runTest {
+    fun `visible load interrupts in flight metadata archive read`() = runTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val codec = RecordingComicArchiveCodec()
         val loader = LocalComicPageLoader(
@@ -56,11 +59,11 @@ class LocalComicPageLoaderTest {
         metadataLoad.await()
         imageLoad.await()
 
-        assertEquals(1, codec.requestedEntryNames.count { it == entryName })
+        assertEquals(2, codec.requestedEntryNames.count { it == entryName })
     }
 
     @Test
-    fun `visible load reuses in flight prefetched archive read`() = runTest {
+    fun `visible load interrupts in flight prefetched archive read`() = runTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val codec = RecordingComicArchiveCodec()
         val dispatcher = StandardTestDispatcher(testScheduler)
@@ -96,11 +99,11 @@ class LocalComicPageLoaderTest {
         visibleLoad.await()
         scope.advanceUntilIdle()
 
-        assertEquals(1, codec.requestedEntryNames.count { it == entryName })
+        assertEquals(2, codec.requestedEntryNames.count { it == entryName })
     }
 
     @Test
-    fun `preview load shares in flight archive read with visible load`() = runTest {
+    fun `visible load interrupts in flight preview archive read`() = runTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val codec = RecordingComicArchiveCodec()
         val loader = LocalComicPageLoader(
@@ -128,9 +131,90 @@ class LocalComicPageLoaderTest {
         runCurrent()
         codec.releaseBlockedReads()
 
-        assertTrue(previewLoad.await() is ComicPagePreviewResult.Success)
+        assertEquals(ComicPagePreviewResult.Unavailable, previewLoad.await())
         imageLoad.await()
-        assertEquals(1, codec.requestedEntryNames.count { it == entryName })
+        assertEquals(2, codec.requestedEntryNames.count { it == entryName })
+    }
+
+    @Test
+    fun `cancelled visible caller keeps coordinator busy until archive read finishes`() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val codec = RecordingComicArchiveCodec()
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val scope = TestScope(dispatcher)
+        val readerWorkCoordinator = ReaderWorkCoordinator(openingGraceMillis = 0L)
+        val loader = LocalComicPageLoader(
+            context = context,
+            comicArchiveCodecs = listOf(codec),
+            scope = scope,
+            readerWorkCoordinator = readerWorkCoordinator,
+        )
+        val item = sampleLocalComic(pageCount = 12)
+        val record = sampleLocalRecord(pageCount = 12)
+        val entryName = "3.png"
+        codec.beginBlockingReads()
+
+        val visibleLoad = async(UnconfinedTestDispatcher(testScheduler)) {
+            loader.loadPageImage(item, record, entryName, ComicPageLoadPriority.Visible)
+        }
+        codec.awaitBlockedRead()
+        assertTrue(readerWorkCoordinator.hasVisiblePageLoads)
+
+        visibleLoad.cancel()
+        runCurrent()
+
+        assertTrue(readerWorkCoordinator.hasVisiblePageLoads)
+
+        val visibleWorkerJobs = scope.coroutineContext[Job]?.children?.toList().orEmpty()
+        codec.releaseBlockedReads()
+        visibleWorkerJobs.forEach { it.join() }
+        assertFalse(readerWorkCoordinator.hasVisiblePageLoads)
+    }
+
+    @Test
+    fun `trim keeps retained decoded page and reloads distant pages and previews`() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val codec = RecordingComicArchiveCodec()
+        val loader = LocalComicPageLoader(
+            context = context,
+            comicArchiveCodecs = listOf(codec),
+            scope = TestScope(StandardTestDispatcher(testScheduler)),
+        )
+        val item = sampleLocalComic(pageCount = 5)
+        val record = sampleLocalRecord(pageCount = 5)
+
+        loader.loadPageImage(item, record, "0.png", ComicPageLoadPriority.Visible)
+        loader.loadPageImage(item, record, "3.png", ComicPageLoadPriority.Visible)
+        loader.loadPagePreview(
+            item = item,
+            record = record,
+            entryName = "2.png",
+            options = ComicPagePreviewOptions(),
+        )
+
+        loader.trimMemoryCaches(
+            ReaderMemoryTrimRequest.dropPreviewsAndDistantPages(
+                ReaderPageCacheRetention(
+                    itemId = item.id,
+                    pageIds = setOf("0.png", "1.png"),
+                ),
+            ),
+        )
+
+        loader.loadPageImage(item, record, "0.png", ComicPageLoadPriority.Visible)
+        loader.loadPageImage(item, record, "3.png", ComicPageLoadPriority.Visible)
+        assertTrue(
+            loader.loadPagePreview(
+                item = item,
+                record = record,
+                entryName = "2.png",
+                options = ComicPagePreviewOptions(),
+            ) is ComicPagePreviewResult.Success,
+        )
+
+        assertEquals(1, codec.requestedEntryNames.count { it == "0.png" })
+        assertEquals(2, codec.requestedEntryNames.count { it == "3.png" })
+        assertEquals(2, codec.requestedEntryNames.count { it == "2.png" })
     }
 
     @Test

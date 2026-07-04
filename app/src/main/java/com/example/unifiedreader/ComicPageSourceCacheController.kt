@@ -21,6 +21,16 @@ interface ComicPageSourceCacheController {
     fun clearSourcePageCache(
         sourceType: SourceType,
     )
+
+    fun trimReaderMemoryCaches(
+        request: ReaderMemoryTrimRequest,
+    ) {
+        if (request.mode == ReaderMemoryTrimMode.ClearAll) {
+            clearReaderMemoryCaches()
+        }
+    }
+
+    fun clearReaderMemoryCaches() = Unit
 }
 
 class CompositeComicPageSource(
@@ -153,6 +163,19 @@ class CompositeComicPageSource(
             SourceType.STUMP -> stumpPageSource.clear()
             SourceType.LOCAL, SourceType.GRIMMORY -> Unit
         }
+    }
+
+    override fun clearReaderMemoryCaches() {
+        trimReaderMemoryCaches(ReaderMemoryTrimRequest.ClearAll)
+    }
+
+    override fun trimReaderMemoryCaches(
+        request: ReaderMemoryTrimRequest,
+    ) {
+        localComicPageSource.trimMemoryCaches(request)
+        downloadedRemoteComicPageSource.trimMemoryCaches(request)
+        kavitaPageSource.trimMemoryCaches(request)
+        stumpPageSource.trimMemoryCaches(request)
     }
 
     private fun pageSourceFor(

@@ -1,5 +1,7 @@
 package com.example.unifiedreader
 
+import android.os.SystemClock
+import android.util.Log
 import android.util.LruCache
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
@@ -20,6 +22,7 @@ import com.example.unifiedreader.feature.reader.comics.comicPagePreviewCacheEntr
 import com.example.unifiedreader.feature.reader.comics.decodeComicPageImage
 import com.example.unifiedreader.feature.reader.comics.decodeComicPageMetadata
 import com.example.unifiedreader.feature.reader.comics.decodeComicPagePreview
+import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.abs
 import kotlinx.coroutines.CancellationException
@@ -49,6 +52,7 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + ioDispatcher),
     private val previewStore: PersistentComicPagePreviewStore? = null,
+    private val readerWorkCoordinator: ReaderWorkCoordinator = ReaderWorkCoordinator(),
 ) : ComicPageSource {
     private val pageBitmapCache = object : LruCache<String, ComicPageLoadResult.Success>(
         ComicPageLoaderCacheSizing.bitmapCacheBytes(),
@@ -81,8 +85,8 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
         ): Int = value.size
     }
     private val cacheGeneration = AtomicInteger(0)
-    private val inFlightByteRequests = mutableMapOf<RemoteComicPageByteRequestKey, Deferred<ByteArray?>>()
-    private val inFlightPreviewByteRequests = mutableMapOf<RemoteComicPageByteRequestKey, Deferred<ByteArray?>>()
+    private val inFlightByteRequests = mutableMapOf<RemoteComicPageByteRequestKey, RemoteInFlightByteRequest>()
+    private val inFlightPreviewByteRequests = mutableMapOf<RemoteComicPageByteRequestKey, RemoteInFlightByteRequest>()
     private val byteRequestLock = Any()
     private val visibleLoadSemaphore = Semaphore(permits = ComicPageLoaderCacheSizing.VISIBLE_LOAD_CONCURRENCY)
     private val metadataLoadSemaphore = Semaphore(permits = ComicPageLoaderCacheSizing.METADATA_LOAD_CONCURRENCY)
@@ -172,15 +176,23 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
         )
         val requestGeneration = cacheGeneration.get()
         pageMetadataCache[cacheKey]?.let { return it }
+        readerWorkCoordinator.awaitReaderBestEffortWorkAllowed()
         return withContext(ioDispatcher) {
             metadataLoadSemaphore.withPermit {
+                readerWorkCoordinator.awaitReaderBestEffortWorkAllowed()
                 pageMetadataCache[cacheKey]?.let { return@withPermit it }
-                val bytes = fetchPageBytes(
-                    item = item,
-                    page = page,
-                    cacheKey = cacheKey,
-                    session = session,
-                ) ?: return@withPermit null
+                val bytes = try {
+                    fetchPageBytes(
+                        item = item,
+                        page = page,
+                        cacheKey = cacheKey,
+                        session = session,
+                        priority = ComicPageLoadPriority.Prefetch,
+                    )
+                } catch (cancellation: CancellationException) {
+                    currentCoroutineContext().ensureActive()
+                    null
+                } ?: return@withPermit null
                 decodeComicPageMetadata(bytes)?.also { metadata ->
                     if (cacheGeneration.get() == requestGeneration) {
                         pageMetadataCache.put(cacheKey, metadata)
@@ -207,27 +219,64 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
         )
         val requestGeneration = cacheGeneration.get()
         pageBitmapCache[cacheKey]?.let { return it }
-        val result = withContext(ioDispatcher) {
-            semaphoreFor(priority).withPermit {
-                pageBitmapCache[cacheKey]?.let { return@withPermit it }
-                val bytes = fetchPageBytes(
-                    item = item,
-                    page = page,
-                    cacheKey = cacheKey,
-                    session = session,
-                ) ?: return@withPermit ComicPageLoadResult.Failure("Unable to load this page.")
-                decodeComicPageMetadata(bytes)?.let { metadata ->
-                    if (cacheGeneration.get() == requestGeneration) {
-                        pageMetadataCache.put(cacheKey, metadata)
+        if (priority == ComicPageLoadPriority.Visible) {
+            cancelBestEffortWorkForVisibleLoad()
+        }
+        val startedAt = if (priority == ComicPageLoadPriority.Visible) {
+            SystemClock.elapsedRealtime().also {
+                Log.d(LOG_TAG, "Visible page load start item=${item.id} page=${page.pageIndex}.")
+            }
+        } else {
+            0L
+        }
+        var tracedResult: ComicPageLoadResult? = null
+        try {
+            val result = when (priority) {
+                ComicPageLoadPriority.Visible -> readerWorkCoordinator.runVisiblePageLoad(item.id) {
+                    try {
+                        loadPageImageWithPriority(
+                            item = item,
+                            page = page,
+                            cacheKey = cacheKey,
+                            session = session,
+                            requestGeneration = requestGeneration,
+                            priority = priority,
+                        )
+                    } catch (cancellation: CancellationException) {
+                        currentCoroutineContext().ensureActive()
+                        ComicPageLoadResult.Failure("Page load was interrupted.")
                     }
                 }
-                decodeComicPageImage(bytes) ?: ComicPageLoadResult.Failure("Unable to decode this page.")
+                ComicPageLoadPriority.Prefetch -> {
+                    readerWorkCoordinator.awaitReaderBestEffortWorkAllowed()
+                    try {
+                        loadPageImageWithPriority(
+                            item = item,
+                            page = page,
+                            cacheKey = cacheKey,
+                            session = session,
+                            requestGeneration = requestGeneration,
+                            priority = priority,
+                        )
+                    } catch (cancellation: CancellationException) {
+                        currentCoroutineContext().ensureActive()
+                        ComicPageLoadResult.Failure("Page prefetch was interrupted.")
+                    }
+                }
+            }
+            tracedResult = result
+            if (result is ComicPageLoadResult.Success && cacheGeneration.get() == requestGeneration) {
+                pageBitmapCache.put(cacheKey, result)
+            }
+            return result
+        } finally {
+            if (priority == ComicPageLoadPriority.Visible) {
+                Log.d(
+                    LOG_TAG,
+                    "Visible page load finish item=${item.id} page=${page.pageIndex} result=${tracedResult?.traceLabel() ?: "cancelled"} duration=${SystemClock.elapsedRealtime() - startedAt}ms.",
+                )
             }
         }
-        if (result is ComicPageLoadResult.Success && cacheGeneration.get() == requestGeneration) {
-            pageBitmapCache.put(cacheKey, result)
-        }
-        return result
     }
 
     override suspend fun loadPagePreview(
@@ -252,17 +301,24 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
         )
         val requestGeneration = cacheGeneration.get()
         pagePreviewCache[previewCacheKey]?.let { return it }
+        readerWorkCoordinator.awaitReaderBestEffortWorkAllowed()
         val result = withContext(ioDispatcher) {
             previewLoadSemaphore.withPermit {
+                readerWorkCoordinator.awaitReaderBestEffortWorkAllowed()
                 pagePreviewCache[previewCacheKey]?.let { return@withPermit it }
-                val bytes = fetchPreviewBytes(
-                    item = item,
-                    page = page,
-                    pageCacheKey = cacheKey,
-                    previewCacheKey = previewCacheKey,
-                    session = session,
-                    byteSource = previewByteSource,
-                ) ?: return@withPermit ComicPagePreviewResult.Unavailable
+                val bytes = try {
+                    fetchPreviewBytes(
+                        item = item,
+                        page = page,
+                        pageCacheKey = cacheKey,
+                        previewCacheKey = previewCacheKey,
+                        session = session,
+                        byteSource = previewByteSource,
+                    )
+                } catch (cancellation: CancellationException) {
+                    currentCoroutineContext().ensureActive()
+                    null
+                } ?: return@withPermit ComicPagePreviewResult.Unavailable
                 if (previewByteSource != RemoteComicPreviewByteSource.DedicatedPreview) {
                     decodeComicPageMetadata(bytes)?.let { metadata ->
                         if (cacheGeneration.get() == requestGeneration) {
@@ -348,6 +404,11 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
                 previewPrefetchJobs.remove(prefetchKey)
             }
             val job = scope.launch {
+                val startedAt = SystemClock.elapsedRealtime()
+                Log.d(
+                    LOG_TAG,
+                    "Preview prefetch start item=${item.id} pages=${pages.size} priorityPage=$priorityPageIndex.",
+                )
                 try {
                     kotlinx.coroutines.coroutineScope {
                         val pendingPages = pages.sortedByPriority(priorityPageIndex)
@@ -370,6 +431,7 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
                                     )
                                     if (previewBytesCache[previewCacheKey] == null) {
                                         previewPrefetchSemaphore.withPermit {
+                                            readerWorkCoordinator.awaitReaderBestEffortWorkAllowed()
                                             warmDedicatedPreviewBytes(
                                                 item = item,
                                                 page = page,
@@ -385,6 +447,10 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
                 } catch (_: CancellationException) {
                     // Preview warming is best effort and can stop when the source cache is cleared.
                 } finally {
+                    Log.d(
+                        LOG_TAG,
+                        "Preview prefetch finish item=${item.id} duration=${SystemClock.elapsedRealtime() - startedAt}ms.",
+                    )
                     synchronized(prefetchLock) {
                         if (previewPrefetchJobs[prefetchKey]?.job === coroutineContext[Job]) {
                             previewPrefetchJobs.remove(prefetchKey)
@@ -477,7 +543,72 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
         }
     }
 
+    private suspend fun loadPageImageWithPriority(
+        item: ReadableItem,
+        page: ComicPageSpec,
+        cacheKey: String,
+        session: Session,
+        requestGeneration: Int,
+        priority: ComicPageLoadPriority,
+    ): ComicPageLoadResult = withContext(ioDispatcher) {
+        semaphoreFor(priority).withPermit {
+            if (priority == ComicPageLoadPriority.Prefetch) {
+                readerWorkCoordinator.awaitReaderBestEffortWorkAllowed()
+            }
+            pageBitmapCache[cacheKey]?.let { return@withPermit it }
+            val bytes = fetchPageBytes(
+                item = item,
+                page = page,
+                cacheKey = cacheKey,
+                session = session,
+                priority = priority,
+            ) ?: return@withPermit ComicPageLoadResult.Failure("Unable to load this page.")
+            decodeComicPageMetadata(bytes)?.let { metadata ->
+                if (cacheGeneration.get() == requestGeneration) {
+                    pageMetadataCache.put(cacheKey, metadata)
+                }
+            }
+            decodeComicPageImage(bytes) ?: ComicPageLoadResult.Failure("Unable to decode this page.")
+        }
+    }
+
+    private fun cancelBestEffortWorkForVisibleLoad() {
+        val byteRequestsToCancel = mutableListOf<Deferred<ByteArray?>>()
+        synchronized(byteRequestLock) {
+            inFlightByteRequests.entries
+                .filter { (_, request) -> request.priority == ComicPageLoadPriority.Prefetch }
+                .toList()
+                .forEach { (key, request) ->
+                    inFlightByteRequests.remove(key)
+                    byteRequestsToCancel += request.deferred
+                }
+            inFlightPreviewByteRequests.entries
+                .filter { (_, request) -> request.priority == ComicPageLoadPriority.Prefetch }
+                .toList()
+                .forEach { (key, request) ->
+                    inFlightPreviewByteRequests.remove(key)
+                    byteRequestsToCancel += request.deferred
+                }
+        }
+        byteRequestsToCancel.forEach { request -> request.cancel() }
+        synchronized(prefetchLock) {
+            prefetchJobs.entries
+                .toList()
+                .forEach { (cacheKey, job) ->
+                    job.cancel()
+                    prefetchJobs.remove(cacheKey)
+                }
+            previewPrefetchJobs.entries
+                .toList()
+                .forEach { (cacheKey, prefetchJob) ->
+                    prefetchJob.job.cancel()
+                    previewPrefetchJobs.remove(cacheKey)
+                }
+        }
+    }
+
     open fun clear() {
+        val byteRequestsToCancel = mutableListOf<Deferred<ByteArray?>>()
         cacheGeneration.incrementAndGet()
         pageBitmapCache.evictAll()
         pageMetadataCache.evictAll()
@@ -485,15 +616,71 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
         pageBytesCache.evictAll()
         previewBytesCache.evictAll()
         synchronized(byteRequestLock) {
+            byteRequestsToCancel += inFlightByteRequests.values.map(RemoteInFlightByteRequest::deferred)
+            byteRequestsToCancel += inFlightPreviewByteRequests.values.map(RemoteInFlightByteRequest::deferred)
             inFlightByteRequests.clear()
             inFlightPreviewByteRequests.clear()
         }
+        byteRequestsToCancel.forEach { request -> request.cancel() }
         synchronized(prefetchLock) {
             prefetchJobs.values.forEach(Job::cancel)
             prefetchJobs.clear()
             previewPrefetchJobs.values.forEach { it.job.cancel() }
             previewPrefetchJobs.clear()
         }
+    }
+
+    open fun trimMemoryCaches(
+        request: ReaderMemoryTrimRequest,
+    ) {
+        if (request.mode == ReaderMemoryTrimMode.ClearAll) {
+            clear()
+            return
+        }
+        cancelBestEffortWorkForMemoryTrim()
+        pagePreviewCache.evictAll()
+        previewBytesCache.evictAll()
+        pageBytesCache.evictAll()
+        trimPageBitmapCache(request.retention)
+    }
+
+    private fun cancelBestEffortWorkForMemoryTrim() {
+        val byteRequestsToCancel = mutableListOf<Deferred<ByteArray?>>()
+        synchronized(byteRequestLock) {
+            inFlightByteRequests.entries
+                .filter { (_, request) -> request.priority == ComicPageLoadPriority.Prefetch }
+                .toList()
+                .forEach { (key, request) ->
+                    inFlightByteRequests.remove(key)
+                    byteRequestsToCancel += request.deferred
+                }
+            inFlightPreviewByteRequests.entries
+                .filter { (_, request) -> request.priority == ComicPageLoadPriority.Prefetch }
+                .toList()
+                .forEach { (key, request) ->
+                    inFlightPreviewByteRequests.remove(key)
+                    byteRequestsToCancel += request.deferred
+                }
+        }
+        byteRequestsToCancel.forEach { request -> request.cancel() }
+        synchronized(prefetchLock) {
+            prefetchJobs.values.forEach(Job::cancel)
+            prefetchJobs.clear()
+            previewPrefetchJobs.values.forEach { it.job.cancel() }
+            previewPrefetchJobs.clear()
+        }
+    }
+
+    private fun trimPageBitmapCache(
+        retention: ReaderPageCacheRetention?,
+    ) {
+        if (retention == null) {
+            pageBitmapCache.evictAll()
+            return
+        }
+        pageBitmapCache.snapshot().keys
+            .filterNot(retention::shouldRetainPageCacheKey)
+            .forEach(pageBitmapCache::remove)
     }
 
     private suspend fun fetchPreviewBytes(
@@ -521,6 +708,7 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
                 page = page,
                 cacheKey = pageCacheKey,
                 session = session,
+                priority = ComicPageLoadPriority.Prefetch,
             )
         }
     }
@@ -534,7 +722,7 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
             pageBytesCache[cacheKey]?.let { cachedBytes ->
                 return cachedBytes
             }
-            inFlightByteRequests[RemoteComicPageByteRequestKey(cacheKey, requestGeneration)]
+            inFlightByteRequests[RemoteComicPageByteRequestKey(cacheKey, requestGeneration)]?.deferred
         }
         return inFlight?.await()
     }
@@ -554,34 +742,36 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
             cacheKey = previewCacheKey,
             generation = requestGeneration,
         )
-        while (true) {
-            val request = synchronized(byteRequestLock) {
-                previewBytesCache[previewCacheKey]?.let { cachedBytes ->
-                    return cachedBytes
-                }
-                inFlightPreviewByteRequests[requestKey] ?: scope.async {
-                    downloadAndCacheDedicatedPreviewBytes(
-                        item = item,
-                        page = page,
-                        previewCacheKey = previewCacheKey,
-                        requestGeneration = requestGeneration,
-                    )
-                }.also { deferred ->
-                    inFlightPreviewByteRequests[requestKey] = deferred
-                    deferred.invokeOnCompletion {
-                        synchronized(byteRequestLock) {
-                            if (inFlightPreviewByteRequests[requestKey] === deferred) {
-                                inFlightPreviewByteRequests.remove(requestKey)
-                            }
+        val request = synchronized(byteRequestLock) {
+            previewBytesCache[previewCacheKey]?.let { cachedBytes ->
+                return cachedBytes
+            }
+            inFlightPreviewByteRequests[requestKey]?.deferred ?: scope.async {
+                downloadAndCacheDedicatedPreviewBytes(
+                    item = item,
+                    page = page,
+                    previewCacheKey = previewCacheKey,
+                    requestGeneration = requestGeneration,
+                )
+            }.also { deferred ->
+                inFlightPreviewByteRequests[requestKey] = RemoteInFlightByteRequest(
+                    priority = ComicPageLoadPriority.Prefetch,
+                    deferred = deferred,
+                )
+                deferred.invokeOnCompletion {
+                    synchronized(byteRequestLock) {
+                        if (inFlightPreviewByteRequests[requestKey]?.deferred === deferred) {
+                            inFlightPreviewByteRequests.remove(requestKey)
                         }
                     }
                 }
             }
-            try {
-                return request.await()
-            } catch (error: CancellationException) {
-                currentCoroutineContext().ensureActive()
-            }
+        }
+        return try {
+            request.await()
+        } catch (error: CancellationException) {
+            currentCoroutineContext().ensureActive()
+            null
         }
     }
 
@@ -605,7 +795,7 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
                 previewBytesCache[previewCacheKey]?.let { cachedBytes ->
                     return@coroutineScope cachedBytes
                 }
-                inFlightPreviewByteRequests[requestKey] ?: async {
+                inFlightPreviewByteRequests[requestKey]?.deferred ?: async {
                     downloadAndCacheDedicatedPreviewBytes(
                         item = item,
                         page = page,
@@ -613,10 +803,13 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
                         requestGeneration = requestGeneration,
                     )
                 }.also { deferred ->
-                    inFlightPreviewByteRequests[requestKey] = deferred
+                    inFlightPreviewByteRequests[requestKey] = RemoteInFlightByteRequest(
+                        priority = ComicPageLoadPriority.Prefetch,
+                        deferred = deferred,
+                    )
                     deferred.invokeOnCompletion {
                         synchronized(byteRequestLock) {
-                            if (inFlightPreviewByteRequests[requestKey] === deferred) {
+                            if (inFlightPreviewByteRequests[requestKey]?.deferred === deferred) {
                                 inFlightPreviewByteRequests.remove(requestKey)
                             }
                         }
@@ -645,6 +838,7 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
         } catch (_: Throwable) {
             null
         }
+        currentCoroutineContext().ensureActive()
         if (bytes != null && cacheGeneration.get() == requestGeneration) {
             synchronized(byteRequestLock) {
                 if (cacheGeneration.get() == requestGeneration) {
@@ -662,6 +856,7 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
         page: ComicPageSpec,
         cacheKey: String,
         session: Session,
+        priority: ComicPageLoadPriority,
     ): ByteArray? {
         pageBytesCache[cacheKey]?.let { return it }
         val requestGeneration = cacheGeneration.get()
@@ -669,43 +864,70 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
             cacheKey = cacheKey,
             generation = requestGeneration,
         )
+        var cancelledBestEffortRequest: Deferred<ByteArray?>? = null
         val request = synchronized(byteRequestLock) {
             pageBytesCache[cacheKey]?.let { cachedBytes ->
                 return cachedBytes
             }
-            inFlightByteRequests[requestKey] ?: scope.async {
-                val bytes = try {
-                    val activeSession = activeSessionFor(item) ?: return@async null
-                    downloadPageBytes(
-                        session = activeSession,
-                        item = item,
-                        page = page,
-                    )
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (error: Throwable) {
-                    onReaderContentFailure(item, error)
-                    null
+            val existingRequest = inFlightByteRequests[requestKey]
+            if (existingRequest != null) {
+                if (priority == ComicPageLoadPriority.Visible &&
+                    existingRequest.priority == ComicPageLoadPriority.Prefetch
+                ) {
+                    inFlightByteRequests.remove(requestKey)
+                    cancelledBestEffortRequest = existingRequest.deferred
+                } else {
+                    return@synchronized existingRequest.deferred
                 }
-                if (bytes != null && cacheGeneration.get() == requestGeneration) {
-                    synchronized(byteRequestLock) {
-                        if (cacheGeneration.get() == requestGeneration) {
-                            pageBytesCache.put(cacheKey, bytes)
+            }
+            scope.async {
+                suspend fun downloadAndCachePageBytes(): ByteArray? {
+                    val bytes = try {
+                        val activeSession = activeSessionFor(item) ?: return null
+                        downloadPageBytes(
+                            session = activeSession,
+                            item = item,
+                            page = page,
+                        )
+                    } catch (error: CancellationException) {
+                        throw error
+                    } catch (error: Throwable) {
+                        onReaderContentFailure(item, error)
+                        null
+                    }
+                    currentCoroutineContext().ensureActive()
+                    if (bytes != null && cacheGeneration.get() == requestGeneration) {
+                        synchronized(byteRequestLock) {
+                            if (cacheGeneration.get() == requestGeneration) {
+                                pageBytesCache.put(cacheKey, bytes)
+                            }
                         }
                     }
+                    return bytes
                 }
-                bytes
+
+                if (priority == ComicPageLoadPriority.Visible) {
+                    readerWorkCoordinator.runVisiblePageLoad(item.id) {
+                        downloadAndCachePageBytes()
+                    }
+                } else {
+                    downloadAndCachePageBytes()
+                }
             }.also { deferred ->
-                inFlightByteRequests[requestKey] = deferred
+                inFlightByteRequests[requestKey] = RemoteInFlightByteRequest(
+                    priority = priority,
+                    deferred = deferred,
+                )
                 deferred.invokeOnCompletion {
                     synchronized(byteRequestLock) {
-                        if (inFlightByteRequests[requestKey] === deferred) {
+                        if (inFlightByteRequests[requestKey]?.deferred === deferred) {
                             inFlightByteRequests.remove(requestKey)
                         }
                     }
                 }
             }
         }
+        cancelledBestEffortRequest?.cancel()
         return request.await()
     }
 
@@ -796,9 +1018,19 @@ private fun List<ComicPageSpec>.sortedByPriority(
     )
 }
 
+private fun ComicPageLoadResult.traceLabel(): String = when (this) {
+    is ComicPageLoadResult.Success -> "success"
+    is ComicPageLoadResult.Failure -> "failure"
+}
+
 private data class RemoteComicPageByteRequestKey(
     val cacheKey: String,
     val generation: Int,
+)
+
+private data class RemoteInFlightByteRequest(
+    val priority: ComicPageLoadPriority,
+    val deferred: Deferred<ByteArray?>,
 )
 
 private data class PreviewPrefetchJob(
@@ -807,3 +1039,4 @@ private data class PreviewPrefetchJob(
 )
 
 private const val PagePreviewCacheVersion = "v4"
+private const val LOG_TAG = "RemoteComicPageSource"

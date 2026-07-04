@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.reader.core.ReaderOverlaySurfaceRole
+import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import com.example.unifiedreader.feature.reader.core.readerOverlaySurface
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import kotlinx.coroutines.async
@@ -59,6 +60,7 @@ private val PreviewOptions = ComicPagePreviewOptions(
     targetLongEdge = 520,
     maxPixelCount = 320_000,
 )
+private const val PreviewPrefetchRadius = 6
 private const val PreviewUnavailableRetryDelayMillis = 300L
 
 @Composable
@@ -71,6 +73,8 @@ internal fun ComicPagePreviewStrip(
     spreadPlanState: ComicSpreadPlanState,
     pageSource: ComicPageSource,
     modifier: Modifier = Modifier,
+    readerWorkCoordinator: ReaderWorkCoordinator? = null,
+    previewLoadingEnabled: Boolean = true,
     applySafeGesturesPadding: Boolean = true,
     onPageSelected: (Int) -> Unit,
 ) {
@@ -79,10 +83,13 @@ internal fun ComicPagePreviewStrip(
     val listState = rememberLazyListState()
     val safeCurrentPage = currentPage.coerceIn(0, pages.lastIndex)
 
-    LaunchedEffect(item.id, pages, pageSource, safeCurrentPage) {
+    LaunchedEffect(item.id, pages, pageSource, safeCurrentPage, previewLoadingEnabled) {
+        if (!previewLoadingEnabled) return@LaunchedEffect
+        readerWorkCoordinator?.awaitReaderBestEffortWorkAllowed()
+        val prefetchPages = pages.previewPrefetchWindow(safeCurrentPage)
         pageSource.prefetchPagePreviews(
             item = item,
-            pages = pages,
+            pages = prefetchPages,
             options = PreviewOptions,
             priorityPageIndex = safeCurrentPage,
         )
@@ -147,6 +154,8 @@ internal fun ComicPagePreviewStrip(
                     spread = spread,
                     pageSource = pageSource,
                     selected = safeCurrentPage in spread.pageIndexes,
+                    readerWorkCoordinator = readerWorkCoordinator,
+                    previewLoadingEnabled = previewLoadingEnabled,
                     onClick = { onPageSelected(spread.resumePageIndex) },
                 )
             }
@@ -160,6 +169,8 @@ private fun ComicSpreadPreviewItem(
     spread: ComicPageSpread,
     pageSource: ComicPageSource,
     selected: Boolean,
+    readerWorkCoordinator: ReaderWorkCoordinator?,
+    previewLoadingEnabled: Boolean,
     onClick: () -> Unit,
 ) {
     val tokens = readerOverlayTokens()
@@ -177,23 +188,36 @@ private fun ComicSpreadPreviewItem(
         initialValue = emptyMap(),
         key1 = item.id,
         key2 = spread.id,
-        key3 = Triple(spreadSignature, pageSource, spreadPreviewVersion),
+        key3 = PreviewLoadStateKey(
+            spreadSignature = spreadSignature,
+            pageSource = pageSource,
+            previewVersion = spreadPreviewVersion,
+            previewLoadingEnabled = previewLoadingEnabled,
+        ),
     ) {
+        if (!previewLoadingEnabled) {
+            value = emptyMap()
+            return@produceState
+        }
+        readerWorkCoordinator?.awaitReaderBestEffortWorkAllowed()
         val loadedState = withContext(Dispatchers.IO) {
             loadSpreadPreviewPages(
                 item = item,
                 spread = spread,
                 pageSource = pageSource,
+                readerWorkCoordinator = readerWorkCoordinator,
             )
         }
         value = loadedState.associate { it.pageId to it.result }
         if (loadedState.any { page -> page.result == ComicPagePreviewResult.Unavailable }) {
             delay(PreviewUnavailableRetryDelayMillis)
+            readerWorkCoordinator?.awaitReaderBestEffortWorkAllowed()
             val retryState = withContext(Dispatchers.IO) {
                 loadSpreadPreviewPages(
                     item = item,
                     spread = spread,
                     pageSource = pageSource,
+                    readerWorkCoordinator = readerWorkCoordinator,
                 )
             }
             value = retryState.associate { it.pageId to it.result }
@@ -263,12 +287,14 @@ private suspend fun loadSpreadPreviewPages(
     item: ReadableItem,
     spread: ComicPageSpread,
     pageSource: ComicPageSource,
+    readerWorkCoordinator: ReaderWorkCoordinator?,
 ): List<LoadedPreviewPage> = coroutineScope {
     spread.pages
         .map(ComicSpreadPage::spec)
         .distinctBy(ComicPageSpec::id)
         .map { page ->
             async {
+                readerWorkCoordinator?.awaitReaderBestEffortWorkAllowed()
                 val preview = pageSource.loadPagePreview(
                     item = item,
                     page = page,
@@ -370,6 +396,13 @@ private data class LoadedPreviewPage(
     val result: ComicPagePreviewResult,
 )
 
+private data class PreviewLoadStateKey(
+    val spreadSignature: String,
+    val pageSource: ComicPageSource,
+    val previewVersion: Long,
+    val previewLoadingEnabled: Boolean,
+)
+
 internal fun comicSpreadPreviewStateKey(
     spread: ComicPageSpread,
 ): String = "${spread.id}:${comicSpreadPageSignature(spread)}"
@@ -378,6 +411,16 @@ internal fun comicSpreadPageSignature(
     spread: ComicPageSpread,
 ): String = spread.pages.joinToString(separator = "|") { page ->
     "${page.spec.id}:${page.spec.pageIndex}:${page.segment.idSuffix}"
+}
+
+private fun List<ComicPageSpec>.previewPrefetchWindow(
+    currentPage: Int,
+): List<ComicPageSpec> {
+    if (isEmpty()) return emptyList()
+    val safeCurrentPage = currentPage.coerceIn(0, lastIndex)
+    val start = (safeCurrentPage - PreviewPrefetchRadius).coerceAtLeast(0)
+    val end = (safeCurrentPage + PreviewPrefetchRadius).coerceAtMost(lastIndex)
+    return subList(start, end + 1)
 }
 
 internal const val ComicPagePreviewStripTag = "comic-page-preview-strip"

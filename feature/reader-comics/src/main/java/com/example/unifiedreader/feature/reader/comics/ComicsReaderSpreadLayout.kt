@@ -74,6 +74,7 @@ internal fun ComicSpreadPager(
     onToggleOverlay: () -> Unit,
     onNavigatePrevious: (Int) -> Unit,
     onNavigateNext: (Int) -> Unit,
+    onVisiblePagesLoaded: (Collection<Int>) -> Unit,
 ) {
     HorizontalPager(
         state = pagerState,
@@ -109,6 +110,7 @@ internal fun ComicSpreadPager(
                 onToggleOverlay = onToggleOverlay,
                 onNavigatePrevious = { onNavigatePrevious(spreadIndex) },
                 onNavigateNext = { onNavigateNext(spreadIndex) },
+                onVisiblePagesLoaded = onVisiblePagesLoaded,
             )
         }
     }
@@ -127,6 +129,7 @@ private fun ComicSpreadSurface(
     onToggleOverlay: () -> Unit,
     onNavigatePrevious: () -> Unit,
     onNavigateNext: () -> Unit,
+    onVisiblePagesLoaded: (Collection<Int>) -> Unit,
 ) {
     val viewportState = rememberComicPageViewportState(pageId = spread.id)
     val animationScope = rememberCoroutineScope()
@@ -171,6 +174,12 @@ private fun ComicSpreadSurface(
     LaunchedEffect(isActiveSpread, viewportState.isZoomed) {
         if (isActiveSpread) {
             onZoomStateChanged(viewportState.isZoomed)
+        }
+    }
+    LaunchedEffect(isActiveSpread, spread.id, pageLoadResults) {
+        if (!isActiveSpread) return@LaunchedEffect
+        if (spread.pages.all { page -> pageLoadResults[page.spec.id] != null }) {
+            onVisiblePagesLoaded(spread.pageIndexes)
         }
     }
 

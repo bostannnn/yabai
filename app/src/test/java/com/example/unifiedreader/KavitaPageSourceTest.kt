@@ -21,6 +21,7 @@ import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewOptions
 import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 import com.example.unifiedreader.feature.reader.comics.PersistentComicPagePreviewStore
+import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import java.io.File
 import java.io.IOException
 import kotlinx.coroutines.CompletableDeferred
@@ -38,6 +39,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -517,7 +519,39 @@ class KavitaPageSourceTest {
     }
 
     @Test
-    fun `metadata warmup shares in flight page request with visible load`() = runTest {
+    fun `cancelled visible caller keeps coordinator busy until page request finishes`() = runTest {
+        val item = sampleKavitaComic(pageCount = 12)
+        val api = RecordingKavitaPageApi()
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val scope = TestScope(dispatcher)
+        val readerWorkCoordinator = ReaderWorkCoordinator(openingGraceMillis = 0L)
+        val pageSource = createPageSource(
+            api = api,
+            scope = scope,
+            readerWorkCoordinator = readerWorkCoordinator,
+        )
+        val page = ComicPageSpec(id = "3", pageIndex = 3, contentDescription = "Page 4")
+        api.beginBlockingRequests()
+
+        val visibleLoad = async(UnconfinedTestDispatcher(testScheduler)) {
+            pageSource.loadPageImage(item, page, ComicPageLoadPriority.Visible)
+        }
+        scope.runCurrent()
+        api.awaitBlockedRequest()
+        assertTrue(readerWorkCoordinator.hasVisiblePageLoads)
+
+        visibleLoad.cancel()
+        runCurrent()
+
+        assertTrue(readerWorkCoordinator.hasVisiblePageLoads)
+
+        api.releaseBlockedRequests()
+        scope.advanceUntilIdle()
+        assertFalse(readerWorkCoordinator.hasVisiblePageLoads)
+    }
+
+    @Test
+    fun `visible load interrupts in flight metadata page request`() = runTest {
         val item = sampleKavitaComic(pageCount = 12)
         val api = RecordingKavitaPageApi()
         val pageSource = createPageSource(api, this)
@@ -537,11 +571,11 @@ class KavitaPageSourceTest {
         metadataLoad.await()
         imageLoad.await()
 
-        assertEquals(1, api.requestedPageIndexes.count { it == 3 })
+        assertEquals(2, api.requestedPageIndexes.count { it == 3 })
     }
 
     @Test
-    fun `visible load reuses in flight prefetched page request`() = runTest {
+    fun `visible load interrupts in flight prefetched page request`() = runTest {
         val item = sampleKavitaComic(pageCount = 12)
         val api = RecordingKavitaPageApi()
         val dispatcher = StandardTestDispatcher(testScheduler)
@@ -566,7 +600,7 @@ class KavitaPageSourceTest {
         visibleLoad.await()
         scope.advanceUntilIdle()
 
-        assertEquals(1, api.requestedPageIndexes.count { it == 3 })
+        assertEquals(2, api.requestedPageIndexes.count { it == 3 })
     }
 
     @Test
@@ -647,6 +681,7 @@ private fun createPageSource(
     ),
     previewStore: PersistentComicPagePreviewStore? = null,
     remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
+    readerWorkCoordinator: ReaderWorkCoordinator = ReaderWorkCoordinator(),
 ): KavitaPageSource = KavitaPageSource(
     kavitaApiFactory = KavitaApiFactory { _ -> api },
     kavitaCredentialStore = credentialStore,
@@ -654,6 +689,7 @@ private fun createPageSource(
     ioDispatcher = scope.coroutineContext[ContinuationInterceptor] as kotlinx.coroutines.CoroutineDispatcher,
     scope = scope,
     previewStore = previewStore,
+    readerWorkCoordinator = readerWorkCoordinator,
 )
 
 private fun sampleKavitaComic(

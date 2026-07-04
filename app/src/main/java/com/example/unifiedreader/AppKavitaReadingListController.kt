@@ -44,11 +44,18 @@ class AppKavitaReadingListController @Inject constructor(
                         state.copy(kavitaReadingLists = AppKavitaReadingListState())
                     }
                 }
-                loadSummaries(
+                val refreshed = loadSummaries(
                     session = session,
                     updateState = updateState,
                     invalidateCachedItems = shouldInvalidateCachedItems,
                 )
+                if (refreshed) {
+                    loadSelectedScopeItemsIfNeeded(
+                        session = session,
+                        stateProvider = null,
+                        updateState = updateState,
+                    )
+                }
             }
         }
     }
@@ -131,8 +138,28 @@ class AppKavitaReadingListController @Inject constructor(
             invalidateCachedItems = true,
         )
         if (!refreshed) return
-        val state = stateProvider().kavitaReadingLists
+        loadSelectedScopeItemsIfNeeded(
+            session = session,
+            stateProvider = stateProvider,
+            updateState = updateState,
+        )
+    }
+
+    private suspend fun loadSelectedScopeItemsIfNeeded(
+        session: KavitaStoredSession,
+        stateProvider: AppUiStateProvider?,
+        updateState: AppUiStateUpdater,
+    ) {
+        val state = stateProvider?.invoke()?.kavitaReadingLists ?: run {
+            var snapshot: AppKavitaReadingListState? = null
+            updateState { currentState ->
+                snapshot = currentState.kavitaReadingLists
+                currentState
+            }
+            snapshot ?: return
+        }
         state.selectedCollectionId?.let { collectionId ->
+            if (state.seriesByCollectionId.containsKey(collectionId)) return
             loadCollectionSeries(
                 session = session,
                 collectionId = collectionId,
@@ -141,6 +168,7 @@ class AppKavitaReadingListController @Inject constructor(
             return
         }
         state.selectedReadingListId?.let { selectedReadingListId ->
+            if (state.itemsByReadingListId.containsKey(selectedReadingListId)) return
             loadItems(
                 session = session,
                 readingListId = selectedReadingListId,

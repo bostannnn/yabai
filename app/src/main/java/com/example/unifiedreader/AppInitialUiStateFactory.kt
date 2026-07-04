@@ -5,6 +5,7 @@ import kotlinx.coroutines.runBlocking
 
 class AppInitialUiStateFactory @Inject constructor(
     private val navigationController: AppNavigationController,
+    private val activeRouteStore: AppActiveRouteStore,
     private val appStateHydrator: AppStateHydrator,
     private val catalogSnapshotsUseCase: ObserveAppCatalogSnapshotsUseCase,
     private val libraryStateRecomputeCoordinator: AppLibraryStateRecomputeCoordinator,
@@ -33,6 +34,9 @@ class AppInitialUiStateFactory @Inject constructor(
             hydratedSources = snapshot.hydratedSources,
             themeMode = snapshot.themeMode,
         )
-        libraryStateRecomputeCoordinator.initialize(baseState)
+        val restoredRouteState = activeRouteStore.restore()
+            ?.let(baseState::withActiveRouteSnapshot)
+            ?: baseState
+        libraryStateRecomputeCoordinator.initialize(restoredRouteState)
     }
 }

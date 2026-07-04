@@ -35,6 +35,7 @@ fun comicsReaderFactory(
                 journalReadingSessionRecorder = journalReadingSessionRecorder,
                 onBack = onBack,
                 openMode = navigationActions.currentOpenMode,
+                readerWorkCoordinator = navigationActions.readerWorkCoordinator,
                 onNextItemRequested = navigationActions.onRequestCompletion,
             )
         }

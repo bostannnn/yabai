@@ -95,6 +95,8 @@ interface ComicReaderProgressStore {
         pageCount: Int,
         isFinished: Boolean = pageCount > 0 && pageIndex >= pageCount - 1,
     )
+
+    suspend fun flushPendingWrites() = Unit
 }
 
 interface ComicReaderPreferencesStore {

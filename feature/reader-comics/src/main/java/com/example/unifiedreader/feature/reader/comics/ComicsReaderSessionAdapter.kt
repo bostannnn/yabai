@@ -99,6 +99,10 @@ class ComicsReaderSessionAdapter(
         )
     }
 
+    override suspend fun flushPendingWrites() {
+        sessionStore.flushPendingWrites()
+    }
+
     override fun loadReadingDirection(item: ReadableItem): ComicReadingDirection =
         resolveComicReadingDirection(
             item = item,

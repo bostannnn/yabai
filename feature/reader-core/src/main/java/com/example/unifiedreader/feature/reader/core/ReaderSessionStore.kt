@@ -54,6 +54,8 @@ interface ReaderSessionStore {
         replacement: ReaderProgressSnapshot?,
     ): Boolean
 
+    suspend fun flushPendingWrites() = Unit
+
     fun getSession(item: ReadableItem): ReaderSessionSnapshot?
 
     fun updateSession(

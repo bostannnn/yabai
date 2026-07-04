@@ -7,6 +7,7 @@ import com.example.unifiedreader.data.kavita.KavitaFileDimensionDto
 import com.example.unifiedreader.feature.reader.comics.ComicPageMetadata
 import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 import com.example.unifiedreader.feature.reader.comics.PersistentComicPagePreviewStore
+import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -22,6 +23,7 @@ class KavitaPageSource(
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + ioDispatcher),
     previewStore: PersistentComicPagePreviewStore? = null,
+    readerWorkCoordinator: ReaderWorkCoordinator = ReaderWorkCoordinator(),
 ) : RemoteComicPageSource<KavitaStoredSession>(
     sourceType = com.example.unifiedreader.core.model.SourceType.KAVITA,
     supportedFormats = ComicReaderFormats,
@@ -29,6 +31,7 @@ class KavitaPageSource(
     ioDispatcher = ioDispatcher,
     scope = scope,
     previewStore = previewStore,
+    readerWorkCoordinator = readerWorkCoordinator,
 ) {
     private val sessionRequestRunner = KavitaStoredSessionRequestRunner(kavitaCredentialStore)
     private val metadataByItemKey = mutableMapOf<String, Map<String, ComicPageMetadata>>()

@@ -12,11 +12,13 @@ import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -32,6 +34,8 @@ class RoomReaderSessionStore(
     private val sessionWriteMutex = Mutex()
     private val hydrationMutex = Mutex()
     private val stateMonitor = Any()
+    private val pendingWriteJobsMonitor = Any()
+    private val pendingWriteJobs = linkedSetOf<Job>()
     private val tombstonedItemIds = mutableSetOf<String>()
     private val hydrationState = MutableStateFlow(false)
     override val isHydratedFlow: StateFlow<Boolean> = hydrationState.asStateFlow()
@@ -100,7 +104,7 @@ class RoomReaderSessionStore(
             }
         }
         if (!accepted) return
-        writeScope.launch {
+        trackWriteJob(writeScope.launch {
             appStartupTasks.initialize()
             progressWriteMutex.withLock {
                 val snapshotToPersist = synchronized(stateMonitor) {
@@ -108,7 +112,7 @@ class RoomReaderSessionStore(
                 }
                 snapshotToPersist?.toEntity()?.let(readingProgressDao::insertOrReplace)
             }
-        }
+        })
         if (pageCount != null) {
             updateSession(item = item, pageCount = pageCount)
         }
@@ -150,6 +154,16 @@ class RoomReaderSessionStore(
 
     override fun getSession(item: ReadableItem): ReaderSessionSnapshot? = sessionState.value[item.id]
 
+    override suspend fun flushPendingWrites() {
+        while (true) {
+            val jobs = synchronized(pendingWriteJobsMonitor) {
+                pendingWriteJobs.toList()
+            }
+            if (jobs.isEmpty()) return
+            jobs.joinAll()
+        }
+    }
+
     override fun updateSession(
         itemId: String,
         pageCount: Int?,
@@ -169,7 +183,7 @@ class RoomReaderSessionStore(
             }
         }
         if (!accepted) return
-        writeScope.launch {
+        trackWriteJob(writeScope.launch {
             appStartupTasks.initialize()
             sessionWriteMutex.withLock {
                 val latest = synchronized(stateMonitor) {
@@ -177,7 +191,7 @@ class RoomReaderSessionStore(
                 } ?: return@withLock
                 readerSessionStateDao.insertOrReplace(latest.toEntity())
             }
-        }
+        })
     }
 
     override fun replaceSession(
@@ -197,7 +211,7 @@ class RoomReaderSessionStore(
             }
         }
         if (!accepted) return
-        writeScope.launch {
+        trackWriteJob(writeScope.launch {
             appStartupTasks.initialize()
             sessionWriteMutex.withLock {
                 val latest = synchronized(stateMonitor) {
@@ -209,14 +223,14 @@ class RoomReaderSessionStore(
                     readerSessionStateDao.insertOrReplace(latest.toEntity())
                 }
             }
-        }
+        })
     }
 
     override fun clearProgress(itemId: String) {
         synchronized(stateMonitor) {
             progressState.update { it - itemId }
         }
-        writeScope.launch {
+        trackWriteJob(writeScope.launch {
             appStartupTasks.initialize()
             progressWriteMutex.withLock {
                 val shouldDelete = synchronized(stateMonitor) {
@@ -226,7 +240,7 @@ class RoomReaderSessionStore(
                     readingProgressDao.deleteByItemId(itemId)
                 }
             }
-        }
+        })
     }
 
     override fun clearItem(itemId: String) {
@@ -235,7 +249,7 @@ class RoomReaderSessionStore(
             progressState.update { it - itemId }
             sessionState.update { it - itemId }
         }
-        writeScope.launch {
+        trackWriteJob(writeScope.launch {
             appStartupTasks.initialize()
             progressWriteMutex.withLock {
                 val latest = synchronized(stateMonitor) {
@@ -257,12 +271,25 @@ class RoomReaderSessionStore(
                     readerSessionStateDao.insertOrReplace(latest.toEntity())
                 }
             }
-        }
+        })
     }
 
     override fun restoreItem(itemId: String) {
         synchronized(stateMonitor) {
             tombstonedItemIds.remove(itemId)
+        }
+    }
+
+    private fun trackWriteJob(
+        job: Job,
+    ) {
+        synchronized(pendingWriteJobsMonitor) {
+            pendingWriteJobs += job
+        }
+        job.invokeOnCompletion {
+            synchronized(pendingWriteJobsMonitor) {
+                pendingWriteJobs -= job
+            }
         }
     }
 }

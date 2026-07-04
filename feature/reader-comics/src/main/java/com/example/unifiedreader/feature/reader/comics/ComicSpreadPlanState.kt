@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
@@ -28,6 +29,8 @@ internal fun rememberComicSpreadPlanState(
     readingDirection: ComicReadingDirection,
     spreadMode: ComicSpreadMode,
     useDoublePageSpreads: Boolean,
+    metadataLoadingEnabled: Boolean = true,
+    readerWorkCoordinator: ReaderWorkCoordinator? = null,
 ): ComicSpreadPlanState {
     var pageMetadataById by remember(item.id, pages) { mutableStateOf<Map<String, ComicPageMetadata>>(emptyMap()) }
     var spreadPlanningFailuresById by remember(item.id, pages) { mutableStateOf<Map<String, Int>>(emptyMap()) }
@@ -40,10 +43,13 @@ internal fun rememberComicSpreadPlanState(
         readingDirection,
         spreadMode,
         useDoublePageSpreads,
+        metadataLoadingEnabled,
         pages,
         pageSource,
         metadataRetryNonce,
+        readerWorkCoordinator,
     ) {
+        if (!metadataLoadingEnabled) return@LaunchedEffect
         val requiredIndexes = requiredMetadataIndexes(
             currentPage = currentPage,
             pageCount = pages.size,
@@ -65,6 +71,7 @@ internal fun rememberComicSpreadPlanState(
                     item = item,
                     page = page,
                     pageSource = pageSource,
+                    readerWorkCoordinator = readerWorkCoordinator,
                 )
             }
         }.awaitAll()

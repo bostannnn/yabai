@@ -8,6 +8,7 @@ import com.example.unifiedreader.core.model.isKavitaSeriesContainer
 import com.example.unifiedreader.core.model.isStumpSeriesContainer
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
 import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
+import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -20,6 +21,7 @@ class AppReaderCoordinator @Inject constructor(
     private val readableAccessResolver: ReadableAccessResolver,
     private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
     private val remoteReaderContentPreparer: RemoteReaderContentPreparer,
+    private val readerWorkCoordinator: ReaderWorkCoordinator = ReaderWorkCoordinator(),
 ) {
     private var readerSelectionRequestId = 0
     private val libraryScrollPositionByContext =
@@ -563,6 +565,7 @@ class AppReaderCoordinator @Inject constructor(
         openMode: ReaderOpenMode,
         updateState: AppUiStateUpdater,
     ) {
+        readerWorkCoordinator.notifyReaderOpening(item.id)
         updateState { state ->
             state.copy(
                 selectedItemId = item.id,

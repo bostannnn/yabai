@@ -31,6 +31,7 @@ data class ReaderNavigationActions(
     val onRequestNextInSeries: () -> Unit = {},
     val onRequestCompletion: () -> Unit = {},
     val currentOpenMode: ReaderOpenMode = ReaderOpenMode.Default,
+    val readerWorkCoordinator: ReaderWorkCoordinator? = null,
 )
 
 interface ReaderScreenFactory {
@@ -52,17 +53,25 @@ fun ReaderHost(
     factories: List<ReaderScreenFactory>,
     onBack: () -> Unit,
     navigationActions: ReaderNavigationActions = ReaderNavigationActions(),
+    readerWorkCoordinator: ReaderWorkCoordinator? = null,
 ) {
     val factory = factories.firstOrNull { it.supports(item) }
     val chrome = factory?.chrome ?: ReaderChrome.Standard
     ReaderWindowEffect(isImmersive = chrome == ReaderChrome.Immersive)
+    ReaderWorkEffect(
+        item = item,
+        readerWorkCoordinator = readerWorkCoordinator,
+    )
+    val coordinatedNavigationActions = navigationActions.copy(
+        readerWorkCoordinator = readerWorkCoordinator,
+    )
 
     when {
         factory == null -> UnsupportedReader(item = item, onBack = onBack)
         chrome == ReaderChrome.Immersive -> factory.Content(
             item = item,
             onBack = onBack,
-            navigationActions = navigationActions,
+            navigationActions = coordinatedNavigationActions,
         )
         else -> Column(modifier = Modifier.fillMaxSize()) {
             ReaderTopBar(
@@ -72,8 +81,21 @@ fun ReaderHost(
             factory.Content(
                 item = item,
                 onBack = onBack,
-                navigationActions = navigationActions,
+                navigationActions = coordinatedNavigationActions,
             )
+        }
+    }
+}
+
+@Composable
+private fun ReaderWorkEffect(
+    item: ReadableItem,
+    readerWorkCoordinator: ReaderWorkCoordinator?,
+) {
+    DisposableEffect(readerWorkCoordinator, item.id) {
+        val lease = readerWorkCoordinator?.beginReaderSession(item.id)
+        onDispose {
+            lease?.close()
         }
     }
 }

@@ -5,8 +5,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.example.unifiedreader.core.model.ReadableItem
 import kotlinx.coroutines.launch
@@ -18,10 +21,13 @@ internal fun ComicsPagedReaderSurface(
     pageSource: ComicPageSource,
     readerState: ComicsReaderState,
     spreadPlanState: ComicSpreadPlanState,
+    loadedVisiblePageIndexes: Set<Int>,
+    onVisiblePagesLoaded: (Collection<Int>) -> Unit,
     onToggleOverlay: () -> Unit,
     onNavigatePastEnd: () -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
+    var lastPrefetchedPageIndex by remember(item.id) { mutableStateOf<Int?>(null) }
 
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize(),
@@ -71,6 +77,20 @@ internal fun ComicsPagedReaderSurface(
                 resumeAnchorPage = settledPosition.resumeAnchorPage,
                 segment = settledPosition.segment,
             )
+        }
+
+        LaunchedEffect(pagerState.settledPage, spreads, item.id, loadedVisiblePageIndexes) {
+            val settledSpread = spreads.getOrNull(pagerState.settledPage) ?: return@LaunchedEffect
+            val settledPosition = settledSpread.settledReadingPosition(
+                currentPage = readerState.currentPage,
+                pageCount = pages.size,
+            )
+            if (settledPosition.pageIndex !in loadedVisiblePageIndexes ||
+                lastPrefetchedPageIndex == settledPosition.pageIndex
+            ) {
+                return@LaunchedEffect
+            }
+            lastPrefetchedPageIndex = settledPosition.pageIndex
             pageSource.prefetchAround(
                 item = item,
                 settledPageIndex = settledPosition.pageIndex,
@@ -87,6 +107,7 @@ internal fun ComicsPagedReaderSurface(
             isZoomed = readerState.isCurrentPageZoomed,
             pageSource = pageSource,
             pagerState = pagerState,
+            onVisiblePagesLoaded = onVisiblePagesLoaded,
             onZoomStateChanged = readerState::onCurrentPageZoomChanged,
             onInteraction = {},
             onToggleOverlay = onToggleOverlay,

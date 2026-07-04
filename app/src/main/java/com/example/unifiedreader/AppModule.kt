@@ -55,6 +55,7 @@ import com.example.unifiedreader.feature.reader.preferences.DataStoreComicReader
 import com.example.unifiedreader.feature.reader.preferences.DataStoreComicReadingDirectionPreferencesStore
 import com.example.unifiedreader.feature.reader.core.ReaderScreenFactory
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
+import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import com.example.unifiedreader.feature.reader.epub.epubReaderFactory
 import com.example.unifiedreader.feature.reader.pdf.pdfReaderFactory
 import com.example.unifiedreader.feature.settings.DataStoreSettingsPreferencesStore
@@ -76,6 +77,16 @@ object AppModule {
     @Provides
     @Singleton
     fun provideAppDispatchers(): AppDispatchers = AppDispatchers()
+
+    @Provides
+    @Singleton
+    fun provideReaderWorkCoordinator(): ReaderWorkCoordinator = ReaderWorkCoordinator()
+
+    @Provides
+    @Singleton
+    fun provideAppActiveRouteStore(
+        store: SharedPreferencesAppActiveRouteStore,
+    ): AppActiveRouteStore = store
 
     @Provides
     @Singleton
@@ -627,6 +638,7 @@ object AppModule {
         appStartupTasks: AppStartupTasks,
         readerSessionStore: ReaderSessionStore,
         previewStore: PersistentComicPagePreviewStore,
+        readerWorkCoordinator: ReaderWorkCoordinator,
     ): LocalDocumentRepository {
         return LocalDocumentRepository(
             context = context,
@@ -634,6 +646,7 @@ object AppModule {
             appStartupTasks = appStartupTasks,
             onItemImported = readerSessionStore::restoreItem,
             previewStore = previewStore,
+            readerWorkCoordinator = readerWorkCoordinator,
         )
     }
 
@@ -705,11 +718,13 @@ object AppModule {
         kavitaCredentialStore: KavitaCredentialStore,
         remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
         previewStore: PersistentComicPagePreviewStore,
+        readerWorkCoordinator: ReaderWorkCoordinator,
     ): KavitaPageSource = KavitaPageSource(
         kavitaApiFactory = kavitaApiFactory,
         kavitaCredentialStore = kavitaCredentialStore,
         remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
         previewStore = previewStore,
+        readerWorkCoordinator = readerWorkCoordinator,
     )
 
     @Provides
@@ -718,10 +733,12 @@ object AppModule {
         stumpApiFactory: StumpApiFactory,
         stumpCredentialStore: StumpCredentialStore,
         remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
+        readerWorkCoordinator: ReaderWorkCoordinator,
     ): StumpPageSource = StumpPageSource(
         stumpApiFactory = stumpApiFactory,
         stumpCredentialStore = stumpCredentialStore,
         remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+        readerWorkCoordinator = readerWorkCoordinator,
     )
 
     @Provides
