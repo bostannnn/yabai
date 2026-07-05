@@ -509,6 +509,194 @@ class AppPendingProgressFlushCoordinatorTest {
     }
 
     @Test
+    fun `changed automatic observation waits for duplicate throttle before retrying source`() = runTest {
+        val item = downloadedRemotePendingItem()
+        val clock = TestPendingAutoFlushClock()
+        val readerSessionStore = FakeReaderSessionStore().apply {
+            saveProgress(
+                item = item,
+                locator = ReaderLocator(
+                    locatorType = LocatorType.PAGE,
+                    page = 4,
+                ),
+                syncState = SyncState.DIRTY,
+                pageCount = item.pageCount,
+                updatedAtEpochMillis = 123L,
+            )
+        }
+        val readableItemRepository = FakeReadableItemRepository(items = listOf(item))
+        val sync = RecordingPendingSourceProgressSync(sourceType = SourceType.KAVITA)
+        val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markReachable(SourceType.KAVITA)
+        }
+        val coordinator = testPendingProgressFlushCoordinator(
+            readerSessionStore = readerSessionStore,
+            readableItemRepository = readableItemRepository,
+            flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
+                sourceProgressSyncRegistry = SourceProgressSyncRegistry(listOf(sync)),
+            ),
+            remoteItemLocalAvailability = RemoteItemLocalAvailability(emptyList()),
+            remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+            autoFlushPolicy = AppRemoteArtifactAutoFlushPolicy(clock::now),
+        )
+
+        coordinator.observeDirtyProgress(
+            scope = backgroundScope,
+            catalogItemsProvider = { listOf(item) },
+            stateProvider = { AppUiState() },
+            onSyncFailures = {},
+        )
+
+        advanceTimeBy(1600)
+        runCurrent()
+        readerSessionStore.saveProgress(
+            item = item,
+            locator = ReaderLocator(
+                locatorType = LocatorType.PAGE,
+                page = 5,
+            ),
+            syncState = SyncState.DIRTY,
+            pageCount = item.pageCount,
+            updatedAtEpochMillis = 456L,
+        )
+        advanceTimeBy(1600)
+        runCurrent()
+
+        assertEquals(listOf(listOf(item.id)), sync.invocations)
+
+        clock.advance(AUTO_REMOTE_ARTIFACT_FLUSH_THROTTLE_MILLIS)
+        readerSessionStore.saveProgress(
+            item = item,
+            locator = ReaderLocator(
+                locatorType = LocatorType.PAGE,
+                page = 6,
+            ),
+            syncState = SyncState.DIRTY,
+            pageCount = item.pageCount,
+            updatedAtEpochMillis = 789L,
+        )
+        advanceTimeBy(1600)
+        runCurrent()
+
+        assertEquals(listOf(listOf(item.id), listOf(item.id)), sync.invocations)
+    }
+
+    @Test
+    fun `offline failed automatic retry waits for failure backoff after source returns online`() = runTest {
+        val item = downloadedRemotePendingItem()
+        val clock = TestPendingAutoFlushClock()
+        val readerSessionStore = FakeReaderSessionStore().apply {
+            saveProgress(
+                item = item,
+                locator = ReaderLocator(
+                    locatorType = LocatorType.PAGE,
+                    page = 4,
+                ),
+                syncState = SyncState.DIRTY,
+                pageCount = item.pageCount,
+                updatedAtEpochMillis = 123L,
+            )
+        }
+        val readableItemRepository = FakeReadableItemRepository(items = listOf(item))
+        val sync = RecordingPendingSourceProgressSync(
+            sourceType = SourceType.KAVITA,
+            failure = IOException("Connect timeout has expired"),
+        )
+        val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markReachable(SourceType.KAVITA)
+        }
+        val coordinator = testPendingProgressFlushCoordinator(
+            readerSessionStore = readerSessionStore,
+            readableItemRepository = readableItemRepository,
+            flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
+                sourceProgressSyncRegistry = SourceProgressSyncRegistry(listOf(sync)),
+            ),
+            remoteItemLocalAvailability = RemoteItemLocalAvailability(emptyList()),
+            remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+            autoFlushPolicy = AppRemoteArtifactAutoFlushPolicy(clock::now),
+        )
+
+        coordinator.observeDirtyProgress(
+            scope = backgroundScope,
+            catalogItemsProvider = { listOf(item) },
+            stateProvider = { AppUiState() },
+            onSyncFailures = {},
+        )
+
+        advanceTimeBy(1600)
+        runCurrent()
+        remoteSourceConnectivityPolicy.markReachable(SourceType.KAVITA)
+        advanceTimeBy(1600)
+        runCurrent()
+
+        assertEquals(listOf(listOf(item.id)), sync.invocations)
+
+        clock.advance(AUTO_REMOTE_ARTIFACT_FLUSH_FAILURE_BACKOFF_MILLIS)
+        remoteSourceConnectivityPolicy.markChecking(SourceType.KAVITA)
+        advanceTimeBy(1600)
+        runCurrent()
+        remoteSourceConnectivityPolicy.markReachable(SourceType.KAVITA)
+        advanceTimeBy(1600)
+        runCurrent()
+
+        assertEquals(listOf(listOf(item.id), listOf(item.id)), sync.invocations)
+    }
+
+    @Test
+    fun `explicit flush bypasses automatic failure backoff`() = runTest {
+        val item = downloadedRemotePendingItem()
+        val clock = TestPendingAutoFlushClock()
+        val readerSessionStore = FakeReaderSessionStore().apply {
+            saveProgress(
+                item = item,
+                locator = ReaderLocator(
+                    locatorType = LocatorType.PAGE,
+                    page = 4,
+                ),
+                syncState = SyncState.DIRTY,
+                pageCount = item.pageCount,
+                updatedAtEpochMillis = 123L,
+            )
+        }
+        val sync = RecordingPendingSourceProgressSync(
+            sourceType = SourceType.KAVITA,
+            failure = IllegalStateException("Progress rejected"),
+        )
+        val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markReachable(SourceType.KAVITA)
+        }
+        val coordinator = testPendingProgressFlushCoordinator(
+            readerSessionStore = readerSessionStore,
+            readableItemRepository = FakeReadableItemRepository(items = listOf(item)),
+            flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
+                sourceProgressSyncRegistry = SourceProgressSyncRegistry(listOf(sync)),
+            ),
+            remoteItemLocalAvailability = RemoteItemLocalAvailability(emptyList()),
+            remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+            autoFlushPolicy = AppRemoteArtifactAutoFlushPolicy(clock::now),
+        )
+
+        coordinator.observeDirtyProgress(
+            scope = backgroundScope,
+            catalogItemsProvider = { listOf(item) },
+            stateProvider = { AppUiState() },
+            onSyncFailures = {},
+        )
+
+        advanceTimeBy(1600)
+        runCurrent()
+        coordinator.flushPendingProgress(
+            catalogItems = listOf(item),
+            selectedItem = item,
+            scope = backgroundScope,
+            onSyncFailures = {},
+        )
+        runCurrent()
+
+        assertEquals(listOf(listOf(item.id), listOf(item.id)), sync.invocations)
+    }
+
+    @Test
     fun `non-network pending progress failure does not mark source unavailable`() = runTest {
         val item = downloadedRemotePendingItem()
         val readerSessionStore = FakeReaderSessionStore().apply {
@@ -779,6 +967,7 @@ private fun testPendingProgressFlushCoordinator(
     remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
     remoteJournalPusher: RemoteJournalPusher = NoOpRemoteJournalPusher,
     journalRepository: JournalRepository = EmptyJournalRepository,
+    autoFlushPolicy: AppRemoteArtifactAutoFlushPolicy = AppRemoteArtifactAutoFlushPolicy(),
 ): AppPendingProgressFlushCoordinator = AppPendingProgressFlushCoordinator(
     readerSessionStore = readerSessionStore,
     readableItemRepository = readableItemRepository,
@@ -790,6 +979,7 @@ private fun testPendingProgressFlushCoordinator(
     ),
     remoteItemLocalAvailability = remoteItemLocalAvailability,
     remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+    autoFlushPolicy = autoFlushPolicy,
 )
 
 private object EmptyJournalRepository : JournalRepository {
@@ -903,6 +1093,16 @@ private fun testSourceJournalPushers(
                 ): List<Throwable> = remoteJournalPusher.pushPendingJournalEntries(sourceType, items, artifacts)
             }
         }
+
+private class TestPendingAutoFlushClock(
+    private var nowEpochMillis: Long = 1_000L,
+) {
+    fun now(): Long = nowEpochMillis
+
+    fun advance(millis: Long) {
+        nowEpochMillis += millis
+    }
+}
 
 private fun remotePendingItem(): ReadableItem = ReadableItem(
     id = "grimmory:item:pending",

@@ -213,6 +213,7 @@ internal fun createViewModel(
     )
     val sourceProgressSyncRegistry = SourceProgressSyncRegistry(sourceProgressSyncs)
     val remoteItemLocalAvailability = RemoteItemLocalAvailability(remoteDownloadDataSources)
+    val remoteArtifactAutoFlushPolicy = AppRemoteArtifactAutoFlushPolicy()
     val libraryStateRecomputeCoordinator = AppLibraryStateRecomputeCoordinator(
         libraryDerivedStateComputer = LibraryDerivedStateComputer(),
         libraryShelvesStateComputer = LibraryShelvesStateComputer(
@@ -299,6 +300,7 @@ internal fun createViewModel(
                 ),
                 remoteItemLocalAvailability = remoteItemLocalAvailability,
                 remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+                autoFlushPolicy = remoteArtifactAutoFlushPolicy,
             ),
             nextItemResolver = AppReaderNextItemResolver(
                 libraryStateAssembler = libraryStateAssembler,
@@ -374,6 +376,7 @@ internal fun createViewModel(
             ),
             remoteItemLocalAvailability = remoteItemLocalAvailability,
             remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+            autoFlushPolicy = remoteArtifactAutoFlushPolicy,
         ),
         coverPreloadController = coverPreloadController ?: AppCoverPreloadController(
             remoteCoverPreloader = RemoteCoverPreloader(

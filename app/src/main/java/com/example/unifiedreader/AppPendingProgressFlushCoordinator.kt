@@ -31,10 +31,10 @@ class AppPendingProgressFlushCoordinator @Inject constructor(
     private val flushPendingRemoteArtifactsUseCase: FlushPendingRemoteArtifactsUseCase,
     private val remoteItemLocalAvailability: RemoteItemLocalAvailability,
     private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
+    private val autoFlushPolicy: AppRemoteArtifactAutoFlushPolicy = AppRemoteArtifactAutoFlushPolicy(),
 ) {
     private val retainedProgressItemsById = linkedMapOf<String, ReadableItem>()
     private val syncAttemptBySource = linkedMapOf<SourceType, AppRemoteSyncAttempt>()
-    private var lastAutoFlushAttempt: PendingProgressFlushFingerprint? = null
     private var lastPendingRemoteSyncSummary = AppPendingRemoteSyncSummary()
     private var pendingRemoteSyncSummaryReporter: ((AppPendingRemoteSyncSummary) -> Unit)? = null
 
@@ -102,16 +102,12 @@ class AppPendingProgressFlushCoordinator @Inject constructor(
                         ),
                         reporter = onPendingRemoteSyncSummaryChanged,
                     )
-                    val flushFingerprint = PendingProgressFlushFingerprint(
-                        pendingSyncKeys = pendingSyncKeys.toFlushFingerprintKeys(),
-                        itemIds = remoteItems.map(ReadableItem::id),
-                    )
-                    if (remoteItems.isNotEmpty() && flushFingerprint != lastAutoFlushAttempt) {
-                        lastAutoFlushAttempt = flushFingerprint
-                        flushPendingRemoteProgress(
-                            remoteItems = remoteItems,
-                            onSyncFailures = onSyncFailures,
-                        )
+                    val pendingFlushKeys = pendingSyncKeys.toAutoFlushKeys()
+                    val flushItems = autoFlushPolicy.eligibleItemsForAutomaticFlush(pendingFlushKeys, remoteItems)
+                    if (flushItems.isNotEmpty()) {
+                        autoFlushPolicy.recordAutomaticFlushAttempt(pendingFlushKeys, flushItems, emptyList())
+                        val failures = flushPendingRemoteProgress(flushItems, onSyncFailures)
+                        autoFlushPolicy.recordAutomaticFlushAttempt(pendingFlushKeys, flushItems, failures)
                     }
                 }
         }
@@ -134,16 +130,10 @@ class AppPendingProgressFlushCoordinator @Inject constructor(
                 .withoutUnavailableProgressSources(
                     remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
                 )
-            if (remoteItems.isNotEmpty()) {
-                lastAutoFlushAttempt = PendingProgressFlushFingerprint(
-                    pendingSyncKeys = pendingSyncKeys.toFlushFingerprintKeys(),
-                    itemIds = remoteItems.map(ReadableItem::id),
-                )
-            }
-            flushPendingRemoteProgress(
-                remoteItems = remoteItems,
-                onSyncFailures = onSyncFailures,
-            )
+            val pendingFlushKeys = pendingSyncKeys.toAutoFlushKeys()
+            autoFlushPolicy.recordExternalFlushAttempt(pendingFlushKeys, remoteItems, emptyList())
+            val failures = flushPendingRemoteProgress(remoteItems, onSyncFailures)
+            autoFlushPolicy.recordExternalFlushAttempt(pendingFlushKeys, remoteItems, failures)
         }
     }
 
@@ -153,7 +143,7 @@ class AppPendingProgressFlushCoordinator @Inject constructor(
         attemptedItems: List<ReadableItem> = emptyList(),
     ) {
         if (attemptedSourceTypes.isEmpty()) return
-        rememberAttemptedPendingFingerprint(attemptedItems)
+        rememberAttemptedPendingArtifacts(attemptedItems, failures)
         recordSyncAttempts(
             attemptedAtEpochMillis = System.currentTimeMillis(),
             attemptedSourceTypes = attemptedSourceTypes,
@@ -161,8 +151,9 @@ class AppPendingProgressFlushCoordinator @Inject constructor(
         )
     }
 
-    private suspend fun rememberAttemptedPendingFingerprint(
+    private suspend fun rememberAttemptedPendingArtifacts(
         attemptedItems: List<ReadableItem>,
+        failures: List<SourceProgressSyncFailure>,
     ) {
         if (attemptedItems.isEmpty()) return
         val pendingSyncKeys = pendingSyncKeys(
@@ -171,10 +162,7 @@ class AppPendingProgressFlushCoordinator @Inject constructor(
         )
         val attemptedPendingItems = attemptedItems.withPendingSyncKeys(pendingSyncKeys)
         if (attemptedPendingItems.isEmpty()) return
-        lastAutoFlushAttempt = PendingProgressFlushFingerprint(
-            pendingSyncKeys = pendingSyncKeys.toFlushFingerprintKeys(),
-            itemIds = attemptedPendingItems.map(ReadableItem::id),
-        )
+        autoFlushPolicy.recordExternalFlushAttempt(pendingSyncKeys.toAutoFlushKeys(), attemptedPendingItems, failures)
     }
 
     private suspend fun flushPendingRemoteProgress(
@@ -323,7 +311,6 @@ private data class PendingRemoteSyncKey(
     val updatedAtEpochMillis: Long?,
 ) {
     val sortKey: String = "${artifact.name}:$itemId:${updatedAtEpochMillis ?: 0L}:$syncState"
-    val flushFingerprintKey: String = "${artifact.name}:$itemId:${updatedAtEpochMillis ?: 0L}"
 }
 
 private data class PendingProgressObservation(
@@ -335,13 +322,14 @@ private data class PendingProgressObservation(
     val resolvablePendingItemIds: Set<String>,
 )
 
-private data class PendingProgressFlushFingerprint(
-    val pendingSyncKeys: List<String>,
-    val itemIds: List<String>,
-)
-
-private fun List<PendingRemoteSyncKey>.toFlushFingerprintKeys(): List<String> =
-    map(PendingRemoteSyncKey::flushFingerprintKey).distinct().sorted()
+private fun List<PendingRemoteSyncKey>.toAutoFlushKeys(): List<AppRemoteArtifactAutoFlushKey> =
+    map { key ->
+        AppRemoteArtifactAutoFlushKey(
+            artifact = key.artifact,
+            itemId = key.itemId,
+            updatedAtEpochMillis = key.updatedAtEpochMillis,
+        )
+    }.distinct()
 
 private fun List<PendingRemoteSyncKey>.resolvableIn(
     catalogItems: List<ReadableItem>,
