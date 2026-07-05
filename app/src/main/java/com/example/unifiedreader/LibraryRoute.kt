@@ -167,7 +167,7 @@ internal fun LibraryRoute(
                 coverPrefetchKeyProvider = coverPrefetchKeyProvider,
                 onCoverVisible = onCoverVisible,
                 onCoverViewportScrollingChanged = onCoverViewportScrollingChanged,
-                topContent = if (uiState.shouldReserveLibraryShelvesSlot) {
+                topContent = if (uiState.shouldShowLibraryShelves) {
                     @Composable {
                         LibraryShelvesTopSlot(
                             browseContextKey = browseContextKey,

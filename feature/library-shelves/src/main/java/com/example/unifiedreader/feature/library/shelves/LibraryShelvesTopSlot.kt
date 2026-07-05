@@ -1,16 +1,10 @@
 package com.example.unifiedreader.feature.library.shelves
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
-import kotlinx.coroutines.delay
 
 @Composable
 fun LibraryShelvesTopSlot(
@@ -26,57 +20,26 @@ fun LibraryShelvesTopSlot(
     onDeleteImportedItem: (ReadableItem) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    var retainedState by remember(browseContextKey) { mutableStateOf<LibraryShelvesState?>(null) }
-    var slotVisible by remember(browseContextKey) { mutableStateOf(shouldReserveSlot) }
+    if (!shouldReserveSlot) return
 
-    LaunchedEffect(browseContextKey, state) {
-        if (state.hasContent) {
-            retainedState = state.ready()
+    when {
+        state.isLoading -> {
+            LibraryShelvesSlotPlaceholder(modifier = modifier)
         }
-    }
 
-    LaunchedEffect(browseContextKey, shouldReserveSlot, state) {
-        if (!shouldReserveSlot) {
-            retainedState = null
-            slotVisible = false
-            return@LaunchedEffect
+        state.hasContent -> {
+            LibraryShelvesZone(
+                browseContextKey = browseContextKey,
+                state = state.ready(),
+                itemActionContext = itemActionContext,
+                coverImageUrlProvider = coverImageUrlProvider,
+                coverPrefetchKeyProvider = coverPrefetchKeyProvider,
+                onCoverVisible = onCoverVisible,
+                onItemSelected = onItemSelected,
+                onBrowseShelf = onBrowseShelf,
+                onDeleteImportedItem = onDeleteImportedItem,
+                modifier = modifier,
+            )
         }
-        slotVisible = true
-        if (state.isLoading || state.hasContent) {
-            return@LaunchedEffect
-        }
-        delay(LibraryShelvesSlotCollapseDelayMillis)
-        if (shouldReserveSlot && !state.isLoading && !state.hasContent) {
-            retainedState = null
-            slotVisible = false
-        }
-    }
-
-    val displayedState = when {
-        state.hasContent -> state.ready()
-        retainedState?.hasContent == true -> retainedState
-        else -> null
-    }
-    val showPlaceholder = slotVisible && displayedState == null
-
-    if (!showPlaceholder && displayedState == null) return
-
-    if (displayedState != null) {
-        LibraryShelvesZone(
-            browseContextKey = browseContextKey,
-            state = displayedState,
-            itemActionContext = itemActionContext,
-            coverImageUrlProvider = coverImageUrlProvider,
-            coverPrefetchKeyProvider = coverPrefetchKeyProvider,
-            onCoverVisible = onCoverVisible,
-            onItemSelected = onItemSelected,
-            onBrowseShelf = onBrowseShelf,
-            onDeleteImportedItem = onDeleteImportedItem,
-            modifier = modifier,
-        )
-    } else {
-        LibraryShelvesSlotPlaceholder(modifier = modifier)
     }
 }
-
-private const val LibraryShelvesSlotCollapseDelayMillis = 220L
