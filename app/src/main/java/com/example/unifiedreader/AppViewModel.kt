@@ -39,7 +39,7 @@ import kotlinx.coroutines.runBlocking
 class AppViewModel @Inject constructor(
     private val navigationController: AppNavigationController,
     private val activeRouteStore: AppActiveRouteStore,
-    initialUiStateFactory: AppInitialUiStateFactory,
+    private val initialUiStateFactory: AppInitialUiStateFactory,
     private val libraryBrowseController: AppLibraryBrowseController,
     private val settingsController: AppSettingsController,
     private val remoteDownloadController: AppRemoteDownloadController,
@@ -81,13 +81,12 @@ class AppViewModel @Inject constructor(
     private var lastNetworkAvailability: Boolean? = null
 
     init {
-        viewModelScope.launch {
-            remoteSourceConnectivityStartupCoordinator.checkConfiguredSources()
-        }
+        viewModelScope.launch { remoteSourceConnectivityStartupCoordinator.checkConfiguredSources() }
         remoteSourcesCoordinator.initialize(::updateUiState)
         settingsController.restoreState(updateState = ::updateUiState)
         libraryBrowseController.restoreState(updateState = ::updateUiState)
         observeAppState()
+        viewModelScope.launch { initialUiStateFactory.hydrateAfterInitialState() }
     }
 
     fun onTopLevelSelected(destination: TopLevelDestination) {

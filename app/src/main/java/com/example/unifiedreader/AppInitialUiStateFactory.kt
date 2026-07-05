@@ -11,7 +11,6 @@ class AppInitialUiStateFactory @Inject constructor(
     private val libraryStateRecomputeCoordinator: AppLibraryStateRecomputeCoordinator,
 ) {
     fun create(): AppUiState = runBlocking {
-        appStateHydrator.hydrate()
         val navigationState = navigationController.initialState()
         val snapshot = catalogSnapshotsUseCase.currentSnapshot()
         val baseState = AppUiState(
@@ -38,5 +37,9 @@ class AppInitialUiStateFactory @Inject constructor(
             ?.let(baseState::withActiveRouteSnapshot)
             ?: baseState
         libraryStateRecomputeCoordinator.initialize(restoredRouteState)
+    }
+
+    suspend fun hydrateAfterInitialState() {
+        appStateHydrator.hydrate()
     }
 }

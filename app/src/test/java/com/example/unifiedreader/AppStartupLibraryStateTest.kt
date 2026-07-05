@@ -20,7 +20,7 @@ import org.junit.Test
 
 class AppStartupLibraryStateTest {
     @Test
-    fun `cached kavita catalog appears in initial ui state`() {
+    fun `cached kavita catalog appears before startup hydration completes`() {
         val item = sampleItem(id = "book-1", format = FormatType.CBZ)
             .copy(pageCount = 10)
         val viewModel = createViewModel(
@@ -40,7 +40,7 @@ class AppStartupLibraryStateTest {
         )
         val state = viewModel.uiState
 
-        assertTrue(state.toString(), state.isSelectedSourceHydrated)
+        assertFalse(state.toString(), state.isSelectedSourceHydrated)
         assertEquals(1, state.visibleItems.size)
         assertEquals(item.id, state.libraryShelvesState.continueReading.single().item.id)
         assertTrue(state.toString(), state.libraryShelvesState.hasContent)
