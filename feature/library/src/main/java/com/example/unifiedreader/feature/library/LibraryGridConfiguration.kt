@@ -22,7 +22,7 @@ internal val libraryGridStartPaddingDp: Dp = 16.dp
 internal val libraryGridEndPaddingDp: Dp = 16.dp
 internal val libraryGridNavigationEndPaddingDp: Dp = 44.dp
 
-internal data class LibraryGridSizeOption(
+data class LibraryGridSizeOption(
     val cellSizeDp: Int,
     val columnCount: Int,
 )
@@ -73,7 +73,7 @@ internal fun libraryGridCoverImageVariant(
     else -> LibraryCoverImageVariant.Grid
 }
 
-internal fun availableLibraryGridSizeOptions(
+fun availableLibraryGridSizeOptions(
     maxWidth: Dp,
     endPadding: Dp,
 ): List<LibraryGridSizeOption> = supportedLibraryGridCellSizesDp

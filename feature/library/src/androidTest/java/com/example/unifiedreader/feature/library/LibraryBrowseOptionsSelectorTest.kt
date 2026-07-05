@@ -44,7 +44,7 @@ class LibraryBrowseOptionsSelectorTest {
             }
         }
 
-        composeRule.onNodeWithText("Browse: Last read · 180dp")
+        composeRule.onNodeWithText("Last read")
             .assertExists()
             .performClick()
 
@@ -81,7 +81,7 @@ class LibraryBrowseOptionsSelectorTest {
             }
         }
 
-        composeRule.onNodeWithText("Browse: Last read · 180dp")
+        composeRule.onNodeWithText("Last read")
             .assertExists()
             .performClick()
         composeRule.onNodeWithText("Number of issues")
@@ -89,5 +89,114 @@ class LibraryBrowseOptionsSelectorTest {
             .performClick()
 
         assertEquals(LibrarySortMode.ISSUE_COUNT, selectedSortMode)
+    }
+
+    @Test
+    fun browseMenuShowsLockedSortLabel() {
+        var selectedSortMode by mutableStateOf(LibrarySortMode.LAST_READ)
+
+        composeRule.setContent {
+            MaterialTheme {
+                LibraryBrowseOptionsSelector(
+                    sortMode = selectedSortMode,
+                    gridCellSizeDp = defaultLibraryGridCellSizeDp,
+                    gridSizeOptions = listOf(
+                        LibraryGridSizeOption(cellSizeDp = 180, columnCount = 4),
+                    ),
+                    fadeReadItems = false,
+                    showSortOptions = true,
+                    lockedSortLabel = "Manual order",
+                    onSortModeChanged = { selectedSortMode = it },
+                    onGridCellSizeDpChanged = {},
+                    onFadeReadItemsChanged = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Order")
+            .assertExists()
+            .performClick()
+
+        composeRule.onNodeWithText("Manual order").assertExists()
+        assertEquals(LibrarySortMode.LAST_READ, selectedSortMode)
+    }
+
+    @Test
+    fun browseMenuTogglesFadeReadItems() {
+        var fadeReadItems by mutableStateOf(false)
+
+        composeRule.setContent {
+            MaterialTheme {
+                LibraryBrowseOptionsSelector(
+                    sortMode = LibrarySortMode.LAST_READ,
+                    gridCellSizeDp = defaultLibraryGridCellSizeDp,
+                    gridSizeOptions = listOf(
+                        LibraryGridSizeOption(cellSizeDp = 180, columnCount = 4),
+                    ),
+                    fadeReadItems = fadeReadItems,
+                    showSortOptions = true,
+                    onSortModeChanged = {},
+                    onGridCellSizeDpChanged = {},
+                    onFadeReadItemsChanged = { fadeReadItems = it },
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Last read")
+            .assertExists()
+            .performClick()
+        composeRule.onNodeWithText("Fade read books")
+            .assertExists()
+            .performClick()
+
+        assertEquals(true, fadeReadItems)
+    }
+
+    @Test
+    fun genericBrowseMenuSelectsOptionById() {
+        var selectedOption = ""
+
+        composeRule.setContent {
+            MaterialTheme {
+                LibraryBrowseOptionsMenu(
+                    label = "Custom order",
+                    selected = false,
+                    optionSections = listOf(
+                        LibraryBrowseOptionSection(
+                            id = "sort",
+                            title = "Sort",
+                            options = listOf(
+                                LibraryBrowseOption(
+                                    id = "shelf",
+                                    label = "Custom order",
+                                    selected = true,
+                                ),
+                                LibraryBrowseOption(
+                                    id = "title",
+                                    label = "Title",
+                                    selected = false,
+                                ),
+                            ),
+                        ),
+                    ),
+                    gridCellSizeDp = defaultLibraryGridCellSizeDp,
+                    gridSizeOptions = emptyList(),
+                    fadeReadItems = false,
+                    showFadeReadItems = false,
+                    onOptionSelected = { sectionId, optionId -> selectedOption = "$sectionId:$optionId" },
+                    onGridCellSizeDpChanged = {},
+                    onFadeReadItemsChanged = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Custom order")
+            .assertExists()
+            .performClick()
+        composeRule.onNodeWithText("Title")
+            .assertExists()
+            .performClick()
+
+        assertEquals("sort:title", selectedOption)
     }
 }
