@@ -329,7 +329,6 @@ internal fun createViewModel(
                 comicPageSourceCacheController = comicPageSourceCacheController,
                 remoteLibraryCacheStore = remoteLibraryCacheStore,
                 remoteCoverController = remoteCoverController,
-                remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
             ),
             stumpController = AppStumpRemoteSourceController(
                 stumpCoordinator = AppStumpCoordinator(
@@ -341,7 +340,6 @@ internal fun createViewModel(
                 remoteCoverController = remoteCoverController,
                 comicPageSourceCacheController = comicPageSourceCacheController,
                 remoteLibraryCacheStore = remoteLibraryCacheStore,
-                remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
             ),
             grimmoryController = AppGrimmoryRemoteSourceController(
                 grimmoryCoordinator = AppGrimmoryCoordinator(

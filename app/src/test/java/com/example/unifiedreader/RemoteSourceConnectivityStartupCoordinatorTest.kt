@@ -2,8 +2,9 @@ package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.ReadableItem
-import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.ReadingProgress
+import com.example.unifiedreader.core.model.SourceConnectivityState
+import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.data.grimmory.GrimmoryApi
 import com.example.unifiedreader.data.grimmory.GrimmoryBookCatalogEntry
 import com.example.unifiedreader.data.grimmory.GrimmoryEpubProgressUpdate
@@ -31,9 +32,27 @@ import org.junit.Test
 
 class RemoteSourceConnectivityStartupCoordinatorTest {
     @Test
-    fun `startup probe marks configured source online`() = runTest {
+    fun `startup probe skips configured source without startup budget`() = runTest {
         val healthCheck = FakeRemoteSourceHealthCheck(
             result = RemoteSourceHealthCheckResult.Online,
+        )
+        val policy = RemoteSourceConnectivityPolicy()
+        val coordinator = RemoteSourceConnectivityStartupCoordinator(
+            healthChecks = listOf(healthCheck),
+            remoteSourceConnectivityPolicy = policy,
+        )
+
+        coordinator.checkConfiguredSources()
+
+        assertEquals(RemoteSourceReachability.Unknown, policy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(0, healthCheck.callCount)
+    }
+
+    @Test
+    fun `startup probe consumes budget and marks configured source online`() = runTest {
+        val healthCheck = FakeRemoteSourceHealthCheck(
+            result = RemoteSourceHealthCheckResult.Online,
+            startupProbeBudget = 1,
         )
         val policy = RemoteSourceConnectivityPolicy()
         val coordinator = RemoteSourceConnectivityStartupCoordinator(
@@ -54,6 +73,7 @@ class RemoteSourceConnectivityStartupCoordinatorTest {
             healthChecks = listOf(
                 FakeRemoteSourceHealthCheck(
                     failure = IOException("timeout"),
+                    startupProbeBudget = 1,
                 ),
             ),
             remoteSourceConnectivityPolicy = policy,
@@ -92,6 +112,7 @@ class RemoteSourceConnectivityStartupCoordinatorTest {
             healthChecks = listOf(
                 FakeRemoteSourceHealthCheck(
                     failure = failure,
+                    startupProbeBudget = 1,
                 ),
             ),
             remoteSourceConnectivityPolicy = policy,
@@ -110,6 +131,7 @@ class RemoteSourceConnectivityStartupCoordinatorTest {
             healthChecks = listOf(
                 FakeRemoteSourceHealthCheck(
                     result = RemoteSourceHealthCheckResult.NotConfigured,
+                    startupProbeBudget = 1,
                 ),
             ),
             remoteSourceConnectivityPolicy = policy,
@@ -124,6 +146,7 @@ class RemoteSourceConnectivityStartupCoordinatorTest {
     fun `startup probe only runs once`() = runTest {
         val healthCheck = FakeRemoteSourceHealthCheck(
             result = RemoteSourceHealthCheckResult.Online,
+            startupProbeBudget = 2,
         )
         val coordinator = RemoteSourceConnectivityStartupCoordinator(
             healthChecks = listOf(healthCheck),
@@ -134,6 +157,63 @@ class RemoteSourceConnectivityStartupCoordinatorTest {
         coordinator.checkConfiguredSources()
 
         assertEquals(1, healthCheck.callCount)
+    }
+
+    @Test
+    fun `startup probe does not call configured source APIs without source budget`() = runTest {
+        val kavitaApi = RecordingStartupKavitaApi()
+        val stumpApi = RecordingStartupStumpApi()
+        val grimmoryApi = RecordingStartupGrimmoryApi()
+        val coordinator = RemoteSourceConnectivityStartupCoordinator(
+            healthChecks = listOf(
+                KavitaRemoteSourceHealthCheck(
+                    kavitaApiFactory = KavitaApiFactory { kavitaApi },
+                    kavitaCredentialStore = FakeKavitaCredentialStore(
+                        initialSession = KavitaStoredSession(
+                            displayName = "Kavita",
+                            baseUrl = "https://kavita",
+                            username = "reader",
+                            accessToken = "kavita-access",
+                            refreshToken = "kavita-refresh",
+                            apiKey = "kavita-api-key",
+                        ),
+                    ),
+                ),
+                StumpRemoteSourceHealthCheck(
+                    stumpApiFactory = StumpApiFactory { stumpApi },
+                    stumpCredentialStore = FakeStumpCredentialStore(
+                        initialSession = StumpStoredSession(
+                            displayName = "Stump",
+                            baseUrl = "https://stump",
+                            username = "reader",
+                            accessToken = "stump-access",
+                            refreshToken = "stump-refresh",
+                        ),
+                    ),
+                ),
+                GrimmoryRemoteSourceHealthCheck(
+                    grimmoryApiFactory = GrimmoryApiFactory { grimmoryApi },
+                    grimmoryCredentialStore = FakeGrimmoryCredentialStore(
+                        initialSession = GrimmoryStoredSession(
+                            displayName = "Grimmory",
+                            baseUrl = "https://grimmory",
+                            username = "reader",
+                            accessToken = "grimmory-access",
+                            refreshToken = "grimmory-refresh",
+                        ),
+                    ),
+                ),
+            ),
+            remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
+        )
+
+        coordinator.checkConfiguredSources()
+
+        assertEquals(0, kavitaApi.getLibrariesCalls)
+        assertEquals(0, kavitaApi.refreshSessionCalls)
+        assertEquals(0, stumpApi.refreshSessionCalls)
+        assertEquals(0, grimmoryApi.refreshSessionCalls)
+        assertEquals(emptyMap<SourceType, SourceConnectivityState>(), coordinator.currentStates())
     }
 
     @Test
@@ -232,9 +312,17 @@ private class FakeRemoteSourceHealthCheck(
     override val sourceType: SourceType = SourceType.KAVITA,
     private val result: RemoteSourceHealthCheckResult = RemoteSourceHealthCheckResult.Online,
     private val failure: Throwable? = null,
+    startupProbeBudget: Int = 0,
 ) : RemoteSourceHealthCheck {
+    private var remainingStartupProbeBudget = startupProbeBudget
     var callCount = 0
         private set
+
+    override fun consumeStartupProbeBudget(): Boolean {
+        if (remainingStartupProbeBudget <= 0) return false
+        remainingStartupProbeBudget -= 1
+        return true
+    }
 
     override suspend fun check(): RemoteSourceHealthCheckResult {
         callCount += 1

@@ -18,6 +18,8 @@ import kotlinx.coroutines.flow.update
 interface RemoteSourceHealthCheck {
     val sourceType: SourceType
 
+    fun consumeStartupProbeBudget(): Boolean = false
+
     suspend fun check(): RemoteSourceHealthCheckResult
 }
 
@@ -49,7 +51,8 @@ class RemoteSourceConnectivityStartupCoordinator @Inject constructor(
     suspend fun checkConfiguredSources() = coroutineScope {
         if (checkedConfiguredSources) return@coroutineScope
         checkedConfiguredSources = true
-        healthChecks.map { healthCheck ->
+        healthChecks.mapNotNull { healthCheck ->
+            if (!healthCheck.consumeStartupProbeBudget()) return@mapNotNull null
             async {
                 checkSource(healthCheck)
             }

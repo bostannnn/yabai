@@ -14,10 +14,7 @@ class AppStumpRemoteSourceController @Inject constructor(
     private val remoteCoverController: RemoteCoverController,
     private val comicPageSourceCacheController: ComicPageSourceCacheController,
     private val remoteLibraryCacheStore: RemoteLibraryCacheStore,
-    private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
 ) {
-    private var suppressedObservedLibraryRefresh: StumpStoredSessionKey? = null
-
     fun initialize(
         updateState: AppUiStateUpdater,
     ) {
@@ -153,30 +150,6 @@ class AppStumpRemoteSourceController @Inject constructor(
                         }
                     }
                 }
-                if (stateProvider().stumpConnection.isConnecting) return@collectLatest
-                if (consumeSuppressedObservedLibraryRefresh(session)) return@collectLatest
-                if (cachedLibraries.isEmpty()) return@collectLatest
-                if (!remoteSourceConnectivityPolicy.isReachable(SourceType.STUMP)) return@collectLatest
-                val libraries = runCatching {
-                    stumpCoordinator.loadAvailableLibraries(session)
-                }.getOrNull() ?: return@collectLatest
-                remoteLibraryCacheStore.replaceCachedLibraries(
-                    sourceType = SourceType.STUMP,
-                    baseUrl = session.baseUrl,
-                    username = session.username,
-                    libraries = libraries,
-                )
-                updateConnection(updateState) { connection ->
-                    if (
-                        connection.hasStoredSession &&
-                        connection.baseUrl == session.baseUrl &&
-                        connection.username == session.username
-                    ) {
-                        connection.copy(availableLibraries = libraries)
-                    } else {
-                        connection
-                    }
-                }
             }
         }
     }
@@ -229,7 +202,6 @@ class AppStumpRemoteSourceController @Inject constructor(
         scope: CoroutineScope,
     ) {
         scope.launch {
-            suppressObservedLibraryRefresh(preparation.request.baseUrl, preparation.request.username)
             when (
                 val result = stumpCoordinator.executeSync(
                     preparation = preparation,
@@ -274,7 +246,6 @@ class AppStumpRemoteSourceController @Inject constructor(
                     }
                 }
                 is StumpSyncExecutionResult.Failure -> {
-                    clearSuppressedObservedLibraryRefresh(preparation.request.baseUrl, preparation.request.username)
                     updateState { state ->
                         state.copy(
                             stumpConnection = result.connection.copy(activeAction = null),
@@ -291,7 +262,6 @@ class AppStumpRemoteSourceController @Inject constructor(
         scope: CoroutineScope,
     ) {
         scope.launch {
-            suppressObservedLibraryRefresh(preparation.request.baseUrl, preparation.request.username)
             when (val result = stumpCoordinator.executeConnect(preparation)) {
                 is StumpConnectExecutionResult.Success -> {
                     remoteLibraryCacheStore.replaceCachedLibraries(
@@ -311,7 +281,6 @@ class AppStumpRemoteSourceController @Inject constructor(
                     }
                 }
                 is StumpConnectExecutionResult.Failure -> {
-                    clearSuppressedObservedLibraryRefresh(preparation.request.baseUrl, preparation.request.username)
                     updateState { state ->
                         state.copy(
                             stumpConnection = result.connection.copy(activeAction = null),
@@ -328,44 +297,6 @@ class AppStumpRemoteSourceController @Inject constructor(
 
     private suspend fun resetCoverState() {
         remoteCoverController.refreshSourceAfterCatalogSync(SourceType.STUMP)
-    }
-
-    private fun suppressObservedLibraryRefresh(
-        baseUrl: String,
-        username: String,
-    ) {
-        suppressedObservedLibraryRefresh = StumpStoredSessionKey(
-            baseUrl = baseUrl,
-            username = username,
-        )
-    }
-
-    private fun clearSuppressedObservedLibraryRefresh(
-        baseUrl: String,
-        username: String,
-    ) {
-        val key = StumpStoredSessionKey(
-            baseUrl = baseUrl,
-            username = username,
-        )
-        if (suppressedObservedLibraryRefresh == key) {
-            suppressedObservedLibraryRefresh = null
-        }
-    }
-
-    private fun consumeSuppressedObservedLibraryRefresh(
-        session: StumpStoredSession,
-    ): Boolean {
-        val key = StumpStoredSessionKey(
-            baseUrl = session.baseUrl,
-            username = session.username,
-        )
-        return if (suppressedObservedLibraryRefresh == key) {
-            suppressedObservedLibraryRefresh = null
-            true
-        } else {
-            false
-        }
     }
 
     private fun updateConnection(
@@ -394,8 +325,3 @@ class AppStumpRemoteSourceController @Inject constructor(
         }
     }
 }
-
-private data class StumpStoredSessionKey(
-    val baseUrl: String,
-    val username: String,
-)

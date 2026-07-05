@@ -520,10 +520,10 @@ class AppViewModelTest {
 
     @Test
     fun `retry selected source connection checks offline source again`() {
-        val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy()
-        val healthCheck = RetryableRemoteSourceHealthCheck(
-            firstFailure = java.io.IOException("timeout"),
-        )
+        val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markUnavailable(SourceType.KAVITA)
+        }
+        val healthCheck = AlwaysOnlineRemoteSourceHealthCheck(sourceType = SourceType.KAVITA)
         val viewModel = createViewModel(
             remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
             remoteSourceHealthChecks = listOf(healthCheck),
@@ -531,12 +531,13 @@ class AppViewModelTest {
         shadowOf(Looper.getMainLooper()).idle()
 
         assertEquals(RemoteSourceReachability.Unavailable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(0, healthCheck.callCount)
 
         viewModel.retrySelectedSourceConnection()
         shadowOf(Looper.getMainLooper()).idle()
 
         assertEquals(RemoteSourceReachability.Reachable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
-        assertEquals(2, healthCheck.callCount)
+        assertEquals(1, healthCheck.callCount)
     }
 
     @Test
@@ -561,10 +562,10 @@ class AppViewModelTest {
                 pageCount = remoteComic.pageCount,
             )
         }
-        val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy()
-        val healthCheck = RetryableRemoteSourceHealthCheck(
-            firstFailure = IOException("timeout"),
-        )
+        val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markUnavailable(SourceType.KAVITA)
+        }
+        val healthCheck = AlwaysOnlineRemoteSourceHealthCheck(sourceType = SourceType.KAVITA)
         val progressSync = BlockingSourceProgressSync(sourceType = SourceType.KAVITA)
         val networkConnectivityMonitor = FakeAppNetworkConnectivityMonitor(initialAvailable = false)
 
@@ -580,6 +581,7 @@ class AppViewModelTest {
         shadowOf(Looper.getMainLooper()).idleFor(2, TimeUnit.SECONDS)
 
         assertEquals(RemoteSourceReachability.Unavailable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(0, healthCheck.callCount)
         assertEquals(0, progressSync.pushPendingProgressCalls)
 
         networkConnectivityMonitor.setNetworkAvailable(true)
@@ -587,7 +589,7 @@ class AppViewModelTest {
         shadowOf(Looper.getMainLooper()).idleFor(2, TimeUnit.SECONDS)
 
         assertEquals(RemoteSourceReachability.Reachable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
-        assertEquals(2, healthCheck.callCount)
+        assertEquals(1, healthCheck.callCount)
         assertEquals(1, progressSync.pushPendingProgressCalls)
     }
 
@@ -635,6 +637,7 @@ class AppViewModelTest {
         shadowOf(Looper.getMainLooper()).idleFor(2, TimeUnit.SECONDS)
 
         assertEquals(RemoteSourceReachability.Unavailable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(0, healthCheck.callCount)
         assertEquals(1, progressSync.pushPendingProgressCalls)
 
         networkConnectivityMonitor.setNetworkAvailable(true)
@@ -642,7 +645,7 @@ class AppViewModelTest {
         shadowOf(Looper.getMainLooper()).idleFor(2, TimeUnit.SECONDS)
 
         assertEquals(RemoteSourceReachability.Reachable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
-        assertEquals(2, healthCheck.callCount)
+        assertEquals(1, healthCheck.callCount)
         assertEquals(2, progressSync.pushPendingProgressCalls)
     }
 
@@ -668,10 +671,10 @@ class AppViewModelTest {
                 pageCount = remoteComic.pageCount,
             )
         }
-        val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy()
-        val healthCheck = RetryableRemoteSourceHealthCheck(
-            firstFailure = IOException("timeout"),
-        )
+        val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markUnavailable(SourceType.KAVITA)
+        }
+        val healthCheck = AlwaysOnlineRemoteSourceHealthCheck(sourceType = SourceType.KAVITA)
         val progressSync = BlockingSourceProgressSync(sourceType = SourceType.KAVITA)
         val networkConnectivityMonitor = FakeAppNetworkConnectivityMonitor(initialAvailable = true)
 
@@ -687,7 +690,7 @@ class AppViewModelTest {
         shadowOf(Looper.getMainLooper()).idleFor(2, TimeUnit.SECONDS)
 
         assertEquals(RemoteSourceReachability.Unavailable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
-        assertEquals(1, healthCheck.callCount)
+        assertEquals(0, healthCheck.callCount)
         assertEquals(0, progressSync.pushPendingProgressCalls)
 
         networkConnectivityMonitor.setNetworkAvailable(false)
@@ -697,7 +700,7 @@ class AppViewModelTest {
         shadowOf(Looper.getMainLooper()).idleFor(2, TimeUnit.SECONDS)
 
         assertEquals(RemoteSourceReachability.Reachable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
-        assertEquals(2, healthCheck.callCount)
+        assertEquals(1, healthCheck.callCount)
         assertEquals(1, progressSync.pushPendingProgressCalls)
     }
 
@@ -2611,7 +2614,7 @@ class AppViewModelTest {
     }
 
     @Test
-    fun `stored kavita session restores cached libraries before live fetch`() {
+    fun `stored kavita session restores cached libraries without live fetch`() {
         val credentialStore = FakeKavitaCredentialStore(
             KavitaStoredSession(
                 displayName = "Home Kavita",
@@ -2654,6 +2657,7 @@ class AppViewModelTest {
         shadowOf(Looper.getMainLooper()).idle()
 
         assertEquals(cachedLibraries, viewModel.uiState.kavitaConnection.availableLibraries)
+        assertNull(syncer.lastConnectRequest)
     }
 
     @Test
@@ -2695,7 +2699,7 @@ class AppViewModelTest {
     }
 
     @Test
-    fun `stored kavita session clears cached libraries after successful empty live fetch`() {
+    fun `stored kavita session keeps cached libraries without observed live fetch`() {
         val credentialStore = FakeKavitaCredentialStore(
             KavitaStoredSession(
                 displayName = "Home Kavita",
@@ -2740,10 +2744,11 @@ class AppViewModelTest {
 
         shadowOf(Looper.getMainLooper()).idle()
 
-        assertEquals(emptyList<Library>(), viewModel.uiState.kavitaConnection.availableLibraries)
+        assertEquals(cachedLibraries, viewModel.uiState.kavitaConnection.availableLibraries)
+        assertNull(syncer.lastConnectRequest)
         runBlocking {
             assertEquals(
-                emptyList<Library>(),
+                cachedLibraries,
                 cacheStore.getCachedLibraries(
                     sourceType = SourceType.KAVITA,
                     baseUrl = "https://kavita.example",
@@ -2754,7 +2759,7 @@ class AppViewModelTest {
     }
 
     @Test
-    fun `stored stump session clears cached libraries after successful empty live fetch`() {
+    fun `stored stump session keeps cached libraries without observed live fetch`() {
         val credentialStore = FakeStumpCredentialStore(
             StumpStoredSession(
                 displayName = "Home Stump",
@@ -2798,10 +2803,11 @@ class AppViewModelTest {
 
         shadowOf(Looper.getMainLooper()).idle()
 
-        assertEquals(emptyList<Library>(), viewModel.uiState.stumpConnection.availableLibraries)
+        assertEquals(cachedLibraries, viewModel.uiState.stumpConnection.availableLibraries)
+        assertNull(syncer.lastConnectRequest)
         runBlocking {
             assertEquals(
-                emptyList<Library>(),
+                cachedLibraries,
                 cacheStore.getCachedLibraries(
                     sourceType = SourceType.STUMP,
                     baseUrl = "https://stump.example",
@@ -3226,20 +3232,6 @@ private fun assertRemoteCoverUrl(
     actualUrl: String?,
 ) {
     assertEquals("$expectedBaseUrl#coverv=$expectedVersion", actualUrl)
-}
-
-private class RetryableRemoteSourceHealthCheck(
-    override val sourceType: SourceType = SourceType.KAVITA,
-    private val firstFailure: Throwable,
-) : RemoteSourceHealthCheck {
-    var callCount = 0
-        private set
-
-    override suspend fun check(): RemoteSourceHealthCheckResult {
-        callCount += 1
-        if (callCount == 1) throw firstFailure
-        return RemoteSourceHealthCheckResult.Online
-    }
 }
 
 private class AlwaysOnlineRemoteSourceHealthCheck(

@@ -15,10 +15,7 @@ class AppKavitaRemoteSourceController @Inject constructor(
     private val comicPageSourceCacheController: ComicPageSourceCacheController,
     private val remoteLibraryCacheStore: RemoteLibraryCacheStore,
     private val remoteCoverController: RemoteCoverController,
-    private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
 ) {
-    private var suppressedObservedLibraryRefresh: KavitaStoredSessionKey? = null
-
     fun initialize(
         updateState: AppUiStateUpdater,
     ) {
@@ -154,30 +151,6 @@ class AppKavitaRemoteSourceController @Inject constructor(
                         }
                     }
                 }
-                if (stateProvider().kavitaConnection.isConnecting) return@collectLatest
-                if (consumeSuppressedObservedLibraryRefresh(session)) return@collectLatest
-                if (cachedLibraries.isEmpty()) return@collectLatest
-                if (!remoteSourceConnectivityPolicy.isReachable(SourceType.KAVITA)) return@collectLatest
-                val libraries = runCatching {
-                    kavitaCoordinator.loadAvailableLibraries(session)
-                }.getOrNull() ?: return@collectLatest
-                remoteLibraryCacheStore.replaceCachedLibraries(
-                    sourceType = SourceType.KAVITA,
-                    baseUrl = session.baseUrl,
-                    username = session.username,
-                    libraries = libraries,
-                )
-                updateConnection(updateState) { connection ->
-                    if (
-                        connection.hasStoredSession &&
-                        connection.baseUrl == session.baseUrl &&
-                        connection.username == session.username
-                    ) {
-                        connection.copy(availableLibraries = libraries)
-                    } else {
-                        connection
-                    }
-                }
             }
         }
     }
@@ -280,7 +253,6 @@ class AppKavitaRemoteSourceController @Inject constructor(
         scope: CoroutineScope,
     ) {
         scope.launch {
-            suppressObservedLibraryRefresh(preparation.request.baseUrl, preparation.request.username)
             when (
                 val result = kavitaCoordinator.executeSync(
                     preparation = preparation,
@@ -331,7 +303,6 @@ class AppKavitaRemoteSourceController @Inject constructor(
                     )
                 }
                 is KavitaSyncExecutionResult.Failure -> {
-                    clearSuppressedObservedLibraryRefresh(preparation.request.baseUrl, preparation.request.username)
                     updateState { state ->
                         state.copy(
                             kavitaConnection = result.connection.copy(activeAction = null),
@@ -350,7 +321,6 @@ class AppKavitaRemoteSourceController @Inject constructor(
         preserveLibraryContext: Boolean,
     ) {
         scope.launch {
-            suppressObservedLibraryRefresh(preparation.request.baseUrl, preparation.request.username)
             when (
                 val result = kavitaCoordinator.executeFastSync(
                     preparation = preparation,
@@ -412,7 +382,6 @@ class AppKavitaRemoteSourceController @Inject constructor(
                     )
                 }
                 is KavitaSyncExecutionResult.Failure -> {
-                    clearSuppressedObservedLibraryRefresh(preparation.request.baseUrl, preparation.request.username)
                     updateState { state ->
                         state.copy(
                             kavitaConnection = result.connection.copy(activeAction = null),
@@ -429,7 +398,6 @@ class AppKavitaRemoteSourceController @Inject constructor(
         scope: CoroutineScope,
     ) {
         scope.launch {
-            suppressObservedLibraryRefresh(preparation.request.baseUrl, preparation.request.username)
             when (val result = kavitaCoordinator.executeConnect(preparation)) {
                 is KavitaConnectExecutionResult.Success -> {
                     remoteLibraryCacheStore.replaceCachedLibraries(
@@ -449,7 +417,6 @@ class AppKavitaRemoteSourceController @Inject constructor(
                     }
                 }
                 is KavitaConnectExecutionResult.Failure -> {
-                    clearSuppressedObservedLibraryRefresh(preparation.request.baseUrl, preparation.request.username)
                     updateState { state ->
                         state.copy(
                             kavitaConnection = result.connection.copy(activeAction = null),
@@ -466,44 +433,6 @@ class AppKavitaRemoteSourceController @Inject constructor(
 
     private suspend fun resetCoverState() {
         remoteCoverController.refreshSourceAfterCatalogSync(SourceType.KAVITA)
-    }
-
-    private fun suppressObservedLibraryRefresh(
-        baseUrl: String,
-        username: String,
-    ) {
-        suppressedObservedLibraryRefresh = KavitaStoredSessionKey(
-            baseUrl = baseUrl,
-            username = username,
-        )
-    }
-
-    private fun clearSuppressedObservedLibraryRefresh(
-        baseUrl: String,
-        username: String,
-    ) {
-        val key = KavitaStoredSessionKey(
-            baseUrl = baseUrl,
-            username = username,
-        )
-        if (suppressedObservedLibraryRefresh == key) {
-            suppressedObservedLibraryRefresh = null
-        }
-    }
-
-    private fun consumeSuppressedObservedLibraryRefresh(
-        session: KavitaStoredSession,
-    ): Boolean {
-        val key = KavitaStoredSessionKey(
-            baseUrl = session.baseUrl,
-            username = session.username,
-        )
-        return if (suppressedObservedLibraryRefresh == key) {
-            suppressedObservedLibraryRefresh = null
-            true
-        } else {
-            false
-        }
     }
 
     private fun updateConnection(
@@ -532,8 +461,3 @@ class AppKavitaRemoteSourceController @Inject constructor(
         }
     }
 }
-
-private data class KavitaStoredSessionKey(
-    val baseUrl: String,
-    val username: String,
-)
