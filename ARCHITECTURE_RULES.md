@@ -69,6 +69,26 @@ Avoid:
 - adding another `when (sourceType)` branch to app-shell code if the behavior can live in a per-source class
 - adding parallel `onKavita...`, `onStump...`, `onGrimmory...` methods unless they are simple delegation and already part of an existing thin adapter
 
+### App coordinators and controllers
+
+`app` coordinators and controllers may sequence owning modules, but they must not become the owner of feature behavior.
+
+Allowed app coordinator work:
+
+- translating top-level app events into calls on owning modules
+- merging already-computed state into `AppUiState`
+- managing cancellation and lifecycle for app-scoped jobs
+- delegating to source-specific, reader-specific, or feature-specific collaborators
+
+Avoid:
+
+- placing source policy, reader policy, cache policy, or heavy presentation computation in `app`
+- adding repeated `Kavita` / `Stump` / `Grimmory` branches in app code
+- creating a new large `App...Coordinator` when a feature module can own the behavior
+- growing an app coordinator past 250 lines without an explicit extraction plan
+
+If an app coordinator needs source-specific behavior, introduce a small source-owned interface or adapter and have `app` call that interface.
+
 ### Reader-specific behavior
 
 Reader behavior belongs in the reader module for that format.
@@ -84,6 +104,37 @@ Avoid:
 - placing reader rules in `app`
 - mixing UI, file I/O, session restore, and engine integration in one file when extracting is practical
 
+### Runtime performance boundaries
+
+Structure is not enough if the runtime behavior still causes startup jank, reader jank, battery drain, or memory pressure.
+
+Do not introduce:
+
+- `runBlocking` in app startup, ViewModel initialization, Compose code, or lifecycle callbacks outside tests
+- disk reads or writes on the main thread
+- network calls before initial display unless the user explicitly triggered them or the work has a documented startup requirement
+- automatic network work without a dedupe key, cooldown or freshness rule, cancellation path, and focused test
+- polling loops for background work when the same behavior can be driven by a state-change signal
+- bitmap decode, archive scans, PDF/EPUB/comic page work, or expensive sampling during composition
+- unbounded in-memory caches of page bytes, bitmaps, cover images, or remote payloads
+
+Performance-sensitive work must name the owner module and the metric that proves the change helped. Acceptable proof includes a focused unit test for fewer calls/work, a benchmark, or a documented manual profiler check.
+
+### Library presentation state
+
+The main library screen must publish coherent presentation states.
+
+The visible grid items, shelves, filter summary, browse key, sort/filter/search state, and source loading state should commit together. Do not publish a state where one part of the screen reflects new inputs while another major part still reflects stale inputs, unless the stale content is explicitly retained and marked loading.
+
+For Kavita landing, shelves, collections, reading lists, and filtered series views:
+
+- keep the previous coherent presentation or show one unified loading state while membership or derived presentation is recomputing
+- do not make shelves appear, disappear, or resize after the grid has already presented the new item set
+- covers may load independently, but card sizes and list/grid positions must remain stable
+- root shelves, selected collection/list content, and filtered series grids must not be computed by unrelated timing paths that visibly fight each other
+
+This rule belongs at the presentation commit boundary. Do not fix presentation jumping by forcing one giant network call or by moving source-specific API behavior into `app`.
+
 ## Module Ownership
 
 Use this ownership map when deciding where code goes.
@@ -94,6 +145,8 @@ Use this ownership map when deciding where code goes.
   - source-agnostic domain models and pure model helpers
 - `core:common`
   - generic shared utilities with no product-specific behavior
+- `core:ui-theme`
+  - shared visual tokens, theme setup, and generic UI treatment helpers
 - `core:network`
   - HTTP client setup and generic network support
 - `core:database`
@@ -108,8 +161,16 @@ Use this ownership map when deciding where code goes.
   - repository implementations that compose data sources
 - `feature:library`
   - browse/filter/sort/presentation for the library experience
+- `feature:library-covers`
+  - cover image models, cover loading UI contracts, and cover-facing library helpers
+- `feature:library-shelves`
+  - shelf presentation, shelf item browsing UI, and shelf-specific state
+- `feature:navigation`
+  - source navigation state and source ordering preferences
 - `feature:reader-core`
   - shared reader abstractions and cross-reader UI primitives
+- `feature:reader-preferences`
+  - reader settings/preferences shared across reader formats
 - `feature:reader-comics`
   - comics reader behavior and UI
 - `feature:reader-pdf`
@@ -118,6 +179,8 @@ Use this ownership map when deciding where code goes.
   - EPUB reader behavior and UI
 - `feature:downloads`
   - download workflows and download-facing UI
+- `feature:journal`
+  - journal entries, journal stats, and journal-facing UI/state
 - `feature:settings`
   - settings UI and settings-facing state
 
@@ -139,7 +202,22 @@ Current hotspot files that should shrink over time, not grow:
 - `app/src/main/java/com/example/unifiedreader/AppRemoteSourcesCoordinator.kt`
 - `app/src/main/java/com/example/unifiedreader/AppViewModel.kt`
 - `app/src/main/java/com/example/unifiedreader/AppModule.kt`
+- `app/src/main/java/com/example/unifiedreader/AppLibraryStateRecomputeCoordinator.kt`
+- `app/src/main/java/com/example/unifiedreader/AppPendingProgressFlushCoordinator.kt`
+- `app/src/main/java/com/example/unifiedreader/AppCoverPreloadController.kt`
+- `app/src/main/java/com/example/unifiedreader/AppReaderCoordinator.kt`
+- `app/src/main/java/com/example/unifiedreader/RemoteComicPageSource.kt`
+- `app/src/main/java/com/example/unifiedreader/LocalComicPageLoader.kt`
 - `feature/reader-epub/src/main/java/com/example/unifiedreader/feature/reader/epub/EpubReaderEntry.kt`
+- `feature/reader-pdf/src/main/java/com/example/unifiedreader/feature/reader/pdf/PdfReaderEntry.kt`
+- `feature/reader-comics/src/main/java/com/example/unifiedreader/feature/reader/comics/ComicsReaderSpreadLayout.kt`
+- `feature/reader-comics/src/main/java/com/example/unifiedreader/feature/reader/comics/ComicPagePreviewStrip.kt`
+- `feature/library-shelves/src/main/java/com/example/unifiedreader/feature/library/shelves/LibraryShelfItemsSheet.kt`
+- `feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryFilterComponents.kt`
+- `data/kavita/src/main/kotlin/com/example/unifiedreader/data/kavita/KavitaApi.kt`
+- `data/kavita/src/main/kotlin/com/example/unifiedreader/data/kavita/KavitaDtos.kt`
+- `data/grimmory/src/main/kotlin/com/example/unifiedreader/data/grimmory/GrimmoryApi.kt`
+- `core/database/src/main/java/com/example/unifiedreader/core/database/UnifiedReaderDatabase.kt`
 
 ## Preferred Change Shape
 
@@ -152,6 +230,12 @@ For non-trivial work, prefer this sequence:
 5. wire the app shell to it
 6. add tests in the owning module
 
+For performance work, also require:
+
+7. describe the before/after runtime behavior
+8. identify the metric, log, benchmark, or test that proves less work runs
+9. keep the fix scoped to one owner module unless the ownership boundary requires a thin app wiring change
+
 This is better than:
 
 1. modify the app shell until the feature works
@@ -161,6 +245,17 @@ This is better than:
 
 Every logic-heavy change should add or update tests in the owning module.
 
+Performance-heavy changes need proof, not just explanation. Use the smallest proof that demonstrates the intended effect:
+
+- startup: `StartupTimingMetric`, `adb shell am start -W`, StrictMode disk read/write logs, Choreographer skipped-frame logs, or a focused startup unit test
+- network: request counts during launch/resume, dedupe/cooldown unit tests, Network Inspector, or `dumpsys batterystats` radio-wakeup checks
+- reader idle: CPU/Energy profiler, Perfetto scheduling slices, virtual-time coroutine tests, or a manual idle-in-reader check
+- reader navigation: ANR traces, StrictMode slow-call/disk-write logs, Choreographer skipped frames, or lifecycle flush tests
+- memory: `adb shell dumpsys meminfo`, allocation records, trim/GC logs, or cache-budget unit tests
+- library presentation: tests or screenshots proving shelves/grid/filter summary/loading state commit coherently without layout jumps
+
+Do not accept a performance fix that cannot say what work was removed, delayed, deduped, bounded, or moved off the main thread.
+
 Review should reject a change when:
 
 - app-shell files gained business logic that could live elsewhere
@@ -168,6 +263,9 @@ Review should reject a change when:
 - source-specific logic was added to a shared coordinator without a strong reason
 - a large file got larger without extraction
 - the final explanation cannot clearly justify ownership of each changed file
+- runtime work was added without a trigger, freshness rule, cancellation path, and proof
+- library presentation can visibly publish mixed old/new state
+- memory or cache growth is unbounded
 
 ## Codex Working Rules
 
@@ -177,6 +275,7 @@ When using Codex for implementation, require it to do all of the following befor
 2. list the files it plans to change
 3. list the files it must not change
 4. explain why the new logic belongs where it plans to put it
+5. for performance or UI-smoothness work, explain the before/after behavior and how it will be verified
 
 If the proposed plan violates this file, reject it and ask for a redesign before code is written.
 
@@ -190,3 +289,5 @@ Use this checklist for PRs or Codex outputs:
 - Did a hotspot file grow when it should have been split?
 - Are tests added in the owning module?
 - Could a future source or reader be added without editing the same giant file again?
+- For performance work, is there proof that fewer calls happen or less work runs?
+- For library UI work, does the screen commit coherent presentation state without jumping?
