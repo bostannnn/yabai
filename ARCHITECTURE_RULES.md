@@ -135,6 +135,26 @@ For Kavita landing, shelves, collections, reading lists, and filtered series vie
 
 This rule belongs at the presentation commit boundary. Do not fix presentation jumping by forcing one giant network call or by moving source-specific API behavior into `app`.
 
+### Reuse before reinterpreting
+
+Do not introduce a new interpretation of an existing user-facing control or browse pattern when the app already has one.
+
+Before adding any of these, first identify the existing implementation and either reuse it or explain why it cannot be reused:
+
+- search fields
+- sort menus or sort chips
+- view/grid/list selectors
+- grid-size and column-count controls
+- cover cards, list rows, and item action menus
+- cover prefetchers and visible-item prefetch target selection
+- empty, loading, and placeholder states
+- browse toolbars and filter summaries
+- item count labels and common metadata labels
+
+Feature-specific semantics may stay local. For example, shelves can own shelf order, recent activity, and progress sort rules. Shared chrome, control behavior, sizing rules, and visual language should live in the owning reusable module instead of being copied into the feature.
+
+If the reusable component is too private or too specific, prefer extracting a narrow public primitive in the owning module over duplicating the behavior elsewhere.
+
 ## Module Ownership
 
 Use this ownership map when deciding where code goes.
@@ -226,15 +246,16 @@ For non-trivial work, prefer this sequence:
 1. decide the owning module
 2. list files to change
 3. list files that are explicitly forbidden
-4. add or extract the owning abstraction
-5. wire the app shell to it
-6. add tests in the owning module
+4. list any existing components or helpers that overlap with the requested behavior
+5. add or extract the owning abstraction
+6. wire the app shell to it
+7. add tests in the owning module
 
 For performance work, also require:
 
-7. describe the before/after runtime behavior
-8. identify the metric, log, benchmark, or test that proves less work runs
-9. keep the fix scoped to one owner module unless the ownership boundary requires a thin app wiring change
+8. describe the before/after runtime behavior
+9. identify the metric, log, benchmark, or test that proves less work runs
+10. keep the fix scoped to one owner module unless the ownership boundary requires a thin app wiring change
 
 This is better than:
 
@@ -263,6 +284,7 @@ Review should reject a change when:
 - source-specific logic was added to a shared coordinator without a strong reason
 - a large file got larger without extraction
 - the final explanation cannot clearly justify ownership of each changed file
+- an existing user-facing pattern was reimplemented instead of reused or extracted
 - runtime work was added without a trigger, freshness rule, cancellation path, and proof
 - library presentation can visibly publish mixed old/new state
 - memory or cache growth is unbounded
@@ -275,7 +297,8 @@ When using Codex for implementation, require it to do all of the following befor
 2. list the files it plans to change
 3. list the files it must not change
 4. explain why the new logic belongs where it plans to put it
-5. for performance or UI-smoothness work, explain the before/after behavior and how it will be verified
+5. list existing components/helpers it checked for reuse
+6. for performance or UI-smoothness work, explain the before/after behavior and how it will be verified
 
 If the proposed plan violates this file, reject it and ask for a redesign before code is written.
 
@@ -289,5 +312,6 @@ Use this checklist for PRs or Codex outputs:
 - Did a hotspot file grow when it should have been split?
 - Are tests added in the owning module?
 - Could a future source or reader be added without editing the same giant file again?
+- Did the change reuse existing controls/helpers instead of duplicating a parallel interpretation?
 - For performance work, is there proof that fewer calls happen or less work runs?
 - For library UI work, does the screen commit coherent presentation state without jumping?
