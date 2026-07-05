@@ -301,6 +301,48 @@ class DownloadedRemoteComicPageSourceTest {
 
         assertTrue(!rarCacheFile.exists())
     }
+
+    @Test
+    fun `clear all trim clears copied zip archive cache`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val zipCacheFile = File(context.cacheDir, "comic-zip-archives/downloaded-clear-all.cbz").apply {
+            parentFile?.mkdirs()
+            writeBytes(byteArrayOf(1))
+        }
+        val pageSource = DownloadedRemoteComicPageSource(
+            context = context,
+            remoteDownloadDataSources = emptyList(),
+            archiveEntryCache = DownloadedRemoteComicArchiveEntryCache(),
+            cacheInvalidationDispatcher = DownloadedRemoteComicCacheInvalidationDispatcher(),
+        )
+
+        pageSource.trimMemoryCaches(ReaderMemoryTrimRequest.ClearAll)
+
+        assertTrue(!zipCacheFile.exists())
+    }
+
+    @Test
+    fun `non clear trim keeps copied zip archive cache`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        ZipComicArchiveCodec.clearLocalArchiveCache(context)
+        val zipCacheFile = File(context.cacheDir, "comic-zip-archives/downloaded-drop-previews.cbz").apply {
+            parentFile?.mkdirs()
+            writeBytes(byteArrayOf(1))
+        }
+        val pageSource = DownloadedRemoteComicPageSource(
+            context = context,
+            remoteDownloadDataSources = emptyList(),
+            archiveEntryCache = DownloadedRemoteComicArchiveEntryCache(),
+            cacheInvalidationDispatcher = DownloadedRemoteComicCacheInvalidationDispatcher(),
+        )
+        try {
+            pageSource.trimMemoryCaches(ReaderMemoryTrimRequest.dropPreviewsAndDistantPages(retention = null))
+
+            assertTrue(zipCacheFile.exists())
+        } finally {
+            ZipComicArchiveCodec.clearLocalArchiveCache(context)
+        }
+    }
 }
 
 private class TestStoredRemoteItemDownloadDataSource(

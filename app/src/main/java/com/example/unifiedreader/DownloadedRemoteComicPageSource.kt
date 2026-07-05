@@ -432,23 +432,28 @@ class DownloadedRemoteComicPageSource @Inject constructor(
     private fun invalidateItemCaches(
         itemId: String,
     ) {
-        RarComicArchiveCodec.clearLocalArchiveCache(context)
         entryCacheCoordinator.invalidate(itemId)
         archiveDiagnosticsByItemId.remove(itemId)
         archiveFormatByItemId.remove(itemId)
         comicPageLoader.clear(itemId)
+        ZipComicArchiveCodec.clearLocalArchiveCache(context)
+        RarComicArchiveCodec.clearLocalArchiveCache(context)
     }
 
     fun clearMemoryCaches() {
-        RarComicArchiveCodec.clearLocalArchiveCache(context)
         comicPageLoader.clearAll()
+        ZipComicArchiveCodec.clearLocalArchiveCache(context)
+        RarComicArchiveCodec.clearLocalArchiveCache(context)
     }
 
     fun trimMemoryCaches(
         request: ReaderMemoryTrimRequest,
     ) {
-        RarComicArchiveCodec.clearLocalArchiveCache(context)
         comicPageLoader.trimMemoryCaches(request)
+        if (request.mode == ReaderMemoryTrimMode.ClearAll) {
+            ZipComicArchiveCodec.clearLocalArchiveCache(context)
+        }
+        RarComicArchiveCodec.clearLocalArchiveCache(context)
     }
 }
 

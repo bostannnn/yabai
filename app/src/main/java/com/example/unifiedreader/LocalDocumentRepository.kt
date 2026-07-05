@@ -278,15 +278,19 @@ class LocalDocumentRepository private constructor(
     }
 
     override fun clearReaderMemoryCaches() {
-        RarComicArchiveCodec.clearLocalArchiveCache(context)
         comicPageLoader.clearAll()
+        ZipComicArchiveCodec.clearLocalArchiveCache(context)
+        RarComicArchiveCodec.clearLocalArchiveCache(context)
     }
 
     override fun trimReaderMemoryCaches(
         request: ReaderMemoryTrimRequest,
     ) {
-        RarComicArchiveCodec.clearLocalArchiveCache(context)
         comicPageLoader.trimMemoryCaches(request)
+        if (request.mode == ReaderMemoryTrimMode.ClearAll) {
+            ZipComicArchiveCodec.clearLocalArchiveCache(context)
+        }
+        RarComicArchiveCodec.clearLocalArchiveCache(context)
     }
 
     private fun warmImportedCovers(

@@ -92,6 +92,24 @@ class ImportedComicArchiveRepositoryTest {
     }
 
     @Test
+    fun `clear all trim clears copied zip archive cache`() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val repository = LocalDocumentRepository(
+            context = context,
+            importedComicArchiveDao = RepositoryImportedComicArchiveDao(),
+            scope = kotlinx.coroutines.CoroutineScope(Dispatchers.Unconfined),
+        )
+        val zipCacheFile = File(context.cacheDir, "comic-zip-archives/local-clear-all.cbz").apply {
+            parentFile?.mkdirs()
+            writeBytes(byteArrayOf(1))
+        }
+
+        repository.trimReaderMemoryCaches(ReaderMemoryTrimRequest.ClearAll)
+
+        assertTrue(!zipCacheFile.exists())
+    }
+
+    @Test
     fun `comic archive import reads comic info metadata`() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Application>()
         val repository = LocalDocumentRepository(
