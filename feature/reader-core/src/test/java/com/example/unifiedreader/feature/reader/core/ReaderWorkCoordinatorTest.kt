@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.reader.core
 
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.advanceTimeBy
@@ -12,7 +13,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class ReaderWorkCoordinatorTest {
     @Test
-    fun `background work waits for active reader lease and resumes after close`() = runTest {
+    fun `background work waits for active reader lease and resumes immediately after close signal`() = runTest {
         val coordinator = ReaderWorkCoordinator(
             openingGraceMillis = 0L,
             backgroundRetryDelayMillis = 50L,
@@ -26,11 +27,15 @@ class ReaderWorkCoordinatorTest {
 
         assertTrue(backgroundWork.isActive)
 
-        lease.close()
-        advanceTimeBy(50L)
+        advanceTimeBy(500L)
         runCurrent()
 
-        assertFalse(backgroundWork.isActive)
+        assertTrue(backgroundWork.isActive)
+
+        lease.close()
+        runCurrent()
+
+        assertTrue(backgroundWork.isCompleted)
     }
 
     @Test
@@ -52,17 +57,44 @@ class ReaderWorkCoordinatorTest {
     }
 
     @Test
-    fun `best effort reader work waits for visible page load and resumes after it finishes`() = runTest {
+    fun `background work waits for opening grace deadline without polling active reader state`() = runTest {
+        val coordinator = ReaderWorkCoordinator(
+            openingGraceMillis = 250L,
+            backgroundRetryDelayMillis = 50L,
+            nowEpochMillis = { testScheduler.currentTime },
+        )
+
+        coordinator.notifyReaderOpening("item-1")
+
+        val backgroundWork = async {
+            coordinator.awaitBackgroundWorkAllowed()
+        }
+        runCurrent()
+
+        assertTrue(backgroundWork.isActive)
+
+        advanceTimeBy(249L)
+        runCurrent()
+
+        assertTrue(backgroundWork.isActive)
+
+        advanceTimeBy(1L)
+        runCurrent()
+
+        assertTrue(backgroundWork.isCompleted)
+    }
+
+    @Test
+    fun `best effort reader work waits for visible page load and resumes immediately after close signal`() = runTest {
         val coordinator = ReaderWorkCoordinator(
             openingGraceMillis = 0L,
             backgroundRetryDelayMillis = 50L,
         )
+        val finishVisibleLoad = CompletableDeferred<Unit>()
 
         val visibleLoad = async {
             coordinator.runVisiblePageLoad("item-1") {
-                while (true) {
-                    kotlinx.coroutines.delay(50L)
-                }
+                finishVisibleLoad.await()
             }
         }
         runCurrent()
@@ -75,11 +107,16 @@ class ReaderWorkCoordinatorTest {
         assertTrue(coordinator.hasVisiblePageLoads)
         assertTrue(bestEffortWork.isActive)
 
-        visibleLoad.cancel()
-        advanceTimeBy(50L)
+        advanceTimeBy(500L)
+        runCurrent()
+
+        assertTrue(bestEffortWork.isActive)
+
+        finishVisibleLoad.complete(Unit)
         runCurrent()
 
         assertFalse(coordinator.hasVisiblePageLoads)
-        assertFalse(bestEffortWork.isActive)
+        assertTrue(visibleLoad.isCompleted)
+        assertTrue(bestEffortWork.isCompleted)
     }
 }
