@@ -9,9 +9,6 @@ import com.example.unifiedreader.feature.library.shelves.LibraryShelvesStateComp
 import dagger.hilt.android.scopes.ViewModelScoped
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 @ViewModelScoped
 class AppLibraryStateRecomputeCoordinator @Inject constructor(
@@ -24,9 +21,15 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
     private var appliedDerivedState: LibraryDerivedState? = null
     private var appliedShelvesSignature: AppLibraryShelvesStateSignature? = null
     private var appliedShelvesState: LibraryShelvesState? = null
-    private var pendingDerivedSignature: AppLibraryDerivedStateSignature? = null
-    private var pendingShelvesSignature: AppLibraryShelvesStateSignature? = null
-    private var pendingRecomputeJob: Job? = null
+    private val pendingRecompute = AppLibraryPendingRecompute(
+        appDispatchers = appDispatchers,
+        computeDerivedState = { state ->
+            libraryDerivedStateComputer.compute(state.toLibraryDerivedStateInput())
+        },
+        computeShelvesState = { state ->
+            libraryShelvesStateComputer.compute(state.toLibraryShelvesInput())
+        },
+    )
     private val retainedRootShelvesBySource =
         object : LinkedHashMap<SourceType, LibraryShelvesState>(RETAINED_ROOT_SHELVES_LIMIT, 0.75f, true) {
             override fun removeEldestEntry(
@@ -63,7 +66,7 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
         scope: CoroutineScope,
         publishState: (AppUiState) -> Unit,
     ) {
-        val nextBaseState = transform(currentState)
+        val nextBaseState = transform(latestState ?: currentState)
         latestState = nextBaseState
         val isLibraryPresentationActive = nextBaseState.topLevel == TopLevelDestination.Library
         val derivedSignature = nextBaseState.libraryDerivedStateSignature()
@@ -73,6 +76,22 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
         val shouldComputeShelves = isLibraryPresentationActive &&
             nextBaseState.shouldReserveLibraryShelvesSlot &&
             shelvesSignature != appliedShelvesSignature
+        if (shouldComputeShelves && nextBaseState.selectedSource == SourceType.KAVITA) {
+            scheduleLibraryRecompute(
+                baseState = nextBaseState,
+                derivedSignature = derivedSignature,
+                shelvesSignature = shelvesSignature,
+                shouldComputeDerived = shouldComputeDerived,
+                shouldComputeShelves = true,
+                scope = scope,
+                publishState = publishState,
+            )
+            return
+        }
+        if (shouldComputeShelves) {
+            appliedShelvesSignature = shelvesSignature
+            appliedShelvesState = libraryShelvesStateComputer.compute(nextBaseState.toLibraryShelvesInput())
+        }
         val projectedState = if (shouldComputeDerived) {
             nextBaseState.withLibraryDerivedState(
                 libraryDerivedStateComputer.computeQuick(nextBaseState.toLibraryDerivedStateInput()),
@@ -84,14 +103,11 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
         val nextState = presentShelvesState(
             state = mergeAppliedLibraryState(projectedState),
             isLoading = nextBaseState.shouldReserveLibraryShelvesSlot &&
-                (!nextBaseState.isSelectedSourceHydrated || shouldComputeShelves),
+                !nextBaseState.isSelectedSourceHydrated,
             retainedShelvesState = retainedShelvesState,
         )
         if (!shouldComputeDerived && !shouldComputeShelves) {
-            pendingRecomputeJob?.cancel()
-            pendingRecomputeJob = null
-            pendingDerivedSignature = null
-            pendingShelvesSignature = null
+            pendingRecompute.cancel()
             val stableState = preserveCurrentLibraryPresentation(
                 state = nextBaseState,
                 currentState = currentState,
@@ -104,56 +120,58 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
         latestState = nextState
         retainRootShelves(nextState)
         publishState(nextState)
-        if (
-            pendingDerivedSignature == derivedSignature.takeIf { shouldComputeDerived } &&
-            pendingShelvesSignature == shelvesSignature.takeIf { shouldComputeShelves }
-        ) {
+        if (!shouldComputeDerived) {
+            pendingRecompute.cancel()
             return
         }
-        pendingRecomputeJob?.cancel()
-        pendingDerivedSignature = derivedSignature.takeIf { shouldComputeDerived }
-        pendingShelvesSignature = shelvesSignature.takeIf { shouldComputeShelves }
-        var recomputeJob: Job? = null
-        recomputeJob = scope.launch {
-            val computedState = withContext(appDispatchers.default) {
-                AppLibraryComputedState(
-                    derivedState = if (shouldComputeDerived) {
-                        libraryDerivedStateComputer.compute(nextBaseState.toLibraryDerivedStateInput())
-                    } else {
-                        null
-                    },
-                    shelvesState = if (shouldComputeShelves) {
-                        libraryShelvesStateComputer.compute(nextBaseState.toLibraryShelvesInput())
-                    } else {
-                        null
-                    },
+        scheduleLibraryRecompute(
+            baseState = nextBaseState,
+            derivedSignature = derivedSignature,
+            shelvesSignature = shelvesSignature,
+            shouldComputeDerived = true,
+            shouldComputeShelves = false,
+            scope = scope,
+            publishState = publishState,
+        )
+    }
+
+    private fun scheduleLibraryRecompute(
+        baseState: AppUiState,
+        derivedSignature: AppLibraryDerivedStateSignature,
+        shelvesSignature: AppLibraryShelvesStateSignature,
+        shouldComputeDerived: Boolean,
+        shouldComputeShelves: Boolean,
+        scope: CoroutineScope,
+        publishState: (AppUiState) -> Unit,
+    ) {
+        pendingRecompute.schedule(
+            baseState = baseState,
+            derivedKey = derivedSignature,
+            shelvesKey = shelvesSignature,
+            shouldComputeDerived = shouldComputeDerived,
+            shouldComputeShelves = shouldComputeShelves,
+            scope = scope,
+            onComputed = onComputed@{ computedState ->
+                val latest = latestState ?: return@onComputed
+                if (shouldComputeDerived && latest.libraryDerivedStateSignature() == derivedSignature) {
+                    appliedDerivedSignature = derivedSignature
+                    appliedDerivedState = computedState.derivedState
+                }
+                if (shouldComputeShelves && latest.libraryShelvesStateSignature() == shelvesSignature) {
+                    appliedShelvesSignature = shelvesSignature
+                    appliedShelvesState = computedState.shelvesState
+                }
+                val mergedState = presentShelvesState(
+                    state = mergeAppliedLibraryState(latest),
+                    isLoading = latest.shouldReserveLibraryShelvesSlot &&
+                        !latest.isSelectedSourceHydrated,
+                    retainedShelvesState = retainedShelvesStateFor(latest, latest.libraryShelvesStateSignature()),
                 )
-            }
-            if (pendingRecomputeJob === recomputeJob) {
-                pendingRecomputeJob = null
-                pendingDerivedSignature = null
-                pendingShelvesSignature = null
-            }
-            val latest = latestState ?: return@launch
-            if (shouldComputeDerived && latest.libraryDerivedStateSignature() == derivedSignature) {
-                appliedDerivedSignature = derivedSignature
-                appliedDerivedState = computedState.derivedState
-            }
-            if (shouldComputeShelves && latest.libraryShelvesStateSignature() == shelvesSignature) {
-                appliedShelvesSignature = shelvesSignature
-                appliedShelvesState = computedState.shelvesState
-            }
-            val mergedState = presentShelvesState(
-                state = mergeAppliedLibraryState(latest),
-                isLoading = latest.shouldReserveLibraryShelvesSlot &&
-                    (!latest.isSelectedSourceHydrated || pendingShelvesSignature != null),
-                retainedShelvesState = retainedShelvesStateFor(latest, latest.libraryShelvesStateSignature()),
-            )
-            latestState = mergedState
-            retainRootShelves(mergedState)
-            publishState(mergedState)
-        }
-        pendingRecomputeJob = recomputeJob
+                latestState = mergedState
+                retainRootShelves(mergedState)
+                publishState(mergedState)
+            },
+        )
     }
 
     private fun mergeAppliedLibraryState(
@@ -240,11 +258,6 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
         libraryShelvesState = currentState.libraryShelvesState,
     )
 }
-
-private data class AppLibraryComputedState(
-    val derivedState: LibraryDerivedState?,
-    val shelvesState: LibraryShelvesState?,
-)
 
 private data class AppLibraryDerivedStateSignature(
     val selectedSource: com.example.unifiedreader.core.model.SourceType,
