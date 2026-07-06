@@ -25,12 +25,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.launch
 
 class ComicsReaderSessionAdapter(
     private val sessionStore: ReaderSessionStore,
     private val directionPreferencesStore: ComicReadingDirectionPreferencesStore,
     private val readerModePreferencesStore: ComicReaderModePreferencesStore,
-    scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) : ComicReaderProgressStore, ComicReaderPreferencesStore {
     override val isHydratedFlow: StateFlow<Boolean> = combine(
         sessionStore.isHydratedFlow,
@@ -101,6 +102,12 @@ class ComicsReaderSessionAdapter(
 
     override suspend fun flushPendingWrites() {
         sessionStore.flushPendingWrites()
+    }
+
+    override fun requestFlushPendingWrites() {
+        scope.launch {
+            sessionStore.flushPendingWrites()
+        }
     }
 
     override fun loadReadingDirection(item: ReadableItem): ComicReadingDirection =

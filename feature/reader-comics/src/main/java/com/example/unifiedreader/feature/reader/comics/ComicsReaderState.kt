@@ -98,6 +98,8 @@ interface ComicReaderProgressStore {
     )
 
     suspend fun flushPendingWrites() = Unit
+
+    fun requestFlushPendingWrites() = Unit
 }
 
 interface ComicReaderPreferencesStore {

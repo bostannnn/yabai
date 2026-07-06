@@ -183,6 +183,23 @@ class ComicsReaderSessionAdapterTest {
         assertEquals(ComicPageTurnStyle.Curl, adapter.loadPageTurnStyle(item))
         scope.cancel()
     }
+
+    @Test
+    fun `async flush request uses adapter scope`() = runBlocking {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val sessionStore = TestReaderSessionStore(isHydrated = true)
+        val adapter = ComicsReaderSessionAdapter(
+            sessionStore = sessionStore,
+            directionPreferencesStore = TestComicReadingDirectionPreferencesStore(isHydrated = true),
+            readerModePreferencesStore = TestComicReaderModePreferencesStore(isHydrated = true),
+            scope = scope,
+        )
+
+        adapter.requestFlushPendingWrites()
+
+        assertEquals(1, sessionStore.flushPendingWritesCalls)
+        scope.cancel()
+    }
 }
 
 private class TestReaderSessionStore(
@@ -195,6 +212,8 @@ private class TestReaderSessionStore(
         MutableStateFlow(progressByItemId)
     private val sessions = MutableStateFlow(sessionByItemId)
     override val sessionByItemIdFlow: StateFlow<Map<String, ReaderSessionSnapshot>> = sessions
+    var flushPendingWritesCalls: Int = 0
+        private set
 
     override fun getProgress(
         item: ReadableItem,
@@ -214,6 +233,10 @@ private class TestReaderSessionStore(
         expected: ReaderProgressSnapshot,
         replacement: ReaderProgressSnapshot?,
     ): Boolean = false
+
+    override suspend fun flushPendingWrites() {
+        flushPendingWritesCalls += 1
+    }
 
     override fun getSession(
         item: ReadableItem,

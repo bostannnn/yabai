@@ -98,14 +98,7 @@ internal fun ComicsPagedReaderSurface(
             )
         }
 
-        ComicPageCurlPagerBox(
-            item = item,
-            spreads = spreads,
-            readerState = readerState,
-            pageSource = pageSource,
-            pagerState = pagerState,
-            modifier = Modifier.fillMaxSize(),
-        ) {
+        val spreadPagerContent: @Composable (Boolean) -> Unit = {
             ComicSpreadPager(
                 item = item,
                 spreads = spreads,
@@ -137,6 +130,23 @@ internal fun ComicsPagedReaderSurface(
                     }
                 },
             )
+        }
+        if (shouldUseComicPageCurlPagerLayer(
+                pageTurnStyle = readerState.pageTurnStyle,
+                readerMode = readerState.readerMode,
+            )
+        ) {
+            ComicPageCurlPagerBox(
+                item = item,
+                spreads = spreads,
+                readerState = readerState,
+                pageSource = pageSource,
+                pagerState = pagerState,
+                modifier = Modifier.fillMaxSize(),
+                content = spreadPagerContent,
+            )
+        } else {
+            spreadPagerContent(true)
         }
     }
 }

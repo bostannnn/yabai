@@ -10,6 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
 @Stable
@@ -20,7 +21,9 @@ internal class ComicPageCurlCompositeCache {
         get() = composites.size
 
     fun clear() {
-        composites.clear()
+        traceComicReaderSection("ComicPageCurl.clearCompositeCache") {
+            composites.clear()
+        }
     }
 
     fun compositeFor(
@@ -44,15 +47,18 @@ internal class ComicPageCurlCompositeCache {
             clear()
             return
         }
-        val targetIndexes = listOf(
-            settledSpreadIndex,
-            settledSpreadIndex - 1,
-            settledSpreadIndex + 1,
-        ).filter { it in spreads.indices }
-        val keysToKeep = targetIndexes
-            .map { spreads[it].compositeKey(canvasSize, pageFitMode) }
-            .toSet()
-        retainOnly(keysToKeep)
+        val (targetIndexes, keysToKeep) = traceComicReaderSection("ComicPageCurl.preparePrewarmTargets") {
+            val targets = listOf(
+                settledSpreadIndex,
+                settledSpreadIndex - 1,
+                settledSpreadIndex + 1,
+            ).filter { it in spreads.indices }
+            val keys = targets
+                .map { spreads[it].compositeKey(canvasSize, pageFitMode) }
+                .toSet()
+            retainOnly(keys)
+            targets to keys
+        }
 
         coroutineScope {
             targetIndexes.map { spreadIndex ->
@@ -145,27 +151,34 @@ internal class ComicPageCurlCompositeCache {
             }
 
             withContext(Dispatchers.Default) {
+                ensureActive()
                 val stitchedOverlap = if (spread.isLikelyStitchedSpread(loadedImagesByPageId)) {
                     stitchedSpreadOverlapPx
                 } else {
                     0
                 }
-                val layout = ComicSpreadRasterizer.layout(
-                    spread = spread,
-                    imageSizesByPageId = pageImagesById.mapValues { (_, image) ->
-                        IntSize(image.width, image.height)
-                    },
-                    canvasSize = canvasSize,
-                    pageFitMode = pageFitMode,
-                    stitchedSpreadOverlapPx = stitchedOverlap,
-                )
-                val image = ComicSpreadRasterizer.rasterize(
-                    spread = spread,
-                    pageImagesById = pageImagesById,
-                    canvasSize = canvasSize,
-                    pageFitMode = pageFitMode,
-                    stitchedSpreadOverlapPx = stitchedOverlap,
-                )
+                val layout = traceComicReaderSection("ComicPageCurl.layoutComposite") {
+                    ComicSpreadRasterizer.layout(
+                        spread = spread,
+                        imageSizesByPageId = pageImagesById.mapValues { (_, image) ->
+                            IntSize(image.width, image.height)
+                        },
+                        canvasSize = canvasSize,
+                        pageFitMode = pageFitMode,
+                        stitchedSpreadOverlapPx = stitchedOverlap,
+                    )
+                }
+                ensureActive()
+                val image = traceComicReaderSection("ComicPageCurl.rasterizeComposite") {
+                    ComicSpreadRasterizer.rasterize(
+                        spread = spread,
+                        pageImagesById = pageImagesById,
+                        canvasSize = canvasSize,
+                        pageFitMode = pageFitMode,
+                        stitchedSpreadOverlapPx = stitchedOverlap,
+                    )
+                }
+                ensureActive()
                 ComicPageCurlComposite(
                     image = image,
                     layout = layout,

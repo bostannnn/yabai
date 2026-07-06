@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,7 +28,11 @@ internal fun ComicPageCurlPagerBox(
     modifier: Modifier = Modifier,
     content: @Composable (userScrollEnabled: Boolean) -> Unit,
 ) {
-    if (!shouldUseComicPageCurlPagerLayer(readerState.pageTurnStyle)) {
+    if (!shouldUseComicPageCurlPagerLayer(
+            pageTurnStyle = readerState.pageTurnStyle,
+            readerMode = readerState.readerMode,
+        )
+    ) {
         Box(modifier = modifier) {
             content(true)
         }
@@ -41,6 +46,12 @@ internal fun ComicPageCurlPagerBox(
     var curlInteraction by remember(item.id) { mutableStateOf<ComicPageCurlInteraction?>(null) }
     val density = LocalDensity.current
     val stitchedSpreadOverlapPx = with(density) { ComicStitchedSpreadOverlap.roundToPx() }
+
+    DisposableEffect(curlCompositeCache) {
+        onDispose {
+            curlCompositeCache.clear()
+        }
+    }
 
     if (spreads.isEmpty()) {
         Box(modifier = modifier) {

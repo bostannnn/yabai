@@ -214,21 +214,29 @@ private fun ComicPageCurlShaderSurfaceApi33(
     onTurnCommitted: () -> Unit,
     onTurnCancelled: () -> Unit,
 ) {
-    val shader = remember { RuntimeShader(ComicPageCurlAgsl) }
+    val shader = remember {
+        traceComicReaderSection("ComicPageCurl.createRuntimeShader") {
+            RuntimeShader(ComicPageCurlAgsl)
+        }
+    }
     val brush = remember(shader) { ShaderBrush(shader) }
     val currentPageShader = remember(currentPage) {
-        BitmapShader(
-            currentPage.asAndroidBitmap(),
-            Shader.TileMode.CLAMP,
-            Shader.TileMode.CLAMP,
-        )
+        traceComicReaderSection("ComicPageCurl.createCurrentBitmapShader") {
+            BitmapShader(
+                currentPage.asAndroidBitmap(),
+                Shader.TileMode.CLAMP,
+                Shader.TileMode.CLAMP,
+            )
+        }
     }
     val underneathPageShader = remember(underneathPage) {
-        BitmapShader(
-            underneathPage.asAndroidBitmap(),
-            Shader.TileMode.CLAMP,
-            Shader.TileMode.CLAMP,
-        )
+        traceComicReaderSection("ComicPageCurl.createUnderneathBitmapShader") {
+            BitmapShader(
+                underneathPage.asAndroidBitmap(),
+                Shader.TileMode.CLAMP,
+                Shader.TileMode.CLAMP,
+            )
+        }
     }
     val coroutineScope = rememberCoroutineScope()
     val surfaceModifier = if (gesturesEnabled) {

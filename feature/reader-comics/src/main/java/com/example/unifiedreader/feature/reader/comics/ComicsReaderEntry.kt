@@ -48,7 +48,6 @@ import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.journal.JournalReadingSessionRecorder
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
 
 @Composable
 fun ComicsReaderScreen(
@@ -194,11 +193,13 @@ fun ComicsReaderScreen(
     )
     val persistReaderPreferences by rememberUpdatedState(
         newValue = {
-            preferencesStore.saveReaderMode(item, readerState.readerMode)
-            preferencesStore.saveReadingDirection(item, readerState.readingDirection)
-            preferencesStore.savePageFitMode(item, readerState.pageFitMode)
-            preferencesStore.saveSpreadMode(item, readerState.spreadMode)
-            preferencesStore.savePageTurnStyle(item, readerState.pageTurnStyle)
+            traceComicReaderSection("ComicsReader.persistPreferences") {
+                preferencesStore.saveReaderMode(item, readerState.readerMode)
+                preferencesStore.saveReadingDirection(item, readerState.readingDirection)
+                preferencesStore.savePageFitMode(item, readerState.pageFitMode)
+                preferencesStore.saveSpreadMode(item, readerState.spreadMode)
+                preferencesStore.savePageTurnStyle(item, readerState.pageTurnStyle)
+            }
         },
     )
     val flushReadingSession by rememberUpdatedState(
@@ -208,6 +209,13 @@ fun ComicsReaderScreen(
                 percent = currentPageProgress.toDouble(),
                 pageCount = pages.size,
             )
+        },
+    )
+    val flushPendingProgressWrites by rememberUpdatedState(
+        newValue = {
+            traceComicReaderSection("ComicsReader.schedulePendingWriteFlush") {
+                progressStore.requestFlushPendingWrites()
+            }
         },
     )
     val onVisiblePagesLoaded by rememberUpdatedState(
@@ -222,22 +230,22 @@ fun ComicsReaderScreen(
     )
     val closeReader by rememberUpdatedState(
         newValue = {
-            flushReadingSession()
-            if (latestProgressHydrated &&
-                latestProgressRestoreCompleted &&
-                latestPreferencesHydrated &&
-                latestPreferencesRestoreCompleted
-            ) {
-                persistProgress()
-                persistResumePosition()
+            traceComicReaderSection("ComicsReader.close") {
+                flushReadingSession()
+                if (latestProgressHydrated &&
+                    latestProgressRestoreCompleted &&
+                    latestPreferencesHydrated &&
+                    latestPreferencesRestoreCompleted
+                ) {
+                    persistProgress()
+                    persistResumePosition()
+                }
+                if (latestPreferencesHydrated && latestPreferencesRestoreCompleted) {
+                    persistReaderPreferences()
+                }
+                flushPendingProgressWrites()
+                onBack()
             }
-            if (latestPreferencesHydrated && latestPreferencesRestoreCompleted) {
-                persistReaderPreferences()
-            }
-            runBlocking {
-                progressStore.flushPendingWrites()
-            }
-            onBack()
         },
     )
     val restoredPage = savedPagesByItemId[item.id]
@@ -349,20 +357,20 @@ fun ComicsReaderScreen(
                     )
                 }
                 Lifecycle.Event.ON_STOP -> {
-                    flushReadingSession()
-                    if (latestProgressHydrated &&
-                        latestProgressRestoreCompleted &&
-                        latestPreferencesHydrated &&
-                        latestPreferencesRestoreCompleted
-                    ) {
-                        persistProgress()
-                        persistResumePosition()
-                    }
-                    if (latestPreferencesHydrated && latestPreferencesRestoreCompleted) {
-                        persistReaderPreferences()
-                    }
-                    runBlocking {
-                        progressStore.flushPendingWrites()
+                    traceComicReaderSection("ComicsReader.lifecycleStop") {
+                        flushReadingSession()
+                        if (latestProgressHydrated &&
+                            latestProgressRestoreCompleted &&
+                            latestPreferencesHydrated &&
+                            latestPreferencesRestoreCompleted
+                        ) {
+                            persistProgress()
+                            persistResumePosition()
+                        }
+                        if (latestPreferencesHydrated && latestPreferencesRestoreCompleted) {
+                            persistReaderPreferences()
+                        }
+                        flushPendingProgressWrites()
                     }
                 }
                 else -> Unit
@@ -370,21 +378,21 @@ fun ComicsReaderScreen(
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            flushReadingSession()
-            if (latestProgressHydrated &&
-                latestProgressRestoreCompleted &&
-                latestPreferencesHydrated &&
-                latestPreferencesRestoreCompleted
-            ) {
-                persistProgress()
-                persistResumePosition()
-            }
-            if (latestPreferencesHydrated && latestPreferencesRestoreCompleted) {
-                persistReaderPreferences()
-            }
-            runBlocking {
-                progressStore.flushPendingWrites()
+            traceComicReaderSection("ComicsReader.dispose") {
+                lifecycleOwner.lifecycle.removeObserver(observer)
+                flushReadingSession()
+                if (latestProgressHydrated &&
+                    latestProgressRestoreCompleted &&
+                    latestPreferencesHydrated &&
+                    latestPreferencesRestoreCompleted
+                ) {
+                    persistProgress()
+                    persistResumePosition()
+                }
+                if (latestPreferencesHydrated && latestPreferencesRestoreCompleted) {
+                    persistReaderPreferences()
+                }
+                flushPendingProgressWrites()
             }
         }
     }

@@ -26,6 +26,13 @@ class ComicPageCurlMathTest {
         assertFalse(
             shouldUseComicPageCurlPagerLayer(
                 pageTurnStyle = ComicPageTurnStyle.Curl,
+                readerMode = ComicReaderMode.VerticalScroll,
+                sdkInt = 33,
+            ),
+        )
+        assertFalse(
+            shouldUseComicPageCurlPagerLayer(
+                pageTurnStyle = ComicPageTurnStyle.Curl,
                 sdkInt = 32,
             ),
         )
