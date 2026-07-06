@@ -190,6 +190,12 @@ class RoomReaderSessionStore(
         }
     }
 
+    override fun requestFlushPendingWrites() {
+        writeScope.launch {
+            flushPendingWrites()
+        }
+    }
+
     override fun updateSession(
         itemId: String,
         pageCount: Int?,

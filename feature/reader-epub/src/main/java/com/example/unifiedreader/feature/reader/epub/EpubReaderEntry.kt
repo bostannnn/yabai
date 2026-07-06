@@ -68,7 +68,6 @@ import com.example.unifiedreader.journal.JournalReadingSessionRecorder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.readium.r2.navigator.HyperlinkNavigator
 import org.readium.r2.navigator.epub.EpubDefaults
@@ -358,9 +357,7 @@ fun EpubReaderScreen(
     )
     val flushSessionStoreWrites by rememberUpdatedState(
         newValue = {
-            runBlocking {
-                sessionStore.flushPendingWrites()
-            }
+            sessionStore.requestFlushPendingWrites()
         },
     )
     val closeReader by rememberUpdatedState(

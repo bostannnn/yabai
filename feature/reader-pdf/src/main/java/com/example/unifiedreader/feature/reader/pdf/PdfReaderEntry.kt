@@ -100,7 +100,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.util.LinkedHashMap
 import kotlin.math.roundToInt
@@ -280,9 +279,7 @@ fun PdfReaderScreen(
     )
     val flushSessionStoreWrites by rememberUpdatedState(
         newValue = {
-            runBlocking {
-                sessionStore?.flushPendingWrites()
-            }
+            sessionStore?.requestFlushPendingWrites()
         },
     )
     val closeReader by rememberUpdatedState(

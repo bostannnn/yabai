@@ -56,6 +56,14 @@ interface ReaderSessionStore {
 
     suspend fun flushPendingWrites() = Unit
 
+    /**
+     * Schedules a flush of pending writes on a store-owned scope without blocking the caller.
+     *
+     * Unlike [flushPendingWrites], this never blocks the calling (e.g. main/composition) thread,
+     * so it is safe to invoke from reader close/stop/dispose paths.
+     */
+    fun requestFlushPendingWrites() = Unit
+
     fun getSession(item: ReadableItem): ReaderSessionSnapshot?
 
     fun updateSession(
