@@ -26,8 +26,6 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private const val CurlCommitProgressThreshold = 0.25f
-
 private const val ComicPageCurlAgsl = """
 uniform shader front;
 uniform shader underneath;
@@ -243,7 +241,7 @@ private fun ComicPageCurlShaderSurfaceApi33(
                     coroutineScope.launch {
                         finishComicPageCurlGesture(
                             state = state,
-                            commit = state.progress.value > CurlCommitProgressThreshold,
+                            commit = shouldCommitComicPageCurl(progress = state.progress.value),
                             onTurnCommitted = onTurnCommitted,
                             onTurnCancelled = onTurnCancelled,
                         )

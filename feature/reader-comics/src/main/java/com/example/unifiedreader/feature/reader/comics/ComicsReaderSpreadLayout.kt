@@ -27,10 +27,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.input.nestedscroll.NestedScrollDispatcher
@@ -43,19 +41,13 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.core.model.ReadableItem
-import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
-import kotlin.math.sqrt
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 
 internal const val SpreadModeAutoMinWidthDp = 700
-private val StitchedSpreadOverlap = 1.dp
-private const val StitchedSpreadMaxDimensionDeltaFraction = 0.05f
-private const val StitchedSpreadSampleCount = 24
-private const val StitchedSpreadMaxAverageEdgeDistance = 0.08f
 
 @Composable
 internal fun ComicSpreadPager(
@@ -65,6 +57,7 @@ internal fun ComicSpreadPager(
     readingDirection: ComicReadingDirection,
     pageFitMode: ComicPageFitMode,
     isZoomed: Boolean,
+    userScrollEnabled: Boolean = true,
     pageSource: ComicPageSource,
     pagerState: androidx.compose.foundation.pager.PagerState,
     onZoomStateChanged: (Boolean) -> Unit,
@@ -76,7 +69,7 @@ internal fun ComicSpreadPager(
 ) {
     HorizontalPager(
         state = pagerState,
-        userScrollEnabled = !isZoomed,
+        userScrollEnabled = userScrollEnabled && !isZoomed,
         contentPadding = PaddingValues(0.dp),
         pageSpacing = 0.dp,
         reverseLayout = readingDirection == ComicReadingDirection.RTL,
@@ -245,7 +238,7 @@ private fun SpreadContent(
             spread = spread,
             pageLoadResults = pageLoadResults,
             loadedImagesByPageId = loadedImagesByPageId,
-            stitchedOverlap = if (likelyStitchedSpread) StitchedSpreadOverlap else 0.dp,
+            stitchedOverlap = if (likelyStitchedSpread) ComicStitchedSpreadOverlap else 0.dp,
         )
         return
     }
@@ -268,7 +261,7 @@ private fun SpreadContent(
                     )
                     .then(
                         if (likelyStitchedSpread && index > 0) {
-                            Modifier.offset(x = -StitchedSpreadOverlap)
+                            Modifier.offset(x = -ComicStitchedSpreadOverlap)
                         } else {
                             Modifier
                         },
@@ -624,52 +617,6 @@ internal fun List<ComicPageSpread>.indexOfPage(
 
 private val ComicPageSpread.isSoloCover: Boolean
     get() = pageIndexes == listOf(0)
-
-private fun ComicPageSpread.isLikelyStitchedSpread(
-    loadedImagesByPageId: Map<String, ImageBitmap?>,
-): Boolean {
-    if (pages.size != 2 || pages.any { it.segment != ComicPageSegment.Full }) return false
-    val leftImage = loadedImagesByPageId[pages[0].spec.id] ?: return false
-    val rightImage = loadedImagesByPageId[pages[1].spec.id] ?: return false
-    val heightsAreAligned = abs(leftImage.height - rightImage.height) <=
-        maxOf(leftImage.height, rightImage.height) * StitchedSpreadMaxDimensionDeltaFraction
-    val widthsAreAligned = abs(leftImage.width - rightImage.width) <=
-        maxOf(leftImage.width, rightImage.width) * StitchedSpreadMaxDimensionDeltaFraction
-    if (!heightsAreAligned || !widthsAreAligned) return false
-
-    val leftPixels = leftImage.toPixelMap()
-    val rightPixels = rightImage.toPixelMap()
-    val sampleCount = minOf(
-        StitchedSpreadSampleCount,
-        leftImage.height,
-        rightImage.height,
-    )
-    if (sampleCount <= 0) return false
-
-    val leftX = leftImage.width - 1
-    val rightX = 0
-    var totalDistance = 0f
-    for (sampleIndex in 0 until sampleCount) {
-        val y = if (sampleCount == 1) {
-            0
-        } else {
-            ((sampleIndex.toFloat() / (sampleCount - 1)) * (minOf(leftImage.height, rightImage.height) - 1))
-                .toInt()
-        }
-        totalDistance += leftPixels[leftX, y].distanceTo(rightPixels[rightX, y])
-    }
-    val averageDistance = totalDistance / sampleCount
-    return averageDistance <= StitchedSpreadMaxAverageEdgeDistance
-}
-
-private fun Color.distanceTo(
-    other: Color,
-): Float {
-    val redDelta = red - other.red
-    val greenDelta = green - other.green
-    val blueDelta = blue - other.blue
-    return sqrt((redDelta * redDelta) + (greenDelta * greenDelta) + (blueDelta * blueDelta))
-}
 
 private fun Map<String, ComicPageLoadResult?>.successImageSizesByPageId(): Map<String, IntSize> =
     mapNotNull { (pageId, result) ->

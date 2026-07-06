@@ -5,10 +5,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.example.unifiedreader.core.model.ReadableItem
@@ -98,35 +98,45 @@ internal fun ComicsPagedReaderSurface(
             )
         }
 
-        ComicSpreadPager(
+        ComicPageCurlPagerBox(
             item = item,
             spreads = spreads,
-            currentPage = readerState.currentPage,
-            readingDirection = readerState.readingDirection,
-            pageFitMode = readerState.pageFitMode,
-            isZoomed = readerState.isCurrentPageZoomed,
+            readerState = readerState,
             pageSource = pageSource,
             pagerState = pagerState,
-            onVisiblePagesLoaded = onVisiblePagesLoaded,
-            onZoomStateChanged = readerState::onCurrentPageZoomChanged,
-            onInteraction = {},
-            onToggleOverlay = onToggleOverlay,
-            onNavigatePrevious = { spreadIndex ->
-                if (spreadIndex > 0) {
-                    coroutineScope.launch {
-                        pagerState.animateScrollToPage(spreadIndex - 1)
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            ComicSpreadPager(
+                item = item,
+                spreads = spreads,
+                currentPage = readerState.currentPage,
+                readingDirection = readerState.readingDirection,
+                pageFitMode = readerState.pageFitMode,
+                isZoomed = readerState.isCurrentPageZoomed,
+                userScrollEnabled = it,
+                pageSource = pageSource,
+                pagerState = pagerState,
+                onVisiblePagesLoaded = onVisiblePagesLoaded,
+                onZoomStateChanged = readerState::onCurrentPageZoomChanged,
+                onInteraction = {},
+                onToggleOverlay = onToggleOverlay,
+                onNavigatePrevious = { spreadIndex ->
+                    if (spreadIndex > 0) {
+                        coroutineScope.launch {
+                            pagerState.animateScrollToPage(spreadIndex - 1)
+                        }
                     }
-                }
-            },
-            onNavigateNext = { spreadIndex ->
-                if (spreadIndex < spreads.lastIndex) {
-                    coroutineScope.launch {
-                        pagerState.animateScrollToPage(spreadIndex + 1)
+                },
+                onNavigateNext = { spreadIndex ->
+                    if (spreadIndex < spreads.lastIndex) {
+                        coroutineScope.launch {
+                            pagerState.animateScrollToPage(spreadIndex + 1)
+                        }
+                    } else {
+                        onNavigatePastEnd()
                     }
-                } else {
-                    onNavigatePastEnd()
-                }
-            },
-        )
+                },
+            )
+        }
     }
 }
