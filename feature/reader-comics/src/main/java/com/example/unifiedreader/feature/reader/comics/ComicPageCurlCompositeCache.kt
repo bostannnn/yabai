@@ -14,7 +14,10 @@ import kotlinx.coroutines.withContext
 
 @Stable
 internal class ComicPageCurlCompositeCache {
-    private val composites = mutableStateMapOf<ComicPageCurlCompositeKey, ImageBitmap>()
+    private val composites = mutableStateMapOf<ComicPageCurlCompositeKey, ComicPageCurlComposite>()
+
+    internal val cachedCompositeCount: Int
+        get() = composites.size
 
     fun clear() {
         composites.clear()
@@ -24,7 +27,7 @@ internal class ComicPageCurlCompositeCache {
         spread: ComicPageSpread?,
         canvasSize: IntSize,
         pageFitMode: ComicPageFitMode,
-    ): ImageBitmap? = spread
+    ): ComicPageCurlComposite? = spread
         ?.takeIf { canvasSize.width > 0 && canvasSize.height > 0 }
         ?.let { composites[it.compositeKey(canvasSize, pageFitMode)] }
 
@@ -49,9 +52,7 @@ internal class ComicPageCurlCompositeCache {
         val keysToKeep = targetIndexes
             .map { spreads[it].compositeKey(canvasSize, pageFitMode) }
             .toSet()
-        composites.keys
-            .filter { it !in keysToKeep }
-            .forEach { key -> composites.remove(key) }
+        retainOnly(keysToKeep)
 
         coroutineScope {
             targetIndexes.map { spreadIndex ->
@@ -63,6 +64,7 @@ internal class ComicPageCurlCompositeCache {
                         canvasSize = canvasSize,
                         pageFitMode = pageFitMode,
                         stitchedSpreadOverlapPx = stitchedSpreadOverlapPx,
+                        keysToKeep = keysToKeep,
                     )
                 }
             }.awaitAll()
@@ -76,10 +78,11 @@ internal class ComicPageCurlCompositeCache {
         canvasSize: IntSize,
         pageFitMode: ComicPageFitMode,
         stitchedSpreadOverlapPx: Int,
+        keysToKeep: Set<ComicPageCurlCompositeKey>,
     ) {
         val key = spread.compositeKey(canvasSize, pageFitMode)
         if (key in composites) return
-        val image = loadComposite(
+        val composite = loadComposite(
             item = item,
             spread = spread,
             pageSource = pageSource,
@@ -87,7 +90,10 @@ internal class ComicPageCurlCompositeCache {
             pageFitMode = pageFitMode,
             stitchedSpreadOverlapPx = stitchedSpreadOverlapPx,
         ) ?: return
-        composites[key] = image
+        composites[key] = composite
+        if (composites.size > MaximumCachedCurlComposites) {
+            retainOnly(keysToKeep)
+        }
     }
 
     private suspend fun loadComposite(
@@ -97,7 +103,7 @@ internal class ComicPageCurlCompositeCache {
         canvasSize: IntSize,
         pageFitMode: ComicPageFitMode,
         stitchedSpreadOverlapPx: Int,
-    ): ImageBitmap? = try {
+    ): ComicPageCurlComposite? = try {
         coroutineScope {
             val loadedImagesByPageId = spread.pages
                 .map(ComicSpreadPage::spec)
@@ -144,12 +150,25 @@ internal class ComicPageCurlCompositeCache {
                 } else {
                     0
                 }
-                ComicSpreadRasterizer.rasterize(
+                val layout = ComicSpreadRasterizer.layout(
+                    spread = spread,
+                    imageSizesByPageId = pageImagesById.mapValues { (_, image) ->
+                        IntSize(image.width, image.height)
+                    },
+                    canvasSize = canvasSize,
+                    pageFitMode = pageFitMode,
+                    stitchedSpreadOverlapPx = stitchedOverlap,
+                )
+                val image = ComicSpreadRasterizer.rasterize(
                     spread = spread,
                     pageImagesById = pageImagesById,
                     canvasSize = canvasSize,
                     pageFitMode = pageFitMode,
                     stitchedSpreadOverlapPx = stitchedOverlap,
+                )
+                ComicPageCurlComposite(
+                    image = image,
+                    layout = layout,
                 )
             }
         }
@@ -158,7 +177,24 @@ internal class ComicPageCurlCompositeCache {
     } catch (_: Throwable) {
         null
     }
+
+    private fun retainOnly(
+        keysToKeep: Set<ComicPageCurlCompositeKey>,
+    ) {
+        composites.keys
+            .filter { it !in keysToKeep }
+            .forEach { key -> composites.remove(key) }
+    }
+
+    private companion object {
+        const val MaximumCachedCurlComposites = 3
+    }
 }
+
+internal data class ComicPageCurlComposite(
+    val image: ImageBitmap,
+    val layout: ComicSpreadRasterLayout,
+)
 
 private data class ComicPageCurlCompositeKey(
     val spreadId: String,

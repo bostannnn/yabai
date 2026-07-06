@@ -46,6 +46,12 @@ internal fun resolveComicPageCurlAvailability(
     )
 }
 
+internal fun shouldUseComicPageCurlPagerLayer(
+    pageTurnStyle: ComicPageTurnStyle,
+    sdkInt: Int = Build.VERSION.SDK_INT,
+): Boolean = pageTurnStyle == ComicPageTurnStyle.Curl &&
+    isComicPageCurlShaderSupported(sdkInt = sdkInt)
+
 internal fun shouldCommitComicPageCurl(
     progress: Float,
     velocity: Float = 0f,

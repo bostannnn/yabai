@@ -151,6 +151,23 @@ class ComicsReaderStateTest {
     }
 
     @Test
+    fun `page turn style changes do not rewrite progress or resume state`() {
+        val state = comicsReaderState(
+            initialPage = 3,
+            initialResumeAnchorPage = 2,
+            initialResumeSegment = ComicPageSegment.Full,
+        )
+
+        state.onPageTurnStyleChanged(ComicPageTurnStyle.Curl)
+        state.onPageTurnStyleChanged(ComicPageTurnStyle.Slide)
+
+        assertEquals(3, state.currentPage)
+        assertEquals(2, state.resumeAnchorPage)
+        assertEquals(ComicPageSegment.Full, state.resumeSegment)
+        assertEquals(null, state.resumeScrollOffsetRatio)
+    }
+
+    @Test
     fun `state saver restores page turn style and old payloads default to slide`() {
         val state = comicsReaderState()
         state.onPageTurnStyleChanged(ComicPageTurnStyle.Curl)

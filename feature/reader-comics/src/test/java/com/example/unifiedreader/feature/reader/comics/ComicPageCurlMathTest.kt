@@ -16,6 +16,28 @@ class ComicPageCurlMathTest {
     }
 
     @Test
+    fun `curl pager layer keeps slide path on unsupported api or slide style`() {
+        assertFalse(
+            shouldUseComicPageCurlPagerLayer(
+                pageTurnStyle = ComicPageTurnStyle.Slide,
+                sdkInt = 33,
+            ),
+        )
+        assertFalse(
+            shouldUseComicPageCurlPagerLayer(
+                pageTurnStyle = ComicPageTurnStyle.Curl,
+                sdkInt = 32,
+            ),
+        )
+        assertTrue(
+            shouldUseComicPageCurlPagerLayer(
+                pageTurnStyle = ComicPageTurnStyle.Curl,
+                sdkInt = 33,
+            ),
+        )
+    }
+
+    @Test
     fun `curl availability requires curl style paged mode api 33 unzoomed and composites`() {
         val available = resolveComicPageCurlAvailability(
             pageTurnStyle = ComicPageTurnStyle.Curl,

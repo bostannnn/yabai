@@ -27,7 +27,7 @@ internal fun ComicPageCurlPagerBox(
     modifier: Modifier = Modifier,
     content: @Composable (userScrollEnabled: Boolean) -> Unit,
 ) {
-    if (readerState.pageTurnStyle != ComicPageTurnStyle.Curl || !isComicPageCurlShaderSupported()) {
+    if (!shouldUseComicPageCurlPagerLayer(readerState.pageTurnStyle)) {
         Box(modifier = modifier) {
             content(true)
         }
@@ -142,6 +142,7 @@ internal fun ComicPageCurlPagerBox(
                 underneathPage = interaction.underneathPage,
                 state = curlState,
                 readingDirection = readerState.readingDirection,
+                sheetBounds = interaction.sheetBounds,
                 target = interaction.target,
                 gesturesEnabled = false,
                 modifier = Modifier.fillMaxSize(),

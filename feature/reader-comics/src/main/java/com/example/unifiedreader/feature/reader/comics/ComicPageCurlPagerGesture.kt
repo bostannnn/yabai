@@ -18,9 +18,34 @@ import kotlinx.coroutines.launch
 internal data class ComicPageCurlInteraction(
     val target: ComicPageCurlTarget,
     val targetSpreadIndex: Int,
+    val sheetBounds: ComicRasterRect,
     val currentPage: ImageBitmap,
     val underneathPage: ImageBitmap,
 )
+
+internal enum class ComicPageCurlGestureStartResolution {
+    Start,
+    Ignore,
+    Yield,
+}
+
+internal fun resolveComicPageCurlGestureStartResolution(
+    targetSpreadIndex: Int?,
+    hasCurrentComposite: Boolean,
+    hasUnderneathComposite: Boolean,
+    sheetBounds: ComicRasterRect?,
+    downPosition: Offset,
+): ComicPageCurlGestureStartResolution {
+    if (targetSpreadIndex == null) return ComicPageCurlGestureStartResolution.Yield
+    if (!hasCurrentComposite || !hasUnderneathComposite || sheetBounds?.hasArea != true) {
+        return ComicPageCurlGestureStartResolution.Yield
+    }
+    return if (sheetBounds.contains(downPosition)) {
+        ComicPageCurlGestureStartResolution.Start
+    } else {
+        ComicPageCurlGestureStartResolution.Ignore
+    }
+}
 
 internal fun Modifier.comicPageCurlPagerGesture(
     enabled: Boolean,
@@ -28,9 +53,9 @@ internal fun Modifier.comicPageCurlPagerGesture(
     spreadCount: Int,
     containerSize: IntSize,
     readingDirection: ComicReadingDirection,
-    currentComposite: () -> ImageBitmap?,
-    previousComposite: () -> ImageBitmap?,
-    nextComposite: () -> ImageBitmap?,
+    currentComposite: () -> ComicPageCurlComposite?,
+    previousComposite: () -> ComicPageCurlComposite?,
+    nextComposite: () -> ComicPageCurlComposite?,
     isInteractionActive: () -> Boolean,
     state: ComicPageCurlState,
     gestureScope: CoroutineScope,
@@ -75,10 +100,11 @@ internal fun Modifier.comicPageCurlPagerGesture(
             var activeProgress = 0f
             var progressJob: Job? = null
             var yielded = blockedByOpenInteraction
+            var ignoringInvalidCurlStart = false
 
             while (true) {
                 val event = awaitPointerEvent(pass = PointerEventPass.Initial)
-                if (blockedByOpenInteraction || activeInteraction != null) {
+                if (blockedByOpenInteraction || activeInteraction != null || ignoringInvalidCurlStart) {
                     event.changes.forEach { change -> change.consume() }
                 }
                 val change = event.changes.firstOrNull { it.id == firstDown.id }
@@ -109,41 +135,67 @@ internal fun Modifier.comicPageCurlPagerGesture(
                                 spreadCount = spreadCount,
                                 target = target,
                             )
-                            val currentPage = currentComposite()
-                            val underneathPage = when (target) {
+                            val currentCurlComposite = currentComposite()
+                            val underneathCurlComposite = when (target) {
                                 ComicPageCurlTarget.Previous -> previousComposite()
                                 ComicPageCurlTarget.Next -> nextComposite()
                             }
-                            if (targetSpreadIndex == null || currentPage == null || underneathPage == null) {
-                                yielded = true
-                            } else {
-                                state.startDrag(
-                                    target = target,
-                                    grabY = firstDown.position.y,
-                                    containerHeight = containerSize.height.toFloat(),
-                                )
-                                activeProgress = applyComicPageCurlProgressDelta(
-                                    progress = 0f,
-                                    dragAmount = accumulatedDrag.x,
-                                    containerWidth = containerSize.width.toFloat(),
+                            val sheetBounds = currentCurlComposite?.layout?.let { layout ->
+                                resolveComicPageCurlSheetBounds(
+                                    layout = layout,
                                     readingDirection = readingDirection,
                                     target = target,
                                 )
-                                progressJob?.cancel()
-                                progressJob = gestureScope.launch {
-                                    state.progress.snapTo(activeProgress)
-                                }
-                                val interaction = ComicPageCurlInteraction(
-                                    target = target,
+                            }?.bounds
+                            when (
+                                resolveComicPageCurlGestureStartResolution(
                                     targetSpreadIndex = targetSpreadIndex,
-                                    currentPage = currentPage,
-                                    underneathPage = underneathPage,
+                                    hasCurrentComposite = currentCurlComposite != null,
+                                    hasUnderneathComposite = underneathCurlComposite != null,
+                                    sheetBounds = sheetBounds,
+                                    downPosition = firstDown.position,
                                 )
-                                activeInteraction = interaction
-                                interactionOpen = true
-                                onInteractionStarted(interaction)
-                                if (change.positionChanged()) {
-                                    change.consume()
+                            ) {
+                                ComicPageCurlGestureStartResolution.Yield -> yielded = true
+                                ComicPageCurlGestureStartResolution.Ignore -> {
+                                    ignoringInvalidCurlStart = true
+                                    yielded = true
+                                    event.changes.forEach { pointerChange -> pointerChange.consume() }
+                                }
+                                ComicPageCurlGestureStartResolution.Start -> {
+                                    val resolvedCurrentComposite = checkNotNull(currentCurlComposite)
+                                    val resolvedUnderneathComposite = checkNotNull(underneathCurlComposite)
+                                    val resolvedSheetBounds = checkNotNull(sheetBounds)
+                                    val resolvedTargetSpreadIndex = checkNotNull(targetSpreadIndex)
+                                    state.startDrag(
+                                        target = target,
+                                        grabY = firstDown.position.y - resolvedSheetBounds.top,
+                                        containerHeight = resolvedSheetBounds.height.toFloat(),
+                                    )
+                                    activeProgress = applyComicPageCurlProgressDelta(
+                                        progress = 0f,
+                                        dragAmount = accumulatedDrag.x,
+                                        containerWidth = resolvedSheetBounds.width.toFloat(),
+                                        readingDirection = readingDirection,
+                                        target = target,
+                                    )
+                                    progressJob?.cancel()
+                                    progressJob = gestureScope.launch {
+                                        state.progress.snapTo(activeProgress)
+                                    }
+                                    val interaction = ComicPageCurlInteraction(
+                                        target = target,
+                                        targetSpreadIndex = resolvedTargetSpreadIndex,
+                                        sheetBounds = resolvedSheetBounds,
+                                        currentPage = resolvedCurrentComposite.image,
+                                        underneathPage = resolvedUnderneathComposite.image,
+                                    )
+                                    activeInteraction = interaction
+                                    interactionOpen = true
+                                    onInteractionStarted(interaction)
+                                    if (change.positionChanged()) {
+                                        change.consume()
+                                    }
                                 }
                             }
                         }
@@ -153,7 +205,7 @@ internal fun Modifier.comicPageCurlPagerGesture(
                     activeProgress = applyComicPageCurlProgressDelta(
                         progress = activeProgress,
                         dragAmount = drag.x,
-                        containerWidth = containerSize.width.toFloat(),
+                        containerWidth = activeInteraction.sheetBounds.width.toFloat(),
                         readingDirection = readingDirection,
                         target = activeInteraction.target,
                     )
