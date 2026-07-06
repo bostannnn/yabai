@@ -56,8 +56,6 @@ private val StitchedSpreadOverlap = 1.dp
 private const val StitchedSpreadMaxDimensionDeltaFraction = 0.05f
 private const val StitchedSpreadSampleCount = 24
 private const val StitchedSpreadMaxAverageEdgeDistance = 0.08f
-private const val FallbackCompositePageDimension = 1_000
-private const val MinimumSpreadPageAspectRatio = 0.5f
 
 @Composable
 internal fun ComicSpreadPager(
@@ -158,9 +156,9 @@ private fun ComicSpreadSurface(
         }
     }
     val imageSize = remember(pageLoadResults, spread.pages) {
-        compositeImageSize(
+        comicSpreadCompositeImageSize(
             spread = spread,
-            pageLoadResults = pageLoadResults,
+            imageSizesByPageId = pageLoadResults.successImageSizesByPageId(),
         )
     }
 
@@ -194,7 +192,7 @@ private fun ComicSpreadSurface(
                 .fillMaxSize()
                 .clipToBounds()
                 .onSizeChanged { containerSize = it },
-            color = Color(0xFF0A0D11),
+            color = ComicReaderBackgroundColor,
             tonalElevation = 0.dp,
         ) {
             Box(
@@ -235,6 +233,9 @@ private fun SpreadContent(
             (result as? ComicPageLoadResult.Success)?.image
         }
     }
+    val loadedImageSizesByPageId = remember(loadedImagesByPageId) {
+        loadedImagesByPageId.imageSizesByPageId()
+    }
     val useFitSpread = isDoublePage && pageFitMode == ComicPageFitMode.FitPage && spread.pages.all { it.segment == ComicPageSegment.Full }
     val likelyStitchedSpread = remember(loadedImagesByPageId, spread.pages) {
         spread.isLikelyStitchedSpread(loadedImagesByPageId)
@@ -259,7 +260,7 @@ private fun SpreadContent(
                     .then(
                         if (isDoublePage) {
                             Modifier
-                                .weight(page.layoutWeight(loadedImagesByPageId))
+                                .weight(page.layoutWeightForSourceSize(loadedImageSizesByPageId[page.spec.id]))
                                 .fillMaxHeight()
                         } else {
                             Modifier.fillMaxSize()
@@ -272,7 +273,7 @@ private fun SpreadContent(
                             Modifier
                         },
                     )
-                    .background(Color(0xFF0B0F13)),
+                    .background(ComicPageBackgroundColor),
                 contentAlignment = Alignment.Center,
             ) {
                 PageResultContent(
@@ -293,14 +294,15 @@ private fun FitSpreadContent(
     stitchedOverlap: Dp,
 ) {
     val pageAspectRatios = remember(loadedImagesByPageId, spread.pages) {
+        val loadedImageSizesByPageId = loadedImagesByPageId.imageSizesByPageId()
         spread.pages.map { page ->
-            page.layoutWeight(loadedImagesByPageId)
+            page.layoutWeightForSourceSize(loadedImageSizesByPageId[page.spec.id])
         }
     }
     val compositeSize = remember(pageLoadResults, spread.pages) {
-        compositeImageSize(
+        comicSpreadCompositeImageSize(
             spread = spread,
-            pageLoadResults = pageLoadResults,
+            imageSizesByPageId = pageLoadResults.successImageSizesByPageId(),
         )
     }
     val combinedAspectRatio = remember(compositeSize, pageAspectRatios) {
@@ -349,7 +351,7 @@ private fun FitSpreadContent(
                                 Modifier
                             },
                         )
-                        .background(Color(0xFF0B0F13)),
+                        .background(ComicPageBackgroundColor),
                     contentAlignment = Alignment.Center,
                 ) {
                     PageResultContent(
@@ -620,59 +622,6 @@ internal fun List<ComicPageSpread>.indexOfPage(
         ?: 0
 }
 
-private fun compositeImageSize(
-    spread: ComicPageSpread,
-    pageLoadResults: Map<String, ComicPageLoadResult?>,
-): IntSize {
-    val pageSizes = spread.pages.map { page ->
-        val image = (pageLoadResults[page.spec.id] as? ComicPageLoadResult.Success)?.image
-        val sourceWidth = image?.width
-            ?: page.metadata?.width?.takeIf { it > 0 }
-            ?: FallbackCompositePageDimension
-        val sourceHeight = image?.height
-            ?: page.metadata?.height?.takeIf { it > 0 }
-            ?: FallbackCompositePageDimension
-        IntSize(
-            width = (sourceWidth * page.segment.widthFraction).roundToInt().coerceAtLeast(1),
-            height = sourceHeight,
-        )
-    }
-    return equalHeightCompositeImageSize(
-        imageSizes = pageSizes,
-        minimumAspectRatio = MinimumSpreadPageAspectRatio.takeIf { spread.pages.size > 1 },
-    )
-}
-
-internal fun equalHeightCompositeImageSize(
-    imageSizes: List<IntSize>,
-    minimumAspectRatio: Float? = null,
-): IntSize {
-    val validSizes = imageSizes
-        .filter { it.width > 0 && it.height > 0 }
-        .map { size ->
-            if (minimumAspectRatio == null) {
-                size
-            } else {
-                IntSize(
-                    width = max(
-                        size.width,
-                        (size.height * minimumAspectRatio).roundToInt(),
-                    ),
-                    height = size.height,
-                )
-            }
-        }
-    if (validSizes.isEmpty()) return IntSize.Zero
-
-    val commonHeight = validSizes.maxOf(IntSize::height)
-    val combinedWidth = validSizes.sumOf { size ->
-        (size.width.toDouble() * commonHeight / size.height)
-            .roundToInt()
-            .coerceAtLeast(1)
-    }
-    return IntSize(width = combinedWidth, height = commonHeight)
-}
-
 private val ComicPageSpread.isSoloCover: Boolean
     get() = pageIndexes == listOf(0)
 
@@ -713,24 +662,6 @@ private fun ComicPageSpread.isLikelyStitchedSpread(
     return averageDistance <= StitchedSpreadMaxAverageEdgeDistance
 }
 
-private fun ComicSpreadPage.layoutWeight(
-    loadedImagesByPageId: Map<String, ImageBitmap?>,
-): Float = adjustedAspectRatio(loadedImagesByPageId[spec.id])
-    .coerceAtLeast(MinimumSpreadPageAspectRatio)
-
-private fun ComicSpreadPage.adjustedAspectRatio(
-    image: ImageBitmap?,
-): Float {
-    val baseAspectRatio = image?.safeAspectRatio() ?: metadata?.aspectRatio ?: 1f
-    return baseAspectRatio * segment.widthFraction
-}
-
-private fun ImageBitmap.safeAspectRatio(): Float = if (height > 0) {
-    width / height.toFloat()
-} else {
-    1f
-}
-
 private fun Color.distanceTo(
     other: Color,
 ): Float {
@@ -739,6 +670,18 @@ private fun Color.distanceTo(
     val blueDelta = blue - other.blue
     return sqrt((redDelta * redDelta) + (greenDelta * greenDelta) + (blueDelta * blueDelta))
 }
+
+private fun Map<String, ComicPageLoadResult?>.successImageSizesByPageId(): Map<String, IntSize> =
+    mapNotNull { (pageId, result) ->
+        val image = (result as? ComicPageLoadResult.Success)?.image ?: return@mapNotNull null
+        pageId to IntSize(image.width, image.height)
+    }.toMap()
+
+private fun Map<String, ImageBitmap?>.imageSizesByPageId(): Map<String, IntSize> =
+    mapNotNull { (pageId, image) ->
+        image ?: return@mapNotNull null
+        pageId to IntSize(image.width, image.height)
+    }.toMap()
 
 enum class ComicPageSegment(
     val idSuffix: String,
