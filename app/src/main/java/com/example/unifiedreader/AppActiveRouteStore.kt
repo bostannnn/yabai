@@ -52,7 +52,7 @@ class SharedPreferencesAppActiveRouteStore @Inject constructor(
     override fun save(snapshot: AppActiveRouteSnapshot) {
         synchronized(lock) {
             if (latestSnapshot == snapshot) return
-            if (!writeSnapshot(snapshot)) return
+            writeSnapshot(snapshot)
             latestSnapshot = snapshot
         }
     }
@@ -81,7 +81,7 @@ class SharedPreferencesAppActiveRouteStore @Inject constructor(
 
     private fun writeSnapshot(
         snapshot: AppActiveRouteSnapshot,
-    ): Boolean = preferences.edit()
+    ) = preferences.edit()
         .putBoolean(KEY_HAS_SNAPSHOT, true)
         .putString(KEY_TOP_LEVEL, snapshot.topLevel.name)
         .putString(KEY_SELECTED_SOURCE, snapshot.selectedSource.name)
@@ -93,7 +93,7 @@ class SharedPreferencesAppActiveRouteStore @Inject constructor(
         .putNullableString(KEY_READER_ITEM_ID, snapshot.readerItemId)
         .putNullableString(KEY_READER_FORMAT, snapshot.readerFormat?.name)
         .putNullableString(KEY_READER_FALLBACK_ITEM, snapshot.readerFallbackItem?.toPersistedJson())
-        .commit()
+        .apply()
 }
 
 private inline fun <reified T : Enum<T>> SharedPreferences.enumValueOrNull(
