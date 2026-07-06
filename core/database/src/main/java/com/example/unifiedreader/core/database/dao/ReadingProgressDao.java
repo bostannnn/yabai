@@ -18,6 +18,9 @@ public interface ReadingProgressDao {
     @Query("SELECT * FROM reading_progress WHERE itemId = :itemId")
     ReadingProgressEntity getByItemId(String itemId);
 
+    @Query("SELECT * FROM reading_progress WHERE itemId IN (:itemIds)")
+    java.util.List<ReadingProgressEntity> getByItemIds(java.util.List<String> itemIds);
+
     @Query("DELETE FROM reading_progress WHERE itemId = :itemId")
     void deleteByItemId(String itemId);
 

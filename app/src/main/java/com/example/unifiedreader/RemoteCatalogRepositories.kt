@@ -36,6 +36,10 @@ interface RemoteCatalogHydrator {
     suspend fun hydrate()
 }
 
+interface StartupRemoteCatalogCacheSeeder {
+    suspend fun seedForStartupSource(sourceType: SourceType)
+}
+
 interface RemoteLibraryCacheStore {
     suspend fun getCachedLibraries(
         sourceType: SourceType,
@@ -60,6 +64,7 @@ class RoomRemoteCatalogRepository(
     RemoteCatalogWriter,
     RemoteCatalogReadiness,
     RemoteCatalogHydrator,
+    StartupRemoteCatalogCacheSeeder,
     RemoteLibraryCacheStore {
     private val librariesState = MutableStateFlow<List<Library>>(emptyList())
     private val itemsState = MutableStateFlow<List<ReadableItem>>(emptyList())
@@ -103,6 +108,39 @@ class RoomRemoteCatalogRepository(
                 }
             } finally {
                 hydrationState.value = true
+            }
+        }
+    }
+
+    override suspend fun seedForStartupSource(
+        sourceType: SourceType,
+    ) {
+        if (sourceType == SourceType.LOCAL) return
+        withContext(ioDispatcher) {
+            runCatching {
+                remoteCatalogDao.getLibraries()
+                    .filter { library -> library.sourceType == sourceType.name }
+                    .map(LibraryEntity::toDomain)
+            }.onSuccess { libraries ->
+                librariesState.value = librariesState.value.replaceSource(
+                    sourceType = sourceType,
+                    replacement = libraries,
+                    sourceSelector = Library::sourceType,
+                )
+            }.onFailure { throwable ->
+                logSeedFailure("Unable to seed startup remote catalog libraries.", throwable)
+            }
+            runCatching {
+                remoteCatalogDao.getLibraryItemsForSourceType(sourceType.name)
+                    .map(ReadableItemLibraryEntity::toDomain)
+            }.onSuccess { items ->
+                itemsState.value = itemsState.value.replaceSource(
+                    sourceType = sourceType,
+                    replacement = items,
+                    sourceSelector = ReadableItem::sourceType,
+                )
+            }.onFailure { throwable ->
+                logSeedFailure("Unable to seed startup remote catalog items.", throwable)
             }
         }
     }
@@ -227,5 +265,11 @@ private fun logSeedFailure(
         Log.w(LOG_TAG, message, throwable)
     }
 }
+
+private fun <T> List<T>.replaceSource(
+    sourceType: SourceType,
+    replacement: List<T>,
+    sourceSelector: (T) -> SourceType,
+): List<T> = filterNot { item -> sourceSelector(item) == sourceType } + replacement
 
 private const val LOG_TAG = "RemoteCatalogRepo"

@@ -43,21 +43,24 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
         val derivedState = libraryDerivedStateComputer.computeQuick(baseState.toLibraryDerivedStateInput())
         val projectedState = baseState.withLibraryDerivedState(derivedState)
         val shelvesSignature = projectedState.libraryShelvesStateSignature()
-        val shelvesState = if (projectedState.shouldReserveLibraryShelvesSlot) {
+        val computedShelvesState = if (projectedState.shouldReserveLibraryShelvesSlot) {
             libraryShelvesStateComputer.compute(projectedState.toLibraryShelvesInput())
         } else {
             LibraryShelvesState()
         }
+        val stateWithShelves = projectedState.withLibraryShelvesState(computedShelvesState)
+        val initializedState = presentShelvesState(
+            state = stateWithShelves,
+            isLoading = stateWithShelves.shouldShowLibraryShelvesLoading,
+        )
         appliedDerivedSignature = baseState.libraryDerivedStateSignature()
         appliedDerivedState = derivedState
         appliedShelvesSignature = shelvesSignature.takeIf { projectedState.shouldReserveLibraryShelvesSlot }
-        appliedShelvesState = shelvesState.takeIf { projectedState.shouldReserveLibraryShelvesSlot }
-        return projectedState
-            .withLibraryShelvesState(shelvesState)
-            .also { initializedState ->
-                retainRootShelves(initializedState)
-                latestState = initializedState
-            }
+        appliedShelvesState = computedShelvesState.takeIf { projectedState.shouldReserveLibraryShelvesSlot }
+        return initializedState.also { state ->
+            retainRootShelves(state)
+            latestState = state
+        }
     }
 
     fun updateState(
@@ -99,18 +102,22 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
         } else {
             nextBaseState
         }
-        val retainedShelvesState = retainedShelvesStateFor(projectedState, shelvesSignature)
+        val mergedProjectedState = mergeAppliedLibraryState(projectedState)
+        val retainedShelvesState = retainedShelvesStateFor(mergedProjectedState, shelvesSignature)
         val nextState = presentShelvesState(
-            state = mergeAppliedLibraryState(projectedState),
-            isLoading = nextBaseState.shouldReserveLibraryShelvesSlot &&
-                !nextBaseState.isSelectedSourceHydrated,
+            state = mergedProjectedState,
+            isLoading = mergedProjectedState.shouldShowLibraryShelvesLoading,
             retainedShelvesState = retainedShelvesState,
         )
         if (!shouldComputeDerived && !shouldComputeShelves) {
             pendingRecompute.cancel()
-            val stableState = preserveCurrentLibraryPresentation(
+            val stablePresentationState = preserveCurrentLibraryPresentation(
                 state = nextBaseState,
                 currentState = currentState,
+            )
+            val stableState = presentShelvesState(
+                state = stablePresentationState,
+                isLoading = stablePresentationState.shouldShowLibraryShelvesLoading,
             )
             latestState = stableState
             retainRootShelves(stableState)
@@ -161,11 +168,14 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
                     appliedShelvesSignature = shelvesSignature
                     appliedShelvesState = computedState.shelvesState
                 }
+                val latestWithAppliedState = mergeAppliedLibraryState(latest)
                 val mergedState = presentShelvesState(
-                    state = mergeAppliedLibraryState(latest),
-                    isLoading = latest.shouldReserveLibraryShelvesSlot &&
-                        !latest.isSelectedSourceHydrated,
-                    retainedShelvesState = retainedShelvesStateFor(latest, latest.libraryShelvesStateSignature()),
+                    state = latestWithAppliedState,
+                    isLoading = latestWithAppliedState.shouldShowLibraryShelvesLoading,
+                    retainedShelvesState = retainedShelvesStateFor(
+                        latestWithAppliedState,
+                        latestWithAppliedState.libraryShelvesStateSignature(),
+                    ),
                 )
                 latestState = mergedState
                 retainRootShelves(mergedState)
@@ -310,6 +320,11 @@ private fun AppUiState.libraryShelvesStateSignature(): AppLibraryShelvesStateSig
     items = IdentityBox(items),
     progressByItemId = IdentityBox(progressByItemId),
 )
+
+private val AppUiState.shouldShowLibraryShelvesLoading: Boolean
+    get() = shouldReserveLibraryShelvesSlot &&
+        !isSelectedSourceHydrated &&
+        !libraryShelvesState.hasContent
 
 private fun LibraryShelvesState.hasOnlyCurrentItems(
     state: AppUiState,

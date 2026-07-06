@@ -24,6 +24,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.SupervisorJob
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -98,6 +99,70 @@ class RemoteCatalogRepositoriesTest {
 
             assertEquals(listOf("Books"), libraries.map { it.title })
             assertEquals(listOf("Book 1"), items.map { it.title })
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun `room remote catalog repository startup seed reads selected source cache without hydrating catalog`() = runBlocking {
+        val existingGrimmoryLibrary = remoteCatalogLibrary(
+            sourceType = SourceType.GRIMMORY,
+            remoteId = "existing-books",
+            title = "Existing Books",
+        )
+        val cachedKavitaLibrary = remoteCatalogLibrary(
+            sourceType = SourceType.KAVITA,
+            remoteId = "cached-comics",
+            title = "Cached Comics",
+        )
+        val otherStumpLibrary = remoteCatalogLibrary(
+            sourceType = SourceType.STUMP,
+            remoteId = "other-comics",
+            title = "Other Comics",
+        )
+        val existingGrimmoryItem = remoteCatalogItem(
+            sourceType = SourceType.GRIMMORY,
+            remoteId = "existing-book",
+            title = "Existing Book",
+        )
+        val cachedKavitaItem = remoteCatalogItem(
+            sourceType = SourceType.KAVITA,
+            remoteId = "cached-issue",
+            title = "Cached Issue",
+        )
+        val otherStumpItem = remoteCatalogItem(
+            sourceType = SourceType.STUMP,
+            remoteId = "other-issue",
+            title = "Other Issue",
+        )
+        val dao = FakeRemoteCatalogDao(
+            libraries = listOf(cachedKavitaLibrary, otherStumpLibrary),
+            items = listOf(cachedKavitaItem, otherStumpItem),
+            observedLibraries = listOf(existingGrimmoryLibrary),
+            observedItems = listOf(existingGrimmoryItem),
+        )
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        try {
+            val repository = RoomRemoteCatalogRepository(
+                remoteCatalogDao = dao,
+                ioDispatcher = Dispatchers.Unconfined,
+                scope = scope,
+            )
+
+            repository.seedForStartupSource(SourceType.KAVITA)
+
+            assertEquals(
+                setOf("Existing Books", "Cached Comics"),
+                repository.getLibraries().map { library -> library.title }.toSet(),
+            )
+            assertEquals(
+                setOf("Existing Book", "Cached Issue"),
+                repository.getItems().map { item -> item.title }.toSet(),
+            )
+            assertFalse(repository.isHydratedFlow.value)
+            assertEquals(listOf(SourceType.KAVITA.name), dao.getLibraryItemsForSourceTypeCalls)
+            assertEquals(0, dao.getLibraryItemsCalls)
         } finally {
             scope.cancel()
         }
@@ -266,6 +331,18 @@ class RemoteCatalogRepositoriesTest {
     }
 }
 
+private fun remoteCatalogLibrary(
+    sourceType: SourceType,
+    remoteId: String,
+    title: String,
+): LibraryEntity = LibraryEntity(
+    id = sourceType.remoteLibraryId(remoteId),
+    sourceType = sourceType.name,
+    title = title,
+    remoteId = remoteId,
+    contentType = LibraryContentType.COMICS.name,
+)
+
 private fun remoteCatalogItem(
     sourceType: SourceType,
     remoteId: String,
@@ -307,41 +384,51 @@ private class FakeRemoteCatalogDao(
     libraries: List<LibraryEntity>,
     items: List<ReadableItemEntity>,
     private val getItemsFailure: Throwable? = null,
+    observedLibraries: List<LibraryEntity> = libraries,
+    observedItems: List<ReadableItemEntity> = items,
 ) : RemoteCatalogDao() {
     private val librariesState = MutableStateFlow(libraries)
     private val itemsState = MutableStateFlow(items)
+    private val observedLibrariesState = MutableStateFlow(observedLibraries)
+    private val observedItemsState = MutableStateFlow(observedItems)
     private val syncGroupsState = MutableStateFlow<List<RemoteCatalogSyncGroupEntity>>(emptyList())
     private val cachedLibrariesByKey = mutableMapOf<Triple<String, String, String>, List<RemoteLibraryCacheEntity>>()
     val deletedItemBatchSizes = mutableListOf<Int>()
     val deletedSyncGroupBatchSizes = mutableListOf<Int>()
+    val getLibraryItemsForSourceTypeCalls = mutableListOf<String>()
+    var getLibraryItemsCalls: Int = 0
+        private set
 
     override fun getLibraries(): List<LibraryEntity> = librariesState.value
 
-    override fun observeLibraries(): Flow<List<LibraryEntity>> = librariesState
+    override fun observeLibraries(): Flow<List<LibraryEntity>> = observedLibrariesState
 
     override fun getItems(): List<ReadableItemEntity> {
         return itemsState.value
     }
 
-    override fun observeItems(): Flow<List<ReadableItemEntity>> = itemsState
+    override fun observeItems(): Flow<List<ReadableItemEntity>> = observedItemsState
 
     override fun getItemsForSourceType(sourceType: String): List<ReadableItemEntity> =
         itemsState.value.filter { it.sourceType == sourceType }
 
     override fun getLibraryItems(): List<ReadableItemLibraryEntity> {
+        getLibraryItemsCalls += 1
         getItemsFailure?.let { throw it }
         return itemsState.value.map(ReadableItemEntity::toLibraryEntity)
     }
 
     override fun observeLibraryItems(): Flow<List<ReadableItemLibraryEntity>> =
-        itemsState.map { items ->
+        observedItemsState.map { items ->
             items.map(ReadableItemEntity::toLibraryEntity)
         }
 
-    override fun getLibraryItemsForSourceType(sourceType: String): List<ReadableItemLibraryEntity> =
-        itemsState.value
+    override fun getLibraryItemsForSourceType(sourceType: String): List<ReadableItemLibraryEntity> {
+        getLibraryItemsForSourceTypeCalls += sourceType
+        return itemsState.value
             .filter { it.sourceType == sourceType }
             .map(ReadableItemEntity::toLibraryEntity)
+    }
 
     override fun getCachedLibraries(
         sourceType: String,
@@ -356,11 +443,14 @@ private class FakeRemoteCatalogDao(
     override fun insertOrReplaceLibraries(libraries: List<LibraryEntity>) {
         val replacementIds = libraries.mapTo(mutableSetOf(), LibraryEntity::id)
         librariesState.value = librariesState.value.filterNot { library -> library.id in replacementIds } + libraries
+        observedLibrariesState.value = observedLibrariesState.value
+            .filterNot { library -> library.id in replacementIds } + libraries
     }
 
     override fun insertOrReplaceItems(items: List<ReadableItemEntity>) {
         val replacementIds = items.mapTo(mutableSetOf(), ReadableItemEntity::id)
         itemsState.value = itemsState.value.filterNot { item -> item.id in replacementIds } + items
+        observedItemsState.value = observedItemsState.value.filterNot { item -> item.id in replacementIds } + items
     }
 
     override fun insertOrReplaceCatalogSyncGroups(groups: List<RemoteCatalogSyncGroupEntity>) {
@@ -378,6 +468,7 @@ private class FakeRemoteCatalogDao(
 
     protected override fun deleteItemsForSourceType(sourceType: String) {
         itemsState.value = itemsState.value.filterNot { it.sourceType == sourceType }
+        observedItemsState.value = observedItemsState.value.filterNot { it.sourceType == sourceType }
     }
 
     protected override fun deleteItemsForSourceTypeByIds(
@@ -388,10 +479,14 @@ private class FakeRemoteCatalogDao(
         itemsState.value = itemsState.value.filterNot { item ->
             item.sourceType == sourceType && item.id in itemIds
         }
+        observedItemsState.value = observedItemsState.value.filterNot { item ->
+            item.sourceType == sourceType && item.id in itemIds
+        }
     }
 
     protected override fun deleteLibrariesForSourceType(sourceType: String) {
         librariesState.value = librariesState.value.filterNot { it.sourceType == sourceType }
+        observedLibrariesState.value = observedLibrariesState.value.filterNot { it.sourceType == sourceType }
     }
 
     protected override fun deleteCatalogSyncGroupsForSourceType(sourceType: String) {

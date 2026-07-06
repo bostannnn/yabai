@@ -299,6 +299,9 @@ private class FakeReadingProgressDao : ReadingProgressDao {
     override fun getByItemId(itemId: String): ReadingProgressEntity? =
         entities.firstOrNull { it.itemId == itemId }
 
+    override fun getByItemIds(itemIds: MutableList<String>): MutableList<ReadingProgressEntity> =
+        entities.filter { entity -> entity.itemId in itemIds }.toMutableList()
+
     override fun deleteByItemId(itemId: String) {
         entities.removeAll { it.itemId == itemId }
     }
@@ -318,6 +321,9 @@ private class FakeReaderSessionStateDao : ReaderSessionStateDao {
 
     override fun getByItemId(itemId: String): ReaderSessionStateEntity? =
         entities.firstOrNull { it.itemId == itemId }
+
+    override fun getByItemIds(itemIds: MutableList<String>): MutableList<ReaderSessionStateEntity> =
+        entities.filter { entity -> entity.itemId in itemIds }.toMutableList()
 
     override fun deleteByItemId(itemId: String) {
         entities.removeAll { it.itemId == itemId }

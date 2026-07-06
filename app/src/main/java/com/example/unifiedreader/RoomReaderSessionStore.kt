@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import android.util.Log
 import com.example.unifiedreader.core.database.dao.ReadingProgressDao
 import com.example.unifiedreader.core.database.dao.ReaderSessionStateDao
 import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
@@ -11,6 +12,7 @@ import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -27,9 +29,10 @@ import kotlinx.coroutines.withContext
 class RoomReaderSessionStore(
     private val readingProgressDao: ReadingProgressDao,
     private val readerSessionStateDao: ReaderSessionStateDao,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val appStartupTasks: AppStartupTasks = AppStartupTasks {},
-    private val writeScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
-) : ReaderSessionStore, ReaderSessionHydrator {
+    private val writeScope: CoroutineScope = CoroutineScope(SupervisorJob() + ioDispatcher),
+) : ReaderSessionStore, ReaderSessionHydrator, StartupReaderSessionCacheSeeder {
     private val progressWriteMutex = Mutex()
     private val sessionWriteMutex = Mutex()
     private val hydrationMutex = Mutex()
@@ -49,28 +52,51 @@ class RoomReaderSessionStore(
         hydrationMutex.withLock {
             if (isHydratedFlow.value) return
             appStartupTasks.initialize()
-            val persistedProgress = withContext(Dispatchers.IO) {
+            val persistedProgress = withContext(ioDispatcher) {
                 readingProgressDao.getAll()
                     .map(ReadingProgressEntity::toSnapshot)
             }
-            val persistedSessions = withContext(Dispatchers.IO) {
+            val persistedSessions = withContext(ioDispatcher) {
                 readerSessionStateDao.getAll()
                     .map(ReaderSessionStateEntity::toSnapshot)
             }
-            synchronized(stateMonitor) {
-                progressState.update { existing ->
-                    persistedProgress
-                        .filterNot { snapshot -> snapshot.itemId in tombstonedItemIds }
-                        .associateBy(ReaderProgressSnapshot::itemId) + existing
-                }
-                sessionState.update { existing ->
-                    persistedSessions
-                        .filterNot { snapshot -> snapshot.itemId in tombstonedItemIds }
-                        .associateBy(ReaderSessionSnapshot::itemId) + existing
-                }
-            }
+            mergePersistedReaderState(
+                persistedProgress = persistedProgress,
+                persistedSessions = persistedSessions,
+            )
             hydrationState.value = true
         }
+    }
+
+    override suspend fun seedForStartupItemIds(
+        itemIds: List<String>,
+    ) {
+        val requestedItemIds = itemIds.distinct()
+        if (requestedItemIds.isEmpty()) return
+        val persistedProgress = withContext(ioDispatcher) {
+            runCatching {
+                requestedItemIds
+                    .chunked(SQLITE_BIND_SAFE_CHUNK_SIZE)
+                    .flatMap(readingProgressDao::getByItemIds)
+                    .map(ReadingProgressEntity::toSnapshot)
+            }.onFailure { throwable ->
+                logStartupReaderSeedFailure("Unable to seed startup reader progress.", throwable)
+            }.getOrDefault(emptyList())
+        }
+        val persistedSessions = withContext(ioDispatcher) {
+            runCatching {
+                requestedItemIds
+                    .chunked(SQLITE_BIND_SAFE_CHUNK_SIZE)
+                    .flatMap(readerSessionStateDao::getByItemIds)
+                    .map(ReaderSessionStateEntity::toSnapshot)
+            }.onFailure { throwable ->
+                logStartupReaderSeedFailure("Unable to seed startup reader sessions.", throwable)
+            }.getOrDefault(emptyList())
+        }
+        mergePersistedReaderState(
+            persistedProgress = persistedProgress,
+            persistedSessions = persistedSessions,
+        )
     }
 
     override fun getProgress(item: ReadableItem): ReaderProgressSnapshot? = progressState.value[item.id]
@@ -292,4 +318,34 @@ class RoomReaderSessionStore(
             }
         }
     }
+
+    private fun mergePersistedReaderState(
+        persistedProgress: List<ReaderProgressSnapshot>,
+        persistedSessions: List<ReaderSessionSnapshot>,
+    ) {
+        synchronized(stateMonitor) {
+            progressState.update { existing ->
+                persistedProgress
+                    .filterNot { snapshot -> snapshot.itemId in tombstonedItemIds }
+                    .associateBy(ReaderProgressSnapshot::itemId) + existing
+            }
+            sessionState.update { existing ->
+                persistedSessions
+                    .filterNot { snapshot -> snapshot.itemId in tombstonedItemIds }
+                    .associateBy(ReaderSessionSnapshot::itemId) + existing
+            }
+        }
+    }
 }
+
+private fun logStartupReaderSeedFailure(
+    message: String,
+    throwable: Throwable,
+) {
+    if (Log.isLoggable(READER_SESSION_LOG_TAG, Log.WARN)) {
+        Log.w(READER_SESSION_LOG_TAG, message, throwable)
+    }
+}
+
+private const val READER_SESSION_LOG_TAG = "RoomReaderSessionStore"
+private const val SQLITE_BIND_SAFE_CHUNK_SIZE = 900

@@ -1,5 +1,7 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.feature.navigation.SourceNavigationState
 import javax.inject.Inject
 import kotlinx.coroutines.runBlocking
 
@@ -12,7 +14,10 @@ class AppInitialUiStateFactory @Inject constructor(
 ) {
     fun create(): AppUiState = runBlocking {
         val navigationState = navigationController.initialState()
-        val snapshot = catalogSnapshotsUseCase.currentSnapshot()
+        val activeRouteSnapshot = activeRouteStore.restore()
+        val snapshot = catalogSnapshotsUseCase.currentSnapshot(
+            startupSource = activeRouteSnapshot.startupSeedSource(navigationState),
+        )
         val baseState = AppUiState(
             sourceOrder = navigationState.sourceOrder,
             selectedSource = navigationState.startupSource,
@@ -33,7 +38,7 @@ class AppInitialUiStateFactory @Inject constructor(
             hydratedSources = snapshot.hydratedSources,
             themeMode = snapshot.themeMode,
         )
-        val restoredRouteState = activeRouteStore.restore()
+        val restoredRouteState = activeRouteSnapshot
             ?.let(baseState::withActiveRouteSnapshot)
             ?: baseState
         libraryStateRecomputeCoordinator.initialize(restoredRouteState)
@@ -42,4 +47,24 @@ class AppInitialUiStateFactory @Inject constructor(
     suspend fun hydrateAfterInitialState() {
         appStateHydrator.hydrate()
     }
+}
+
+private fun AppActiveRouteSnapshot?.startupSeedSource(
+    navigationState: SourceNavigationState,
+): SourceType {
+    val sourceOrder = navigationState.sourceOrder
+    val restorableFallbackReaderSource = this?.let { snapshot ->
+        snapshot.readerFallbackItem
+            ?.takeIf { fallbackItem ->
+                fallbackItem.id == snapshot.readerItemId &&
+                    fallbackItem.format == snapshot.readerFormat
+            }
+            ?.sourceType
+    }
+    val restoredRouteSource = this?.selectedSource
+        ?.takeIf { sourceType -> sourceType in sourceOrder }
+    return restorableFallbackReaderSource
+        ?.takeIf { sourceType -> sourceType in sourceOrder }
+        ?: restoredRouteSource
+        ?: navigationState.startupSource
 }

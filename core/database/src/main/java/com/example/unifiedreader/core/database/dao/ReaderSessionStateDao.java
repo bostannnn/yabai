@@ -18,6 +18,9 @@ public interface ReaderSessionStateDao {
     @Query("SELECT * FROM reader_session_state WHERE itemId = :itemId")
     ReaderSessionStateEntity getByItemId(String itemId);
 
+    @Query("SELECT * FROM reader_session_state WHERE itemId IN (:itemIds)")
+    java.util.List<ReaderSessionStateEntity> getByItemIds(java.util.List<String> itemIds);
+
     @Query("DELETE FROM reader_session_state WHERE itemId = :itemId")
     void deleteByItemId(String itemId);
 

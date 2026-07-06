@@ -394,6 +394,11 @@ object AppModule {
     ): RemoteCatalogHydrator = repository
 
     @Provides
+    fun provideStartupRemoteCatalogCacheSeeder(
+        repository: RoomRemoteCatalogRepository,
+    ): StartupRemoteCatalogCacheSeeder = repository
+
+    @Provides
     fun provideRemoteLibraryCacheStore(
         repository: RoomRemoteCatalogRepository,
     ): RemoteLibraryCacheStore = repository
@@ -696,6 +701,11 @@ object AppModule {
     fun provideReaderSessionHydrator(
         store: RoomReaderSessionStore,
     ): ReaderSessionHydrator = store
+
+    @Provides
+    fun provideStartupReaderSessionCacheSeeder(
+        store: RoomReaderSessionStore,
+    ): StartupReaderSessionCacheSeeder = store
 
     @Provides
     @Singleton

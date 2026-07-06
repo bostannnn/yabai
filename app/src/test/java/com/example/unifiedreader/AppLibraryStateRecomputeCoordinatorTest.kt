@@ -71,6 +71,54 @@ class AppLibraryStateRecomputeCoordinatorTest {
     }
 
     @Test
+    fun `initialize keeps shelves loading when startup catalog exists without shelf progress`() = runTest {
+        val coordinator = createCoordinator(StandardTestDispatcher(testScheduler))
+
+        val initializedState = coordinator.initialize(
+            sampleLibraryState().copy(
+                items = listOf(sampleItem(id = "book-1", format = FormatType.EPUB)),
+                progressByItemId = emptyMap(),
+                hydratedSources = emptySet(),
+            ),
+        )
+
+        assertFalse(initializedState.isSelectedSourceHydrated)
+        assertEquals(listOf("book-1"), initializedState.visibleItems.map { item -> item.id })
+        assertFalse(initializedState.libraryShelvesState.hasContent)
+        assertTrue(initializedState.libraryShelvesState.isLoading)
+        assertTrue(initializedState.shouldShowLibraryShelves)
+    }
+
+    @Test
+    fun `hydrating startup catalog without shelf progress clears shelves loading`() = runTest {
+        val coordinator = createCoordinator(StandardTestDispatcher(testScheduler))
+        val initialState = coordinator.initialize(
+            sampleLibraryState().copy(
+                items = listOf(sampleItem(id = "book-1", format = FormatType.EPUB)),
+                progressByItemId = emptyMap(),
+                hydratedSources = emptySet(),
+            ),
+        )
+        val publishedStates = mutableListOf<AppUiState>()
+
+        coordinator.updateState(
+            currentState = initialState,
+            transform = { state ->
+                state.copy(hydratedSources = setOf(SourceType.KAVITA))
+            },
+            scope = this,
+            publishState = publishedStates::add,
+        )
+
+        assertEquals(1, publishedStates.size)
+        assertTrue(publishedStates.single().isSelectedSourceHydrated)
+        assertEquals(listOf("book-1"), publishedStates.single().visibleItems.map { item -> item.id })
+        assertFalse(publishedStates.single().libraryShelvesState.hasContent)
+        assertFalse(publishedStates.single().libraryShelvesState.isLoading)
+        assertFalse(publishedStates.single().shouldShowLibraryShelves)
+    }
+
+    @Test
     fun `library updates publish coherent root presentation before full enrichment`() = runTest {
         val coordinator = createCoordinator(StandardTestDispatcher(testScheduler))
         val initialState = coordinator.initialize(sampleLibraryState())
@@ -102,6 +150,55 @@ class AppLibraryStateRecomputeCoordinatorTest {
         assertEquals(1, publishedStates.single().visibleItems.size)
         assertTrue(publishedStates.single().libraryShelvesState.hasContent)
         assertFalse(publishedStates.single().libraryShelvesState.isLoading)
+    }
+
+    @Test
+    fun `cached startup shelves stay ready while selected source hydration is pending`() = runTest {
+        val coordinator = createCoordinator(StandardTestDispatcher(testScheduler))
+        val cachedItem = sampleItem(id = "book-1", format = FormatType.EPUB)
+        val refreshedCachedItem = sampleItem(id = "book-1", format = FormatType.EPUB)
+        val cachedProgress = mapOf(
+            cachedItem.id to ItemProgressSummary(
+                label = "Continue",
+                fraction = 0.35f,
+                lastReadAtEpochMillis = 25L,
+            ),
+        )
+        val initialState = coordinator.initialize(
+            sampleLibraryState().copy(
+                items = listOf(cachedItem),
+                progressByItemId = cachedProgress,
+                hydratedSources = emptySet(),
+            ),
+        )
+        val publishedStates = mutableListOf<AppUiState>()
+
+        coordinator.updateState(
+            currentState = initialState,
+            transform = { state ->
+                state.copy(
+                    items = listOf(refreshedCachedItem),
+                    progressByItemId = cachedProgress,
+                    hydratedSources = emptySet(),
+                )
+            },
+            scope = this,
+            publishState = publishedStates::add,
+        )
+
+        assertTrue(publishedStates.isEmpty())
+
+        advanceUntilIdle()
+
+        assertEquals(1, publishedStates.size)
+        assertFalse(publishedStates.single().isSelectedSourceHydrated)
+        assertEquals(listOf(refreshedCachedItem.id), publishedStates.single().visibleItems.map { item -> item.id })
+        assertTrue(publishedStates.single().libraryShelvesState.hasContent)
+        assertFalse(publishedStates.single().libraryShelvesState.isLoading)
+        assertEquals(
+            refreshedCachedItem.id,
+            publishedStates.single().libraryShelvesState.continueReading.single().item.id,
+        )
     }
 
     @Test

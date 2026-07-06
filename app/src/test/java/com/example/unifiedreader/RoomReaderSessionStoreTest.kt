@@ -19,6 +19,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -29,6 +30,65 @@ import java.util.concurrent.TimeUnit
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class RoomReaderSessionStoreTest {
+    @Test
+    fun `startup seed reads selected item progress without marking store hydrated`() = runTest {
+        val progressDao = FakeReadingProgressDaoForStore().apply {
+            entities += ReadingProgressEntity(
+                itemId = "comic-1",
+                locatorType = LocatorType.PAGE.name,
+                page = 4,
+                cfi = null,
+                percent = 0.35,
+                isFinished = false,
+                isExplicitUnreadReset = false,
+                syncState = com.example.unifiedreader.core.model.SyncState.CLEAN.name,
+                updatedAtEpochMillis = 25L,
+            )
+            entities += ReadingProgressEntity(
+                itemId = "comic-2",
+                locatorType = LocatorType.PAGE.name,
+                page = 8,
+                cfi = null,
+                percent = 0.75,
+                isFinished = false,
+                isExplicitUnreadReset = false,
+                syncState = com.example.unifiedreader.core.model.SyncState.CLEAN.name,
+                updatedAtEpochMillis = 50L,
+            )
+        }
+        val sessionDao = RecordingReaderSessionStateDao().apply {
+            entities += ReaderSessionStateEntity(
+                itemId = "comic-1",
+                page = 4,
+                pageCount = 12,
+                readingDirection = ComicReadingDirection.LTR.name,
+                pageFitMode = ComicPageFitMode.FitWidth.name,
+                spreadMode = ComicSpreadMode.Auto.name,
+                preferencesJson = "{}",
+                updatedAtEpochMillis = 25L,
+            )
+        }
+        var initialized = false
+        val store = RoomReaderSessionStore(
+            readingProgressDao = progressDao,
+            readerSessionStateDao = sessionDao,
+            appStartupTasks = AppStartupTasks { initialized = true },
+            writeScope = CoroutineScope(coroutineContext),
+        )
+
+        store.seedForStartupItemIds(listOf("comic-1"))
+
+        assertEquals(listOf(listOf("comic-1")), progressDao.getByItemIdsCalls)
+        assertEquals(listOf(listOf("comic-1")), sessionDao.getByItemIdsCalls)
+        assertEquals(0, progressDao.getAllCalls)
+        assertEquals(0, sessionDao.getAllCalls)
+        assertEquals(4, store.progressByItemIdFlow.value["comic-1"]?.page)
+        assertEquals(null, store.progressByItemIdFlow.value["comic-2"])
+        assertEquals(12, store.sessionByItemIdFlow.value["comic-1"]?.pageCount)
+        assertFalse(store.isHydratedFlow.value)
+        assertFalse(initialized)
+    }
+
     @Test
     fun `back to back session updates persist latest merged preferences`() = runTest {
         val sessionDao = RecordingReaderSessionStateDao()
@@ -466,12 +526,23 @@ class RoomReaderSessionStoreTest {
 private class FakeReadingProgressDaoForStore : ReadingProgressDao {
     val entities = mutableListOf<ReadingProgressEntity>()
     var beforeInsert: (() -> Unit)? = null
+    val getByItemIdsCalls = mutableListOf<List<String>>()
+    var getAllCalls: Int = 0
+        private set
 
-    override fun getAll(): MutableList<ReadingProgressEntity> = entities.toMutableList()
+    override fun getAll(): MutableList<ReadingProgressEntity> {
+        getAllCalls += 1
+        return entities.toMutableList()
+    }
 
     override fun hasAny(): Boolean = entities.isNotEmpty()
 
     override fun getByItemId(itemId: String): ReadingProgressEntity? = null
+
+    override fun getByItemIds(itemIds: MutableList<String>): MutableList<ReadingProgressEntity> {
+        getByItemIdsCalls += itemIds.toList()
+        return entities.filter { entity -> entity.itemId in itemIds }.toMutableList()
+    }
 
     override fun deleteByItemId(itemId: String) {
         entities.removeAll { it.itemId == itemId }
@@ -487,13 +558,24 @@ private class FakeReadingProgressDaoForStore : ReadingProgressDao {
 private class RecordingReaderSessionStateDao : ReaderSessionStateDao {
     val entities = mutableListOf<ReaderSessionStateEntity>()
     val insertCalls = mutableListOf<ReaderSessionStateEntity>()
+    val getByItemIdsCalls = mutableListOf<List<String>>()
+    var getAllCalls: Int = 0
+        private set
 
-    override fun getAll(): MutableList<ReaderSessionStateEntity> = entities.toMutableList()
+    override fun getAll(): MutableList<ReaderSessionStateEntity> {
+        getAllCalls += 1
+        return entities.toMutableList()
+    }
 
     override fun hasAny(): Boolean = entities.isNotEmpty()
 
     override fun getByItemId(itemId: String): ReaderSessionStateEntity? =
         entities.firstOrNull { it.itemId == itemId }
+
+    override fun getByItemIds(itemIds: MutableList<String>): MutableList<ReaderSessionStateEntity> {
+        getByItemIdsCalls += itemIds.toList()
+        return entities.filter { entity -> entity.itemId in itemIds }.toMutableList()
+    }
 
     override fun deleteByItemId(itemId: String) {
         entities.removeAll { it.itemId == itemId }
