@@ -29,6 +29,22 @@ class ComicPageCurlPagerGestureTest {
                 hasUnderneathComposite = true,
                 sheetBounds = ComicRasterRect(left = 100, top = 0, width = 200, height = 300),
                 downPosition = Offset(150f, 150f),
+                transitionPolicy = ComicPageCurlTransitionPolicy.UseCurl,
+            ),
+        )
+    }
+
+    @Test
+    fun `incompatible transition yields to pager even when down is inside sheet`() {
+        assertEquals(
+            ComicPageCurlGestureStartPolicy.YieldToPager,
+            resolveComicPageCurlGestureStartPolicy(
+                targetSpreadIndex = 2,
+                hasCurrentComposite = true,
+                hasUnderneathComposite = true,
+                sheetBounds = ComicRasterRect(left = 100, top = 0, width = 200, height = 300),
+                downPosition = Offset(150f, 150f),
+                transitionPolicy = ComicPageCurlTransitionPolicy.YieldToPager,
             ),
         )
     }

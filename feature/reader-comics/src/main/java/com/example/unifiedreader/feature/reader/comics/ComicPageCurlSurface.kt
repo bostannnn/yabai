@@ -31,49 +31,66 @@ import kotlinx.coroutines.withContext
 private const val ComicPageCurlAgsl = """
 uniform shader front;
 uniform shader underneath;
-uniform float2 sheetOrigin;
-uniform float2 sheetSize;
+uniform float2 paperOrigin;
+uniform float2 paperSize;
 uniform float2 origin;
 uniform float2 dir;
 uniform float radius;
 
 const float PI = 3.141592653589793;
 
-bool inSheet(float2 p) {
-    float2 q = p - sheetOrigin;
-    return q.x >= 0.0 && q.y >= 0.0 && q.x <= sheetSize.x && q.y <= sheetSize.y;
+bool inPaper(float2 p) {
+    float2 q = p - paperOrigin;
+    return q.x >= 0.0 && q.y >= 0.0 && q.x <= paperSize.x && q.y <= paperSize.y;
 }
 
-half4 backFace(float2 paperPos, float shade) {
+half4 clearPixel() {
+    return half4(0.0, 0.0, 0.0, 0.0);
+}
+
+float safeRadius() {
+    return max(radius, 1.0);
+}
+
+float curveLight(float x) {
+    float t = clamp(x / safeRadius(), 0.0, 1.0);
+    return 1.0 - 0.08 * sin(t * PI);
+}
+
+float contactLight(float x) {
+    float contact = 1.0 - smoothstep(0.0, safeRadius() * 1.5, abs(x));
+    return 1.0 - 0.08 * contact;
+}
+
+half4 frontFace(float2 paperPos, float x) {
+    half4 c = front.eval(paperPos);
+    return half4(c.rgb * half3(curveLight(x)), c.a);
+}
+
+half4 backFace(float2 paperPos, float x) {
     half4 c = front.eval(paperPos);
     half3 paper = mix(half3(0.965, 0.955, 0.94), c.rgb, 0.12);
-    return half4(paper * half3(shade), 1.0);
+    return half4(paper * half3(curveLight(x)), 1.0);
 }
 
 half4 underneathWithShadow(float2 p, float x) {
     half4 c = underneath.eval(p);
-    float shadowDistance = max(x, 0.0);
-    float contactShadow = 1.0 - smoothstep(0.0, radius * 1.8, shadowDistance);
-    float sh = 1.0 - 0.35 * contactShadow;
-    return half4(c.rgb * half3(sh), c.a);
+    return half4(c.rgb * half3(contactLight(x)), c.a);
 }
 
 half4 main(float2 p) {
-    if (!inSheet(p)) {
-        return half4(0.0, 0.0, 0.0, 0.0);
-    }
-
     float x = dot(p - origin, dir);
 
     if (x <= 0.0) {
         float d = PI * radius - x;
         float2 pp = p + dir * (d - x);
-        if (inSheet(pp)) {
-            return backFace(pp, 1.0);
+        if (inPaper(pp)) {
+            return backFace(pp, x);
         }
-        half4 c = front.eval(p);
-        float sh = 1.0 - 0.22 * smoothstep(-radius, 0.0, x);
-        return half4(c.rgb * half3(sh), c.a);
+        if (inPaper(p)) {
+            return frontFace(p, x);
+        }
+        return clearPixel();
     }
 
     if (x < radius) {
@@ -81,23 +98,26 @@ half4 main(float2 p) {
 
         float d2 = (PI - theta) * radius;
         float2 p2 = p + dir * (d2 - x);
-        if (inSheet(p2)) {
-            float shade = 1.0 - 0.38 * pow(x / radius, 2.0);
-            return backFace(p2, shade);
+        if (inPaper(p2)) {
+            return backFace(p2, x);
         }
 
         float d1 = theta * radius;
         float2 p1 = p + dir * (d1 - x);
-        if (inSheet(p1)) {
-            float shade = 1.0 - 0.45 * (x / radius);
-            half4 c = front.eval(p1);
-            return half4(c.rgb * half3(shade), c.a);
+        if (inPaper(p1)) {
+            return frontFace(p1, x);
         }
 
-        return underneathWithShadow(p, x);
+        if (inPaper(p)) {
+            return underneathWithShadow(p, x);
+        }
+        return clearPixel();
     }
 
-    return underneathWithShadow(p, x);
+    if (inPaper(p)) {
+        return underneathWithShadow(p, x);
+    }
+    return clearPixel();
 }
 """
 
@@ -168,7 +188,8 @@ internal fun ComicPageCurlSurface(
     underneathPage: ImageBitmap,
     state: ComicPageCurlState,
     readingDirection: ComicReadingDirection,
-    sheetBounds: ComicRasterRect,
+    paperBounds: ComicRasterRect,
+    renderBounds: ComicRasterRect = paperBounds,
     modifier: Modifier = Modifier,
     target: ComicPageCurlTarget = state.target,
     gesturesEnabled: Boolean = false,
@@ -181,7 +202,8 @@ internal fun ComicPageCurlSurface(
             underneathPage = underneathPage,
             state = state,
             readingDirection = readingDirection,
-            sheetBounds = sheetBounds,
+            paperBounds = paperBounds,
+            renderBounds = renderBounds,
             modifier = modifier,
             target = target,
             gesturesEnabled = gesturesEnabled,
@@ -207,7 +229,8 @@ private fun ComicPageCurlShaderSurfaceApi33(
     underneathPage: ImageBitmap,
     state: ComicPageCurlState,
     readingDirection: ComicReadingDirection,
-    sheetBounds: ComicRasterRect,
+    paperBounds: ComicRasterRect,
+    renderBounds: ComicRasterRect,
     modifier: Modifier,
     target: ComicPageCurlTarget,
     gesturesEnabled: Boolean,
@@ -245,15 +268,15 @@ private fun ComicPageCurlShaderSurfaceApi33(
                 onDragStart = { position ->
                     state.startDrag(
                         target = target,
-                        grabY = position.y - sheetBounds.top,
-                        containerHeight = sheetBounds.height.toFloat(),
+                        grabY = position.y - paperBounds.top,
+                        containerHeight = paperBounds.height.toFloat(),
                     )
                 },
                 onHorizontalDrag = { _, dragAmount ->
                     coroutineScope.launch {
                         state.dragBy(
                             dragAmount = dragAmount,
-                            containerWidth = sheetBounds.width.toFloat(),
+                            containerWidth = paperBounds.width.toFloat(),
                             readingDirection = readingDirection,
                         )
                     }
@@ -286,26 +309,26 @@ private fun ComicPageCurlShaderSurfaceApi33(
 
     Canvas(modifier = surfaceModifier) {
         if (size.width <= 0f || size.height <= 0f) return@Canvas
-        if (!sheetBounds.hasArea) return@Canvas
+        if (!paperBounds.hasArea || !renderBounds.hasArea) return@Canvas
         shader.setInputBuffer("front", currentPageShader)
         shader.setInputBuffer("underneath", underneathPageShader)
         val axis = calculateComicPageCurlAxisForSheet(
             progress = state.progress.value,
             tilt = state.tilt,
-            sheetBounds = sheetBounds,
+            sheetBounds = paperBounds,
             readingDirection = readingDirection,
             target = target,
         )
-        shader.setFloatUniform("sheetOrigin", sheetBounds.left.toFloat(), sheetBounds.top.toFloat())
-        shader.setFloatUniform("sheetSize", sheetBounds.width.toFloat(), sheetBounds.height.toFloat())
+        shader.setFloatUniform("paperOrigin", paperBounds.left.toFloat(), paperBounds.top.toFloat())
+        shader.setFloatUniform("paperSize", paperBounds.width.toFloat(), paperBounds.height.toFloat())
         shader.setFloatUniform("origin", axis.originX, axis.originY)
         shader.setFloatUniform("dir", axis.directionX, axis.directionY)
         shader.setFloatUniform("radius", axis.radius)
 
         drawRect(
             brush = brush,
-            topLeft = Offset(sheetBounds.left.toFloat(), sheetBounds.top.toFloat()),
-            size = Size(sheetBounds.width.toFloat(), sheetBounds.height.toFloat()),
+            topLeft = Offset(renderBounds.left.toFloat(), renderBounds.top.toFloat()),
+            size = Size(renderBounds.width.toFloat(), renderBounds.height.toFloat()),
         )
     }
 }
