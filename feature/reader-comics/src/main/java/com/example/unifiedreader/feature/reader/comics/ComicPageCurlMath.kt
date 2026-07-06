@@ -56,6 +56,16 @@ internal fun applyComicPageCurlProgressDelta(
     target = target,
 )).coerceIn(0f, 1f)
 
+internal fun comicPageCurlProgressVelocity(
+    horizontalVelocity: Float,
+    containerWidth: Float,
+    readingDirection: ComicReadingDirection,
+    target: ComicPageCurlTarget,
+): Float {
+    if (containerWidth <= 0f) return 0f
+    return horizontalVelocity * comicPageCurlProgressSign(readingDirection, target) / containerWidth
+}
+
 internal fun comicPageCurlTiltForGrab(
     grabY: Float,
     containerHeight: Float,

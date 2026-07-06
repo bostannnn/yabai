@@ -3,7 +3,6 @@ package com.example.unifiedreader.feature.reader.comics
 import android.os.Build
 import androidx.compose.ui.unit.IntSize
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
-import kotlin.math.abs
 
 internal enum class ComicPageCurlUnavailableReason {
     PageTurnStyleNotCurl,
@@ -57,7 +56,11 @@ internal fun shouldCommitComicPageCurl(
     velocity: Float = 0f,
     progressThreshold: Float = ComicPageCurlCommitProgressThreshold,
     velocityThreshold: Float = ComicPageCurlCommitVelocityThreshold,
-): Boolean = progress > progressThreshold || abs(velocity) > velocityThreshold
+): Boolean = when {
+    velocity > velocityThreshold -> true
+    velocity < -velocityThreshold -> false
+    else -> progress > progressThreshold
+}
 
 internal fun resolveComicPageCurlTargetSpreadIndex(
     currentSpreadIndex: Int,

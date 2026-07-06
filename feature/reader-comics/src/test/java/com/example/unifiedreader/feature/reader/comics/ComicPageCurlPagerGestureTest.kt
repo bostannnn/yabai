@@ -6,10 +6,10 @@ import org.junit.Test
 
 class ComicPageCurlPagerGestureTest {
     @Test
-    fun `valid adjacent target outside sheet is ignored instead of yielded`() {
+    fun `valid adjacent target outside sheet yields to pager`() {
         assertEquals(
-            ComicPageCurlGestureStartResolution.Ignore,
-            resolveComicPageCurlGestureStartResolution(
+            ComicPageCurlGestureStartPolicy.YieldToPager,
+            resolveComicPageCurlGestureStartPolicy(
                 targetSpreadIndex = 2,
                 hasCurrentComposite = true,
                 hasUnderneathComposite = true,
@@ -22,8 +22,8 @@ class ComicPageCurlPagerGestureTest {
     @Test
     fun `valid adjacent target inside sheet starts curl`() {
         assertEquals(
-            ComicPageCurlGestureStartResolution.Start,
-            resolveComicPageCurlGestureStartResolution(
+            ComicPageCurlGestureStartPolicy.StartCurl,
+            resolveComicPageCurlGestureStartPolicy(
                 targetSpreadIndex = 2,
                 hasCurrentComposite = true,
                 hasUnderneathComposite = true,
@@ -36,8 +36,8 @@ class ComicPageCurlPagerGestureTest {
     @Test
     fun `missing adjacent target preserves pager fallback`() {
         assertEquals(
-            ComicPageCurlGestureStartResolution.Yield,
-            resolveComicPageCurlGestureStartResolution(
+            ComicPageCurlGestureStartPolicy.YieldToPager,
+            resolveComicPageCurlGestureStartPolicy(
                 targetSpreadIndex = null,
                 hasCurrentComposite = true,
                 hasUnderneathComposite = true,
@@ -50,8 +50,8 @@ class ComicPageCurlPagerGestureTest {
     @Test
     fun `missing composite preserves pager fallback`() {
         assertEquals(
-            ComicPageCurlGestureStartResolution.Yield,
-            resolveComicPageCurlGestureStartResolution(
+            ComicPageCurlGestureStartPolicy.YieldToPager,
+            resolveComicPageCurlGestureStartPolicy(
                 targetSpreadIndex = 2,
                 hasCurrentComposite = true,
                 hasUnderneathComposite = false,
@@ -64,8 +64,8 @@ class ComicPageCurlPagerGestureTest {
     @Test
     fun `empty sheet bounds preserve pager fallback`() {
         assertEquals(
-            ComicPageCurlGestureStartResolution.Yield,
-            resolveComicPageCurlGestureStartResolution(
+            ComicPageCurlGestureStartPolicy.YieldToPager,
+            resolveComicPageCurlGestureStartPolicy(
                 targetSpreadIndex = 2,
                 hasCurrentComposite = true,
                 hasUnderneathComposite = true,

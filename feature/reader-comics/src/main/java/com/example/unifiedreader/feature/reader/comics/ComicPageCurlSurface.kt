@@ -52,7 +52,9 @@ half4 backFace(float2 paperPos, float shade) {
 
 half4 underneathWithShadow(float2 p, float x) {
     half4 c = underneath.eval(p);
-    float sh = 1.0 - 0.35 * smoothstep(radius * 1.8, radius * 0.1, x);
+    float shadowDistance = max(x, 0.0);
+    float contactShadow = 1.0 - smoothstep(0.0, radius * 1.8, shadowDistance);
+    float sh = 1.0 - 0.35 * contactShadow;
     return half4(c.rgb * half3(sh), c.a);
 }
 

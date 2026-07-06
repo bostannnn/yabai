@@ -121,6 +121,8 @@ class ComicPageCurlMathTest {
         assertFalse(shouldCommitComicPageCurl(progress = 0.25f))
         assertTrue(shouldCommitComicPageCurl(progress = 0.251f))
         assertTrue(shouldCommitComicPageCurl(progress = 0.1f, velocity = 1.6f))
+        assertFalse(shouldCommitComicPageCurl(progress = 0.1f, velocity = -1.6f))
+        assertFalse(shouldCommitComicPageCurl(progress = 0.4f, velocity = -1.6f))
     }
 
     @Test
@@ -186,6 +188,40 @@ class ComicPageCurlMathTest {
                 containerWidth = 400f,
                 readingDirection = ComicReadingDirection.RTL,
                 target = ComicPageCurlTarget.Previous,
+            ),
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun `progress velocity follows reading direction and target`() {
+        assertEquals(
+            2f,
+            comicPageCurlProgressVelocity(
+                horizontalVelocity = -800f,
+                containerWidth = 400f,
+                readingDirection = ComicReadingDirection.LTR,
+                target = ComicPageCurlTarget.Next,
+            ),
+            0.0001f,
+        )
+        assertEquals(
+            -2f,
+            comicPageCurlProgressVelocity(
+                horizontalVelocity = 800f,
+                containerWidth = 400f,
+                readingDirection = ComicReadingDirection.LTR,
+                target = ComicPageCurlTarget.Next,
+            ),
+            0.0001f,
+        )
+        assertEquals(
+            2f,
+            comicPageCurlProgressVelocity(
+                horizontalVelocity = 800f,
+                containerWidth = 400f,
+                readingDirection = ComicReadingDirection.RTL,
+                target = ComicPageCurlTarget.Next,
             ),
             0.0001f,
         )
