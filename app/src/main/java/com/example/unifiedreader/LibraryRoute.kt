@@ -64,6 +64,8 @@ internal fun LibraryRoute(
     showSortControl: Boolean,
     activeShelfBrowserKind: LibraryShelfBrowserKind? = null,
     onActiveShelfBrowserKindChanged: (LibraryShelfBrowserKind?) -> Unit = {},
+    shelfSearchQuery: String = "",
+    onShelfSearchQueryChanged: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     LaunchedEffect(uiState.selectedSource) {
@@ -102,6 +104,11 @@ internal fun LibraryRoute(
                 itemActionContext = itemActionContext,
                 coverImageUrlProvider = coverImageUrlProvider,
                 coverPrefetchKeyProvider = coverPrefetchKeyProvider,
+                gridCellSizeDp = uiState.libraryGridCellSizeDp,
+                onGridCellSizeDpChanged = onGridCellSizeDpChanged,
+                searchQuery = shelfSearchQuery,
+                onSearchQueryChanged = onShelfSearchQueryChanged,
+                showEmbeddedTopBar = false,
                 onCoverVisible = onCoverVisible,
                 onCoverViewportScrollingChanged = onCoverViewportScrollingChanged,
                 onBack = { onActiveShelfBrowserKindChanged(null) },

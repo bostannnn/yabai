@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -27,24 +26,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Sort
-import androidx.compose.material.icons.automirrored.filled.ViewList
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -60,7 +44,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
@@ -70,13 +53,21 @@ import com.example.unifiedreader.core.model.facetMetadata
 import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.core.model.librarySecondaryText
 import com.example.unifiedreader.feature.library.LibraryAnchoredItemMenu
+import com.example.unifiedreader.feature.library.LibraryBrowseOption
+import com.example.unifiedreader.feature.library.LibraryBrowseOptionSection
+import com.example.unifiedreader.feature.library.LibraryBrowseOptionsMenu
 import com.example.unifiedreader.feature.library.LibraryCoverActionCard
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryDeleteImportedItemDialog
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
+import com.example.unifiedreader.feature.library.availableLibraryGridSizeOptions
+import com.example.unifiedreader.feature.library.defaultLibraryGridCellSizeDp
 import com.example.unifiedreader.feature.library.hasMenuContent
 import com.example.unifiedreader.feature.library.isDownloaded
+import com.example.unifiedreader.feature.library.libraryGridCoverImageVariant
 import com.example.unifiedreader.feature.library.menu.LibraryItemMenuButtonStyle
+import com.example.unifiedreader.feature.library.minLibraryGridCellSizeDp
+import com.example.unifiedreader.feature.library.sanitizeLibraryGridCellSizeDp
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import com.example.unifiedreader.ui.theme.unifiedReaderProgressTreatment
 import com.example.unifiedreader.ui.theme.unifiedReaderSurfacePattern
@@ -146,6 +137,11 @@ fun LibraryShelfItemsBrowser(
     onItemSelected: (ReadableItem) -> Unit,
     onDeleteImportedItem: (ReadableItem) -> Unit,
     browseContextKey: String = browser.kind.name,
+    gridCellSizeDp: Int = defaultLibraryGridCellSizeDp,
+    onGridCellSizeDpChanged: (Int) -> Unit = {},
+    searchQuery: String? = null,
+    onSearchQueryChanged: ((String) -> Unit)? = null,
+    showEmbeddedTopBar: Boolean = true,
     coverPrefetchKeyProvider: (ReadableItem, LibraryCoverImageVariant) -> String? = coverImageUrlProvider,
     onCoverViewportScrollingChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
@@ -154,12 +150,14 @@ fun LibraryShelfItemsBrowser(
     val pageRecipe = UnifiedReaderThemeTokens.components.sheet
     val gridState = rememberLazyGridState()
     val listState = rememberLazyListState()
-    var searchQuery by rememberSaveable(browseContextKey, browser.kind) { mutableStateOf("") }
+    var localSearchQuery by rememberSaveable(browseContextKey, browser.kind) { mutableStateOf("") }
+    val effectiveSearchQuery = searchQuery ?: localSearchQuery
+    val updateSearchQuery = onSearchQueryChanged ?: { query: String -> localSearchQuery = query }
     var sortMode by rememberSaveable(browseContextKey, browser.kind) { mutableStateOf(ShelfBrowserSortMode.ShelfOrder) }
-    var viewMode by rememberSaveable(browseContextKey, browser.kind) { mutableStateOf(ShelfBrowserViewMode.Grid) }
-    var density by rememberSaveable(browseContextKey, browser.kind) { mutableStateOf(ShelfBrowserDensity.Comfortable) }
+    var showListView by rememberSaveable(browseContextKey, browser.kind) { mutableStateOf(false) }
     var expandedMenuItemId by remember(browseContextKey, browser.kind, browser.count) { mutableStateOf<String?>(null) }
     var deleteCandidate by remember(browseContextKey, browser.kind) { mutableStateOf<ReadableItem?>(null) }
+    val sanitizedGridCellSizeDp = sanitizeLibraryGridCellSizeDp(gridCellSizeDp)
     val allEntries = remember(browser) {
         browser.browserEntries(nowEpochMillis = System.currentTimeMillis())
     }
@@ -174,25 +172,25 @@ fun LibraryShelfItemsBrowser(
             sortMode = ShelfBrowserSortMode.ShelfOrder
         }
     }
-    val visibleEntries = remember(allEntries, searchQuery, sortMode) {
+    val visibleEntries = remember(allEntries, effectiveSearchQuery, sortMode) {
         allEntries
-            .searchedBy(searchQuery)
+            .searchedBy(effectiveSearchQuery)
             .sortedFor(sortMode)
     }
 
-    LaunchedEffect(browser.kind, searchQuery, sortMode, viewMode, density) {
+    LaunchedEffect(browser.kind, effectiveSearchQuery, sortMode, showListView, sanitizedGridCellSizeDp) {
         gridState.scrollToItem(0)
         listState.scrollToItem(0)
     }
     ShelfBrowserVisibleCoverPrefetcher(
         browseContextKey = browseContextKey,
-        viewMode = viewMode,
+        showListView = showListView,
         gridState = gridState,
         listState = listState,
         entries = visibleEntries,
         variant = shelfBrowserCoverImageVariant(
-            viewMode = viewMode,
-            density = density,
+            showListView = showListView,
+            gridCellSizeDp = sanitizedGridCellSizeDp,
         ),
         coverPrefetchKeyProvider = coverPrefetchKeyProvider,
         onCoverVisible = onCoverVisible,
@@ -213,40 +211,46 @@ fun LibraryShelfItemsBrowser(
                     intensity = pageRecipe.patternIntensity,
                 ),
         ) {
-            ShelfBrowserTopBar(
-                title = browser.title,
-                count = browser.count,
-                visibleCount = visibleEntries.size,
-                searchActive = searchQuery.isNotBlank(),
-                onBack = onBack,
-            )
+            if (showEmbeddedTopBar) {
+                LibraryShelfBrowserTopBar(
+                    title = browser.title,
+                    count = browser.count,
+                    searchQuery = effectiveSearchQuery,
+                    onSearchQueryChanged = updateSearchQuery,
+                    onBack = onBack,
+                )
+            }
             ShelfBrowserControls(
-                searchQuery = searchQuery,
                 sortMode = sortMode,
-                viewMode = viewMode,
-                density = density,
+                showListView = showListView,
+                gridCellSizeDp = sanitizedGridCellSizeDp,
                 availableSortModes = availableSortModes,
                 shelfKind = browser.kind,
-                onSearchQueryChanged = { searchQuery = it },
                 onSortModeChanged = { sortMode = it },
-                onViewModeChanged = { viewMode = it },
-                onDensityChanged = { density = it },
+                onListViewChanged = { showListView = it },
+                onGridCellSizeDpChanged = onGridCellSizeDpChanged,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(semanticColors.surfaceOverlay.copy(alpha = 0.36f))
+                    .then(
+                        if (showEmbeddedTopBar) {
+                            Modifier.background(semanticColors.surfaceOverlay.copy(alpha = 0.36f))
+                        } else {
+                            Modifier
+                        },
+                    )
                     .padding(horizontal = 16.dp, vertical = 12.dp),
             )
             Box(modifier = Modifier.fillMaxSize()) {
                 if (visibleEntries.isEmpty()) {
                     ShelfBrowserEmptyState(
-                        searchActive = searchQuery.isNotBlank(),
+                        searchActive = effectiveSearchQuery.isNotBlank(),
                         modifier = Modifier.fillMaxSize(),
                     )
                 } else {
                     ShelfBrowserItems(
                         entries = visibleEntries,
-                        viewMode = viewMode,
-                        density = density,
+                        showListView = showListView,
+                        gridCellSizeDp = sanitizedGridCellSizeDp,
                         gridState = gridState,
                         listState = listState,
                         itemActionContext = itemActionContext,
@@ -299,330 +303,86 @@ internal fun LibraryShelfItemsSheet(
 }
 
 @Composable
-private fun ShelfBrowserTopBar(
-    title: String,
-    count: Int,
-    visibleCount: Int,
-    searchActive: Boolean,
-    onBack: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.78f))
-            .padding(start = 4.dp, top = 10.dp, end = 16.dp, bottom = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        IconButton(onClick = onBack) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
-            )
-        }
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = if (searchActive) {
-                    "${visibleCount.itemCountLabel()} shown from ${count.itemCountLabel()}"
-                } else {
-                    count.itemCountLabel()
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-    }
-}
-
-@Composable
 private fun ShelfBrowserControls(
-    searchQuery: String,
     sortMode: ShelfBrowserSortMode,
-    viewMode: ShelfBrowserViewMode,
-    density: ShelfBrowserDensity,
+    showListView: Boolean,
+    gridCellSizeDp: Int,
     availableSortModes: List<ShelfBrowserSortMode>,
     shelfKind: LibraryShelfBrowserKind,
-    onSearchQueryChanged: (String) -> Unit,
     onSortModeChanged: (ShelfBrowserSortMode) -> Unit,
-    onViewModeChanged: (ShelfBrowserViewMode) -> Unit,
-    onDensityChanged: (ShelfBrowserDensity) -> Unit,
+    onListViewChanged: (Boolean) -> Unit,
+    onGridCellSizeDpChanged: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     BoxWithConstraints(modifier = modifier) {
-        if (maxWidth < ShelfBrowserWideControlsBreakpoint) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                ShelfBrowserSearchField(
-                    query = searchQuery,
-                    onQueryChanged = onSearchQueryChanged,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                ShelfBrowserOptionChips(
-                    sortMode = sortMode,
-                    viewMode = viewMode,
-                    density = density,
-                    availableSortModes = availableSortModes,
-                    shelfKind = shelfKind,
-                    onSortModeChanged = onSortModeChanged,
-                    onViewModeChanged = onViewModeChanged,
-                    onDensityChanged = onDensityChanged,
-                )
-            }
-        } else {
+        val gridSizeOptions = availableLibraryGridSizeOptions(
+            maxWidth = maxWidth,
+            endPadding = 16.dp,
+        )
+        val sanitizedGridCellSizeDp = sanitizeLibraryGridCellSizeDp(gridCellSizeDp)
+
+        @Composable
+        fun BrowseMenu(
+            modifier: Modifier = Modifier,
+        ) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                ShelfBrowserSearchField(
-                    query = searchQuery,
-                    onQueryChanged = onSearchQueryChanged,
-                    modifier = Modifier.weight(1f),
-                )
-                ShelfBrowserOptionChips(
-                    sortMode = sortMode,
-                    viewMode = viewMode,
-                    density = density,
-                    availableSortModes = availableSortModes,
-                    shelfKind = shelfKind,
-                    onSortModeChanged = onSortModeChanged,
-                    onViewModeChanged = onViewModeChanged,
-                    onDensityChanged = onDensityChanged,
+                LibraryBrowseOptionsMenu(
+                    label = sortMode.label(shelfKind),
+                    selected = sortMode != ShelfBrowserSortMode.ShelfOrder ||
+                        showListView ||
+                        sanitizedGridCellSizeDp != defaultLibraryGridCellSizeDp,
+                    optionSections = listOf(
+                        shelfBrowserSortOptionSection(
+                            sortMode = sortMode,
+                            availableSortModes = availableSortModes,
+                            shelfKind = shelfKind,
+                        ),
+                        shelfBrowserLayoutOptionSection(showListView = showListView),
+                    ),
+                    gridCellSizeDp = sanitizedGridCellSizeDp,
+                    gridSizeOptions = gridSizeOptions,
+                    fadeReadItems = false,
+                    showFadeReadItems = false,
+                    showGridSizeOptions = !showListView,
+                    onOptionSelected = { sectionId, optionId ->
+                        when (sectionId) {
+                            ShelfBrowserSortSectionId -> {
+                                availableSortModes
+                                    .firstOrNull { mode -> mode.name == optionId }
+                                    ?.let(onSortModeChanged)
+                            }
+                            ShelfBrowserLayoutSectionId -> {
+                                when (optionId) {
+                                    ShelfBrowserLayoutGridOptionId -> onListViewChanged(false)
+                                    ShelfBrowserLayoutListOptionId -> onListViewChanged(true)
+                                }
+                            }
+                        }
+                    },
+                    onGridCellSizeDpChanged = onGridCellSizeDpChanged,
+                    onFadeReadItemsChanged = {},
                 )
             }
         }
-    }
-}
 
-@Composable
-private fun ShelfBrowserSearchField(
-    query: String,
-    onQueryChanged: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    OutlinedTextField(
-        value = query,
-        onValueChange = onQueryChanged,
-        modifier = modifier,
-        singleLine = true,
-        leadingIcon = {
-            Icon(
-                imageVector = Icons.Default.Search,
-                contentDescription = null,
-            )
-        },
-        trailingIcon = if (query.isNotEmpty()) {
-            {
-                IconButton(onClick = { onQueryChanged("") }) {
-                    Icon(
-                        imageVector = Icons.Default.Clear,
-                        contentDescription = "Clear search",
-                    )
-                }
-            }
-        } else {
-            null
-        },
-        label = { Text(text = "Search shelf") },
-        shape = RoundedCornerShape(UnifiedReaderThemeTokens.presentation.controlCornerRadius),
-    )
-}
-
-@Composable
-private fun ShelfBrowserOptionChips(
-    sortMode: ShelfBrowserSortMode,
-    viewMode: ShelfBrowserViewMode,
-    density: ShelfBrowserDensity,
-    availableSortModes: List<ShelfBrowserSortMode>,
-    shelfKind: LibraryShelfBrowserKind,
-    onSortModeChanged: (ShelfBrowserSortMode) -> Unit,
-    onViewModeChanged: (ShelfBrowserViewMode) -> Unit,
-    onDensityChanged: (ShelfBrowserDensity) -> Unit,
-) {
-    Row(
-        modifier = Modifier.horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        ShelfBrowserSortChip(
-            sortMode = sortMode,
-            availableSortModes = availableSortModes,
-            shelfKind = shelfKind,
-            onSortModeChanged = onSortModeChanged,
-        )
-        ShelfBrowserViewChip(
-            viewMode = viewMode,
-            density = density,
-            onViewModeChanged = onViewModeChanged,
-            onDensityChanged = onDensityChanged,
-        )
-    }
-}
-
-@Composable
-private fun ShelfBrowserSortChip(
-    sortMode: ShelfBrowserSortMode,
-    availableSortModes: List<ShelfBrowserSortMode>,
-    shelfKind: LibraryShelfBrowserKind,
-    onSortModeChanged: (ShelfBrowserSortMode) -> Unit,
-) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
-    Box {
-        FilterChip(
-            selected = sortMode != ShelfBrowserSortMode.ShelfOrder,
-            onClick = { expanded = true },
-            colors = FilterChipDefaults.filterChipColors(),
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Sort,
-                    contentDescription = null,
-                    modifier = Modifier.size(FilterChipDefaults.IconSize),
-                )
-            },
-            label = {
-                Text(
-                    text = sortMode.label(shelfKind),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            },
-        )
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.CenterEnd,
         ) {
-            DropdownSectionHeader(text = "Sort")
-            availableSortModes.forEach { mode ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = mode.label(shelfKind),
-                            fontWeight = if (mode == sortMode) FontWeight.SemiBold else FontWeight.Normal,
-                        )
-                    },
-                    onClick = {
-                        expanded = false
-                        onSortModeChanged(mode)
-                    },
-                )
-            }
+            BrowseMenu()
         }
     }
-}
-
-@Composable
-private fun ShelfBrowserViewChip(
-    viewMode: ShelfBrowserViewMode,
-    density: ShelfBrowserDensity,
-    onViewModeChanged: (ShelfBrowserViewMode) -> Unit,
-    onDensityChanged: (ShelfBrowserDensity) -> Unit,
-) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
-    Box {
-        FilterChip(
-            selected = viewMode != ShelfBrowserViewMode.Grid || density != ShelfBrowserDensity.Comfortable,
-            onClick = { expanded = true },
-            colors = FilterChipDefaults.filterChipColors(),
-            leadingIcon = {
-                Icon(
-                    imageVector = if (viewMode == ShelfBrowserViewMode.Grid) {
-                        Icons.Default.GridView
-                    } else {
-                        Icons.AutoMirrored.Filled.ViewList
-                    },
-                    contentDescription = null,
-                    modifier = Modifier.size(FilterChipDefaults.IconSize),
-                )
-            },
-            label = {
-                Text(
-                    text = "${viewMode.label} - ${density.label}",
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            },
-        )
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
-            DropdownSectionHeader(text = "Layout")
-            ShelfBrowserViewMode.entries.forEach { mode ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = mode.label,
-                            fontWeight = if (mode == viewMode) FontWeight.SemiBold else FontWeight.Normal,
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = if (mode == ShelfBrowserViewMode.Grid) {
-                            Icons.Default.GridView
-                        } else {
-                            Icons.AutoMirrored.Filled.ViewList
-                            },
-                            contentDescription = null,
-                        )
-                    },
-                    onClick = {
-                        onViewModeChanged(mode)
-                    },
-                )
-            }
-            HorizontalDivider()
-            DropdownSectionHeader(text = "Density")
-            ShelfBrowserDensity.entries.forEach { option ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = option.label,
-                            fontWeight = if (option == density) FontWeight.SemiBold else FontWeight.Normal,
-                        )
-                    },
-                    onClick = {
-                        expanded = false
-                        onDensityChanged(option)
-                    },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun DropdownSectionHeader(
-    text: String,
-) {
-    DropdownMenuItem(
-        text = {
-            Text(
-                text = text,
-                fontWeight = FontWeight.Medium,
-            )
-        },
-        onClick = {},
-        enabled = false,
-    )
 }
 
 @Composable
 private fun ShelfBrowserItems(
     entries: List<LibraryShelfBrowserEntry>,
-    viewMode: ShelfBrowserViewMode,
-    density: ShelfBrowserDensity,
+    showListView: Boolean,
+    gridCellSizeDp: Int,
     gridState: LazyGridState,
     listState: LazyListState,
     itemActionContext: LibraryItemActionContext,
@@ -633,26 +393,25 @@ private fun ShelfBrowserItems(
     onExpandedMenuChange: (ReadableItem, Boolean) -> Unit,
     onDeleteImportedRequested: (ReadableItem) -> Unit,
 ) {
-    when (viewMode) {
-        ShelfBrowserViewMode.Grid -> ShelfBrowserGrid(
+    if (showListView) {
+        ShelfBrowserList(
             entries = entries,
-            density = density,
-            gridState = gridState,
+            listState = listState,
             itemActionContext = itemActionContext,
             coverImageUrlProvider = coverImageUrlProvider,
+            onCoverVisible = onCoverVisible,
             onItemSelected = onItemSelected,
             expandedMenuItemId = expandedMenuItemId,
             onExpandedMenuChange = onExpandedMenuChange,
             onDeleteImportedRequested = onDeleteImportedRequested,
         )
-
-        ShelfBrowserViewMode.List -> ShelfBrowserList(
+    } else {
+        ShelfBrowserGrid(
             entries = entries,
-            density = density,
-            listState = listState,
+            gridCellSizeDp = gridCellSizeDp,
+            gridState = gridState,
             itemActionContext = itemActionContext,
             coverImageUrlProvider = coverImageUrlProvider,
-            onCoverVisible = onCoverVisible,
             onItemSelected = onItemSelected,
             expandedMenuItemId = expandedMenuItemId,
             onExpandedMenuChange = onExpandedMenuChange,
@@ -664,7 +423,7 @@ private fun ShelfBrowserItems(
 @Composable
 private fun ShelfBrowserGrid(
     entries: List<LibraryShelfBrowserEntry>,
-    density: ShelfBrowserDensity,
+    gridCellSizeDp: Int,
     gridState: LazyGridState,
     itemActionContext: LibraryItemActionContext,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
@@ -673,20 +432,14 @@ private fun ShelfBrowserGrid(
     onExpandedMenuChange: (ReadableItem, Boolean) -> Unit,
     onDeleteImportedRequested: (ReadableItem) -> Unit,
 ) {
-    val cellMinSize = when (density) {
-        ShelfBrowserDensity.Comfortable -> 150.dp
-        ShelfBrowserDensity.Compact -> 118.dp
-    }
-    val imageVariant = when (density) {
-        ShelfBrowserDensity.Comfortable -> LibraryCoverImageVariant.GridLarge
-        ShelfBrowserDensity.Compact -> LibraryCoverImageVariant.Grid
-    }
+    val sanitizedGridCellSizeDp = sanitizeLibraryGridCellSizeDp(gridCellSizeDp)
+    val compactGrid = sanitizedGridCellSizeDp <= minLibraryGridCellSizeDp
     LazyVerticalGrid(
-        columns = GridCells.Adaptive(cellMinSize),
+        columns = GridCells.Adaptive(sanitizedGridCellSizeDp.dp),
         state = gridState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(if (density == ShelfBrowserDensity.Compact) 12.dp else 16.dp),
+        verticalArrangement = Arrangement.spacedBy(if (compactGrid) 12.dp else 16.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         items(
@@ -695,8 +448,8 @@ private fun ShelfBrowserGrid(
         ) { entry ->
             ShelfBrowserGridCard(
                 entry = entry,
-                density = density,
-                imageVariant = imageVariant,
+                compact = compactGrid,
+                imageVariant = libraryGridCoverImageVariant(sanitizedGridCellSizeDp),
                 itemActionContext = itemActionContext,
                 coverImageUrlProvider = coverImageUrlProvider,
                 onItemSelected = { onItemSelected(entry.item) },
@@ -711,7 +464,6 @@ private fun ShelfBrowserGrid(
 @Composable
 private fun ShelfBrowserList(
     entries: List<LibraryShelfBrowserEntry>,
-    density: ShelfBrowserDensity,
     listState: LazyListState,
     itemActionContext: LibraryItemActionContext,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
@@ -725,7 +477,7 @@ private fun ShelfBrowserList(
         modifier = Modifier.fillMaxSize(),
         state = listState,
         contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(if (density == ShelfBrowserDensity.Compact) 6.dp else 10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         items(
             items = entries,
@@ -759,7 +511,7 @@ private fun ShelfBrowserList(
                 progressFraction = entry.progressFraction,
                 isDownloaded = itemActionContext.isDownloaded(entry.item),
                 isRead = entry.isRead,
-                compact = density == ShelfBrowserDensity.Compact,
+                compact = false,
                 notifyCoverVisibleOnCompose = false,
             )
         }
@@ -769,7 +521,7 @@ private fun ShelfBrowserList(
 @Composable
 private fun ShelfBrowserGridCard(
     entry: LibraryShelfBrowserEntry,
-    density: ShelfBrowserDensity,
+    compact: Boolean,
     imageVariant: LibraryCoverImageVariant,
     itemActionContext: LibraryItemActionContext,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
@@ -781,7 +533,7 @@ private fun ShelfBrowserGridCard(
     val semanticColors = UnifiedReaderThemeTokens.colors
     val presentation = UnifiedReaderThemeTokens.presentation
     val hasMenuContent = itemActionContext.hasMenuContent(entry.item)
-    val metadata = if (density == ShelfBrowserDensity.Compact) {
+    val metadata = if (compact) {
         entry.trailingText
     } else {
         entry.metadataText ?: entry.trailingText
@@ -800,7 +552,7 @@ private fun ShelfBrowserGridCard(
                     treatment = UnifiedReaderThemeTokens.personality.surfaceTreatment,
                     accentColor = entry.accentColor(),
                 )
-                .padding(if (density == ShelfBrowserDensity.Compact) 8.dp else 10.dp),
+                .padding(if (compact) 8.dp else 10.dp),
         ) {
             LibraryCoverActionCard(
                 item = entry.item,
@@ -812,7 +564,7 @@ private fun ShelfBrowserGridCard(
                 isDownloaded = itemActionContext.isDownloaded(entry.item),
                 isRead = entry.isRead,
                 onClick = onItemSelected,
-                titleStyle = if (density == ShelfBrowserDensity.Compact) {
+                titleStyle = if (compact) {
                     MaterialTheme.typography.labelMedium
                 } else {
                     MaterialTheme.typography.titleSmall
@@ -903,7 +655,7 @@ private fun ShelfBrowserEmptyState(
 @Composable
 private fun ShelfBrowserVisibleCoverPrefetcher(
     browseContextKey: String,
-    viewMode: ShelfBrowserViewMode,
+    showListView: Boolean,
     gridState: LazyGridState,
     listState: LazyListState,
     entries: List<LibraryShelfBrowserEntry>,
@@ -914,17 +666,18 @@ private fun ShelfBrowserVisibleCoverPrefetcher(
 ) {
     val signaledPrefetchKeys = remember(browseContextKey, variant) { mutableSetOf<String>() }
 
-    LaunchedEffect(viewMode, gridState, listState, onCoverViewportScrollingChanged) {
+    LaunchedEffect(showListView, gridState, listState, onCoverViewportScrollingChanged) {
         snapshotFlow {
-            when (viewMode) {
-                ShelfBrowserViewMode.Grid -> gridState.isScrollInProgress
-                ShelfBrowserViewMode.List -> listState.isScrollInProgress
+            if (showListView) {
+                listState.isScrollInProgress
+            } else {
+                gridState.isScrollInProgress
             }
         }
             .distinctUntilChanged()
             .collect { isScrolling -> onCoverViewportScrollingChanged(isScrolling) }
     }
-    DisposableEffect(viewMode, onCoverViewportScrollingChanged) {
+    DisposableEffect(showListView, onCoverViewportScrollingChanged) {
         onDispose {
             onCoverViewportScrollingChanged(false)
         }
@@ -932,7 +685,7 @@ private fun ShelfBrowserVisibleCoverPrefetcher(
 
     LaunchedEffect(
         browseContextKey,
-        viewMode,
+        showListView,
         gridState,
         listState,
         entries,
@@ -941,23 +694,23 @@ private fun ShelfBrowserVisibleCoverPrefetcher(
         onCoverVisible,
     ) {
         snapshotFlow {
-            when (viewMode) {
-                ShelfBrowserViewMode.Grid -> ShelfBrowserCoverPrefetchRequest(
-                    visibleItemIndices = gridState.layoutInfo.visibleItemsInfo.map { visibleItem -> visibleItem.index },
-                    isScrollInProgress = gridState.isScrollInProgress,
-                    scrollDirection = when {
-                        gridState.lastScrolledForward -> ShelfBrowserCoverPrefetchScrollDirection.Forward
-                        gridState.lastScrolledBackward -> ShelfBrowserCoverPrefetchScrollDirection.Backward
-                        else -> ShelfBrowserCoverPrefetchScrollDirection.Idle
-                    },
-                )
-
-                ShelfBrowserViewMode.List -> ShelfBrowserCoverPrefetchRequest(
+            if (showListView) {
+                ShelfBrowserCoverPrefetchRequest(
                     visibleItemIndices = listState.layoutInfo.visibleItemsInfo.map { visibleItem -> visibleItem.index },
                     isScrollInProgress = listState.isScrollInProgress,
                     scrollDirection = when {
                         listState.lastScrolledForward -> ShelfBrowserCoverPrefetchScrollDirection.Forward
                         listState.lastScrolledBackward -> ShelfBrowserCoverPrefetchScrollDirection.Backward
+                        else -> ShelfBrowserCoverPrefetchScrollDirection.Idle
+                    },
+                )
+            } else {
+                ShelfBrowserCoverPrefetchRequest(
+                    visibleItemIndices = gridState.layoutInfo.visibleItemsInfo.map { visibleItem -> visibleItem.index },
+                    isScrollInProgress = gridState.isScrollInProgress,
+                    scrollDirection = when {
+                        gridState.lastScrolledForward -> ShelfBrowserCoverPrefetchScrollDirection.Forward
+                        gridState.lastScrolledBackward -> ShelfBrowserCoverPrefetchScrollDirection.Backward
                         else -> ShelfBrowserCoverPrefetchScrollDirection.Idle
                     },
                 )
@@ -1036,14 +789,12 @@ private fun shelfBrowserCoverPrefetchTargets(
     }
 
 private fun shelfBrowserCoverImageVariant(
-    viewMode: ShelfBrowserViewMode,
-    density: ShelfBrowserDensity,
-): LibraryCoverImageVariant = when (viewMode) {
-    ShelfBrowserViewMode.List -> LibraryCoverImageVariant.ShelfRow
-    ShelfBrowserViewMode.Grid -> when (density) {
-        ShelfBrowserDensity.Comfortable -> LibraryCoverImageVariant.GridLarge
-        ShelfBrowserDensity.Compact -> LibraryCoverImageVariant.Grid
-    }
+    showListView: Boolean,
+    gridCellSizeDp: Int,
+): LibraryCoverImageVariant = if (showListView) {
+    LibraryCoverImageVariant.ShelfRow
+} else {
+    libraryGridCoverImageVariant(gridCellSizeDp)
 }
 
 private data class ShelfBrowserCoverPrefetchTarget(
@@ -1064,7 +815,7 @@ private enum class ShelfBrowserCoverPrefetchScrollDirection {
     Idle,
 }
 
-private data class LibraryShelfBrowserEntry(
+internal data class LibraryShelfBrowserEntry(
     val item: ReadableItem,
     val title: String,
     val supportingText: String,
@@ -1076,6 +827,14 @@ private data class LibraryShelfBrowserEntry(
     val originalIndex: Int,
     val kind: LibraryShelfBrowserKind,
 )
+
+internal fun LibraryShelfBrowserState.visibleShelfBrowserEntries(
+    nowEpochMillis: Long,
+    searchQuery: String,
+    sortMode: ShelfBrowserSortMode,
+): List<LibraryShelfBrowserEntry> = browserEntries(nowEpochMillis = nowEpochMillis)
+    .searchedBy(searchQuery)
+    .sortedFor(sortMode)
 
 private fun LibraryShelfBrowserState.browserEntries(
     nowEpochMillis: Long,
@@ -1259,15 +1018,10 @@ private fun Long.relativeTimeLabel(
     ).toString()
 }
 
-private fun Int.itemCountLabel(): String = when (this) {
-    1 -> "1 item"
-    else -> "$this items"
-}
-
 private val com.example.unifiedreader.feature.library.ItemProgressSummary.isShelfComplete: Boolean
     get() = isFinished || fraction >= 0.999f
 
-private enum class ShelfBrowserSortMode {
+internal enum class ShelfBrowserSortMode {
     ShelfOrder,
     RecentActivity,
     Progress,
@@ -1294,21 +1048,47 @@ private fun ShelfBrowserSortMode.label(
     ShelfBrowserSortMode.DateAdded -> "Date added"
 }
 
-private enum class ShelfBrowserViewMode(
-    val label: String,
-) {
-    Grid("Grid"),
-    List("List"),
-}
+private fun shelfBrowserSortOptionSection(
+    sortMode: ShelfBrowserSortMode,
+    availableSortModes: List<ShelfBrowserSortMode>,
+    shelfKind: LibraryShelfBrowserKind,
+): LibraryBrowseOptionSection = LibraryBrowseOptionSection(
+    id = ShelfBrowserSortSectionId,
+    title = "Sort",
+    options = availableSortModes.map { mode ->
+        LibraryBrowseOption(
+            id = mode.name,
+            label = mode.label(shelfKind),
+            selected = mode == sortMode,
+        )
+    },
+)
 
-private enum class ShelfBrowserDensity(
-    val label: String,
-) {
-    Comfortable("Comfortable"),
-    Compact("Compact"),
-}
+private fun shelfBrowserLayoutOptionSection(
+    showListView: Boolean,
+): LibraryBrowseOptionSection = LibraryBrowseOptionSection(
+    id = ShelfBrowserLayoutSectionId,
+    title = "Layout",
+    options = listOf(
+        LibraryBrowseOption(
+            id = ShelfBrowserLayoutGridOptionId,
+            label = ShelfBrowserLayoutGridLabel,
+            selected = !showListView,
+        ),
+        LibraryBrowseOption(
+            id = ShelfBrowserLayoutListOptionId,
+            label = ShelfBrowserLayoutListLabel,
+            selected = showListView,
+        ),
+    ),
+)
 
-private val ShelfBrowserWideControlsBreakpoint = 720.dp
+private const val ShelfBrowserSortSectionId = "sort"
+private const val ShelfBrowserLayoutSectionId = "layout"
+private const val ShelfBrowserLayoutGridOptionId = "grid"
+private const val ShelfBrowserLayoutListOptionId = "list"
+private const val ShelfBrowserLayoutGridLabel = "Grid"
+private const val ShelfBrowserLayoutListLabel = "List"
 private const val ShelfBrowserCoverPrefetchMaxTargetsWhileScrolling = 6
 private const val ShelfBrowserCoverPrefetchDelayMillis = 48L
 private const val ShelfBrowserCoverPrefetchStaggerMillis = 16L

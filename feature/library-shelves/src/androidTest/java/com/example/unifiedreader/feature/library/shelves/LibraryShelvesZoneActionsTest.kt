@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -139,12 +140,52 @@ class LibraryShelvesZoneActionsTest {
         composeRule.onNodeWithText("See all").assertExists().performClick()
 
         composeRule.onNodeWithContentDescription("Back").assertExists()
-        composeRule.onNodeWithText("Search shelf").assertExists()
+        assertTrue(composeRule.onAllNodesWithText("Search shelf").fetchSemanticsNodes().isEmpty())
+        composeRule.onNodeWithContentDescription("Search shelf").assertExists()
         composeRule.onNodeWithText("5 items").assertExists()
 
         composeRule.onNodeWithContentDescription("Back").performClick()
 
         composeRule.onNodeWithText("See all").assertExists()
+    }
+
+    @Test
+    fun shelfItemsBrowserExternalSearchFiltersWithoutEmbeddedSearch() {
+        val firstItem = comicItem("alpha")
+        val secondItem = comicItem("metro")
+
+        composeRule.setContent {
+            MaterialTheme {
+                LibraryShelfItemsBrowser(
+                    browser = LibraryShelfBrowserState.ContinueReading(
+                        items = listOf(
+                            ContinueReadingShelfItem(
+                                item = firstItem,
+                                progress = progress(),
+                            ),
+                            ContinueReadingShelfItem(
+                                item = secondItem,
+                                progress = progress(),
+                            ),
+                        ),
+                    ),
+                    itemActionContext = LibraryItemActionContext(),
+                    coverImageUrlProvider = { _, _ -> null },
+                    onCoverVisible = { _, _ -> },
+                    onBack = {},
+                    onItemSelected = {},
+                    onDeleteImportedItem = {},
+                    searchQuery = "metro",
+                    onSearchQueryChanged = {},
+                    showEmbeddedTopBar = false,
+                )
+            }
+        }
+
+        assertTrue(composeRule.onAllNodesWithText("Search shelf").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithContentDescription("Search shelf").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithText("Akira alpha").fetchSemanticsNodes().isEmpty())
+        composeRule.onNodeWithText("Akira metro").assertExists()
     }
 }
 

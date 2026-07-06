@@ -65,7 +65,7 @@ internal fun libraryGridPresentation(
     )
 }
 
-internal fun libraryGridCoverImageVariant(
+fun libraryGridCoverImageVariant(
     gridCellSizeDp: Int,
 ): LibraryCoverImageVariant = when {
     gridCellSizeDp >= extraLargeGridCoverCellSizeDp -> LibraryCoverImageVariant.GridExtraLarge

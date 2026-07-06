@@ -29,7 +29,9 @@ import com.example.unifiedreader.feature.downloads.DownloadsSheet
 import com.example.unifiedreader.feature.journal.JournalScreen
 import com.example.unifiedreader.feature.library.LibraryViewMode
 import com.example.unifiedreader.feature.library.shelves.LibraryShelfBrowserKind
+import com.example.unifiedreader.feature.library.shelves.LibraryShelfBrowserTopBar
 import com.example.unifiedreader.feature.library.shelves.browserState
+import com.example.unifiedreader.feature.library.shelves.rememberLibraryShelfBrowserSearchQuery
 import com.example.unifiedreader.feature.navigation.SourceNavigationDestination
 import com.example.unifiedreader.feature.navigation.SourceNavigationDrawer
 import com.example.unifiedreader.feature.navigation.SourceNavigationSettingsSection
@@ -77,6 +79,10 @@ fun UnifiedReaderScaffold(
     var activeLibraryShelfBrowserKind by rememberSaveable(uiState.libraryBrowseContextKey) {
         mutableStateOf<LibraryShelfBrowserKind?>(null)
     }
+    var activeLibraryShelfSearchQuery by rememberLibraryShelfBrowserSearchQuery(
+        browseContextKey = uiState.libraryBrowseContextKey,
+        browserKind = activeLibraryShelfBrowserKind,
+    )
     val activeLibraryShelfBrowser = if (uiState.topLevel == TopLevelDestination.Library) {
         activeLibraryShelfBrowserKind?.let(uiState.libraryShelvesState::browserState)
     } else {
@@ -232,7 +238,15 @@ fun UnifiedReaderScaffold(
                     .padding(innerPadding),
             ) {
                 when (uiState.topLevel) {
-                    TopLevelDestination.Library -> if (activeLibraryShelfBrowser == null) {
+                    TopLevelDestination.Library -> if (activeLibraryShelfBrowser != null) {
+                        LibraryShelfBrowserTopBar(
+                            title = activeLibraryShelfBrowser.title,
+                            count = activeLibraryShelfBrowser.count,
+                            searchQuery = activeLibraryShelfSearchQuery,
+                            onSearchQueryChanged = { query -> activeLibraryShelfSearchQuery = query },
+                            onBack = { activeLibraryShelfBrowserKind = null },
+                        )
+                    } else {
                         LibraryTopBar(
                             selectedSource = uiState.selectedSource,
                             sourceConnectivity = uiState.selectedSourceConnectivity,
@@ -337,6 +351,8 @@ fun UnifiedReaderScaffold(
                         showSortControl = !uiState.isSeriesBrowseActive && !uiState.isKavitaReadingListActive,
                         activeShelfBrowserKind = activeLibraryShelfBrowserKind,
                         onActiveShelfBrowserKindChanged = { activeLibraryShelfBrowserKind = it },
+                        shelfSearchQuery = activeLibraryShelfSearchQuery,
+                        onShelfSearchQueryChanged = { query -> activeLibraryShelfSearchQuery = query },
                         modifier = Modifier.weight(1f),
                     )
 
