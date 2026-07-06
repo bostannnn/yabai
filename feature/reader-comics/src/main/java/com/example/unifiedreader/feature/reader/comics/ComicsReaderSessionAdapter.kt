@@ -202,6 +202,23 @@ class ComicsReaderSessionAdapter(
         )
     }
 
+    override fun loadPageTurnStyle(item: ReadableItem): ComicPageTurnStyle =
+        restoreComicReaderPreferences(sessionStore.getSession(item))
+            ?.pageTurnStyle
+            ?: ComicPageTurnStyle.Slide
+
+    override fun savePageTurnStyle(
+        item: ReadableItem,
+        pageTurnStyle: ComicPageTurnStyle,
+    ) {
+        sessionStore.updateSession(
+            item = item,
+            preferences = buildComicReaderPreferencesPatch(
+                pageTurnStyle = pageTurnStyle,
+            ),
+        )
+    }
+
     override fun loadSplitWidePages(item: ReadableItem): Boolean =
         restoreComicReaderPreferences(sessionStore.getSession(item))
             ?.splitWidePages
@@ -292,6 +309,7 @@ private fun com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot?
             readingDirection = ComicReadingDirection.LTR,
             pageFitMode = ComicPageFitMode.FitPage,
             spreadMode = ComicSpreadMode.Auto,
+            pageTurnStyle = ComicPageTurnStyle.Slide,
             splitWidePages = false,
             resumeAnchorPage = null,
             resumeSegment = null,

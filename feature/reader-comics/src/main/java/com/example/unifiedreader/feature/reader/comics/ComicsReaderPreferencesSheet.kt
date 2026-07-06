@@ -37,11 +37,13 @@ internal fun ComicsReaderPreferencesSheet(
     readingDirection: ComicReadingDirection,
     pageFitMode: ComicPageFitMode,
     spreadMode: ComicSpreadMode,
+    pageTurnStyle: ComicPageTurnStyle,
     onDismissRequest: () -> Unit,
     onReaderModeChanged: (ComicReaderMode) -> Unit,
     onReadingDirectionChanged: (ComicReadingDirection) -> Unit,
     onPageFitModeChanged: (ComicPageFitMode) -> Unit,
     onSpreadModeChanged: (ComicSpreadMode) -> Unit,
+    onPageTurnStyleChanged: (ComicPageTurnStyle) -> Unit,
 ) {
     val tokens = readerOverlayTokens()
     val sheetMaxHeight = (maxSheetHeight * 0.64f).coerceAtMost(ComicsPreferencesSheetMaxHeight)
@@ -93,6 +95,15 @@ internal fun ComicsReaderPreferencesSheet(
                             label = entry.label,
                             selected = entry == spreadMode,
                             onClick = { onSpreadModeChanged(entry) },
+                        )
+                    }
+                }
+                ComicsPreferenceSection(label = "Page turn style") {
+                    ComicPageTurnStyle.entries.forEach { entry ->
+                        ComicsSelectableRow(
+                            label = entry.label,
+                            selected = entry == pageTurnStyle,
+                            onClick = { onPageTurnStyleChanged(entry) },
                         )
                     }
                 }

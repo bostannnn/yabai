@@ -71,6 +71,7 @@ data class ComicReaderPreferencesSnapshot(
     val readingDirection: ComicReadingDirection,
     val pageFitMode: ComicPageFitMode,
     val spreadMode: ComicSpreadMode,
+    val pageTurnStyle: ComicPageTurnStyle = ComicPageTurnStyle.Slide,
     val splitWidePages: Boolean,
     val resumeAnchorPage: Int? = null,
     val resumeSegment: ComicPageSegment?,
@@ -144,6 +145,15 @@ interface ComicReaderPreferencesStore {
     fun saveSpreadMode(
         item: ReadableItem,
         spreadMode: ComicSpreadMode,
+    ) = Unit
+
+    fun loadPageTurnStyle(
+        item: ReadableItem,
+    ): ComicPageTurnStyle = ComicPageTurnStyle.Slide
+
+    fun savePageTurnStyle(
+        item: ReadableItem,
+        pageTurnStyle: ComicPageTurnStyle,
     ) = Unit
 
     fun loadSplitWidePages(
@@ -276,6 +286,7 @@ class ComicsReaderState internal constructor(
     initialReadingDirection: ComicReadingDirection,
     initialPageFitMode: ComicPageFitMode,
     initialSpreadMode: ComicSpreadMode,
+    initialPageTurnStyle: ComicPageTurnStyle = ComicPageTurnStyle.Slide,
     initialSplitWidePages: Boolean,
     initialResumeAnchorPage: Int?,
     initialResumeSegment: ComicPageSegment?,
@@ -301,6 +312,9 @@ class ComicsReaderState internal constructor(
     var spreadMode by mutableStateOf(initialSpreadMode)
         private set
 
+    var pageTurnStyle by mutableStateOf(initialPageTurnStyle)
+        private set
+
     var splitWidePages by mutableStateOf(initialSplitWidePages)
         private set
 
@@ -324,6 +338,8 @@ class ComicsReaderState internal constructor(
     private var hasExplicitPageFitMode by mutableStateOf(false)
 
     private var hasExplicitSpreadMode by mutableStateOf(false)
+
+    private var hasExplicitPageTurnStyle by mutableStateOf(false)
 
     private var hasExplicitSplitWidePages by mutableStateOf(false)
 
@@ -388,6 +404,11 @@ class ComicsReaderState internal constructor(
         this.spreadMode = spreadMode
     }
 
+    fun onPageTurnStyleChanged(pageTurnStyle: ComicPageTurnStyle) {
+        hasExplicitPageTurnStyle = true
+        this.pageTurnStyle = pageTurnStyle
+    }
+
     fun onSplitWidePagesChanged(enabled: Boolean) {
         hasExplicitSplitWidePages = true
         splitWidePages = enabled
@@ -441,6 +462,12 @@ class ComicsReaderState internal constructor(
     fun restoreSpreadModeIfUnchanged(spreadMode: ComicSpreadMode): Boolean {
         if (hasExplicitSpreadMode || this.spreadMode == spreadMode) return false
         this.spreadMode = spreadMode
+        return true
+    }
+
+    fun restorePageTurnStyleIfUnchanged(pageTurnStyle: ComicPageTurnStyle): Boolean {
+        if (hasExplicitPageTurnStyle || this.pageTurnStyle == pageTurnStyle) return false
+        this.pageTurnStyle = pageTurnStyle
         return true
     }
 
@@ -510,6 +537,8 @@ class ComicsReaderState internal constructor(
                     if (it.hasRestoredResumeAnchor) 1 else 0,
                     if (it.hasRestoredResumeSegment) 1 else 0,
                     if (it.hasRestoredResumeScrollOffsetRatio) 1 else 0,
+                    it.pageTurnStyle.name,
+                    if (it.hasExplicitPageTurnStyle) 1 else 0,
                 )
             },
             restore = { restored ->
@@ -524,6 +553,9 @@ class ComicsReaderState internal constructor(
                         .let(ComicPageFitMode::valueOf),
                     initialSpreadMode = (restored[5] as String)
                         .let(ComicSpreadMode::valueOf),
+                    initialPageTurnStyle = (restored.getOrNull(19) as? String)
+                        ?.let(ComicPageTurnStyle::valueOf)
+                        ?: ComicPageTurnStyle.Slide,
                     initialSplitWidePages = (restored.getOrNull(6) as? Int) == 1,
                     initialResumeAnchorPage = (restored.getOrNull(7) as? Int),
                     initialResumeSegment = sanitizeComicResumeSegment(
@@ -543,6 +575,7 @@ class ComicsReaderState internal constructor(
                     state.hasRestoredResumeAnchor = (restored.getOrNull(16) as? Int) == 1
                     state.hasRestoredResumeSegment = (restored.getOrNull(17) as? Int) == 1
                     state.hasRestoredResumeScrollOffsetRatio = (restored.getOrNull(18) as? Int) == 1
+                    state.hasExplicitPageTurnStyle = (restored.getOrNull(20) as? Int) == 1
                 }
             },
         )

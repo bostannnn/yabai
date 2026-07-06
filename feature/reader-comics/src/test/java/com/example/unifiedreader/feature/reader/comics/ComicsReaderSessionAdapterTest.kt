@@ -126,6 +126,63 @@ class ComicsReaderSessionAdapterTest {
         )
         scope.cancel()
     }
+
+    @Test
+    fun `page turn style defaults to slide for saved sessions without the preference`() = runBlocking {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val item = comicItem()
+        val sessionStore = TestReaderSessionStore(
+            isHydrated = true,
+            progressByItemId = mapOf(
+                item.id to ReaderProgressSnapshot(
+                    itemId = item.id,
+                    locatorType = LocatorType.PAGE,
+                    page = 1,
+                    syncState = SyncState.CLEAN,
+                ),
+            ),
+            sessionByItemId = mapOf(
+                item.id to ReaderSessionSnapshot(
+                    itemId = item.id,
+                    preferences = buildComicReaderPreferencesPatch(
+                        pageFitMode = ComicPageFitMode.FitWidth,
+                    ),
+                ),
+            ),
+        )
+        val adapter = ComicsReaderSessionAdapter(
+            sessionStore = sessionStore,
+            directionPreferencesStore = TestComicReadingDirectionPreferencesStore(isHydrated = true),
+            readerModePreferencesStore = TestComicReaderModePreferencesStore(isHydrated = true),
+            scope = scope,
+        )
+
+        assertEquals(ComicPageTurnStyle.Slide, adapter.loadPageTurnStyle(item))
+        assertEquals(ComicPageTurnStyle.Slide, adapter.observePreferences(item).first()?.pageTurnStyle)
+        scope.cancel()
+    }
+
+    @Test
+    fun `save page turn style writes existing session preference path`() = runBlocking {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val item = comicItem()
+        val sessionStore = TestReaderSessionStore(isHydrated = true)
+        val adapter = ComicsReaderSessionAdapter(
+            sessionStore = sessionStore,
+            directionPreferencesStore = TestComicReadingDirectionPreferencesStore(isHydrated = true),
+            readerModePreferencesStore = TestComicReaderModePreferencesStore(isHydrated = true),
+            scope = scope,
+        )
+
+        adapter.savePageTurnStyle(item, ComicPageTurnStyle.Curl)
+
+        assertEquals(
+            ComicPageTurnStyle.Curl.name,
+            sessionStore.getSession(item)?.preferences?.get(ComicsPageTurnStyleKey),
+        )
+        assertEquals(ComicPageTurnStyle.Curl, adapter.loadPageTurnStyle(item))
+        scope.cancel()
+    }
 }
 
 private class TestReaderSessionStore(
@@ -136,8 +193,8 @@ private class TestReaderSessionStore(
     override val isHydratedFlow: StateFlow<Boolean> = MutableStateFlow(isHydrated)
     override val progressByItemIdFlow: StateFlow<Map<String, ReaderProgressSnapshot>> =
         MutableStateFlow(progressByItemId)
-    override val sessionByItemIdFlow: StateFlow<Map<String, ReaderSessionSnapshot>> =
-        MutableStateFlow(sessionByItemId)
+    private val sessions = MutableStateFlow(sessionByItemId)
+    override val sessionByItemIdFlow: StateFlow<Map<String, ReaderSessionSnapshot>> = sessions
 
     override fun getProgress(
         item: ReadableItem,
@@ -160,13 +217,19 @@ private class TestReaderSessionStore(
 
     override fun getSession(
         item: ReadableItem,
-    ): ReaderSessionSnapshot? = sessionByItemIdFlow.value[item.id]
+    ): ReaderSessionSnapshot? = sessions.value[item.id]
 
     override fun updateSession(
         itemId: String,
         pageCount: Int?,
         preferences: Map<String, String>,
-    ) = Unit
+    ) {
+        val current = sessions.value[itemId] ?: ReaderSessionSnapshot(itemId = itemId)
+        sessions.value = sessions.value + (itemId to current.copy(
+            pageCount = pageCount ?: current.pageCount,
+            preferences = current.preferences + preferences,
+        ))
+    }
 
     override fun clearProgress(
         itemId: String,

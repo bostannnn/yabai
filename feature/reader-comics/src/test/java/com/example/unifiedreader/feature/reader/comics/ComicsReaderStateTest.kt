@@ -1,5 +1,7 @@
 package com.example.unifiedreader.feature.reader.comics
 
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.SaverScope
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
@@ -10,6 +12,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ComicsReaderStateTest {
+    @Test
+    fun `page turn style defaults to slide`() {
+        val state = comicsReaderState()
+
+        assertEquals(ComicPageTurnStyle.Slide, state.pageTurnStyle)
+    }
+
     @Test
     fun `fit mode labels describe viewport behavior`() {
         assertEquals("Fit screen", ComicPageFitMode.FitPage.label)
@@ -42,17 +51,8 @@ class ComicsReaderStateTest {
 
     @Test
     fun `page settle keeps visible page and normalizes resume anchor`() {
-        val state = ComicsReaderState(
-            initialPage = 0,
-            pageCount = 6,
-            initialReaderMode = ComicReaderMode.Paged,
-            initialReadingDirection = ComicReadingDirection.LTR,
-            initialPageFitMode = ComicPageFitMode.FitPage,
+        val state = comicsReaderState(
             initialSpreadMode = ComicSpreadMode.Double,
-            initialSplitWidePages = false,
-            initialResumeAnchorPage = null,
-            initialResumeSegment = null,
-            initialResumeScrollOffsetRatio = null,
         )
 
         state.onPageSettled(
@@ -67,17 +67,8 @@ class ComicsReaderStateTest {
 
     @Test
     fun `restoring page also restores resume anchor when no explicit anchor exists`() {
-        val state = ComicsReaderState(
-            initialPage = 0,
-            pageCount = 6,
-            initialReaderMode = ComicReaderMode.Paged,
-            initialReadingDirection = ComicReadingDirection.LTR,
-            initialPageFitMode = ComicPageFitMode.FitPage,
+        val state = comicsReaderState(
             initialSpreadMode = ComicSpreadMode.Double,
-            initialSplitWidePages = false,
-            initialResumeAnchorPage = null,
-            initialResumeSegment = null,
-            initialResumeScrollOffsetRatio = null,
         )
 
         assertTrue(state.restorePageIfUnchanged(4))
@@ -87,17 +78,9 @@ class ComicsReaderStateTest {
 
     @Test
     fun `explicit resume anchor restore happens only once`() {
-        val state = ComicsReaderState(
+        val state = comicsReaderState(
             initialPage = 3,
-            pageCount = 6,
-            initialReaderMode = ComicReaderMode.Paged,
-            initialReadingDirection = ComicReadingDirection.LTR,
-            initialPageFitMode = ComicPageFitMode.FitPage,
             initialSpreadMode = ComicSpreadMode.Double,
-            initialSplitWidePages = false,
-            initialResumeAnchorPage = null,
-            initialResumeSegment = null,
-            initialResumeScrollOffsetRatio = null,
         )
 
         assertTrue(state.restoreResumeAnchorIfUnchanged(2))
@@ -108,17 +91,11 @@ class ComicsReaderStateTest {
 
     @Test
     fun `switching to vertical scroll reanchors on current page and clears paged resume state`() {
-        val state = ComicsReaderState(
+        val state = comicsReaderState(
             initialPage = 2,
-            pageCount = 6,
-            initialReaderMode = ComicReaderMode.Paged,
-            initialReadingDirection = ComicReadingDirection.LTR,
-            initialPageFitMode = ComicPageFitMode.FitPage,
             initialSpreadMode = ComicSpreadMode.Double,
-            initialSplitWidePages = false,
             initialResumeAnchorPage = 1,
             initialResumeSegment = ComicPageSegment.Full,
-            initialResumeScrollOffsetRatio = null,
         )
 
         state.onReaderModeChanged(ComicReaderMode.VerticalScroll)
@@ -131,17 +108,10 @@ class ComicsReaderStateTest {
 
     @Test
     fun `sync page count preserves current page and anchor when still in range`() {
-        val state = ComicsReaderState(
+        val state = comicsReaderState(
             initialPage = 1,
-            pageCount = 6,
-            initialReaderMode = ComicReaderMode.Paged,
-            initialReadingDirection = ComicReadingDirection.LTR,
-            initialPageFitMode = ComicPageFitMode.FitPage,
             initialSpreadMode = ComicSpreadMode.Double,
-            initialSplitWidePages = false,
             initialResumeAnchorPage = 1,
-            initialResumeSegment = null,
-            initialResumeScrollOffsetRatio = null,
         )
 
         state.onPageSettled(pageIndex = 2, resumeAnchorPage = 2)
@@ -154,17 +124,10 @@ class ComicsReaderStateTest {
 
     @Test
     fun `sync page count clamps current page and anchor when count shrinks`() {
-        val state = ComicsReaderState(
+        val state = comicsReaderState(
             initialPage = 4,
-            pageCount = 6,
-            initialReaderMode = ComicReaderMode.Paged,
-            initialReadingDirection = ComicReadingDirection.LTR,
-            initialPageFitMode = ComicPageFitMode.FitPage,
             initialSpreadMode = ComicSpreadMode.Double,
-            initialSplitWidePages = false,
             initialResumeAnchorPage = 4,
-            initialResumeSegment = null,
-            initialResumeScrollOffsetRatio = null,
         )
 
         state.syncPageCount(3)
@@ -173,4 +136,79 @@ class ComicsReaderStateTest {
         assertEquals(2, state.resumeAnchorPage)
         assertEquals("3 / 3", state.progressLabel)
     }
+
+    @Test
+    fun `page turn style restore respects explicit user selection`() {
+        val state = comicsReaderState()
+
+        assertTrue(state.restorePageTurnStyleIfUnchanged(ComicPageTurnStyle.Curl))
+        assertEquals(ComicPageTurnStyle.Curl, state.pageTurnStyle)
+
+        state.onPageTurnStyleChanged(ComicPageTurnStyle.Slide)
+
+        assertFalse(state.restorePageTurnStyleIfUnchanged(ComicPageTurnStyle.Curl))
+        assertEquals(ComicPageTurnStyle.Slide, state.pageTurnStyle)
+    }
+
+    @Test
+    fun `state saver restores page turn style and old payloads default to slide`() {
+        val state = comicsReaderState()
+        state.onPageTurnStyleChanged(ComicPageTurnStyle.Curl)
+        val saved = saveState(state)
+
+        val restored = restoreState(saved)
+        assertEquals(ComicPageTurnStyle.Curl, restored.pageTurnStyle)
+
+        val restoredOldPayload = restoreState(saved.dropLast(2))
+        assertEquals(ComicPageTurnStyle.Slide, restoredOldPayload.pageTurnStyle)
+    }
+}
+
+private fun comicsReaderState(
+    initialPage: Int = 0,
+    pageCount: Int = 6,
+    initialReaderMode: ComicReaderMode = ComicReaderMode.Paged,
+    initialReadingDirection: ComicReadingDirection = ComicReadingDirection.LTR,
+    initialPageFitMode: ComicPageFitMode = ComicPageFitMode.FitPage,
+    initialSpreadMode: ComicSpreadMode = ComicSpreadMode.Auto,
+    initialPageTurnStyle: ComicPageTurnStyle = ComicPageTurnStyle.Slide,
+    initialSplitWidePages: Boolean = false,
+    initialResumeAnchorPage: Int? = null,
+    initialResumeSegment: ComicPageSegment? = null,
+    initialResumeScrollOffsetRatio: Float? = null,
+): ComicsReaderState = ComicsReaderState(
+    initialPage = initialPage,
+    pageCount = pageCount,
+    initialReaderMode = initialReaderMode,
+    initialReadingDirection = initialReadingDirection,
+    initialPageFitMode = initialPageFitMode,
+    initialSpreadMode = initialSpreadMode,
+    initialPageTurnStyle = initialPageTurnStyle,
+    initialSplitWidePages = initialSplitWidePages,
+    initialResumeAnchorPage = initialResumeAnchorPage,
+    initialResumeSegment = initialResumeSegment,
+    initialResumeScrollOffsetRatio = initialResumeScrollOffsetRatio,
+)
+
+@Suppress("UNCHECKED_CAST")
+private fun stateSaver(): Saver<ComicsReaderState, Any> =
+    ComicsReaderState.saver(pageCount = 6) as Saver<ComicsReaderState, Any>
+
+private fun saveState(
+    state: ComicsReaderState,
+): List<Any?> {
+    val saved = with(stateSaver()) {
+        AlwaysSaveableSaverScope.save(state)
+    }
+    return saved as? List<Any?> ?: error("Expected list state")
+}
+
+private fun restoreState(
+    saved: List<Any?>,
+): ComicsReaderState = stateSaver().restore(saved) ?: error("Expected restored state")
+
+private object AlwaysSaveableSaverScope : SaverScope {
+    override fun canBeSaved(
+        value: Any,
+    ): Boolean = true
 }

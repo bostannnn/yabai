@@ -23,6 +23,7 @@ class ComicsReaderSessionCodecTest {
         assertEquals(ComicReadingDirection.RTL, restored.readingDirection)
         assertEquals(ComicPageFitMode.FitPage, restored.pageFitMode)
         assertEquals(ComicSpreadMode.Auto, restored.spreadMode)
+        assertEquals(ComicPageTurnStyle.Slide, restored.pageTurnStyle)
         assertEquals(false, restored.splitWidePages)
         assertNull(restored.resumeAnchorPage)
         assertNull(restored.resumeSegment)
@@ -55,5 +56,29 @@ class ComicsReaderSessionCodecTest {
         requireNotNull(restored)
         assertEquals(12, restored.resumeAnchorPage)
         assertEquals(ComicPageSegment.RightHalf, restored.resumeSegment)
+    }
+
+    @Test
+    fun `restore comic reader preferences includes page turn style`() {
+        val restored = restoreComicReaderPreferences(
+            ReaderSessionSnapshot(
+                itemId = "comic-1",
+                preferences = mapOf(
+                    ComicsPageTurnStyleKey to ComicPageTurnStyle.Curl.name,
+                ),
+            ),
+        )
+
+        requireNotNull(restored)
+        assertEquals(ComicPageTurnStyle.Curl, restored.pageTurnStyle)
+    }
+
+    @Test
+    fun `build comic reader preferences patch includes page turn style`() {
+        val patch = buildComicReaderPreferencesPatch(
+            pageTurnStyle = ComicPageTurnStyle.Curl,
+        )
+
+        assertEquals(ComicPageTurnStyle.Curl.name, patch[ComicsPageTurnStyleKey])
     }
 }

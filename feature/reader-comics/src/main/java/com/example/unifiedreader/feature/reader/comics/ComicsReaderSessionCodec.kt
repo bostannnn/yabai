@@ -9,6 +9,7 @@ const val ComicsReaderModeKey = "readerMode"
 const val ComicsReadingDirectionKey = "readingDirection"
 const val ComicsPageFitModeKey = "pageFitMode"
 const val ComicsSpreadModeKey = "spreadMode"
+const val ComicsPageTurnStyleKey = "pageTurnStyle"
 const val ComicsSplitWidePagesKey = "splitWidePages"
 const val ComicsResumeAnchorPageKey = "resumeAnchorPage"
 const val ComicsResumeSegmentKey = "resumeSegment"
@@ -27,6 +28,7 @@ fun restoreComicReaderPreferences(
         preferences.containsKey(ComicsReadingDirectionKey) ||
         preferences.containsKey(ComicsPageFitModeKey) ||
         preferences.containsKey(ComicsSpreadModeKey) ||
+        preferences.containsKey(ComicsPageTurnStyleKey) ||
         preferences.containsKey(ComicsSplitWidePagesKey) ||
         preferences.containsKey(ComicsResumeAnchorPageKey) ||
         preferences.containsKey(ComicsResumeSegmentKey) ||
@@ -45,6 +47,9 @@ fun restoreComicReaderPreferences(
         spreadMode = preferences[ComicsSpreadModeKey]
             ?.enumValueOrNull<ComicSpreadMode>()
             ?: ComicSpreadMode.Auto,
+        pageTurnStyle = preferences[ComicsPageTurnStyleKey]
+            ?.enumValueOrNull<ComicPageTurnStyle>()
+            ?: ComicPageTurnStyle.Slide,
         splitWidePages = preferences[ComicsSplitWidePagesKey]
             ?.toBooleanStrictOrNull()
             ?: false,
@@ -85,6 +90,7 @@ fun buildComicReaderPreferencesMap(
     ComicsReadingDirectionKey to preferences.readingDirection.name,
     ComicsPageFitModeKey to preferences.pageFitMode.name,
     ComicsSpreadModeKey to preferences.spreadMode.name,
+    ComicsPageTurnStyleKey to preferences.pageTurnStyle.name,
     ComicsSplitWidePagesKey to preferences.splitWidePages.toString(),
     ComicsResumeAnchorPageKey to preferences.resumeAnchorPage?.toString().orEmpty(),
     ComicsResumeSegmentKey to preferences.resumeSegment?.name.orEmpty(),
@@ -96,6 +102,7 @@ fun buildComicReaderPreferencesPatch(
     readingDirection: ComicReadingDirection? = null,
     pageFitMode: ComicPageFitMode? = null,
     spreadMode: ComicSpreadMode? = null,
+    pageTurnStyle: ComicPageTurnStyle? = null,
     splitWidePages: Boolean? = null,
     resumeAnchorPage: Int? = null,
     resumeSegment: ComicPageSegment? = null,
@@ -105,6 +112,7 @@ fun buildComicReaderPreferencesPatch(
     readingDirection?.let { put(ComicsReadingDirectionKey, it.name) }
     pageFitMode?.let { put(ComicsPageFitModeKey, it.name) }
     spreadMode?.let { put(ComicsSpreadModeKey, it.name) }
+    pageTurnStyle?.let { put(ComicsPageTurnStyleKey, it.name) }
     splitWidePages?.let { put(ComicsSplitWidePagesKey, it.toString()) }
     resumeAnchorPage?.let { put(ComicsResumeAnchorPageKey, it.toString()) }
     if (resumeSegment != null) {

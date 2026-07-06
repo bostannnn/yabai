@@ -116,6 +116,9 @@ fun ComicsReaderScreen(
         initialSpreadMode = remember(item.id, preferencesStore) {
             preferencesStore.loadSpreadMode(item)
         },
+        initialPageTurnStyle = remember(item.id, preferencesStore) {
+            preferencesStore.loadPageTurnStyle(item)
+        },
         initialSplitWidePages = remember(item.id, preferencesStore) {
             preferencesStore.loadSplitWidePages(item)
         },
@@ -195,6 +198,7 @@ fun ComicsReaderScreen(
             preferencesStore.saveReadingDirection(item, readerState.readingDirection)
             preferencesStore.savePageFitMode(item, readerState.pageFitMode)
             preferencesStore.saveSpreadMode(item, readerState.spreadMode)
+            preferencesStore.savePageTurnStyle(item, readerState.pageTurnStyle)
         },
     )
     val flushReadingSession by rememberUpdatedState(
@@ -258,6 +262,7 @@ fun ComicsReaderScreen(
             readerState.restoreReadingDirectionIfUnchanged(preferences.readingDirection)
             readerState.restorePageFitModeIfUnchanged(preferences.pageFitMode)
             readerState.restoreSpreadModeIfUnchanged(preferences.spreadMode)
+            readerState.restorePageTurnStyleIfUnchanged(preferences.pageTurnStyle)
             if (shouldRestoreComicReaderPosition(openMode)) {
                 readerState.restoreResumeAnchorIfUnchanged(preferences.resumeAnchorPage)
                 readerState.restoreResumeSegmentIfUnchanged(preferences.resumeSegment)
@@ -324,6 +329,7 @@ fun ComicsReaderScreen(
         readerState.readingDirection,
         readerState.pageFitMode,
         readerState.spreadMode,
+        readerState.pageTurnStyle,
     ) {
         if (!preferencesHydrated || !preferencesRestoreCompleted) return@LaunchedEffect
         persistReaderPreferences()
@@ -466,12 +472,14 @@ fun ComicsReaderScreen(
                         readingDirection = readerState.readingDirection,
                         pageFitMode = readerState.pageFitMode,
                         spreadMode = readerState.spreadMode,
+                        pageTurnStyle = readerState.pageTurnStyle,
                         overlayVisible = overlayState.isVisible,
                         onBack = closeReader,
                         onReaderModeChanged = readerState::onReaderModeChanged,
                         onReadingDirectionChanged = readerState::onReadingDirectionChanged,
                         onPageFitModeChanged = readerState::onPageFitModeChanged,
                         onSpreadModeChanged = readerState::onSpreadModeChanged,
+                        onPageTurnStyleChanged = readerState::onPageTurnStyleChanged,
                     )
                     Column(
                         modifier = Modifier
