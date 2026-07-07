@@ -71,7 +71,12 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
     ) {
         val nextBaseState = transform(latestState ?: currentState)
         latestState = nextBaseState
-        val isLibraryPresentationActive = nextBaseState.topLevel == TopLevelDestination.Library
+        // Don't recompute the (hidden) library grid/shelves while a reader is open over the library
+        // tab. It stays topLevel == Library, so without this guard every progress/catalog update
+        // during reading re-derives the whole catalog behind the reader. The current presentation is
+        // preserved and a single recompute catches up when the reader closes.
+        val isLibraryPresentationActive = nextBaseState.topLevel == TopLevelDestination.Library &&
+            nextBaseState.activeReader == null
         val derivedSignature = nextBaseState.libraryDerivedStateSignature()
         val shelvesSignature = nextBaseState.libraryShelvesStateSignature()
         val shouldComputeDerived = isLibraryPresentationActive &&
