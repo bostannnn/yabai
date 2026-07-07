@@ -111,6 +111,18 @@ class ComicPageImageDecodersTest {
         )
     }
 
+    @Test
+    fun `page byte cache sizing is byte based and bounded`() {
+        assertEquals(
+            8 * 1024 * 1024,
+            ComicPageLoaderCacheSizing.pageByteCacheBytes(maxMemoryBytes = 8L * 1024 * 1024),
+        )
+        assertEquals(
+            32 * 1024 * 1024,
+            ComicPageLoaderCacheSizing.pageByteCacheBytes(maxMemoryBytes = 2L * 1024 * 1024 * 1024),
+        )
+    }
+
     private fun encodedBitmap(
         width: Int,
         height: Int,

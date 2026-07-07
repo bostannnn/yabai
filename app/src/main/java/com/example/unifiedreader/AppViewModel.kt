@@ -334,6 +334,7 @@ class AppViewModel @Inject constructor(
     }
 
     fun onBackPressed() {
+        trimReaderCachesBeforeLeavingReader()
         readerCoordinator.onBackPressed(
             stateProvider = { uiState },
             updateState = ::updateUiState,
@@ -428,6 +429,14 @@ class AppViewModel @Inject constructor(
             pages = pages,
             currentPageIndex = comicReaderProgressStore.loadPage(item),
         )
+    }
+
+    private fun trimReaderCachesBeforeLeavingReader() {
+        if (uiState.activeReader == null || uiState.selectedItem == null) return
+        val request = ReaderMemoryTrimRequest.dropPreviewsAndDistantPages(
+            retention = activeReaderPageCacheRetention(),
+        )
+        comicPageSourceCacheController.trimReaderMemoryCaches(request)
     }
 
     fun retryPendingRemoteSync() {
@@ -971,13 +980,21 @@ class AppViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
-            journalRepository.observeSnapshot().collect { snapshot ->
+            journalRepository.observeWriteState().collect { snapshot ->
                 updateUiState { state ->
                     state.copy(journalSnapshot = snapshot)
                 }
             }
         }
     }
+
+    /**
+     * The full journal snapshot (stats/timelines/summaries + catalog join). This is expensive, so
+     * the shell only wires the lightweight [JournalRepository.observeWriteState] into [uiState];
+     * the Journal tab collects this flow lazily, i.e. only while it is on screen.
+     */
+    val journalFullSnapshotFlow: kotlinx.coroutines.flow.Flow<com.example.unifiedreader.journal.JournalSnapshot>
+        get() = journalRepository.observeSnapshot()
 
     private fun updateUiState(
         transform: (AppUiState) -> AppUiState,

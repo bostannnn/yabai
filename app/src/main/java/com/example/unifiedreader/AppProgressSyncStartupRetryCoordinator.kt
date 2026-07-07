@@ -45,7 +45,7 @@ class AppProgressSyncStartupRetryCoordinator @Inject constructor(
             }.first { snapshot -> snapshot.ready }.items
 
             val progressByItemId = readerSessionStore.progressByItemIdFlow.value
-            val journalSnapshot = journalRepository.observeSnapshot().first()
+            val journalSnapshot = journalRepository.observeWriteState().first()
             val pendingFlushKeys = pendingRemoteArtifactAutoFlushKeys(
                 progressByItemId = progressByItemId,
                 journalSnapshot = journalSnapshot,

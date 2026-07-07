@@ -56,7 +56,7 @@ class AppPendingProgressFlushCoordinator @Inject constructor(
         scope.launch {
             combine(
                 readerSessionStore.progressByItemIdFlow,
-                journalRepository.observeSnapshot(),
+                journalRepository.observeWriteState(),
                 readableItemRepository.observeItems(),
                 remoteSourceConnectivityPolicy.reachabilityFlow,
             ) { progressByItemId, journalSnapshot, catalogItems, reachabilityBySource ->
@@ -122,7 +122,7 @@ class AppPendingProgressFlushCoordinator @Inject constructor(
         scope.launch {
             val pendingSyncKeys = pendingSyncKeys(
                 progressByItemId = readerSessionStore.progressByItemIdFlow.value,
-                journalSnapshot = journalRepository.observeSnapshot().first(),
+                journalSnapshot = journalRepository.observeWriteState().first(),
             )
             val remoteItems = catalogItems
                 .withPendingSyncItems(selectedItem)
@@ -158,7 +158,7 @@ class AppPendingProgressFlushCoordinator @Inject constructor(
         if (attemptedItems.isEmpty()) return
         val pendingSyncKeys = pendingSyncKeys(
             progressByItemId = readerSessionStore.progressByItemIdFlow.value,
-            journalSnapshot = journalRepository.observeSnapshot().first(),
+            journalSnapshot = journalRepository.observeWriteState().first(),
         )
         val attemptedPendingItems = attemptedItems.withPendingSyncKeys(pendingSyncKeys)
         if (attemptedPendingItems.isEmpty()) return

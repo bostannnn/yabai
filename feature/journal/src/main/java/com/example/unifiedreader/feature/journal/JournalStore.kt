@@ -27,13 +27,25 @@ class RoomJournalRepository(
         journalDao.observeReadingEvents().map { entities -> entities.map { it.toDomain() } },
         journalDao.observeReadingSessions().map { entities -> entities.map { it.toDomain() } },
         journalDao.observeJournalEntries().map { entities -> entities.map { it.toDomain() } },
-        remoteCatalogDao.observeItems().map { entities -> entities.map { it.toDomain() }.associateBy(ReadableItem::id) },
+        remoteCatalogDao.observeLibraryItems().map { entities -> entities.map { it.toDomain() }.associateBy(ReadableItem::id) },
     ) { events, sessions, entries, catalogItemsById ->
         stateComputer.snapshot(
             events = events,
             sessions = sessions,
             entries = entries,
             catalogItemsById = catalogItemsById,
+        )
+    }
+
+    override fun observeWriteState(): Flow<JournalSnapshot> = combine(
+        journalDao.observeReadingEvents().map { entities -> entities.map { it.toDomain() } },
+        journalDao.observeReadingSessions().map { entities -> entities.map { it.toDomain() } },
+        journalDao.observeJournalEntries().map { entities -> entities.map { it.toDomain() } },
+    ) { events, sessions, entries ->
+        JournalSnapshot(
+            events = events.sortedByDescending(JournalReadingEvent::occurredAtEpochMillis),
+            sessions = sessions.sortedByDescending(JournalReadingSession::endedAtEpochMillis),
+            entries = entries.sortedByDescending(ItemJournalEntry::updatedAtEpochMillis),
         )
     }
 

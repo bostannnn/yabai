@@ -293,6 +293,41 @@ class AppViewModelTest {
     }
 
     @Test
+    fun `back from reader drops previews and distant pages before returning to library`() {
+        val item = sampleItem(
+            id = "reader-book",
+            title = "Reader Book",
+            format = FormatType.CBZ,
+        )
+        val pageCacheController = FakeComicPageSourceCacheController()
+        val progressStore = FakeComicReaderProgressStore().apply {
+            savePage(
+                item = item,
+                pageIndex = 2,
+                pageCount = 5,
+                isFinished = false,
+            )
+        }
+        val viewModel = createViewModel(
+            sampleItems = listOf(item),
+            pageSource = FakeComicPageSource(pageCounts = mapOf(item.id to 5)),
+            progressStore = progressStore,
+            comicPageSourceCacheController = pageCacheController,
+        )
+
+        viewModel.onItemSelected(item)
+        viewModel.onBackPressed()
+
+        assertNull(viewModel.uiState.activeReader)
+        val request = pageCacheController.trimRequests.single()
+        assertEquals(ReaderMemoryTrimMode.DropPreviewsAndDistantPages, request.mode)
+        assertEquals(
+            setOf("reader-book-1", "reader-book-2", "reader-book-3"),
+            request.retention?.pageIds,
+        )
+    }
+
+    @Test
     fun `critical trim clears reader memory caches`() {
         val pageCacheController = FakeComicPageSourceCacheController()
         val viewModel = createViewModel(

@@ -78,6 +78,42 @@ class AppLibraryStateAssembler @Inject constructor(
         }
     }
 
+    /**
+     * Synchronous, main-thread-safe snapshot for the first frame / recreation. It reads only the
+     * already-in-memory catalog plus the synchronous local-state cache (no fresh download scan, no
+     * catalog disk read), so it is safe to call from ViewModel construction without blocking.
+     */
+    internal fun buildInitialSnapshot(
+        libraries: List<Library>,
+        catalogItems: List<ReadableItem>,
+        importedItems: List<ReadableItem>,
+        progressByItemId: Map<String, ReaderProgressSnapshot>,
+        sessionByItemId: Map<String, ReaderSessionSnapshot>,
+        isRemoteCatalogHydrated: Boolean,
+        isLocalCatalogHydrated: Boolean,
+        themeMode: ThemeMode,
+    ): AppCatalogSnapshot {
+        val items = catalogItems + importedItems
+        val cachedRemoteItemLocalState = loadCachedRemoteItemLocalState(items)
+        return assembleSnapshot(
+            libraries = libraries,
+            catalogItems = catalogItems,
+            items = items,
+            remoteItemLocalState = cachedRemoteItemLocalState ?: RemoteItemLocalState(
+                downloadedItemIds = emptySet(),
+                locallyAvailableItemIds = emptySet(),
+                knownSourceLibraryScopeIds = emptySet(),
+            ),
+            remoteItemLocalStateKnownSourceLibraryScopeIds =
+                cachedRemoteItemLocalState?.knownSourceLibraryScopeIds ?: emptySet(),
+            progressByItemId = progressByItemId,
+            sessionByItemId = sessionByItemId,
+            isRemoteCatalogHydrated = isRemoteCatalogHydrated,
+            isLocalCatalogHydrated = isLocalCatalogHydrated,
+            themeMode = themeMode,
+        )
+    }
+
     internal suspend fun buildSnapshot(
         libraries: List<Library>,
         catalogItems: List<ReadableItem>,
@@ -89,34 +125,52 @@ class AppLibraryStateAssembler @Inject constructor(
         themeMode: ThemeMode,
         includeRemoteItemLocalState: Boolean = false,
     ): AppCatalogSnapshot {
-        val items = catalogItems + importedItems
-        val cachedRemoteItemLocalState = if (!includeRemoteItemLocalState) {
-            loadCachedRemoteItemLocalState(items)
-        } else {
-            null
-        }
-        val remoteItemLocalState = when {
-            includeRemoteItemLocalState -> loadRemoteItemLocalState(items)
-            cachedRemoteItemLocalState != null -> cachedRemoteItemLocalState
-            else -> RemoteItemLocalState(
-                downloadedItemIds = emptySet(),
-                locallyAvailableItemIds = emptySet(),
-                knownSourceLibraryScopeIds = emptySet(),
+        if (!includeRemoteItemLocalState) {
+            return buildInitialSnapshot(
+                libraries = libraries,
+                catalogItems = catalogItems,
+                importedItems = importedItems,
+                progressByItemId = progressByItemId,
+                sessionByItemId = sessionByItemId,
+                isRemoteCatalogHydrated = isRemoteCatalogHydrated,
+                isLocalCatalogHydrated = isLocalCatalogHydrated,
+                themeMode = themeMode,
             )
         }
-        val remoteItemLocalStateKnownSourceLibraryScopeIds = when {
-            includeRemoteItemLocalState -> items.remoteItemLocalStateSourceLibraryScopeIds()
-            cachedRemoteItemLocalState != null -> cachedRemoteItemLocalState.knownSourceLibraryScopeIds
-            else -> emptySet()
-        }
-        val includesRemoteItemLocalState = remoteItemLocalStateKnownSourceLibraryScopeIds.isNotEmpty()
+        val items = catalogItems + importedItems
+        return assembleSnapshot(
+            libraries = libraries,
+            catalogItems = catalogItems,
+            items = items,
+            remoteItemLocalState = loadRemoteItemLocalState(items),
+            remoteItemLocalStateKnownSourceLibraryScopeIds = items.remoteItemLocalStateSourceLibraryScopeIds(),
+            progressByItemId = progressByItemId,
+            sessionByItemId = sessionByItemId,
+            isRemoteCatalogHydrated = isRemoteCatalogHydrated,
+            isLocalCatalogHydrated = isLocalCatalogHydrated,
+            themeMode = themeMode,
+        )
+    }
+
+    private fun assembleSnapshot(
+        libraries: List<Library>,
+        catalogItems: List<ReadableItem>,
+        items: List<ReadableItem>,
+        remoteItemLocalState: RemoteItemLocalState,
+        remoteItemLocalStateKnownSourceLibraryScopeIds: Set<String>,
+        progressByItemId: Map<String, ReaderProgressSnapshot>,
+        sessionByItemId: Map<String, ReaderSessionSnapshot>,
+        isRemoteCatalogHydrated: Boolean,
+        isLocalCatalogHydrated: Boolean,
+        themeMode: ThemeMode,
+    ): AppCatalogSnapshot {
         return AppCatalogSnapshot(
             libraries = libraries,
             catalogItems = catalogItems,
             items = items,
             downloadedRemoteItemIds = remoteItemLocalState.downloadedItemIds,
             locallyAvailableRemoteItemIds = remoteItemLocalState.locallyAvailableItemIds,
-            includesRemoteItemLocalState = includesRemoteItemLocalState,
+            includesRemoteItemLocalState = remoteItemLocalStateKnownSourceLibraryScopeIds.isNotEmpty(),
             remoteItemLocalStateKnownSourceLibraryScopeIds = remoteItemLocalStateKnownSourceLibraryScopeIds,
             progressByItemId = buildProgressSummaries(
                 items = items,

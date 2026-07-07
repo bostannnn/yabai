@@ -27,7 +27,7 @@ import org.robolectric.RobolectricTestRunner
 class ObserveAppCatalogSnapshotsUseCaseTest {
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     @Test
-    fun `current snapshot includes cached remote local state without scanning downloads`() = runTest {
+    fun `observed snapshot includes cached remote local state without scanning downloads`() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val item = sampleItem(id = "epub-1", format = FormatType.EPUB)
         val localStateCache = InMemoryRemoteItemLocalStateCache().apply {
@@ -58,7 +58,7 @@ class ObserveAppCatalogSnapshotsUseCaseTest {
             ),
         )
 
-        val snapshot = useCase.currentSnapshot()
+        val snapshot = useCase.observe().first()
 
         assertEquals(setOf(item.id), snapshot.downloadedRemoteItemIds)
         assertEquals(setOf(item.id), snapshot.locallyAvailableRemoteItemIds)

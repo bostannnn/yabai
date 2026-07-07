@@ -62,7 +62,7 @@ private fun libraryCoverImageMinimumRequestSize(
     LibraryCoverImageVariant.GridExtraLarge -> IntSize(960, 1440)
     LibraryCoverImageVariant.Detailed -> IntSize(960, 1440)
     LibraryCoverImageVariant.ShelfPreview,
-    LibraryCoverImageVariant.ShelfRow -> IntSize(432, 648)
+    LibraryCoverImageVariant.ShelfRow -> IntSize(320, 480)
 }
 
 private fun libraryCoverImageLogicalSize(
@@ -73,7 +73,7 @@ private fun libraryCoverImageLogicalSize(
     LibraryCoverImageVariant.GridExtraLarge -> IntSize(240, 360)
     LibraryCoverImageVariant.Detailed -> IntSize(320, 480)
     LibraryCoverImageVariant.ShelfPreview,
-    LibraryCoverImageVariant.ShelfRow -> IntSize(144, 216)
+    LibraryCoverImageVariant.ShelfRow -> IntSize(120, 180)
 }
 
 private fun IntSize.scaleBy(
