@@ -90,6 +90,12 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideColdStartLibraryOrderStore(
+        store: SharedPreferencesColdStartLibraryOrderStore,
+    ): ColdStartLibraryOrderStore = store
+
+    @Provides
+    @Singleton
     fun provideAppNetworkConnectivityMonitor(
         monitor: AndroidAppNetworkConnectivityMonitor,
     ): AppNetworkConnectivityMonitor = monitor
@@ -397,6 +403,11 @@ object AppModule {
     fun provideStartupRemoteCatalogCacheSeeder(
         repository: RoomRemoteCatalogRepository,
     ): StartupRemoteCatalogCacheSeeder = repository
+
+    @Provides
+    fun provideColdStartCatalogSeeder(
+        repository: RoomRemoteCatalogRepository,
+    ): ColdStartCatalogSeeder = repository
 
     @Provides
     fun provideRemoteLibraryCacheStore(

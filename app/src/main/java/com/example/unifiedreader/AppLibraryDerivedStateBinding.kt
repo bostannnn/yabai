@@ -29,7 +29,15 @@ internal fun AppUiState.toLibraryDerivedStateInput(): LibraryDerivedStateInput =
                 key = kavitaReadingLists.selectedReadingListId.orEmpty(),
                 itemIds = itemIds,
             )
-        },
+        }
+        ?: coldStartOrderedItemIdsBySource[selectedSource]
+            ?.takeIf { orderedItemIds -> !isSelectedSourceHydrated && orderedItemIds.isNotEmpty() }
+            ?.let { orderedItemIds ->
+                LibraryOrderedItemScope(
+                    key = "coldstart:${selectedSource.name}",
+                    itemIds = orderedItemIds,
+                )
+            },
 )
 
 internal fun AppUiState.withLibraryDerivedState(

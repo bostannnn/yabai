@@ -79,6 +79,9 @@ abstract class RemoteCatalogDao {
     @Query(READABLE_ITEM_LIBRARY_SELECT + " WHERE sourceType = :sourceType ORDER BY title COLLATE NOCASE ASC")
     abstract fun getLibraryItemsForSourceType(sourceType: String): List<ReadableItemLibraryEntity>
 
+    @Query(READABLE_ITEM_LIBRARY_SELECT + " WHERE id IN (:itemIds)")
+    abstract fun getLibraryItemsByIds(itemIds: List<String>): List<ReadableItemLibraryEntity>
+
     @Query(
         """
         SELECT * FROM remote_library_cache_entries

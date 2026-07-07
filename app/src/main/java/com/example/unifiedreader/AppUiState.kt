@@ -123,6 +123,10 @@ data class AppUiState(
     val remoteDownloadActionAvailability: RemoteDownloadActionAvailability = RemoteDownloadActionAvailability(),
     val visibleItems: List<ReadableItem> = emptyList(),
     val libraryBrowseContextKey: String = "",
+    // Ordered item ids restored from the last-rendered cold-start view, per source. Applied only
+    // while the source is not yet hydrated so the grid renders in the saved order without a
+    // reshuffle; it stops being used automatically once the full catalog hydrates.
+    val coldStartOrderedItemIdsBySource: Map<SourceType, List<String>> = emptyMap(),
     val libraryScrollToTopRequest: Long = 0L,
     val libraryShelvesState: LibraryShelvesState = LibraryShelvesState(),
     val journalSnapshot: JournalSnapshot = JournalSnapshot(),

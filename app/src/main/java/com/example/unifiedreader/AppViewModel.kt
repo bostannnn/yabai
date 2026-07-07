@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.unifiedreader.core.model.KavitaLibrarySection
@@ -67,6 +68,7 @@ class AppViewModel @Inject constructor(
     val readerFactories: List<@JvmSuppressWildcards ReaderScreenFactory>,
     val readerWorkCoordinator: ReaderWorkCoordinator,
     private val libraryStateRecomputeCoordinator: AppLibraryStateRecomputeCoordinator,
+    private val coldStartLibraryViewCoordinator: AppColdStartLibraryViewCoordinator,
 ) : ViewModel() {
     var uiState by mutableStateOf(initialUiStateFactory.create())
         private set
@@ -85,7 +87,9 @@ class AppViewModel @Inject constructor(
         remoteSourcesCoordinator.initialize(::updateUiState)
         settingsController.restoreState(updateState = ::updateUiState)
         libraryBrowseController.restoreState(updateState = ::updateUiState)
+        coldStartLibraryViewCoordinator.restore(viewModelScope, uiState.selectedSource, ::updateUiState)
         observeAppState()
+        coldStartLibraryViewCoordinator.startCapture(viewModelScope, snapshotFlow { uiState })
         viewModelScope.launch { initialUiStateFactory.hydrateAfterInitialState() }
     }
 
