@@ -13,6 +13,10 @@ import com.example.unifiedreader.feature.library.LibraryBrowsePreferences
 import com.example.unifiedreader.feature.navigation.SourceNavigationPreferences
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -151,6 +155,13 @@ class AppStartupLibraryStateTest {
         blockedScan.release()
     }
 
+    // In production viewModelScope runs on the single-threaded Dispatchers.Main.immediate, which the
+    // AppViewModel coordinators rely on and which runs each launched refresh eagerly to completion.
+    // In this unit test viewModelScope otherwise falls back to the multi-threaded Dispatchers.Default,
+    // so the async availability refresh both races the assertions and can lose its non-synchronized
+    // state writes. Pin it to a single-threaded, eager dispatcher so the failing refresh settles
+    // deterministically before the assertions run, mirroring production.
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun `failed startup availability refresh keeps stale local filter results`() {
         val item = sampleItem(
@@ -168,31 +179,36 @@ class AppStartupLibraryStateTest {
             )
         }
 
-        val viewModel = createViewModel(
-            sampleItems = listOf(item),
-            remoteDownloadDataSources = listOf(
-                FailingStoredDocumentScanDataSource(sourceType = SourceType.KAVITA),
-            ),
-            remoteItemLocalStateCache = localStateCache,
-            sourceNavigationPreferencesStore = FakeSourceNavigationPreferencesStore(
-                SourceNavigationPreferences(sourceOrder = listOf(SourceType.KAVITA)),
-            ),
-            libraryBrowsePreferencesStore = FakeLibraryBrowsePreferencesStore(
-                LibraryBrowsePreferences(
-                    filtersBySource = mapOf(
-                        SourceType.KAVITA to LibraryFilterState(
-                            fileLocations = setOf(LibraryFileLocation.LOCAL),
+        Dispatchers.setMain(Dispatchers.Unconfined)
+        try {
+            val viewModel = createViewModel(
+                sampleItems = listOf(item),
+                remoteDownloadDataSources = listOf(
+                    FailingStoredDocumentScanDataSource(sourceType = SourceType.KAVITA),
+                ),
+                remoteItemLocalStateCache = localStateCache,
+                sourceNavigationPreferencesStore = FakeSourceNavigationPreferencesStore(
+                    SourceNavigationPreferences(sourceOrder = listOf(SourceType.KAVITA)),
+                ),
+                libraryBrowsePreferencesStore = FakeLibraryBrowsePreferencesStore(
+                    LibraryBrowsePreferences(
+                        filtersBySource = mapOf(
+                            SourceType.KAVITA to LibraryFilterState(
+                                fileLocations = setOf(LibraryFileLocation.LOCAL),
+                            ),
                         ),
                     ),
                 ),
-            ),
-        )
-        val state = viewModel.uiState
+            )
+            val state = viewModel.uiState
 
-        assertTrue(state.isRemoteItemLocalStateKnown)
-        assertFalse(state.isRemoteItemLocalStateRefreshing)
-        assertFalse(state.isSelectedLibraryLocalAvailabilityPending)
-        assertEquals(listOf(item.id), state.visibleItems.map(ReadableItem::id))
+            assertTrue(state.toString(), state.isRemoteItemLocalStateKnown)
+            assertFalse(state.toString(), state.isRemoteItemLocalStateRefreshing)
+            assertFalse(state.toString(), state.isSelectedLibraryLocalAvailabilityPending)
+            assertEquals(state.toString(), listOf(item.id), state.visibleItems.map(ReadableItem::id))
+        } finally {
+            Dispatchers.resetMain()
+        }
     }
 }
 
