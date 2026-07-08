@@ -7,6 +7,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
+import kotlinx.coroutines.flow.Flow
 import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibraryFilterPanel
@@ -69,6 +72,7 @@ class AppViewModel @Inject constructor(
     val readerWorkCoordinator: ReaderWorkCoordinator,
     private val libraryStateRecomputeCoordinator: AppLibraryStateRecomputeCoordinator,
     private val coldStartLibraryViewCoordinator: AppColdStartLibraryViewCoordinator,
+    private val libraryGridPager: LibraryGridPager,
 ) : ViewModel() {
     var uiState by mutableStateOf(initialUiStateFactory.create())
         private set
@@ -91,7 +95,20 @@ class AppViewModel @Inject constructor(
         observeAppState()
         coldStartLibraryViewCoordinator.startCapture(viewModelScope, snapshotFlow { uiState })
         viewModelScope.launch { initialUiStateFactory.hydrateAfterInitialState() }
+        if (LibraryPagingFeature.ENABLED) {
+            viewModelScope.launch { libraryGridPager.rebuildGridRootsIfEmpty() }
+        }
     }
+
+    /**
+     * Paged library grid for [source] in a column [sortMode], cached in the ViewModel scope. Thin
+     * delegation to the owning repository; only consumed while [LibraryPagingFeature] is enabled.
+     */
+    fun libraryGridPagingData(
+        source: SourceType,
+        sortMode: LibrarySortMode,
+    ): Flow<PagingData<ReadableItem>> =
+        libraryGridPager.gridRootsPagingData(source, sortMode).cachedIn(viewModelScope)
 
     fun onTopLevelSelected(destination: TopLevelDestination) {
         readerCoordinator.onTopLevelSelected(

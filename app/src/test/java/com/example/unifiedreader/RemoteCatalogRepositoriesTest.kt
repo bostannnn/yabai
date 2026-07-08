@@ -1,7 +1,9 @@
 package com.example.unifiedreader
 
 import com.example.unifiedreader.core.database.dao.RemoteCatalogDao
+import androidx.paging.PagingSource
 import com.example.unifiedreader.core.database.entity.LibraryEntity
+import com.example.unifiedreader.core.database.entity.LibraryGridRootEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemLibraryEntity
 import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEntity
@@ -563,6 +565,37 @@ private class FakeRemoteCatalogDao(
         username: String,
     ) {
         cachedLibrariesByKey.remove(Triple(sourceType, baseUrl, username))
+    }
+
+    private val gridRootsState = MutableStateFlow<List<LibraryGridRootEntity>>(emptyList())
+
+    override fun getGridRootsForSourceType(sourceType: String): List<LibraryGridRootEntity> =
+        gridRootsState.value
+            .filter { it.sourceType == sourceType }
+            .sortedBy { it.title.lowercase() }
+
+    override fun pagingGridRootsByTitle(sourceType: String): PagingSource<Int, LibraryGridRootEntity> =
+        throw UnsupportedOperationException("paging not used in FakeRemoteCatalogDao")
+
+    override fun pagingGridRootsByDateAdded(sourceType: String): PagingSource<Int, LibraryGridRootEntity> =
+        throw UnsupportedOperationException("paging not used in FakeRemoteCatalogDao")
+
+    override fun countGridRoots(): Int = gridRootsState.value.size
+
+    protected override fun getLibraryItemsForLibrary(libraryId: String): List<ReadableItemLibraryEntity> =
+        itemsState.value.filter { it.libraryId == libraryId }.map(ReadableItemEntity::toLibraryEntity)
+
+    override fun insertOrReplaceGridRoots(roots: List<LibraryGridRootEntity>) {
+        val replacementIds = roots.mapTo(mutableSetOf(), LibraryGridRootEntity::id)
+        gridRootsState.value = gridRootsState.value.filterNot { it.id in replacementIds } + roots
+    }
+
+    protected override fun deleteGridRootsForSourceType(sourceType: String) {
+        gridRootsState.value = gridRootsState.value.filterNot { it.sourceType == sourceType }
+    }
+
+    protected override fun deleteGridRootsForLibrary(libraryId: String) {
+        gridRootsState.value = gridRootsState.value.filterNot { it.libraryId == libraryId }
     }
 }
 

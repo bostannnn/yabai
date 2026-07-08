@@ -408,6 +408,15 @@ internal fun createViewModel(
                 ) = Unit
             },
         ),
+        libraryGridPager = object : LibraryGridPager {
+            override fun gridRootsPagingData(
+                source: SourceType,
+                sortMode: com.example.unifiedreader.core.model.LibrarySortMode,
+            ): kotlinx.coroutines.flow.Flow<androidx.paging.PagingData<com.example.unifiedreader.core.model.ReadableItem>> =
+                kotlinx.coroutines.flow.flowOf(androidx.paging.PagingData.empty())
+
+            override suspend fun rebuildGridRootsIfEmpty() = Unit
+        },
     )
 }
 

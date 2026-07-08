@@ -309,6 +309,16 @@ fun UnifiedReaderScaffold(
                     TopLevelDestination.Library -> LibraryRoute(
                         uiState = uiState,
                         viewMode = libraryViewMode,
+                        pagedGridFlow = if (LibraryPagingFeature.isPageable(uiState)) {
+                            remember(uiState.selectedSource, uiState.selectedLibrarySortMode) {
+                                viewModel.libraryGridPagingData(
+                                    source = uiState.selectedSource,
+                                    sortMode = uiState.selectedLibrarySortMode,
+                                )
+                            }
+                        } else {
+                            null
+                        },
                         browseContextKey = uiState.libraryBrowseContextKey,
                         initialScrollPosition = viewModel.libraryScrollPositionFor(uiState.libraryBrowseContextKey),
                         scrollToTopRequest = uiState.libraryScrollToTopRequest,

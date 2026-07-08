@@ -410,6 +410,11 @@ object AppModule {
     ): ColdStartCatalogSeeder = repository
 
     @Provides
+    fun provideLibraryGridPager(
+        repository: RoomRemoteCatalogRepository,
+    ): LibraryGridPager = repository
+
+    @Provides
     fun provideRemoteLibraryCacheStore(
         repository: RoomRemoteCatalogRepository,
     ): RemoteLibraryCacheStore = repository

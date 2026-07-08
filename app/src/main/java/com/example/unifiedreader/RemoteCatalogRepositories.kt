@@ -1,13 +1,19 @@
 package com.example.unifiedreader
 
 import android.util.Log
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
+import androidx.paging.map
 import com.example.unifiedreader.core.database.dao.RemoteCatalogDao
 import com.example.unifiedreader.core.database.entity.LibraryEntity
+import com.example.unifiedreader.core.database.entity.LibraryGridRootEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemLibraryEntity
 import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEntity
 import com.example.unifiedreader.core.database.entity.toDomain
 import com.example.unifiedreader.core.database.entity.toRemoteLibraryCacheEntity
+import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
@@ -24,12 +30,28 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 interface RemoteCatalogReadiness {
     val isHydratedFlow: StateFlow<Boolean>
+}
+
+/**
+ * Streams the library grid as pages of already-derived roots from `library_grid_roots`, so only the
+ * visible window is resident instead of the whole catalog. Only the column sorts (TITLE, DATE_ADDED)
+ * are paged today; LAST_READ needs the progress join (Stage D).
+ */
+interface LibraryGridPager {
+    fun gridRootsPagingData(
+        source: SourceType,
+        sortMode: LibrarySortMode,
+    ): Flow<PagingData<ReadableItem>>
+
+    /** One-time backfill of the derived grid roots after the 24->25 migration. No-op once populated. */
+    suspend fun rebuildGridRootsIfEmpty()
 }
 
 interface RemoteCatalogHydrator {
@@ -75,6 +97,7 @@ class RoomRemoteCatalogRepository(
     RemoteCatalogHydrator,
     StartupRemoteCatalogCacheSeeder,
     ColdStartCatalogSeeder,
+    LibraryGridPager,
     RemoteLibraryCacheStore {
     private val librariesState = MutableStateFlow<List<Library>>(emptyList())
     private val itemsState = MutableStateFlow<List<ReadableItem>>(emptyList())
@@ -206,6 +229,31 @@ class RoomRemoteCatalogRepository(
 
     override fun observeItems(): Flow<List<ReadableItem>> = itemsState.asStateFlow()
 
+    override fun gridRootsPagingData(
+        source: SourceType,
+        sortMode: LibrarySortMode,
+    ): Flow<PagingData<ReadableItem>> = Pager(
+        config = PagingConfig(
+            pageSize = GRID_PAGE_SIZE,
+            enablePlaceholders = false,
+        ),
+    ) {
+        when (sortMode) {
+            LibrarySortMode.DATE_ADDED -> remoteCatalogDao.pagingGridRootsByDateAdded(source.name)
+            else -> remoteCatalogDao.pagingGridRootsByTitle(source.name)
+        }
+    }.flow.map { pagingData -> pagingData.map(LibraryGridRootEntity::toDomain) }
+
+    /**
+     * One-time backfill of the derived grid roots after the 24->25 migration, so existing installs
+     * page a populated table before their next catalog sync. A no-op once populated.
+     */
+    override suspend fun rebuildGridRootsIfEmpty() = withContext(ioDispatcher) {
+        runCatching { remoteCatalogDao.rebuildAllGridRootsIfEmpty() }
+            .onFailure { throwable -> logSeedFailure("Unable to backfill library grid roots.", throwable) }
+        Unit
+    }
+
     override suspend fun getItemsForSourceType(
         sourceType: SourceType,
     ): List<ReadableItem> = withContext(ioDispatcher) {
@@ -326,3 +374,4 @@ private fun <T> List<T>.replaceSource(
 ): List<T> = filterNot { item -> sourceSelector(item) == sourceType } + replacement
 
 private const val LOG_TAG = "RemoteCatalogRepo"
+private const val GRID_PAGE_SIZE = 60
