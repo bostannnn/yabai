@@ -20,6 +20,7 @@ import com.example.unifiedreader.core.database.entity.JournalReadingSessionEntit
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.LibraryGridRootEntity
 import com.example.unifiedreader.core.database.entity.LibraryRootFacetEntity
+import com.example.unifiedreader.core.database.entity.LibraryRootMemberEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
 import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEntity
 import com.example.unifiedreader.core.database.entity.RemoteLibraryCacheEntity
@@ -41,8 +42,9 @@ import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
         RemoteCatalogSyncGroupEntity::class,
         LibraryGridRootEntity::class,
         LibraryRootFacetEntity::class,
+        LibraryRootMemberEntity::class,
     ],
-    version = 26,
+    version = 27,
     exportSchema = false,
 )
 abstract class UnifiedReaderDatabase : RoomDatabase() {
@@ -884,6 +886,36 @@ object UnifiedReaderDatabaseMigrations {
             )
         }
     }
+
+    val MIGRATION_26_27 = object : Migration(26, 27) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            // Empty root->member-items map; populated from the grid roots on the next catalog write
+            // or the startup rebuild-if-empty. Column shape mirrors LibraryRootMemberEntity.
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `library_root_members` (
+                    `rootId` TEXT NOT NULL,
+                    `itemId` TEXT NOT NULL,
+                    `sourceType` TEXT NOT NULL,
+                    `libraryId` TEXT NOT NULL,
+                    PRIMARY KEY(`rootId`, `itemId`)
+                )
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS `index_library_root_members_itemId`
+                ON `library_root_members` (`itemId`)
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS `index_library_root_members_libraryId`
+                ON `library_root_members` (`libraryId`)
+                """.trimIndent(),
+            )
+        }
+    }
 }
 
 object UnifiedReaderDatabaseFactory {
@@ -920,6 +952,7 @@ object UnifiedReaderDatabaseFactory {
             UnifiedReaderDatabaseMigrations.MIGRATION_23_24,
             UnifiedReaderDatabaseMigrations.MIGRATION_24_25,
             UnifiedReaderDatabaseMigrations.MIGRATION_25_26,
+            UnifiedReaderDatabaseMigrations.MIGRATION_26_27,
         )
         .build()
 }

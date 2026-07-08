@@ -5,6 +5,7 @@ import androidx.paging.PagingSource
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.LibraryGridRootEntity
 import com.example.unifiedreader.core.database.entity.LibraryRootFacetEntity
+import com.example.unifiedreader.core.database.entity.LibraryRootMemberEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemLibraryEntity
 import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEntity
@@ -581,6 +582,9 @@ private class FakeRemoteCatalogDao(
     override fun pagingGridRootsByDateAdded(sourceType: String): PagingSource<Int, LibraryGridRootEntity> =
         throw UnsupportedOperationException("paging not used in FakeRemoteCatalogDao")
 
+    override fun pagingGridRootsByLastRead(sourceType: String): PagingSource<Int, LibraryGridRootEntity> =
+        throw UnsupportedOperationException("paging not used in FakeRemoteCatalogDao")
+
     override fun countGridRoots(): Int = gridRootsState.value.size
 
     protected override fun getLibraryItemsForLibrary(libraryId: String): List<ReadableItemLibraryEntity> =
@@ -619,6 +623,22 @@ private class FakeRemoteCatalogDao(
 
     protected override fun deleteRootFacetsForLibrary(libraryId: String) {
         rootFacetsState.value = rootFacetsState.value.filterNot { it.libraryId == libraryId }
+    }
+
+    private val rootMembersState = MutableStateFlow<List<LibraryRootMemberEntity>>(emptyList())
+
+    override fun insertOrReplaceRootMembers(members: List<LibraryRootMemberEntity>) {
+        val replacementKeys = members.mapTo(mutableSetOf()) { it.rootId to it.itemId }
+        rootMembersState.value = rootMembersState.value
+            .filterNot { (it.rootId to it.itemId) in replacementKeys } + members
+    }
+
+    protected override fun deleteRootMembersForSourceType(sourceType: String) {
+        rootMembersState.value = rootMembersState.value.filterNot { it.sourceType == sourceType }
+    }
+
+    protected override fun deleteRootMembersForLibrary(libraryId: String) {
+        rootMembersState.value = rootMembersState.value.filterNot { it.libraryId == libraryId }
     }
 }
 

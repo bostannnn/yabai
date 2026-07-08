@@ -17,19 +17,45 @@ data class LibrarySeriesGrouping(
 )
 
 /**
- * The grid root set for a single source's items: Kavita/Stump collapse issues into series
- * containers; Grimmory/Local have no series grouping, so their items are already roots. Input must
- * be the items for exactly [sourceType]. Shared by the in-memory index and the persisted
- * `library_grid_roots` projection.
+ * A grid root plus the ids of the catalog items it represents: [root]'s own id for a standalone
+ * item, or every issue id for a series container. The membership powers progress rollup (e.g.
+ * LAST_READ = MAX over members) and series browse from SQL without the in-memory index.
  */
+data class LibraryGridRoot(
+    val root: ReadableItem,
+    val memberItemIds: List<String>,
+)
+
+/**
+ * The grid root set for a single source's items, each with its member item ids. Kavita/Stump
+ * collapse issues into series containers; Grimmory/Local items are already roots (member = self).
+ * Input must be the items for exactly [sourceType]. Shared by the persisted projection and the
+ * in-memory index.
+ */
+fun deriveGridRootsWithMembers(
+    sourceType: SourceType,
+    sourceItems: List<ReadableItem>,
+): List<LibraryGridRoot> = when (sourceType) {
+    SourceType.KAVITA -> deriveKavitaSeriesGrouping(sourceItems).toGridRoots()
+    SourceType.STUMP -> deriveStumpSeriesGrouping(sourceItems).toGridRoots()
+    SourceType.GRIMMORY,
+    SourceType.LOCAL -> sourceItems.map { item -> LibraryGridRoot(item, listOf(item.id)) }
+}
+
+/** Roots only (drops membership); kept for callers that don't need the member mapping. */
 fun deriveGridRootItems(
     sourceType: SourceType,
     sourceItems: List<ReadableItem>,
-): List<ReadableItem> = when (sourceType) {
-    SourceType.KAVITA -> deriveKavitaSeriesGrouping(sourceItems).rootItems
-    SourceType.STUMP -> deriveStumpSeriesGrouping(sourceItems).rootItems
-    SourceType.GRIMMORY,
-    SourceType.LOCAL -> sourceItems
+): List<ReadableItem> = deriveGridRootsWithMembers(sourceType, sourceItems).map(LibraryGridRoot::root)
+
+private fun LibrarySeriesGrouping.toGridRoots(): List<LibraryGridRoot> = rootItems.map { root ->
+    val seriesKey = root.remoteId?.takeIf {
+        root.isKavitaSeriesContainer() || root.isStumpSeriesContainer()
+    }
+    val memberItemIds = seriesKey
+        ?.let { key -> issuesBySeriesKey[key]?.map(ReadableItem::id) }
+        ?: listOf(root.id)
+    LibraryGridRoot(root, memberItemIds)
 }
 
 fun deriveKavitaSeriesGrouping(

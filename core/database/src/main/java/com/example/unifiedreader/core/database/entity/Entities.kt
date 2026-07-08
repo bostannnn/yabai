@@ -198,6 +198,27 @@ data class LibraryRootFacetEntity(
     val value: String,
 )
 
+/**
+ * Maps each grid root in [LibraryGridRootEntity] to the catalog item ids it represents: the root's
+ * own id for a standalone item, or every issue id for a series container. Lets progress-driven
+ * ordering (LAST_READ = MAX over members) and series membership be computed by joining
+ * `reading_progress` in SQL. Rebuilt alongside `library_grid_roots` on catalog write.
+ */
+@Entity(
+    tableName = "library_root_members",
+    primaryKeys = ["rootId", "itemId"],
+    indices = [
+        Index(value = ["itemId"]),
+        Index(value = ["libraryId"]),
+    ],
+)
+data class LibraryRootMemberEntity(
+    val rootId: String,
+    val itemId: String,
+    val sourceType: String,
+    val libraryId: String,
+)
+
 @Entity(tableName = "reading_progress")
 data class ReadingProgressEntity(
     @PrimaryKey val itemId: String,

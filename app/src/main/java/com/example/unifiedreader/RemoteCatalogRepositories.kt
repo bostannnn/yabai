@@ -240,6 +240,7 @@ class RoomRemoteCatalogRepository(
     ) {
         when (sortMode) {
             LibrarySortMode.DATE_ADDED -> remoteCatalogDao.pagingGridRootsByDateAdded(source.name)
+            LibrarySortMode.LAST_READ -> remoteCatalogDao.pagingGridRootsByLastRead(source.name)
             else -> remoteCatalogDao.pagingGridRootsByTitle(source.name)
         }
     }.flow.map { pagingData -> pagingData.map(LibraryGridRootEntity::toDomain) }

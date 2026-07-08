@@ -9,16 +9,19 @@ import androidx.room.Transaction
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.LibraryGridRootEntity
 import com.example.unifiedreader.core.database.entity.LibraryRootFacetEntity
+import com.example.unifiedreader.core.database.entity.LibraryRootMemberEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemLibraryEntity
 import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEntity
 import com.example.unifiedreader.core.database.entity.RemoteLibraryCacheEntity
 import com.example.unifiedreader.core.database.entity.toDomain
 import com.example.unifiedreader.core.database.entity.toGridRootEntity
+import com.example.unifiedreader.core.database.entity.toMemberEntities
 import com.example.unifiedreader.core.database.entity.toRootFacetEntities
+import com.example.unifiedreader.core.model.LibraryGridRoot
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
-import com.example.unifiedreader.core.model.deriveGridRootItems
+import com.example.unifiedreader.core.model.deriveGridRootsWithMembers
 import kotlinx.coroutines.flow.Flow
 
 private const val READABLE_ITEM_LIBRARY_SELECT = """
@@ -103,6 +106,21 @@ abstract class RemoteCatalogDao {
     )
     abstract fun pagingGridRootsByDateAdded(sourceType: String): PagingSource<Int, LibraryGridRootEntity>
 
+    @Query(
+        """
+        SELECT r.* FROM library_grid_roots r
+        LEFT JOIN (
+            SELECT m.rootId AS rootId, MAX(p.updatedAtEpochMillis) AS lastReadAt
+            FROM library_root_members m
+            INNER JOIN reading_progress p ON p.itemId = m.itemId
+            GROUP BY m.rootId
+        ) lr ON lr.rootId = r.id
+        WHERE r.sourceType = :sourceType
+        ORDER BY lr.lastReadAt IS NULL, lr.lastReadAt DESC, r.title COLLATE NOCASE ASC
+        """,
+    )
+    abstract fun pagingGridRootsByLastRead(sourceType: String): PagingSource<Int, LibraryGridRootEntity>
+
     @Query("SELECT COUNT(*) FROM library_grid_roots")
     abstract fun countGridRoots(): Int
 
@@ -132,6 +150,15 @@ abstract class RemoteCatalogDao {
 
     @Query("DELETE FROM library_root_facets WHERE libraryId = :libraryId")
     protected abstract fun deleteRootFacetsForLibrary(libraryId: String)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract fun insertOrReplaceRootMembers(members: List<LibraryRootMemberEntity>)
+
+    @Query("DELETE FROM library_root_members WHERE sourceType = :sourceType")
+    protected abstract fun deleteRootMembersForSourceType(sourceType: String)
+
+    @Query("DELETE FROM library_root_members WHERE libraryId = :libraryId")
+    protected abstract fun deleteRootMembersForLibrary(libraryId: String)
 
     @Query(
         """
@@ -210,12 +237,15 @@ abstract class RemoteCatalogDao {
     open fun rebuildGridRootsForSourceType(sourceType: String) {
         deleteGridRootsForSourceType(sourceType)
         deleteRootFacetsForSourceType(sourceType)
+        deleteRootMembersForSourceType(sourceType)
         val source = runCatching { SourceType.valueOf(sourceType) }.getOrNull() ?: return
         val sourceItems = getLibraryItemsForSourceType(sourceType).map(ReadableItemLibraryEntity::toDomain)
-        val roots = deriveGridRootItems(source, sourceItems)
-        if (roots.isNotEmpty()) {
+        val gridRoots = deriveGridRootsWithMembers(source, sourceItems)
+        if (gridRoots.isNotEmpty()) {
+            val roots = gridRoots.map(LibraryGridRoot::root)
             insertOrReplaceGridRoots(roots.map(ReadableItem::toGridRootEntity))
             insertOrReplaceRootFacets(roots.flatMap(ReadableItem::toRootFacetEntities))
+            insertOrReplaceRootMembers(gridRoots.flatMap(LibraryGridRoot::toMemberEntities))
         }
     }
 
@@ -233,11 +263,14 @@ abstract class RemoteCatalogDao {
         libraryIds.forEach { libraryId ->
             deleteGridRootsForLibrary(libraryId)
             deleteRootFacetsForLibrary(libraryId)
+            deleteRootMembersForLibrary(libraryId)
             val items = getLibraryItemsForLibrary(libraryId).map(ReadableItemLibraryEntity::toDomain)
-            val roots = deriveGridRootItems(source, items)
-            if (roots.isNotEmpty()) {
+            val gridRoots = deriveGridRootsWithMembers(source, items)
+            if (gridRoots.isNotEmpty()) {
+                val roots = gridRoots.map(LibraryGridRoot::root)
                 insertOrReplaceGridRoots(roots.map(ReadableItem::toGridRootEntity))
                 insertOrReplaceRootFacets(roots.flatMap(ReadableItem::toRootFacetEntities))
+                insertOrReplaceRootMembers(gridRoots.flatMap(LibraryGridRoot::toMemberEntities))
             }
         }
     }

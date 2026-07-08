@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.example.unifiedreader.core.database.UnifiedReaderDatabase
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
+import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
 import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.SourceType
 import kotlinx.coroutines.runBlocking
@@ -77,7 +78,62 @@ class RemoteCatalogGridPagingTest {
         firstPage as PagingSource.LoadResult.Page
         assertEquals(listOf("New", "Mid"), firstPage.data.map { it.title })
     }
+
+    @Test
+    fun `last-read paging orders roots by max member progress, newest first, no-progress last`() = runBlocking {
+        dao.replaceSourceCatalog(
+            sourceType = SourceType.KAVITA.name,
+            libraries = listOf(kavitaLibrary()),
+            items = listOf(
+                // Series s1: two issues; only issue 2 has (recent) progress → container is "most recent".
+                comicIssue(id = "kavita:item:1", seriesId = "s1", title = "Series One #1"),
+                comicIssue(id = "kavita:item:2", seriesId = "s1", title = "Series One #2"),
+                // A standalone book with older progress.
+                book(id = "kavita:item:book-1", title = "A Book"),
+                // Series s2: one issue, no progress → sorts last.
+                comicIssue(id = "kavita:item:9", seriesId = "s2", title = "Series Two #1"),
+            ),
+        )
+        database.readingProgressDao().insertOrReplace(progress(itemId = "kavita:item:2", updatedAt = 9_000L))
+        database.readingProgressDao().insertOrReplace(progress(itemId = "kavita:item:book-1", updatedAt = 5_000L))
+
+        val firstPage = dao.pagingGridRootsByLastRead(SourceType.KAVITA.name).load(
+            PagingSource.LoadParams.Refresh(key = null, loadSize = 10, placeholdersEnabled = false),
+        )
+
+        firstPage as PagingSource.LoadResult.Page
+        assertEquals(
+            listOf("kavita:series:libA::s1", "kavita:item:book-1", "kavita:series:libA::s2"),
+            firstPage.data.map { it.id },
+        )
+    }
 }
+
+private fun comicIssue(
+    id: String,
+    seriesId: String,
+    title: String,
+): ReadableItemEntity = book(id = id, title = title).copy(
+    remoteFileType = seriesId,
+    format = "CBZ",
+    kind = "COMIC",
+    comicSeries = "Series $seriesId",
+)
+
+private fun progress(
+    itemId: String,
+    updatedAt: Long,
+): ReadingProgressEntity = ReadingProgressEntity(
+    itemId = itemId,
+    locatorType = "PERCENT",
+    page = null,
+    cfi = null,
+    percent = 0.5,
+    isFinished = false,
+    isExplicitUnreadReset = false,
+    syncState = "CLEAN",
+    updatedAtEpochMillis = updatedAt,
+)
 
 private fun kavitaLibrary(): LibraryEntity = LibraryEntity(
     id = "kavita:library:libA",
