@@ -124,6 +124,37 @@ abstract class RemoteCatalogDao {
     )
     abstract fun pagingGridRootsByLastRead(sourceType: String): PagingSource<Int, LibraryGridRootEntity>
 
+    // Bounded, non-paged siblings of the paging queries above: just the ordered root ids for the
+    // first [limit] roots, in the same order the matching paging source would yield. Used to record
+    // the paged view's order for cold-start restore without materializing the in-memory grid.
+    @Query(
+        "SELECT id FROM library_grid_roots WHERE sourceType = :sourceType " +
+            "ORDER BY title COLLATE NOCASE ASC LIMIT :limit",
+    )
+    abstract fun getGridRootIdsByTitle(sourceType: String, limit: Int): List<String>
+
+    @Query(
+        "SELECT id FROM library_grid_roots WHERE sourceType = :sourceType " +
+            "ORDER BY addedAtEpochMillis DESC, title COLLATE NOCASE ASC LIMIT :limit",
+    )
+    abstract fun getGridRootIdsByDateAdded(sourceType: String, limit: Int): List<String>
+
+    @Query(
+        """
+        SELECT r.id FROM library_grid_roots r
+        LEFT JOIN (
+            SELECT m.rootId AS rootId, MAX(p.updatedAtEpochMillis) AS lastReadAt
+            FROM library_root_members m
+            INNER JOIN reading_progress p ON p.itemId = m.itemId
+            GROUP BY m.rootId
+        ) lr ON lr.rootId = r.id
+        WHERE r.sourceType = :sourceType
+        ORDER BY lr.lastReadAt IS NULL, lr.lastReadAt DESC, r.title COLLATE NOCASE ASC
+        LIMIT :limit
+        """,
+    )
+    abstract fun getGridRootIdsByLastRead(sourceType: String, limit: Int): List<String>
+
     @Query("SELECT COUNT(*) FROM library_grid_roots")
     abstract fun countGridRoots(): Int
 

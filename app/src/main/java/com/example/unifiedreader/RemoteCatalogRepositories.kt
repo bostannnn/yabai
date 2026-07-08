@@ -74,6 +74,18 @@ interface LibraryGridPager {
         sortMode: LibrarySortMode,
     ): Flow<PagingData<ReadableItem>>
 
+    /**
+     * The first [limit] grid-root ids for [source] under [sortMode], in the same order
+     * [gridRootsPagingData] would page them. Lets the cold-start capture record the paged view's order
+     * straight from the grid-roots table instead of the in-memory `visibleItems`, so it keeps working
+     * once `visibleItems` is dropped for the paged path.
+     */
+    suspend fun orderedGridRootIds(
+        source: SourceType,
+        sortMode: LibrarySortMode,
+        limit: Int,
+    ): List<String>
+
     /** One-time backfill of the derived grid roots after the 24->25 migration. No-op once populated. */
     suspend fun rebuildGridRootsIfEmpty()
 }
@@ -269,6 +281,18 @@ class RoomRemoteCatalogRepository(
             else -> remoteCatalogDao.pagingGridRootsByTitle(source.name)
         }
     }.flow.map { pagingData -> pagingData.map(LibraryGridRootEntity::toDomain) }
+
+    override suspend fun orderedGridRootIds(
+        source: SourceType,
+        sortMode: LibrarySortMode,
+        limit: Int,
+    ): List<String> = withContext(ioDispatcher) {
+        when (sortMode) {
+            LibrarySortMode.DATE_ADDED -> remoteCatalogDao.getGridRootIdsByDateAdded(source.name, limit)
+            LibrarySortMode.LAST_READ -> remoteCatalogDao.getGridRootIdsByLastRead(source.name, limit)
+            else -> remoteCatalogDao.getGridRootIdsByTitle(source.name, limit)
+        }
+    }
 
     /**
      * One-time backfill of the derived grid roots after the 24->25 migration, so existing installs

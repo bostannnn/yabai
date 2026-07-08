@@ -269,6 +269,22 @@ internal fun createViewModel(
             readableItemRepository.getItems()
     }
 
+    val libraryGridPager = object : LibraryGridPager {
+        override fun gridRootsPagingData(
+            source: SourceType,
+            sortMode: com.example.unifiedreader.core.model.LibrarySortMode,
+        ): kotlinx.coroutines.flow.Flow<androidx.paging.PagingData<com.example.unifiedreader.core.model.ReadableItem>> =
+            kotlinx.coroutines.flow.flowOf(androidx.paging.PagingData.empty())
+
+        override suspend fun orderedGridRootIds(
+            source: SourceType,
+            sortMode: com.example.unifiedreader.core.model.LibrarySortMode,
+            limit: Int,
+        ): List<String> = emptyList()
+
+        override suspend fun rebuildGridRootsIfEmpty() = Unit
+    }
+
     return AppViewModel(
         navigationController = navigationController,
         activeRouteStore = activeRouteStore,
@@ -423,16 +439,9 @@ internal fun createViewModel(
                     orderedItemIds: List<String>,
                 ) = Unit
             },
+            libraryGridPager = libraryGridPager,
         ),
-        libraryGridPager = object : LibraryGridPager {
-            override fun gridRootsPagingData(
-                source: SourceType,
-                sortMode: com.example.unifiedreader.core.model.LibrarySortMode,
-            ): kotlinx.coroutines.flow.Flow<androidx.paging.PagingData<com.example.unifiedreader.core.model.ReadableItem>> =
-                kotlinx.coroutines.flow.flowOf(androidx.paging.PagingData.empty())
-
-            override suspend fun rebuildGridRootsIfEmpty() = Unit
-        },
+        libraryGridPager = libraryGridPager,
     )
 }
 

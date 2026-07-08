@@ -667,6 +667,24 @@ private class FakeRemoteCatalogDao(
 
     override fun countGridRoots(): Int = gridRootsState.value.size
 
+    override fun getGridRootIdsByTitle(sourceType: String, limit: Int): List<String> =
+        gridRootsState.value
+            .filter { it.sourceType == sourceType }
+            .sortedBy { it.title.lowercase() }
+            .map(LibraryGridRootEntity::id)
+            .take(limit)
+
+    override fun getGridRootIdsByDateAdded(sourceType: String, limit: Int): List<String> =
+        gridRootsState.value
+            .filter { it.sourceType == sourceType }
+            .sortedWith(compareByDescending<LibraryGridRootEntity> { it.addedAtEpochMillis ?: 0L }.thenBy { it.title.lowercase() })
+            .map(LibraryGridRootEntity::id)
+            .take(limit)
+
+    // No reading_progress join in the fake; title order is sufficient for the repository tests.
+    override fun getGridRootIdsByLastRead(sourceType: String, limit: Int): List<String> =
+        getGridRootIdsByTitle(sourceType, limit)
+
     protected override fun getLibraryItemsForLibrary(libraryId: String): List<ReadableItemLibraryEntity> =
         itemsState.value.filter { it.libraryId == libraryId }.map(ReadableItemEntity::toLibraryEntity)
 

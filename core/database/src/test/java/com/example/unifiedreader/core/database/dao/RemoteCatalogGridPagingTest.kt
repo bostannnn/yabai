@@ -107,6 +107,51 @@ class RemoteCatalogGridPagingTest {
             firstPage.data.map { it.id },
         )
     }
+
+    @Test
+    fun `last-read root ids match paged order and honour the limit`() = runBlocking {
+        dao.replaceSourceCatalog(
+            sourceType = SourceType.KAVITA.name,
+            libraries = listOf(kavitaLibrary()),
+            items = listOf(
+                comicIssue(id = "kavita:item:1", seriesId = "s1", title = "Series One #1"),
+                comicIssue(id = "kavita:item:2", seriesId = "s1", title = "Series One #2"),
+                book(id = "kavita:item:book-1", title = "A Book"),
+                comicIssue(id = "kavita:item:9", seriesId = "s2", title = "Series Two #1"),
+            ),
+        )
+        database.readingProgressDao().insertOrReplace(progress(itemId = "kavita:item:2", updatedAt = 9_000L))
+        database.readingProgressDao().insertOrReplace(progress(itemId = "kavita:item:book-1", updatedAt = 5_000L))
+
+        // Same order as pagingGridRootsByLastRead — the cold-start capture records exactly the paged view.
+        assertEquals(
+            listOf("kavita:series:libA::s1", "kavita:item:book-1", "kavita:series:libA::s2"),
+            dao.getGridRootIdsByLastRead(SourceType.KAVITA.name, limit = 10),
+        )
+        // The limit bounds the returned window, still in order.
+        assertEquals(
+            listOf("kavita:series:libA::s1", "kavita:item:book-1"),
+            dao.getGridRootIdsByLastRead(SourceType.KAVITA.name, limit = 2),
+        )
+    }
+
+    @Test
+    fun `date-added root ids order newest first`() = runBlocking {
+        dao.replaceSourceCatalog(
+            sourceType = SourceType.KAVITA.name,
+            libraries = listOf(kavitaLibrary()),
+            items = listOf(
+                book(id = "kavita:item:old", title = "Old", addedAt = 1_000L),
+                book(id = "kavita:item:new", title = "New", addedAt = 3_000L),
+                book(id = "kavita:item:mid", title = "Mid", addedAt = 2_000L),
+            ),
+        )
+
+        assertEquals(
+            listOf("kavita:item:new", "kavita:item:mid", "kavita:item:old"),
+            dao.getGridRootIdsByDateAdded(SourceType.KAVITA.name, limit = 10),
+        )
+    }
 }
 
 private fun comicIssue(
