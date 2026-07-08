@@ -99,6 +99,21 @@ class UnifiedReaderDatabaseMigrationTest {
     }
 
     @Test
+    fun `migration 24 to 25 creates library grid roots table`() {
+        createTestDatabase(
+            name = "migration-24-25-${System.nanoTime()}",
+            version = 24,
+        ) { database ->
+            createVersion24Schema(database)
+        }.use { database ->
+            UnifiedReaderDatabaseMigrations.MIGRATION_24_25.migrate(database)
+
+            assertTrue(tableExists(database, "library_grid_roots"))
+            assertTrue(indexExists(database, "index_library_grid_roots_sourceType"))
+        }
+    }
+
+    @Test
     fun `room migrates 4 to 5 and validates reader session state schema`() {
         val databaseName = "migration-4-5-${System.nanoTime()}"
         createTestDatabase(
@@ -1089,6 +1104,11 @@ private fun createVersion23Schema(database: SupportSQLiteDatabase) {
     UnifiedReaderDatabaseMigrations.MIGRATION_22_23.migrate(database)
 }
 
+private fun createVersion24Schema(database: SupportSQLiteDatabase) {
+    createVersion23Schema(database)
+    UnifiedReaderDatabaseMigrations.MIGRATION_23_24.migrate(database)
+}
+
 private fun tableExists(
     database: SupportSQLiteDatabase,
     tableName: String,
@@ -1198,6 +1218,7 @@ private fun openRoomDatabase(
         UnifiedReaderDatabaseMigrations.MIGRATION_21_22,
         UnifiedReaderDatabaseMigrations.MIGRATION_22_23,
         UnifiedReaderDatabaseMigrations.MIGRATION_23_24,
+        UnifiedReaderDatabaseMigrations.MIGRATION_24_25,
     )
     .build()
 

@@ -3,10 +3,8 @@ package com.example.unifiedreader.feature.library
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
-import com.example.unifiedreader.core.model.belongsToKavitaSeries
-import com.example.unifiedreader.core.model.belongsToStumpSeries
-import com.example.unifiedreader.core.model.buildKavitaSeriesContainer
-import com.example.unifiedreader.core.model.buildStumpSeriesContainer
+import com.example.unifiedreader.core.model.deriveKavitaSeriesGrouping
+import com.example.unifiedreader.core.model.deriveStumpSeriesGrouping
 import com.example.unifiedreader.core.model.isKavitaSeriesContainer
 import com.example.unifiedreader.core.model.isStumpSeriesContainer
 import com.example.unifiedreader.core.model.kavitaSeriesContainerId
@@ -92,27 +90,11 @@ internal data class LibrarySourceIndex(
             val rawItemsBySource = items.groupBy(ReadableItem::sourceType)
             val kavitaItems = rawItemsBySource[SourceType.KAVITA].orEmpty()
             val stumpItems = rawItemsBySource[SourceType.STUMP].orEmpty()
-            val kavitaIssuesBySeriesKey = kavitaItems.groupIssuesBySeriesKey(
-                seriesKeyProvider = ReadableItem::kavitaSeriesGroupKey,
-                membershipCheck = ReadableItem::belongsToKavitaSeries,
-            )
-            val stumpIssuesBySeriesKey = stumpItems.groupIssuesBySeriesKey(
-                seriesKeyProvider = ReadableItem::stumpSeriesGroupKey,
-                membershipCheck = ReadableItem::belongsToStumpSeries,
-            )
+            val kavitaGrouping = deriveKavitaSeriesGrouping(kavitaItems)
+            val stumpGrouping = deriveStumpSeriesGrouping(stumpItems)
             val rootItemsBySource = mapOf(
-                SourceType.KAVITA to buildRootItems(
-                    sourceItems = kavitaItems,
-                    issuesBySeriesKey = kavitaIssuesBySeriesKey,
-                    isIssue = { item -> item.kavitaSeriesGroupKey() != null },
-                    seriesContainerFactory = ::buildKavitaSeriesContainer,
-                ),
-                SourceType.STUMP to buildRootItems(
-                    sourceItems = stumpItems,
-                    issuesBySeriesKey = stumpIssuesBySeriesKey,
-                    isIssue = { item -> item.stumpSeriesGroupKey() != null },
-                    seriesContainerFactory = ::buildStumpSeriesContainer,
-                ),
+                SourceType.KAVITA to kavitaGrouping.rootItems,
+                SourceType.STUMP to stumpGrouping.rootItems,
                 SourceType.GRIMMORY to rawItemsBySource[SourceType.GRIMMORY].orEmpty(),
                 SourceType.LOCAL to rawItemsBySource[SourceType.LOCAL].orEmpty(),
             )
@@ -120,40 +102,10 @@ internal data class LibrarySourceIndex(
                 librariesBySource = librariesBySource,
                 rawItemsBySource = rawItemsBySource,
                 rootItemsBySource = rootItemsBySource,
-                kavitaIssuesBySeriesKey = kavitaIssuesBySeriesKey,
-                stumpIssuesBySeriesKey = stumpIssuesBySeriesKey,
+                kavitaIssuesBySeriesKey = kavitaGrouping.issuesBySeriesKey,
+                stumpIssuesBySeriesKey = stumpGrouping.issuesBySeriesKey,
                 itemsById = items.associateBy(ReadableItem::id),
             )
-        }
-
-        private fun buildRootItems(
-            sourceItems: List<ReadableItem>,
-            issuesBySeriesKey: Map<String, List<ReadableItem>>,
-            isIssue: (ReadableItem) -> Boolean,
-            seriesContainerFactory: (String, List<ReadableItem>) -> ReadableItem,
-        ): List<ReadableItem> {
-            val directItems = sourceItems.filterNot(isIssue)
-            val seriesItems = issuesBySeriesKey.map { (seriesKey, issues) ->
-                seriesContainerFactory(seriesKey, issues)
-            }
-            return directItems + seriesItems
-        }
-
-        private fun List<ReadableItem>.groupIssuesBySeriesKey(
-            seriesKeyProvider: (ReadableItem) -> String?,
-            membershipCheck: ReadableItem.(String) -> Boolean,
-        ): Map<String, List<ReadableItem>> = mapNotNull { item ->
-            val seriesKey = seriesKeyProvider(item)
-            when {
-                seriesKey == null -> null
-                item.isKavitaSeriesContainer() || item.isStumpSeriesContainer() -> null
-                else -> seriesKey to item
-            }
-        }.groupBy(
-            keySelector = { (seriesKey, _) -> seriesKey },
-            valueTransform = { (_, item) -> item },
-        ).mapValues { (seriesKey, issues) ->
-            issues.filter { item -> item.membershipCheck(seriesKey) }
         }
     }
 }

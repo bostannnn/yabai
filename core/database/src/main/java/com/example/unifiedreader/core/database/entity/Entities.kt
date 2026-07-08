@@ -124,6 +124,58 @@ data class ReadableItemLibraryEntity(
     val comicLanguagesJson: String?,
 )
 
+/**
+ * Persisted library grid "root" set per source: standalone items plus one synthetic series
+ * container per series key (the derivation shared with feature:library's in-memory index via
+ * core:model). The grid pages this table directly, so only the visible window is resident instead
+ * of the whole catalog. Rebuilt from `readable_items` on catalog write; see
+ * `RemoteCatalogDao.rebuildGridRootsForSourceType`.
+ *
+ * Columns mirror the `readable_items` grid projection (description already truncated at population
+ * time) plus [issueCount], which series containers carry and standalone items leave null.
+ */
+@Entity(
+    tableName = "library_grid_roots",
+    indices = [
+        Index(value = ["sourceType"]),
+    ],
+)
+data class LibraryGridRootEntity(
+    @PrimaryKey val id: String,
+    val sourceType: String,
+    val libraryId: String,
+    val remoteId: String?,
+    val isLocalImport: Boolean,
+    val remoteFileId: String?,
+    val remoteFileType: String?,
+    val title: String,
+    val format: String,
+    val kind: String,
+    val pageCount: Int?,
+    val coverUrl: String?,
+    val seriesCoverUrl: String?,
+    val description: String?,
+    val addedAtEpochMillis: Long?,
+    val issueCount: Int?,
+    val bookAuthor: String?,
+    val bookAuthorsJson: String?,
+    val bookSeriesName: String?,
+    val bookPublishersJson: String?,
+    val bookGenresJson: String?,
+    val bookTagsJson: String?,
+    val bookLanguagesJson: String?,
+    val comicSeries: String?,
+    val comicIssueTitle: String?,
+    val comicVolume: String?,
+    val comicIssueNumber: String?,
+    val comicWritersJson: String?,
+    val comicPencillersJson: String?,
+    val comicPublishersJson: String?,
+    val comicGenresJson: String?,
+    val comicTagsJson: String?,
+    val comicLanguagesJson: String?,
+)
+
 @Entity(tableName = "reading_progress")
 data class ReadingProgressEntity(
     @PrimaryKey val itemId: String,

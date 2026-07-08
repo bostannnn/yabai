@@ -6,10 +6,16 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import com.example.unifiedreader.core.database.entity.LibraryEntity
+import com.example.unifiedreader.core.database.entity.LibraryGridRootEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemLibraryEntity
 import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEntity
 import com.example.unifiedreader.core.database.entity.RemoteLibraryCacheEntity
+import com.example.unifiedreader.core.database.entity.toDomain
+import com.example.unifiedreader.core.database.entity.toGridRootEntity
+import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.deriveGridRootItems
 import kotlinx.coroutines.flow.Flow
 
 private const val READABLE_ITEM_LIBRARY_SELECT = """
@@ -82,6 +88,24 @@ abstract class RemoteCatalogDao {
     @Query(READABLE_ITEM_LIBRARY_SELECT + " WHERE id IN (:itemIds)")
     abstract fun getLibraryItemsByIds(itemIds: List<String>): List<ReadableItemLibraryEntity>
 
+    @Query("SELECT * FROM library_grid_roots WHERE sourceType = :sourceType ORDER BY title COLLATE NOCASE ASC")
+    abstract fun getGridRootsForSourceType(sourceType: String): List<LibraryGridRootEntity>
+
+    @Query("SELECT COUNT(*) FROM library_grid_roots")
+    abstract fun countGridRoots(): Int
+
+    @Query(READABLE_ITEM_LIBRARY_SELECT + " WHERE libraryId = :libraryId ORDER BY title COLLATE NOCASE ASC")
+    protected abstract fun getLibraryItemsForLibrary(libraryId: String): List<ReadableItemLibraryEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract fun insertOrReplaceGridRoots(roots: List<LibraryGridRootEntity>)
+
+    @Query("DELETE FROM library_grid_roots WHERE sourceType = :sourceType")
+    protected abstract fun deleteGridRootsForSourceType(sourceType: String)
+
+    @Query("DELETE FROM library_grid_roots WHERE libraryId = :libraryId")
+    protected abstract fun deleteGridRootsForLibrary(libraryId: String)
+
     @Query(
         """
         SELECT * FROM remote_library_cache_entries
@@ -150,6 +174,53 @@ abstract class RemoteCatalogDao {
         username: String,
     )
 
+    /**
+     * Recompute the persisted grid roots for [sourceType] from the current readable_items, using
+     * the shared core:model derivation. Runs inside the catalog write transaction so roots stay
+     * coherent with the items they summarize.
+     */
+    @Transaction
+    open fun rebuildGridRootsForSourceType(sourceType: String) {
+        deleteGridRootsForSourceType(sourceType)
+        val source = runCatching { SourceType.valueOf(sourceType) }.getOrNull() ?: return
+        val sourceItems = getLibraryItemsForSourceType(sourceType).map(ReadableItemLibraryEntity::toDomain)
+        val roots = deriveGridRootItems(source, sourceItems)
+        if (roots.isNotEmpty()) {
+            insertOrReplaceGridRoots(roots.map(ReadableItem::toGridRootEntity))
+        }
+    }
+
+    /**
+     * Recompute grid roots for just the given libraries from their current readable_items. A series
+     * never spans libraries (its group key is prefixed by libraryId), so a per-library recompute is
+     * both correct and bounded — the delta path uses this instead of scanning the whole source.
+     */
+    @Transaction
+    open fun rebuildGridRootsForLibraries(
+        sourceType: String,
+        libraryIds: Set<String>,
+    ) {
+        val source = runCatching { SourceType.valueOf(sourceType) }.getOrNull() ?: return
+        libraryIds.forEach { libraryId ->
+            deleteGridRootsForLibrary(libraryId)
+            val items = getLibraryItemsForLibrary(libraryId).map(ReadableItemLibraryEntity::toDomain)
+            val roots = deriveGridRootItems(source, items)
+            if (roots.isNotEmpty()) {
+                insertOrReplaceGridRoots(roots.map(ReadableItem::toGridRootEntity))
+            }
+        }
+    }
+
+    /**
+     * One-time backfill after the 24->25 migration (or a fresh install): populate grid roots for
+     * every source when the table is empty. A no-op once populated; catalog writes keep it current.
+     */
+    @Transaction
+    open fun rebuildAllGridRootsIfEmpty() {
+        if (countGridRoots() > 0) return
+        SourceType.entries.forEach { source -> rebuildGridRootsForSourceType(source.name) }
+    }
+
     @Transaction
     open fun replaceSourceCatalog(
         sourceType: String,
@@ -165,6 +236,7 @@ abstract class RemoteCatalogDao {
         if (syncGroups.isNotEmpty()) {
             insertOrReplaceCatalogSyncGroups(syncGroups)
         }
+        rebuildGridRootsForSourceType(sourceType)
     }
 
     @Transaction
@@ -176,6 +248,16 @@ abstract class RemoteCatalogDao {
         syncGroups: List<RemoteCatalogSyncGroupEntity> = emptyList(),
         removeSyncGroupIds: List<String> = emptyList(),
     ) {
+        // Capture the libraries touched by this delta (including the pre-image libraryId of each
+        // upserted/removed item, so a library that loses its last item — or an item that moves
+        // libraries — is recomputed too) before the item rows change.
+        val affectedLibraryIds = mutableSetOf<String>()
+        val preImageItemIds = upsertItems.map(ReadableItemEntity::id) + removeItemIds
+        preImageItemIds.chunked(SQLITE_BIND_SAFE_CHUNK_SIZE).forEach { chunk ->
+            getLibraryItemsByIds(chunk).forEach { item -> affectedLibraryIds.add(item.libraryId) }
+        }
+        upsertItems.forEach { item -> affectedLibraryIds.add(item.libraryId) }
+
         deleteLibrariesForSourceType(sourceType)
         insertOrReplaceLibraries(libraries)
         if (removeItemIds.isNotEmpty()) {
@@ -193,6 +275,9 @@ abstract class RemoteCatalogDao {
         }
         if (syncGroups.isNotEmpty()) {
             insertOrReplaceCatalogSyncGroups(syncGroups)
+        }
+        if (affectedLibraryIds.isNotEmpty()) {
+            rebuildGridRootsForLibraries(sourceType, affectedLibraryIds)
         }
     }
 

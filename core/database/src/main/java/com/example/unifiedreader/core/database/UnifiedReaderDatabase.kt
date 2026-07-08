@@ -18,6 +18,7 @@ import com.example.unifiedreader.core.database.entity.ItemJournalEntryEntity
 import com.example.unifiedreader.core.database.entity.JournalReadingEventEntity
 import com.example.unifiedreader.core.database.entity.JournalReadingSessionEntity
 import com.example.unifiedreader.core.database.entity.LibraryEntity
+import com.example.unifiedreader.core.database.entity.LibraryGridRootEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
 import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEntity
 import com.example.unifiedreader.core.database.entity.RemoteLibraryCacheEntity
@@ -37,8 +38,9 @@ import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
         JournalReadingSessionEntity::class,
         ItemJournalEntryEntity::class,
         RemoteCatalogSyncGroupEntity::class,
+        LibraryGridRootEntity::class,
     ],
-    version = 24,
+    version = 25,
     exportSchema = false,
 )
 abstract class UnifiedReaderDatabase : RoomDatabase() {
@@ -795,6 +797,60 @@ object UnifiedReaderDatabaseMigrations {
             database.execSQL("ALTER TABLE readable_items ADD COLUMN comicPencillersJson TEXT DEFAULT NULL")
         }
     }
+
+    val MIGRATION_24_25 = object : Migration(24, 25) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            // Empty derived table; populated from readable_items on the next catalog write or the
+            // startup rebuild-if-empty. Column shape mirrors LibraryGridRootEntity so Room's schema
+            // validation passes on open.
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `library_grid_roots` (
+                    `id` TEXT NOT NULL,
+                    `sourceType` TEXT NOT NULL,
+                    `libraryId` TEXT NOT NULL,
+                    `remoteId` TEXT,
+                    `isLocalImport` INTEGER NOT NULL,
+                    `remoteFileId` TEXT,
+                    `remoteFileType` TEXT,
+                    `title` TEXT NOT NULL,
+                    `format` TEXT NOT NULL,
+                    `kind` TEXT NOT NULL,
+                    `pageCount` INTEGER,
+                    `coverUrl` TEXT,
+                    `seriesCoverUrl` TEXT,
+                    `description` TEXT,
+                    `addedAtEpochMillis` INTEGER,
+                    `issueCount` INTEGER,
+                    `bookAuthor` TEXT,
+                    `bookAuthorsJson` TEXT,
+                    `bookSeriesName` TEXT,
+                    `bookPublishersJson` TEXT,
+                    `bookGenresJson` TEXT,
+                    `bookTagsJson` TEXT,
+                    `bookLanguagesJson` TEXT,
+                    `comicSeries` TEXT,
+                    `comicIssueTitle` TEXT,
+                    `comicVolume` TEXT,
+                    `comicIssueNumber` TEXT,
+                    `comicWritersJson` TEXT,
+                    `comicPencillersJson` TEXT,
+                    `comicPublishersJson` TEXT,
+                    `comicGenresJson` TEXT,
+                    `comicTagsJson` TEXT,
+                    `comicLanguagesJson` TEXT,
+                    PRIMARY KEY(`id`)
+                )
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS `index_library_grid_roots_sourceType`
+                ON `library_grid_roots` (`sourceType`)
+                """.trimIndent(),
+            )
+        }
+    }
 }
 
 object UnifiedReaderDatabaseFactory {
@@ -829,6 +885,7 @@ object UnifiedReaderDatabaseFactory {
             UnifiedReaderDatabaseMigrations.MIGRATION_21_22,
             UnifiedReaderDatabaseMigrations.MIGRATION_22_23,
             UnifiedReaderDatabaseMigrations.MIGRATION_23_24,
+            UnifiedReaderDatabaseMigrations.MIGRATION_24_25,
         )
         .build()
 }

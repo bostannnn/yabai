@@ -126,6 +126,63 @@ fun ReadableItemLibraryEntity.toDomain(): ReadableItem = ReadableItem(
     comicMetadata = comicMetadataOrNull(),
 )
 
+fun ReadableItem.toGridRootEntity(): LibraryGridRootEntity = LibraryGridRootEntity(
+    id = id,
+    sourceType = sourceType.name,
+    libraryId = libraryId,
+    remoteId = remoteId,
+    isLocalImport = isLocalImport,
+    remoteFileId = remoteFileId,
+    remoteFileType = remoteFileType,
+    title = title,
+    format = format.name,
+    kind = kind.name,
+    pageCount = pageCount,
+    coverUrl = coverUrl,
+    seriesCoverUrl = seriesCoverUrl,
+    description = description,
+    addedAtEpochMillis = addedAtEpochMillis,
+    issueCount = issueCount,
+    bookAuthor = bookMetadata?.primaryAuthor(),
+    bookAuthorsJson = encodeMetadataValues(bookMetadata?.normalizedAuthors()),
+    bookSeriesName = bookMetadata?.seriesName,
+    bookPublishersJson = encodeMetadataValues(bookMetadata?.publishers),
+    bookGenresJson = encodeMetadataValues(bookMetadata?.genres),
+    bookTagsJson = encodeMetadataValues(bookMetadata?.tags),
+    bookLanguagesJson = encodeMetadataValues(bookMetadata?.languages),
+    comicSeries = comicMetadata?.series,
+    comicIssueTitle = comicMetadata?.issueTitle,
+    comicVolume = comicMetadata?.volume,
+    comicIssueNumber = comicMetadata?.issueNumber,
+    comicWritersJson = encodeMetadataValues(comicMetadata?.writers),
+    comicPencillersJson = encodeMetadataValues(comicMetadata?.pencillers),
+    comicPublishersJson = encodeMetadataValues(comicMetadata?.publishers),
+    comicGenresJson = encodeMetadataValues(comicMetadata?.genres),
+    comicTagsJson = encodeMetadataValues(comicMetadata?.tags),
+    comicLanguagesJson = encodeMetadataValues(comicMetadata?.languages),
+)
+
+fun LibraryGridRootEntity.toDomain(): ReadableItem = ReadableItem(
+    id = id,
+    sourceType = sourceType.toSourceType(),
+    libraryId = libraryId,
+    remoteId = remoteId,
+    isLocalImport = isLocalImport,
+    remoteFileId = remoteFileId,
+    remoteFileType = remoteFileType,
+    title = title,
+    format = format.toFormatType(),
+    kind = kind.toReadableItemKind(),
+    pageCount = pageCount,
+    coverUrl = coverUrl,
+    seriesCoverUrl = seriesCoverUrl,
+    description = description,
+    addedAtEpochMillis = addedAtEpochMillis,
+    issueCount = issueCount,
+    bookMetadata = bookMetadataOrNull(),
+    comicMetadata = comicMetadataOrNull(),
+)
+
 private fun String.toSourceType(): SourceType =
     enumValueOfOrDefault(defaultValue = SourceType.KAVITA)
 
@@ -226,6 +283,58 @@ private fun ReadableItemEntity.bookMetadataOrNull(): BookMetadata? {
 }
 
 private fun ReadableItemLibraryEntity.bookMetadataOrNull(): BookMetadata? {
+    if (
+        bookAuthor == null &&
+        bookAuthorsJson == null &&
+        bookSeriesName == null &&
+        bookPublishersJson == null &&
+        bookGenresJson == null &&
+        bookTagsJson == null &&
+        bookLanguagesJson == null
+    ) {
+        return null
+    }
+    return BookMetadata(
+        author = bookAuthor,
+        authors = decodeMetadataValues(bookAuthorsJson),
+        seriesName = bookSeriesName,
+        publishers = decodeMetadataValues(bookPublishersJson),
+        genres = decodeMetadataValues(bookGenresJson),
+        tags = decodeMetadataValues(bookTagsJson),
+        languages = decodeMetadataValues(bookLanguagesJson),
+    )
+}
+
+private fun LibraryGridRootEntity.comicMetadataOrNull(): ComicMetadata? {
+    if (
+        comicSeries == null &&
+        comicIssueTitle == null &&
+        comicVolume == null &&
+        comicIssueNumber == null &&
+        comicWritersJson == null &&
+        comicPencillersJson == null &&
+        comicPublishersJson == null &&
+        comicGenresJson == null &&
+        comicTagsJson == null &&
+        comicLanguagesJson == null
+    ) {
+        return null
+    }
+    return ComicMetadata(
+        series = comicSeries,
+        issueTitle = comicIssueTitle,
+        volume = comicVolume,
+        issueNumber = comicIssueNumber,
+        writers = decodeMetadataValues(comicWritersJson),
+        pencillers = decodeMetadataValues(comicPencillersJson),
+        publishers = decodeMetadataValues(comicPublishersJson),
+        genres = decodeMetadataValues(comicGenresJson),
+        tags = decodeMetadataValues(comicTagsJson),
+        languages = decodeMetadataValues(comicLanguagesJson),
+    )
+}
+
+private fun LibraryGridRootEntity.bookMetadataOrNull(): BookMetadata? {
     if (
         bookAuthor == null &&
         bookAuthorsJson == null &&
