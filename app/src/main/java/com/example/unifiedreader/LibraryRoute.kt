@@ -15,7 +15,6 @@ import com.example.unifiedreader.core.model.displayName
 import androidx.paging.PagingData
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
-import com.example.unifiedreader.feature.library.LibraryPagedGrid
 import com.example.unifiedreader.feature.library.LibraryReadingListScopeState
 import com.example.unifiedreader.feature.library.LibraryScreen
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
@@ -142,25 +141,6 @@ internal fun LibraryRoute(
                 onCoverViewportScrollingChanged = onCoverViewportScrollingChanged,
                 onItemSelected = onReadingListSelected,
             )
-        } else if (pagedGridFlow != null) {
-            // A/B path (Stage B): the plain Kavita root grid pages directly from the derived roots
-            // table, so only the visible window is resident. Filters/search/series/scope are gated
-            // out upstream, so this view is the simple sorted grid only.
-            LibraryPagedGrid(
-                selectedSource = uiState.selectedSource,
-                browseContextKey = browseContextKey,
-                pagingData = pagedGridFlow,
-                gridCellSizeDp = uiState.libraryGridCellSizeDp,
-                progressByItemId = uiState.displayProgressByItemId,
-                ratingByItemId = uiState.displayRatingByItemId,
-                locallyAvailableItemIds = uiState.locallyAvailableRemoteItemIds,
-                fadeReadItems = uiState.libraryFadeReadItems,
-                coverImageUrlProvider = coverImageUrlProvider,
-                coverPrefetchKeyProvider = coverPrefetchKeyProvider,
-                onCoverVisible = onCoverVisible,
-                onCoverViewportScrollingChanged = onCoverViewportScrollingChanged,
-                onItemSelected = onItemSelected,
-            )
         } else {
             LibraryScreen(
                 selectedSource = uiState.selectedSource,
@@ -239,6 +219,7 @@ internal fun LibraryRoute(
                 onDownloadItem = onDownloadRemoteItem,
                 onDeleteDownloadedItem = onDeleteRemoteLocalFile,
                 onSetReadStatus = onSetReadStatus,
+                pagedGridItems = pagedGridFlow,
             )
         }
     }

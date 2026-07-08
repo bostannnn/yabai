@@ -4,14 +4,14 @@ import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
 
 /**
- * A/B flag for the DB-paged library grid (Stage B). Currently ON so on-device measurement needs no
- * rebuild-with-a-different-signature; flip to false to compare against the pure in-memory path.
+ * Flag for the DB-paged library grid. ON so the default Kavita root view pages its grid body from
+ * SQL while reusing the in-memory-computed shelves on top; flip to false to force the pure in-memory
+ * path.
  *
- * Paging is only engaged for the plain Kavita root view in a column sort; every other view (series
- * browse, Kavita scopes, active search/filters, and the default LAST_READ sort until Stage D) still
- * renders from the in-memory [AppUiState.visibleItems] path. NOTE: while ON, switching the Kavita
- * grid to Title / Date-added shows the minimal paged scaffold (no shelves / filter summary /
- * alphabet rail yet) — those reach parity across Stages C–E.
+ * Engaged only for the plain Kavita root view in a rail-less sort (LAST_READ, DATE_ADDED). The
+ * rail-bearing sorts (Title/Author/Series), active filters/search, series browse, and Kavita scopes
+ * still render from the in-memory [AppUiState.visibleItems] path, so nothing loses the alphabet rail
+ * or filter behaviour yet. Filters/rail/search in the paged view arrive in later milestones.
  */
 internal object LibraryPagingFeature {
     const val ENABLED = true
@@ -26,5 +26,6 @@ internal object LibraryPagingFeature {
             state.selectedLibraryFilters.isEmpty &&
             state.selectedLibrarySortMode in PAGEABLE_SORTS
 
-    private val PAGEABLE_SORTS = setOf(LibrarySortMode.TITLE, LibrarySortMode.DATE_ADDED)
+    // Rail-less sorts only, so the alphabet-rail sorts keep the in-memory path (which renders it).
+    private val PAGEABLE_SORTS = setOf(LibrarySortMode.LAST_READ, LibrarySortMode.DATE_ADDED)
 }

@@ -30,6 +30,11 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.paging.LoadState
+import androidx.paging.PagingData
+import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.paging.compose.itemContentType
+import androidx.paging.compose.itemKey
 import com.example.unifiedreader.core.model.LibraryFilterFacets
 import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibraryFilterState
@@ -39,6 +44,7 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.library.menu.LibraryItemMenuButtonStyle
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
@@ -98,7 +104,13 @@ fun LibraryScreen(
     onDownloadItem: (ReadableItem) -> Unit = {},
     onDeleteDownloadedItem: (ReadableItem) -> Unit = {},
     onSetReadStatus: (ReadableItem, Boolean) -> Unit = { _, _ -> },
+    // When non-null, the grid body renders from this Room-backed paging flow instead of [items]; the
+    // rest of the screen (shelves, filter summary, sort, dialogs) is unchanged. Existing callers pass
+    // null and behave exactly as before.
+    pagedGridItems: Flow<PagingData<ReadableItem>>? = null,
 ) {
+    val pagedItems = pagedGridItems?.collectAsLazyPagingItems()
+    val isPaged = pagedItems != null
     val itemActionContext = LibraryItemActionContext(
         progressByItemId = progressByItemId,
         locallyAvailableItemIds = locallyAvailableItemIds,
@@ -137,6 +149,9 @@ fun LibraryScreen(
     }
     val alphabetRailVisible = showSortControl && searchQuery.isBlank() && sortLetters.isNotEmpty()
     val visibleItems = items
+    // When paged, the grid body's emptiness/loading come from the paging flow, not [items].
+    val gridIsEmpty = if (isPaged) pagedItems!!.itemCount == 0 else visibleItems.isEmpty()
+    val showGridLoading = isLoadingSource || (isPaged && pagedItems!!.loadState.refresh is LoadState.Loading)
     val selectableDownloadItemIds = remember(visibleItems, downloadableItemIds, downloadingItemIds) {
         visibleItems
             .asSequence()
@@ -267,13 +282,59 @@ fun LibraryScreen(
         VisibleRemoteCoverPrefetcher(
             browseContextKey = browseContextKey,
             gridState = gridState,
-            items = visibleItems,
+            items = if (isPaged) pagedItems!!.itemSnapshotList.items else visibleItems,
             leadingContentItemCount = leadingContentItemCount,
             variant = gridCoverImageVariant,
             maxTargetsWhileScrolling = gridPresentation.scrollingPrefetchItemLimit,
             coverPrefetchKeyProvider = coverPrefetchKeyProvider,
             onCoverVisible = onCoverVisible,
         )
+
+        val gridCard: @Composable (ReadableItem) -> Unit = { item ->
+            val hasMenuContent = itemActionContext.hasMenuContent(item)
+            GridCoverCard(
+                item = item,
+                progress = progressByItemId[item.id],
+                rating = ratingByItemId[item.id],
+                isDownloaded = itemActionContext.isDownloaded(item),
+                fadeRead = fadeReadItems,
+                imageVariant = gridCoverImageVariant,
+                coverImageUrlProvider = coverImageUrlProvider,
+                issueCountBadge = item.issueCount.takeIf { count ->
+                    showSortControl && sortMode == LibrarySortMode.ISSUE_COUNT && count != null && count > 0
+                },
+                title = when {
+                    preferIssueLabels && includeSeriesInIssueLabels -> itemMixedIssueBrowsePrimaryText(item)
+                    preferIssueLabels -> itemSeriesBrowsePrimaryText(item)
+                    else -> itemPrimaryText(item)
+                },
+                isSelectionMode = isDownloadSelectionMode,
+                isSelected = item.id in selectedDownloadItemIdSet,
+                onClick = { onItemSelected(item) },
+                onSelectionToggle = { toggleDownloadSelection(item) },
+                onSelectionStart = if (item.id in selectableDownloadItemIds) {
+                    { startDownloadSelection(item) }
+                } else {
+                    null
+                },
+                menuContent = if (hasMenuContent) {
+                    {
+                        LibraryAnchoredItemMenu(
+                            item = item,
+                            actionContext = itemActionContext,
+                            expanded = gridExpandedMenuItemId == item.id,
+                            onExpandedChange = { expanded ->
+                                gridExpandedMenuItemId = if (expanded) item.id else null
+                            },
+                            onDeleteImportedRequested = { deleteCandidate = it },
+                            buttonStyle = LibraryItemMenuButtonStyle.CompactInline,
+                        )
+                    }
+                } else {
+                    null
+                },
+            )
+        }
 
         LazyVerticalGrid(
             columns = LibraryViewMode.Grid.gridCells(
@@ -329,17 +390,17 @@ fun LibraryScreen(
                 )
             }
 
-            if (visibleItems.isEmpty()) {
+            if (gridIsEmpty) {
                 item(
                     key = "empty-state",
-                    contentType = if (isLoadingSource) {
+                    contentType = if (showGridLoading) {
                         LibraryScreenContentTypes.LoadingState
                     } else {
                         LibraryScreenContentTypes.EmptyState
                     },
                     span = { GridItemSpan(maxLineSpan) },
                 ) {
-                    if (isLoadingSource) {
+                    if (showGridLoading) {
                         LoadingLibraryState(
                             gridCellSizeDp = gridPresentation.selectedGridSize.cellSizeDp,
                         )
@@ -351,55 +412,21 @@ fun LibraryScreen(
                         )
                     }
                 }
+            } else if (isPaged) {
+                items(
+                    count = pagedItems!!.itemCount,
+                    key = pagedItems.itemKey { it.id },
+                    contentType = pagedItems.itemContentType { LibraryScreenContentTypes.GridItem },
+                ) { index ->
+                    pagedItems[index]?.let { item -> gridCard(item) }
+                }
             } else {
                 items(
                     items = visibleItems,
                     key = { it.id },
                     contentType = { LibraryScreenContentTypes.GridItem },
                 ) { item ->
-                    val hasMenuContent = itemActionContext.hasMenuContent(item)
-                    GridCoverCard(
-                        item = item,
-                        progress = progressByItemId[item.id],
-                        rating = ratingByItemId[item.id],
-                        isDownloaded = itemActionContext.isDownloaded(item),
-                        fadeRead = fadeReadItems,
-                        imageVariant = gridCoverImageVariant,
-                        coverImageUrlProvider = coverImageUrlProvider,
-                        issueCountBadge = item.issueCount.takeIf { count ->
-                            showSortControl && sortMode == LibrarySortMode.ISSUE_COUNT && count != null && count > 0
-                        },
-                        title = when {
-                            preferIssueLabels && includeSeriesInIssueLabels -> itemMixedIssueBrowsePrimaryText(item)
-                            preferIssueLabels -> itemSeriesBrowsePrimaryText(item)
-                            else -> itemPrimaryText(item)
-                        },
-                        isSelectionMode = isDownloadSelectionMode,
-                        isSelected = item.id in selectedDownloadItemIdSet,
-                        onClick = { onItemSelected(item) },
-                        onSelectionToggle = { toggleDownloadSelection(item) },
-                        onSelectionStart = if (item.id in selectableDownloadItemIds) {
-                            { startDownloadSelection(item) }
-                        } else {
-                            null
-                        },
-                        menuContent = if (hasMenuContent) {
-                            {
-                                LibraryAnchoredItemMenu(
-                                    item = item,
-                                    actionContext = itemActionContext,
-                                    expanded = gridExpandedMenuItemId == item.id,
-                                    onExpandedChange = { expanded ->
-                                        gridExpandedMenuItemId = if (expanded) item.id else null
-                                    },
-                                    onDeleteImportedRequested = { deleteCandidate = it },
-                                    buttonStyle = LibraryItemMenuButtonStyle.CompactInline,
-                                )
-                            }
-                        } else {
-                            null
-                        },
-                    )
+                    gridCard(item)
                 }
             }
         }
