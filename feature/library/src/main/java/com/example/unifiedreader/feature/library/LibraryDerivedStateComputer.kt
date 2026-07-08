@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.library
 
 import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.LibraryFilterFacets
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibraryReadingStatus
 import com.example.unifiedreader.core.model.LibrarySortMode
@@ -23,6 +24,18 @@ class LibraryDerivedStateComputer @Inject constructor() {
             override fun removeEldestEntry(
                 eldest: MutableMap.MutableEntry<LibraryDerivedStateCacheKey, LibraryDerivedState>,
             ): Boolean = size > DERIVED_STATE_CACHE_LIMIT
+        }
+
+    // Filter facets are the most expensive part of a recompute (~10 filtered passes over the source
+    // items). They depend on the item set + filters + local availability + read status, but NOT on
+    // raw reading progress, so a progress-only change (read a page) can reuse them instead of
+    // rescanning the whole catalog. Cached separately from [derivedStateCache], which keys on raw
+    // progress and therefore misses whenever progress changes.
+    private val filterFacetsCache =
+        object : LinkedHashMap<LibraryFilterFacetsCacheKey, LibraryFilterFacets>(FACETS_CACHE_LIMIT, 0.75f, true) {
+            override fun removeEldestEntry(
+                eldest: MutableMap.MutableEntry<LibraryFilterFacetsCacheKey, LibraryFilterFacets>,
+            ): Boolean = size > FACETS_CACHE_LIMIT
         }
 
     fun compute(
@@ -94,11 +107,10 @@ class LibraryDerivedStateComputer @Inject constructor() {
         )
         return LibraryDerivedState(
             sourceItems = sourceItems,
-            selectedLibraryFilterFacets = buildContextualLibraryFilterFacets(
-                items = sourceItems,
-                filters = input.selectedLibraryFilters,
-                downloadedRemoteItemIds = input.locallyAvailableRemoteItemIds,
-                readingStatusProvider = { item -> readingStatusByItemId[item.id] },
+            selectedLibraryFilterFacets = cachedFilterFacets(
+                input = input,
+                sourceItems = sourceItems,
+                readingStatusByItemId = readingStatusByItemId,
             ),
             selectedSourceLibraryTitlesById = sourceIndex.selectedSourceLibraryTitlesById(input.selectedSource),
             displayProgressByItemId = displayProgressByItemId,
@@ -128,11 +140,10 @@ class LibraryDerivedStateComputer @Inject constructor() {
         )
         return LibraryDerivedState(
             sourceItems = sourceItems,
-            selectedLibraryFilterFacets = buildContextualLibraryFilterFacets(
-                sourceItems,
-                downloadedRemoteItemIds = input.locallyAvailableRemoteItemIds,
-                filters = input.selectedLibraryFilters,
-                readingStatusProvider = { item -> readingStatusByItemId[item.id] },
+            selectedLibraryFilterFacets = cachedFilterFacets(
+                input = input,
+                sourceItems = sourceItems,
+                readingStatusByItemId = readingStatusByItemId,
             ),
             selectedSourceLibraryTitlesById = sourceIndex.selectedSourceLibraryTitlesById(input.selectedSource),
             displayProgressByItemId = displayProgressByItemId,
@@ -180,6 +191,32 @@ class LibraryDerivedStateComputer @Inject constructor() {
             cachedSourceIndexKey = key
             cachedSourceIndex = index
         }
+    }
+
+    private fun cachedFilterFacets(
+        input: LibraryDerivedStateInput,
+        sourceItems: List<ReadableItem>,
+        readingStatusByItemId: Map<String, LibraryReadingStatus>,
+    ): LibraryFilterFacets {
+        val key = LibraryFilterFacetsCacheKey(
+            sourceIndexKey = cachedSourceIndexKey ?: SourceIndexCacheKey(input.libraries, input.items),
+            selectedSource = input.selectedSource,
+            selectedKavitaSeriesKey = input.selectedKavitaSeriesKey,
+            selectedStumpSeriesKey = input.selectedStumpSeriesKey,
+            selectedKavitaCollectionId = input.selectedKavitaCollectionId,
+            selectedKavitaCollectionSeriesKeys = input.selectedKavitaCollectionSeriesKeys,
+            orderedItemScope = input.orderedItemScope,
+            selectedLibraryFilters = input.selectedLibraryFilters,
+            locallyAvailableRemoteItemIds = input.locallyAvailableRemoteItemIds,
+            readingStatusByItemId = readingStatusByItemId,
+        )
+        filterFacetsCache[key]?.let { return it }
+        return buildContextualLibraryFilterFacets(
+            items = sourceItems,
+            filters = input.selectedLibraryFilters,
+            downloadedRemoteItemIds = input.locallyAvailableRemoteItemIds,
+            readingStatusProvider = { item -> readingStatusByItemId[item.id] },
+        ).also { facets -> filterFacetsCache[key] = facets }
     }
 
     private fun buildDisplayProgressByItemId(
@@ -477,6 +514,23 @@ private data class SourceIndexCacheKey(
     )
 }
 
+// Keyed by everything the filter facets actually depend on: the item set (source index + series /
+// collection / ordered scope), the current filters, local availability, and read status — but NOT
+// raw reading progress. Small collections are compared by content so a rebuilt-but-equal map does
+// not evict the cache.
+private data class LibraryFilterFacetsCacheKey(
+    val sourceIndexKey: SourceIndexCacheKey,
+    val selectedSource: SourceType,
+    val selectedKavitaSeriesKey: String?,
+    val selectedStumpSeriesKey: String?,
+    val selectedKavitaCollectionId: String?,
+    val selectedKavitaCollectionSeriesKeys: Set<String>,
+    val orderedItemScope: LibraryOrderedItemScope?,
+    val selectedLibraryFilters: LibraryFilterState,
+    val locallyAvailableRemoteItemIds: Set<*>,
+    val readingStatusByItemId: Map<*, *>,
+)
+
 private data class LibraryDerivedStateCacheKey(
     val sourceIndexKey: SourceIndexCacheKey,
     val selectedSource: SourceType,
@@ -540,3 +594,4 @@ private class IdentityBox<T : Any?>(
 }
 
 private const val DERIVED_STATE_CACHE_LIMIT = 24
+private const val FACETS_CACHE_LIMIT = 24

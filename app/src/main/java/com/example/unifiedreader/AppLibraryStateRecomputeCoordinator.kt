@@ -71,7 +71,12 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
     ) {
         val nextBaseState = transform(latestState ?: currentState)
         latestState = nextBaseState
-        val isLibraryPresentationActive = nextBaseState.topLevel == TopLevelDestination.Library
+        // Don't recompute the (hidden) library grid/shelves while a reader is open over the library
+        // tab. It stays topLevel == Library, so without this guard every progress/catalog update
+        // during reading re-derives the whole catalog behind the reader. The current presentation is
+        // preserved and a single recompute catches up when the reader closes.
+        val isLibraryPresentationActive = nextBaseState.topLevel == TopLevelDestination.Library &&
+            nextBaseState.activeReader == null
         val derivedSignature = nextBaseState.libraryDerivedStateSignature()
         val shelvesSignature = nextBaseState.libraryShelvesStateSignature()
         val shouldComputeDerived = isLibraryPresentationActive &&
@@ -276,11 +281,14 @@ private data class AppLibraryDerivedStateSignature(
     val selectedLibraryFilters: com.example.unifiedreader.core.model.LibraryFilterState,
     val selectedLibrarySearchQuery: String,
     val selectedLibrarySortMode: com.example.unifiedreader.core.model.LibrarySortMode,
-    val progressByItemId: IdentityBox<Map<*, *>>,
-    val journalEntryByItemId: IdentityBox<Map<*, *>>,
-    val downloadedRemoteItemIds: IdentityBox<Set<*>>,
-    val locallyAvailableRemoteItemIds: IdentityBox<Set<*>>,
-    val downloadingRemoteItemIds: IdentityBox<Set<*>>,
+    // Compared by content (not instance identity): these small maps/sets are frequently rebuilt with
+    // identical content (e.g. a new JournalSnapshot on every reading event rebuilds entryByItemId),
+    // and identity comparison would force a full catalog recompute for a change that isn't there.
+    val progressByItemId: Map<*, *>,
+    val journalEntryByItemId: Map<*, *>,
+    val downloadedRemoteItemIds: Set<*>,
+    val locallyAvailableRemoteItemIds: Set<*>,
+    val downloadingRemoteItemIds: Set<*>,
     val selectedKavitaSeriesKey: String?,
     val selectedStumpSeriesKey: String?,
     val selectedKavitaReadingListId: String?,
@@ -292,7 +300,7 @@ private data class AppLibraryDerivedStateSignature(
 private data class AppLibraryShelvesStateSignature(
     val selectedSource: com.example.unifiedreader.core.model.SourceType,
     val items: IdentityBox<List<*>>,
-    val progressByItemId: IdentityBox<Map<*, *>>,
+    val progressByItemId: Map<*, *>,
 )
 
 private fun AppUiState.libraryDerivedStateSignature(): AppLibraryDerivedStateSignature = AppLibraryDerivedStateSignature(
@@ -302,11 +310,11 @@ private fun AppUiState.libraryDerivedStateSignature(): AppLibraryDerivedStateSig
     selectedLibraryFilters = selectedLibraryFilters,
     selectedLibrarySearchQuery = selectedLibrarySearchQuery,
     selectedLibrarySortMode = selectedLibrarySortMode,
-    progressByItemId = IdentityBox(progressByItemId),
-    journalEntryByItemId = IdentityBox(journalSnapshot.entryByItemId),
-    downloadedRemoteItemIds = IdentityBox(downloadedRemoteItemIds),
-    locallyAvailableRemoteItemIds = IdentityBox(locallyAvailableRemoteItemIds),
-    downloadingRemoteItemIds = IdentityBox(downloadingRemoteItemIds),
+    progressByItemId = progressByItemId,
+    journalEntryByItemId = journalSnapshot.entryByItemId,
+    downloadedRemoteItemIds = downloadedRemoteItemIds,
+    locallyAvailableRemoteItemIds = locallyAvailableRemoteItemIds,
+    downloadingRemoteItemIds = downloadingRemoteItemIds,
     selectedKavitaSeriesKey = selectedKavitaSeriesKey,
     selectedStumpSeriesKey = selectedStumpSeriesKey,
     selectedKavitaReadingListId = kavitaReadingLists.selectedReadingListId,
@@ -318,7 +326,7 @@ private fun AppUiState.libraryDerivedStateSignature(): AppLibraryDerivedStateSig
 private fun AppUiState.libraryShelvesStateSignature(): AppLibraryShelvesStateSignature = AppLibraryShelvesStateSignature(
     selectedSource = selectedSource,
     items = IdentityBox(items),
-    progressByItemId = IdentityBox(progressByItemId),
+    progressByItemId = progressByItemId,
 )
 
 private val AppUiState.shouldShowLibraryShelvesLoading: Boolean

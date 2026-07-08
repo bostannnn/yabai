@@ -70,6 +70,55 @@ class LibraryDerivedStateComputerTest {
     }
 
     @Test
+    fun `progress-only change reuses cached filter facets`() {
+        val libraries = listOf(
+            Library(
+                id = SourceType.KAVITA.remoteLibraryId("k-comics"),
+                sourceType = SourceType.KAVITA,
+                title = "Kavita Comics",
+                contentType = LibraryContentType.COMICS,
+            ),
+        )
+        val items = listOf(
+            issue(
+                id = "k-1",
+                sourceType = SourceType.KAVITA,
+                libraryId = SourceType.KAVITA.remoteLibraryId("k-comics"),
+                seriesKey = "akira",
+                title = "Akira 1",
+            ),
+            issue(
+                id = "k-2",
+                sourceType = SourceType.KAVITA,
+                libraryId = SourceType.KAVITA.remoteLibraryId("k-comics"),
+                seriesKey = "berserk",
+                title = "Berserk 1",
+            ),
+        )
+        val baseInput = LibraryDerivedStateInput(
+            selectedSource = SourceType.KAVITA,
+            libraries = libraries,
+            items = items,
+            selectedLibrarySortMode = LibrarySortMode.LAST_READ,
+            progressByItemId = mapOf(
+                "k-1" to ItemProgressSummary(label = "Page 1", fraction = 0.1f, isFinished = false),
+            ),
+        )
+
+        val facetsBefore = computer.compute(baseInput).selectedLibraryFilterFacets
+        val facetsAfter = computer.compute(
+            baseInput.copy(
+                progressByItemId = mapOf(
+                    "k-1" to ItemProgressSummary(label = "Page 2", fraction = 0.2f, isFinished = false),
+                ),
+            ),
+        ).selectedLibraryFilterFacets
+
+        // Reading progress advanced but read status is unchanged, so the expensive facets are reused.
+        assertSame(facetsBefore, facetsAfter)
+    }
+
+    @Test
     fun `equal rating maps reuse cached derived state`() {
         val libraries = listOf(
             Library(

@@ -292,6 +292,15 @@ interface JournalReadingSessionRecorder {
 interface JournalRepository : JournalEventRecorder {
     fun observeSnapshot(): Flow<JournalSnapshot>
 
+    /**
+     * Lightweight journal write-state (raw events/sessions/entries only, no catalog join and no
+     * stats/summaries computation). This is all the library badges and the remote-sync path need,
+     * so it can be observed eagerly at startup without the heavy per-catalog [observeSnapshot] work.
+     * The full snapshot (stats/timelines/summaries) should only be observed when the Journal tab is
+     * visible. Defaults to [observeSnapshot] for implementers that do not distinguish the two.
+     */
+    fun observeWriteState(): Flow<JournalSnapshot> = observeSnapshot()
+
     suspend fun saveJournalEntry(
         item: ReadableItem,
         rating: Int?,

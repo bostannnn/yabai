@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.unifiedreader.core.model.KavitaLibrarySection
@@ -67,6 +68,7 @@ class AppViewModel @Inject constructor(
     val readerFactories: List<@JvmSuppressWildcards ReaderScreenFactory>,
     val readerWorkCoordinator: ReaderWorkCoordinator,
     private val libraryStateRecomputeCoordinator: AppLibraryStateRecomputeCoordinator,
+    private val coldStartLibraryViewCoordinator: AppColdStartLibraryViewCoordinator,
 ) : ViewModel() {
     var uiState by mutableStateOf(initialUiStateFactory.create())
         private set
@@ -85,7 +87,9 @@ class AppViewModel @Inject constructor(
         remoteSourcesCoordinator.initialize(::updateUiState)
         settingsController.restoreState(updateState = ::updateUiState)
         libraryBrowseController.restoreState(updateState = ::updateUiState)
+        coldStartLibraryViewCoordinator.restore(viewModelScope, uiState.selectedSource, ::updateUiState)
         observeAppState()
+        coldStartLibraryViewCoordinator.startCapture(viewModelScope, snapshotFlow { uiState })
         viewModelScope.launch { initialUiStateFactory.hydrateAfterInitialState() }
     }
 
@@ -334,6 +338,7 @@ class AppViewModel @Inject constructor(
     }
 
     fun onBackPressed() {
+        trimReaderCachesBeforeLeavingReader()
         readerCoordinator.onBackPressed(
             stateProvider = { uiState },
             updateState = ::updateUiState,
@@ -428,6 +433,14 @@ class AppViewModel @Inject constructor(
             pages = pages,
             currentPageIndex = comicReaderProgressStore.loadPage(item),
         )
+    }
+
+    private fun trimReaderCachesBeforeLeavingReader() {
+        if (uiState.activeReader == null || uiState.selectedItem == null) return
+        val request = ReaderMemoryTrimRequest.dropPreviewsAndDistantPages(
+            retention = activeReaderPageCacheRetention(),
+        )
+        comicPageSourceCacheController.trimReaderMemoryCaches(request)
     }
 
     fun retryPendingRemoteSync() {
@@ -971,13 +984,21 @@ class AppViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
-            journalRepository.observeSnapshot().collect { snapshot ->
+            journalRepository.observeWriteState().collect { snapshot ->
                 updateUiState { state ->
                     state.copy(journalSnapshot = snapshot)
                 }
             }
         }
     }
+
+    /**
+     * The full journal snapshot (stats/timelines/summaries + catalog join). This is expensive, so
+     * the shell only wires the lightweight [JournalRepository.observeWriteState] into [uiState];
+     * the Journal tab collects this flow lazily, i.e. only while it is on screen.
+     */
+    val journalFullSnapshotFlow: kotlinx.coroutines.flow.Flow<com.example.unifiedreader.journal.JournalSnapshot>
+        get() = journalRepository.observeSnapshot()
 
     private fun updateUiState(
         transform: (AppUiState) -> AppUiState,

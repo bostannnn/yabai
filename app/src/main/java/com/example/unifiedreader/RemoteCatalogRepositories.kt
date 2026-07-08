@@ -40,6 +40,15 @@ interface StartupRemoteCatalogCacheSeeder {
     suspend fun seedForStartupSource(sourceType: SourceType)
 }
 
+interface ColdStartCatalogSeeder {
+    /**
+     * Loads exactly the given cached items (by id) into the in-memory catalog so a cold start can
+     * render the last-seen view before the full catalog hydrates. No-ops if the source already has
+     * items or is hydrated, so it never shrinks a fully loaded catalog.
+     */
+    suspend fun seedItemsByIds(sourceType: SourceType, orderedItemIds: List<String>)
+}
+
 interface RemoteLibraryCacheStore {
     suspend fun getCachedLibraries(
         sourceType: SourceType,
@@ -65,6 +74,7 @@ class RoomRemoteCatalogRepository(
     RemoteCatalogReadiness,
     RemoteCatalogHydrator,
     StartupRemoteCatalogCacheSeeder,
+    ColdStartCatalogSeeder,
     RemoteLibraryCacheStore {
     private val librariesState = MutableStateFlow<List<Library>>(emptyList())
     private val itemsState = MutableStateFlow<List<ReadableItem>>(emptyList())
@@ -141,6 +151,49 @@ class RoomRemoteCatalogRepository(
                 )
             }.onFailure { throwable ->
                 logSeedFailure("Unable to seed startup remote catalog items.", throwable)
+            }
+        }
+    }
+
+    override suspend fun seedItemsByIds(
+        sourceType: SourceType,
+        orderedItemIds: List<String>,
+    ) {
+        if (sourceType == SourceType.LOCAL || orderedItemIds.isEmpty()) return
+        if (hydrationState.value || itemsState.value.any { item -> item.sourceType == sourceType }) return
+        withContext(ioDispatcher) {
+            runCatching {
+                remoteCatalogDao.getLibraries()
+                    .filter { library -> library.sourceType == sourceType.name }
+                    .map(LibraryEntity::toDomain)
+            }.onSuccess { libraries ->
+                if (librariesState.value.none { library -> library.sourceType == sourceType }) {
+                    librariesState.value = librariesState.value.replaceSource(
+                        sourceType = sourceType,
+                        replacement = libraries,
+                        sourceSelector = Library::sourceType,
+                    )
+                }
+            }.onFailure { throwable ->
+                logSeedFailure("Unable to seed cold-start remote catalog libraries.", throwable)
+            }
+            runCatching {
+                remoteCatalogDao.getLibraryItemsByIds(orderedItemIds)
+                    .map(ReadableItemLibraryEntity::toDomain)
+                    .filter { item -> item.sourceType == sourceType }
+            }.onSuccess { items ->
+                // Only publish while the source is still empty; the full catalog (once loaded)
+                // always wins so the bounded cold-start set never shrinks it.
+                val current = itemsState.value
+                if (current.none { item -> item.sourceType == sourceType }) {
+                    itemsState.value = current.replaceSource(
+                        sourceType = sourceType,
+                        replacement = items,
+                        sourceSelector = ReadableItem::sourceType,
+                    )
+                }
+            }.onFailure { throwable ->
+                logSeedFailure("Unable to seed cold-start remote catalog items.", throwable)
             }
         }
     }

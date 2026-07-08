@@ -17,7 +17,6 @@ data class ComicPageImageDecodeOptions(
 
 object ComicPageLoaderCacheSizing {
     const val METADATA_CACHE_ENTRIES = 256
-    const val BYTE_CACHE_ENTRIES = 12
     const val VISIBLE_LOAD_CONCURRENCY = 3
     const val METADATA_LOAD_CONCURRENCY = 3
     const val PREFETCH_LOAD_CONCURRENCY = 2
@@ -48,6 +47,15 @@ object ComicPageLoaderCacheSizing {
         val targetBytes = maxMemoryBytes / PREVIEW_BYTE_CACHE_MEMORY_DIVISOR
         return targetBytes
             .coerceIn(MIN_PREVIEW_BYTE_CACHE_BYTES.toLong(), MAX_PREVIEW_BYTE_CACHE_BYTES.toLong())
+            .toInt()
+    }
+
+    fun pageByteCacheBytes(
+        maxMemoryBytes: Long = Runtime.getRuntime().maxMemory(),
+    ): Int {
+        val targetBytes = maxMemoryBytes / PAGE_BYTE_CACHE_MEMORY_DIVISOR
+        return targetBytes
+            .coerceIn(MIN_PAGE_BYTE_CACHE_BYTES.toLong(), MAX_PAGE_BYTE_CACHE_BYTES.toLong())
             .toInt()
     }
 }
@@ -191,10 +199,13 @@ private fun sampledPixelCount(
 }
 
 private const val BITMAP_CACHE_MEMORY_DIVISOR = 8
+private const val PAGE_BYTE_CACHE_MEMORY_DIVISOR = 32
 private const val PREVIEW_CACHE_MEMORY_DIVISOR = 32
 private const val PREVIEW_BYTE_CACHE_MEMORY_DIVISOR = 64
 private const val MIN_BITMAP_CACHE_BYTES = 16 * 1024 * 1024
 private const val MAX_BITMAP_CACHE_BYTES = 96 * 1024 * 1024
+private const val MIN_PAGE_BYTE_CACHE_BYTES = 8 * 1024 * 1024
+private const val MAX_PAGE_BYTE_CACHE_BYTES = 32 * 1024 * 1024
 private const val MIN_PREVIEW_CACHE_BYTES = 4 * 1024 * 1024
 private const val MAX_PREVIEW_CACHE_BYTES = 24 * 1024 * 1024
 private const val MIN_PREVIEW_BYTE_CACHE_BYTES = 2 * 1024 * 1024

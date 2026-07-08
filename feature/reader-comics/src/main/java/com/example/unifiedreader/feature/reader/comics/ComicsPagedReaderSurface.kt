@@ -142,6 +142,7 @@ internal fun ComicsPagedReaderSurface(
                 readerState = readerState,
                 pageSource = pageSource,
                 pagerState = pagerState,
+                loadedVisiblePageIndexes = loadedVisiblePageIndexes,
                 modifier = Modifier.fillMaxSize(),
                 content = spreadPagerContent,
             )

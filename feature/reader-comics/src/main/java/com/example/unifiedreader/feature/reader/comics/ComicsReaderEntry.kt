@@ -139,6 +139,7 @@ fun ComicsReaderScreen(
     var progressRestoreCompleted by remember(item.id) { mutableStateOf(false) }
     var preferencesRestoreCompleted by remember(item.id) { mutableStateOf(false) }
     var loadedVisiblePageIndexes by remember(item.id, pages) { mutableStateOf<Set<Int>>(emptySet()) }
+    var previewLoadingArmed by remember(item.id) { mutableStateOf(false) }
     var completionMonitoringReady by rememberSaveable(item.id) { mutableStateOf(false) }
     var hasAutoRequestedCompletion by rememberSaveable(item.id) { mutableStateOf(false) }
     val overlayState = rememberReaderOverlayState(
@@ -278,6 +279,16 @@ fun ComicsReaderScreen(
             }
         }
         preferencesRestoreCompleted = true
+    }
+
+    LaunchedEffect(
+        item.id,
+        readerState.currentPage in loadedVisiblePageIndexes,
+        previewLoadingArmed,
+    ) {
+        if (previewLoadingArmed || readerState.currentPage !in loadedVisiblePageIndexes) return@LaunchedEffect
+        delay(InitialPreviewLoadingDelayMillis)
+        previewLoadingArmed = true
     }
 
     LaunchedEffect(
@@ -508,7 +519,8 @@ fun ComicsReaderScreen(
                             spreadPlanState = spreadPlanState,
                             pageSource = pageSource,
                             readerWorkCoordinator = readerWorkCoordinator,
-                            previewLoadingEnabled = readerState.currentPage in loadedVisiblePageIndexes,
+                            previewLoadingEnabled = previewLoadingArmed &&
+                                readerState.currentPage in loadedVisiblePageIndexes,
                             applySafeGesturesPadding = false,
                             onPageSelected = { targetPage ->
                                 when (readerState.readerMode) {
@@ -578,3 +590,5 @@ internal fun emptyComicReaderMessage(
     item: ReadableItem,
     diagnostic: ComicPagesUnavailableDiagnostic,
 ): String = "${diagnostic.title}\n\n${item.title}"
+
+private const val InitialPreviewLoadingDelayMillis = 2_500L

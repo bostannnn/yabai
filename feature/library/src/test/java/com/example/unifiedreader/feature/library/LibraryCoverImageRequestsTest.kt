@@ -20,7 +20,7 @@ class LibraryCoverImageRequestsTest {
             libraryCoverImageRequestSize(LibraryCoverImageVariant.GridExtraLarge),
         )
         assertEquals(
-            IntSize(432, 648),
+            IntSize(320, 480),
             libraryCoverImageRequestSize(LibraryCoverImageVariant.ShelfPreview),
         )
         assertEquals(

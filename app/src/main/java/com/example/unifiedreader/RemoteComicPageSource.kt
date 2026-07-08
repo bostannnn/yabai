@@ -73,9 +73,14 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
             value: ComicPagePreviewResult.Success,
         ): Int = comicPagePreviewCacheEntryBytes(value)
     }
-    private val pageBytesCache = LruCache<String, ByteArray>(
-        ComicPageLoaderCacheSizing.BYTE_CACHE_ENTRIES,
-    )
+    private val pageBytesCache = object : LruCache<String, ByteArray>(
+        ComicPageLoaderCacheSizing.pageByteCacheBytes(),
+    ) {
+        override fun sizeOf(
+            key: String,
+            value: ByteArray,
+        ): Int = value.size
+    }
     private val previewBytesCache = object : LruCache<String, ByteArray>(
         ComicPageLoaderCacheSizing.previewByteCacheBytes(),
     ) {

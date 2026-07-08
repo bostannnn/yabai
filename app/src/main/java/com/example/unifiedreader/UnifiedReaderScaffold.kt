@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
 import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.SourceConnectivityState
@@ -356,14 +357,21 @@ fun UnifiedReaderScaffold(
                         modifier = Modifier.weight(1f),
                     )
 
-                    TopLevelDestination.Journal -> JournalScreen(
-                        snapshot = uiState.journalSnapshot,
-                        coverImageUrlProvider = viewModel::coverImageUrlFor,
-                        onCoverVisible = viewModel::ensureCoverCached,
-                        onDeleteItemJournal = viewModel::deleteItemJournal,
-                        onSaveJournalEntry = viewModel::saveJournalEntry,
-                        modifier = Modifier.weight(1f),
-                    )
+                    TopLevelDestination.Journal -> {
+                        // Only compute the heavy full journal snapshot (stats/timelines/catalog
+                        // join) while the Journal tab is actually on screen; elsewhere uiState
+                        // carries just the lightweight write-state.
+                        val journalSnapshot by viewModel.journalFullSnapshotFlow
+                            .collectAsStateWithLifecycle(initialValue = uiState.journalSnapshot)
+                        JournalScreen(
+                            snapshot = journalSnapshot,
+                            coverImageUrlProvider = viewModel::coverImageUrlFor,
+                            onCoverVisible = viewModel::ensureCoverCached,
+                            onDeleteItemJournal = viewModel::deleteItemJournal,
+                            onSaveJournalEntry = viewModel::saveJournalEntry,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
 
                     TopLevelDestination.Settings -> SettingsRoute(
                         uiState = uiState,

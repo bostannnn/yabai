@@ -17,6 +17,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import com.example.unifiedreader.core.model.ReadableItem
+import kotlinx.coroutines.delay
 
 @Composable
 internal fun ComicPageCurlPagerBox(
@@ -25,6 +26,7 @@ internal fun ComicPageCurlPagerBox(
     readerState: ComicsReaderState,
     pageSource: ComicPageSource,
     pagerState: PagerState,
+    loadedVisiblePageIndexes: Set<Int>,
     modifier: Modifier = Modifier,
     content: @Composable (userScrollEnabled: Boolean) -> Unit,
 ) {
@@ -91,9 +93,14 @@ internal fun ComicPageCurlPagerBox(
         hasAdjacentComposite = true,
         containerSize = containerSize,
     ).isAvailable
+    val settledSpreadLoaded = spreads
+        .getOrNull(pagerState.settledPage)
+        ?.pageIndexes
+        ?.all { pageIndex -> pageIndex in loadedVisiblePageIndexes } == true
 
     LaunchedEffect(
         curlBaseEnabled,
+        settledSpreadLoaded,
         pagerState.settledPage,
         spreads,
         item.id,
@@ -107,6 +114,8 @@ internal fun ComicPageCurlPagerBox(
             curlState.reset()
             return@LaunchedEffect
         }
+        if (!settledSpreadLoaded) return@LaunchedEffect
+        delay(ComicPageCurlIdlePrewarmDelayMillis)
         curlCompositeCache.prewarm(
             item = item,
             spreads = spreads,
@@ -162,3 +171,5 @@ internal fun ComicPageCurlPagerBox(
         }
     }
 }
+
+private const val ComicPageCurlIdlePrewarmDelayMillis = 650L

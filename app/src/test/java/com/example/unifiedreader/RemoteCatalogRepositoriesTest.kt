@@ -169,6 +169,51 @@ class RemoteCatalogRepositoriesTest {
     }
 
     @Test
+    fun `cold start seed loads only the requested item ids without hydrating`() = runBlocking {
+        val kavitaLibrary = remoteCatalogLibrary(
+            sourceType = SourceType.KAVITA,
+            remoteId = "comics",
+            title = "Comics",
+        )
+        val items = (1..4).map { index ->
+            remoteCatalogItem(
+                sourceType = SourceType.KAVITA,
+                remoteId = "issue-$index",
+                title = "Issue $index",
+            )
+        }
+        val dao = FakeRemoteCatalogDao(
+            libraries = listOf(kavitaLibrary),
+            items = items,
+            observedLibraries = emptyList(),
+            observedItems = emptyList(),
+        )
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        try {
+            val repository = RoomRemoteCatalogRepository(
+                remoteCatalogDao = dao,
+                ioDispatcher = Dispatchers.Unconfined,
+                scope = scope,
+            )
+            val requestedIds = listOf(items[2].id, items[0].id)
+
+            repository.seedItemsByIds(SourceType.KAVITA, requestedIds)
+
+            assertEquals(
+                setOf("Issue 3", "Issue 1"),
+                repository.getItems()
+                    .filter { item -> item.sourceType == SourceType.KAVITA }
+                    .map { item -> item.title }
+                    .toSet(),
+            )
+            assertEquals(listOf(requestedIds), dao.getLibraryItemsByIdsCalls)
+            assertFalse(repository.isHydratedFlow.value)
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
     fun `room remote catalog repository still reports hydrated when initial item seed fails`() = runBlocking {
         val dao = FakeRemoteCatalogDao(
             libraries = emptyList(),
@@ -396,6 +441,7 @@ private class FakeRemoteCatalogDao(
     val deletedItemBatchSizes = mutableListOf<Int>()
     val deletedSyncGroupBatchSizes = mutableListOf<Int>()
     val getLibraryItemsForSourceTypeCalls = mutableListOf<String>()
+    val getLibraryItemsByIdsCalls = mutableListOf<List<String>>()
     var getLibraryItemsCalls: Int = 0
         private set
 
@@ -427,6 +473,14 @@ private class FakeRemoteCatalogDao(
         getLibraryItemsForSourceTypeCalls += sourceType
         return itemsState.value
             .filter { it.sourceType == sourceType }
+            .map(ReadableItemEntity::toLibraryEntity)
+    }
+
+    override fun getLibraryItemsByIds(itemIds: List<String>): List<ReadableItemLibraryEntity> {
+        getLibraryItemsByIdsCalls += itemIds
+        val requested = itemIds.toSet()
+        return itemsState.value
+            .filter { it.id in requested }
             .map(ReadableItemEntity::toLibraryEntity)
     }
 

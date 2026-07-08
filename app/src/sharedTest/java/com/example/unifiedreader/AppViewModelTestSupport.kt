@@ -396,6 +396,18 @@ internal fun createViewModel(
         readerFactories = readerFactories,
         readerWorkCoordinator = readerWorkCoordinator,
         libraryStateRecomputeCoordinator = libraryStateRecomputeCoordinator,
+        coldStartLibraryViewCoordinator = AppColdStartLibraryViewCoordinator(
+            orderStore = object : ColdStartLibraryOrderStore {
+                override fun save(sourceType: SourceType, orderedItemIds: List<String>) = Unit
+                override fun restore(sourceType: SourceType): List<String> = emptyList()
+            },
+            coldStartCatalogSeeder = object : ColdStartCatalogSeeder {
+                override suspend fun seedItemsByIds(
+                    sourceType: SourceType,
+                    orderedItemIds: List<String>,
+                ) = Unit
+            },
+        ),
     )
 }
 

@@ -1,9 +1,6 @@
 package com.example.unifiedreader
 
-import com.example.unifiedreader.core.model.SourceType
-import com.example.unifiedreader.feature.navigation.SourceNavigationState
 import javax.inject.Inject
-import kotlinx.coroutines.runBlocking
 
 class AppInitialUiStateFactory @Inject constructor(
     private val navigationController: AppNavigationController,
@@ -12,12 +9,10 @@ class AppInitialUiStateFactory @Inject constructor(
     private val catalogSnapshotsUseCase: ObserveAppCatalogSnapshotsUseCase,
     private val libraryStateRecomputeCoordinator: AppLibraryStateRecomputeCoordinator,
 ) {
-    fun create(): AppUiState = runBlocking {
+    fun create(): AppUiState {
         val navigationState = navigationController.initialState()
         val activeRouteSnapshot = activeRouteStore.restore()
-        val snapshot = catalogSnapshotsUseCase.currentSnapshot(
-            startupSource = activeRouteSnapshot.startupSeedSource(navigationState),
-        )
+        val snapshot = catalogSnapshotsUseCase.initialSnapshot()
         val baseState = AppUiState(
             sourceOrder = navigationState.sourceOrder,
             selectedSource = navigationState.startupSource,
@@ -41,30 +36,10 @@ class AppInitialUiStateFactory @Inject constructor(
         val restoredRouteState = activeRouteSnapshot
             ?.let(baseState::withActiveRouteSnapshot)
             ?: baseState
-        libraryStateRecomputeCoordinator.initialize(restoredRouteState)
+        return libraryStateRecomputeCoordinator.initialize(restoredRouteState)
     }
 
     suspend fun hydrateAfterInitialState() {
         appStateHydrator.hydrate()
     }
-}
-
-private fun AppActiveRouteSnapshot?.startupSeedSource(
-    navigationState: SourceNavigationState,
-): SourceType {
-    val sourceOrder = navigationState.sourceOrder
-    val restorableFallbackReaderSource = this?.let { snapshot ->
-        snapshot.readerFallbackItem
-            ?.takeIf { fallbackItem ->
-                fallbackItem.id == snapshot.readerItemId &&
-                    fallbackItem.format == snapshot.readerFormat
-            }
-            ?.sourceType
-    }
-    val restoredRouteSource = this?.selectedSource
-        ?.takeIf { sourceType -> sourceType in sourceOrder }
-    return restorableFallbackReaderSource
-        ?.takeIf { sourceType -> sourceType in sourceOrder }
-        ?: restoredRouteSource
-        ?: navigationState.startupSource
 }
