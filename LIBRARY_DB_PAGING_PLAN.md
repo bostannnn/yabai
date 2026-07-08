@@ -106,10 +106,16 @@ Large + risky — must be sliced and checkpointed. Consumers of the full list to
   `CompositeCatalogRepository`.
 
 **Suggested E slicing:**
-1. **Lookup foundation** — targeted `getItemById` / `getItemsByIds` (DAO + repository interface), so
-   id-based consumers stop needing the full list. *(started — see below)*
-2. Migrate id-lookup consumers (selectedItem, next-item, series titles, cover preload, download,
-   reading-list) to the lookup.
+1. **Lookup foundation** — targeted `getItemById` / `getItemsByIds` (DAO + `ReadableItemLookup`
+   interface, DI-bound). **DONE — commit `91e42908`.**
+2. Migrate id-lookup consumers to the lookup. NOTE: not mechanical — two shapes:
+   - **Synchronous computed props** (`selectedItem`, `selectedKavita/StumpSeriesTitle`) read during
+     composition; can't become `suspend` without restructuring state assembly (resolve the selected
+     item into state when selection changes, rather than deriving it from the full list on read).
+   - **Reactive full-catalog scans** (`AppComicReadingDirection/ReaderModeController` reconcile over
+     ALL items via `observeItems()`; `AppCoverPreloadController`) — need a semantic change to scan a
+     bounded/relevant subset, not a lookup swap.
+   Each is its own slice with its own correctness reasoning + test.
 3. Move download-availability scope computation to a bounded query.
 4. Retire the in-memory derived-state pipeline for Kavita (paged path is authoritative); keep a bounded
    path for other sources or extend paging to them.
