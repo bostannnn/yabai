@@ -154,6 +154,27 @@ class RemoteCatalogGridRootsTest {
     }
 
     @Test
+    fun `replaceSourceCatalog persists root members mapping containers to their issues`() {
+        dao.replaceSourceCatalog(
+            sourceType = SourceType.KAVITA.name,
+            libraries = listOf(kavitaLibrary(id = "kavita:library:libA", remoteId = "libA")),
+            items = listOf(
+                kavitaIssueEntity(id = "kavita:item:1", seriesId = "s1", title = "Series One #1"),
+                kavitaIssueEntity(id = "kavita:item:2", seriesId = "s1", title = "Series One #2"),
+                kavitaBookEntity(id = "kavita:item:book-1", title = "A Standalone Book"),
+            ),
+        )
+
+        // A container maps to all its issue ids; a standalone maps to just itself.
+        assertEquals(
+            setOf("kavita:item:1", "kavita:item:2"),
+            dao.getMemberItemIds("kavita:series:libA::s1").toSet(),
+        )
+        assertEquals(listOf("kavita:item:book-1"), dao.getMemberItemIds("kavita:item:book-1"))
+        assertEquals(emptyList<String>(), dao.getMemberItemIds("kavita:item:1"))
+    }
+
+    @Test
     fun `applySourceCatalogDelta grows a series container when an issue is added`() {
         dao.replaceSourceCatalog(
             sourceType = SourceType.KAVITA.name,

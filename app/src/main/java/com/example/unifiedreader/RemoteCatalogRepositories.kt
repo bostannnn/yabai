@@ -15,6 +15,10 @@ import com.example.unifiedreader.core.database.entity.toDomain
 import com.example.unifiedreader.core.database.entity.toRemoteLibraryCacheEntity
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.kavitaSeriesContainerId
+import com.example.unifiedreader.core.model.kavitaSeriesGroupKey
+import com.example.unifiedreader.core.model.stumpSeriesContainerId
+import com.example.unifiedreader.core.model.stumpSeriesGroupKey
 import com.example.unifiedreader.data.repository.LibraryRepository
 import com.example.unifiedreader.data.repository.ReadableItemRepository
 import com.example.unifiedreader.data.repository.SampleCatalogRepository
@@ -48,6 +52,13 @@ interface ReadableItemLookup {
     suspend fun getItemById(itemId: String): ReadableItem?
 
     suspend fun getItemsByIds(itemIds: List<String>): List<ReadableItem>
+
+    /**
+     * The catalog items in [item]'s series (its sibling issues), resolved via `library_root_members`
+     * so series continuation reads only the relevant issues instead of the whole catalog. Empty for a
+     * standalone item with no series.
+     */
+    suspend fun getSeriesMemberItems(item: ReadableItem): List<ReadableItem>
 }
 
 /**
@@ -291,6 +302,20 @@ class RoomRemoteCatalogRepository(
         }
     }
 
+    override suspend fun getSeriesMemberItems(
+        item: ReadableItem,
+    ): List<ReadableItem> {
+        val seriesContainerId = item.seriesContainerIdOrNull() ?: return emptyList()
+        return withContext(ioDispatcher) {
+            val memberItemIds = remoteCatalogDao.getMemberItemIds(seriesContainerId)
+            if (memberItemIds.isEmpty()) {
+                emptyList()
+            } else {
+                remoteCatalogDao.getLibraryItemsByIds(memberItemIds).map(ReadableItemLibraryEntity::toDomain)
+            }
+        }
+    }
+
     override suspend fun getCatalogSyncGroups(
         sourceType: SourceType,
     ): List<RemoteCatalogSyncGroup> = withContext(ioDispatcher) {
@@ -395,6 +420,13 @@ private fun logSeedFailure(
     runCatching {
         Log.w(LOG_TAG, message, throwable)
     }
+}
+
+private fun ReadableItem.seriesContainerIdOrNull(): String? = when (sourceType) {
+    SourceType.KAVITA -> kavitaSeriesGroupKey()?.let(::kavitaSeriesContainerId)
+    SourceType.STUMP -> stumpSeriesGroupKey()?.let(::stumpSeriesContainerId)
+    SourceType.GRIMMORY,
+    SourceType.LOCAL -> null
 }
 
 private fun <T> List<T>.replaceSource(

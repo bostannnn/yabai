@@ -154,6 +154,9 @@ abstract class RemoteCatalogDao {
     @Query("DELETE FROM library_root_facets WHERE libraryId = :libraryId")
     protected abstract fun deleteRootFacetsForLibrary(libraryId: String)
 
+    @Query("SELECT itemId FROM library_root_members WHERE rootId = :rootId")
+    abstract fun getMemberItemIds(rootId: String): List<String>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract fun insertOrReplaceRootMembers(members: List<LibraryRootMemberEntity>)
 

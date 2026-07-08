@@ -380,6 +380,7 @@ class AppViewModel @Inject constructor(
         readerCoordinator.onReaderCompletionRequested(
             stateProvider = { uiState },
             updateState = ::updateUiState,
+            scope = viewModelScope,
             refreshProgress = ::refreshProgress,
         )
     }

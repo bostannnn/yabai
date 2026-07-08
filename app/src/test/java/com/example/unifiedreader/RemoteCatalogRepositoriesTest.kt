@@ -650,6 +650,9 @@ private class FakeRemoteCatalogDao(
 
     private val rootMembersState = MutableStateFlow<List<LibraryRootMemberEntity>>(emptyList())
 
+    override fun getMemberItemIds(rootId: String): List<String> =
+        rootMembersState.value.filter { it.rootId == rootId }.map { it.itemId }
+
     override fun insertOrReplaceRootMembers(members: List<LibraryRootMemberEntity>) {
         val replacementKeys = members.mapTo(mutableSetOf()) { it.rootId to it.itemId }
         rootMembersState.value = rootMembersState.value
