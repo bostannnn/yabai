@@ -61,6 +61,7 @@ sort in {LAST_READ, DATE_ADDED} (rail-less) + no filters/search/series/scope. Ra
 | `66121b9f` | E2 | Reader next-item resolved from bounded SQL (`getSeriesMemberItems` via members) instead of scanning the full catalog on the main thread. |
 | `fa636a9b` | E3 | Download **enqueue** paths use `getSeriesMemberItems` (generalized for containers). Delete path intentionally left on the full list (recomputes full availability). |
 | `53877eb6` | M1 | **Paged view no longer a scaffold:** `LibraryScreen` renders its grid body from a paging flow when `pagedGridItems != null` (nullable, default null → all other callers byte-for-byte unchanged), reusing shelves/filter-bar/sort/dialogs/card. Deleted the separate `LibraryPagedGrid`. Default Kavita view (LAST_READ) now pages its body from SQL with full chrome. |
+| `87e55ad6` | E4 | **Phase 1, slice 1 — cold-start cache off `visibleItems`.** Capture branches per landing: the paged Kavita landing records ordered root ids from SQL (`RemoteCatalogDao.getGridRootIds{ByTitle,ByDateAdded,ByLastRead}` → `LibraryGridPager.orderedGridRootIds`, bounded to `COLD_START_LIBRARY_ORDER_LIMIT`); every other landing still snapshots `visibleItems`. Same ids as before (shared grouping), so cold-start behaviour is unchanged. Re-captures on progress for LAST_READ; once-per-landing for DATE_ADDED. `restore()` untouched. Unblocks emptying `visibleItems` for the paged path (Phase 2). |
 
 Verified: `core:model` / `core:database` / `feature:library` suites green; app repository/reader/VM
 tests green; Room validates the schema through v27; release APK builds. Device (pre-M1 build): cold
@@ -112,10 +113,10 @@ cannot happen until **every** reader of the full list (or of `visibleItems`) has
 alternative. Attempting to short-circuit this (M2: empty `visibleItems` when paged) broke real
 features and 8 tests — reverted. Consumers to migrate, grouped by approach:
 
-- **Ordered visible set → paged order:** `AppColdStartLibraryViewCoordinator` persists
-  `state.visibleItems` order per source for instant cold-start restore. Reconsider whether the
-  cold-start cache is even needed once the default view pages (Room paging is already fast at cold
-  start); otherwise capture the paged root order instead.
+- ~~**Ordered visible set → paged order:** `AppColdStartLibraryViewCoordinator` persists
+  `state.visibleItems` order per source for instant cold-start restore.~~ **DONE (E4).** Capture now
+  reads the paged landing's order from SQL (`LibraryGridPager.orderedGridRootIds`); other landings
+  still snapshot `visibleItems`. `restore()` never read `visibleItems`, so it's untouched.
 - **Batch download "select all" → bounded IDs query:** `UnifiedReaderScaffold` reads
   `uiState.visibleItems` to select all downloadable items. Serve from a SQL ids query / paged snapshot.
 - **By-id synchronous props → `ReadableItemLookup` (E1) resolved into state at selection time:**
@@ -133,7 +134,8 @@ features and 8 tests — reverted. Consumers to migrate, grouped by approach:
 - **Other sources:** `items` is all-sources, so Grimmory/Stump/Local must either page too or keep a
   bounded path before `items` can go.
 
-Already migrated: reader next-item (E2), download enqueue (E3), item-by-id lookup foundation (E1).
+Already migrated: reader next-item (E2), download enqueue (E3), item-by-id lookup foundation (E1),
+cold-start capture (E4).
 
 ---
 
@@ -141,9 +143,10 @@ Already migrated: reader next-item (E2), download enqueue (E3), item-by-id looku
 
 **Phase 1 — Migrate the load-bearing consumers (prerequisite; no memory win yet, keeps everything
 working).** One small, tested slice each, in roughly this order (safest/highest-leverage first):
-1. Cold-start cache: decouple from `visibleItems` (capture paged order, or retire it for the paged
-   path). *Unblocks emptying visibleItems.*
-2. Batch download-selection: serve "select all" from SQL ids, not `visibleItems`.
+1. ~~Cold-start cache: decouple from `visibleItems`.~~ **DONE (E4, `87e55ad6`)** — capture reads the
+   paged landing's order from SQL; `restore()` never touched `visibleItems`. *Unblocked.*
+2. **← NEXT.** Batch download-selection: serve "select all" from SQL ids, not `visibleItems`.
+   (`UnifiedReaderScaffold` reads `uiState.visibleItems` to select all downloadable items — see §6.)
 3. Shelves → SQL (D2): Continue Reading / Up Next / Recently Finished as bounded queries over
    `library_root_members` + `reading_progress`. *Removes the biggest remaining items-scan.*
 4. Facets → SQL (C2/C3): contextual facets + assemble `LibraryFilterFacets` from SQL + wire into the
@@ -198,7 +201,8 @@ Also fold in: make the first-launch derived-table rebuild lighter/off the critic
 
 ## 10. How to start the next session
 
-1. `git checkout perf/library-db-paging` (HEAD = `53877eb6`, M1). Working tree clean.
+1. `git checkout perf/library-db-paging` (HEAD = `87e55ad6`, E4). Working tree clean.
 2. Read this file + the memory note `stage3-paging-handoff`.
-3. Start **Phase 1, slice 1** (cold-start cache) — a small, tested slice. Keep the branch green;
-   commit per slice. Only attempt Phase 2 (M2) after Phase 1.
+3. Continue **Phase 1, slice 2** (batch download-selection: serve "select all" from SQL ids, not
+   `visibleItems`) — a small, tested slice. Slice 1 (cold-start cache, E4) is done. Keep the branch
+   green; commit per slice. Only attempt Phase 2 (M2) after Phase 1.
