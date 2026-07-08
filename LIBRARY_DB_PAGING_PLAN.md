@@ -20,6 +20,28 @@ That in-memory full catalog is the residual cost prior perf work couldn't remove
 **Goal:** page the grid from Room and move filter/sort/facets/shelves into SQL so only the visible
 window is resident, then retire the in-memory full list. The measurable win is the heap drop.
 
+### Why it matters (the user-facing outcomes the heap number stands in for)
+
+The heap/GC metrics are proxies. What the user actually gets:
+
+1. **Return-without-reload after backgrounding.** Holding the whole catalog (~84 MB on device, more
+   with a bigger library) makes the app a prime target when Android reclaims memory — switch to another
+   app, come back, and it cold-starts and loses your place. A bounded resident set makes the process far
+   less likely to be killed. *Case: read a comic → browser for 10 min → return → library is exactly where
+   you left it, instantly, instead of reloading.*
+2. **Instant, jank-free back-from-reader on a huge library.** Every progress change re-sorts the entire
+   catalog in memory for LAST_READ (the ~236 MB churn / GC hitch). SQL ordering removes that sort.
+   *Case: finish issue #40, press back → the series jumps to the top of "Last read" with no stutter,
+   whether you have 500 or 50,000 issues.*
+3. **Fast time-to-content regardless of catalog size.** The catalog is read/mapped several times at
+   launch (the CursorWindow bursts + GC storm), so big libraries show placeholders for seconds. Paging
+   the first screen makes time-to-content roughly constant. *Case: open a 30k-issue Kavita library → grid
+   fills in ~1 s instead of spinners.*
+4. **Constant memory as the library grows.** Today the heap grows with the catalog; after paging it's
+   bounded by what's on screen. *Case: the library doubles over a year → the app doesn't get slower or
+   more crash-prone.*
+5. **Less battery/heat while browsing.** Fewer GC cycles = less CPU. Minor, but real on long sessions.
+
 Prior perf work (non-blocking startup, journal split, cold-start render cache, recompute guards, facet
 cache) is already merged to `main`; this branch builds on it.
 
