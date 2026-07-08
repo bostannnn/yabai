@@ -12,8 +12,10 @@ import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEnti
 import com.example.unifiedreader.core.database.entity.RemoteLibraryCacheEntity
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.LibraryContentType
+import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.kavitaSeriesContainerId
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
 import kotlinx.coroutines.CoroutineScope
@@ -371,6 +373,61 @@ class RemoteCatalogRepositoriesTest {
             repository.getItemsByIds(listOf(alpha.id, beta.id, "kavita:item:missing")).map { it.title }.toSet(),
         )
         assertEquals(emptyList<String>(), repository.getItemsByIds(emptyList()).map { it.title })
+    }
+
+    @Test
+    fun `getSeriesMemberItems resolves a series from a container or an issue`() = runBlocking {
+        val dao = FakeRemoteCatalogDao(libraries = emptyList(), items = emptyList())
+        val repository = RoomRemoteCatalogRepository(
+            remoteCatalogDao = dao,
+            ioDispatcher = Dispatchers.Unconfined,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
+        )
+        // Two comics sharing remoteFileType "series" collapse into one container with both as members.
+        repository.replaceSourceCatalog(
+            sourceType = SourceType.KAVITA,
+            libraries = listOf(remoteCatalogLibrary(SourceType.KAVITA, "library", "Library")),
+            items = listOf(
+                remoteCatalogItem(SourceType.KAVITA, "1", "Issue 1"),
+                remoteCatalogItem(SourceType.KAVITA, "2", "Issue 2"),
+            ),
+        )
+
+        val libraryId = SourceType.KAVITA.remoteLibraryId("library")
+        val seriesKey = "$libraryId::series"
+        val expectedIds = setOf(SourceType.KAVITA.remoteItemId("1"), SourceType.KAVITA.remoteItemId("2"))
+
+        val container = ReadableItem(
+            id = kavitaSeriesContainerId(seriesKey),
+            sourceType = SourceType.KAVITA,
+            libraryId = libraryId,
+            remoteId = seriesKey,
+            title = "Series",
+            format = FormatType.CBZ,
+            kind = ReadableItemKind.COMIC,
+        )
+        assertEquals(expectedIds, repository.getSeriesMemberItems(container).map(ReadableItem::id).toSet())
+
+        val issue = ReadableItem(
+            id = SourceType.KAVITA.remoteItemId("1"),
+            sourceType = SourceType.KAVITA,
+            libraryId = libraryId,
+            remoteFileType = "series",
+            title = "Issue 1",
+            format = FormatType.CBZ,
+            kind = ReadableItemKind.COMIC,
+        )
+        assertEquals(expectedIds, repository.getSeriesMemberItems(issue).map(ReadableItem::id).toSet())
+
+        val standalone = ReadableItem(
+            id = "kavita:item:solo",
+            sourceType = SourceType.KAVITA,
+            libraryId = libraryId,
+            title = "Solo",
+            format = FormatType.EPUB,
+            kind = ReadableItemKind.BOOK,
+        )
+        assertEquals(emptyList<String>(), repository.getSeriesMemberItems(standalone).map(ReadableItem::id))
     }
 
     @Test

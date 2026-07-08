@@ -15,6 +15,8 @@ import com.example.unifiedreader.core.database.entity.toDomain
 import com.example.unifiedreader.core.database.entity.toRemoteLibraryCacheEntity
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.isKavitaSeriesContainer
+import com.example.unifiedreader.core.model.isStumpSeriesContainer
 import com.example.unifiedreader.core.model.kavitaSeriesContainerId
 import com.example.unifiedreader.core.model.kavitaSeriesGroupKey
 import com.example.unifiedreader.core.model.stumpSeriesContainerId
@@ -305,7 +307,11 @@ class RoomRemoteCatalogRepository(
     override suspend fun getSeriesMemberItems(
         item: ReadableItem,
     ): List<ReadableItem> {
-        val seriesContainerId = item.seriesContainerIdOrNull() ?: return emptyList()
+        // A series container is itself the member-map root; an issue resolves to its container.
+        val seriesContainerId = when {
+            item.isKavitaSeriesContainer() || item.isStumpSeriesContainer() -> item.id
+            else -> item.seriesContainerIdOrNull()
+        } ?: return emptyList()
         return withContext(ioDispatcher) {
             val memberItemIds = remoteCatalogDao.getMemberItemIds(seriesContainerId)
             if (memberItemIds.isEmpty()) {

@@ -254,6 +254,20 @@ internal fun createViewModel(
         libraryStateRecomputeCoordinator = libraryStateRecomputeCoordinator,
     )
     val remoteJournalPusher = RemoteJournalPusherRegistry(sourcePushers = emptyList())
+    val readableItemLookup = object : ReadableItemLookup {
+        override suspend fun getItemById(itemId: String): ReadableItem? =
+            readableItemRepository.getItems().firstOrNull { item -> item.id == itemId }
+
+        override suspend fun getItemsByIds(itemIds: List<String>): List<ReadableItem> {
+            val requested = itemIds.toSet()
+            return readableItemRepository.getItems().filter { item -> item.id in requested }
+        }
+
+        // The series/download resolvers re-filter by series key, so returning all items is
+        // equivalent to the bounded DB query in production.
+        override suspend fun getSeriesMemberItems(item: ReadableItem): List<ReadableItem> =
+            readableItemRepository.getItems()
+    }
 
     return AppViewModel(
         navigationController = navigationController,
@@ -264,6 +278,7 @@ internal fun createViewModel(
         remoteDownloadController = AppRemoteDownloadController(
             libraryActionsCoordinator = libraryActionsCoordinator,
             remoteDownloadQueueController = remoteDownloadQueueController,
+            readableItemLookup = readableItemLookup,
         ),
         catalogStateCoordinator = catalogStateCoordinator,
         libraryActionsCoordinator = libraryActionsCoordinator,
@@ -308,20 +323,7 @@ internal fun createViewModel(
                 seriesContinuationResolver = LibrarySeriesContinuationResolver(),
                 orderedItemContinuationResolver = LibraryOrderedItemContinuationResolver(),
             ),
-            readableItemLookup = object : ReadableItemLookup {
-                override suspend fun getItemById(itemId: String): ReadableItem? =
-                    readableItemRepository.getItems().firstOrNull { item -> item.id == itemId }
-
-                override suspend fun getItemsByIds(itemIds: List<String>): List<ReadableItem> {
-                    val requested = itemIds.toSet()
-                    return readableItemRepository.getItems().filter { item -> item.id in requested }
-                }
-
-                // The series resolver re-filters by series key, so returning all items is equivalent
-                // to the bounded DB query in production.
-                override suspend fun getSeriesMemberItems(item: ReadableItem): List<ReadableItem> =
-                    readableItemRepository.getItems()
-            },
+            readableItemLookup = readableItemLookup,
             readableAccessResolver = ReadableAccessResolver(
                 remoteItemLocalAvailability = remoteItemLocalAvailability,
                 remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
