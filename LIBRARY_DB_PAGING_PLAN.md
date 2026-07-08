@@ -108,7 +108,11 @@ Large + risky — must be sliced and checkpointed. Consumers of the full list to
 **Suggested E slicing:**
 1. **Lookup foundation** — targeted `getItemById` / `getItemsByIds` (DAO + `ReadableItemLookup`
    interface, DI-bound). **DONE — commit `91e42908`.**
-2. Migrate id-lookup consumers to the lookup. NOTE: not mechanical — two shapes:
+2. Migrate id-lookup consumers to the lookup. **Reader next-item DONE — commit `66121b9f`**
+   (`getMemberItemIds` + `getSeriesMemberItems`; `AppReaderCoordinator` passes the bounded
+   series-members / reading-list set to the unchanged resolver, off the main thread). Still to do:
+   `selectedItem`, series titles, cover preload, downloads, reading-list controller. NOTE: not
+   mechanical — two shapes:
    - **Synchronous computed props** (`selectedItem`, `selectedKavita/StumpSeriesTitle`) read during
      composition; can't become `suspend` without restructuring state assembly (resolve the selected
      item into state when selection changes, rather than deriving it from the full list on read).
