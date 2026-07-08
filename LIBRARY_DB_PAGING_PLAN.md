@@ -1,161 +1,204 @@
-# Library DB Paging — Plan, Progress & Deferred Work
+# Library DB Paging — Handoff & Plan
 
-Living tracker for the Stage 3/4 library-performance effort (branch `perf/library-db-paging`).
-Goal: stop holding and re-deriving the **entire catalog in memory**. Page the grid from Room and move
-filter/sort/facets into SQL so only the visible window is resident.
+Single source of truth for the library-performance effort on branch `perf/library-db-paging`.
+Read this top-to-bottom to resume in a fresh session.
 
-Prior perf work (non-blocking startup, journal split, cold-start render cache, recompute guards,
-facet cache) is committed on `main`. This effort branches from there.
+---
 
-## The core idea
+## 1. The goal (why this exists)
 
-Persist derived projections of `readable_items`, rebuilt inside the catalog **write transaction**, so
-navigation reads bounded pages instead of scanning/deriving the full catalog:
+Today the whole catalog is held and re-derived in memory:
+`RoomRemoteCatalogRepository.itemsState` (all remote items as domain `ReadableItem` objects with parsed
+metadata) → `AppUiState.items` → `LibraryDerivedStateComputer` builds a source index + `visibleItems`
+(a materialized, filtered, sorted list the grid renders) + facets, and re-runs on navigation.
 
-- `library_grid_roots` — the grid "root" set (standalone items + synthetic Kavita/Stump series
-  containers). What the grid pages over.
-- `library_root_facets(rootId, sourceType, libraryId, dimension, value)` — normalized facet values.
+That in-memory full catalog is the residual cost prior perf work couldn't remove:
+- steady Java heap ~84–101 MB (measured on device; **this is the target**),
+- ~236 MB back-nav recompute floor (the last-read sort legitimately re-runs on every progress update),
+- ~757 MB startup GC churn historically.
+
+**Goal:** page the grid from Room and move filter/sort/facets/shelves into SQL so only the visible
+window is resident, then retire the in-memory full list. The measurable win is the heap drop.
+
+Prior perf work (non-blocking startup, journal split, cold-start render cache, recompute guards, facet
+cache) is already merged to `main`; this branch builds on it.
+
+---
+
+## 2. Architecture
+
+Persist **derived projections** of `readable_items`, rebuilt inside the catalog **write transaction**
+(so navigation reads bounded pages instead of scanning/deriving the full catalog). DB is at **v27**.
+
+- `library_grid_roots` — the grid "root" set per source: standalone items + one synthetic
+  Kavita/Stump series **container** per series key. What the grid pages over.
+- `library_root_facets(rootId, sourceType, libraryId, dimension, value)` — normalized facet values
+  (`SELECT DISTINCT` instead of ~10 filtered in-memory passes). Non-contextual only so far.
 - `library_root_members(rootId, itemId, sourceType, libraryId)` — root → its catalog item ids
-  (standalone = self, container = issue ids). Powers LAST_READ (`MAX` over members) + series browse.
+  (standalone = self; container = issue ids). Powers LAST_READ (`MAX` over members) + series membership.
 
-Series-grouping truth lives once in `core:model` (`LibrarySeriesRoots.kt`), reused by both the
-persisted populator and the in-memory `LibrarySourceIndex`.
+Series-grouping truth lives once in `core:model` (`LibrarySeriesRoots.kt`:
+`deriveGridRootsWithMembers` / `deriveKavita|StumpSeriesGrouping` / `deriveGridRootItems`), reused by
+both the persisted populator (`RemoteCatalogDao`) and the in-memory `LibrarySourceIndex`.
 
-## Done (committed)
+Paging is gated by `LibraryPagingFeature` (app). `ENABLED = true`. `isPageable(state)` = Kavita root +
+sort in {LAST_READ, DATE_ADDED} (rail-less) + no filters/search/series/scope. Rail sorts
+(Title/Author/Series), filters, search, series browse, and other sources still use the in-memory path.
+
+---
+
+## 3. What's done (all committed on `perf/library-db-paging`)
 
 | Commit | Stage | What |
 |---|---|---|
-| `1d12b20f` | A | `library_grid_roots` table + migration v24→25; populated in write txn (per-source replace, per-library delta) + startup backfill. |
-| `30df1390` | B1 | `androidx.paging` + `room-paging`; DAO `PagingSource` (title / date-added) over roots. |
-| `ffea3ddd` | B2/B3 | `LibraryGridPager` (DI-bound) → `Flow<PagingData<ReadableItem>>`; `LibraryPagedGrid` (Compose, reuses grid card/prefetcher); `LibraryPagingFeature` flag; wired into `LibraryRoute`/scaffold + `AppViewModel`. |
-| `e1044fe8` | — | Flag ON by default (for on-device measurement). |
+| `1d12b20f` | A | `library_grid_roots` + migration v24→25; populated in write txn (per-source replace, per-library delta) + `rebuildAllGridRootsIfEmpty` startup backfill. |
+| `30df1390` | B1 | `androidx.paging` + `room-paging`; DAO `PagingSource` (title/date-added) over roots. |
+| `ffea3ddd` | B2/B3 | `LibraryGridPager` (DI-bound) → `Flow<PagingData<ReadableItem>>`; `AppViewModel.libraryGridPagingData` (cachedIn) + startup backfill; flag + wiring. |
+| `e1044fe8` | — | Flag ON by default. |
 | `5eab41bf` | C1 | `library_root_facets` + migration v25→26; populated in write txn; DAO `getDistinctFacetValues`. Non-contextual only. |
-| `5009a434` | D1 | `library_root_members` + migration v26→27; `deriveGridRootsWithMembers`; DAO `pagingGridRootsByLastRead` (join `reading_progress`, MAX per root). |
+| `5009a434` | D1 | `library_root_members` + migration v26→27; `deriveGridRootsWithMembers`; DAO `pagingGridRootsByLastRead` (join `reading_progress`, MAX per root, nulls last). |
+| `91e42908` | E1 | DAO `getLibraryItemById`; `ReadableItemLookup` (getItemById / getItemsByIds), DI-bound. |
+| `66121b9f` | E2 | Reader next-item resolved from bounded SQL (`getSeriesMemberItems` via members) instead of scanning the full catalog on the main thread. |
+| `fa636a9b` | E3 | Download **enqueue** paths use `getSeriesMemberItems` (generalized for containers). Delete path intentionally left on the full list (recomputes full availability). |
+| `53877eb6` | M1 | **Paged view no longer a scaffold:** `LibraryScreen` renders its grid body from a paging flow when `pagedGridItems != null` (nullable, default null → all other callers byte-for-byte unchanged), reusing shelves/filter-bar/sort/dialogs/card. Deleted the separate `LibraryPagedGrid`. Default Kavita view (LAST_READ) now pages its body from SQL with full chrome. |
 
-DB is at **v27**. Every migration + entity is validated by the Room round-trip tests in
-`UnifiedReaderDatabaseMigrationTest`. All `core:model` / `core:database` / repository suites green.
+Verified: `core:model` / `core:database` / `feature:library` suites green; app repository/reader/VM
+tests green; Room validates the schema through v27; release APK builds. Device (pre-M1 build): cold
+start ~400 ms (no regression), heap ~84 MB (unchanged — expected).
 
-## Deferred / intentionally skipped (don't forget these)
+---
 
-### The paged grid is a **measurement scaffold** — these are missing vs the in-memory `LibraryScreen`
-- **Shelves** (Continue Reading / Up Next / Recently Finished) top slot. → D2
-- **Filter summary + filter panel + sort control chrome** (the toolbar row).
-- **Alphabet navigation rail** (needs the full ordered list or an IDs+sort-letter query).
-- **Download-selection mode** (long-press select, "select all visible", selectable-id reporting).
-- **Per-card action menu** (download / delete / mark read-status). `GridCoverCard` supports
-  `menuContent`; `LibraryPagedGrid` passes none.
-- **Sort-dependent badges** (issue-count badge only shows when sort == ISSUE_COUNT).
-- **Scroll-position persistence** + scroll-to-top-on-sort/date-change behaviors.
-- **Nested prefetch strategy** (paged grid uses only the loaded-window prefetch).
+## 4. Key findings & corrections (don't re-derive these)
 
-### Gating (in `LibraryPagingFeature.isPageable`)
-- **Kavita only.** Grimmory / Stump / Local still fully in-memory.
-- **Sorts: TITLE / DATE_ADDED only.** LAST_READ query exists (D1) but is **not switched on** so the
-  default view keeps shelves — flip after D2.
-- **No active filters / search / series-browse / Kavita scope.**
+1. **`reading_progress` is in the SAME `unified-reader.db`** as `readable_items` (the "separate store"
+   is only a repository-layer split). `lastReadAt == reading_progress.updatedAtEpochMillis`. So the
+   LAST_READ join is pure SQL (done in D1).
+2. **The `*Json` facet columns are NOT JSON** — they're ``-delimited strings
+   (`RemoteCatalogEntityMappers.encodeMetadataValues`). `json_each` was never viable; normalized facet
+   tables are the only correct approach (C1).
+3. **Paging is inherently invisible.** The in-memory library view was already complete (shelves,
+   filters, sort). The only visible effect of paging done right is that the "scaffold" is gone (M1);
+   the real payoff is memory, which only drops when `items` is retired. There is no visual "new
+   feature" to ship — set expectations accordingly.
+4. **`visibleItems` and `items` are load-bearing far beyond the grid — DO NOT empty/drop them without
+   migrating consumers first.** This is why M2 was attempted and reverted (see §6).
+5. **First launch after the v24→v27 migration does a heavy ONE-TIME rebuild** (populating
+   roots/facets/members from the whole catalog) → ~500 MB GC churn + a CursorWindow burst. One-time
+   (no-op after), but it should be made lighter/off the critical path.
+6. Can't build a data-preserving install without the release keystore — see §8.
 
-### Data / correctness deferrals
-- **Contextual facets** not done (only non-contextual C1). `buildContextualLibraryFilterFacets` does
-  ~10 filtered passes (each dimension's values after applying all *other* active filters). → C2
-- **`LibraryFilterFacets` assembly from SQL** + reapplying orderings
-  (`distinctByEnumOrder` / `distinctByAuthorOrder` / `distinctByTextOrder`) + wiring into the paged UI
-  filter panel. → C3
-- **`fileLocation` facet** excluded from the SQL table (runtime-dependent: `isLocalImport` + downloaded
-  set). Needs query-time handling if the paged view exposes the Location filter.
-- **Series browse from the paged path** — tapping a container still uses the in-memory path;
-  `library_root_members` now enables SQL series browse but it isn't wired.
-- **Search in the paged view** — no SQL search (FTS/LIKE) yet; gated out.
-- **Delta root rebuild is per-affected-library full recompute**, not per-series incremental — correct
-  but reads all of an affected library's items on delta. Optimize only if sync profiling shows cost.
+---
 
-## Remaining roadmap
+## 5. Committed but incomplete / deferred
 
-### D2 — Shelves via SQL (finishes Stage D)
-Bounded queries over `library_root_members` + `reading_progress`:
-- Continue Reading (in-progress, most-recent first), Up Next (next unread issue in a started series),
-  Recently Finished (completed, most-recent first).
-- Then flip `isPageable` to include LAST_READ so the **default** Kavita view pages without losing
-  shelves. Owner: `feature:library-shelves` (+ thin `core:database` queries). Proof: DAO tests +
-  presentation-coherence.
+- **Paged view gating** is deliberately narrow (Kavita root, LAST_READ/DATE_ADDED, no filters/search).
+  Rail sorts, filters, search, series browse, and Grimmory/Stump/Local still use the in-memory path.
+- **Facets are non-contextual only** (C1). Contextual facets (each dimension's values after applying
+  the *other* active filters — the ~10-pass logic in `buildContextualLibraryFilterFacets`) and wiring
+  SQL facets into the paged filter panel are not done.
+- **Shelves are still computed in memory** (the paged view reuses `uiState.libraryShelvesState`, which
+  the in-memory recompute still produces). No SQL shelves yet.
+- **Series browse & search in the paged path** are not implemented (fall back to in-memory).
+- **Download delete** (`AppRemoteDownloadController.onDeleteRemoteLocalFile`) still passes the full
+  list (it recomputes complete local-availability sets that replace state).
+- **First-launch rebuild** not yet made lighter/off-thread.
 
-### C2 / C3 — Contextual facets in SQL + paged filter panel
-Only needed once the paged view exposes filters. Contextual facet = distinct values of a dimension
-among roots matching all *other* active filter predicates (join `library_root_facets` with the active
-filters). Then assemble `LibraryFilterFacets` and reapply the existing Kotlin orderings.
+---
 
-### Stage E — Retire in-memory `AppUiState.items` (THE memory win)
-**This is where the numbers move** (startup 757 MB GC / ~101 MB steady heap / 236 MB back-nav). Nothing
-before E changes steady-state memory, because `items` (and its derivations) stay fully resident.
-Large + risky — must be sliced and checkpointed. Consumers of the full list to migrate (~18):
+## 6. THE CRITICAL CONSTRAINT — consumers of the full in-memory list
 
-- **Grid/derived pipeline**: `LibraryDerivedStateComputer`, `LibrarySourceIndex`,
-  `AppLibraryStateRecomputeCoordinator`, `AppLibraryDerivedStateBinding` — the Kavita paged path
-  replaces this; other sources/sorts still need an equivalent (extend paging to them, or keep a
-  bounded path).
-- **Shelves**: `LibraryShelvesStateComputer` (→ D2 SQL).
-- **Item-by-id lookups**: `AppUiState.selectedItem`, reader next-item resolver
-  (`AppReaderNextItemResolver`), `selectedKavita/StumpSeriesTitle`, `AppCoverPreloadController`,
-  `AppRemoteDownloadController`, `AppKavitaReadingListController`,
-  `AppComicReadingDirection/ReaderModeController` (`readableItemRepository.getItems()`).
-- **Scope computations**: `remoteItemLocalState*` in `AppUiState` (which items to check download
-  availability for), `AppLibraryProgressRefreshCoordinator`, `AppProgressSyncStartupRetryCoordinator`.
-- **Snapshot assembly**: `AppCatalogStateCoordinator` (`items = catalogItems + imported`),
-  `ObserveAppCatalogSnapshotsUseCase`.
-- **Cold-start render cache**: `coldStartOrderedItemIdsBySource` + `ColdStartCatalogSeeder`.
-- **Repository residency**: `RoomRemoteCatalogRepository.itemsState` (the full mapped list) +
-  `CompositeCatalogRepository`.
+The memory win requires dropping `AppUiState.items` / `RoomRemoteCatalogRepository.itemsState`. That
+cannot happen until **every** reader of the full list (or of `visibleItems`) has a paging-compatible
+alternative. Attempting to short-circuit this (M2: empty `visibleItems` when paged) broke real
+features and 8 tests — reverted. Consumers to migrate, grouped by approach:
 
-**Suggested E slicing:**
-1. **Lookup foundation** — targeted `getItemById` / `getItemsByIds` (DAO + `ReadableItemLookup`
-   interface, DI-bound). **DONE — commit `91e42908`.**
-2. Migrate id-lookup consumers to the lookup.
-   - **Reader next-item DONE — `66121b9f`** (`getMemberItemIds` + `getSeriesMemberItems`; the
-     resolver gets the bounded series-members / reading-list set, off the main thread).
-   - **Download enqueue DONE — `fa636a9b`** (`getSeriesMemberItems` generalized for containers;
-     `onDownloadRemoteItem`/`onDownloadRemoteItems` pass the selected item's series members).
-   - `AppKavitaReadingListController` — already fine (uses a state map, not the full list).
-   Still to do, and NOT mechanical:
-   - `onDeleteRemoteLocalFile` — recomputes the full local-availability sets that replace state;
-     needs a **scope-aware availability recompute** before it can take a bounded set.
-   - `AppCoverPreloadController.preloadCovers` — user action; needs all of a source's items. Swap
-     `state.items` for a source-scoped query (`getItemsForSourceType`).
-   - `selectedItem`, series titles — synchronous computed props read in composition; resolve the
-     selected item into state at selection time instead of deriving from the full list.
-   - `AppComicReadingDirection/ReaderModeController` — reactive reconciliation over ALL items; needs
-     a semantic change (reconcile only items with overrides/sessions), higher risk.
-   - **Synchronous computed props** (`selectedItem`, `selectedKavita/StumpSeriesTitle`) read during
-     composition; can't become `suspend` without restructuring state assembly (resolve the selected
-     item into state when selection changes, rather than deriving it from the full list on read).
-   - **Reactive full-catalog scans** (`AppComicReadingDirection/ReaderModeController` reconcile over
-     ALL items via `observeItems()`; `AppCoverPreloadController`) — need a semantic change to scan a
-     bounded/relevant subset, not a lookup swap.
-   Each is its own slice with its own correctness reasoning + test.
-3. Move download-availability scope computation to a bounded query.
-4. Retire the in-memory derived-state pipeline for Kavita (paged path is authoritative); keep a bounded
-   path for other sources or extend paging to them.
-5. Stop materializing `RoomRemoteCatalogRepository.itemsState` / `AppUiState.items`; delete the field
-   and its `observeItems()` feed once no consumer remains.
-6. **Measure**: `am start -W`, `dumpsys meminfo`, back-from-reader heap vs the committed baselines.
+- **Ordered visible set → paged order:** `AppColdStartLibraryViewCoordinator` persists
+  `state.visibleItems` order per source for instant cold-start restore. Reconsider whether the
+  cold-start cache is even needed once the default view pages (Room paging is already fast at cold
+  start); otherwise capture the paged root order instead.
+- **Batch download "select all" → bounded IDs query:** `UnifiedReaderScaffold` reads
+  `uiState.visibleItems` to select all downloadable items. Serve from a SQL ids query / paged snapshot.
+- **By-id synchronous props → `ReadableItemLookup` (E1) resolved into state at selection time:**
+  `AppUiState.selectedItem`, `selectedKavitaSeriesTitle`, `selectedStumpSeriesTitle`.
+- **Reactive full scans → bounded/semantic:** `AppComicReadingDirectionController` /
+  `AppComicReaderModeController` reconcile over `observeItems()` (reconcile only items with
+  overrides/sessions); `AppCoverPreloadController.preloadCovers` (use `getItemsForSourceType`).
+- **Derived presentation → SQL:** facets (C2/C3 over `library_root_facets`), shelves (D2 over
+  `library_root_members` + `reading_progress`), series progress/rating rollup (via members).
+- **`remoteItemLocalState*` scope computations** in `AppUiState` (which items to check availability
+  for) → bounded/source-scoped queries.
+- **Snapshot assembly (last):** `AppCatalogStateCoordinator` / `ObserveAppCatalogSnapshotsUseCase`
+  build `items = catalogItems + imported`. Once everything above is migrated, stop materializing the
+  full list here and delete `AppUiState.items` + `itemsState`.
+- **Other sources:** `items` is all-sources, so Grimmory/Stump/Local must either page too or keep a
+  bounded path before `items` can go.
 
-## Verification / logistics
+Already migrated: reader next-item (E2), download enqueue (E3), item-by-id lookup foundation (E1).
 
-- Device: OnePlus `9279b171`, app `com.example.unifiedreader` (release v0.3.0, signer `cc3c8218`).
-  adb at `~/Library/Android/sdk_new/platform-tools/adb`.
-- **Baseline (2026-07-08, flag-OFF):** cold start 421 ms (== committed 423, no regression); Java heap
-  ~101 MB PSS / TOTAL 282 MB; GC 0 LOS; no CursorWindow errors. The ~101 MB heap **is** the full
-  catalog in `items` — the Stage E target.
-- **Signing (to let the assistant build/install releases):** export
-  `ANDROID_SIGNING_STORE_FILE` / `_STORE_PASSWORD` / `_KEY_ALIAS` / `_KEY_PASSWORD` pointing at the
-  **same** keystore as the installed app (`cc3c8218`), else installing wipes the catalog DB. Then
-  `./gradlew :app:installRelease` preserves data.
-- **A/B:** `LibraryPagingFeature.ENABLED` (compile-time). Flip → rebuild → install. Paging only engages
-  on Kavita Title/Date-added with no filters/search.
+---
 
-## Invariants to preserve
+## 7. Plan for the next session (do in this order)
 
-- **Library presentation must commit coherently** (ARCHITECTURE_RULES) — no mixed old/new, no layout
-  jumps, covers may load independently but card sizes/positions stay stable.
+**Phase 1 — Migrate the load-bearing consumers (prerequisite; no memory win yet, keeps everything
+working).** One small, tested slice each, in roughly this order (safest/highest-leverage first):
+1. Cold-start cache: decouple from `visibleItems` (capture paged order, or retire it for the paged
+   path). *Unblocks emptying visibleItems.*
+2. Batch download-selection: serve "select all" from SQL ids, not `visibleItems`.
+3. Shelves → SQL (D2): Continue Reading / Up Next / Recently Finished as bounded queries over
+   `library_root_members` + `reading_progress`. *Removes the biggest remaining items-scan.*
+4. Facets → SQL (C2/C3): contextual facets + assemble `LibraryFilterFacets` from SQL + wire into the
+   paged filter panel.
+5. By-id props (`selectedItem`, series titles) → resolve into state via `ReadableItemLookup`.
+6. Reactive scans (comic direction/mode reconciliation, cover preload) → bounded queries.
+7. `remoteItemLocalState*` scope computations → bounded queries.
+
+**Phase 2 — Retry M2 (now safe): skip the in-memory recompute when paged.** With the consumers
+migrated, add `LibraryDerivedStateInput.includeVisibleItems=false` when `isPageable` so the
+full-catalog sort/source-index no longer runs for the paged view. **Measurable:** back-nav GC/churn
+drop. (The reverted M2 diff is a starting point; it needs the Phase-1 migrations first.)
+
+**Phase 3 — M3: retire the in-memory catalog.** Extend paging to the other sources (or keep a bounded
+path), migrate the snapshot assembly, then delete `AppUiState.items` / `RoomRemoteCatalogRepository.itemsState`.
+**Measurable:** startup Java heap (~84 MB) drops. This is the headline win.
+
+Also fold in: make the first-launch derived-table rebuild lighter/off the critical path.
+
+---
+
+## 8. Measurement & logistics
+
+- Device: OnePlus `9279b171`, app `com.example.unifiedreader` (release, signer `cc3c8218`). adb at
+  `~/Library/Android/sdk_new/platform-tools/adb`.
+- Metrics: `adb shell am start -W` (TotalTime); `adb shell dumpsys meminfo com.example.unifiedreader`
+  (App Summary → Java Heap / TOTAL PSS); GC churn + CursorWindow count via `adb logcat`; Choreographer
+  skipped frames on scroll. Baseline: cold start ~421 ms, Java heap ~84–101 MB, TOTAL PSS ~270–282 MB,
+  CursorWindow ~48, no crashes.
+- **Signing (so the assistant can build+install itself):** export `ANDROID_SIGNING_STORE_FILE`,
+  `ANDROID_SIGNING_STORE_PASSWORD`, `ANDROID_SIGNING_KEY_ALIAS`, `ANDROID_SIGNING_KEY_PASSWORD`
+  pointing at the **same keystore as the installed app** (`cc3c8218`), else installing wipes the
+  catalog DB. Then `./gradlew :app:installRelease` preserves data. Without it, the user installs.
+- A/B: `LibraryPagingFeature.ENABLED` (compile-time). Flip → rebuild → install.
+
+---
+
+## 9. Invariants / gotchas
+
+- **Do not empty or drop `visibleItems` / `items` before migrating §6 consumers** (M2 revert lesson).
+- **Library presentation must commit coherently** (ARCHITECTURE_RULES): no mixed old/new, no layout
+  jumps; covers may load independently but card sizes/positions stay stable.
 - Keep `app` thin; source-specific + presentation logic in owning modules.
 - Derived tables must stay coherent with `readable_items` — every catalog write rebuilds them in the
   same transaction (full replace: per-source; delta: per-affected-library).
-- Series grouping defined once in `core:model`; don't reimplement it in SQL or the app.
+- Series grouping is defined once in `core:model` — reuse it; don't reimplement in SQL or app.
+- Existing app-suite flaky tests: `AppStumpCoordinatorTest`,
+  `DownloadedRemoteComicEntryCacheCoordinatorTest` fail intermittently in the full run, pass in
+  isolation — unrelated to this work.
+
+---
+
+## 10. How to start the next session
+
+1. `git checkout perf/library-db-paging` (HEAD = `53877eb6`, M1). Working tree clean.
+2. Read this file + the memory note `stage3-paging-handoff`.
+3. Start **Phase 1, slice 1** (cold-start cache) — a small, tested slice. Keep the branch green;
+   commit per slice. Only attempt Phase 2 (M2) after Phase 1.
