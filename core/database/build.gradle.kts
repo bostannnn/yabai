@@ -30,6 +30,7 @@ dependencies {
     implementation(project(":core:model"))
     api(libs.androidx.room.runtime)
     api(libs.androidx.room.ktx)
+    api(libs.androidx.room.paging)
     ksp(libs.androidx.room.compiler)
 
     testImplementation(libs.junit4)

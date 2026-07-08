@@ -1,5 +1,6 @@
 package com.example.unifiedreader.core.database.dao
 
+import androidx.paging.PagingSource
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
@@ -90,6 +91,15 @@ abstract class RemoteCatalogDao {
 
     @Query("SELECT * FROM library_grid_roots WHERE sourceType = :sourceType ORDER BY title COLLATE NOCASE ASC")
     abstract fun getGridRootsForSourceType(sourceType: String): List<LibraryGridRootEntity>
+
+    @Query("SELECT * FROM library_grid_roots WHERE sourceType = :sourceType ORDER BY title COLLATE NOCASE ASC")
+    abstract fun pagingGridRootsByTitle(sourceType: String): PagingSource<Int, LibraryGridRootEntity>
+
+    @Query(
+        "SELECT * FROM library_grid_roots WHERE sourceType = :sourceType " +
+            "ORDER BY addedAtEpochMillis DESC, title COLLATE NOCASE ASC",
+    )
+    abstract fun pagingGridRootsByDateAdded(sourceType: String): PagingSource<Int, LibraryGridRootEntity>
 
     @Query("SELECT COUNT(*) FROM library_grid_roots")
     abstract fun countGridRoots(): Int
