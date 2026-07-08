@@ -40,6 +40,17 @@ interface RemoteCatalogReadiness {
 }
 
 /**
+ * Targeted item lookups backed by bounded SQL, so id-based consumers (selected item, reader
+ * next-item, series titles, cover preload, downloads) can resolve specific items without scanning
+ * the whole in-memory catalog. The migration foundation for retiring `AppUiState.items` (Stage E).
+ */
+interface ReadableItemLookup {
+    suspend fun getItemById(itemId: String): ReadableItem?
+
+    suspend fun getItemsByIds(itemIds: List<String>): List<ReadableItem>
+}
+
+/**
  * Streams the library grid as pages of already-derived roots from `library_grid_roots`, so only the
  * visible window is resident instead of the whole catalog. Only the column sorts (TITLE, DATE_ADDED)
  * are paged today; LAST_READ needs the progress join (Stage D).
@@ -98,6 +109,7 @@ class RoomRemoteCatalogRepository(
     StartupRemoteCatalogCacheSeeder,
     ColdStartCatalogSeeder,
     LibraryGridPager,
+    ReadableItemLookup,
     RemoteLibraryCacheStore {
     private val librariesState = MutableStateFlow<List<Library>>(emptyList())
     private val itemsState = MutableStateFlow<List<ReadableItem>>(emptyList())
@@ -262,6 +274,23 @@ class RoomRemoteCatalogRepository(
             .map(ReadableItemLibraryEntity::toDomain)
     }
 
+    override suspend fun getItemById(
+        itemId: String,
+    ): ReadableItem? = withContext(ioDispatcher) {
+        remoteCatalogDao.getLibraryItemById(itemId)?.toDomain()
+    }
+
+    override suspend fun getItemsByIds(
+        itemIds: List<String>,
+    ): List<ReadableItem> {
+        if (itemIds.isEmpty()) return emptyList()
+        return withContext(ioDispatcher) {
+            itemIds.chunked(ITEM_ID_LOOKUP_CHUNK_SIZE).flatMap { chunk ->
+                remoteCatalogDao.getLibraryItemsByIds(chunk).map(ReadableItemLibraryEntity::toDomain)
+            }
+        }
+    }
+
     override suspend fun getCatalogSyncGroups(
         sourceType: SourceType,
     ): List<RemoteCatalogSyncGroup> = withContext(ioDispatcher) {
@@ -376,3 +405,5 @@ private fun <T> List<T>.replaceSource(
 
 private const val LOG_TAG = "RemoteCatalogRepo"
 private const val GRID_PAGE_SIZE = 60
+// SQLite caps bound variables (~999); chunk id lookups well under that, matching the DAO's own limit.
+private const val ITEM_ID_LOOKUP_CHUNK_SIZE = 900

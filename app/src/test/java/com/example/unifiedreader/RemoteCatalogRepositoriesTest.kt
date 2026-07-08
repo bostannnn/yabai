@@ -354,6 +354,26 @@ class RemoteCatalogRepositoriesTest {
     }
 
     @Test
+    fun `readable item lookup resolves items by id via bounded queries`() = runBlocking {
+        val alpha = remoteCatalogItem(sourceType = SourceType.KAVITA, remoteId = "a", title = "Alpha")
+        val beta = remoteCatalogItem(sourceType = SourceType.KAVITA, remoteId = "b", title = "Beta")
+        val dao = FakeRemoteCatalogDao(libraries = emptyList(), items = listOf(alpha, beta))
+        val repository = RoomRemoteCatalogRepository(
+            remoteCatalogDao = dao,
+            ioDispatcher = Dispatchers.Unconfined,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
+        )
+
+        assertEquals("Alpha", repository.getItemById(alpha.id)?.title)
+        assertEquals(null, repository.getItemById("kavita:item:missing"))
+        assertEquals(
+            setOf("Alpha", "Beta"),
+            repository.getItemsByIds(listOf(alpha.id, beta.id, "kavita:item:missing")).map { it.title }.toSet(),
+        )
+        assertEquals(emptyList<String>(), repository.getItemsByIds(emptyList()).map { it.title })
+    }
+
+    @Test
     fun `room remote catalog repository chunks large source catalog delta deletes`() = runBlocking {
         val dao = FakeRemoteCatalogDao(
             libraries = emptyList(),
@@ -487,6 +507,9 @@ private class FakeRemoteCatalogDao(
             .filter { it.id in requested }
             .map(ReadableItemEntity::toLibraryEntity)
     }
+
+    override fun getLibraryItemById(itemId: String): ReadableItemLibraryEntity? =
+        itemsState.value.firstOrNull { it.id == itemId }?.toLibraryEntity()
 
     override fun getCachedLibraries(
         sourceType: String,

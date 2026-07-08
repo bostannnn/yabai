@@ -415,6 +415,11 @@ object AppModule {
     ): LibraryGridPager = repository
 
     @Provides
+    fun provideReadableItemLookup(
+        repository: RoomRemoteCatalogRepository,
+    ): ReadableItemLookup = repository
+
+    @Provides
     fun provideRemoteLibraryCacheStore(
         repository: RoomRemoteCatalogRepository,
     ): RemoteLibraryCacheStore = repository

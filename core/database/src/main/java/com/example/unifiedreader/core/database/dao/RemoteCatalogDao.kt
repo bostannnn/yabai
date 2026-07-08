@@ -94,6 +94,9 @@ abstract class RemoteCatalogDao {
     @Query(READABLE_ITEM_LIBRARY_SELECT + " WHERE id IN (:itemIds)")
     abstract fun getLibraryItemsByIds(itemIds: List<String>): List<ReadableItemLibraryEntity>
 
+    @Query(READABLE_ITEM_LIBRARY_SELECT + " WHERE id = :itemId LIMIT 1")
+    abstract fun getLibraryItemById(itemId: String): ReadableItemLibraryEntity?
+
     @Query("SELECT * FROM library_grid_roots WHERE sourceType = :sourceType ORDER BY title COLLATE NOCASE ASC")
     abstract fun getGridRootsForSourceType(sourceType: String): List<LibraryGridRootEntity>
 
