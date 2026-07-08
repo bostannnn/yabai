@@ -94,7 +94,7 @@ fun LibraryScreen(
     selectedDownloadItemIds: List<String> = emptyList(),
     onDownloadSelectionModeChanged: (Boolean) -> Unit = {},
     onSelectedDownloadItemIdsChanged: (List<String>) -> Unit = {},
-    onSelectableDownloadItemIdsChanged: (Set<String>) -> Unit = {},
+    onSelectableDownloadItemsChanged: (List<ReadableItem>) -> Unit = {},
     onItemSelected: (ReadableItem) -> Unit,
     seriesReadingDirectionFor: (ReadableItem) -> ComicReadingDirection? = { null },
     onSeriesDirectionSelected: (ReadableItem, ComicReadingDirection) -> Unit = { _, _ -> },
@@ -149,15 +149,18 @@ fun LibraryScreen(
     }
     val alphabetRailVisible = showSortControl && searchQuery.isBlank() && sortLetters.isNotEmpty()
     val visibleItems = items
+    // What the grid actually renders — the paging snapshot when paged, else the in-memory list.
+    // Selection (select-all, long-press, download) and cover prefetch both read this, so neither
+    // depends on [items] for the paged path (where [items]/visibleItems is emptied).
+    val renderedItems = if (isPaged) pagedItems!!.itemSnapshotList.items else visibleItems
     // When paged, the grid body's emptiness/loading come from the paging flow, not [items].
     val gridIsEmpty = if (isPaged) pagedItems!!.itemCount == 0 else visibleItems.isEmpty()
     val showGridLoading = isLoadingSource || (isPaged && pagedItems!!.loadState.refresh is LoadState.Loading)
-    val selectableDownloadItemIds = remember(visibleItems, downloadableItemIds, downloadingItemIds) {
-        visibleItems
-            .asSequence()
-            .map(ReadableItem::id)
-            .filter { itemId -> itemId in downloadableItemIds && itemId !in downloadingItemIds }
-            .toSet()
+    val selectableDownloadItems = remember(renderedItems, downloadableItemIds, downloadingItemIds) {
+        renderedItems.filter { item -> item.id in downloadableItemIds && item.id !in downloadingItemIds }
+    }
+    val selectableDownloadItemIds = remember(selectableDownloadItems) {
+        selectableDownloadItems.mapTo(mutableSetOf(), ReadableItem::id)
     }
     val selectedDownloadItemIdSet = selectedDownloadItemIds
         .filter { itemId -> itemId in selectableDownloadItemIds }
@@ -229,8 +232,8 @@ fun LibraryScreen(
             onCoverViewportScrollingChanged(false)
         }
     }
-    LaunchedEffect(browseContextKey, selectableDownloadItemIds) {
-        onSelectableDownloadItemIdsChanged(selectableDownloadItemIds)
+    LaunchedEffect(browseContextKey, selectableDownloadItems) {
+        onSelectableDownloadItemsChanged(selectableDownloadItems)
     }
     LaunchedEffect(browseContextKey, selectableDownloadItemIds, selectedDownloadItemIds, isDownloadSelectionMode) {
         val sanitizedSelection = selectedDownloadItemIds.filter { itemId -> itemId in selectableDownloadItemIds }
@@ -247,7 +250,7 @@ fun LibraryScreen(
         onSelectedDownloadItemIdsChanged(
             selectedDownloadItemIdSet
                 .toggle(item.id)
-                .let { selectedIds -> visibleItems.map(ReadableItem::id).filter { it in selectedIds } },
+                .let { selectedIds -> renderedItems.map(ReadableItem::id).filter { it in selectedIds } },
         )
     }
 
@@ -256,7 +259,7 @@ fun LibraryScreen(
         onDownloadSelectionModeChanged(true)
         if (item.id !in selectedDownloadItemIdSet) {
             onSelectedDownloadItemIdsChanged(
-                visibleItems
+                renderedItems
                     .map(ReadableItem::id)
                     .filter { itemId -> itemId == item.id || itemId in selectedDownloadItemIdSet },
             )
@@ -282,7 +285,7 @@ fun LibraryScreen(
         VisibleRemoteCoverPrefetcher(
             browseContextKey = browseContextKey,
             gridState = gridState,
-            items = if (isPaged) pagedItems!!.itemSnapshotList.items else visibleItems,
+            items = renderedItems,
             leadingContentItemCount = leadingContentItemCount,
             variant = gridCoverImageVariant,
             maxTargetsWhileScrolling = gridPresentation.scrollingPrefetchItemLimit,
