@@ -19,6 +19,7 @@ import com.example.unifiedreader.core.database.entity.JournalReadingEventEntity
 import com.example.unifiedreader.core.database.entity.JournalReadingSessionEntity
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.LibraryGridRootEntity
+import com.example.unifiedreader.core.database.entity.LibraryRootFacetEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
 import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEntity
 import com.example.unifiedreader.core.database.entity.RemoteLibraryCacheEntity
@@ -39,8 +40,9 @@ import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
         ItemJournalEntryEntity::class,
         RemoteCatalogSyncGroupEntity::class,
         LibraryGridRootEntity::class,
+        LibraryRootFacetEntity::class,
     ],
-    version = 25,
+    version = 26,
     exportSchema = false,
 )
 abstract class UnifiedReaderDatabase : RoomDatabase() {
@@ -851,6 +853,37 @@ object UnifiedReaderDatabaseMigrations {
             )
         }
     }
+
+    val MIGRATION_25_26 = object : Migration(25, 26) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            // Empty normalized facet table; populated from the grid roots on the next catalog write
+            // or the startup rebuild-if-empty. Column shape mirrors LibraryRootFacetEntity.
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `library_root_facets` (
+                    `rootId` TEXT NOT NULL,
+                    `sourceType` TEXT NOT NULL,
+                    `libraryId` TEXT NOT NULL,
+                    `dimension` TEXT NOT NULL,
+                    `value` TEXT NOT NULL,
+                    PRIMARY KEY(`rootId`, `dimension`, `value`)
+                )
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS `index_library_root_facets_sourceType_dimension`
+                ON `library_root_facets` (`sourceType`, `dimension`)
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS `index_library_root_facets_libraryId`
+                ON `library_root_facets` (`libraryId`)
+                """.trimIndent(),
+            )
+        }
+    }
 }
 
 object UnifiedReaderDatabaseFactory {
@@ -886,6 +919,7 @@ object UnifiedReaderDatabaseFactory {
             UnifiedReaderDatabaseMigrations.MIGRATION_22_23,
             UnifiedReaderDatabaseMigrations.MIGRATION_23_24,
             UnifiedReaderDatabaseMigrations.MIGRATION_24_25,
+            UnifiedReaderDatabaseMigrations.MIGRATION_25_26,
         )
         .build()
 }

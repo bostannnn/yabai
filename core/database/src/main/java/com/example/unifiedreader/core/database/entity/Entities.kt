@@ -176,6 +176,28 @@ data class LibraryGridRootEntity(
     val comicLanguagesJson: String?,
 )
 
+/**
+ * Normalized facet values for the grid roots in [LibraryGridRootEntity], one row per
+ * (root, dimension, value). Lets filter facets be computed with `SELECT DISTINCT` aggregates instead
+ * of scanning the whole in-memory catalog. Rebuilt alongside `library_grid_roots` on catalog write.
+ * [dimension] is a [com.example.unifiedreader.core.model.LibraryFacetDimension] name.
+ */
+@Entity(
+    tableName = "library_root_facets",
+    primaryKeys = ["rootId", "dimension", "value"],
+    indices = [
+        Index(value = ["sourceType", "dimension"]),
+        Index(value = ["libraryId"]),
+    ],
+)
+data class LibraryRootFacetEntity(
+    val rootId: String,
+    val sourceType: String,
+    val libraryId: String,
+    val dimension: String,
+    val value: String,
+)
+
 @Entity(tableName = "reading_progress")
 data class ReadingProgressEntity(
     @PrimaryKey val itemId: String,

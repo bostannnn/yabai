@@ -4,6 +4,7 @@ import com.example.unifiedreader.core.database.dao.RemoteCatalogDao
 import androidx.paging.PagingSource
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.LibraryGridRootEntity
+import com.example.unifiedreader.core.database.entity.LibraryRootFacetEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemLibraryEntity
 import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEntity
@@ -596,6 +597,28 @@ private class FakeRemoteCatalogDao(
 
     protected override fun deleteGridRootsForLibrary(libraryId: String) {
         gridRootsState.value = gridRootsState.value.filterNot { it.libraryId == libraryId }
+    }
+
+    private val rootFacetsState = MutableStateFlow<List<LibraryRootFacetEntity>>(emptyList())
+
+    override fun getDistinctFacetValues(sourceType: String, dimension: String): List<String> =
+        rootFacetsState.value
+            .filter { it.sourceType == sourceType && it.dimension == dimension }
+            .map { it.value }
+            .distinct()
+
+    override fun insertOrReplaceRootFacets(facets: List<LibraryRootFacetEntity>) {
+        val replacementKeys = facets.mapTo(mutableSetOf()) { Triple(it.rootId, it.dimension, it.value) }
+        rootFacetsState.value = rootFacetsState.value
+            .filterNot { Triple(it.rootId, it.dimension, it.value) in replacementKeys } + facets
+    }
+
+    protected override fun deleteRootFacetsForSourceType(sourceType: String) {
+        rootFacetsState.value = rootFacetsState.value.filterNot { it.sourceType == sourceType }
+    }
+
+    protected override fun deleteRootFacetsForLibrary(libraryId: String) {
+        rootFacetsState.value = rootFacetsState.value.filterNot { it.libraryId == libraryId }
     }
 }
 

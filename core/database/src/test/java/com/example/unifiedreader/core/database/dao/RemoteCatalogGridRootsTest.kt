@@ -8,6 +8,8 @@ import com.example.unifiedreader.core.database.entity.ReadableItemEntity
 import com.example.unifiedreader.core.database.entity.toDomain
 import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.buildLibraryFilterFacets
+import com.example.unifiedreader.core.model.deriveGridRootItems
 import com.example.unifiedreader.core.model.deriveKavitaSeriesGrouping
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -106,6 +108,52 @@ class RemoteCatalogGridRootsTest {
     }
 
     @Test
+    fun `replaceSourceCatalog persists facet values matching the in-memory facets`() {
+        dao.replaceSourceCatalog(
+            sourceType = SourceType.KAVITA.name,
+            libraries = listOf(kavitaLibrary(id = "kavita:library:libA", remoteId = "libA")),
+            items = listOf(
+                kavitaIssueEntity(id = "kavita:item:1", seriesId = "s1", title = "Series One #1"),
+                kavitaIssueEntity(id = "kavita:item:2", seriesId = "s1", title = "Series One #2"),
+                kavitaBookEntity(id = "kavita:item:book-1", title = "A Standalone Book"),
+            ),
+        )
+
+        // Persisted distinct facet values must equal what the in-memory facet builder derives over
+        // the same grid roots, per dimension.
+        val projectedItems = dao.getLibraryItemsForSourceType(SourceType.KAVITA.name).map { it.toDomain() }
+        val roots = deriveGridRootItems(SourceType.KAVITA, projectedItems)
+        val expected = buildLibraryFilterFacets(roots)
+
+        assertEquals(expected.genres.toSet(), dao.getDistinctFacetValues(SourceType.KAVITA.name, "GENRE").toSet())
+        assertEquals(expected.series.toSet(), dao.getDistinctFacetValues(SourceType.KAVITA.name, "SERIES").toSet())
+        assertEquals(expected.libraries.toSet(), dao.getDistinctFacetValues(SourceType.KAVITA.name, "LIBRARY").toSet())
+        assertEquals(
+            expected.formats.map { it.name }.toSet(),
+            dao.getDistinctFacetValues(SourceType.KAVITA.name, "FORMAT").toSet(),
+        )
+    }
+
+    @Test
+    fun `applySourceCatalogDelta refreshes facets for affected libraries`() {
+        dao.replaceSourceCatalog(
+            sourceType = SourceType.KAVITA.name,
+            libraries = listOf(kavitaLibrary(id = "kavita:library:libA", remoteId = "libA")),
+            items = listOf(kavitaIssueEntity(id = "kavita:item:1", seriesId = "s1", title = "One")),
+        )
+        // Replace the only item with one carrying a different genre; the stale genre must be gone.
+        dao.applySourceCatalogDelta(
+            sourceType = SourceType.KAVITA.name,
+            libraries = listOf(kavitaLibrary(id = "kavita:library:libA", remoteId = "libA")),
+            upsertItems = listOf(
+                kavitaIssueEntity(id = "kavita:item:1", seriesId = "s1", title = "One", genre = "Drama"),
+            ),
+        )
+
+        assertEquals(setOf("Drama"), dao.getDistinctFacetValues(SourceType.KAVITA.name, "GENRE").toSet())
+    }
+
+    @Test
     fun `applySourceCatalogDelta grows a series container when an issue is added`() {
         dao.replaceSourceCatalog(
             sourceType = SourceType.KAVITA.name,
@@ -194,6 +242,7 @@ private fun kavitaIssueEntity(
     id: String,
     seriesId: String,
     title: String,
+    genre: String = "Action",
 ): ReadableItemEntity = ReadableItemEntity(
     id = id,
     sourceType = SourceType.KAVITA.name,
@@ -221,7 +270,7 @@ private fun kavitaIssueEntity(
     comicVolume = null,
     comicIssueNumber = null,
     comicPublishersJson = null,
-    comicGenresJson = "Action",
+    comicGenresJson = genre,
     comicTagsJson = null,
     comicLanguagesJson = null,
     updatedAtEpochMillis = 1_000L,

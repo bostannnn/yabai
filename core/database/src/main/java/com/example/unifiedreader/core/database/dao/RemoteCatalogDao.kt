@@ -8,12 +8,14 @@ import androidx.room.Query
 import androidx.room.Transaction
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.LibraryGridRootEntity
+import com.example.unifiedreader.core.database.entity.LibraryRootFacetEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemLibraryEntity
 import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEntity
 import com.example.unifiedreader.core.database.entity.RemoteLibraryCacheEntity
 import com.example.unifiedreader.core.database.entity.toDomain
 import com.example.unifiedreader.core.database.entity.toGridRootEntity
+import com.example.unifiedreader.core.database.entity.toRootFacetEntities
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.deriveGridRootItems
@@ -117,6 +119,21 @@ abstract class RemoteCatalogDao {
     protected abstract fun deleteGridRootsForLibrary(libraryId: String)
 
     @Query(
+        "SELECT DISTINCT value FROM library_root_facets " +
+            "WHERE sourceType = :sourceType AND dimension = :dimension",
+    )
+    abstract fun getDistinctFacetValues(sourceType: String, dimension: String): List<String>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract fun insertOrReplaceRootFacets(facets: List<LibraryRootFacetEntity>)
+
+    @Query("DELETE FROM library_root_facets WHERE sourceType = :sourceType")
+    protected abstract fun deleteRootFacetsForSourceType(sourceType: String)
+
+    @Query("DELETE FROM library_root_facets WHERE libraryId = :libraryId")
+    protected abstract fun deleteRootFacetsForLibrary(libraryId: String)
+
+    @Query(
         """
         SELECT * FROM remote_library_cache_entries
         WHERE sourceType = :sourceType AND baseUrl = :baseUrl AND username = :username
@@ -192,11 +209,13 @@ abstract class RemoteCatalogDao {
     @Transaction
     open fun rebuildGridRootsForSourceType(sourceType: String) {
         deleteGridRootsForSourceType(sourceType)
+        deleteRootFacetsForSourceType(sourceType)
         val source = runCatching { SourceType.valueOf(sourceType) }.getOrNull() ?: return
         val sourceItems = getLibraryItemsForSourceType(sourceType).map(ReadableItemLibraryEntity::toDomain)
         val roots = deriveGridRootItems(source, sourceItems)
         if (roots.isNotEmpty()) {
             insertOrReplaceGridRoots(roots.map(ReadableItem::toGridRootEntity))
+            insertOrReplaceRootFacets(roots.flatMap(ReadableItem::toRootFacetEntities))
         }
     }
 
@@ -213,10 +232,12 @@ abstract class RemoteCatalogDao {
         val source = runCatching { SourceType.valueOf(sourceType) }.getOrNull() ?: return
         libraryIds.forEach { libraryId ->
             deleteGridRootsForLibrary(libraryId)
+            deleteRootFacetsForLibrary(libraryId)
             val items = getLibraryItemsForLibrary(libraryId).map(ReadableItemLibraryEntity::toDomain)
             val roots = deriveGridRootItems(source, items)
             if (roots.isNotEmpty()) {
                 insertOrReplaceGridRoots(roots.map(ReadableItem::toGridRootEntity))
+                insertOrReplaceRootFacets(roots.flatMap(ReadableItem::toRootFacetEntities))
             }
         }
     }

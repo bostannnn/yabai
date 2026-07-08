@@ -114,6 +114,22 @@ class UnifiedReaderDatabaseMigrationTest {
     }
 
     @Test
+    fun `migration 25 to 26 creates library root facets table`() {
+        createTestDatabase(
+            name = "migration-25-26-${System.nanoTime()}",
+            version = 25,
+        ) { database ->
+            createVersion25Schema(database)
+        }.use { database ->
+            UnifiedReaderDatabaseMigrations.MIGRATION_25_26.migrate(database)
+
+            assertTrue(tableExists(database, "library_root_facets"))
+            assertTrue(indexExists(database, "index_library_root_facets_sourceType_dimension"))
+            assertTrue(indexExists(database, "index_library_root_facets_libraryId"))
+        }
+    }
+
+    @Test
     fun `room migrates 4 to 5 and validates reader session state schema`() {
         val databaseName = "migration-4-5-${System.nanoTime()}"
         createTestDatabase(
@@ -1109,6 +1125,11 @@ private fun createVersion24Schema(database: SupportSQLiteDatabase) {
     UnifiedReaderDatabaseMigrations.MIGRATION_23_24.migrate(database)
 }
 
+private fun createVersion25Schema(database: SupportSQLiteDatabase) {
+    createVersion24Schema(database)
+    UnifiedReaderDatabaseMigrations.MIGRATION_24_25.migrate(database)
+}
+
 private fun tableExists(
     database: SupportSQLiteDatabase,
     tableName: String,
@@ -1219,6 +1240,7 @@ private fun openRoomDatabase(
         UnifiedReaderDatabaseMigrations.MIGRATION_22_23,
         UnifiedReaderDatabaseMigrations.MIGRATION_23_24,
         UnifiedReaderDatabaseMigrations.MIGRATION_24_25,
+        UnifiedReaderDatabaseMigrations.MIGRATION_25_26,
     )
     .build()
 

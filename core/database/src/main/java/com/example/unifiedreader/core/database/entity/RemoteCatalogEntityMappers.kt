@@ -8,6 +8,7 @@ import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.libraryRootFacetEntries
 import com.example.unifiedreader.core.model.normalizedAuthors
 import com.example.unifiedreader.core.model.primaryAuthor
 
@@ -161,6 +162,17 @@ fun ReadableItem.toGridRootEntity(): LibraryGridRootEntity = LibraryGridRootEnti
     comicTagsJson = encodeMetadataValues(comicMetadata?.tags),
     comicLanguagesJson = encodeMetadataValues(comicMetadata?.languages),
 )
+
+fun ReadableItem.toRootFacetEntities(): List<LibraryRootFacetEntity> =
+    libraryRootFacetEntries().map { entry ->
+        LibraryRootFacetEntity(
+            rootId = id,
+            sourceType = sourceType.name,
+            libraryId = libraryId,
+            dimension = entry.dimension.name,
+            value = entry.value,
+        )
+    }
 
 fun LibraryGridRootEntity.toDomain(): ReadableItem = ReadableItem(
     id = id,
