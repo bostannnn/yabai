@@ -108,11 +108,21 @@ Large + risky — must be sliced and checkpointed. Consumers of the full list to
 **Suggested E slicing:**
 1. **Lookup foundation** — targeted `getItemById` / `getItemsByIds` (DAO + `ReadableItemLookup`
    interface, DI-bound). **DONE — commit `91e42908`.**
-2. Migrate id-lookup consumers to the lookup. **Reader next-item DONE — commit `66121b9f`**
-   (`getMemberItemIds` + `getSeriesMemberItems`; `AppReaderCoordinator` passes the bounded
-   series-members / reading-list set to the unchanged resolver, off the main thread). Still to do:
-   `selectedItem`, series titles, cover preload, downloads, reading-list controller. NOTE: not
-   mechanical — two shapes:
+2. Migrate id-lookup consumers to the lookup.
+   - **Reader next-item DONE — `66121b9f`** (`getMemberItemIds` + `getSeriesMemberItems`; the
+     resolver gets the bounded series-members / reading-list set, off the main thread).
+   - **Download enqueue DONE — `fa636a9b`** (`getSeriesMemberItems` generalized for containers;
+     `onDownloadRemoteItem`/`onDownloadRemoteItems` pass the selected item's series members).
+   - `AppKavitaReadingListController` — already fine (uses a state map, not the full list).
+   Still to do, and NOT mechanical:
+   - `onDeleteRemoteLocalFile` — recomputes the full local-availability sets that replace state;
+     needs a **scope-aware availability recompute** before it can take a bounded set.
+   - `AppCoverPreloadController.preloadCovers` — user action; needs all of a source's items. Swap
+     `state.items` for a source-scoped query (`getItemsForSourceType`).
+   - `selectedItem`, series titles — synchronous computed props read in composition; resolve the
+     selected item into state at selection time instead of deriving from the full list.
+   - `AppComicReadingDirection/ReaderModeController` — reactive reconciliation over ALL items; needs
+     a semantic change (reconcile only items with overrides/sessions), higher risk.
    - **Synchronous computed props** (`selectedItem`, `selectedKavita/StumpSeriesTitle`) read during
      composition; can't become `suspend` without restructuring state assembly (resolve the selected
      item into state when selection changes, rather than deriving it from the full list on read).
