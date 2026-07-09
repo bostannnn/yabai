@@ -90,7 +90,15 @@ class LibraryShelvesStateComputer @Inject constructor(
         items: List<ReadableItem>,
         progressByItemId: Map<String, ItemProgressSummary>,
     ): List<NextInSeriesShelfItem> {
-        val nextUnstartedByCurrentItemId = seriesContinuationResolver.nextUnstartedAfterByCurrentItem(
+        // Only comics with activity can seed a "Next in series" entry, so resolve continuations for
+        // just those (and their series) instead of grouping/sorting every series in the catalog.
+        val activeComicItemIds = items.asSequence()
+            .filter { item -> item.kind == ReadableItemKind.COMIC }
+            .filter { item -> progressByItemId[item.id]?.hasActivity == true }
+            .mapTo(HashSet(), ReadableItem::id)
+        if (activeComicItemIds.isEmpty()) return emptyList()
+        val nextUnstartedByCurrentItemId = seriesContinuationResolver.nextUnstartedAfterForItems(
+            seedItemIds = activeComicItemIds,
             items = items,
             progressByItemId = progressByItemId,
         )
