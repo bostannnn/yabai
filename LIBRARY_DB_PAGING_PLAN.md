@@ -85,8 +85,9 @@ sort in {LAST_READ, DATE_ADDED} (rail-less) + no filters/search/series/scope. Ra
 | `53877eb6` | M1 | **Paged view no longer a scaffold:** `LibraryScreen` renders its grid body from a paging flow when `pagedGridItems != null` (nullable, default null → all other callers byte-for-byte unchanged), reusing shelves/filter-bar/sort/dialogs/card. Deleted the separate `LibraryPagedGrid`. Default Kavita view (LAST_READ) now pages its body from SQL with full chrome. |
 | `87e55ad6` | E4 | **Phase 1, slice 1 — cold-start cache off `visibleItems`.** Capture branches per landing: the paged Kavita landing records ordered root ids from SQL (`RemoteCatalogDao.getGridRootIds{ByTitle,ByDateAdded,ByLastRead}` → `LibraryGridPager.orderedGridRootIds`, bounded to `COLD_START_LIBRARY_ORDER_LIMIT`); every other landing still snapshots `visibleItems`. Same ids as before (shared grouping), so cold-start behaviour is unchanged. Re-captures on progress for LAST_READ; once-per-landing for DATE_ADDED. `restore()` untouched. Unblocks emptying `visibleItems` for the paged path (Phase 2). |
 | `06f3bb27` | E5 | **Phase 1, slice 2 — batch download selection off `visibleItems`.** `LibraryScreen` derives its selection set from a single `renderedItems` val (paging snapshot when paged, else in-memory list; also reused by cover prefetch) and reports the selectable download **items** (not ids) up. `UnifiedReaderScaffold` `selectAll`/`downloadSelected` resolve from the screen-reported items (`effectiveSelectableDownloadItems`) instead of `uiState.visibleItems`. Synthetic container roots aren't in `readable_items`, so the paged snapshot (which holds the derived containers) is the correct source — SQL-by-id can't rebuild them; `onDownloadRemoteItems`/queue controller unchanged. Non-paged path byte-identical. Only remaining `visibleItems` read is the pre-report fallback (in-memory paths). |
-| `34e8ff35` | D2a | **Phase 1, slice 3 (foundation) — bounded shelf-input SQL source.** `RemoteCatalogDao.getShelvesInputItems(source)` returns *progressed items + their series siblings* (via `library_root_members` ∩ `reading_progress`), the exact set the shelves computer keeps from the full catalog — Continue Reading / Recently Finished need the progressed items, Next-In-Series needs each active series' full ordered issue list. Provably equivalent to running the unchanged computer over all of `items`. Exposed as `LibraryShelvesInputSource.shelvesInputItems` (DI-bound). DAO-tested; no consumer yet. **Routing deferred to M2** — see §7. |
-| `eeb3a6e8` | C2 | **Phase 1, slice 4 (foundation) — assemble paged facets from SQL.** Finding: the paged path is gated to empty filters and the filter dialog applies each toggle immediately, so selecting any value exits the paged path → the paged filter panel only ever shows facets for an *unfiltered* view, where contextual == non-contextual. So no `buildContextualLibraryFilterFacets` (~10-pass) work is needed for paging; that stays on the in-memory path. New reusable piece: core:model `assembleLibraryFilterFacets` turns C1's per-dimension `getDistinctFacetValues` into a `LibraryFilterFacets` with identical ordering/typing, order-independent; `fileLocations` stays caller-provided runtime. Equivalence-tested vs `buildLibraryFilterFacets`. **Routing deferred to M2** — see §7. |
+| `34e8ff35` | D2a | **Phase 1, slice 3 (foundation) — bounded shelf-input SQL source.** `RemoteCatalogDao.getShelvesInputItems(source)` returns *progressed items + their series siblings* (via `library_root_members` ∩ `reading_progress`), the exact set the shelves computer keeps from the full catalog — Continue Reading / Recently Finished need the progressed items, Next-In-Series needs each active series' full ordered issue list. Provably equivalent to running the unchanged computer over all of `items`. Exposed as `LibraryShelvesInputSource.shelvesInputItems` (DI-bound). DAO-tested; no consumer yet. **Routing deferred to M3** — see §7. |
+| `eeb3a6e8` | C2 | **Phase 1, slice 4 (foundation) — assemble paged facets from SQL.** Finding: the paged path is gated to empty filters and the filter dialog applies each toggle immediately, so selecting any value exits the paged path → the paged filter panel only ever shows facets for an *unfiltered* view, where contextual == non-contextual. So no `buildContextualLibraryFilterFacets` (~10-pass) work is needed for paging; that stays on the in-memory path. New reusable piece: core:model `assembleLibraryFilterFacets` turns C1's per-dimension `getDistinctFacetValues` into a `LibraryFilterFacets` with identical ordering/typing, order-independent; `fileLocations` stays caller-provided runtime. Equivalence-tested vs `buildLibraryFilterFacets`. **Routing deferred to M3** — see §7. |
+| `4f81da41` | M2 | **Skip the redundant in-memory grid sort when paged.** When the grid is served by Room paging, the in-memory last-read/date-added sort over the whole source set is redundant (Room sorts the window) yet re-ran on every progress update — the ~236 MB back-nav floor. Prep: `LibraryScreen`'s sort menu + date-added scroll anchor read `renderedItems` (paging snapshot) not the in-memory `items`. Core: `LibraryDerivedStateInput.pagedGridActive` (from `isPageable`); when true the computer leaves `visibleItems = sourceItems` (same membership) and skips `buildVisibleLibraryItems` + the last-read map. Added to the derived cache key. **Re-scoped: M2 is only the sort skip** — shelves/facets keep using `items` until M3, so their routing (D2a/C2) moved to M3. Computer test proves membership kept + sort skipped. Measurable heap/GC effect needs on-device A/B. |
 
 Verified: `core:model` / `core:database` / `feature:library` suites green; app repository/reader/VM
 tests green; Room validates the schema through v27; release APK builds. Device (pre-M1 build): cold
@@ -119,21 +120,19 @@ start ~400 ms (no regression), heap ~84 MB (unchanged — expected).
 
 - **Paged view gating** is deliberately narrow (Kavita root, LAST_READ/DATE_ADDED, no filters/search).
   Rail sorts, filters, search, series browse, and Grimmory/Stump/Local still use the in-memory path.
-- **Facets: SQL foundation done (C1 + C2), routing deferred to M2.** C1 stores distinct facet values;
+- **Facets: SQL foundation done (C1 + C2), routing deferred to M3.** C1 stores distinct facet values;
   C2 (`assembleLibraryFilterFacets`, `eeb3a6e8`) turns them into a `LibraryFilterFacets`. The paged
   filter panel needs only these **non-contextual** facets (toggling a filter exits the paged path), so
   contextual facets (`buildContextualLibraryFilterFacets`, the ~10-pass logic) are **not needed for
   paging** and stay on the in-memory path. Remaining: repository glue (`getDistinctFacetValues` ×8 +
-  runtime `fileLocations`) wired into the paged panel → M2.
-- **Shelves: SQL foundation done (D2a), routing deferred to M2.** The bounded-input source
+  runtime `fileLocations`) wired into the paged panel → M3 (facets still read `items` until it's dropped).
+- **Shelves: SQL foundation done (D2a), routing deferred to M3.** The bounded-input source
   (`LibraryShelvesInputSource.shelvesInputItems`, `34e8ff35`) exists and is tested, but the recompute
-  coordinator still feeds the computer `AppUiState.items`. Wiring it in means routing Kavita shelves
-  through SQL inside `AppLibraryStateRecomputeCoordinator` — the app's most delicate state machine
-  (sync+async paths, identity-keyed signatures, retained-shelf caching, loading) whose ~15-test suite
-  defaults to Kavita and asserts shelves from in-memory `items`. Since the payoff is invisible until
-  the in-memory recompute is skipped (M2), and M2 restructures this same coordinator, the routing is
-  folded into M2 (do shelves + derived-state skip together, gated by `isPageable`, with paged-path
-  tests) rather than churning the coordinator + its tests twice.
+  coordinator still feeds the computer `AppUiState.items` (fine until `items` is dropped). Wiring it in
+  means routing Kavita shelves through SQL inside `AppLibraryStateRecomputeCoordinator` — the app's most
+  delicate state machine (sync+async paths, identity-keyed signatures, retained-shelf caching, loading)
+  whose ~15-test suite defaults to Kavita and asserts shelves from in-memory `items`. Do it at M3
+  alongside retiring `items` (the only point it's actually required), reworking those tests once.
 - **Series browse & search in the paged path** are not implemented (fall back to in-memory).
 - **Download delete** (`AppRemoteDownloadController.onDeleteRemoteLocalFile`) still passes the full
   list (it recomputes complete local-availability sets that replace state).
@@ -161,9 +160,9 @@ features and 8 tests — reverted. Consumers to migrate, grouped by approach:
 - **Reactive full scans → bounded/semantic:** `AppComicReadingDirectionController` /
   `AppComicReaderModeController` reconcile over `observeItems()` (reconcile only items with
   overrides/sessions); `AppCoverPreloadController.preloadCovers` (use `getItemsForSourceType`).
-- **Derived presentation → SQL:** facets (C1 + C2 `assembleLibraryFilterFacets` **done**, routing → M2;
+- **Derived presentation → SQL:** facets (C1 + C2 `assembleLibraryFilterFacets` **done**, routing → M3;
   contextual facets not needed for paging), shelves (D2 — bounded-input source `shelvesInputItems`
-  **done (D2a)**, routing → M2), series progress/rating rollup (via members).
+  **done (D2a)**, routing → M3), series progress/rating rollup (via members).
 - **`remoteItemLocalState*` scope computations** in `AppUiState` (which items to check availability
   for) → bounded/source-scoped queries.
 - **Snapshot assembly (last):** `AppCatalogStateCoordinator` / `ObserveAppCatalogSnapshotsUseCase`
@@ -187,40 +186,36 @@ working).** One small, tested slice each, in roughly this order (safest/highest-
    the screen reports its rendered selectable items (paged snapshot / in-memory); scaffold resolves
    select-all/download from those. *Unblocked.*
 3. Shelves → SQL (D2). **Foundation DONE (D2a, `34e8ff35`)** — `LibraryShelvesInputSource` bounded
-   input, tested. **Routing folded into Phase 2 / M2** (per decision): wiring it into the recompute
-   coordinator has no Phase-1 payoff and M2 restructures that same coordinator, so do them together.
+   input, tested. **Routing → M3** (shelves keep reading `items` until it's dropped; wiring the
+   coordinator only earns its keep then).
 4. Facets → SQL. **Foundation DONE (C2, `eeb3a6e8`)** — `assembleLibraryFilterFacets` + the finding
-   that the paged panel needs only non-contextual facets (contextual stays in-memory). **Routing folded
-   into M2** (repository glue + runtime fileLocations + wire into the paged panel).
+   that the paged panel needs only non-contextual facets (contextual stays in-memory). **Routing → M3**
+   (facets keep reading `items` until it's dropped).
 5. **← NEXT.** By-id props (`selectedItem`, series titles) → resolve into state via `ReadableItemLookup`.
-   *A direct consumer with real Phase-1 payoff (not deferred to M2), but needs state-assembly
-   restructuring — these are synchronous computed props read in composition (see §6 "By-id props").*
+   *A direct consumer with real Phase-1 payoff, but needs state-assembly restructuring — these are
+   synchronous computed props read in composition (see §6 "By-id props").*
 6. Reactive scans (comic direction/mode reconciliation, cover preload) → bounded queries.
 7. `remoteItemLocalState*` scope computations → bounded queries.
 
-**Phase 2 — Retry M2 (now safe): skip the in-memory recompute when paged.** With the consumers
-migrated, add `LibraryDerivedStateInput.includeVisibleItems=false` when `isPageable` so the
-full-catalog sort/source-index no longer runs for the paged view. **Measurable:** back-nav GC/churn
-drop. (The reverted M2 diff is a starting point; it needs the Phase-1 migrations first.)
-Also in M2 (folded in from slices 3 & 4):
-- **Shelves (D2a):** route Kavita shelves through `LibraryShelvesInputSource` inside
-  `AppLibraryStateRecomputeCoordinator` — the async Kavita recompute feeds the computer
-  `shelvesInputItems(KAVITA)` instead of `AppUiState.items`; gate/adjust the shelves signature so it
-  recomputes on progress/catalog change once `items` is empty; rework the coordinator's Kavita shelf
-  tests to feed a fake `LibraryShelvesInputSource`.
-- **Facets (C2):** in the paged path, source `selectedLibraryFilterFacets` from
-  `assembleLibraryFilterFacets(getDistinctFacetValues×8, fileLocations = <from download state>)`
-  instead of the in-memory `buildLibraryFilterFacets`; the in-memory (filtered) path keeps its
-  contextual facets.
+**Phase 2 — M2 DONE (`4f81da41`): skip the redundant in-memory grid sort when paged.** Re-scoped to
+*only* the sort skip: `LibraryDerivedStateInput.pagedGridActive` (from `isPageable`) makes the computer
+leave `visibleItems = sourceItems` (same membership) and skip `buildVisibleLibraryItems` + the
+last-read map; `LibraryScreen` sort-menu/scroll-anchor read `renderedItems`. **Measurable:** back-nav
+GC/churn drop (needs on-device A/B — see §8). Shelves/facets were NOT part of M2: they still read
+`items` and keep working, so their SQL routing moved to M3 (below), where it's actually required.
 
-Do these alongside the `includeVisibleItems` skip so the coordinator (and its tests) change once,
-coherently.
-
-**Phase 3 — M3: retire the in-memory catalog.** Extend paging to the other sources (or keep a bounded
-path), migrate the snapshot assembly, then delete `AppUiState.items` / `RoomRemoteCatalogRepository.itemsState`.
-**Measurable:** startup Java heap (~84 MB) drops. This is the headline win.
-
-Also fold in: make the first-launch derived-table rebuild lighter/off the critical path.
+**Phase 3 — M3: retire the in-memory catalog.** The headline win (startup Java heap ~84 MB drops).
+Steps:
+- **Route shelves through `LibraryShelvesInputSource` (D2a)** and **facets through
+  `assembleLibraryFilterFacets` (C2)** for the paged path inside `AppLibraryStateRecomputeCoordinator`
+  — the async Kavita recompute feeds `shelvesInputItems(KAVITA)` / `getDistinctFacetValues×8` instead
+  of `AppUiState.items`; adjust the shelves/derived signatures so they recompute on progress/catalog
+  change once `items` is empty; rework the coordinator's Kavita shelf tests to feed a fake source.
+- Migrate the remaining by-id / reactive-scan / availability consumers (slices 5–7) + series
+  progress/rating rollup.
+- Extend paging to the other sources (or keep a bounded path), migrate the snapshot assembly, then
+  delete `AppUiState.items` / `RoomRemoteCatalogRepository.itemsState`.
+- Also fold in: make the first-launch derived-table rebuild lighter/off the critical path.
 
 ---
 
@@ -257,10 +252,11 @@ Also fold in: make the first-launch derived-table rebuild lighter/off the critic
 
 ## 10. How to start the next session
 
-1. `git checkout perf/library-db-paging` (HEAD = `eeb3a6e8`, C2). Working tree clean.
+1. `git checkout perf/library-db-paging` (HEAD = `4f81da41`, M2). Working tree clean.
 2. Read this file + the memory note `stage3-paging-handoff`.
-3. Continue **Phase 1, slice 5** (by-id props: `selectedItem`, series titles → `ReadableItemLookup`) —
-   a direct consumer with real Phase-1 payoff (not deferred to M2). Done so far: cold-start cache (E4),
-   batch download-selection (E5), shelves **foundation** (D2a), facets **foundation** (C2). Shelves +
-   facets routing are folded into M2. Keep the branch green; commit per slice. Only attempt Phase 2
-   (M2) after Phase 1.
+3. **On-device: measure M2** — A/B `LibraryPagingFeature.ENABLED` (or check the paged Kavita LAST_READ
+   view), read a few items, back out, and compare back-nav GC churn / `dumpsys meminfo` (§8). M2 is
+   unverified on device; this is the measurable payoff.
+4. Then continue **Phase 1, slice 5** (by-id props: `selectedItem`, series titles → `ReadableItemLookup`).
+   Done: cold-start (E4), batch download (E5), shelves foundation (D2a), facets foundation (C2), M2
+   sort-skip. Shelves/facets **routing → M3**. Keep the branch green; commit per slice.
