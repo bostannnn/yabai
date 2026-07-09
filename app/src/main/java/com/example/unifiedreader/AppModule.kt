@@ -420,6 +420,11 @@ object AppModule {
     ): ReadableItemLookup = repository
 
     @Provides
+    fun provideLibraryShelvesInputSource(
+        repository: RoomRemoteCatalogRepository,
+    ): LibraryShelvesInputSource = repository
+
+    @Provides
     fun provideRemoteLibraryCacheStore(
         repository: RoomRemoteCatalogRepository,
     ): RemoteLibraryCacheStore = repository

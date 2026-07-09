@@ -152,6 +152,36 @@ class RemoteCatalogGridPagingTest {
             dao.getGridRootIdsByDateAdded(SourceType.KAVITA.name, limit = 10),
         )
     }
+
+    @Test
+    fun `shelves input items are progressed items plus their series siblings only`() = runBlocking {
+        dao.replaceSourceCatalog(
+            sourceType = SourceType.KAVITA.name,
+            libraries = listOf(kavitaLibrary()),
+            items = listOf(
+                comicIssue(id = "kavita:item:1", seriesId = "s1", title = "S1 #1"),
+                comicIssue(id = "kavita:item:2", seriesId = "s1", title = "S1 #2"),
+                comicIssue(id = "kavita:item:3", seriesId = "s1", title = "S1 #3"),
+                book(id = "kavita:item:book-1", title = "A Book"),
+                // Untouched series and standalone: no progress anywhere in them → excluded entirely.
+                comicIssue(id = "kavita:item:9", seriesId = "s2", title = "S2 #1"),
+                comicIssue(id = "kavita:item:10", seriesId = "s2", title = "S2 #2"),
+                book(id = "kavita:item:book-2", title = "B Book"),
+            ),
+        )
+        // Progress on ONE issue of s1 and on the standalone book-1.
+        database.readingProgressDao().insertOrReplace(progress(itemId = "kavita:item:2", updatedAt = 5_000L))
+        database.readingProgressDao().insertOrReplace(progress(itemId = "kavita:item:book-1", updatedAt = 6_000L))
+
+        val ids = dao.getShelvesInputItems(SourceType.KAVITA.name).map { entity -> entity.id }.toSet()
+
+        // The whole s1 issue list (progress on #2 pulls in its siblings for Next-In-Series) plus the
+        // progressed standalone; nothing from the untouched s2 series or book-2.
+        assertEquals(
+            setOf("kavita:item:1", "kavita:item:2", "kavita:item:3", "kavita:item:book-1"),
+            ids,
+        )
+    }
 }
 
 private fun comicIssue(

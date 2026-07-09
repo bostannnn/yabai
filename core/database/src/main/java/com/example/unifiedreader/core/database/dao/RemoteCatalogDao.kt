@@ -97,6 +97,28 @@ abstract class RemoteCatalogDao {
     @Query(READABLE_ITEM_LIBRARY_SELECT + " WHERE id = :itemId LIMIT 1")
     abstract fun getLibraryItemById(itemId: String): ReadableItemLibraryEntity?
 
+    /**
+     * The bounded item set the library shelves need for [sourceType]: every catalog item that shares a
+     * grid root (series container or standalone) with an item that has reading progress. This is exactly
+     * what the in-memory shelves computer keeps from the full catalog — Continue Reading / Recently
+     * Finished need the progressed items, and Next-In-Series needs each active series' full ordered issue
+     * list to find the next unstarted one — so the computer can run over this instead of scanning all of
+     * [getLibraryItems]. Bounded by (progressed items x series size), not the catalog size.
+     */
+    @Query(
+        READABLE_ITEM_LIBRARY_SELECT + """
+         WHERE sourceType = :sourceType AND id IN (
+             SELECT m.itemId FROM library_root_members m
+             WHERE m.sourceType = :sourceType AND m.rootId IN (
+                 SELECT DISTINCT active.rootId FROM library_root_members active
+                 INNER JOIN reading_progress p ON p.itemId = active.itemId
+                 WHERE active.sourceType = :sourceType
+             )
+         )
+        """,
+    )
+    abstract fun getShelvesInputItems(sourceType: String): List<ReadableItemLibraryEntity>
+
     @Query("SELECT * FROM library_grid_roots WHERE sourceType = :sourceType ORDER BY title COLLATE NOCASE ASC")
     abstract fun getGridRootsForSourceType(sourceType: String): List<LibraryGridRootEntity>
 

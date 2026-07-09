@@ -64,6 +64,15 @@ interface ReadableItemLookup {
 }
 
 /**
+ * The bounded item set the library shelves need for a source — progressed items plus their series
+ * siblings (`RemoteCatalogDao.getShelvesInputItems`) — so the shelves computer runs over a small set
+ * instead of scanning the whole in-memory catalog. Lets shelves stop depending on `AppUiState.items`.
+ */
+interface LibraryShelvesInputSource {
+    suspend fun shelvesInputItems(source: SourceType): List<ReadableItem>
+}
+
+/**
  * Streams the library grid as pages of already-derived roots from `library_grid_roots`, so only the
  * visible window is resident instead of the whole catalog. Only the column sorts (TITLE, DATE_ADDED)
  * are paged today; LAST_READ needs the progress join (Stage D).
@@ -135,6 +144,7 @@ class RoomRemoteCatalogRepository(
     ColdStartCatalogSeeder,
     LibraryGridPager,
     ReadableItemLookup,
+    LibraryShelvesInputSource,
     RemoteLibraryCacheStore {
     private val librariesState = MutableStateFlow<List<Library>>(emptyList())
     private val itemsState = MutableStateFlow<List<ReadableItem>>(emptyList())
@@ -315,6 +325,12 @@ class RoomRemoteCatalogRepository(
         itemId: String,
     ): ReadableItem? = withContext(ioDispatcher) {
         remoteCatalogDao.getLibraryItemById(itemId)?.toDomain()
+    }
+
+    override suspend fun shelvesInputItems(
+        source: SourceType,
+    ): List<ReadableItem> = withContext(ioDispatcher) {
+        remoteCatalogDao.getShelvesInputItems(source.name).map(ReadableItemLibraryEntity::toDomain)
     }
 
     override suspend fun getItemsByIds(

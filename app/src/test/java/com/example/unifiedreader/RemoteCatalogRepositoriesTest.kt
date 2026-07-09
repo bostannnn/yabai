@@ -568,6 +568,11 @@ private class FakeRemoteCatalogDao(
     override fun getLibraryItemById(itemId: String): ReadableItemLibraryEntity? =
         itemsState.value.firstOrNull { it.id == itemId }?.toLibraryEntity()
 
+    // The real bounded "progressed items + series siblings" logic is SQL, tested in core:database;
+    // the fake just returns the source items (this test doesn't exercise shelves input).
+    override fun getShelvesInputItems(sourceType: String): List<ReadableItemLibraryEntity> =
+        itemsState.value.filter { it.sourceType == sourceType }.map(ReadableItemEntity::toLibraryEntity)
+
     override fun getCachedLibraries(
         sourceType: String,
         baseUrl: String,
