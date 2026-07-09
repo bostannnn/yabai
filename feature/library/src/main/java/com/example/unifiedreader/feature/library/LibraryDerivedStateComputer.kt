@@ -41,7 +41,8 @@ class LibraryDerivedStateComputer @Inject constructor() {
     fun compute(
         input: LibraryDerivedStateInput,
     ): LibraryDerivedState {
-        val sourceIndex = sourceIndexFor(input)
+        val computeStart = LibraryPerfLog.startNanos()
+        val sourceIndex = LibraryPerfLog.section("derived.sourceIndex") { sourceIndexFor(input) }
         val cacheKey = LibraryDerivedStateCacheKey(
             sourceIndexKey = cachedSourceIndexKey ?: SourceIndexCacheKey(input.libraries, input.items),
             selectedSource = input.selectedSource,
@@ -60,7 +61,13 @@ class LibraryDerivedStateComputer @Inject constructor() {
             downloadingRemoteItemIds = input.downloadingRemoteItemIds,
             pagedGridActive = input.pagedGridActive,
         )
-        derivedStateCache[cacheKey]?.let { return it }
+        derivedStateCache[cacheKey]?.let { cached ->
+            LibraryPerfLog.logSince(
+                "derived.compute HIT [${input.selectedSource} sort=${input.selectedLibrarySortMode} paged=${input.pagedGridActive}]",
+                computeStart,
+            )
+            return cached
+        }
 
         val sourceItems = sourceIndex.sourceItems(input)
         val displayProgressByItemId = buildDisplayProgressByItemId(
@@ -84,41 +91,49 @@ class LibraryDerivedStateComputer @Inject constructor() {
         )
         val downloadActionSourceItems = (sourceItems + sourceIndex.rawSourceItems(input.selectedSource))
             .distinctBy(ReadableItem::id)
-        val remoteDownloadActionAvailability = buildRemoteDownloadActionAvailability(
-            sourceItems = downloadActionSourceItems,
-            downloadedItemIds = input.downloadedRemoteItemIds,
-            activeDownloadingItemIds = activeDownloadingItemIds,
-            actionItemsProvider = sourceIndex::resolveDownloadActionItems,
-        )
+        val remoteDownloadActionAvailability =
+            LibraryPerfLog.section("derived.downloadAvailability[roots=${downloadActionSourceItems.size}]") {
+                buildRemoteDownloadActionAvailability(
+                    sourceItems = downloadActionSourceItems,
+                    downloadedItemIds = input.downloadedRemoteItemIds,
+                    activeDownloadingItemIds = activeDownloadingItemIds,
+                    actionItemsProvider = sourceIndex::resolveDownloadActionItems,
+                )
+            }
         val visibleItems = if (input.pagedGridActive) {
             // Room paging serves (and sorts) the grid, so the in-memory last-read/date-added sort is
             // redundant. Leave the source set unsorted — same membership (paging implies no
             // filters/search) — and skip the per-progress-update re-sort + last-read map build.
             sourceItems
         } else {
-            buildVisibleLibraryItems(
+            LibraryPerfLog.section("derived.visibleItems.sort[${input.selectedLibrarySortMode}]") {
+                buildVisibleLibraryItems(
+                    sourceItems = sourceItems,
+                    filterState = input.selectedLibraryFilters,
+                    searchQuery = input.selectedLibrarySearchQuery,
+                    sortMode = input.selectedLibrarySortMode,
+                    downloadedRemoteItemIds = input.locallyAvailableRemoteItemIds,
+                    lastReadAtEpochMillisByItemId = lastReadAtEpochMillisByItemId(
+                        input = input,
+                        sourceIndex = sourceIndex,
+                        progressByItemId = displayProgressByItemId,
+                    ),
+                    readingStatusByItemId = readingStatusByItemId,
+                    forceSeriesIssueOrder = input.isSeriesBrowseActive,
+                    preserveInputOrder = input.orderedItemScope != null,
+                )
+            }
+        }
+        val selectedLibraryFilterFacets = LibraryPerfLog.section("derived.facets") {
+            cachedFilterFacets(
+                input = input,
                 sourceItems = sourceItems,
-                filterState = input.selectedLibraryFilters,
-                searchQuery = input.selectedLibrarySearchQuery,
-                sortMode = input.selectedLibrarySortMode,
-                downloadedRemoteItemIds = input.locallyAvailableRemoteItemIds,
-                lastReadAtEpochMillisByItemId = lastReadAtEpochMillisByItemId(
-                    input = input,
-                    sourceIndex = sourceIndex,
-                    progressByItemId = displayProgressByItemId,
-                ),
                 readingStatusByItemId = readingStatusByItemId,
-                forceSeriesIssueOrder = input.isSeriesBrowseActive,
-                preserveInputOrder = input.orderedItemScope != null,
             )
         }
         return LibraryDerivedState(
             sourceItems = sourceItems,
-            selectedLibraryFilterFacets = cachedFilterFacets(
-                input = input,
-                sourceItems = sourceItems,
-                readingStatusByItemId = readingStatusByItemId,
-            ),
+            selectedLibraryFilterFacets = selectedLibraryFilterFacets,
             selectedSourceLibraryTitlesById = sourceIndex.selectedSourceLibraryTitlesById(input.selectedSource),
             displayProgressByItemId = displayProgressByItemId,
             displayRatingByItemId = displayRatingByItemId,
@@ -127,6 +142,10 @@ class LibraryDerivedStateComputer @Inject constructor() {
             libraryBrowseContextKey = buildLibraryBrowseContextKey(input),
         ).also { derivedState ->
             derivedStateCache[cacheKey] = derivedState
+            LibraryPerfLog.logSince(
+                "derived.compute MISS [${input.selectedSource} sort=${input.selectedLibrarySortMode} paged=${input.pagedGridActive}]",
+                computeStart,
+            )
         }
     }
 

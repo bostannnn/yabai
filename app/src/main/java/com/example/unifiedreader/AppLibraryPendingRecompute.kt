@@ -45,6 +45,7 @@ internal class AppLibraryPendingRecompute(
         pendingShelvesKey = nextShelvesKey
         var recomputeJob: Job? = null
         recomputeJob = scope.launch(start = CoroutineStart.LAZY) {
+            val recomputeStart = System.nanoTime()
             val computedState = withContext(appDispatchers.default) {
                 AppLibraryComputedState(
                     derivedState = if (shouldComputeDerived) {
@@ -60,6 +61,14 @@ internal class AppLibraryPendingRecompute(
                 )
             }
             if (pendingJob !== recomputeJob) return@launch
+            // Opt-in end-to-end timing (see LibraryPerfLog): `adb logcat -s LibraryPerf`.
+            val recomputeMs = (System.nanoTime() - recomputeStart) / 1_000_000.0
+            runCatching {
+                android.util.Log.d(
+                    "LibraryPerf",
+                    "recompute.async total: %.2f ms (derived=%b shelves=%b)".format(recomputeMs, shouldComputeDerived, shouldComputeShelves),
+                )
+            }
             pendingJob = null
             pendingDerivedKey = null
             pendingShelvesKey = null

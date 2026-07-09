@@ -26,12 +26,16 @@ class LibraryShelvesStateComputer @Inject constructor(
     fun compute(
         input: LibraryShelvesInput,
     ): LibraryShelvesState {
+        val computeStart = LibraryShelvesPerfLog.startNanos()
         val cacheKey = LibraryShelvesStateCacheKey(
             selectedSource = input.selectedSource,
             items = input.items,
             progressByItemId = input.progressByItemId,
         )
-        stateCache[cacheKey]?.let { return it }
+        stateCache[cacheKey]?.let { cached ->
+            LibraryShelvesPerfLog.logSince("shelves.compute HIT [${input.selectedSource}]", computeStart)
+            return cached
+        }
         val sourceItems = input.items.filter { item ->
             item.sourceType == input.selectedSource
         }
@@ -54,6 +58,10 @@ class LibraryShelvesStateComputer @Inject constructor(
             recentlyFinished = recentlyFinished,
         ).also { shelvesState ->
             stateCache[cacheKey] = shelvesState
+            LibraryShelvesPerfLog.logSince(
+                "shelves.compute MISS [${input.selectedSource} items=${sourceItems.size}]",
+                computeStart,
+            )
         }
     }
 
