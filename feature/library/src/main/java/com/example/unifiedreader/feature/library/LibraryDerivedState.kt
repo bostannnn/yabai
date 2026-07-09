@@ -24,6 +24,12 @@ data class LibraryDerivedStateInput(
     val selectedKavitaCollectionId: String? = null,
     val selectedKavitaCollectionSeriesKeys: Set<String> = emptySet(),
     val orderedItemScope: LibraryOrderedItemScope? = null,
+    // When true, the grid is served by Room paging, so the in-memory last-read/date-added sort for
+    // `visibleItems` is redundant (Room already sorts the window). The computer then leaves
+    // `visibleItems` as the unsorted source set — same membership, no per-progress-update re-sort.
+    // A pure function of the other keyed inputs (source/sort/filters/search/scope), so it doesn't
+    // affect cache identity.
+    val pagedGridActive: Boolean = false,
 )
 
 data class LibraryDerivedState(

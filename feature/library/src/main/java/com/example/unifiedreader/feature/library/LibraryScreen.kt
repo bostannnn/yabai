@@ -131,8 +131,14 @@ fun LibraryScreen(
     var isReadingListDialogOpen by rememberSaveable { mutableStateOf(false) }
     var handledScrollToTopRequest by remember { mutableStateOf(scrollToTopRequest) }
     val coroutineScope = rememberCoroutineScope()
-    val availableSortModes = remember(items, sortMode) {
-        librarySortModesAvailableFor(items = items, selectedSortMode = sortMode)
+    val visibleItems = items
+    // What the grid actually renders — the paging snapshot when paged, else the in-memory list. The
+    // paged path reads this (not [items]/visibleItems) everywhere it needs the on-screen set — sort
+    // menu, date-added scroll anchor, selection, cover prefetch — so the in-memory sorted list can be
+    // skipped for the paged view (M2).
+    val renderedItems = if (isPaged) pagedItems!!.itemSnapshotList.items else visibleItems
+    val availableSortModes = remember(renderedItems, sortMode) {
+        librarySortModesAvailableFor(items = renderedItems, selectedSortMode = sortMode)
     }
     val itemAlphabetSections = remember(items, sortMode) {
         if (!sortMode.usesAlphabetRail) {
@@ -148,11 +154,6 @@ fun LibraryScreen(
         alphabetSectionStarts(itemAlphabetSections)
     }
     val alphabetRailVisible = showSortControl && searchQuery.isBlank() && sortLetters.isNotEmpty()
-    val visibleItems = items
-    // What the grid actually renders — the paging snapshot when paged, else the in-memory list.
-    // Selection (select-all, long-press, download) and cover prefetch both read this, so neither
-    // depends on [items] for the paged path (where [items]/visibleItems is emptied).
-    val renderedItems = if (isPaged) pagedItems!!.itemSnapshotList.items else visibleItems
     // When paged, the grid body's emptiness/loading come from the paging flow, not [items].
     val gridIsEmpty = if (isPaged) pagedItems!!.itemCount == 0 else visibleItems.isEmpty()
     val showGridLoading = isLoadingSource || (isPaged && pagedItems!!.loadState.refresh is LoadState.Loading)
@@ -173,7 +174,7 @@ fun LibraryScreen(
         )
     }
     val dateAddedTopItemId = if (showSortControl && sortMode == LibrarySortMode.DATE_ADDED) {
-        visibleItems.firstOrNull()?.id
+        renderedItems.firstOrNull()?.id
     } else {
         null
     }

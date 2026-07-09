@@ -58,6 +58,7 @@ class LibraryDerivedStateComputer @Inject constructor() {
             downloadedRemoteItemIds = input.downloadedRemoteItemIds,
             locallyAvailableRemoteItemIds = input.locallyAvailableRemoteItemIds,
             downloadingRemoteItemIds = input.downloadingRemoteItemIds,
+            pagedGridActive = input.pagedGridActive,
         )
         derivedStateCache[cacheKey]?.let { return it }
 
@@ -89,22 +90,28 @@ class LibraryDerivedStateComputer @Inject constructor() {
             activeDownloadingItemIds = activeDownloadingItemIds,
             actionItemsProvider = sourceIndex::resolveDownloadActionItems,
         )
-        val lastReadAtEpochMillisByItemId = lastReadAtEpochMillisByItemId(
-            input = input,
-            sourceIndex = sourceIndex,
-            progressByItemId = displayProgressByItemId,
-        )
-        val visibleItems = buildVisibleLibraryItems(
-            sourceItems = sourceItems,
-            filterState = input.selectedLibraryFilters,
-            searchQuery = input.selectedLibrarySearchQuery,
-            sortMode = input.selectedLibrarySortMode,
-            downloadedRemoteItemIds = input.locallyAvailableRemoteItemIds,
-            lastReadAtEpochMillisByItemId = lastReadAtEpochMillisByItemId,
-            readingStatusByItemId = readingStatusByItemId,
-            forceSeriesIssueOrder = input.isSeriesBrowseActive,
-            preserveInputOrder = input.orderedItemScope != null,
-        )
+        val visibleItems = if (input.pagedGridActive) {
+            // Room paging serves (and sorts) the grid, so the in-memory last-read/date-added sort is
+            // redundant. Leave the source set unsorted — same membership (paging implies no
+            // filters/search) — and skip the per-progress-update re-sort + last-read map build.
+            sourceItems
+        } else {
+            buildVisibleLibraryItems(
+                sourceItems = sourceItems,
+                filterState = input.selectedLibraryFilters,
+                searchQuery = input.selectedLibrarySearchQuery,
+                sortMode = input.selectedLibrarySortMode,
+                downloadedRemoteItemIds = input.locallyAvailableRemoteItemIds,
+                lastReadAtEpochMillisByItemId = lastReadAtEpochMillisByItemId(
+                    input = input,
+                    sourceIndex = sourceIndex,
+                    progressByItemId = displayProgressByItemId,
+                ),
+                readingStatusByItemId = readingStatusByItemId,
+                forceSeriesIssueOrder = input.isSeriesBrowseActive,
+                preserveInputOrder = input.orderedItemScope != null,
+            )
+        }
         return LibraryDerivedState(
             sourceItems = sourceItems,
             selectedLibraryFilterFacets = cachedFilterFacets(
@@ -153,21 +160,25 @@ class LibraryDerivedStateComputer @Inject constructor() {
                 progressByItemId = displayProgressByItemId,
             ),
             remoteDownloadActionAvailability = RemoteDownloadActionAvailability(),
-            visibleItems = buildVisibleLibraryItems(
-                sourceItems = sourceItems,
-                filterState = input.selectedLibraryFilters,
-                searchQuery = input.selectedLibrarySearchQuery,
-                sortMode = input.selectedLibrarySortMode,
-                downloadedRemoteItemIds = input.locallyAvailableRemoteItemIds,
-                lastReadAtEpochMillisByItemId = lastReadAtEpochMillisByItemId(
-                    input = input,
-                    sourceIndex = sourceIndex,
-                    progressByItemId = displayProgressByItemId,
-                ),
-                readingStatusByItemId = readingStatusByItemId,
-                forceSeriesIssueOrder = input.isSeriesBrowseActive,
-                preserveInputOrder = input.orderedItemScope != null,
-            ),
+            visibleItems = if (input.pagedGridActive) {
+                sourceItems
+            } else {
+                buildVisibleLibraryItems(
+                    sourceItems = sourceItems,
+                    filterState = input.selectedLibraryFilters,
+                    searchQuery = input.selectedLibrarySearchQuery,
+                    sortMode = input.selectedLibrarySortMode,
+                    downloadedRemoteItemIds = input.locallyAvailableRemoteItemIds,
+                    lastReadAtEpochMillisByItemId = lastReadAtEpochMillisByItemId(
+                        input = input,
+                        sourceIndex = sourceIndex,
+                        progressByItemId = displayProgressByItemId,
+                    ),
+                    readingStatusByItemId = readingStatusByItemId,
+                    forceSeriesIssueOrder = input.isSeriesBrowseActive,
+                    preserveInputOrder = input.orderedItemScope != null,
+                )
+            },
             libraryBrowseContextKey = buildLibraryBrowseContextKey(input),
         )
     }
@@ -547,6 +558,9 @@ private data class LibraryDerivedStateCacheKey(
     val downloadedRemoteItemIds: IdentityBox<Set<*>>,
     val locallyAvailableRemoteItemIds: IdentityBox<Set<*>>,
     val downloadingRemoteItemIds: IdentityBox<Set<*>>,
+    // Redundant with the keyed inputs that determine it in production, but part of the key so a
+    // paged/non-paged compute can never collide (it changes `visibleItems`).
+    val pagedGridActive: Boolean,
 ) {
     constructor(
         sourceIndexKey: SourceIndexCacheKey,
@@ -564,6 +578,7 @@ private data class LibraryDerivedStateCacheKey(
         downloadedRemoteItemIds: Set<*>,
         locallyAvailableRemoteItemIds: Set<*>,
         downloadingRemoteItemIds: Set<*>,
+        pagedGridActive: Boolean,
     ) : this(
         sourceIndexKey = sourceIndexKey,
         selectedSource = selectedSource,
@@ -580,6 +595,7 @@ private data class LibraryDerivedStateCacheKey(
         downloadedRemoteItemIds = IdentityBox(downloadedRemoteItemIds),
         locallyAvailableRemoteItemIds = IdentityBox(locallyAvailableRemoteItemIds),
         downloadingRemoteItemIds = IdentityBox(downloadingRemoteItemIds),
+        pagedGridActive = pagedGridActive,
     )
 }
 
