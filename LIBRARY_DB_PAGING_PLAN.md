@@ -232,6 +232,19 @@ Steps:
   pointing at the **same keystore as the installed app** (`cc3c8218`), else installing wipes the
   catalog DB. Then `./gradlew :app:installRelease` preserves data. Without it, the user installs.
 - A/B: `LibraryPagingFeature.ENABLED` (compile-time). Flip → rebuild → install.
+- **Paging/M2 only engage on `LAST_READ`/`DATE_ADDED`** (rail-less). Title/Author/Series keep the
+  in-memory path (they render the A–Z alphabet rail, which needs the full ordered set + per-letter
+  offsets — incompatible with a windowed PagingSource). To observe any paging effect on device, be on
+  the **Last read** or **Date added** sort. (2026-07-09: a "no change" report turned out to be testing
+  on Title; also, opening the reader then backing without reading does no recompute → always instant,
+  regardless of paging.)
+- **`LibraryPerf` timing (`7f4232e1`, opt-in via `LibraryPerfLog.ENABLED`):** `adb logcat -s LibraryPerf`
+  logs `derived.compute` HIT vs MISS (+ per-pass breakdown: sourceIndex, downloadAvailability[roots=N],
+  visibleItems.sort, facets), `shelves.compute` HIT/MISS, and `recompute.async total`. Use it to tell
+  whether a felt back-nav delay is a cache **HIT** (→ the cost is covers re-decoding / grid relayout,
+  fix = image cache, not the recompute) or a **MISS** (→ which pass dominates). The recompute runs
+  async, so it doesn't show as main-thread jank in `gfxinfo` — measure it here, not via frame stats.
+  Flip `ENABLED=false` before shipping.
 
 ---
 
