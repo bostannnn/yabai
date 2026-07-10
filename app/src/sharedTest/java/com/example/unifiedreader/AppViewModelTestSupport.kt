@@ -273,6 +273,7 @@ internal fun createViewModel(
         override fun gridRootsPagingData(
             source: SourceType,
             sortMode: com.example.unifiedreader.core.model.LibrarySortMode,
+            filters: com.example.unifiedreader.core.model.LibraryFilterState,
         ): kotlinx.coroutines.flow.Flow<androidx.paging.PagingData<com.example.unifiedreader.core.model.ReadableItem>> =
             kotlinx.coroutines.flow.flowOf(androidx.paging.PagingData.empty())
 

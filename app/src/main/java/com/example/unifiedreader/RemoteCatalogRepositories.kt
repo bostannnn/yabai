@@ -6,6 +6,7 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.paging.map
 import com.example.unifiedreader.core.database.dao.RemoteCatalogDao
+import com.example.unifiedreader.core.database.dao.buildFilteredGridRootsQuery
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.LibraryGridRootEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
@@ -13,6 +14,7 @@ import com.example.unifiedreader.core.database.entity.ReadableItemLibraryEntity
 import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEntity
 import com.example.unifiedreader.core.database.entity.toDomain
 import com.example.unifiedreader.core.database.entity.toRemoteLibraryCacheEntity
+import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.isKavitaSeriesContainer
@@ -81,6 +83,7 @@ interface LibraryGridPager {
     fun gridRootsPagingData(
         source: SourceType,
         sortMode: LibrarySortMode,
+        filters: LibraryFilterState = LibraryFilterState(),
     ): Flow<PagingData<ReadableItem>>
 
     /**
@@ -279,16 +282,23 @@ class RoomRemoteCatalogRepository(
     override fun gridRootsPagingData(
         source: SourceType,
         sortMode: LibrarySortMode,
+        filters: LibraryFilterState,
     ): Flow<PagingData<ReadableItem>> = Pager(
         config = PagingConfig(
             pageSize = GRID_PAGE_SIZE,
             enablePlaceholders = false,
         ),
     ) {
-        when (sortMode) {
-            LibrarySortMode.DATE_ADDED -> remoteCatalogDao.pagingGridRootsByDateAdded(source.name)
-            LibrarySortMode.LAST_READ -> remoteCatalogDao.pagingGridRootsByLastRead(source.name)
-            else -> remoteCatalogDao.pagingGridRootsByTitle(source.name)
+        if (filters.isEmpty) {
+            when (sortMode) {
+                LibrarySortMode.DATE_ADDED -> remoteCatalogDao.pagingGridRootsByDateAdded(source.name)
+                LibrarySortMode.LAST_READ -> remoteCatalogDao.pagingGridRootsByLastRead(source.name)
+                else -> remoteCatalogDao.pagingGridRootsByTitle(source.name)
+            }
+        } else {
+            remoteCatalogDao.pagingGridRootsFiltered(
+                buildFilteredGridRootsQuery(source.name, sortMode, filters),
+            )
         }
     }.flow.map { pagingData -> pagingData.map(LibraryGridRootEntity::toDomain) }
 

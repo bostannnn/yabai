@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
 
@@ -8,10 +9,11 @@ import com.example.unifiedreader.core.model.SourceType
  * SQL while reusing the in-memory-computed shelves on top; flip to false to force the pure in-memory
  * path.
  *
- * Engaged only for the plain Kavita root view in a rail-less sort (LAST_READ, DATE_ADDED). The
- * rail-bearing sorts (Title/Author/Series), active filters/search, series browse, and Kavita scopes
- * still render from the in-memory [AppUiState.visibleItems] path, so nothing loses the alphabet rail
- * or filter behaviour yet. Filters/rail/search in the paged view arrive in later milestones.
+ * Engaged for the Kavita root view in a rail-less sort (LAST_READ, DATE_ADDED), including
+ * **content-filtered** views (format/library/author/series/publisher/genre/tag/language) which page
+ * via `library_root_facets`. The rail-bearing sorts (Title/Author/Series), search, series browse,
+ * Kavita scopes, and reading-status / file-location filters (runtime state not in the tables) still
+ * render from the in-memory [AppUiState.visibleItems] path.
  */
 internal object LibraryPagingFeature {
     const val ENABLED = true
@@ -23,8 +25,13 @@ internal object LibraryPagingFeature {
             !state.isKavitaScopeActive &&
             !state.isKavitaVisualSectionActive &&
             state.selectedLibrarySearchQuery.isBlank() &&
-            state.selectedLibraryFilters.isEmpty &&
+            state.selectedLibraryFilters.isPageableFilter() &&
             state.selectedLibrarySortMode in PAGEABLE_SORTS
+
+    // Content filters live in library_root_facets and page via buildFilteredGridRootsQuery; the
+    // runtime dimensions (reading status, file location) aren't in the tables, so those stay in-memory.
+    private fun LibraryFilterState.isPageableFilter(): Boolean =
+        readingStatuses.isEmpty() && fileLocations.isEmpty()
 
     // Rail-less sorts only, so the alphabet-rail sorts keep the in-memory path (which renders it).
     private val PAGEABLE_SORTS = setOf(LibrarySortMode.LAST_READ, LibrarySortMode.DATE_ADDED)

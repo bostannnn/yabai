@@ -119,8 +119,9 @@ class AppViewModel @Inject constructor(
     fun libraryGridPagingData(
         source: SourceType,
         sortMode: LibrarySortMode,
+        filters: LibraryFilterState,
     ): Flow<PagingData<ReadableItem>> =
-        libraryGridPager.gridRootsPagingData(source, sortMode).cachedIn(viewModelScope)
+        libraryGridPager.gridRootsPagingData(source, sortMode, filters).cachedIn(viewModelScope)
 
     fun onTopLevelSelected(destination: TopLevelDestination) {
         readerCoordinator.onTopLevelSelected(

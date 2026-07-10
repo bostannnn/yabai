@@ -22,8 +22,10 @@ internal fun AppUiState.toLibraryDerivedStateInput(): LibraryDerivedStateInput =
     selectedStumpSeriesKey = selectedStumpSeriesKey,
     selectedKavitaCollectionId = kavitaReadingLists.selectedCollectionId,
     selectedKavitaCollectionSeriesKeys = selectedKavitaCollectionSeriesKeys,
-    // When the grid pages from Room, skip the redundant in-memory sort for `visibleItems` (M2).
-    pagedGridActive = LibraryPagingFeature.isPageable(this),
+    // When the grid pages from Room AND there's no filter, skip the redundant in-memory sort for
+    // `visibleItems` (M2). A filtered paged view still pages its grid from Room, but keeps `visibleItems`
+    // as the filtered in-memory set (computed async) so its consumers stay correct.
+    pagedGridActive = LibraryPagingFeature.isPageable(this) && selectedLibraryFilters.isEmpty,
     orderedItemScope = selectedKavitaReadingListItemIds
         .takeIf { isKavitaReadingListActive }
         ?.let { itemIds ->

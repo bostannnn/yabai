@@ -670,6 +670,11 @@ private class FakeRemoteCatalogDao(
     override fun pagingGridRootsByLastRead(sourceType: String): PagingSource<Int, LibraryGridRootEntity> =
         throw UnsupportedOperationException("paging not used in FakeRemoteCatalogDao")
 
+    override fun pagingGridRootsFiltered(
+        query: androidx.sqlite.db.SupportSQLiteQuery,
+    ): PagingSource<Int, LibraryGridRootEntity> =
+        throw UnsupportedOperationException("paging not used in FakeRemoteCatalogDao")
+
     override fun countGridRoots(): Int = gridRootsState.value.size
 
     override fun getGridRootIdsByTitle(sourceType: String, limit: Int): List<String> =

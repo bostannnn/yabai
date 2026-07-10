@@ -313,10 +313,15 @@ fun UnifiedReaderScaffold(
                         uiState = uiState,
                         viewMode = libraryViewMode,
                         pagedGridFlow = if (LibraryPagingFeature.isPageable(uiState)) {
-                            remember(uiState.selectedSource, uiState.selectedLibrarySortMode) {
+                            remember(
+                                uiState.selectedSource,
+                                uiState.selectedLibrarySortMode,
+                                uiState.selectedLibraryFilters,
+                            ) {
                                 viewModel.libraryGridPagingData(
                                     source = uiState.selectedSource,
                                     sortMode = uiState.selectedLibrarySortMode,
+                                    filters = uiState.selectedLibraryFilters,
                                 )
                             }
                         } else {
