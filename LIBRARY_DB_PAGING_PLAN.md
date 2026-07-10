@@ -5,6 +5,27 @@ Read this top-to-bottom to resume in a fresh session.
 
 ---
 
+## ⏳ PENDING ON-DEVICE CHECKS (2026-07-09) — do when back at the device
+
+Build + install the branch, then over adb (`~/Library/Android/sdk_new/platform-tools/adb`, device
+`9279b171`) verify:
+
+1. **Shelf cold-start seed (commit `2749f082`).** Force-stop + relaunch, capture
+   `adb logcat -s LibraryPerf`. Expectation: shelves appear **when reading-progress loads (~hundreds
+   of ms)**, NOT after the ~1.8 s catalog hydration. Look for a `shelves.compute` over the *bounded*
+   set (small item count, not 17362) early in the log, and shelves visible on screen before the grid's
+   `items=17362` hydration line. **If shelves still wait ~1.8 s:** the seed likely no-oped because
+   `readerSessionStore.progressByItemIdFlow` wasn't populated early → follow-up: source shelf progress
+   from the DB (reading_progress) in `AppLibraryShelvesInputResolver` instead of the in-app flow.
+2. **Shelf compute win still holds:** post-hydration `shelves.compute` ~85 ms (was 1236 ms).
+3. **Filtered paging (in progress, see below):** with a content filter on + Last-read sort, the grid
+   should load instantly (from Room) instead of the old in-memory wait; `derived.compute` should log
+   `paged=true`.
+
+Before shipping: flip `LibraryPerfLog.ENABLED` and `LibraryShelvesPerfLog.ENABLED` to `false`.
+
+---
+
 ## 1. The goal (why this exists)
 
 Today the whole catalog is held and re-derived in memory:
