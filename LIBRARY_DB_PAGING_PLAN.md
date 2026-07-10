@@ -5,27 +5,44 @@ Read this top-to-bottom to resume in a fresh session.
 
 ---
 
-## ⏳ PENDING ON-DEVICE CHECKS (2026-07-09) — do when back at the device
+## ✅ CURRENT STATUS (2026-07-10) — read this first
 
-Build + install the branch, then over adb (`~/Library/Android/sdk_new/platform-tools/adb`, device
-`9279b171`) verify:
+HEAD `7639498e` on `perf/library-db-paging`, working tree clean. Both recent fixes are **verified on
+the device** (`9279b171`, adb at `~/Library/Android/sdk_new/platform-tools/adb`):
 
-1. **Shelf cold-start seed (commit `2749f082`).** Force-stop + relaunch, capture
-   `adb logcat -s LibraryPerf`. Expectation: shelves appear **when reading-progress loads (~hundreds
-   of ms)**, NOT after the ~1.8 s catalog hydration. Look for a `shelves.compute` over the *bounded*
-   set (small item count, not 17362) early in the log, and shelves visible on screen before the grid's
-   `items=17362` hydration line. **If shelves still wait ~1.8 s:** the seed likely no-oped because
-   `readerSessionStore.progressByItemIdFlow` wasn't populated early → follow-up: source shelf progress
-   from the DB (reading_progress) in `AppLibraryShelvesInputResolver` instead of the in-app flow.
-2. **Shelf compute win still holds:** post-hydration `shelves.compute` ~85 ms (was 1236 ms).
-3. **Filtered paging (built: `9d3e695d` + `aa00371f`):** put a **content** filter on (genre/format/
-   library/author/series/publisher/genre/tag/language) with a **Last-read or Date-added** sort — the
-   grid should now load **instantly** (Room-paged) instead of the old in-memory wait. `derived.compute`
-   will log `paged=false` (filtered → visibleItems stays in-memory, async), but the grid no longer
-   waits on it. A **reading-status or downloaded/local** filter, or a Title/Author/Series sort, still
-   uses the old in-memory path by design. Sanity-check the filtered grid shows the *right* items.
+- **Unfiltered grid pages from Room — instant, even cold start** (M1 + M2). The heavy in-memory
+  `LibraryDerivedStateComputer` recompute (~660 ms cold) runs async and no longer blocks the grid.
+- **Shelf cold-start seed (`2749f082`) — verified.** Kavita shelves compute from the bounded DB set
+  (`shelves.compute [items=889]: 27 ms` at ~340 ms after launch, *before* the ~1.7 s catalog
+  hydration), so shelves render immediately instead of the old ~1.8 s wait. Kavita shelves now never
+  read `AppUiState.items` (via `LibraryShelvesInputResolver`).
+- **Filtered paging (`9d3e695d` + `aa00371f`) — verified.** A **content** filter (format / library /
+  author / series / publisher / genre / tag / language) on a Last-read/Date-added sort pages the grid
+  from Room (facet `EXISTS` query) — instant, correct multi-filter AND. Runtime filters
+  (reading-status, downloaded/local) and rail sorts (Title/Author/Series) stay on the in-memory path by
+  design. `pagedGridActive = isPageable && filters.isEmpty` (filtered → grid from Room, `visibleItems`
+  stays filtered in-memory, async).
+- **`LibraryPerf` timing stays ON** in the tree by user decision (`adb logcat -s LibraryPerf`). It's
+  documented in `ARCHITECTURE_RULES.md` (Runtime performance boundaries). *No longer* required to flip
+  off before shipping unless the user changes their mind.
 
-Before shipping: flip `LibraryPerfLog.ENABLED` and `LibraryShelvesPerfLog.ENABLED` to `false`.
+### ▶ NEXT (do in this order) — see §7 for detail
+
+1. **Status jump (highest priority, user-flagged).** The paged grid paints instantly, but each card's
+   **read badge, progress bar, rating, and download status pop in ~1 s later** — because those come
+   from the in-memory recompute's maps (`displayProgressByItemId`, `displayRatingByItemId`,
+   `remoteDownloadActionAvailability`). Rebuild them for the **visible paged window** from bounded
+   sources (reading_progress via the reader-session store like the shelf seed; ratings via journal;
+   download availability via the downloaded-id set + `library_root_members`) so badges commit *with*
+   the grid, not after. More involved than the shelf seed because the grid scrolls (per-visible-item
+   resolution, not a one-shot). Violates the presentation-coherence rule in `ARCHITECTURE_RULES.md`.
+2. **Rail-sort paging** (Title/Author/Series) — needs an SQL-computed alphabet rail (per-letter offsets)
+   to page; currently in-memory.
+3. **M3 — drop `AppUiState.items` / `itemsState`** (the ~120 MB heap win). Remaining: route facets (C2)
+   through the coordinator; migrate by-id props / reactive scans / availability-scope consumers (§6);
+   other sources page or keep a bounded path; snapshot assembly; then delete `items`. Kavita shelves
+   are already off `items`.
+4. First-launch derived-table rebuild lighter/off critical path.
 
 ---
 
