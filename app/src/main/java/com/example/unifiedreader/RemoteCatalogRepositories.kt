@@ -63,6 +63,13 @@ interface ReadableItemLookup {
      * standalone item with no series.
      */
     suspend fun getSeriesMemberItems(item: ReadableItem): List<ReadableItem>
+
+    /**
+     * The catalog items making up [rootIds] (a bounded set of grid roots — the visible paged window):
+     * each container root's issues and each standalone root itself, via `library_root_members`. Powers
+     * per-window paged-card badge resolution without scanning the full catalog.
+     */
+    suspend fun getMemberItemsForRoots(source: SourceType, rootIds: List<String>): List<ReadableItem>
 }
 
 /**
@@ -369,6 +376,18 @@ class RoomRemoteCatalogRepository(
             } else {
                 remoteCatalogDao.getLibraryItemsByIds(memberItemIds).map(ReadableItemLibraryEntity::toDomain)
             }
+        }
+    }
+
+    override suspend fun getMemberItemsForRoots(
+        source: SourceType,
+        rootIds: List<String>,
+    ): List<ReadableItem> {
+        if (rootIds.isEmpty()) return emptyList()
+        return withContext(ioDispatcher) {
+            rootIds.chunked(ITEM_ID_LOOKUP_CHUNK_SIZE).flatMap { chunk ->
+                remoteCatalogDao.getMemberItemsForRoots(source.name, chunk).map(ReadableItemLibraryEntity::toDomain)
+            }.distinctBy(ReadableItem::id)
         }
     }
 

@@ -122,6 +122,26 @@ abstract class RemoteCatalogDao {
     )
     abstract fun getShelvesInputItems(sourceType: String): List<ReadableItemLibraryEntity>
 
+    /**
+     * The catalog items that make up [rootIds] — a bounded set of grid roots (the visible paged
+     * window): each container root's issues and each standalone root's own item, via
+     * `library_root_members`. Bounded by (window size x series size), so the paged card badges
+     * (progress / rating / download rollups) can be resolved for just the visible roots instead of
+     * scanning the full catalog.
+     */
+    @Query(
+        READABLE_ITEM_LIBRARY_SELECT + """
+         WHERE sourceType = :sourceType AND id IN (
+             SELECT m.itemId FROM library_root_members m
+             WHERE m.sourceType = :sourceType AND m.rootId IN (:rootIds)
+         )
+        """,
+    )
+    abstract fun getMemberItemsForRoots(
+        sourceType: String,
+        rootIds: List<String>,
+    ): List<ReadableItemLibraryEntity>
+
     @Query("SELECT * FROM library_grid_roots WHERE sourceType = :sourceType ORDER BY title COLLATE NOCASE ASC")
     abstract fun getGridRootsForSourceType(sourceType: String): List<LibraryGridRootEntity>
 

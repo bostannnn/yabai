@@ -573,6 +573,12 @@ private class FakeRemoteCatalogDao(
     override fun getShelvesInputItems(sourceType: String): List<ReadableItemLibraryEntity> =
         itemsState.value.filter { it.sourceType == sourceType }.map(ReadableItemEntity::toLibraryEntity)
 
+    // The real root->members join is SQL, tested in core:database; this test doesn't exercise it.
+    override fun getMemberItemsForRoots(
+        sourceType: String,
+        rootIds: List<String>,
+    ): List<ReadableItemLibraryEntity> = emptyList()
+
     override fun getCachedLibraries(
         sourceType: String,
         baseUrl: String,

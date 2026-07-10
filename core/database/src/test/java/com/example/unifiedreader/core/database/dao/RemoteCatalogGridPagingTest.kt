@@ -187,6 +187,39 @@ class RemoteCatalogGridPagingTest {
     }
 
     @Test
+    fun `member items for roots returns each container's issues and each standalone root itself`() = runBlocking {
+        dao.replaceSourceCatalog(
+            sourceType = SourceType.KAVITA.name,
+            libraries = listOf(kavitaLibrary()),
+            items = listOf(
+                comicIssue(id = "kavita:item:1", seriesId = "s1", title = "S1 #1"),
+                comicIssue(id = "kavita:item:2", seriesId = "s1", title = "S1 #2"),
+                comicIssue(id = "kavita:item:3", seriesId = "s1", title = "S1 #3"),
+                book(id = "kavita:item:book-1", title = "A Book"),
+                // Not in the requested window → must not be returned.
+                comicIssue(id = "kavita:item:9", seriesId = "s2", title = "S2 #1"),
+            ),
+        )
+
+        // The container root + the standalone book root pull in every s1 issue and the book itself.
+        assertEquals(
+            setOf("kavita:item:1", "kavita:item:2", "kavita:item:3", "kavita:item:book-1"),
+            dao.getMemberItemsForRoots(
+                sourceType = SourceType.KAVITA.name,
+                rootIds = listOf("kavita:series:libA::s1", "kavita:item:book-1"),
+            ).map { entity -> entity.id }.toSet(),
+        )
+        // A container-only window returns just that series' issues, nothing from other roots.
+        assertEquals(
+            setOf("kavita:item:1", "kavita:item:2", "kavita:item:3"),
+            dao.getMemberItemsForRoots(
+                sourceType = SourceType.KAVITA.name,
+                rootIds = listOf("kavita:series:libA::s1"),
+            ).map { entity -> entity.id }.toSet(),
+        )
+    }
+
+    @Test
     fun `filtered paging returns only roots matching the content filter, sorted`() = runBlocking {
         dao.replaceSourceCatalog(
             sourceType = SourceType.KAVITA.name,

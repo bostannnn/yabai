@@ -267,6 +267,9 @@ internal fun createViewModel(
         // equivalent to the bounded DB query in production.
         override suspend fun getSeriesMemberItems(item: ReadableItem): List<ReadableItem> =
             readableItemRepository.getItems()
+
+        override suspend fun getMemberItemsForRoots(source: SourceType, rootIds: List<String>): List<ReadableItem> =
+            readableItemRepository.getItems().filter { item -> item.sourceType == source }
     }
 
     val libraryGridPager = object : LibraryGridPager {
