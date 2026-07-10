@@ -7,7 +7,10 @@ import com.example.unifiedreader.core.database.UnifiedReaderDatabase
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
 import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
+import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.LibraryContentType
+import com.example.unifiedreader.core.model.LibraryFilterState
+import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -181,6 +184,32 @@ class RemoteCatalogGridPagingTest {
             setOf("kavita:item:1", "kavita:item:2", "kavita:item:3", "kavita:item:book-1"),
             ids,
         )
+    }
+
+    @Test
+    fun `filtered paging returns only roots matching the content filter, sorted`() = runBlocking {
+        dao.replaceSourceCatalog(
+            sourceType = SourceType.KAVITA.name,
+            libraries = listOf(kavitaLibrary()),
+            items = listOf(
+                book(id = "kavita:item:epub", title = "Zed Epub"),
+                book(id = "kavita:item:pdf-b", title = "Beta Pdf").copy(format = "PDF"),
+                book(id = "kavita:item:pdf-a", title = "Alpha Pdf").copy(format = "PDF"),
+            ),
+        )
+
+        val query = buildFilteredGridRootsQuery(
+            sourceType = SourceType.KAVITA.name,
+            sortMode = LibrarySortMode.TITLE,
+            filters = LibraryFilterState(formats = setOf(FormatType.PDF)),
+        )
+        val page = dao.pagingGridRootsFiltered(query).load(
+            PagingSource.LoadParams.Refresh(key = null, loadSize = 10, placeholdersEnabled = false),
+        )
+
+        // Only the two PDF roots, in title order; the EPUB root is filtered out.
+        page as PagingSource.LoadResult.Page
+        assertEquals(listOf("kavita:item:pdf-a", "kavita:item:pdf-b"), page.data.map { it.id })
     }
 }
 

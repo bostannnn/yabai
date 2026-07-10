@@ -5,12 +5,15 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.RawQuery
 import androidx.room.Transaction
+import androidx.sqlite.db.SupportSQLiteQuery
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.LibraryGridRootEntity
 import com.example.unifiedreader.core.database.entity.LibraryRootFacetEntity
 import com.example.unifiedreader.core.database.entity.LibraryRootMemberEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
+import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemLibraryEntity
 import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEntity
 import com.example.unifiedreader.core.database.entity.RemoteLibraryCacheEntity
@@ -145,6 +148,22 @@ abstract class RemoteCatalogDao {
         """,
     )
     abstract fun pagingGridRootsByLastRead(sourceType: String): PagingSource<Int, LibraryGridRootEntity>
+
+    /**
+     * Pages grid roots restricted to a content filter (built by [buildFilteredGridRootsQuery] — one
+     * `EXISTS` over `library_root_facets` per active dimension), so a filtered library view pages from
+     * SQL instead of scanning the in-memory catalog. Observes every table the query can read so Room
+     * invalidates the page window when the catalog, facets, or progress change.
+     */
+    @RawQuery(
+        observedEntities = [
+            LibraryGridRootEntity::class,
+            LibraryRootFacetEntity::class,
+            LibraryRootMemberEntity::class,
+            ReadingProgressEntity::class,
+        ],
+    )
+    abstract fun pagingGridRootsFiltered(query: SupportSQLiteQuery): PagingSource<Int, LibraryGridRootEntity>
 
     // Bounded, non-paged siblings of the paging queries above: just the ordered root ids for the
     // first [limit] roots, in the same order the matching paging source would yield. Used to record
