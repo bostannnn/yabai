@@ -425,6 +425,11 @@ object AppModule {
     ): LibraryShelvesInputSource = repository
 
     @Provides
+    fun provideLibraryShelvesInputResolver(
+        resolver: AppLibraryShelvesInputResolver,
+    ): LibraryShelvesInputResolver = resolver
+
+    @Provides
     fun provideRemoteLibraryCacheStore(
         repository: RoomRemoteCatalogRepository,
     ): RemoteLibraryCacheStore = repository

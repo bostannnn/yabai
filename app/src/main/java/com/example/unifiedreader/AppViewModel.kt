@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibraryFilterPanel
@@ -92,6 +93,17 @@ class AppViewModel @Inject constructor(
         settingsController.restoreState(updateState = ::updateUiState)
         libraryBrowseController.restoreState(updateState = ::updateUiState)
         coldStartLibraryViewCoordinator.restore(viewModelScope, uiState.selectedSource, ::updateUiState)
+        // Show shelves from the DB as soon as reading progress is loaded, instead of waiting for the
+        // whole catalog to hydrate into memory. (No reading progress -> no shelves anyway.)
+        viewModelScope.launch {
+            readerSessionStore.progressByItemIdFlow.first { progress -> progress.isNotEmpty() }
+            if (!uiState.isSelectedSourceHydrated) {
+                libraryStateRecomputeCoordinator.seedColdStartShelves(viewModelScope) { nextState ->
+                    uiState = nextState
+                    activeRouteStore.save(nextState.toActiveRouteSnapshot())
+                }
+            }
+        }
         observeAppState()
         coldStartLibraryViewCoordinator.startCapture(viewModelScope, snapshotFlow { uiState })
         viewModelScope.launch { initialUiStateFactory.hydrateAfterInitialState() }

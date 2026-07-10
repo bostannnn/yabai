@@ -9,11 +9,15 @@ import com.example.unifiedreader.feature.library.shelves.LibraryShelvesStateComp
 import dagger.hilt.android.scopes.ViewModelScoped
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 @ViewModelScoped
 class AppLibraryStateRecomputeCoordinator @Inject constructor(
     private val libraryDerivedStateComputer: LibraryDerivedStateComputer,
     private val libraryShelvesStateComputer: LibraryShelvesStateComputer,
+    // Hilt injects the real (DB-sourced) resolver; the no-op default keeps the ~dozen manual test
+    // constructions on the in-memory shelves path unchanged.
+    private val shelvesInputResolver: LibraryShelvesInputResolver = LibraryShelvesInputResolver { null },
     private val appDispatchers: AppDispatchers,
 ) {
     private var latestState: AppUiState? = null
@@ -27,7 +31,11 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
             libraryDerivedStateComputer.compute(state.toLibraryDerivedStateInput())
         },
         computeShelvesState = { state ->
-            libraryShelvesStateComputer.compute(state.toLibraryShelvesInput())
+            // Prefer the DB-sourced input (Kavita) so shelves don't wait for the full catalog to
+            // hydrate; fall back to the in-memory input for other sources.
+            libraryShelvesStateComputer.compute(
+                shelvesInputResolver.resolve(state) ?: state.toLibraryShelvesInput(),
+            )
         },
     )
     private val retainedRootShelvesBySource =
@@ -60,6 +68,46 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
         return initializedState.also { state ->
             retainRootShelves(state)
             latestState = state
+        }
+    }
+
+    /**
+     * Computes the shelves from the DB-sourced input (Kavita) at cold start and publishes them, so the
+     * shelves don't sit in the loading state for the ~seconds it takes the full catalog to hydrate into
+     * memory. No-op when there is no DB-sourced input, when shelves aren't shown, when the DB has no
+     * shelf content, or once the catalog has already hydrated (the signature-driven recompute owns
+     * shelves from then on).
+     */
+    fun seedColdStartShelves(
+        scope: CoroutineScope,
+        publishState: (AppUiState) -> Unit,
+    ) {
+        val state = latestState ?: return
+        if (!state.shouldReserveLibraryShelvesSlot || state.isSelectedSourceHydrated) return
+        scope.launch {
+            val input = shelvesInputResolver.resolve(state) ?: return@launch
+            val shelvesState = libraryShelvesStateComputer.compute(input)
+            if (!shelvesState.hasContent) return@launch
+            val latest = latestState ?: return@launch
+            // Once the catalog hydrates, the signature-driven recompute owns shelves — don't fight it.
+            if (latest.isSelectedSourceHydrated ||
+                !latest.shouldReserveLibraryShelvesSlot ||
+                latest.selectedSource != state.selectedSource
+            ) {
+                return@launch
+            }
+            // Key to the current state's signature so the merge below applies the seeded shelves, and
+            // pre-hydration updates (same signature) keep showing them instead of the empty placeholder.
+            appliedShelvesSignature = latest.libraryShelvesStateSignature()
+            appliedShelvesState = shelvesState
+            val mergedState = mergeAppliedLibraryState(latest)
+            val nextState = presentShelvesState(
+                state = mergedState,
+                isLoading = mergedState.shouldShowLibraryShelvesLoading,
+            )
+            latestState = nextState
+            retainRootShelves(nextState)
+            publishState(nextState)
         }
     }
 

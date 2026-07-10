@@ -12,7 +12,7 @@ import kotlinx.coroutines.withContext
 internal class AppLibraryPendingRecompute(
     private val appDispatchers: AppDispatchers,
     private val computeDerivedState: (AppUiState) -> LibraryDerivedState,
-    private val computeShelvesState: (AppUiState) -> LibraryShelvesState,
+    private val computeShelvesState: suspend (AppUiState) -> LibraryShelvesState,
 ) {
     private var pendingDerivedKey: Any? = null
     private var pendingShelvesKey: Any? = null
