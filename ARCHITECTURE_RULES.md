@@ -120,6 +120,12 @@ Do not introduce:
 
 Performance-sensitive work must name the owner module and the metric that proves the change helped. Acceptable proof includes a focused unit test for fewer calls/work, a benchmark, or a documented manual profiler check.
 
+**Library DB paging (see `LIBRARY_DB_PAGING_PLAN.md`).** The Kavita library grid, shelves, and content-filtered views page from Room over the derived projection tables (`library_grid_roots`, `library_root_facets`, `library_root_members`) so only the visible window is resident, instead of holding and re-deriving the whole catalog in memory. When extending this:
+
+- The grid renders from the paging flow; do not block it on the in-memory `LibraryDerivedStateComputer` recompute, which runs async off the presentation path.
+- Shelves and any **per-item derived state the paged cards display** — read/progress badge, download availability/status — should be sourced from bounded SQL / reader-session state (like the shelves cold-start seed and `LibraryShelvesInputResolver`) so they commit *with* the grid, not pop in a second later once the full-catalog recompute finishes. A status that appears after the grid has presented is a presentation-coherence violation (below).
+- Measure recompute cost with the opt-in `LibraryPerf` logging (`LibraryPerfLog` / `LibraryShelvesPerfLog`; `adb logcat -s LibraryPerf`): it reports each `compute` HIT/MISS with a per-pass breakdown. Keep it in the tree but flip `ENABLED` to `false` for shipping builds.
+
 ### Library presentation state
 
 The main library screen must publish coherent presentation states.
