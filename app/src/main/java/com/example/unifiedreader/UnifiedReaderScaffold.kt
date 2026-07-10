@@ -327,6 +327,7 @@ fun UnifiedReaderScaffold(
                         } else {
                             null
                         },
+                        pagedWindowBadgeResolver = viewModel::resolvePagedWindowBadges,
                         browseContextKey = uiState.libraryBrowseContextKey,
                         initialScrollPosition = viewModel.libraryScrollPositionFor(uiState.libraryBrowseContextKey),
                         scrollToTopRequest = uiState.libraryScrollToTopRequest,

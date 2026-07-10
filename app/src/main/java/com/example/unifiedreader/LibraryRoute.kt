@@ -19,6 +19,7 @@ import com.example.unifiedreader.feature.library.LibraryReadingListScopeState
 import com.example.unifiedreader.feature.library.LibraryScreen
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
 import com.example.unifiedreader.feature.library.LibraryViewMode
+import com.example.unifiedreader.feature.library.LibraryWindowBadges
 import kotlinx.coroutines.flow.Flow
 import com.example.unifiedreader.feature.library.KavitaScopeLandingItem
 import com.example.unifiedreader.feature.library.KavitaScopeLandingScreen
@@ -34,6 +35,7 @@ internal fun LibraryRoute(
     uiState: AppUiState,
     viewMode: LibraryViewMode,
     pagedGridFlow: Flow<PagingData<ReadableItem>>? = null,
+    pagedWindowBadgeResolver: (suspend (List<ReadableItem>) -> LibraryWindowBadges)? = null,
     browseContextKey: String,
     initialScrollPosition: LibraryScrollPosition,
     scrollToTopRequest: Long,
@@ -220,6 +222,7 @@ internal fun LibraryRoute(
                 onDeleteDownloadedItem = onDeleteRemoteLocalFile,
                 onSetReadStatus = onSetReadStatus,
                 pagedGridItems = pagedGridFlow,
+                pagedWindowBadgeResolver = pagedWindowBadgeResolver,
             )
         }
     }

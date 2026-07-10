@@ -446,6 +446,11 @@ internal fun createViewModel(
             libraryGridPager = libraryGridPager,
         ),
         libraryGridPager = libraryGridPager,
+        pagedWindowBadgeResolver = AppPagedWindowBadgeResolver(
+            readableItemLookup = readableItemLookup,
+            libraryStateAssembler = libraryStateAssembler,
+            readerSessionStore = readerSessionStore,
+        ),
     )
 }
 

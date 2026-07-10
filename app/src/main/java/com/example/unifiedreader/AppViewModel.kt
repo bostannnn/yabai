@@ -74,6 +74,7 @@ class AppViewModel @Inject constructor(
     private val libraryStateRecomputeCoordinator: AppLibraryStateRecomputeCoordinator,
     private val coldStartLibraryViewCoordinator: AppColdStartLibraryViewCoordinator,
     private val libraryGridPager: LibraryGridPager,
+    private val pagedWindowBadgeResolver: AppPagedWindowBadgeResolver,
 ) : ViewModel() {
     var uiState by mutableStateOf(initialUiStateFactory.create())
         private set
@@ -122,6 +123,24 @@ class AppViewModel @Inject constructor(
         filters: LibraryFilterState,
     ): Flow<PagingData<ReadableItem>> =
         libraryGridPager.gridRootsPagingData(source, sortMode, filters).cachedIn(viewModelScope)
+
+    /**
+     * Resolves the paged grid's per-card badges (read/progress, rating, download status) for the roots
+     * currently on screen, from bounded sources, so they paint with the grid instead of ~1s after.
+     * Reads [uiState] fresh (not a captured composition snapshot) for the current source, ratings, and
+     * in-flight downloads. Only invoked on the paged path; see [AppPagedWindowBadgeResolver].
+     */
+    suspend fun resolvePagedWindowBadges(
+        rootItems: List<ReadableItem>,
+    ): com.example.unifiedreader.feature.library.LibraryWindowBadges {
+        val state = uiState
+        return pagedWindowBadgeResolver.resolve(
+            source = state.selectedSource,
+            rootItems = rootItems,
+            ratingByItemId = state.journalRatingByItemId(),
+            downloadingItemIds = state.downloadingRemoteItemIds,
+        )
+    }
 
     fun onTopLevelSelected(destination: TopLevelDestination) {
         readerCoordinator.onTopLevelSelected(

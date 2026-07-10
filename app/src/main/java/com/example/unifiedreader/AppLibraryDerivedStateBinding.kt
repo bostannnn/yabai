@@ -12,9 +12,7 @@ internal fun AppUiState.toLibraryDerivedStateInput(): LibraryDerivedStateInput =
     selectedLibrarySearchQuery = selectedLibrarySearchQuery,
     selectedLibrarySortMode = selectedLibrarySortMode,
     progressByItemId = progressByItemId,
-    ratingByItemId = journalSnapshot.entryByItemId.mapNotNull { (itemId, entry) ->
-        entry.rating?.let { rating -> itemId to rating }
-    }.toMap(),
+    ratingByItemId = journalRatingByItemId(),
     downloadedRemoteItemIds = downloadedRemoteItemIds,
     locallyAvailableRemoteItemIds = locallyAvailableRemoteItemIds,
     downloadingRemoteItemIds = downloadingRemoteItemIds,
@@ -43,6 +41,13 @@ internal fun AppUiState.toLibraryDerivedStateInput(): LibraryDerivedStateInput =
                 )
             },
 )
+
+/** Per-item ratings drawn from the journal — the rating badge source for both the in-memory recompute
+ *  and the paged-window badge resolver. */
+internal fun AppUiState.journalRatingByItemId(): Map<String, Int> =
+    journalSnapshot.entryByItemId.mapNotNull { (itemId, entry) ->
+        entry.rating?.let { rating -> itemId to rating }
+    }.toMap()
 
 internal fun AppUiState.withLibraryDerivedState(
     derivedState: LibraryDerivedState,

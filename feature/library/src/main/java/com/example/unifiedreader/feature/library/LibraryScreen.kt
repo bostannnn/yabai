@@ -22,8 +22,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -108,23 +110,13 @@ fun LibraryScreen(
     // rest of the screen (shelves, filter summary, sort, dialogs) is unchanged. Existing callers pass
     // null and behave exactly as before.
     pagedGridItems: Flow<PagingData<ReadableItem>>? = null,
+    // Resolves the paged window's per-card badges (read/progress, rating, download status) from bounded
+    // sources so they commit with the grid instead of waiting ~1s for the in-memory recompute. Only
+    // used on the paged path; null (all other callers) keeps the recompute maps as the sole source.
+    pagedWindowBadgeResolver: (suspend (List<ReadableItem>) -> LibraryWindowBadges)? = null,
 ) {
     val pagedItems = pagedGridItems?.collectAsLazyPagingItems()
     val isPaged = pagedItems != null
-    val itemActionContext = LibraryItemActionContext(
-        progressByItemId = progressByItemId,
-        locallyAvailableItemIds = locallyAvailableItemIds,
-        downloadableItemIds = downloadableItemIds,
-        deletableDownloadedItemIds = deletableDownloadedItemIds,
-        downloadingItemIds = downloadingItemIds,
-        seriesReadingDirectionFor = seriesReadingDirectionFor,
-        onSeriesDirectionSelected = onSeriesDirectionSelected,
-        seriesReaderModeFor = seriesReaderModeFor,
-        onSeriesReaderModeSelected = onSeriesReaderModeSelected,
-        onDownloadItem = onDownloadItem,
-        onDeleteDownloadedItem = onDeleteDownloadedItem,
-        onSetReadStatus = onSetReadStatus,
-    )
     var deleteCandidate by remember { mutableStateOf<ReadableItem?>(null) }
     var gridExpandedMenuItemId by remember { mutableStateOf<String?>(null) }
     var openFilterPanel by rememberSaveable { mutableStateOf<LibraryFilterPanel?>(null) }
@@ -137,6 +129,48 @@ fun LibraryScreen(
     // menu, date-added scroll anchor, selection, cover prefetch — so the in-memory sorted list can be
     // skipped for the paged view (M2).
     val renderedItems = if (isPaged) pagedItems!!.itemSnapshotList.items else visibleItems
+    // Paged-window badge overlay: resolve the on-screen roots' read/progress, rating, and download
+    // status from bounded sources so they paint with the grid instead of ~1s later. The recompute maps
+    // stay the base (recompute wins once it lands — its values match, so nothing flips); the window
+    // badges only fill the keys the recompute doesn't have yet (i.e. everything at cold start). Re-runs
+    // as the window grows / reorders (keyed on size + endpoints, which change on scroll and last-read
+    // re-sort). Empty on every non-paged path, so `effective*` below equals the raw inputs there.
+    val latestBadgeResolver by rememberUpdatedState(pagedWindowBadgeResolver)
+    val windowSignature = renderedItems.size to
+        (renderedItems.firstOrNull()?.id to renderedItems.lastOrNull()?.id)
+    val windowBadges = if (isPaged && pagedWindowBadgeResolver != null) {
+        produceState(initialValue = LibraryWindowBadges(), windowSignature) {
+            value = latestBadgeResolver
+                ?.takeIf { renderedItems.isNotEmpty() }
+                ?.invoke(renderedItems)
+                ?: LibraryWindowBadges()
+        }.value
+    } else {
+        LibraryWindowBadges()
+    }
+    val effectiveProgressByItemId = windowBadges.displayProgressByItemId + progressByItemId
+    val effectiveRatingByItemId = windowBadges.displayRatingByItemId + ratingByItemId
+    val effectiveLocallyAvailableItemIds = locallyAvailableItemIds + windowBadges.locallyAvailableItemIds
+    val effectiveDownloadableItemIds =
+        downloadableItemIds + windowBadges.downloadActionAvailability.downloadableItemIds
+    val effectiveDeletableDownloadedItemIds =
+        deletableDownloadedItemIds + windowBadges.downloadActionAvailability.deletableDownloadedItemIds
+    val effectiveDownloadingItemIds =
+        downloadingItemIds + windowBadges.downloadActionAvailability.activeDownloadingItemIds
+    val itemActionContext = LibraryItemActionContext(
+        progressByItemId = effectiveProgressByItemId,
+        locallyAvailableItemIds = effectiveLocallyAvailableItemIds,
+        downloadableItemIds = effectiveDownloadableItemIds,
+        deletableDownloadedItemIds = effectiveDeletableDownloadedItemIds,
+        downloadingItemIds = effectiveDownloadingItemIds,
+        seriesReadingDirectionFor = seriesReadingDirectionFor,
+        onSeriesDirectionSelected = onSeriesDirectionSelected,
+        seriesReaderModeFor = seriesReaderModeFor,
+        onSeriesReaderModeSelected = onSeriesReaderModeSelected,
+        onDownloadItem = onDownloadItem,
+        onDeleteDownloadedItem = onDeleteDownloadedItem,
+        onSetReadStatus = onSetReadStatus,
+    )
     val availableSortModes = remember(renderedItems, sortMode) {
         librarySortModesAvailableFor(items = renderedItems, selectedSortMode = sortMode)
     }
@@ -298,8 +332,8 @@ fun LibraryScreen(
             val hasMenuContent = itemActionContext.hasMenuContent(item)
             GridCoverCard(
                 item = item,
-                progress = progressByItemId[item.id],
-                rating = ratingByItemId[item.id],
+                progress = effectiveProgressByItemId[item.id],
+                rating = effectiveRatingByItemId[item.id],
                 isDownloaded = itemActionContext.isDownloaded(item),
                 fadeRead = fadeReadItems,
                 imageVariant = gridCoverImageVariant,
