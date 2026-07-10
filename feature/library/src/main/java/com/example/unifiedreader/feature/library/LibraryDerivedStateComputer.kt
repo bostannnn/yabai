@@ -392,7 +392,7 @@ private fun ReadableItem.libraryReadingStatus(
     }
 }
 
-private fun MutableMap<String, LibraryRatingBadgeState>.putSeriesAverageRatings(
+internal fun MutableMap<String, LibraryRatingBadgeState>.putSeriesAverageRatings(
     issuesBySeriesKey: Map<String, List<ReadableItem>>,
     ratingByItemId: Map<String, Int>,
     seriesContainerId: (String) -> String,
@@ -405,7 +405,7 @@ private fun MutableMap<String, LibraryRatingBadgeState>.putSeriesAverageRatings(
     }
 }
 
-private fun buildCompletedRootSeriesProgressByItemId(
+internal fun buildCompletedRootSeriesProgressByItemId(
     issuesBySeriesKey: Map<String, List<ReadableItem>>,
     progressByItemId: Map<String, ItemProgressSummary>,
     seriesContainerId: (String) -> String,
