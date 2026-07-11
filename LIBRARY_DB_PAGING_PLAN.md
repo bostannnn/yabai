@@ -5,9 +5,9 @@ Read this top-to-bottom to resume in a fresh session.
 
 ---
 
-## ✅ CURRENT STATUS (2026-07-10) — read this first
+## ✅ CURRENT STATUS (2026-07-11) — read this first
 
-HEAD `7639498e` on `perf/library-db-paging`, working tree clean. Both recent fixes are **verified on
+HEAD `e775d5a8` on `perf/library-db-paging`, working tree clean. All recent fixes are **verified on
 the device** (`9279b171`, adb at `~/Library/Android/sdk_new/platform-tools/adb`):
 
 - **Unfiltered grid pages from Room — instant, even cold start** (M1 + M2). The heavy in-memory
@@ -22,27 +22,29 @@ the device** (`9279b171`, adb at `~/Library/Android/sdk_new/platform-tools/adb`)
   (reading-status, downloaded/local) and rail sorts (Title/Author/Series) stay on the in-memory path by
   design. `pagedGridActive = isPageable && filters.isEmpty` (filtered → grid from Room, `visibleItems`
   stays filtered in-memory, async).
+- **Status jump (card badges) — FIXED + verified (2026-07-11).** The paged grid painted instantly but
+  each card's read badge / progress bar / rating / download status used to pop in ~1 s later (they came
+  from the async recompute maps, empty until the ~2.1 s hydration recompute). Now a bounded per-window
+  resolver rebuilds those three maps for the on-screen roots from early sources and the paged path
+  overlays them under the recompute maps (recompute wins once it lands; values match, so no flip).
+  **On device: visible-card badges commit at ~55–60 ms (was ~2,100 ms — ~36×), coherent, no flip.**
+  Commits `0cc5339e` (window computer) → `6867bbbc` (bounded resolver) → `242098d3` (overlay wiring) →
+  `fa56e6c8` (cache-pollution fix) → `b936907f` (two-phase: visible prefix first) → `e775d5a8` (narrow
+  member-columns query). Timing breakdown + journey in §7 / the `paging-on-device-validation` memory.
 - **`LibraryPerf` timing stays ON** in the tree by user decision (`adb logcat -s LibraryPerf`). It's
   documented in `ARCHITECTURE_RULES.md` (Runtime performance boundaries). *No longer* required to flip
-  off before shipping unless the user changes their mind.
+  off before shipping unless the user changes their mind. (The paged-window resolver has its own
+  `PAGED_WINDOW_BADGE_PERF_ENABLED` switch in `AppPagedWindowBadgeResolver`, also left ON.)
 
 ### ▶ NEXT (do in this order) — see §7 for detail
 
-1. **Status jump (highest priority, user-flagged).** The paged grid paints instantly, but each card's
-   **read badge, progress bar, rating, and download status pop in ~1 s later** — because those come
-   from the in-memory recompute's maps (`displayProgressByItemId`, `displayRatingByItemId`,
-   `remoteDownloadActionAvailability`). Rebuild them for the **visible paged window** from bounded
-   sources (reading_progress via the reader-session store like the shelf seed; ratings via journal;
-   download availability via the downloaded-id set + `library_root_members`) so badges commit *with*
-   the grid, not after. More involved than the shelf seed because the grid scrolls (per-visible-item
-   resolution, not a one-shot). Violates the presentation-coherence rule in `ARCHITECTURE_RULES.md`.
-2. **Rail-sort paging** (Title/Author/Series) — needs an SQL-computed alphabet rail (per-letter offsets)
+1. **Rail-sort paging** (Title/Author/Series) — needs an SQL-computed alphabet rail (per-letter offsets)
    to page; currently in-memory.
-3. **M3 — drop `AppUiState.items` / `itemsState`** (the ~120 MB heap win). Remaining: route facets (C2)
+2. **M3 — drop `AppUiState.items` / `itemsState`** (the ~120 MB heap win). Remaining: route facets (C2)
    through the coordinator; migrate by-id props / reactive scans / availability-scope consumers (§6);
    other sources page or keep a bounded path; snapshot assembly; then delete `items`. Kavita shelves
    are already off `items`.
-4. First-launch derived-table rebuild lighter/off critical path.
+3. First-launch derived-table rebuild lighter/off critical path.
 
 ---
 
@@ -133,6 +135,12 @@ sort in {LAST_READ, DATE_ADDED} (rail-less) + no filters/search/series/scope. Ra
 | `2749f082` | D2c | **Shelves cold-start seed from DB (unverified on device).** `LibraryShelvesInputResolver` sources Kavita shelves from the bounded DB query + reader-session progress; coordinator feeds shelves through it (Kavita → DB, else in-memory; `computeShelvesState` suspend); `seedColdStartShelves` publishes them pre-hydration so shelves don't wait the ~1.8 s catalog load. Kavita shelves now never read `AppUiState.items` — a big chunk of M3's shelves work. |
 | `9d3e695d`+`aa00371f` | Bf | **Filtered paging (unverified on device).** `buildFilteredGridRootsQuery` + `pagingGridRootsFiltered` (`@RawQuery`, `EXISTS` over `library_root_facets` per content dim); `isPageable` allows content filters (`isPageableFilter`); `pagedGridActive` gated to `isPageable && filters.isEmpty` so a filtered paged view pages the grid from Room but keeps `visibleItems` filtered in-memory. Content-filtered Last-read/Date-added views now page. |
 | `4f81da41` | M2 | **Skip the redundant in-memory grid sort when paged.** When the grid is served by Room paging, the in-memory last-read/date-added sort over the whole source set is redundant (Room sorts the window) yet re-ran on every progress update — the ~236 MB back-nav floor. Prep: `LibraryScreen`'s sort menu + date-added scroll anchor read `renderedItems` (paging snapshot) not the in-memory `items`. Core: `LibraryDerivedStateInput.pagedGridActive` (from `isPageable`); when true the computer leaves `visibleItems = sourceItems` (same membership) and skips `buildVisibleLibraryItems` + the last-read map. Added to the derived cache key. **Re-scoped: M2 is only the sort skip** — shelves/facets keep using `items` until M3, so their routing (D2a/C2) moved to M3. Computer test proves membership kept + sort skipped. Measurable heap/GC effect needs on-device A/B. |
+| `0cc5339e` | SJ-A | **Status jump, slice A — bounded window-badge computer.** `computeLibraryWindowBadges` (feature:library) rebuilds `displayProgressByItemId` / `displayRatingByItemId` / `remoteDownloadActionAvailability` (+ `locallyAvailableItemIds`) for a bounded set of grid roots, reusing the computer's exact root-view rollups (`buildCompletedRootSeriesProgressByItemId`, `putSeriesAverageRatings` — now internal — and `buildRemoteDownloadActionAvailability`). Parity-tested vs `LibraryDerivedStateComputer` per grid root. No consumer. |
+| `6867bbbc` | SJ-B | **Status jump, slice B — bounded resolver.** DAO `getMemberItemsForRoots` (root→members join, later narrowed by `e775d5a8`); `ReadableItemLookup.getMemberItemsForRoots`. `AppPagedWindowBadgeResolver` gathers members + progress summaries (reader-session store, pre-hydration) + journal ratings + a window-scoped downloads scan, groups via the same core `deriveKavita/StumpSeriesGrouping` (container ids match roots), calls slice A. Unit-tested. No wiring. |
+| `242098d3` | SJ-C | **Status jump, slice C — overlay wiring.** `LibraryScreen` takes an optional `pagedWindowBadgeResolver`; on the paged path a `produceState` keyed on the window resolves badges and overlays them **under** the recompute maps (`window + recompute` for the maps, set-union for availability — recompute wins once it lands, values match → no flip). `AppViewModel.resolvePagedWindowBadges` reads uiState fresh; threaded via `LibraryRoute`/scaffold. Shared `journalRatingByItemId()`. Non-paged callers pass null → unchanged. |
+| `fa56e6c8` | SJ-fix | **Status jump — cache-pollution fix.** The resolver's window-scoped downloads scan used `loadRemoteItemLocalState`, which **writes** the per-library-scope `RemoteItemLocalStateCache`; storing a subset would corrupt the full-library entry (later `buildInitialSnapshot` under-reports downloads). Split out non-persisting `computeRemoteItemLocalState`; resolver uses it. Regression-tested (zero cache stores). |
+| `b936907f` | SJ-perf1 | **Status jump — two-phase resolve.** Device: the single-phase resolve processed the whole initial paging load (180 roots / 2192 members, ~205 ms) though only ~a screen is visible. Now resolve a visible prefix first (`PAGED_WINDOW_BADGE_PREFIX_COUNT = 30`) so on-screen badges commit in ~one bounded query, then the full loaded window (superset → supersedes, no flip). Visible commit ~205 → ~80 ms. |
+| `e775d5a8` | SJ-perf2 | **Status jump — narrow member query.** The member fetch dominated phase 1 (full `readable_items` projection). New `LibraryMemberBadgeProjection` + `getMemberBadgeProjectionsForRoots` select only the 10 columns the rollups read (grouping / progress summary / download resolution), mapped to a lightweight `ReadableItem`. Rollups are order-independent and never read the omitted columns → badges identical. **Visible commit ~80 → ~55–60 ms on device (~36× vs the old ~2.1 s recompute).** `AppPagedWindowBadgeResolver` logs its own `pagedWindowBadges` timing under `LibraryPerf` (`2664476d`). |
 
 Verified: `core:model` / `core:database` / `feature:library` suites green; app repository/reader/VM
 tests green; Room validates the schema through v27; release APK builds. Device (pre-M1 build): cold
