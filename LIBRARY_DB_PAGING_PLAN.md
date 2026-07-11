@@ -5,9 +5,9 @@ Read this top-to-bottom to resume in a fresh session.
 
 ---
 
-## ✅ CURRENT STATUS (2026-07-11) — read this first
+## ✅ CURRENT STATUS (2026-07-12) — read this first
 
-HEAD `e775d5a8` on `perf/library-db-paging`, working tree clean. All recent fixes are **verified on
+HEAD `00f6553e` on `perf/library-db-paging`, working tree clean. All recent fixes are **verified on
 the device** (`9279b171`, adb at `~/Library/Android/sdk_new/platform-tools/adb`):
 
 - **Unfiltered grid pages from Room — instant, even cold start** (M1 + M2). The heavy in-memory
@@ -36,15 +36,27 @@ the device** (`9279b171`, adb at `~/Library/Android/sdk_new/platform-tools/adb`)
   off before shipping unless the user changes their mind. (The paged-window resolver has its own
   `PAGED_WINDOW_BADGE_PERF_ENABLED` switch in `AppPagedWindowBadgeResolver`, also left ON.)
 
+- **Rail-sort paging (Title/Author/Series) — DONE + verified on device (2026-07-12).** Those sorts now
+  page from `library_grid_roots` over precomputed sort keys, with an SQL-computed A–Z rail. Persisted
+  `sortTitleKey/sortAuthorKey/sortSeriesKey` (v27→v28; Author keys on the surname, which SQL can't
+  derive) → `pagingGridRootsBy{Author,Series}` + `get{...}AlphabetBuckets` → `assembleLibraryAlphabetSections`
+  (per-letter offsets) → `LibraryGridPager.alphabetSections`, wired into `LibraryScreen`'s rail.
+  Pageable only **unfiltered** (`isPageable`); a filtered rail view stays in-memory. Rail sorts page with
+  **placeholders + maxSize(6 pages) + jumpThreshold(3 pages)** so the rail can `scrollToItem(offset)` to
+  jump and the resident window stays bounded; a not-yet-loaded cell renders `LibraryGridPlaceholderCard`.
+  Badge resolve now runs `withContext(default)` (off main). **On device: jump lands on the target letter,
+  window stays ~180 roots (was 1,080 before maxSize/jumpThreshold), ~105 ms off-main resolve, no jank,
+  placeholders sized correctly.** Commits `04d2cd58` (RS-1) → `92da57a2` (RS-2) → `35be16f2` (RS-3) →
+  `00f6553e` (RS-4). *Memory win is not here yet* — `AppUiState.items` is still resident (M3).
+
 ### ▶ NEXT (do in this order) — see §7 for detail
 
-1. **Rail-sort paging** (Title/Author/Series) — needs an SQL-computed alphabet rail (per-letter offsets)
-   to page; currently in-memory.
-2. **M3 — drop `AppUiState.items` / `itemsState`** (the ~120 MB heap win). Remaining: route facets (C2)
+1. **M3 — drop `AppUiState.items` / `itemsState`** (the ~120 MB heap win). Remaining: route facets (C2)
    through the coordinator; migrate by-id props / reactive scans / availability-scope consumers (§6);
    other sources page or keep a bounded path; snapshot assembly; then delete `items`. Kavita shelves
-   are already off `items`.
-3. First-launch derived-table rebuild lighter/off critical path.
+   are already off `items`. Rail sorts no longer need the in-memory ordered list for the grid (paged),
+   which unblocks dropping `items` for them too.
+2. First-launch derived-table rebuild lighter/off critical path.
 
 ---
 
@@ -141,6 +153,10 @@ sort in {LAST_READ, DATE_ADDED} (rail-less) + no filters/search/series/scope. Ra
 | `fa56e6c8` | SJ-fix | **Status jump — cache-pollution fix.** The resolver's window-scoped downloads scan used `loadRemoteItemLocalState`, which **writes** the per-library-scope `RemoteItemLocalStateCache`; storing a subset would corrupt the full-library entry (later `buildInitialSnapshot` under-reports downloads). Split out non-persisting `computeRemoteItemLocalState`; resolver uses it. Regression-tested (zero cache stores). |
 | `b936907f` | SJ-perf1 | **Status jump — two-phase resolve.** Device: the single-phase resolve processed the whole initial paging load (180 roots / 2192 members, ~205 ms) though only ~a screen is visible. Now resolve a visible prefix first (`PAGED_WINDOW_BADGE_PREFIX_COUNT = 30`) so on-screen badges commit in ~one bounded query, then the full loaded window (superset → supersedes, no flip). Visible commit ~205 → ~80 ms. |
 | `e775d5a8` | SJ-perf2 | **Status jump — narrow member query.** The member fetch dominated phase 1 (full `readable_items` projection). New `LibraryMemberBadgeProjection` + `getMemberBadgeProjectionsForRoots` select only the 10 columns the rollups read (grouping / progress summary / download resolution), mapped to a lightweight `ReadableItem`. Rollups are order-independent and never read the omitted columns → badges identical. **Visible commit ~80 → ~55–60 ms on device (~36× vs the old ~2.1 s recompute).** `AppPagedWindowBadgeResolver` logs its own `pagedWindowBadges` timing under `LibraryPerf` (`2664476d`). |
+| `04d2cd58` | RS-1 | **Rail-sort paging — persisted sort keys (v27→v28).** `core:model librarySortIndexKey(sortMode)` = case-folded `librarySortKey` for Title/Author/Series (Author = surname via `authorFacetKey`, which SQL can't derive). `library_grid_roots` gains `sortTitleKey/sortAuthorKey/sortSeriesKey`, populated in `toGridRootEntity`. Migration adds the columns + clears roots so the startup rebuild repopulates with keys. Migration + populator + Room-validation tested. |
+| `92da57a2` | RS-2 | **Rail-sort paging — SQL queries + alphabet rail.** DAO `pagingGridRootsBy{Author,Series}` (ORDER BY sort key + title) + `pagingGridRootsByTitle` retargeted to `sortTitleKey`; `get{Title,Author,Series}AlphabetBuckets` (per-first-char counts in sort order). `core:model assembleLibraryAlphabetSections` → per-letter grid offsets (mirrors the in-memory `filterLetter`/section-starts). `LibraryGridPager.alphabetSections`. DAO + assembly tested. |
+| `35be16f2` | RS-3 | **Rail-sort paging — gate + wire the rail.** `isPageable` allows Title/Author/Series **unfiltered** (filtered rail stays in-memory). `LibraryScreen` sources the rail (letters, offsets, active letter) from `AppViewModel.pagedAlphabetSections` when paged, else the in-memory items (both computed unconditionally — `isPaged` can flip). Rail sorts page with placeholders (full-set index space so the rail can jump); not-yet-loaded cells render `LibraryGridPlaceholderCard`. |
+| `00f6553e` | RS-4 | **Rail-sort paging — bound the window + off-main resolve.** Device: a rail jump loaded ~1,080 roots (no maxSize; no jumpThreshold → contiguous load) and the badge rollup ran on the produceState/main thread (~1.5 s). Fix: rail-sort `PagingConfig` = placeholders + `maxSize`(6 pages) + `jumpThreshold`(3 pages) so a jump reloads centered on the target and drops the rest; `AppPagedWindowBadgeResolver.resolve` wraps in `withContext(default)`. **On device: jump bounded to ~180 roots, ~105 ms off-main, no jank, placeholders sized right.** Rail-sort paging DONE + verified. |
 
 Verified: `core:model` / `core:database` / `feature:library` suites green; app repository/reader/VM
 tests green; Room validates the schema through v27; release APK builds. Device (pre-M1 build): cold
