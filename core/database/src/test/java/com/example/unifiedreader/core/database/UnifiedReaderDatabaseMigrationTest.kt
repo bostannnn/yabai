@@ -146,6 +146,32 @@ class UnifiedReaderDatabaseMigrationTest {
     }
 
     @Test
+    fun `migration 27 to 28 adds rail sort keys and clears grid roots for repopulation`() {
+        createTestDatabase(
+            name = "migration-27-28-${System.nanoTime()}",
+            version = 27,
+        ) { database ->
+            createVersion27Schema(database)
+            // A pre-v28 grid root without sort keys; the migration must clear it so the startup
+            // rebuild repopulates roots with the new keys (they can't be computed in SQL).
+            database.execSQL(
+                "INSERT INTO library_grid_roots (id, sourceType, libraryId, isLocalImport, title, format, kind) " +
+                    "VALUES ('r1', 'KAVITA', 'libA', 0, 'Title', 'CBZ', 'COMIC')",
+            )
+        }.use { database ->
+            UnifiedReaderDatabaseMigrations.MIGRATION_27_28.migrate(database)
+
+            assertTrue(columnExists(database, "library_grid_roots", "sortTitleKey"))
+            assertTrue(columnExists(database, "library_grid_roots", "sortAuthorKey"))
+            assertTrue(columnExists(database, "library_grid_roots", "sortSeriesKey"))
+            database.query("SELECT COUNT(*) FROM library_grid_roots").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals(0, cursor.getInt(0))
+            }
+        }
+    }
+
+    @Test
     fun `room migrates 4 to 5 and validates reader session state schema`() {
         val databaseName = "migration-4-5-${System.nanoTime()}"
         createTestDatabase(
@@ -1151,6 +1177,11 @@ private fun createVersion26Schema(database: SupportSQLiteDatabase) {
     UnifiedReaderDatabaseMigrations.MIGRATION_25_26.migrate(database)
 }
 
+private fun createVersion27Schema(database: SupportSQLiteDatabase) {
+    createVersion26Schema(database)
+    UnifiedReaderDatabaseMigrations.MIGRATION_26_27.migrate(database)
+}
+
 private fun tableExists(
     database: SupportSQLiteDatabase,
     tableName: String,
@@ -1263,6 +1294,7 @@ private fun openRoomDatabase(
         UnifiedReaderDatabaseMigrations.MIGRATION_24_25,
         UnifiedReaderDatabaseMigrations.MIGRATION_25_26,
         UnifiedReaderDatabaseMigrations.MIGRATION_26_27,
+        UnifiedReaderDatabaseMigrations.MIGRATION_27_28,
     )
     .build()
 

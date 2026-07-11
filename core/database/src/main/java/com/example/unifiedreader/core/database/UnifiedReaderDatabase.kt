@@ -44,7 +44,7 @@ import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
         LibraryRootFacetEntity::class,
         LibraryRootMemberEntity::class,
     ],
-    version = 27,
+    version = 28,
     exportSchema = false,
 )
 abstract class UnifiedReaderDatabase : RoomDatabase() {
@@ -916,6 +916,20 @@ object UnifiedReaderDatabaseMigrations {
             )
         }
     }
+
+    val MIGRATION_27_28 = object : Migration(27, 28) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            // Precomputed case-folded rail-sort keys on the grid roots (Title/Author/Series), so those
+            // sorts can page from SQL. AUTHOR keys on the surname, which SQL can't derive, so the keys
+            // must be populated by the Kotlin `toGridRootEntity` mapper — clear the roots so the startup
+            // rebuild-if-empty repopulates them (facets/members are rebuilt in the same pass). The
+            // one-time repopulate is the existing post-migration cost.
+            database.execSQL("ALTER TABLE `library_grid_roots` ADD COLUMN `sortTitleKey` TEXT")
+            database.execSQL("ALTER TABLE `library_grid_roots` ADD COLUMN `sortAuthorKey` TEXT")
+            database.execSQL("ALTER TABLE `library_grid_roots` ADD COLUMN `sortSeriesKey` TEXT")
+            database.execSQL("DELETE FROM `library_grid_roots`")
+        }
+    }
 }
 
 object UnifiedReaderDatabaseFactory {
@@ -953,6 +967,7 @@ object UnifiedReaderDatabaseFactory {
             UnifiedReaderDatabaseMigrations.MIGRATION_24_25,
             UnifiedReaderDatabaseMigrations.MIGRATION_25_26,
             UnifiedReaderDatabaseMigrations.MIGRATION_26_27,
+            UnifiedReaderDatabaseMigrations.MIGRATION_27_28,
         )
         .build()
 }

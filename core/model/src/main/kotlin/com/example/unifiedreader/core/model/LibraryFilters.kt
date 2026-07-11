@@ -400,6 +400,26 @@ private fun ReadableItem.librarySortKey(
     sortMode: LibrarySortMode,
 ): String = libraryAlphabetKey(sortMode).orEmpty()
 
+/**
+ * The persisted ORDER BY key for a rail sort (TITLE / AUTHOR / SERIES), so those grid views can page
+ * from SQL. It is [librarySortKey] case-folded (`lowercase(ROOT)`), which a plain BINARY `ORDER BY`
+ * reproduces the same way the in-memory comparator's `compareBy(CASE_INSENSITIVE_ORDER) { key }` does
+ * — the tie-break on `title` stays a separate `ORDER BY` term. AUTHOR keys on the surname
+ * (`authorFacetKey`), which SQL can't derive, so the key must be precomputed here at populate time.
+ * Null for the non-rail sorts (they order by date / last-read / issue count, no alphabet rail).
+ */
+fun ReadableItem.librarySortIndexKey(
+    sortMode: LibrarySortMode,
+): String? = when (sortMode) {
+    LibrarySortMode.AUTHOR,
+    LibrarySortMode.TITLE,
+    LibrarySortMode.SERIES -> librarySortKey(sortMode).lowercase(Locale.ROOT)
+
+    LibrarySortMode.DATE_ADDED,
+    LibrarySortMode.LAST_READ,
+    LibrarySortMode.ISSUE_COUNT -> null
+}
+
 private inline fun <reified T : Enum<T>> List<T>.distinctByEnumOrder(): List<T> =
     distinct().sortedBy { it.ordinal }
 

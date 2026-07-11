@@ -6,9 +6,11 @@ import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.LibraryGridRoot
+import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.librarySortIndexKey
 import com.example.unifiedreader.core.model.libraryRootFacetEntries
 import com.example.unifiedreader.core.model.normalizedAuthors
 import com.example.unifiedreader.core.model.primaryAuthor
@@ -162,6 +164,9 @@ fun ReadableItem.toGridRootEntity(): LibraryGridRootEntity = LibraryGridRootEnti
     comicGenresJson = encodeMetadataValues(comicMetadata?.genres),
     comicTagsJson = encodeMetadataValues(comicMetadata?.tags),
     comicLanguagesJson = encodeMetadataValues(comicMetadata?.languages),
+    sortTitleKey = librarySortIndexKey(LibrarySortMode.TITLE),
+    sortAuthorKey = librarySortIndexKey(LibrarySortMode.AUTHOR),
+    sortSeriesKey = librarySortIndexKey(LibrarySortMode.SERIES),
 )
 
 fun LibraryGridRoot.toMemberEntities(): List<LibraryRootMemberEntity> =

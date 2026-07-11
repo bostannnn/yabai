@@ -195,6 +195,11 @@ data class LibraryGridRootEntity(
     val comicGenresJson: String?,
     val comicTagsJson: String?,
     val comicLanguagesJson: String?,
+    // Precomputed case-folded ORDER BY keys so the rail sorts (Title/Author/Series) can page from SQL;
+    // see ReadableItem.librarySortIndexKey. Null only for pre-v28 rows before the backfill.
+    val sortTitleKey: String? = null,
+    val sortAuthorKey: String? = null,
+    val sortSeriesKey: String? = null,
 )
 
 /**

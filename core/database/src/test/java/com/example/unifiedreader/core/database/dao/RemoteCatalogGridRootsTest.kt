@@ -7,10 +7,12 @@ import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
 import com.example.unifiedreader.core.database.entity.toDomain
 import com.example.unifiedreader.core.model.LibraryContentType
+import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.buildLibraryFilterFacets
 import com.example.unifiedreader.core.model.deriveGridRootItems
 import com.example.unifiedreader.core.model.deriveKavitaSeriesGrouping
+import com.example.unifiedreader.core.model.librarySortIndexKey
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -61,6 +63,33 @@ class RemoteCatalogGridRootsTest {
         // Self-documenting: the two issues collapsed into one container; the book stayed a root.
         assertEquals(setOf("kavita:series:libA::s1", "kavita:item:book-1"), persistedRoots.keys)
         assertEquals(2, persistedRoots.getValue("kavita:series:libA::s1").issueCount)
+    }
+
+    @Test
+    fun `replaceSourceCatalog persists rail sort keys matching the core derivation`() {
+        dao.replaceSourceCatalog(
+            sourceType = SourceType.KAVITA.name,
+            libraries = listOf(kavitaLibrary(id = "kavita:library:libA", remoteId = "libA")),
+            items = listOf(
+                kavitaIssueEntity(id = "kavita:item:1", seriesId = "s1", title = "Series One #1"),
+                kavitaIssueEntity(id = "kavita:item:2", seriesId = "s1", title = "Series One #2"),
+                kavitaBookEntity(id = "kavita:item:book-1", title = "A Standalone Book"),
+            ),
+        )
+
+        val projectedItems = dao.getLibraryItemsForSourceType(SourceType.KAVITA.name).map { it.toDomain() }
+        val expectedRoots = deriveKavitaSeriesGrouping(projectedItems).rootItems.associateBy { it.id }
+        val persisted = dao.getGridRootsForSourceType(SourceType.KAVITA.name)
+
+        assertEquals(setOf("kavita:series:libA::s1", "kavita:item:book-1"), persisted.map { it.id }.toSet())
+        // Each persisted key equals what the shared core function derives for that root — so the SQL
+        // ORDER BY reproduces the in-memory rail-sort order (Author keys on surname, etc.).
+        persisted.forEach { root ->
+            val expected = expectedRoots.getValue(root.id)
+            assertEquals(expected.librarySortIndexKey(LibrarySortMode.TITLE), root.sortTitleKey)
+            assertEquals(expected.librarySortIndexKey(LibrarySortMode.AUTHOR), root.sortAuthorKey)
+            assertEquals(expected.librarySortIndexKey(LibrarySortMode.SERIES), root.sortSeriesKey)
+        }
     }
 
     @Test
