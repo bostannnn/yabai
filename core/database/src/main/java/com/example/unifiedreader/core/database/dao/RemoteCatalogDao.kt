@@ -22,6 +22,7 @@ import com.example.unifiedreader.core.database.entity.toDomain
 import com.example.unifiedreader.core.database.entity.toGridRootEntity
 import com.example.unifiedreader.core.database.entity.toMemberEntities
 import com.example.unifiedreader.core.database.entity.toRootFacetEntities
+import com.example.unifiedreader.core.model.LibraryAlphabetBucket
 import com.example.unifiedreader.core.model.LibraryGridRoot
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
@@ -150,8 +151,48 @@ abstract class RemoteCatalogDao {
     @Query("SELECT * FROM library_grid_roots WHERE sourceType = :sourceType ORDER BY title COLLATE NOCASE ASC")
     abstract fun getGridRootsForSourceType(sourceType: String): List<LibraryGridRootEntity>
 
-    @Query("SELECT * FROM library_grid_roots WHERE sourceType = :sourceType ORDER BY title COLLATE NOCASE ASC")
+    // The three alphabet-rail sorts page by their precomputed case-folded key (see
+    // ReadableItem.librarySortIndexKey), with the same `title` tie-break as the in-memory comparator.
+    @Query(
+        "SELECT * FROM library_grid_roots WHERE sourceType = :sourceType " +
+            "ORDER BY sortTitleKey ASC, title COLLATE NOCASE ASC",
+    )
     abstract fun pagingGridRootsByTitle(sourceType: String): PagingSource<Int, LibraryGridRootEntity>
+
+    @Query(
+        "SELECT * FROM library_grid_roots WHERE sourceType = :sourceType " +
+            "ORDER BY sortAuthorKey ASC, title COLLATE NOCASE ASC",
+    )
+    abstract fun pagingGridRootsByAuthor(sourceType: String): PagingSource<Int, LibraryGridRootEntity>
+
+    @Query(
+        "SELECT * FROM library_grid_roots WHERE sourceType = :sourceType " +
+            "ORDER BY sortSeriesKey ASC, title COLLATE NOCASE ASC",
+    )
+    abstract fun pagingGridRootsBySeries(sourceType: String): PagingSource<Int, LibraryGridRootEntity>
+
+    // Alphabet-rail buckets: how many roots share each first character of the sort key, in sort order.
+    // assembleLibraryAlphabetSections turns these into per-letter scroll offsets (bounded to <=~40 rows).
+    @Query(
+        "SELECT substr(sortTitleKey, 1, 1) AS firstChar, COUNT(*) AS count FROM library_grid_roots " +
+            "WHERE sourceType = :sourceType AND sortTitleKey IS NOT NULL " +
+            "GROUP BY firstChar ORDER BY MIN(sortTitleKey) ASC",
+    )
+    abstract fun getTitleAlphabetBuckets(sourceType: String): List<LibraryAlphabetBucket>
+
+    @Query(
+        "SELECT substr(sortAuthorKey, 1, 1) AS firstChar, COUNT(*) AS count FROM library_grid_roots " +
+            "WHERE sourceType = :sourceType AND sortAuthorKey IS NOT NULL " +
+            "GROUP BY firstChar ORDER BY MIN(sortAuthorKey) ASC",
+    )
+    abstract fun getAuthorAlphabetBuckets(sourceType: String): List<LibraryAlphabetBucket>
+
+    @Query(
+        "SELECT substr(sortSeriesKey, 1, 1) AS firstChar, COUNT(*) AS count FROM library_grid_roots " +
+            "WHERE sourceType = :sourceType AND sortSeriesKey IS NOT NULL " +
+            "GROUP BY firstChar ORDER BY MIN(sortSeriesKey) ASC",
+    )
+    abstract fun getSeriesAlphabetBuckets(sourceType: String): List<LibraryAlphabetBucket>
 
     @Query(
         "SELECT * FROM library_grid_roots WHERE sourceType = :sourceType " +

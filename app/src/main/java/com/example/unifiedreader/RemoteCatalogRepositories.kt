@@ -15,9 +15,11 @@ import com.example.unifiedreader.core.database.entity.ReadableItemLibraryEntity
 import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEntity
 import com.example.unifiedreader.core.database.entity.toDomain
 import com.example.unifiedreader.core.database.entity.toRemoteLibraryCacheEntity
+import com.example.unifiedreader.core.model.LibraryAlphabetSection
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.assembleLibraryAlphabetSections
 import com.example.unifiedreader.core.model.isKavitaSeriesContainer
 import com.example.unifiedreader.core.model.isStumpSeriesContainer
 import com.example.unifiedreader.core.model.kavitaSeriesContainerId
@@ -93,6 +95,17 @@ interface LibraryGridPager {
         sortMode: LibrarySortMode,
         filters: LibraryFilterState = LibraryFilterState(),
     ): Flow<PagingData<ReadableItem>>
+
+    /**
+     * The alphabet rail for a paged rail sort (TITLE / AUTHOR / SERIES): the present section letters
+     * with the grid offset of each section's first root, computed in SQL over the precomputed sort
+     * keys. Empty for the non-rail sorts. Lets the paged grid render + jump the A–Z rail without the
+     * in-memory ordered list.
+     */
+    suspend fun alphabetSections(
+        source: SourceType,
+        sortMode: LibrarySortMode,
+    ): List<LibraryAlphabetSection>
 
     /**
      * The first [limit] grid-root ids for [source] under [sortMode], in the same order
@@ -301,7 +314,10 @@ class RoomRemoteCatalogRepository(
             when (sortMode) {
                 LibrarySortMode.DATE_ADDED -> remoteCatalogDao.pagingGridRootsByDateAdded(source.name)
                 LibrarySortMode.LAST_READ -> remoteCatalogDao.pagingGridRootsByLastRead(source.name)
-                else -> remoteCatalogDao.pagingGridRootsByTitle(source.name)
+                LibrarySortMode.AUTHOR -> remoteCatalogDao.pagingGridRootsByAuthor(source.name)
+                LibrarySortMode.SERIES -> remoteCatalogDao.pagingGridRootsBySeries(source.name)
+                LibrarySortMode.TITLE,
+                LibrarySortMode.ISSUE_COUNT -> remoteCatalogDao.pagingGridRootsByTitle(source.name)
             }
         } else {
             remoteCatalogDao.pagingGridRootsFiltered(
@@ -309,6 +325,21 @@ class RoomRemoteCatalogRepository(
             )
         }
     }.flow.map { pagingData -> pagingData.map(LibraryGridRootEntity::toDomain) }
+
+    override suspend fun alphabetSections(
+        source: SourceType,
+        sortMode: LibrarySortMode,
+    ): List<LibraryAlphabetSection> = withContext(ioDispatcher) {
+        val buckets = when (sortMode) {
+            LibrarySortMode.TITLE -> remoteCatalogDao.getTitleAlphabetBuckets(source.name)
+            LibrarySortMode.AUTHOR -> remoteCatalogDao.getAuthorAlphabetBuckets(source.name)
+            LibrarySortMode.SERIES -> remoteCatalogDao.getSeriesAlphabetBuckets(source.name)
+            LibrarySortMode.DATE_ADDED,
+            LibrarySortMode.LAST_READ,
+            LibrarySortMode.ISSUE_COUNT -> emptyList()
+        }
+        assembleLibraryAlphabetSections(buckets)
+    }
 
     override suspend fun orderedGridRootIds(
         source: SourceType,

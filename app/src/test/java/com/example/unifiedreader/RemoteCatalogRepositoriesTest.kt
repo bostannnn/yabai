@@ -12,6 +12,7 @@ import com.example.unifiedreader.core.database.entity.ReadableItemLibraryEntity
 import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEntity
 import com.example.unifiedreader.core.database.entity.RemoteLibraryCacheEntity
 import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.LibraryAlphabetBucket
 import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
@@ -670,6 +671,18 @@ private class FakeRemoteCatalogDao(
 
     override fun pagingGridRootsByTitle(sourceType: String): PagingSource<Int, LibraryGridRootEntity> =
         throw UnsupportedOperationException("paging not used in FakeRemoteCatalogDao")
+
+    override fun pagingGridRootsByAuthor(sourceType: String): PagingSource<Int, LibraryGridRootEntity> =
+        throw UnsupportedOperationException("paging not used in FakeRemoteCatalogDao")
+
+    override fun pagingGridRootsBySeries(sourceType: String): PagingSource<Int, LibraryGridRootEntity> =
+        throw UnsupportedOperationException("paging not used in FakeRemoteCatalogDao")
+
+    override fun getTitleAlphabetBuckets(sourceType: String): List<LibraryAlphabetBucket> = emptyList()
+
+    override fun getAuthorAlphabetBuckets(sourceType: String): List<LibraryAlphabetBucket> = emptyList()
+
+    override fun getSeriesAlphabetBuckets(sourceType: String): List<LibraryAlphabetBucket> = emptyList()
 
     override fun pagingGridRootsByDateAdded(sourceType: String): PagingSource<Int, LibraryGridRootEntity> =
         throw UnsupportedOperationException("paging not used in FakeRemoteCatalogDao")

@@ -286,6 +286,11 @@ internal fun createViewModel(
             limit: Int,
         ): List<String> = emptyList()
 
+        override suspend fun alphabetSections(
+            source: SourceType,
+            sortMode: com.example.unifiedreader.core.model.LibrarySortMode,
+        ): List<com.example.unifiedreader.core.model.LibraryAlphabetSection> = emptyList()
+
         override suspend fun rebuildGridRootsIfEmpty() = Unit
     }
 

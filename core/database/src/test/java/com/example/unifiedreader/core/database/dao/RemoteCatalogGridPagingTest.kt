@@ -8,10 +8,12 @@ import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
 import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
 import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.LibraryAlphabetSection
 import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.assembleLibraryAlphabetSections
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -222,6 +224,38 @@ class RemoteCatalogGridPagingTest {
                 sourceType = SourceType.KAVITA.name,
                 rootIds = listOf("kavita:series:libA::s1"),
             ).map { it.id }.toSet(),
+        )
+    }
+
+    @Test
+    fun `title paging orders by sort key and the alphabet buckets give per-letter offsets`() = runBlocking {
+        dao.replaceSourceCatalog(
+            sourceType = SourceType.KAVITA.name,
+            libraries = listOf(kavitaLibrary()),
+            items = listOf(
+                book(id = "kavita:item:g", title = "Gamma"),
+                book(id = "kavita:item:a", title = "Alpha"),
+                book(id = "kavita:item:b1", title = "Beta One"),
+                book(id = "kavita:item:b2", title = "Beta Two"),
+            ),
+        )
+
+        val page = dao.pagingGridRootsByTitle(SourceType.KAVITA.name).load(
+            PagingSource.LoadParams.Refresh(key = null, loadSize = 10, placeholdersEnabled = false),
+        ) as PagingSource.LoadResult.Page
+        assertEquals(
+            listOf("kavita:item:a", "kavita:item:b1", "kavita:item:b2", "kavita:item:g"),
+            page.data.map { it.id },
+        )
+
+        // A@0, B@1 (two Betas), G@3 — offsets into the sorted set for the rail to scroll to.
+        assertEquals(
+            listOf(
+                LibraryAlphabetSection(letter = "A", itemOffset = 0),
+                LibraryAlphabetSection(letter = "B", itemOffset = 1),
+                LibraryAlphabetSection(letter = "G", itemOffset = 3),
+            ),
+            assembleLibraryAlphabetSections(dao.getTitleAlphabetBuckets(SourceType.KAVITA.name)),
         )
     }
 

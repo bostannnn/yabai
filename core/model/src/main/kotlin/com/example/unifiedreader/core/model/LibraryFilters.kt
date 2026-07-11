@@ -413,7 +413,7 @@ fun ReadableItem.librarySortIndexKey(
 ): String? = when (sortMode) {
     LibrarySortMode.AUTHOR,
     LibrarySortMode.TITLE,
-    LibrarySortMode.SERIES -> librarySortKey(sortMode).lowercase(Locale.ROOT)
+    LibrarySortMode.SERIES -> librarySortKey(sortMode).trim().lowercase(Locale.ROOT)
 
     LibrarySortMode.DATE_ADDED,
     LibrarySortMode.LAST_READ,
