@@ -31,8 +31,10 @@ class AppPagedWindowBadgeResolver @Inject constructor(
         downloadingItemIds: Set<String>,
     ): LibraryWindowBadges {
         if (rootItems.isEmpty()) return LibraryWindowBadges()
+        val startNanos = perfStartNanos()
         // Each container root's issues + each standalone root itself (bounded by window x series size).
         val memberItems = readableItemLookup.getMemberItemsForRoots(source, rootItems.map(ReadableItem::id))
+        val membersNanos = perfStartNanos()
         // Group members by series key using the same core derivation the in-memory index uses, so the
         // container ids the rollups key by match the grid roots exactly.
         val issuesBySeriesKey = when (source) {
@@ -49,10 +51,12 @@ class AppPagedWindowBadgeResolver @Inject constructor(
             progressByItemId = readerSessionStore.progressByItemIdFlow.value,
             sessionByItemId = readerSessionStore.sessionByItemIdFlow.value,
         )
+        val progressNanos = perfStartNanos()
         // Bounded downloads scan for exactly the window; the uiState downloaded set is refreshed over
         // the whole catalog, so it lags at cold start. Non-persisting: the local-state cache is keyed
         // per library scope, so storing this subset would corrupt the full-library entry.
         val localState = libraryStateAssembler.computeRemoteItemLocalState(windowItems)
+        val downloadsNanos = perfStartNanos()
         return computeLibraryWindowBadges(
             source = source,
             rootItems = rootItems,
@@ -63,6 +67,53 @@ class AppPagedWindowBadgeResolver @Inject constructor(
             downloadedItemIds = localState.downloadedItemIds,
             locallyAvailableItemIds = localState.locallyAvailableItemIds,
             downloadingItemIds = downloadingItemIds,
-        )
+        ).also {
+            // This is the residual "status jump": wall time from the on-screen window being known to the
+            // badges being ready, off the ~2 s in-memory recompute. Read via `adb logcat -d -s LibraryPerf`.
+            logPagedWindowBadgePerf(
+                source = source,
+                rootCount = rootItems.size,
+                memberCount = memberItems.size,
+                startNanos = startNanos,
+                membersNanos = membersNanos,
+                progressNanos = progressNanos,
+                downloadsNanos = downloadsNanos,
+            )
+        }
+    }
+
+    private fun perfStartNanos(): Long = if (PAGED_WINDOW_BADGE_PERF_ENABLED) System.nanoTime() else 0L
+
+    private fun logPagedWindowBadgePerf(
+        source: SourceType,
+        rootCount: Int,
+        memberCount: Int,
+        startNanos: Long,
+        membersNanos: Long,
+        progressNanos: Long,
+        downloadsNanos: Long,
+    ) {
+        if (!PAGED_WINDOW_BADGE_PERF_ENABLED) return
+        val endNanos = System.nanoTime()
+        fun ms(fromNanos: Long, toNanos: Long): Double = (toNanos - fromNanos) / 1_000_000.0
+        runCatching {
+            android.util.Log.d(
+                "LibraryPerf",
+                "pagedWindowBadges [%s roots=%d members=%d] total=%.1f ms (members=%.1f progress=%.1f downloads=%.1f rollup=%.1f)".format(
+                    source.name,
+                    rootCount,
+                    memberCount,
+                    ms(startNanos, endNanos),
+                    ms(startNanos, membersNanos),
+                    ms(membersNanos, progressNanos),
+                    ms(progressNanos, downloadsNanos),
+                    ms(downloadsNanos, endNanos),
+                ),
+            )
+        }
     }
 }
+
+// Opt-in timing for the paged-window badge resolve, mirroring feature:library's LibraryPerfLog (which
+// is module-internal). Flip off with the other LibraryPerf switches before shipping.
+private const val PAGED_WINDOW_BADGE_PERF_ENABLED = true
