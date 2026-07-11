@@ -125,6 +125,27 @@ data class ReadableItemLibraryEntity(
 )
 
 /**
+ * The minimal columns of `readable_items` the paged-window badge resolver needs for a bounded set of
+ * series members: enough for series grouping (remoteFileType / comicSeries / title), progress
+ * summaries (pageCount / format), and download-action resolution (format / kind / id). Deliberately
+ * omits the wide/expensive columns (the truncated description, covers, all facet JSON) so scanning a
+ * window's members is cheap. Maps to a lightweight [com.example.unifiedreader.core.model.ReadableItem]
+ * via `toDomain()`.
+ */
+data class LibraryMemberBadgeProjection(
+    val id: String,
+    val sourceType: String,
+    val libraryId: String,
+    val remoteId: String?,
+    val remoteFileType: String?,
+    val comicSeries: String?,
+    val title: String,
+    val format: String,
+    val kind: String,
+    val pageCount: Int?,
+)
+
+/**
  * Persisted library grid "root" set per source: standalone items plus one synthetic series
  * container per series key (the derivation shared with feature:library's in-memory index via
  * core:model). The grid pages this table directly, so only the visible window is resident instead

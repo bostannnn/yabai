@@ -10,6 +10,7 @@ import androidx.room.Transaction
 import androidx.sqlite.db.SupportSQLiteQuery
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.LibraryGridRootEntity
+import com.example.unifiedreader.core.database.entity.LibraryMemberBadgeProjection
 import com.example.unifiedreader.core.database.entity.LibraryRootFacetEntity
 import com.example.unifiedreader.core.database.entity.LibraryRootMemberEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
@@ -127,20 +128,24 @@ abstract class RemoteCatalogDao {
      * window): each container root's issues and each standalone root's own item, via
      * `library_root_members`. Bounded by (window size x series size), so the paged card badges
      * (progress / rating / download rollups) can be resolved for just the visible roots instead of
-     * scanning the full catalog.
+     * scanning the full catalog. Selects only the columns those rollups need
+     * ([LibraryMemberBadgeProjection]) — not the wide `readable_items` projection — so a window's
+     * members load cheaply on the cold-start path.
      */
     @Query(
-        READABLE_ITEM_LIBRARY_SELECT + """
-         WHERE sourceType = :sourceType AND id IN (
-             SELECT m.itemId FROM library_root_members m
-             WHERE m.sourceType = :sourceType AND m.rootId IN (:rootIds)
-         )
+        """
+        SELECT id, sourceType, libraryId, remoteId, remoteFileType, comicSeries, title, format, kind, pageCount
+        FROM readable_items
+        WHERE sourceType = :sourceType AND id IN (
+            SELECT m.itemId FROM library_root_members m
+            WHERE m.sourceType = :sourceType AND m.rootId IN (:rootIds)
+        )
         """,
     )
-    abstract fun getMemberItemsForRoots(
+    abstract fun getMemberBadgeProjectionsForRoots(
         sourceType: String,
         rootIds: List<String>,
-    ): List<ReadableItemLibraryEntity>
+    ): List<LibraryMemberBadgeProjection>
 
     @Query("SELECT * FROM library_grid_roots WHERE sourceType = :sourceType ORDER BY title COLLATE NOCASE ASC")
     abstract fun getGridRootsForSourceType(sourceType: String): List<LibraryGridRootEntity>

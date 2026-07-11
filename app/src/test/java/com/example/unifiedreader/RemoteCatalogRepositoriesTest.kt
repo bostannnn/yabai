@@ -4,6 +4,7 @@ import com.example.unifiedreader.core.database.dao.RemoteCatalogDao
 import androidx.paging.PagingSource
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.LibraryGridRootEntity
+import com.example.unifiedreader.core.database.entity.LibraryMemberBadgeProjection
 import com.example.unifiedreader.core.database.entity.LibraryRootFacetEntity
 import com.example.unifiedreader.core.database.entity.LibraryRootMemberEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
@@ -574,10 +575,10 @@ private class FakeRemoteCatalogDao(
         itemsState.value.filter { it.sourceType == sourceType }.map(ReadableItemEntity::toLibraryEntity)
 
     // The real root->members join is SQL, tested in core:database; this test doesn't exercise it.
-    override fun getMemberItemsForRoots(
+    override fun getMemberBadgeProjectionsForRoots(
         sourceType: String,
         rootIds: List<String>,
-    ): List<ReadableItemLibraryEntity> = emptyList()
+    ): List<LibraryMemberBadgeProjection> = emptyList()
 
     override fun getCachedLibraries(
         sourceType: String,

@@ -206,6 +206,25 @@ fun LibraryGridRootEntity.toDomain(): ReadableItem = ReadableItem(
     comicMetadata = comicMetadataOrNull(),
 )
 
+/**
+ * Lightweight member item for paged-window badge rollups. Only the fields the rollups read are
+ * populated (series grouping, progress summaries, download-action resolution); the rest keep their
+ * [ReadableItem] defaults. `comicSeries` is carried as [ComicMetadata.series] purely as the
+ * grouping-key fallback used when `remoteFileType` is blank.
+ */
+fun LibraryMemberBadgeProjection.toDomain(): ReadableItem = ReadableItem(
+    id = id,
+    sourceType = sourceType.toSourceType(),
+    libraryId = libraryId,
+    remoteId = remoteId,
+    remoteFileType = remoteFileType,
+    title = title,
+    format = format.toFormatType(),
+    kind = kind.toReadableItemKind(),
+    pageCount = pageCount,
+    comicMetadata = comicSeries?.let { series -> ComicMetadata(series = series) },
+)
+
 private fun String.toSourceType(): SourceType =
     enumValueOfOrDefault(defaultValue = SourceType.KAVITA)
 

@@ -187,7 +187,7 @@ class RemoteCatalogGridPagingTest {
     }
 
     @Test
-    fun `member items for roots returns each container's issues and each standalone root itself`() = runBlocking {
+    fun `member badge projections for roots return each container's issues and each standalone root itself`() = runBlocking {
         dao.replaceSourceCatalog(
             sourceType = SourceType.KAVITA.name,
             libraries = listOf(kavitaLibrary()),
@@ -202,20 +202,26 @@ class RemoteCatalogGridPagingTest {
         )
 
         // The container root + the standalone book root pull in every s1 issue and the book itself.
+        val projections = dao.getMemberBadgeProjectionsForRoots(
+            sourceType = SourceType.KAVITA.name,
+            rootIds = listOf("kavita:series:libA::s1", "kavita:item:book-1"),
+        )
         assertEquals(
             setOf("kavita:item:1", "kavita:item:2", "kavita:item:3", "kavita:item:book-1"),
-            dao.getMemberItemsForRoots(
-                sourceType = SourceType.KAVITA.name,
-                rootIds = listOf("kavita:series:libA::s1", "kavita:item:book-1"),
-            ).map { entity -> entity.id }.toSet(),
+            projections.map { it.id }.toSet(),
         )
+        // The narrow projection still carries the columns the badge rollups need.
+        val issue = projections.first { it.id == "kavita:item:1" }
+        assertEquals("s1", issue.remoteFileType)
+        assertEquals("CBZ", issue.format)
+
         // A container-only window returns just that series' issues, nothing from other roots.
         assertEquals(
             setOf("kavita:item:1", "kavita:item:2", "kavita:item:3"),
-            dao.getMemberItemsForRoots(
+            dao.getMemberBadgeProjectionsForRoots(
                 sourceType = SourceType.KAVITA.name,
                 rootIds = listOf("kavita:series:libA::s1"),
-            ).map { entity -> entity.id }.toSet(),
+            ).map { it.id }.toSet(),
         )
     }
 

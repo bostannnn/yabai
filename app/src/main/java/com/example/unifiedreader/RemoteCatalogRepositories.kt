@@ -9,6 +9,7 @@ import com.example.unifiedreader.core.database.dao.RemoteCatalogDao
 import com.example.unifiedreader.core.database.dao.buildFilteredGridRootsQuery
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.LibraryGridRootEntity
+import com.example.unifiedreader.core.database.entity.LibraryMemberBadgeProjection
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemLibraryEntity
 import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEntity
@@ -386,7 +387,8 @@ class RoomRemoteCatalogRepository(
         if (rootIds.isEmpty()) return emptyList()
         return withContext(ioDispatcher) {
             rootIds.chunked(ITEM_ID_LOOKUP_CHUNK_SIZE).flatMap { chunk ->
-                remoteCatalogDao.getMemberItemsForRoots(source.name, chunk).map(ReadableItemLibraryEntity::toDomain)
+                remoteCatalogDao.getMemberBadgeProjectionsForRoots(source.name, chunk)
+                    .map(LibraryMemberBadgeProjection::toDomain)
             }.distinctBy(ReadableItem::id)
         }
     }
