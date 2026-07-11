@@ -77,6 +77,32 @@ class AppPagedWindowBadgeResolverTest {
     }
 
     @Test
+    fun `does not persist the window-scoped scan to the shared local-state cache`() = runBlocking {
+        val cache = RecordingRemoteItemLocalStateCache()
+        val resolver = AppPagedWindowBadgeResolver(
+            readableItemLookup = FakeMemberLookup(listOf(issueOne, issueTwo, standalone)),
+            libraryStateAssembler = AppLibraryStateAssembler(
+                localDocumentRepository = FakeLocalDocumentRepository(),
+                remoteDownloadDataSources = listOf(
+                    StoredIdsDownloadDataSource(SourceType.KAVITA, setOf(issueOne.id)),
+                ),
+                remoteItemLocalStateCache = cache,
+            ),
+            readerSessionStore = FakeReaderSessionStore(),
+        )
+
+        resolver.resolve(
+            source = SourceType.KAVITA,
+            rootItems = rootItems,
+            ratingByItemId = emptyMap(),
+            downloadingItemIds = emptySet(),
+        )
+
+        // Storing a bounded subset would overwrite the library scope's full downloaded-set entry.
+        assertEquals(0, cache.storeCalls)
+    }
+
+    @Test
     fun `empty window resolves to empty badges without touching sources`() = runBlocking {
         val resolver = AppPagedWindowBadgeResolver(
             readableItemLookup = FailingLookup,
@@ -156,6 +182,17 @@ private object FailingLookup : ReadableItemLookup {
     override suspend fun getSeriesMemberItems(item: ReadableItem): List<ReadableItem> = error("should not be called")
     override suspend fun getMemberItemsForRoots(source: SourceType, rootIds: List<String>): List<ReadableItem> =
         error("should not be called")
+}
+
+private class RecordingRemoteItemLocalStateCache : RemoteItemLocalStateCache {
+    var storeCalls: Int = 0
+        private set
+
+    override fun load(items: List<ReadableItem>): RemoteItemLocalState? = null
+
+    override fun store(items: List<ReadableItem>, state: RemoteItemLocalState) {
+        storeCalls += 1
+    }
 }
 
 private class StoredIdsDownloadDataSource(

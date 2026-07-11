@@ -50,8 +50,9 @@ class AppPagedWindowBadgeResolver @Inject constructor(
             sessionByItemId = readerSessionStore.sessionByItemIdFlow.value,
         )
         // Bounded downloads scan for exactly the window; the uiState downloaded set is refreshed over
-        // the whole catalog, so it lags at cold start.
-        val localState = libraryStateAssembler.loadRemoteItemLocalState(windowItems)
+        // the whole catalog, so it lags at cold start. Non-persisting: the local-state cache is keyed
+        // per library scope, so storing this subset would corrupt the full-library entry.
+        val localState = libraryStateAssembler.computeRemoteItemLocalState(windowItems)
         return computeLibraryWindowBadges(
             source = source,
             rootItems = rootItems,
