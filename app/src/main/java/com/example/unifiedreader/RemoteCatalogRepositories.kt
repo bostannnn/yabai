@@ -307,7 +307,10 @@ class RoomRemoteCatalogRepository(
     ): Flow<PagingData<ReadableItem>> = Pager(
         config = PagingConfig(
             pageSize = GRID_PAGE_SIZE,
-            enablePlaceholders = false,
+            // The rail sorts render an A–Z jump rail, so they need placeholders: the LazyGrid then has a
+            // full-set index space and scrollToItem(letterOffset) can jump straight to a section. The
+            // rail-less sorts (Last read / Date added) keep placeholders off (verified status-jump path).
+            enablePlaceholders = sortMode.isRailSort(),
         ),
     ) {
         if (filters.isEmpty) {
@@ -542,6 +545,16 @@ private fun <T> List<T>.replaceSource(
     replacement: List<T>,
     sourceSelector: (T) -> SourceType,
 ): List<T> = filterNot { item -> sourceSelector(item) == sourceType } + replacement
+
+private fun LibrarySortMode.isRailSort(): Boolean = when (this) {
+    LibrarySortMode.TITLE,
+    LibrarySortMode.AUTHOR,
+    LibrarySortMode.SERIES -> true
+
+    LibrarySortMode.DATE_ADDED,
+    LibrarySortMode.LAST_READ,
+    LibrarySortMode.ISSUE_COUNT -> false
+}
 
 private const val LOG_TAG = "RemoteCatalogRepo"
 private const val GRID_PAGE_SIZE = 60

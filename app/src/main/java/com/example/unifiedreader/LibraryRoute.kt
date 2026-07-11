@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import com.example.unifiedreader.core.model.KavitaLibrarySection
+import com.example.unifiedreader.core.model.LibraryAlphabetSection
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
@@ -36,6 +37,7 @@ internal fun LibraryRoute(
     viewMode: LibraryViewMode,
     pagedGridFlow: Flow<PagingData<ReadableItem>>? = null,
     pagedWindowBadgeResolver: (suspend (List<ReadableItem>) -> LibraryWindowBadges)? = null,
+    pagedAlphabetSectionsProvider: (suspend (LibrarySortMode) -> List<LibraryAlphabetSection>)? = null,
     browseContextKey: String,
     initialScrollPosition: LibraryScrollPosition,
     scrollToTopRequest: Long,
@@ -223,6 +225,7 @@ internal fun LibraryRoute(
                 onSetReadStatus = onSetReadStatus,
                 pagedGridItems = pagedGridFlow,
                 pagedWindowBadgeResolver = pagedWindowBadgeResolver,
+                pagedAlphabetSectionsProvider = pagedAlphabetSectionsProvider,
             )
         }
     }

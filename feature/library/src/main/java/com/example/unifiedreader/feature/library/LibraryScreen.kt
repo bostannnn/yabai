@@ -37,6 +37,7 @@ import androidx.paging.PagingData
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemContentType
 import androidx.paging.compose.itemKey
+import com.example.unifiedreader.core.model.LibraryAlphabetSection
 import com.example.unifiedreader.core.model.LibraryFilterFacets
 import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibraryFilterState
@@ -119,6 +120,10 @@ fun LibraryScreen(
     // sources so they commit with the grid instead of waiting ~1s for the in-memory recompute. Only
     // used on the paged path; null (all other callers) keeps the recompute maps as the sole source.
     pagedWindowBadgeResolver: (suspend (List<ReadableItem>) -> LibraryWindowBadges)? = null,
+    // Supplies the SQL-computed alphabet rail (present letters + their grid offsets) for a paged rail
+    // sort, so the paged grid can render + jump the A–Z rail without the in-memory ordered list. Null
+    // (non-paged callers) keeps the rail driven by [items].
+    pagedAlphabetSectionsProvider: (suspend (LibrarySortMode) -> List<LibraryAlphabetSection>)? = null,
 ) {
     val pagedItems = pagedGridItems?.collectAsLazyPagingItems()
     val isPaged = pagedItems != null
@@ -196,12 +201,26 @@ fun LibraryScreen(
             items.map { item -> item.sortFilterLetter(sortMode) }
         }
     }
-    val sortLetters = remember(itemAlphabetSections) {
+    // On the paged path the ordered set isn't in memory, so the rail comes from SQL (present letters +
+    // the grid offset of each section's first root). Resolved off-thread; empty for rail-less sorts.
+    val latestAlphabetProvider by rememberUpdatedState(pagedAlphabetSectionsProvider)
+    val pagedAlphabetSections by produceState(emptyList<LibraryAlphabetSection>(), isPaged, sortMode) {
+        val provider = latestAlphabetProvider
+        value = if (isPaged && provider != null && sortMode.usesAlphabetRail) provider(sortMode) else emptyList()
+    }
+    // Rail buttons + per-section scroll offsets. Both variants are computed unconditionally (remember
+    // must not be called inside a branch — `isPaged` can flip when a runtime filter is applied) and the
+    // paged one is selected when the grid is served by Room.
+    val inMemorySortLetters = remember(itemAlphabetSections) {
         alphabetNavigationSections(itemAlphabetSections.filterNotNull())
     }
-    val alphabetSectionStarts = remember(itemAlphabetSections) {
-        alphabetSectionStarts(itemAlphabetSections)
+    val inMemorySectionStarts = remember(itemAlphabetSections) { alphabetSectionStarts(itemAlphabetSections) }
+    val pagedSortLetters = remember(pagedAlphabetSections) { pagedAlphabetSections.map(LibraryAlphabetSection::letter) }
+    val pagedSectionStarts = remember(pagedAlphabetSections) {
+        pagedAlphabetSections.associate { section -> section.letter to section.itemOffset }
     }
+    val sortLetters = if (isPaged) pagedSortLetters else inMemorySortLetters
+    val alphabetSectionStarts = if (isPaged) pagedSectionStarts else inMemorySectionStarts
     val alphabetRailVisible = showSortControl && searchQuery.isBlank() && sortLetters.isNotEmpty()
     // When paged, the grid body's emptiness/loading come from the paging flow, not [items].
     val gridIsEmpty = if (isPaged) pagedItems!!.itemCount == 0 else visibleItems.isEmpty()
@@ -231,15 +250,23 @@ fun LibraryScreen(
         (if (topContent != null) 1 else 0)
     val activeSortLetter by remember(
         gridState,
+        isPaged,
         itemAlphabetSections,
+        pagedAlphabetSections,
         leadingContentItemCount,
     ) {
         derivedStateOf {
-            activeAlphabetSection(
-                sectionKeys = itemAlphabetSections,
-                firstVisibleItemIndex = gridState.firstVisibleItemIndex,
-                leadingContentItemCount = leadingContentItemCount,
-            )
+            val rootIndex = gridState.firstVisibleItemIndex - leadingContentItemCount
+            if (isPaged) {
+                // Paged: find the last rail section whose offset is at or before the current root.
+                pagedAlphabetSections.lastOrNull { section -> section.itemOffset <= rootIndex }?.letter
+            } else {
+                activeAlphabetSection(
+                    sectionKeys = itemAlphabetSections,
+                    firstVisibleItemIndex = gridState.firstVisibleItemIndex,
+                    leadingContentItemCount = leadingContentItemCount,
+                )
+            }
         }
     }
     var previousDateAddedTopItemId by remember(browseContextKey) {
@@ -471,7 +498,9 @@ fun LibraryScreen(
                     key = pagedItems.itemKey { it.id },
                     contentType = pagedItems.itemContentType { LibraryScreenContentTypes.GridItem },
                 ) { index ->
-                    pagedItems[index]?.let { item -> gridCard(item) }
+                    // Placeholders are on for rail sorts (for the jump rail); a not-yet-loaded slot
+                    // renders a sized stand-in so the row keeps its height instead of collapsing.
+                    pagedItems[index]?.let { item -> gridCard(item) } ?: LibraryGridPlaceholderCard()
                 }
             } else {
                 items(

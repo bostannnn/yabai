@@ -142,6 +142,16 @@ class AppViewModel @Inject constructor(
         )
     }
 
+    /**
+     * The SQL-computed alphabet rail (present letters + their grid offsets) for a paged rail sort, so
+     * the paged grid can render + jump the A–Z rail without the in-memory ordered list. Empty for the
+     * rail-less sorts. Reads the current source from [uiState].
+     */
+    suspend fun pagedAlphabetSections(
+        sortMode: com.example.unifiedreader.core.model.LibrarySortMode,
+    ): List<com.example.unifiedreader.core.model.LibraryAlphabetSection> =
+        libraryGridPager.alphabetSections(uiState.selectedSource, sortMode)
+
     fun onTopLevelSelected(destination: TopLevelDestination) {
         readerCoordinator.onTopLevelSelected(
             destination = destination,
