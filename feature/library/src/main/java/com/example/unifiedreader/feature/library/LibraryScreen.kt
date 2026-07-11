@@ -50,6 +50,11 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
+// How many leading roots the paged-window badge resolver processes in its fast first phase — enough to
+// cover the visible cards plus a small scroll buffer, so their badges commit near-instantly before the
+// full loaded window is resolved.
+private const val PAGED_WINDOW_BADGE_PREFIX_COUNT = 30
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LibraryScreen(
@@ -140,10 +145,20 @@ fun LibraryScreen(
         (renderedItems.firstOrNull()?.id to renderedItems.lastOrNull()?.id)
     val windowBadges = if (isPaged && pagedWindowBadgeResolver != null) {
         produceState(initialValue = LibraryWindowBadges(), windowSignature) {
-            value = latestBadgeResolver
-                ?.takeIf { renderedItems.isNotEmpty() }
-                ?.invoke(renderedItems)
-                ?: LibraryWindowBadges()
+            val resolver = latestBadgeResolver
+            if (resolver == null || renderedItems.isEmpty()) {
+                value = LibraryWindowBadges()
+                return@produceState
+            }
+            // Paging's initial load is 3 pages (~180 roots) but only ~a screen is visible, and every
+            // resolve sub-step scales with the window's members. So resolve in two phases: first the
+            // on-screen prefix (badges for the visible cards commit in ~one bounded query), then the
+            // whole loaded window to cover scrolling within the first page. Phase 2 is a superset, so it
+            // just supersedes the prefix with identical values — no flip.
+            if (renderedItems.size > PAGED_WINDOW_BADGE_PREFIX_COUNT) {
+                value = resolver(renderedItems.take(PAGED_WINDOW_BADGE_PREFIX_COUNT))
+            }
+            value = resolver(renderedItems)
         }.value
     } else {
         LibraryWindowBadges()
