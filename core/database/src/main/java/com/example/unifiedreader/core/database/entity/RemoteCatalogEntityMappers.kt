@@ -222,6 +222,9 @@ fun LibraryMemberBadgeProjection.toDomain(): ReadableItem = ReadableItem(
     sourceType = sourceType.toSourceType(),
     libraryId = libraryId,
     remoteId = remoteId,
+    // Part of the downloaded-file name ({id}-{remoteFileId}.{ext}); required so the window's download
+    // scan finds members' downloaded files (else container download status lags to the full-catalog scan).
+    remoteFileId = remoteFileId,
     remoteFileType = remoteFileType,
     title = title,
     format = format.toFormatType(),

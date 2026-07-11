@@ -135,7 +135,7 @@ abstract class RemoteCatalogDao {
      */
     @Query(
         """
-        SELECT id, sourceType, libraryId, remoteId, remoteFileType, comicSeries, title, format, kind, pageCount
+        SELECT id, sourceType, libraryId, remoteId, remoteFileId, remoteFileType, comicSeries, title, format, kind, pageCount
         FROM readable_items
         WHERE sourceType = :sourceType AND id IN (
             SELECT m.itemId FROM library_root_members m

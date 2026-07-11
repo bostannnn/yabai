@@ -127,16 +127,18 @@ data class ReadableItemLibraryEntity(
 /**
  * The minimal columns of `readable_items` the paged-window badge resolver needs for a bounded set of
  * series members: enough for series grouping (remoteFileType / comicSeries / title), progress
- * summaries (pageCount / format), and download-action resolution (format / kind / id). Deliberately
- * omits the wide/expensive columns (the truncated description, covers, all facet JSON) so scanning a
- * window's members is cheap. Maps to a lightweight [com.example.unifiedreader.core.model.ReadableItem]
- * via `toDomain()`.
+ * summaries (pageCount / format), and download-action resolution (format / kind / id / remoteFileId —
+ * the downloaded-file name is `{id}-{remoteFileId}.{ext}`, so dropping remoteFileId makes the download
+ * scan miss members' files). Deliberately omits the wide/expensive columns (the truncated description,
+ * covers, all facet JSON) so scanning a window's members is cheap. Maps to a lightweight
+ * [com.example.unifiedreader.core.model.ReadableItem] via `toDomain()`.
  */
 data class LibraryMemberBadgeProjection(
     val id: String,
     val sourceType: String,
     val libraryId: String,
     val remoteId: String?,
+    val remoteFileId: String?,
     val remoteFileType: String?,
     val comicSeries: String?,
     val title: String,

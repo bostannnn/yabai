@@ -194,7 +194,7 @@ class RemoteCatalogGridPagingTest {
             sourceType = SourceType.KAVITA.name,
             libraries = listOf(kavitaLibrary()),
             items = listOf(
-                comicIssue(id = "kavita:item:1", seriesId = "s1", title = "S1 #1"),
+                comicIssue(id = "kavita:item:1", seriesId = "s1", title = "S1 #1").copy(remoteFileId = "rf-1"),
                 comicIssue(id = "kavita:item:2", seriesId = "s1", title = "S1 #2"),
                 comicIssue(id = "kavita:item:3", seriesId = "s1", title = "S1 #3"),
                 book(id = "kavita:item:book-1", title = "A Book"),
@@ -212,10 +212,12 @@ class RemoteCatalogGridPagingTest {
             setOf("kavita:item:1", "kavita:item:2", "kavita:item:3", "kavita:item:book-1"),
             projections.map { it.id }.toSet(),
         )
-        // The narrow projection still carries the columns the badge rollups need.
+        // The narrow projection still carries the columns the badge rollups need — including remoteFileId,
+        // which is part of the downloaded-file name so the window's download scan can find members' files.
         val issue = projections.first { it.id == "kavita:item:1" }
         assertEquals("s1", issue.remoteFileType)
         assertEquals("CBZ", issue.format)
+        assertEquals("rf-1", issue.remoteFileId)
 
         // A container-only window returns just that series' issues, nothing from other roots.
         assertEquals(
