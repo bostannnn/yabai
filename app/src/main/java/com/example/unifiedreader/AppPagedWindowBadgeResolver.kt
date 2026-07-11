@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.common.AppDispatchers
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.deriveKavitaSeriesGrouping
@@ -8,6 +9,7 @@ import com.example.unifiedreader.feature.library.LibraryWindowBadges
 import com.example.unifiedreader.feature.library.computeLibraryWindowBadges
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import javax.inject.Inject
+import kotlinx.coroutines.withContext
 
 /**
  * Resolves the paged grid's per-card badges — read/progress, rating, and download status — for the
@@ -23,6 +25,7 @@ class AppPagedWindowBadgeResolver @Inject constructor(
     private val readableItemLookup: ReadableItemLookup,
     private val libraryStateAssembler: AppLibraryStateAssembler,
     private val readerSessionStore: ReaderSessionStore,
+    private val appDispatchers: AppDispatchers = AppDispatchers(),
 ) {
     suspend fun resolve(
         source: SourceType,
@@ -31,6 +34,18 @@ class AppPagedWindowBadgeResolver @Inject constructor(
         downloadingItemIds: Set<String>,
     ): LibraryWindowBadges {
         if (rootItems.isEmpty()) return LibraryWindowBadges()
+        // The rollup (computeLibraryWindowBadges) is CPU work and the caller is a Compose produceState
+        // (main-dispatcher) coroutine, so run the whole resolve off-main — a wide window after a rail
+        // jump makes the rollup hundreds of ms, which must never land on the main thread.
+        return withContext(appDispatchers.default) { resolveWindowBadges(source, rootItems, ratingByItemId, downloadingItemIds) }
+    }
+
+    private suspend fun resolveWindowBadges(
+        source: SourceType,
+        rootItems: List<ReadableItem>,
+        ratingByItemId: Map<String, Int>,
+        downloadingItemIds: Set<String>,
+    ): LibraryWindowBadges {
         val startNanos = perfStartNanos()
         // Each container root's issues + each standalone root itself (bounded by window x series size).
         val memberItems = readableItemLookup.getMemberItemsForRoots(source, rootItems.map(ReadableItem::id))

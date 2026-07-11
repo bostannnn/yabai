@@ -305,13 +305,22 @@ class RoomRemoteCatalogRepository(
         sortMode: LibrarySortMode,
         filters: LibraryFilterState,
     ): Flow<PagingData<ReadableItem>> = Pager(
-        config = PagingConfig(
-            pageSize = GRID_PAGE_SIZE,
-            // The rail sorts render an A–Z jump rail, so they need placeholders: the LazyGrid then has a
-            // full-set index space and scrollToItem(letterOffset) can jump straight to a section. The
-            // rail-less sorts (Last read / Date added) keep placeholders off (verified status-jump path).
-            enablePlaceholders = sortMode.isRailSort(),
-        ),
+        config = if (sortMode.isRailSort()) {
+            // Rail sorts render an A–Z jump rail, so they need placeholders (the LazyGrid gets a full-set
+            // index space, and scrollToItem(letterOffset) can jump straight to a section); maxSize bounds
+            // the resident window so navigating/jumping drops far pages instead of accumulating them; and
+            // jumpThreshold makes a far jump reload centered on the target instead of contiguously loading
+            // every page up to it.
+            PagingConfig(
+                pageSize = GRID_PAGE_SIZE,
+                enablePlaceholders = true,
+                maxSize = RAIL_SORT_MAX_LOADED_ROOTS,
+                jumpThreshold = GRID_PAGE_SIZE * 3,
+            )
+        } else {
+            // Rail-less sorts (Last read / Date added) keep placeholders off — the verified status-jump path.
+            PagingConfig(pageSize = GRID_PAGE_SIZE, enablePlaceholders = false)
+        },
     ) {
         if (filters.isEmpty) {
             when (sortMode) {
@@ -558,5 +567,8 @@ private fun LibrarySortMode.isRailSort(): Boolean = when (this) {
 
 private const val LOG_TAG = "RemoteCatalogRepo"
 private const val GRID_PAGE_SIZE = 60
+// Max grid roots kept resident for a rail sort (>= pageSize + 2*prefetchDistance = 180). ~6 pages, so
+// jumping the rail loads the target window and drops the rest instead of accumulating the whole list.
+private const val RAIL_SORT_MAX_LOADED_ROOTS = GRID_PAGE_SIZE * 6
 // SQLite caps bound variables (~999); chunk id lookups well under that, matching the DAO's own limit.
 private const val ITEM_ID_LOOKUP_CHUNK_SIZE = 900
