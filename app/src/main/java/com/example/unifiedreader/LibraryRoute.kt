@@ -5,6 +5,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.LibraryAlphabetSection
@@ -21,6 +25,7 @@ import com.example.unifiedreader.feature.library.LibraryScreen
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
 import com.example.unifiedreader.feature.library.LibraryViewMode
 import com.example.unifiedreader.feature.library.LibraryWindowBadges
+import com.example.unifiedreader.feature.library.withWindowBadges
 import kotlinx.coroutines.flow.Flow
 import com.example.unifiedreader.feature.library.KavitaScopeLandingItem
 import com.example.unifiedreader.feature.library.KavitaScopeLandingScreen
@@ -86,6 +91,16 @@ internal fun LibraryRoute(
             onActiveShelfBrowserKindChanged(null)
         }
     }
+    // The shelves (and the "See all" browser) render from this context. Its download/read maps come
+    // from the late in-memory recompute, so at cold start the shelves' badges lag ~1 s behind the grid.
+    // Resolve the bounded shelf item set's badges from the same early window resolver as the grid and
+    // overlay them, so the shelf badges commit early too.
+    val shelfItems = remember(uiState.libraryShelvesState) { uiState.libraryShelvesState.allItems() }
+    val latestShelfBadgeResolver by rememberUpdatedState(pagedWindowBadgeResolver)
+    val shelfWindowBadges by produceState(LibraryWindowBadges(), shelfItems) {
+        val resolver = latestShelfBadgeResolver
+        value = if (resolver != null && shelfItems.isNotEmpty()) resolver(shelfItems) else LibraryWindowBadges()
+    }
     val itemActionContext = LibraryItemActionContext(
         progressByItemId = uiState.displayProgressByItemId,
         locallyAvailableItemIds = uiState.locallyAvailableRemoteItemIds,
@@ -99,7 +114,7 @@ internal fun LibraryRoute(
         onDownloadItem = onDownloadRemoteItem,
         onDeleteDownloadedItem = onDeleteRemoteLocalFile,
         onSetReadStatus = onSetReadStatus,
-    )
+    ).withWindowBadges(shelfWindowBadges)
     Surface(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,

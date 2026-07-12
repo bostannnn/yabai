@@ -23,6 +23,24 @@ data class LibraryWindowBadges(
 )
 
 /**
+ * Overlays these early window badges onto [base] (whose maps/sets come from the late in-memory
+ * recompute), producing the [LibraryItemActionContext] a renderer should use: the recompute wins for
+ * the progress map once it lands (its values match, so nothing flips), and the download sets union so
+ * the badge shows as soon as either source has it. Empty window badges leave [base] unchanged. Used by
+ * both the paged grid and the shelves so their read/download badges commit early and identically.
+ */
+fun LibraryItemActionContext.withWindowBadges(
+    windowBadges: LibraryWindowBadges,
+): LibraryItemActionContext = copy(
+    progressByItemId = windowBadges.displayProgressByItemId + progressByItemId,
+    locallyAvailableItemIds = locallyAvailableItemIds + windowBadges.locallyAvailableItemIds,
+    downloadableItemIds = downloadableItemIds + windowBadges.downloadActionAvailability.downloadableItemIds,
+    deletableDownloadedItemIds =
+        deletableDownloadedItemIds + windowBadges.downloadActionAvailability.deletableDownloadedItemIds,
+    downloadingItemIds = downloadingItemIds + windowBadges.downloadActionAvailability.activeDownloadingItemIds,
+)
+
+/**
  * Builds [LibraryWindowBadges] for [rootItems] (standalone items + synthetic series containers) using
  * the same root-view rollups as [LibraryDerivedStateComputer] (this covers the paged root view, which
  * is never a series browse):

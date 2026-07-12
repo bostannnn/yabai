@@ -104,6 +104,36 @@ class LibraryWindowBadgesTest {
     }
 
     @Test
+    fun `withWindowBadges fills empty base maps and unions download sets, base wins for progress`() {
+        val base = LibraryItemActionContext(
+            progressByItemId = mapOf("i1" to ItemProgressSummary(label = "Base", fraction = 0.5f)),
+            locallyAvailableItemIds = emptySet(),
+            downloadableItemIds = emptySet(),
+            deletableDownloadedItemIds = emptySet(),
+            downloadingItemIds = emptySet(),
+        )
+        val window = LibraryWindowBadges(
+            displayProgressByItemId = mapOf(
+                "i1" to ItemProgressSummary(label = "Window", fraction = 1f, isFinished = true),
+                "i2" to ItemProgressSummary(label = "Finished", fraction = 1f, isFinished = true),
+            ),
+            locallyAvailableItemIds = setOf("i2"),
+            downloadActionAvailability = RemoteDownloadActionAvailability(
+                deletableDownloadedItemIds = setOf("i2"),
+            ),
+        )
+
+        val effective = base.withWindowBadges(window)
+
+        // Base (the late recompute) wins where it already has a value; the window fills the gaps.
+        assertEquals("Base", effective.progressByItemId["i1"]?.label)
+        assertEquals("Finished", effective.progressByItemId["i2"]?.label)
+        // Download sets union, so the window's early downloaded state shows immediately.
+        assertTrue("i2" in effective.locallyAvailableItemIds)
+        assertTrue("i2" in effective.deletableDownloadedItemIds)
+    }
+
+    @Test
     fun `finished series container shows finished progress and average rating, partial one shows neither`() {
         val window = windowBadges()
         val akira = "kavita:series:$libraryId::akira"
