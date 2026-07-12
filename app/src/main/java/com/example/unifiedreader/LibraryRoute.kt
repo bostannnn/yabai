@@ -241,6 +241,9 @@ internal fun LibraryRoute(
                 pagedGridItems = pagedGridFlow,
                 pagedWindowBadgeResolver = pagedWindowBadgeResolver,
                 pagedAlphabetSectionsProvider = pagedAlphabetSectionsProvider,
+                // Series browse is non-paged but bounded (one series' issues); resolve its badges early
+                // too so download status commits with the grid instead of waiting for the async recompute.
+                resolveWindowBadgesForVisibleItems = uiState.isSeriesBrowseActive,
             )
         }
     }

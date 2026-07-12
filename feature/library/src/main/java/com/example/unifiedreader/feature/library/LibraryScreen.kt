@@ -124,6 +124,12 @@ fun LibraryScreen(
     // sort, so the paged grid can render + jump the A–Z rail without the in-memory ordered list. Null
     // (non-paged callers) keeps the rail driven by [items].
     pagedAlphabetSectionsProvider: (suspend (LibrarySortMode) -> List<LibraryAlphabetSection>)? = null,
+    // Also run the badge overlay for a non-paged but *bounded* view (series browse): there the grid +
+    // progress/rating come from the synchronous computeQuick, but download availability lands only with
+    // the async recompute, so resolving the visible issues' download status early commits it with them.
+    // Must stay false for the large non-paged views (other sources, filtered-runtime) — resolving the
+    // whole in-memory list would be wasteful.
+    resolveWindowBadgesForVisibleItems: Boolean = false,
 ) {
     val pagedItems = pagedGridItems?.collectAsLazyPagingItems()
     val isPaged = pagedItems != null
@@ -148,7 +154,7 @@ fun LibraryScreen(
     val latestBadgeResolver by rememberUpdatedState(pagedWindowBadgeResolver)
     val windowSignature = renderedItems.size to
         (renderedItems.firstOrNull()?.id to renderedItems.lastOrNull()?.id)
-    val windowBadges = if (isPaged && pagedWindowBadgeResolver != null) {
+    val windowBadges = if ((isPaged || resolveWindowBadgesForVisibleItems) && pagedWindowBadgeResolver != null) {
         produceState(initialValue = LibraryWindowBadges(), windowSignature) {
             val resolver = latestBadgeResolver
             if (resolver == null || renderedItems.isEmpty()) {
