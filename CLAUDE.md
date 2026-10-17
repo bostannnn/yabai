@@ -51,10 +51,19 @@ Keystore `~/yabai.jks`, alias `key0`. The release cert SHA-256 must be
 `apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk`
 (`~/Library/Android/sdk_new/build-tools/36.1.0/apksigner`).
 
+## GitHub Actions
+
+- `ci.yml` runs `testDebugUnitTest` on every push and on PRs to `main` (30 min job timeout).
+- `release-apk.yml` builds a signed release APK on a `v*` tag push or manual dispatch
+  (`gh workflow run release-apk.yml --ref main`); the APK is the run's `unified-reader-release-apk`
+  artifact. Signing comes from the `ANDROID_SIGNING_*` repo secrets (same values as the Keychain).
+
 ## Device
 
 - SDK `~/Library/Android/sdk_new`; adb is `~/Library/Android/sdk_new/platform-tools/adb`
-  (not on PATH). No emulator images are installed; on-device checks use the user's tablet.
+  (not on PATH). Emulator AVD `yabai_tablet_35` (Android 15, 1200x1920 tablet; RuntimeShader works):
+  `ANDROID_SDK_ROOT=~/Library/Android/sdk_new ~/Library/Android/sdk_new/emulator/emulator -avd yabai_tablet_35 -no-snapshot -no-boot-anim -no-audio -gpu host`.
+  Debug builds are fine there; judging feel and performance still needs the user's tablet.
 - The installed app is a release build. Update it with `adb install -r` of a **signed release**
   APK, which keeps its data. A debug build has a different signature and would need an
   uninstall, which wipes the library and journal: never uninstall.

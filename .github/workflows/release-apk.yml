@@ -6,6 +6,9 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: read
+
 jobs:
   release-apk:
     name: Build signed release APK
@@ -16,11 +19,12 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      # Gradle's daemon JVM is pinned to JetBrains 21 (gradle/gradle-daemon-jvm.properties).
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
-          java-version: "17"
+          distribution: jetbrains
+          java-version: "21"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -45,7 +49,7 @@ jobs:
           printf '%s' "$ANDROID_SIGNING_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/signing/release.keystore"
 
       - name: Run tests
-        run: ./gradlew test
+        run: ./gradlew testDebugUnitTest
 
       - name: Build release APK
         env:
