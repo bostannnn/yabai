@@ -393,17 +393,28 @@ internal fun searchableFacetDisplayValues(
     letterKey: (String) -> String = { it },
 ): List<String> = (values + selectedValues)
     .distinctBy(valueKey)
-    .sortedWith(searchableFacetDisplayComparator(valueLabel, letterKey))
+    // Keys are computed once per value, not once per comparison: the author key in particular
+    // is string work, and a few thousand values sorted on every recomposition was a visible hitch.
+    .map { value ->
+        val label = valueLabel(value)
+        SearchableFacetSortEntry(value = value, label = label, letterKey = letterKey(label))
+    }
+    .sortedWith(searchableFacetDisplayComparator)
+    .map(SearchableFacetSortEntry::value)
 
-private fun searchableFacetDisplayComparator(
-    valueLabel: (String) -> String,
-    letterKey: (String) -> String,
-): Comparator<String> = Comparator { left, right ->
-    letterKey(valueLabel(left)).compareTo(letterKey(valueLabel(right)), ignoreCase = true)
-        .takeIf { it != 0 }
-        ?: valueLabel(left).compareTo(valueLabel(right), ignoreCase = true).takeIf { it != 0 }
-        ?: left.compareTo(right, ignoreCase = true)
-}
+private class SearchableFacetSortEntry(
+    val value: String,
+    val label: String,
+    val letterKey: String,
+)
+
+private val searchableFacetDisplayComparator: Comparator<SearchableFacetSortEntry> =
+    Comparator { left, right ->
+        left.letterKey.compareTo(right.letterKey, ignoreCase = true).takeIf { it != 0 }
+            ?: left.label.compareTo(right.label, ignoreCase = true).takeIf { it != 0 }
+            ?: left.value.compareTo(right.value, ignoreCase = true)
+    }
+
 
 @Composable
 private fun FilterDialogScaffold(

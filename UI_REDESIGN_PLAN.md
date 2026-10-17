@@ -185,6 +185,16 @@ sort button. Optional differences from the 2026-10-17 mockup:
       `LibraryFilterComponents.kt` shrank from 915 to 492 lines. The Kavita reading-list scope
       keeps its dialog.
 - [x] A × on applied-filter chips removes that filter in one tap.
+- [x] **Side sheet fit and feel** (2026-10-18, tablet). The dialog's content was laid out at the
+      full screen height while the window manager fitted the window between the system bars, so
+      the panel ran 126 px past the bottom (no margin, under the gesture bar). `AppSideSheet` now
+      clamps its content to the window's visible frame (`getWindowVisibleDisplayFrame`), which
+      is a no-op where the two agree; margins are 12 dp above and below like the drawer. It slides
+      in from the end edge instead of popping with the window fade. Opening a section re-sorted the
+      facet values on every recomposition with the author key recomputed per comparison; the sort
+      now runs once per input change with precomputed keys and the rows animate in. Section open
+      on the tablet: worst frame 18 to 21 ms (was 60 to 200 ms as reported; most of that was
+      post-idle vsync accounting, the real work was about 20 ms).
 
 ### 3c. Covers and placeholders `[ ]`
 

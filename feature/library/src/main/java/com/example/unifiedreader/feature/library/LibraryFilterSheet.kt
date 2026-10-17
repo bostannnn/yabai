@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.library
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -59,6 +60,22 @@ internal fun LibraryFilterSheet(
     var expandedPanel by remember { mutableStateOf(initialPanel ?: filterPanels.firstOrNull()) }
     var query by remember(expandedPanel) { mutableStateOf("") }
     val activeCount = filterPanels.sumOf { panel -> panel.selectedCount(filterState) }
+    // Only the expanded section has a value list, and it is sorted once per change of its
+    // inputs rather than on every recomposition of the sheet.
+    val expandedSection = expandedPanel?.let { panel ->
+        facetSectionFor(panel, filterState, filterFacets, libraryTitlesById, onFilterStateChanged)
+    }
+    val expandedDisplayValues = (expandedSection as? FacetSection.Searchable)?.let { section ->
+        remember(expandedPanel, section.values, section.selectedValues, libraryTitlesById) {
+            searchableFacetDisplayValues(
+                values = section.values,
+                selectedValues = section.selectedValues,
+                valueKey = { value -> section.valueLabel(value).lowercase() },
+                valueLabel = section.valueLabel,
+                letterKey = section.letterKey,
+            )
+        }
+    }.orEmpty()
 
     AppSideSheet(onDismissRequest = onDismiss) {
         FilterSheetHeader(
@@ -72,9 +89,9 @@ internal fun LibraryFilterSheet(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp),
         ) {
             filterPanels.forEach { panel ->
-                val section = facetSectionFor(panel, filterState, filterFacets, libraryTitlesById, onFilterStateChanged)
                 val enabled = panel.isEnabled(filterState, filterFacets, libraryTitlesById)
                 val expanded = expandedPanel == panel && enabled
+                val section = if (expanded) expandedSection else null
                 item(key = "header:${panel.name}") {
                     FilterSectionHeader(
                         label = panel.label,
@@ -85,25 +102,20 @@ internal fun LibraryFilterSheet(
                         onClear = { onFilterStateChanged(filterState.clearing(panel)) },
                     )
                 }
-                if (!expanded) return@forEach
+                if (section == null) return@forEach
                 when (section) {
                     is FacetSection.Chips -> item(key = "chips:${panel.name}") {
-                        FacetChipRow(section = section)
+                        FacetChipRow(section = section, modifier = Modifier.animateItem())
                     }
                     is FacetSection.Searchable -> {
-                        val displayValues = searchableFacetDisplayValues(
-                            values = section.values,
-                            selectedValues = section.selectedValues,
-                            valueKey = { value -> section.valueLabel(value).lowercase() },
-                            valueLabel = section.valueLabel,
-                            letterKey = section.letterKey,
-                        )
+                        val displayValues = expandedDisplayValues
                         if (displayValues.size > SearchFieldThreshold) {
                             item(key = "search:${panel.name}") {
                                 AppTextField(
                                     value = query,
                                     onValueChange = { query = it },
                                     modifier = Modifier
+                                        .animateItem()
                                         .fillMaxWidth()
                                         .padding(horizontal = 20.dp, vertical = 6.dp),
                                     singleLine = true,
@@ -124,7 +136,9 @@ internal fun LibraryFilterSheet(
                                     text = "No matches",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                                    modifier = Modifier
+                                        .animateItem()
+                                        .padding(horizontal = 20.dp, vertical = 12.dp),
                                 )
                             }
                         }
@@ -134,6 +148,7 @@ internal fun LibraryFilterSheet(
                                 selected = value in section.selectedValues,
                                 available = value in section.availableValues,
                                 onClick = { section.toggle(value) },
+                                modifier = Modifier.animateItem(),
                             )
                         }
                     }
@@ -224,12 +239,17 @@ private fun FilterSectionHeader(
                 )
             }
         }
+        val chevronRotation by animateFloatAsState(
+            targetValue = if (expanded) 90f else 0f,
+            label = "filter-section-chevron",
+        )
         Icon(
             imageVector = AppIcons.KeyboardArrowRight,
             contentDescription = null,
             tint = contentColor,
-            modifier = Modifier.rotate(if (expanded) 90f else 0f),
+            modifier = Modifier.rotate(chevronRotation),
         )
+
     }
 }
 
@@ -237,9 +257,10 @@ private fun FilterSectionHeader(
 @Composable
 private fun FacetChipRow(
     section: FacetSection.Chips,
+    modifier: Modifier = Modifier,
 ) {
     FlowRow(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(start = 20.dp, end = 20.dp, bottom = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -282,13 +303,14 @@ internal fun TextFacetRow(
     selected: Boolean,
     available: Boolean,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val textColor = when {
         selected || available -> MaterialTheme.colorScheme.onSurface
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(start = 12.dp, end = 20.dp, top = 2.dp, bottom = 2.dp),
