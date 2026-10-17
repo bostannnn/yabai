@@ -16,6 +16,8 @@ internal data class ImportedComicMetadata(
     val issueTitle: String? = null,
     val volume: String? = null,
     val issueNumber: String? = null,
+    /** ComicInfo's `Writer`, as written (a comma-separated list). */
+    val writer: String? = null,
 )
 
 internal data class ImportedEpubMetadata(
@@ -84,6 +86,7 @@ internal fun parseComicInfoMetadata(
         issueTitle = document.firstTextByLocalName("Title"),
         volume = document.firstTextByLocalName("Volume"),
         issueNumber = document.firstTextByLocalName("Number"),
+        writer = document.firstTextByLocalName("Writer"),
     )
 }
 

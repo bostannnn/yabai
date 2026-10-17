@@ -14,7 +14,7 @@ Started 2026-10-17. Scope so far is the library home; other screens are listed a
   themes). One translucent blurred material for the top bar, drawer, sheets, and reader bars;
   covers and lists sit flat on the background; one cover tile shared by the grid and the
   shelves; three corner radii (cover, control, container); progress and finished state drawn on
-  the cover; colored title-derived placeholders instead of the grey format box.
+  the cover; the designed placeholder covers from 3c stay as they are.
 - **Build it through an app-owned component kit, not a new UI library.** The mismatched look
   came from feature code calling raw Material `Card`/`Surface`/`Dialog`/`Button` with ad-hoc
   shapes and alphas. `core:ui-components` is the single chokepoint; Haze is the only planned
@@ -59,8 +59,8 @@ Pull-request-sized steps; each lands and gets judged on the tablet before the ne
    `Shapes` and `Typography`, `UnifiedReaderComponentCatalog.kt`, and the personality/component
    token types. Keep every palette. One shape scale: cover 6, control 12, container 20.
 3. `[ ]` **The look.** Add Haze. Glass top bar and drawer in the library, flat content, one
-   cover tile for grid and shelves, progress bar and finished check on the cover, colored
-   placeholders. Reader bars adopt the same glass recipe. Measure scroll frames on the tablet.
+   cover tile for grid and shelves, progress bar and finished check on the cover. Reader bars
+   adopt the same glass recipe. Measure scroll frames on the tablet.
 4. `[ ]` **Font and icons.** Bundle Manrope (full Cyrillic; the Grimmory library is largely
    Russian). Material Symbols Rounded replaces `material-icons-extended`.
 5. `[ ]` **Settings, journal, book detail** rebuilt on the kit.
@@ -132,8 +132,21 @@ sort button. Optional differences from the 2026-10-17 mockup:
       `files/imported-cover-cache`, but both the grid and the shelves show the grey "CBZ"
       placeholder. Not caused by 3a (the grid's cover loading wasn't changed). The tablet showed the
       same for many Kavita books, so this may be a real bug.
-- [ ] Replace the grey "CBZ" placeholder with a colored one: color derived from the title (stable
-      per book), title and format printed on it.
+- [x] Design chosen 2026-10-17 (mockup, no code yet). The current placeholder is one grey
+      gradient with the format name; for PDF the label is empty, so a PDF without a cover is blank.
+  - **EPUB, PDF: title cover.** Color from the title (stable per book); title and author set like
+    a book jacket; small format tag at the bottom.
+  - **CBZ, CBR: series number.** One color per series (all issues match); series name small at the
+    top, issue or volume number large, issue title below, format tag.
+  - A CBZ/CBR without series and number falls back to the title cover. A PDF that is really a comic
+    still gets the title cover, because the rule goes by format.
+- [x] Implemented in `LibraryCoverPlaceholder.kt`, drawn in one pass (no subcomposition) with
+      text measured to fit a safe zone (15% left for the spine, 9% right, 8% top, 7% bottom).
+      Titles shrink to fit in at most 4 lines without splitting words, then break and ellipsize.
+      The safe zone moves clear of the Read, rating, count and download chips when shown. Covers
+      narrower than 110dp (journal, shelf sheet rows, downloads) show one big glyph: the issue
+      number or the title's first letter. Checked on the emulator.
+- [x] Checked on the tablet (Local source, Terminal 95): series covers match per series, text clears the Read and rating chips.
 
 ## 4. Blur behind chrome `[ ]`
 

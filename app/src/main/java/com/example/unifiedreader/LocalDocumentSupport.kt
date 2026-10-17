@@ -169,24 +169,39 @@ internal fun recordToReadableItem(
         description = formatSpec.buildDescription(record),
         coverUrl = record.coverUri,
         addedAtEpochMillis = record.addedAtEpochMillis,
-        bookMetadata = record.author?.let(::BookMetadata),
-        comicMetadata = if (
-            record.series != null ||
-            record.issueTitle != null ||
-            record.volume != null ||
-            record.issueNumber != null
-        ) {
-            ComicMetadata(
-                series = record.series,
-                issueTitle = record.issueTitle,
-                volume = record.volume,
-                issueNumber = record.issueNumber,
-            )
-        } else {
-            null
+        // For an EPUB `author` is its creator; for a comic archive it is ComicInfo's Writer list.
+        bookMetadata = record.author?.takeUnless { record.format.isComicArchive }?.let(::BookMetadata),
+        comicMetadata = record.comicWriters().let { writers ->
+            if (
+                record.series != null ||
+                record.issueTitle != null ||
+                record.volume != null ||
+                record.issueNumber != null ||
+                writers.isNotEmpty()
+            ) {
+                ComicMetadata(
+                    series = record.series,
+                    issueTitle = record.issueTitle,
+                    volume = record.volume,
+                    issueNumber = record.issueNumber,
+                    writers = writers,
+                )
+            } else {
+                null
+            }
         },
     )
 }
+
+private val FormatType.isComicArchive: Boolean
+    get() = this == FormatType.CBZ || this == FormatType.CBR
+
+private fun LocalDocumentRecord.comicWriters(): List<String> =
+    if (format.isComicArchive) {
+        author.orEmpty().split(',').map(String::trim).filter(String::isNotEmpty)
+    } else {
+        emptyList()
+    }
 
 internal fun entityToRecord(
     entity: ImportedComicArchiveEntity,

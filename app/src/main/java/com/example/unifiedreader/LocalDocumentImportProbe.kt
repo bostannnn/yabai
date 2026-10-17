@@ -77,6 +77,7 @@ internal class LocalDocumentImportProbe(
             issueTitle = archive.comicMetadata?.issueTitle,
             volume = archive.comicMetadata?.volume,
             issueNumber = archive.comicMetadata?.issueNumber,
+            author = archive.comicMetadata?.writer,
         )
     }
 
