@@ -96,8 +96,15 @@ sort button. Optional differences from the 2026-10-17 mockup:
       `files/imported-cover-cache`, but both the grid and the shelves show the grey "CBZ"
       placeholder. Not caused by 3a (the grid's cover loading wasn't changed). The tablet showed the
       same for many Kavita books, so this may be a real bug.
-- [ ] Replace the grey "CBZ" placeholder with a colored one: color derived from the title (stable
-      per book), title and format printed on it.
+- [x] Design chosen 2026-10-17 (mockup, no code yet). The current placeholder is one grey
+      gradient with the format name; for PDF the label is empty, so a PDF without a cover is blank.
+  - **EPUB, PDF: title cover.** Color from the title (stable per book); title and author set like
+    a book jacket; small format tag at the bottom.
+  - **CBZ, CBR: series number.** One color per series (all issues match); series name small at the
+    top, issue or volume number large, issue title below, format tag.
+  - A CBZ/CBR without series and number falls back to the title cover. A PDF that is really a comic
+    still gets the title cover, because the rule goes by format.
+- [ ] Implement in `feature:library` (the `LibraryCover` empty-cover branch), in a new file.
 
 ## 4. Blur behind chrome `[ ]`
 
