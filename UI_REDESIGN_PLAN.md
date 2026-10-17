@@ -226,10 +226,12 @@ sort button. Optional differences from the 2026-10-17 mockup:
       reader chrome; colored placeholders (3c) can use the same palette code.
 - [ ] Extract colors off the main thread and cache them per cover.
 
-## 6. Second pass: everything the first pass left on the old language `[~]`
+## 6. Second pass: everything the first pass left on the old language `[x]`
 
 Audit of 2026-10-17 (code read). Everything below landed on 2026-10-18 in one commit per
-group; checked on the emulator, not yet on the tablet.
+group; checked on the emulator, then on the tablet (release build, Android 16): flat covers,
+local covers, the drawer, and the EPUB reader with its glass panes, where the WebView overlay
+problem was found and fixed (see Decisions).
 
 ### 6a. Kit gaps `[x]`
 
@@ -298,8 +300,9 @@ group; checked on the emulator, not yet on the tablet.
 
 ### 6f. Still open
 
-- [ ] Check the second pass on the tablet (covers, reader chrome, shelf browser); the cover change
-      removes a shadow and a gradient per tile, so a `LibraryPerf` scroll run is cheap to take.
+- [x] Checked on the tablet 2026-10-18 (covers, drawer, EPUB reader panes).
+- [ ] `LibraryPerf` scroll run on the tablet: the cover change removes a shadow and a gradient per
+      tile, so the numbers should only improve, but they are not recorded yet.
 - [ ] 3a: run the shelf instrumentation tests.
 - [ ] Section 1 (Compose BOM) and section 5 (cover-derived color) are untouched.
 
