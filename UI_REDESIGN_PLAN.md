@@ -86,7 +86,15 @@ Pull-request-sized steps; each lands and gets judged on the tablet before the ne
    the app uses are vector drawables in `core:ui-components`, exposed through `AppIcons`, and the
    import rule now forbids `androidx.compose.material.icons`. Licenses are in
    `THIRD_PARTY_NOTICES.md`. Placeholder covers keep their own serif, as a book jacket would.
-5. `[ ]` **Settings, journal, book detail** rebuilt on the kit.
+5. `[x]` **Settings and journal** in the new language. `AppPanel` now defaults to the raised
+   surface (`surfaceRaised`) and the container radius, so every grouped panel in the app shares
+   one look; inner rows and tiles sit on the plain surface at the control radius. Settings lost
+   its developer-facing subtitle, its list and overview layouts take the top-bar inset and scroll
+   under the bar, and the navigation and filter sections use the same panel pair. Journal's
+   stat panels drop their 8 dp corners and tonal elevation for the defaults; its facet dialog
+   is a plain surface with a shadow. There is no book detail screen in the app, so nothing to
+   rebuild there. The per-cover kebab menu stays: long-press already enters download selection
+   on remote sources, so moving the menu there would collide with it.
 
 ## 1. Compose and Material 3 upgrade `[ ]`
 
@@ -184,11 +192,10 @@ sort button. Optional differences from the 2026-10-17 mockup:
 
 ## Not yet designed
 
-- Reader chrome (top bar, page slider, preferences panel)
-- Settings
-- Navigation drawer
-- Book detail / series view
-- Journal
+- Reader preferences panel and page slider beyond their glass surfaces (the bars themselves are
+  done in step 3)
+- Series view (the series browse reuses the library grid; it has no header of its own)
+- Book detail (does not exist yet)
 
 ## Open questions
 

@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -29,15 +28,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
-import com.example.unifiedreader.feature.settings.direction.ComicReadingDirectionSettingsSection
 import com.example.unifiedreader.feature.settings.direction.ReadingDirectionLibraryUiState
-import com.example.unifiedreader.feature.settings.mode.ComicReaderModeSettingsSection
 import com.example.unifiedreader.feature.settings.mode.ReaderModeLibraryUiState
 import com.example.unifiedreader.ui.components.AppChip
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
@@ -102,6 +100,7 @@ fun SettingsScreen(
     onRetryFailedGrimmoryCovers: () -> Unit,
     onCancelGrimmoryCoverPreload: () -> Unit,
     onClearGrimmoryCoverCache: () -> Unit,
+    contentTopInset: Dp = 0.dp,
 ) {
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize(),
@@ -123,6 +122,7 @@ fun SettingsScreen(
 
         if (useListDetail) {
             SettingsListDetailLayout(
+                contentTopInset = contentTopInset,
                 sections = sections,
                 selectedSectionId = selectedSectionId,
                 onSectionSelected = { sectionId -> selectedSectionId = sectionId },
@@ -200,6 +200,7 @@ fun SettingsScreen(
             )
         } else {
             SettingsOverviewGrid(
+                contentTopInset = contentTopInset,
                 useSingleLaneCards = useOverviewSingleLaneCards,
                 header = {
                     SettingsHeader()
@@ -422,11 +423,6 @@ private fun SettingsHeader() {
             text = "Settings",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.SemiBold,
-        )
-        Text(
-            text = "Appearance is the first persisted app setting. It updates the full Material 3 shell immediately.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

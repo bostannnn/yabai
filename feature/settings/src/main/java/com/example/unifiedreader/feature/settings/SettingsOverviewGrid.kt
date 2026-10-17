@@ -12,11 +12,13 @@ import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 @Composable
 internal fun SettingsOverviewGrid(
     useSingleLaneCards: Boolean,
+    contentTopInset: Dp = 0.dp,
     header: @Composable () -> Unit,
     themeCard: @Composable () -> Unit,
     syncCard: @Composable () -> Unit,
@@ -36,7 +38,7 @@ internal fun SettingsOverviewGrid(
                 .fillMaxSize()
                 .widthIn(max = SettingsMaxContentWidth)
                 .padding(horizontal = SettingsScreenHorizontalPaddingDp.dp),
-            contentPadding = PaddingValues(vertical = 20.dp),
+            contentPadding = PaddingValues(top = 20.dp + contentTopInset, bottom = 20.dp),
             verticalItemSpacing = 16.dp,
             horizontalArrangement = Arrangement.spacedBy(SettingsOverviewColumnSpacingDp.dp),
         ) {

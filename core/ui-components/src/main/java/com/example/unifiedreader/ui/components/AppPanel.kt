@@ -78,9 +78,9 @@ object AppPanelDefaults {
     val shape: Shape
         @Composable get() = RoundedCornerShape(UnifiedReaderThemeTokens.presentation.cardCornerRadius)
 
-    /** Same container color as a Material filled card. */
+    /** The raised surface every grouped panel sits on (shelves, settings, journal). */
     val containerColor: Color
-        @Composable get() = CardDefaults.cardColors().containerColor
+        @Composable get() = UnifiedReaderThemeTokens.colors.surfaceRaised
 
     /** Container color of a Material outlined card. */
     val outlinedContainerColor: Color

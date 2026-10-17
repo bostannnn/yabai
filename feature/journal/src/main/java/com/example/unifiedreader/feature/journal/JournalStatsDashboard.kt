@@ -50,9 +50,6 @@ internal fun JournalActivityDashboard(
     val points = remember(overview) { overview.activityChartPoints() }
     AppPanel(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp,
     ) {
         Column(
             modifier = Modifier.padding(16.dp),

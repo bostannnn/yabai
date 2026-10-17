@@ -20,6 +20,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.ReadableItem
@@ -384,9 +386,8 @@ fun UnifiedReaderScaffold(
                             onRetryFailedGrimmoryCovers = { viewModel.retryFailedCovers(SourceType.GRIMMORY) },
                             onCancelGrimmoryCoverPreload = { viewModel.cancelCoverPreload(SourceType.GRIMMORY) },
                             onClearGrimmoryCoverCache = { viewModel.clearCachedCovers(SourceType.GRIMMORY) },
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(top = AppTopBarDefaults.contentInset),
+                            contentTopInset = AppTopBarDefaults.contentInset,
+                            modifier = Modifier.fillMaxSize(),
                         )
                     }
                 }
@@ -529,6 +530,7 @@ private fun SettingsRoute(
     onRetryFailedGrimmoryCovers: () -> Unit,
     onCancelGrimmoryCoverPreload: () -> Unit,
     onClearGrimmoryCoverCache: () -> Unit,
+    contentTopInset: Dp = 0.dp,
     modifier: Modifier = Modifier,
 ) {
     AppBackground(
@@ -536,6 +538,7 @@ private fun SettingsRoute(
         color = MaterialTheme.colorScheme.background,
     ) {
         SettingsScreen(
+            contentTopInset = contentTopInset,
             themeMode = uiState.themeMode,
             kavitaReadingDirectionLibraries = kavitaReadingDirectionLibraries,
             stumpReadingDirectionLibraries = stumpReadingDirectionLibraries,

@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -19,7 +18,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -35,13 +33,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.unifiedreader.core.model.ReadableItem
-import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.ui.components.AppDialogHost
 import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.components.AppTextButton
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import java.util.Calendar
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -142,8 +139,8 @@ private fun ReadingStatsSummary(
 ) {
     AppPanel(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f),
+        shape = MaterialTheme.shapes.medium,
+        color = UnifiedReaderThemeTokens.colors.surfaceBase,
     ) {
         Column(
             modifier = Modifier.padding(if (compact) 12.dp else 16.dp),
@@ -272,9 +269,6 @@ private fun ReadingPacePanel(
 ) {
     AppPanel(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp,
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -402,9 +396,6 @@ private fun RatingBreakdown(
 ) {
     AppPanel(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp,
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -446,9 +437,6 @@ internal fun AverageReadingTimeChart(
     val barColor = MaterialTheme.colorScheme.tertiary
     AppPanel(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp,
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -589,9 +577,6 @@ private fun FacetChartCard(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = FACET_CHART_CARD_MIN_HEIGHT),
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp,
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -716,9 +701,8 @@ internal fun JournalFacetRowsDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .widthIn(max = 520.dp),
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp,
+            color = UnifiedReaderThemeTokens.colors.surfaceBase,
+            shadowElevation = 12.dp,
         ) {
             Column(
                 modifier = Modifier.padding(20.dp),

@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.ui.components.AppDivider
 import com.example.unifiedreader.ui.components.AppPanel
@@ -32,6 +33,7 @@ internal fun SettingsListDetailLayout(
     sections: List<SettingsSectionDescriptor>,
     selectedSectionId: SettingsSectionId,
     onSectionSelected: (SettingsSectionId) -> Unit,
+    contentTopInset: Dp = 0.dp,
     header: @Composable () -> Unit,
     detailContent: @Composable (SettingsSectionId) -> Unit,
 ) {
@@ -44,7 +46,12 @@ internal fun SettingsListDetailLayout(
             modifier = Modifier
                 .fillMaxSize()
                 .widthIn(max = SettingsMaxContentWidth)
-                .padding(horizontal = SettingsScreenHorizontalPaddingDp.dp, vertical = 20.dp),
+                .padding(
+                    start = SettingsScreenHorizontalPaddingDp.dp,
+                    end = SettingsScreenHorizontalPaddingDp.dp,
+                    top = 20.dp + contentTopInset,
+                    bottom = 20.dp,
+                ),
             horizontalArrangement = Arrangement.spacedBy(SettingsListDetailPaneSpacingDp.dp),
         ) {
             SettingsSectionListPane(
@@ -58,7 +65,7 @@ internal fun SettingsListDetailLayout(
             AppPanel(
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(presentation.cardCornerRadius),
-                color = MaterialTheme.colorScheme.surface,
+                color = UnifiedReaderThemeTokens.colors.surfaceBase,
             ) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -92,7 +99,6 @@ private fun SettingsSectionListPane(
     AppPanel(
         modifier = modifier,
         shape = RoundedCornerShape(presentation.cardCornerRadius),
-        color = MaterialTheme.colorScheme.surface,
     ) {
         Column(
             modifier = Modifier.padding(

@@ -30,8 +30,6 @@ fun SourceNavigationSettingsSection(
 ) {
     AppPanel(
         modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surface,
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -78,7 +76,7 @@ private fun SourceOrderRow(
     val presentation = UnifiedReaderThemeTokens.presentation
     AppPanel(
         shape = MaterialTheme.shapes.medium,
-        color = semanticColors.surfaceRaised.copy(alpha = 0.82f),
+        color = semanticColors.surfaceBase,
     ) {
         Row(
             modifier = Modifier

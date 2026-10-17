@@ -23,6 +23,7 @@ import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.core.model.resolveLibraryFilterPanels
 import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.components.AppTextButton
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 @Composable
 internal fun LibraryFilterSettingsSection(
@@ -91,8 +92,6 @@ private fun LibraryFilterSourceCard(
 ) {
     AppPanel(
         modifier = modifier,
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f),
     ) {
         LibraryFilterSourceSection(
             sourceType = sourceType,
@@ -176,7 +175,7 @@ private fun LibraryFilterPanelRow(
 ) {
     AppPanel(
         shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f),
+        color = UnifiedReaderThemeTokens.colors.surfaceBase,
     ) {
         Row(
             modifier = Modifier
