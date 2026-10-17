@@ -41,7 +41,6 @@ import com.example.unifiedreader.ui.components.AppLinearProgress
 import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.components.AppSheet
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
-import com.example.unifiedreader.ui.theme.unifiedReaderSurfacePattern
 
 @Composable
 fun DownloadsSheet(
@@ -57,19 +56,12 @@ fun DownloadsSheet(
     onOpenEntry: (String) -> Unit,
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
-    val sheetRecipe = UnifiedReaderThemeTokens.components.sheet
     AppSheet(
         onDismissRequest = onDismiss,
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .unifiedReaderSurfacePattern(
-                    treatment = sheetRecipe.surfaceTreatment,
-                    accentColor = semanticColors.readerAccent,
-                    overlayColor = MaterialTheme.colorScheme.onSurface,
-                    intensity = sheetRecipe.patternIntensity,
-                )
                 .padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {

@@ -7,8 +7,6 @@ import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Shapes
-import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -20,24 +18,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import com.example.unifiedreader.feature.settings.ThemeMode
-import com.example.unifiedreader.ui.theme.UnifiedReaderBorderTreatment.Dashed
-import com.example.unifiedreader.ui.theme.UnifiedReaderBorderTreatment.Double
-import com.example.unifiedreader.ui.theme.UnifiedReaderBorderTreatment.Ink
-import com.example.unifiedreader.ui.theme.UnifiedReaderBorderTreatment.Single
-import com.example.unifiedreader.ui.theme.UnifiedReaderProgressTreatment.Dashed as DashedProgress
-import com.example.unifiedreader.ui.theme.UnifiedReaderProgressTreatment.Segmented
-import com.example.unifiedreader.ui.theme.UnifiedReaderProgressTreatment.Solid
-import com.example.unifiedreader.ui.theme.UnifiedReaderProgressTreatment.TapeCounter
-import com.example.unifiedreader.ui.theme.UnifiedReaderSurfaceTreatment.BlueprintGrid
-import com.example.unifiedreader.ui.theme.UnifiedReaderSurfaceTreatment.ComicHalftone
-import com.example.unifiedreader.ui.theme.UnifiedReaderSurfaceTreatment.DossierPaper
-import com.example.unifiedreader.ui.theme.UnifiedReaderSurfaceTreatment.GothicVignette
-import com.example.unifiedreader.ui.theme.UnifiedReaderSurfaceTreatment.Plain
-import com.example.unifiedreader.ui.theme.UnifiedReaderSurfaceTreatment.TerminalGrid
-import com.example.unifiedreader.ui.theme.UnifiedReaderSurfaceTreatment.VhsScanlines
 
 private val LightUnifiedReaderColorScheme = lightColorScheme(
     primary = UnifiedReaderPalette.CoverBlue,
@@ -498,11 +480,6 @@ private val DetectiveFileUnifiedReaderColorScheme = lightColorScheme(
 private data class UnifiedReaderResolvedTheme(
     val colorScheme: ColorScheme,
     val semanticColors: UnifiedReaderSemanticColors,
-    val presentationTokens: UnifiedReaderPresentationTokens,
-    val personalityTokens: UnifiedReaderPersonalityTokens,
-    val componentTokens: UnifiedReaderComponentTokens,
-    val typography: Typography,
-    val shapes: Shapes,
     val isDark: Boolean,
 )
 
@@ -533,16 +510,16 @@ fun UnifiedReaderTheme(
         }
     }
 
+    // Themes are palettes only: typography, shapes, and presentation sizes are the same
+    // for every theme.
     CompositionLocalProvider(
         LocalUnifiedReaderSemanticColors provides resolvedTheme.semanticColors,
-        LocalUnifiedReaderPresentationTokens provides resolvedTheme.presentationTokens,
-        LocalUnifiedReaderPersonalityTokens provides resolvedTheme.personalityTokens,
-        LocalUnifiedReaderComponentTokens provides resolvedTheme.componentTokens,
+        LocalUnifiedReaderPresentationTokens provides UnifiedReaderDefaultPresentationTokens,
     ) {
         MaterialTheme(
             colorScheme = resolvedTheme.colorScheme,
-            typography = resolvedTheme.typography,
-            shapes = resolvedTheme.shapes,
+            typography = UnifiedReaderTypography,
+            shapes = UnifiedReaderShapes,
             content = content,
         )
     }
@@ -577,11 +554,6 @@ private fun resolveUnifiedReaderTheme(
     return UnifiedReaderResolvedTheme(
         colorScheme = colorScheme,
         semanticColors = colorScheme.toSemanticColors(isDark = isDark),
-        presentationTokens = themeMode.toPresentationTokens(),
-        personalityTokens = themeMode.toPersonalityTokens(),
-        componentTokens = themeMode.toComponentTokens(),
-        typography = themeMode.toTypography(),
-        shapes = themeMode.toShapes(),
         isDark = isDark,
     )
 }
@@ -611,151 +583,6 @@ private fun ColorScheme.toSemanticColors(isDark: Boolean): UnifiedReaderSemantic
         onSourceAccent = onTertiary,
         sourceAccentContainer = tertiaryContainer,
         onSourceAccentContainer = onTertiaryContainer,
-    )
-}
-
-private fun ThemeMode.toTypography(): Typography = when (this) {
-    ThemeMode.Terminal95 -> Terminal95UnifiedReaderTypography
-    ThemeMode.CrimsonCourt -> CrimsonCourtUnifiedReaderTypography
-    ThemeMode.PanelPop -> PanelPopUnifiedReaderTypography
-    ThemeMode.Blueprint -> BlueprintUnifiedReaderTypography
-    ThemeMode.VhsNight -> VhsNightUnifiedReaderTypography
-    ThemeMode.DetectiveFile -> DetectiveFileUnifiedReaderTypography
-    else -> UnifiedReaderTypography
-}
-
-private fun ThemeMode.toShapes(): Shapes = when (this) {
-    ThemeMode.Terminal95 -> Terminal95UnifiedReaderShapes
-    ThemeMode.CrimsonCourt -> CrimsonCourtUnifiedReaderShapes
-    ThemeMode.PanelPop -> PanelPopUnifiedReaderShapes
-    ThemeMode.Blueprint -> BlueprintUnifiedReaderShapes
-    ThemeMode.VhsNight -> VhsNightUnifiedReaderShapes
-    ThemeMode.DetectiveFile -> DetectiveFileUnifiedReaderShapes
-    else -> UnifiedReaderShapes
-}
-
-private fun ThemeMode.toPresentationTokens(): UnifiedReaderPresentationTokens = when (this) {
-    ThemeMode.Terminal95 -> UnifiedReaderPresentationTokens(
-        cardCornerRadius = 6.dp,
-        coverCornerRadius = 4.dp,
-        controlCornerRadius = 4.dp,
-        chipCornerRadius = 2.dp,
-        shelfCardHorizontalPadding = 10.dp,
-        shelfCardVerticalPadding = 9.dp,
-        shelfItemSpacing = 8.dp,
-        searchHeight = 36.dp,
-        accentRailWidth = 5.dp,
-        alphabetRailWidth = 30.dp,
-    )
-    ThemeMode.CrimsonCourt -> UnifiedReaderPresentationTokens(
-        cardCornerRadius = 22.dp,
-        coverCornerRadius = 10.dp,
-        controlCornerRadius = 14.dp,
-        chipCornerRadius = 10.dp,
-        shelfCardHorizontalPadding = 16.dp,
-        shelfCardVerticalPadding = 14.dp,
-        shelfItemSpacing = 14.dp,
-        searchHeight = 42.dp,
-        accentRailWidth = 5.dp,
-        alphabetRailWidth = 30.dp,
-    )
-    ThemeMode.PanelPop -> UnifiedReaderPresentationTokens(
-        cardCornerRadius = 8.dp,
-        coverCornerRadius = 6.dp,
-        controlCornerRadius = 8.dp,
-        chipCornerRadius = 4.dp,
-        shelfCardHorizontalPadding = 12.dp,
-        shelfCardVerticalPadding = 10.dp,
-        shelfItemSpacing = 10.dp,
-        searchHeight = 38.dp,
-        accentRailWidth = 6.dp,
-        alphabetRailWidth = 30.dp,
-    )
-    ThemeMode.Blueprint -> UnifiedReaderPresentationTokens(
-        cardCornerRadius = 6.dp,
-        coverCornerRadius = 2.dp,
-        controlCornerRadius = 4.dp,
-        chipCornerRadius = 2.dp,
-        shelfCardHorizontalPadding = 12.dp,
-        shelfCardVerticalPadding = 10.dp,
-        shelfItemSpacing = 9.dp,
-        searchHeight = 38.dp,
-        accentRailWidth = 3.dp,
-        alphabetRailWidth = 32.dp,
-    )
-    ThemeMode.VhsNight -> UnifiedReaderPresentationTokens(
-        cardCornerRadius = 16.dp,
-        coverCornerRadius = 8.dp,
-        controlCornerRadius = 12.dp,
-        chipCornerRadius = 8.dp,
-        shelfCardHorizontalPadding = 14.dp,
-        shelfCardVerticalPadding = 12.dp,
-        shelfItemSpacing = 12.dp,
-        searchHeight = 40.dp,
-        accentRailWidth = 5.dp,
-        alphabetRailWidth = 30.dp,
-    )
-    ThemeMode.DetectiveFile -> UnifiedReaderPresentationTokens(
-        cardCornerRadius = 8.dp,
-        coverCornerRadius = 3.dp,
-        controlCornerRadius = 6.dp,
-        chipCornerRadius = 3.dp,
-        shelfCardHorizontalPadding = 14.dp,
-        shelfCardVerticalPadding = 11.dp,
-        shelfItemSpacing = 10.dp,
-        searchHeight = 38.dp,
-        accentRailWidth = 4.dp,
-        alphabetRailWidth = 32.dp,
-    )
-    else -> UnifiedReaderPresentationTokens(
-        cardCornerRadius = 18.dp,
-        coverCornerRadius = 6.dp,
-        controlCornerRadius = 12.dp,
-        chipCornerRadius = 8.dp,
-        shelfCardHorizontalPadding = 14.dp,
-        shelfCardVerticalPadding = 12.dp,
-        shelfItemSpacing = 12.dp,
-        searchHeight = 40.dp,
-        accentRailWidth = 4.dp,
-        alphabetRailWidth = 28.dp,
-    )
-}
-
-private fun ThemeMode.toPersonalityTokens(): UnifiedReaderPersonalityTokens = when (this) {
-    ThemeMode.Terminal95 -> UnifiedReaderPersonalityTokens(
-        surfaceTreatment = TerminalGrid,
-        progressTreatment = Segmented,
-        borderTreatment = Single,
-    )
-    ThemeMode.CrimsonCourt -> UnifiedReaderPersonalityTokens(
-        surfaceTreatment = GothicVignette,
-        progressTreatment = Solid,
-        borderTreatment = Double,
-    )
-    ThemeMode.PanelPop -> UnifiedReaderPersonalityTokens(
-        surfaceTreatment = ComicHalftone,
-        progressTreatment = Segmented,
-        borderTreatment = Ink,
-    )
-    ThemeMode.Blueprint -> UnifiedReaderPersonalityTokens(
-        surfaceTreatment = BlueprintGrid,
-        progressTreatment = DashedProgress,
-        borderTreatment = Dashed,
-    )
-    ThemeMode.VhsNight -> UnifiedReaderPersonalityTokens(
-        surfaceTreatment = VhsScanlines,
-        progressTreatment = TapeCounter,
-        borderTreatment = Single,
-    )
-    ThemeMode.DetectiveFile -> UnifiedReaderPersonalityTokens(
-        surfaceTreatment = DossierPaper,
-        progressTreatment = Segmented,
-        borderTreatment = Dashed,
-    )
-    else -> UnifiedReaderPersonalityTokens(
-        surfaceTreatment = Plain,
-        progressTreatment = Solid,
-        borderTreatment = Single,
     )
 }
 

@@ -55,9 +55,13 @@ Pull-request-sized steps; each lands and gets judged on the tablet before the ne
    parameters and defaults so nothing moves. `FeatureMaterialImportRuleTest` forbids the raw
    imports from coming back. Still allowed until the kit covers them: `Checkbox`, `Switch`,
    `Slider`, `Scaffold`, `Snackbar`, drawer and navigation rail components.
-2. `[ ]` **Themes to color only.** Delete `UnifiedReaderTreatmentModifiers.kt`, the per-theme
-   `Shapes` and `Typography`, `UnifiedReaderComponentCatalog.kt`, and the personality/component
-   token types. Keep every palette. One shape scale: cover 6, control 12, container 20.
+2. `[x]` **Themes to color only.** Deleted `UnifiedReaderTreatmentModifiers.kt`, the per-theme
+   `Shapes` and `Typography`, `UnifiedReaderComponentCatalog.kt`, the three personality theme
+   files, and the personality/component token types. Every palette kept. One shape scale:
+   cover 6, control 12, container 20 (was 18 for cards and 8 for chips in the plain themes).
+   The faint accent border on shelf panels and shelf cards stays as a plain 1 dp stroke; the
+   thin cover and row progress bars draw through `Modifier.appProgressFill` in the kit.
+   `THEME_CUSTOMIZATION_GUIDE.md` rewritten for palette-only themes.
 3. `[ ]` **The look.** Add Haze. Glass top bar and drawer in the library, flat content, one
    cover tile for grid and shelves, progress bar and finished check on the cover. Reader bars
    adopt the same glass recipe. Measure scroll frames on the tablet.

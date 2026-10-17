@@ -67,9 +67,8 @@ import com.example.unifiedreader.feature.library.minLibraryGridCellSizeDp
 import com.example.unifiedreader.feature.library.sanitizeLibraryGridCellSizeDp
 import com.example.unifiedreader.ui.components.AppBackground
 import com.example.unifiedreader.ui.components.AppPanel
+import com.example.unifiedreader.ui.components.appProgressFill
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
-import com.example.unifiedreader.ui.theme.unifiedReaderProgressTreatment
-import com.example.unifiedreader.ui.theme.unifiedReaderSurfacePattern
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -146,7 +145,6 @@ fun LibraryShelfItemsBrowser(
     modifier: Modifier = Modifier,
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
-    val pageRecipe = UnifiedReaderThemeTokens.components.sheet
     val gridState = rememberLazyGridState()
     val listState = rememberLazyListState()
     var localSearchQuery by rememberSaveable(browseContextKey, browser.kind) { mutableStateOf("") }
@@ -202,13 +200,7 @@ fun LibraryShelfItemsBrowser(
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .unifiedReaderSurfacePattern(
-                    treatment = pageRecipe.surfaceTreatment,
-                    accentColor = browser.kind.accentColor(),
-                    overlayColor = MaterialTheme.colorScheme.onSurface,
-                    intensity = pageRecipe.patternIntensity,
-                ),
+                .fillMaxSize(),
         ) {
             if (showEmbeddedTopBar) {
                 LibraryShelfBrowserTopBar(
@@ -545,10 +537,6 @@ private fun ShelfBrowserGridCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .unifiedReaderSurfacePattern(
-                    treatment = UnifiedReaderThemeTokens.personality.surfaceTreatment,
-                    accentColor = entry.accentColor(),
-                )
                 .padding(if (compact) 8.dp else 10.dp),
         ) {
             LibraryCoverActionCard(
@@ -608,7 +596,6 @@ private fun BoxScope.ShelfBrowserProgressOverlay(
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
     val presentation = UnifiedReaderThemeTokens.presentation
-    val personality = UnifiedReaderThemeTokens.personality
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -619,8 +606,7 @@ private fun BoxScope.ShelfBrowserProgressOverlay(
                     bottomEnd = presentation.coverCornerRadius,
                 ),
             )
-            .unifiedReaderProgressTreatment(
-                treatment = personality.progressTreatment,
+            .appProgressFill(
                 fraction = fraction,
                 progressColor = semanticColors.readerAccent,
                 trackColor = semanticColors.surfaceSelected.copy(alpha = 0.36f),

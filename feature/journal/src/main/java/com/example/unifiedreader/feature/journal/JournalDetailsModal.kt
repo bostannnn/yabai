@@ -29,8 +29,6 @@ import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.components.AppSheet
 import com.example.unifiedreader.ui.components.AppTextButton
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
-import com.example.unifiedreader.ui.theme.unifiedReaderComponentTreatment
-import com.example.unifiedreader.ui.theme.unifiedReaderSurfacePattern
 
 internal sealed interface JournalDetailsTarget {
     data class Day(
@@ -60,21 +58,13 @@ internal fun JournalDetailsModal(
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
     val presentation = UnifiedReaderThemeTokens.presentation
-    val sheetRecipe = UnifiedReaderThemeTokens.components.sheet
     val dialogShape = RoundedCornerShape(presentation.cardCornerRadius)
     if (useDialog) {
         AppDialogHost(onDismissRequest = onDismiss) {
             AppPanel(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .widthIn(max = 380.dp)
-                    .unifiedReaderComponentTreatment(
-                        recipe = sheetRecipe,
-                        accentColor = semanticColors.readerAccent,
-                        secondaryColor = semanticColors.syncAccent,
-                        overlayColor = MaterialTheme.colorScheme.onSurface,
-                        shape = dialogShape,
-                    ),
+                    .widthIn(max = 380.dp),
                 shape = dialogShape,
                 color = semanticColors.surfaceBase,
                 tonalElevation = 6.dp,
@@ -118,16 +108,8 @@ private fun JournalDetailsContent(
     modifier: Modifier = Modifier,
 ) {
     val summaries = target.summaries()
-    val semanticColors = UnifiedReaderThemeTokens.colors
-    val sheetRecipe = UnifiedReaderThemeTokens.components.sheet
     LazyColumn(
         modifier = modifier
-            .unifiedReaderSurfacePattern(
-                treatment = sheetRecipe.surfaceTreatment,
-                accentColor = semanticColors.readerAccent,
-                overlayColor = MaterialTheme.colorScheme.onSurface,
-                intensity = sheetRecipe.patternIntensity,
-            )
             .padding(horizontal = 20.dp)
             .padding(top = 20.dp, bottom = 28.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),

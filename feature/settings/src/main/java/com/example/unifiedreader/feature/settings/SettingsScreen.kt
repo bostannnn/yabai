@@ -40,9 +40,7 @@ import com.example.unifiedreader.feature.settings.direction.ReadingDirectionLibr
 import com.example.unifiedreader.feature.settings.mode.ComicReaderModeSettingsSection
 import com.example.unifiedreader.feature.settings.mode.ReaderModeLibraryUiState
 import com.example.unifiedreader.ui.components.AppChip
-import com.example.unifiedreader.ui.theme.UnifiedReaderSurfaceTreatment
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
-import com.example.unifiedreader.ui.theme.unifiedReaderContentOverlay
 
 internal const val DefaultKavitaServerUrl = "http://192.168.50.60:5000/"
 internal const val DefaultKavitaBackupServerUrl = "http://100.84.32.88:5000/"
@@ -487,10 +485,7 @@ private fun ThemeModePreviewChip(
         ),
         label = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ThemeModeSwatches(
-                    swatches = option.previewSwatches,
-                    treatment = option.previewSurfaceTreatment(),
-                )
+                ThemeModeSwatches(swatches = option.previewSwatches)
                 Text(text = option.label)
             }
         },
@@ -500,7 +495,6 @@ private fun ThemeModePreviewChip(
 @Composable
 private fun ThemeModeSwatches(
     swatches: ThemePreviewSwatches,
-    treatment: UnifiedReaderSurfaceTreatment,
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
         listOf(swatches.surface, swatches.reader, swatches.sync, swatches.source).forEach { color ->
@@ -509,10 +503,6 @@ private fun ThemeModeSwatches(
                     .size(width = 12.dp, height = 12.dp)
                     .clip(RoundedCornerShape(3.dp))
                     .background(Color(color))
-                    .unifiedReaderContentOverlay(
-                        treatment = treatment,
-                        accentColor = Color(swatches.reader),
-                    )
                     .border(
                         BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)),
                         RoundedCornerShape(3.dp),
@@ -520,16 +510,6 @@ private fun ThemeModeSwatches(
             )
         }
     }
-}
-
-private fun ThemeMode.previewSurfaceTreatment(): UnifiedReaderSurfaceTreatment = when (this) {
-    ThemeMode.Terminal95 -> UnifiedReaderSurfaceTreatment.TerminalGrid
-    ThemeMode.CrimsonCourt -> UnifiedReaderSurfaceTreatment.GothicVignette
-    ThemeMode.PanelPop -> UnifiedReaderSurfaceTreatment.ComicHalftone
-    ThemeMode.Blueprint -> UnifiedReaderSurfaceTreatment.BlueprintGrid
-    ThemeMode.VhsNight -> UnifiedReaderSurfaceTreatment.VhsScanlines
-    ThemeMode.DetectiveFile -> UnifiedReaderSurfaceTreatment.DossierPaper
-    else -> UnifiedReaderSurfaceTreatment.Plain
 }
 
 data class GrimmoryConnectionUiState(

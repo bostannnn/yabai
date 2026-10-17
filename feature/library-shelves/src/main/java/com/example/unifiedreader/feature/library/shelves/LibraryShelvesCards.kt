@@ -1,6 +1,6 @@
 package com.example.unifiedreader.feature.library.shelves
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,12 +31,8 @@ import com.example.unifiedreader.feature.library.LibraryCoverAspectRatio
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.ResolvedLibraryCover
 import com.example.unifiedreader.ui.components.AppPanel
-import com.example.unifiedreader.ui.theme.UnifiedReaderBorderTreatment
+import com.example.unifiedreader.ui.components.appProgressFill
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
-import com.example.unifiedreader.ui.theme.unifiedReaderBorderTreatment
-import com.example.unifiedreader.ui.theme.unifiedReaderComponentTreatment
-import com.example.unifiedreader.ui.theme.unifiedReaderProgressTreatment
-import com.example.unifiedreader.ui.theme.unifiedReaderSurfacePattern
 
 /** Shelf covers match the grid's covers: the grid's cell width, 2:3 shape, and image size. */
 internal data class ShelfCoverLayout(
@@ -62,39 +58,16 @@ internal fun ShelfPreviewCard(
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
     val presentation = UnifiedReaderThemeTokens.presentation
-    val personality = UnifiedReaderThemeTokens.personality
-    val borderWidth = when (personality.borderTreatment) {
-        UnifiedReaderBorderTreatment.Double,
-        UnifiedReaderBorderTreatment.Ink -> 2.dp
-        else -> 1.dp
-    }
-    val borderAlpha = when (personality.borderTreatment) {
-        UnifiedReaderBorderTreatment.Dashed -> 0.10f
-        UnifiedReaderBorderTreatment.Ink -> 0.14f
-        UnifiedReaderBorderTreatment.Double -> 0.09f
-        else -> 0.05f
-    }
     AppPanel(
         modifier = Modifier
             .width(covers.width + presentation.shelfItemSpacing * 2)
-            .clickable(onClick = onClick)
-            .unifiedReaderBorderTreatment(
-                treatment = personality.borderTreatment,
-                color = accentColor,
-                cornerRadius = presentation.cardCornerRadius,
-                width = borderWidth,
-                alpha = borderAlpha,
-            ),
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(presentation.cardCornerRadius),
         color = semanticColors.surfaceOverlay.copy(alpha = 0.72f),
+        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.05f)),
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .unifiedReaderSurfacePattern(
-                    treatment = personality.surfaceTreatment,
-                    accentColor = accentColor,
-                ),
+            modifier = Modifier.fillMaxWidth(),
         ) {
             LibraryCoverActionCard(
                 item = item,
@@ -134,8 +107,7 @@ internal fun ShelfPreviewCard(
                                         bottomEnd = presentation.coverCornerRadius,
                                     ),
                                 )
-                                .unifiedReaderProgressTreatment(
-                                    treatment = personality.progressTreatment,
+                                .appProgressFill(
                                     fraction = fraction,
                                     progressColor = semanticColors.readerAccent,
                                     trackColor = semanticColors.surfaceSelected.copy(alpha = 0.38f),
@@ -168,8 +140,6 @@ internal fun ShelfListRow(
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
     val presentation = UnifiedReaderThemeTokens.presentation
-    val personality = UnifiedReaderThemeTokens.personality
-    val metadataRecipe = UnifiedReaderThemeTokens.components.metadata
     val rowShape = RoundedCornerShape(presentation.cardCornerRadius)
     val coverSize = if (compact) {
         36.dp to 52.dp
@@ -185,16 +155,6 @@ internal fun ShelfListRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(rowShape)
-            .background(
-                semanticColors.surfaceRaised.copy(alpha = metadataRecipe.containerAlpha),
-            )
-            .unifiedReaderComponentTreatment(
-                recipe = metadataRecipe,
-                accentColor = semanticColors.readerAccent,
-                secondaryColor = semanticColors.syncAccent,
-                overlayColor = MaterialTheme.colorScheme.onSurface,
-                shape = rowShape,
-            )
             .clickable(onClick = onClick)
             .padding(horizontal = presentation.shelfCardHorizontalPadding, vertical = verticalPadding),
         horizontalArrangement = Arrangement.spacedBy(presentation.shelfItemSpacing),
@@ -223,8 +183,7 @@ internal fun ShelfListRow(
                                 bottomEnd = presentation.coverCornerRadius,
                             ),
                         )
-                        .unifiedReaderProgressTreatment(
-                            treatment = personality.progressTreatment,
+                        .appProgressFill(
                             fraction = fraction,
                             progressColor = semanticColors.readerAccent,
                             trackColor = semanticColors.surfaceSelected.copy(alpha = 0.34f),

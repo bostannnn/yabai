@@ -61,7 +61,7 @@ fun LibraryBrowseSearchField(
     AppTextField(
         value = query,
         onValueChange = onQueryChanged,
-        modifier = modifier.libraryAccentTextFieldTreatment(selected = query.isNotEmpty()),
+        modifier = modifier,
         singleLine = true,
         leadingIcon = {
             Icon(
@@ -113,7 +113,6 @@ fun LibraryBrowseOptionsMenu(
         AppChip(
             selected = selected,
             onClick = { expanded = true },
-            modifier = Modifier.libraryAccentChipTreatment(selected = selected),
             colors = libraryAccentFilterChipColors(),
             shape = libraryAccentFilterChipShape(),
             leadingIcon = {

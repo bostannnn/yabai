@@ -1,6 +1,5 @@
 package com.example.unifiedreader.feature.library
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -61,8 +60,6 @@ import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.components.AppTextButton
 import com.example.unifiedreader.ui.components.AppTextField
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
-import com.example.unifiedreader.ui.theme.unifiedReaderComponentTreatment
-import com.example.unifiedreader.ui.theme.unifiedReaderSurfacePattern
 import kotlinx.coroutines.launch
 
 @Composable
@@ -162,9 +159,6 @@ internal fun LibraryFilterSummary(
                 selected = !filterState.isEmpty,
                 enabled = filtersEnabled,
                 onClick = { filtersMenuExpanded = true },
-                modifier = Modifier.libraryAccentChipTreatment(
-                    selected = !filterState.isEmpty,
-                ),
                 colors = libraryAccentFilterChipColors(),
                 shape = libraryAccentFilterChipShape(),
                 leadingIcon = {
@@ -251,7 +245,6 @@ private fun LibraryFacetChip(
         selected = selected,
         enabled = enabled,
         onClick = onClick,
-        modifier = Modifier.libraryAccentChipTreatment(selected = selected),
         colors = libraryAccentFilterChipColors(),
         shape = libraryAccentFilterChipShape(),
         label = {
@@ -505,9 +498,7 @@ private fun SearchableKavitaScopeDialog(
             AppTextField(
                 value = query,
                 onValueChange = { query = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .libraryAccentTextFieldTreatment(selected = query.isNotEmpty()),
+                modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 shape = libraryAccentTextFieldShape(),
                 label = { Text(text = "Search Kavita lists") },
@@ -690,9 +681,7 @@ private fun SearchableTextFacetDialog(
             AppTextField(
                 value = query,
                 onValueChange = { query = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .libraryAccentTextFieldTreatment(selected = query.isNotEmpty()),
+                modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 shape = libraryAccentTextFieldShape(),
                 label = { Text(text = "Search $title") },
@@ -779,7 +768,6 @@ private fun FilterDialogScaffold(
 ) {
     val presentation = UnifiedReaderThemeTokens.presentation
     val semanticColors = UnifiedReaderThemeTokens.colors
-    val sheetRecipe = UnifiedReaderThemeTokens.components.sheet
     val sheetShape = RoundedCornerShape(presentation.cardCornerRadius)
     AppDialogHost(
         onDismissRequest = onDismiss,
@@ -788,14 +776,7 @@ private fun FilterDialogScaffold(
         AppPanel(
             modifier = Modifier
                 .padding(24.dp)
-                .then(modifier)
-                .unifiedReaderComponentTreatment(
-                    recipe = sheetRecipe,
-                    accentColor = semanticColors.readerAccent,
-                    secondaryColor = semanticColors.syncAccent,
-                    overlayColor = MaterialTheme.colorScheme.onSurface,
-                    shape = sheetShape,
-                ),
+                .then(modifier),
             shape = sheetShape,
             color = semanticColors.surfaceBase,
             tonalElevation = 6.dp,
@@ -803,12 +784,6 @@ private fun FilterDialogScaffold(
         ) {
             Column(
                 modifier = Modifier
-                    .unifiedReaderSurfacePattern(
-                        treatment = sheetRecipe.surfaceTreatment,
-                        accentColor = semanticColors.readerAccent,
-                        overlayColor = MaterialTheme.colorScheme.onSurface,
-                        intensity = sheetRecipe.patternIntensity,
-                    )
                     .padding(
                         horizontal = presentation.shelfCardHorizontalPadding + 10.dp,
                         vertical = presentation.shelfCardVerticalPadding + 12.dp,
@@ -901,7 +876,6 @@ private fun FilterToggleChip(
     AppChip(
         selected = selected,
         onClick = onClick,
-        modifier = Modifier.libraryAccentChipTreatment(selected = selected),
         colors = libraryAccentFilterChipColors(),
         shape = libraryAccentFilterChipShape(),
         label = {

@@ -1,7 +1,6 @@
 package com.example.unifiedreader.feature.library
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -37,7 +36,6 @@ import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
-import com.example.unifiedreader.ui.theme.unifiedReaderComponentTreatment
 
 @Composable
 fun LibraryBrowseTopBarContainer(
@@ -45,20 +43,9 @@ fun LibraryBrowseTopBarContainer(
     content: @Composable BoxWithConstraintsScope.() -> Unit,
 ) {
     val themeColors = UnifiedReaderThemeTokens.colors
-    val chromeRecipe = UnifiedReaderThemeTokens.components.chrome
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .background(
-                themeColors.surfaceBase.copy(alpha = chromeRecipe.containerAlpha * 0.46f),
-            )
-            .unifiedReaderComponentTreatment(
-                recipe = chromeRecipe,
-                accentColor = themeColors.readerAccent,
-                secondaryColor = themeColors.syncAccent,
-                overlayColor = MaterialTheme.colorScheme.onSurface,
-                shape = RoundedCornerShape(0.dp),
-            )
             .padding(horizontal = 12.dp, vertical = 6.dp),
         content = content,
     )
@@ -137,7 +124,6 @@ private fun LibraryBrowseTopBarSearchField(
     val colors = MaterialTheme.colorScheme
     val semanticColors = UnifiedReaderThemeTokens.colors
     val presentation = UnifiedReaderThemeTokens.presentation
-    val componentRecipe = UnifiedReaderThemeTokens.components.control
     val controlShape = RoundedCornerShape(presentation.controlCornerRadius)
     val active = query.isNotEmpty()
     val focusRequester = remember { FocusRequester() }
@@ -161,38 +147,17 @@ private fun LibraryBrowseTopBarSearchField(
         cursorBrush = SolidColor(semanticColors.sourceAccent),
         decorationBox = { innerTextField ->
             AppPanel(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .unifiedReaderComponentTreatment(
-                        recipe = componentRecipe,
-                        accentColor = semanticColors.sourceAccent,
-                        secondaryColor = semanticColors.syncAccent,
-                        overlayColor = colors.onSurface,
-                        shape = controlShape,
-                        active = active,
-                    ),
+                modifier = Modifier.fillMaxSize(),
                 shape = controlShape,
-                color = if (active) {
-                    colors.surfaceContainerHigh.copy(
-                        alpha = maxOf(0.92f, componentRecipe.containerAlpha),
-                    )
-                } else {
-                    colors.surfaceContainerHigh.copy(
-                        alpha = maxOf(0.52f, componentRecipe.containerAlpha),
-                    )
-                },
-                border = if (componentRecipe.borderAlpha > 0f) {
-                    null
-                } else {
-                    BorderStroke(
-                        1.dp,
-                        if (active) {
-                            semanticColors.sourceAccent.copy(alpha = 0.82f)
-                        } else {
-                            colors.outlineVariant.copy(alpha = 0.36f)
-                        },
-                    )
-                },
+                color = colors.surfaceContainerHigh.copy(alpha = if (active) 0.92f else 0.52f),
+                border = BorderStroke(
+                    1.dp,
+                    if (active) {
+                        semanticColors.sourceAccent.copy(alpha = 0.82f)
+                    } else {
+                        colors.outlineVariant.copy(alpha = 0.36f)
+                    },
+                ),
             ) {
                 Row(
                     modifier = Modifier

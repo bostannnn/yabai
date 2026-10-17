@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.library.shelves
 
 import android.text.format.DateUtils
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -36,10 +37,7 @@ import com.example.unifiedreader.feature.library.isDownloaded
 import com.example.unifiedreader.feature.library.menu.LibraryItemMenuButtonStyle
 import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.components.AppTextButton
-import com.example.unifiedreader.ui.theme.UnifiedReaderBorderTreatment
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
-import com.example.unifiedreader.ui.theme.unifiedReaderBorderTreatment
-import com.example.unifiedreader.ui.theme.unifiedReaderSurfacePattern
 
 @Composable
 internal fun ContinueReadingShelfSection(
@@ -255,36 +253,14 @@ private fun ShelfSectionCard(
     content: @Composable () -> Unit,
 ) {
     val presentation = UnifiedReaderThemeTokens.presentation
-    val personality = UnifiedReaderThemeTokens.personality
-    val borderWidth = when (personality.borderTreatment) {
-        UnifiedReaderBorderTreatment.Double,
-        UnifiedReaderBorderTreatment.Ink -> 2.dp
-        else -> 1.dp
-    }
-    val borderAlpha = when (personality.borderTreatment) {
-        UnifiedReaderBorderTreatment.Dashed -> 0.14f
-        UnifiedReaderBorderTreatment.Ink -> 0.18f
-        UnifiedReaderBorderTreatment.Double -> 0.12f
-        else -> 0.08f
-    }
     AppPanel(
-        modifier = modifier.unifiedReaderBorderTreatment(
-            treatment = personality.borderTreatment,
-            color = accentColor,
-            cornerRadius = presentation.cardCornerRadius,
-            width = borderWidth,
-            alpha = borderAlpha,
-        ),
+        modifier = modifier,
         shape = RoundedCornerShape(presentation.cardCornerRadius),
         color = UnifiedReaderThemeTokens.colors.surfaceRaised,
+        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.08f)),
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .unifiedReaderSurfacePattern(
-                    treatment = personality.surfaceTreatment,
-                    accentColor = accentColor,
-                ),
+            modifier = Modifier.fillMaxWidth(),
         ) {
             Box(
                 modifier = Modifier

@@ -24,8 +24,6 @@ import com.example.unifiedreader.feature.library.LibraryGridMetrics
 import com.example.unifiedreader.feature.library.libraryGridColumns
 import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
-import com.example.unifiedreader.ui.theme.unifiedReaderContentOverlay
-import com.example.unifiedreader.ui.theme.unifiedReaderSurfacePattern
 
 internal const val LibraryShelvesSlotPlaceholderTag = "library-shelves-slot-placeholder"
 
@@ -36,7 +34,6 @@ internal fun ShelfPreviewPlaceholderRow(
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
     val presentation = UnifiedReaderThemeTokens.presentation
-    val personality = UnifiedReaderThemeTokens.personality
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(presentation.shelfItemSpacing),
@@ -54,11 +51,7 @@ internal fun ShelfPreviewPlaceholderRow(
                         .fillMaxWidth()
                         .aspectRatio(LibraryCoverAspectRatio)
                         .clip(RoundedCornerShape(presentation.coverCornerRadius))
-                        .background(semanticColors.surfaceOverlay)
-                        .unifiedReaderContentOverlay(
-                            treatment = personality.surfaceTreatment,
-                            accentColor = semanticColors.readerAccent,
-                        ),
+                        .background(semanticColors.surfaceOverlay),
                 )
                 Box(
                     modifier = Modifier
@@ -95,7 +88,6 @@ internal fun LibraryShelvesSlotPlaceholder(
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
     val presentation = UnifiedReaderThemeTokens.presentation
-    val personality = UnifiedReaderThemeTokens.personality
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
@@ -112,10 +104,6 @@ internal fun LibraryShelvesSlotPlaceholder(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .unifiedReaderSurfacePattern(
-                        treatment = personality.surfaceTreatment,
-                        accentColor = semanticColors.sourceAccent,
-                    )
                     .padding(
                         horizontal = presentation.shelfCardHorizontalPadding,
                         vertical = presentation.shelfCardVerticalPadding,

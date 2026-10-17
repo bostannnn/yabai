@@ -39,8 +39,6 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.ui.components.AppDivider
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
-import com.example.unifiedreader.ui.theme.unifiedReaderComponentTreatment
-import com.example.unifiedreader.ui.theme.unifiedReaderSurfacePattern
 
 sealed interface SourceNavigationDestination {
     data class Source(
@@ -65,7 +63,6 @@ fun SourceNavigationDrawer(
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
     val presentation = UnifiedReaderThemeTokens.presentation
-    val drawerRecipe = UnifiedReaderThemeTokens.components.chrome
     val drawerShape = RoundedCornerShape(
         topEnd = presentation.cardCornerRadius,
         bottomEnd = presentation.cardCornerRadius,
@@ -75,26 +72,13 @@ fun SourceNavigationDrawer(
         drawerContent = {
             ModalDrawerSheet(
                 modifier = Modifier
-                    .widthIn(max = 320.dp)
-                    .unifiedReaderComponentTreatment(
-                        recipe = drawerRecipe,
-                        accentColor = semanticColors.readerAccent,
-                        secondaryColor = semanticColors.syncAccent,
-                        overlayColor = MaterialTheme.colorScheme.onSurface,
-                        shape = drawerShape,
-                    ),
+                    .widthIn(max = 320.dp),
                 drawerShape = drawerShape,
                 drawerContainerColor = semanticColors.surfaceBase,
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxHeight()
-                        .unifiedReaderSurfacePattern(
-                            treatment = drawerRecipe.surfaceTreatment,
-                            accentColor = semanticColors.readerAccent,
-                            overlayColor = MaterialTheme.colorScheme.onSurface,
-                            intensity = drawerRecipe.patternIntensity,
-                        )
                         .padding(horizontal = 12.dp, vertical = 16.dp),
                 ) {
                     Column(
@@ -144,11 +128,7 @@ fun SourceNavigationDrawer(
                         },
                         colors = sourceNavigationItemColors(),
                         shape = sourceNavigationItemShape(),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .sourceNavigationItemTreatment(
-                                selected = selectedDestination == SourceNavigationDestination.Journal,
-                            ),
+                        modifier = Modifier.fillMaxWidth(),
                     )
                     NavigationDrawerItem(
                         label = { Text(text = "Settings") },
@@ -162,11 +142,7 @@ fun SourceNavigationDrawer(
                         },
                         colors = sourceNavigationItemColors(),
                         shape = sourceNavigationItemShape(),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .sourceNavigationItemTreatment(
-                                selected = selectedDestination == SourceNavigationDestination.Settings,
-                            ),
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
             }
@@ -215,10 +191,7 @@ private fun KavitaNavigationGroup(
             shape = sourceNavigationItemShape(),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp)
-                .sourceNavigationItemTreatment(
-                    selected = selectedDestination.isSelectedKavitaSection(section),
-                ),
+                .padding(start = 16.dp),
         )
     }
 }
@@ -245,7 +218,6 @@ private fun SourceNavigationItem(
         },
         colors = sourceNavigationItemColors(),
         shape = sourceNavigationItemShape(),
-        modifier = Modifier.sourceNavigationItemTreatment(selected = selected),
     )
 }
 
@@ -262,22 +234,6 @@ private fun sourceNavigationItemColors() = NavigationDrawerItemDefaults.colors(
 private fun sourceNavigationItemShape() = RoundedCornerShape(
     UnifiedReaderThemeTokens.presentation.controlCornerRadius,
 )
-
-@Composable
-private fun Modifier.sourceNavigationItemTreatment(
-    selected: Boolean,
-): Modifier {
-    val semanticColors = UnifiedReaderThemeTokens.colors
-    val controlShape = sourceNavigationItemShape()
-    return unifiedReaderComponentTreatment(
-        recipe = UnifiedReaderThemeTokens.components.control,
-        accentColor = semanticColors.readerAccent,
-        secondaryColor = semanticColors.syncAccent,
-        overlayColor = MaterialTheme.colorScheme.onSurface,
-        shape = controlShape,
-        active = selected,
-    )
-}
 
 private fun SourceNavigationDestination.isSelectedKavitaSection(
     section: KavitaLibrarySection,

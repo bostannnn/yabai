@@ -1,317 +1,75 @@
 # Theme Customization Guide
 
-This app now has a real theme system, not just a few color swaps. A theme can affect:
-
-- Material color schemes
-- App-specific semantic colors
-- Shape
-- Typography
-- Density and spacing
-- Personality treatments such as grids, scanlines, halftone, dossier paper, vignette, and themed progress styles
-- Component accents such as shelves, drawer selection, filter chips, progress bars, badges, top bars, and settings chips
-
-The visual redesign is not "done forever." The current pass gives the app a stronger design foundation and three bold theme directions. There is still room to make themes affect more component behavior, motion, imagery, reader chrome, and source-specific identity.
+A theme is a palette. Every theme shares the same typography, shape scale, spacing, and
+components; only colors change. This was decided on 2026-10-17 (see `UI_REDESIGN_PLAN.md`):
+the earlier per-theme shapes, fonts, and "personality" treatments (scanlines, halftone,
+frames, dashed borders) were removed because they made the app read as mismatched.
 
 ## Main Files
 
 - `feature/settings/src/main/java/com/example/unifiedreader/feature/settings/ThemeMode.kt`
-  - Defines selectable theme modes.
-  - Stores labels, descriptions, persistence values, dark/light metadata, and preview swatches.
-
+  - The selectable themes: label, description, persisted `storageValue`, dark/light flag,
+    and the four preview swatches shown in Settings.
 - `app/src/main/java/com/example/unifiedreader/ui/theme/UnifiedReaderTheme.kt`
-  - Defines actual Material 3 color schemes.
-  - Resolves `ThemeMode` into colors, typography, shapes, and presentation tokens.
-  - Maps Material colors into app semantic colors.
-
+  - One Material 3 `ColorScheme` per theme, and `toSemanticColors()` which maps Material
+    roles onto the app's semantic colors.
 - `app/src/main/java/com/example/unifiedreader/ui/theme/UnifiedReaderDesignTokens.kt`
-  - Defines base typography and shapes.
-  - Defines theme-specific typography and shapes for bold themes.
-
+  - The single `Typography` and `Shapes` used by all themes, plus the shared palette constants.
 - `core/ui-theme/src/main/java/com/example/unifiedreader/ui/theme/UnifiedReaderThemeTokens.kt`
-  - Exposes shared semantic color tokens and presentation tokens to feature modules.
-  - Exposes personality tokens for reusable surface, progress, and border treatments.
-
-- `core/ui-theme/src/main/java/com/example/unifiedreader/ui/theme/UnifiedReaderTreatmentModifiers.kt`
-  - Provides primitive Compose drawing modifiers for theme-specific surface patterns, intentional content overlays, progress treatments, and border treatments.
-
-## How To Add A New Theme
-
-1. Add a new `ThemeMode` entry.
-
-   Edit `ThemeMode.kt`.
-
-   Use a stable `storageValue`. Do not rename it later unless you also add migration logic, because this value is persisted.
-
-   ```kotlin
-   NeonNoir(
-       storageValue = "neon_noir",
-       label = "Neon Noir",
-       description = "Use electric blue, acid pink, and black glass surfaces.",
-       previewSwatches = ThemePreviewSwatches(
-           surface = 0xFF070A10,
-           reader = 0xFF54D7FF,
-           sync = 0xFFFF4FB8,
-           source = 0xFFE8FF62,
-       ),
-       isDark = true,
-   ),
-   ```
-
-2. Add the Material color scheme.
-
-   Edit `UnifiedReaderTheme.kt`.
-
-   Use `darkColorScheme(...)` or `lightColorScheme(...)`.
-
-   Convention:
-
-   - `primary` is the reader/progress accent.
-   - `secondary` is the sync/status/server accent.
-   - `tertiary` is the source/filter/navigation accent.
-   - `primaryContainer`, `secondaryContainer`, and `tertiaryContainer` are used for selected pills, chips, badges, and count labels.
-   - `background`, `surface`, and `surfaceContainer*` control most of the app shell and card layering.
-
-   ```kotlin
-   private val NeonNoirUnifiedReaderColorScheme = darkColorScheme(
-       primary = Color(0xFF54D7FF),
-       onPrimary = Color(0xFF001F2A),
-       primaryContainer = Color(0xFF003848),
-       onPrimaryContainer = Color(0xFFC6F3FF),
-       secondary = Color(0xFFFF4FB8),
-       onSecondary = Color(0xFF410020),
-       secondaryContainer = Color(0xFF6B0038),
-       onSecondaryContainer = Color(0xFFFFD8EC),
-       tertiary = Color(0xFFE8FF62),
-       onTertiary = Color(0xFF272E00),
-       tertiaryContainer = Color(0xFF465100),
-       onTertiaryContainer = Color(0xFFF3FFAD),
-       background = Color(0xFF070A10),
-       onBackground = Color(0xFFEAF1FF),
-       surface = Color(0xFF0D111A),
-       onSurface = Color(0xFFEAF1FF),
-       surfaceContainer = Color(0xFF171D29),
-       surfaceContainerHigh = Color(0xFF202838),
-       surfaceContainerHighest = Color(0xFF2A3347),
-       outline = Color(0xFF7F8EA6),
-       outlineVariant = Color(0xFF334053),
-       scrim = Color(0xFF000000),
-   )
-   ```
-
-3. Wire the color scheme into theme resolution.
-
-   In `resolveUnifiedReaderTheme(...)`, add:
-
-   ```kotlin
-   themeMode == ThemeMode.NeonNoir -> NeonNoirUnifiedReaderColorScheme
-   ```
-
-4. Decide whether the theme needs custom typography.
-
-   Edit `UnifiedReaderDesignTokens.kt` if the theme should feel different through type.
-
-   Examples from current themes:
-
-   - `Terminal95` uses monospace.
-   - `CrimsonCourt` uses serif headings and labels.
-   - `PanelPop` uses heavier weights.
-
-   Then wire it in `ThemeMode.toTypography()` in `UnifiedReaderTheme.kt`.
-
-5. Decide whether the theme needs custom shapes.
-
-   Edit `UnifiedReaderDesignTokens.kt` if corners should change.
-
-   Examples:
-
-   - Terminal themes can use sharp or nearly square corners.
-   - Gothic themes can use softer, roomier shapes.
-   - Comic themes can use chunky, squared panel shapes.
-
-   Then wire it in `ThemeMode.toShapes()`.
-
-6. Set presentation tokens.
-
-   Edit `ThemeMode.toPresentationTokens()` in `UnifiedReaderTheme.kt`.
-
-   These values control app-specific shape, density, and rhythm:
-
-   - `cardCornerRadius`
-   - `coverCornerRadius`
-   - `controlCornerRadius`
-   - `chipCornerRadius`
-   - `shelfCardHorizontalPadding`
-   - `shelfCardVerticalPadding`
-   - `shelfItemSpacing`
-   - `searchHeight`
-   - `accentRailWidth`
-
-7. Set personality tokens.
-
-   Edit `ThemeMode.toPersonalityTokens()` in `UnifiedReaderTheme.kt`.
-
-   Current treatment examples:
-
-   - `Terminal95` uses terminal grid surfaces and segmented progress.
-   - `CrimsonCourt` uses gothic vignette surfaces and heavier/double borders.
-   - `PanelPop` uses halftone surfaces, segmented progress, and inkier borders.
-   - `Blueprint` uses drafting-grid surfaces, dashed progress, and technical borders.
-   - `VhsNight` uses scanline surfaces and tape-counter progress.
-   - `DetectiveFile` uses dossier-paper surfaces and segmented progress.
-
-   Use surface patterns behind readable content, and use content overlays only when the treatment should intentionally sit over the content, such as theme preview swatches or cover art.
-
-8. Compile.
-
-   Recommended minimum check:
-
-   ```bash
-   ./gradlew :core:ui-theme:compileDebugKotlin :feature:settings:compileDebugKotlin :feature:library:compileDebugKotlin :feature:library-shelves:compileDebugKotlin :feature:navigation:compileDebugKotlin :app:compileDebugKotlin
-   ```
-
-9. Check visually on a real device.
-
-   Especially check:
-
-   - Settings theme chips
-   - Navigation drawer selected states
-   - Library filters and sort controls
-   - Continue Reading, Up Next, and Recently Finished shelves
-   - Search field active and inactive states
-   - Progress bars
-   - Downloaded, read, and rating badges
-   - Long titles with the theme typography
-   - Compact phone width
-   - Light/dark status bar icon readability
-
-## What Can Be Changed
-
-### Color Scheme
-
-Change Material colors in `UnifiedReaderTheme.kt`.
-
-High-impact values:
-
-- `primary`, `onPrimary`
-- `primaryContainer`, `onPrimaryContainer`
-- `secondary`, `onSecondary`
-- `secondaryContainer`, `onSecondaryContainer`
-- `tertiary`, `onTertiary`
-- `tertiaryContainer`, `onTertiaryContainer`
-- `background`, `onBackground`
-- `surface`, `onSurface`
-- `surfaceContainerLow`, `surfaceContainer`, `surfaceContainerHigh`, `surfaceContainerHighest`
-- `outline`, `outlineVariant`
-- `scrim`
-
-### Semantic Colors
-
-`ColorScheme.toSemanticColors(...)` maps Material colors into app intent.
-
-Current semantic tokens:
-
-- `appBackground`
-- `surfaceBase`
-- `surfaceRaised`
-- `surfaceOverlay`
-- `surfaceSelected`
-- `onSurfaceSelected`
-- `readerChrome`
-- `readerChromeElevated`
-- `readerScrim`
-- `readerAccent`
-- `onReaderAccent`
-- `readerAccentContainer`
-- `onReaderAccentContainer`
-- `syncAccent`
-- `onSyncAccent`
-- `syncAccentContainer`
-- `onSyncAccentContainer`
-- `sourceAccent`
-- `onSourceAccent`
-- `sourceAccentContainer`
-- `onSourceAccentContainer`
-
-If a component means "reader progress," use reader tokens. If it means "server/sync/status," use sync tokens. If it means "source/filter/navigation," use source tokens.
-
-### Shape
-
-Change Material shapes in `UnifiedReaderDesignTokens.kt`.
-
-These affect Material components that read `MaterialTheme.shapes`.
-
-Also change presentation tokens when app-specific components need custom dimensions.
-
-### Typography
-
-Change `Typography` in `UnifiedReaderDesignTokens.kt`.
-
-Good theme-specific changes:
-
-- Font family
-- Font weight
-- Title scale
-- Label weight
-- Line height
-
-Be careful with:
-
-- Monospace labels in narrow chips
-- Serif headings in compact cards
-- Extra-bold text in buttons and badges
-
-### Density And Rhythm
-
-Change `UnifiedReaderPresentationTokens` in `UnifiedReaderTheme.kt`.
-
-This is where the theme can feel compact, luxurious, chunky, or sharp without changing layout code everywhere.
-
-### Theme Preview
-
-Change `previewSwatches` in `ThemeMode.kt`.
-
-The preview swatches are currently representative, not derived automatically from the actual `ColorScheme`. Keep them aligned when changing palettes.
-
-## Where Themes Already Show Up
-
-Themes currently affect:
-
-- App color scheme
-- Status/navigation bar light/dark icon choice
-- Library top bar connectivity pill
-- Search field shape, height, cursor, border, and active accent
-- Settings theme chips and swatches
-- Settings cards and list/detail panes
-- Navigation drawer selection
-- Navigation settings startup badge
-- Library filter chips, toggle chips, alphabet rail, and filter dialog
-- Library sort control chip
-- Library covers, downloaded badge, and cover radius
-- Library progress bars
-- Read and rating badges
-- Library shelves, shelf headers, count pills, cards, placeholders, and accent rails
-- Theme-personality effects on settings swatches, shelf surfaces, loading placeholders, covers, and progress bars
-
-## What Still Could Improve
-
-The visual revamp is meaningfully better now, but there are still strong next steps:
-
-- Add screenshot coverage or preview matrices for all themes.
-- Make `System Dynamic` preview swatches reflect real runtime dynamic color, or label them as representative.
-- Reduce palette duplication between `ThemeMode.previewSwatches` and `UnifiedReaderTheme.kt`.
-- Push theme tokens into remaining plain components that still use raw `MaterialTheme.colorScheme` values.
-- Add theme-specific motion: sharper instant transitions for Terminal, slower heavier motion for Crimson, snappier motion for Panel Pop.
-- Make source identity stronger: Kavita, Stump, Grimmory, and Local could each get source-aware accents inside the broader theme.
-- Extend theme personality into empty states, loading states, dialogs, menus, and reader chrome.
-- Consider theme-specific icon treatment or small bitmap/texture assets, especially for bold themes.
-- Add contrast tests for semantic accent pairs.
-- Build real device checks into the release flow, because typography and density issues often only show up on phone screens.
+  - `UnifiedReaderSemanticColors` and `UnifiedReaderPresentationTokens` (sizes), read by
+    feature code through `UnifiedReaderThemeTokens.colors` and `.presentation`.
+- `core/ui-components`
+  - The component kit every screen is built from. Components read colors from the theme
+    and sizes from the presentation tokens; themes never configure components directly.
+
+## How To Add A Theme
+
+1. Add a `ThemeMode` entry in `ThemeMode.kt`. The `storageValue` is persisted; never rename
+   it without a migration. Set `isDark` and the four `previewSwatches` (surface, reader,
+   sync, source) to representative colors from the scheme you are about to write.
+2. Add a `darkColorScheme(...)` or `lightColorScheme(...)` in `UnifiedReaderTheme.kt` and map
+   the new mode to it in `resolveUnifiedReaderTheme()`.
+
+   Role conventions:
+   - `primary` is the reader and progress accent.
+   - `secondary` is the sync, status, and server accent.
+   - `tertiary` is the source, filter, and navigation accent.
+   - `*Container` colors back selected chips, badges, and count labels.
+   - `background`, `surface`, and `surfaceContainer*` layer the app shell and panels.
+3. Run the app and check the library, drawer, settings, a sheet, a dialog, and the reader.
+
+That is the whole job. There is nothing to add to the component kit or to feature code.
+
+## Semantic Colors
+
+`ColorScheme.toSemanticColors()` derives these from the scheme, so a new theme gets them
+for free:
+
+- surfaces: `appBackground`, `surfaceBase`, `surfaceRaised`, `surfaceOverlay`,
+  `surfaceSelected`, `onSurfaceSelected`
+- reader: `readerChrome`, `readerChromeElevated`, `readerScrim`, `readerAccent`,
+  `onReaderAccent`, `readerAccentContainer`, `onReaderAccentContainer`
+- sync: `syncAccent`, `onSyncAccent`, `syncAccentContainer`, `onSyncAccentContainer`
+- source: `sourceAccent`, `onSourceAccent`, `sourceAccentContainer`, `onSourceAccentContainer`
+
+If a component means "reader progress", use reader tokens. If it means "server, sync,
+status", use sync tokens. If it means "source, filter, navigation", use source tokens.
+
+## Shape, Type, and Spacing
+
+These are global and live outside the theme:
+
+- Three corner radii: cover 6 dp, control 12 dp (chips, buttons, fields), container 20 dp
+  (panels, sheets, bars). `MaterialTheme.shapes` and `UnifiedReaderPresentationTokens`
+  both encode this scale.
+- One typeface and one `Typography` (a bundled UI font is planned; see the redesign plan).
+- Spacing values in `UnifiedReaderDefaultPresentationTokens`.
+
+Change them in one place and every theme follows. Do not reintroduce per-theme overrides.
 
 ## Practical Rules
 
-- Do not change an existing `storageValue` after release unless you add migration.
-- Do not rely only on `MaterialTheme.colorScheme` in feature components when there is a semantic token for the intent.
-- Prefer semantic tokens for app meaning and Material colors for generic Material behavior.
-- Keep preview swatches in sync with the actual theme.
-- Test long labels, dense shelves, and selected chips on narrow screens.
-- Color alone will not make a theme feel designed. Pair palette with shape, type, density, and component behavior.
+- Keep contrast legible in both the selected and unselected states of chips and rail items;
+  those use `surfaceSelected` / `onSurfaceSelected`.
+- Keep the preview swatches in sync with the scheme; they are hand-picked, not derived.
+- Legacy `Light` and `Dark` modes are hidden from Settings and resolve to Paper and Graphite.

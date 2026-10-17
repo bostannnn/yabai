@@ -13,8 +13,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.ui.components.appProgressFill
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
-import com.example.unifiedreader.ui.theme.unifiedReaderProgressTreatment
 
 internal val ItemProgressSummary.isComplete: Boolean
     get() = isFinished || fraction >= 0.999f
@@ -40,7 +40,6 @@ internal fun ProgressSummary(
     progress: ItemProgressSummary,
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
-    val personality = UnifiedReaderThemeTokens.personality
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
             text = progress.progressDetailLabel,
@@ -56,8 +55,7 @@ internal fun ProgressSummary(
                     .height(5.dp)
                     .clip(androidx.compose.foundation.shape.RoundedCornerShape(999.dp))
                     .alpha(0.92f)
-                    .unifiedReaderProgressTreatment(
-                        treatment = personality.progressTreatment,
+                    .appProgressFill(
                         fraction = progress.fraction,
                         progressColor = semanticColors.readerAccent,
                         trackColor = semanticColors.surfaceSelected.copy(alpha = 0.34f),
@@ -73,7 +71,6 @@ internal fun LibraryCoverProgressBar(
     modifier: Modifier = Modifier,
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
-    val personality = UnifiedReaderThemeTokens.personality
     val clampedFraction = progress.fraction.coerceIn(0f, 1f)
     val barShape = androidx.compose.foundation.shape.RoundedCornerShape(
         bottomStart = 4.dp,
@@ -84,8 +81,7 @@ internal fun LibraryCoverProgressBar(
         modifier = modifier
             .height(7.dp)
             .clip(barShape)
-            .unifiedReaderProgressTreatment(
-                treatment = personality.progressTreatment,
+            .appProgressFill(
                 fraction = clampedFraction,
                 progressColor = semanticColors.readerAccent,
                 trackColor = semanticColors.readerScrim.copy(alpha = 0.42f),

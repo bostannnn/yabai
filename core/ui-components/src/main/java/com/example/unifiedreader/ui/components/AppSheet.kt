@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -24,7 +23,6 @@ import androidx.compose.ui.semantics.expand
 import androidx.compose.ui.semantics.semantics
 import com.example.unifiedreader.core.ui.components.R
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
-import com.example.unifiedreader.ui.theme.unifiedReaderComponentTreatment
 import kotlinx.coroutines.launch
 
 /** The app's modal bottom sheet. */
@@ -36,11 +34,6 @@ fun AppSheet(
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
     val presentation = UnifiedReaderThemeTokens.presentation
-    val sheetRecipe = UnifiedReaderThemeTokens.components.sheet
-    val sheetContentRecipe = sheetRecipe.copy(
-        borderAlpha = 0f,
-        frameAlpha = 0f,
-    )
     val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
     val dismissLabel = stringResource(R.string.app_sheet_dismiss)
@@ -62,13 +55,6 @@ fun AppSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .unifiedReaderComponentTreatment(
-                    recipe = sheetContentRecipe,
-                    accentColor = semanticColors.readerAccent,
-                    secondaryColor = semanticColors.syncAccent,
-                    overlayColor = MaterialTheme.colorScheme.onSurface,
-                    shape = sheetShape,
-                )
                 .windowInsetsPadding(BottomSheetDefaults.windowInsets),
         ) {
             Box(

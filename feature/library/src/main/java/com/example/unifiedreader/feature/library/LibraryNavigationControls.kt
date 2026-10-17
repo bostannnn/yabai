@@ -37,9 +37,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.unifiedreader.ui.theme.UnifiedReaderSelectionTreatment
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
-import com.example.unifiedreader.ui.theme.unifiedReaderComponentTreatment
 
 internal const val AlphabetNavigationSectionTagPrefix = "alphabet-navigation-section-"
 internal const val LibraryBackToTopTag = "library-back-to-top"
@@ -55,7 +53,6 @@ internal fun AlphabetNavigationRail(
 
     val presentation = UnifiedReaderThemeTokens.presentation
     val semanticColors = UnifiedReaderThemeTokens.colors
-    val railRecipe = UnifiedReaderThemeTokens.components.rail
     val railShape = RoundedCornerShape(presentation.controlCornerRadius)
     val currentOnSectionSelected by rememberUpdatedState(onSectionSelected)
     val railHeightPx = remember { mutableIntStateOf(0) }
@@ -70,16 +67,7 @@ internal fun AlphabetNavigationRail(
                 .fillMaxSize()
                 .onSizeChanged { size -> railHeightPx.intValue = size.height }
                 .clip(railShape)
-                .background(
-                    semanticColors.surfaceBase.copy(alpha = railRecipe.containerAlpha),
-                )
-                .unifiedReaderComponentTreatment(
-                    recipe = railRecipe,
-                    accentColor = semanticColors.readerAccent,
-                    secondaryColor = semanticColors.syncAccent,
-                    overlayColor = MaterialTheme.colorScheme.onSurface,
-                    shape = railShape,
-                )
+                .background(semanticColors.surfaceBase.copy(alpha = 0.94f))
                 .pointerInput(sections, railHeightPx.intValue) {
                     var lastSelectedSection: String? = null
                     fun selectSectionAt(position: Offset) {
@@ -129,23 +117,8 @@ private fun AlphabetNavigationItem(
     modifier: Modifier = Modifier,
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
-    val selectionTreatment = UnifiedReaderThemeTokens.components.rail.selectionTreatment
-    val backgroundColor = when {
-        !selected -> Color.Transparent
-        selectionTreatment == UnifiedReaderSelectionTreatment.Inverse -> semanticColors.readerAccent
-        selectionTreatment == UnifiedReaderSelectionTreatment.Stamp -> semanticColors.syncAccentContainer
-        selectionTreatment == UnifiedReaderSelectionTreatment.Underline ||
-            selectionTreatment == UnifiedReaderSelectionTreatment.SideMark -> Color.Transparent
-        else -> semanticColors.surfaceSelected
-    }
-    val textColor = when {
-        !selected -> semanticColors.sourceAccent
-        selectionTreatment == UnifiedReaderSelectionTreatment.Inverse -> semanticColors.onReaderAccent
-        selectionTreatment == UnifiedReaderSelectionTreatment.Stamp -> semanticColors.onSyncAccentContainer
-        selectionTreatment == UnifiedReaderSelectionTreatment.Underline ||
-            selectionTreatment == UnifiedReaderSelectionTreatment.SideMark -> semanticColors.readerAccent
-        else -> semanticColors.onSurfaceSelected
-    }
+    val backgroundColor = if (selected) semanticColors.surfaceSelected else Color.Transparent
+    val textColor = if (selected) semanticColors.onSurfaceSelected else semanticColors.sourceAccent
 
     Box(
         modifier = modifier
@@ -187,23 +160,12 @@ internal fun LibraryBackToTopButton(
 ) {
     val presentation = UnifiedReaderThemeTokens.presentation
     val semanticColors = UnifiedReaderThemeTokens.colors
-    val recipe = UnifiedReaderThemeTokens.components.backToTop
     val shape = RoundedCornerShape(presentation.controlCornerRadius)
     Box(
         modifier = modifier
             .size(48.dp)
             .clip(shape)
-            .background(
-                semanticColors.surfaceRaised.copy(alpha = recipe.containerAlpha),
-            )
-            .unifiedReaderComponentTreatment(
-                recipe = recipe,
-                accentColor = semanticColors.readerAccent,
-                secondaryColor = semanticColors.syncAccent,
-                overlayColor = MaterialTheme.colorScheme.onSurface,
-                shape = shape,
-                active = true,
-            )
+            .background(semanticColors.surfaceRaised.copy(alpha = 0.94f))
             .testTag(LibraryBackToTopTag)
             .semantics {
                 contentDescription = "Back to top"

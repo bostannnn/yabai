@@ -5,6 +5,8 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 
@@ -50,4 +52,18 @@ fun AppCircularProgress(
         color = color,
         strokeWidth = strokeWidth,
     )
+}
+
+/**
+ * Draws a thin reading-progress fill behind the content: a track with a solid fill from the
+ * start edge to [fraction]. Used for cover and row progress bars; clip the shape before it.
+ */
+fun Modifier.appProgressFill(
+    fraction: Float,
+    progressColor: Color,
+    trackColor: Color,
+): Modifier = drawBehind {
+    val clampedFraction = fraction.coerceIn(0f, 1f)
+    drawRect(trackColor)
+    drawRect(progressColor, size = Size(size.width * clampedFraction, size.height))
 }
