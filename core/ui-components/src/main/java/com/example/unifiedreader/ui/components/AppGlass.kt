@@ -48,6 +48,7 @@ fun Modifier.appGlassSource(): Modifier {
 fun Modifier.appGlass(
     shape: Shape,
     containerColor: Color = MaterialTheme.colorScheme.surface,
+    tintAlpha: Float = AppGlassDefaults.tintAlpha,
 ): Modifier {
     val state = LocalAppGlassState.current
     val edge = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AppGlassDefaults.edgeAlpha)
@@ -57,7 +58,7 @@ fun Modifier.appGlass(
             state = state.haze,
             style = HazeStyle(
                 backgroundColor = containerColor,
-                tints = listOf(HazeTint(containerColor.copy(alpha = AppGlassDefaults.tintAlpha))),
+                tints = listOf(HazeTint(containerColor.copy(alpha = tintAlpha))),
                 blurRadius = AppGlassDefaults.blurRadius,
                 noiseFactor = 0f,
                 fallbackTint = HazeTint(containerColor.copy(alpha = AppGlassDefaults.fallbackAlpha)),
@@ -76,7 +77,11 @@ fun Modifier.appGlass(
 object AppGlassDefaults {
     // Strong enough that covers behind the chrome read as soft color, not as shapes.
     val blurRadius: Dp = 30.dp
+    /** Bars and the drawer: thin strips of text over content, so legibility wins. */
     const val tintAlpha: Float = 0.86f
+    /** Large floating panes (reader preferences, table of contents): more of the page shows through. */
+    const val paneTintAlpha: Float = 0.72f
+
     const val fallbackAlpha: Float = 0.96f
     const val edgeAlpha: Float = 0.28f
 }

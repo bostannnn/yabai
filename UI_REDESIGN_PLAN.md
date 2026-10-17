@@ -32,6 +32,12 @@ Started 2026-10-17. Scope so far is the library home; other screens are listed a
   tried on the tablet (`f1956814`) and rejected: with a few books per shelf the rows were mostly
   empty and pushed the grid below the fold. The "no boxes inside boxes" idea is dropped for shelves.
 - Shelf labels keep the app's existing Title Case ("Continue Reading", "Up Next").
+- **Two glass tints** (2026-10-18). Bars and the drawer keep the 0.86 tint (thin strips of text,
+  legibility wins). The large reader panes (preferences, table of contents) use 0.72
+  (`AppGlassDefaults.paneTintAlpha`) so the page shows through; at 0.86 they read as opaque
+  panels. Tint does not change blur cost. A paper-colored tint for EPUB panes was considered and
+  dropped: the reading theme and the app theme can differ, and the pane text is app-colored. An
+  EPUB page is blank paper, so its panes look tinted whatever the alpha.
 
 ## Constraints (from `ARCHITECTURE_RULES.md`)
 
@@ -241,7 +247,8 @@ group; checked on the emulator, not yet on the tablet.
 - [x] `ReaderOverlayTokens` shapes come from `MaterialTheme.shapes` (control for bars, buttons,
       selected rows; container for panes and the preview strip; cover for thumbnails); colors are
       plain theme roles; the dead hardcoded palette is gone.
-- [x] `readerOverlaySurface` is the kit glass only; the attached pane lost its 18 dp shadow.
+- [x] `readerOverlaySurface` is the kit glass only; the attached pane lost its 18 dp shadow and
+      uses the lighter pane tint (see Decisions).
 - [x] Preferences panes: rows follow the tokens, text size and margins use `AppSlider`, the EPUB
       tabs are plain `AppSegment`s.
 - [x] Preview strips: no compounded container alpha; the selected thumbnail has a 2 dp accent edge

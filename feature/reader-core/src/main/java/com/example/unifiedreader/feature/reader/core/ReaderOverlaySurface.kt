@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import com.example.unifiedreader.ui.components.AppGlassDefaults
 import com.example.unifiedreader.ui.components.appGlass
 
 enum class ReaderOverlaySurfaceRole {
@@ -22,7 +23,13 @@ fun Modifier.readerOverlaySurface(
     return appGlass(
         shape = role.shape(tokens),
         containerColor = containerColor ?: tokens.colors.container,
+        tintAlpha = when (role) {
+            ReaderOverlaySurfaceRole.AttachedPane -> AppGlassDefaults.paneTintAlpha
+            ReaderOverlaySurfaceRole.ControlBar,
+            ReaderOverlaySurfaceRole.PreviewStrip -> AppGlassDefaults.tintAlpha
+        },
     )
+
 }
 
 private fun ReaderOverlaySurfaceRole.shape(tokens: ReaderOverlayTokens): Shape = when (this) {
