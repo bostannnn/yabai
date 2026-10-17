@@ -55,9 +55,11 @@ Keystore `~/yabai.jks`, alias `key0`. The release cert SHA-256 must be
 ## GitHub Actions
 
 - `ci.yml` runs `testDebugUnitTest` on every push and on PRs to `main` (30 min job timeout).
-- `release-apk.yml` builds a signed release APK on a `v*` tag push or manual dispatch
-  (`gh workflow run release-apk.yml --ref main`); the APK is the run's `unified-reader-release-apk`
-  artifact. Signing comes from the `ANDROID_SIGNING_*` repo secrets (same values as the Keychain).
+- `release-apk.yml` builds a signed release APK. Pushing a version tag (`0.6.0` or `v0.6.0`)
+  also publishes a GitHub Release with `yabai-<tag>.apk` attached; the tag must equal `versionName`
+  in `app/build.gradle.kts` (the job fails otherwise), so bump `versionName` and `versionCode` first.
+  Manual runs (`gh workflow run release-apk.yml --ref main`) only keep the APK as the run's
+  `unified-reader-release-apk` artifact. Signing comes from the `ANDROID_SIGNING_*` repo secrets.
 
 ## Device
 

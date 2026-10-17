@@ -88,16 +88,20 @@ class ComicReadingDirectionPreferencesStoreTest {
             dataStore = dataStore,
         )
 
+        val seriesKey = "stump:library:manga::Berserk"
+        // preferencesFlow is collected on Dispatchers.IO, so wait for each edit to land instead of
+        // reading whatever value the collector has reached (the saved override, on a slow machine).
         store.setSeriesDirectionOverride(
-            seriesKey = "stump:library:manga::Berserk",
+            seriesKey = seriesKey,
             direction = ComicReadingDirection.RTL,
         )
+        store.preferencesFlow.first { current -> seriesKey in current.seriesDirectionsByKey }
         store.setSeriesDirectionOverride(
-            seriesKey = "stump:library:manga::Berserk",
+            seriesKey = seriesKey,
             direction = null,
         )
 
-        val preferences = store.preferencesFlow.first()
+        val preferences = store.preferencesFlow.first { current -> seriesKey !in current.seriesDirectionsByKey }
 
         assertTrue(preferences.seriesDirectionsByKey.isEmpty())
     }
