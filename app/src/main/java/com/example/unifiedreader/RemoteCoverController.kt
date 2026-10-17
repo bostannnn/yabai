@@ -52,7 +52,13 @@ class RemoteCoverController @Inject constructor(
         item: ReadableItem,
         variant: LibraryCoverImageVariant,
     ): String? {
+        // A local import's cover is the file LocalCoverCache wrote into imported-cover-cache;
+        // there is no remote source to fetch from or cache for, so hand it back as is.
+        if (item.sourceType == SourceType.LOCAL) {
+            return item.coverUrl?.takeIf(String::isNotBlank)
+        }
         val coverVariant = variant.toCoverAssetVariant()
+
         val coverIdentity = item.coverIdentityFileSegment()
         sourceTypeByItemId[item.id] = item.sourceType
         val canFetchRemoteCover = remoteSourceConnectivityPolicy.canFetchCover(item.sourceType)

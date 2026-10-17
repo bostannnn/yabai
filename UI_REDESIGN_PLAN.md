@@ -171,10 +171,15 @@ sort button. Optional differences from the 2026-10-17 mockup:
 
 ### 3c. Covers and placeholders `[ ]`
 
-- [ ] **Investigate first:** on the emulator, imported comics have cover files in
-      `files/imported-cover-cache`, but both the grid and the shelves show the grey "CBZ"
-      placeholder. Not caused by 3a (the grid's cover loading wasn't changed). The tablet showed the
-      same for many Kavita books, so this may be a real bug.
+- [x] **Fixed 2026-10-18.** Imported comics had cover files in `files/imported-cover-cache` but
+      the grid and shelves showed the placeholder because every cover request goes through
+      `RemoteCoverController.coverImageUrlFor`, which had no branch for `SourceType.LOCAL`: no
+      cover data source, never "reachable", and the remote fallback returned null. Since the
+      persistent cover store landed (`f8869ed7`, April) local imports never showed a cover. The
+      controller now returns a local item's own `coverUrl` (regression test in
+      `RemoteCoverControllerTest`); checked on the emulator. The Kavita placeholders on the tablet
+      are a different path: Kavita covers wait for the cached file instead of using the remote URL,
+      so they appear once the cache warms.
 - [x] Design chosen 2026-10-17 (mockup, no code yet). The current placeholder is one grey
       gradient with the format name; for PDF the label is empty, so a PDF without a cover is blank.
   - **EPUB, PDF: title cover.** Color from the title (stable per book); title and author set like
@@ -278,7 +283,6 @@ group; checked on the emulator, not yet on the tablet.
 - [ ] Check the second pass on the tablet (covers, reader chrome, shelf browser); the cover change
       removes a shadow and a gradient per tile, so a `LibraryPerf` scroll run is cheap to take.
 - [ ] 3a: run the shelf instrumentation tests.
-- [ ] 3c: the cover-cache investigation (imported comics showing the placeholder).
 - [ ] Section 1 (Compose BOM) and section 5 (cover-derived color) are untouched.
 
 ## Not yet designed
