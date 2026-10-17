@@ -42,7 +42,7 @@ fun Modifier.appGlassSource(): Modifier {
 /**
  * The one chrome material: a translucent surface over a blurred backdrop with a hairline edge.
  * Used by the top bar, the drawer, sheets, and reader bars. Without a glass state, or on
- * devices that cannot blur, it falls back to a nearly opaque surface.
+ * devices that cannot blur, it falls back to an opaque surface.
  */
 @Composable
 fun Modifier.appGlass(
@@ -82,6 +82,8 @@ object AppGlassDefaults {
     /** Large floating panes (reader preferences, table of contents): more of the page shows through. */
     const val paneTintAlpha: Float = 0.72f
 
-    const val fallbackAlpha: Float = 0.96f
+    /** Without blur, see-through is just unblurred content bleeding through: the surface is opaque. */
+    const val fallbackAlpha: Float = 1f
+
     const val edgeAlpha: Float = 0.28f
 }

@@ -38,6 +38,13 @@ Started 2026-10-17. Scope so far is the library home; other screens are listed a
   panels. Tint does not change blur cost. A paper-colored tint for EPUB panes was considered and
   dropped: the reading theme and the app theme can differ, and the pane text is app-colored. An
   EPUB page is blank paper, so its panes look tinted whatever the alpha.
+- **No glass in the EPUB reader** (2026-10-18, tablet, Android 16, WebView 150). Readium draws
+  the page in a WebView that renders through its own SurfaceControl overlay ("WebView overlays
+  are enabled" in logcat), so `hazeSource` captures nothing and the chrome re-records an empty
+  layer on every page update while the overlay swaps underneath: no glass, visible flicker.
+  `ImmersiveReaderOverlay(glass = false)` keeps the EPUB bars and panes on the kit's plain
+  fallback surface (same shapes and edge). Comics and PDF pages are Compose-drawn and keep the
+  glass. The emulator's WebView does not use overlays, which is why it looked fine there.
 
 ## Constraints (from `ARCHITECTURE_RULES.md`)
 

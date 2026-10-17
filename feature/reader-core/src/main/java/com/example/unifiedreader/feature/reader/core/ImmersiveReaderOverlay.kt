@@ -75,11 +75,20 @@ private val ReaderOverlayStateSaver: Saver<ReaderOverlayState, List<Any>> = Save
     },
 )
 
+/**
+ * Hosts the page [content] under the reader chrome [overlay].
+ *
+ * With [glass] on, the pages are the glass source and the chrome blurs them. Turn it off when
+ * the pages are not drawn by Compose: a WebView on Android 15+ renders through its own
+ * SurfaceControl overlay, so the glass layer captures nothing and its per-frame re-record
+ * fights the overlay (visible as flicker). The chrome then sits on the plain fallback surface.
+ */
 @Composable
 fun ImmersiveReaderOverlay(
     overlayState: ReaderOverlayState,
     autoHideDelayMillis: Long,
     modifier: Modifier = Modifier,
+    glass: Boolean = true,
     content: @Composable BoxScope.() -> Unit,
     overlay: @Composable BoxScope.() -> Unit,
 ) {
@@ -93,8 +102,7 @@ fun ImmersiveReaderOverlay(
         overlayState.hide()
     }
 
-    // The pages are the glass source; the overlay chrome blurs them.
-    val glassState = rememberAppGlassState()
+    val glassState = if (glass) rememberAppGlassState() else null
     CompositionLocalProvider(LocalAppGlassState provides glassState) {
         Box(modifier = modifier.fillMaxSize()) {
             Box(
@@ -103,6 +111,7 @@ fun ImmersiveReaderOverlay(
                     .appGlassSource(),
                 content = content,
             )
+
             AnimatedVisibility(
                 visible = overlayState.isVisible,
                 enter = fadeIn(),

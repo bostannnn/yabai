@@ -611,9 +611,13 @@ fun EpubReaderScreen(
             ImmersiveReaderOverlay(
                 overlayState = overlayState,
                 autoHideDelayMillis = 0L,
+                // Readium renders the page in a WebView, which the glass layer cannot capture
+                // (and fights with on Android 15+); the EPUB chrome stays on the plain surface.
+                glass = false,
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag(EpubReaderViewportTag),
+
                 content = {
                     ReadiumEpubNavigatorHost(
                         activity = activity,
