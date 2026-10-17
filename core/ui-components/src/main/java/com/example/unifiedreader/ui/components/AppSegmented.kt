@@ -1,6 +1,7 @@
 package com.example.unifiedreader.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonColors
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -22,8 +23,8 @@ fun AppSegmentedRow(
 }
 
 /**
- * One option in an [AppSegmentedRow]. [index] and [count] pick the end-cap shape, so
- * callers never compute segment shapes themselves.
+ * One option in an [AppSegmentedRow]. [index] and [count] pick the end-cap shape (on the
+ * control radius, not Material's pill), so callers never compute segment shapes themselves.
  */
 @Composable
 fun SingleChoiceSegmentedButtonRowScope.AppSegment(
@@ -38,7 +39,12 @@ fun SingleChoiceSegmentedButtonRowScope.AppSegment(
     border: BorderStroke? = null,
     icon: @Composable () -> Unit = { SegmentedButtonDefaults.Icon(selected) },
 ) {
-    val shape = SegmentedButtonDefaults.itemShape(index = index, count = count)
+    val shape = SegmentedButtonDefaults.itemShape(
+        index = index,
+        count = count,
+        baseShape = MaterialTheme.shapes.medium,
+    )
+
     if (border == null) {
         SegmentedButton(
             selected = selected,
