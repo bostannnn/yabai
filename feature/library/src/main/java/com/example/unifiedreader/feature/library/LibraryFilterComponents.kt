@@ -17,7 +17,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +39,7 @@ import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.ui.components.AppChip
+import com.example.unifiedreader.ui.components.AppDialogDefaults
 import com.example.unifiedreader.ui.components.AppDialogHost
 import com.example.unifiedreader.ui.components.AppDivider
 import com.example.unifiedreader.ui.components.AppIcons
@@ -67,7 +67,10 @@ internal fun EmptyLibraryState(
                 filtersActive -> "No items match these filters"
                 else -> "No items yet for ${selectedSource.displayName()}"
             },
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+
     }
 }
 
@@ -412,8 +415,6 @@ private fun FilterDialogScaffold(
     content: @Composable () -> Unit,
 ) {
     val presentation = UnifiedReaderThemeTokens.presentation
-    val semanticColors = UnifiedReaderThemeTokens.colors
-    val sheetShape = RoundedCornerShape(presentation.cardCornerRadius)
     AppDialogHost(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -422,10 +423,8 @@ private fun FilterDialogScaffold(
             modifier = Modifier
                 .padding(24.dp)
                 .then(modifier),
-            shape = sheetShape,
-            color = semanticColors.surfaceBase,
-            tonalElevation = 6.dp,
-            shadowElevation = 12.dp,
+            shape = AppDialogDefaults.shape,
+            color = AppDialogDefaults.containerColor,
         ) {
             Column(
                 modifier = Modifier

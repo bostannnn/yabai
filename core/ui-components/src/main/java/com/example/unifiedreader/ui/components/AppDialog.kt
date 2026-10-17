@@ -40,10 +40,20 @@ fun AppDialog(
     )
 }
 
+/** The surface a dialog body sits on, for custom dialogs built from [AppDialogHost] + [AppPanel]. */
+object AppDialogDefaults {
+    val shape: Shape
+        @Composable get() = AlertDialogDefaults.shape
+
+    val containerColor: Color
+        @Composable get() = AlertDialogDefaults.containerColor
+}
+
 /**
- * A dialog window with custom content. Put an [AppPanel] inside it for the body;
- * the host itself draws nothing.
+ * A dialog window with custom content. Put an [AppPanel] inside it for the body, on
+ * [AppDialogDefaults.containerColor]; the host itself draws nothing.
  */
+
 @Composable
 fun AppDialogHost(
     onDismissRequest: () -> Unit,

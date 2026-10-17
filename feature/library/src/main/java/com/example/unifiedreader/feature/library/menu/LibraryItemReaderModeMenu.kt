@@ -1,11 +1,13 @@
 package com.example.unifiedreader.feature.library.menu
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
+import com.example.unifiedreader.ui.components.AppSegment
+import com.example.unifiedreader.ui.components.AppSegmentedRow
 
 internal data class ReaderModeMenuState(
     val selectedMode: ComicReaderMode,
@@ -28,18 +30,16 @@ internal fun ReaderModeMenuRow(
     state: ReaderModeMenuState,
     onModeSelected: (ComicReaderMode) -> Unit,
 ) {
-    val buttonShape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        ComicReaderMode.entries.forEach { mode ->
-            ReadingDirectionButton(
-                onClick = { onModeSelected(mode) },
+    val modes = ComicReaderMode.entries
+    AppSegmentedRow(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+        modes.forEachIndexed { index, mode ->
+            AppSegment(
                 selected = mode == state.selectedMode,
-                shape = buttonShape,
-            ) {
-                Text(text = mode.label)
-            }
+                onClick = { onModeSelected(mode) },
+                index = index,
+                count = modes.size,
+                label = { Text(text = mode.label) },
+            )
         }
     }
 }

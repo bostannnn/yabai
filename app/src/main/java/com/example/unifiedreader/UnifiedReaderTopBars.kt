@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
@@ -306,7 +305,7 @@ private fun SourceConnectivityIndicator(
         SourceConnectivityState.Unknown -> return
         SourceConnectivityState.Checking -> SourceConnectivityIndicatorStyle(
             label = "Checking",
-            containerColor = colors.surfaceContainerHighest.copy(alpha = 0.9f),
+            containerColor = colors.surfaceContainerHighest,
             contentColor = colors.onSurfaceVariant,
             borderColor = colors.outlineVariant,
         )
@@ -318,7 +317,7 @@ private fun SourceConnectivityIndicator(
         )
         SourceConnectivityState.Offline -> SourceConnectivityIndicatorStyle(
             label = "Offline",
-            containerColor = colors.errorContainer.copy(alpha = 0.94f),
+            containerColor = colors.errorContainer,
             contentColor = colors.onErrorContainer,
             borderColor = colors.error,
         )
@@ -339,9 +338,9 @@ private fun SourceConnectivityIndicator(
                 SourceConnectivityState.Unknown -> ""
             }
         },
-        shape = RoundedCornerShape(presentation.chipCornerRadius),
         color = style.containerColor,
-        border = BorderStroke(1.dp, style.borderColor.copy(alpha = 0.7f)),
+        border = BorderStroke(1.dp, style.borderColor),
+
     ) {
         Text(
             text = style.label,

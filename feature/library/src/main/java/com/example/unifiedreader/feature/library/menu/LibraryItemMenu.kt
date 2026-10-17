@@ -1,38 +1,23 @@
 package com.example.unifiedreader.feature.library.menu
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import com.example.unifiedreader.ui.components.AppDivider
 import com.example.unifiedreader.ui.components.AppMenu
 import com.example.unifiedreader.ui.components.AppMenuItem
+import com.example.unifiedreader.ui.components.AppSegment
+import com.example.unifiedreader.ui.components.AppSegmentedRow
 
 internal data class ItemMenuAction(
     val label: String,
@@ -142,34 +127,26 @@ internal fun LibraryItemMenuEntries(
         if (effectiveActions.isNotEmpty()) {
             AppDivider()
         }
-        Column(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
-        ) {
-            ReadingDirectionMenuRow(
-                state = state,
-                onDirectionSelected = { direction ->
-                    onActionHandled()
-                    state.onDirectionSelected(direction)
-                },
-            )
-        }
+        ReadingDirectionMenuRow(
+            state = state,
+            onDirectionSelected = { direction ->
+                onActionHandled()
+                state.onDirectionSelected(direction)
+            },
+        )
     }
     readerModeState?.let { state ->
         if (effectiveActions.isNotEmpty() || readingDirectionState != null) {
             AppDivider()
         }
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            ReaderModeMenuRow(
-                state = state,
-                onModeSelected = { mode ->
-                    onActionHandled()
-                    state.onModeSelected(mode)
-                },
-            )
-        }
+        ReaderModeMenuRow(
+            state = state,
+            onModeSelected = { mode ->
+                onActionHandled()
+                state.onModeSelected(mode)
+            },
+        )
+
     }
 }
 
@@ -178,65 +155,16 @@ private fun ReadingDirectionMenuRow(
     state: ReadingDirectionMenuState,
     onDirectionSelected: (ComicReadingDirection) -> Unit,
 ) {
-    val buttonShape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
-    Row(
-        modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        ComicReadingDirection.entries.forEach { direction ->
-            ReadingDirectionButton(
-                onClick = { onDirectionSelected(direction) },
+    val directions = ComicReadingDirection.entries
+    AppSegmentedRow(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+        directions.forEachIndexed { index, direction ->
+            AppSegment(
                 selected = direction == state.selectedDirection,
-                shape = buttonShape,
-            ) {
-                Text(text = direction.label)
-            }
-        }
-    }
-}
-
-@Composable
-internal fun ReadingDirectionButton(
-    onClick: () -> Unit,
-    selected: Boolean,
-    shape: Shape,
-    content: @Composable () -> Unit,
-) {
-    val containerColor = if (selected) {
-        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f)
-    } else {
-        MaterialTheme.colorScheme.surface.copy(alpha = 0.82f)
-    }
-    val contentColor = if (selected) {
-        MaterialTheme.colorScheme.onSurface
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    val borderColor = if (selected) {
-        MaterialTheme.colorScheme.outline.copy(alpha = 0.9f)
-    } else {
-        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.68f)
-    }
-
-    Box(
-        modifier = Modifier
-            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
-            .clip(shape)
-            .background(containerColor)
-            .border(width = 1.dp, color = borderColor, shape = shape)
-            .selectable(
-                selected = selected,
-                onClick = onClick,
-                role = Role.Button,
+                onClick = { onDirectionSelected(direction) },
+                index = index,
+                count = directions.size,
+                label = { Text(text = direction.label) },
             )
-            .semantics {
-                this.selected = selected
-            }
-            .padding(PaddingValues(horizontal = 9.dp, vertical = 7.dp)),
-        contentAlignment = Alignment.Center,
-    ) {
-        CompositionLocalProvider(LocalContentColor provides contentColor) {
-            content()
         }
     }
 }
