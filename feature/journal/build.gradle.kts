@@ -29,6 +29,7 @@ android {
 
 dependencies {
     implementation(project(":core:ui-theme"))
+    implementation(project(":core:ui-components"))
     implementation(project(":core:database"))
     implementation(project(":core:model"))
     implementation(project(":feature:library"))

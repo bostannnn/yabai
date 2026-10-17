@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -40,8 +39,9 @@ import com.example.unifiedreader.feature.settings.direction.ComicReadingDirectio
 import com.example.unifiedreader.feature.settings.direction.ReadingDirectionLibraryUiState
 import com.example.unifiedreader.feature.settings.mode.ComicReaderModeSettingsSection
 import com.example.unifiedreader.feature.settings.mode.ReaderModeLibraryUiState
-import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
+import com.example.unifiedreader.ui.components.AppChip
 import com.example.unifiedreader.ui.theme.UnifiedReaderSurfaceTreatment
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import com.example.unifiedreader.ui.theme.unifiedReaderContentOverlay
 
 internal const val DefaultKavitaServerUrl = "http://192.168.50.60:5000/"
@@ -477,7 +477,7 @@ private fun ThemeModePreviewChip(
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
     val presentation = UnifiedReaderThemeTokens.presentation
-    FilterChip(
+    AppChip(
         selected = selected,
         onClick = onClick,
         shape = RoundedCornerShape(presentation.chipCornerRadius),

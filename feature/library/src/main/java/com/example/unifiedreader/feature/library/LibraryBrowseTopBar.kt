@@ -20,9 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -36,6 +34,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.ui.components.AppIconButton
+import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import com.example.unifiedreader.ui.theme.unifiedReaderComponentTreatment
 
@@ -79,7 +79,7 @@ fun LibraryBrowseSearchModeTopBar(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(
+            AppIconButton(
                 onClick = onClose,
                 modifier = Modifier.size(36.dp),
             ) {
@@ -101,7 +101,7 @@ fun LibraryBrowseSearchModeTopBar(
             modifier = modifier.fillMaxWidth(),
             contentAlignment = Alignment.Center,
         ) {
-            IconButton(
+            AppIconButton(
                 onClick = onClose,
                 modifier = Modifier
                     .align(Alignment.CenterStart)
@@ -160,7 +160,7 @@ private fun LibraryBrowseTopBarSearchField(
         textStyle = MaterialTheme.typography.bodyMedium.copy(color = colors.onSurface),
         cursorBrush = SolidColor(semanticColors.sourceAccent),
         decorationBox = { innerTextField ->
-            Surface(
+            AppPanel(
                 modifier = Modifier
                     .fillMaxSize()
                     .unifiedReaderComponentTreatment(
@@ -221,7 +221,7 @@ private fun LibraryBrowseTopBarSearchField(
                         innerTextField()
                     }
                     if (query.isNotEmpty()) {
-                        IconButton(
+                        AppIconButton(
                             onClick = { onQueryChanged("") },
                             modifier = Modifier.size(36.dp),
                         ) {

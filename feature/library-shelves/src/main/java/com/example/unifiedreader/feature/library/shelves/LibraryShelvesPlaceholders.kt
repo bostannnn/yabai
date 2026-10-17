@@ -1,9 +1,9 @@
 package com.example.unifiedreader.feature.library.shelves
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -24,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.feature.library.LibraryCoverAspectRatio
 import com.example.unifiedreader.feature.library.LibraryGridMetrics
 import com.example.unifiedreader.feature.library.libraryGridColumns
+import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import com.example.unifiedreader.ui.theme.unifiedReaderContentOverlay
 import com.example.unifiedreader.ui.theme.unifiedReaderSurfacePattern
@@ -105,12 +104,10 @@ internal fun LibraryShelvesSlotPlaceholder(
         val coverWidth = with(LocalDensity.current) {
             libraryGridColumns(availableWidth = maxWidth, metrics = gridMetrics).cellWidth
         }
-        Card(
+        AppPanel(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(presentation.cardCornerRadius),
-            colors = CardDefaults.cardColors(
-                containerColor = semanticColors.surfaceRaised,
-            ),
+            color = semanticColors.surfaceRaised,
         ) {
             Column(
                 modifier = Modifier

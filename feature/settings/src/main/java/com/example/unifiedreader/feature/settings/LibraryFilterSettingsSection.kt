@@ -9,9 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,6 +21,8 @@ import com.example.unifiedreader.core.model.availableLibraryFilterPanels
 import com.example.unifiedreader.core.model.defaultVisibleLibraryFilterPanels
 import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.core.model.resolveLibraryFilterPanels
+import com.example.unifiedreader.ui.components.AppPanel
+import com.example.unifiedreader.ui.components.AppTextButton
 
 @Composable
 internal fun LibraryFilterSettingsSection(
@@ -89,7 +89,7 @@ private fun LibraryFilterSourceCard(
     onPanelsChanged: (List<LibraryFilterPanel>) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
+    AppPanel(
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f),
@@ -128,7 +128,7 @@ private fun LibraryFilterSourceSection(
                 modifier = Modifier.weight(1f),
             )
             if (visiblePanels != defaultPanels) {
-                TextButton(onClick = { onPanelsChanged(defaultPanels) }) {
+                AppTextButton(onClick = { onPanelsChanged(defaultPanels) }) {
                     Text(text = "Reset")
                 }
             }
@@ -174,7 +174,7 @@ private fun LibraryFilterPanelRow(
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
 ) {
-    Surface(
+    AppPanel(
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f),
     ) {
@@ -195,13 +195,13 @@ private fun LibraryFilterPanelRow(
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f),
             )
-            TextButton(
+            AppTextButton(
                 enabled = isVisible && canMoveUp,
                 onClick = onMoveUp,
             ) {
                 Text(text = "Up")
             }
-            TextButton(
+            AppTextButton(
                 enabled = isVisible && canMoveDown,
                 onClick = onMoveDown,
             ) {

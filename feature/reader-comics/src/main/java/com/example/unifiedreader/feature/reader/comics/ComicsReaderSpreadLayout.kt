@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -29,9 +28,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.input.nestedscroll.NestedScrollDispatcher
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.input.nestedscroll.NestedScrollDispatcher
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -39,8 +38,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
+import com.example.unifiedreader.ui.components.AppBackground
 import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlinx.coroutines.async
@@ -180,13 +180,12 @@ private fun ComicSpreadSurface(
             .clipToBounds(),
         contentAlignment = Alignment.Center,
     ) {
-        Surface(
+        AppBackground(
             modifier = Modifier
                 .fillMaxSize()
                 .clipToBounds()
                 .onSizeChanged { containerSize = it },
             color = ComicReaderBackgroundColor,
-            tonalElevation = 0.dp,
         ) {
             Box(
                 modifier = Modifier.comicGestureModifier(

@@ -5,14 +5,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.ui.components.AppButton
+import com.example.unifiedreader.ui.components.AppLinearProgress
+import com.example.unifiedreader.ui.components.AppOutlinedButton
 
 @Composable
 internal fun CoverPreloadSection(
@@ -26,7 +26,7 @@ internal fun CoverPreloadSection(
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Button(
+        AppButton(
             onClick = onPreloadCovers,
             enabled = state.canStart,
             modifier = Modifier
@@ -44,7 +44,7 @@ internal fun CoverPreloadSection(
             modifier = Modifier.fillMaxWidth(),
         ) {
             if (state.isRunning) {
-                OutlinedButton(
+                AppOutlinedButton(
                     onClick = onCancelPreload,
                     modifier = Modifier
                         .weight(1f)
@@ -53,7 +53,7 @@ internal fun CoverPreloadSection(
                     Text("Cancel")
                 }
             } else {
-                OutlinedButton(
+                AppOutlinedButton(
                     onClick = onClearCachedCovers,
                     enabled = state.canClearCache,
                     modifier = Modifier
@@ -67,7 +67,7 @@ internal fun CoverPreloadSection(
                     }
                 }
                 if (state.canRetryFailed) {
-                    OutlinedButton(
+                    AppOutlinedButton(
                         onClick = onRetryFailedCovers,
                         modifier = Modifier
                             .weight(1f)
@@ -79,7 +79,7 @@ internal fun CoverPreloadSection(
             }
         }
         if (state.isRunning && state.progressLabel != null) {
-            LinearProgressIndicator(
+            AppLinearProgress(
                 progress = { state.progressFraction ?: 0f },
                 modifier = Modifier.fillMaxWidth(),
             )

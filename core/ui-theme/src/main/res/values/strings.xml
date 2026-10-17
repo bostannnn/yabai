@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="unified_reader_bottom_sheet_dismiss">Dismiss bottom sheet</string>
-    <string name="unified_reader_bottom_sheet_expand">Expand bottom sheet</string>
-    <string name="unified_reader_bottom_sheet_collapse">Collapse bottom sheet</string>
-</resources>

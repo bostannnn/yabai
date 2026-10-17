@@ -1,4 +1,4 @@
-package com.example.unifiedreader.ui.theme
+package com.example.unifiedreader.ui.components
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,19 +15,22 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.collapse
 import androidx.compose.ui.semantics.dismiss
 import androidx.compose.ui.semantics.expand
 import androidx.compose.ui.semantics.semantics
-import com.example.unifiedreader.core.ui.theme.R
+import com.example.unifiedreader.core.ui.components.R
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
+import com.example.unifiedreader.ui.theme.unifiedReaderComponentTreatment
 import kotlinx.coroutines.launch
 
+/** The app's modal bottom sheet. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun UnifiedReaderModalBottomSheet(
+fun AppSheet(
     onDismissRequest: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -40,9 +43,9 @@ fun UnifiedReaderModalBottomSheet(
     )
     val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
-    val dismissLabel = stringResource(R.string.unified_reader_bottom_sheet_dismiss)
-    val expandLabel = stringResource(R.string.unified_reader_bottom_sheet_expand)
-    val collapseLabel = stringResource(R.string.unified_reader_bottom_sheet_collapse)
+    val dismissLabel = stringResource(R.string.app_sheet_dismiss)
+    val expandLabel = stringResource(R.string.app_sheet_expand)
+    val collapseLabel = stringResource(R.string.app_sheet_collapse)
     val sheetShape = RoundedCornerShape(
         topStart = presentation.cardCornerRadius,
         topEnd = presentation.cardCornerRadius,

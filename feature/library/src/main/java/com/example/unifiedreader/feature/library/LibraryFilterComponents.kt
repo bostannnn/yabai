@@ -26,17 +26,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -50,7 +43,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.unifiedreader.core.model.LibraryFilterFacets
 import com.example.unifiedreader.core.model.LibraryFilterPanel
@@ -60,6 +52,14 @@ import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.authorFacetKey
 import com.example.unifiedreader.core.model.displayName
+import com.example.unifiedreader.ui.components.AppChip
+import com.example.unifiedreader.ui.components.AppDialogHost
+import com.example.unifiedreader.ui.components.AppDivider
+import com.example.unifiedreader.ui.components.AppMenu
+import com.example.unifiedreader.ui.components.AppMenuItem
+import com.example.unifiedreader.ui.components.AppPanel
+import com.example.unifiedreader.ui.components.AppTextButton
+import com.example.unifiedreader.ui.components.AppTextField
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import com.example.unifiedreader.ui.theme.unifiedReaderComponentTreatment
 import com.example.unifiedreader.ui.theme.unifiedReaderSurfacePattern
@@ -158,7 +158,7 @@ internal fun LibraryFilterSummary(
         }
         Spacer(modifier = Modifier.width(8.dp))
         Box {
-            FilterChip(
+            AppChip(
                 selected = !filterState.isEmpty,
                 enabled = filtersEnabled,
                 onClick = { filtersMenuExpanded = true },
@@ -182,22 +182,22 @@ internal fun LibraryFilterSummary(
                     )
                 },
             )
-            DropdownMenu(
+            AppMenu(
                 expanded = filtersMenuExpanded,
                 onDismissRequest = { filtersMenuExpanded = false },
             ) {
                 if (!filterState.isEmpty) {
-                    DropdownMenuItem(
+                    AppMenuItem(
                         text = { Text(text = "Clear filters") },
                         onClick = {
                             filtersMenuExpanded = false
                             onClearFilters()
                         },
                     )
-                    HorizontalDivider()
+                    AppDivider()
                 }
                 filterOptions.forEach { option ->
-                    DropdownMenuItem(
+                    AppMenuItem(
                         text = {
                             Text(
                                 text = if (option.selectedCount > 0) {
@@ -247,7 +247,7 @@ private fun LibraryFacetChip(
     selected: Boolean = count > 0,
     showCount: Boolean = true,
 ) {
-    FilterChip(
+    AppChip(
         selected = selected,
         enabled = enabled,
         onClick = onClick,
@@ -502,7 +502,7 @@ private fun SearchableKavitaScopeDialog(
                     color = MaterialTheme.colorScheme.error,
                 )
             }
-            OutlinedTextField(
+            AppTextField(
                 value = query,
                 onValueChange = { query = it },
                 modifier = Modifier
@@ -531,7 +531,7 @@ private fun SearchableKavitaScopeDialog(
                 sectionKinds.forEachIndexed { sectionIndex, kind ->
                     if (sectionIndex > 0) {
                         item(key = "divider-${kind.name}") {
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
+                            AppDivider(modifier = Modifier.padding(vertical = 6.dp))
                         }
                     }
                     item(key = "header-${kind.name}") {
@@ -687,7 +687,7 @@ private fun SearchableTextFacetDialog(
                     color = MaterialTheme.colorScheme.error,
                 )
             }
-            OutlinedTextField(
+            AppTextField(
                 value = query,
                 onValueChange = { query = it },
                 modifier = Modifier
@@ -781,11 +781,11 @@ private fun FilterDialogScaffold(
     val semanticColors = UnifiedReaderThemeTokens.colors
     val sheetRecipe = UnifiedReaderThemeTokens.components.sheet
     val sheetShape = RoundedCornerShape(presentation.cardCornerRadius)
-    Dialog(
+    AppDialogHost(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        Surface(
+        AppPanel(
             modifier = Modifier
                 .padding(24.dp)
                 .then(modifier)
@@ -827,11 +827,11 @@ private fun FilterDialogScaffold(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (hasActiveFilters) {
-                        TextButton(onClick = onClearFilters) {
+                        AppTextButton(onClick = onClearFilters) {
                             Text(text = "Clear")
                         }
                     }
-                    TextButton(onClick = onDismiss) {
+                    AppTextButton(onClick = onDismiss) {
                         Text(text = "Done")
                     }
                 }
@@ -898,7 +898,7 @@ private fun FilterToggleChip(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    FilterChip(
+    AppChip(
         selected = selected,
         onClick = onClick,
         modifier = Modifier.libraryAccentChipTreatment(selected = selected),

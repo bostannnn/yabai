@@ -8,18 +8,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.rememberDrawerState
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceConnectivityState
@@ -39,8 +38,8 @@ import com.example.unifiedreader.feature.navigation.SourceNavigationDrawer
 import com.example.unifiedreader.feature.navigation.SourceNavigationSettingsSection
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
-import com.example.unifiedreader.feature.settings.SettingsScreen
 import com.example.unifiedreader.feature.settings.ServerConnectionAction
+import com.example.unifiedreader.feature.settings.SettingsScreen
 import com.example.unifiedreader.feature.settings.SyncSettingsItemRow
 import com.example.unifiedreader.feature.settings.SyncSettingsSourceGroup
 import com.example.unifiedreader.feature.settings.SyncSettingsUiState
@@ -48,6 +47,7 @@ import com.example.unifiedreader.feature.settings.direction.ReadingDirectionLibr
 import com.example.unifiedreader.feature.settings.direction.buildComicReadingDirectionLibraryRows
 import com.example.unifiedreader.feature.settings.mode.ReaderModeLibraryUiState
 import com.example.unifiedreader.feature.settings.mode.buildComicReaderModeLibraryRows
+import com.example.unifiedreader.ui.components.AppBackground
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import com.example.unifiedreader.ui.theme.unifiedReaderSurfacePattern
 import java.text.DateFormat
@@ -514,7 +514,7 @@ private fun SettingsRoute(
     onClearGrimmoryCoverCache: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
+    AppBackground(
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.background,
     ) {

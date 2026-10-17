@@ -21,12 +21,8 @@ import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -40,7 +36,10 @@ import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.core.model.librarySecondaryText
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.ResolvedLibraryCover
-import com.example.unifiedreader.ui.theme.UnifiedReaderModalBottomSheet
+import com.example.unifiedreader.ui.components.AppIconButton
+import com.example.unifiedreader.ui.components.AppLinearProgress
+import com.example.unifiedreader.ui.components.AppPanel
+import com.example.unifiedreader.ui.components.AppSheet
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import com.example.unifiedreader.ui.theme.unifiedReaderSurfacePattern
 
@@ -59,7 +58,7 @@ fun DownloadsSheet(
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
     val sheetRecipe = UnifiedReaderThemeTokens.components.sheet
-    UnifiedReaderModalBottomSheet(
+    AppSheet(
         onDismissRequest = onDismiss,
     ) {
         Column(
@@ -99,14 +98,14 @@ fun DownloadsSheet(
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (snapshot.completedEntries.isNotEmpty()) {
-                        IconButton(onClick = onClearCompleted) {
+                        AppIconButton(onClick = onClearCompleted) {
                             Icon(
                                 imageVector = Icons.Default.DeleteSweep,
                                 contentDescription = "Clear completed downloads",
                             )
                         }
                     }
-                    IconButton(onClick = onDismiss) {
+                    AppIconButton(onClick = onDismiss) {
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Close downloads",
@@ -115,7 +114,7 @@ fun DownloadsSheet(
                 }
             }
             if (snapshot.entries.isEmpty()) {
-                Surface(
+                AppPanel(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp),
@@ -222,13 +221,14 @@ private fun DownloadEntryCard(
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
 ) {
     val displayItem = entry.displayItemForDownloads(itemResolver)
-    Card(
+    AppPanel(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
             .clickable(enabled = entry.canOpen) {
                 onOpenEntry(entry.id)
             },
+        shape = MaterialTheme.shapes.medium,
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -299,7 +299,7 @@ private fun DownloadEntryCard(
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (entry.canRetry) {
-                        IconButton(onClick = { onRetry(entry.id) }) {
+                        AppIconButton(onClick = { onRetry(entry.id) }) {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
                                 contentDescription = "Retry download",
@@ -307,7 +307,7 @@ private fun DownloadEntryCard(
                         }
                     }
                     if (entry.canRemove) {
-                        IconButton(onClick = { onRemove(entry.id) }) {
+                        AppIconButton(onClick = { onRemove(entry.id) }) {
                             Icon(
                                 imageVector = Icons.Default.Delete,
                                 contentDescription = "Remove download",
@@ -315,7 +315,7 @@ private fun DownloadEntryCard(
                         }
                     }
                     if (entry.canCancel) {
-                        IconButton(onClick = { onCancel(entry.id) }) {
+                        AppIconButton(onClick = { onCancel(entry.id) }) {
                             Icon(
                                 imageVector = Icons.Default.Stop,
                                 contentDescription = "Cancel download",
@@ -326,20 +326,20 @@ private fun DownloadEntryCard(
             }
             when {
                 entry.status == DownloadEntryStatus.Running && entry.totalItemCount > 1 -> {
-                    LinearProgressIndicator(
+                    AppLinearProgress(
                         progress = { entry.completedItemCount.toFloat() / entry.totalItemCount.toFloat() },
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
 
                 entry.status == DownloadEntryStatus.Running -> {
-                    LinearProgressIndicator(
+                    AppLinearProgress(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
 
                 entry.status == DownloadEntryStatus.Completed && entry.totalItemCount > 1 -> {
-                    LinearProgressIndicator(
+                    AppLinearProgress(
                         progress = { 1f },
                         modifier = Modifier.fillMaxWidth(),
                     )

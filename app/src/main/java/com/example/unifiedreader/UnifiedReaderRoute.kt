@@ -1,7 +1,7 @@
 package com.example.unifiedreader
 
-import android.content.ContentResolver
 import android.content.ComponentCallbacks2
+import android.content.ContentResolver
 import android.content.Intent
 import android.content.res.Configuration
 import android.net.Uri
@@ -12,13 +12,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Snackbar
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -27,8 +23,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -38,16 +34,20 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.core.model.librarySecondaryText
 import com.example.unifiedreader.feature.journal.JournalItemReviewCard
-import com.example.unifiedreader.journal.JournalItemRef
 import com.example.unifiedreader.feature.journal.rememberJournalReviewState
 import com.example.unifiedreader.feature.journal.shouldSaveJournalReview
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryViewMode
 import com.example.unifiedreader.feature.library.VisibleResolvedLibraryCover
 import com.example.unifiedreader.feature.reader.core.ReaderCompletionDialog
-import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
 import com.example.unifiedreader.feature.reader.core.ReaderHost
 import com.example.unifiedreader.feature.reader.core.ReaderNavigationActions
+import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
+import com.example.unifiedreader.journal.JournalItemRef
+import com.example.unifiedreader.ui.components.AppBackground
+import com.example.unifiedreader.ui.components.AppButton
+import com.example.unifiedreader.ui.components.AppDialog
+import com.example.unifiedreader.ui.components.AppTextButton
 import com.example.unifiedreader.ui.theme.UnifiedReaderTheme
 import com.example.unifiedreader.ui.theme.applyAndroidThemeMode
 import kotlinx.coroutines.delay
@@ -77,12 +77,12 @@ fun UnifiedReaderRoute() {
         },
     )
     if (viewModel.isUnsupportedImportDialogVisible) {
-        AlertDialog(
+        AppDialog(
             onDismissRequest = viewModel::dismissUnsupportedImportDialog,
             title = { Text(text = "Unsupported file") },
             text = { Text(text = UnsupportedImportSelectionMessage) },
             confirmButton = {
-                TextButton(onClick = viewModel::dismissUnsupportedImportDialog) {
+                AppTextButton(onClick = viewModel::dismissUnsupportedImportDialog) {
                     Text(text = "OK")
                 }
             },
@@ -147,7 +147,7 @@ fun UnifiedReaderAppContent(
                 uiState.isKavitaVisualSectionActive,
             onBack = viewModel::onBackPressed,
         )
-        Surface(
+        AppBackground(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background,
         ) {
@@ -253,10 +253,10 @@ private fun ReaderCompletionDialogHost(
                     )
                 },
             ) {
-                TextButton(onClick = dismissCompletion) {
+                AppTextButton(onClick = dismissCompletion) {
                     Text(text = "Close")
                 }
-                Button(
+                AppButton(
                     onClick = {
                         viewModel.saveJournalEntry(
                             item = journalItem,

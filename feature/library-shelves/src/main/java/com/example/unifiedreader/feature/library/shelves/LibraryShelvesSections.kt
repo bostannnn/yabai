@@ -13,13 +13,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,6 +34,8 @@ import com.example.unifiedreader.feature.library.LibraryItemActionContext
 import com.example.unifiedreader.feature.library.hasMenuContent
 import com.example.unifiedreader.feature.library.isDownloaded
 import com.example.unifiedreader.feature.library.menu.LibraryItemMenuButtonStyle
+import com.example.unifiedreader.ui.components.AppPanel
+import com.example.unifiedreader.ui.components.AppTextButton
 import com.example.unifiedreader.ui.theme.UnifiedReaderBorderTreatment
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import com.example.unifiedreader.ui.theme.unifiedReaderBorderTreatment
@@ -268,7 +267,7 @@ private fun ShelfSectionCard(
         UnifiedReaderBorderTreatment.Double -> 0.12f
         else -> 0.08f
     }
-    Card(
+    AppPanel(
         modifier = modifier.unifiedReaderBorderTreatment(
             treatment = personality.borderTreatment,
             color = accentColor,
@@ -277,9 +276,7 @@ private fun ShelfSectionCard(
             alpha = borderAlpha,
         ),
         shape = RoundedCornerShape(presentation.cardCornerRadius),
-        colors = CardDefaults.cardColors(
-            containerColor = UnifiedReaderThemeTokens.colors.surfaceRaised,
-        ),
+        color = UnifiedReaderThemeTokens.colors.surfaceRaised,
     ) {
         Column(
             modifier = Modifier
@@ -347,7 +344,7 @@ private fun ShelfSectionCard(
                         }
                     }
                     if (showSeeAll) {
-                        TextButton(onClick = onSeeAll) {
+                        AppTextButton(onClick = onSeeAll) {
                             Text(
                                 text = "See all",
                                 color = accentColor,

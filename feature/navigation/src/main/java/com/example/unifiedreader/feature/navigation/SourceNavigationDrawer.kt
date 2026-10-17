@@ -15,15 +15,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.CollectionsBookmark
 import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material3.DrawerState
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
@@ -38,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
+import com.example.unifiedreader.ui.components.AppDivider
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import com.example.unifiedreader.ui.theme.unifiedReaderComponentTreatment
 import com.example.unifiedreader.ui.theme.unifiedReaderSurfacePattern
@@ -131,7 +131,7 @@ fun SourceNavigationDrawer(
                             }
                         }
                     }
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+                    AppDivider(modifier = Modifier.padding(vertical = 12.dp))
                     NavigationDrawerItem(
                         label = { Text(text = "Journal") },
                         selected = selectedDestination == SourceNavigationDestination.Journal,

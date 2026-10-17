@@ -26,11 +26,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,9 +38,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
+import com.example.unifiedreader.ui.components.AppDialogHost
+import com.example.unifiedreader.ui.components.AppIconButton
+import com.example.unifiedreader.ui.components.AppPanel
+import com.example.unifiedreader.ui.components.AppTextButton
 import java.util.Calendar
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -142,7 +142,7 @@ private fun ReadingStatsSummary(
     modifier: Modifier = Modifier,
     compact: Boolean = false,
 ) {
-    Surface(
+    AppPanel(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f),
@@ -272,7 +272,7 @@ private fun ReadingPacePanel(
     activeDays: Int,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
+    AppPanel(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
         color = MaterialTheme.colorScheme.surface,
@@ -402,7 +402,7 @@ private fun RatingBreakdown(
     values: Map<Int, Int>,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
+    AppPanel(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
         color = MaterialTheme.colorScheme.surface,
@@ -446,7 +446,7 @@ internal fun AverageReadingTimeChart(
     val maxValue = maxBucket?.averageMillis?.coerceAtLeast(1L) ?: 1L
     val gridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.62f)
     val barColor = MaterialTheme.colorScheme.tertiary
-    Surface(
+    AppPanel(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
         color = MaterialTheme.colorScheme.surface,
@@ -587,7 +587,7 @@ private fun FacetChartCard(
 ) {
     val maxValue = section.rows.maxOfOrNull(JournalFacetRow::count)?.coerceAtLeast(1) ?: 1
     val visibleRows = section.rows.take(section.visibleFacetRowCount())
-    Surface(
+    AppPanel(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = FACET_CHART_CARD_MIN_HEIGHT),
@@ -606,7 +606,7 @@ private fun FacetChartCard(
             ) {
                 StatsSectionLabel(section.title)
                 if (section.rows.size > visibleRows.size) {
-                    TextButton(onClick = { onSeeAllSelected(section) }) {
+                    AppTextButton(onClick = { onSeeAllSelected(section) }) {
                         Text(text = "See all")
                     }
                 }
@@ -713,8 +713,8 @@ internal fun JournalFacetRowsDialog(
     onDismiss: () -> Unit,
 ) {
     val maxValue = section.rows.maxOfOrNull(JournalFacetRow::count)?.coerceAtLeast(1) ?: 1
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
+    AppDialogHost(onDismissRequest = onDismiss) {
+        AppPanel(
             modifier = Modifier
                 .fillMaxWidth()
                 .widthIn(max = 520.dp),
@@ -736,7 +736,7 @@ internal fun JournalFacetRowsDialog(
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
-                    IconButton(onClick = onDismiss) {
+                    AppIconButton(onClick = onDismiss) {
                         Icon(imageVector = Icons.Default.Close, contentDescription = "Close")
                     }
                 }

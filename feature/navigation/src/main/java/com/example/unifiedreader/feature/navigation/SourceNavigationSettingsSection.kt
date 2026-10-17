@@ -8,12 +8,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -22,6 +18,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
+import com.example.unifiedreader.ui.components.AppBadge
+import com.example.unifiedreader.ui.components.AppIconButton
+import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 @Composable
@@ -31,12 +30,10 @@ fun SourceNavigationSettingsSection(
     onMoveSourceDown: (SourceType) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Card(
+    AppPanel(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-        ),
+        color = MaterialTheme.colorScheme.surface,
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -81,7 +78,7 @@ private fun SourceOrderRow(
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
     val presentation = UnifiedReaderThemeTokens.presentation
-    Surface(
+    AppPanel(
         shape = MaterialTheme.shapes.medium,
         color = semanticColors.surfaceRaised.copy(alpha = 0.82f),
     ) {
@@ -106,7 +103,7 @@ private fun SourceOrderRow(
                         fontWeight = FontWeight.Medium,
                     )
                     if (isStartupSource) {
-                        Surface(
+                        AppBadge(
                             shape = androidx.compose.foundation.shape.RoundedCornerShape(presentation.chipCornerRadius),
                             color = semanticColors.syncAccent,
                         ) {
@@ -132,7 +129,7 @@ private fun SourceOrderRow(
             Row(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(
+                AppIconButton(
                     onClick = onMoveUp,
                     enabled = canMoveUp,
                 ) {
@@ -141,7 +138,7 @@ private fun SourceOrderRow(
                         contentDescription = "Move ${sourceType.displayName()} up",
                     )
                 }
-                IconButton(
+                AppIconButton(
                     onClick = onMoveDown,
                     enabled = canMoveDown,
                 ) {

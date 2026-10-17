@@ -8,9 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -19,6 +16,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.settings.resolveSettingsAdaptiveLayout
+import com.example.unifiedreader.ui.components.AppSegment
+import com.example.unifiedreader.ui.components.AppSegmentedRow
 
 data class ReaderModeLibraryUiState(
     val libraryId: String,
@@ -77,17 +76,15 @@ private fun ReaderModeLibraryRow(
                 modifier = Modifier.weight(1f),
                 contentAlignment = Alignment.CenterEnd,
             ) {
-                SingleChoiceSegmentedButtonRow(
+                AppSegmentedRow(
                     modifier = Modifier.widthIn(min = 180.dp, max = 280.dp),
                 ) {
                     ComicReaderMode.entries.forEachIndexed { index, mode ->
-                        SegmentedButton(
+                        AppSegment(
                             selected = mode == library.mode,
                             onClick = { onLibraryModeSelected(library.libraryId, mode) },
-                            shape = SegmentedButtonDefaults.itemShape(
-                                index = index,
-                                count = ComicReaderMode.entries.size,
-                            ),
+                            index = index,
+                            count = ComicReaderMode.entries.size,
                             label = {
                                 Text(text = mode.label)
                             },
@@ -105,17 +102,15 @@ private fun ReaderModeLibraryRow(
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
             )
-            SingleChoiceSegmentedButtonRow(
+            AppSegmentedRow(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 ComicReaderMode.entries.forEachIndexed { index, mode ->
-                    SegmentedButton(
+                    AppSegment(
                         selected = mode == library.mode,
                         onClick = { onLibraryModeSelected(library.libraryId, mode) },
-                        shape = SegmentedButtonDefaults.itemShape(
-                            index = index,
-                            count = ComicReaderMode.entries.size,
-                        ),
+                        index = index,
+                        count = ComicReaderMode.entries.size,
                         label = {
                             Text(text = mode.label)
                         },

@@ -8,12 +8,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.ui.components.AppBadge
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 @Composable
@@ -22,7 +22,7 @@ internal fun LibraryReadStatusBadge(
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
     val presentation = UnifiedReaderThemeTokens.presentation
-    Surface(
+    AppBadge(
         modifier = modifier,
         shape = androidx.compose.foundation.shape.RoundedCornerShape(presentation.chipCornerRadius),
         color = semanticColors.readerAccent.copy(alpha = 0.96f),

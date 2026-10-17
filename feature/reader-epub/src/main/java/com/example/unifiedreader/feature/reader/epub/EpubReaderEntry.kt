@@ -7,21 +7,19 @@ import android.text.Html
 import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
-import java.io.ByteArrayInputStream
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -46,14 +44,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.fragment.app.FragmentActivity
 import androidx.fragment.app.FragmentContainerView
-import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SyncState
@@ -65,6 +63,10 @@ import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import com.example.unifiedreader.feature.reader.core.findContextAncestor
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
 import com.example.unifiedreader.journal.JournalReadingSessionRecorder
+import com.example.unifiedreader.ui.components.AppTextButton
+import java.io.ByteArrayInputStream
+import javax.xml.parsers.DocumentBuilderFactory
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -83,8 +85,8 @@ import org.readium.r2.shared.publication.Publication
 import org.readium.r2.shared.publication.presentation.presentation
 import org.readium.r2.shared.publication.services.locateProgression
 import org.readium.r2.shared.publication.services.positionsByReadingOrder
-import org.readium.r2.shared.util.asset.AssetRetriever
 import org.readium.r2.shared.util.AbsoluteUrl
+import org.readium.r2.shared.util.asset.AssetRetriever
 import org.readium.r2.shared.util.format.FormatHints
 import org.readium.r2.shared.util.http.DefaultHttpClient
 import org.readium.r2.shared.util.mediatype.MediaType
@@ -92,8 +94,6 @@ import org.readium.r2.streamer.PublicationOpener
 import org.readium.r2.streamer.parser.DefaultPublicationParser
 import org.w3c.dom.Element
 import org.w3c.dom.Node
-import javax.xml.parsers.DocumentBuilderFactory
-import kotlin.math.roundToInt
 
 @Composable
 fun EpubReaderScreen(
@@ -832,7 +832,7 @@ private fun EpubReaderMessage(
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            TextButton(onClick = onBack) {
+            AppTextButton(onClick = onBack) {
                 Text(text = "Back")
             }
             Text(

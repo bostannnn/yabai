@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -37,6 +36,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.unifiedreader.ui.components.AppPanel
 import java.text.DateFormatSymbols
 import java.util.Calendar
 import java.util.Locale
@@ -48,7 +48,7 @@ internal fun JournalActivityDashboard(
     activityContent: @Composable () -> Unit,
 ) {
     val points = remember(overview) { overview.activityChartPoints() }
-    Surface(
+    AppPanel(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
         color = MaterialTheme.colorScheme.surface,

@@ -14,8 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,8 +30,9 @@ import com.example.unifiedreader.feature.library.LibraryCoverActionCard
 import com.example.unifiedreader.feature.library.LibraryCoverAspectRatio
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.ResolvedLibraryCover
-import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
+import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.theme.UnifiedReaderBorderTreatment
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import com.example.unifiedreader.ui.theme.unifiedReaderBorderTreatment
 import com.example.unifiedreader.ui.theme.unifiedReaderComponentTreatment
 import com.example.unifiedreader.ui.theme.unifiedReaderProgressTreatment
@@ -75,7 +74,7 @@ internal fun ShelfPreviewCard(
         UnifiedReaderBorderTreatment.Double -> 0.09f
         else -> 0.05f
     }
-    Card(
+    AppPanel(
         modifier = Modifier
             .width(covers.width + presentation.shelfItemSpacing * 2)
             .clickable(onClick = onClick)
@@ -87,9 +86,7 @@ internal fun ShelfPreviewCard(
                 alpha = borderAlpha,
             ),
         shape = RoundedCornerShape(presentation.cardCornerRadius),
-        colors = CardDefaults.cardColors(
-            containerColor = semanticColors.surfaceOverlay.copy(alpha = 0.72f),
-        ),
+        color = semanticColors.surfaceOverlay.copy(alpha = 0.72f),
     ) {
         Box(
             modifier = Modifier

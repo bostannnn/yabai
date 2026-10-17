@@ -12,7 +12,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -37,6 +36,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.ui.components.AppBadge
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import com.example.unifiedreader.ui.theme.unifiedReaderContentOverlay
 
@@ -136,7 +136,7 @@ fun LibraryCover(
             )
         }
         if (isDownloaded) {
-            Surface(
+            AppBadge(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(end = 6.dp, bottom = 6.dp + downloadBadgeBottomInset),

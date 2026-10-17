@@ -9,7 +9,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,6 +25,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.feature.library.LibraryBrowseSearchModeTopBar
 import com.example.unifiedreader.feature.library.LibraryBrowseTopBarContainer
+import com.example.unifiedreader.ui.components.AppIconButton
 
 @Composable
 fun rememberLibraryShelfBrowserSearchQuery(
@@ -73,7 +73,7 @@ fun LibraryShelfBrowserTopBar(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(
+                AppIconButton(
                     onClick = onBack,
                     modifier = Modifier.size(36.dp),
                 ) {
@@ -100,7 +100,7 @@ fun LibraryShelfBrowserTopBar(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                IconButton(onClick = { searchModeOpen = true }) {
+                AppIconButton(onClick = { searchModeOpen = true }) {
                     Icon(
                         imageVector = Icons.Default.Search,
                         contentDescription = "Search shelf",

@@ -12,8 +12,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -32,7 +32,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.NavigateBefore
 import androidx.compose.material.icons.automirrored.filled.NavigateNext
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -41,12 +40,12 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -77,32 +76,33 @@ import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
-import com.example.unifiedreader.feature.reader.core.ReaderActiveSessionTracker
 import com.example.unifiedreader.feature.reader.core.CompactReaderOverlayFrame
 import com.example.unifiedreader.feature.reader.core.ImmersiveReaderOverlay
+import com.example.unifiedreader.feature.reader.core.ReaderActiveSessionTracker
+import com.example.unifiedreader.feature.reader.core.ReaderBottomProgressBar
 import com.example.unifiedreader.feature.reader.core.ReaderLocator
 import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
 import com.example.unifiedreader.feature.reader.core.ReaderOverlayBackButton
 import com.example.unifiedreader.feature.reader.core.ReaderOverlayIconButton
 import com.example.unifiedreader.feature.reader.core.ReaderOverlaySurfaceRole
-import com.example.unifiedreader.feature.reader.core.ReaderBottomProgressBar
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
-import com.example.unifiedreader.feature.reader.core.ReaderZoomViewportState
 import com.example.unifiedreader.feature.reader.core.ReaderZoomLayout
+import com.example.unifiedreader.feature.reader.core.ReaderZoomViewportState
 import com.example.unifiedreader.feature.reader.core.detectReaderZoomGestures
 import com.example.unifiedreader.feature.reader.core.readerOverlaySurface
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
 import com.example.unifiedreader.journal.JournalReadingSessionRecorder
-import kotlinx.coroutines.Dispatchers
+import com.example.unifiedreader.ui.components.AppCircularProgress
+import java.util.LinkedHashMap
+import kotlin.math.roundToInt
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
-import java.util.LinkedHashMap
-import kotlin.math.roundToInt
 
 @Composable
 fun PdfReaderScreen(
@@ -638,7 +638,7 @@ private fun PdfPagePreviewItem(
         ) {
             when (val state = previewState) {
                 PdfPageRenderState.Empty -> PdfPreviewFallback(pageIndex = pageIndex)
-                PdfPageRenderState.Loading -> CircularProgressIndicator(
+                PdfPageRenderState.Loading -> AppCircularProgress(
                     color = tokens.colors.accent,
                 )
                 is PdfPageRenderState.Error -> PdfPreviewFallback(pageIndex = pageIndex)
@@ -793,7 +793,7 @@ private fun PdfPageViewport(
     ) {
         when (pageState) {
             PdfPageRenderState.Empty -> PdfStatus("No PDF document available.")
-            PdfPageRenderState.Loading -> CircularProgressIndicator()
+            PdfPageRenderState.Loading -> AppCircularProgress()
             is PdfPageRenderState.Error -> PdfStatus(pageState.message)
             is PdfPageRenderState.Ready -> {
                 val bitmap = pageState.bitmap

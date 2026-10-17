@@ -26,10 +26,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -68,6 +65,8 @@ import com.example.unifiedreader.feature.library.libraryGridCoverImageVariant
 import com.example.unifiedreader.feature.library.menu.LibraryItemMenuButtonStyle
 import com.example.unifiedreader.feature.library.minLibraryGridCellSizeDp
 import com.example.unifiedreader.feature.library.sanitizeLibraryGridCellSizeDp
+import com.example.unifiedreader.ui.components.AppBackground
+import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import com.example.unifiedreader.ui.theme.unifiedReaderProgressTreatment
 import com.example.unifiedreader.ui.theme.unifiedReaderSurfacePattern
@@ -197,7 +196,7 @@ fun LibraryShelfItemsBrowser(
         onCoverViewportScrollingChanged = onCoverViewportScrollingChanged,
     )
 
-    Surface(
+    AppBackground(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
     ) {
@@ -538,12 +537,10 @@ private fun ShelfBrowserGridCard(
     } else {
         entry.metadataText ?: entry.trailingText
     }
-    Card(
+    AppPanel(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(presentation.cardCornerRadius),
-        colors = CardDefaults.cardColors(
-            containerColor = semanticColors.surfaceRaised.copy(alpha = 0.76f),
-        ),
+        color = semanticColors.surfaceRaised.copy(alpha = 0.76f),
     ) {
         Box(
             modifier = Modifier

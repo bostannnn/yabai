@@ -1,7 +1,7 @@
 package com.example.unifiedreader.feature.journal
 
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -13,11 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -34,6 +30,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
+import com.example.unifiedreader.ui.components.AppIconButton
+import com.example.unifiedreader.ui.components.AppSegment
+import com.example.unifiedreader.ui.components.AppSegmentedRow
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -189,15 +188,13 @@ private fun JournalStatsScopeSelector(
     selectedScope: JournalStatsScope,
     onScopeSelected: (JournalStatsScope) -> Unit,
 ) {
-    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+    AppSegmentedRow(modifier = Modifier.fillMaxWidth()) {
         JournalStatsScope.entries.forEachIndexed { index, scope ->
-            SegmentedButton(
+            AppSegment(
                 selected = selectedScope == scope,
                 onClick = { onScopeSelected(scope) },
-                shape = SegmentedButtonDefaults.itemShape(
-                    index = index,
-                    count = JournalStatsScope.entries.size,
-                ),
+                index = index,
+                count = JournalStatsScope.entries.size,
                 label = { Text(text = scope.label) },
             )
         }
@@ -288,7 +285,7 @@ private fun PeriodHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        IconButton(onClick = onPrevious, enabled = canNavigatePrevious) {
+        AppIconButton(onClick = onPrevious, enabled = canNavigatePrevious) {
             Icon(imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous period")
         }
         Text(
@@ -298,7 +295,7 @@ private fun PeriodHeader(
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
         )
-        IconButton(
+        AppIconButton(
             onClick = onNext,
             enabled = canNavigateNext,
         ) {

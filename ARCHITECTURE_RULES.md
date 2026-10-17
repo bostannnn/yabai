@@ -173,6 +173,13 @@ Use this ownership map when deciding where code goes.
   - generic shared utilities with no product-specific behavior
 - `core:ui-theme`
   - shared visual tokens, theme setup, and generic UI treatment helpers
+- `core:ui-components`
+  - the app's component kit (`AppPanel`, `AppDialog`, `AppSheet`, `AppButton`, `AppChip`, ...):
+    the only place feature and app code gets containers, dialogs, buttons, chips, menus,
+    text fields, dividers, and progress indicators. Raw Material composables for those roles
+    are forbidden in `feature/*` and `app` main sources; `FeatureMaterialImportRuleTest` in
+    this module enforces it. Material primitives the kit does not cover yet (form controls,
+    drawer, navigation rail, scaffold, snackbar) stay allowed.
 - `core:network`
   - HTTP client setup and generic network support
 - `core:database`

@@ -2,7 +2,6 @@ package com.example.unifiedreader
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -10,6 +9,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.paging.PagingData
 import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.LibraryAlphabetSection
 import com.example.unifiedreader.core.model.LibraryFilterState
@@ -17,7 +17,8 @@ import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
-import androidx.paging.PagingData
+import com.example.unifiedreader.feature.library.KavitaScopeLandingItem
+import com.example.unifiedreader.feature.library.KavitaScopeLandingScreen
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryGridMetrics
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
@@ -26,16 +27,15 @@ import com.example.unifiedreader.feature.library.LibraryScreen
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
 import com.example.unifiedreader.feature.library.LibraryViewMode
 import com.example.unifiedreader.feature.library.LibraryWindowBadges
-import com.example.unifiedreader.feature.library.withWindowBadges
-import kotlinx.coroutines.flow.Flow
-import com.example.unifiedreader.feature.library.KavitaScopeLandingItem
-import com.example.unifiedreader.feature.library.KavitaScopeLandingScreen
 import com.example.unifiedreader.feature.library.shelves.LibraryShelfBrowserKind
 import com.example.unifiedreader.feature.library.shelves.LibraryShelfItemsBrowser
 import com.example.unifiedreader.feature.library.shelves.LibraryShelvesTopSlot
 import com.example.unifiedreader.feature.library.shelves.browserState
+import com.example.unifiedreader.feature.library.withWindowBadges
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
+import com.example.unifiedreader.ui.components.AppBackground
+import kotlinx.coroutines.flow.Flow
 
 @Composable
 internal fun LibraryRoute(
@@ -116,7 +116,7 @@ internal fun LibraryRoute(
         onDeleteDownloadedItem = onDeleteRemoteLocalFile,
         onSetReadStatus = onSetReadStatus,
     ).withWindowBadges(shelfWindowBadges)
-    Surface(
+    AppBackground(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
     ) {

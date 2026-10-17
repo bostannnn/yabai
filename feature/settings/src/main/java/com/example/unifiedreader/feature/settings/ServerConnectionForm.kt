@@ -10,13 +10,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,6 +22,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.ui.components.AppButton
+import com.example.unifiedreader.ui.components.AppCircularProgress
+import com.example.unifiedreader.ui.components.AppLinearProgress
+import com.example.unifiedreader.ui.components.AppTextButton
+import com.example.unifiedreader.ui.components.AppTextField
 
 internal data class ServerConnectionFormState(
     val displayName: String,
@@ -95,7 +95,7 @@ internal fun ServerConnectionForm(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (layout.useTwoColumnServerForm) {
-                OutlinedTextField(
+                AppTextField(
                     value = state.displayName,
                     onValueChange = onDisplayNameChanged,
                     modifier = Modifier.fillMaxWidth(),
@@ -105,7 +105,7 @@ internal fun ServerConnectionForm(
                 )
                 ServerFormFieldRow(
                     start = {
-                        OutlinedTextField(
+                        AppTextField(
                             value = state.baseUrl,
                             onValueChange = onBaseUrlChanged,
                             modifier = Modifier.fillMaxWidth(),
@@ -116,7 +116,7 @@ internal fun ServerConnectionForm(
                         )
                     },
                     end = {
-                        OutlinedTextField(
+                        AppTextField(
                             value = state.backupBaseUrl,
                             onValueChange = onBackupBaseUrlChanged,
                             modifier = Modifier.fillMaxWidth(),
@@ -129,7 +129,7 @@ internal fun ServerConnectionForm(
                 )
                 ServerFormFieldRow(
                     start = {
-                        OutlinedTextField(
+                        AppTextField(
                             value = state.username,
                             onValueChange = onUsernameChanged,
                             modifier = Modifier.fillMaxWidth(),
@@ -150,7 +150,7 @@ internal fun ServerConnectionForm(
                     },
                 )
             } else {
-                OutlinedTextField(
+                AppTextField(
                     value = state.displayName,
                     onValueChange = onDisplayNameChanged,
                     modifier = Modifier.fillMaxWidth(),
@@ -158,7 +158,7 @@ internal fun ServerConnectionForm(
                     singleLine = true,
                     label = { Text("Name") },
                 )
-                OutlinedTextField(
+                AppTextField(
                     value = state.baseUrl,
                     onValueChange = onBaseUrlChanged,
                     modifier = Modifier.fillMaxWidth(),
@@ -167,7 +167,7 @@ internal fun ServerConnectionForm(
                     label = { Text("Server URL") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                 )
-                OutlinedTextField(
+                AppTextField(
                     value = state.backupBaseUrl,
                     onValueChange = onBackupBaseUrlChanged,
                     modifier = Modifier.fillMaxWidth(),
@@ -176,7 +176,7 @@ internal fun ServerConnectionForm(
                     label = { Text("Backup URL (optional)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                 )
-                OutlinedTextField(
+                AppTextField(
                     value = state.username,
                     onValueChange = onUsernameChanged,
                     modifier = Modifier.fillMaxWidth(),
@@ -199,7 +199,7 @@ internal fun ServerConnectionForm(
                 if (layout.useTwoColumnServerForm) {
                     ServerFormFieldRow(
                         start = {
-                            Button(
+                            AppButton(
                                 onClick = onConnect,
                                 enabled = state.canConnect,
                                 modifier = Modifier
@@ -224,7 +224,7 @@ internal fun ServerConnectionForm(
                         },
                     )
                 } else {
-                    Button(
+                    AppButton(
                         onClick = onConnect,
                         enabled = state.canConnect,
                         modifier = Modifier
@@ -246,7 +246,7 @@ internal fun ServerConnectionForm(
                     )
                 }
             } else {
-                Button(
+                AppButton(
                     onClick = onConnect,
                     enabled = state.canConnect,
                     modifier = if (layout.useTwoColumnServerForm) {
@@ -268,7 +268,7 @@ internal fun ServerConnectionForm(
                 }
             }
             if (state.isConnecting && state.syncProgressLabel != null) {
-                LinearProgressIndicator(
+                AppLinearProgress(
                     progress = { state.syncProgressFraction ?: 0f },
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -295,7 +295,7 @@ internal fun ServerConnectionForm(
 
 @Composable
 internal fun SettingsButtonProgressIndicator() {
-    CircularProgressIndicator(
+    AppCircularProgress(
         modifier = Modifier.size(SettingsButtonProgressIndicatorSize),
         strokeWidth = 2.dp,
     )
@@ -310,7 +310,7 @@ private fun ServerSyncButtons(
     onSecondarySync: (() -> Unit)?,
 ) {
     if (secondarySyncLabel == null || onSecondarySync == null) {
-        Button(
+        AppButton(
             onClick = onSync,
             enabled = actionState.canSync,
             modifier = Modifier
@@ -330,7 +330,7 @@ private fun ServerSyncButtons(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Button(
+        AppButton(
             onClick = onSync,
             enabled = actionState.canSync,
             modifier = Modifier
@@ -343,7 +343,7 @@ private fun ServerSyncButtons(
                 Text(syncLabel)
             }
         }
-        Button(
+        AppButton(
             onClick = onSecondarySync,
             enabled = actionState.canSync,
             modifier = Modifier
@@ -374,7 +374,7 @@ private fun ServerPasswordField(
     onPasswordVisibilityChanged: (Boolean) -> Unit,
     onPasswordChanged: (String) -> Unit,
 ) {
-    OutlinedTextField(
+    AppTextField(
         value = password,
         onValueChange = onPasswordChanged,
         modifier = Modifier.fillMaxWidth(),
@@ -388,7 +388,7 @@ private fun ServerPasswordField(
         },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         trailingIcon = {
-            TextButton(
+            AppTextButton(
                 onClick = { onPasswordVisibilityChanged(!isPasswordVisible) },
                 enabled = password.isNotEmpty() && !isConnecting,
             ) {

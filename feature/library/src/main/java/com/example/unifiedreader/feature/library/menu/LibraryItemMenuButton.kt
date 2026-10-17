@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -20,6 +19,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.ui.components.AppTonalIconButton
 
 enum class LibraryItemMenuButtonStyle {
     Tonal,
@@ -54,7 +54,7 @@ private fun TonalLibraryItemMenuButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    FilledTonalIconButton(
+    AppTonalIconButton(
         onClick = onClick,
         modifier = modifier.size(40.dp),
         shape = RoundedCornerShape(10.dp),

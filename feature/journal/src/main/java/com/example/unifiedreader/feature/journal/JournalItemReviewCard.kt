@@ -10,15 +10,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,6 +25,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
+import com.example.unifiedreader.ui.components.AppPanel
+import com.example.unifiedreader.ui.components.AppPanelDefaults
+import com.example.unifiedreader.ui.components.AppTextField
 
 @Stable
 class JournalReviewState(
@@ -75,9 +76,11 @@ fun JournalItemReviewCard(
     modifier: Modifier = Modifier,
     actions: @Composable RowScope.() -> Unit,
 ) {
-    OutlinedCard(
+    AppPanel(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
+        color = AppPanelDefaults.outlinedContainerColor,
+        border = AppPanelDefaults.outlinedBorder,
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
@@ -96,7 +99,7 @@ fun JournalItemReviewCard(
                     onRatingSelected(rating)
                 },
             )
-            OutlinedTextField(
+            AppTextField(
                 value = reviewState.reviewText,
                 onValueChange = { reviewState.reviewText = it },
                 label = { Text(text = "Private review") },

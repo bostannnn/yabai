@@ -12,10 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -24,6 +22,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.ui.components.AppDialog
+import com.example.unifiedreader.ui.components.AppPanel
+import com.example.unifiedreader.ui.components.AppPanelDefaults
 
 @Composable
 fun ReaderCompletionDialog(
@@ -35,7 +36,7 @@ fun ReaderCompletionDialog(
     onStartNext: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
+    AppDialog(
         onDismissRequest = onDismiss,
         title = { Text(text = "Finished") },
         text = {
@@ -65,9 +66,12 @@ private fun ReaderCompletionNextItemCard(
     coverContent: @Composable (ReadableItem, Modifier) -> Unit,
     onClick: () -> Unit,
 ) {
-    OutlinedCard(
+    AppPanel(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = AppPanelDefaults.outlinedContainerColor,
+        border = AppPanelDefaults.outlinedBorder,
     ) {
         Row(
             modifier = Modifier.padding(12.dp),

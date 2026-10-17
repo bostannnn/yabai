@@ -12,22 +12,22 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
-import com.example.unifiedreader.ui.theme.UnifiedReaderModalBottomSheet
+import com.example.unifiedreader.ui.components.AppButton
+import com.example.unifiedreader.ui.components.AppDialogHost
+import com.example.unifiedreader.ui.components.AppIconButton
+import com.example.unifiedreader.ui.components.AppPanel
+import com.example.unifiedreader.ui.components.AppSheet
+import com.example.unifiedreader.ui.components.AppTextButton
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import com.example.unifiedreader.ui.theme.unifiedReaderComponentTreatment
 import com.example.unifiedreader.ui.theme.unifiedReaderSurfacePattern
@@ -63,8 +63,8 @@ internal fun JournalDetailsModal(
     val sheetRecipe = UnifiedReaderThemeTokens.components.sheet
     val dialogShape = RoundedCornerShape(presentation.cardCornerRadius)
     if (useDialog) {
-        Dialog(onDismissRequest = onDismiss) {
-            Surface(
+        AppDialogHost(onDismissRequest = onDismiss) {
+            AppPanel(
                 modifier = Modifier
                     .fillMaxWidth()
                     .widthIn(max = 380.dp)
@@ -91,7 +91,7 @@ internal fun JournalDetailsModal(
             }
         }
     } else {
-        UnifiedReaderModalBottomSheet(
+        AppSheet(
             onDismissRequest = onDismiss,
         ) {
             JournalDetailsContent(
@@ -184,7 +184,7 @@ private fun JournalDetailsHeader(
                 )
             }
         }
-        IconButton(onClick = onDismiss) {
+        AppIconButton(onClick = onDismiss) {
             Icon(imageVector = Icons.Default.Close, contentDescription = "Close")
         }
     }
@@ -215,11 +215,11 @@ private fun JournalDetailsItemCard(
             onSaveJournalEntry(item, rating, reviewState.reviewText)
         },
     ) {
-        TextButton(onClick = onDeleteItemJournal) {
+        AppTextButton(onClick = onDeleteItemJournal) {
             Icon(imageVector = Icons.Default.Delete, contentDescription = null)
             Text(text = "Remove", modifier = Modifier.padding(start = 8.dp))
         }
-        Button(
+        AppButton(
             onClick = {
                 onSaveJournalEntry(item, reviewState.selectedRating, reviewState.reviewText)
             },

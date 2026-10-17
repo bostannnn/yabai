@@ -9,6 +9,19 @@ Started 2026-10-17. Scope so far is the library home; other screens are listed a
 
 ## Decisions
 
+- **Direction approved 2026-10-17: glass chrome over flat content, themes as palettes only.**
+  Mock: https://claude.ai/artifact/HUb2kC5y5k17dniBJgxTKa (library home, seven color-only
+  themes). One translucent blurred material for the top bar, drawer, sheets, and reader bars;
+  covers and lists sit flat on the background; one cover tile shared by the grid and the
+  shelves; three corner radii (cover, control, container); progress and finished state drawn on
+  the cover; colored title-derived placeholders instead of the grey format box.
+- **Build it through an app-owned component kit, not a new UI library.** The mismatched look
+  came from feature code calling raw Material `Card`/`Surface`/`Dialog`/`Button` with ad-hoc
+  shapes and alphas. `core:ui-components` is the single chokepoint; Haze is the only planned
+  new dependency. Kyant's Backdrop (refractive liquid glass), Miuix, Lumo, and Compose Unstyled
+  were considered and rejected: none fixes the missing component layer, and Backdrop is GPU
+  work over a scrolling cover grid that would need `LibraryPerf` proof.
+
 - **Stay on Material 3** and build on it. The theme system (`ThemeMode`, `core:ui-theme` tokens,
   personality treatments) is built on the M3 `ColorScheme`, so swapping design systems (Miuix,
   Compose Unstyled, Lumo UI) would mean rewriting it. Revisit only if M3 Expressive still looks generic.
@@ -28,6 +41,29 @@ Started 2026-10-17. Scope so far is the library home; other screens are listed a
   from the tablet before it ships.
 - Library presentation must commit coherently: shelves, grid, and filter summary must not jump or
   resize after the grid has shown.
+
+## 0. Unification sequence
+
+Pull-request-sized steps; each lands and gets judged on the tablet before the next.
+
+1. `[x]` **Component kit, no visual change.** `core:ui-components` with `AppPanel`,
+   `AppBackground`, `AppBadge`, `AppDialog`, `AppDialogHost`, `AppSheet`, `AppButton`,
+   `AppOutlinedButton`, `AppTextButton`, `AppIconButton`, `AppTonalIconButton`, `AppChip`,
+   `AppDivider`, `AppMenu`, `AppMenuItem`, `AppSegmentedRow`, `AppSegment`, `AppTextField`,
+   `AppLinearProgress`, `AppCircularProgress`. Every raw Material call for those roles in
+   `feature/*` and `app` routed through the kit (44 files); the kit mirrors Material's
+   parameters and defaults so nothing moves. `FeatureMaterialImportRuleTest` forbids the raw
+   imports from coming back. Still allowed until the kit covers them: `Checkbox`, `Switch`,
+   `Slider`, `Scaffold`, `Snackbar`, drawer and navigation rail components.
+2. `[ ]` **Themes to color only.** Delete `UnifiedReaderTreatmentModifiers.kt`, the per-theme
+   `Shapes` and `Typography`, `UnifiedReaderComponentCatalog.kt`, and the personality/component
+   token types. Keep every palette. One shape scale: cover 6, control 12, container 20.
+3. `[ ]` **The look.** Add Haze. Glass top bar and drawer in the library, flat content, one
+   cover tile for grid and shelves, progress bar and finished check on the cover, colored
+   placeholders. Reader bars adopt the same glass recipe. Measure scroll frames on the tablet.
+4. `[ ]` **Font and icons.** Bundle Manrope (full Cyrillic; the Grimmory library is largely
+   Russian). Material Symbols Rounded replaces `material-icons-extended`.
+5. `[ ]` **Settings, journal, book detail** rebuilt on the kit.
 
 ## 1. Compose and Material 3 upgrade `[ ]`
 

@@ -10,14 +10,8 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -31,6 +25,12 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.ui.components.AppChip
+import com.example.unifiedreader.ui.components.AppDivider
+import com.example.unifiedreader.ui.components.AppIconButton
+import com.example.unifiedreader.ui.components.AppMenu
+import com.example.unifiedreader.ui.components.AppMenuItem
+import com.example.unifiedreader.ui.components.AppTextField
 
 data class LibraryBrowseOption(
     val id: String,
@@ -58,7 +58,7 @@ fun LibraryBrowseSearchField(
     label: String = "Search library",
     clearContentDescription: String = "Clear search",
 ) {
-    OutlinedTextField(
+    AppTextField(
         value = query,
         onValueChange = onQueryChanged,
         modifier = modifier.libraryAccentTextFieldTreatment(selected = query.isNotEmpty()),
@@ -71,7 +71,7 @@ fun LibraryBrowseSearchField(
         },
         trailingIcon = if (query.isNotEmpty()) {
             {
-                IconButton(onClick = { onQueryChanged("") }) {
+                AppIconButton(onClick = { onQueryChanged("") }) {
                     Icon(
                         imageVector = Icons.Default.Clear,
                         contentDescription = clearContentDescription,
@@ -110,7 +110,7 @@ fun LibraryBrowseOptionsMenu(
     var expanded by rememberSaveable { mutableStateOf(false) }
     val sanitizedGridCellSizeDp = sanitizeLibraryGridCellSizeDp(gridCellSizeDp)
     Box(modifier = modifier) {
-        FilterChip(
+        AppChip(
             selected = selected,
             onClick = { expanded = true },
             modifier = Modifier.libraryAccentChipTreatment(selected = selected),
@@ -131,14 +131,14 @@ fun LibraryBrowseOptionsMenu(
                 )
             },
         )
-        DropdownMenu(
+        AppMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
             var needsDivider = false
             if (lockedOption != null) {
                 LibraryBrowseDropdownSectionHeader(text = lockedOption.sectionTitle)
-                DropdownMenuItem(
+                AppMenuItem(
                     text = { Text(text = lockedOption.label) },
                     enabled = false,
                     onClick = {},
@@ -147,11 +147,11 @@ fun LibraryBrowseOptionsMenu(
             } else {
                 optionSections.forEachIndexed { index, section ->
                     if (index > 0) {
-                        HorizontalDivider()
+                        AppDivider()
                     }
                     LibraryBrowseDropdownSectionHeader(text = section.title)
                     section.options.forEach { option ->
-                        DropdownMenuItem(
+                        AppMenuItem(
                             text = {
                                 Text(
                                     text = option.label,
@@ -169,11 +169,11 @@ fun LibraryBrowseOptionsMenu(
                 }
             }
             if (needsDivider && (showFadeReadItems || (showGridSizeOptions && gridSizeOptions.isNotEmpty()))) {
-                HorizontalDivider()
+                AppDivider()
             }
             if (showFadeReadItems) {
                 LibraryBrowseDropdownSectionHeader(text = viewSectionTitle)
-                DropdownMenuItem(
+                AppMenuItem(
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(
@@ -192,13 +192,13 @@ fun LibraryBrowseOptionsMenu(
                     },
                 )
                 if (showGridSizeOptions && gridSizeOptions.isNotEmpty()) {
-                    HorizontalDivider()
+                    AppDivider()
                 }
             }
             if (showGridSizeOptions && gridSizeOptions.isNotEmpty()) {
                 LibraryBrowseDropdownSectionHeader(text = gridSizeSectionTitle)
                 gridSizeOptions.forEach { option ->
-                    DropdownMenuItem(
+                    AppMenuItem(
                         modifier = Modifier.testTag(LibraryGridSizeOptionTagPrefix + option.cellSizeDp),
                         text = {
                             Text(
@@ -227,7 +227,7 @@ fun LibraryBrowseOptionsMenu(
 private fun LibraryBrowseDropdownSectionHeader(
     text: String,
 ) {
-    DropdownMenuItem(
+    AppMenuItem(
         text = {
             Text(
                 text = text,

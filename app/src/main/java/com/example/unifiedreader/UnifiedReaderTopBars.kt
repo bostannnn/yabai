@@ -24,14 +24,11 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +45,9 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.feature.library.LibraryBrowseSearchModeTopBar
 import com.example.unifiedreader.feature.library.LibraryBrowseTopBarContainer
+import com.example.unifiedreader.ui.components.AppBadge
+import com.example.unifiedreader.ui.components.AppCircularProgress
+import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 @Composable
@@ -158,7 +158,7 @@ private fun LibraryRestingTopBar(
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onSearchClick) {
+            AppIconButton(onClick = onSearchClick) {
                 Icon(
                     imageVector = Icons.Default.Search,
                     contentDescription = "Search library",
@@ -266,7 +266,7 @@ private fun LibraryTopBarTitle(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton(
+        AppIconButton(
             onClick = onDrawerClick,
             modifier = Modifier.size(36.dp),
         ) {
@@ -276,7 +276,7 @@ private fun LibraryTopBarTitle(
             )
         }
         if (seriesTitle != null) {
-            IconButton(
+            AppIconButton(
                 onClick = onLeaveSeries,
                 modifier = Modifier.size(36.dp),
             ) {
@@ -338,7 +338,7 @@ private fun SourceConnectivityIndicator(
     } else {
         Modifier
     }
-    Surface(
+    AppBadge(
         modifier = clickModifier.semantics {
             contentDescription = when (state) {
                 SourceConnectivityState.Checking -> "${sourceType.displayName()} connection is checking"
@@ -380,7 +380,7 @@ private fun AppSectionHeader(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton(
+        AppIconButton(
             onClick = onDrawerClick,
             modifier = Modifier.size(36.dp),
         ) {
@@ -417,7 +417,7 @@ private fun LibraryToolbarActions(
     ) {
         if (refreshState.isVisible) {
             val isRefreshEnabled = refreshState.isEnabled && !refreshState.isRefreshing
-            IconButton(
+            AppIconButton(
                 enabled = isRefreshEnabled,
                 onClick = onRefreshClick,
                 modifier = Modifier.semantics {
@@ -429,7 +429,7 @@ private fun LibraryToolbarActions(
                 },
             ) {
                 if (refreshState.isRefreshing) {
-                    CircularProgressIndicator(
+                    AppCircularProgress(
                         modifier = Modifier.size(20.dp),
                         strokeWidth = 2.dp,
                     )
@@ -447,7 +447,7 @@ private fun LibraryToolbarActions(
             }
         }
         onDownloadsClick?.let { handler ->
-            IconButton(onClick = handler) {
+            AppIconButton(onClick = handler) {
                 BadgedBox(
                     badge = {
                         if (downloadBadgeCount > 0) {
@@ -466,7 +466,7 @@ private fun LibraryToolbarActions(
             }
         }
         onDownloadSelectionClick?.let { handler ->
-            IconButton(
+            AppIconButton(
                 enabled = downloadSelectionEnabled,
                 onClick = handler,
             ) {
@@ -481,7 +481,7 @@ private fun LibraryToolbarActions(
                 )
             }
         }
-        IconButton(onClick = onImportLocalFileClick) {
+        AppIconButton(onClick = onImportLocalFileClick) {
             Icon(
                 imageVector = Icons.Default.Add,
                 contentDescription = "Import local file",
@@ -503,7 +503,7 @@ private fun LibraryDownloadSelectionTopBar(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton(
+        AppIconButton(
             onClick = onCancel,
             modifier = Modifier.size(36.dp),
         ) {
@@ -518,7 +518,7 @@ private fun LibraryDownloadSelectionTopBar(
             maxLines = 1,
             modifier = Modifier.weight(1f),
         )
-        IconButton(
+        AppIconButton(
             enabled = state.selectedCount < state.selectableCount,
             onClick = onSelectAll,
         ) {
@@ -527,7 +527,7 @@ private fun LibraryDownloadSelectionTopBar(
                 contentDescription = "Select all downloadable items",
             )
         }
-        IconButton(
+        AppIconButton(
             enabled = state.selectedCount > 0,
             onClick = onDownloadSelected,
         ) {

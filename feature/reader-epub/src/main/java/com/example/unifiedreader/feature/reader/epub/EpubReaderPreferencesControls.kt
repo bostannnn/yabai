@@ -1,7 +1,6 @@
 package com.example.unifiedreader.feature.reader.epub
 
 import android.graphics.Typeface
-import java.util.Locale
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,24 +16,25 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
+import com.example.unifiedreader.ui.components.AppIconButton
+import com.example.unifiedreader.ui.components.AppSegment
+import com.example.unifiedreader.ui.components.AppSegmentedRow
+import java.util.Locale
 
 @Composable
 internal fun EpubTextSizeStepper(
@@ -167,7 +167,7 @@ internal fun EpubFontPicker(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onBack) {
+            AppIconButton(onClick = onBack) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
@@ -381,9 +381,9 @@ internal fun <T> EpubSegmentedSection(
                 color = tokens.colors.secondaryText,
             )
         }
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+        AppSegmentedRow(modifier = Modifier.fillMaxWidth()) {
             entries.forEachIndexed { index, entry ->
-                SegmentedButton(
+                AppSegment(
                     selected = selected == entry,
                     onClick = { onSelected(entry) },
                     colors = SegmentedButtonDefaults.colors(
@@ -393,10 +393,8 @@ internal fun <T> EpubSegmentedSection(
                         inactiveContentColor = tokens.colors.primaryText,
                     ),
                     border = BorderStroke(1.dp, tokens.colors.divider),
-                    shape = SegmentedButtonDefaults.itemShape(
-                        index = index,
-                        count = entries.size,
-                    ),
+                    index = index,
+                    count = entries.size,
                     label = { Text(text = entry.label) },
                 )
             }

@@ -29,6 +29,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":core:ui-components"))
     implementation(project(":core:model"))
     implementation(project(":feature:reader-core"))
     implementation(platform(libs.androidx.compose.bom))

@@ -5,14 +5,11 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -33,6 +30,9 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
+import com.example.unifiedreader.ui.components.AppDivider
+import com.example.unifiedreader.ui.components.AppMenu
+import com.example.unifiedreader.ui.components.AppMenuItem
 
 internal data class ItemMenuAction(
     val label: String,
@@ -100,7 +100,7 @@ internal fun LibraryItemOverflowMenu(
             onClick = { updateExpanded(true) },
             style = buttonStyle,
         )
-        DropdownMenu(
+        AppMenu(
             expanded = menuExpanded,
             onDismissRequest = { updateExpanded(false) },
         ) {
@@ -129,7 +129,7 @@ internal fun LibraryItemMenuEntries(
     }
 
     effectiveActions.forEach { action ->
-        DropdownMenuItem(
+        AppMenuItem(
             text = { Text(text = action.label) },
             enabled = action.enabled,
             onClick = {
@@ -140,7 +140,7 @@ internal fun LibraryItemMenuEntries(
     }
     readingDirectionState?.let { state ->
         if (effectiveActions.isNotEmpty()) {
-            HorizontalDivider()
+            AppDivider()
         }
         Column(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
@@ -156,7 +156,7 @@ internal fun LibraryItemMenuEntries(
     }
     readerModeState?.let { state ->
         if (effectiveActions.isNotEmpty() || readingDirectionState != null) {
-            HorizontalDivider()
+            AppDivider()
         }
         Row(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),

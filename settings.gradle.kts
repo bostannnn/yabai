@@ -23,6 +23,7 @@ include(
     ":app",
     ":core:common",
     ":core:ui-theme",
+    ":core:ui-components",
     ":core:model",
     ":core:network",
     ":core:database",

@@ -1,11 +1,11 @@
 package com.example.unifiedreader.feature.library
 
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.libraryDisplayLabel
+import com.example.unifiedreader.ui.components.AppDialog
+import com.example.unifiedreader.ui.components.AppTextButton
 
 @Composable
 fun LibraryDeleteImportedItemDialog(
@@ -13,7 +13,7 @@ fun LibraryDeleteImportedItemDialog(
     onDismiss: () -> Unit,
     onConfirmDelete: (ReadableItem) -> Unit,
 ) {
-    AlertDialog(
+    AppDialog(
         onDismissRequest = onDismiss,
         title = { Text(text = "Remove local file?") },
         text = {
@@ -22,14 +22,14 @@ fun LibraryDeleteImportedItemDialog(
             )
         },
         confirmButton = {
-            TextButton(
+            AppTextButton(
                 onClick = { onConfirmDelete(item) },
             ) {
                 Text(text = "Remove")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            AppTextButton(onClick = onDismiss) {
                 Text(text = "Cancel")
             }
         },
