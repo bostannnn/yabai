@@ -58,8 +58,16 @@ internal fun GridCoverCard(
                 reserveBottomBadge = rating != null || isDownloaded,
             )
         },
-        coverOverlay = if (rating != null || issueCountBadge != null || isSelectionMode) {
+        coverOverlay = if (rating != null || issueCountBadge != null || isSelectionMode || progressLabel != null) {
             {
+                progress?.takeIf { it.shouldShowCoverProgress }?.let { summary ->
+                    LibraryCoverProgressBar(
+                        fraction = summary.fraction,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth(),
+                    )
+                }
                 issueCountBadge?.takeUnless { isSelectionMode }?.let { count ->
                     LibraryCountBadge(
                         count = count,

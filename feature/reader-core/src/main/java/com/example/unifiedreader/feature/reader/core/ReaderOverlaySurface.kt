@@ -1,7 +1,5 @@
 package com.example.unifiedreader.feature.reader.core
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -9,6 +7,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.ui.components.appGlass
 
 enum class ReaderOverlaySurfaceRole {
     ControlBar,
@@ -41,14 +40,9 @@ fun Modifier.readerOverlaySurface(
                     Modifier
                 },
             )
-            .background(
-                color = color,
+            .appGlass(
                 shape = shape,
-            )
-            .border(
-                width = 1.dp,
-                color = tokens.colors.selectedBorder,
-                shape = shape,
+                containerColor = color,
             ),
     )
 }

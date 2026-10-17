@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.ui.components.appProgressFill
@@ -65,26 +66,31 @@ internal fun ProgressSummary(
     }
 }
 
+/**
+ * The thin reading-progress bar drawn along the bottom edge of a cover, in the grid, the
+ * shelves, and the shelf browser alike.
+ */
 @Composable
-internal fun LibraryCoverProgressBar(
-    progress: ItemProgressSummary,
+fun LibraryCoverProgressBar(
+    fraction: Float,
     modifier: Modifier = Modifier,
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
-    val clampedFraction = progress.fraction.coerceIn(0f, 1f)
+    val presentation = UnifiedReaderThemeTokens.presentation
     val barShape = androidx.compose.foundation.shape.RoundedCornerShape(
-        bottomStart = 4.dp,
-        bottomEnd = 4.dp,
+        bottomStart = presentation.coverCornerRadius,
+        bottomEnd = presentation.coverCornerRadius,
     )
-
     Box(
         modifier = modifier
-            .height(7.dp)
+            .height(LibraryCoverProgressBarHeight)
             .clip(barShape)
             .appProgressFill(
-                fraction = clampedFraction,
+                fraction = fraction.coerceIn(0f, 1f),
                 progressColor = semanticColors.readerAccent,
-                trackColor = semanticColors.readerScrim.copy(alpha = 0.42f),
+                trackColor = Color.Black.copy(alpha = 0.35f),
             ),
     )
 }
+
+private val LibraryCoverProgressBarHeight = 4.dp

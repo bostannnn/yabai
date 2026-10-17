@@ -62,9 +62,23 @@ Pull-request-sized steps; each lands and gets judged on the tablet before the ne
    The faint accent border on shelf panels and shelf cards stays as a plain 1 dp stroke; the
    thin cover and row progress bars draw through `Modifier.appProgressFill` in the kit.
    `THEME_CUSTOMIZATION_GUIDE.md` rewritten for palette-only themes.
-3. `[ ]` **The look.** Add Haze. Glass top bar and drawer in the library, flat content, one
-   cover tile for grid and shelves, progress bar and finished check on the cover. Reader bars
-   adopt the same glass recipe. Measure scroll frames on the tablet.
+3. `[~]` **The look.** Haze 1.5.3 (the last line built against Compose 1.7; Haze 1.6 needs
+   Compose 1.8, so the BOM bump in section 1 is still separate). The kit owns the recipe:
+   `Modifier.appGlass` (translucent surface over a 22 dp blur, hairline edge, near-opaque
+   fallback where blur is unavailable), `Modifier.appGlassSource` on the content it floats over,
+   and `AppTopBar`, a 56 dp floating bar with `AppTopBarDefaults.contentInset` of top padding
+   reserved by each screen so the library, Kavita landing, shelf browser, and journal scroll
+   under it (settings is inset but does not scroll under yet). The drawer is a floating glass
+   panel inset from the screen edges. Shelf covers are bare tiles like the grid's; shelf panels
+   keep a title, a muted count, and See all, with no accent rail, mark, or count pill. One
+   `LibraryCoverProgressBar` (4 dp, accent over a dark track) draws on covers in the grid, the
+   shelves, the shelf rows, and the shelf browser; finished books get a check circle instead
+   of the Read pill and no dimming. Reader bars, panes, and the preview strip use the same glass
+   through `readerOverlaySurface`, with the pages as the source via `ImmersiveReaderOverlay`.
+   Checked on the emulator (library, drawer, comics reader).
+   Not done: bottom sheets stay opaque (a modal sheet is its own window, so it cannot blur the
+   screen behind it); scroll frame times are **not measured on the tablet yet**, which the
+   architecture rules require before this ships.
 4. `[ ]` **Font and icons.** Bundle Manrope (full Cyrillic; the Grimmory library is largely
    Russian). Material Symbols Rounded replaces `material-icons-extended`.
 5. `[ ]` **Settings, journal, book detail** rebuilt on the kit.
@@ -152,10 +166,10 @@ sort button. Optional differences from the 2026-10-17 mockup:
       number or the title's first letter. Checked on the emulator.
 - [x] Checked on the tablet (Local source, Terminal 95): series covers match per series, text clears the Read and rating chips.
 
-## 4. Blur behind chrome `[ ]`
+## 4. Blur behind chrome `[~]`
 
-- [ ] Add Haze (`dev.chrisbanes.haze`, 1.x stable) behind the top bar and bottom sheets so content
-      scrolls under frosted chrome.
+- [x] Haze 1.5.3 behind the top bar, the drawer, and the reader chrome (see step 3 in section 0).
+      Bottom sheets cannot blur the screen behind them (separate window), so they stay opaque.
 - [ ] Measure scroll smoothness on the tablet; blur over a cover grid costs GPU time.
 
 ## 5. Cover-derived color `[ ]`

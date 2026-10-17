@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
@@ -66,6 +66,7 @@ fun KavitaScopeLandingScreen(
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit = { _, _ -> },
     onCoverViewportScrollingChanged: (Boolean) -> Unit = {},
     onItemSelected: (String) -> Unit,
+    contentTopInset: Dp = 0.dp,
     modifier: Modifier = Modifier,
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -154,7 +155,7 @@ fun KavitaScopeLandingScreen(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
                 start = libraryGridStartPaddingDp,
-                top = 16.dp,
+                top = 16.dp + contentTopInset,
                 end = gridEndPadding,
                 bottom = 16.dp,
             ),

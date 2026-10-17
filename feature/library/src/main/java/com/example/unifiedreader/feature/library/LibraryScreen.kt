@@ -7,15 +7,14 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridLayoutInfo
 import androidx.compose.foundation.lazy.grid.LazyGridPrefetchScope
 import androidx.compose.foundation.lazy.grid.LazyGridPrefetchStrategy
 import androidx.compose.foundation.lazy.grid.LazyGridState
-import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.layout.NestedPrefetchScope
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -31,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.paging.LoadState
 import androidx.paging.PagingData
@@ -90,6 +90,8 @@ fun LibraryScreen(
     // Drawn above the filter summary as a full-width grid row; receives the grid's column setup so it
     // can size its covers to match the grid's.
     topContent: (@Composable (LibraryGridMetrics) -> Unit)? = null,
+    // Extra top padding so the first row clears a floating top bar the content scrolls under.
+    contentTopInset: Dp = 0.dp,
     onFilterStateChanged: (LibraryFilterState) -> Unit = {},
     onClearFilters: () -> Unit = {},
     onReadingListSelected: (String?) -> Unit = {},
@@ -434,7 +436,7 @@ fun LibraryScreen(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
                 start = libraryGridStartPaddingDp,
-                top = 16.dp,
+                top = 16.dp + contentTopInset,
                 end = gridEndPadding,
                 bottom = 16.dp,
             ),

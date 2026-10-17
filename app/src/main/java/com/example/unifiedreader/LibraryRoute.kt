@@ -9,6 +9,8 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.paging.PagingData
 import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.LibraryAlphabetSection
@@ -79,6 +81,7 @@ internal fun LibraryRoute(
     onActiveShelfBrowserKindChanged: (LibraryShelfBrowserKind?) -> Unit = {},
     shelfSearchQuery: String = "",
     onShelfSearchQueryChanged: (String) -> Unit = {},
+    contentTopInset: Dp = 0.dp,
     modifier: Modifier = Modifier,
 ) {
     LaunchedEffect(uiState.selectedSource) {
@@ -132,6 +135,7 @@ internal fun LibraryRoute(
                 searchQuery = shelfSearchQuery,
                 onSearchQueryChanged = onShelfSearchQueryChanged,
                 showEmbeddedTopBar = false,
+                contentTopInset = contentTopInset,
                 onCoverVisible = onCoverVisible,
                 onCoverViewportScrollingChanged = onCoverViewportScrollingChanged,
                 onBack = { onActiveShelfBrowserKindChanged(null) },
@@ -143,6 +147,7 @@ internal fun LibraryRoute(
             )
         } else if (uiState.isKavitaVisualSectionActive) {
             KavitaScopeLandingScreen(
+                contentTopInset = contentTopInset,
                 title = uiState.kavitaLibrarySection.displayName(),
                 items = uiState.kavitaScopeLandingItems(),
                 isLoading = !uiState.isSelectedSourceHydrated || uiState.kavitaReadingLists.isLoadingSummaries,
@@ -163,6 +168,7 @@ internal fun LibraryRoute(
             )
         } else {
             LibraryScreen(
+                contentTopInset = contentTopInset,
                 selectedSource = uiState.selectedSource,
                 browseContextKey = browseContextKey,
                 items = uiState.visibleItems,

@@ -3,7 +3,6 @@ package com.example.unifiedreader.feature.library
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -35,6 +34,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppPanel
+import com.example.unifiedreader.ui.components.AppTopBar
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 @Composable
@@ -42,11 +42,8 @@ fun LibraryBrowseTopBarContainer(
     modifier: Modifier = Modifier,
     content: @Composable BoxWithConstraintsScope.() -> Unit,
 ) {
-    val themeColors = UnifiedReaderThemeTokens.colors
-    BoxWithConstraints(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+    AppTopBar(
+        modifier = modifier,
         content = content,
     )
 }

@@ -111,11 +111,6 @@ fun LibraryCover(
             )
         }
         if (isRead) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.12f)),
-            )
             LibraryReadStatusBadge(
                 modifier = Modifier
                     .align(Alignment.TopStart)

@@ -4,12 +4,17 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -32,12 +37,15 @@ import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.ui.components.AppDivider
+import com.example.unifiedreader.ui.components.appGlass
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 sealed interface SourceNavigationDestination {
@@ -61,20 +69,24 @@ fun SourceNavigationDrawer(
     onDestinationSelected: (SourceNavigationDestination) -> Unit,
     content: @Composable () -> Unit,
 ) {
-    val semanticColors = UnifiedReaderThemeTokens.colors
     val presentation = UnifiedReaderThemeTokens.presentation
-    val drawerShape = RoundedCornerShape(
-        topEnd = presentation.cardCornerRadius,
-        bottomEnd = presentation.cardCornerRadius,
-    )
+    val drawerShape = RoundedCornerShape(presentation.cardCornerRadius)
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
+            // A floating glass panel, inset from the screen edges and the system bars.
             ModalDrawerSheet(
                 modifier = Modifier
-                    .widthIn(max = 320.dp),
+                    .windowInsetsPadding(
+                        WindowInsets.systemBars.only(WindowInsetsSides.Vertical + WindowInsetsSides.Start),
+                    )
+                    .padding(start = 12.dp, top = 12.dp, bottom = 12.dp)
+                    .widthIn(max = 320.dp)
+                    .shadow(elevation = 8.dp, shape = drawerShape, clip = false)
+                    .appGlass(shape = drawerShape),
                 drawerShape = drawerShape,
-                drawerContainerColor = semanticColors.surfaceBase,
+                drawerContainerColor = Color.Transparent,
+                windowInsets = WindowInsets(0, 0, 0, 0),
             ) {
                 Column(
                     modifier = Modifier

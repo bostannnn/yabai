@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
@@ -22,6 +23,7 @@ fun JournalScreen(
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit = { _, _ -> },
     onDeleteItemJournal: (String) -> Unit,
     onSaveJournalEntry: (JournalItemRef, Int?, String) -> Unit,
+    contentTopInset: Dp = 0.dp,
     modifier: Modifier = Modifier,
 ) {
     var deleteTarget by remember { mutableStateOf<JournalDeleteTarget?>(null) }
@@ -31,6 +33,7 @@ fun JournalScreen(
         onCoverVisible = onCoverVisible,
         onDeleteItemJournal = { itemId -> deleteTarget = JournalDeleteTarget.Item(itemId) },
         onSaveJournalEntry = onSaveJournalEntry,
+        contentTopInset = contentTopInset,
         modifier = modifier,
     )
     deleteTarget?.let { target ->

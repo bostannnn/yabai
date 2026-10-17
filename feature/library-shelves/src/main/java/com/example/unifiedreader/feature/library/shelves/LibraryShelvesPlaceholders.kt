@@ -39,11 +39,9 @@ internal fun ShelfPreviewPlaceholderRow(
         horizontalArrangement = Arrangement.spacedBy(presentation.shelfItemSpacing),
     ) {
         repeat(ShelfPreviewPlaceholderCount) {
-            // Same footprint as a loaded ShelfPreviewCard: the cover plus the card's padding.
+            // Same footprint as a loaded ShelfPreviewCard: a bare cover tile.
             Column(
-                modifier = Modifier
-                    .width(coverWidth + presentation.shelfItemSpacing * 2)
-                    .padding(presentation.shelfItemSpacing),
+                modifier = Modifier.width(coverWidth),
                 verticalArrangement = Arrangement.spacedBy(presentation.shelfItemSpacing),
             ) {
                 Box(

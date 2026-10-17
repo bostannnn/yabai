@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -39,9 +38,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
@@ -55,6 +53,7 @@ import com.example.unifiedreader.feature.library.LibraryBrowseOptionSection
 import com.example.unifiedreader.feature.library.LibraryBrowseOptionsMenu
 import com.example.unifiedreader.feature.library.LibraryCoverActionCard
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
+import com.example.unifiedreader.feature.library.LibraryCoverProgressBar
 import com.example.unifiedreader.feature.library.LibraryDeleteImportedItemDialog
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
 import com.example.unifiedreader.feature.library.availableLibraryGridSizeOptions
@@ -67,7 +66,6 @@ import com.example.unifiedreader.feature.library.minLibraryGridCellSizeDp
 import com.example.unifiedreader.feature.library.sanitizeLibraryGridCellSizeDp
 import com.example.unifiedreader.ui.components.AppBackground
 import com.example.unifiedreader.ui.components.AppPanel
-import com.example.unifiedreader.ui.components.appProgressFill
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -142,6 +140,7 @@ fun LibraryShelfItemsBrowser(
     showEmbeddedTopBar: Boolean = true,
     coverPrefetchKeyProvider: (ReadableItem, LibraryCoverImageVariant) -> String? = coverImageUrlProvider,
     onCoverViewportScrollingChanged: (Boolean) -> Unit = {},
+    contentTopInset: Dp = 0.dp,
     modifier: Modifier = Modifier,
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
@@ -200,7 +199,8 @@ fun LibraryShelfItemsBrowser(
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize(),
+                .fillMaxSize()
+                .padding(top = contentTopInset),
         ) {
             if (showEmbeddedTopBar) {
                 LibraryShelfBrowserTopBar(
@@ -594,23 +594,9 @@ private fun BoxScope.ShelfBrowserProgressOverlay(
     fraction: Float,
     modifier: Modifier = Modifier,
 ) {
-    val semanticColors = UnifiedReaderThemeTokens.colors
-    val presentation = UnifiedReaderThemeTokens.presentation
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(7.dp)
-            .clip(
-                RoundedCornerShape(
-                    bottomStart = presentation.coverCornerRadius,
-                    bottomEnd = presentation.coverCornerRadius,
-                ),
-            )
-            .appProgressFill(
-                fraction = fraction,
-                progressColor = semanticColors.readerAccent,
-                trackColor = semanticColors.surfaceSelected.copy(alpha = 0.36f),
-            ),
+    LibraryCoverProgressBar(
+        fraction = fraction,
+        modifier = modifier.fillMaxWidth(),
     )
 }
 

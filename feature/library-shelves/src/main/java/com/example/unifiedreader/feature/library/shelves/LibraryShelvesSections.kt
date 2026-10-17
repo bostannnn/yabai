@@ -1,16 +1,12 @@
 package com.example.unifiedreader.feature.library.shelves
 
 import android.text.format.DateUtils
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -21,7 +17,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,8 +57,6 @@ internal fun ContinueReadingShelfSection(
         showSeeAll = items.size > SeeAllThreshold,
         onSeeAll = onSeeAll,
         accentColor = semanticColors.readerAccent,
-        accentContainerColor = semanticColors.readerAccentContainer,
-        accentContentColor = semanticColors.onReaderAccentContainer,
         modifier = modifier,
     ) {
         if (previewContentEnabled) {
@@ -111,8 +104,6 @@ internal fun NextInSeriesShelfSection(
         showSeeAll = items.size > SeeAllThreshold,
         onSeeAll = onSeeAll,
         accentColor = semanticColors.sourceAccent,
-        accentContainerColor = semanticColors.sourceAccentContainer,
-        accentContentColor = semanticColors.onSourceAccentContainer,
         modifier = modifier,
     ) {
         if (previewContentEnabled) {
@@ -180,8 +171,6 @@ internal fun RecentlyFinishedShelfSection(
         showSeeAll = items.size > SeeAllThreshold,
         onSeeAll = onSeeAll,
         accentColor = semanticColors.syncAccent,
-        accentContainerColor = semanticColors.syncAccentContainer,
-        accentContentColor = semanticColors.onSyncAccentContainer,
         modifier = modifier,
     ) {
         if (previewContentEnabled) {
@@ -247,8 +236,6 @@ private fun ShelfSectionCard(
     showSeeAll: Boolean,
     onSeeAll: () -> Unit,
     accentColor: Color,
-    accentContainerColor: Color,
-    accentContentColor: Color,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
@@ -257,17 +244,10 @@ private fun ShelfSectionCard(
         modifier = modifier,
         shape = RoundedCornerShape(presentation.cardCornerRadius),
         color = UnifiedReaderThemeTokens.colors.surfaceRaised,
-        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.08f)),
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(presentation.accentRailWidth)
-                    .background(accentColor),
-            )
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -282,42 +262,26 @@ private fun ShelfSectionCard(
                         .fillMaxWidth()
                         .heightIn(min = ShelfSectionHeaderMinHeight),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Row(
                         modifier = Modifier.weight(1f),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.Top,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .padding(top = 2.dp)
-                                .width(presentation.accentRailWidth)
-                                .height(34.dp)
-                                .clip(RoundedCornerShape(presentation.chipCornerRadius))
-                                .background(accentColor),
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
                         )
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            Text(
-                                text = title,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Text(
-                                text = shelfCountLabel(count),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = accentContentColor,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(presentation.chipCornerRadius))
-                                    .background(accentContainerColor)
-                                    .padding(horizontal = 8.dp, vertical = 2.dp),
-                            )
-                        }
+                        Text(
+                            text = count.toString(),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                     if (showSeeAll) {
                         AppTextButton(onClick = onSeeAll) {
@@ -383,13 +347,7 @@ private fun ContinueReadingCarouselCard(
 private val com.example.unifiedreader.feature.library.ItemProgressSummary.isShelfComplete: Boolean
     get() = isFinished || fraction >= 0.999f
 
-private fun shelfCountLabel(
-    count: Int,
-): String = when (count) {
-    1 -> "1 item"
-    else -> "$count items"
-}
 
-private val ShelfSectionHeaderMinHeight = 48.dp
+private val ShelfSectionHeaderMinHeight = 36.dp
 internal const val ShelfPreviewItemLimit = 4
 private const val SeeAllThreshold = 4

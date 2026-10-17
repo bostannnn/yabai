@@ -1,6 +1,5 @@
 package com.example.unifiedreader.feature.library.shelves
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,9 +28,8 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.LibraryCoverActionCard
 import com.example.unifiedreader.feature.library.LibraryCoverAspectRatio
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
+import com.example.unifiedreader.feature.library.LibraryCoverProgressBar
 import com.example.unifiedreader.feature.library.ResolvedLibraryCover
-import com.example.unifiedreader.ui.components.AppPanel
-import com.example.unifiedreader.ui.components.appProgressFill
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 /** Shelf covers match the grid's covers: the grid's cell width, 2:3 shape, and image size. */
@@ -56,67 +54,43 @@ internal fun ShelfPreviewCard(
     isRead: Boolean = false,
     accentColor: Color = MaterialTheme.colorScheme.primary,
 ) {
-    val semanticColors = UnifiedReaderThemeTokens.colors
-    val presentation = UnifiedReaderThemeTokens.presentation
-    AppPanel(
-        modifier = Modifier
-            .width(covers.width + presentation.shelfItemSpacing * 2)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(presentation.cardCornerRadius),
-        color = semanticColors.surfaceOverlay.copy(alpha = 0.72f),
-        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.05f)),
-    ) {
-        Box(
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            LibraryCoverActionCard(
-                item = item,
-                title = title,
-                supportingText = supportingText,
-                trailingText = trailingText,
-                coverImageUrlProvider = { coverItem, coverVariant ->
-                    if (coverLoadingEnabled) {
-                        coverImageUrlProvider(coverItem, coverVariant)
-                    } else {
-                        null
-                    }
-                },
-                imageVariant = covers.imageVariant,
-                isDownloaded = isDownloaded,
-                isRead = isRead,
-                onClick = onClick,
-                modifier = Modifier.padding(presentation.shelfItemSpacing),
-                coverModifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(LibraryCoverAspectRatio),
-                titleStyle = MaterialTheme.typography.titleSmall,
-                supportingStyle = MaterialTheme.typography.bodySmall,
-                trailingColor = accentColor,
-                metadataTopPadding = 8.dp,
-                menuContent = menuContent,
-                coverOverlay = {
-                    progressFraction?.let { fraction ->
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .fillMaxWidth()
-                                .height(7.dp)
-                                .clip(
-                                    RoundedCornerShape(
-                                        bottomStart = presentation.coverCornerRadius,
-                                        bottomEnd = presentation.coverCornerRadius,
-                                    ),
-                                )
-                                .appProgressFill(
-                                    fraction = fraction,
-                                    progressColor = semanticColors.readerAccent,
-                                    trackColor = semanticColors.surfaceSelected.copy(alpha = 0.38f),
-                                ),
-                        )
-                    }
-                },
-            )
-        }
+    // Same tile as the grid: a bare cover with its metadata below, no box around it.
+    Box(modifier = Modifier.width(covers.width)) {
+        LibraryCoverActionCard(
+            item = item,
+            title = title,
+            supportingText = supportingText,
+            trailingText = trailingText,
+            coverImageUrlProvider = { coverItem, coverVariant ->
+                if (coverLoadingEnabled) {
+                    coverImageUrlProvider(coverItem, coverVariant)
+                } else {
+                    null
+                }
+            },
+            imageVariant = covers.imageVariant,
+            isDownloaded = isDownloaded,
+            isRead = isRead,
+            onClick = onClick,
+            coverModifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(LibraryCoverAspectRatio),
+            titleStyle = MaterialTheme.typography.titleSmall,
+            supportingStyle = MaterialTheme.typography.bodySmall,
+            trailingColor = accentColor,
+            metadataTopPadding = 8.dp,
+            menuContent = menuContent,
+            coverOverlay = {
+                progressFraction?.let { fraction ->
+                    LibraryCoverProgressBar(
+                        fraction = fraction,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth(),
+                    )
+                }
+            },
+        )
     }
 }
 
@@ -172,23 +146,12 @@ internal fun ShelfListRow(
                 modifier = Modifier.fillMaxSize(),
             )
             progressFraction?.let { fraction ->
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .height(7.dp)
-                        .clip(
-                            RoundedCornerShape(
-                                bottomStart = presentation.coverCornerRadius,
-                                bottomEnd = presentation.coverCornerRadius,
-                            ),
-                        )
-                        .appProgressFill(
+                LibraryCoverProgressBar(
                             fraction = fraction,
-                            progressColor = semanticColors.readerAccent,
-                            trackColor = semanticColors.surfaceSelected.copy(alpha = 0.34f),
-                        ),
-                )
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth(),
+                        )
             }
         }
         Column(
