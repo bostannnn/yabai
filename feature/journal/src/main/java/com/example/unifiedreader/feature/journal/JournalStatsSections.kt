@@ -751,7 +751,7 @@ private fun FacetBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(6.dp))
+            .clip(MaterialTheme.shapes.extraSmall)
             .clickable(onClick = onClick)
             .padding(vertical = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -770,7 +770,7 @@ private fun FacetBar(
             modifier = Modifier
                 .weight(0.52f)
                 .height(22.dp)
-                .clip(RoundedCornerShape(5.dp))
+                .clip(MaterialTheme.shapes.extraSmall)
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.44f)),
             contentAlignment = Alignment.CenterStart,
         ) {
@@ -778,7 +778,7 @@ private fun FacetBar(
                 modifier = Modifier
                     .fillMaxWidth(fraction.coerceAtLeast(0.04f))
                     .height(22.dp)
-                    .clip(RoundedCornerShape(5.dp))
+                    .clip(MaterialTheme.shapes.extraSmall)
                     .background(color),
             )
         }
@@ -815,7 +815,7 @@ private fun RatingBar(
             modifier = Modifier
                 .height(94.dp)
                 .width(14.dp)
-                .clip(RoundedCornerShape(7.dp))
+                .clip(MaterialTheme.shapes.extraSmall)
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.58f)),
             contentAlignment = Alignment.BottomCenter,
         ) {
@@ -824,7 +824,7 @@ private fun RatingBar(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(barHeight)
-                        .clip(RoundedCornerShape(7.dp))
+                        .clip(MaterialTheme.shapes.extraSmall)
                         .background(MaterialTheme.colorScheme.primary),
                 )
             }
@@ -869,7 +869,7 @@ internal fun EmptyStatsMessage(
         modifier = Modifier
             .fillMaxWidth()
             .height(116.dp)
-            .clip(RoundedCornerShape(8.dp))
+            .clip(MaterialTheme.shapes.extraSmall)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.36f)),
         contentAlignment = Alignment.Center,
     ) {

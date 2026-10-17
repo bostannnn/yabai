@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -20,13 +19,13 @@ import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.ui.components.AppButton
+import com.example.unifiedreader.ui.components.AppDialogDefaults
 import com.example.unifiedreader.ui.components.AppDialogHost
 import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.components.AppSheet
 import com.example.unifiedreader.ui.components.AppTextButton
-import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 internal sealed interface JournalDetailsTarget {
     data class Day(
@@ -54,19 +53,16 @@ internal fun JournalDetailsModal(
     onDeleteItemJournal: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val semanticColors = UnifiedReaderThemeTokens.colors
-    val presentation = UnifiedReaderThemeTokens.presentation
-    val dialogShape = RoundedCornerShape(presentation.cardCornerRadius)
     if (useDialog) {
         AppDialogHost(onDismissRequest = onDismiss) {
             AppPanel(
                 modifier = Modifier
                     .fillMaxWidth()
                     .widthIn(max = 380.dp),
-                shape = dialogShape,
-                color = semanticColors.surfaceBase,
-                tonalElevation = 6.dp,
+                shape = AppDialogDefaults.shape,
+                color = AppDialogDefaults.containerColor,
             ) {
+
                 JournalDetailsContent(
                     target = target,
                     coverImageUrlProvider = coverImageUrlProvider,

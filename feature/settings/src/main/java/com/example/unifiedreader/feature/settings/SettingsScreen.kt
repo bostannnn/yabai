@@ -497,12 +497,13 @@ private fun ThemeModeSwatches(
             Box(
                 modifier = Modifier
                     .size(width = 12.dp, height = 12.dp)
-                    .clip(RoundedCornerShape(3.dp))
+                    .clip(MaterialTheme.shapes.extraSmall)
                     .background(Color(color))
                     .border(
-                        BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)),
-                        RoundedCornerShape(3.dp),
+                        BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        MaterialTheme.shapes.extraSmall,
                     ),
+
             )
         }
     }

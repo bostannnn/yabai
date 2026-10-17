@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -102,8 +101,6 @@ fun DownloadsSheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                    shape = MaterialTheme.shapes.large,
                 ) {
                     Text(
                         text = "Queued, failed, and completed downloads will appear here.",
@@ -205,17 +202,18 @@ private fun DownloadEntryCard(
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
 ) {
     val displayItem = entry.displayItemForDownloads(itemResolver)
-    AppPanel(
+    // A flat row on the sheet, not a boxed card; the ripple is clipped to the control radius.
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp)
+            .padding(horizontal = 12.dp)
+            .clip(MaterialTheme.shapes.medium)
             .clickable(enabled = entry.canOpen) {
                 onOpenEntry(entry.id)
             },
-        shape = MaterialTheme.shapes.medium,
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(
@@ -234,9 +232,7 @@ private fun DownloadEntryCard(
                             item = displayItem,
                             coverImageUrlProvider = coverImageUrlProvider,
                             imageVariant = LibraryCoverImageVariant.ShelfRow,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(RoundedCornerShape(4.dp)),
+                            modifier = Modifier.fillMaxSize(),
                         )
                     } else {
                         Icon(
@@ -335,14 +331,15 @@ private fun DownloadEntryCard(
 
 @Composable
 private fun DownloadEntryStatus.tint() = when (this) {
-    DownloadEntryStatus.Queued -> MaterialTheme.colorScheme.secondary
-    DownloadEntryStatus.PausedConnectivity -> MaterialTheme.colorScheme.secondary
-    DownloadEntryStatus.Running -> MaterialTheme.colorScheme.primary
-    DownloadEntryStatus.Canceling -> MaterialTheme.colorScheme.secondary
-    DownloadEntryStatus.Completed -> MaterialTheme.colorScheme.tertiary
-    DownloadEntryStatus.Failed -> MaterialTheme.colorScheme.error
+    DownloadEntryStatus.Queued,
+    DownloadEntryStatus.PausedConnectivity,
+    DownloadEntryStatus.Canceling,
     DownloadEntryStatus.Canceled -> MaterialTheme.colorScheme.onSurfaceVariant
+    DownloadEntryStatus.Running -> UnifiedReaderThemeTokens.colors.readerAccent
+    DownloadEntryStatus.Completed -> UnifiedReaderThemeTokens.colors.syncAccent
+    DownloadEntryStatus.Failed -> MaterialTheme.colorScheme.error
 }
+
 
 @Composable
 private fun DownloadEntryStatus.icon() = when (this) {

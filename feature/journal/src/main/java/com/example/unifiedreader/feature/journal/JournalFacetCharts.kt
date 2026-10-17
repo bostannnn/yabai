@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -98,7 +97,7 @@ private fun FacetToken(
 ) {
     Row(
         modifier = Modifier
-            .clip(RoundedCornerShape(999.dp))
+            .clip(CircleShape)
             .background(color.copy(alpha = 0.20f))
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -137,7 +136,7 @@ private fun FacetHeatChip(
 ) {
     Row(
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(MaterialTheme.shapes.extraSmall)
             .background(color.copy(alpha = intensity))
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 9.dp),
@@ -171,7 +170,7 @@ private fun FacetCreditRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(MaterialTheme.shapes.extraSmall)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f))
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 10.dp),
@@ -205,7 +204,7 @@ private fun FacetCreditRow(
         Text(
             text = row.count.toString(),
             modifier = Modifier
-                .clip(RoundedCornerShape(999.dp))
+                .clip(CircleShape)
                 .background(color.copy(alpha = 0.18f))
                 .padding(horizontal = 9.dp, vertical = 4.dp),
             style = MaterialTheme.typography.labelMedium,
