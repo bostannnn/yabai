@@ -96,25 +96,6 @@ internal fun EpubSliderSection(
 }
 
 @Composable
-internal fun EpubFontSection(
-    selected: EpubReaderFontFamily,
-    onSelected: (EpubReaderFontFamily) -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        EpubSectionLabel("Font")
-        EpubSelectableRowGroup {
-            EpubReaderFontFamily.entries.forEach { entry ->
-                EpubSelectableRow(
-                    label = entry.label,
-                    selected = entry == selected,
-                    onClick = { onSelected(entry) },
-                )
-            }
-        }
-    }
-}
-
-@Composable
 internal fun EpubFontSummarySection(
     selected: EpubReaderFontFamily,
     onClick: () -> Unit,

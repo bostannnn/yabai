@@ -10,6 +10,7 @@ import android.widget.FrameLayout
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -44,6 +45,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.fragment.app.FragmentActivity
@@ -63,6 +65,7 @@ import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import com.example.unifiedreader.feature.reader.core.findContextAncestor
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
 import com.example.unifiedreader.journal.JournalReadingSessionRecorder
+import com.example.unifiedreader.ui.components.AppCircularProgress
 import com.example.unifiedreader.ui.components.AppTextButton
 import java.io.ByteArrayInputStream
 import javax.xml.parsers.DocumentBuilderFactory
@@ -147,6 +150,7 @@ fun EpubReaderScreen(
             title = item.title,
             body = "Restoring EPUB state…",
             onBack = onBack,
+            isLoading = true,
         )
         return
     }
@@ -499,6 +503,7 @@ fun EpubReaderScreen(
             title = item.title,
             body = "Opening EPUB with Readium…",
             onBack = closeReader,
+            isLoading = true,
         )
 
         is EpubPublicationState.Error -> EpubReaderMessage(
@@ -595,7 +600,9 @@ fun EpubReaderScreen(
                         title = item.title,
                         body = "Restoring EPUB position…",
                         onBack = closeReader,
+                        isLoading = true,
                     )
+
                     return
                 }
                 is EpubInitialLocatorState.Ready -> locatorState.locator
@@ -821,6 +828,7 @@ private fun EpubReaderMessage(
     title: String,
     body: String,
     onBack: () -> Unit,
+    isLoading: Boolean = false,
 ) {
     Box(
         modifier = Modifier
@@ -831,19 +839,25 @@ private fun EpubReaderMessage(
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            AppTextButton(onClick = onBack) {
-                Text(text = "Back")
+            if (isLoading) {
+                AppCircularProgress()
             }
             Text(
                 text = title,
                 style = MaterialTheme.typography.headlineSmall,
+                textAlign = TextAlign.Center,
             )
             Text(
                 text = body,
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
             )
+            AppTextButton(onClick = onBack) {
+                Text(text = "Back")
+            }
         }
     }
 }

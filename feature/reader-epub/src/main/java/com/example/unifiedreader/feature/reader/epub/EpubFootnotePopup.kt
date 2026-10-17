@@ -7,7 +7,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -24,7 +23,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
@@ -37,12 +35,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.components.AppTextButton
 
 internal data class EpubFootnoteContent(
@@ -53,7 +51,6 @@ internal data class EpubFootnoteContent(
 internal data class EpubFootnotePopupColors(
     val scrim: Color,
     val container: Color,
-    val border: Color,
     val title: Color,
     val body: Color,
     val action: Color,
@@ -64,7 +61,6 @@ internal fun epubFootnotePopupColors(
 ): EpubFootnotePopupColors = EpubFootnotePopupColors(
     scrim = colorScheme.scrim.copy(alpha = 0.32f),
     container = colorScheme.surfaceContainerHigh,
-    border = colorScheme.outlineVariant.copy(alpha = 0.92f),
     title = colorScheme.onSurfaceVariant,
     body = colorScheme.onSurface,
     action = colorScheme.primary,
@@ -116,32 +112,19 @@ internal fun EpubFootnotePopup(
                 maxHeight < 360.dp -> maxHeight * 0.72f
                 else -> 260.dp
             }
-            val popupShape = RoundedCornerShape(8.dp)
-            Column(
+            AppPanel(
                 modifier = Modifier
                     .align(Alignment.Center)
                     .width(popupWidth)
                     .heightIn(max = popupMaxHeight)
-                    .shadow(
-                        elevation = 18.dp,
-                        shape = popupShape,
-                    )
-                    .background(
-                        color = colors.container,
-                        shape = popupShape,
-                    )
-                    .border(
-                        width = 1.dp,
-                        color = colors.border,
-                        shape = popupShape,
-                    )
                     .clickable(
                         indication = null,
                         interactionSource = remember { MutableInteractionSource() },
                         onClick = {},
-                    )
-                    .padding(horizontal = 18.dp, vertical = 14.dp),
+                    ),
+                color = colors.container,
             ) {
+                Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -172,6 +155,7 @@ internal fun EpubFootnotePopup(
                         .weight(1f, fill = false)
                         .verticalScroll(rememberScrollState()),
                 )
+                }
             }
         }
     }

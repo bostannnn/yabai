@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.reader.core
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -12,6 +13,10 @@ import androidx.compose.foundation.layout.safeGesturesPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -35,7 +40,10 @@ fun ReaderBottomProgressBar(
     onProgressSelected: ((Float) -> Unit)? = null,
 ) {
     val tokens = readerOverlayTokens()
-    val clampedProgress = progress.coerceIn(0f, 1f)
+    // While the thumb is being dragged the bar follows the finger; the reader only moves on
+    // release, so a long drag does not load every page it passes.
+    var dragProgress by remember { mutableStateOf<Float?>(null) }
+    val clampedProgress = (dragProgress ?: progress).coerceIn(0f, 1f)
     val visualProgress = orientReaderProgress(
         progress = clampedProgress,
         readingDirection = readingDirection,
@@ -69,16 +77,38 @@ fun ReaderBottomProgressBar(
                 .height(18.dp)
                 .then(
                     if (onProgressSelected != null) {
-                        Modifier.pointerInput(onProgressSelected) {
-                            detectTapGestures { offset ->
-                                if (size.width <= 0) return@detectTapGestures
-                                val selectedProgress = resolveReaderProgressSelection(
-                                    horizontalFraction = (offset.x / size.width.toFloat()).coerceIn(0f, 1f),
+                        Modifier
+                            .pointerInput(onProgressSelected, readingDirection) {
+                                detectTapGestures { offset ->
+                                    if (size.width <= 0) return@detectTapGestures
+                                    onProgressSelected(
+                                        resolveReaderProgressSelection(
+                                            horizontalFraction = (offset.x / size.width.toFloat()).coerceIn(0f, 1f),
+                                            readingDirection = readingDirection,
+                                        ),
+                                    )
+                                }
+                            }
+                            .pointerInput(onProgressSelected, readingDirection) {
+                                fun progressAt(x: Float): Float = resolveReaderProgressSelection(
+                                    horizontalFraction = (x / size.width.toFloat()).coerceIn(0f, 1f),
                                     readingDirection = readingDirection,
                                 )
-                                onProgressSelected(selectedProgress)
+                                detectHorizontalDragGestures(
+                                    onDragStart = { offset ->
+                                        if (size.width > 0) dragProgress = progressAt(offset.x)
+                                    },
+                                    onDragEnd = {
+                                        dragProgress?.let(onProgressSelected)
+                                        dragProgress = null
+                                    },
+                                    onDragCancel = { dragProgress = null },
+                                    onHorizontalDrag = { change, _ ->
+                                        if (size.width > 0) dragProgress = progressAt(change.position.x)
+                                        change.consume()
+                                    },
+                                )
                             }
-                        }
                     } else {
                         Modifier
                     },
@@ -114,7 +144,8 @@ fun ReaderBottomProgressBar(
                 .forEach { mark ->
                     val x = size.width * mark
                     drawLine(
-                        color = tokens.colors.primaryText.copy(alpha = 0.8f),
+                        color = tokens.colors.secondaryText,
+
                         start = Offset(x, centerY - markHalfHeight),
                         end = Offset(x, centerY + markHalfHeight),
                         strokeWidth = 1.dp.toPx(),
