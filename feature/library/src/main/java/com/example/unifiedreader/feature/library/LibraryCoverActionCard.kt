@@ -125,7 +125,8 @@ fun LibraryCoverActionCard(
 @OptIn(ExperimentalFoundationApi::class)
 private fun String.marqueeModifier(): Modifier =
     if (length >= LibraryCardTitleMarqueeMinLength) {
-        Modifier.basicMarquee(iterations = Int.MAX_VALUE)
+        // Bounded on purpose: an endless marquee keeps the idle library redrawing every frame.
+        Modifier.basicMarquee(iterations = LibraryCardTitleMarqueeIterations)
     } else {
         Modifier
     }
@@ -144,3 +145,5 @@ private fun Modifier.libraryCoverClickable(
 }
 
 private const val LibraryCardTitleMarqueeMinLength = 32
+
+private const val LibraryCardTitleMarqueeIterations = 1
