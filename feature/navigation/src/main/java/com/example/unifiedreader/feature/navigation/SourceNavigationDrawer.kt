@@ -235,9 +235,10 @@ private fun SourceNavigationItem(
 
 @Composable
 private fun sourceNavigationItemColors() = NavigationDrawerItemDefaults.colors(
-    selectedContainerColor = UnifiedReaderThemeTokens.colors.surfaceSelected,
-    selectedIconColor = UnifiedReaderThemeTokens.colors.onSurfaceSelected,
-    selectedTextColor = UnifiedReaderThemeTokens.colors.onSurfaceSelected,
+    // The selected destination is a solid accent pill, as in the approved mock.
+    selectedContainerColor = UnifiedReaderThemeTokens.colors.readerAccent,
+    selectedIconColor = UnifiedReaderThemeTokens.colors.onReaderAccent,
+    selectedTextColor = UnifiedReaderThemeTokens.colors.onReaderAccent,
     unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
     unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
 )

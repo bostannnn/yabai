@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.chrisbanes.haze.HazeInputScale
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
@@ -61,7 +62,11 @@ fun Modifier.appGlass(
                 noiseFactor = 0f,
                 fallbackTint = HazeTint(containerColor.copy(alpha = AppGlassDefaults.fallbackAlpha)),
             ),
-        )
+        ) {
+            // Blur the backdrop at full resolution: the downscaled default leaves hard
+            // rectangular edges where covers meet.
+            inputScale = HazeInputScale.None
+        }
     } else {
         base.background(containerColor.copy(alpha = AppGlassDefaults.fallbackAlpha))
     }
@@ -69,8 +74,9 @@ fun Modifier.appGlass(
 }
 
 object AppGlassDefaults {
-    val blurRadius: Dp = 22.dp
-    const val tintAlpha: Float = 0.72f
+    // Strong enough that covers behind the chrome read as soft color, not as shapes.
+    val blurRadius: Dp = 30.dp
+    const val tintAlpha: Float = 0.86f
     const val fallbackAlpha: Float = 0.96f
-    const val edgeAlpha: Float = 0.45f
+    const val edgeAlpha: Float = 0.28f
 }
