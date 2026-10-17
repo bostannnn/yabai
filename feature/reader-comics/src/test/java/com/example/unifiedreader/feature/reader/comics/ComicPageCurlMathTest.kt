@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.reader.comics
 
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntSize
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import org.junit.Assert.assertEquals
@@ -7,6 +8,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.math.PI
+import kotlin.math.sin
 
 class ComicPageCurlMathTest {
     @Test
@@ -133,108 +136,6 @@ class ComicPageCurlMathTest {
     }
 
     @Test
-    fun `ltr drag left targets next and advances next progress`() {
-        assertEquals(
-            ComicPageCurlTarget.Next,
-            resolveComicPageCurlTarget(
-                horizontalDrag = -32f,
-                readingDirection = ComicReadingDirection.LTR,
-                touchSlop = 8f,
-            ),
-        )
-        assertEquals(
-            0.25f,
-            comicPageCurlProgressDelta(
-                dragAmount = -100f,
-                containerWidth = 400f,
-                readingDirection = ComicReadingDirection.LTR,
-                target = ComicPageCurlTarget.Next,
-            ),
-            0.0001f,
-        )
-    }
-
-    @Test
-    fun `rtl drag right targets next and advances next progress`() {
-        assertEquals(
-            ComicPageCurlTarget.Next,
-            resolveComicPageCurlTarget(
-                horizontalDrag = 32f,
-                readingDirection = ComicReadingDirection.RTL,
-                touchSlop = 8f,
-            ),
-        )
-        assertEquals(
-            0.25f,
-            comicPageCurlProgressDelta(
-                dragAmount = 100f,
-                containerWidth = 400f,
-                readingDirection = ComicReadingDirection.RTL,
-                target = ComicPageCurlTarget.Next,
-            ),
-            0.0001f,
-        )
-    }
-
-    @Test
-    fun `previous progress mirrors next progress by reading direction`() {
-        assertEquals(
-            0.25f,
-            comicPageCurlProgressDelta(
-                dragAmount = 100f,
-                containerWidth = 400f,
-                readingDirection = ComicReadingDirection.LTR,
-                target = ComicPageCurlTarget.Previous,
-            ),
-            0.0001f,
-        )
-        assertEquals(
-            0.25f,
-            comicPageCurlProgressDelta(
-                dragAmount = -100f,
-                containerWidth = 400f,
-                readingDirection = ComicReadingDirection.RTL,
-                target = ComicPageCurlTarget.Previous,
-            ),
-            0.0001f,
-        )
-    }
-
-    @Test
-    fun `progress velocity follows reading direction and target`() {
-        assertEquals(
-            2f,
-            comicPageCurlProgressVelocity(
-                horizontalVelocity = -800f,
-                containerWidth = 400f,
-                readingDirection = ComicReadingDirection.LTR,
-                target = ComicPageCurlTarget.Next,
-            ),
-            0.0001f,
-        )
-        assertEquals(
-            -2f,
-            comicPageCurlProgressVelocity(
-                horizontalVelocity = 800f,
-                containerWidth = 400f,
-                readingDirection = ComicReadingDirection.LTR,
-                target = ComicPageCurlTarget.Next,
-            ),
-            0.0001f,
-        )
-        assertEquals(
-            2f,
-            comicPageCurlProgressVelocity(
-                horizontalVelocity = 800f,
-                containerWidth = 400f,
-                readingDirection = ComicReadingDirection.RTL,
-                target = ComicPageCurlTarget.Next,
-            ),
-            0.0001f,
-        )
-    }
-
-    @Test
     fun `short drags do not pick a curl target`() {
         assertNull(
             resolveComicPageCurlTarget(
@@ -289,94 +190,108 @@ class ComicPageCurlMathTest {
     }
 
     @Test
-    fun `progress delta is clamped into shader range`() {
-        assertEquals(
-            1f,
-            applyComicPageCurlProgressDelta(
-                progress = 0.9f,
-                dragAmount = -200f,
-                containerWidth = 400f,
-                readingDirection = ComicReadingDirection.LTR,
-                target = ComicPageCurlTarget.Next,
-            ),
-            0.0001f,
-        )
-        assertEquals(
-            0f,
-            applyComicPageCurlProgressDelta(
-                progress = 0.1f,
-                dragAmount = 200f,
-                containerWidth = 400f,
-                readingDirection = ComicReadingDirection.LTR,
-                target = ComicPageCurlTarget.Next,
-            ),
-            0.0001f,
-        )
+    fun `edge resting at the grab point leaves the whole page flat`() {
+        val sheet = ltrSheet()
+        val grab = sheet.grabPoint(300f)
+
+        val axis = calculateComicPageCurlAxis(sheet = sheet, grab = grab, edge = grab)
+
+        sheet.corners().forEach { corner -> assertTrue(axis.coordinateOf(corner) <= 0f) }
     }
 
     @Test
-    fun `ltr next axis starts beyond right edge and finishes beyond left edge`() {
-        val start = calculateComicPageCurlAxis(
-            progress = 0f,
-            tilt = 0f,
-            containerWidth = 400f,
-            containerHeight = 600f,
-            readingDirection = ComicReadingDirection.LTR,
-            target = ComicPageCurlTarget.Next,
-        )
-        val end = calculateComicPageCurlAxis(
-            progress = 1f,
-            tilt = 0f,
-            containerWidth = 400f,
-            containerHeight = 600f,
-            readingDirection = ComicReadingDirection.LTR,
-            target = ComicPageCurlTarget.Next,
-        )
+    fun `grabbed paper point is drawn under the edge on and off the roll`() {
+        val sheet = ltrSheet()
+        val grab = sheet.grabPoint(300f)
+        // Off the roll (flap lying flat on top), tilted, and on the roll (short lift).
+        listOf(
+            Offset(grab.x - 240f, grab.y),
+            Offset(grab.x - 310f, grab.y - 70f),
+            Offset(grab.x - 12f, grab.y),
+        ).forEach { edge ->
+            val axis = calculateComicPageCurlAxis(sheet = sheet, grab = grab, edge = edge)
 
-        assertTrue(start.originX > 400f)
-        assertTrue(end.originX < 0f)
-        assertEquals(1f, start.directionX, 0.0001f)
-        assertEquals(0f, start.directionY, 0.0001f)
+            val drawn = axis.screenPositionOf(grab)
+
+            assertEquals("x for edge $edge", edge.x, drawn.x, 0.5f)
+            assertEquals("y for edge $edge", edge.y, drawn.y, 0.5f)
+        }
     }
 
     @Test
-    fun `rtl next axis starts beyond left edge and finishes beyond right edge`() {
-        val start = calculateComicPageCurlAxis(
-            progress = 0f,
-            tilt = 0f,
-            containerWidth = 400f,
-            containerHeight = 600f,
-            readingDirection = ComicReadingDirection.RTL,
-            target = ComicPageCurlTarget.Next,
-        )
-        val end = calculateComicPageCurlAxis(
-            progress = 1f,
-            tilt = 0f,
-            containerWidth = 400f,
-            containerHeight = 600f,
-            readingDirection = ComicReadingDirection.RTL,
-            target = ComicPageCurlTarget.Next,
-        )
+    fun `turned edge folds flat at the spine`() {
+        val sheet = ltrSheet()
+        val grab = sheet.grabPoint(300f)
 
-        assertTrue(start.originX < 0f)
-        assertTrue(end.originX > 400f)
-        assertEquals(-1f, start.directionX, 0.0001f)
-        assertEquals(0f, start.directionY, 0.0001f)
+        val axis = calculateComicPageCurlAxis(sheet = sheet, grab = grab, edge = sheet.turnedPoint(grab))
+
+        assertEquals(0f, axis.radius, 0.001f)
+        assertEquals(1f, axis.directionX, 0.0001f)
+        assertEquals(0f, axis.coordinateOf(Offset(sheet.hingeX, sheet.top)), 0.01f)
+        assertEquals(0f, axis.coordinateOf(Offset(sheet.hingeX, sheet.bottom)), 0.01f)
     }
 
     @Test
-    fun `tilt keeps axis direction normalized`() {
-        val axis = calculateComicPageCurlAxis(
-            progress = 0.5f,
-            tilt = 0.7f,
-            containerWidth = 400f,
-            containerHeight = 600f,
-            readingDirection = ComicReadingDirection.LTR,
-            target = ComicPageCurlTarget.Previous,
-        )
+    fun `clamped edge never lifts the spine`() {
+        val sheet = ltrSheet()
+        val grab = sheet.grabPoint(520f)
+        // Dragged far past the spine and diagonally away from the grabbed corner.
+        listOf(
+            Offset(-900f, 520f),
+            Offset(-300f, -400f),
+            Offset(50f, 1500f),
+        ).forEach { finger ->
+            val edge = clampComicPageCurlEdge(sheet = sheet, grab = grab, edge = finger)
+            val axis = calculateComicPageCurlAxis(sheet = sheet, grab = grab, edge = edge)
 
-        assertTrue(axis.directionX < 0f)
-        assertTrue(axis.directionY > 0f)
-        assertEquals(1f, axis.directionX * axis.directionX + axis.directionY * axis.directionY, 0.0001f)
+            assertTrue(axis.coordinateOf(Offset(sheet.hingeX, sheet.top)) <= 0.5f)
+            assertTrue(axis.coordinateOf(Offset(sheet.hingeX, sheet.bottom)) <= 0.5f)
+        }
     }
+
+    @Test
+    fun `rtl sheet is hinged on the right and curls toward the left`() {
+        val sheet = ComicPageCurlSheet(hingeX = 500f, top = 0f, bottom = 600f, width = 400f, outward = -1f)
+        val grab = sheet.grabPoint(300f)
+
+        val axis = calculateComicPageCurlAxis(sheet = sheet, grab = grab, edge = Offset(grab.x + 150f, grab.y))
+
+        assertEquals(100f, grab.x, 0.0001f)
+        assertEquals(-1f, axis.directionX, 0.0001f)
+        assertEquals(900f, sheet.turnedPoint(grab).x, 0.0001f)
+    }
+
+    @Test
+    fun `roll arc solver inverts the roll projection`() {
+        val radius = 40f
+        listOf(0f, 1f, 20f, 70f, 125f).forEach { distance ->
+            val arc = solveComicPageCurlRollArc(distance = distance, radius = radius)
+
+            assertEquals(distance, arc - radius * sin(arc / radius), 0.01f)
+        }
+    }
+}
+
+private fun ltrSheet() = ComicPageCurlSheet(hingeX = 100f, top = 0f, bottom = 600f, width = 400f, outward = 1f)
+
+private fun ComicPageCurlSheet.corners() = listOf(
+    Offset(hingeX, top),
+    Offset(hingeX, bottom),
+    Offset(hingeX + outward * width, top),
+    Offset(hingeX + outward * width, bottom),
+)
+
+private fun ComicPageCurlAxis.coordinateOf(point: Offset): Float =
+    (point.x - originX) * directionX + (point.y - originY) * directionY
+
+// Where the shader draws paper point [paper] once it has lifted (mirror of the shader's mapping).
+private fun ComicPageCurlAxis.screenPositionOf(paper: Offset): Offset {
+    val arc = coordinateOf(paper)
+    val screenCoordinate = if (arc >= PI.toFloat() * radius) {
+        PI.toFloat() * radius - arc
+    } else {
+        radius * sin(arc / radius)
+    }
+    val shift = screenCoordinate - arc
+    return Offset(paper.x + directionX * shift, paper.y + directionY * shift)
 }

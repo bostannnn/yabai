@@ -14,36 +14,9 @@ internal data class ComicPageCurlSheetBounds(
     val side: ComicPageCurlSheetSide,
 )
 
-internal data class ComicPageCurlSheetGeometry(
-    val paperBounds: ComicRasterRect,
-    val renderBounds: ComicRasterRect,
-    val side: ComicPageCurlSheetSide,
-)
-
 internal enum class ComicPageCurlTransitionPolicy {
     UseCurl,
     YieldToPager,
-}
-
-internal fun calculateComicPageCurlAxisForSheet(
-    progress: Float,
-    tilt: Float,
-    sheetBounds: ComicRasterRect,
-    readingDirection: ComicReadingDirection,
-    target: ComicPageCurlTarget,
-): ComicPageCurlAxis {
-    val axis = calculateComicPageCurlAxis(
-        progress = progress,
-        tilt = tilt,
-        containerWidth = sheetBounds.width.toFloat(),
-        containerHeight = sheetBounds.height.toFloat(),
-        readingDirection = readingDirection,
-        target = target,
-    )
-    return axis.copy(
-        originX = sheetBounds.left + axis.originX,
-        originY = sheetBounds.top + axis.originY,
-    )
 }
 
 internal fun resolveComicPageCurlOutgoingSheetSide(
@@ -65,35 +38,12 @@ internal fun resolveComicPageCurlSheetBounds(
     layout: ComicSpreadRasterLayout,
     readingDirection: ComicReadingDirection,
     target: ComicPageCurlTarget,
-): ComicPageCurlSheetBounds? = resolveComicPageCurlSheetGeometry(
-    layout = layout,
-    readingDirection = readingDirection,
-    target = target,
-)?.let { geometry ->
-    ComicPageCurlSheetBounds(
-        bounds = geometry.paperBounds,
-        side = geometry.side,
-    )
-}
-
-internal fun resolveComicPageCurlSheetGeometry(
-    layout: ComicSpreadRasterLayout,
-    readingDirection: ComicReadingDirection,
-    target: ComicPageCurlTarget,
-): ComicPageCurlSheetGeometry? {
-    if (layout.canvasSize.width <= 0 || layout.canvasSize.height <= 0) return null
-
+): ComicPageCurlSheetBounds? {
+    val canvasBounds = layout.canvasBounds() ?: return null
     val side = resolveComicPageCurlOutgoingSheetSide(
         readingDirection = readingDirection,
         target = target,
     )
-    val canvasBounds = ComicRasterRect(
-        left = 0,
-        top = 0,
-        width = layout.canvasSize.width,
-        height = layout.canvasSize.height,
-    )
-
     val paperBounds = if (layout.pages.size >= 2) {
         val pageIndex = when (side) {
             ComicPageCurlSheetSide.Left -> 0
@@ -104,26 +54,100 @@ internal fun resolveComicPageCurlSheetGeometry(
             ?.pageBounds
             ?.intersect(canvasBounds)
     } else {
-        layout.pages
-            .singleOrNull()
-            ?.let { placement ->
-                placement.destinationBounds
-                    .intersect(placement.clipBounds)
-                    ?.intersect(canvasBounds)
-                    ?: placement.pageBounds.intersect(canvasBounds)
-            }
+        layout.singlePagePaperBounds(canvasBounds)
     } ?: return null
-
-    val renderBounds = resolveComicPageCurlRenderBounds(
-        layout = layout,
-        paperBounds = paperBounds,
-        canvasBounds = canvasBounds,
-    ) ?: return null
-
-    return ComicPageCurlSheetGeometry(
-        paperBounds = paperBounds,
-        renderBounds = renderBounds,
+    return ComicPageCurlSheetBounds(
+        bounds = paperBounds,
         side = side,
+    )
+}
+
+/**
+ * Resolves the leaf that turns. On spreads it is the current page on the outgoing side, hinged at the
+ * gutter, and its back is the target spread's facing page. On single pages the leaf is hinged on the
+ * reading-start edge: a forward turn lifts the current page, a backward turn brings the previous page
+ * back over the spine.
+ */
+internal fun resolveComicPageCurlTurn(
+    currentLayout: ComicSpreadRasterLayout,
+    targetLayout: ComicSpreadRasterLayout,
+    readingDirection: ComicReadingDirection,
+    target: ComicPageCurlTarget,
+): ComicPageCurlTurn? {
+    val policy = resolveComicPageCurlTransitionPolicy(
+        currentLayout = currentLayout,
+        targetLayout = targetLayout,
+        readingDirection = readingDirection,
+        target = target,
+    )
+    if (policy != ComicPageCurlTransitionPolicy.UseCurl) return null
+    val canvasBounds = currentLayout.canvasBounds() ?: return null
+
+    if (currentLayout.pages.size >= 2) {
+        val sheetBounds = resolveComicPageCurlSheetBounds(
+            layout = currentLayout,
+            readingDirection = readingDirection,
+            target = target,
+        ) ?: return null
+        val bookBounds = currentLayout.pages
+            .mapNotNull { placement -> placement.pageBounds.intersect(canvasBounds) }
+            .unionOrNull()
+            ?: return null
+        val outward = when (sheetBounds.side) {
+            ComicPageCurlSheetSide.Left -> -1f
+            ComicPageCurlSheetSide.Right -> 1f
+        }
+        return comicPageCurlTurn(
+            target = target,
+            paperBounds = sheetBounds.bounds,
+            bookBounds = bookBounds,
+            outward = outward,
+            follow = ComicPageCurlFollow.Edge,
+            backIsFacingPage = true,
+        )
+    }
+
+    val currentPaper = currentLayout.singlePagePaperBounds(canvasBounds) ?: return null
+    val targetPaper = targetLayout.singlePagePaperBounds(canvasBounds) ?: return null
+    val follow = when (target) {
+        ComicPageCurlTarget.Next -> ComicPageCurlFollow.Edge
+        ComicPageCurlTarget.Previous -> ComicPageCurlFollow.Fold
+    }
+    return comicPageCurlTurn(
+        target = target,
+        paperBounds = if (follow == ComicPageCurlFollow.Edge) currentPaper else targetPaper,
+        bookBounds = listOf(currentPaper, targetPaper).unionOrNull() ?: return null,
+        outward = when (readingDirection) {
+            ComicReadingDirection.LTR -> 1f
+            ComicReadingDirection.RTL -> -1f
+        },
+        follow = follow,
+        backIsFacingPage = false,
+    )
+}
+
+private fun comicPageCurlTurn(
+    target: ComicPageCurlTarget,
+    paperBounds: ComicRasterRect,
+    bookBounds: ComicRasterRect,
+    outward: Float,
+    follow: ComicPageCurlFollow,
+    backIsFacingPage: Boolean,
+): ComicPageCurlTurn? {
+    if (!paperBounds.hasArea || !bookBounds.hasArea) return null
+    return ComicPageCurlTurn(
+        target = target,
+        sheet = ComicPageCurlSheet(
+            hingeX = if (outward > 0f) paperBounds.left.toFloat() else paperBounds.right.toFloat(),
+            top = paperBounds.top.toFloat(),
+            bottom = paperBounds.bottom.toFloat(),
+            width = paperBounds.width.toFloat(),
+            outward = outward,
+        ),
+        paperBounds = paperBounds,
+        bookBounds = bookBounds,
+        follow = follow,
+        backIsFacingPage = backIsFacingPage,
     )
 }
 
@@ -141,18 +165,18 @@ internal fun resolveComicPageCurlTransitionPolicy(
         return ComicPageCurlTransitionPolicy.YieldToPager
     }
 
-    val currentGeometry = resolveComicPageCurlSheetGeometry(
+    val currentSheet = resolveComicPageCurlSheetBounds(
         layout = currentLayout,
         readingDirection = readingDirection,
         target = target,
     ) ?: return ComicPageCurlTransitionPolicy.YieldToPager
-    val targetGeometry = resolveComicPageCurlSheetGeometry(
+    val targetSheet = resolveComicPageCurlSheetBounds(
         layout = targetLayout,
         readingDirection = readingDirection,
         target = target,
     ) ?: return ComicPageCurlTransitionPolicy.YieldToPager
 
-    return if (currentGeometry.paperBounds.isCompatibleCurlPaperBounds(targetGeometry.paperBounds)) {
+    return if (currentSheet.bounds.isCompatibleCurlPaperBounds(targetSheet.bounds)) {
         ComicPageCurlTransitionPolicy.UseCurl
     } else {
         ComicPageCurlTransitionPolicy.YieldToPager
@@ -178,35 +202,27 @@ private fun ComicSpreadRasterLayout.comicPageCurlLayoutKind(): ComicPageCurlLayo
     else -> null
 }
 
-private fun resolveComicPageCurlRenderBounds(
-    layout: ComicSpreadRasterLayout,
-    paperBounds: ComicRasterRect,
-    canvasBounds: ComicRasterRect,
-): ComicRasterRect? {
-    val rawBounds = if (layout.pages.size >= 2) {
-        layout.pages
-            .mapNotNull { placement -> placement.pageBounds.intersect(canvasBounds) }
-            .unionOrNull()
-    } else {
-        paperBounds.expand(
-            horizontal = paperBounds.width / 2,
-            vertical = 0,
-        )
-    } ?: return null
-    return rawBounds
-        .intersect(canvasBounds)
-        ?.takeIf(ComicRasterRect::hasArea)
+private fun ComicSpreadRasterLayout.canvasBounds(): ComicRasterRect? {
+    if (canvasSize.width <= 0 || canvasSize.height <= 0) return null
+    return ComicRasterRect(
+        left = 0,
+        top = 0,
+        width = canvasSize.width,
+        height = canvasSize.height,
+    )
 }
 
-private fun ComicRasterRect.expand(
-    horizontal: Int,
-    vertical: Int,
-): ComicRasterRect = ComicRasterRect(
-    left = left - horizontal.coerceAtLeast(0),
-    top = top - vertical.coerceAtLeast(0),
-    width = width + horizontal.coerceAtLeast(0) * 2,
-    height = height + vertical.coerceAtLeast(0) * 2,
-)
+// A single page's paper is its visible image, not the letterboxed page slot.
+private fun ComicSpreadRasterLayout.singlePagePaperBounds(
+    canvasBounds: ComicRasterRect,
+): ComicRasterRect? = pages
+    .singleOrNull()
+    ?.let { placement ->
+        placement.destinationBounds
+            .intersect(placement.clipBounds)
+            ?.intersect(canvasBounds)
+            ?: placement.pageBounds.intersect(canvasBounds)
+    }
 
 private fun List<ComicRasterRect>.unionOrNull(): ComicRasterRect? {
     if (isEmpty()) return null

@@ -106,58 +106,103 @@ class ComicPageCurlSheetGeometryTest {
     }
 
     @Test
-    fun `spread render bounds cross gutter and neighboring page`() {
-        val pages = sampleCurlGeometryPages(count = 3)
-        val spread = buildComicPageSpreads(
+    fun `spread turn hinges at the gutter and lands on the facing page`() {
+        val pages = sampleCurlGeometryPages(count = 5)
+        val spreads = buildComicPageSpreads(
             pages = pages,
             readingDirection = ComicReadingDirection.LTR,
             useDoublePageSpreads = true,
             pageMetadataById = emptyMap(),
-        )[1]
-        val layout = ComicSpreadRasterizer.layout(
-            spread = spread,
-            imageSizesByPageId = mapOf(
-                pages[1].id to IntSize(100, 200),
-                pages[2].id to IntSize(100, 200),
-            ),
-            canvasSize = IntSize(500, 300),
-            pageFitMode = ComicPageFitMode.FitPage,
         )
+        val current = sampleCurlGeometryLayout(*spreads[1].pages.toTypedArray())
+        val next = sampleCurlGeometryLayout(*spreads[2].pages.toTypedArray())
 
-        val geometry = resolveComicPageCurlSheetGeometry(
-            layout = layout,
+        val forward = resolveComicPageCurlTurn(
+            currentLayout = current,
+            targetLayout = next,
             readingDirection = ComicReadingDirection.LTR,
             target = ComicPageCurlTarget.Next,
-        ) ?: error("Expected spread curl geometry")
+        ) ?: error("Expected a spread turn")
+        val backward = resolveComicPageCurlTurn(
+            currentLayout = current,
+            targetLayout = next,
+            readingDirection = ComicReadingDirection.LTR,
+            target = ComicPageCurlTarget.Previous,
+        ) ?: error("Expected a spread turn")
 
-        assertEquals(ComicRasterRect(left = 250, top = 0, width = 150, height = 300), geometry.paperBounds)
-        assertTrue(geometry.renderBounds.width > geometry.paperBounds.width)
-        assertTrue(geometry.renderBounds.left < geometry.paperBounds.left)
-        assertTrue(geometry.renderBounds.right >= geometry.paperBounds.right)
+        assertEquals(ComicRasterRect(left = 250, top = 0, width = 150, height = 300), forward.paperBounds)
+        assertEquals(250f, forward.sheet.hingeX, 0.0001f)
+        assertEquals(1f, forward.sheet.outward, 0.0001f)
+        assertEquals(ComicRasterRect(left = 100, top = 0, width = 300, height = 300), forward.bookBounds)
+        assertTrue(forward.backIsFacingPage)
+        assertEquals(ComicPageCurlFollow.Edge, forward.follow)
+        assertEquals(250f, backward.sheet.hingeX, 0.0001f)
+        assertEquals(-1f, backward.sheet.outward, 0.0001f)
+        assertEquals(ComicPageCurlFollow.Edge, backward.follow)
     }
 
     @Test
-    fun `single render bounds stay bounded and valid`() {
-        val page = sampleCurlGeometryPage(0)
-        val layout = ComicSpreadRasterizer.layout(
-            spread = sampleCurlGeometrySpread(ComicSpreadPage(spec = page)),
-            imageSizesByPageId = mapOf(page.id to IntSize(100, 200)),
+    fun `single page turns hinge on the reading start edge and go back with the previous page`() {
+        val current = sampleCurlGeometryLayout(
+            ComicSpreadPage(spec = sampleCurlGeometryPage(1)),
             canvasSize = IntSize(300, 300),
-            pageFitMode = ComicPageFitMode.FitPage,
+        )
+        val adjacent = sampleCurlGeometryLayout(
+            ComicSpreadPage(spec = sampleCurlGeometryPage(0)),
+            canvasSize = IntSize(300, 300),
         )
 
-        val geometry = resolveComicPageCurlSheetGeometry(
-            layout = layout,
+        val forward = resolveComicPageCurlTurn(
+            currentLayout = current,
+            targetLayout = adjacent,
             readingDirection = ComicReadingDirection.LTR,
             target = ComicPageCurlTarget.Next,
-        ) ?: error("Expected single curl geometry")
+        ) ?: error("Expected a single page turn")
+        val backward = resolveComicPageCurlTurn(
+            currentLayout = current,
+            targetLayout = adjacent,
+            readingDirection = ComicReadingDirection.LTR,
+            target = ComicPageCurlTarget.Previous,
+        ) ?: error("Expected a single page turn")
+        val rtlForward = resolveComicPageCurlTurn(
+            currentLayout = current,
+            targetLayout = adjacent,
+            readingDirection = ComicReadingDirection.RTL,
+            target = ComicPageCurlTarget.Next,
+        ) ?: error("Expected a single page turn")
 
-        assertTrue(geometry.renderBounds.hasArea)
-        assertTrue(geometry.renderBounds.width >= geometry.paperBounds.width)
-        assertTrue(geometry.renderBounds.left >= 0)
-        assertTrue(geometry.renderBounds.top >= 0)
-        assertTrue(geometry.renderBounds.right <= layout.canvasSize.width)
-        assertTrue(geometry.renderBounds.bottom <= layout.canvasSize.height)
+        assertEquals(ComicRasterRect(left = 75, top = 0, width = 150, height = 300), forward.paperBounds)
+        assertEquals(forward.paperBounds, forward.bookBounds)
+        assertEquals(75f, forward.sheet.hingeX, 0.0001f)
+        assertEquals(ComicPageCurlFollow.Edge, forward.follow)
+        assertTrue(!forward.backIsFacingPage)
+        assertEquals(ComicPageCurlFollow.Fold, backward.follow)
+        assertTrue(backward.sheetIsAdjacentPage)
+        assertEquals(75f, backward.sheet.hingeX, 0.0001f)
+        assertEquals(225f, rtlForward.sheet.hingeX, 0.0001f)
+        assertEquals(-1f, rtlForward.sheet.outward, 0.0001f)
+    }
+
+    @Test
+    fun `incompatible layouts resolve no curl turn`() {
+        val single = sampleCurlGeometryLayout(
+            ComicSpreadPage(spec = sampleCurlGeometryPage(0)),
+            canvasSize = IntSize(300, 300),
+        )
+        val spread = sampleCurlGeometryLayout(
+            ComicSpreadPage(spec = sampleCurlGeometryPage(1)),
+            ComicSpreadPage(spec = sampleCurlGeometryPage(2)),
+            canvasSize = IntSize(300, 300),
+        )
+
+        assertNull(
+            resolveComicPageCurlTurn(
+                currentLayout = single,
+                targetLayout = spread,
+                readingDirection = ComicReadingDirection.LTR,
+                target = ComicPageCurlTarget.Next,
+            ),
+        )
     }
 
     @Test

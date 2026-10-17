@@ -56,6 +56,7 @@ internal fun ComicsPagedReaderSurface(
             pageCount = { spreads.size },
         )
         val currentSpread = spreads.getOrNull(pagerState.currentPage) ?: spreads.first()
+        val curlTapTurner = remember(item.id) { ComicPageCurlTapTurner() }
 
         LaunchedEffect(spreads, readerState.resumeAnchorPage, readerState.resumeSegment) {
             val targetSpreadIndex = spreads.indexOfPage(readerState.resumeAnchorPage, readerState.resumeSegment)
@@ -116,14 +117,18 @@ internal fun ComicsPagedReaderSurface(
                 onNavigatePrevious = { spreadIndex ->
                     if (spreadIndex > 0) {
                         coroutineScope.launch {
-                            pagerState.animateScrollToPage(spreadIndex - 1)
+                            if (!curlTapTurner.turn(ComicPageCurlTarget.Previous)) {
+                                pagerState.animateScrollToPage(spreadIndex - 1)
+                            }
                         }
                     }
                 },
                 onNavigateNext = { spreadIndex ->
                     if (spreadIndex < spreads.lastIndex) {
                         coroutineScope.launch {
-                            pagerState.animateScrollToPage(spreadIndex + 1)
+                            if (!curlTapTurner.turn(ComicPageCurlTarget.Next)) {
+                                pagerState.animateScrollToPage(spreadIndex + 1)
+                            }
                         }
                     } else {
                         onNavigatePastEnd()
@@ -143,6 +148,7 @@ internal fun ComicsPagedReaderSurface(
                 pageSource = pageSource,
                 pagerState = pagerState,
                 loadedVisiblePageIndexes = loadedVisiblePageIndexes,
+                tapTurner = curlTapTurner,
                 modifier = Modifier.fillMaxSize(),
                 content = spreadPagerContent,
             )

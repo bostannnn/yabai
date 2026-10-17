@@ -1,17 +1,24 @@
 package com.example.unifiedreader.feature.reader.comics
 
+import androidx.compose.ui.geometry.Offset
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.sin
 import kotlin.math.sqrt
 
-private const val DefaultCurlRadiusFraction = 0.09f
-private const val DefaultCurlTiltScale = 0.7f
+internal const val DefaultCurlMaxRadiusFraction = 0.12f
 
 internal enum class ComicPageCurlTarget {
     Previous,
     Next,
 }
 
+/**
+ * The fold the shader draws: points with `dot(p - origin, direction) > 0` have lifted off the page and
+ * wrap around a cylinder of [radius] whose base sits on that line.
+ */
 internal data class ComicPageCurlAxis(
     val originX: Float,
     val originY: Float,
@@ -19,6 +26,33 @@ internal data class ComicPageCurlAxis(
     val directionY: Float,
     val radius: Float,
 )
+
+/**
+ * A page that turns like a book leaf: it is attached along the vertical spine at [hingeX] and, while
+ * flat, lies between [hingeX] and `hingeX + outward * width`.
+ */
+internal data class ComicPageCurlSheet(
+    val hingeX: Float,
+    val top: Float,
+    val bottom: Float,
+    val width: Float,
+    val outward: Float,
+) {
+    /** The point on the outer edge that the reader picks up, at the height they touched. */
+    fun grabPoint(y: Float): Offset = Offset(hingeX + outward * width, y.coerceIn(top, bottom))
+
+    /** Where [grab] lies once the page is turned all the way over the spine. */
+    fun turnedPoint(grab: Offset): Offset = Offset(2f * hingeX - grab.x, grab.y)
+
+    /** 0 while the page is flat, 1 once it has turned over the spine. */
+    fun turnFraction(
+        grab: Offset,
+        edge: Offset,
+    ): Float {
+        if (width <= 0f) return 0f
+        return ((grab.x - edge.x) * outward / (2f * width)).coerceIn(0f, 1f)
+    }
+}
 
 internal fun resolveComicPageCurlTarget(
     horizontalDrag: Float,
@@ -33,118 +67,105 @@ internal fun resolveComicPageCurlTarget(
     return if (isForwardDrag) ComicPageCurlTarget.Next else ComicPageCurlTarget.Previous
 }
 
-internal fun comicPageCurlProgressDelta(
-    dragAmount: Float,
-    containerWidth: Float,
-    readingDirection: ComicReadingDirection,
-    target: ComicPageCurlTarget,
-): Float {
-    if (containerWidth <= 0f) return 0f
-    return dragAmount * comicPageCurlProgressSign(readingDirection, target) / containerWidth
+/**
+ * Keeps the grabbed edge where a page hinged at the spine can actually reach: no point of the spine
+ * may end up on the folded side, which holds exactly when the edge stays within reach of both spine
+ * ends (the fold's distance test is affine along the spine).
+ */
+internal fun clampComicPageCurlEdge(
+    sheet: ComicPageCurlSheet,
+    grab: Offset,
+    edge: Offset,
+): Offset {
+    val topAnchor = Offset(sheet.hingeX, sheet.top)
+    val bottomAnchor = Offset(sheet.hingeX, sheet.bottom)
+    val topReach = (grab - topAnchor).getDistance()
+    val bottomReach = (grab - bottomAnchor).getDistance()
+    var clamped = edge
+    repeat(EdgeClampIterations) {
+        clamped = clamped.projectIntoDisk(topAnchor, topReach)
+        clamped = clamped.projectIntoDisk(bottomAnchor, bottomReach)
+    }
+    return clamped
 }
 
-internal fun applyComicPageCurlProgressDelta(
-    progress: Float,
-    dragAmount: Float,
-    containerWidth: Float,
-    readingDirection: ComicReadingDirection,
-    target: ComicPageCurlTarget,
-): Float = (progress + comicPageCurlProgressDelta(
-    dragAmount = dragAmount,
-    containerWidth = containerWidth,
-    readingDirection = readingDirection,
-    target = target,
-)).coerceIn(0f, 1f)
-
-internal fun comicPageCurlProgressVelocity(
-    horizontalVelocity: Float,
-    containerWidth: Float,
-    readingDirection: ComicReadingDirection,
-    target: ComicPageCurlTarget,
-): Float {
-    if (containerWidth <= 0f) return 0f
-    return horizontalVelocity * comicPageCurlProgressSign(readingDirection, target) / containerWidth
-}
-
-internal fun comicPageCurlTiltForGrab(
-    grabY: Float,
-    containerHeight: Float,
-): Float {
-    if (containerHeight <= 0f) return 0f
-    return ((grabY / containerHeight) - 0.5f) * DefaultCurlTiltScale
-}
-
+/**
+ * Places the fold so the paper point picked up at [grab] is drawn at [edge] after wrapping around the
+ * curl cylinder. The radius shrinks to zero as the fold nears the spine so the spine never lifts.
+ */
 internal fun calculateComicPageCurlAxis(
-    progress: Float,
-    tilt: Float,
-    containerWidth: Float,
-    containerHeight: Float,
-    readingDirection: ComicReadingDirection,
-    target: ComicPageCurlTarget,
-    radiusFraction: Float = DefaultCurlRadiusFraction,
+    sheet: ComicPageCurlSheet,
+    grab: Offset,
+    edge: Offset,
+    maxRadius: Float = sheet.width * DefaultCurlMaxRadiusFraction,
 ): ComicPageCurlAxis {
-    if (containerWidth <= 0f || containerHeight <= 0f) {
+    val deltaX = grab.x - edge.x
+    val deltaY = grab.y - edge.y
+    val distance = sqrt(deltaX * deltaX + deltaY * deltaY)
+    if (distance < MinimumCurlDistancePx) {
         return ComicPageCurlAxis(
-            originX = 0f,
-            originY = 0f,
-            directionX = 1f,
+            originX = grab.x + sheet.outward * (maxRadius + 1f),
+            originY = grab.y,
+            directionX = sheet.outward,
             directionY = 0f,
-            radius = 0f,
+            radius = maxRadius,
         )
     }
 
-    val radius = (containerWidth * radiusFraction).coerceAtLeast(1f)
-    val directionXSign = comicPageCurlDirectionXSign(readingDirection, target)
-    val directionLength = sqrt(1f + tilt * tilt)
-    val directionX = directionXSign / directionLength
-    val directionY = tilt / directionLength
-    val margin = abs(tilt) * containerHeight / 2f
-    val axisProgress = progress.coerceIn(0f, 1f)
-    val startX: Float
-    val endX: Float
-    if (directionXSign > 0f) {
-        startX = containerWidth + radius + margin
-        endX = -(containerWidth + PI.toFloat() * radius + margin)
+    val directionX = deltaX / distance
+    val directionY = deltaY / distance
+    val grabCoordinate = grab.x * directionX + grab.y * directionY
+    val bisectorCoordinate = grabCoordinate - distance / 2f
+    val spineCoordinate = max(
+        sheet.hingeX * directionX + sheet.top * directionY,
+        sheet.hingeX * directionX + sheet.bottom * directionY,
+    )
+    val spineMargin = (bisectorCoordinate - spineCoordinate).coerceAtLeast(0f)
+    val radius = min(maxRadius, 2f * spineMargin / PI.toFloat())
+    val lineCoordinate = if (distance >= PI.toFloat() * radius) {
+        bisectorCoordinate - PI.toFloat() * radius / 2f
     } else {
-        startX = -(radius + margin)
-        endX = containerWidth + (containerWidth + PI.toFloat() * radius + margin)
+        grabCoordinate - solveComicPageCurlRollArc(distance = distance, radius = radius)
     }
-
+    val shift = lineCoordinate - bisectorCoordinate
     return ComicPageCurlAxis(
-        originX = startX + (endX - startX) * axisProgress,
-        originY = containerHeight / 2f,
+        originX = (grab.x + edge.x) / 2f + directionX * shift,
+        originY = (grab.y + edge.y) / 2f + directionY * shift,
         directionX = directionX,
         directionY = directionY,
         radius = radius,
     )
 }
 
-private fun comicPageCurlProgressSign(
-    readingDirection: ComicReadingDirection,
-    target: ComicPageCurlTarget,
-): Float = when (target) {
-    ComicPageCurlTarget.Next -> when (readingDirection) {
-        ComicReadingDirection.LTR -> -1f
-        ComicReadingDirection.RTL -> 1f
+/** Paper length `s` on the roll whose projection reaches [distance]: solves `s - r sin(s / r) = distance`. */
+internal fun solveComicPageCurlRollArc(
+    distance: Float,
+    radius: Float,
+): Float {
+    if (radius <= 0f) return 0f
+    var low = 0f
+    var high = PI.toFloat() * radius
+    repeat(RollArcIterations) {
+        val middle = (low + high) / 2f
+        if (middle - radius * sin(middle / radius) < distance) {
+            low = middle
+        } else {
+            high = middle
+        }
     }
-
-    ComicPageCurlTarget.Previous -> when (readingDirection) {
-        ComicReadingDirection.LTR -> 1f
-        ComicReadingDirection.RTL -> -1f
-    }
+    return (low + high) / 2f
 }
 
-private fun comicPageCurlDirectionXSign(
-    readingDirection: ComicReadingDirection,
-    target: ComicPageCurlTarget,
-): Float = when (target) {
-    ComicPageCurlTarget.Next -> when (readingDirection) {
-        ComicReadingDirection.LTR -> 1f
-        ComicReadingDirection.RTL -> -1f
-    }
-
-    ComicPageCurlTarget.Previous -> when (readingDirection) {
-        ComicReadingDirection.LTR -> -1f
-        ComicReadingDirection.RTL -> 1f
-    }
+private fun Offset.projectIntoDisk(
+    center: Offset,
+    radius: Float,
+): Offset {
+    val offset = this - center
+    val distance = offset.getDistance()
+    if (distance <= radius || distance <= 0f) return this
+    return center + offset * (radius / distance)
 }
+
+private const val EdgeClampIterations = 6
+private const val RollArcIterations = 24
+private const val MinimumCurlDistancePx = 0.01f

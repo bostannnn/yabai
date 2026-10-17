@@ -97,4 +97,4 @@ internal fun resolveComicPageCurlTargetSpreadIndex(
 }
 
 private const val ComicPageCurlCommitProgressThreshold = 0.25f
-private const val ComicPageCurlCommitVelocityThreshold = 1.5f
+private const val ComicPageCurlCommitVelocityThreshold = 1.0f

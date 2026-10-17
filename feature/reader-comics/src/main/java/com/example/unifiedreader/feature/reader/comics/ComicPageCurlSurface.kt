@@ -5,216 +5,120 @@ import android.graphics.RuntimeShader
 import android.graphics.Shader
 import android.os.Build
 import androidx.annotation.RequiresApi
-import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Easing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.isSpecified
+import androidx.compose.ui.geometry.lerp
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.input.pointer.pointerInput
-import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
-private const val ComicPageCurlAgsl = """
-uniform shader front;
-uniform shader underneath;
-uniform float2 paperOrigin;
-uniform float2 paperSize;
-uniform float2 origin;
-uniform float2 dir;
-uniform float radius;
+/** A page turn in progress: the turn geometry, where the leaf was grabbed, and the composites it shows. */
+internal data class ComicPageCurlInteraction(
+    val turn: ComicPageCurlTurn,
+    val targetSpreadIndex: Int,
+    val grab: Offset,
+    val sheetFront: ImageBitmap,
+    val sheetBack: ImageBitmap,
+    val revealed: ImageBitmap,
+    val outside: ImageBitmap,
+)
 
-const float PI = 3.141592653589793;
-
-bool inPaper(float2 p) {
-    float2 q = p - paperOrigin;
-    return q.x >= 0.0 && q.y >= 0.0 && q.x <= paperSize.x && q.y <= paperSize.y;
+internal fun buildComicPageCurlInteraction(
+    turn: ComicPageCurlTurn,
+    targetSpreadIndex: Int,
+    grab: Offset,
+    currentPage: ImageBitmap,
+    adjacentPage: ImageBitmap,
+): ComicPageCurlInteraction {
+    val sheetFront = if (turn.sheetIsAdjacentPage) adjacentPage else currentPage
+    return ComicPageCurlInteraction(
+        turn = turn,
+        targetSpreadIndex = targetSpreadIndex,
+        grab = grab,
+        sheetFront = sheetFront,
+        sheetBack = if (turn.backIsFacingPage) adjacentPage else sheetFront,
+        revealed = if (turn.sheetIsAdjacentPage) currentPage else adjacentPage,
+        outside = currentPage,
+    )
 }
 
-half4 clearPixel() {
-    return half4(0.0, 0.0, 0.0, 0.0);
-}
-
-float safeRadius() {
-    return max(radius, 1.0);
-}
-
-float curveLight(float x) {
-    float t = clamp(x / safeRadius(), 0.0, 1.0);
-    return 1.0 - 0.08 * sin(t * PI);
-}
-
-float contactLight(float x) {
-    float contact = 1.0 - smoothstep(0.0, safeRadius() * 1.5, abs(x));
-    return 1.0 - 0.08 * contact;
-}
-
-half4 frontFace(float2 paperPos, float x) {
-    half4 c = front.eval(paperPos);
-    return half4(c.rgb * half3(curveLight(x)), c.a);
-}
-
-half4 backFace(float2 paperPos, float x) {
-    half4 c = front.eval(paperPos);
-    half3 paper = mix(half3(0.965, 0.955, 0.94), c.rgb, 0.12);
-    return half4(paper * half3(curveLight(x)), 1.0);
-}
-
-half4 underneathWithShadow(float2 p, float x) {
-    half4 c = underneath.eval(p);
-    return half4(c.rgb * half3(contactLight(x)), c.a);
-}
-
-half4 main(float2 p) {
-    float x = dot(p - origin, dir);
-
-    if (x <= 0.0) {
-        float d = PI * radius - x;
-        float2 pp = p + dir * (d - x);
-        if (inPaper(pp)) {
-            return backFace(pp, x);
-        }
-        if (inPaper(p)) {
-            return frontFace(p, x);
-        }
-        return clearPixel();
-    }
-
-    if (x < radius) {
-        float theta = asin(x / radius);
-
-        float d2 = (PI - theta) * radius;
-        float2 p2 = p + dir * (d2 - x);
-        if (inPaper(p2)) {
-            return backFace(p2, x);
-        }
-
-        float d1 = theta * radius;
-        float2 p1 = p + dir * (d1 - x);
-        if (inPaper(p1)) {
-            return frontFace(p1, x);
-        }
-
-        if (inPaper(p)) {
-            return underneathWithShadow(p, x);
-        }
-        return clearPixel();
-    }
-
-    if (inPaper(p)) {
-        return underneathWithShadow(p, x);
-    }
-    return clearPixel();
-}
-"""
-
+/** Where the grabbed edge of the turning leaf currently is; unspecified while no turn is shown. */
 @Stable
-internal class ComicPageCurlState(
-    initialTarget: ComicPageCurlTarget = ComicPageCurlTarget.Next,
-) {
-    val progress = Animatable(0f)
-
-    var target by mutableStateOf(initialTarget)
+internal class ComicPageCurlState {
+    var edge by mutableStateOf(Offset.Unspecified)
         private set
 
-    var tilt by mutableFloatStateOf(0f)
-        private set
+    fun snapTo(edge: Offset) {
+        this.edge = edge
+    }
 
-    fun startDrag(
-        target: ComicPageCurlTarget,
-        grabY: Float,
-        containerHeight: Float,
+    suspend fun animateTo(
+        target: Offset,
+        durationMillis: Int,
+        easing: Easing = LinearOutSlowInEasing,
     ) {
-        this.target = target
-        tilt = comicPageCurlTiltForGrab(
-            grabY = grabY,
-            containerHeight = containerHeight,
-        )
+        val start = edge
+        if (!start.isSpecified) {
+            edge = target
+            return
+        }
+        animate(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = tween(durationMillis = durationMillis, easing = easing),
+        ) { fraction, _ ->
+            edge = lerp(start, target, fraction)
+        }
     }
 
-    suspend fun dragBy(
-        dragAmount: Float,
-        containerWidth: Float,
-        readingDirection: ComicReadingDirection,
+    suspend fun animateAlong(
+        durationMillis: Int,
+        path: (fraction: Float) -> Offset,
     ) {
-        progress.snapTo(
-            applyComicPageCurlProgressDelta(
-                progress = progress.value,
-                dragAmount = dragAmount,
-                containerWidth = containerWidth,
-                readingDirection = readingDirection,
-                target = target,
-            ),
-        )
+        animate(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = tween(durationMillis = durationMillis, easing = FastOutSlowInEasing),
+        ) { fraction, _ ->
+            edge = path(fraction)
+        }
     }
 
-    suspend fun animateToRest() {
-        progress.animateTo(0f, tween(220))
+    fun reset() {
+        edge = Offset.Unspecified
     }
-
-    suspend fun animateToCommitted() {
-        progress.animateTo(1f, tween(280))
-    }
-
-    suspend fun reset() {
-        progress.snapTo(0f)
-        tilt = 0f
-    }
-}
-
-@Composable
-internal fun rememberComicPageCurlState(
-    initialTarget: ComicPageCurlTarget = ComicPageCurlTarget.Next,
-): ComicPageCurlState = remember {
-    ComicPageCurlState(initialTarget = initialTarget)
 }
 
 @Composable
 internal fun ComicPageCurlSurface(
-    currentPage: ImageBitmap,
-    underneathPage: ImageBitmap,
+    interaction: ComicPageCurlInteraction,
     state: ComicPageCurlState,
-    readingDirection: ComicReadingDirection,
-    paperBounds: ComicRasterRect,
-    renderBounds: ComicRasterRect = paperBounds,
     modifier: Modifier = Modifier,
-    target: ComicPageCurlTarget = state.target,
-    gesturesEnabled: Boolean = false,
-    onTurnCommitted: () -> Unit = {},
-    onTurnCancelled: () -> Unit = {},
 ) {
     if (isComicPageCurlShaderSupported()) {
         ComicPageCurlShaderSurfaceApi33(
-            currentPage = currentPage,
-            underneathPage = underneathPage,
+            interaction = interaction,
             state = state,
-            readingDirection = readingDirection,
-            paperBounds = paperBounds,
-            renderBounds = renderBounds,
             modifier = modifier,
-            target = target,
-            gesturesEnabled = gesturesEnabled,
-            onTurnCommitted = onTurnCommitted,
-            onTurnCancelled = onTurnCancelled,
         )
     } else {
-        ComicPageCurlFallbackSurface(
-            currentPage = currentPage,
-            modifier = modifier,
-        )
+        Canvas(modifier = modifier) {
+            drawImage(interaction.outside)
+        }
     }
 }
 
@@ -225,17 +129,9 @@ internal fun isComicPageCurlShaderSupported(
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
 private fun ComicPageCurlShaderSurfaceApi33(
-    currentPage: ImageBitmap,
-    underneathPage: ImageBitmap,
+    interaction: ComicPageCurlInteraction,
     state: ComicPageCurlState,
-    readingDirection: ComicReadingDirection,
-    paperBounds: ComicRasterRect,
-    renderBounds: ComicRasterRect,
     modifier: Modifier,
-    target: ComicPageCurlTarget,
-    gesturesEnabled: Boolean,
-    onTurnCommitted: () -> Unit,
-    onTurnCancelled: () -> Unit,
 ) {
     val shader = remember {
         traceComicReaderSection("ComicPageCurl.createRuntimeShader") {
@@ -243,123 +139,64 @@ private fun ComicPageCurlShaderSurfaceApi33(
         }
     }
     val brush = remember(shader) { ShaderBrush(shader) }
-    val currentPageShader = remember(currentPage) {
-        traceComicReaderSection("ComicPageCurl.createCurrentBitmapShader") {
-            BitmapShader(
-                currentPage.asAndroidBitmap(),
-                Shader.TileMode.CLAMP,
-                Shader.TileMode.CLAMP,
-            )
-        }
-    }
-    val underneathPageShader = remember(underneathPage) {
-        traceComicReaderSection("ComicPageCurl.createUnderneathBitmapShader") {
-            BitmapShader(
-                underneathPage.asAndroidBitmap(),
-                Shader.TileMode.CLAMP,
-                Shader.TileMode.CLAMP,
-            )
-        }
-    }
-    val coroutineScope = rememberCoroutineScope()
-    val surfaceModifier = if (gesturesEnabled) {
-        modifier.pointerInput(state, readingDirection, target) {
-            detectHorizontalDragGestures(
-                onDragStart = { position ->
-                    state.startDrag(
-                        target = target,
-                        grabY = position.y - paperBounds.top,
-                        containerHeight = paperBounds.height.toFloat(),
-                    )
-                },
-                onHorizontalDrag = { _, dragAmount ->
-                    coroutineScope.launch {
-                        state.dragBy(
-                            dragAmount = dragAmount,
-                            containerWidth = paperBounds.width.toFloat(),
-                            readingDirection = readingDirection,
-                        )
-                    }
-                },
-                onDragEnd = {
-                    coroutineScope.launch {
-                        finishComicPageCurlGesture(
-                            state = state,
-                            commit = shouldCommitComicPageCurl(progress = state.progress.value),
-                            onTurnCommitted = onTurnCommitted,
-                            onTurnCancelled = onTurnCancelled,
-                        )
-                    }
-                },
-                onDragCancel = {
-                    coroutineScope.launch {
-                        finishComicPageCurlGesture(
-                            state = state,
-                            commit = false,
-                            onTurnCommitted = onTurnCommitted,
-                            onTurnCancelled = onTurnCancelled,
-                        )
-                    }
-                },
-            )
-        }
-    } else {
-        modifier
-    }
+    val sheetFrontShader = rememberComicPageCurlBitmapShader(interaction.sheetFront)
+    val sheetBackShader = rememberComicPageCurlBitmapShader(interaction.sheetBack)
+    val revealedShader = rememberComicPageCurlBitmapShader(interaction.revealed)
+    val outsideShader = rememberComicPageCurlBitmapShader(interaction.outside)
+    val turn = interaction.turn
 
-    Canvas(modifier = surfaceModifier) {
+    Canvas(modifier = modifier) {
         if (size.width <= 0f || size.height <= 0f) return@Canvas
-        if (!paperBounds.hasArea || !renderBounds.hasArea) return@Canvas
-        shader.setInputBuffer("front", currentPageShader)
-        shader.setInputBuffer("underneath", underneathPageShader)
-        val axis = calculateComicPageCurlAxisForSheet(
-            progress = state.progress.value,
-            tilt = state.tilt,
-            sheetBounds = paperBounds,
-            readingDirection = readingDirection,
-            target = target,
+        if (!turn.paperBounds.hasArea || !turn.bookBounds.hasArea) return@Canvas
+        val edge = state.edge.takeIf { it.isSpecified } ?: turn.restingEdge(interaction.grab)
+        val axis = calculateComicPageCurlAxis(
+            sheet = turn.sheet,
+            grab = interaction.grab,
+            edge = edge,
         )
-        shader.setFloatUniform("paperOrigin", paperBounds.left.toFloat(), paperBounds.top.toFloat())
-        shader.setFloatUniform("paperSize", paperBounds.width.toFloat(), paperBounds.height.toFloat())
+        shader.setInputBuffer("sheetFront", sheetFrontShader)
+        shader.setInputBuffer("sheetBack", sheetBackShader)
+        shader.setInputBuffer("revealed", revealedShader)
+        shader.setInputBuffer("outside", outsideShader)
+        shader.setRectUniform("paper", turn.paperBounds)
+        shader.setRectUniform("book", turn.bookBounds)
         shader.setFloatUniform("origin", axis.originX, axis.originY)
         shader.setFloatUniform("dir", axis.directionX, axis.directionY)
         shader.setFloatUniform("radius", axis.radius)
+        shader.setFloatUniform("hingeX", turn.sheet.hingeX)
+        shader.setFloatUniform("backMirrored", if (turn.backIsFacingPage) 1f else 0f)
 
         drawRect(
             brush = brush,
-            topLeft = Offset(renderBounds.left.toFloat(), renderBounds.top.toFloat()),
-            size = Size(renderBounds.width.toFloat(), renderBounds.height.toFloat()),
+            topLeft = Offset(turn.bookBounds.left.toFloat(), turn.bookBounds.top.toFloat()),
+            size = Size(turn.bookBounds.width.toFloat(), turn.bookBounds.height.toFloat()),
         )
-    }
-}
-
-private suspend fun finishComicPageCurlGesture(
-    state: ComicPageCurlState,
-    commit: Boolean,
-    onTurnCommitted: () -> Unit,
-    onTurnCancelled: () -> Unit,
-) {
-    try {
-        if (commit) {
-            state.animateToCommitted()
-            onTurnCommitted()
-        } else {
-            state.animateToRest()
-            onTurnCancelled()
-        }
-    } finally {
-        withContext(NonCancellable) {
-            state.reset()
-        }
     }
 }
 
 @Composable
-private fun ComicPageCurlFallbackSurface(
-    currentPage: ImageBitmap,
-    modifier: Modifier,
-) {
-    Canvas(modifier = modifier) {
-        drawImage(currentPage)
+private fun rememberComicPageCurlBitmapShader(
+    image: ImageBitmap,
+): BitmapShader = remember(image) {
+    traceComicReaderSection("ComicPageCurl.createBitmapShader") {
+        BitmapShader(
+            image.asAndroidBitmap(),
+            Shader.TileMode.CLAMP,
+            Shader.TileMode.CLAMP,
+        )
     }
+}
+
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+private fun RuntimeShader.setRectUniform(
+    name: String,
+    rect: ComicRasterRect,
+) {
+    setFloatUniform(
+        name,
+        rect.left.toFloat(),
+        rect.top.toFloat(),
+        rect.right.toFloat(),
+        rect.bottom.toFloat(),
+    )
 }
