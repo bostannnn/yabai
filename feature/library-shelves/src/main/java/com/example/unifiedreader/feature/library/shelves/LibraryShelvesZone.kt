@@ -3,12 +3,12 @@ package com.example.unifiedreader.feature.library.shelves
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -36,83 +36,83 @@ fun LibraryShelvesZone(
 ) {
     if (!state.hasContent) return
 
-    var selectedHistoryTab by rememberSaveable(browseContextKey) {
-        mutableStateOf(ShelfHistoryTab.UpNext)
+    val previewDatasetSignature = remember(state) { previewDatasetSignature(state) }
+    var previewExpandedMenuItemId by remember(browseContextKey, previewDatasetSignature) {
+        mutableStateOf<String?>(null)
     }
-    val historyTab = visibleHistoryTab(state, selectedHistoryTab)
     var deleteCandidate by remember(state) { mutableStateOf<ReadableItem?>(null) }
+    val visibleShelves = visibleShelfCount(state)
+    val previewCoverTargets = remember(state, gridMetrics, coverPrefetchKeyProvider) {
+        shelfPreviewCoverPrefetchTargets(
+            sections = listOf(
+                state.continueReading.map(ContinueReadingShelfItem::item),
+                state.nextInSeries.map(NextInSeriesShelfItem::item),
+                state.recentlyFinished.map(RecentlyFinishedShelfItem::item),
+            ),
+            itemLimitPerSection = ShelfPreviewItemLimit,
+            variant = gridMetrics.coverImageVariant,
+            coverPrefetchKeyProvider = coverPrefetchKeyProvider,
+        )
+    }
+
+    LibraryShelvesPreviewCoverPrefetcher(
+        browseContextKey = browseContextKey,
+        coverLoadingEnabled = true,
+        targets = previewCoverTargets,
+        variant = gridMetrics.coverImageVariant,
+        onCoverVisible = onCoverVisible,
+    )
 
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
-        val columns = with(LocalDensity.current) {
-            libraryGridColumns(availableWidth = maxWidth, metrics = gridMetrics)
-        }
-        val rowLayout = ShelfRowLayout(
-            cellWidth = columns.cellWidth,
-            spacing = gridMetrics.spacing,
-            itemLimit = shelfPreviewItemLimit(columns.count),
-            coverImageVariant = gridMetrics.coverImageVariant,
+        // The zone spans the grid's full width, so its columns give the grid's cover width.
+        val covers = ShelfCoverLayout(
+            width = with(LocalDensity.current) {
+                libraryGridColumns(availableWidth = maxWidth, metrics = gridMetrics).cellWidth
+            },
+            imageVariant = gridMetrics.coverImageVariant,
         )
-        val previewDatasetSignature = remember(state, rowLayout.itemLimit) {
-            previewDatasetSignature(state, rowLayout.itemLimit)
-        }
-        var previewExpandedMenuItemId by remember(browseContextKey, previewDatasetSignature) {
-            mutableStateOf<String?>(null)
-        }
-        val previewCoverTargets = remember(state, historyTab, rowLayout, coverPrefetchKeyProvider) {
-            shelfPreviewCoverPrefetchTargets(
-                sections = visibleShelfSections(state, historyTab),
-                itemLimitPerSection = rowLayout.itemLimit,
-                variant = rowLayout.coverImageVariant,
-                coverPrefetchKeyProvider = coverPrefetchKeyProvider,
-            )
-        }
-
-        LibraryShelvesPreviewCoverPrefetcher(
-            browseContextKey = browseContextKey,
-            coverLoadingEnabled = true,
-            targets = previewCoverTargets,
-            variant = rowLayout.coverImageVariant,
-            onCoverVisible = onCoverVisible,
-        )
-
-        val onExpandedMenuChange: (ReadableItem, Boolean) -> Unit = { item, expanded ->
-            previewExpandedMenuItemId = if (expanded) item.id else null
-        }
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(ShelfSectionSpacing),
-        ) {
-            if (state.continueReading.isNotEmpty()) {
-                ContinueReadingShelfSection(
-                    items = state.continueReading,
-                    rowLayout = rowLayout,
+        if (maxWidth >= ShelvesRowBreakpoint && visibleShelves > 1) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                ShelfSections(
+                    state = state,
                     itemActionContext = itemActionContext,
                     coverImageUrlProvider = coverImageUrlProvider,
+                    previewContentEnabled = true,
                     onItemSelected = onItemSelected,
                     expandedMenuItemId = previewExpandedMenuItemId,
-                    onExpandedMenuChange = onExpandedMenuChange,
-                    onDeleteImportedRequested = { deleteCandidate = it },
-                    onSeeAll = {
-                        onBrowseShelf(LibraryShelfBrowserKind.ContinueReading)
+                    onExpandedMenuChange = { item, expanded ->
+                        previewExpandedMenuItemId = if (expanded) item.id else null
                     },
+                    onDeleteImportedRequested = { deleteCandidate = it },
+                    onBrowseShelf = onBrowseShelf,
+                    coverLoadingEnabled = true,
+                    covers = covers,
+                    itemModifier = Modifier.weight(1f),
                 )
             }
-            if (historyTab != null) {
-                ReadingHistoryShelfSection(
-                    nextInSeries = state.nextInSeries,
-                    recentlyFinished = state.recentlyFinished,
-                    selectedTab = historyTab,
-                    onTabSelected = { selectedHistoryTab = it },
-                    rowLayout = rowLayout,
+        } else {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                ShelfSections(
+                    state = state,
                     itemActionContext = itemActionContext,
                     coverImageUrlProvider = coverImageUrlProvider,
+                    previewContentEnabled = true,
                     onItemSelected = onItemSelected,
                     expandedMenuItemId = previewExpandedMenuItemId,
-                    onExpandedMenuChange = onExpandedMenuChange,
-                    onDeleteImportedRequested = { deleteCandidate = it },
-                    onSeeAll = { tab ->
-                        onBrowseShelf(tab.browserKind)
+                    onExpandedMenuChange = { item, expanded ->
+                        previewExpandedMenuItemId = if (expanded) item.id else null
                     },
+                    onDeleteImportedRequested = { deleteCandidate = it },
+                    onBrowseShelf = onBrowseShelf,
+                    coverLoadingEnabled = true,
+                    covers = covers,
+                    itemModifier = Modifier.fillMaxWidth(),
                 )
             }
         }
@@ -130,48 +130,95 @@ fun LibraryShelvesZone(
     }
 }
 
-/** Up Next and Recently Finished share one row; this is the one showing, or null when both are empty. */
-private fun visibleHistoryTab(
+@Composable
+private fun ShelfSections(
     state: LibraryShelvesState,
-    selectedTab: ShelfHistoryTab,
-): ShelfHistoryTab? = when {
-    state.nextInSeries.isEmpty() && state.recentlyFinished.isEmpty() -> null
-    state.nextInSeries.isEmpty() -> ShelfHistoryTab.RecentlyFinished
-    state.recentlyFinished.isEmpty() -> ShelfHistoryTab.UpNext
-    else -> selectedTab
+    itemActionContext: LibraryItemActionContext,
+    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
+    previewContentEnabled: Boolean,
+    onItemSelected: (ReadableItem) -> Unit,
+    expandedMenuItemId: String?,
+    onExpandedMenuChange: (ReadableItem, Boolean) -> Unit,
+    onDeleteImportedRequested: (ReadableItem) -> Unit,
+    onBrowseShelf: (LibraryShelfBrowserKind) -> Unit,
+    coverLoadingEnabled: Boolean,
+    covers: ShelfCoverLayout,
+    itemModifier: Modifier,
+) {
+    if (state.continueReading.isNotEmpty()) {
+        ContinueReadingShelfSection(
+            items = state.continueReading,
+            itemActionContext = itemActionContext,
+            coverImageUrlProvider = coverImageUrlProvider,
+            previewContentEnabled = previewContentEnabled,
+            coverLoadingEnabled = coverLoadingEnabled,
+            covers = covers,
+            onItemSelected = onItemSelected,
+            expandedMenuItemId = expandedMenuItemId,
+            onExpandedMenuChange = onExpandedMenuChange,
+            onDeleteImportedRequested = onDeleteImportedRequested,
+            onSeeAll = {
+                onBrowseShelf(LibraryShelfBrowserKind.ContinueReading)
+            },
+            modifier = itemModifier,
+        )
+    }
+    if (state.nextInSeries.isNotEmpty()) {
+        NextInSeriesShelfSection(
+            items = state.nextInSeries,
+            itemActionContext = itemActionContext,
+            coverImageUrlProvider = coverImageUrlProvider,
+            previewContentEnabled = previewContentEnabled,
+            coverLoadingEnabled = coverLoadingEnabled,
+            covers = covers,
+            onItemSelected = onItemSelected,
+            expandedMenuItemId = expandedMenuItemId,
+            onExpandedMenuChange = onExpandedMenuChange,
+            onDeleteImportedRequested = onDeleteImportedRequested,
+            onSeeAll = {
+                onBrowseShelf(LibraryShelfBrowserKind.NextInSeries)
+            },
+            modifier = itemModifier,
+        )
+    }
+    if (state.recentlyFinished.isNotEmpty()) {
+        RecentlyFinishedShelfSection(
+            items = state.recentlyFinished,
+            itemActionContext = itemActionContext,
+            coverImageUrlProvider = coverImageUrlProvider,
+            previewContentEnabled = previewContentEnabled,
+            coverLoadingEnabled = coverLoadingEnabled,
+            covers = covers,
+            onItemSelected = onItemSelected,
+            expandedMenuItemId = expandedMenuItemId,
+            onExpandedMenuChange = onExpandedMenuChange,
+            onDeleteImportedRequested = onDeleteImportedRequested,
+            onSeeAll = {
+                onBrowseShelf(LibraryShelfBrowserKind.RecentlyFinished)
+            },
+            modifier = itemModifier,
+        )
+    }
 }
 
-private fun visibleShelfSections(
+private fun visibleShelfCount(
     state: LibraryShelvesState,
-    historyTab: ShelfHistoryTab?,
-): List<List<ReadableItem>> = listOf(
-    state.continueReading.map(ContinueReadingShelfItem::item),
-    when (historyTab) {
-        ShelfHistoryTab.UpNext -> state.nextInSeries.map(NextInSeriesShelfItem::item)
-        ShelfHistoryTab.RecentlyFinished -> state.recentlyFinished.map(RecentlyFinishedShelfItem::item)
-        null -> emptyList()
-    },
-)
-
-/**
- * A row fills the grid's columns, so it lines up with the grid; on narrow screens with only a couple
- * of columns it still shows a few covers and scrolls sideways.
- */
-private fun shelfPreviewItemLimit(
-    columnCount: Int,
-): Int = maxOf(columnCount, ShelfPreviewMinItemCount)
+): Int = listOf(
+    state.continueReading.isNotEmpty(),
+    state.nextInSeries.isNotEmpty(),
+    state.recentlyFinished.isNotEmpty(),
+).count { visible -> visible }
 
 private fun previewDatasetSignature(
     state: LibraryShelvesState,
-    itemLimit: Int,
 ): List<String> = buildList {
     add("continue")
-    addAll(state.continueReading.take(itemLimit).map { it.item.id })
+    addAll(state.continueReading.take(ShelfPreviewDatasetLimit).map { it.item.id })
     add("next")
-    addAll(state.nextInSeries.take(itemLimit).map { it.item.id })
+    addAll(state.nextInSeries.take(ShelfPreviewDatasetLimit).map { it.item.id })
     add("finished")
-    addAll(state.recentlyFinished.take(itemLimit).map { it.item.id })
+    addAll(state.recentlyFinished.take(ShelfPreviewDatasetLimit).map { it.item.id })
 }
 
-private const val ShelfPreviewMinItemCount = 4
-private val ShelfSectionSpacing = 24.dp
+private const val ShelfPreviewDatasetLimit = 4
+private val ShelvesRowBreakpoint = 840.dp

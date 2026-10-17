@@ -1,14 +1,11 @@
 package com.example.unifiedreader.feature.library
 
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextOverflow
 import com.example.unifiedreader.ui.theme.UnifiedReaderSelectionTreatment
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import com.example.unifiedreader.ui.theme.unifiedReaderComponentTreatment
@@ -94,28 +91,5 @@ internal fun Modifier.libraryAccentTextFieldTreatment(
         overlayColor = MaterialTheme.colorScheme.onSurface,
         shape = libraryAccentTextFieldShape(),
         active = selected,
-    )
-}
-
-@Composable
-fun LibraryToggleChip(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    FilterChip(
-        selected = selected,
-        onClick = onClick,
-        modifier = modifier.libraryAccentChipTreatment(selected = selected),
-        colors = libraryAccentFilterChipColors(),
-        shape = libraryAccentFilterChipShape(),
-        label = {
-            Text(
-                text = label,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        },
     )
 }
