@@ -68,10 +68,10 @@ On branch `claude/distracted-feynman-c0cc8c`, not merged to main. Final layout i
 - [x] Loading placeholder uses the same cover width and shape.
 - [x] Unit tests: grid column math checked against `GridCells.Adaptive`; prefetch targets.
 - [x] Commit.
-- [ ] **Measure on the tablet.** Shelf covers now load at the grid's image size (`Grid`/`GridLarge`/
-      `GridExtraLarge`) instead of `ShelfPreview`. Compare 5 cold starts against `adf843ff` **on the
-      same source**; the first attempt was invalid because the source changed from Grimmory to
-      Kavita between the two builds.
+- [x] **Measured on the tablet** (Kavita, Terminal 95, 5 cold starts per block, new/old/new):
+      start time 420/418/417 ms and frame times (p50 14 ms, p90 17-19 ms) unchanged; graphics
+      memory **+13 MB** (122.5-122.8 vs 109.7 MB) because shelf covers now load at the grid's image
+      size (`Grid`/`GridLarge`/`GridExtraLarge`) instead of `ShelfPreview`. Kept for sharper covers.
 - [ ] Run or update the shelf instrumentation tests (`LibraryShelvesTopSlotTest`,
       `LibraryShelvesZoneActionsTest`). They compile; they haven't been run.
 
