@@ -62,7 +62,7 @@ Pull-request-sized steps; each lands and gets judged on the tablet before the ne
    The faint accent border on shelf panels and shelf cards stays as a plain 1 dp stroke; the
    thin cover and row progress bars draw through `Modifier.appProgressFill` in the kit.
    `THEME_CUSTOMIZATION_GUIDE.md` rewritten for palette-only themes.
-3. `[~]` **The look.** Haze 1.5.3 (the last line built against Compose 1.7; Haze 1.6 needs
+3. `[x]` **The look.** Haze 1.5.3 (the last line built against Compose 1.7; Haze 1.6 needs
    Compose 1.8, so the BOM bump in section 1 is still separate). The kit owns the recipe:
    `Modifier.appGlass` (translucent surface over a 22 dp blur, hairline edge, near-opaque
    fallback where blur is unavailable), `Modifier.appGlassSource` on the content it floats over,
@@ -76,9 +76,16 @@ Pull-request-sized steps; each lands and gets judged on the tablet before the ne
    of the Read pill and no dimming. Reader bars, panes, and the preview strip use the same glass
    through `readerOverlaySurface`, with the pages as the source via `ImmersiveReaderOverlay`.
    Checked on the emulator (library, drawer, comics reader).
-   Not done: bottom sheets stay opaque (a modal sheet is its own window, so it cannot blur the
-   screen behind it); scroll frame times are **not measured on the tablet yet**, which the
-   architecture rules require before this ships.
+   Bottom sheets stay opaque (a modal sheet is its own window, so it cannot blur the screen
+   behind it).
+   **Measured on the tablet 2026-10-17** (release `4474011f`, Kavita, Graphite, 890 items, 120 Hz),
+   against the shelves baseline above (start 420/418/417 ms, scroll p50 14 ms, p90 17-19 ms):
+   cold start `am start -W` 421/401/445 ms; idle 0 frames in a 10 s window; a four-swipe fling
+   over the cover grid under the glass bar rendered 1220 frames at p50 14 ms, p90 19 ms, p95
+   25 ms, p99 44 ms, 1 janky frame (0.08%), GPU p50 7 ms / p90 9 ms; opening and closing the
+   glass drawer: 108 frames, p50 13 ms, p90 16 ms, 0 janky. Start time and scroll frame times are
+   unchanged by the blur; the GPU share of a frame is now near the 8.3 ms budget of 120 Hz, so
+   any further blur (sheets, larger regions) needs its own measurement.
 4. `[x]` **Font and icons.** Manrope is bundled as a variable font
    (`app/src/main/res/font/manrope.ttf`, OFL, full Cyrillic) and is the family of every style in
    the base `Typography`: display and headline at Medium, titles at SemiBold, labels at Medium,
@@ -182,7 +189,8 @@ sort button. Optional differences from the 2026-10-17 mockup:
 
 - [x] Haze 1.5.3 behind the top bar, the drawer, and the reader chrome (see step 3 in section 0).
       Bottom sheets cannot blur the screen behind them (separate window), so they stay opaque.
-- [ ] Measure scroll smoothness on the tablet; blur over a cover grid costs GPU time.
+- [x] Measured on the tablet (numbers under step 3 in section 0): scroll p50/p90 unchanged, GPU
+      p90 9 ms against an 8.3 ms budget at 120 Hz.
 
 ## 5. Cover-derived color `[ ]`
 
