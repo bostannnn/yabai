@@ -18,6 +18,7 @@ class AppReaderCoordinator @Inject constructor(
     private val syncItemProgressUseCase: SyncItemProgressUseCase,
     private val pendingProgressFlushCoordinator: AppPendingProgressFlushCoordinator,
     private val nextItemResolver: AppReaderNextItemResolver,
+    private val readableItemLookup: ReadableItemLookup,
     private val readableAccessResolver: ReadableAccessResolver,
     private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
     private val remoteReaderContentPreparer: RemoteReaderContentPreparer,
@@ -445,43 +446,68 @@ class AppReaderCoordinator @Inject constructor(
         refreshProgress()
         val state = stateProvider()
         val currentItem = state.selectedItem ?: return
-        val nextItem = nextItemResolver.nextUnreadAfter(
-            currentItem = currentItem,
-            items = state.items,
-            orderedItemIds = state.selectedKavitaReadingListItemIds,
-        ) ?: return
-        onItemSelected(
-            item = nextItem,
-            updateState = updateState,
-            scope = scope,
-            refreshProgress = refreshProgress,
-            onSyncFailures = onSyncFailures,
-            openMode = ReaderOpenMode.StartFromBeginning,
-        )
+        val orderedItemIds = state.selectedKavitaReadingListItemIds
+        scope.launch {
+            val nextItem = nextItemResolver.nextUnreadAfter(
+                currentItem = currentItem,
+                items = nextItemCandidates(currentItem, orderedItemIds),
+                orderedItemIds = orderedItemIds,
+            ) ?: return@launch
+            onItemSelected(
+                item = nextItem,
+                updateState = updateState,
+                scope = scope,
+                refreshProgress = refreshProgress,
+                onSyncFailures = onSyncFailures,
+                openMode = ReaderOpenMode.StartFromBeginning,
+            )
+        }
     }
 
     fun onReaderCompletionRequested(
         stateProvider: AppUiStateProvider,
         updateState: AppUiStateUpdater,
+        scope: CoroutineScope,
         refreshProgress: () -> Unit,
     ) {
         refreshProgress()
         val state = stateProvider()
         if (state.readerCompletionState != null) return
         val currentItem = state.selectedItem ?: return
-        val nextItem = nextItemResolver.nextUnreadAfter(
-            currentItem = currentItem,
-            items = state.items,
-            orderedItemIds = state.selectedKavitaReadingListItemIds,
-        )
-        updateState {
-            it.copy(
-                readerCompletionState = AppReaderCompletionState(
-                    itemId = currentItem.id,
-                    nextItemId = nextItem?.id,
-                ),
+        val orderedItemIds = state.selectedKavitaReadingListItemIds
+        scope.launch {
+            val nextItem = nextItemResolver.nextUnreadAfter(
+                currentItem = currentItem,
+                items = nextItemCandidates(currentItem, orderedItemIds),
+                orderedItemIds = orderedItemIds,
             )
+            updateState {
+                if (it.readerCompletionState != null) {
+                    it
+                } else {
+                    it.copy(
+                        readerCompletionState = AppReaderCompletionState(
+                            itemId = currentItem.id,
+                            nextItemId = nextItem?.id,
+                        ),
+                    )
+                }
+            }
         }
+    }
+
+    /**
+     * The bounded set of items the next-item resolver needs: the reading list's items when a Kavita
+     * reading list is active, otherwise the current item's series issues. Resolved from SQL so this
+     * no longer scans the whole in-memory catalog on the main thread.
+     */
+    private suspend fun nextItemCandidates(
+        currentItem: ReadableItem,
+        orderedItemIds: List<String>,
+    ): List<ReadableItem> = if (orderedItemIds.isNotEmpty()) {
+        readableItemLookup.getItemsByIds(orderedItemIds)
+    } else {
+        readableItemLookup.getSeriesMemberItems(currentItem)
     }
 
     fun dismissReaderCompletion(
@@ -499,16 +525,18 @@ class AppReaderCoordinator @Inject constructor(
     ) {
         val state = stateProvider()
         val nextItemId = state.readerCompletionState?.nextItemId ?: return
-        val nextItem = state.items.firstOrNull { item -> item.id == nextItemId } ?: return
-        updateState { it.copy(readerCompletionState = null) }
-        onItemSelected(
-            item = nextItem,
-            updateState = updateState,
-            scope = scope,
-            refreshProgress = refreshProgress,
-            onSyncFailures = onSyncFailures,
-            openMode = ReaderOpenMode.StartFromBeginning,
-        )
+        scope.launch {
+            val nextItem = readableItemLookup.getItemById(nextItemId) ?: return@launch
+            updateState { it.copy(readerCompletionState = null) }
+            onItemSelected(
+                item = nextItem,
+                updateState = updateState,
+                scope = scope,
+                refreshProgress = refreshProgress,
+                onSyncFailures = onSyncFailures,
+                openMode = ReaderOpenMode.StartFromBeginning,
+            )
+        }
     }
 
     fun refreshProgress(

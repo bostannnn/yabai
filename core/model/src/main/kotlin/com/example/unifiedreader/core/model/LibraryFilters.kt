@@ -273,6 +273,38 @@ fun buildContextualLibraryFilterFacets(
     ).flatMap { item -> item.facetMetadata().languages }.distinctByTextOrder(),
 )
 
+/**
+ * Assembles [LibraryFilterFacets] from facet values sourced per dimension from SQL
+ * (`library_root_facets` via `getDistinctFacetValues`) instead of scanning the in-memory catalog.
+ * Applies the exact same ordering/typing as [buildLibraryFilterFacets], and is independent of input
+ * order (SQL `SELECT DISTINCT` has no ORDER BY), so for an unfiltered view — the only time the paged
+ * path shows facets, since toggling any filter exits the paged path — the result is identical to
+ * `buildLibraryFilterFacets(items)`. [fileLocations] stays a caller-provided runtime value: it isn't
+ * persisted (see [LibraryFacetDimension]) because it depends on the downloaded/available set.
+ */
+fun assembleLibraryFilterFacets(
+    formatNames: List<String>,
+    libraries: List<String>,
+    fileLocations: List<LibraryFileLocation>,
+    authors: List<String>,
+    series: List<String>,
+    publishers: List<String>,
+    genres: List<String>,
+    tags: List<String>,
+    languages: List<String>,
+): LibraryFilterFacets = LibraryFilterFacets(
+    formats = formatNames.mapNotNull { name -> runCatching { FormatType.valueOf(name) }.getOrNull() }
+        .distinctByEnumOrder(),
+    libraries = libraries.distinctByTextOrder(),
+    fileLocations = fileLocations.distinctByEnumOrder(),
+    authors = authors.distinctByAuthorOrder(),
+    series = series.distinctByTextOrder(),
+    publishers = publishers.distinctByTextOrder(),
+    genres = genres.distinctByTextOrder(),
+    tags = tags.distinctByTextOrder(),
+    languages = languages.distinctByTextOrder(),
+)
+
 private fun <T> Set<T>.matches(value: T?): Boolean = isEmpty() || value in this
 private fun Set<String>.matchesAny(values: List<String>): Boolean = isEmpty() || values.any(this::contains)
 
@@ -367,6 +399,26 @@ fun ReadableItem.libraryAlphabetKey(
 private fun ReadableItem.librarySortKey(
     sortMode: LibrarySortMode,
 ): String = libraryAlphabetKey(sortMode).orEmpty()
+
+/**
+ * The persisted ORDER BY key for a rail sort (TITLE / AUTHOR / SERIES), so those grid views can page
+ * from SQL. It is [librarySortKey] case-folded (`lowercase(ROOT)`), which a plain BINARY `ORDER BY`
+ * reproduces the same way the in-memory comparator's `compareBy(CASE_INSENSITIVE_ORDER) { key }` does
+ * — the tie-break on `title` stays a separate `ORDER BY` term. AUTHOR keys on the surname
+ * (`authorFacetKey`), which SQL can't derive, so the key must be precomputed here at populate time.
+ * Null for the non-rail sorts (they order by date / last-read / issue count, no alphabet rail).
+ */
+fun ReadableItem.librarySortIndexKey(
+    sortMode: LibrarySortMode,
+): String? = when (sortMode) {
+    LibrarySortMode.AUTHOR,
+    LibrarySortMode.TITLE,
+    LibrarySortMode.SERIES -> librarySortKey(sortMode).trim().lowercase(Locale.ROOT)
+
+    LibrarySortMode.DATE_ADDED,
+    LibrarySortMode.LAST_READ,
+    LibrarySortMode.ISSUE_COUNT -> null
+}
 
 private inline fun <reified T : Enum<T>> List<T>.distinctByEnumOrder(): List<T> =
     distinct().sortedBy { it.ordinal }

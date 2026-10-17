@@ -13,6 +13,7 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -573,6 +574,52 @@ class LibraryDerivedStateComputerTest {
         assertEquals(
             listOf("kavita:series:${libraryId}::blame", "kavita:series:${libraryId}::akira"),
             derivedState.visibleItems.map(ReadableItem::id),
+        )
+    }
+
+    @Test
+    fun `paged grid leaves visibleItems as the unsorted source set and skips the last-read sort`() {
+        val libraryId = SourceType.KAVITA.remoteLibraryId("k-comics")
+        val libraries = listOf(
+            Library(
+                id = libraryId,
+                sourceType = SourceType.KAVITA,
+                title = "Kavita Comics",
+                contentType = LibraryContentType.COMICS,
+            ),
+        )
+        val akiraIssue = issue(id = "k-1", sourceType = SourceType.KAVITA, libraryId = libraryId, seriesKey = "akira", title = "Akira 1")
+        val blameIssue = issue(id = "k-2", sourceType = SourceType.KAVITA, libraryId = libraryId, seriesKey = "blame", title = "Blame 1")
+        val input = LibraryDerivedStateInput(
+            selectedSource = SourceType.KAVITA,
+            libraries = libraries,
+            items = listOf(akiraIssue, blameIssue),
+            selectedLibrarySortMode = LibrarySortMode.LAST_READ,
+            progressByItemId = mapOf(
+                akiraIssue.id to ItemProgressSummary(label = "Continue", fraction = 0.1f, lastReadAtEpochMillis = 10L),
+                blameIssue.id to ItemProgressSummary(label = "Continue", fraction = 0.2f, lastReadAtEpochMillis = 20L),
+            ),
+        )
+
+        val paged = computer.compute(input.copy(pagedGridActive = true))
+        val inMemory = computer.compute(input.copy(pagedGridActive = false))
+
+        // Same membership as the in-memory (sorted) view: the paged view drops nothing.
+        assertEquals(
+            inMemory.visibleItems.map(ReadableItem::id).toSet(),
+            paged.visibleItems.map(ReadableItem::id).toSet(),
+        )
+        // The paged view leaves visibleItems as the raw source set (Room paging sorts the grid).
+        assertEquals(paged.sourceItems, paged.visibleItems)
+        // The in-memory view is last-read desc (blame @20 before akira @10); the paged view skips that
+        // sort, so their orders differ — proving the per-progress-update re-sort no longer runs.
+        assertEquals(
+            listOf("kavita:series:${libraryId}::blame", "kavita:series:${libraryId}::akira"),
+            inMemory.visibleItems.map(ReadableItem::id),
+        )
+        assertNotEquals(
+            inMemory.visibleItems.map(ReadableItem::id),
+            paged.visibleItems.map(ReadableItem::id),
         )
     }
 

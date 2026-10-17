@@ -21,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
 import com.example.unifiedreader.core.model.LibraryFilterPanel
+import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
@@ -71,10 +72,13 @@ fun UnifiedReaderScaffold(
     var selectedDownloadItemIds by rememberSaveable(uiState.libraryBrowseContextKey) {
         mutableStateOf<List<String>>(emptyList())
     }
-    var selectableDownloadItemIds by remember(uiState.libraryBrowseContextKey) {
-        mutableStateOf<Set<String>>(emptySet())
+    // The rendered downloadable items reported up by the active library screen (paged snapshot or
+    // in-memory), so select-all/download never scan the in-memory [AppUiState.visibleItems] for the
+    // paged path.
+    var selectableDownloadItems by remember(uiState.libraryBrowseContextKey) {
+        mutableStateOf<List<ReadableItem>>(emptyList())
     }
-    var hasScreenSelectableDownloadIds by remember(uiState.libraryBrowseContextKey) {
+    var hasScreenSelectableDownloadItems by remember(uiState.libraryBrowseContextKey) {
         mutableStateOf(false)
     }
     var activeLibraryShelfBrowserKind by rememberSaveable(uiState.libraryBrowseContextKey) {
@@ -89,24 +93,25 @@ fun UnifiedReaderScaffold(
     } else {
         null
     }
-    val visibleDownloadableItemIds = remember(
+    // Fallback for the brief window before the screen reports (and for the in-memory paths, where
+    // visibleItems is always populated); the paged path is served by the screen report above.
+    val visibleDownloadableItems = remember(
         uiState.visibleItems,
         uiState.remoteDownloadActionAvailability.downloadableItemIds,
         uiState.remoteDownloadActionAvailability.activeDownloadingItemIds,
     ) {
-        uiState.visibleItems
-            .asSequence()
-            .map { item -> item.id }
-            .filter { itemId ->
-                itemId in uiState.remoteDownloadActionAvailability.downloadableItemIds &&
-                    itemId !in uiState.remoteDownloadActionAvailability.activeDownloadingItemIds
-            }
-            .toSet()
+        uiState.visibleItems.filter { item ->
+            item.id in uiState.remoteDownloadActionAvailability.downloadableItemIds &&
+                item.id !in uiState.remoteDownloadActionAvailability.activeDownloadingItemIds
+        }
     }
-    val effectiveSelectableDownloadItemIds = if (hasScreenSelectableDownloadIds) {
-        selectableDownloadItemIds
+    val effectiveSelectableDownloadItems = if (hasScreenSelectableDownloadItems) {
+        selectableDownloadItems
     } else {
-        visibleDownloadableItemIds
+        visibleDownloadableItems
+    }
+    val effectiveSelectableDownloadItemIds = remember(effectiveSelectableDownloadItems) {
+        effectiveSelectableDownloadItems.mapTo(mutableSetOf(), ReadableItem::id)
     }
     val selectedDownloadItemIdSet = selectedDownloadItemIds
         .filter { itemId -> itemId in effectiveSelectableDownloadItemIds }
@@ -146,13 +151,11 @@ fun UnifiedReaderScaffold(
     }
 
     fun selectAllLibraryDownloadItems() {
-        selectedDownloadItemIds = uiState.visibleItems
-            .map { item -> item.id }
-            .filter { itemId -> itemId in effectiveSelectableDownloadItemIds }
+        selectedDownloadItemIds = effectiveSelectableDownloadItems.map { item -> item.id }
     }
 
     fun downloadSelectedLibraryItems() {
-        val selectedItems = uiState.visibleItems
+        val selectedItems = effectiveSelectableDownloadItems
             .filter { item -> item.id in selectedDownloadItemIdSet }
         if (selectedItems.isEmpty()) return
         viewModel.onDownloadRemoteItems(selectedItems)
@@ -309,6 +312,23 @@ fun UnifiedReaderScaffold(
                     TopLevelDestination.Library -> LibraryRoute(
                         uiState = uiState,
                         viewMode = libraryViewMode,
+                        pagedGridFlow = if (LibraryPagingFeature.isPageable(uiState)) {
+                            remember(
+                                uiState.selectedSource,
+                                uiState.selectedLibrarySortMode,
+                                uiState.selectedLibraryFilters,
+                            ) {
+                                viewModel.libraryGridPagingData(
+                                    source = uiState.selectedSource,
+                                    sortMode = uiState.selectedLibrarySortMode,
+                                    filters = uiState.selectedLibraryFilters,
+                                )
+                            }
+                        } else {
+                            null
+                        },
+                        pagedWindowBadgeResolver = viewModel::resolvePagedWindowBadges,
+                        pagedAlphabetSectionsProvider = viewModel::pagedAlphabetSections,
                         browseContextKey = uiState.libraryBrowseContextKey,
                         initialScrollPosition = viewModel.libraryScrollPositionFor(uiState.libraryBrowseContextKey),
                         scrollToTopRequest = uiState.libraryScrollToTopRequest,
@@ -329,9 +349,9 @@ fun UnifiedReaderScaffold(
                         onSelectedDownloadItemIdsChanged = { selectedIds ->
                             selectedDownloadItemIds = selectedIds
                         },
-                        onSelectableDownloadItemIdsChanged = { selectableIds ->
-                            hasScreenSelectableDownloadIds = true
-                            selectableDownloadItemIds = selectableIds
+                        onSelectableDownloadItemsChanged = { selectableItems ->
+                            hasScreenSelectableDownloadItems = true
+                            selectableDownloadItems = selectableItems
                         },
                         onItemSelected = viewModel::onItemSelected,
                         seriesReadingDirectionFor = viewModel::seriesReadingDirectionFor,

@@ -91,6 +91,35 @@ class LibrarySeriesContinuationResolverTest {
     }
 
     @Test
+    fun `next unstarted for items covers only seed series and equals the full lookup filtered to seeds`() {
+        val alphaOne = issue(id = "alpha-1", issueNumber = "1", seriesKey = "alpha")
+        val alphaTwo = issue(id = "alpha-2", issueNumber = "2", seriesKey = "alpha")
+        val alphaThree = issue(id = "alpha-3", issueNumber = "3", seriesKey = "alpha")
+        val betaOne = issue(id = "beta-1", issueNumber = "1", seriesKey = "beta")
+        val betaTwo = issue(id = "beta-2", issueNumber = "2", seriesKey = "beta")
+        val items = listOf(alphaThree, betaTwo, alphaTwo, betaOne, alphaOne)
+        val progress = mapOf(alphaTwo.id to ItemProgressSummary(label = "Resume on page 6", fraction = 0.4f))
+
+        // Seeded with only the active alpha issue: bounded to alpha's series, entry only for the seed.
+        val bounded = resolver.nextUnstartedAfterForItems(
+            seedItemIds = setOf(alphaTwo.id),
+            items = items,
+            progressByItemId = progress,
+        )
+        assertEquals(mapOf(alphaTwo.id to alphaThree), bounded)
+
+        // Seeding every item reproduces the full lookup exactly.
+        assertEquals(
+            resolver.nextUnstartedAfterByCurrentItem(items = items, progressByItemId = progress),
+            resolver.nextUnstartedAfterForItems(
+                seedItemIds = items.mapTo(HashSet(), ReadableItem::id),
+                items = items,
+                progressByItemId = progress,
+            ),
+        )
+    }
+
+    @Test
     fun `next unread returns null when series is finished`() {
         val issueOne = issue(id = "1", issueNumber = "1")
         val issueTwo = issue(id = "2", issueNumber = "2")

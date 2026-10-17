@@ -18,6 +18,9 @@ import com.example.unifiedreader.core.database.entity.ItemJournalEntryEntity
 import com.example.unifiedreader.core.database.entity.JournalReadingEventEntity
 import com.example.unifiedreader.core.database.entity.JournalReadingSessionEntity
 import com.example.unifiedreader.core.database.entity.LibraryEntity
+import com.example.unifiedreader.core.database.entity.LibraryGridRootEntity
+import com.example.unifiedreader.core.database.entity.LibraryRootFacetEntity
+import com.example.unifiedreader.core.database.entity.LibraryRootMemberEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
 import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEntity
 import com.example.unifiedreader.core.database.entity.RemoteLibraryCacheEntity
@@ -37,8 +40,11 @@ import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
         JournalReadingSessionEntity::class,
         ItemJournalEntryEntity::class,
         RemoteCatalogSyncGroupEntity::class,
+        LibraryGridRootEntity::class,
+        LibraryRootFacetEntity::class,
+        LibraryRootMemberEntity::class,
     ],
-    version = 24,
+    version = 28,
     exportSchema = false,
 )
 abstract class UnifiedReaderDatabase : RoomDatabase() {
@@ -795,6 +801,135 @@ object UnifiedReaderDatabaseMigrations {
             database.execSQL("ALTER TABLE readable_items ADD COLUMN comicPencillersJson TEXT DEFAULT NULL")
         }
     }
+
+    val MIGRATION_24_25 = object : Migration(24, 25) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            // Empty derived table; populated from readable_items on the next catalog write or the
+            // startup rebuild-if-empty. Column shape mirrors LibraryGridRootEntity so Room's schema
+            // validation passes on open.
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `library_grid_roots` (
+                    `id` TEXT NOT NULL,
+                    `sourceType` TEXT NOT NULL,
+                    `libraryId` TEXT NOT NULL,
+                    `remoteId` TEXT,
+                    `isLocalImport` INTEGER NOT NULL,
+                    `remoteFileId` TEXT,
+                    `remoteFileType` TEXT,
+                    `title` TEXT NOT NULL,
+                    `format` TEXT NOT NULL,
+                    `kind` TEXT NOT NULL,
+                    `pageCount` INTEGER,
+                    `coverUrl` TEXT,
+                    `seriesCoverUrl` TEXT,
+                    `description` TEXT,
+                    `addedAtEpochMillis` INTEGER,
+                    `issueCount` INTEGER,
+                    `bookAuthor` TEXT,
+                    `bookAuthorsJson` TEXT,
+                    `bookSeriesName` TEXT,
+                    `bookPublishersJson` TEXT,
+                    `bookGenresJson` TEXT,
+                    `bookTagsJson` TEXT,
+                    `bookLanguagesJson` TEXT,
+                    `comicSeries` TEXT,
+                    `comicIssueTitle` TEXT,
+                    `comicVolume` TEXT,
+                    `comicIssueNumber` TEXT,
+                    `comicWritersJson` TEXT,
+                    `comicPencillersJson` TEXT,
+                    `comicPublishersJson` TEXT,
+                    `comicGenresJson` TEXT,
+                    `comicTagsJson` TEXT,
+                    `comicLanguagesJson` TEXT,
+                    PRIMARY KEY(`id`)
+                )
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS `index_library_grid_roots_sourceType`
+                ON `library_grid_roots` (`sourceType`)
+                """.trimIndent(),
+            )
+        }
+    }
+
+    val MIGRATION_25_26 = object : Migration(25, 26) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            // Empty normalized facet table; populated from the grid roots on the next catalog write
+            // or the startup rebuild-if-empty. Column shape mirrors LibraryRootFacetEntity.
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `library_root_facets` (
+                    `rootId` TEXT NOT NULL,
+                    `sourceType` TEXT NOT NULL,
+                    `libraryId` TEXT NOT NULL,
+                    `dimension` TEXT NOT NULL,
+                    `value` TEXT NOT NULL,
+                    PRIMARY KEY(`rootId`, `dimension`, `value`)
+                )
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS `index_library_root_facets_sourceType_dimension`
+                ON `library_root_facets` (`sourceType`, `dimension`)
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS `index_library_root_facets_libraryId`
+                ON `library_root_facets` (`libraryId`)
+                """.trimIndent(),
+            )
+        }
+    }
+
+    val MIGRATION_26_27 = object : Migration(26, 27) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            // Empty root->member-items map; populated from the grid roots on the next catalog write
+            // or the startup rebuild-if-empty. Column shape mirrors LibraryRootMemberEntity.
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `library_root_members` (
+                    `rootId` TEXT NOT NULL,
+                    `itemId` TEXT NOT NULL,
+                    `sourceType` TEXT NOT NULL,
+                    `libraryId` TEXT NOT NULL,
+                    PRIMARY KEY(`rootId`, `itemId`)
+                )
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS `index_library_root_members_itemId`
+                ON `library_root_members` (`itemId`)
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS `index_library_root_members_libraryId`
+                ON `library_root_members` (`libraryId`)
+                """.trimIndent(),
+            )
+        }
+    }
+
+    val MIGRATION_27_28 = object : Migration(27, 28) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            // Precomputed case-folded rail-sort keys on the grid roots (Title/Author/Series), so those
+            // sorts can page from SQL. AUTHOR keys on the surname, which SQL can't derive, so the keys
+            // must be populated by the Kotlin `toGridRootEntity` mapper — clear the roots so the startup
+            // rebuild-if-empty repopulates them (facets/members are rebuilt in the same pass). The
+            // one-time repopulate is the existing post-migration cost.
+            database.execSQL("ALTER TABLE `library_grid_roots` ADD COLUMN `sortTitleKey` TEXT")
+            database.execSQL("ALTER TABLE `library_grid_roots` ADD COLUMN `sortAuthorKey` TEXT")
+            database.execSQL("ALTER TABLE `library_grid_roots` ADD COLUMN `sortSeriesKey` TEXT")
+            database.execSQL("DELETE FROM `library_grid_roots`")
+        }
+    }
 }
 
 object UnifiedReaderDatabaseFactory {
@@ -829,6 +964,10 @@ object UnifiedReaderDatabaseFactory {
             UnifiedReaderDatabaseMigrations.MIGRATION_21_22,
             UnifiedReaderDatabaseMigrations.MIGRATION_22_23,
             UnifiedReaderDatabaseMigrations.MIGRATION_23_24,
+            UnifiedReaderDatabaseMigrations.MIGRATION_24_25,
+            UnifiedReaderDatabaseMigrations.MIGRATION_25_26,
+            UnifiedReaderDatabaseMigrations.MIGRATION_26_27,
+            UnifiedReaderDatabaseMigrations.MIGRATION_27_28,
         )
         .build()
 }

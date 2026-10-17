@@ -22,14 +22,22 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.paging.LoadState
+import androidx.paging.PagingData
+import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.paging.compose.itemContentType
+import androidx.paging.compose.itemKey
+import com.example.unifiedreader.core.model.LibraryAlphabetSection
 import com.example.unifiedreader.core.model.LibraryFilterFacets
 import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibraryFilterState
@@ -39,8 +47,14 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.library.menu.LibraryItemMenuButtonStyle
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+
+// How many leading roots the paged-window badge resolver processes in its fast first phase — enough to
+// cover the visible cards plus a small scroll buffer, so their badges commit near-instantly before the
+// full loaded window is resolved.
+private const val PAGED_WINDOW_BADGE_PREFIX_COUNT = 30
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -88,7 +102,7 @@ fun LibraryScreen(
     selectedDownloadItemIds: List<String> = emptyList(),
     onDownloadSelectionModeChanged: (Boolean) -> Unit = {},
     onSelectedDownloadItemIdsChanged: (List<String>) -> Unit = {},
-    onSelectableDownloadItemIdsChanged: (Set<String>) -> Unit = {},
+    onSelectableDownloadItemsChanged: (List<ReadableItem>) -> Unit = {},
     onItemSelected: (ReadableItem) -> Unit,
     seriesReadingDirectionFor: (ReadableItem) -> ComicReadingDirection? = { null },
     onSeriesDirectionSelected: (ReadableItem, ComicReadingDirection) -> Unit = { _, _ -> },
@@ -98,13 +112,83 @@ fun LibraryScreen(
     onDownloadItem: (ReadableItem) -> Unit = {},
     onDeleteDownloadedItem: (ReadableItem) -> Unit = {},
     onSetReadStatus: (ReadableItem, Boolean) -> Unit = { _, _ -> },
+    // When non-null, the grid body renders from this Room-backed paging flow instead of [items]; the
+    // rest of the screen (shelves, filter summary, sort, dialogs) is unchanged. Existing callers pass
+    // null and behave exactly as before.
+    pagedGridItems: Flow<PagingData<ReadableItem>>? = null,
+    // Resolves the paged window's per-card badges (read/progress, rating, download status) from bounded
+    // sources so they commit with the grid instead of waiting ~1s for the in-memory recompute. Only
+    // used on the paged path; null (all other callers) keeps the recompute maps as the sole source.
+    pagedWindowBadgeResolver: (suspend (List<ReadableItem>) -> LibraryWindowBadges)? = null,
+    // Supplies the SQL-computed alphabet rail (present letters + their grid offsets) for a paged rail
+    // sort, so the paged grid can render + jump the A–Z rail without the in-memory ordered list. Null
+    // (non-paged callers) keeps the rail driven by [items].
+    pagedAlphabetSectionsProvider: (suspend (LibrarySortMode) -> List<LibraryAlphabetSection>)? = null,
+    // Also run the badge overlay for a non-paged but *bounded* view (series browse): there the grid +
+    // progress/rating come from the synchronous computeQuick, but download availability lands only with
+    // the async recompute, so resolving the visible issues' download status early commits it with them.
+    // Must stay false for the large non-paged views (other sources, filtered-runtime) — resolving the
+    // whole in-memory list would be wasteful.
+    resolveWindowBadgesForVisibleItems: Boolean = false,
 ) {
+    val pagedItems = pagedGridItems?.collectAsLazyPagingItems()
+    val isPaged = pagedItems != null
+    var deleteCandidate by remember { mutableStateOf<ReadableItem?>(null) }
+    var gridExpandedMenuItemId by remember { mutableStateOf<String?>(null) }
+    var openFilterPanel by rememberSaveable { mutableStateOf<LibraryFilterPanel?>(null) }
+    var isReadingListDialogOpen by rememberSaveable { mutableStateOf(false) }
+    var handledScrollToTopRequest by remember { mutableStateOf(scrollToTopRequest) }
+    val coroutineScope = rememberCoroutineScope()
+    val visibleItems = items
+    // What the grid actually renders — the paging snapshot when paged, else the in-memory list. The
+    // paged path reads this (not [items]/visibleItems) everywhere it needs the on-screen set — sort
+    // menu, date-added scroll anchor, selection, cover prefetch — so the in-memory sorted list can be
+    // skipped for the paged view (M2).
+    val renderedItems = if (isPaged) pagedItems!!.itemSnapshotList.items else visibleItems
+    // Paged-window badge overlay: resolve the on-screen roots' read/progress, rating, and download
+    // status from bounded sources so they paint with the grid instead of ~1s later. The recompute maps
+    // stay the base (recompute wins once it lands — its values match, so nothing flips); the window
+    // badges only fill the keys the recompute doesn't have yet (i.e. everything at cold start). Re-runs
+    // as the window grows / reorders (keyed on size + endpoints, which change on scroll and last-read
+    // re-sort). Empty on every non-paged path, so `effective*` below equals the raw inputs there.
+    val latestBadgeResolver by rememberUpdatedState(pagedWindowBadgeResolver)
+    val windowSignature = renderedItems.size to
+        (renderedItems.firstOrNull()?.id to renderedItems.lastOrNull()?.id)
+    val windowBadges = if ((isPaged || resolveWindowBadgesForVisibleItems) && pagedWindowBadgeResolver != null) {
+        produceState(initialValue = LibraryWindowBadges(), windowSignature) {
+            val resolver = latestBadgeResolver
+            if (resolver == null || renderedItems.isEmpty()) {
+                value = LibraryWindowBadges()
+                return@produceState
+            }
+            // Paging's initial load is 3 pages (~180 roots) but only ~a screen is visible, and every
+            // resolve sub-step scales with the window's members. So resolve in two phases: first the
+            // on-screen prefix (badges for the visible cards commit in ~one bounded query), then the
+            // whole loaded window to cover scrolling within the first page. Phase 2 is a superset, so it
+            // just supersedes the prefix with identical values — no flip.
+            if (renderedItems.size > PAGED_WINDOW_BADGE_PREFIX_COUNT) {
+                value = resolver(renderedItems.take(PAGED_WINDOW_BADGE_PREFIX_COUNT))
+            }
+            value = resolver(renderedItems)
+        }.value
+    } else {
+        LibraryWindowBadges()
+    }
+    val effectiveProgressByItemId = windowBadges.displayProgressByItemId + progressByItemId
+    val effectiveRatingByItemId = windowBadges.displayRatingByItemId + ratingByItemId
+    val effectiveLocallyAvailableItemIds = locallyAvailableItemIds + windowBadges.locallyAvailableItemIds
+    val effectiveDownloadableItemIds =
+        downloadableItemIds + windowBadges.downloadActionAvailability.downloadableItemIds
+    val effectiveDeletableDownloadedItemIds =
+        deletableDownloadedItemIds + windowBadges.downloadActionAvailability.deletableDownloadedItemIds
+    val effectiveDownloadingItemIds =
+        downloadingItemIds + windowBadges.downloadActionAvailability.activeDownloadingItemIds
     val itemActionContext = LibraryItemActionContext(
-        progressByItemId = progressByItemId,
-        locallyAvailableItemIds = locallyAvailableItemIds,
-        downloadableItemIds = downloadableItemIds,
-        deletableDownloadedItemIds = deletableDownloadedItemIds,
-        downloadingItemIds = downloadingItemIds,
+        progressByItemId = effectiveProgressByItemId,
+        locallyAvailableItemIds = effectiveLocallyAvailableItemIds,
+        downloadableItemIds = effectiveDownloadableItemIds,
+        deletableDownloadedItemIds = effectiveDeletableDownloadedItemIds,
+        downloadingItemIds = effectiveDownloadingItemIds,
         seriesReadingDirectionFor = seriesReadingDirectionFor,
         onSeriesDirectionSelected = onSeriesDirectionSelected,
         seriesReaderModeFor = seriesReaderModeFor,
@@ -113,14 +197,8 @@ fun LibraryScreen(
         onDeleteDownloadedItem = onDeleteDownloadedItem,
         onSetReadStatus = onSetReadStatus,
     )
-    var deleteCandidate by remember { mutableStateOf<ReadableItem?>(null) }
-    var gridExpandedMenuItemId by remember { mutableStateOf<String?>(null) }
-    var openFilterPanel by rememberSaveable { mutableStateOf<LibraryFilterPanel?>(null) }
-    var isReadingListDialogOpen by rememberSaveable { mutableStateOf(false) }
-    var handledScrollToTopRequest by remember { mutableStateOf(scrollToTopRequest) }
-    val coroutineScope = rememberCoroutineScope()
-    val availableSortModes = remember(items, sortMode) {
-        librarySortModesAvailableFor(items = items, selectedSortMode = sortMode)
+    val availableSortModes = remember(renderedItems, sortMode) {
+        librarySortModesAvailableFor(items = renderedItems, selectedSortMode = sortMode)
     }
     val itemAlphabetSections = remember(items, sortMode) {
         if (!sortMode.usesAlphabetRail) {
@@ -129,20 +207,35 @@ fun LibraryScreen(
             items.map { item -> item.sortFilterLetter(sortMode) }
         }
     }
-    val sortLetters = remember(itemAlphabetSections) {
+    // On the paged path the ordered set isn't in memory, so the rail comes from SQL (present letters +
+    // the grid offset of each section's first root). Resolved off-thread; empty for rail-less sorts.
+    val latestAlphabetProvider by rememberUpdatedState(pagedAlphabetSectionsProvider)
+    val pagedAlphabetSections by produceState(emptyList<LibraryAlphabetSection>(), isPaged, sortMode) {
+        val provider = latestAlphabetProvider
+        value = if (isPaged && provider != null && sortMode.usesAlphabetRail) provider(sortMode) else emptyList()
+    }
+    // Rail buttons + per-section scroll offsets. Both variants are computed unconditionally (remember
+    // must not be called inside a branch — `isPaged` can flip when a runtime filter is applied) and the
+    // paged one is selected when the grid is served by Room.
+    val inMemorySortLetters = remember(itemAlphabetSections) {
         alphabetNavigationSections(itemAlphabetSections.filterNotNull())
     }
-    val alphabetSectionStarts = remember(itemAlphabetSections) {
-        alphabetSectionStarts(itemAlphabetSections)
+    val inMemorySectionStarts = remember(itemAlphabetSections) { alphabetSectionStarts(itemAlphabetSections) }
+    val pagedSortLetters = remember(pagedAlphabetSections) { pagedAlphabetSections.map(LibraryAlphabetSection::letter) }
+    val pagedSectionStarts = remember(pagedAlphabetSections) {
+        pagedAlphabetSections.associate { section -> section.letter to section.itemOffset }
     }
+    val sortLetters = if (isPaged) pagedSortLetters else inMemorySortLetters
+    val alphabetSectionStarts = if (isPaged) pagedSectionStarts else inMemorySectionStarts
     val alphabetRailVisible = showSortControl && searchQuery.isBlank() && sortLetters.isNotEmpty()
-    val visibleItems = items
-    val selectableDownloadItemIds = remember(visibleItems, downloadableItemIds, downloadingItemIds) {
-        visibleItems
-            .asSequence()
-            .map(ReadableItem::id)
-            .filter { itemId -> itemId in downloadableItemIds && itemId !in downloadingItemIds }
-            .toSet()
+    // When paged, the grid body's emptiness/loading come from the paging flow, not [items].
+    val gridIsEmpty = if (isPaged) pagedItems!!.itemCount == 0 else visibleItems.isEmpty()
+    val showGridLoading = isLoadingSource || (isPaged && pagedItems!!.loadState.refresh is LoadState.Loading)
+    val selectableDownloadItems = remember(renderedItems, downloadableItemIds, downloadingItemIds) {
+        renderedItems.filter { item -> item.id in downloadableItemIds && item.id !in downloadingItemIds }
+    }
+    val selectableDownloadItemIds = remember(selectableDownloadItems) {
+        selectableDownloadItems.mapTo(mutableSetOf(), ReadableItem::id)
     }
     val selectedDownloadItemIdSet = selectedDownloadItemIds
         .filter { itemId -> itemId in selectableDownloadItemIds }
@@ -155,7 +248,7 @@ fun LibraryScreen(
         )
     }
     val dateAddedTopItemId = if (showSortControl && sortMode == LibrarySortMode.DATE_ADDED) {
-        visibleItems.firstOrNull()?.id
+        renderedItems.firstOrNull()?.id
     } else {
         null
     }
@@ -163,15 +256,23 @@ fun LibraryScreen(
         (if (topContent != null) 1 else 0)
     val activeSortLetter by remember(
         gridState,
+        isPaged,
         itemAlphabetSections,
+        pagedAlphabetSections,
         leadingContentItemCount,
     ) {
         derivedStateOf {
-            activeAlphabetSection(
-                sectionKeys = itemAlphabetSections,
-                firstVisibleItemIndex = gridState.firstVisibleItemIndex,
-                leadingContentItemCount = leadingContentItemCount,
-            )
+            val rootIndex = gridState.firstVisibleItemIndex - leadingContentItemCount
+            if (isPaged) {
+                // Paged: find the last rail section whose offset is at or before the current root.
+                pagedAlphabetSections.lastOrNull { section -> section.itemOffset <= rootIndex }?.letter
+            } else {
+                activeAlphabetSection(
+                    sectionKeys = itemAlphabetSections,
+                    firstVisibleItemIndex = gridState.firstVisibleItemIndex,
+                    leadingContentItemCount = leadingContentItemCount,
+                )
+            }
         }
     }
     var previousDateAddedTopItemId by remember(browseContextKey) {
@@ -214,8 +315,8 @@ fun LibraryScreen(
             onCoverViewportScrollingChanged(false)
         }
     }
-    LaunchedEffect(browseContextKey, selectableDownloadItemIds) {
-        onSelectableDownloadItemIdsChanged(selectableDownloadItemIds)
+    LaunchedEffect(browseContextKey, selectableDownloadItems) {
+        onSelectableDownloadItemsChanged(selectableDownloadItems)
     }
     LaunchedEffect(browseContextKey, selectableDownloadItemIds, selectedDownloadItemIds, isDownloadSelectionMode) {
         val sanitizedSelection = selectedDownloadItemIds.filter { itemId -> itemId in selectableDownloadItemIds }
@@ -232,7 +333,7 @@ fun LibraryScreen(
         onSelectedDownloadItemIdsChanged(
             selectedDownloadItemIdSet
                 .toggle(item.id)
-                .let { selectedIds -> visibleItems.map(ReadableItem::id).filter { it in selectedIds } },
+                .let { selectedIds -> renderedItems.map(ReadableItem::id).filter { it in selectedIds } },
         )
     }
 
@@ -241,7 +342,7 @@ fun LibraryScreen(
         onDownloadSelectionModeChanged(true)
         if (item.id !in selectedDownloadItemIdSet) {
             onSelectedDownloadItemIdsChanged(
-                visibleItems
+                renderedItems
                     .map(ReadableItem::id)
                     .filter { itemId -> itemId == item.id || itemId in selectedDownloadItemIdSet },
             )
@@ -267,13 +368,59 @@ fun LibraryScreen(
         VisibleRemoteCoverPrefetcher(
             browseContextKey = browseContextKey,
             gridState = gridState,
-            items = visibleItems,
+            items = renderedItems,
             leadingContentItemCount = leadingContentItemCount,
             variant = gridCoverImageVariant,
             maxTargetsWhileScrolling = gridPresentation.scrollingPrefetchItemLimit,
             coverPrefetchKeyProvider = coverPrefetchKeyProvider,
             onCoverVisible = onCoverVisible,
         )
+
+        val gridCard: @Composable (ReadableItem) -> Unit = { item ->
+            val hasMenuContent = itemActionContext.hasMenuContent(item)
+            GridCoverCard(
+                item = item,
+                progress = effectiveProgressByItemId[item.id],
+                rating = effectiveRatingByItemId[item.id],
+                isDownloaded = itemActionContext.isDownloaded(item),
+                fadeRead = fadeReadItems,
+                imageVariant = gridCoverImageVariant,
+                coverImageUrlProvider = coverImageUrlProvider,
+                issueCountBadge = item.issueCount.takeIf { count ->
+                    showSortControl && sortMode == LibrarySortMode.ISSUE_COUNT && count != null && count > 0
+                },
+                title = when {
+                    preferIssueLabels && includeSeriesInIssueLabels -> itemMixedIssueBrowsePrimaryText(item)
+                    preferIssueLabels -> itemSeriesBrowsePrimaryText(item)
+                    else -> itemPrimaryText(item)
+                },
+                isSelectionMode = isDownloadSelectionMode,
+                isSelected = item.id in selectedDownloadItemIdSet,
+                onClick = { onItemSelected(item) },
+                onSelectionToggle = { toggleDownloadSelection(item) },
+                onSelectionStart = if (item.id in selectableDownloadItemIds) {
+                    { startDownloadSelection(item) }
+                } else {
+                    null
+                },
+                menuContent = if (hasMenuContent) {
+                    {
+                        LibraryAnchoredItemMenu(
+                            item = item,
+                            actionContext = itemActionContext,
+                            expanded = gridExpandedMenuItemId == item.id,
+                            onExpandedChange = { expanded ->
+                                gridExpandedMenuItemId = if (expanded) item.id else null
+                            },
+                            onDeleteImportedRequested = { deleteCandidate = it },
+                            buttonStyle = LibraryItemMenuButtonStyle.CompactInline,
+                        )
+                    }
+                } else {
+                    null
+                },
+            )
+        }
 
         LazyVerticalGrid(
             columns = LibraryViewMode.Grid.gridCells(
@@ -329,17 +476,17 @@ fun LibraryScreen(
                 )
             }
 
-            if (visibleItems.isEmpty()) {
+            if (gridIsEmpty) {
                 item(
                     key = "empty-state",
-                    contentType = if (isLoadingSource) {
+                    contentType = if (showGridLoading) {
                         LibraryScreenContentTypes.LoadingState
                     } else {
                         LibraryScreenContentTypes.EmptyState
                     },
                     span = { GridItemSpan(maxLineSpan) },
                 ) {
-                    if (isLoadingSource) {
+                    if (showGridLoading) {
                         LoadingLibraryState(
                             gridCellSizeDp = gridPresentation.selectedGridSize.cellSizeDp,
                         )
@@ -351,55 +498,23 @@ fun LibraryScreen(
                         )
                     }
                 }
+            } else if (isPaged) {
+                items(
+                    count = pagedItems!!.itemCount,
+                    key = pagedItems.itemKey { it.id },
+                    contentType = pagedItems.itemContentType { LibraryScreenContentTypes.GridItem },
+                ) { index ->
+                    // Placeholders are on for rail sorts (for the jump rail); a not-yet-loaded slot
+                    // renders a sized stand-in so the row keeps its height instead of collapsing.
+                    pagedItems[index]?.let { item -> gridCard(item) } ?: LibraryGridPlaceholderCard()
+                }
             } else {
                 items(
                     items = visibleItems,
                     key = { it.id },
                     contentType = { LibraryScreenContentTypes.GridItem },
                 ) { item ->
-                    val hasMenuContent = itemActionContext.hasMenuContent(item)
-                    GridCoverCard(
-                        item = item,
-                        progress = progressByItemId[item.id],
-                        rating = ratingByItemId[item.id],
-                        isDownloaded = itemActionContext.isDownloaded(item),
-                        fadeRead = fadeReadItems,
-                        imageVariant = gridCoverImageVariant,
-                        coverImageUrlProvider = coverImageUrlProvider,
-                        issueCountBadge = item.issueCount.takeIf { count ->
-                            showSortControl && sortMode == LibrarySortMode.ISSUE_COUNT && count != null && count > 0
-                        },
-                        title = when {
-                            preferIssueLabels && includeSeriesInIssueLabels -> itemMixedIssueBrowsePrimaryText(item)
-                            preferIssueLabels -> itemSeriesBrowsePrimaryText(item)
-                            else -> itemPrimaryText(item)
-                        },
-                        isSelectionMode = isDownloadSelectionMode,
-                        isSelected = item.id in selectedDownloadItemIdSet,
-                        onClick = { onItemSelected(item) },
-                        onSelectionToggle = { toggleDownloadSelection(item) },
-                        onSelectionStart = if (item.id in selectableDownloadItemIds) {
-                            { startDownloadSelection(item) }
-                        } else {
-                            null
-                        },
-                        menuContent = if (hasMenuContent) {
-                            {
-                                LibraryAnchoredItemMenu(
-                                    item = item,
-                                    actionContext = itemActionContext,
-                                    expanded = gridExpandedMenuItemId == item.id,
-                                    onExpandedChange = { expanded ->
-                                        gridExpandedMenuItemId = if (expanded) item.id else null
-                                    },
-                                    onDeleteImportedRequested = { deleteCandidate = it },
-                                    buttonStyle = LibraryItemMenuButtonStyle.CompactInline,
-                                )
-                            }
-                        } else {
-                            null
-                        },
-                    )
+                    gridCard(item)
                 }
             }
         }

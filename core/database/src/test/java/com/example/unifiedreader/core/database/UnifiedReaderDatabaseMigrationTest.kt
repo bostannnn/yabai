@@ -99,6 +99,79 @@ class UnifiedReaderDatabaseMigrationTest {
     }
 
     @Test
+    fun `migration 24 to 25 creates library grid roots table`() {
+        createTestDatabase(
+            name = "migration-24-25-${System.nanoTime()}",
+            version = 24,
+        ) { database ->
+            createVersion24Schema(database)
+        }.use { database ->
+            UnifiedReaderDatabaseMigrations.MIGRATION_24_25.migrate(database)
+
+            assertTrue(tableExists(database, "library_grid_roots"))
+            assertTrue(indexExists(database, "index_library_grid_roots_sourceType"))
+        }
+    }
+
+    @Test
+    fun `migration 25 to 26 creates library root facets table`() {
+        createTestDatabase(
+            name = "migration-25-26-${System.nanoTime()}",
+            version = 25,
+        ) { database ->
+            createVersion25Schema(database)
+        }.use { database ->
+            UnifiedReaderDatabaseMigrations.MIGRATION_25_26.migrate(database)
+
+            assertTrue(tableExists(database, "library_root_facets"))
+            assertTrue(indexExists(database, "index_library_root_facets_sourceType_dimension"))
+            assertTrue(indexExists(database, "index_library_root_facets_libraryId"))
+        }
+    }
+
+    @Test
+    fun `migration 26 to 27 creates library root members table`() {
+        createTestDatabase(
+            name = "migration-26-27-${System.nanoTime()}",
+            version = 26,
+        ) { database ->
+            createVersion26Schema(database)
+        }.use { database ->
+            UnifiedReaderDatabaseMigrations.MIGRATION_26_27.migrate(database)
+
+            assertTrue(tableExists(database, "library_root_members"))
+            assertTrue(indexExists(database, "index_library_root_members_itemId"))
+            assertTrue(indexExists(database, "index_library_root_members_libraryId"))
+        }
+    }
+
+    @Test
+    fun `migration 27 to 28 adds rail sort keys and clears grid roots for repopulation`() {
+        createTestDatabase(
+            name = "migration-27-28-${System.nanoTime()}",
+            version = 27,
+        ) { database ->
+            createVersion27Schema(database)
+            // A pre-v28 grid root without sort keys; the migration must clear it so the startup
+            // rebuild repopulates roots with the new keys (they can't be computed in SQL).
+            database.execSQL(
+                "INSERT INTO library_grid_roots (id, sourceType, libraryId, isLocalImport, title, format, kind) " +
+                    "VALUES ('r1', 'KAVITA', 'libA', 0, 'Title', 'CBZ', 'COMIC')",
+            )
+        }.use { database ->
+            UnifiedReaderDatabaseMigrations.MIGRATION_27_28.migrate(database)
+
+            assertTrue(columnExists(database, "library_grid_roots", "sortTitleKey"))
+            assertTrue(columnExists(database, "library_grid_roots", "sortAuthorKey"))
+            assertTrue(columnExists(database, "library_grid_roots", "sortSeriesKey"))
+            database.query("SELECT COUNT(*) FROM library_grid_roots").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals(0, cursor.getInt(0))
+            }
+        }
+    }
+
+    @Test
     fun `room migrates 4 to 5 and validates reader session state schema`() {
         val databaseName = "migration-4-5-${System.nanoTime()}"
         createTestDatabase(
@@ -1089,6 +1162,26 @@ private fun createVersion23Schema(database: SupportSQLiteDatabase) {
     UnifiedReaderDatabaseMigrations.MIGRATION_22_23.migrate(database)
 }
 
+private fun createVersion24Schema(database: SupportSQLiteDatabase) {
+    createVersion23Schema(database)
+    UnifiedReaderDatabaseMigrations.MIGRATION_23_24.migrate(database)
+}
+
+private fun createVersion25Schema(database: SupportSQLiteDatabase) {
+    createVersion24Schema(database)
+    UnifiedReaderDatabaseMigrations.MIGRATION_24_25.migrate(database)
+}
+
+private fun createVersion26Schema(database: SupportSQLiteDatabase) {
+    createVersion25Schema(database)
+    UnifiedReaderDatabaseMigrations.MIGRATION_25_26.migrate(database)
+}
+
+private fun createVersion27Schema(database: SupportSQLiteDatabase) {
+    createVersion26Schema(database)
+    UnifiedReaderDatabaseMigrations.MIGRATION_26_27.migrate(database)
+}
+
 private fun tableExists(
     database: SupportSQLiteDatabase,
     tableName: String,
@@ -1198,6 +1291,10 @@ private fun openRoomDatabase(
         UnifiedReaderDatabaseMigrations.MIGRATION_21_22,
         UnifiedReaderDatabaseMigrations.MIGRATION_22_23,
         UnifiedReaderDatabaseMigrations.MIGRATION_23_24,
+        UnifiedReaderDatabaseMigrations.MIGRATION_24_25,
+        UnifiedReaderDatabaseMigrations.MIGRATION_25_26,
+        UnifiedReaderDatabaseMigrations.MIGRATION_26_27,
+        UnifiedReaderDatabaseMigrations.MIGRATION_27_28,
     )
     .build()
 

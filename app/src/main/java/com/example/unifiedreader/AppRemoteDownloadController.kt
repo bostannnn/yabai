@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 class AppRemoteDownloadController @Inject constructor(
     private val libraryActionsCoordinator: AppLibraryActionsCoordinator,
     private val remoteDownloadQueueController: RemoteDownloadQueueController,
+    private val readableItemLookup: ReadableItemLookup,
 ) {
     fun observeEntries(): Flow<DownloadEntriesSnapshot> = remoteDownloadQueueController.observeEntries()
 
@@ -23,9 +24,11 @@ class AppRemoteDownloadController @Inject constructor(
         canScheduleSource: (SourceType) -> Boolean,
     ) {
         scope.launch {
+            // Only the selected item's series issues are needed to resolve download action items,
+            // not the whole catalog (a standalone resolves to itself with an empty set).
             remoteDownloadQueueController.enqueue(
                 item = item,
-                items = stateProvider().items,
+                items = readableItemLookup.getSeriesMemberItems(item),
                 canScheduleSource = canScheduleSource,
             )
         }
@@ -39,9 +42,14 @@ class AppRemoteDownloadController @Inject constructor(
         canScheduleSource: (SourceType) -> Boolean,
     ) {
         scope.launch {
+            // The pool only needs each selected item's series issues so per-item resolution can
+            // find them; resolution filters by each item's own series key.
+            val allItems = items
+                .flatMap { selectedItem -> readableItemLookup.getSeriesMemberItems(selectedItem) }
+                .distinctBy(ReadableItem::id)
             remoteDownloadQueueController.enqueueBatch(
                 selectedItems = items,
-                allItems = stateProvider().items,
+                allItems = allItems,
                 canScheduleSource = canScheduleSource,
             )
         }
@@ -103,6 +111,9 @@ class AppRemoteDownloadController @Inject constructor(
         item: ReadableItem,
     ) {
         scope.launch {
+            // Kept on the full list: delete recomputes the complete local-availability sets (over all
+            // items) that replace state, so a bounded set would drop availability for other items.
+            // Migrating this needs a scope-aware availability recompute (a later Stage E slice).
             val result = libraryActionsCoordinator.deleteRemoteLocalFile(item, stateProvider().items)
             updateState { state ->
                 state.withRemoteItemLocalState(

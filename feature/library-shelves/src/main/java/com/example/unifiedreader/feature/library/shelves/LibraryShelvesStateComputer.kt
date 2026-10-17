@@ -26,12 +26,16 @@ class LibraryShelvesStateComputer @Inject constructor(
     fun compute(
         input: LibraryShelvesInput,
     ): LibraryShelvesState {
+        val computeStart = LibraryShelvesPerfLog.startNanos()
         val cacheKey = LibraryShelvesStateCacheKey(
             selectedSource = input.selectedSource,
             items = input.items,
             progressByItemId = input.progressByItemId,
         )
-        stateCache[cacheKey]?.let { return it }
+        stateCache[cacheKey]?.let { cached ->
+            LibraryShelvesPerfLog.logSince("shelves.compute HIT [${input.selectedSource}]", computeStart)
+            return cached
+        }
         val sourceItems = input.items.filter { item ->
             item.sourceType == input.selectedSource
         }
@@ -54,6 +58,10 @@ class LibraryShelvesStateComputer @Inject constructor(
             recentlyFinished = recentlyFinished,
         ).also { shelvesState ->
             stateCache[cacheKey] = shelvesState
+            LibraryShelvesPerfLog.logSince(
+                "shelves.compute MISS [${input.selectedSource} items=${sourceItems.size}]",
+                computeStart,
+            )
         }
     }
 
@@ -82,7 +90,15 @@ class LibraryShelvesStateComputer @Inject constructor(
         items: List<ReadableItem>,
         progressByItemId: Map<String, ItemProgressSummary>,
     ): List<NextInSeriesShelfItem> {
-        val nextUnstartedByCurrentItemId = seriesContinuationResolver.nextUnstartedAfterByCurrentItem(
+        // Only comics with activity can seed a "Next in series" entry, so resolve continuations for
+        // just those (and their series) instead of grouping/sorting every series in the catalog.
+        val activeComicItemIds = items.asSequence()
+            .filter { item -> item.kind == ReadableItemKind.COMIC }
+            .filter { item -> progressByItemId[item.id]?.hasActivity == true }
+            .mapTo(HashSet(), ReadableItem::id)
+        if (activeComicItemIds.isEmpty()) return emptyList()
+        val nextUnstartedByCurrentItemId = seriesContinuationResolver.nextUnstartedAfterForItems(
+            seedItemIds = activeComicItemIds,
             items = items,
             progressByItemId = progressByItemId,
         )

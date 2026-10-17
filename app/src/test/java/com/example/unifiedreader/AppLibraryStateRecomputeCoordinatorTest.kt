@@ -5,6 +5,7 @@ import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.LibraryFilterState
+import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadingListItemRef
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.remoteLibraryId
@@ -706,6 +707,45 @@ class AppLibraryStateRecomputeCoordinatorTest {
 
         assertFalse(readyStates.last().kavitaReadingLists.isLoadingSelectedItems)
         assertEquals(listOf(firstItem.id), readyStates.last().visibleItems.map { item -> item.id })
+    }
+
+    @Test
+    fun `seedColdStartShelves publishes DB-sourced shelves before the catalog hydrates`() = runTest {
+        val item = ReadableItem(
+            id = "kavita:item:1",
+            sourceType = SourceType.KAVITA,
+            libraryId = "lib",
+            title = "A Book",
+            format = FormatType.EPUB,
+        )
+        val dbShelvesInput = com.example.unifiedreader.feature.library.shelves.LibraryShelvesInput(
+            selectedSource = SourceType.KAVITA,
+            items = listOf(item),
+            progressByItemId = mapOf(
+                item.id to ItemProgressSummary(label = "Continue", fraction = 0.5f, lastReadAtEpochMillis = 100L),
+            ),
+        )
+        val coordinator = AppLibraryStateRecomputeCoordinator(
+            libraryDerivedStateComputer = LibraryDerivedStateComputer(),
+            libraryShelvesStateComputer = LibraryShelvesStateComputer(LibrarySeriesContinuationResolver()),
+            shelvesInputResolver = { state -> dbShelvesInput.takeIf { state.selectedSource == SourceType.KAVITA } },
+            appDispatchers = AppDispatchers(
+                io = StandardTestDispatcher(testScheduler),
+                default = StandardTestDispatcher(testScheduler),
+            ),
+        )
+        // Pre-hydration: Kavita library landing, shelves shown, source not yet hydrated.
+        coordinator.initialize(sampleLibraryState().copy(hydratedSources = emptySet()))
+
+        val publishedStates = mutableListOf<AppUiState>()
+        coordinator.seedColdStartShelves(scope = this, publishState = publishedStates::add)
+        advanceUntilIdle()
+
+        // Shelves are populated from the DB-sourced input without the catalog having hydrated.
+        assertTrue(publishedStates.isNotEmpty())
+        val shelves = publishedStates.last().libraryShelvesState
+        assertTrue(shelves.hasContent)
+        assertEquals(listOf(item.id), shelves.continueReading.map { entry -> entry.item.id })
     }
 
     private fun createCoordinator(

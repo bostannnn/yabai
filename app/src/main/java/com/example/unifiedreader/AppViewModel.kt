@@ -7,6 +7,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibraryFilterPanel
@@ -69,6 +73,8 @@ class AppViewModel @Inject constructor(
     val readerWorkCoordinator: ReaderWorkCoordinator,
     private val libraryStateRecomputeCoordinator: AppLibraryStateRecomputeCoordinator,
     private val coldStartLibraryViewCoordinator: AppColdStartLibraryViewCoordinator,
+    private val libraryGridPager: LibraryGridPager,
+    private val pagedWindowBadgeResolver: AppPagedWindowBadgeResolver,
 ) : ViewModel() {
     var uiState by mutableStateOf(initialUiStateFactory.create())
         private set
@@ -88,10 +94,63 @@ class AppViewModel @Inject constructor(
         settingsController.restoreState(updateState = ::updateUiState)
         libraryBrowseController.restoreState(updateState = ::updateUiState)
         coldStartLibraryViewCoordinator.restore(viewModelScope, uiState.selectedSource, ::updateUiState)
+        // Show shelves from the DB as soon as reading progress is loaded, instead of waiting for the
+        // whole catalog to hydrate into memory. (No reading progress -> no shelves anyway.)
+        viewModelScope.launch {
+            readerSessionStore.progressByItemIdFlow.first { progress -> progress.isNotEmpty() }
+            if (!uiState.isSelectedSourceHydrated) {
+                libraryStateRecomputeCoordinator.seedColdStartShelves(viewModelScope) { nextState ->
+                    uiState = nextState
+                    activeRouteStore.save(nextState.toActiveRouteSnapshot())
+                }
+            }
+        }
         observeAppState()
         coldStartLibraryViewCoordinator.startCapture(viewModelScope, snapshotFlow { uiState })
         viewModelScope.launch { initialUiStateFactory.hydrateAfterInitialState() }
+        if (LibraryPagingFeature.ENABLED) {
+            viewModelScope.launch { libraryGridPager.rebuildGridRootsIfEmpty() }
+        }
     }
+
+    /**
+     * Paged library grid for [source] in a column [sortMode], cached in the ViewModel scope. Thin
+     * delegation to the owning repository; only consumed while [LibraryPagingFeature] is enabled.
+     */
+    fun libraryGridPagingData(
+        source: SourceType,
+        sortMode: LibrarySortMode,
+        filters: LibraryFilterState,
+    ): Flow<PagingData<ReadableItem>> =
+        libraryGridPager.gridRootsPagingData(source, sortMode, filters).cachedIn(viewModelScope)
+
+    /**
+     * Resolves the paged grid's per-card badges (read/progress, rating, download status) for the roots
+     * currently on screen, from bounded sources, so they paint with the grid instead of ~1s after.
+     * Reads [uiState] fresh (not a captured composition snapshot) for the current source, ratings, and
+     * in-flight downloads. Only invoked on the paged path; see [AppPagedWindowBadgeResolver].
+     */
+    suspend fun resolvePagedWindowBadges(
+        rootItems: List<ReadableItem>,
+    ): com.example.unifiedreader.feature.library.LibraryWindowBadges {
+        val state = uiState
+        return pagedWindowBadgeResolver.resolve(
+            source = state.selectedSource,
+            rootItems = rootItems,
+            ratingByItemId = state.journalRatingByItemId(),
+            downloadingItemIds = state.downloadingRemoteItemIds,
+        )
+    }
+
+    /**
+     * The SQL-computed alphabet rail (present letters + their grid offsets) for a paged rail sort, so
+     * the paged grid can render + jump the A–Z rail without the in-memory ordered list. Empty for the
+     * rail-less sorts. Reads the current source from [uiState].
+     */
+    suspend fun pagedAlphabetSections(
+        sortMode: com.example.unifiedreader.core.model.LibrarySortMode,
+    ): List<com.example.unifiedreader.core.model.LibraryAlphabetSection> =
+        libraryGridPager.alphabetSections(uiState.selectedSource, sortMode)
 
     fun onTopLevelSelected(destination: TopLevelDestination) {
         readerCoordinator.onTopLevelSelected(
@@ -363,6 +422,7 @@ class AppViewModel @Inject constructor(
         readerCoordinator.onReaderCompletionRequested(
             stateProvider = { uiState },
             updateState = ::updateUiState,
+            scope = viewModelScope,
             refreshProgress = ::refreshProgress,
         )
     }

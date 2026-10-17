@@ -39,6 +39,34 @@ class LibrarySeriesContinuationResolver @Inject constructor() {
         includeInProgress = false,
     )
 
+    /**
+     * Like [nextUnstartedAfterByCurrentItem] but only resolves continuations for [seedItemIds] (and
+     * returns entries only for them). It groups/sorts just the series those seeds belong to instead of
+     * the whole catalog, so a "Next in series" shelf over a large library doesn't pay to order every
+     * series. Equivalent to the full call filtered to the seeds, since each seed's complete series is
+     * still included.
+     */
+    fun nextUnstartedAfterForItems(
+        seedItemIds: Set<String>,
+        items: List<ReadableItem>,
+        progressByItemId: Map<String, ItemProgressSummary>,
+    ): Map<String, ReadableItem> {
+        if (seedItemIds.isEmpty()) return emptyMap()
+        val seedSeriesKeys = HashSet<SeriesIssueGroupKey>()
+        items.forEach { item ->
+            if (item.id in seedItemIds) {
+                item.seriesIssueGroupKey()?.let(seedSeriesKeys::add)
+            }
+        }
+        if (seedSeriesKeys.isEmpty()) return emptyMap()
+        val relevantItems = items.filter { item -> item.seriesIssueGroupKey() in seedSeriesKeys }
+        return nextAfterByCurrentItem(
+            items = relevantItems,
+            progressByItemId = progressByItemId,
+            includeInProgress = false,
+        ).filterKeys { itemId -> itemId in seedItemIds }
+    }
+
     private fun nextAfter(
         currentItem: ReadableItem,
         items: List<ReadableItem>,

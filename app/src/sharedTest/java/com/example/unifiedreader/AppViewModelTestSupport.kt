@@ -254,6 +254,45 @@ internal fun createViewModel(
         libraryStateRecomputeCoordinator = libraryStateRecomputeCoordinator,
     )
     val remoteJournalPusher = RemoteJournalPusherRegistry(sourcePushers = emptyList())
+    val readableItemLookup = object : ReadableItemLookup {
+        override suspend fun getItemById(itemId: String): ReadableItem? =
+            readableItemRepository.getItems().firstOrNull { item -> item.id == itemId }
+
+        override suspend fun getItemsByIds(itemIds: List<String>): List<ReadableItem> {
+            val requested = itemIds.toSet()
+            return readableItemRepository.getItems().filter { item -> item.id in requested }
+        }
+
+        // The series/download resolvers re-filter by series key, so returning all items is
+        // equivalent to the bounded DB query in production.
+        override suspend fun getSeriesMemberItems(item: ReadableItem): List<ReadableItem> =
+            readableItemRepository.getItems()
+
+        override suspend fun getMemberItemsForRoots(source: SourceType, rootIds: List<String>): List<ReadableItem> =
+            readableItemRepository.getItems().filter { item -> item.sourceType == source }
+    }
+
+    val libraryGridPager = object : LibraryGridPager {
+        override fun gridRootsPagingData(
+            source: SourceType,
+            sortMode: com.example.unifiedreader.core.model.LibrarySortMode,
+            filters: com.example.unifiedreader.core.model.LibraryFilterState,
+        ): kotlinx.coroutines.flow.Flow<androidx.paging.PagingData<com.example.unifiedreader.core.model.ReadableItem>> =
+            kotlinx.coroutines.flow.flowOf(androidx.paging.PagingData.empty())
+
+        override suspend fun orderedGridRootIds(
+            source: SourceType,
+            sortMode: com.example.unifiedreader.core.model.LibrarySortMode,
+            limit: Int,
+        ): List<String> = emptyList()
+
+        override suspend fun alphabetSections(
+            source: SourceType,
+            sortMode: com.example.unifiedreader.core.model.LibrarySortMode,
+        ): List<com.example.unifiedreader.core.model.LibraryAlphabetSection> = emptyList()
+
+        override suspend fun rebuildGridRootsIfEmpty() = Unit
+    }
 
     return AppViewModel(
         navigationController = navigationController,
@@ -264,6 +303,7 @@ internal fun createViewModel(
         remoteDownloadController = AppRemoteDownloadController(
             libraryActionsCoordinator = libraryActionsCoordinator,
             remoteDownloadQueueController = remoteDownloadQueueController,
+            readableItemLookup = readableItemLookup,
         ),
         catalogStateCoordinator = catalogStateCoordinator,
         libraryActionsCoordinator = libraryActionsCoordinator,
@@ -308,6 +348,7 @@ internal fun createViewModel(
                 seriesContinuationResolver = LibrarySeriesContinuationResolver(),
                 orderedItemContinuationResolver = LibraryOrderedItemContinuationResolver(),
             ),
+            readableItemLookup = readableItemLookup,
             readableAccessResolver = ReadableAccessResolver(
                 remoteItemLocalAvailability = remoteItemLocalAvailability,
                 remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
@@ -407,6 +448,13 @@ internal fun createViewModel(
                     orderedItemIds: List<String>,
                 ) = Unit
             },
+            libraryGridPager = libraryGridPager,
+        ),
+        libraryGridPager = libraryGridPager,
+        pagedWindowBadgeResolver = AppPagedWindowBadgeResolver(
+            readableItemLookup = readableItemLookup,
+            libraryStateAssembler = libraryStateAssembler,
+            readerSessionStore = readerSessionStore,
         ),
     )
 }

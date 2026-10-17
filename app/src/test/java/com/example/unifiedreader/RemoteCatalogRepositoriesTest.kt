@@ -1,15 +1,23 @@
 package com.example.unifiedreader
 
 import com.example.unifiedreader.core.database.dao.RemoteCatalogDao
+import androidx.paging.PagingSource
 import com.example.unifiedreader.core.database.entity.LibraryEntity
+import com.example.unifiedreader.core.database.entity.LibraryGridRootEntity
+import com.example.unifiedreader.core.database.entity.LibraryMemberBadgeProjection
+import com.example.unifiedreader.core.database.entity.LibraryRootFacetEntity
+import com.example.unifiedreader.core.database.entity.LibraryRootMemberEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemLibraryEntity
 import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEntity
 import com.example.unifiedreader.core.database.entity.RemoteLibraryCacheEntity
 import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.LibraryAlphabetBucket
 import com.example.unifiedreader.core.model.LibraryContentType
+import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.kavitaSeriesContainerId
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
 import kotlinx.coroutines.CoroutineScope
@@ -350,6 +358,81 @@ class RemoteCatalogRepositoriesTest {
     }
 
     @Test
+    fun `readable item lookup resolves items by id via bounded queries`() = runBlocking {
+        val alpha = remoteCatalogItem(sourceType = SourceType.KAVITA, remoteId = "a", title = "Alpha")
+        val beta = remoteCatalogItem(sourceType = SourceType.KAVITA, remoteId = "b", title = "Beta")
+        val dao = FakeRemoteCatalogDao(libraries = emptyList(), items = listOf(alpha, beta))
+        val repository = RoomRemoteCatalogRepository(
+            remoteCatalogDao = dao,
+            ioDispatcher = Dispatchers.Unconfined,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
+        )
+
+        assertEquals("Alpha", repository.getItemById(alpha.id)?.title)
+        assertEquals(null, repository.getItemById("kavita:item:missing"))
+        assertEquals(
+            setOf("Alpha", "Beta"),
+            repository.getItemsByIds(listOf(alpha.id, beta.id, "kavita:item:missing")).map { it.title }.toSet(),
+        )
+        assertEquals(emptyList<String>(), repository.getItemsByIds(emptyList()).map { it.title })
+    }
+
+    @Test
+    fun `getSeriesMemberItems resolves a series from a container or an issue`() = runBlocking {
+        val dao = FakeRemoteCatalogDao(libraries = emptyList(), items = emptyList())
+        val repository = RoomRemoteCatalogRepository(
+            remoteCatalogDao = dao,
+            ioDispatcher = Dispatchers.Unconfined,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
+        )
+        // Two comics sharing remoteFileType "series" collapse into one container with both as members.
+        repository.replaceSourceCatalog(
+            sourceType = SourceType.KAVITA,
+            libraries = listOf(remoteCatalogLibrary(SourceType.KAVITA, "library", "Library")),
+            items = listOf(
+                remoteCatalogItem(SourceType.KAVITA, "1", "Issue 1"),
+                remoteCatalogItem(SourceType.KAVITA, "2", "Issue 2"),
+            ),
+        )
+
+        val libraryId = SourceType.KAVITA.remoteLibraryId("library")
+        val seriesKey = "$libraryId::series"
+        val expectedIds = setOf(SourceType.KAVITA.remoteItemId("1"), SourceType.KAVITA.remoteItemId("2"))
+
+        val container = ReadableItem(
+            id = kavitaSeriesContainerId(seriesKey),
+            sourceType = SourceType.KAVITA,
+            libraryId = libraryId,
+            remoteId = seriesKey,
+            title = "Series",
+            format = FormatType.CBZ,
+            kind = ReadableItemKind.COMIC,
+        )
+        assertEquals(expectedIds, repository.getSeriesMemberItems(container).map(ReadableItem::id).toSet())
+
+        val issue = ReadableItem(
+            id = SourceType.KAVITA.remoteItemId("1"),
+            sourceType = SourceType.KAVITA,
+            libraryId = libraryId,
+            remoteFileType = "series",
+            title = "Issue 1",
+            format = FormatType.CBZ,
+            kind = ReadableItemKind.COMIC,
+        )
+        assertEquals(expectedIds, repository.getSeriesMemberItems(issue).map(ReadableItem::id).toSet())
+
+        val standalone = ReadableItem(
+            id = "kavita:item:solo",
+            sourceType = SourceType.KAVITA,
+            libraryId = libraryId,
+            title = "Solo",
+            format = FormatType.EPUB,
+            kind = ReadableItemKind.BOOK,
+        )
+        assertEquals(emptyList<String>(), repository.getSeriesMemberItems(standalone).map(ReadableItem::id))
+    }
+
+    @Test
     fun `room remote catalog repository chunks large source catalog delta deletes`() = runBlocking {
         val dao = FakeRemoteCatalogDao(
             libraries = emptyList(),
@@ -484,6 +567,20 @@ private class FakeRemoteCatalogDao(
             .map(ReadableItemEntity::toLibraryEntity)
     }
 
+    override fun getLibraryItemById(itemId: String): ReadableItemLibraryEntity? =
+        itemsState.value.firstOrNull { it.id == itemId }?.toLibraryEntity()
+
+    // The real bounded "progressed items + series siblings" logic is SQL, tested in core:database;
+    // the fake just returns the source items (this test doesn't exercise shelves input).
+    override fun getShelvesInputItems(sourceType: String): List<ReadableItemLibraryEntity> =
+        itemsState.value.filter { it.sourceType == sourceType }.map(ReadableItemEntity::toLibraryEntity)
+
+    // The real root->members join is SQL, tested in core:database; this test doesn't exercise it.
+    override fun getMemberBadgeProjectionsForRoots(
+        sourceType: String,
+        rootIds: List<String>,
+    ): List<LibraryMemberBadgeProjection> = emptyList()
+
     override fun getCachedLibraries(
         sourceType: String,
         baseUrl: String,
@@ -563,6 +660,116 @@ private class FakeRemoteCatalogDao(
         username: String,
     ) {
         cachedLibrariesByKey.remove(Triple(sourceType, baseUrl, username))
+    }
+
+    private val gridRootsState = MutableStateFlow<List<LibraryGridRootEntity>>(emptyList())
+
+    override fun getGridRootsForSourceType(sourceType: String): List<LibraryGridRootEntity> =
+        gridRootsState.value
+            .filter { it.sourceType == sourceType }
+            .sortedBy { it.title.lowercase() }
+
+    override fun pagingGridRootsByTitle(sourceType: String): PagingSource<Int, LibraryGridRootEntity> =
+        throw UnsupportedOperationException("paging not used in FakeRemoteCatalogDao")
+
+    override fun pagingGridRootsByAuthor(sourceType: String): PagingSource<Int, LibraryGridRootEntity> =
+        throw UnsupportedOperationException("paging not used in FakeRemoteCatalogDao")
+
+    override fun pagingGridRootsBySeries(sourceType: String): PagingSource<Int, LibraryGridRootEntity> =
+        throw UnsupportedOperationException("paging not used in FakeRemoteCatalogDao")
+
+    override fun getTitleAlphabetBuckets(sourceType: String): List<LibraryAlphabetBucket> = emptyList()
+
+    override fun getAuthorAlphabetBuckets(sourceType: String): List<LibraryAlphabetBucket> = emptyList()
+
+    override fun getSeriesAlphabetBuckets(sourceType: String): List<LibraryAlphabetBucket> = emptyList()
+
+    override fun pagingGridRootsByDateAdded(sourceType: String): PagingSource<Int, LibraryGridRootEntity> =
+        throw UnsupportedOperationException("paging not used in FakeRemoteCatalogDao")
+
+    override fun pagingGridRootsByLastRead(sourceType: String): PagingSource<Int, LibraryGridRootEntity> =
+        throw UnsupportedOperationException("paging not used in FakeRemoteCatalogDao")
+
+    override fun pagingGridRootsFiltered(
+        query: androidx.sqlite.db.SupportSQLiteQuery,
+    ): PagingSource<Int, LibraryGridRootEntity> =
+        throw UnsupportedOperationException("paging not used in FakeRemoteCatalogDao")
+
+    override fun countGridRoots(): Int = gridRootsState.value.size
+
+    override fun getGridRootIdsByTitle(sourceType: String, limit: Int): List<String> =
+        gridRootsState.value
+            .filter { it.sourceType == sourceType }
+            .sortedBy { it.title.lowercase() }
+            .map(LibraryGridRootEntity::id)
+            .take(limit)
+
+    override fun getGridRootIdsByDateAdded(sourceType: String, limit: Int): List<String> =
+        gridRootsState.value
+            .filter { it.sourceType == sourceType }
+            .sortedWith(compareByDescending<LibraryGridRootEntity> { it.addedAtEpochMillis ?: 0L }.thenBy { it.title.lowercase() })
+            .map(LibraryGridRootEntity::id)
+            .take(limit)
+
+    // No reading_progress join in the fake; title order is sufficient for the repository tests.
+    override fun getGridRootIdsByLastRead(sourceType: String, limit: Int): List<String> =
+        getGridRootIdsByTitle(sourceType, limit)
+
+    protected override fun getLibraryItemsForLibrary(libraryId: String): List<ReadableItemLibraryEntity> =
+        itemsState.value.filter { it.libraryId == libraryId }.map(ReadableItemEntity::toLibraryEntity)
+
+    override fun insertOrReplaceGridRoots(roots: List<LibraryGridRootEntity>) {
+        val replacementIds = roots.mapTo(mutableSetOf(), LibraryGridRootEntity::id)
+        gridRootsState.value = gridRootsState.value.filterNot { it.id in replacementIds } + roots
+    }
+
+    protected override fun deleteGridRootsForSourceType(sourceType: String) {
+        gridRootsState.value = gridRootsState.value.filterNot { it.sourceType == sourceType }
+    }
+
+    protected override fun deleteGridRootsForLibrary(libraryId: String) {
+        gridRootsState.value = gridRootsState.value.filterNot { it.libraryId == libraryId }
+    }
+
+    private val rootFacetsState = MutableStateFlow<List<LibraryRootFacetEntity>>(emptyList())
+
+    override fun getDistinctFacetValues(sourceType: String, dimension: String): List<String> =
+        rootFacetsState.value
+            .filter { it.sourceType == sourceType && it.dimension == dimension }
+            .map { it.value }
+            .distinct()
+
+    override fun insertOrReplaceRootFacets(facets: List<LibraryRootFacetEntity>) {
+        val replacementKeys = facets.mapTo(mutableSetOf()) { Triple(it.rootId, it.dimension, it.value) }
+        rootFacetsState.value = rootFacetsState.value
+            .filterNot { Triple(it.rootId, it.dimension, it.value) in replacementKeys } + facets
+    }
+
+    protected override fun deleteRootFacetsForSourceType(sourceType: String) {
+        rootFacetsState.value = rootFacetsState.value.filterNot { it.sourceType == sourceType }
+    }
+
+    protected override fun deleteRootFacetsForLibrary(libraryId: String) {
+        rootFacetsState.value = rootFacetsState.value.filterNot { it.libraryId == libraryId }
+    }
+
+    private val rootMembersState = MutableStateFlow<List<LibraryRootMemberEntity>>(emptyList())
+
+    override fun getMemberItemIds(rootId: String): List<String> =
+        rootMembersState.value.filter { it.rootId == rootId }.map { it.itemId }
+
+    override fun insertOrReplaceRootMembers(members: List<LibraryRootMemberEntity>) {
+        val replacementKeys = members.mapTo(mutableSetOf()) { it.rootId to it.itemId }
+        rootMembersState.value = rootMembersState.value
+            .filterNot { (it.rootId to it.itemId) in replacementKeys } + members
+    }
+
+    protected override fun deleteRootMembersForSourceType(sourceType: String) {
+        rootMembersState.value = rootMembersState.value.filterNot { it.sourceType == sourceType }
+    }
+
+    protected override fun deleteRootMembersForLibrary(libraryId: String) {
+        rootMembersState.value = rootMembersState.value.filterNot { it.libraryId == libraryId }
     }
 }
 

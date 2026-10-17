@@ -40,21 +40,34 @@ class AppLibraryStateAssembler @Inject constructor(
     suspend fun loadRemoteItemLocalState(
         items: List<ReadableItem>,
     ): RemoteItemLocalState {
-        val downloadedItemIds = buildSet {
-            remoteDownloadDataSources.forEach { dataSource ->
-                addAll(dataSource.storedDocumentItemIds(items))
-            }
-        }
-        val state = RemoteItemLocalState(
-            downloadedItemIds = downloadedItemIds,
-            locallyAvailableItemIds = downloadedItemIds + downloadedItemIds.downloadedSeriesContainerIds(items),
-            knownSourceLibraryScopeIds = items.remoteItemLocalStateSourceLibraryScopeIds(),
-        )
+        val state = computeRemoteItemLocalState(items)
         remoteItemLocalStateCache.store(
             items = items,
             state = state,
         )
         return state
+    }
+
+    /**
+     * Computes the downloaded / locally-available sets for [items] without touching the persisted
+     * cache. Callers that scan a bounded *subset* of the catalog (e.g. the paged-window badge resolver)
+     * must use this instead of [loadRemoteItemLocalState]: the cache is keyed per source-library scope,
+     * so storing a subset's state would overwrite that scope's full entry with a partial one and make
+     * the initial-snapshot restore under-report downloads for the whole library.
+     */
+    suspend fun computeRemoteItemLocalState(
+        items: List<ReadableItem>,
+    ): RemoteItemLocalState {
+        val downloadedItemIds = buildSet {
+            remoteDownloadDataSources.forEach { dataSource ->
+                addAll(dataSource.storedDocumentItemIds(items))
+            }
+        }
+        return RemoteItemLocalState(
+            downloadedItemIds = downloadedItemIds,
+            locallyAvailableItemIds = downloadedItemIds + downloadedItemIds.downloadedSeriesContainerIds(items),
+            knownSourceLibraryScopeIds = items.remoteItemLocalStateSourceLibraryScopeIds(),
+        )
     }
 
     fun loadCachedRemoteItemLocalState(

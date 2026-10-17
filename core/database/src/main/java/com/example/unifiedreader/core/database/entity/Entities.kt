@@ -124,6 +124,129 @@ data class ReadableItemLibraryEntity(
     val comicLanguagesJson: String?,
 )
 
+/**
+ * The minimal columns of `readable_items` the paged-window badge resolver needs for a bounded set of
+ * series members: enough for series grouping (remoteFileType / comicSeries / title), progress
+ * summaries (pageCount / format), and download-action resolution (format / kind / id / remoteFileId —
+ * the downloaded-file name is `{id}-{remoteFileId}.{ext}`, so dropping remoteFileId makes the download
+ * scan miss members' files). Deliberately omits the wide/expensive columns (the truncated description,
+ * covers, all facet JSON) so scanning a window's members is cheap. Maps to a lightweight
+ * [com.example.unifiedreader.core.model.ReadableItem] via `toDomain()`.
+ */
+data class LibraryMemberBadgeProjection(
+    val id: String,
+    val sourceType: String,
+    val libraryId: String,
+    val remoteId: String?,
+    val remoteFileId: String?,
+    val remoteFileType: String?,
+    val comicSeries: String?,
+    val title: String,
+    val format: String,
+    val kind: String,
+    val pageCount: Int?,
+)
+
+/**
+ * Persisted library grid "root" set per source: standalone items plus one synthetic series
+ * container per series key (the derivation shared with feature:library's in-memory index via
+ * core:model). The grid pages this table directly, so only the visible window is resident instead
+ * of the whole catalog. Rebuilt from `readable_items` on catalog write; see
+ * `RemoteCatalogDao.rebuildGridRootsForSourceType`.
+ *
+ * Columns mirror the `readable_items` grid projection (description already truncated at population
+ * time) plus [issueCount], which series containers carry and standalone items leave null.
+ */
+@Entity(
+    tableName = "library_grid_roots",
+    indices = [
+        Index(value = ["sourceType"]),
+    ],
+)
+data class LibraryGridRootEntity(
+    @PrimaryKey val id: String,
+    val sourceType: String,
+    val libraryId: String,
+    val remoteId: String?,
+    val isLocalImport: Boolean,
+    val remoteFileId: String?,
+    val remoteFileType: String?,
+    val title: String,
+    val format: String,
+    val kind: String,
+    val pageCount: Int?,
+    val coverUrl: String?,
+    val seriesCoverUrl: String?,
+    val description: String?,
+    val addedAtEpochMillis: Long?,
+    val issueCount: Int?,
+    val bookAuthor: String?,
+    val bookAuthorsJson: String?,
+    val bookSeriesName: String?,
+    val bookPublishersJson: String?,
+    val bookGenresJson: String?,
+    val bookTagsJson: String?,
+    val bookLanguagesJson: String?,
+    val comicSeries: String?,
+    val comicIssueTitle: String?,
+    val comicVolume: String?,
+    val comicIssueNumber: String?,
+    val comicWritersJson: String?,
+    val comicPencillersJson: String?,
+    val comicPublishersJson: String?,
+    val comicGenresJson: String?,
+    val comicTagsJson: String?,
+    val comicLanguagesJson: String?,
+    // Precomputed case-folded ORDER BY keys so the rail sorts (Title/Author/Series) can page from SQL;
+    // see ReadableItem.librarySortIndexKey. Null only for pre-v28 rows before the backfill.
+    val sortTitleKey: String? = null,
+    val sortAuthorKey: String? = null,
+    val sortSeriesKey: String? = null,
+)
+
+/**
+ * Normalized facet values for the grid roots in [LibraryGridRootEntity], one row per
+ * (root, dimension, value). Lets filter facets be computed with `SELECT DISTINCT` aggregates instead
+ * of scanning the whole in-memory catalog. Rebuilt alongside `library_grid_roots` on catalog write.
+ * [dimension] is a [com.example.unifiedreader.core.model.LibraryFacetDimension] name.
+ */
+@Entity(
+    tableName = "library_root_facets",
+    primaryKeys = ["rootId", "dimension", "value"],
+    indices = [
+        Index(value = ["sourceType", "dimension"]),
+        Index(value = ["libraryId"]),
+    ],
+)
+data class LibraryRootFacetEntity(
+    val rootId: String,
+    val sourceType: String,
+    val libraryId: String,
+    val dimension: String,
+    val value: String,
+)
+
+/**
+ * Maps each grid root in [LibraryGridRootEntity] to the catalog item ids it represents: the root's
+ * own id for a standalone item, or every issue id for a series container. Lets progress-driven
+ * ordering (LAST_READ = MAX over members) and series membership be computed by joining
+ * `reading_progress` in SQL. Rebuilt alongside `library_grid_roots` on catalog write.
+ */
+@Entity(
+    tableName = "library_root_members",
+    primaryKeys = ["rootId", "itemId"],
+    indices = [
+        Index(value = ["itemId"]),
+        Index(value = ["libraryId"]),
+    ],
+)
+data class LibraryRootMemberEntity(
+    val rootId: String,
+    val itemId: String,
+    val sourceType: String,
+    val libraryId: String,
+)
+
 @Entity(tableName = "reading_progress")
 data class ReadingProgressEntity(
     @PrimaryKey val itemId: String,

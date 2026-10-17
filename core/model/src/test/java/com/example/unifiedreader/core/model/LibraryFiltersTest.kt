@@ -101,6 +101,57 @@ class LibraryFiltersTest {
 
         assertNull(issue.librarySecondaryText())
     }
+
+    @Test
+    fun `assembleLibraryFilterFacets reproduces buildLibraryFilterFacets for an unfiltered view`() {
+        val bookItem = item(id = "b1", title = "A Wizard of Earthsea").copy(
+            format = FormatType.EPUB,
+            libraryId = "lib-b",
+            bookMetadata = BookMetadata(
+                author = "Ursula K. Le Guin",
+                seriesName = "Earthsea",
+                publishers = listOf("Ace"),
+                genres = listOf("Fantasy"),
+                tags = listOf("classic"),
+                languages = listOf("English"),
+            ),
+        )
+        val comicItem = item(id = "c1", title = "Berserk #1").copy(
+            format = FormatType.CBZ,
+            kind = ReadableItemKind.COMIC,
+            libraryId = "lib-a",
+            comicMetadata = ComicMetadata(
+                series = "Berserk",
+                publishers = listOf("Dark Horse"),
+                genres = listOf("Action", "Fantasy"),
+                tags = listOf("seinen"),
+                languages = listOf("Japanese"),
+            ),
+        )
+        val pdfItem = item(id = "p1", title = "Starry Night").copy(
+            format = FormatType.PDF,
+            libraryId = "lib-a",
+            bookMetadata = BookMetadata(author = "Vincent van Gogh", genres = listOf("Art")),
+        )
+        val items = listOf(bookItem, comicItem, pdfItem)
+
+        val expected = buildLibraryFilterFacets(items)
+        // Feed the raw per-dimension values in REVERSED order to prove the assembly sorts them itself
+        // (SQL SELECT DISTINCT is unordered); fileLocations is the caller-provided runtime dimension.
+        val actual = assembleLibraryFilterFacets(
+            formatNames = items.map { item -> item.format.name }.reversed(),
+            libraries = items.map { item -> item.libraryId }.reversed(),
+            fileLocations = expected.fileLocations,
+            authors = items.flatMap { item -> item.facetMetadata().authors }.reversed(),
+            series = items.flatMap { item -> item.facetMetadata().series }.reversed(),
+            publishers = items.flatMap { item -> item.facetMetadata().publishers }.reversed(),
+            genres = items.flatMap { item -> item.facetMetadata().genres }.reversed(),
+            tags = items.flatMap { item -> item.facetMetadata().tags }.reversed(),
+            languages = items.flatMap { item -> item.facetMetadata().languages }.reversed(),
+        )
+
+        assertEquals(expected, actual)
+    }
 }
 
 private fun item(
