@@ -12,11 +12,12 @@ Started 2026-10-17. Scope so far is the library home; other screens are listed a
 - **Stay on Material 3** and build on it. The theme system (`ThemeMode`, `core:ui-theme` tokens,
   personality treatments) is built on the M3 `ColorScheme`, so swapping design systems (Miuix,
   Compose Unstyled, Lumo UI) would mean rewriting it. Revisit only if M3 Expressive still looks generic.
-- **One cover size per screen.** Shelf covers use the grid's column width and 2:3 shape and line up
-  with its columns. Nothing on the library home gets a bigger "hero" cover; Continue Reading stands
-  out by position and progress bars, not size.
-- **No boxes inside boxes.** Sections are a title, a count, and their content directly on the page.
-  Cards are only for things that are a single object.
+- **One cover size per screen.** Shelf covers use the grid's column width and 2:3 shape, so cover
+  heights match across the shelves and the grid. Nothing on the library home gets a bigger "hero"
+  cover.
+- **Shelves stay side by side in their panels** (2026-10-17). Full-width flat rows were built and
+  tried on the tablet (`f1956814`) and rejected: with a few books per shelf the rows were mostly
+  empty and pushed the grid below the fold. The "no boxes inside boxes" idea is dropped for shelves.
 - Shelf labels keep the app's existing Title Case ("Continue Reading", "Up Next").
 
 ## Constraints (from `ARCHITECTURE_RULES.md`)
@@ -58,27 +59,27 @@ Cormorant Garamond) are only for EPUB book text.
 
 ### 3a. Shelves `[~]`
 
-Committed as `f1956814` on branch `claude/distracted-feynman-c0cc8c`; not merged to main.
+On branch `claude/distracted-feynman-c0cc8c`, not merged to main. Final layout is `cec77761`.
 
-- [x] Shelf covers use the grid's column width and 2:3 aspect ratio (`LibraryGridMetrics` and
-      `libraryGridColumns()` in `LibraryGridConfiguration.kt`, which mirrors `GridCells.Adaptive`).
-      `LibraryScreen.topContent` now receives the grid metrics.
-- [x] Panels around shelves removed; flat header with title, count, and "See all".
-- [x] Continue Reading is one full-width row; Up Next and Recently Finished share a second row
-      with a switch (`LibraryToggleChip`, extracted from the filter dialog's private chip). One
-      list empty means a plain title and no switch.
-- [x] Each row shows as many covers as the grid has columns (at least 4, scrolling sideways on
-      narrow screens).
-- [x] Loading placeholder matches the two-row layout.
+- [x] Shelf covers use the grid's cell width, 2:3 shape, and cover image variant
+      (`LibraryGridMetrics` and `libraryGridColumns()` in `LibraryGridConfiguration.kt`, which
+      mirrors `GridCells.Adaptive`). `LibraryScreen.topContent` receives the grid metrics.
+- [x] Panels side by side as before; each `ShelfPreviewCard` is the cover width plus its padding.
+- [x] Loading placeholder uses the same cover width and shape.
 - [x] Unit tests: grid column math checked against `GridCells.Adaptive`; prefetch targets.
-- [x] Checked on the emulator in portrait (4 columns) and landscape (6 columns); the switch keeps
-      the grid in place and survives rotation.
 - [x] Commit.
 - [ ] **Measure on the tablet.** Shelf covers now load at the grid's image size (`Grid`/`GridLarge`/
-      `GridExtraLarge`) instead of `ShelfPreview`, and up to one row per shelf (8 at 140dp on the
-      tablet) instead of 4. Compare `LibraryPerf` cold start against main.
+      `GridExtraLarge`) instead of `ShelfPreview`. Compare 5 cold starts against `adf843ff` **on the
+      same source**; the first attempt was invalid because the source changed from Grimmory to
+      Kavita between the two builds.
 - [ ] Run or update the shelf instrumentation tests (`LibraryShelvesTopSlotTest`,
       `LibraryShelvesZoneActionsTest`). They compile; they haven't been run.
+
+Measured for the rejected full-width version (`f1956814` vs `adf843ff`, Grimmory, Terminal 95,
+5 cold starts each, baseline measured twice): start time unchanged (~426 vs 406/433 ms), frame time
+p50 9 vs 13 ms and p99 ~71 vs ~110 ms, graphics memory 85 vs 106 MB. Either way the app draws
+~1000 frames in 12 s while idle (continuous redraw, probably scrolling long titles); filed as a
+separate task.
 
 ### 3b. Filter row `[x]` (mostly already done before this plan)
 
