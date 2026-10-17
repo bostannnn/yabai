@@ -15,10 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.StarHalf
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -47,6 +43,7 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.ui.components.AppIcons
 import java.util.Locale
 import kotlin.math.floor
 
@@ -274,7 +271,7 @@ private fun JournalRatingStar(
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = Icons.Default.StarBorder,
+            imageVector = AppIcons.StarBorder,
             contentDescription = null,
             modifier = Modifier.size(starIconSize),
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(
@@ -284,9 +281,9 @@ private fun JournalRatingStar(
         if (starRating > 0) {
             Icon(
                 imageVector = if (starRating == 1) {
-                    Icons.AutoMirrored.Filled.StarHalf
+                    AppIcons.StarHalf
                 } else {
-                    Icons.Default.Star
+                    AppIcons.Star
                 },
                 contentDescription = null,
                 modifier = Modifier

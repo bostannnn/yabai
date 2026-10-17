@@ -29,9 +29,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.NavigateBefore
-import androidx.compose.material.icons.automirrored.filled.NavigateNext
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -95,6 +92,7 @@ import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
 import com.example.unifiedreader.journal.JournalReadingSessionRecorder
 import com.example.unifiedreader.ui.components.AppCircularProgress
+import com.example.unifiedreader.ui.components.AppIcons
 import java.util.LinkedHashMap
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CancellationException
@@ -500,7 +498,7 @@ private fun PdfReaderOverlayBar(
                     enabled = canNavigatePrevious,
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.NavigateBefore,
+                        imageVector = AppIcons.NavigateBefore,
                         contentDescription = "Previous page",
                         tint = if (canNavigatePrevious) {
                             tokens.colors.primaryText
@@ -515,7 +513,7 @@ private fun PdfReaderOverlayBar(
                     enabled = canNavigateNext,
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.NavigateNext,
+                        imageVector = AppIcons.NavigateNext,
                         contentDescription = "Next page",
                         tint = if (canNavigateNext) {
                             tokens.colors.primaryText

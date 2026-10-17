@@ -12,16 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Checklist
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
@@ -48,6 +38,7 @@ import com.example.unifiedreader.feature.library.LibraryBrowseTopBarContainer
 import com.example.unifiedreader.ui.components.AppBadge
 import com.example.unifiedreader.ui.components.AppCircularProgress
 import com.example.unifiedreader.ui.components.AppIconButton
+import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 @Composable
@@ -160,7 +151,7 @@ private fun LibraryRestingTopBar(
         ) {
             AppIconButton(onClick = onSearchClick) {
                 Icon(
-                    imageVector = Icons.Default.Search,
+                    imageVector = AppIcons.Search,
                     contentDescription = "Search library",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -271,7 +262,7 @@ private fun LibraryTopBarTitle(
             modifier = Modifier.size(36.dp),
         ) {
             Icon(
-                imageVector = Icons.Default.Menu,
+                imageVector = AppIcons.Menu,
                 contentDescription = "Open navigation drawer",
             )
         }
@@ -281,7 +272,7 @@ private fun LibraryTopBarTitle(
                 modifier = Modifier.size(36.dp),
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    imageVector = AppIcons.ArrowBack,
                     contentDescription = "Back to source library",
                 )
             }
@@ -385,7 +376,7 @@ private fun AppSectionHeader(
             modifier = Modifier.size(36.dp),
         ) {
             Icon(
-                imageVector = Icons.Default.Menu,
+                imageVector = AppIcons.Menu,
                 contentDescription = "Open navigation drawer",
             )
         }
@@ -435,7 +426,7 @@ private fun LibraryToolbarActions(
                     )
                 } else {
                     Icon(
-                        imageVector = Icons.Default.Refresh,
+                        imageVector = AppIcons.Refresh,
                         contentDescription = null,
                         tint = if (isRefreshEnabled) {
                             MaterialTheme.colorScheme.onSurfaceVariant
@@ -458,7 +449,7 @@ private fun LibraryToolbarActions(
                     },
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Download,
+                        imageVector = AppIcons.Download,
                         contentDescription = "Downloads",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -471,7 +462,7 @@ private fun LibraryToolbarActions(
                 onClick = handler,
             ) {
                 Icon(
-                    imageVector = Icons.Default.Checklist,
+                    imageVector = AppIcons.Checklist,
                     contentDescription = "Select items to download",
                     tint = if (downloadSelectionEnabled) {
                         MaterialTheme.colorScheme.onSurfaceVariant
@@ -483,7 +474,7 @@ private fun LibraryToolbarActions(
         }
         AppIconButton(onClick = onImportLocalFileClick) {
             Icon(
-                imageVector = Icons.Default.Add,
+                imageVector = AppIcons.Add,
                 contentDescription = "Import local file",
             )
         }
@@ -508,7 +499,7 @@ private fun LibraryDownloadSelectionTopBar(
             modifier = Modifier.size(36.dp),
         ) {
             Icon(
-                imageVector = Icons.Default.Close,
+                imageVector = AppIcons.Close,
                 contentDescription = "Cancel selection",
             )
         }
@@ -523,7 +514,7 @@ private fun LibraryDownloadSelectionTopBar(
             onClick = onSelectAll,
         ) {
             Icon(
-                imageVector = Icons.Default.SelectAll,
+                imageVector = AppIcons.SelectAll,
                 contentDescription = "Select all downloadable items",
             )
         }
@@ -532,7 +523,7 @@ private fun LibraryDownloadSelectionTopBar(
             onClick = onDownloadSelected,
         ) {
             Icon(
-                imageVector = Icons.Default.Download,
+                imageVector = AppIcons.Download,
                 contentDescription = "Download selected items",
             )
         }

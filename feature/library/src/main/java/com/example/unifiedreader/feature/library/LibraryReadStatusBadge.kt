@@ -3,8 +3,6 @@ package com.example.unifiedreader.feature.library
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -13,6 +11,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.ui.components.AppBadge
+import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 /** A small accent circle with a check mark: the book is finished. */
@@ -32,7 +31,7 @@ internal fun LibraryReadStatusBadge(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = Icons.Default.Check,
+                imageVector = AppIcons.Check,
                 contentDescription = null,
                 tint = semanticColors.onReaderAccent,
                 modifier = Modifier.size(14.dp),

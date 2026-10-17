@@ -38,7 +38,6 @@ dependencies {
     implementation("androidx.compose.runtime:runtime-saveable")
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.activity.compose)
 
     testImplementation(libs.junit4)

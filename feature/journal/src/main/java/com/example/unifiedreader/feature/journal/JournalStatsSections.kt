@@ -22,9 +22,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -42,6 +39,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.ui.components.AppDialogHost
 import com.example.unifiedreader.ui.components.AppIconButton
+import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.components.AppTextButton
 import java.util.Calendar
@@ -737,7 +735,7 @@ internal fun JournalFacetRowsDialog(
                         fontWeight = FontWeight.SemiBold,
                     )
                     AppIconButton(onClick = onDismiss) {
-                        Icon(imageVector = Icons.Default.Close, contentDescription = "Close")
+                        Icon(imageVector = AppIcons.Close, contentDescription = "Close")
                     }
                 }
                 LazyColumn(
@@ -858,7 +856,7 @@ private fun RatingBar(
                 textAlign = TextAlign.Center,
             )
             androidx.compose.material3.Icon(
-                imageVector = Icons.Filled.Star,
+                imageVector = AppIcons.Star,
                 contentDescription = null,
                 modifier = Modifier.size(12.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -46,7 +46,7 @@ class FeatureMaterialImportRuleTest {
             .sorted()
 
         assertTrue(
-            "Use core:ui-components (AppPanel, AppDialog, AppButton, ...) instead of these imports:\n" +
+            "Use core:ui-components (AppPanel, AppDialog, AppButton, AppIcons, ...) instead of these imports:\n" +
                 violations.joinToString("\n"),
             violations.isEmpty(),
         )
@@ -57,7 +57,7 @@ class FeatureMaterialImportRuleTest {
             lines.map { it.trim() }
                 .filter { it.startsWith("import ") }
                 .map { it.removePrefix("import ").substringBefore(" as ").trim() }
-                .filter { it in forbiddenImports }
+                .filter { it in forbiddenImports || it.startsWith("androidx.compose.material.icons.") }
                 .toList()
         }
 

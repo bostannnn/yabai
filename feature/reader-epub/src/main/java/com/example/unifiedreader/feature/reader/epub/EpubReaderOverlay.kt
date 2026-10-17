@@ -1,7 +1,5 @@
 package com.example.unifiedreader.feature.reader.epub
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -11,6 +9,7 @@ import com.example.unifiedreader.feature.reader.core.CompactReaderOverlayFrame
 import com.example.unifiedreader.feature.reader.core.ReaderOverlayBackButton
 import com.example.unifiedreader.feature.reader.core.ReaderOverlayIconButton
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
+import com.example.unifiedreader.ui.components.AppIcons
 
 @Composable
 internal fun EpubReaderOverlay(
@@ -39,7 +38,7 @@ internal fun EpubReaderOverlay(
                 onClick = onPreferencesClick,
             ) {
                 Icon(
-                    imageVector = Icons.Default.FormatSize,
+                    imageVector = AppIcons.FormatSize,
                     contentDescription = "Reader preferences",
                     tint = tokens.colors.primaryText,
                 )

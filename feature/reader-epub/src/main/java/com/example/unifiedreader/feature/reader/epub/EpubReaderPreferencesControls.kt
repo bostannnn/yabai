@@ -11,10 +11,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -32,6 +28,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.ui.components.AppIconButton
+import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppSegment
 import com.example.unifiedreader.ui.components.AppSegmentedRow
 import java.util.Locale
@@ -144,7 +141,7 @@ internal fun EpubFontSummarySection(
                 onClick = onClick,
                 trailingIcon = {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        imageVector = AppIcons.KeyboardArrowRight,
                         contentDescription = null,
                         tint = readerOverlayTokens().colors.tertiaryText,
                     )
@@ -169,7 +166,7 @@ internal fun EpubFontPicker(
         ) {
             AppIconButton(onClick = onBack) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    imageVector = AppIcons.ArrowBack,
                     contentDescription = "Back",
                     tint = tokens.colors.primaryText,
                 )
@@ -285,7 +282,7 @@ internal fun EpubSelectableRow(
         ) {
             if (selected) {
                 Icon(
-                    imageVector = Icons.Default.Check,
+                    imageVector = AppIcons.Check,
                     contentDescription = null,
                     tint = tokens.colors.primaryText,
                     modifier = Modifier.size(18.dp),

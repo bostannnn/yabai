@@ -18,15 +18,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.Checklist
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.CollectionsBookmark
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -45,6 +36,7 @@ import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.ui.components.AppDivider
+import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.appGlass
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
@@ -134,7 +126,7 @@ fun SourceNavigationDrawer(
                         onClick = { onDestinationSelected(SourceNavigationDestination.Journal) },
                         icon = {
                             androidx.compose.material3.Icon(
-                                imageVector = Icons.Default.History,
+                                imageVector = AppIcons.History,
                                 contentDescription = null,
                             )
                         },
@@ -148,7 +140,7 @@ fun SourceNavigationDrawer(
                         onClick = { onDestinationSelected(SourceNavigationDestination.Settings) },
                         icon = {
                             androidx.compose.material3.Icon(
-                                imageVector = Icons.Default.Settings,
+                                imageVector = AppIcons.Settings,
                                 contentDescription = null,
                             )
                         },
@@ -253,15 +245,17 @@ private fun SourceNavigationDestination.isSelectedKavitaSection(
 ): Boolean = this == SourceNavigationDestination.KavitaSection(section) ||
     (this == SourceNavigationDestination.Source(SourceType.KAVITA) && section == KavitaLibrarySection.Home)
 
+@Composable
 private fun SourceType.drawerIcon(): ImageVector = when (this) {
-    SourceType.KAVITA -> Icons.Default.CollectionsBookmark
-    SourceType.STUMP -> Icons.AutoMirrored.Filled.MenuBook
-    SourceType.GRIMMORY -> Icons.Default.Cloud
-    SourceType.LOCAL -> Icons.Default.Folder
+    SourceType.KAVITA -> AppIcons.CollectionsBookmark
+    SourceType.STUMP -> AppIcons.MenuBook
+    SourceType.GRIMMORY -> AppIcons.Cloud
+    SourceType.LOCAL -> AppIcons.Folder
 }
 
+@Composable
 private fun KavitaLibrarySection.drawerIcon(): ImageVector = when (this) {
-    KavitaLibrarySection.Home -> Icons.Default.Home
-    KavitaLibrarySection.Collections -> Icons.Default.CollectionsBookmark
-    KavitaLibrarySection.ReadingLists -> Icons.Default.Checklist
+    KavitaLibrarySection.Home -> AppIcons.Home
+    KavitaLibrarySection.Collections -> AppIcons.CollectionsBookmark
+    KavitaLibrarySection.ReadingLists -> AppIcons.Checklist
 }

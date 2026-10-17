@@ -9,9 +9,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -25,6 +22,7 @@ import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.ui.components.AppButton
 import com.example.unifiedreader.ui.components.AppDialogHost
 import com.example.unifiedreader.ui.components.AppIconButton
+import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.components.AppSheet
 import com.example.unifiedreader.ui.components.AppTextButton
@@ -167,7 +165,7 @@ private fun JournalDetailsHeader(
             }
         }
         AppIconButton(onClick = onDismiss) {
-            Icon(imageVector = Icons.Default.Close, contentDescription = "Close")
+            Icon(imageVector = AppIcons.Close, contentDescription = "Close")
         }
     }
 }
@@ -198,7 +196,7 @@ private fun JournalDetailsItemCard(
         },
     ) {
         AppTextButton(onClick = onDeleteItemJournal) {
-            Icon(imageVector = Icons.Default.Delete, contentDescription = null)
+            Icon(imageVector = AppIcons.Delete, contentDescription = null)
             Text(text = "Remove", modifier = Modifier.padding(start = 8.dp))
         }
         AppButton(

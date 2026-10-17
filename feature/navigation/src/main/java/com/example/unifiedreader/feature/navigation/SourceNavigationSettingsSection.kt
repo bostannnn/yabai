@@ -5,9 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -20,6 +17,7 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.ui.components.AppBadge
 import com.example.unifiedreader.ui.components.AppIconButton
+import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
@@ -134,7 +132,7 @@ private fun SourceOrderRow(
                     enabled = canMoveUp,
                 ) {
                     Icon(
-                        imageVector = Icons.Default.ArrowUpward,
+                        imageVector = AppIcons.ArrowUpward,
                         contentDescription = "Move ${sourceType.displayName()} up",
                     )
                 }
@@ -143,7 +141,7 @@ private fun SourceOrderRow(
                     enabled = canMoveDown,
                 ) {
                     Icon(
-                        imageVector = Icons.Default.ArrowDownward,
+                        imageVector = AppIcons.ArrowDownward,
                         contentDescription = "Move ${sourceType.displayName()} down",
                     )
                 }

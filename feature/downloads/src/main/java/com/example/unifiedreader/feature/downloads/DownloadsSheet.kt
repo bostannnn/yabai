@@ -12,15 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.DownloadDone
-import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.HourglassTop
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -37,6 +28,7 @@ import com.example.unifiedreader.core.model.librarySecondaryText
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.ResolvedLibraryCover
 import com.example.unifiedreader.ui.components.AppIconButton
+import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppLinearProgress
 import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.components.AppSheet
@@ -92,14 +84,14 @@ fun DownloadsSheet(
                     if (snapshot.completedEntries.isNotEmpty()) {
                         AppIconButton(onClick = onClearCompleted) {
                             Icon(
-                                imageVector = Icons.Default.DeleteSweep,
+                                imageVector = AppIcons.DeleteSweep,
                                 contentDescription = "Clear completed downloads",
                             )
                         }
                     }
                     AppIconButton(onClick = onDismiss) {
                         Icon(
-                            imageVector = Icons.Default.Close,
+                            imageVector = AppIcons.Close,
                             contentDescription = "Close downloads",
                         )
                     }
@@ -293,7 +285,7 @@ private fun DownloadEntryCard(
                     if (entry.canRetry) {
                         AppIconButton(onClick = { onRetry(entry.id) }) {
                             Icon(
-                                imageVector = Icons.Default.Refresh,
+                                imageVector = AppIcons.Refresh,
                                 contentDescription = "Retry download",
                             )
                         }
@@ -301,7 +293,7 @@ private fun DownloadEntryCard(
                     if (entry.canRemove) {
                         AppIconButton(onClick = { onRemove(entry.id) }) {
                             Icon(
-                                imageVector = Icons.Default.Delete,
+                                imageVector = AppIcons.Delete,
                                 contentDescription = "Remove download",
                             )
                         }
@@ -309,7 +301,7 @@ private fun DownloadEntryCard(
                     if (entry.canCancel) {
                         AppIconButton(onClick = { onCancel(entry.id) }) {
                             Icon(
-                                imageVector = Icons.Default.Stop,
+                                imageVector = AppIcons.Stop,
                                 contentDescription = "Cancel download",
                             )
                         }
@@ -352,14 +344,15 @@ private fun DownloadEntryStatus.tint() = when (this) {
     DownloadEntryStatus.Canceled -> MaterialTheme.colorScheme.onSurfaceVariant
 }
 
+@Composable
 private fun DownloadEntryStatus.icon() = when (this) {
-    DownloadEntryStatus.Queued -> Icons.Default.HourglassTop
-    DownloadEntryStatus.PausedConnectivity -> Icons.Default.HourglassTop
-    DownloadEntryStatus.Running -> Icons.Default.HourglassTop
-    DownloadEntryStatus.Canceling -> Icons.Default.Stop
-    DownloadEntryStatus.Completed -> Icons.Default.DownloadDone
-    DownloadEntryStatus.Failed -> Icons.Default.ErrorOutline
-    DownloadEntryStatus.Canceled -> Icons.Default.Stop
+    DownloadEntryStatus.Queued -> AppIcons.HourglassTop
+    DownloadEntryStatus.PausedConnectivity -> AppIcons.HourglassTop
+    DownloadEntryStatus.Running -> AppIcons.HourglassTop
+    DownloadEntryStatus.Canceling -> AppIcons.Stop
+    DownloadEntryStatus.Completed -> AppIcons.DownloadDone
+    DownloadEntryStatus.Failed -> AppIcons.ErrorOutline
+    DownloadEntryStatus.Canceled -> AppIcons.Stop
 }
 
 private fun DownloadEntryStatus.label(

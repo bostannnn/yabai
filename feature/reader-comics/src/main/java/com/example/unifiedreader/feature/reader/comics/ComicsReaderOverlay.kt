@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeGestures
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ViewCarousel
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,6 +26,7 @@ import com.example.unifiedreader.feature.reader.core.ReaderOverlayBackButton
 import com.example.unifiedreader.feature.reader.core.ReaderOverlayIconButton
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
+import com.example.unifiedreader.ui.components.AppIcons
 
 @Composable
 internal fun ReaderOverlayBar(
@@ -78,7 +77,7 @@ internal fun ReaderOverlayBar(
                     onClick = { isPreferencesSheetOpen = !isPreferencesSheetOpen },
                 ) {
                     Icon(
-                        imageVector = Icons.Default.ViewCarousel,
+                        imageVector = AppIcons.ViewCarousel,
                         contentDescription = "Reader preferences",
                         tint = tokens.colors.primaryText,
                     )

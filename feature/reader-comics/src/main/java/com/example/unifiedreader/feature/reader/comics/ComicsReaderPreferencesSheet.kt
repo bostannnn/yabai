@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -28,6 +26,7 @@ import com.example.unifiedreader.feature.reader.core.ReaderAttachedPane
 import com.example.unifiedreader.feature.reader.core.ReaderAttachedPaneAnchor
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
+import com.example.unifiedreader.ui.components.AppIcons
 
 @Composable
 internal fun ComicsReaderPreferencesSheet(
@@ -177,7 +176,7 @@ private fun ComicsSelectableRow(
         ) {
             if (selected) {
                 Icon(
-                    imageVector = Icons.Default.Check,
+                    imageVector = AppIcons.Check,
                     contentDescription = null,
                     tint = tokens.colors.primaryText,
                     modifier = Modifier.size(18.dp),

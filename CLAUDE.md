@@ -4,7 +4,8 @@ Kotlin + Jetpack Compose reader for EPUB/PDF/CBZ/CBR from Kavita, Grimmory, Stum
 Package `com.example.unifiedreader`. Hilt DI, Room DB, Ktor networking, Readium (EPUB),
 `PdfRenderer` (PDF). 23 Gradle modules; ownership map in `ARCHITECTURE_RULES.md`.
 Screens are built from the component kit in `core:ui-components` (`AppPanel`, `AppDialog`,
-`AppButton`, ...), never from raw Material `Card`/`Surface`/`Button`; a unit test enforces this.
+`AppButton`, `AppIcons`, ...), never from raw Material `Card`/`Surface`/`Button` or the Material
+Icons artifacts; a unit test enforces this. UI font: bundled Manrope; icons: Material Symbols Rounded.
 
 ## Read before changing code
 

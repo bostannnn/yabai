@@ -13,10 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -33,6 +29,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.ui.components.AppIconButton
+import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.components.AppTopBar
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
@@ -68,7 +65,7 @@ fun LibraryBrowseSearchModeTopBar(
                 modifier = Modifier.size(36.dp),
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    imageVector = AppIcons.ArrowBack,
                     contentDescription = "Close search",
                 )
             }
@@ -92,7 +89,7 @@ fun LibraryBrowseSearchModeTopBar(
                     .size(36.dp),
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    imageVector = AppIcons.ArrowBack,
                     contentDescription = "Close search",
                 )
             }
@@ -164,7 +161,7 @@ private fun LibraryBrowseTopBarSearchField(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Search,
+                        imageVector = AppIcons.Search,
                         contentDescription = null,
                         tint = if (active) semanticColors.sourceAccent else colors.onSurfaceVariant,
                         modifier = Modifier.size(20.dp),
@@ -188,7 +185,7 @@ private fun LibraryBrowseTopBarSearchField(
                             modifier = Modifier.size(36.dp),
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Close,
+                                imageVector = AppIcons.Close,
                                 contentDescription = "Clear search",
                                 tint = colors.onSurfaceVariant,
                                 modifier = Modifier.size(18.dp),

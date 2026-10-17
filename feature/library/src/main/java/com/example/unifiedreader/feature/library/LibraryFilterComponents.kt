@@ -22,8 +22,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -54,6 +52,7 @@ import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.ui.components.AppChip
 import com.example.unifiedreader.ui.components.AppDialogHost
 import com.example.unifiedreader.ui.components.AppDivider
+import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppMenu
 import com.example.unifiedreader.ui.components.AppMenuItem
 import com.example.unifiedreader.ui.components.AppPanel
@@ -163,7 +162,7 @@ internal fun LibraryFilterSummary(
                 shape = libraryAccentFilterChipShape(),
                 leadingIcon = {
                     Icon(
-                        imageVector = Icons.Default.FilterList,
+                        imageVector = AppIcons.FilterList,
                         contentDescription = null,
                         modifier = Modifier.size(FilterChipDefaults.IconSize),
                     )

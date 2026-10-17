@@ -79,8 +79,13 @@ Pull-request-sized steps; each lands and gets judged on the tablet before the ne
    Not done: bottom sheets stay opaque (a modal sheet is its own window, so it cannot blur the
    screen behind it); scroll frame times are **not measured on the tablet yet**, which the
    architecture rules require before this ships.
-4. `[ ]` **Font and icons.** Bundle Manrope (full Cyrillic; the Grimmory library is largely
-   Russian). Material Symbols Rounded replaces `material-icons-extended`.
+4. `[x]` **Font and icons.** Manrope is bundled as a variable font
+   (`app/src/main/res/font/manrope.ttf`, OFL, full Cyrillic) and is the family of every style in
+   the base `Typography`: display and headline at Medium, titles at SemiBold, labels at Medium,
+   body at Regular. Material Symbols Rounded replaces `material-icons-extended`: the 40 symbols
+   the app uses are vector drawables in `core:ui-components`, exposed through `AppIcons`, and the
+   import rule now forbids `androidx.compose.material.icons`. Licenses are in
+   `THIRD_PARTY_NOTICES.md`. Placeholder covers keep their own serif, as a book jacket would.
 5. `[ ]` **Settings, journal, book detail** rebuilt on the kit.
 
 ## 1. Compose and Material 3 upgrade `[ ]`
@@ -103,11 +108,10 @@ The app screens use the system font: base typography is `FontFamily.Default`
 File use system serif. The bundled fonts (Atkinson Hyperlegible, Libre Baskerville, Crimson Pro,
 Cormorant Garamond) are only for EPUB book text.
 
-- [ ] Pick a UI typeface (and optionally a display face for headings); bundle it rather than
-      depend on downloadable fonts.
-- [ ] Wire it into the base `Typography` so all themes inherit it unless they override.
-- [ ] Replace `material-icons-extended` (used in 10 modules, mostly `feature:library`) with
-      Material Symbols Rounded.
+- [x] Manrope, bundled as a variable font (see step 4 in section 0).
+- [x] Wired into the base `Typography`; themes are palettes only, so every theme inherits it.
+- [x] `material-icons-extended` replaced by Material Symbols Rounded vector drawables behind
+      `AppIcons` in `core:ui-components`.
 
 ## 3. Library home
 

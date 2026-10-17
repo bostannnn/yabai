@@ -8,9 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -31,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.ui.components.AppIconButton
+import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppSegment
 import com.example.unifiedreader.ui.components.AppSegmentedRow
 import java.text.SimpleDateFormat
@@ -292,7 +290,7 @@ private fun PeriodHeader(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         AppIconButton(onClick = onPrevious, enabled = canNavigatePrevious) {
-            Icon(imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous period")
+            Icon(imageVector = AppIcons.KeyboardArrowLeft, contentDescription = "Previous period")
         }
         Text(
             text = title,
@@ -305,7 +303,7 @@ private fun PeriodHeader(
             onClick = onNext,
             enabled = canNavigateNext,
         ) {
-            Icon(imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next period")
+            Icon(imageVector = AppIcons.KeyboardArrowRight, contentDescription = "Next period")
         }
     }
 }

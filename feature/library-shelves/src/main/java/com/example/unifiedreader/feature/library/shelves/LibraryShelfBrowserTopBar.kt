@@ -5,9 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -26,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.feature.library.LibraryBrowseSearchModeTopBar
 import com.example.unifiedreader.feature.library.LibraryBrowseTopBarContainer
 import com.example.unifiedreader.ui.components.AppIconButton
+import com.example.unifiedreader.ui.components.AppIcons
 
 @Composable
 fun rememberLibraryShelfBrowserSearchQuery(
@@ -78,7 +76,7 @@ fun LibraryShelfBrowserTopBar(
                     modifier = Modifier.size(36.dp),
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        imageVector = AppIcons.ArrowBack,
                         contentDescription = "Back",
                     )
                 }
@@ -102,7 +100,7 @@ fun LibraryShelfBrowserTopBar(
                 }
                 AppIconButton(onClick = { searchModeOpen = true }) {
                     Icon(
-                        imageVector = Icons.Default.Search,
+                        imageVector = AppIcons.Search,
                         contentDescription = "Search shelf",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

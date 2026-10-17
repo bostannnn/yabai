@@ -5,10 +5,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -28,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.ui.components.AppChip
 import com.example.unifiedreader.ui.components.AppDivider
 import com.example.unifiedreader.ui.components.AppIconButton
+import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppMenu
 import com.example.unifiedreader.ui.components.AppMenuItem
 import com.example.unifiedreader.ui.components.AppTextField
@@ -65,7 +62,7 @@ fun LibraryBrowseSearchField(
         singleLine = true,
         leadingIcon = {
             Icon(
-                imageVector = Icons.Default.Search,
+                imageVector = AppIcons.Search,
                 contentDescription = null,
             )
         },
@@ -73,7 +70,7 @@ fun LibraryBrowseSearchField(
             {
                 AppIconButton(onClick = { onQueryChanged("") }) {
                     Icon(
-                        imageVector = Icons.Default.Clear,
+                        imageVector = AppIcons.Clear,
                         contentDescription = clearContentDescription,
                     )
                 }
@@ -101,7 +98,7 @@ fun LibraryBrowseOptionsMenu(
     lockedOption: LibraryBrowseLockedOption? = null,
     showFadeReadItems: Boolean = true,
     showGridSizeOptions: Boolean = true,
-    leadingIcon: ImageVector = Icons.Default.Tune,
+    leadingIcon: ImageVector = AppIcons.Tune,
     leadingIconContentDescription: String? = null,
     viewSectionTitle: String = "View",
     fadeReadItemsLabel: String = "Fade read books",

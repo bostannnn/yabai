@@ -177,9 +177,10 @@ Use this ownership map when deciding where code goes.
 - `core:ui-components`
   - the app's component kit (`AppPanel`, `AppDialog`, `AppSheet`, `AppButton`, `AppChip`, ...):
     the only place feature and app code gets containers, dialogs, buttons, chips, menus,
-    text fields, dividers, and progress indicators. Raw Material composables for those roles
-    are forbidden in `feature/*` and `app` main sources; `FeatureMaterialImportRuleTest` in
-    this module enforces it. Material primitives the kit does not cover yet (form controls,
+    text fields, dividers, progress indicators, and icons (`AppIcons`, Material Symbols
+    Rounded as bundled vector drawables). Raw Material composables for those roles and the
+    `androidx.compose.material.icons` packages are forbidden in `feature/*` and `app` main
+    sources; `FeatureMaterialImportRuleTest` in this module enforces it. Material primitives the kit does not cover yet (form controls,
     drawer, navigation rail, scaffold, snackbar) stay allowed.
 - `core:network`
   - HTTP client setup and generic network support

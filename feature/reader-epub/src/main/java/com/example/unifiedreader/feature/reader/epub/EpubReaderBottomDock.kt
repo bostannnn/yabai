@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeGestures
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Toc
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -22,6 +20,7 @@ import com.example.unifiedreader.feature.reader.core.ReaderAttachedPaneAnchor
 import com.example.unifiedreader.feature.reader.core.ReaderBottomProgressBar
 import com.example.unifiedreader.feature.reader.core.ReaderOverlayIconButton
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
+import com.example.unifiedreader.ui.components.AppIcons
 import org.readium.r2.shared.publication.Link
 
 @Composable
@@ -92,7 +91,7 @@ internal fun EpubReaderBottomDock(
                         onClick = onTocClick,
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Toc,
+                            imageVector = AppIcons.Toc,
                             contentDescription = "Table of contents",
                             tint = tokens.colors.primaryText,
                         )
