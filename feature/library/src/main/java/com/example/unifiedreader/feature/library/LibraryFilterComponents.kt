@@ -281,7 +281,7 @@ internal fun LibraryFilterPanelDialog(
             onDismiss = onDismiss,
         ) {
             filterFacets.formats.forEach { format ->
-                FilterToggleChip(
+                LibraryToggleChip(
                     label = format.name,
                     selected = format in filterState.formats,
                     onClick = {
@@ -312,7 +312,7 @@ internal fun LibraryFilterPanelDialog(
             onDismiss = onDismiss,
         ) {
             filterFacets.fileLocations.forEach { location ->
-                FilterToggleChip(
+                LibraryToggleChip(
                     label = location.label,
                     selected = location in filterState.fileLocations,
                     onClick = {
@@ -331,7 +331,7 @@ internal fun LibraryFilterPanelDialog(
             onDismiss = onDismiss,
         ) {
             LibraryReadingStatus.entries.forEach { status ->
-                FilterToggleChip(
+                LibraryToggleChip(
                     label = status.label,
                     selected = status in filterState.readingStatuses,
                     onClick = {
@@ -891,25 +891,3 @@ private const val SearchableFacetViewportMinRows = 6
 private const val SearchableFacetViewportMaxRows = 8
 private val SearchableFacetViewportMinHeight = SearchableFacetGridRowHeight * SearchableFacetViewportMinRows
 private val SearchableFacetViewportMaxHeight = SearchableFacetGridRowHeight * SearchableFacetViewportMaxRows
-
-@Composable
-private fun FilterToggleChip(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    FilterChip(
-        selected = selected,
-        onClick = onClick,
-        modifier = Modifier.libraryAccentChipTreatment(selected = selected),
-        colors = libraryAccentFilterChipColors(),
-        shape = libraryAccentFilterChipShape(),
-        label = {
-            Text(
-                text = label,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        },
-    )
-}

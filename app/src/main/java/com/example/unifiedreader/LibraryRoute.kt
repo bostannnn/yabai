@@ -19,6 +19,7 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
 import androidx.paging.PagingData
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
+import com.example.unifiedreader.feature.library.LibraryGridMetrics
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
 import com.example.unifiedreader.feature.library.LibraryReadingListScopeState
 import com.example.unifiedreader.feature.library.LibraryScreen
@@ -197,11 +198,12 @@ internal fun LibraryRoute(
                 onCoverVisible = onCoverVisible,
                 onCoverViewportScrollingChanged = onCoverViewportScrollingChanged,
                 topContent = if (uiState.shouldShowLibraryShelves) {
-                    @Composable {
+                    @Composable { gridMetrics: LibraryGridMetrics ->
                         LibraryShelvesTopSlot(
                             browseContextKey = browseContextKey,
                             shouldReserveSlot = uiState.shouldReserveLibraryShelvesSlot,
                             state = uiState.libraryShelvesState,
+                            gridMetrics = gridMetrics,
                             itemActionContext = itemActionContext,
                             coverImageUrlProvider = coverImageUrlProvider,
                             coverPrefetchKeyProvider = coverPrefetchKeyProvider,

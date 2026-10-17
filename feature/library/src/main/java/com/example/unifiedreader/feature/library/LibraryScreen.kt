@@ -87,7 +87,9 @@ fun LibraryScreen(
     coverPrefetchKeyProvider: (ReadableItem, LibraryCoverImageVariant) -> String? = coverImageUrlProvider,
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit = { _, _ -> },
     onCoverViewportScrollingChanged: (Boolean) -> Unit = {},
-    topContent: (@Composable () -> Unit)? = null,
+    // Drawn above the filter summary as a full-width grid row; receives the grid's column setup so it
+    // can size its covers to match the grid's.
+    topContent: (@Composable (LibraryGridMetrics) -> Unit)? = null,
     onFilterStateChanged: (LibraryFilterState) -> Unit = {},
     onClearFilters: () -> Unit = {},
     onReadingListSelected: (String?) -> Unit = {},
@@ -437,7 +439,7 @@ fun LibraryScreen(
                 bottom = 16.dp,
             ),
             verticalArrangement = Arrangement.spacedBy(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(libraryGridHorizontalSpacingDp),
         ) {
             if (topContent != null) {
                 item(
@@ -445,7 +447,7 @@ fun LibraryScreen(
                     contentType = LibraryScreenContentTypes.TopContent,
                     span = { GridItemSpan(maxLineSpan) },
                 ) {
-                    topContent()
+                    topContent(LibraryGridMetrics(cellSizeDp = gridPresentation.selectedGridSize.cellSizeDp))
                 }
             }
 

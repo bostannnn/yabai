@@ -3,6 +3,7 @@ package com.example.unifiedreader.feature.library.shelves
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -49,11 +50,13 @@ class LibraryShelvesPreviewCoverPrefetcherTest {
         }
 
         val targets = shelfPreviewCoverPrefetchTargets(
-            state = LibraryShelvesState(
-                continueReading = continueReading,
-                nextInSeries = nextInSeries,
-                recentlyFinished = recentlyFinished,
+            sections = listOf(
+                continueReading.map(ContinueReadingShelfItem::item),
+                nextInSeries.map(NextInSeriesShelfItem::item),
+                recentlyFinished.map(RecentlyFinishedShelfItem::item),
             ),
+            itemLimitPerSection = 4,
+            variant = LibraryCoverImageVariant.Grid,
             coverPrefetchKeyProvider = { item, variant -> "${variant.name}:${item.coverUrl}" },
         )
 
@@ -76,6 +79,20 @@ class LibraryShelvesPreviewCoverPrefetcherTest {
     }
 
     @Test
+    fun `preview prefetch keys use the requested cover variant`() {
+        val item = remoteItem(id = "variant")
+
+        val targets = shelfPreviewCoverPrefetchTargets(
+            sections = listOf(listOf(item)),
+            itemLimitPerSection = 8,
+            variant = LibraryCoverImageVariant.GridLarge,
+            coverPrefetchKeyProvider = { coverItem, variant -> "${variant.name}:${coverItem.id}" },
+        )
+
+        assertEquals(listOf("GridLarge:kavita:variant"), targets.map { target -> target.prefetchKey })
+    }
+
+    @Test
     fun `preview prefetch items skip local but keep remote items before cached url exists`() {
         val localItem = ReadableItem(
             id = "local-item",
@@ -88,12 +105,9 @@ class LibraryShelvesPreviewCoverPrefetcherTest {
         val uncachedRemote = remoteItem(id = "blank", coverUrl = "")
 
         val targets = shelfPreviewCoverPrefetchTargets(
-            state = LibraryShelvesState(
-                continueReading = listOf(
-                    ContinueReadingShelfItem(localItem, progress(0.2f)),
-                    ContinueReadingShelfItem(uncachedRemote, progress(0.3f)),
-                ),
-            ),
+            sections = listOf(listOf(localItem, uncachedRemote)),
+            itemLimitPerSection = 4,
+            variant = LibraryCoverImageVariant.Grid,
             coverPrefetchKeyProvider = { item, variant -> "remote-cover:${item.id}:${variant.name}" },
         )
 
@@ -105,11 +119,9 @@ class LibraryShelvesPreviewCoverPrefetcherTest {
         val remoteWithoutKey = remoteItem(id = "missing-key")
 
         val targets = shelfPreviewCoverPrefetchTargets(
-            state = LibraryShelvesState(
-                continueReading = listOf(
-                    ContinueReadingShelfItem(remoteWithoutKey, progress(0.3f)),
-                ),
-            ),
+            sections = listOf(listOf(remoteWithoutKey)),
+            itemLimitPerSection = 4,
+            variant = LibraryCoverImageVariant.Grid,
             coverPrefetchKeyProvider = { _, _ -> null },
         )
 

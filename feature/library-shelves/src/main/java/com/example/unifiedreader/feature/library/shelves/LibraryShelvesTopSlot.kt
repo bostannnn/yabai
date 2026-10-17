@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
+import com.example.unifiedreader.feature.library.LibraryGridMetrics
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
 
 @Composable
@@ -11,6 +12,7 @@ fun LibraryShelvesTopSlot(
     browseContextKey: String,
     shouldReserveSlot: Boolean,
     state: LibraryShelvesState,
+    gridMetrics: LibraryGridMetrics = LibraryGridMetrics(),
     itemActionContext: LibraryItemActionContext = LibraryItemActionContext(),
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     coverPrefetchKeyProvider: (ReadableItem, LibraryCoverImageVariant) -> String? = coverImageUrlProvider,
@@ -24,13 +26,17 @@ fun LibraryShelvesTopSlot(
 
     when {
         state.isLoading -> {
-            LibraryShelvesSlotPlaceholder(modifier = modifier)
+            LibraryShelvesSlotPlaceholder(
+                gridMetrics = gridMetrics,
+                modifier = modifier,
+            )
         }
 
         state.hasContent -> {
             LibraryShelvesZone(
                 browseContextKey = browseContextKey,
                 state = state.ready(),
+                gridMetrics = gridMetrics,
                 itemActionContext = itemActionContext,
                 coverImageUrlProvider = coverImageUrlProvider,
                 coverPrefetchKeyProvider = coverPrefetchKeyProvider,

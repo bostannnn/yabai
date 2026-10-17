@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.library
 
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
@@ -22,10 +23,50 @@ internal val libraryGridStartPaddingDp: Dp = 16.dp
 internal val libraryGridEndPaddingDp: Dp = 16.dp
 internal val libraryGridNavigationEndPaddingDp: Dp = 44.dp
 
+const val LibraryCoverAspectRatio: Float = 2f / 3f
+
 data class LibraryGridSizeOption(
     val cellSizeDp: Int,
     val columnCount: Int,
 )
+
+/**
+ * The library grid's column setup, handed to content drawn above the grid (the shelves) so its covers
+ * match the grid's covers in size and line up with its columns.
+ */
+data class LibraryGridMetrics(
+    val cellSizeDp: Int = defaultLibraryGridCellSizeDp,
+) {
+    val spacing: Dp
+        get() = libraryGridHorizontalSpacingDp
+
+    val coverImageVariant: LibraryCoverImageVariant
+        get() = libraryGridCoverImageVariant(cellSizeDp)
+}
+
+data class LibraryGridColumns(
+    val count: Int,
+    val cellWidth: Dp,
+)
+
+/**
+ * The columns the grid lays out across [availableWidth] (its width inside the content padding).
+ * Mirrors `GridCells.Adaptive`, which the grid uses, so a full-span row can reproduce its cells.
+ */
+fun Density.libraryGridColumns(
+    availableWidth: Dp,
+    metrics: LibraryGridMetrics,
+): LibraryGridColumns {
+    val availableWidthPx = availableWidth.roundToPx()
+    val spacingPx = metrics.spacing.roundToPx()
+    val minCellWidthPx = sanitizeLibraryGridCellSizeDp(metrics.cellSizeDp).dp.roundToPx()
+    val count = maxOf((availableWidthPx + spacingPx) / (minCellWidthPx + spacingPx), 1)
+    val cellWidthPx = ((availableWidthPx - spacingPx * (count - 1)) / count).coerceAtLeast(0)
+    return LibraryGridColumns(
+        count = count,
+        cellWidth = cellWidthPx.toDp(),
+    )
+}
 
 internal data class LibraryGridPresentation(
     val selectedGridSize: LibraryGridSizeOption,

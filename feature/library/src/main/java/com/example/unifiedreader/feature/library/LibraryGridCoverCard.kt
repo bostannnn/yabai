@@ -48,7 +48,7 @@ internal fun GridCoverCard(
             .testTag("library-grid-card-${item.id}"),
         coverModifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(2f / 3f),
+            .aspectRatio(LibraryCoverAspectRatio),
         trailingText = progressLabel,
         menuContent = menuContent.takeUnless { isSelectionMode },
         coverOverlay = if (rating != null || issueCountBadge != null || isSelectionMode) {
