@@ -88,16 +88,20 @@ class ComicReaderModePreferencesStoreTest {
             dataStore = dataStore,
         )
 
+        val seriesKey = "stump:library:webtoons::Solo Leveling"
+        // preferencesFlow is collected on Dispatchers.IO, so wait for each edit to land instead of
+        // reading whatever value the collector has reached (the saved override, on a slow machine).
         store.setSeriesModeOverride(
-            seriesKey = "stump:library:webtoons::Solo Leveling",
+            seriesKey = seriesKey,
             mode = ComicReaderMode.VerticalScroll,
         )
+        store.preferencesFlow.first { current -> seriesKey in current.seriesModesByKey }
         store.setSeriesModeOverride(
-            seriesKey = "stump:library:webtoons::Solo Leveling",
+            seriesKey = seriesKey,
             mode = null,
         )
 
-        val preferences = store.preferencesFlow.first()
+        val preferences = store.preferencesFlow.first { current -> seriesKey !in current.seriesModesByKey }
 
         assertTrue(preferences.seriesModesByKey.isEmpty())
     }
