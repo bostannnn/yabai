@@ -110,7 +110,7 @@ sort button. Optional differences from the 2026-10-17 mockup:
       The safe zone moves clear of the Read, rating, count and download chips when shown. Covers
       narrower than 110dp (journal, shelf sheet rows, downloads) show one big glyph: the issue
       number or the title's first letter. Checked on the emulator.
-- [ ] Check on the tablet with the real library.
+- [x] Checked on the tablet (Local source, Terminal 95): series covers match per series, text clears the Read and rating chips.
 
 ## 4. Blur behind chrome `[ ]`
 
