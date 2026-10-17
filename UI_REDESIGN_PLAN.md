@@ -38,13 +38,17 @@ Started 2026-10-17. Scope so far is the library home; other screens are listed a
   panels. Tint does not change blur cost. A paper-colored tint for EPUB panes was considered and
   dropped: the reading theme and the app theme can differ, and the pane text is app-colored. An
   EPUB page is blank paper, so its panes look tinted whatever the alpha.
-- **No glass in the EPUB reader** (2026-10-18, tablet, Android 16, WebView 150). Readium draws
-  the page in a WebView that renders through its own SurfaceControl overlay ("WebView overlays
-  are enabled" in logcat), so `hazeSource` captures nothing and the chrome re-records an empty
-  layer on every page update while the overlay swaps underneath: no glass, visible flicker.
-  `ImmersiveReaderOverlay(glass = false)` keeps the EPUB bars and panes on the kit's plain
-  fallback surface (same shapes and edge). Comics and PDF pages are Compose-drawn and keep the
-  glass. The emulator's WebView does not use overlays, which is why it looked fine there.
+- **EPUB glass needs the WebView in a hardware layer** (2026-10-18, tablet, Android 16,
+  WebView 150). Readium draws the page in a WebView that renders through its own SurfaceControl
+  overlay ("WebView overlays are enabled" in logcat), so `hazeSource` captured nothing and the
+  chrome re-recorded an empty layer on every page update while the overlay swapped underneath:
+  no glass, visible flicker. `setLayerType(LAYER_TYPE_HARDWARE)` on the Readium
+  `FragmentContainerView` keeps the page inside our layer; the glass then samples it (page text
+  visibly blurs through the preferences pane on the tablet) and a page turn renders 190 frames at
+  p50 8 ms / p90 10 ms with one janky frame. `ImmersiveReaderOverlay(glass = false)` remains as
+  the escape hatch. The glass fallback surface (no blur available) is now fully opaque: at 0.96
+  unblurred page text bled through the bars. The emulator's WebView does not use overlays, which
+  is why it looked fine there.
 
 ## Constraints (from `ARCHITECTURE_RULES.md`)
 

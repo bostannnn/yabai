@@ -611,9 +611,7 @@ fun EpubReaderScreen(
             ImmersiveReaderOverlay(
                 overlayState = overlayState,
                 autoHideDelayMillis = 0L,
-                // Readium renders the page in a WebView, which the glass layer cannot capture
-                // (and fights with on Android 15+); the EPUB chrome stays on the plain surface.
-                glass = false,
+                glass = true,
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag(EpubReaderViewportTag),
@@ -939,6 +937,13 @@ private fun ReadiumEpubNavigatorHost(
                 )
                 addView(
                     FragmentContainerView(context).apply {
+                        // Readium's WebView would otherwise render through Chromium's
+                        // SurfaceControl overlay on Android 15+, outside our draw: the glass
+                        // chrome had nothing to blur and flickered against the overlay. A
+                        // hardware layer keeps the page inside our layer, where the glass can
+                        // sample it. (Tablet, Android 16: page turn p50 8 ms, p90 10 ms.)
+                        setLayerType(View.LAYER_TYPE_HARDWARE, null)
+
                         id = containerId
                         setBackgroundColor(surfaceBackground.toArgb())
                     },
