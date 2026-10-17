@@ -73,7 +73,8 @@ Pull-request-sized steps; each lands and gets judged on the tablet before the ne
    keep a title, a muted count, and See all, with no accent rail, mark, or count pill. One
    `LibraryCoverProgressBar` (4 dp, accent over a dark track) draws on covers in the grid, the
    shelves, the shelf rows, and the shelf browser; finished books get a check circle instead
-   of the Read pill and no dimming. Reader bars, panes, and the preview strip use the same glass
+   of the Read pill. (The opt-in "Fade read books" toggle in the sort menu stays: it is off by
+   default and some readers want it.) Reader bars, panes, and the preview strip use the same glass
    through `readerOverlaySurface`, with the pages as the source via `ImmersiveReaderOverlay`.
    Checked on the emulator (library, drawer, comics reader).
    Bottom sheets stay opaque (a modal sheet is its own window, so it cannot blur the screen
@@ -132,7 +133,7 @@ Cormorant Garamond) are only for EPUB book text.
 
 ### 3a. Shelves `[~]`
 
-On branch `claude/distracted-feynman-c0cc8c`, not merged to main. Final layout is `cec77761`.
+Merged to main (final layout `cec77761`).
 
 - [x] Shelf covers use the grid's cell width, 2:3 shape, and cover image variant
       (`LibraryGridMetrics` and `libraryGridColumns()` in `LibraryGridConfiguration.kt`, which
@@ -203,12 +204,88 @@ sort button. Optional differences from the 2026-10-17 mockup:
       reader chrome; colored placeholders (3c) can use the same palette code.
 - [ ] Extract colors off the main thread and cache them per cover.
 
+## 6. Second pass: everything the first pass left on the old language `[ ]`
+
+Audit of 2026-10-17 (code read, not yet checked on a device). Each group is one commit; status
+boxes track what has landed.
+
+### 6a. Kit gaps `[ ]`
+
+- [ ] Menus and the snackbar draw at 6 dp because `MenuDefaults.shape` and `SnackbarDefaults.shape`
+      resolve to `Shapes.extraSmall`, which the theme maps to the cover radius. `AppMenu` takes the
+      control radius; the snackbar gets a kit wrapper.
+- [ ] `AppCheckbox`, `AppSwitch`, `AppSlider`, `AppSnackbar`, `AppDrawerItem` so the raw Material
+      calls in the filter sheet, grid selection, sort menu, settings, EPUB preferences, and the drawer
+      can go through the kit; the import rule forbids them afterwards. `Scaffold` and
+      `ModalNavigationDrawer` stay raw (structural, no styling of their own).
+- [ ] The app snackbar respects the navigation bar inset.
+
+### 6b. Covers sit flat `[ ]`
+
+`LibraryCover` still draws a hardcoded dark gradient backdrop, a 3 to 8 dp shadow, a 1 dp border,
+and a spine/sheen treatment with about 25 white/black alpha stops; the count, rating, and
+downloaded badges carry tonal and shadow elevation. The approved direction is flat covers.
+
+- [ ] Drop the shadow, the gradient, and `CoverSurfaceTreatment`; keep a hairline edge so light
+      covers separate from light backgrounds.
+- [ ] Badges lose their elevation and alpha; one `AppBadge` style.
+- [ ] One loading skeleton: `LibraryLoadingPlaceholders` (0.72 aspect, pill lines, accent-alpha
+      fills) matches `LibraryGridPlaceholderCard`, which moves to the cover radius.
+
+### 6c. Reader chrome inside the glass `[ ]`
+
+`ReaderOverlayTokens` is a parallel design system: its own colors, alphas, and 8 dp / 4 dp shapes.
+
+- [ ] Shapes map to the theme scale: bars, buttons, and selected rows at the control radius,
+      panes and the preview strip at the container radius, thumbnails at the cover radius. The
+      dead hardcoded dark palette defaults go.
+- [ ] Attached panes drop the extra 18 dp shadow (the glass edge is the separation).
+- [ ] Preferences panes (comics, EPUB): rows on the token shapes, raw `Slider` through
+      `AppSlider`, segmented tabs without the extra divider border.
+- [ ] Preview strips (comics, PDF): no compounded container alpha, selected thumbnail marked by a
+      2 dp accent edge at the cover radius, PDF thumbnails clipped.
+- [ ] EPUB table of contents: selection by container color, no accent-alpha border, depth dot on
+      a token color.
+- [ ] EPUB footnote popup through `AppPanel` on the container radius, no shadow or alpha border.
+- [ ] Loading and error states (comics, EPUB, PDF): styled text, `AppCircularProgress` while
+      opening, `ReaderTopBar` fallback uses `AppIconButton`.
+- [ ] Page slider drag (tap-to-seek only today).
+
+### 6d. Library surfaces outside the home grid `[ ]`
+
+- [ ] Shelf browser ("See all"): bare tiles like the grid, scrolls under the bar (the top inset
+      is on the outer column today), controls strip without the overlay alpha.
+- [ ] Item kebab menu: reading-direction and reader-mode rows through `AppSegmentedRow`;
+      menu buttons on token shapes.
+- [ ] Alphabet rail and back-to-top: token fills, rail clears the top bar, no 4 dp marker.
+- [ ] Top bar search field on `AppTextField` colors (no accent-alpha border); connectivity
+      indicator without alpha borders.
+- [ ] Kavita landing: title only in the top bar (it is drawn twice today).
+- [ ] Kavita reading-list dialog on the `AppDialog` surface.
+- [ ] Empty states share one style (`EmptyLibraryState` is unstyled text).
+- [ ] Shelf placeholders without accent-alpha fills.
+
+### 6e. Smaller screens `[ ]`
+
+- [ ] Downloads sheet: entries as rows, no 4 dp cover clip, semantic status colors, ripple clipped.
+- [ ] Journal: details modal without tonal elevation; chart radii on the scale; the comic mix
+      color from the theme.
+- [ ] Settings: theme swatches without the alpha border; filter visibility on `AppCheckbox`.
+- [ ] Dead code: `ProgressSummary`, `LibraryBrowseSearchField`, the deprecated
+      `LibraryShelfItemsSheet`, `EpubFontSection`, `ReaderOverlayDropdownItem`,
+      `ReaderOverlayMenuAction`, `rememberReaderOverlayPanelState`.
+
+### 6f. Still open from earlier sections
+
+- [ ] 3a: run the shelf instrumentation tests.
+- [ ] 3c: the cover-cache investigation (imported comics showing the placeholder).
+- [ ] Section 1 (Compose BOM) and section 5 (cover-derived color) are untouched.
+
 ## Not yet designed
 
-- Reader preferences panel and page slider beyond their glass surfaces (the bars themselves are
-  done in step 3)
 - Series view (the series browse reuses the library grid; it has no header of its own)
 - Book detail (does not exist yet)
+
 
 ## Open questions
 
