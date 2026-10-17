@@ -11,7 +11,7 @@ internal fun comicReaderDisplayTitle(
         item.comicMetadata?.volume?.trim()?.takeIf(String::isNotEmpty)?.let(::formatComicVolumeLabel),
         item.title.trim().takeIf(String::isNotEmpty),
     ).firstOrNull().orEmpty()
-    return listOf(seriesTitle.takeIf(String::isNotEmpty), detailTitle.takeIf(String::isNotEmpty))
+    return listOfNotNull(seriesTitle.takeIf(String::isNotEmpty), detailTitle.takeIf(String::isNotEmpty))
         .distinct()
         .joinToString(" • ")
         .ifBlank { item.title }
