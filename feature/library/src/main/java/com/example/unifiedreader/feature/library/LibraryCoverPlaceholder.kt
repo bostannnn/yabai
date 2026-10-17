@@ -202,44 +202,50 @@ private fun CacheDrawScope.placeholderTexts(
 
     when (spec.style) {
         LibraryCoverPlaceholderStyle.TitleCover -> {
-            var byline = spec.byline?.let { measure.line(it, bylineStyle, bylineSizePx) }
             val titleStyle = TextStyle(color = content, fontFamily = FontFamily.Serif)
             val smallestTitle = max(safeWidth * 0.10f, MinTitleSize.toPx())
             val titleSizes = fontSteps(from = max(safeWidth * 0.15f, smallestTitle), to = smallestTitle)
-            fun titleRoom(byline: TextLayoutResult?) =
-                safeHeight - tag.size.height - gap - (byline?.let { it.size.height + gap } ?: 0f)
-            // Drop the author before squeezing the title below one line.
-            if (byline != null && titleRoom(byline) < titleSizes.last() * TitleLineHeight) byline = null
-            val title = measure.fitParagraph(
-                text = spec.heading,
-                style = titleStyle,
-                sizesPx = titleSizes,
-                lineHeight = TitleLineHeight,
-                maxLines = TitleMaxLines,
-                maxHeight = titleRoom(byline),
-            )
-            placed += PlacedText(title, Offset(left, top))
-            byline?.let { placed += PlacedText(it, Offset(left, top + title.size.height + gap)) }
+            fun titleFor(reservedBylineLines: Int): FittedParagraph {
+                val reserved = spec.byline?.let { measure.paragraph(it, bylineStyle, bylineSizePx, reservedBylineLines) }
+                return measure.fitParagraph(
+                    text = spec.heading,
+                    style = titleStyle,
+                    sizesPx = titleSizes,
+                    lineHeight = TitleLineHeight,
+                    maxLines = TitleMaxLines,
+                    maxHeight = safeHeight - tag.size.height - gap - (reserved?.let { it.size.height + gap } ?: 0f),
+                )
+            }
+            // The title fits first, keeping room for two lines of author (one if the title needs it);
+            // the author then takes whatever height is left, so a long name wraps instead of being cut.
+            var title = titleFor(reservedBylineLines = 2)
+            if (!title.fitted) title = titleFor(reservedBylineLines = 1)
+            val bylineTop = top + title.layout.size.height + gap
+            val byline = spec.byline?.let {
+                measure.paragraphWithin(it, bylineStyle, bylineSizePx, maxHeight = bottom - tag.size.height - gap - bylineTop)
+            }
+            placed += PlacedText(title.layout, Offset(left, top))
+            byline?.let { placed += PlacedText(it, Offset(left, bylineTop)) }
         }
 
         LibraryCoverPlaceholderStyle.SeriesNumber -> {
             val seriesStyle = TextStyle(color = muted, fontFamily = labelFamily, letterSpacing = 0.05.em)
             val seriesSizePx = max(safeWidth * 0.095f, MinLabelSize.toPx())
             var series = measure.paragraph(spec.heading.uppercase(), seriesStyle, seriesSizePx, maxLines = 2)
-            var byline = spec.byline?.let { measure.line(it, bylineStyle, bylineSizePx) }
             val prefix = spec.numberPrefix?.let { measure.line(it, bylineStyle, bylineSizePx) }
             val number = measure.fitLine(
                 text = spec.number.orEmpty(),
                 style = TextStyle(color = content, fontFamily = labelFamily, fontWeight = FontWeight.Medium),
                 sizesPx = fontSteps(from = safeWidth * 0.42f, to = safeWidth * 0.19f),
             )
-            fun stackHeight() = tag.size.height + gap + number.size.height +
-                (byline?.let { it.size.height + gap * 0.5f } ?: 0f) +
-                (prefix?.size?.height ?: 0)
-            // When space runs out, drop the issue title, then the second series line.
-            if (byline != null && series.size.height + gap + stackHeight() > safeHeight) byline = null
-            if (series.lineCount > 1 && series.size.height + gap + stackHeight() > safeHeight) {
+            val numberStack = tag.size.height + gap + number.size.height + (prefix?.size?.height ?: 0)
+            // The issue title sits between the series name and the number and takes the height in
+            // between; the series name gives up its second line before the issue title is dropped.
+            fun bylineRoom() = safeHeight - series.size.height - gap - numberStack - gap * 0.5f
+            var byline = spec.byline?.let { measure.paragraphWithin(it, bylineStyle, bylineSizePx, bylineRoom()) }
+            if (spec.byline != null && byline == null && series.lineCount > 1) {
                 series = measure.paragraph(spec.heading.uppercase(), seriesStyle, seriesSizePx, maxLines = 1)
+                byline = measure.paragraphWithin(spec.byline, bylineStyle, bylineSizePx, bylineRoom())
             }
             placed += PlacedText(series, Offset(left, top))
             var y = bottom - tag.size.height - gap
@@ -255,6 +261,12 @@ private fun CacheDrawScope.placeholderTexts(
     }
     return placed
 }
+
+/** [fitted] is false when the text only fit by breaking a word or being cut off with an ellipsis. */
+private class FittedParagraph(
+    val layout: TextLayoutResult,
+    val fitted: Boolean,
+)
 
 private class PlaceholderTextMeasure(
     private val textMeasurer: TextMeasurer,
@@ -281,6 +293,18 @@ private class PlaceholderTextMeasure(
             constraints = constraints,
         )
 
+    /**
+     * [text] wrapped onto as many lines as fit in [maxHeight] (at most [BylineMaxLines]), ellipsized
+     * only if it needs more; null when not even one line fits.
+     */
+    fun paragraphWithin(text: String, style: TextStyle, sizePx: Float, maxHeight: Float): TextLayoutResult? {
+        for (lines in BylineMaxLines downTo 1) {
+            val layout = paragraph(text, style, sizePx, maxLines = lines)
+            if (layout.size.height <= maxHeight) return layout
+        }
+        return null
+    }
+
     /** The largest size at which [text] fits on one line; ellipsized at the smallest size. */
     fun fitLine(text: String, style: TextStyle, sizesPx: List<Float>): TextLayoutResult {
         sizesPx.forEach { sizePx ->
@@ -301,7 +325,7 @@ private class PlaceholderTextMeasure(
         lineHeight: Float,
         maxLines: Int,
         maxHeight: Float,
-    ): TextLayoutResult {
+    ): FittedParagraph {
         sizesPx.forEach { sizePx ->
             val layout = textMeasurer.measure(
                 text = AnnotatedString(text),
@@ -309,18 +333,19 @@ private class PlaceholderTextMeasure(
                 constraints = constraints,
             )
             if (layout.lineCount <= maxLines && layout.size.height <= maxHeight && !layout.splitsAWord(text)) {
-                return layout
+                return FittedParagraph(layout, fitted = true)
             }
         }
         val smallest = sizesPx.last()
         val linesThatFit = floor(maxHeight / (smallest * lineHeight)).toInt().coerceIn(1, maxLines)
-        return textMeasurer.measure(
+        val layout = textMeasurer.measure(
             text = AnnotatedString(text),
             style = style.sized(smallest, lineHeight),
             overflow = TextOverflow.Ellipsis,
             maxLines = linesThatFit,
             constraints = constraints,
         )
+        return FittedParagraph(layout, fitted = false)
     }
 
     private fun TextStyle.sized(sizePx: Float, lineHeight: Float? = null): TextStyle = with(density) {
@@ -398,6 +423,7 @@ private val MinLabelSize = 9.sp
 private val MinTitleSize = 11.sp
 
 private const val TitleMaxLines = 4
+private const val BylineMaxLines = 4
 private const val TitleLineHeight = 1.15f
 private const val FontSizeSteps = 6
 private val Whitespace = Regex("\\s+")
