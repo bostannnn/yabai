@@ -160,7 +160,8 @@ class AppStartupLibraryStateTest {
     // In this unit test viewModelScope otherwise falls back to the multi-threaded Dispatchers.Default,
     // so the async availability refresh both races the assertions and can lose its non-synchronized
     // state writes. Pin it to a single-threaded, eager dispatcher so the failing refresh settles
-    // deterministically before the assertions run, mirroring production.
+    // deterministically before the assertions run, mirroring production. The ViewModel is cleared
+    // before resetMain so its Main-bound collectors can't outlive the test.
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun `failed startup availability refresh keeps stale local filter results`() {
@@ -180,8 +181,9 @@ class AppStartupLibraryStateTest {
         }
 
         Dispatchers.setMain(Dispatchers.Unconfined)
+        var viewModel: AppViewModel? = null
         try {
-            val viewModel = createViewModel(
+            viewModel = createViewModel(
                 sampleItems = listOf(item),
                 remoteDownloadDataSources = listOf(
                     FailingStoredDocumentScanDataSource(sourceType = SourceType.KAVITA),
@@ -207,6 +209,7 @@ class AppStartupLibraryStateTest {
             assertFalse(state.toString(), state.isSelectedLibraryLocalAvailabilityPending)
             assertEquals(state.toString(), listOf(item.id), state.visibleItems.map(ReadableItem::id))
         } finally {
+            viewModel?.let(::clearViewModel)
             Dispatchers.resetMain()
         }
     }

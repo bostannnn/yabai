@@ -1,6 +1,9 @@
 package com.example.unifiedreader
 
 import android.net.Uri
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStore
 import com.example.unifiedreader.core.common.AppDispatchers
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
@@ -457,6 +460,22 @@ internal fun createViewModel(
             readerSessionStore = readerSessionStore,
         ),
     )
+}
+
+// Clears the ViewModel the way its owner does on destroy, cancelling viewModelScope. Call it before
+// Dispatchers.resetMain() for a ViewModel created under setMain: its scope is bound to Main, and the
+// snapshotFlow apply observer it registers stays global, so a later test's snapshot write would
+// dispatch to the reset Main and fail whichever runTest happens to run next.
+internal fun clearViewModel(viewModel: ViewModel) {
+    val store = ViewModelStore()
+    ViewModelProvider(
+        store,
+        object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T = viewModel as T
+        },
+    )[viewModel.javaClass]
+    store.clear()
 }
 
 private fun onlineRemoteSourceConnectivityPolicy(): RemoteSourceConnectivityPolicy =
@@ -1147,6 +1166,12 @@ class BlockingRemoteDownloadDataSource(
     suspend fun awaitFirstDownloadStarted() {
         startedFirstDownload.await()
     }
+
+    // Robolectric tests poll this while idling the main looper instead of suspending in
+    // awaitFirstDownloadStarted(): enqueue hops to Dispatchers.IO and resumes on Main, which a
+    // main thread parked in runBlocking can never process.
+    val hasStartedFirstDownload: Boolean
+        get() = startedFirstDownload.isCompleted
 
     fun cancelFirstDownload() {
         releaseFirstDownload.cancel(CancellationException("Cancelled for test"))

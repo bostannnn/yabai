@@ -460,8 +460,7 @@ class AppViewModelRemoteDownloadsTest {
         val seriesItem = viewModel.uiState.visibleItems.single()
 
         viewModel.onDownloadRemoteItem(seriesItem)
-        shadowOf(Looper.getMainLooper()).idle()
-        dataSource.awaitFirstDownloadStarted()
+        waitForUiState { dataSource.hasStartedFirstDownload }
 
         assertEquals(
             setOf(seriesItem.id, firstIssue.id, secondIssue.id),
@@ -498,8 +497,7 @@ class AppViewModelRemoteDownloadsTest {
         )
 
         viewModel.onDownloadRemoteItem(remoteComic)
-        shadowOf(Looper.getMainLooper()).idle()
-        dataSource.awaitFirstDownloadStarted()
+        waitForUiState { dataSource.hasStartedFirstDownload }
 
         dataSource.cancelFirstDownload()
         shadowOf(Looper.getMainLooper()).idle()
