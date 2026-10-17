@@ -11,6 +11,7 @@ Package `com.example.unifiedreader`. Hilt DI, Room DB, Ktor networking, Readium 
   performance changes need measured proof. It also holds the DB-paging pattern and the
   library presentation-coherence rules.
 - `LIBRARY_DB_PAGING_PLAN.md` is the live handoff for the library paging/performance work.
+- `UI_REDESIGN_PLAN.md` tracks the visual redesign: what's done, what's left, and the design decisions.
 - `CURRENT_STATUS.md`, `ROADMAP.md` and the other plan docs are historical (April-July 2026).
 
 ## Build and test
