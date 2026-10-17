@@ -104,7 +104,13 @@ sort button. Optional differences from the 2026-10-17 mockup:
     top, issue or volume number large, issue title below, format tag.
   - A CBZ/CBR without series and number falls back to the title cover. A PDF that is really a comic
     still gets the title cover, because the rule goes by format.
-- [ ] Implement in `feature:library` (the `LibraryCover` empty-cover branch), in a new file.
+- [x] Implemented in `LibraryCoverPlaceholder.kt`, drawn in one pass (no subcomposition) with
+      text measured to fit a safe zone (15% left for the spine, 9% right, 8% top, 7% bottom).
+      Titles shrink to fit in at most 4 lines without splitting words, then break and ellipsize.
+      The safe zone moves clear of the Read, rating, count and download chips when shown. Covers
+      narrower than 110dp (journal, shelf sheet rows, downloads) show one big glyph: the issue
+      number or the title's first letter. Checked on the emulator.
+- [ ] Check on the tablet with the real library.
 
 ## 4. Blur behind chrome `[ ]`
 

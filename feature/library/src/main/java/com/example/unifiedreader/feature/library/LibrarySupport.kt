@@ -3,7 +3,6 @@ package com.example.unifiedreader.feature.library
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ComicMetadata
-import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.LibraryFileLocation
 import com.example.unifiedreader.core.model.LibraryReadingStatus
 import com.example.unifiedreader.core.model.LibrarySortMode
@@ -176,13 +175,6 @@ internal val LibraryReadingStatus.label: String
 internal fun ReadableItem.sortFilterLetter(
     sortMode: LibrarySortMode,
 ): String? = libraryAlphabetKey(sortMode)?.filterLetter { it }
-
-internal fun formatBadgeText(formatType: FormatType): String = when (formatType) {
-    FormatType.CBZ -> "CBZ"
-    FormatType.CBR -> "CBR"
-    FormatType.EPUB -> "EPUB"
-    FormatType.PDF -> ""
-}
 
 private fun String.withoutSeriesPrefix(
     series: String?,

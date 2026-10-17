@@ -51,6 +51,13 @@ internal fun GridCoverCard(
             .aspectRatio(LibraryCoverAspectRatio),
         trailingText = progressLabel,
         menuContent = menuContent.takeUnless { isSelectionMode },
+        emptyCoverContent = {
+            LibraryCoverPlaceholder(
+                item = item,
+                reserveTopBadge = progress?.isComplete == true || issueCountBadge != null || isSelectionMode,
+                reserveBottomBadge = rating != null || isDownloaded,
+            )
+        },
         coverOverlay = if (rating != null || issueCountBadge != null || isSelectionMode) {
             {
                 issueCountBadge?.takeUnless { isSelectionMode }?.let { count ->
