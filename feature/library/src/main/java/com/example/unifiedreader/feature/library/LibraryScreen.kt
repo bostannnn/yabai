@@ -140,6 +140,7 @@ fun LibraryScreen(
     var deleteCandidate by remember { mutableStateOf<ReadableItem?>(null) }
     var gridExpandedMenuItemId by remember { mutableStateOf<String?>(null) }
     var openFilterPanel by rememberSaveable { mutableStateOf<LibraryFilterPanel?>(null) }
+    var isFilterSheetOpen by rememberSaveable { mutableStateOf(false) }
     var isReadingListDialogOpen by rememberSaveable { mutableStateOf(false) }
     var handledScrollToTopRequest by remember { mutableStateOf(scrollToTopRequest) }
     val coroutineScope = rememberCoroutineScope()
@@ -472,7 +473,11 @@ fun LibraryScreen(
                     lockedSortLabel = lockedSortLabel,
                     readingListScopeState = readingListScopeState,
                     onOpenReadingListScope = { isReadingListDialogOpen = true },
-                    onOpenFilterPanel = { openFilterPanel = it },
+                    onOpenFilterPanel = { panel ->
+                        openFilterPanel = panel
+                        isFilterSheetOpen = true
+                    },
+                    onClearFilterPanel = { panel -> onFilterStateChanged(filterState.clearing(panel)) },
                     onClearFilters = onClearFilters,
                     onSortModeChanged = onSortModeChanged,
                     onGridCellSizeDpChanged = onGridCellSizeDpChanged,
@@ -592,14 +597,16 @@ fun LibraryScreen(
         )
     }
 
-    openFilterPanel?.let { panel ->
-        LibraryFilterPanelDialog(
-            panel = panel,
+    if (isFilterSheetOpen) {
+        LibraryFilterSheet(
+            filterPanels = filterPanels,
             filterState = filterState,
             filterFacets = filterFacets,
             libraryTitlesById = libraryTitlesById,
+            initialPanel = openFilterPanel,
             onFilterStateChanged = onFilterStateChanged,
-            onDismiss = { openFilterPanel = null },
+            onClearFilters = onClearFilters,
+            onDismiss = { isFilterSheetOpen = false },
         )
     }
     if (isReadingListDialogOpen) {

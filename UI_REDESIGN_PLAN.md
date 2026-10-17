@@ -159,9 +159,14 @@ separate task.
 Since 2026-05-13 the row is one "Filters" button with a dropdown, chips for applied filters, and a
 sort button. Optional differences from the 2026-10-17 mockup:
 
-- [ ] All filters in one side sheet (bottom sheet on phones) instead of a dropdown that opens a
-      dialog per filter. Must go in a new file, not `LibraryFilterComponents.kt`.
-- [ ] A × on applied-filter chips to remove a filter in one tap.
+- [x] All filters in one side sheet (`LibraryFilterSheet.kt`, on the kit's new `AppSideSheet`,
+      which becomes the bottom sheet under 600 dp). One section per visible panel; a section
+      opens to its chips or to a searchable checklist, the header shows the selected count with
+      its own ×, and the sheet header has Clear all. The Filters chip opens it directly, an
+      applied chip opens it at that section. The per-panel dialogs are gone, and
+      `LibraryFilterComponents.kt` shrank from 915 to 492 lines. The Kavita reading-list scope
+      keeps its dialog.
+- [x] A × on applied-filter chips removes that filter in one tap.
 
 ### 3c. Covers and placeholders `[ ]`
 
