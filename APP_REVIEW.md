@@ -19,14 +19,14 @@ Baseline: `testDebugUnitTest` passes, 1033 tests, 0 failures.
 - **Branch:** the fixes after 0.8.0 were made on `claude/app-review-doc-01d75d` and fast-forwarded into the
   local `main` on 2026-10-18. `main` is not pushed to `origin`, and the fixes are in no release yet: the 0.8.0
   release holds #1-#5 only.
-- **Done:** every P0 item (#1-#6, #41) and, from P1, #7, #8, #9, #10, #12, #13, #14, #15, #16, #17, #18, #19, #23, #24, #25 and #42.
-- **Next, in the suggested order:** the rest of P1: #21, #22.
+- **Done:** every P0 item (#1-#6, #41) and, from P1, #7, #8, #9, #10, #12, #13, #14, #15, #16, #17, #18, #19, #21, #23, #24, #25 and #42.
+- **Next, in the suggested order:** the last P1 item, #22.
 - **Decided, not built:** #11 (the most recent read wins; see its entry for what to check first) and #20
   (refresh detects progress from the series list's `PagesRead` and `LatestReadDate`).
 - **Not checked on a device:** #6, #7, #8, #41 (unit tests only); #10 (no reachable source on the tablet has an
   EPUB or PDF: the Kavita libraries are all comics and Grimmory was unreachable from the app); #24 with a real
   solid CBR (tested against junrar's solid archive; no RAR tool on the Mac to make one); #4 against a live Kavita
-  server. #12 was checked on the emulator with a local EPUB, #23 and #25 with a local CBZ, and #9 with a local EPUB (see their entries). #13 and #14 were checked on the tablet on
+  server. #12 was checked on the emulator with a local EPUB, #23 and #25 with a local CBZ, and #9 and #21 with a local EPUB (see their entries). #13 and #14 were checked on the tablet on
   2026-10-18 against the live Kavita server, with a signed release build of `fa324a09` installed over 0.8.0.
 - **Seen on the tablet, not fixed:** a download queued while its source is not Online is stored as Queued but
   never scheduled (`canScheduleDownload` requires Online), so the sheet shows "Queued" indefinitely with no
@@ -41,8 +41,8 @@ Baseline: `testDebugUnitTest` passes, 1033 tests, 0 failures.
 
 ### Fixed
 
-Fixed, each with a regression test that fails without the fix. Full suite with #19 and #42: 1242 tests
-(1119 `testDebugUnitTest` + 123 JVM `test`), 0 failures.
+Fixed, each with a regression test that fails without the fix. Full suite with #21: 1244 tests
+(1121 `testDebugUnitTest` + 123 JVM `test`), 0 failures.
 
 - #1 EPUB reader crash on activity recreation (`faa5bd4b`). Checked on the emulator.
 - #2 Kavita sync dropping other sources' progress (`7651eab8`).
@@ -57,6 +57,7 @@ Fixed, each with a regression test that fails without the fix. Full suite with #
 - #17 Paged A–Z rail never refreshed (`0e20bf11`). The rail was queried once per sort, so it went stale after a sync, and after the v28 migration it stayed hidden because its one query raced the root rebuild and found no roots. The three alphabet-bucket DAO queries are now Room flows, which re-run on every write to `library_grid_roots`, and the screen collects the current sort's flow; the re-query is the same per-source `GROUP BY`, and roots are written only by syncs and the rebuild. The DAO test checks that the buckets follow root writes (empty, then a, b, then a, b, c); the old one-shot query couldn't be observed at all, so this test has no "fix off" run. Not checked on a device (Kavita-only paging).
 - #18 "Select all" covering only the loaded window, and picks pruned after a rail jump (`528569e5`). The screen now drops only a rendered root that is no longer selectable and keeps picks outside its window (`sanitizeLibraryDownloadSelection`, `orderLibraryDownloadSelection`). The scaffold adds the recompute's `visibleItems`, which have the paged view's membership (every root when unfiltered, the in-memory filtered set otherwise), so "Select all" and "Download selected" cover the whole view (`libraryDownloadSelectableItems`). Until the recompute lands at cold start (about a second) only the window is known. Unit tests only; not checked on a device (Kavita-only paging).
 - #19 and #42 Address failover on pushes, the way back to the primary address, and the Wi-Fi to cellular handoff (`3d97f012`). The progress pushes (Kavita, Stump and Grimmory, which had the same per-item catch) and the Kavita journal push now leave their loop on an unreachable-server failure, so the failover around them retries the push on the next address; when every address fails, the registries report the failure as before, which marks the source Offline. The connectivity monitor reports the default network's id as well as availability, and the new `AppNetworkChangeCoordinator` (the collector moved out of `AppViewModel`) treats coming back online or a switch to another network as a new connection: it clears each source's `activeBaseUrl`, so the next request tries the primary address first and falls back again if it doesn't answer, then runs the existing re-probe of unavailable sources. The cost: after a network change, a primary address that the new network can't reach costs one failed connection attempt before the backup. Unit tests cover the push failover (Kavita progress through `runWithServerAddressFailover`, the journal push throwing), the new-connection decision, the coordinator and a ViewModel handoff. Not checked on a device: needs a Kavita server with two addresses and a network switch. The Grimmory journal push was not checked for the same catch.
+- #21 EPUB finish detection firing too early, and the right tap doing nothing at the end (`b22412c0`). The end of the book is now the last page of the last reading-order resource (`isEpubBookEnd`): paginated and spread layouts use the page index and count Readium passes to `onPageChanged` (checked in the 3.1.2 bytecode: `R2WebView.mCurItem` and `numPages`, the horizontal scroll range over the client width, so a spread counts as one page); scroll mode, where each resource is one page, runs a script in the last resource that asks whether the web view is scrolled to the bottom. The finished flag, the automatic dialog and the right tap use it; the position saved when the navigator goes away keeps the last answer. Checked on the emulator with a two-chapter EPUB whose short last chapter runs over four pages: the counter read "2/2" from that chapter's first page, where the old check ended the book; now the dialog opens only on its last page, a right tap there opens it again, the book stays under Recently Finished after closing, and a right tap on the reopened book opens the dialog. In scroll mode the script answered true at the bottom and false above it, and the right tap followed. Still as before: `hasAutoRequestedCompletion` is `rememberSaveable`, so the automatic dialog shows once per session, also across a process restore (the right tap still opens it).
 - #12 Route lost after process death (`d6829c2c`). The route always stores the open book's item, so the reader reopens before the catalog loads; a series sub-screen is kept until its source's catalog has loaded. Checked on the emulator (see below).
 - #6 Downloads stopped by Android recorded as user cancels (`bcfa819b`). A cancellation is a user cancel only when the entry is already Canceling or Canceled; any other stop puts the entry back to Queued with its finished files kept, and the worker returns `Result.retry()`, so WorkManager's rerun resumes after them. "Clear completed" now only clears the list; Remove on a single failed or canceled entry still deletes its files. Entries already wrongly marked Canceled before this fix stay that way (Retry resumes them). Unit tests only.
 - #7 Stale comic resume anchor beating synced progress (`5af76586`). The session now stores the progress page with the resume anchor (`resumeProgressPage`), and the anchor, segment and scroll offset are ignored once the saved progress is on another page, as after a pull from another device. Sessions saved before keep the anchor only when it is the progress page itself. A page restored after the reader opened (a pull for a downloaded comic) also moves the anchor, which the pager and the webtoon list follow; before, only the page counter changed and the next settle saved the old page. Unit tests only.
@@ -76,11 +77,11 @@ had lost the book. The 0.8.0 build at `aeb722a2` reopened in the book. Back then
 library and cleared the saved book, and the crash log stayed empty. Not checked: a remote book or a
 series sub-screen (no server on the emulator); the unit tests cover those.
 
-Next is #21, EPUB finish detection. Learned while fixing these:
+Next is #22, the EPUB footnote heuristic. Learned while fixing these:
 
 - **Process death (#12):** after process death the app opened on the library, not the book. Seen on the emulator; fixed in `d6829c2c`.
 - **Hanging suite:** `SourceNavigationPreferencesStoreTest`'s IO-retry test could wait forever: with a 0 ms retry delay the store's startup fallback was replaced before the test saw it. It hung the suite for 30 minutes during #25; made deterministic in `bfdc4440`.
-- **"0% · 1/2" label:** the library's progress label and the early "finished" flag have the same cause as #21. Readium reports progression at position starts, and the reader marks a book finished once it reaches the last position's start. A 2-position test book was marked finished at 50%.
+- **"0% · 1/2" label:** the library's progress label and the early "finished" flag have the same cause as #21 (the flag is fixed in #21; the label still shows where the page starts). Readium reports progression at position starts, and the reader marks a book finished once it reaches the last position's start. A 2-position test book was marked finished at 50%.
 
 ### Verification pass, 2026-10-18 (second session)
 
@@ -141,7 +142,7 @@ How the list is ordered:
 18. Paged library: "Select all" only selects the loaded window. Fixed `528569e5`.
 19. Kavita address failover never triggers on push failures and never returns to the LAN address. Fixed `3d97f012`.
 20. Kavita fast sync (the library refresh) never pulls progress. Decided: detect progress made elsewhere through the series list, not one request per chapter. Kavita's `all-v2` series already carries the user's `PagesRead` and `LatestReadDate` (checked in 0.8.9 and `develop`); adding them to the change fingerprint re-fetches only series read since the last sync.
-21. EPUB finish detection fires too early (the start of the last Readium position), and a right tap on a reopened finished book does nothing. The first pass had this backwards: the end *is* detected.
+21. EPUB finish detection fires too early (the start of the last Readium position), and a right tap on a reopened finished book does nothing. The first pass had this backwards: the end *is* detected. Fixed `b22412c0`.
 22. The EPUB footnote heuristic hijacks TOC and appendix links; external links do nothing.
 23. Comic archives: `__MACOSX` junk entries become pages, and GIF/BMP/AVIF/HEIC pages are dropped. Fixed `2ecfd1d4`.
 24. Solid CBRs decode only their first page. Fixed `f841d280`.
@@ -179,7 +180,7 @@ How the list is ordered:
 
 The unfinished features in section 4 are feature work that needs product decisions, so they don't get fix sessions.
 
-Suggested order after the second pass: 6, 41, 7, 10, 13, 14, 24, 25, 23, then the rest of P1. 6, 41, 7, 10, 13, 14, 24, 25, 23, 9, 15, 16, 17, 18, 19, 42, 8 and 12 are done; 21 is next.
+Suggested order after the second pass: 6, 41, 7, 10, 13, 14, 24, 25, 23, then the rest of P1. 6, 41, 7, 10, 13, 14, 24, 25, 23, 9, 15, 16, 17, 18, 19, 42, 21, 8 and 12 are done; 22 is next.
 
 Decisions, 2026-10-18: #11 most recent read wins; #20 uses the series read fields; #41, then #8, then #12.
 
@@ -234,7 +235,7 @@ Decisions, 2026-10-18: #11 most recent read wins; #20 uses the series read field
   and Readium reports a position at its start, so the book is finished when the last position begins: 50% of a 2-position book, 90% of a 10-position story,
   the last ~1 KB of a novel. Real gaps: the right tap uses only `>= 0.999`, so a book reopened at its end does nothing on tap, and `hasAutoRequestedCompletion`
   is `rememberSaveable`, so the dialog cannot reappear in a session. Whether spread mode reports the last position could not be settled statically.
-  `EpubReaderEntry.kt:651-690,1090`. **Checked.**
+  `EpubReaderEntry.kt:651-690,1090`. **Checked.** Fixed `b22412c0` (the end is now the last page of the last resource).
 - **The footnote heuristic hijacks normal links:** any link with "note" or "fn" in it, or a fragment link into a later file in the last 20% of the book, opens a
   popup instead of navigating. That covers the book's own TOC page and appendix links. In-content links only: the app's TOC panel goes through
   `EpubTocNavigationRequest` and is unaffected, and links without a fragment navigate normally. A forced match falls back to the whole target element,
