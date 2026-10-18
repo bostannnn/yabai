@@ -149,6 +149,17 @@ internal class RarComicArchiveCodec(
                 val matchingHeader = archive.fileHeaders.firstOrNull { header ->
                     !header.isDirectory && archiveEntryName(header) == entryName
                 } ?: return@withContext null
+                // A solid file continues the stream of the files before it (see solidArchiveEntryBytes).
+                if (matchingHeader.isSolid) {
+                    return@withContext solidArchiveEntryBytes(
+                        extractionDirectory = solidExtractionDirectory(archiveFile),
+                        entryName = entryName,
+                    ) { output ->
+                        archive.fileHeaders.filterNot(FileHeader::isDirectory).forEach { header ->
+                            output(archiveEntryName(header)).use { stream -> archive.extractFile(header, stream) }
+                        }
+                    }
+                }
 
                 ByteArrayOutputStream().use { output ->
                     archive.extractFile(matchingHeader, output)
@@ -185,14 +196,57 @@ internal class RarComicArchiveCodec(
     ): String = header.fileName?.takeIf { it.isNotBlank() }
         ?: header.fileNameString
 
+    // Keyed by the archive file and its size and modification time, so a replaced file re-extracts.
+    private fun solidExtractionDirectory(
+        archiveFile: File,
+    ): File = File(
+        File(context.cacheDir, RAR_SOLID_EXTRACTION_CACHE_DIRECTORY),
+        "${archiveFile.absolutePath}:${archiveFile.length()}:${archiveFile.lastModified()}".sha256Hex(),
+    )
+
     companion object {
         fun clearLocalArchiveCache(
             context: Context,
         ) {
             context.clearArchiveCache(RAR_ARCHIVE_CACHE_DIRECTORY)
+            context.clearArchiveCache(RAR_SOLID_EXTRACTION_CACHE_DIRECTORY)
         }
     }
 }
+
+/**
+ * Solid RAR archives compress their files as one stream, so a file decodes only after every file
+ * before it, through the same junrar `Archive`; extracting one page from a fresh `Archive` fails its
+ * CRC check. The first read of a solid file extracts the whole archive once, in order, into
+ * [extractionDirectory] ([extractAll] hands each file's name and gets the stream to write it to);
+ * later reads, in any order, come from there. Only the most recent extractions are kept.
+ */
+internal fun solidArchiveEntryBytes(
+    extractionDirectory: File,
+    entryName: String,
+    extractAll: (output: (entryName: String) -> java.io.OutputStream) -> Unit,
+): ByteArray? {
+    val cacheRoot = extractionDirectory.parentFile ?: return null
+    return archiveCacheLockFor(cacheRoot).withLock {
+        val completeMarker = File(extractionDirectory, SOLID_EXTRACTION_COMPLETE_MARKER)
+        if (!completeMarker.exists()) {
+            extractionDirectory.deleteRecursively()
+            extractionDirectory.mkdirs()
+            extractAll { name -> File(extractionDirectory, name.sha256Hex()).outputStream().buffered() }
+            completeMarker.createNewFile()
+            cacheRoot.listFiles { file -> file.isDirectory && file != extractionDirectory }
+                ?.sortedByDescending(File::lastModified)
+                ?.drop(KEPT_SOLID_EXTRACTIONS - 1)
+                ?.forEach(File::deleteRecursively)
+        }
+        extractionDirectory.setLastModified(System.currentTimeMillis())
+        File(extractionDirectory, entryName.sha256Hex()).takeIf(File::isFile)?.readBytes()
+    }
+}
+
+private fun String.sha256Hex(): String = MessageDigest.getInstance("SHA-256")
+    .digest(toByteArray(Charsets.UTF_8))
+    .toLowerHexString()
 
 private val archiveCacheLocks = ConcurrentHashMap<String, ReentrantLock>()
 
@@ -412,6 +466,9 @@ private const val UNKNOWN_ARCHIVE_SIGNATURE = "unknown"
 private const val UNKNOWN_SIGNATURE_CACHE_TTL_MS = 60_000L
 private const val ZIP_ARCHIVE_CACHE_DIRECTORY = "comic-zip-archives"
 private const val RAR_ARCHIVE_CACHE_DIRECTORY = "comic-archives"
+private const val RAR_SOLID_EXTRACTION_CACHE_DIRECTORY = "comic-archives-solid"
+private const val SOLID_EXTRACTION_COMPLETE_MARKER = ".complete"
+private const val KEPT_SOLID_EXTRACTIONS = 2
 private const val HEX_DIGITS = "0123456789abcdef"
 
 @VisibleForTesting(otherwise = VisibleForTesting.NONE)
