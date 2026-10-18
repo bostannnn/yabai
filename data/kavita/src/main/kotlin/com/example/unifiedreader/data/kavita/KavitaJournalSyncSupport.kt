@@ -4,6 +4,7 @@ import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
+import com.example.unifiedreader.core.network.isRetryableNetworkFailure
 import com.example.unifiedreader.journal.ItemJournalEntry
 import com.example.unifiedreader.journal.JournalReadingEvent
 import com.example.unifiedreader.journal.JournalReadingEventType
@@ -219,6 +220,8 @@ suspend fun pushDirtyKavitaJournalEntries(
                 is CancellationException,
                 is KavitaUnauthorizedException -> throw error
             }
+            // Unreachable server: let the address failover around this push try the other address.
+            if (error.isRetryableNetworkFailure()) throw error
             failures += error
             repository.markJournalEntrySyncState(entry.itemId, SyncState.FAILED)
         }

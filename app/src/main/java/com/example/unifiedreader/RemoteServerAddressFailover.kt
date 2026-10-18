@@ -42,6 +42,15 @@ internal suspend fun <T> runWithServerAddressFailover(
 
 internal fun Throwable.isRemoteServerAddressRetryableFailure(): Boolean = isRetryableNetworkFailure()
 
+/**
+ * For a push loop that catches each item's failure: hands an unreachable-server failure to the address
+ * failover around the loop. The other items would fail the same way, and the failover tries the next
+ * address only for a failure its block throws.
+ */
+internal fun Throwable.rethrowIfServerAddressUnreachable() {
+    if (isRemoteServerAddressRetryableFailure()) throw this
+}
+
 internal suspend fun <Session : StoredSourceSession, Api, T> runWithStoredSessionAddressFailover(
     sessionStore: SourceSessionStore<Session>,
     session: Session,

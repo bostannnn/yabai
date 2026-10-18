@@ -103,6 +103,7 @@ internal suspend fun pushDirtyKavitaProgress(
             if (throwable is CancellationException) {
                 throw throwable
             }
+            throwable.rethrowIfServerAddressUnreachable()
             failures += throwable
             readerSessionStore.replaceProgressIfCurrent(
                 expected = progress,

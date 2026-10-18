@@ -937,6 +937,60 @@ class AppViewModelTest {
     }
 
     @Test
+    fun `a wifi to cellular handoff retries an unavailable source`() {
+        val remoteComic = sampleItem(
+            id = "kavita-cbz",
+            title = "Downloaded Comic",
+            format = FormatType.CBZ,
+        ).copy(
+            sourceType = SourceType.KAVITA,
+            libraryId = SourceType.KAVITA.remoteLibraryId("kavita-comics"),
+            remoteId = "chapter-1",
+        )
+        val readerSessionStore = FakeReaderSessionStore().apply {
+            saveProgress(
+                item = remoteComic,
+                locator = com.example.unifiedreader.feature.reader.core.ReaderLocator(
+                    locatorType = LocatorType.PAGE,
+                    page = 10,
+                ),
+                syncState = SyncState.DIRTY,
+                pageCount = remoteComic.pageCount,
+            )
+        }
+        val remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy().apply {
+            markUnavailable(SourceType.KAVITA)
+        }
+        val healthCheck = AlwaysOnlineRemoteSourceHealthCheck(sourceType = SourceType.KAVITA)
+        val progressSync = BlockingSourceProgressSync(sourceType = SourceType.KAVITA)
+        val networkConnectivityMonitor = FakeAppNetworkConnectivityMonitor(initialAvailable = true)
+
+        createViewModel(
+            sampleItems = listOf(remoteComic),
+            readerSessionStore = readerSessionStore,
+            sourceProgressSyncs = listOf(progressSync),
+            remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+            remoteSourceHealthChecks = listOf(healthCheck),
+            appNetworkConnectivityMonitor = networkConnectivityMonitor,
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+        shadowOf(Looper.getMainLooper()).idleFor(2, TimeUnit.SECONDS)
+
+        assertEquals(RemoteSourceReachability.Unavailable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(0, healthCheck.callCount)
+        assertEquals(0, progressSync.pushPendingProgressCalls)
+
+        // Connectivity never reports false: the new default network replaces the old one.
+        networkConnectivityMonitor.switchNetwork()
+        shadowOf(Looper.getMainLooper()).idle()
+        shadowOf(Looper.getMainLooper()).idleFor(2, TimeUnit.SECONDS)
+
+        assertEquals(RemoteSourceReachability.Reachable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(1, healthCheck.callCount)
+        assertEquals(1, progressSync.pushPendingProgressCalls)
+    }
+
+    @Test
     fun `offline read status change queues pending progress without notice or sync attempt`() {
         val remoteComic = sampleItem(
             id = "kavita-cbz",

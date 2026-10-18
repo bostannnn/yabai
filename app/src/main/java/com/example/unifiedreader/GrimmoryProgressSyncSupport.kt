@@ -74,6 +74,7 @@ internal suspend fun pushDirtyGrimmoryProgress(
             if (throwable is CancellationException) {
                 throw throwable
             }
+            throwable.rethrowIfServerAddressUnreachable()
             failures += throwable
             readerSessionStore.replaceProgressIfCurrent(
                 expected = progress,

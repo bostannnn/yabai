@@ -76,6 +76,7 @@ internal suspend fun pushDirtyStumpProgress(
                 throw throwable
             }
             diagnostics.onFailure(event, throwable)
+            throwable.rethrowIfServerAddressUnreachable()
             failures += throwable
             readerSessionStore.replaceProgressIfCurrent(
                 expected = progress,

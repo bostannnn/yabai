@@ -401,7 +401,12 @@ internal fun createViewModel(
         kavitaReadingListController = kavitaReadingListController,
         remoteSourceConnectivityStartupCoordinator = remoteSourceConnectivityStartupCoordinator,
         remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
-        appNetworkConnectivityMonitor = appNetworkConnectivityMonitor,
+        appNetworkChangeCoordinator = AppNetworkChangeCoordinator(
+            networkConnectivityMonitor = appNetworkConnectivityMonitor,
+            serverAddressPreference = object : RemoteServerAddressPreference {
+                override suspend fun preferPrimaryAddresses() = Unit
+            },
+        ),
         progressSyncNoticeController = progressSyncNoticeController,
         journalRepository = journalRepository,
         journalEntrySaveUseCase = JournalEntrySaveUseCase(
@@ -489,14 +494,26 @@ private fun onlineRemoteSourceConnectivityPolicy(): RemoteSourceConnectivityPoli
 class FakeAppNetworkConnectivityMonitor(
     initialAvailable: Boolean = false,
 ) : AppNetworkConnectivityMonitor {
-    private val networkAvailable = MutableStateFlow(initialAvailable)
+    private var nextNetworkId = 1L
+    private val networkState = MutableStateFlow(
+        AppNetworkState(isAvailable = initialAvailable, defaultNetworkId = 0L.takeIf { initialAvailable }),
+    )
 
-    override val networkAvailableFlow: StateFlow<Boolean> = networkAvailable
+    override val networkStateFlow: StateFlow<AppNetworkState> = networkState
 
     fun setNetworkAvailable(
         available: Boolean,
     ) {
-        networkAvailable.value = available
+        val current = networkState.value
+        networkState.value = AppNetworkState(
+            isAvailable = available,
+            defaultNetworkId = current.defaultNetworkId.takeIf { available } ?: nextNetworkId++.takeIf { available },
+        )
+    }
+
+    /** Another default network takes over without a loss in between, like a Wi-Fi to cellular handoff. */
+    fun switchNetwork() {
+        networkState.value = AppNetworkState(isAvailable = true, defaultNetworkId = nextNetworkId++)
     }
 }
 

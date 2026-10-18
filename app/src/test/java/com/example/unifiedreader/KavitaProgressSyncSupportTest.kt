@@ -227,6 +227,51 @@ class KavitaProgressSyncSupportTest {
     }
 
     @Test
+    fun `an unreachable server address hands the push to the backup address`() = runTest {
+        val item = ReadableItem(
+            id = "kavita:item:42",
+            sourceType = SourceType.KAVITA,
+            libraryId = "kavita:library:5",
+            remoteId = "42",
+            title = "Chapter 42",
+            format = FormatType.CBZ,
+            pageCount = 28,
+        )
+        val store = TestKavitaReaderSessionStore()
+        store.saveProgress(
+            item = item,
+            locator = ReaderLocator(locatorType = LocatorType.PAGE, page = 3),
+            syncState = SyncState.DIRTY,
+            updatedAtEpochMillis = 123L,
+        )
+        val chapterInfo = KavitaChapterInfoDto(libraryId = 5, seriesId = 12, volumeId = 7, pages = 28)
+        // Left the home Wi-Fi: the LAN address no longer answers.
+        val lanApi = RecordingKavitaApi(chapterInfo = chapterInfo, updateError = java.net.ConnectException("unreachable"))
+        val backupApi = RecordingKavitaApi(chapterInfo = chapterInfo)
+
+        val result = runWithServerAddressFailover(
+            baseUrl = "http://192.168.1.20:5000",
+            backupBaseUrl = "https://kavita.example.com",
+            activeBaseUrl = null,
+        ) { baseUrl ->
+            pushDirtyKavitaProgress(
+                api = if (baseUrl.startsWith("http://192.168.")) lanApi else backupApi,
+                initialAccessToken = "access-token",
+                initialRefreshToken = null,
+                initialApiKey = null,
+                items = listOf(item),
+                readerSessionStore = store,
+                itemsAreWholeCatalog = false,
+            ).value
+        }
+
+        assertEquals("https://kavita.example.com", result.activeBaseUrl)
+        assertEquals(emptyList<Throwable>(), result.value)
+        assertEquals(1, backupApi.progressUpdates.size)
+        assertEquals(SyncState.CLEAN, store.progressByItemIdFlow.value[item.id]?.syncState)
+    }
+
+    @Test
     fun `missing Kavita catalog item marks dirty progress clean without upload`() = runTest {
         val item = ReadableItem(
             id = "kavita:item:42",

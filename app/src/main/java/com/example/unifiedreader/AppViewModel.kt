@@ -57,7 +57,7 @@ class AppViewModel @Inject constructor(
     private val kavitaReadingListController: AppKavitaReadingListController,
     private val remoteSourceConnectivityStartupCoordinator: RemoteSourceConnectivityStartupCoordinator,
     private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
-    private val appNetworkConnectivityMonitor: AppNetworkConnectivityMonitor,
+    private val appNetworkChangeCoordinator: AppNetworkChangeCoordinator,
     private val progressSyncNoticeController: AppProgressSyncNoticeController,
     private val journalEntrySaveUseCase: JournalEntrySaveUseCase,
     private val journalRepository: JournalRepository,
@@ -84,8 +84,6 @@ class AppViewModel @Inject constructor(
     var isUnsupportedImportDialogVisible by mutableStateOf(false)
         private set
     private var lastDownloadedAvailabilitySignature: Set<String>? = null
-    private var lastNetworkPendingRetryFingerprint: String? = null
-    private var lastNetworkAvailability: Boolean? = null
 
     init {
         viewModelScope.launch { remoteSourceConnectivityStartupCoordinator.checkConfiguredSources() }
@@ -997,20 +995,10 @@ class AppViewModel @Inject constructor(
             },
         )
         viewModelScope.launch {
-            appNetworkConnectivityMonitor.networkAvailableFlow.collect { isNetworkAvailable ->
-                val previousAvailability = lastNetworkAvailability
-                lastNetworkAvailability = isNetworkAvailable
-                if (!isNetworkAvailable) {
-                    lastNetworkPendingRetryFingerprint = null
-                    return@collect
-                }
-                if (previousAvailability != false) return@collect
+            appNetworkChangeCoordinator.observeNewConnections {
                 val unavailableSourceTypes = remoteSourceConnectivityPolicy.reachabilityFlow.value
                     .unavailableRemoteSourceTypes()
-                if (unavailableSourceTypes.isEmpty()) return@collect
-                val retryFingerprint = unavailableSourceTypes.networkRetryFingerprint()
-                if (retryFingerprint == lastNetworkPendingRetryFingerprint) return@collect
-                lastNetworkPendingRetryFingerprint = retryFingerprint
+                if (unavailableSourceTypes.isEmpty()) return@observeNewConnections
                 retryPendingRemoteSync(
                     pendingRemoteSyncSummary = uiState.pendingRemoteSyncSummary,
                     extraSourceTypes = unavailableSourceTypes,
@@ -1088,13 +1076,6 @@ class AppViewModel @Inject constructor(
             updateState = ::updateUiState,
         )
     }
-}
-
-private fun Set<SourceType>.networkRetryFingerprint(): String {
-    return filter { sourceType -> sourceType != SourceType.LOCAL }
-        .distinct()
-        .sortedBy(SourceType::ordinal)
-        .joinToString(":") { sourceType -> sourceType.name }
 }
 
 private fun Map<SourceType, SourceConnectivityState>.unavailableRemoteSourceTypes(): Set<SourceType> {

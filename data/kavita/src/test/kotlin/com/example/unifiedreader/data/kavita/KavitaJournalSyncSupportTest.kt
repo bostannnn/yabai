@@ -617,6 +617,29 @@ class KavitaJournalSyncSupportTest {
         assertEquals(43, api.updatedRatingChapterId)
     }
 
+    @Test
+    fun `kavita dirty push throws an unreachable server so the address failover can try the other address`() = runTest {
+        val item = readableItem(sourceType = SourceType.KAVITA, remoteId = "42")
+        val repository = RecordingJournalRepository(
+            dirtyEntries = listOf(journalEntry(item = item, rating = 7, reviewText = "Unreachable")),
+        )
+        val api = FakeKavitaApi(
+            chapterInfo = KavitaChapterInfoDto(seriesId = 77),
+            chapterInfoFailures = mapOf("42" to java.net.ConnectException("unreachable")),
+        )
+
+        val thrown = runCatching {
+            pushDirtyKavitaJournalEntries(
+                api = api,
+                accessToken = "token",
+                entries = listOf(item),
+                journalRepository = repository,
+            )
+        }.exceptionOrNull()
+
+        assertTrue(thrown is java.net.ConnectException)
+        assertEquals(null, repository.markedSyncStates[item.id])
+    }
 }
 
 private class RecordingJournalRepository(
