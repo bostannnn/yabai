@@ -10,11 +10,16 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 
+/**
+ * [items] is indexed by grid slot (after [leadingContentItemCount]). For a paged grid pass the paging
+ * snapshot list itself: its unloaded placeholders are null at their real positions, whereas its
+ * `items` drops them and shifts every later slot after a rail jump or once leading pages are dropped.
+ */
 @Composable
 internal fun VisibleRemoteCoverPrefetcher(
     browseContextKey: String,
     gridState: LazyGridState,
-    items: List<ReadableItem>,
+    items: List<ReadableItem?>,
     leadingContentItemCount: Int,
     variant: LibraryCoverImageVariant,
     maxTargetsWhileScrolling: Int,
@@ -91,7 +96,7 @@ internal fun unsignaledRemoteCoverPrefetchTargets(
 internal fun visibleRemoteCoverPrefetchTargets(
     visibleGridItemIndices: List<Int>,
     itemIndexOffset: Int,
-    items: List<ReadableItem>,
+    items: List<ReadableItem?>,
     variant: LibraryCoverImageVariant,
     isScrollInProgress: Boolean,
     scrollDirection: RemoteCoverPrefetchScrollDirection,
@@ -100,8 +105,7 @@ internal fun visibleRemoteCoverPrefetchTargets(
 ): List<RemoteCoverPrefetchTarget> = visibleGridItemIndices
     .asSequence()
     .map { visibleIndex -> visibleIndex - itemIndexOffset }
-    .filter { itemIndex -> itemIndex in items.indices }
-    .map(items::get)
+    .mapNotNull(items::getOrNull)
     .mapNotNull { item ->
         val prefetchKey = coverPrefetchKeyProvider(item, variant)
             ?.takeIf(String::isNotBlank)

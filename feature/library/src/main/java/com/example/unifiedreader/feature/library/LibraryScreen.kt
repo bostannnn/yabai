@@ -373,7 +373,8 @@ fun LibraryScreen(
         VisibleRemoteCoverPrefetcher(
             browseContextKey = browseContextKey,
             gridState = gridState,
-            items = renderedItems,
+            // Indexed by grid slot: the paged snapshot keeps placeholders where `renderedItems` drops them.
+            items = if (isPaged) pagedItems!!.itemSnapshotList else renderedItems,
             leadingContentItemCount = leadingContentItemCount,
             variant = gridCoverImageVariant,
             maxTargetsWhileScrolling = gridPresentation.scrollingPrefetchItemLimit,

@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.library
 
+import androidx.paging.ItemSnapshotList
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
@@ -41,6 +42,43 @@ class LibraryVisibleCoverPrefetcherTest {
         )
 
         assertEquals(listOf("item-0", "item-1", "item-2", "item-3"), targets.map { target -> target.item.id })
+    }
+
+    @Test
+    fun `paged grid slots map past unloaded placeholders after a rail jump`() {
+        // A rail jump to slot 200 loads one page there; every slot before it is still a placeholder.
+        val snapshot = ItemSnapshotList(
+            placeholdersBefore = 200,
+            placeholdersAfter = 100,
+            items = List(6) { index -> remoteItem(200 + index) },
+        )
+        // One leading header row: grid indices 199..206 are slots 198..205.
+        val visibleGridItemIndices = (199..206).toList()
+
+        val targets = visibleRemoteCoverPrefetchTargets(
+            visibleGridItemIndices = visibleGridItemIndices,
+            itemIndexOffset = 1,
+            items = snapshot,
+            variant = LibraryCoverImageVariant.Grid,
+            isScrollInProgress = false,
+            scrollDirection = RemoteCoverPrefetchScrollDirection.Idle,
+            maxTargetsWhileScrolling = 2,
+            coverPrefetchKeyProvider = { item, _ -> item.id },
+        )
+        // The loaded items alone lose the slot positions and match nothing on screen.
+        val targetsFromLoadedItemsOnly = visibleRemoteCoverPrefetchTargets(
+            visibleGridItemIndices = visibleGridItemIndices,
+            itemIndexOffset = 1,
+            items = snapshot.items,
+            variant = LibraryCoverImageVariant.Grid,
+            isScrollInProgress = false,
+            scrollDirection = RemoteCoverPrefetchScrollDirection.Idle,
+            maxTargetsWhileScrolling = 2,
+            coverPrefetchKeyProvider = { item, _ -> item.id },
+        )
+
+        assertEquals((200..205).map { index -> "item-$index" }, targets.map { target -> target.item.id })
+        assertEquals(emptyList<String>(), targetsFromLoadedItemsOnly.map { target -> target.item.id })
     }
 
     @Test
