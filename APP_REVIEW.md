@@ -19,8 +19,8 @@ Baseline: `testDebugUnitTest` passes, 1033 tests, 0 failures.
 - **Branch:** the fixes after 0.8.0 were made on `claude/app-review-doc-01d75d` and fast-forwarded into the
   local `main` on 2026-10-18. `main` is not pushed to `origin`, and the fixes are in no release yet: the 0.8.0
   release holds #1-#5 only.
-- **Done:** every P0 item (#1-#6, #41) and, from P1, #7, #8, #9, #10, #12, #13, #14, #15, #16, #17, #18, #23, #24 and #25.
-- **Next, in the suggested order:** the rest of P1: #19 with #42, #21, #22.
+- **Done:** every P0 item (#1-#6, #41) and, from P1, #7, #8, #9, #10, #12, #13, #14, #15, #16, #17, #18, #19, #23, #24, #25 and #42.
+- **Next, in the suggested order:** the rest of P1: #21, #22.
 - **Decided, not built:** #11 (the most recent read wins; see its entry for what to check first) and #20
   (refresh detects progress from the series list's `PagesRead` and `LatestReadDate`).
 - **Not checked on a device:** #6, #7, #8, #41 (unit tests only); #10 (no reachable source on the tablet has an
@@ -31,6 +31,7 @@ Baseline: `testDebugUnitTest` passes, 1033 tests, 0 failures.
 - **Seen on the tablet, not fixed:** a download queued while its source is not Online is stored as Queued but
   never scheduled (`canScheduleDownload` requires Online), so the sheet shows "Queued" indefinitely with no
   WorkManager job until a startup or connectivity change runs `ensureScheduled`. Pre-existing; not from these fixes.
+- **New finding, not fixed (#43):** the Kavita journal push marks a dirty journal entry CLEAN without uploading it when its item is not in the batch it was given (`KavitaJournalSyncSupport.kt`, `if (item == null) markJournalEntrySyncState(CLEAN)`), and `RemoteArtifactSync` passes the request's items, which for a pending flush are a subset. The same pattern as #41, for journal ratings and reviews. Found while fixing #19; not verified beyond reading.
 - **New finding, not fixed:** CI (`ci.yml`) runs only `testDebugUnitTest`, which skips the plain-Kotlin
   modules (`core:model`, `data:grimmory`, `data:kavita`, `data:stump`): their 122 tests never run in CI.
   Run them with `:core:model:test :data:grimmory:test :data:kavita:test :data:stump:test`.
@@ -40,8 +41,8 @@ Baseline: `testDebugUnitTest` passes, 1033 tests, 0 failures.
 
 ### Fixed
 
-Fixed, each with a regression test that fails without the fix. Full suite with #18: 1237 tests
-(1115 `testDebugUnitTest` + 122 JVM `test`), 0 failures.
+Fixed, each with a regression test that fails without the fix. Full suite with #19 and #42: 1242 tests
+(1119 `testDebugUnitTest` + 123 JVM `test`), 0 failures.
 
 - #1 EPUB reader crash on activity recreation (`faa5bd4b`). Checked on the emulator.
 - #2 Kavita sync dropping other sources' progress (`7651eab8`).
@@ -55,6 +56,7 @@ Fixed, each with a regression test that fails without the fix. Full suite with #
 - #16 Removed badges staying until you scroll (`28be7b0e`). The paged grid unions its early window badges with the recompute's maps, and the window's copy was resolved again only when the loaded window's size or endpoints changed, so a badge the recompute dropped (the Finished fade after "Mark as unread", Downloaded after deleting the file) stayed until a page loaded or the sort changed. The window badges (now `rememberLibraryWindowBadges` in `LibraryWindowBadges.kt`, out of `LibraryScreen.kt`) are also resolved again whenever one of the recompute's badge maps changes; the resolve is the existing bounded one, off the main thread. Tested with a Robolectric Compose test (activity-compose added to `feature:library`'s test classpath). Not checked on a device: paging is Kavita-only and the emulator has no Kavita server.
 - #17 Paged A–Z rail never refreshed (`0e20bf11`). The rail was queried once per sort, so it went stale after a sync, and after the v28 migration it stayed hidden because its one query raced the root rebuild and found no roots. The three alphabet-bucket DAO queries are now Room flows, which re-run on every write to `library_grid_roots`, and the screen collects the current sort's flow; the re-query is the same per-source `GROUP BY`, and roots are written only by syncs and the rebuild. The DAO test checks that the buckets follow root writes (empty, then a, b, then a, b, c); the old one-shot query couldn't be observed at all, so this test has no "fix off" run. Not checked on a device (Kavita-only paging).
 - #18 "Select all" covering only the loaded window, and picks pruned after a rail jump (`528569e5`). The screen now drops only a rendered root that is no longer selectable and keeps picks outside its window (`sanitizeLibraryDownloadSelection`, `orderLibraryDownloadSelection`). The scaffold adds the recompute's `visibleItems`, which have the paged view's membership (every root when unfiltered, the in-memory filtered set otherwise), so "Select all" and "Download selected" cover the whole view (`libraryDownloadSelectableItems`). Until the recompute lands at cold start (about a second) only the window is known. Unit tests only; not checked on a device (Kavita-only paging).
+- #19 and #42 Address failover on pushes, the way back to the primary address, and the Wi-Fi to cellular handoff (`3d97f012`). The progress pushes (Kavita, Stump and Grimmory, which had the same per-item catch) and the Kavita journal push now leave their loop on an unreachable-server failure, so the failover around them retries the push on the next address; when every address fails, the registries report the failure as before, which marks the source Offline. The connectivity monitor reports the default network's id as well as availability, and the new `AppNetworkChangeCoordinator` (the collector moved out of `AppViewModel`) treats coming back online or a switch to another network as a new connection: it clears each source's `activeBaseUrl`, so the next request tries the primary address first and falls back again if it doesn't answer, then runs the existing re-probe of unavailable sources. The cost: after a network change, a primary address that the new network can't reach costs one failed connection attempt before the backup. Unit tests cover the push failover (Kavita progress through `runWithServerAddressFailover`, the journal push throwing), the new-connection decision, the coordinator and a ViewModel handoff. Not checked on a device: needs a Kavita server with two addresses and a network switch. The Grimmory journal push was not checked for the same catch.
 - #12 Route lost after process death (`d6829c2c`). The route always stores the open book's item, so the reader reopens before the catalog loads; a series sub-screen is kept until its source's catalog has loaded. Checked on the emulator (see below).
 - #6 Downloads stopped by Android recorded as user cancels (`bcfa819b`). A cancellation is a user cancel only when the entry is already Canceling or Canceled; any other stop puts the entry back to Queued with its finished files kept, and the worker returns `Result.retry()`, so WorkManager's rerun resumes after them. "Clear completed" now only clears the list; Remove on a single failed or canceled entry still deletes its files. Entries already wrongly marked Canceled before this fix stay that way (Retry resumes them). Unit tests only.
 - #7 Stale comic resume anchor beating synced progress (`5af76586`). The session now stores the progress page with the resume anchor (`resumeProgressPage`), and the anchor, segment and scroll offset are ignored once the saved progress is on another page, as after a pull from another device. Sessions saved before keep the anchor only when it is the progress page itself. A page restored after the reader opened (a pull for a downloaded comic) also moves the anchor, which the pager and the webtoon list follow; before, only the page counter changed and the next settle saved the old page. Unit tests only.
@@ -74,7 +76,7 @@ had lost the book. The 0.8.0 build at `aeb722a2` reopened in the book. Back then
 library and cleared the saved book, and the crash log stayed empty. Not checked: a remote book or a
 series sub-screen (no server on the emulator); the unit tests cover those.
 
-Next is #19 with #42, Kavita address failover. Learned while fixing these:
+Next is #21, EPUB finish detection. Learned while fixing these:
 
 - **Process death (#12):** after process death the app opened on the library, not the book. Seen on the emulator; fixed in `d6829c2c`.
 - **Hanging suite:** `SourceNavigationPreferencesStoreTest`'s IO-retry test could wait forever: with a 0 ms retry delay the store's startup fallback was replaced before the test saw it. It hung the suite for 30 minutes during #25; made deterministic in `bfdc4440`.
@@ -137,14 +139,14 @@ How the list is ordered:
 16. Paged library: removed badges stay until you scroll. Fixed `28be7b0e`.
 17. Paged library: the A–Z rail is never refreshed. Fixed `0e20bf11`.
 18. Paged library: "Select all" only selects the loaded window. Fixed `528569e5`.
-19. Kavita address failover never triggers on push failures and never returns to the LAN address.
+19. Kavita address failover never triggers on push failures and never returns to the LAN address. Fixed `3d97f012`.
 20. Kavita fast sync (the library refresh) never pulls progress. Decided: detect progress made elsewhere through the series list, not one request per chapter. Kavita's `all-v2` series already carries the user's `PagesRead` and `LatestReadDate` (checked in 0.8.9 and `develop`); adding them to the change fingerprint re-fetches only series read since the last sync.
 21. EPUB finish detection fires too early (the start of the last Readium position), and a right tap on a reopened finished book does nothing. The first pass had this backwards: the end *is* detected.
 22. The EPUB footnote heuristic hijacks TOC and appendix links; external links do nothing.
 23. Comic archives: `__MACOSX` junk entries become pages, and GIF/BMP/AVIF/HEIC pages are dropped. Fixed `2ecfd1d4`.
 24. Solid CBRs decode only their first page. Fixed `f841d280`.
 25. Comics are marked complete too early: the top edge of the last page in webtoon mode, or a small swipe on the last page. Fixed `6d0b6f28`.
-42. A Wi-Fi to cellular handoff leaves Kavita marked Offline until a manual refresh: the automatic re-probe only runs after connectivity was reported false, which the network callback never emits while another network is already up. Pairs with #19.
+42. Fixed `3d97f012`. A Wi-Fi to cellular handoff leaves Kavita marked Offline until a manual refresh: the automatic re-probe only runs after connectivity was reported false, which the network callback never emits while another network is already up. Pairs with #19.
 
 **P2: correctness, less frequent**
 26. Fixed-layout EPUBs never save progress.
@@ -177,7 +179,7 @@ How the list is ordered:
 
 The unfinished features in section 4 are feature work that needs product decisions, so they don't get fix sessions.
 
-Suggested order after the second pass: 6, 41, 7, 10, 13, 14, 24, 25, 23, then the rest of P1. 6, 41, 7, 10, 13, 14, 24, 25, 23, 9, 15, 16, 17, 18, 8 and 12 are done; 19 with 42 is next.
+Suggested order after the second pass: 6, 41, 7, 10, 13, 14, 24, 25, 23, then the rest of P1. 6, 41, 7, 10, 13, 14, 24, 25, 23, 9, 15, 16, 17, 18, 19, 42, 8 and 12 are done; 21 is next.
 
 Decisions, 2026-10-18: #11 most recent read wins; #20 uses the series read fields; #41, then #8, then #12.
 
@@ -263,7 +265,7 @@ Decisions, 2026-10-18: #11 most recent read wins; #20 uses the series read field
   Once on the backup address, the app never returns to the LAN address. **Checked.** The progress and journal pushes catch per item and rethrow only
   cancellation (and Unauthorized), so the block never throws the retryable error the failover looks for, while the failures still mark Kavita Offline via
   `markFromSyncFailures`. New (#42): the automatic re-probe (`AppViewModel.kt:1002-1022`) requires a prior `false` from `AppNetworkConnectivityMonitor.kt:25-54`,
-  which never fires on a Wi-Fi to cellular handoff, so Kavita stays Offline until a manual refresh or retry.
+  which never fires on a Wi-Fi to cellular handoff, so Kavita stays Offline until a manual refresh or retry. Both fixed `3d97f012`.
 - **Kavita fast sync, which the library refresh button runs, never pulls progress:** `pullUnchangedProgressDuringFastSync` and `pullJournalDuringFastSync` are always false.
   `KavitaCatalogSyncService.kt:417,597-598`. **Checked**, by design: the flags default false, every caller omits them, and `AppViewModelTest` asserts it.
   Opening a book still pulls (`syncProgressBeforeOpen`), so only cards and Continue Reading go stale.
