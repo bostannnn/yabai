@@ -350,13 +350,20 @@ step below lands and is judged on the emulator, then the tablet, before the next
 - [x] `AppPanelHeader`: title, subtitle, optional back and close.
 - [x] Form rows: `AppChoiceRow` (label + `AppSegmentedRow`, stacks below 360 dp),
       `AppSliderRow`, `AppStepperRow`.
-- [ ] Checked on the emulator once 7b uses them.
+- [x] Checked on the emulator through 7b: anchored card at 800 dp, bottom sheet at 411 dp
+      (`wm size 616x1300`), scrim, back and tap-outside dismiss.
 
-### 7b. Comics quick settings `[ ]`
+### 7b. Comics quick settings `[~]`
 
-- [ ] `TopEnd` panel under the preferences button, 400 dp: Layout, Direction, Pages, Page turn,
+- [x] `TopEnd` panel under the settings button, 400 dp: Layout, Direction, Pages, Page turn,
       Fit as choice rows; rows that do not apply in scroll mode are disabled, not removed, so the
-      panel keeps its height. Icon becomes `Tune`. Stores unchanged.
+      panel keeps its height. Icon is `Tune` (the carousel glyph is gone from `AppIcons`).
+      Direction reads "Left to right" / "Right to left" and fit reads "Screen / Width / Height"
+      inside the panel only; the enum labels the cover menu uses are unchanged. Stores unchanged;
+      no "remembered for" footer because direction and layout are per series while pages, page
+      turn and fit live in the reader session. Checked on the emulator in both layouts and both
+      widths. The glass still shows a comic page's colors through the card at the pane tint
+      (the mocks assumed opaque); judge that on the tablet.
 - [ ] Tablet frame measurement with the panel open over a comic page (glass vs opaque).
 
 ### 7c. EPUB contents `[ ]`

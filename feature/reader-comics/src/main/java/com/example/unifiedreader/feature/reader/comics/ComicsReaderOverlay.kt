@@ -2,12 +2,10 @@ package com.example.unifiedreader.feature.reader.comics
 
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeGestures
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -77,24 +75,25 @@ internal fun ReaderOverlayBar(
                     onClick = { isPreferencesSheetOpen = !isPreferencesSheetOpen },
                 ) {
                     Icon(
-                        imageVector = AppIcons.ViewCarousel,
-                        contentDescription = "Reader preferences",
+                        imageVector = AppIcons.Tune,
+                        contentDescription = "Reading settings",
                         tint = tokens.colors.primaryText,
                     )
                 }
             },
         )
-        if (isPreferencesSheetOpen) {
-            Spacer(modifier = Modifier.height(tokens.spacing.smallGap))
-        }
+        // The panel's slot: everything under the bar, clear of the gesture bar so the phone
+        // sheet sits above it. The card anchors to the slot's top end, under the button.
         BoxWithConstraints(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.safeGestures.only(WindowInsetsSides.Bottom)),
         ) {
             ComicsReaderPreferencesSheet(
                 isOpen = isPreferencesSheetOpen,
                 maxSheetHeight = maxHeight,
+                title = title,
                 readerMode = readerMode,
                 readingDirection = readingDirection,
                 pageFitMode = pageFitMode,

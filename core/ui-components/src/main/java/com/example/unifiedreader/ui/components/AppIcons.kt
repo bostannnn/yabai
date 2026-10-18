@@ -51,7 +51,6 @@ object AppIcons {
     val Toc: ImageVector @Composable get() = icon(R.drawable.ic_toc)
     val Tune: ImageVector @Composable get() = icon(R.drawable.ic_tune)
     val VerticalAlignTop: ImageVector @Composable get() = icon(R.drawable.ic_vertical_align_top)
-    val ViewCarousel: ImageVector @Composable get() = icon(R.drawable.ic_view_carousel)
 
     @Composable
     private fun icon(@DrawableRes id: Int): ImageVector = ImageVector.vectorResource(id)

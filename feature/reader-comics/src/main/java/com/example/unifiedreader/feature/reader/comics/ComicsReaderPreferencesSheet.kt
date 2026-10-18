@@ -1,37 +1,31 @@
 package com.example.unifiedreader.feature.reader.comics
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.example.unifiedreader.feature.reader.core.ReaderAttachedPane
-import com.example.unifiedreader.feature.reader.core.ReaderAttachedPaneAnchor
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
-import com.example.unifiedreader.ui.components.AppIcons
+import com.example.unifiedreader.ui.components.AppChoiceRow
+import com.example.unifiedreader.ui.components.AppFloatingPanel
+import com.example.unifiedreader.ui.components.AppFloatingPanelPlacement
+import com.example.unifiedreader.ui.components.AppPanelHeader
 
+/**
+ * The comics quick settings: five one-line choices in a card under the settings button (a
+ * bottom sheet on phones). Rows that only apply to the paged layout stay in place but
+ * disabled while scrolling, so the card never changes height.
+ */
 @Composable
 internal fun ComicsReaderPreferencesSheet(
     isOpen: Boolean,
     maxSheetHeight: Dp,
+    title: String,
     readerMode: ComicReaderMode,
     readingDirection: ComicReadingDirection,
     pageFitMode: ComicPageFitMode,
@@ -44,154 +38,78 @@ internal fun ComicsReaderPreferencesSheet(
     onSpreadModeChanged: (ComicSpreadMode) -> Unit,
     onPageTurnStyleChanged: (ComicPageTurnStyle) -> Unit,
 ) {
-    val tokens = readerOverlayTokens()
-    val sheetMaxHeight = (maxSheetHeight * 0.64f).coerceAtMost(ComicsPreferencesSheetMaxHeight)
-    ReaderAttachedPane(
+    val paged = readerMode == ComicReaderMode.Paged
+    AppFloatingPanel(
         visible = isOpen,
-        anchor = ReaderAttachedPaneAnchor.Top,
-        maxPaneHeight = sheetMaxHeight,
-        maxPaneWidth = ComicsPreferencesSheetMaxWidth,
-        horizontalAlignment = Alignment.End,
-        horizontalPadding = 10.dp,
+        placement = AppFloatingPanelPlacement.TopEnd,
         onDismissRequest = onDismissRequest,
+        maxHeight = maxSheetHeight,
+        contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = 8.dp, bottom = 10.dp),
+        containerColor = readerOverlayTokens().colors.container,
+        testTag = ComicsPreferencesSheetTag,
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = sheetMaxHeight)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
-                .padding(top = 16.dp, bottom = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
+                .padding(bottom = 12.dp),
         ) {
-            Text(
-                text = "Preferences",
-                style = MaterialTheme.typography.titleLarge,
-                color = tokens.colors.primaryText,
+            AppPanelHeader(
+                title = "Reading",
+                subtitle = title,
             )
-            ComicsPreferenceSection(label = "Reading style") {
-                ComicReaderMode.entries.forEach { entry ->
-                    ComicsSelectableRow(
-                        label = entry.label,
-                        selected = entry == readerMode,
-                        onClick = { onReaderModeChanged(entry) },
-                    )
-                }
-            }
-            ComicsPreferenceSection(label = "Direction") {
-                ComicReadingDirection.entries.forEach { entry ->
-                    ComicsSelectableRow(
-                        label = entry.label,
-                        selected = entry == readingDirection,
-                        onClick = { onReadingDirectionChanged(entry) },
-                    )
-                }
-            }
-            if (readerMode == ComicReaderMode.Paged) {
-                ComicsPreferenceSection(label = "Pages") {
-                    ComicSpreadMode.entries.forEach { entry ->
-                        ComicsSelectableRow(
-                            label = entry.label,
-                            selected = entry == spreadMode,
-                            onClick = { onSpreadModeChanged(entry) },
-                        )
-                    }
-                }
-                ComicsPreferenceSection(label = "Page turn style") {
-                    ComicPageTurnStyle.entries.forEach { entry ->
-                        ComicsSelectableRow(
-                            label = entry.label,
-                            selected = entry == pageTurnStyle,
-                            onClick = { onPageTurnStyleChanged(entry) },
-                        )
-                    }
-                }
-                ComicsPreferenceSection(label = "Fit") {
-                    ComicPageFitMode.entries.forEach { entry ->
-                        ComicsSelectableRow(
-                            label = entry.label,
-                            selected = entry == pageFitMode,
-                            onClick = { onPageFitModeChanged(entry) },
-                        )
-                    }
-                }
-            }
+            AppChoiceRow(
+                label = "Layout",
+                options = ComicReaderMode.entries,
+                selected = readerMode,
+                onSelected = onReaderModeChanged,
+                optionLabel = { it.label },
+            )
+            AppChoiceRow(
+                label = "Direction",
+                options = ComicReadingDirection.entries,
+                selected = readingDirection,
+                onSelected = onReadingDirectionChanged,
+                optionLabel = ::comicReadingDirectionLabel,
+            )
+            AppChoiceRow(
+                label = "Pages",
+                options = ComicSpreadMode.entries,
+                selected = spreadMode,
+                onSelected = onSpreadModeChanged,
+                optionLabel = { it.label },
+                enabled = paged,
+            )
+            AppChoiceRow(
+                label = "Page turn",
+                options = ComicPageTurnStyle.entries,
+                selected = pageTurnStyle,
+                onSelected = onPageTurnStyleChanged,
+                optionLabel = { it.label },
+                enabled = paged,
+            )
+            AppChoiceRow(
+                label = "Fit",
+                options = ComicPageFitMode.entries,
+                selected = pageFitMode,
+                onSelected = onPageFitModeChanged,
+                optionLabel = ::comicPageFitLabel,
+                enabled = paged,
+            )
         }
     }
 }
 
-@Composable
-private fun ComicsPreferenceSection(
-    label: String,
-    content: @Composable () -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            color = readerOverlayTokens().colors.secondaryText,
-        )
-        ComicsSelectableRowGroup(content = content)
-    }
+/** Words instead of "LTR"/"RTL": the row's label already says it is the direction. */
+internal fun comicReadingDirectionLabel(direction: ComicReadingDirection): String = when (direction) {
+    ComicReadingDirection.LTR -> "Left to right"
+    ComicReadingDirection.RTL -> "Right to left"
 }
 
-@Composable
-private fun ComicsSelectableRowGroup(
-    content: @Composable () -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                color = readerOverlayTokens().colors.elevatedContainer,
-                shape = readerOverlayTokens().shapes.controlBar,
-            ),
-    ) {
-        content()
-    }
+/** Short segment labels; the row's label "Fit" carries the verb. */
+internal fun comicPageFitLabel(fitMode: ComicPageFitMode): String = when (fitMode) {
+    ComicPageFitMode.FitPage -> "Screen"
+    ComicPageFitMode.FitWidth -> "Width"
+    ComicPageFitMode.FitHeight -> "Height"
 }
 
-@Composable
-private fun ComicsSelectableRow(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    val tokens = readerOverlayTokens()
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                color = if (selected) tokens.colors.selectedContainer else Color.Transparent,
-                shape = tokens.shapes.controlBar,
-            )
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier.size(20.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (selected) {
-                Icon(
-                    imageVector = AppIcons.Check,
-                    contentDescription = null,
-                    tint = tokens.colors.primaryText,
-                    modifier = Modifier.size(18.dp),
-                )
-            }
-        }
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = tokens.colors.primaryText,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
-}
-
-private val ComicsPreferencesSheetMaxHeight = 560.dp
-private val ComicsPreferencesSheetMaxWidth = 480.dp
+internal const val ComicsPreferencesSheetTag = "comics-preferences-sheet"
