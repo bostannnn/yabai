@@ -24,10 +24,16 @@ Fixed, each with a regression test that fails without the fix. Full suite at `d6
 - #5 EPUB import crash on cover hrefs with spaces (`1935a96d`). Checked on the emulator.
 - #41 Kavita pending flush dropping progress outside its batch (`575028cf`). Only the catalog syncs treat a missing Kavita item as deleted on the server; the flush leaves it for a later push.
 - #8 EPUB sample-book fallback (`66753926`). A missing file shows "This book's file isn't available…", and the sample generator lives only in `androidTest`. Also fixed: closing a reader that never showed its book (still opening, or any error screen) re-saved the stored progress as DIRTY with a new timestamp.
-- #12 Route lost after process death (`d6829c2c`). The route always stores the open book's item, so the reader reopens before the catalog loads; a series sub-screen is kept until its source's catalog has loaded.
+- #12 Route lost after process death (`d6829c2c`). The route always stores the open book's item, so the reader reopens before the catalog loads; a series sub-screen is kept until its source's catalog has loaded. Checked on the emulator (see below).
 
 #41, #8 and #12 were done in that order (third session) because restoring a reader at cold start is what
-triggers the first two. They have unit tests only; none of the three is checked on the emulator yet.
+triggers the first two. #41 and #8 have unit tests only.
+
+#12 on the private emulator (`yabai_settings_35`, debug builds), with a local EPUB: open it, Home,
+`am kill`, relaunch from the launcher. The old 0.7.0 build reopened on the library, and the saved route
+had lost the book. The 0.8.0 build at `aeb722a2` reopened in the book. Back then returned to the
+library and cleared the saved book, and the crash log stayed empty. Not checked: a remote book or a
+series sub-screen (no server on the emulator); the unit tests cover those.
 
 Next is #6, downloads stopped by the OS. Learned while fixing these:
 
