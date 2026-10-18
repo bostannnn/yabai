@@ -3,7 +3,6 @@ package com.example.unifiedreader.feature.reader.epub
 import android.content.Context
 import android.content.res.Configuration
 import android.net.Uri
-import android.text.Html
 import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
@@ -67,8 +66,6 @@ import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
 import com.example.unifiedreader.journal.JournalReadingSessionRecorder
 import com.example.unifiedreader.ui.components.AppCircularProgress
 import com.example.unifiedreader.ui.components.AppTextButton
-import java.io.ByteArrayInputStream
-import javax.xml.parsers.DocumentBuilderFactory
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -95,8 +92,6 @@ import org.readium.r2.shared.util.http.DefaultHttpClient
 import org.readium.r2.shared.util.mediatype.MediaType
 import org.readium.r2.streamer.PublicationOpener
 import org.readium.r2.streamer.parser.DefaultPublicationParser
-import org.w3c.dom.Element
-import org.w3c.dom.Node
 
 @Composable
 fun EpubReaderScreen(
@@ -636,8 +631,6 @@ fun EpubReaderScreen(
                             theme = theme,
                             layoutMode = layoutMode,
                         ),
-                        currentHref = currentHref,
-                        currentProgress = currentProgress,
                         onLocationChanged = { reportedLocator, pageIndex, _, isAtBookEnd ->
                             val locator = reportedLocator.withReadingOrderIndex(
                                 state.publication.readingOrderIndexOf(reportedLocator),
@@ -885,8 +878,6 @@ private fun ReadiumEpubNavigatorHost(
     publication: Publication,
     initialLocator: Locator?,
     preferences: EpubReaderPreferences,
-    currentHref: String?,
-    currentProgress: Double,
     // The last argument: whether the reader sees the end of the book (isEpubBookEnd).
     onLocationChanged: (Locator, Int, Int?, Boolean) -> Unit,
     onSurfaceTap: () -> Unit,
@@ -903,8 +894,6 @@ private fun ReadiumEpubNavigatorHost(
     val latestOnSurfaceTap = rememberUpdatedState(onSurfaceTap)
     val latestOnEndNavigationRequested = rememberUpdatedState(onEndNavigationRequested)
     val latestOnFootnoteActivated = rememberUpdatedState(onFootnoteActivated)
-    val latestCurrentHref = rememberUpdatedState(currentHref)
-    val latestCurrentProgress = rememberUpdatedState(currentProgress)
     val footnoteNavigationScope = rememberCoroutineScope()
     val isLandscape = remember(
         configuration.orientation,
@@ -1013,21 +1002,12 @@ private fun ReadiumEpubNavigatorHost(
                         )
                         return false
                     }
-                    val hasFragment = link.url().fragment != null
-                    if (!hasFragment) return true
-                    val forceFootnote = link.isLikelyEpubFootnoteLink(
-                        publication = publication,
-                        currentHref = latestCurrentHref.value,
-                        currentProgress = latestCurrentProgress.value,
-                    )
+                    if (link.url().fragment == null) return true
                     footnoteNavigationJobs.toList().forEach { job -> job.cancel() }
                     footnoteNavigationJobs.clear()
                     val job = footnoteNavigationScope.launch {
                         val footnote = withContext(Dispatchers.IO) {
-                            publication.extractEpubFootnoteOrNull(
-                                link = link,
-                                forceFootnote = forceFootnote,
-                            )
+                            publication.extractEpubFootnoteOrNull(link = link)
                         }
                         val activeNavigator =
                             fragmentManager.findFragmentByTag(fragmentTag) as? EpubNavigatorFragment
@@ -1047,7 +1027,9 @@ private fun ReadiumEpubNavigatorHost(
                     return false
                 }
 
-                override fun onExternalLinkActivated(url: AbsoluteUrl) = Unit
+                override fun onExternalLinkActivated(url: AbsoluteUrl) {
+                    activity.openEpubExternalLink(url.toString())
+                }
             },
             paginationListener = object : EpubNavigatorFragment.PaginationListener {
                 override fun onPageChanged(
@@ -1357,16 +1339,6 @@ private data class EpubTocNavigationRequest(
 private const val EpubNavigationZoneFraction = 0.25f
 internal const val EpubDocumentUnavailableMessage =
     "This book's file isn't available. Check the connection to its server, then open it again."
-private val EpubFootnoteLinkHints = listOf(
-    "edn",
-    "enote",
-    "footnote",
-    "endnote",
-    "note",
-    "noteref",
-    "fn",
-    "ftn",
-)
 
 private data class EpubViewportSpacing(
     val containerInset: androidx.compose.ui.unit.Dp,
@@ -1418,173 +1390,3 @@ internal fun resolveRestoredThemeSelection(
     )
 }
 
-private fun htmlFootnoteToPlainText(
-    html: String,
-): String = Html.fromHtml(html, Html.FROM_HTML_MODE_COMPACT)
-    .toString()
-    .replace(Regex("\\n{3,}"), "\n\n")
-    .trim()
-
-private fun Link.isLikelyEpubFootnoteLink(
-    publication: Publication,
-    currentHref: String?,
-    currentProgress: Double,
-): Boolean {
-    val url = url()
-    val fragment = url.fragment ?: return false
-    val text = listOf(
-        url.toString(),
-        fragment,
-        title.orEmpty(),
-        rels.joinToString(" "),
-    ).joinToString(" ").lowercase()
-    if (EpubFootnoteLinkHints.any { hint -> hint in text }) return true
-    if (title.orEmpty().trim().matches(Regex("""[\[(]?\d{1,3}[\])]?\.?"""))) return true
-
-    val targetHref = url.removeFragment().toString()
-    val currentIndex = currentHref?.let { href ->
-        publication.readingOrder.indexOfFirst { entry ->
-            entry.url().removeFragment().toString() == href
-        }.takeUnless { it < 0 }
-    }
-    val targetIndex = publication.readingOrder.indexOfFirst { entry ->
-        entry.url().removeFragment().toString() == targetHref
-    }.takeUnless { it < 0 }
-    val finalBandStart = publication.readingOrder.size
-        .minus((publication.readingOrder.size / 5).coerceAtLeast(1))
-        .coerceAtLeast(0)
-    if (
-        currentIndex != null &&
-        targetIndex != null &&
-        targetIndex > currentIndex &&
-        targetIndex >= finalBandStart
-    ) {
-        return true
-    }
-
-    val targetProgress = publication.locatorFromLink(this)?.locations?.totalProgression
-    return targetProgress != null &&
-        targetProgress > 0.80 &&
-        targetProgress > currentProgress + 0.10
-}
-
-private suspend fun Publication.extractEpubFootnoteOrNull(
-    link: Link,
-    forceFootnote: Boolean,
-): EpubFootnoteContent? {
-    val url = link.url()
-    val fragment = url.fragment ?: return null
-    val html = get(link)?.read()
-        ?.getOrNull()
-        ?.toString(Charsets.UTF_8)
-        .orEmpty()
-    val semanticText = runCatching {
-        extractFootnoteTextById(
-            html = html,
-            targetId = fragment,
-            forceFootnote = forceFootnote,
-        )
-    }.getOrNull()
-    val fallbackText = if (forceFootnote) {
-        extractElementHtmlById(html = html, targetId = fragment)
-            ?.let(::htmlFootnoteToPlainText)
-            ?.takeIf(String::isNotBlank)
-    } else {
-        null
-    }
-    val body = semanticText
-        ?.takeIf(String::isNotBlank)
-        ?: fallbackText
-        ?: return null
-    return EpubFootnoteContent(
-        title = link.title?.takeIf(String::isNotBlank) ?: "Footnote",
-        body = body,
-    )
-}
-
-private fun extractElementHtmlById(
-    html: String,
-    targetId: String,
-): String? {
-    if (html.isBlank()) return null
-    val escapedTargetId = Regex.escape(targetId)
-    val pattern = Regex(
-        pattern = """<([A-Za-z][A-Za-z0-9:_-]*)(?=[^>]*(?:\sid|xml:id)\s*=\s*["']$escapedTargetId["'])[^>]*>.*?</\1>""",
-        options = setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
-    )
-    return pattern.find(html)?.value
-}
-
-private fun extractFootnoteTextById(
-    html: String,
-    targetId: String,
-    forceFootnote: Boolean,
-): String? {
-    if (html.isBlank()) return null
-    val document = secureDocumentBuilderFactory()
-        .newDocumentBuilder()
-        .parse(ByteArrayInputStream(html.toByteArray()))
-    document.documentElement?.normalize()
-    val element = document.documentElement?.findElementById(targetId) ?: return null
-    val container = element.findEpubFootnoteContainer()
-        ?: element.takeIf { forceFootnote || it.isEpubFootnoteElement() }
-        ?: return null
-    return container.textContent
-        ?.replace(Regex("\\s+"), " ")
-        ?.trim()
-        ?.takeIf(String::isNotBlank)
-}
-
-private fun Element.findElementById(
-    targetId: String,
-): Element? {
-    if (
-        getAttribute("id") == targetId ||
-        getAttribute("xml:id") == targetId
-    ) {
-        return this
-    }
-    val children = childNodes
-    for (index in 0 until children.length) {
-        val child = children.item(index)
-        if (child.nodeType != Node.ELEMENT_NODE) continue
-        val match = (child as Element).findElementById(targetId)
-        if (match != null) return match
-    }
-    return null
-}
-
-private fun Element.findEpubFootnoteContainer(): Element? {
-    var current: Element? = this
-    while (current != null) {
-        if (current.isEpubFootnoteElement()) return current
-        val parent = current.parentNode as? Element
-        current = parent?.takeUnless { it.tagName.equals("body", ignoreCase = true) }
-    }
-    return null
-}
-
-private fun Element.isEpubFootnoteElement(): Boolean {
-    val text = listOf(
-        tagName,
-        getAttribute("id"),
-        getAttribute("xml:id"),
-        getAttribute("class"),
-        getAttribute("epub:type"),
-        getAttribute("role"),
-    ).joinToString(" ").lowercase()
-    return EpubFootnoteLinkHints.any { hint -> hint in text } ||
-        "doc-footnote" in text ||
-        "doc-endnote" in text
-}
-
-private fun secureDocumentBuilderFactory(): DocumentBuilderFactory =
-    DocumentBuilderFactory.newInstance().apply {
-        isNamespaceAware = true
-        isXIncludeAware = false
-        isExpandEntityReferences = false
-        setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
-        setFeature("http://xml.org/sax/features/external-general-entities", false)
-        setFeature("http://xml.org/sax/features/external-parameter-entities", false)
-        setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
-    }
