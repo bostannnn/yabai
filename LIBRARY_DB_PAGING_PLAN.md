@@ -49,6 +49,15 @@ the device** (`9279b171`, adb at `~/Library/Android/sdk_new/platform-tools/adb`)
   placeholders sized correctly.** Commits `04d2cd58` (RS-1) → `92da57a2` (RS-2) → `35be16f2` (RS-3) →
   `00f6553e` (RS-4). *Memory win is not here yet* — `AppUiState.items` is still resident (M3).
 
+- **App-review fixes touching paging (2026-10-18, released in 0.9.0, see `APP_REVIEW.md`).**
+  #13 covers after rail jumps (prefetcher reads the snapshot list with placeholders); #14 scroll
+  position on return (`LibraryGridPagingCache` keeps one pager per source/sort/filters); #15 the SQL
+  "Last read" order skips `isExplicitUnreadReset` rows like the in-memory order; #16 the window badges
+  also re-resolve when the recompute's badge maps change (`rememberLibraryWindowBadges`); #17 the
+  alphabet buckets are Room flows (`observe{Title,Author,Series}AlphabetBuckets`), so the rail follows
+  every write to `library_grid_roots`; #18 "Select all" and the download selection cover the whole
+  paged view by reading the recompute's `visibleItems` again, which partly undoes E5 (see §6).
+
 ### ▶ NEXT (do in this order) — see §7 for detail
 
 1. **M3 — drop `AppUiState.items` / `itemsState`** (the ~120 MB heap win). Remaining: route facets (C2)
@@ -223,7 +232,10 @@ features and 8 tests — reverted. Consumers to migrate, grouped by approach:
 - ~~**Batch download "select all" → bounded IDs query:** `UnifiedReaderScaffold` reads
   `uiState.visibleItems` to select all downloadable items.~~ **DONE (E5).** Served from the screen's
   rendered items (paged snapshot / in-memory), reported up as selectable items; scaffold no longer
-  scans `visibleItems` (only a pre-report fallback remains).
+  scans `visibleItems` (only a pre-report fallback remains). **Partly undone by app-review #18
+  (2026-10-18):** a paged screen reports only its loaded window (~180 roots), so select-all and the
+  selection now add the recompute's `visibleItems` (`libraryDownloadSelectableItems`). Before M3 drops
+  `visibleItems`, this needs an SQL query for the view's root ids plus their download availability.
 - **By-id synchronous props → `ReadableItemLookup` (E1) resolved into state at selection time:**
   `AppUiState.selectedItem`, `selectedKavitaSeriesTitle`, `selectedStumpSeriesTitle`.
 - **Reactive full scans → bounded/semantic:** `AppComicReadingDirectionController` /
@@ -241,7 +253,7 @@ features and 8 tests — reverted. Consumers to migrate, grouped by approach:
   bounded path before `items` can go.
 
 Already migrated: reader next-item (E2), download enqueue (E3), item-by-id lookup foundation (E1),
-cold-start capture (E4), batch download-selection (E5).
+cold-start capture (E4). Batch download-selection (E5) reads `visibleItems` again since #18 (above).
 
 ---
 

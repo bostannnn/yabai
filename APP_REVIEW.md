@@ -16,10 +16,9 @@ Baseline: `testDebugUnitTest` passes, 1033 tests, 0 failures.
 
 ### Where it stopped (2026-10-18, end of the fourth session)
 
-- **Branch:** the fourth session's fixes (#25, #23, #9, #15-#19 with #42, #21, #22) were made on
-  `claude/app-review-doc-64ae36` and fast-forwarded into the local `main` on 2026-10-18; `main` is not pushed
-  (`origin/main` is still at `65caa206`, which holds the earlier fixes after 0.8.0). None of this is in a release
-  yet: the 0.8.0 release holds #1-#5 only.
+- **Release:** every fix in this file through #22 (and #41, #42) is in release **0.9.0** (versionCode 7), tagged
+  on `main` and pushed on 2026-10-18. The fourth session's fixes (#25, #23, #9, #15-#19 with #42, #21, #22)
+  were made on `claude/app-review-doc-64ae36` and fast-forwarded into `main`. The 0.8.0 release held #1-#5 only.
 - **Done:** every P0 item (#1-#6, #41) and every P1 item but the two that wait on building a decision: #7-#10,
   #12-#19, #21-#25 and #42.
 - **Next:** #11 and #20 (decided, not built; see below), the new #43 (journal entries marked synced without

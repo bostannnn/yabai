@@ -28,8 +28,8 @@ The agent shell doesn't export `JAVA_HOME`; set it first (Android Studio's bundl
 export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 export ANDROID_HOME=~/Library/Android/sdk_new
 ./gradlew :app:assembleDebug
-./gradlew testDebugUnitTest                      # the Android modules, ~1100 tests
-./gradlew :core:model:test :data:grimmory:test :data:kavita:test :data:stump:test   # the JVM modules, ~120
+./gradlew testDebugUnitTest                      # the Android modules, ~1125 tests
+./gradlew :core:model:test :data:grimmory:test :data:kavita:test :data:stump:test   # the JVM modules, ~123
 ./gradlew :feature:library:testDebugUnitTest     # one module
 ```
 
