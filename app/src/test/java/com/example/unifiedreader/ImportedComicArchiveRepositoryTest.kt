@@ -92,6 +92,49 @@ class ImportedComicArchiveRepositoryTest {
     }
 
     @Test
+    fun `epub import with a space in the cover href keeps its metadata and cover`() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val repository = LocalDocumentRepository(
+            context = context,
+            importedComicArchiveDao = RepositoryImportedComicArchiveDao(),
+            scope = kotlinx.coroutines.CoroutineScope(Dispatchers.Unconfined),
+        )
+        val epubFile = createZipBackedFile(
+            name = "space-cover.epub",
+            entries = mapOf(
+                "mimetype" to IMPORTED_EPUB_MIMETYPE.encodeToByteArray(),
+                "META-INF/container.xml" to """
+                    <?xml version="1.0"?>
+                    <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+                      <rootfiles>
+                        <rootfile full-path="OPS/content.opf" media-type="application/oebps-package+xml"/>
+                      </rootfiles>
+                    </container>
+                """.trimIndent().encodeToByteArray(),
+                "OPS/content.opf" to """
+                    <?xml version="1.0" encoding="UTF-8"?>
+                    <package version="3.0" xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookId">
+                      <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+                        <dc:title>Space Cover</dc:title>
+                        <meta name="cover" content="cover-image"/>
+                      </metadata>
+                      <manifest>
+                        <item id="cover-image" href="images/my cover.jpg" media-type="image/jpeg"/>
+                      </manifest>
+                    </package>
+                """.trimIndent().encodeToByteArray(),
+                "OPS/images/my cover.jpg" to singlePixelJpegBytes(),
+            ),
+        )
+
+        val imported = repository.import(Uri.fromFile(epubFile))
+
+        assertNotNull(imported)
+        assertEquals("Space Cover", imported?.title)
+        assertTrue(imported?.coverUrl?.startsWith("file:") == true)
+    }
+
+    @Test
     fun `clear all trim clears copied zip archive cache`() {
         val context = ApplicationProvider.getApplicationContext<Application>()
         val repository = LocalDocumentRepository(

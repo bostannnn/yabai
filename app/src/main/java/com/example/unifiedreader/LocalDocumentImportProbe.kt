@@ -15,7 +15,12 @@ internal class LocalDocumentImportProbe(
     private val context: Context,
     private val comicArchiveCodecs: List<ComicArchiveCodec>,
 ) {
-    suspend fun probe(uri: Uri): LocalDocumentRecord? {
+    // Validation reads whole archives and parses XML; callers are often on Main.
+    suspend fun probe(uri: Uri): LocalDocumentRecord? = withContext(Dispatchers.IO) {
+        probeOnCurrentThread(uri)
+    }
+
+    private suspend fun probeOnCurrentThread(uri: Uri): LocalDocumentRecord? {
         val persistedUri = uri.toString()
         val displayName = queryDisplayName(uri) ?: uri.lastPathSegment ?: "Imported Document"
         val contentType = queryContentType(uri)

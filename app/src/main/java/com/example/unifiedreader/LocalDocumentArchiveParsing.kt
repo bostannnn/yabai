@@ -7,6 +7,7 @@ import kotlinx.coroutines.withContext
 import org.w3c.dom.Document
 import org.w3c.dom.Element
 import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.BufferedInputStream
 import java.util.zip.ZipInputStream
 import javax.xml.parsers.DocumentBuilderFactory
@@ -136,7 +137,7 @@ private fun Document.resolveEpubCoverEntryPath(
                 .any { it == "cover-image" }
         }?.getAttribute("href")
     }?.trim().orEmpty()
-    return href.takeIf(String::isNotEmpty)?.resolveRelativeToPackagePath(packagePath)
+    return href.takeIf(String::isNotEmpty)?.let { resolveEpubHref(packagePath, it) }
 }
 
 private fun Document.metaCoverId(): String? {
@@ -163,6 +164,45 @@ private fun Document.manifestItemElements(): List<Element> {
     }
 }
 
-private fun String.resolveRelativeToPackagePath(
+/**
+ * Resolves an OPF manifest href to its zip entry name. Hrefs are URL references, so they may be
+ * percent-encoded, but real books also carry raw spaces and stray `%`, which `java.net.URI` rejects
+ * by throwing.
+ */
+internal fun resolveEpubHref(
     packagePath: String,
-): String = java.net.URI(packagePath).resolve(this).path
+    href: String,
+): String? {
+    val path = href.substringBefore('#').percentDecoded()
+    if (path.isEmpty()) return null
+    val base = if (path.startsWith('/')) "" else packagePath.substringBeforeLast('/', missingDelimiterValue = "")
+    val segments = ArrayDeque<String>()
+    "$base/$path".split('/').forEach { segment ->
+        when (segment) {
+            "", "." -> Unit
+            ".." -> segments.removeLastOrNull()
+            else -> segments.addLast(segment)
+        }
+    }
+    return segments.joinToString("/").takeIf(String::isNotEmpty)
+}
+
+// Decodes %XX escapes as UTF-8 and keeps a `%` that doesn't start one.
+private fun String.percentDecoded(): String {
+    if ('%' !in this) return this
+    val bytes = ByteArrayOutputStream(length)
+    var index = 0
+    while (index < length) {
+        val high = if (this[index] == '%' && index + 2 < length) Character.digit(this[index + 1], 16) else -1
+        val low = if (high >= 0) Character.digit(this[index + 2], 16) else -1
+        if (low >= 0) {
+            bytes.write(high * 16 + low)
+            index += 3
+        } else {
+            val end = indexOf('%', startIndex = index + 1).takeIf { it >= 0 } ?: length
+            bytes.write(substring(index, end).encodeToByteArray())
+            index = end
+        }
+    }
+    return bytes.toByteArray().decodeToString()
+}
