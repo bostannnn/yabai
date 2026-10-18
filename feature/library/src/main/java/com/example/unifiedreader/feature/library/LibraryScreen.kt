@@ -56,7 +56,6 @@ import kotlinx.coroutines.launch
 // How many leading roots the paged-window badge resolver processes in its fast first phase — enough to
 // cover the visible cards plus a small scroll buffer, so their badges commit near-instantly before the
 // full loaded window is resolved.
-private const val PAGED_WINDOW_BADGE_PREFIX_COUNT = 30
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -155,29 +154,21 @@ fun LibraryScreen(
     // Paged-window badge overlay: resolve the on-screen roots' read/progress, rating, and download
     // status from bounded sources so they paint with the grid instead of ~1s later. The recompute maps
     // stay the base (recompute wins once it lands — its values match, so nothing flips); the window
-    // badges only fill the keys the recompute doesn't have yet (i.e. everything at cold start). Re-runs
-    // as the window grows / reorders (keyed on size + endpoints, which change on scroll and last-read
-    // re-sort). Empty on every non-paged path, so `effective*` below equals the raw inputs there.
-    val latestBadgeResolver by rememberUpdatedState(pagedWindowBadgeResolver)
-    val windowSignature = renderedItems.size to
-        (renderedItems.firstOrNull()?.id to renderedItems.lastOrNull()?.id)
+    // badges only fill the keys the recompute doesn't have yet (i.e. everything at cold start). Empty on
+    // every non-paged path, so `effective*` below equals the raw inputs there.
     val windowBadges = if ((isPaged || resolveWindowBadgesForVisibleItems) && pagedWindowBadgeResolver != null) {
-        produceState(initialValue = LibraryWindowBadges(), windowSignature) {
-            val resolver = latestBadgeResolver
-            if (resolver == null || renderedItems.isEmpty()) {
-                value = LibraryWindowBadges()
-                return@produceState
-            }
-            // Paging's initial load is 3 pages (~180 roots) but only ~a screen is visible, and every
-            // resolve sub-step scales with the window's members. So resolve in two phases: first the
-            // on-screen prefix (badges for the visible cards commit in ~one bounded query), then the
-            // whole loaded window to cover scrolling within the first page. Phase 2 is a superset, so it
-            // just supersedes the prefix with identical values — no flip.
-            if (renderedItems.size > PAGED_WINDOW_BADGE_PREFIX_COUNT) {
-                value = resolver(renderedItems.take(PAGED_WINDOW_BADGE_PREFIX_COUNT))
-            }
-            value = resolver(renderedItems)
-        }.value
+        rememberLibraryWindowBadges(
+            renderedItems = renderedItems,
+            resolver = pagedWindowBadgeResolver,
+            recomputedBadgeInputs = listOf(
+                progressByItemId,
+                ratingByItemId,
+                locallyAvailableItemIds,
+                downloadableItemIds,
+                deletableDownloadedItemIds,
+                downloadingItemIds,
+            ),
+        )
     } else {
         LibraryWindowBadges()
     }

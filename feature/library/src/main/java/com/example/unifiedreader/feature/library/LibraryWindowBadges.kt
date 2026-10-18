@@ -1,5 +1,9 @@
 package com.example.unifiedreader.feature.library
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.rememberUpdatedState
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.kavitaSeriesContainerId
@@ -39,6 +43,41 @@ fun LibraryItemActionContext.withWindowBadges(
         deletableDownloadedItemIds + windowBadges.downloadActionAvailability.deletableDownloadedItemIds,
     downloadingItemIds = downloadingItemIds + windowBadges.downloadActionAvailability.activeDownloadingItemIds,
 )
+
+private const val PAGED_WINDOW_BADGE_PREFIX_COUNT = 30
+
+/**
+ * The [LibraryWindowBadges] for [renderedItems], resolved again when the window grows or reorders (its
+ * size and endpoints change on scroll and on a last-read re-sort) and when the recompute's badge maps
+ * ([recomputedBadgeInputs]) change. The overlay unions the two, so a badge the recompute drops (the
+ * Finished fade after "Mark as unread", Downloaded after deleting the file) would otherwise stay in the
+ * window's copy until a new page loaded or the sort changed.
+ */
+@Composable
+internal fun rememberLibraryWindowBadges(
+    renderedItems: List<ReadableItem>,
+    resolver: suspend (List<ReadableItem>) -> LibraryWindowBadges,
+    recomputedBadgeInputs: List<Any>,
+): LibraryWindowBadges {
+    val latestResolver by rememberUpdatedState(resolver)
+    val windowSignature = renderedItems.size to
+        (renderedItems.firstOrNull()?.id to renderedItems.lastOrNull()?.id)
+    return produceState(initialValue = LibraryWindowBadges(), windowSignature, recomputedBadgeInputs) {
+        if (renderedItems.isEmpty()) {
+            value = LibraryWindowBadges()
+            return@produceState
+        }
+        // Paging's initial load is 3 pages (~180 roots) but only ~a screen is visible, and every
+        // resolve sub-step scales with the window's members. So resolve in two phases: first the
+        // on-screen prefix (badges for the visible cards commit in ~one bounded query), then the
+        // whole loaded window to cover scrolling within the first page. Phase 2 is a superset, so it
+        // just supersedes the prefix with identical values — no flip.
+        if (renderedItems.size > PAGED_WINDOW_BADGE_PREFIX_COUNT) {
+            value = latestResolver(renderedItems.take(PAGED_WINDOW_BADGE_PREFIX_COUNT))
+        }
+        value = latestResolver(renderedItems)
+    }.value
+}
 
 /**
  * Builds [LibraryWindowBadges] for [rootItems] (standalone items + synthetic series containers) using
