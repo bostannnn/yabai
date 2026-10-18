@@ -30,122 +30,15 @@ import com.example.unifiedreader.ui.components.AppSegmentedRow
 import com.example.unifiedreader.ui.components.AppSlider
 import java.util.Locale
 
-@Composable
-internal fun EpubTextSizeStepper(
-    value: Double,
-    onValueChanged: (Double) -> Unit,
-) {
-    val tokens = readerOverlayTokens()
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "Text size",
-                style = MaterialTheme.typography.labelLarge,
-                color = tokens.colors.secondaryText,
-            )
-            Text(
-                text = formatEpubFontSizeValue(value),
-                style = MaterialTheme.typography.labelMedium,
-                color = tokens.colors.tertiaryText,
-            )
-        }
-        AppSlider(
-            value = value.toFloat(),
-            onValueChange = { onValueChanged(it.toDouble()) },
-            valueRange = 0.8f..2.4f,
-        )
-    }
-}
 
-@Composable
-internal fun EpubSliderSection(
-    label: String,
-    valueLabel: String,
-    value: Double,
-    valueRange: ClosedFloatingPointRange<Float>,
-    onValueChanged: (Double) -> Unit,
-) {
-    val tokens = readerOverlayTokens()
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge,
-                color = tokens.colors.secondaryText,
-            )
-            Text(
-                text = valueLabel,
-                style = MaterialTheme.typography.labelMedium,
-                color = tokens.colors.tertiaryText,
-            )
-        }
-        AppSlider(
-            value = value.toFloat(),
-            onValueChange = { onValueChanged(it.toDouble()) },
-            valueRange = valueRange,
-        )
-    }
-}
 
-@Composable
-internal fun EpubFontSummarySection(
-    selected: EpubReaderFontFamily,
-    onClick: () -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        EpubSectionLabel("Font")
-        EpubSelectableRowGroup {
-            EpubSelectableRow(
-                label = "Typeface",
-                value = selected.label,
-                selected = false,
-                onClick = onClick,
-                trailingIcon = {
-                    Icon(
-                        imageVector = AppIcons.KeyboardArrowRight,
-                        contentDescription = null,
-                        tint = readerOverlayTokens().colors.tertiaryText,
-                    )
-                },
-            )
-        }
-    }
-}
 
 @Composable
 internal fun EpubFontPicker(
     selected: EpubReaderFontFamily,
     onSelected: (EpubReaderFontFamily) -> Unit,
-    onBack: () -> Unit,
 ) {
-    val tokens = readerOverlayTokens()
     Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            AppIconButton(onClick = onBack) {
-                Icon(
-                    imageVector = AppIcons.ArrowBack,
-                    contentDescription = "Back",
-                    tint = tokens.colors.primaryText,
-                )
-            }
-            Text(
-                text = "Font",
-                style = MaterialTheme.typography.titleLarge,
-                color = tokens.colors.primaryText,
-            )
-        }
         EpubReaderFontCategory.entries.forEach { category ->
             val entries = EpubReaderFontFamily.entries.filter { it.category == category }
             if (entries.isNotEmpty()) {
@@ -168,7 +61,7 @@ internal fun EpubFontPicker(
 }
 
 @Composable
-private fun rememberEpubFontPreviewFamily(
+internal fun rememberEpubFontPreviewFamily(
     entry: EpubReaderFontFamily,
 ): FontFamily? {
     val context = LocalContext.current
@@ -331,36 +224,6 @@ internal fun EpubSectionLabel(text: String) {
     )
 }
 
-@Composable
-internal fun <T> EpubSegmentedSection(
-    selected: T,
-    entries: List<T>,
-    onSelected: (T) -> Unit,
-    label: String? = null,
-) where T : Enum<T>, T : EpubLabeledOption {
-    val tokens = readerOverlayTokens()
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (label != null) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge,
-                color = tokens.colors.secondaryText,
-            )
-        }
-        AppSegmentedRow(modifier = Modifier.fillMaxWidth()) {
-            entries.forEachIndexed { index, entry ->
-                AppSegment(
-                    selected = selected == entry,
-                    onClick = { onSelected(entry) },
-                    index = index,
-
-                    count = entries.size,
-                    label = { Text(text = entry.label) },
-                )
-            }
-        }
-    }
-}
 
 internal fun formatEpubFontSizeValue(
     value: Double,

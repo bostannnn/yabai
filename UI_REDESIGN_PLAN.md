@@ -383,17 +383,27 @@ step below lands and is judged on the emulator, then the tablet, before the next
   org.readium.r2.navigator.epub.EpubNavigatorFragment`. Not caused by this work; filed as its
   own task.
 
-### 7d. EPUB reading settings `[ ]`
+### 7d. EPUB reading settings `[~]`
 
-- [ ] `End` panel, 400 dp: Text, Theme, Layout as sections on tablets; the segmented tabs stay
-      in the phone sheet. Typography and alignment as choice rows, text size as a stepper row,
-      the sliders as slider rows, the theme as three swatches, the font picker as a second page
-      with back in the header.
+- [x] `End` panel, 400 dp, a sibling of the docks like the contents panel: Text, Theme and
+      Layout as labelled sections in one scrolling column on tablets; in the phone sheet the
+      three stay as segmented tabs and the sheet sizes to the open tab. Typography
+      ("Book's own" / "Custom") and alignment ("Auto" / "Left" / "Justify") are choice rows,
+      text size is a stepper row in tenths between 80% and 240%, line height and the three
+      spacing values are slider rows, the theme is three page-colored swatches (Follow app,
+      Light, Dark), Pages is a stacked four-way row (`AppFormRow(stacked = true)`, added for
+      controls too wide to share a line), and the font picker is a second page with back in the
+      header; back leaves the font page before it closes the panel. `EpubPagesChoice`,
+      `stepEpubFontSize` and the label helpers are pure and unit-tested. The top dock is the bar
+      only. Checked on the emulator at 800 dp (sections, font page, back) and 411 dp (tabs).
+- [ ] Tablet check.
 
-### 7e. Loose ends `[ ]`
+### 7e. Loose ends `[~]`
 
-- [ ] `ReaderAttachedPane` removed once nothing uses it.
-- [ ] PDF bar: nothing to change beyond what 6c did.
+- [x] `ReaderAttachedPane` removed (nothing used it after 7d).
+- [x] PDF bar: nothing to change beyond what 6c did.
+- [ ] Tablet pass over 7b, 7c and 7d together (one signed release build): glass over a comic
+      page and over an EPUB page with each panel open, frame times with a panel open.
 
 ## Not yet designed
 

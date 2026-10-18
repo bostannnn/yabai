@@ -22,8 +22,9 @@ import androidx.compose.ui.unit.dp
 
 /**
  * One setting: a label (with optional supporting text) and its [control]. The control sits at
- * the end of the row; below [AppFormRowDefaults.stackBelowWidth] it moves under the label and
- * takes the full width, which is how the phone sheets lay out.
+ * the end of the row; below [AppFormRowDefaults.stackBelowWidth], or when [stacked] is set
+ * (a control too wide to share the line), it moves under the label and takes the full width,
+ * which is how the phone sheets lay out.
  */
 @Composable
 fun AppFormRow(
@@ -31,6 +32,7 @@ fun AppFormRow(
     modifier: Modifier = Modifier,
     supportingText: String? = null,
     enabled: Boolean = true,
+    stacked: Boolean = false,
     controlWidth: Dp = AppFormRowDefaults.controlWidth,
     control: @Composable (Modifier) -> Unit,
 ) {
@@ -48,8 +50,7 @@ fun AppFormRow(
                     vertical = AppFormRowDefaults.verticalPadding,
                 ),
         ) {
-            val stacked = maxWidth < AppFormRowDefaults.stackBelowWidth
-            if (stacked) {
+            if (stacked || maxWidth < AppFormRowDefaults.stackBelowWidth) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     AppFormRowLabel(label = label, supportingText = supportingText)
                     control(Modifier.fillMaxWidth())
@@ -114,6 +115,7 @@ fun <T> AppChoiceRow(
     modifier: Modifier = Modifier,
     supportingText: String? = null,
     enabled: Boolean = true,
+    stacked: Boolean = false,
     controlWidth: Dp = AppFormRowDefaults.controlWidth,
     optionIcon: (@Composable (T) -> Unit)? = null,
 ) {
@@ -122,6 +124,7 @@ fun <T> AppChoiceRow(
         modifier = modifier,
         supportingText = supportingText,
         enabled = enabled,
+        stacked = stacked,
         controlWidth = controlWidth,
     ) { controlModifier ->
         AppSegmentedRow(modifier = controlModifier) {

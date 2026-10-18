@@ -717,61 +717,6 @@ fun EpubReaderScreen(
                                 isTocSheetOpen = false
                                 isPreferencesPaneOpen = !isPreferencesPaneOpen
                             },
-                            onDismissPreferences = {
-                                isPreferencesPaneOpen = false
-                            },
-                            typographyMode = typographyMode,
-                            fontFamily = fontFamily,
-                            fontSize = fontSize,
-                            lineHeight = lineHeight,
-                            pageMargins = pageMargins,
-                            paragraphSpacing = paragraphSpacing,
-                            paragraphIndent = paragraphIndent,
-                            textAlign = textAlign,
-                            theme = theme,
-                            useAppThemeDefault = useAppThemeDefault,
-                            layoutMode = layoutMode,
-                            useOrientationLayoutDefault = useOrientationLayoutDefault,
-                            onTypographyModeChanged = {
-                                typographyMode = it
-                            },
-                            onFontFamilyChanged = {
-                                fontFamily = it
-                            },
-                            onFontSizeChanged = {
-                                fontSize = it
-                            },
-                            onLineHeightChanged = {
-                                lineHeight = it
-                            },
-                            onPageMarginsChanged = {
-                                pageMargins = it
-                            },
-                            onParagraphSpacingChanged = {
-                                paragraphSpacing = it
-                            },
-                            onParagraphIndentChanged = {
-                                paragraphIndent = it
-                            },
-                            onTextAlignChanged = {
-                                textAlign = it
-                            },
-                            onThemeChanged = {
-                                useAppThemeDefault = false
-                                theme = it
-                            },
-                            onUseAppThemeDefault = {
-                                useAppThemeDefault = true
-                                theme = appReaderTheme
-                            },
-                            onLayoutModeChanged = {
-                                useOrientationLayoutDefault = false
-                                layoutMode = it
-                            },
-                            onUseOrientationLayoutDefault = {
-                                useOrientationLayoutDefault = true
-                                layoutMode = defaultEpubLayoutMode(isLandscape)
-                            },
                             modifier = Modifier
                                 .align(Alignment.TopCenter)
                                 .fillMaxSize()
@@ -815,6 +760,65 @@ fun EpubReaderScreen(
                                     id = seekRequestId++,
                                     link = entry.link,
                                 )
+                            },
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                        EpubPreferencesSheet(
+                            isOpen = isPreferencesPaneOpen,
+                            typographyMode = typographyMode,
+                            fontFamily = fontFamily,
+                            fontSize = fontSize,
+                            lineHeight = lineHeight,
+                            pageMargins = pageMargins,
+                            paragraphSpacing = paragraphSpacing,
+                            paragraphIndent = paragraphIndent,
+                            textAlign = textAlign,
+                            theme = theme,
+                            useAppThemeDefault = useAppThemeDefault,
+                            layoutMode = layoutMode,
+                            useOrientationLayoutDefault = useOrientationLayoutDefault,
+                            onDismissRequest = {
+                                isPreferencesPaneOpen = false
+                            },
+                            onTypographyModeChanged = {
+                                typographyMode = it
+                            },
+                            onFontFamilyChanged = {
+                                fontFamily = it
+                            },
+                            onFontSizeChanged = {
+                                fontSize = it
+                            },
+                            onLineHeightChanged = {
+                                lineHeight = it
+                            },
+                            onPageMarginsChanged = {
+                                pageMargins = it
+                            },
+                            onParagraphSpacingChanged = {
+                                paragraphSpacing = it
+                            },
+                            onParagraphIndentChanged = {
+                                paragraphIndent = it
+                            },
+                            onTextAlignChanged = {
+                                textAlign = it
+                            },
+                            onThemeChanged = {
+                                useAppThemeDefault = false
+                                theme = it
+                            },
+                            onUseAppThemeDefault = {
+                                useAppThemeDefault = true
+                                theme = appReaderTheme
+                            },
+                            onLayoutModeChanged = {
+                                useOrientationLayoutDefault = false
+                                layoutMode = it
+                            },
+                            onUseOrientationLayoutDefault = {
+                                useOrientationLayoutDefault = true
+                                layoutMode = defaultEpubLayoutMode(isLandscape)
                             },
                             modifier = Modifier.fillMaxSize(),
                         )
