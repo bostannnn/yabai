@@ -233,6 +233,126 @@ class AppViewModelTest {
     }
 
     @Test
+    fun `reader route restores after process death before the catalog has loaded`() {
+        val item = sampleItem(
+            id = "reader-book",
+            title = "Reader Book",
+            format = FormatType.CBZ,
+        )
+        val activeRouteStore = FakeAppActiveRouteStore()
+        val firstViewModel = createViewModel(
+            sampleItems = listOf(item),
+            activeRouteStore = activeRouteStore,
+        )
+        firstViewModel.onItemSelected(item)
+
+        // After process death the catalog loads on IO, after the first state is built.
+        val itemRepository = FakeReadableItemRepository(items = emptyList())
+        val remoteCatalogReadiness = FakeRemoteCatalogReadiness(
+            initialHydrated = false,
+            hydrateOnBootstrap = false,
+        )
+        val recreatedViewModel = createViewModel(
+            activeRouteStore = activeRouteStore,
+            remoteCatalogReadiness = remoteCatalogReadiness,
+            readableItemRepository = itemRepository,
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(item.id, recreatedViewModel.uiState.selectedItemId)
+        assertEquals(FormatType.CBZ, recreatedViewModel.uiState.activeReader)
+        assertEquals(item.id, activeRouteStore.snapshot?.readerItemId)
+
+        itemRepository.emitItems(listOf(item))
+        remoteCatalogReadiness.emit(true)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(item, recreatedViewModel.uiState.selectedItem)
+        assertEquals(FormatType.CBZ, recreatedViewModel.uiState.activeReader)
+        assertEquals(item.id, activeRouteStore.snapshot?.readerItemId)
+    }
+
+    @Test
+    fun `series route survives process death until the catalog has loaded`() {
+        val seriesKey = "${SourceType.KAVITA.remoteLibraryId("k-comics")}::series-7"
+        val issue = sampleItem(
+            id = "chapter-1",
+            title = "Akira 001",
+            format = FormatType.CBZ,
+        ).copy(
+            remoteFileType = "series-7",
+            comicMetadata = ComicMetadata(series = "Akira", issueTitle = "Issue 1"),
+        )
+        val activeRouteStore = FakeAppActiveRouteStore()
+        val firstViewModel = createViewModel(
+            sampleItems = listOf(issue, issue.copy(id = "chapter-2", title = "Akira 002")),
+            activeRouteStore = activeRouteStore,
+        )
+        firstViewModel.onItemSelected(firstViewModel.uiState.visibleItems.single())
+        assertEquals(seriesKey, activeRouteStore.snapshot?.selectedKavitaSeriesKey)
+
+        val itemRepository = FakeReadableItemRepository(items = emptyList())
+        val remoteCatalogReadiness = FakeRemoteCatalogReadiness(
+            initialHydrated = false,
+            hydrateOnBootstrap = false,
+        )
+        val recreatedViewModel = createViewModel(
+            activeRouteStore = activeRouteStore,
+            remoteCatalogReadiness = remoteCatalogReadiness,
+            readableItemRepository = itemRepository,
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(seriesKey, recreatedViewModel.uiState.selectedKavitaSeriesKey)
+        assertEquals(seriesKey, activeRouteStore.snapshot?.selectedKavitaSeriesKey)
+
+        // Part of the catalog can arrive before hydration finishes; the series isn't in it yet.
+        itemRepository.emitItems(listOf(sampleItem(id = "other-book", format = FormatType.EPUB)))
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(seriesKey, recreatedViewModel.uiState.selectedKavitaSeriesKey)
+
+        itemRepository.emitItems(listOf(issue))
+        remoteCatalogReadiness.emit(true)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(seriesKey, recreatedViewModel.uiState.selectedKavitaSeriesKey)
+        assertEquals(listOf(issue.id), recreatedViewModel.uiState.visibleItems.map(ReadableItem::id))
+    }
+
+    @Test
+    fun `restored series route is dropped once the loaded catalog lacks it`() {
+        val seriesKey = "${SourceType.KAVITA.remoteLibraryId("k-comics")}::series-7"
+        val activeRouteStore = FakeAppActiveRouteStore().apply {
+            save(
+                AppActiveRouteSnapshot(
+                    topLevel = TopLevelDestination.Library,
+                    selectedSource = SourceType.KAVITA,
+                    kavitaLibrarySection = KavitaLibrarySection.Home,
+                    selectedKavitaSeriesKey = seriesKey,
+                ),
+            )
+        }
+        val itemRepository = FakeReadableItemRepository(items = emptyList())
+        val remoteCatalogReadiness = FakeRemoteCatalogReadiness(
+            initialHydrated = false,
+            hydrateOnBootstrap = false,
+        )
+        val viewModel = createViewModel(
+            activeRouteStore = activeRouteStore,
+            remoteCatalogReadiness = remoteCatalogReadiness,
+            readableItemRepository = itemRepository,
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(seriesKey, viewModel.uiState.selectedKavitaSeriesKey)
+
+        itemRepository.emitItems(listOf(sampleItem(id = "other-book", format = FormatType.EPUB)))
+        remoteCatalogReadiness.emit(true)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertNull(viewModel.uiState.selectedKavitaSeriesKey)
+    }
+
+    @Test
     fun `app stop persists active route and clears reader memory caches`() {
         val item = sampleItem(
             id = "reader-book",

@@ -47,12 +47,22 @@ class AppCatalogStateCoordinator @Inject constructor(
                 items = items,
                 selectedItemId = selectedItemId,
                 activeReader = activeReader,
-                selectedKavitaSeriesKey = selectedKavitaSeriesKey?.takeIf { seriesKey ->
-                    selectedSource == SourceType.KAVITA && items.any { item -> item.belongsToKavitaSeries(seriesKey) }
-                },
-                selectedStumpSeriesKey = selectedStumpSeriesKey?.takeIf { seriesKey ->
-                    selectedSource == SourceType.STUMP && items.any { item -> item.belongsToStumpSeries(seriesKey) }
-                },
+                selectedKavitaSeriesKey = retainedSeriesKey(
+                    seriesKey = selectedKavitaSeriesKey,
+                    seriesSource = SourceType.KAVITA,
+                    selectedSource = selectedSource,
+                    items = items,
+                    hydratedSources = state.hydratedSources,
+                    belongsToSeries = ReadableItem::belongsToKavitaSeries,
+                ),
+                selectedStumpSeriesKey = retainedSeriesKey(
+                    seriesKey = selectedStumpSeriesKey,
+                    seriesSource = SourceType.STUMP,
+                    selectedSource = selectedSource,
+                    items = items,
+                    hydratedSources = state.hydratedSources,
+                    belongsToSeries = ReadableItem::belongsToStumpSeries,
+                ),
                 progressByItemId = buildProgressSummaries(items),
                 themeMode = themeMode,
             )
@@ -144,14 +154,22 @@ class AppCatalogStateCoordinator @Inject constructor(
                         isRemoteItemLocalStateRefreshing = isRemoteItemLocalStateRefreshing,
                         hydratedSources = snapshot.hydratedSources,
                         themeMode = snapshot.themeMode,
-                        selectedKavitaSeriesKey = state.selectedKavitaSeriesKey?.takeIf { seriesKey ->
-                            state.selectedSource == SourceType.KAVITA &&
-                                snapshot.items.any { item -> item.belongsToKavitaSeries(seriesKey) }
-                        },
-                        selectedStumpSeriesKey = state.selectedStumpSeriesKey?.takeIf { seriesKey ->
-                            state.selectedSource == SourceType.STUMP &&
-                                snapshot.items.any { item -> item.belongsToStumpSeries(seriesKey) }
-                        },
+                        selectedKavitaSeriesKey = retainedSeriesKey(
+                            seriesKey = state.selectedKavitaSeriesKey,
+                            seriesSource = SourceType.KAVITA,
+                            selectedSource = state.selectedSource,
+                            items = snapshot.items,
+                            hydratedSources = snapshot.hydratedSources,
+                            belongsToSeries = ReadableItem::belongsToKavitaSeries,
+                        ),
+                        selectedStumpSeriesKey = retainedSeriesKey(
+                            seriesKey = state.selectedStumpSeriesKey,
+                            seriesSource = SourceType.STUMP,
+                            selectedSource = state.selectedSource,
+                            items = snapshot.items,
+                            hydratedSources = snapshot.hydratedSources,
+                            belongsToSeries = ReadableItem::belongsToStumpSeries,
+                        ),
                     )
                 }
                 refreshDownloadedRemoteItemIdsAsync(

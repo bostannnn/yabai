@@ -9,9 +9,6 @@ import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
 
 internal fun AppUiState.toActiveRouteSnapshot(): AppActiveRouteSnapshot {
     val readerItem = selectedItem.takeIf { activeReader != null }
-    val isCatalogReaderItem = readerItem?.let { item ->
-        items.any { catalogItem -> catalogItem.id == item.id }
-    } ?: false
     return AppActiveRouteSnapshot(
         topLevel = topLevel,
         selectedSource = readerItem?.sourceType ?: selectedSource,
@@ -22,7 +19,9 @@ internal fun AppUiState.toActiveRouteSnapshot(): AppActiveRouteSnapshot {
         selectedKavitaCollectionId = kavitaReadingLists.selectedCollectionId,
         readerItemId = readerItem?.id,
         readerFormat = readerItem?.format ?: activeReader,
-        readerFallbackItem = readerItem.takeUnless { isCatalogReaderItem },
+        // Always kept, not only for items outside the catalog: after process death the catalog
+        // loads on IO, after the restored route is applied.
+        readerFallbackItem = readerItem,
     )
 }
 
@@ -43,16 +42,22 @@ internal fun AppUiState.withActiveRouteSnapshot(
             ?: sourceOrder.firstOrNull()
             ?: SourceType.KAVITA
     }
-    val selectedKavitaSeriesKey = snapshot.selectedKavitaSeriesKey
-        ?.takeIf { seriesKey ->
-            selectedSource == SourceType.KAVITA &&
-                items.any { item -> item.belongsToKavitaSeries(seriesKey) }
-        }
-    val selectedStumpSeriesKey = snapshot.selectedStumpSeriesKey
-        ?.takeIf { seriesKey ->
-            selectedSource == SourceType.STUMP &&
-                items.any { item -> item.belongsToStumpSeries(seriesKey) }
-        }
+    val selectedKavitaSeriesKey = retainedSeriesKey(
+        seriesKey = snapshot.selectedKavitaSeriesKey,
+        seriesSource = SourceType.KAVITA,
+        selectedSource = selectedSource,
+        items = items,
+        hydratedSources = hydratedSources,
+        belongsToSeries = ReadableItem::belongsToKavitaSeries,
+    )
+    val selectedStumpSeriesKey = retainedSeriesKey(
+        seriesKey = snapshot.selectedStumpSeriesKey,
+        seriesSource = SourceType.STUMP,
+        selectedSource = selectedSource,
+        items = items,
+        hydratedSources = hydratedSources,
+        belongsToSeries = ReadableItem::belongsToStumpSeries,
+    )
     val selectedReadingListId = snapshot.selectedKavitaReadingListId
         ?.takeIf {
             selectedSource == SourceType.KAVITA &&
@@ -99,6 +104,22 @@ internal fun AppUiState.withActiveRouteSnapshot(
         ),
         readerCompletionState = null,
     )
+}
+
+/**
+ * Keeps a series sub-screen while its source's catalog is still loading (a cold start lists only
+ * part of it, or nothing), and drops it once the loaded catalog has no item in that series.
+ */
+internal fun retainedSeriesKey(
+    seriesKey: String?,
+    seriesSource: SourceType,
+    selectedSource: SourceType,
+    items: List<ReadableItem>,
+    hydratedSources: Set<SourceType>,
+    belongsToSeries: (ReadableItem, String) -> Boolean,
+): String? = seriesKey?.takeIf { key ->
+    selectedSource == seriesSource &&
+        (seriesSource !in hydratedSources || items.any { item -> belongsToSeries(item, key) })
 }
 
 private fun AppUiState.itemById(
