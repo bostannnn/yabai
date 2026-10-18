@@ -14,8 +14,8 @@ Baseline: `testDebugUnitTest` passes, 1033 tests, 0 failures.
 
 ## Status
 
-Fixed, each with a regression test that fails without the fix. Full suite with #13: 1211 tests
-(1089 `testDebugUnitTest` + 122 JVM `test`), 0 failures, and `androidTest` compiles.
+Fixed, each with a regression test that fails without the fix. Full suite with #14: 1218 tests
+(1096 `testDebugUnitTest` + 122 JVM `test`), 0 failures, and `androidTest` compiles.
 
 - #1 EPUB reader crash on activity recreation (`faa5bd4b`). Checked on the emulator.
 - #2 Kavita sync dropping other sources' progress (`7651eab8`).
@@ -29,6 +29,7 @@ Fixed, each with a regression test that fails without the fix. Full suite with #
 - #7 Stale comic resume anchor beating synced progress (`5af76586`). The session now stores the progress page with the resume anchor (`resumeProgressPage`), and the anchor, segment and scroll offset are ignored once the saved progress is on another page, as after a pull from another device. Sessions saved before keep the anchor only when it is the progress page itself. A page restored after the reader opened (a pull for a downloaded comic) also moves the anchor, which the pager and the webtoon list follow; before, only the page counter changed and the next settle saved the old page. Unit tests only.
 - #10 Downloaded remote EPUB opening before its progress pull (`ef693736`). When the source is reachable, a downloaded EPUB or PDF now opens after its progress pull, bounded at 2 s, and opens anyway on a failure or timeout; both readers restore their position once and ignore a later pull. PDF had the same gap. Downloaded comics still open at once, since they now follow a late pull (#7). Offline opens are unchanged (no pull is attempted). Unit tests only.
 - #13 Paged-library covers not loading after a rail jump or a deep scroll (`a2275a42`). The visible-cover prefetcher now looks grid slots up in the paging snapshot list, which keeps unloaded placeholders as nulls at their positions, instead of its compacted `items`, which shifted every slot after a jump or once leading pages were dropped. Unit tests only: paging is Kavita-only and the emulator has no Kavita server.
+- #14 Paged-library scroll position lost on return (`7ab1f02f`). The ViewModel keeps the pager of the current source, sort and filters (`LibraryGridPagingCache`), so coming back to the same view reuses its loaded pages; asking for another view cancels the old pager, where each request used to add a `cachedIn(viewModelScope)` pager that ran for the ViewModel's lifetime. The screen holds the saved position, without reporting the clamped one, until the grid can reach it: it waits for the first load, reads the last loaded slot to append more pages when placeholders are off (Last read, Date added), then scrolls there; a drag or fling, or a view that shrank below the saved index, ends the wait. The decision is unit-tested (`libraryScrollRestoreStep`); the screen wiring isn't, and the emulator has no Kavita server.
 
 #41, #8 and #12 were done in that order (third session) because restoring a reader at cold start is what
 triggers the first two. #41 and #8 have unit tests only.
@@ -39,7 +40,7 @@ had lost the book. The 0.8.0 build at `aeb722a2` reopened in the book. Back then
 library and cleared the saved book, and the crash log stayed empty. Not checked: a remote book or a
 series sub-screen (no server on the emulator); the unit tests cover those.
 
-Next is #14, the paged library losing its scroll position on return from the reader. Learned while fixing these:
+Next is #24, solid CBRs that decode only their first page. Learned while fixing these:
 
 - **Process death (#12):** after process death the app opened on the library, not the book. Seen on the emulator; fixed in `d6829c2c`.
 - **"0% · 1/2" label:** the library's progress label and the early "finished" flag have the same cause as #21. Readium reports progression at position starts, and the reader marks a book finished once it reaches the last position's start. A 2-position test book was marked finished at 50%.
@@ -96,7 +97,7 @@ How the list is ordered:
 
 **P1: broken features hit often**
 13. Paged library: covers don't load after a rail jump or a deep scroll. Fixed `a2275a42`.
-14. Paged library: the scroll position is lost when returning from the reader.
+14. Paged library: the scroll position is lost when returning from the reader. Fixed `7ab1f02f`.
 15. Paged library: "Mark as unread" puts the item at the top of "Last read".
 16. Paged library: removed badges stay until you scroll.
 17. Paged library: the A–Z rail is never refreshed.
@@ -141,7 +142,7 @@ How the list is ordered:
 
 The unfinished features in section 4 are feature work that needs product decisions, so they don't get fix sessions.
 
-Suggested order after the second pass: 6, 41, 7, 10, 13, 14, 24, 25, 23, then the rest of P1. 6, 41, 7, 10, 13, 8 and 12 are done; 14 is next.
+Suggested order after the second pass: 6, 41, 7, 10, 13, 14, 24, 25, 23, then the rest of P1. 6, 41, 7, 10, 13, 14, 8 and 12 are done; 24 is next.
 
 Decisions, 2026-10-18: #11 most recent read wins; #20 uses the series read fields; #41, then #8, then #12.
 
@@ -175,7 +176,7 @@ Decisions, 2026-10-18: #11 most recent read wins; #20 uses the series read field
 - **Covers never load after an A–Z rail jump or a deep scroll** on Title, Author or Series. Fixed `a2275a42`. The prefetcher maps absolute grid
   indices onto `itemSnapshotList.items`, which excludes placeholders. Kavita has no remote fallback URL, so cards stay as
   placeholder art. Paging is Kavita-only (`LibraryPagingFeature.kt:23`). Rail sorts use `enablePlaceholders = true, maxSize = 360`, so the compacted snapshot and the absolute grid indices diverge after a jump or once leading pages are dropped, and the card itself never fetches (`RemoteCoverController.kt:75-85`). `feature/library/.../LibraryScreen.kt:152,373-382`, `LibraryVisibleCoverPrefetcher.kt:100-104`, `RemoteCatalogRepositories.kt:314-319`. **Checked.**
-- **Returning from the reader loses the scroll position.** A new Pager starts with 0 items, the grid clamps the index, and
+- **Returning from the reader loses the scroll position.** Fixed `7ab1f02f`. A new Pager starts with 0 items, the grid clamps the index, and
   the clamped index is then saved. Broader than described: any re-entry (source or sort switch and back) rebuilds the Pager, and on Last read or Date added any index past the first ~180 is clamped and re-saved even after the first page lands. `UnifiedReaderScaffold.kt:280-292`, `LibraryScreen.kt:232,248-254,303-312`, `AppReaderCoordinator.kt:369-375`. **Checked.**
 - **"Mark as unread" moves the item to the top of "Last read"**, because the SQL takes `MAX(updatedAt)` and includes reset rows. The in-memory
   path excludes them, so the two orders disagree. Limited to user-marked items: sync deletes rather than writes reset rows. `core/database/.../RemoteCatalogDao.kt:203-216,249-263`, `AppProgressSummaries.kt:18`. **Checked.**
