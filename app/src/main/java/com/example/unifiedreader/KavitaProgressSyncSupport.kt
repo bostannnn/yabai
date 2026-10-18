@@ -1,6 +1,8 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
+import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.data.kavita.KavitaApi
 import com.example.unifiedreader.data.kavita.toKavitaProgressUpdate
 import com.example.unifiedreader.data.kavita.toProgressUpdate
@@ -21,7 +23,9 @@ internal suspend fun pushDirtyKavitaProgress(
     var latestSession: com.example.unifiedreader.data.kavita.KavitaSession? = null
     val failures = mutableListOf<Throwable>()
     val itemById = items.associateBy(com.example.unifiedreader.core.model.ReadableItem::id)
+    // The store holds every source's progress; the others push their own.
     val dirtyProgress = readerSessionStore.progressByItemIdFlow.value.values
+        .filter { progress -> progress.itemId.startsWith(KavitaItemIdPrefix) }
         .filter { progress ->
             progress.syncState == SyncState.DIRTY || progress.syncState == SyncState.FAILED
         }
@@ -30,6 +34,7 @@ internal suspend fun pushDirtyKavitaProgress(
     dirtyProgress.forEach { progress ->
         val item = itemById[progress.itemId]
         if (item == null) {
+            // A Kavita chapter missing from the catalog was removed on the server; stop retrying it.
             readerSessionStore.replaceProgressIfCurrent(
                 expected = progress,
                 replacement = if (progress.isExplicitUnreadReset) {
@@ -102,3 +107,5 @@ internal suspend fun pushDirtyKavitaProgress(
         refreshedSession = latestSession,
     )
 }
+
+private val KavitaItemIdPrefix = SourceType.KAVITA.remoteItemId(remoteId = "")

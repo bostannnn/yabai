@@ -269,6 +269,66 @@ class KavitaProgressSyncSupportTest {
     }
 
     @Test
+    fun `other sources' pending progress is left for their own sync`() = runTest {
+        val stumpItem = ReadableItem(
+            id = "stump:item:abc",
+            sourceType = SourceType.STUMP,
+            libraryId = "stump:library:1",
+            remoteId = "abc",
+            title = "Stump Issue",
+            format = FormatType.CBZ,
+            pageCount = 20,
+        )
+        val grimmoryItem = ReadableItem(
+            id = "grimmory:item:7",
+            sourceType = SourceType.GRIMMORY,
+            libraryId = "grimmory:library:2",
+            remoteId = "7",
+            title = "Grimmory Book",
+            format = FormatType.EPUB,
+            pageCount = 0,
+        )
+        val store = TestKavitaReaderSessionStore()
+        store.saveProgress(
+            item = stumpItem,
+            locator = ReaderLocator(locatorType = LocatorType.PAGE, page = 5),
+            syncState = SyncState.DIRTY,
+            updatedAtEpochMillis = 100L,
+        )
+        store.saveProgress(
+            item = grimmoryItem,
+            locator = ReaderLocator(locatorType = LocatorType.PERCENT, percent = 0.0),
+            isExplicitUnreadReset = true,
+            syncState = SyncState.FAILED,
+            updatedAtEpochMillis = 200L,
+        )
+        val api = RecordingKavitaApi(
+            chapterInfo = KavitaChapterInfoDto(
+                libraryId = 5,
+                seriesId = 12,
+                volumeId = 7,
+                pages = 28,
+            ),
+        )
+
+        val result = pushDirtyKavitaProgress(
+            api = api,
+            initialAccessToken = "access-token",
+            initialRefreshToken = null,
+            initialApiKey = null,
+            items = emptyList(),
+            readerSessionStore = store,
+        )
+
+        assertTrue(result.value.isEmpty())
+        assertTrue(api.progressUpdates.isEmpty())
+        assertEquals(SyncState.DIRTY, store.progressByItemIdFlow.value[stumpItem.id]?.syncState)
+        val grimmoryReset = checkNotNull(store.progressByItemIdFlow.value[grimmoryItem.id])
+        assertTrue(grimmoryReset.isExplicitUnreadReset)
+        assertEquals(SyncState.FAILED, grimmoryReset.syncState)
+    }
+
+    @Test
     fun `Kavita upload uses catalog ids without fetching chapter info`() = runTest {
         val item = ReadableItem(
             id = "kavita:item:42",
