@@ -15,18 +15,26 @@ Icons artifacts; a unit test enforces this. UI font: bundled Manrope; icons: Mat
   library presentation-coherence rules.
 - `LIBRARY_DB_PAGING_PLAN.md` is the live handoff for the library paging/performance work.
 - `UI_REDESIGN_PLAN.md` tracks the visual redesign: what's done, what's left, and the design decisions.
+- `APP_REVIEW.md` is the live tracker for the 2026-10-18 app review: the prioritized fix list, what is
+  fixed (with commits), what is next, and the product decisions. Its status section says where work stopped.
 - `CURRENT_STATUS.md`, `ROADMAP.md` and the other plan docs are historical (April-July 2026).
 
 ## Build and test
 
-The agent shell doesn't export `JAVA_HOME`; set it first (Android Studio's bundled JDK 21):
+The agent shell doesn't export `JAVA_HOME`; set it first (Android Studio's bundled JDK 21). A
+`.claude/worktrees/*` checkout has no `local.properties`, so also set `ANDROID_HOME` there:
 
 ```bash
 export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+export ANDROID_HOME=~/Library/Android/sdk_new
 ./gradlew :app:assembleDebug
-./gradlew testDebugUnitTest                      # all modules, ~1000 tests
+./gradlew testDebugUnitTest                      # the Android modules, ~1100 tests
+./gradlew :core:model:test :data:grimmory:test :data:kavita:test :data:stump:test   # the JVM modules, ~120
 ./gradlew :feature:library:testDebugUnitTest     # one module
 ```
+
+- `testDebugUnitTest` skips `core:model`, `data:grimmory`, `data:kavita` and `data:stump`, which are plain
+  Kotlin modules with a `test` task; run both lines for the full suite (CI runs only the first today).
 
 - `app` tests also compile `app/src/sharedTest` (shared with `androidTest`); the ViewModel
   test factory is `createViewModel()` in `AppViewModelTestSupport.kt`.

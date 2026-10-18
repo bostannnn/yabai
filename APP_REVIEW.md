@@ -14,6 +14,27 @@ Baseline: `testDebugUnitTest` passes, 1033 tests, 0 failures.
 
 ## Status
 
+### Where it stopped (2026-10-18, end of the third session)
+
+- **Branch:** the fixes after 0.8.0 are on `claude/app-review-doc-01d75d` (a worktree), branched from `main`
+  at `e1d3558d`. Not pushed, no PR, and not in any release: the 0.8.0 release holds #1-#5 only.
+- **Done:** every P0 item (#1-#6, #41) and, from P1, #7, #8, #10, #12, #13, #14 and #24.
+- **Next, in the suggested order:** #25 (comics marked complete too early), #23 (`__MACOSX` entries and
+  dropped GIF/BMP/AVIF/HEIC pages), then the rest of P1: #9, #15-#19 with #42, #21, #22.
+- **Decided, not built:** #11 (the most recent read wins; see its entry for what to check first) and #20
+  (refresh detects progress from the series list's `PagesRead` and `LatestReadDate`).
+- **Not checked on a device:** #6, #7, #8, #10, #41 (unit tests only); #13 and #14 (paging is Kavita-only and
+  the emulator has no Kavita server); #24 with a real solid CBR (tested against junrar's solid archive);
+  #4 against a live Kavita server. #12 was checked on the emulator with a local EPUB.
+- **New finding, not fixed:** CI (`ci.yml`) runs only `testDebugUnitTest`, which skips the plain-Kotlin
+  modules (`core:model`, `data:grimmory`, `data:kavita`, `data:stump`): their 122 tests never run in CI.
+  Run them with `:core:model:test :data:grimmory:test :data:kavita:test :data:stump:test`.
+- **How each fix was done:** a regression test that fails without the fix (checked by switching the fix
+  off), the full suite including the JVM `test` tasks, then one commit for the fix and one for this file
+  with its hash.
+
+### Fixed
+
 Fixed, each with a regression test that fails without the fix. Full suite with #24: 1223 tests
 (1101 `testDebugUnitTest` + 122 JVM `test`), 0 failures, and `androidTest` compiles.
 
