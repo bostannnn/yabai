@@ -187,6 +187,15 @@ class AppViewModel @Inject constructor(
         )
     }
 
+    fun reorderSources(sourceOrder: List<SourceType>) {
+        navigationController.reorderSources(
+            currentState = uiState,
+            updateState = ::updateUiState,
+            scope = viewModelScope,
+            sourceOrder = sourceOrder,
+        )
+    }
+
     fun moveSourceDown(sourceType: SourceType) {
         navigationController.moveSource(
             currentState = uiState,

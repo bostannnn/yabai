@@ -183,24 +183,43 @@ data class LibraryRefreshTopBarState(
 
 @Composable
 fun SettingsTopBar(
+    title: String,
     onDrawerClick: () -> Unit,
-    onImportLocalFileClick: () -> Unit,
+    onBack: (() -> Unit)?,
 ) {
     ThemedTopBarContainer {
-        Box(
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.Center,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            AppSectionHeader(
-                title = "Settings",
-                onDrawerClick = onDrawerClick,
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .widthIn(max = 280.dp),
-            )
-            LibraryToolbarActions(
-                onImportLocalFileClick = onImportLocalFileClick,
-                modifier = Modifier.align(Alignment.CenterEnd),
+            if (onBack != null) {
+                AppIconButton(
+                    onClick = onBack,
+                    modifier = Modifier.size(36.dp),
+                ) {
+                    Icon(
+                        imageVector = AppIcons.ArrowBack,
+                        contentDescription = "Back to settings",
+                    )
+                }
+            } else {
+                AppIconButton(
+                    onClick = onDrawerClick,
+                    modifier = Modifier.size(36.dp),
+                ) {
+                    Icon(
+                        imageVector = AppIcons.Menu,
+                        contentDescription = "Open navigation drawer",
+                    )
+                }
+            }
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
             )
         }
     }

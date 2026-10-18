@@ -30,4 +30,20 @@ class AppNavigationController @Inject constructor(
             sourceNavigationStateCoordinator.persistSourceOrder(selection.sourceOrder)
         }
     }
+
+    fun reorderSources(
+        currentState: AppUiState,
+        updateState: AppUiStateUpdater,
+        scope: CoroutineScope,
+        sourceOrder: List<SourceType>,
+    ) {
+        val selection = sourceNavigationStateCoordinator.reorderSources(
+            currentState = currentState.toSourceNavigationState(),
+            sourceOrder = sourceOrder,
+        ) ?: return
+        updateState { state -> state.withSourceNavigationState(selection.state) }
+        scope.launch {
+            sourceNavigationStateCoordinator.persistSourceOrder(selection.sourceOrder)
+        }
+    }
 }

@@ -20,6 +20,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -39,11 +41,15 @@ import com.example.unifiedreader.feature.library.shelves.browserState
 import com.example.unifiedreader.feature.library.shelves.rememberLibraryShelfBrowserSearchQuery
 import com.example.unifiedreader.feature.navigation.SourceNavigationDestination
 import com.example.unifiedreader.feature.navigation.SourceNavigationDrawer
-import com.example.unifiedreader.feature.navigation.SourceNavigationSettingsSection
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import com.example.unifiedreader.feature.settings.ServerConnectionAction
+import com.example.unifiedreader.feature.settings.RemoteSourceSettingsActions
+import com.example.unifiedreader.feature.settings.SettingsPage
+import com.example.unifiedreader.feature.settings.SettingsPageSaver
 import com.example.unifiedreader.feature.settings.SettingsScreen
+import com.example.unifiedreader.feature.settings.SourceSettingsEntry
+import com.example.unifiedreader.feature.settings.settingsUsesSidePane
 import com.example.unifiedreader.feature.settings.SyncSettingsItemRow
 import com.example.unifiedreader.feature.settings.SyncSettingsSourceGroup
 import com.example.unifiedreader.feature.settings.SyncSettingsUiState
@@ -90,6 +96,10 @@ fun UnifiedReaderScaffold(
     var activeLibraryShelfBrowserKind by rememberSaveable(uiState.libraryBrowseContextKey) {
         mutableStateOf<LibraryShelfBrowserKind?>(null)
     }
+    var settingsPage by rememberSaveable(stateSaver = SettingsPageSaver) {
+        mutableStateOf<SettingsPage?>(null)
+    }
+    val settingsUsesSidePane = settingsUsesSidePane(LocalConfiguration.current.screenWidthDp)
     var activeLibraryShelfSearchQuery by rememberLibraryShelfBrowserSearchQuery(
         browseContextKey = uiState.libraryBrowseContextKey,
         browserKind = activeLibraryShelfBrowserKind,
@@ -147,6 +157,13 @@ fun UnifiedReaderScaffold(
     }
     BackHandler(enabled = activeLibraryShelfBrowser != null) {
         activeLibraryShelfBrowserKind = null
+    }
+    BackHandler(
+        enabled = uiState.topLevel == TopLevelDestination.Settings &&
+            settingsPage != null &&
+            !settingsUsesSidePane,
+    ) {
+        settingsPage = null
     }
 
     fun updateLibraryDownloadSelectionMode(enabled: Boolean) {
@@ -232,7 +249,11 @@ fun UnifiedReaderScaffold(
                 is SourceNavigationDestination.Source -> viewModel.openLibrarySource(destination.sourceType)
                 is SourceNavigationDestination.KavitaSection -> viewModel.openKavitaLibrarySection(destination.section)
                 SourceNavigationDestination.Journal -> viewModel.onTopLevelSelected(TopLevelDestination.Journal)
-                SourceNavigationDestination.Settings -> viewModel.onTopLevelSelected(TopLevelDestination.Settings)
+                SourceNavigationDestination.Settings -> {
+                    // Picking Settings in the drawer always lands on the hub, even if a page was open.
+                    settingsPage = null
+                    viewModel.onTopLevelSelected(TopLevelDestination.Settings)
+                }
             }
         },
     ) {
@@ -341,51 +362,13 @@ fun UnifiedReaderScaffold(
 
                         TopLevelDestination.Settings -> SettingsRoute(
                             uiState = uiState,
+                            viewModel = viewModel,
+                            page = settingsPage,
+                            onPageChanged = { page -> settingsPage = page },
                             kavitaReadingDirectionLibraries = kavitaReadingDirectionLibraries,
                             stumpReadingDirectionLibraries = stumpReadingDirectionLibraries,
                             kavitaReaderModeLibraries = kavitaReaderModeLibraries,
                             stumpReaderModeLibraries = stumpReaderModeLibraries,
-                            onThemeModeSelected = viewModel::onThemeModeSelected,
-                            onRetrySync = viewModel::retryPendingRemoteSync,
-                            onMoveSourceUp = viewModel::moveSourceUp,
-                            onMoveSourceDown = viewModel::moveSourceDown,
-                            onLibraryFilterPanelsChanged = viewModel::onLibraryFilterPanelsChanged,
-                            onLibraryDirectionSelected = viewModel::onLibraryDirectionSelected,
-                            onLibraryReaderModeSelected = viewModel::onLibraryReaderModeSelected,
-                            onKavitaDisplayNameChanged = viewModel::onKavitaDisplayNameChanged,
-                            onKavitaBaseUrlChanged = viewModel::onKavitaBaseUrlChanged,
-                            onKavitaBackupBaseUrlChanged = viewModel::onKavitaBackupBaseUrlChanged,
-                            onKavitaUsernameChanged = viewModel::onKavitaUsernameChanged,
-                            onKavitaPasswordChanged = viewModel::onKavitaPasswordChanged,
-                            onConnectKavita = viewModel::connectKavitaServer,
-                            onSyncKavita = viewModel::refreshKavitaLibrary,
-                            onFastSyncKavita = viewModel::fastSyncKavitaLibrary,
-                            onPreloadKavitaCovers = { viewModel.preloadCovers(SourceType.KAVITA) },
-                            onRetryFailedKavitaCovers = { viewModel.retryFailedCovers(SourceType.KAVITA) },
-                            onCancelKavitaCoverPreload = { viewModel.cancelCoverPreload(SourceType.KAVITA) },
-                            onClearKavitaCoverCache = { viewModel.clearCachedCovers(SourceType.KAVITA) },
-                            onStumpDisplayNameChanged = viewModel::onStumpDisplayNameChanged,
-                            onStumpBaseUrlChanged = viewModel::onStumpBaseUrlChanged,
-                            onStumpBackupBaseUrlChanged = viewModel::onStumpBackupBaseUrlChanged,
-                            onStumpUsernameChanged = viewModel::onStumpUsernameChanged,
-                            onStumpPasswordChanged = viewModel::onStumpPasswordChanged,
-                            onConnectStump = viewModel::connectStumpServer,
-                            onSyncStump = viewModel::refreshStumpLibrary,
-                            onPreloadStumpCovers = { viewModel.preloadCovers(SourceType.STUMP) },
-                            onRetryFailedStumpCovers = { viewModel.retryFailedCovers(SourceType.STUMP) },
-                            onCancelStumpCoverPreload = { viewModel.cancelCoverPreload(SourceType.STUMP) },
-                            onClearStumpCoverCache = { viewModel.clearCachedCovers(SourceType.STUMP) },
-                            onGrimmoryDisplayNameChanged = viewModel::onGrimmoryDisplayNameChanged,
-                            onGrimmoryBaseUrlChanged = viewModel::onGrimmoryBaseUrlChanged,
-                            onGrimmoryBackupBaseUrlChanged = viewModel::onGrimmoryBackupBaseUrlChanged,
-                            onGrimmoryUsernameChanged = viewModel::onGrimmoryUsernameChanged,
-                            onGrimmoryPasswordChanged = viewModel::onGrimmoryPasswordChanged,
-                            onConnectGrimmory = viewModel::connectGrimmoryServer,
-                            onSyncGrimmory = viewModel::refreshGrimmoryLibrary,
-                            onPreloadGrimmoryCovers = { viewModel.preloadCovers(SourceType.GRIMMORY) },
-                            onRetryFailedGrimmoryCovers = { viewModel.retryFailedCovers(SourceType.GRIMMORY) },
-                            onCancelGrimmoryCoverPreload = { viewModel.cancelCoverPreload(SourceType.GRIMMORY) },
-                            onClearGrimmoryCoverCache = { viewModel.clearCachedCovers(SourceType.GRIMMORY) },
                             contentTopInset = AppTopBarDefaults.contentInset,
                             modifier = Modifier.fillMaxSize(),
                         )
@@ -451,12 +434,17 @@ fun UnifiedReaderScaffold(
                         )
 
                         TopLevelDestination.Settings -> SettingsTopBar(
+                            title = if (settingsUsesSidePane) "Settings" else settingsPage?.title ?: "Settings",
                             onDrawerClick = {
                                 drawerScope.launch {
                                     drawerState.open()
                                 }
                             },
-                            onImportLocalFileClick = onImportLocalFileClick,
+                            onBack = if (settingsPage != null && !settingsUsesSidePane) {
+                                { settingsPage = null }
+                            } else {
+                                null
+                            },
                         )
                     }
                 }
@@ -485,125 +473,108 @@ fun UnifiedReaderScaffold(
 @Composable
 private fun SettingsRoute(
     uiState: AppUiState,
+    viewModel: AppViewModel,
+    page: SettingsPage?,
+    onPageChanged: (SettingsPage?) -> Unit,
     kavitaReadingDirectionLibraries: List<ReadingDirectionLibraryUiState>,
     stumpReadingDirectionLibraries: List<ReadingDirectionLibraryUiState>,
     kavitaReaderModeLibraries: List<ReaderModeLibraryUiState>,
     stumpReaderModeLibraries: List<ReaderModeLibraryUiState>,
-    onThemeModeSelected: (com.example.unifiedreader.feature.settings.ThemeMode) -> Unit,
-    onRetrySync: () -> Unit,
-    onMoveSourceUp: (SourceType) -> Unit,
-    onMoveSourceDown: (SourceType) -> Unit,
-    onLibraryFilterPanelsChanged: (SourceType, List<LibraryFilterPanel>) -> Unit,
-    onLibraryDirectionSelected: (String, ComicReadingDirection) -> Unit,
-    onLibraryReaderModeSelected: (String, ComicReaderMode) -> Unit,
-    onKavitaDisplayNameChanged: (String) -> Unit,
-    onKavitaBaseUrlChanged: (String) -> Unit,
-    onKavitaBackupBaseUrlChanged: (String) -> Unit,
-    onKavitaUsernameChanged: (String) -> Unit,
-    onKavitaPasswordChanged: (String) -> Unit,
-    onConnectKavita: () -> Unit,
-    onSyncKavita: () -> Unit,
-    onFastSyncKavita: () -> Unit,
-    onPreloadKavitaCovers: () -> Unit,
-    onRetryFailedKavitaCovers: () -> Unit,
-    onCancelKavitaCoverPreload: () -> Unit,
-    onClearKavitaCoverCache: () -> Unit,
-    onStumpDisplayNameChanged: (String) -> Unit,
-    onStumpBaseUrlChanged: (String) -> Unit,
-    onStumpBackupBaseUrlChanged: (String) -> Unit,
-    onStumpUsernameChanged: (String) -> Unit,
-    onStumpPasswordChanged: (String) -> Unit,
-    onConnectStump: () -> Unit,
-    onSyncStump: () -> Unit,
-    onPreloadStumpCovers: () -> Unit,
-    onRetryFailedStumpCovers: () -> Unit,
-    onCancelStumpCoverPreload: () -> Unit,
-    onClearStumpCoverCache: () -> Unit,
-    onGrimmoryDisplayNameChanged: (String) -> Unit,
-    onGrimmoryBaseUrlChanged: (String) -> Unit,
-    onGrimmoryBackupBaseUrlChanged: (String) -> Unit,
-    onGrimmoryUsernameChanged: (String) -> Unit,
-    onGrimmoryPasswordChanged: (String) -> Unit,
-    onConnectGrimmory: () -> Unit,
-    onSyncGrimmory: () -> Unit,
-    onPreloadGrimmoryCovers: () -> Unit,
-    onRetryFailedGrimmoryCovers: () -> Unit,
-    onCancelGrimmoryCoverPreload: () -> Unit,
-    onClearGrimmoryCoverCache: () -> Unit,
     contentTopInset: Dp = 0.dp,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
+    val versionName = remember(context) {
+        runCatching {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName
+        }.getOrNull().orEmpty()
+    }
+    val sources = listOf(
+        SourceSettingsEntry(
+            sourceType = SourceType.KAVITA,
+            connection = uiState.kavitaConnection,
+            connectivity = uiState.sourceConnectivityBySource[SourceType.KAVITA] ?: SourceConnectivityState.Unknown,
+            readingDirectionLibraries = kavitaReadingDirectionLibraries,
+            readerModeLibraries = kavitaReaderModeLibraries,
+            actions = RemoteSourceSettingsActions(
+                onDisplayNameChanged = viewModel::onKavitaDisplayNameChanged,
+                onBaseUrlChanged = viewModel::onKavitaBaseUrlChanged,
+                onBackupBaseUrlChanged = viewModel::onKavitaBackupBaseUrlChanged,
+                onUsernameChanged = viewModel::onKavitaUsernameChanged,
+                onPasswordChanged = viewModel::onKavitaPasswordChanged,
+                onConnect = viewModel::connectKavitaServer,
+                onSync = viewModel::refreshKavitaLibrary,
+                onFastSync = viewModel::fastSyncKavitaLibrary,
+                onPreloadCovers = { viewModel.preloadCovers(SourceType.KAVITA) },
+                onRetryFailedCovers = { viewModel.retryFailedCovers(SourceType.KAVITA) },
+                onCancelCoverPreload = { viewModel.cancelCoverPreload(SourceType.KAVITA) },
+                onClearCoverCache = { viewModel.clearCachedCovers(SourceType.KAVITA) },
+            ),
+        ),
+        SourceSettingsEntry(
+            sourceType = SourceType.GRIMMORY,
+            connection = uiState.grimmoryConnection,
+            connectivity = uiState.sourceConnectivityBySource[SourceType.GRIMMORY] ?: SourceConnectivityState.Unknown,
+            actions = RemoteSourceSettingsActions(
+                onDisplayNameChanged = viewModel::onGrimmoryDisplayNameChanged,
+                onBaseUrlChanged = viewModel::onGrimmoryBaseUrlChanged,
+                onBackupBaseUrlChanged = viewModel::onGrimmoryBackupBaseUrlChanged,
+                onUsernameChanged = viewModel::onGrimmoryUsernameChanged,
+                onPasswordChanged = viewModel::onGrimmoryPasswordChanged,
+                onConnect = viewModel::connectGrimmoryServer,
+                onSync = viewModel::refreshGrimmoryLibrary,
+                onPreloadCovers = { viewModel.preloadCovers(SourceType.GRIMMORY) },
+                onRetryFailedCovers = { viewModel.retryFailedCovers(SourceType.GRIMMORY) },
+                onCancelCoverPreload = { viewModel.cancelCoverPreload(SourceType.GRIMMORY) },
+                onClearCoverCache = { viewModel.clearCachedCovers(SourceType.GRIMMORY) },
+            ),
+        ),
+        SourceSettingsEntry(
+            sourceType = SourceType.STUMP,
+            connection = uiState.stumpConnection,
+            connectivity = uiState.sourceConnectivityBySource[SourceType.STUMP] ?: SourceConnectivityState.Unknown,
+            readingDirectionLibraries = stumpReadingDirectionLibraries,
+            readerModeLibraries = stumpReaderModeLibraries,
+            actions = RemoteSourceSettingsActions(
+                onDisplayNameChanged = viewModel::onStumpDisplayNameChanged,
+                onBaseUrlChanged = viewModel::onStumpBaseUrlChanged,
+                onBackupBaseUrlChanged = viewModel::onStumpBackupBaseUrlChanged,
+                onUsernameChanged = viewModel::onStumpUsernameChanged,
+                onPasswordChanged = viewModel::onStumpPasswordChanged,
+                onConnect = viewModel::connectStumpServer,
+                onSync = viewModel::refreshStumpLibrary,
+                onPreloadCovers = { viewModel.preloadCovers(SourceType.STUMP) },
+                onRetryFailedCovers = { viewModel.retryFailedCovers(SourceType.STUMP) },
+                onCancelCoverPreload = { viewModel.cancelCoverPreload(SourceType.STUMP) },
+                onClearCoverCache = { viewModel.clearCachedCovers(SourceType.STUMP) },
+            ),
+        ),
+    )
     AppBackground(
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.background,
     ) {
         SettingsScreen(
-            contentTopInset = contentTopInset,
+            page = page,
+            onPageChanged = onPageChanged,
             themeMode = uiState.themeMode,
-            kavitaReadingDirectionLibraries = kavitaReadingDirectionLibraries,
-            stumpReadingDirectionLibraries = stumpReadingDirectionLibraries,
-            kavitaReaderModeLibraries = kavitaReaderModeLibraries,
-            stumpReaderModeLibraries = stumpReaderModeLibraries,
-            kavitaConnection = uiState.kavitaConnection,
-            stumpConnection = uiState.stumpConnection,
-            grimmoryConnection = uiState.grimmoryConnection,
-            syncSettings = uiState.pendingRemoteSyncSummary.toSyncSettingsUiState(),
-            onThemeModeSelected = onThemeModeSelected,
-            onRetrySync = onRetrySync,
+            onThemeModeSelected = viewModel::onThemeModeSelected,
+            sources = sources,
+            sourceOrder = uiState.sourceOrder,
+            onSourceOrderChanged = viewModel::reorderSources,
             libraryFilterPanelsBySource = SourceType.entries.associateWith { sourceType ->
                 resolveLibraryFilterPanels(
                     sourceType = sourceType,
                     preferredPanels = uiState.libraryFilterPanelsBySource[sourceType],
                 )
             },
-            onLibraryFilterPanelsChanged = onLibraryFilterPanelsChanged,
-            supplementarySection = com.example.unifiedreader.feature.settings.SettingsSupplementarySection(
-                id = "navigation",
-                title = "Navigation",
-                content = {
-                    SourceNavigationSettingsSection(
-                        sourceOrder = uiState.sourceOrder,
-                        onMoveSourceUp = onMoveSourceUp,
-                        onMoveSourceDown = onMoveSourceDown,
-                    )
-                },
-            ),
-            onLibraryDirectionSelected = onLibraryDirectionSelected,
-            onLibraryReaderModeSelected = onLibraryReaderModeSelected,
-            onKavitaDisplayNameChanged = onKavitaDisplayNameChanged,
-            onKavitaBaseUrlChanged = onKavitaBaseUrlChanged,
-            onKavitaBackupBaseUrlChanged = onKavitaBackupBaseUrlChanged,
-            onKavitaUsernameChanged = onKavitaUsernameChanged,
-            onKavitaPasswordChanged = onKavitaPasswordChanged,
-            onConnectKavita = onConnectKavita,
-            onSyncKavita = onSyncKavita,
-            onFastSyncKavita = onFastSyncKavita,
-            onPreloadKavitaCovers = onPreloadKavitaCovers,
-            onRetryFailedKavitaCovers = onRetryFailedKavitaCovers,
-            onCancelKavitaCoverPreload = onCancelKavitaCoverPreload,
-            onClearKavitaCoverCache = onClearKavitaCoverCache,
-            onStumpDisplayNameChanged = onStumpDisplayNameChanged,
-            onStumpBaseUrlChanged = onStumpBaseUrlChanged,
-            onStumpBackupBaseUrlChanged = onStumpBackupBaseUrlChanged,
-            onStumpUsernameChanged = onStumpUsernameChanged,
-            onStumpPasswordChanged = onStumpPasswordChanged,
-            onConnectStump = onConnectStump,
-            onSyncStump = onSyncStump,
-            onPreloadStumpCovers = onPreloadStumpCovers,
-            onRetryFailedStumpCovers = onRetryFailedStumpCovers,
-            onCancelStumpCoverPreload = onCancelStumpCoverPreload,
-            onClearStumpCoverCache = onClearStumpCoverCache,
-            onGrimmoryDisplayNameChanged = onGrimmoryDisplayNameChanged,
-            onGrimmoryBaseUrlChanged = onGrimmoryBaseUrlChanged,
-            onGrimmoryBackupBaseUrlChanged = onGrimmoryBackupBaseUrlChanged,
-            onGrimmoryUsernameChanged = onGrimmoryUsernameChanged,
-            onGrimmoryPasswordChanged = onGrimmoryPasswordChanged,
-            onConnectGrimmory = onConnectGrimmory,
-            onSyncGrimmory = onSyncGrimmory,
-            onPreloadGrimmoryCovers = onPreloadGrimmoryCovers,
-            onRetryFailedGrimmoryCovers = onRetryFailedGrimmoryCovers,
-            onCancelGrimmoryCoverPreload = onCancelGrimmoryCoverPreload,
-            onClearGrimmoryCoverCache = onClearGrimmoryCoverCache,
+            onLibraryFilterPanelsChanged = viewModel::onLibraryFilterPanelsChanged,
+            syncSettings = uiState.pendingRemoteSyncSummary.toSyncSettingsUiState(),
+            onRetrySync = viewModel::retryPendingRemoteSync,
+            onLibraryDirectionSelected = viewModel::onLibraryDirectionSelected,
+            onLibraryReaderModeSelected = viewModel::onLibraryReaderModeSelected,
+            versionName = versionName,
+            contentTopInset = contentTopInset,
         )
     }
 }

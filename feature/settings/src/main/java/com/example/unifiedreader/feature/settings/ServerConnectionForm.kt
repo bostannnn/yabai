@@ -7,8 +7,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -17,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -70,75 +71,76 @@ internal fun buildServerConnectionActionState(
     )
 }
 
+/** The "Server" group of a source page: address and credentials, then one Connect button. */
 @Composable
 internal fun ServerConnectionForm(
     state: ServerConnectionFormState,
-    connectLabel: String,
-    syncLabel: String,
     onDisplayNameChanged: (String) -> Unit,
     onBaseUrlChanged: (String) -> Unit,
     onBackupBaseUrlChanged: (String) -> Unit,
     onUsernameChanged: (String) -> Unit,
     onPasswordChanged: (String) -> Unit,
     onConnect: () -> Unit,
-    onSync: () -> Unit,
-    secondarySyncLabel: String? = null,
-    onSecondarySync: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
 ) {
     var isPasswordVisible by rememberSaveable { mutableStateOf(false) }
     val actionState = buildServerConnectionActionState(state)
+    val fieldsEnabled = !state.isConnecting
 
-    BoxWithConstraints {
-        val layout = resolveSettingsAdaptiveLayout(maxWidth.value.toInt())
-
-        Column(
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            if (layout.useTwoColumnServerForm) {
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        run {
+            val layout = resolveSettingsAdaptiveLayout(maxWidth.value.toInt())
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
                 AppTextField(
                     value = state.displayName,
                     onValueChange = onDisplayNameChanged,
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !state.isConnecting,
+                    enabled = fieldsEnabled,
                     singleLine = true,
                     label = { Text("Name") },
                 )
-                ServerFormFieldRow(
-                    start = {
+                ServerFormFields(
+                    twoColumns = layout.useTwoColumnServerForm,
+                    first = {
                         AppTextField(
                             value = state.baseUrl,
                             onValueChange = onBaseUrlChanged,
                             modifier = Modifier.fillMaxWidth(),
-                            enabled = !state.isConnecting,
+                            enabled = fieldsEnabled,
                             singleLine = true,
                             label = { Text("Server URL") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                         )
                     },
-                    end = {
+                    second = {
                         AppTextField(
                             value = state.backupBaseUrl,
                             onValueChange = onBackupBaseUrlChanged,
                             modifier = Modifier.fillMaxWidth(),
-                            enabled = !state.isConnecting,
+                            enabled = fieldsEnabled,
                             singleLine = true,
-                            label = { Text("Backup URL (optional)") },
+                            label = { Text("Backup URL") },
+                            placeholder = { Text("Optional") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                         )
                     },
                 )
-                ServerFormFieldRow(
-                    start = {
+                ServerFormFields(
+                    twoColumns = layout.useTwoColumnServerForm,
+                    first = {
                         AppTextField(
                             value = state.username,
                             onValueChange = onUsernameChanged,
                             modifier = Modifier.fillMaxWidth(),
-                            enabled = !state.isConnecting,
+                            enabled = fieldsEnabled,
                             singleLine = true,
                             label = { Text("Username") },
                         )
                     },
-                    end = {
+                    second = {
                         ServerPasswordField(
                             password = state.password,
                             hasStoredSession = state.hasStoredSession,
@@ -149,145 +151,56 @@ internal fun ServerConnectionForm(
                         )
                     },
                 )
-            } else {
-                AppTextField(
-                    value = state.displayName,
-                    onValueChange = onDisplayNameChanged,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !state.isConnecting,
-                    singleLine = true,
-                    label = { Text("Name") },
-                )
-                AppTextField(
-                    value = state.baseUrl,
-                    onValueChange = onBaseUrlChanged,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !state.isConnecting,
-                    singleLine = true,
-                    label = { Text("Server URL") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                )
-                AppTextField(
-                    value = state.backupBaseUrl,
-                    onValueChange = onBackupBaseUrlChanged,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !state.isConnecting,
-                    singleLine = true,
-                    label = { Text("Backup URL (optional)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                )
-                AppTextField(
-                    value = state.username,
-                    onValueChange = onUsernameChanged,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !state.isConnecting,
-                    singleLine = true,
-                    label = { Text("Username") },
-                )
-            }
-            if (!layout.useTwoColumnServerForm) {
-                ServerPasswordField(
-                    password = state.password,
-                    hasStoredSession = state.hasStoredSession,
-                    isConnecting = state.isConnecting,
-                    isPasswordVisible = isPasswordVisible,
-                    onPasswordVisibilityChanged = { isPasswordVisible = it },
-                    onPasswordChanged = onPasswordChanged,
-                )
-            }
-            if (actionState.showSyncButton) {
-                if (layout.useTwoColumnServerForm) {
-                    ServerFormFieldRow(
-                        start = {
-                            AppButton(
-                                onClick = onConnect,
-                                enabled = state.canConnect,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = SettingsActionButtonMinHeight),
-                            ) {
-                                if (actionState.activeAction == ServerConnectionAction.Connect) {
-                                    SettingsButtonProgressIndicator()
-                                } else {
-                                    Text(connectLabel)
-                                }
-                            }
-                        },
-                        end = {
-                            ServerSyncButtons(
-                                syncLabel = syncLabel,
-                                secondarySyncLabel = secondarySyncLabel,
-                                actionState = actionState,
-                                onSync = onSync,
-                                onSecondarySync = onSecondarySync,
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        val connecting = actionState.activeAction == ServerConnectionAction.Connect
+                        if (connecting && state.syncProgressLabel != null) {
+                            AppLinearProgress(
+                                progress = { state.syncProgressFraction ?: 0f },
+                                modifier = Modifier.fillMaxWidth(),
                             )
-                        },
-                    )
-                } else {
+                            Text(
+                                text = state.syncProgressLabel,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        } else {
+                            Text(
+                                text = state.message ?: if (state.hasStoredSession) {
+                                    "Signed in. Reconnect after changing the address or account."
+                                } else {
+                                    "Sign in to sync this server's libraries."
+                                },
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (state.isError && state.message != null) {
+                                    MaterialTheme.colorScheme.error
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                            )
+                        }
+                    }
                     AppButton(
                         onClick = onConnect,
                         enabled = state.canConnect,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = SettingsActionButtonMinHeight),
+                        modifier = Modifier.heightIn(min = SettingsActionButtonMinHeight),
                     ) {
                         if (actionState.activeAction == ServerConnectionAction.Connect) {
                             SettingsButtonProgressIndicator()
                         } else {
-                            Text(connectLabel)
+                            Text(if (state.hasStoredSession) "Reconnect" else "Connect")
                         }
                     }
-                    ServerSyncButtons(
-                        syncLabel = syncLabel,
-                        secondarySyncLabel = secondarySyncLabel,
-                        actionState = actionState,
-                        onSync = onSync,
-                        onSecondarySync = onSecondarySync,
-                    )
                 }
-            } else {
-                AppButton(
-                    onClick = onConnect,
-                    enabled = state.canConnect,
-                    modifier = if (layout.useTwoColumnServerForm) {
-                        Modifier
-                            .fillMaxWidth()
-                            .widthIn(max = 240.dp)
-                            .heightIn(min = SettingsActionButtonMinHeight)
-                    } else {
-                        Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = SettingsActionButtonMinHeight)
-                    },
-                ) {
-                    if (actionState.activeAction == ServerConnectionAction.Connect) {
-                        SettingsButtonProgressIndicator()
-                    } else {
-                        Text(connectLabel)
-                    }
-                }
-            }
-            if (state.isConnecting && state.syncProgressLabel != null) {
-                AppLinearProgress(
-                    progress = { state.syncProgressFraction ?: 0f },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Text(
-                    text = state.syncProgressLabel,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            state.message?.let { message ->
-                Text(
-                    text = message,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (state.isError) {
-                        MaterialTheme.colorScheme.error
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                )
             }
         }
     }
@@ -299,67 +212,6 @@ internal fun SettingsButtonProgressIndicator() {
         modifier = Modifier.size(SettingsButtonProgressIndicatorSize),
         strokeWidth = 2.dp,
     )
-}
-
-@Composable
-private fun ServerSyncButtons(
-    syncLabel: String,
-    secondarySyncLabel: String?,
-    actionState: ServerConnectionActionState,
-    onSync: () -> Unit,
-    onSecondarySync: (() -> Unit)?,
-) {
-    if (secondarySyncLabel == null || onSecondarySync == null) {
-        AppButton(
-            onClick = onSync,
-            enabled = actionState.canSync,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = SettingsActionButtonMinHeight),
-        ) {
-            if (actionState.activeAction == ServerConnectionAction.Sync) {
-                SettingsButtonProgressIndicator()
-            } else {
-                Text(syncLabel)
-            }
-        }
-        return
-    }
-
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        AppButton(
-            onClick = onSync,
-            enabled = actionState.canSync,
-            modifier = Modifier
-                .weight(1f)
-                .heightIn(min = SettingsActionButtonMinHeight),
-        ) {
-            if (actionState.activeAction == ServerConnectionAction.Sync) {
-                SettingsButtonProgressIndicator()
-            } else {
-                Text(syncLabel)
-            }
-        }
-        AppButton(
-            onClick = onSecondarySync,
-            enabled = actionState.canSync,
-            modifier = Modifier
-                .weight(1f)
-                .heightIn(min = SettingsActionButtonMinHeight),
-        ) {
-            if (
-                actionState.activeAction == ServerConnectionAction.FullSync ||
-                actionState.activeAction == ServerConnectionAction.FastSync
-            ) {
-                SettingsButtonProgressIndicator()
-            } else {
-                Text(secondarySyncLabel)
-            }
-        }
-    }
 }
 
 internal val SettingsActionButtonMinHeight = 40.dp
@@ -380,7 +232,8 @@ private fun ServerPasswordField(
         modifier = Modifier.fillMaxWidth(),
         enabled = !isConnecting,
         singleLine = true,
-        label = { Text(if (hasStoredSession) "Password (optional)" else "Password") },
+        label = { Text("Password") },
+        placeholder = { if (hasStoredSession) Text("Saved") },
         visualTransformation = if (isPasswordVisible) {
             VisualTransformation.None
         } else {
@@ -399,19 +252,21 @@ private fun ServerPasswordField(
 }
 
 @Composable
-private fun ServerFormFieldRow(
-    start: @Composable () -> Unit,
-    end: @Composable () -> Unit,
+private fun ServerFormFields(
+    twoColumns: Boolean,
+    first: @Composable () -> Unit,
+    second: @Composable () -> Unit,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Box(modifier = Modifier.weight(1f)) {
-            start()
+    if (twoColumns) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Box(modifier = Modifier.weight(1f)) { first() }
+            Box(modifier = Modifier.weight(1f)) { second() }
         }
-        Box(modifier = Modifier.weight(1f)) {
-            end()
-        }
+    } else {
+        first()
+        second()
     }
 }
