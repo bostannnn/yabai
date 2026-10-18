@@ -81,6 +81,7 @@ class KavitaProgressSyncService @Inject constructor(
                 initialApiKey = activeSession.apiKey,
                 items = kavitaItems,
                 readerSessionStore = readerSessionStore,
+                itemsAreWholeCatalog = false,
             )
             result.refreshedSession?.let { refreshedSession ->
                 kavitaCredentialStore.save(

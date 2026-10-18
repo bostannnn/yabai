@@ -23,6 +23,9 @@ internal suspend fun pushDirtyKavitaProgress(
     initialApiKey: String?,
     items: List<com.example.unifiedreader.core.model.ReadableItem>,
     readerSessionStore: ReaderSessionStore,
+    // True only when `items` is the whole Kavita catalog (a catalog sync), so a dirty snapshot
+    // missing from it was deleted on the server. A pending flush passes a subset.
+    itemsAreWholeCatalog: Boolean,
 ): KavitaTokenRefreshResult<List<Throwable>> {
     var activeAccessToken = initialAccessToken
     var activeRefreshToken = initialRefreshToken
@@ -40,6 +43,8 @@ internal suspend fun pushDirtyKavitaProgress(
     dirtyProgress.forEach { progress ->
         val item = itemById[progress.itemId]
         if (item == null) {
+            // Outside this batch: leave it for a later push.
+            if (!itemsAreWholeCatalog) return@forEach
             // A Kavita chapter missing from the catalog was removed on the server; stop retrying it.
             readerSessionStore.replaceProgressIfCurrent(
                 expected = progress,

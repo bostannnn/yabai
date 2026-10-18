@@ -69,6 +69,7 @@ class KavitaProgressSyncSupportTest {
             initialApiKey = null,
             items = listOf(item),
             readerSessionStore = store,
+            itemsAreWholeCatalog = true,
         )
 
         assertEquals(1, api.progressUpdates.size)
@@ -113,6 +114,7 @@ class KavitaProgressSyncSupportTest {
             initialApiKey = null,
             items = listOf(item),
             readerSessionStore = store,
+            itemsAreWholeCatalog = true,
         )
 
         val snapshot = checkNotNull(store.progressByItemIdFlow.value[item.id])
@@ -169,6 +171,7 @@ class KavitaProgressSyncSupportTest {
             initialApiKey = null,
             items = listOf(item),
             readerSessionStore = store,
+            itemsAreWholeCatalog = true,
         )
 
         val snapshot = checkNotNull(store.progressByItemIdFlow.value[item.id])
@@ -215,6 +218,7 @@ class KavitaProgressSyncSupportTest {
             initialApiKey = null,
             items = listOf(item),
             readerSessionStore = store,
+            itemsAreWholeCatalog = true,
         )
 
         val snapshot = checkNotNull(store.progressByItemIdFlow.value[item.id])
@@ -259,6 +263,7 @@ class KavitaProgressSyncSupportTest {
             initialApiKey = null,
             items = emptyList(),
             readerSessionStore = store,
+            itemsAreWholeCatalog = true,
         )
 
         val snapshot = checkNotNull(store.progressByItemIdFlow.value[item.id])
@@ -266,6 +271,70 @@ class KavitaProgressSyncSupportTest {
         assertTrue(api.progressUpdates.isEmpty())
         assertEquals(0, api.chapterInfoRequests)
         assertEquals(SyncState.CLEAN, snapshot.syncState)
+    }
+
+    @Test
+    fun `pending flush leaves Kavita progress outside its batch dirty`() = runTest {
+        val flushedItem = ReadableItem(
+            id = "kavita:item:42",
+            sourceType = SourceType.KAVITA,
+            libraryId = "kavita:library:5",
+            remoteId = "42",
+            remoteFileId = "7",
+            remoteFileType = "12",
+            title = "Chapter 42",
+            format = FormatType.CBZ,
+            pageCount = 28,
+        )
+        val otherItem = flushedItem.copy(id = "kavita:item:43", remoteId = "43", title = "Chapter 43")
+        val store = TestKavitaReaderSessionStore()
+        store.saveProgress(
+            item = flushedItem,
+            locator = ReaderLocator(locatorType = LocatorType.PAGE, page = 3),
+            syncState = SyncState.DIRTY,
+            updatedAtEpochMillis = 100L,
+        )
+        store.saveProgress(
+            item = otherItem,
+            locator = ReaderLocator(locatorType = LocatorType.PAGE, page = 9),
+            syncState = SyncState.FAILED,
+            updatedAtEpochMillis = 200L,
+        )
+        store.saveProgress(
+            item = otherItem.copy(id = "kavita:item:44", remoteId = "44"),
+            locator = ReaderLocator(locatorType = LocatorType.PERCENT, percent = 0.0),
+            isExplicitUnreadReset = true,
+            syncState = SyncState.DIRTY,
+            updatedAtEpochMillis = 300L,
+        )
+        val api = RecordingKavitaApi(
+            chapterInfo = KavitaChapterInfoDto(
+                libraryId = 5,
+                seriesId = 12,
+                volumeId = 7,
+                pages = 28,
+            ),
+        )
+
+        val result = pushDirtyKavitaProgress(
+            api = api,
+            initialAccessToken = "access-token",
+            initialRefreshToken = null,
+            initialApiKey = null,
+            items = listOf(flushedItem),
+            readerSessionStore = store,
+            itemsAreWholeCatalog = false,
+        )
+
+        assertTrue(result.value.isEmpty())
+        assertEquals(listOf(42), api.progressUpdates.map(KavitaProgressUpdate::chapterId))
+        val progress = store.progressByItemIdFlow.value
+        assertEquals(SyncState.CLEAN, progress[flushedItem.id]?.syncState)
+        assertEquals(SyncState.FAILED, progress[otherItem.id]?.syncState)
+        assertEquals(9, progress[otherItem.id]?.page)
+        val unreadReset = checkNotNull(progress["kavita:item:44"])
+        assertTrue(unreadReset.isExplicitUnreadReset)
+        assertEquals(SyncState.DIRTY, unreadReset.syncState)
     }
 
     @Test
@@ -318,6 +387,7 @@ class KavitaProgressSyncSupportTest {
             initialApiKey = null,
             items = emptyList(),
             readerSessionStore = store,
+            itemsAreWholeCatalog = true,
         )
 
         assertTrue(result.value.isEmpty())
@@ -367,6 +437,7 @@ class KavitaProgressSyncSupportTest {
             initialApiKey = null,
             items = listOf(item),
             readerSessionStore = store,
+            itemsAreWholeCatalog = true,
         )
 
         val update = api.progressUpdates.single()
@@ -418,6 +489,7 @@ class KavitaProgressSyncSupportTest {
             initialApiKey = null,
             items = listOf(item),
             readerSessionStore = store,
+            itemsAreWholeCatalog = true,
         )
 
         val update = api.progressUpdates.single()
@@ -464,6 +536,7 @@ class KavitaProgressSyncSupportTest {
                 initialApiKey = null,
                 items = listOf(item),
                 readerSessionStore = store,
+                itemsAreWholeCatalog = true,
             )
             fail("Expected CancellationException")
         } catch (exception: CancellationException) {

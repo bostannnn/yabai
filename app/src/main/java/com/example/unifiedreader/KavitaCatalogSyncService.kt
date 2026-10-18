@@ -402,6 +402,7 @@ class KavitaCatalogSyncService(
             initialApiKey = initialApiKey,
             items = items,
             readerSessionStore = store,
+            itemsAreWholeCatalog = true,
         )
     }
 
