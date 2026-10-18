@@ -19,9 +19,9 @@ Baseline: `testDebugUnitTest` passes, 1033 tests, 0 failures.
 - **Branch:** the fixes after 0.8.0 were made on `claude/app-review-doc-01d75d` and fast-forwarded into the
   local `main` on 2026-10-18. `main` is not pushed to `origin`, and the fixes are in no release yet: the 0.8.0
   release holds #1-#5 only.
-- **Done:** every P0 item (#1-#6, #41) and, from P1, #7, #8, #10, #12, #13, #14 and #24.
-- **Next, in the suggested order:** #25 (comics marked complete too early), #23 (`__MACOSX` entries and
-  dropped GIF/BMP/AVIF/HEIC pages), then the rest of P1: #9, #15-#19 with #42, #21, #22.
+- **Done:** every P0 item (#1-#6, #41) and, from P1, #7, #8, #10, #12, #13, #14, #24 and #25.
+- **Next, in the suggested order:** #23 (`__MACOSX` entries and dropped GIF/BMP/AVIF/HEIC pages), then the
+  rest of P1: #9, #15-#19 with #42, #21, #22.
 - **Decided, not built:** #11 (the most recent read wins; see its entry for what to check first) and #20
   (refresh detects progress from the series list's `PagesRead` and `LatestReadDate`).
 - **Not checked on a device:** #6, #7, #8, #41 (unit tests only); #10 (no reachable source on the tablet has an
@@ -41,8 +41,8 @@ Baseline: `testDebugUnitTest` passes, 1033 tests, 0 failures.
 
 ### Fixed
 
-Fixed, each with a regression test that fails without the fix. Full suite with #24: 1223 tests
-(1101 `testDebugUnitTest` + 122 JVM `test`), 0 failures, and `androidTest` compiles.
+Fixed, each with a regression test that fails without the fix. Full suite with #25: 1225 tests
+(1103 `testDebugUnitTest` + 122 JVM `test`), 0 failures.
 
 - #1 EPUB reader crash on activity recreation (`faa5bd4b`). Checked on the emulator.
 - #2 Kavita sync dropping other sources' progress (`7651eab8`).
@@ -57,6 +57,7 @@ Fixed, each with a regression test that fails without the fix. Full suite with #
 - #10 Downloaded remote EPUB opening before its progress pull (`ef693736`). When the source is reachable, a downloaded EPUB or PDF now opens after its progress pull, bounded at 2 s, and opens anyway on a failure or timeout; both readers restore their position once and ignore a later pull. PDF had the same gap. Downloaded comics still open at once, since they now follow a late pull (#7). Offline opens are unchanged (no pull is attempted). Unit tests only.
 - #13 Paged-library covers not loading after a rail jump or a deep scroll (`a2275a42`). The visible-cover prefetcher now looks grid slots up in the paging snapshot list, which keeps unloaded placeholders as nulls at their positions, instead of its compacted `items`, which shifted every slot after a jump or once leading pages were dropped. Checked on the tablet against the live Kavita server: after rail jumps to S and to W every visible cover loaded, and the log showed them being fetched, not served from the cache.
 - #14 Paged-library scroll position lost on return (`7ab1f02f`). The ViewModel keeps the pager of the current source, sort and filters (`LibraryGridPagingCache`), so coming back to the same view reuses its loaded pages; asking for another view cancels the old pager, where each request used to add a `cachedIn(viewModelScope)` pager that ran for the ViewModel's lifetime. The screen holds the saved position, without reporting the clamped one, until the grid can reach it: it waits for the first load, reads the last loaded slot to append more pages when placeholders are off (Last read, Date added), then scrolls there; a drag or fling, or a view that shrank below the saved index, ends the wait. The decision is unit-tested (`libraryScrollRestoreStep`). Checked on the tablet on Title (a rail sort): the position survived returning from a series view, from the reader (opened from a series), and from a switch to Grimmory and back. Not checked on Last read or Date added, which page without placeholders.
+- #25 Comics marked complete too early (`6d0b6f28`). Webtoon mode: the reading position is the page at the top of the viewport, and the last page takes over only once the strip is scrolled to its end (a short last page never reaches the top); before, its top edge coming into view made it the position, so the debounced save marked the book finished and opened the completion dialog. Reaching the end still finishes the book and opens the dialog, as reaching the last page does in paged mode. Paged mode: the swipe past the last spread is decided on release, one finger only, at least 48 dp, mostly horizontal and in the reading direction; before, it fired mid-gesture past the touch slop, so the first finger of a pinch qualified. Unit tests only.
 - #24 Solid CBRs decoding only their first page (`f841d280`). A file flagged solid continues the stream of the files before it, so the first read of one extracts the whole archive once, in order, through one junrar `Archive` into `cache/comic-archives-solid/`, and every later page reads from there; files not flagged solid (usually the first, often the cover) keep the direct read. The two most recent extractions are kept, and clearing the RAR cache clears them too. junrar reuses its decoder across `extractFile` calls on one `Archive` and resets it only for non-solid headers (checked in the 7.5.5 bytecode). Tested against a real solid archive: junrar's own `rar4-solid.rar` (464 bytes, now in `app/src/test/resources/comic-archives/`), whose later files fail from a fresh `Archive`; every file now reads through `RarComicArchiveCodec`, and the test fails without the fix. The cache logic is also tested with a fake archive. Not checked with a real solid CBR on a device. RAR5 is still unsupported (section 4).
 
 #41, #8 and #12 were done in that order (third session) because restoring a reader at cold start is what
@@ -68,9 +69,10 @@ had lost the book. The 0.8.0 build at `aeb722a2` reopened in the book. Back then
 library and cleared the saved book, and the crash log stayed empty. Not checked: a remote book or a
 series sub-screen (no server on the emulator); the unit tests cover those.
 
-Next is #25, comics marked complete too early. Learned while fixing these:
+Next is #23, `__MACOSX` entries and dropped page formats. Learned while fixing these:
 
 - **Process death (#12):** after process death the app opened on the library, not the book. Seen on the emulator; fixed in `d6829c2c`.
+- **Hanging suite:** `SourceNavigationPreferencesStoreTest`'s IO-retry test could wait forever: with a 0 ms retry delay the store's startup fallback was replaced before the test saw it. It hung the suite for 30 minutes during #25; made deterministic in `bfdc4440`.
 - **"0% · 1/2" label:** the library's progress label and the early "finished" flag have the same cause as #21. Readium reports progression at position starts, and the reader marks a book finished once it reaches the last position's start. A 2-position test book was marked finished at 50%.
 
 ### Verification pass, 2026-10-18 (second session)
@@ -136,7 +138,7 @@ How the list is ordered:
 22. The EPUB footnote heuristic hijacks TOC and appendix links; external links do nothing.
 23. Comic archives: `__MACOSX` junk entries become pages, and GIF/BMP/AVIF/HEIC pages are dropped.
 24. Solid CBRs decode only their first page. Fixed `f841d280`.
-25. Comics are marked complete too early: the top edge of the last page in webtoon mode, or a small swipe on the last page.
+25. Comics are marked complete too early: the top edge of the last page in webtoon mode, or a small swipe on the last page. Fixed `6d0b6f28`.
 42. A Wi-Fi to cellular handoff leaves Kavita marked Offline until a manual refresh: the automatic re-probe only runs after connectivity was reported false, which the network callback never emits while another network is already up. Pairs with #19.
 
 **P2: correctness, less frequent**
@@ -170,7 +172,7 @@ How the list is ordered:
 
 The unfinished features in section 4 are feature work that needs product decisions, so they don't get fix sessions.
 
-Suggested order after the second pass: 6, 41, 7, 10, 13, 14, 24, 25, 23, then the rest of P1. 6, 41, 7, 10, 13, 14, 24, 8 and 12 are done; 25 is next.
+Suggested order after the second pass: 6, 41, 7, 10, 13, 14, 24, 25, 23, then the rest of P1. 6, 41, 7, 10, 13, 14, 24, 25, 8 and 12 are done; 23 is next.
 
 Decisions, 2026-10-18: #11 most recent read wins; #20 uses the series read fields; #41, then #8, then #12.
 
@@ -242,7 +244,7 @@ Decisions, 2026-10-18: #11 most recent read wins; #20 uses the series read field
   `app/.../ComicArchiveCodecs.kt:147-157`. Confirmed in junrar 7.5.5's bytecode: `Archive.doExtractFile` seeds the unpack window only for non-solid
   headers, so a fresh `Archive` per page yields a CRC failure that `runCatching` turns into "Unable to decode this page". RAR5 throws from the
   constructor and is swallowed to an empty list, so it shows the same generic dialog. **Checked.**
-- **Webtoon mode marks the book finished and shows the completion modal** as soon as the top edge of the last page appears.
+- **Webtoon mode marks the book finished and shows the completion modal** as soon as the top edge of the last page appears. Fixed `6d0b6f28`.
   `ComicsContinuousReaderSurface.kt:173-190`: `currentVisiblePosition` prefers the last page whenever any of it is visible, and the 250 ms debounce then
   requests completion ahead of the deliberate 24 px overscroll trigger. Paged mode: `ComicTerminalSwipeNavigation.kt:18-50` fires mid-gesture once the
   horizontal drag exceeds `touchSlop`, with no release or velocity check, so the first finger of a pinch can qualify. Both persist `isFinished = true`. **Checked.**
