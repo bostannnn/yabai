@@ -49,6 +49,8 @@ import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 // How many leading roots the paged-window badge resolver processes in its fast first phase — enough to
@@ -252,6 +254,11 @@ fun LibraryScreen(
             prefetchStrategy = LibraryGridScrollPrefetchStrategy,
         )
     }
+    // Held, and not reported, until the grid can reach it (see LibraryScrollRestoreStep); a drag or
+    // fling hands the position back to the user.
+    var pendingScrollRestore by remember(browseContextKey) {
+        mutableStateOf(initialScrollPosition.takeIf { position -> position.index > 0 })
+    }
     val dateAddedTopItemId = if (showSortControl && sortMode == LibrarySortMode.DATE_ADDED) {
         renderedItems.firstOrNull()?.id
     } else {
@@ -259,6 +266,27 @@ fun LibraryScreen(
     }
     val leadingContentItemCount = 1 +
         (if (topContent != null) 1 else 0)
+    pendingScrollRestore?.let { savedPosition ->
+        val gridItemCount = leadingContentItemCount + if (isPaged) pagedItems!!.itemCount else visibleItems.size
+        val restoreStep = libraryScrollRestoreStep(
+            saved = savedPosition,
+            gridItemCount = gridItemCount,
+            isLoading = showGridLoading || (isPaged && pagedItems!!.loadState.append is LoadState.Loading),
+            canLoadMore = isPaged && !pagedItems!!.loadState.append.endOfPaginationReached,
+        )
+        LaunchedEffect(browseContextKey, restoreStep, gridItemCount) {
+            when (restoreStep) {
+                LibraryScrollRestoreStep.ScrollToSaved -> {
+                    gridState.scrollToItem(savedPosition.index, savedPosition.offset)
+                    pendingScrollRestore = null
+                }
+                // Reading a slot near the end makes paging append the next page.
+                LibraryScrollRestoreStep.LoadMore -> pagedItems?.takeIf { it.itemCount > 0 }?.let { it[it.itemCount - 1] }
+                LibraryScrollRestoreStep.GiveUp -> pendingScrollRestore = null
+                LibraryScrollRestoreStep.Wait -> Unit
+            }
+        }
+    }
     val activeSortLetter by remember(
         gridState,
         isPaged,
@@ -305,10 +333,15 @@ fun LibraryScreen(
             LibraryScrollPosition(
                 index = gridState.firstVisibleItemIndex,
                 offset = gridState.firstVisibleItemScrollOffset,
-            )
+            ).takeIf { pendingScrollRestore == null }
         }
+            .filterNotNull()
             .distinctUntilChanged()
             .collect(onScrollPositionChanged)
+    }
+    LaunchedEffect(browseContextKey, gridState) {
+        snapshotFlow { gridState.isScrollInProgress }.first { scrolling -> scrolling }
+        pendingScrollRestore = null
     }
     LaunchedEffect(browseContextKey, gridState) {
         snapshotFlow { gridState.isScrollInProgress }

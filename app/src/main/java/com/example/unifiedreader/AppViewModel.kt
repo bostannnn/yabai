@@ -8,7 +8,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
-import androidx.paging.cachedIn
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import com.example.unifiedreader.core.model.KavitaLibrarySection
@@ -113,16 +112,14 @@ class AppViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Paged library grid for [source] in a column [sortMode], cached in the ViewModel scope. Thin
-     * delegation to the owning repository; only consumed while [LibraryPagingFeature] is enabled.
-     */
+    private val libraryGridPagingCache = LibraryGridPagingCache(viewModelScope, libraryGridPager)
+
+    /** Paged library grid for [source] in [sortMode]; only consumed while [LibraryPagingFeature] is enabled. */
     fun libraryGridPagingData(
         source: SourceType,
         sortMode: LibrarySortMode,
         filters: LibraryFilterState,
-    ): Flow<PagingData<ReadableItem>> =
-        libraryGridPager.gridRootsPagingData(source, sortMode, filters).cachedIn(viewModelScope)
+    ): Flow<PagingData<ReadableItem>> = libraryGridPagingCache.pagingData(source, sortMode, filters)
 
     /**
      * Resolves the paged grid's per-card badges (read/progress, rating, download status) for the roots
