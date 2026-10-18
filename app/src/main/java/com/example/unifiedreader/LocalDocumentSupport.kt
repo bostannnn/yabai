@@ -282,12 +282,20 @@ private fun String.naturalSortTokens(): List<NaturalSortToken> {
     return tokens
 }
 
+// The union of what Kavita (png, jpeg, jpg, webp, gif, avif) and Grimmory (adds bmp, heic) count as
+// pages; BitmapFactory decodes all of them (AVIF from Android 12).
+private val comicPageImageExtensions = setOf("jpg", "jpeg", "png", "webp", "gif", "avif", "bmp", "heic", "heif")
+
+/**
+ * Whether an archive entry is a comic page. Like Kavita and Grimmory, it skips `__MACOSX/` folders and
+ * dot-files, such as the `._` AppleDouble files macOS adds next to each image.
+ */
 internal fun String.isImageEntryName(): Boolean {
-    val lower = lowercase()
-    return lower.endsWith(".jpg") ||
-        lower.endsWith(".jpeg") ||
-        lower.endsWith(".png") ||
-        lower.endsWith(".webp")
+    val segments = replace('\\', '/').split('/').filter(String::isNotEmpty)
+    val fileName = segments.lastOrNull() ?: return false
+    if (fileName.startsWith('.')) return false
+    if (segments.any { segment -> segment.equals("__MACOSX", ignoreCase = true) }) return false
+    return fileName.substringAfterLast('.', missingDelimiterValue = "").lowercase() in comicPageImageExtensions
 }
 
 internal fun String.comicArchiveTitle(): String = removeSuffixIgnoreCase(".cbz")

@@ -35,6 +35,63 @@ class ComicArchiveSupportTest {
     }
 
     @Test
+    fun `page entries skip macOS metadata and keep every decodable image format`() {
+        listOf(
+            "page-1.jpg",
+            "Chapter 1/page-2.JPEG",
+            "Chapter 1\\page-3.png",
+            "page-4.webp",
+            "page-5.gif",
+            "page-6.avif",
+            "page-7.BMP",
+            "page-8.heic",
+            "page-9.heif",
+        ).forEach { name -> assertTrue(name, name.isImageEntryName()) }
+        listOf(
+            "__MACOSX/._page-1.jpg",
+            "__MACOSX/Chapter 1/page-2.jpg",
+            "Chapter 1/._page-2.jpg",
+            "._page-1.jpg",
+            ".DS_Store",
+            "ComicInfo.xml",
+            "Chapter 1/",
+            "page-10.tif",
+        ).forEach { name -> assertFalse(name, name.isImageEntryName()) }
+    }
+
+    @Test
+    fun `zip codec lists pages without the AppleDouble copies a Mac archive adds`() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val archiveFile = File(context.cacheDir, "zip-codec-macos-metadata.cbz").apply {
+            delete()
+        }
+        try {
+            val output = java.io.ByteArrayOutputStream()
+            ZipOutputStream(output).use { zip ->
+                listOf(
+                    "Issue 1/page-1.jpg",
+                    "__MACOSX/Issue 1/._page-1.jpg",
+                    "Issue 1/page-2.gif",
+                    "__MACOSX/Issue 1/._page-2.gif",
+                    "Issue 1/.DS_Store",
+                ).forEach { entryName ->
+                    zip.putNextEntry(ZipEntry(entryName))
+                    zip.write(entryName.toByteArray(Charsets.UTF_8))
+                    zip.closeEntry()
+                }
+            }
+            archiveFile.writeBytes(output.toByteArray())
+
+            assertEquals(
+                listOf("Issue 1/page-1.jpg", "Issue 1/page-2.gif"),
+                ZipComicArchiveCodec.listImageEntries(context, Uri.fromFile(archiveFile)),
+            )
+        } finally {
+            archiveFile.delete()
+        }
+    }
+
+    @Test
     fun `comic archive title strips cbz and cbr suffixes case insensitively`() {
         assertEquals("Akira v01", "Akira v01.cbz".comicArchiveTitle())
         assertEquals("Blame! v02", "Blame! v02.CBR".comicArchiveTitle())
