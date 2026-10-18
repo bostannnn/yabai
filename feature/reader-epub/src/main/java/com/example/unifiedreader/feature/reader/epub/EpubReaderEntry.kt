@@ -926,6 +926,7 @@ private fun ReadiumEpubNavigatorHost(
     val surfaceBackground = remember(preferences.theme) {
         epubReaderSurfaceBackground(preferences.theme)
     }
+    val resumePoint = remember(publication) { EpubNavigatorResumePoint() }
     val navigatorFactory = remember(publication, preferences.layoutMode) {
         EpubNavigatorFactory(
             publication = publication,
@@ -989,7 +990,7 @@ private fun ReadiumEpubNavigatorHost(
         var navigatorFragment: EpubNavigatorFragment? = null
         val footnoteNavigationJobs = mutableSetOf<Job>()
         val fragmentFactory = navigatorFactory.createFragmentFactory(
-            initialLocator = initialLocator,
+            initialLocator = resumePoint.startLocator(initialLocator),
             initialPreferences = preferences.toNavigatorPreferences(),
             listener = object : EpubNavigatorFragment.Listener {
                 override fun shouldFollowInternalLink(
@@ -1113,6 +1114,7 @@ private fun ReadiumEpubNavigatorHost(
             val navigator = fragmentManager.findFragmentByTag(fragmentTag) as? EpubNavigatorFragment
             navigator?.let {
                 it.removeInputListener(tapZoneListener)
+                resumePoint.onNavigatorRemoved(it.currentLocator.value)
                 latestOnLocationChanged.value(it.currentLocator.value, 0, null)
             }
             fragmentManager.findFragmentByTag(fragmentTag)?.let { existing ->

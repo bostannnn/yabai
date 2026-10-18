@@ -6,6 +6,7 @@ import android.widget.FrameLayout
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
+import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.publication.Publication
 import org.readium.r2.shared.publication.epub.EpubLayout
 import org.readium.r2.shared.publication.presentation.presentation
@@ -112,4 +113,18 @@ internal fun buildEpubViewportPaddingScript(
           return padding;
         })();
     """.trimIndent()
+}
+
+/**
+ * Where the navigator starts. Changing the layout mode rebuilds it, and the new one must open where the
+ * old one stopped, not where the book was opened; its first location event is saved as progress.
+ */
+internal class EpubNavigatorResumePoint {
+    private var removedNavigatorLocator: Locator? = null
+
+    fun startLocator(initialLocator: Locator?): Locator? = removedNavigatorLocator ?: initialLocator
+
+    fun onNavigatorRemoved(locator: Locator) {
+        removedNavigatorLocator = locator
+    }
 }
