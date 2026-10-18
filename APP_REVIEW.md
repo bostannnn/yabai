@@ -16,8 +16,9 @@ Baseline: `testDebugUnitTest` passes, 1033 tests, 0 failures.
 
 ### Where it stopped (2026-10-18, end of the third session)
 
-- **Branch:** the fixes after 0.8.0 are on `claude/app-review-doc-01d75d` (a worktree), branched from `main`
-  at `e1d3558d`. Not pushed, no PR, and not in any release: the 0.8.0 release holds #1-#5 only.
+- **Branch:** the fixes after 0.8.0 were made on `claude/app-review-doc-01d75d` and fast-forwarded into the
+  local `main` on 2026-10-18. `main` is not pushed to `origin`, and the fixes are in no release yet: the 0.8.0
+  release holds #1-#5 only.
 - **Done:** every P0 item (#1-#6, #41) and, from P1, #7, #8, #10, #12, #13, #14 and #24.
 - **Next, in the suggested order:** #25 (comics marked complete too early), #23 (`__MACOSX` entries and
   dropped GIF/BMP/AVIF/HEIC pages), then the rest of P1: #9, #15-#19 with #42, #21, #22.
