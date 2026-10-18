@@ -44,6 +44,11 @@ internal fun GrimmoryProgressUpdate.toRequestDto(): GrimmoryReadProgressRequestD
         } else {
             null
         },
+        deprecatedCbxProgress = if (parsedBookFileId == null) {
+            toDeprecatedCbxProgress(clampedPercent)
+        } else {
+            null
+        },
         dateFinished = when {
             isFinished -> updatedAtEpochMillis
                 ?.let(Instant::ofEpochMilli)
@@ -76,5 +81,19 @@ private fun GrimmoryProgressUpdate.toDeprecatedPdfProgress(
         percentage = clampedPercent,
     )
 }
+
+private fun GrimmoryProgressUpdate.toDeprecatedCbxProgress(
+    clampedPercent: Float,
+): GrimmoryCbxProgressDto? {
+    val type = bookType ?: return null
+    if (ComicBookTypes.none { comicType -> comicType.equals(type, ignoreCase = true) }) return null
+    return GrimmoryCbxProgressDto(
+        page = positionData.toIntOrNull(),
+        percentage = clampedPercent,
+    )
+}
+
+// Grimmory files comics as CBX; local items may carry the archive format instead.
+private val ComicBookTypes = listOf("CBX", "CBZ", "CBR")
 
 private fun Double.toGrimmoryProgressPercent(): Float = (coerceIn(0.0, 1.0) * 100.0).toFloat()

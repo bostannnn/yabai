@@ -353,12 +353,34 @@ class GrimmoryProgressSyncServiceTest {
         assertEquals("5", update.positionData)
         assertEquals(0.5, update.percent, 0.0001)
     }
+
+    @Test
+    fun `comic progress upload sends one based page and percent from the page count`() {
+        val item = grimmoryItem(
+            remoteId = "comic-book",
+            format = FormatType.CBZ,
+            pageCount = 20,
+        )
+        val snapshot = ReaderProgressSnapshot(
+            itemId = item.id,
+            locatorType = LocatorType.PAGE,
+            page = 4,
+            syncState = SyncState.DIRTY,
+            updatedAtEpochMillis = 20L,
+        )
+
+        val update = checkNotNull(snapshot.toGrimmoryProgressUpdate(item))
+
+        assertEquals("5", update.positionData)
+        assertEquals(0.25, update.percent, 0.0001)
+    }
 }
 
 private fun grimmoryItem(
     remoteId: String?,
     id: String = remoteId?.let(SourceType.GRIMMORY::remoteItemId) ?: "missing-remote-id",
     format: FormatType = FormatType.EPUB,
+    pageCount: Int? = null,
 ): ReadableItem = ReadableItem(
     id = id,
     sourceType = SourceType.GRIMMORY,
@@ -368,6 +390,7 @@ private fun grimmoryItem(
     remoteFileType = format.name,
     title = remoteId ?: id,
     format = format,
+    pageCount = pageCount,
 )
 
 private class ProgressSyncTestGrimmoryCredentialStore(

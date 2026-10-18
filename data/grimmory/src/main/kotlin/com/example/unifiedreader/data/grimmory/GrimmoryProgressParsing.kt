@@ -27,11 +27,23 @@ internal fun GrimmoryBookDto.toReadingProgress(
             itemId = item.id,
             updatedAtEpochMillis = updatedAtEpochMillis,
         )
-        FormatType.PDF -> pdfProgress?.toReadingProgress(
-            itemId = item.id,
-            updatedAtEpochMillis = updatedAtEpochMillis,
-        )
-        else -> null
+        FormatType.PDF -> pdfProgress?.let { progress ->
+            pageProgress(
+                itemId = item.id,
+                page = progress.page,
+                percentage = progress.percentage,
+                updatedAtEpochMillis = updatedAtEpochMillis,
+            )
+        }
+        FormatType.CBZ,
+        FormatType.CBR -> cbxProgress?.let { progress ->
+            pageProgress(
+                itemId = item.id,
+                page = progress.page,
+                percentage = progress.percentage,
+                updatedAtEpochMillis = updatedAtEpochMillis,
+            )
+        }
     }
 }
 
@@ -56,8 +68,11 @@ private fun GrimmoryEpubProgressDto.toReadingProgress(
     )
 }
 
-private fun GrimmoryPdfProgressDto.toReadingProgress(
+// PDF and comic progress: Grimmory's page is one-based, the local page index zero-based.
+private fun pageProgress(
     itemId: String,
+    page: Int?,
+    percentage: Float?,
     updatedAtEpochMillis: Long?,
 ): ReadingProgress? {
     val localPercent = percentage.toLocalProgressPercent()

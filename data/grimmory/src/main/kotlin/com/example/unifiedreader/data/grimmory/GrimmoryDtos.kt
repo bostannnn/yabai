@@ -68,6 +68,7 @@ internal data class GrimmoryBookDto(
     val metadata: GrimmoryBookMetadataDto? = null,
     val pdfProgress: GrimmoryPdfProgressDto? = null,
     val epubProgress: GrimmoryEpubProgressDto? = null,
+    val cbxProgress: GrimmoryCbxProgressDto? = null,
 )
 
 @Serializable
@@ -212,6 +213,13 @@ internal data class GrimmoryPdfProgressDto(
     val percentage: Float? = null,
 )
 
+// Comic progress; `page` is one-based, like the Grimmory web reader's.
+@Serializable
+internal data class GrimmoryCbxProgressDto(
+    val page: Int? = null,
+    val percentage: Float? = null,
+)
+
 @Serializable
 internal data class GrimmoryEpubProgressDto(
     val cfi: String? = null,
@@ -228,6 +236,8 @@ internal data class GrimmoryReadProgressRequestDto(
     val deprecatedEpubProgress: GrimmoryEpubProgressDto? = null,
     @SerialName("pdfProgress")
     val deprecatedPdfProgress: GrimmoryPdfProgressDto? = null,
+    @SerialName("cbxProgress")
+    val deprecatedCbxProgress: GrimmoryCbxProgressDto? = null,
     val dateFinished: JsonElement? = null,
 )
 

@@ -404,6 +404,46 @@ class GrimmoryDtosTest {
         assertEquals(4, item.progress?.page)
         assertEquals(0.5, item.progress?.percent ?: 0.0, 0.0001)
     }
+
+    @Test
+    fun cbxProgressPullConvertsOneBasedRemotePageToZeroBasedLocalPage() {
+        val item = GrimmoryBookDto(
+            id = 12,
+            libraryId = 4,
+            primaryFile = GrimmoryBookFileDto(
+                bookType = "CBX",
+                extension = "cbz",
+            ),
+            lastReadTime = "2026-04-17T19:25:51Z",
+            cbxProgress = GrimmoryCbxProgressDto(
+                page = 5,
+                percentage = 25f,
+            ),
+        ).toCatalogEntry(
+            baseUrl = "https://grimmory.example",
+        )
+
+        requireNotNull(item)
+        assertEquals(FormatType.CBZ, item.item.format)
+        assertEquals(4, item.progress?.page)
+        assertEquals(0.25, item.progress?.percent ?: 0.0, 0.0001)
+        assertEquals(false, item.isExplicitUnreadReset)
+    }
+
+    @Test
+    fun mapsComicProgressWithoutBookFileIdToDeprecatedCbxPayload() {
+        val request = GrimmoryProgressUpdate(
+            bookId = "12",
+            bookFileId = null,
+            bookType = "CBX",
+            positionData = "5",
+            percent = 0.25,
+        ).toRequestDto()
+
+        assertNull(request.fileProgress)
+        assertEquals(5, request.deprecatedCbxProgress?.page)
+        assertEquals(25f, request.deprecatedCbxProgress?.percentage)
+    }
 }
 
 private val testJson = Json {

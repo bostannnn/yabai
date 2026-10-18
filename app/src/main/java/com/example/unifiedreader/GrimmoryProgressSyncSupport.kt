@@ -33,7 +33,10 @@ internal suspend fun pushDirtyGrimmoryProgress(
         val update = if (progress.isExplicitUnreadReset) {
             null
         } else {
-            progress.toGrimmoryProgressUpdate(item) ?: return@forEach
+            progress.toGrimmoryProgressUpdate(
+                item = item,
+                pageCount = readerSessionStore.getSession(item)?.pageCount ?: item.pageCount,
+            ) ?: return@forEach
         }
         runCatching {
             api.runWithTokenRefresh(
@@ -95,6 +98,7 @@ internal fun ReaderProgressSnapshot.toReaderLocator(): ReaderLocator = ReaderLoc
 
 internal fun ReaderProgressSnapshot.toGrimmoryProgressUpdate(
     item: ReadableItem,
+    pageCount: Int? = item.pageCount,
 ): GrimmoryProgressUpdate? {
     val remoteItemId = item.remoteId ?: return null
     val positionData = when (locatorType) {
@@ -109,10 +113,20 @@ internal fun ReaderProgressSnapshot.toGrimmoryProgressUpdate(
         bookType = item.remoteFileType ?: item.format.name,
         positionData = positionData,
         positionHref = epubPosition?.href,
-        percent = percent ?: 0.0,
+        percent = percent ?: pagePercent(pageCount) ?: 0.0,
         isFinished = isFinished,
         updatedAtEpochMillis = updatedAtEpochMillis,
     )
+}
+
+// Comic locators carry only a page; Grimmory's web reader reports (page + 1) / pageCount.
+private fun ReaderProgressSnapshot.pagePercent(
+    pageCount: Int?,
+): Double? {
+    if (locatorType != LocatorType.PAGE) return null
+    val pageIndex = page ?: return null
+    val count = pageCount?.takeIf { it > 0 } ?: return null
+    return ((pageIndex + 1).toDouble() / count).coerceIn(0.0, 1.0)
 }
 
 private data class GrimmoryEpubPosition(
