@@ -41,6 +41,19 @@ class SourceNavigationStateCoordinator(
         )
     }
 
+    /** The full order from a drag-to-reorder list; `null` when nothing changed. */
+    fun reorderSources(
+        currentState: SourceNavigationState,
+        sourceOrder: List<SourceType>,
+    ): SourceOrderSelection? {
+        val updatedOrder = normalizeSourceOrder(sourceOrder)
+        if (updatedOrder == currentState.sourceOrder) return null
+        return SourceOrderSelection(
+            state = SourceNavigationState(sourceOrder = updatedOrder),
+            sourceOrder = updatedOrder,
+        )
+    }
+
     suspend fun persistSourceOrder(
         sourceOrder: List<SourceType>,
     ) {

@@ -158,7 +158,7 @@ private fun KavitaNavigationGroup(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Icon(
-            imageVector = SourceType.KAVITA.drawerIcon(),
+            imageVector = SourceType.KAVITA.navigationIcon(),
             contentDescription = null,
             modifier = Modifier.size(24.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -180,7 +180,7 @@ private fun KavitaNavigationGroup(
             },
             icon = {
                 Icon(
-                    imageVector = section.drawerIcon(),
+                    imageVector = section.navigationIcon(),
                     contentDescription = null,
                 )
             },
@@ -207,7 +207,7 @@ private fun SourceNavigationItem(
         },
         icon = {
             Icon(
-                imageVector = sourceType.drawerIcon(),
+                imageVector = sourceType.navigationIcon(),
                 contentDescription = null,
             )
         },
@@ -222,7 +222,7 @@ private fun SourceNavigationDestination.isSelectedKavitaSection(
     (this == SourceNavigationDestination.Source(SourceType.KAVITA) && section == KavitaLibrarySection.Home)
 
 @Composable
-private fun SourceType.drawerIcon(): ImageVector = when (this) {
+fun SourceType.navigationIcon(): ImageVector = when (this) {
     SourceType.KAVITA -> AppIcons.CollectionsBookmark
     SourceType.STUMP -> AppIcons.MenuBook
     SourceType.GRIMMORY -> AppIcons.Cloud
@@ -230,7 +230,7 @@ private fun SourceType.drawerIcon(): ImageVector = when (this) {
 }
 
 @Composable
-private fun KavitaLibrarySection.drawerIcon(): ImageVector = when (this) {
+private fun KavitaLibrarySection.navigationIcon(): ImageVector = when (this) {
     KavitaLibrarySection.Home -> AppIcons.Home
     KavitaLibrarySection.Collections -> AppIcons.CollectionsBookmark
     KavitaLibrarySection.ReadingLists -> AppIcons.Checklist

@@ -4,6 +4,8 @@ plugins {
     alias(libs.plugins.compose.compiler)
 }
 
+val thirdPartyNoticesDir = layout.buildDirectory.dir("generated/thirdPartyNotices/assets").get().asFile
+
 android {
     namespace = "com.example.unifiedreader.feature.settings"
     compileSdk = 35
@@ -24,6 +26,19 @@ android {
     buildFeatures {
         compose = true
     }
+
+    sourceSets.getByName("main").assets.srcDir(thirdPartyNoticesDir)
+}
+
+// The licenses page shows the repository's THIRD_PARTY_NOTICES.md; copy it into a generated
+// asset folder so there is one source of truth.
+val copyThirdPartyNotices = tasks.register<Copy>("copyThirdPartyNotices") {
+    from(rootProject.file("THIRD_PARTY_NOTICES.md"))
+    into(thirdPartyNoticesDir)
+}
+
+tasks.named("preBuild") {
+    dependsOn(copyThirdPartyNotices)
 }
 
 dependencies {
@@ -31,6 +46,7 @@ dependencies {
     implementation(project(":core:ui-components"))
     implementation(project(":core:model"))
     implementation(project(":feature:reader-preferences"))
+    implementation(project(":feature:navigation"))
     implementation(libs.androidx.datastore.preferences)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)

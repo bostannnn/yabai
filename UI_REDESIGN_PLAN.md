@@ -65,6 +65,13 @@ Started 2026-10-17. Scope so far is the library home; other screens are listed a
   `ReaderAttachedPane`; the segmented control is the existing `AppSegmentedRow`, so restyling it
   later changes settings, the cover menu, and the reader together.
 
+- **Settings redesign approved 2026-10-18: a hub of grouped rows plus one page per form.**
+  Mock: https://claude.ai/artifact/QNjJtXQYKrxmJpEB64KB98 (hub, source page, theme picker,
+  landscape). The old screen expanded every form and filter list at once, duplicated the title,
+  and carried the library's import action. Decided with it: About page (version and the bundled
+  third-party notices), drag to reorder for filter chips and drawer order (no library; a small
+  reorder helper in the kit), and the LAN/Tailscale default server addresses stay.
+
 ## Constraints (from `ARCHITECTURE_RULES.md`)
 
 - New shared visual tokens go in `core:ui-theme`; feature UI stays in its feature module; `app` only wires.
@@ -135,6 +142,18 @@ Pull-request-sized steps; each lands and gets judged on the tablet before the ne
    is a plain surface with a shadow. There is no book detail screen in the app, so nothing to
    rebuild there. The per-cover kebab menu stays: long-press already enters download selection
    on remote sources, so moving the menu there would collide with it.
+6. `[x]` **Settings as hub and pages** (2026-10-18). `SettingsScreen` is a hub of
+   `AppSettingsGroup`/`AppSettingsRow` rows (Appearance, Sources, Library, About) and a
+   `SettingsPage` per form: theme tiles split into light and dark, one page per remote source
+   (server form, sync and cover rows, per-library reading defaults), filter chips as one
+   drag-to-reorder checklist with a source segmented row, drawer order as a drag list, the
+   pending-sync detail, and the licenses page (the module copies `THIRD_PARTY_NOTICES.md` into
+   its assets at build time). The top bar shows the page title with a back arrow; the import
+   action is gone from it. Under 860 dp the page replaces the hub; above it the hub stays as a
+   320 dp side column. The kit gained `AppSettingsGroup`, `AppSettingsRow`,
+   `AppSettingsRowDivider`, `rememberAppReorderState` with `appReorderableItem` and
+   `appReorderHandle`, and five icons. The app wires one `SourceSettingsEntry` per source instead
+   of fifty lambdas. Checked on the emulator in both orientations; not yet on the tablet.
 
 ## 1. Compose and Material 3 upgrade `[ ]`
 
