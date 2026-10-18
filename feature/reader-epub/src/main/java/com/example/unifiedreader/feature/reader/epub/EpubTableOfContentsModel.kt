@@ -104,6 +104,36 @@ internal fun List<EpubTocEntry>.activeEpubTocEntry(
         .maxByOrNull { entry -> entry.progression ?: 0.0 }
 }
 
+/** Which top-level chapter the reader is in, counted among the top-level entries only. */
+internal data class EpubTocChapterPosition(
+    val index: Int,
+    val count: Int,
+)
+
+/**
+ * The 1-based index of the top-level entry that contains [activeEntry] (itself, or the nearest
+ * top-level entry before it), and the number of top-level entries. Null when there are no
+ * top-level entries or nothing is active.
+ */
+internal fun List<EpubTocEntry>.epubTocChapterPosition(
+    activeEntry: EpubTocEntry?,
+): EpubTocChapterPosition? {
+    if (activeEntry == null) return null
+    val activeIndex = indexOfFirst { it.id == activeEntry.id }
+    if (activeIndex < 0) return null
+    val chapterStart = (activeIndex downTo 0).firstOrNull { this[it].depth == 0 } ?: return null
+    val count = count { it.depth == 0 }
+    val index = subList(0, chapterStart + 1).count { it.depth == 0 }
+    return EpubTocChapterPosition(index = index, count = count)
+}
+
+/** An entry the reader has passed: it starts before the active entry does. Entries without a progression are never "finished". */
+internal fun EpubTocEntry.isEpubTocEntryFinished(activeEntry: EpubTocEntry?): Boolean {
+    val activeProgression = activeEntry?.progression ?: return false
+    val own = progression ?: return false
+    return id != activeEntry.id && own < activeProgression
+}
+
 internal data class EpubBookProgress(
     val pageCount: Int,
     val chapterMarks: List<Float>,

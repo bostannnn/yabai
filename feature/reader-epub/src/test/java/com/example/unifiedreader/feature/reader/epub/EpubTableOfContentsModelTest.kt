@@ -87,16 +87,54 @@ class EpubTableOfContentsModelTest {
         assertNull(activeEntry)
     }
 
+    @Test
+    fun chapterPositionCountsTopLevelEntriesAndResolvesNestedOnesToTheirChapter() {
+        val entries = listOf(
+            tocEntry(id = "c1", title = "Chapter 1", href = "https://example.com/1.xhtml", progression = 0.0),
+            tocEntry(id = "c1a", title = "Part a", href = "https://example.com/1.xhtml", progression = 0.05, depth = 1),
+            tocEntry(id = "c2", title = "Chapter 2", href = "https://example.com/2.xhtml", progression = 0.3),
+            tocEntry(id = "c2a", title = "Part a", href = "https://example.com/2.xhtml", progression = 0.35, depth = 1),
+            tocEntry(id = "c2b", title = "Part b", href = "https://example.com/2.xhtml", progression = 0.4, depth = 2),
+            tocEntry(id = "c3", title = "Chapter 3", href = "https://example.com/3.xhtml", progression = 0.7),
+        )
+
+        assertEquals(EpubTocChapterPosition(index = 1, count = 3), entries.epubTocChapterPosition(entries[0]))
+        assertEquals(EpubTocChapterPosition(index = 2, count = 3), entries.epubTocChapterPosition(entries[4]))
+        assertEquals(EpubTocChapterPosition(index = 3, count = 3), entries.epubTocChapterPosition(entries[5]))
+        assertNull(entries.epubTocChapterPosition(null))
+        assertNull(
+            entries.epubTocChapterPosition(
+                tocEntry(id = "elsewhere", title = "x", href = "https://example.com/x.xhtml", progression = 0.9),
+            ),
+        )
+    }
+
+    @Test
+    fun finishedEntriesStartBeforeTheActiveOneAndNeverIncludeIt() {
+        val first = tocEntry(id = "c1", title = "Chapter 1", href = "https://example.com/1.xhtml", progression = 0.0)
+        val active = tocEntry(id = "c2", title = "Chapter 2", href = "https://example.com/2.xhtml", progression = 0.3)
+        val later = tocEntry(id = "c3", title = "Chapter 3", href = "https://example.com/3.xhtml", progression = 0.7)
+        val unknown = tocEntry(id = "c4", title = "Chapter 4", href = "https://example.com/4.xhtml", progression = null)
+
+        assertEquals(true, first.isEpubTocEntryFinished(active))
+        assertEquals(false, active.isEpubTocEntryFinished(active))
+        assertEquals(false, later.isEpubTocEntryFinished(active))
+        assertEquals(false, unknown.isEpubTocEntryFinished(active))
+        assertEquals(false, first.isEpubTocEntryFinished(null))
+        assertEquals(false, first.isEpubTocEntryFinished(unknown))
+    }
+
     private fun tocEntry(
         id: String,
         title: String,
         href: String,
         progression: Double?,
         position: Int? = null,
+        depth: Int = 0,
     ): EpubTocEntry = EpubTocEntry(
         id = id,
         title = title,
-        depth = 0,
+        depth = depth,
         href = href,
         progression = progression,
         position = position,

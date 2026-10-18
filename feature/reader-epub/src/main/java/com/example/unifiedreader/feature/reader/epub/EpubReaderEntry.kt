@@ -778,28 +778,15 @@ fun EpubReaderScreen(
                                 .testTag(EpubReaderOverlayTag),
                         )
                         EpubReaderBottomDock(
-                            title = item.title,
-                            tocEntries = bookProgress.tocEntries,
-                            currentHref = currentHref,
                             currentProgress = currentProgress,
                             currentPage = currentPage,
                             pageCount = pageCount,
                             chapterMarks = bookProgress.chapterMarks,
                             isTocOpen = isTocSheetOpen,
-                            onDismissToc = {
-                                isTocSheetOpen = false
-                            },
                             onTocClick = {
                                 overlayState.show()
                                 isPreferencesPaneOpen = false
                                 isTocSheetOpen = !isTocSheetOpen
-                            },
-                            onTocEntrySelected = { link ->
-                                isTocSheetOpen = false
-                                navigationRequest = EpubTocNavigationRequest(
-                                    id = seekRequestId++,
-                                    link = link,
-                                )
                             },
                             onProgressSelected = { selectedProgress ->
                                 currentProgress = selectedProgress.toDouble()
@@ -811,6 +798,25 @@ fun EpubReaderScreen(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
                                 .fillMaxSize(),
+                        )
+                        EpubTableOfContentsSheet(
+                            entries = bookProgress.tocEntries,
+                            currentHref = currentHref,
+                            currentProgress = currentProgress,
+                            currentPage = currentPage,
+                            pageCount = pageCount,
+                            isOpen = isTocSheetOpen,
+                            onDismissRequest = {
+                                isTocSheetOpen = false
+                            },
+                            onEntrySelected = { entry ->
+                                isTocSheetOpen = false
+                                navigationRequest = EpubTocNavigationRequest(
+                                    id = seekRequestId++,
+                                    link = entry.link,
+                                )
+                            },
+                            modifier = Modifier.fillMaxSize(),
                         )
                         EpubFootnotePopup(
                             footnote = footnoteContent,
