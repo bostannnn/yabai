@@ -14,8 +14,8 @@ Baseline: `testDebugUnitTest` passes, 1033 tests, 0 failures.
 
 ## Status
 
-Fixed, each with a regression test that fails without the fix. Full suite with #7: 1207 tests
-(1085 `testDebugUnitTest` + 122 JVM `test`), 0 failures, and `androidTest` compiles.
+Fixed, each with a regression test that fails without the fix. Full suite with #10: 1210 tests
+(1088 `testDebugUnitTest` + 122 JVM `test`), 0 failures, and `androidTest` compiles.
 
 - #1 EPUB reader crash on activity recreation (`faa5bd4b`). Checked on the emulator.
 - #2 Kavita sync dropping other sources' progress (`7651eab8`).
@@ -27,6 +27,7 @@ Fixed, each with a regression test that fails without the fix. Full suite with #
 - #12 Route lost after process death (`d6829c2c`). The route always stores the open book's item, so the reader reopens before the catalog loads; a series sub-screen is kept until its source's catalog has loaded. Checked on the emulator (see below).
 - #6 Downloads stopped by Android recorded as user cancels (`bcfa819b`). A cancellation is a user cancel only when the entry is already Canceling or Canceled; any other stop puts the entry back to Queued with its finished files kept, and the worker returns `Result.retry()`, so WorkManager's rerun resumes after them. "Clear completed" now only clears the list; Remove on a single failed or canceled entry still deletes its files. Entries already wrongly marked Canceled before this fix stay that way (Retry resumes them). Unit tests only.
 - #7 Stale comic resume anchor beating synced progress (`5af76586`). The session now stores the progress page with the resume anchor (`resumeProgressPage`), and the anchor, segment and scroll offset are ignored once the saved progress is on another page, as after a pull from another device. Sessions saved before keep the anchor only when it is the progress page itself. A page restored after the reader opened (a pull for a downloaded comic) also moves the anchor, which the pager and the webtoon list follow; before, only the page counter changed and the next settle saved the old page. Unit tests only.
+- #10 Downloaded remote EPUB opening before its progress pull (`ef693736`). When the source is reachable, a downloaded EPUB or PDF now opens after its progress pull, bounded at 2 s, and opens anyway on a failure or timeout; both readers restore their position once and ignore a later pull. PDF had the same gap. Downloaded comics still open at once, since they now follow a late pull (#7). Offline opens are unchanged (no pull is attempted). Unit tests only.
 
 #41, #8 and #12 were done in that order (third session) because restoring a reader at cold start is what
 triggers the first two. #41 and #8 have unit tests only.
@@ -37,7 +38,7 @@ had lost the book. The 0.8.0 build at `aeb722a2` reopened in the book. Back then
 library and cleared the saved book, and the crash log stayed empty. Not checked: a remote book or a
 series sub-screen (no server on the emulator); the unit tests cover those.
 
-Next is #10, a downloaded remote EPUB opening before its progress pull. Learned while fixing these:
+Next is #13, paged-library covers that never load after a rail jump or a deep scroll. Learned while fixing these:
 
 - **Process death (#12):** after process death the app opened on the library, not the book. Seen on the emulator; fixed in `d6829c2c`.
 - **"0% · 1/2" label:** the library's progress label and the early "finished" flag have the same cause as #21. Readium reports progression at position starts, and the reader marks a book finished once it reaches the last position's start. A 2-position test book was marked finished at 50%.
@@ -88,7 +89,7 @@ How the list is ordered:
 7. A stale comic resume anchor overrides newer synced progress and pushes it back (2.4). Fixed `5af76586`.
 8. The EPUB sample-book fallback overwrites real progress (2.7). Fixed `66753926`.
 9. Changing the EPUB layout mode jumps back to the position the book was opened at (2.6).
-10. A downloaded remote EPUB opens before its progress pull, and the pulled progress is ignored (2.8).
+10. A downloaded remote EPUB opens before its progress pull, and the pulled progress is ignored (2.8). Fixed `ef693736`.
 11. Pending progress is pushed without checking the server; last writer wins on push, newest wins on pull (2.5). Decided: the most recent read wins. Before pushing a queued save, fetch the server's progress and keep the server's copy when it is newer than the local save. Kavita's progress carries `lastModifiedUtc`; check what Grimmory and Stump return. Also check that opening and closing a book without moving doesn't re-stamp its progress, or the local copy would look newest.
 12. After process death, the reader or series route is not restored (2.10). Fixed `d6829c2c`, after #41 and #8: restoring a reader route at cold start is what triggers both.
 
@@ -139,7 +140,7 @@ How the list is ordered:
 
 The unfinished features in section 4 are feature work that needs product decisions, so they don't get fix sessions.
 
-Suggested order after the second pass: 6, 41, 7, 10, 13, 14, 24, 25, 23, then the rest of P1. 6, 41, 7, 8 and 12 are done; 10 is next.
+Suggested order after the second pass: 6, 41, 7, 10, 13, 14, 24, 25, 23, then the rest of P1. 6, 41, 7, 10, 8 and 12 are done; 13 is next.
 
 Decisions, 2026-10-18: #11 most recent read wins; #20 uses the series read fields; #41, then #8, then #12.
 
@@ -161,7 +162,7 @@ Decisions, 2026-10-18: #11 most recent read wins; #20 uses the series read field
 | 2.5 | **Pending progress is pushed without checking the server first, for all three sources.** Progress saved offline overwrites newer progress made on another device, and the server stamps it with the current time. Only the full catalog sync compares timestamps. Design limitation rather than a defect: the pull path compares timestamps and will replace a DIRTY local with a newer remote, so which device wins depends on whether the auto-flush or the pull runs first after reconnect. | `app/.../KavitaProgressSyncSupport.kt:44-69`, `GrimmoryProgressSyncService.kt:58-95`, `StumpProgressSyncService.kt:60-98` | Checked; product decision |
 | 2.6 | **Changing the EPUB layout mode (Page, Spread, Scroll or Auto) jumps back to where the book was opened, then saves that spot.** The navigator is rebuilt with the frozen `resolvedInitialLocator`: the factory is `remember(publication, preferences.layoutMode)` and the `DisposableEffect` keyed on it recreates the fragment with `initialLocator`; dispose saves the real spot, then the new fragment's first event re-saves the stale one DIRTY. Rotation is unaffected (no `configChanges`, so the activity is recreated). | `EpubReaderEntry.kt:164-169,599-626,929,983-992` | **Checked** |
 | 2.7 | **When the document URI is null, the reader quietly opens the generated developer sample EPUB.** Closing it saves the sample's locator as DIRTY over the real progress. The URI is null for a remote item whose source is Checking or Offline, has no session, or whose cache was evicted after a cold-start route restore. Narrower than it sounds: non-downloaded Kavita and Stump books go through `PrepareRemoteFile` and only open on Ready; Grimmory streams (`RemoteDocumentReadCache` returns null on a connectivity flip, no session, or an empty cached file) and cold-start route restore reach the fallback. | `EpubReaderEntry.kt:445-454,645-678`, `SampleEpubPublicationSupport.kt`, `app/.../AppModule.kt:860-866`, `RemoteDocumentReadCache.kt:34-36,77` | Fixed `66753926` |
-| 2.8 | **For downloaded remote EPUBs, the reader opens first and the progress pull runs afterwards.** Pulled progress is ignored after the first location event, and the first page turn overwrites the server's position. The navigator effect is not keyed on the initial locator, so a late pull never moves it even before the lock. | `app/.../AppReaderCoordinator.kt:181-197`, `EpubReaderEntry.kt:157-169,645-647,983-989` | **Checked** |
+| 2.8 | **For downloaded remote EPUBs, the reader opens first and the progress pull runs afterwards.** Pulled progress is ignored after the first location event, and the first page turn overwrites the server's position. The navigator effect is not keyed on the initial locator, so a late pull never moves it even before the lock. | `app/.../AppReaderCoordinator.kt:181-197`, `EpubReaderEntry.kt:157-169,645-647,983-989` | Fixed `ef693736` |
 | 2.9 | **Android stopping a download is recorded as a user cancel.** This happens on network loss, the job time limit, or Doze. The entry shows "Canceled after 12/50", and WorkManager's re-run sees Canceled and does nothing. "Clear completed downloads" then calls `remove()` on Canceled entries, which **deletes the files they downloaded**. `ensureScheduled` reschedules only Queued, PausedConnectivity and Running. Fix: in the cancellation branch finalize as Canceled only when the status was Canceling (a user cancel), otherwise leave it for WorkManager's rerun; and stop deleting files from "Clear completed". | `feature/downloads/.../RemoteDownloadWorkerRunner.kt:102-106`, `RemoteDownloadQueueController.kt:188-243,296-300` | Fixed `bcfa819b` |
 | 2.10 | **After process death, the open reader or series view isn't restored, and the saved route is then overwritten.** `withActiveRouteSnapshot` restores only items found in `items`, which is still empty while the catalog loads on IO. Tests pass only because the fake repository is synchronous. A regression from `a0c853b1`. `getItems()` is `itemsState.value`, empty until IO hydration; the reader fallback item is saved only for off-catalog items; every state publish re-saves the route. | `app/.../AppInitialUiStateFactory.kt:14-38`, `AppActiveRouteStateBridge.kt:25,32-55`, `RemoteCatalogRepositories.kt:174` | Fixed `d6829c2c` |
 | 2.11 | **Marking a book unread deletes all its journal events**, so past months' finished counts drop. After FINISHED, no new events are recorded, so a re-read is never logged. | `data/repository/.../ApplyReadStatusChangeUseCase.kt:80-81`, `feature/journal/.../JournalStore.kt:137-143,288` | Code |
