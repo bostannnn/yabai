@@ -14,35 +14,40 @@ Baseline: `testDebugUnitTest` passes, 1033 tests, 0 failures.
 
 ## Status
 
-### Where it stopped (2026-10-18, end of the third session)
+### Where it stopped (2026-10-18, end of the fourth session)
 
-- **Branch:** the fixes after 0.8.0 were made on `claude/app-review-doc-01d75d` and fast-forwarded into the
-  local `main` on 2026-10-18. `main` is not pushed to `origin`, and the fixes are in no release yet: the 0.8.0
-  release holds #1-#5 only.
-- **Done:** every P0 item (#1-#6, #41) and, from P1, #7, #8, #9, #10, #12, #13, #14, #15, #16, #17, #18, #19, #21, #23, #24, #25 and #42.
-- **Next, in the suggested order:** the last P1 item, #22.
+- **Branch:** the fourth session's fixes (#25, #23, #9, #15-#19 with #42, #21, #22) are on
+  `claude/app-review-doc-64ae36`, which started from `main` at `65caa206`; that branch is not merged into `main`
+  and not pushed. The earlier fixes after 0.8.0 are in `main` and on `origin/main` (`65caa206`). None of this is in
+  a release yet: the 0.8.0 release holds #1-#5 only.
+- **Done:** every P0 item (#1-#6, #41) and every P1 item but the two that wait on building a decision: #7-#10,
+  #12-#19, #21-#25 and #42.
+- **Next:** #11 and #20 (decided, not built; see below), the new #43 (journal entries marked synced without
+  uploading), then P2 from #26.
 - **Decided, not built:** #11 (the most recent read wins; see its entry for what to check first) and #20
   (refresh detects progress from the series list's `PagesRead` and `LatestReadDate`).
 - **Not checked on a device:** #6, #7, #8, #41 (unit tests only); #10 (no reachable source on the tablet has an
   EPUB or PDF: the Kavita libraries are all comics and Grimmory was unreachable from the app); #24 with a real
   solid CBR (tested against junrar's solid archive; no RAR tool on the Mac to make one); #4 against a live Kavita
-  server. #12 was checked on the emulator with a local EPUB, #23 and #25 with a local CBZ, and #9 and #21 with a local EPUB (see their entries). #13 and #14 were checked on the tablet on
-  2026-10-18 against the live Kavita server, with a signed release build of `fa324a09` installed over 0.8.0.
+  server; #15-#19 and #42 (paging is Kavita-only and the emulator has no Kavita server; #19 and #42 also need two
+  server addresses and a network switch). On the private emulator (`yabai_settings_35`, debug builds, local files):
+  #12, #9, #21 and #22 with EPUBs, #23 and #25 with a CBZ (see their entries). #13 and #14 were checked on the
+  tablet on 2026-10-18 against the live Kavita server, with a signed release build of `fa324a09` installed over 0.8.0.
 - **Seen on the tablet, not fixed:** a download queued while its source is not Online is stored as Queued but
   never scheduled (`canScheduleDownload` requires Online), so the sheet shows "Queued" indefinitely with no
   WorkManager job until a startup or connectivity change runs `ensureScheduled`. Pre-existing; not from these fixes.
 - **New finding, not fixed (#43):** the Kavita journal push marks a dirty journal entry CLEAN without uploading it when its item is not in the batch it was given (`KavitaJournalSyncSupport.kt`, `if (item == null) markJournalEntrySyncState(CLEAN)`), and `RemoteArtifactSync` passes the request's items, which for a pending flush are a subset. The same pattern as #41, for journal ratings and reviews. Found while fixing #19; not verified beyond reading.
 - **New finding, not fixed:** CI (`ci.yml`) runs only `testDebugUnitTest`, which skips the plain-Kotlin
-  modules (`core:model`, `data:grimmory`, `data:kavita`, `data:stump`): their 122 tests never run in CI.
+  modules (`core:model`, `data:grimmory`, `data:kavita`, `data:stump`): their 123 tests never run in CI.
   Run them with `:core:model:test :data:grimmory:test :data:kavita:test :data:stump:test`.
 - **How each fix was done:** a regression test that fails without the fix (checked by switching the fix
-  off), the full suite including the JVM `test` tasks, then one commit for the fix and one for this file
-  with its hash.
+  off; #17 is the one exception, see its entry), the full suite including the JVM `test` tasks, then one commit
+  for the fix and one for this file with its hash.
 
 ### Fixed
 
-Fixed, each with a regression test that fails without the fix. Full suite with #21: 1244 tests
-(1121 `testDebugUnitTest` + 123 JVM `test`), 0 failures.
+Fixed, each with a regression test that fails without the fix. Full suite with #22: 1247 tests
+(1124 `testDebugUnitTest` + 123 JVM `test`), 0 failures.
 
 - #1 EPUB reader crash on activity recreation (`faa5bd4b`). Checked on the emulator.
 - #2 Kavita sync dropping other sources' progress (`7651eab8`).
@@ -58,6 +63,7 @@ Fixed, each with a regression test that fails without the fix. Full suite with #
 - #18 "Select all" covering only the loaded window, and picks pruned after a rail jump (`528569e5`). The screen now drops only a rendered root that is no longer selectable and keeps picks outside its window (`sanitizeLibraryDownloadSelection`, `orderLibraryDownloadSelection`). The scaffold adds the recompute's `visibleItems`, which have the paged view's membership (every root when unfiltered, the in-memory filtered set otherwise), so "Select all" and "Download selected" cover the whole view (`libraryDownloadSelectableItems`). Until the recompute lands at cold start (about a second) only the window is known. Unit tests only; not checked on a device (Kavita-only paging).
 - #19 and #42 Address failover on pushes, the way back to the primary address, and the Wi-Fi to cellular handoff (`3d97f012`). The progress pushes (Kavita, Stump and Grimmory, which had the same per-item catch) and the Kavita journal push now leave their loop on an unreachable-server failure, so the failover around them retries the push on the next address; when every address fails, the registries report the failure as before, which marks the source Offline. The connectivity monitor reports the default network's id as well as availability, and the new `AppNetworkChangeCoordinator` (the collector moved out of `AppViewModel`) treats coming back online or a switch to another network as a new connection: it clears each source's `activeBaseUrl`, so the next request tries the primary address first and falls back again if it doesn't answer, then runs the existing re-probe of unavailable sources. The cost: after a network change, a primary address that the new network can't reach costs one failed connection attempt before the backup. Unit tests cover the push failover (Kavita progress through `runWithServerAddressFailover`, the journal push throwing), the new-connection decision, the coordinator and a ViewModel handoff. Not checked on a device: needs a Kavita server with two addresses and a network switch. The Grimmory journal push was not checked for the same catch.
 - #21 EPUB finish detection firing too early, and the right tap doing nothing at the end (`b22412c0`). The end of the book is now the last page of the last reading-order resource (`isEpubBookEnd`): paginated and spread layouts use the page index and count Readium passes to `onPageChanged` (checked in the 3.1.2 bytecode: `R2WebView.mCurItem` and `numPages`, the horizontal scroll range over the client width, so a spread counts as one page); scroll mode, where each resource is one page, runs a script in the last resource that asks whether the web view is scrolled to the bottom. The finished flag, the automatic dialog and the right tap use it; the position saved when the navigator goes away keeps the last answer. Checked on the emulator with a two-chapter EPUB whose short last chapter runs over four pages: the counter read "2/2" from that chapter's first page, where the old check ended the book; now the dialog opens only on its last page, a right tap there opens it again, the book stays under Recently Finished after closing, and a right tap on the reopened book opens the dialog. In scroll mode the script answered true at the bottom and false above it, and the right tap followed. Still as before: `hasAutoRequestedCompletion` is `rememberSaveable`, so the automatic dialog shows once per session, also across a process restore (the right tap still opens it).
+- #22 EPUB footnote heuristic hijacking contents and appendix links, and external links doing nothing (`db85dec0`). The link's target now decides (`EpubFootnotes.kt`, moved out of `EpubReaderEntry.kt`): a target marked as a note (`epub:type` footnote, endnote, rearnote or note, a `doc-footnote`/`doc-endnote` role, a note class), or inside one, opens as a popup; otherwise the nearest paragraph-like block does when it is note-sized (up to 2,000 characters) and has a numbered note id (`fn1`, `n1`, `_ftn1`; not a back-link id like `fnref1`) or text starting with a marker ("1.", "[2]", "*"). Headings, sections, chapters, plain body paragraphs and back-link targets navigate. Two things learned: the old marker check on the link's title never ran, because Readium builds the `Link` from the URL (`internalLinkFromUrl`) without the anchor text; and the XML parser refuses any DOCTYPE, so the semantic check failed on nearly every EPUB 3 page, which is why the forced fallback did all the work. The DOCTYPE is now removed before parsing (DOCTYPEs stay refused) and `&nbsp;` mapped. Web and mail links open in another app. Checked on the emulator with an EPUB whose contents page links to its Notes chapter and whose text has a numbered endnote: "Notes" now navigates, and the "1" marker opens the note as a popup. External links were checked only in a unit test (the intent).
 - #12 Route lost after process death (`d6829c2c`). The route always stores the open book's item, so the reader reopens before the catalog loads; a series sub-screen is kept until its source's catalog has loaded. Checked on the emulator (see below).
 - #6 Downloads stopped by Android recorded as user cancels (`bcfa819b`). A cancellation is a user cancel only when the entry is already Canceling or Canceled; any other stop puts the entry back to Queued with its finished files kept, and the worker returns `Result.retry()`, so WorkManager's rerun resumes after them. "Clear completed" now only clears the list; Remove on a single failed or canceled entry still deletes its files. Entries already wrongly marked Canceled before this fix stay that way (Retry resumes them). Unit tests only.
 - #7 Stale comic resume anchor beating synced progress (`5af76586`). The session now stores the progress page with the resume anchor (`resumeProgressPage`), and the anchor, segment and scroll offset are ignored once the saved progress is on another page, as after a pull from another device. Sessions saved before keep the anchor only when it is the progress page itself. A page restored after the reader opened (a pull for a downloaded comic) also moves the anchor, which the pager and the webtoon list follow; before, only the page counter changed and the next settle saved the old page. Unit tests only.
@@ -77,7 +83,7 @@ had lost the book. The 0.8.0 build at `aeb722a2` reopened in the book. Back then
 library and cleared the saved book, and the crash log stayed empty. Not checked: a remote book or a
 series sub-screen (no server on the emulator); the unit tests cover those.
 
-Next is #22, the EPUB footnote heuristic. Learned while fixing these:
+Next are #11 and #20 (decided), then #43 and P2. Learned while fixing these:
 
 - **Process death (#12):** after process death the app opened on the library, not the book. Seen on the emulator; fixed in `d6829c2c`.
 - **Hanging suite:** `SourceNavigationPreferencesStoreTest`'s IO-retry test could wait forever: with a 0 ms retry delay the store's startup fallback was replaced before the test saw it. It hung the suite for 30 minutes during #25; made deterministic in `bfdc4440`.
@@ -124,6 +130,7 @@ How the list is ordered:
 5. Importing an EPUB with a space or `%` in its cover href crashes, and the parsing runs on the main thread (1.2). Reproduced. Fixed `1935a96d`.
 6. Downloads stopped by Android are recorded as cancelled, and "Clear completed" deletes their files (2.9). Fixed `bcfa819b`.
 41. Kavita pending flush marks dirty Kavita progress outside its batch as synced without uploading it (2.12). Numbered out of order to keep the references above stable. Fixed `575028cf`.
+43. Kavita journal push marks dirty journal entries outside its batch as synced without uploading them: the #41 pattern for ratings and reviews (see "Where it stopped"). Found in the fourth session while fixing #19; read, not run.
 
 **P1: progress lands in the wrong place**
 7. A stale comic resume anchor overrides newer synced progress and pushes it back (2.4). Fixed `5af76586`.
@@ -143,7 +150,7 @@ How the list is ordered:
 19. Kavita address failover never triggers on push failures and never returns to the LAN address. Fixed `3d97f012`.
 20. Kavita fast sync (the library refresh) never pulls progress. Decided: detect progress made elsewhere through the series list, not one request per chapter. Kavita's `all-v2` series already carries the user's `PagesRead` and `LatestReadDate` (checked in 0.8.9 and `develop`); adding them to the change fingerprint re-fetches only series read since the last sync.
 21. EPUB finish detection fires too early (the start of the last Readium position), and a right tap on a reopened finished book does nothing. The first pass had this backwards: the end *is* detected. Fixed `b22412c0`.
-22. The EPUB footnote heuristic hijacks TOC and appendix links; external links do nothing.
+22. The EPUB footnote heuristic hijacks TOC and appendix links; external links do nothing. Fixed `db85dec0`.
 23. Comic archives: `__MACOSX` junk entries become pages, and GIF/BMP/AVIF/HEIC pages are dropped. Fixed `2ecfd1d4`.
 24. Solid CBRs decode only their first page. Fixed `f841d280`.
 25. Comics are marked complete too early: the top edge of the last page in webtoon mode, or a small swipe on the last page. Fixed `6d0b6f28`.
@@ -180,7 +187,7 @@ How the list is ordered:
 
 The unfinished features in section 4 are feature work that needs product decisions, so they don't get fix sessions.
 
-Suggested order after the second pass: 6, 41, 7, 10, 13, 14, 24, 25, 23, then the rest of P1. 6, 41, 7, 10, 13, 14, 24, 25, 23, 9, 15, 16, 17, 18, 19, 42, 21, 8 and 12 are done; 22 is next.
+Suggested order after the second pass: 6, 41, 7, 10, 13, 14, 24, 25, 23, then the rest of P1. 6, 41, 7, 10, 13, 14, 24, 25, 23, 9, 15, 16, 17, 18, 19, 42, 21, 22, 8 and 12 are done, which completes P1 except #11 and #20 (decided, not built).
 
 Decisions, 2026-10-18: #11 most recent read wins; #20 uses the series read fields; #41, then #8, then #12.
 
@@ -239,8 +246,8 @@ Decisions, 2026-10-18: #11 most recent read wins; #20 uses the series read field
 - **The footnote heuristic hijacks normal links:** any link with "note" or "fn" in it, or a fragment link into a later file in the last 20% of the book, opens a
   popup instead of navigating. That covers the book's own TOC page and appendix links. In-content links only: the app's TOC panel goes through
   `EpubTocNavigationRequest` and is unaffected, and links without a fragment navigate normally. A forced match falls back to the whole target element,
-  so a chapter `<section id>` shows the chapter as a popup. `EpubReaderEntry.kt:995-1041,1339-1348,1407-1448`. **Checked.**
-- External web links do nothing (`onExternalLinkActivated = Unit`, `:1028`). The progress bar ignores RTL (`EpubReaderBottomDock.kt:79`).
+  so a chapter `<section id>` shows the chapter as a popup. `EpubReaderEntry.kt:995-1041,1339-1348,1407-1448`. **Checked.** Fixed `db85dec0`.
+- External web links do nothing (`onExternalLinkActivated = Unit`, `:1028`); fixed `db85dec0`. The progress bar ignores RTL (`EpubReaderBottomDock.kt:79`).
 - "Read next" and "start from beginning" are ignored for EPUB (`EpubReaderFactory.kt:19-27`).
 
 ### Comics and PDF
