@@ -128,6 +128,75 @@ class ComicsReaderSessionAdapterTest {
     }
 
     @Test
+    fun `resume position saved with an older page is dropped once synced progress moves on`() = runBlocking {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val item = comicItem()
+        // Progress pulled from another device is on page 30; the session still holds this device's spot.
+        val sessionStore = TestReaderSessionStore(
+            isHydrated = true,
+            progressByItemId = mapOf(item.id to pageProgress(item, page = 30)),
+        )
+        val adapter = comicsSessionAdapter(sessionStore, scope)
+        adapter.saveResumeAnchorPage(item, pageIndex = 9, progressPage = 10)
+        adapter.saveResumeScrollOffsetRatio(item, 0.4f)
+
+        assertEquals(30, adapter.loadPage(item))
+        assertNull(adapter.loadResumeAnchorPage(item))
+        assertNull(adapter.loadResumeScrollOffsetRatio(item))
+        assertNull(adapter.observePreferences(item).first()?.resumeAnchorPage)
+        scope.cancel()
+    }
+
+    @Test
+    fun `resume position saved with the current page is kept`() = runBlocking {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val item = comicItem()
+        val sessionStore = TestReaderSessionStore(
+            isHydrated = true,
+            progressByItemId = mapOf(item.id to pageProgress(item, page = 10)),
+        )
+        val adapter = comicsSessionAdapter(sessionStore, scope)
+        // A two-page spread: the anchor is its left page, the progress page its right one.
+        adapter.saveResumeAnchorPage(item, pageIndex = 9, progressPage = 10)
+
+        assertEquals(9, adapter.loadResumeAnchorPage(item))
+        assertEquals(9, adapter.observePreferences(item).first()?.resumeAnchorPage)
+        scope.cancel()
+    }
+
+    @Test
+    fun `older sessions without the saved page keep only an anchor on the progress page`() = runBlocking {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val item = comicItem()
+        val legacySession = mapOf(
+            item.id to ReaderSessionSnapshot(
+                itemId = item.id,
+                preferences = buildComicReaderPreferencesPatch(resumeAnchorPage = 12),
+            ),
+        )
+        val unchanged = comicsSessionAdapter(
+            TestReaderSessionStore(
+                isHydrated = true,
+                progressByItemId = mapOf(item.id to pageProgress(item, page = 12)),
+                sessionByItemId = legacySession,
+            ),
+            scope,
+        )
+        val moved = comicsSessionAdapter(
+            TestReaderSessionStore(
+                isHydrated = true,
+                progressByItemId = mapOf(item.id to pageProgress(item, page = 30)),
+                sessionByItemId = legacySession,
+            ),
+            scope,
+        )
+
+        assertEquals(12, unchanged.loadResumeAnchorPage(item))
+        assertNull(moved.loadResumeAnchorPage(item))
+        scope.cancel()
+    }
+
+    @Test
     fun `page turn style defaults to slide for saved sessions without the preference`() = runBlocking {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
         val item = comicItem()
@@ -266,6 +335,26 @@ private class TestReaderSessionStore(
         itemId: String,
     ) = Unit
 }
+
+private fun comicsSessionAdapter(
+    sessionStore: TestReaderSessionStore,
+    scope: CoroutineScope,
+): ComicsReaderSessionAdapter = ComicsReaderSessionAdapter(
+    sessionStore = sessionStore,
+    directionPreferencesStore = TestComicReadingDirectionPreferencesStore(isHydrated = true),
+    readerModePreferencesStore = TestComicReaderModePreferencesStore(isHydrated = true),
+    scope = scope,
+)
+
+private fun pageProgress(
+    item: ReadableItem,
+    page: Int,
+): ReaderProgressSnapshot = ReaderProgressSnapshot(
+    itemId = item.id,
+    locatorType = LocatorType.PAGE,
+    page = page,
+    syncState = SyncState.CLEAN,
+)
 
 private fun comicItem(): ReadableItem = ReadableItem(
     id = "kavita:item:comic-1",

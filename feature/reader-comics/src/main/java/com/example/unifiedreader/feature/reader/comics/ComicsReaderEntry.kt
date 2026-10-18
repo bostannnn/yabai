@@ -178,7 +178,11 @@ fun ComicsReaderScreen(
     )
     val persistResumePosition by rememberUpdatedState(
         newValue = {
-            preferencesStore.saveResumeAnchorPage(item, readerState.resumeAnchorPage)
+            preferencesStore.saveResumeAnchorPage(
+                item = item,
+                pageIndex = readerState.resumeAnchorPage,
+                progressPage = readerState.currentPage,
+            )
             preferencesStore.saveResumeSegment(
                 item,
                 sanitizeComicResumeSegment(readerState.resumeSegment),

@@ -14,6 +14,7 @@ const val ComicsSplitWidePagesKey = "splitWidePages"
 const val ComicsResumeAnchorPageKey = "resumeAnchorPage"
 const val ComicsResumeSegmentKey = "resumeSegment"
 const val ComicsResumeScrollOffsetRatioKey = "resumeScrollOffsetRatio"
+const val ComicsResumeProgressPageKey = "resumeProgressPage"
 
 fun restoreComicReaderPreferences(
     session: ReaderSessionSnapshot?,
@@ -60,6 +61,8 @@ fun restoreComicReaderPreferences(
         resumeScrollOffsetRatio = preferences[ComicsResumeScrollOffsetRatioKey]
             ?.toFloatOrNull()
             ?.let(::sanitizeComicResumeScrollOffsetRatio),
+        resumeProgressPage = preferences[ComicsResumeProgressPageKey]
+            ?.toIntOrNull(),
     )
 }
 
@@ -95,6 +98,7 @@ fun buildComicReaderPreferencesMap(
     ComicsResumeAnchorPageKey to preferences.resumeAnchorPage?.toString().orEmpty(),
     ComicsResumeSegmentKey to preferences.resumeSegment?.name.orEmpty(),
     ComicsResumeScrollOffsetRatioKey to preferences.resumeScrollOffsetRatio?.toString().orEmpty(),
+    ComicsResumeProgressPageKey to preferences.resumeProgressPage?.toString().orEmpty(),
 )
 
 fun buildComicReaderPreferencesPatch(
@@ -131,6 +135,7 @@ fun clearComicReaderPosition(
         ComicsResumeAnchorPageKey,
         ComicsResumeSegmentKey,
         ComicsResumeScrollOffsetRatioKey,
+        ComicsResumeProgressPageKey,
     )
     if (clearedPreferences == existing.preferences) {
         return existing

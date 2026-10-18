@@ -253,11 +253,13 @@ class ComicsReaderSessionAdapter(
     override fun saveResumeAnchorPage(
         item: ReadableItem,
         pageIndex: Int?,
+        progressPage: Int?,
     ) {
         sessionStore.updateSession(
             item = item,
             preferences = mapOf(
                 ComicsResumeAnchorPageKey to pageIndex?.toString().orEmpty(),
+                ComicsResumeProgressPageKey to progressPage?.toString().orEmpty(),
             ),
         )
     }

@@ -77,6 +77,35 @@ class ComicsReaderStateTest {
     }
 
     @Test
+    fun `restoring a newer page after the first settle moves the anchor the pager follows`() {
+        val state = comicsReaderState(
+            initialPage = 10,
+            pageCount = 40,
+            initialResumeAnchorPage = 10,
+        )
+        // The pager's first settle at open, then progress pulled after the reader opened.
+        state.onPageSettled(pageIndex = 10, resumeAnchorPage = 10)
+
+        assertTrue(state.restorePageIfUnchanged(30))
+        assertEquals(30, state.currentPage)
+        assertEquals(30, state.resumeAnchorPage)
+    }
+
+    @Test
+    fun `restoring the page a webtoon anchor already points at keeps its scroll offset`() {
+        val state = comicsReaderState(
+            pageCount = 40,
+            initialReaderMode = ComicReaderMode.VerticalScroll,
+            initialResumeAnchorPage = 5,
+            initialResumeScrollOffsetRatio = 0.4f,
+        )
+
+        assertTrue(state.restorePageIfUnchanged(5))
+        assertEquals(5, state.resumeAnchorPage)
+        assertEquals(0.4f, checkNotNull(state.resumeScrollOffsetRatio), 0.0001f)
+    }
+
+    @Test
     fun `explicit resume anchor restore happens only once`() {
         val state = comicsReaderState(
             initialPage = 3,

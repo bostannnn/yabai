@@ -76,6 +76,8 @@ data class ComicReaderPreferencesSnapshot(
     val resumeAnchorPage: Int? = null,
     val resumeSegment: ComicPageSegment?,
     val resumeScrollOffsetRatio: Float? = null,
+    /** The progress page the resume position was saved with; null for sessions saved before it was kept. */
+    val resumeProgressPage: Int? = null,
 )
 
 enum class ComicPageLoadPriority {
@@ -174,6 +176,7 @@ interface ComicReaderPreferencesStore {
     fun saveResumeAnchorPage(
         item: ReadableItem,
         pageIndex: Int?,
+        progressPage: Int?,
     ) = Unit
 
     fun loadResumeSegment(
@@ -437,8 +440,14 @@ class ComicsReaderState internal constructor(
         val safePageIndex = pageIndex.coerceIn(0, pageCount - 1)
         if (hasUserNavigated || currentPage == safePageIndex) return false
         currentPage = safePageIndex
-        if (!hasRestoredResumeAnchor) {
+        // The pager and the scroll list follow the anchor, so a restored page (e.g. progress pulled
+        // after the reader opened) must move it too; otherwise the next settle saves the old page.
+        if (resumeAnchorPage != safePageIndex) {
             resumeAnchorPage = safePageIndex
+            resumeSegment = null
+            resumeScrollOffsetRatio = null
+            hasRestoredResumeSegment = false
+            hasRestoredResumeScrollOffsetRatio = false
         }
         return true
     }

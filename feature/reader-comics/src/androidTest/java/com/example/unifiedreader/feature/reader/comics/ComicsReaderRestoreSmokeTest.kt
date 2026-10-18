@@ -402,7 +402,7 @@ private open class SmokePreferencesStore(
 
     override fun loadSpreadMode(item: ReadableItem): ComicSpreadMode = spreadMode
 
-    override fun saveResumeAnchorPage(item: ReadableItem, pageIndex: Int?) {
+    override fun saveResumeAnchorPage(item: ReadableItem, pageIndex: Int?, progressPage: Int?) {
         pageIndex?.let(savedResumeAnchors::add)
     }
 }
