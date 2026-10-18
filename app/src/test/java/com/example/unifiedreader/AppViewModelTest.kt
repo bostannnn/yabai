@@ -523,6 +523,83 @@ class AppViewModelTest {
     }
 
     @Test
+    fun `downloaded EPUB opens after its progress pull`() {
+        val downloadedBook = downloadedKavitaEpub()
+        val progressSync = BlockingSourceProgressSync(sourceType = SourceType.KAVITA)
+        val viewModel = createViewModel(
+            sampleItems = listOf(downloadedBook),
+            remoteDownloadDataSources = listOf(
+                FakeGrimmoryContentRepository(),
+                FakeRemoteDownloadDataSource(
+                    sourceType = SourceType.KAVITA,
+                    storedItemIds = mutableSetOf(downloadedBook.id),
+                ),
+            ),
+            sourceProgressSyncs = listOf(progressSync),
+        )
+
+        viewModel.onItemSelected(downloadedBook)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        // The EPUB reader restores its position once, so it must not open before the pull lands.
+        assertNull(viewModel.uiState.activeReader)
+        assertEquals(1, progressSync.syncItemCalls)
+        progressSync.allowCompletion()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(downloadedBook.id, viewModel.uiState.selectedItemId)
+        assertEquals(FormatType.EPUB, viewModel.uiState.activeReader)
+    }
+
+    @Test
+    fun `downloaded EPUB opens without its progress pull once the pull times out`() {
+        val downloadedBook = downloadedKavitaEpub()
+        val viewModel = createViewModel(
+            sampleItems = listOf(downloadedBook),
+            remoteDownloadDataSources = listOf(
+                FakeGrimmoryContentRepository(),
+                FakeRemoteDownloadDataSource(
+                    sourceType = SourceType.KAVITA,
+                    storedItemIds = mutableSetOf(downloadedBook.id),
+                ),
+            ),
+            sourceProgressSyncs = listOf(BlockingSourceProgressSync(sourceType = SourceType.KAVITA)),
+        )
+
+        viewModel.onItemSelected(downloadedBook)
+        shadowOf(Looper.getMainLooper()).idle()
+        assertNull(viewModel.uiState.activeReader)
+
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(3))
+
+        assertEquals(downloadedBook.id, viewModel.uiState.selectedItemId)
+        assertEquals(FormatType.EPUB, viewModel.uiState.activeReader)
+        assertNull(viewModel.uiState.progressSyncNotice)
+    }
+
+    @Test
+    fun `downloaded EPUB opens when its progress pull fails`() {
+        val downloadedBook = downloadedKavitaEpub()
+        val viewModel = createViewModel(
+            sampleItems = listOf(downloadedBook),
+            remoteDownloadDataSources = listOf(
+                FakeGrimmoryContentRepository(),
+                FakeRemoteDownloadDataSource(
+                    sourceType = SourceType.KAVITA,
+                    storedItemIds = mutableSetOf(downloadedBook.id),
+                ),
+            ),
+            sourceProgressSyncs = listOf(NetworkFailingSourceProgressSync(sourceType = SourceType.KAVITA)),
+        )
+
+        viewModel.onItemSelected(downloadedBook)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(downloadedBook.id, viewModel.uiState.selectedItemId)
+        assertEquals(FormatType.EPUB, viewModel.uiState.activeReader)
+        assertNull(viewModel.uiState.progressSyncNotice)
+    }
+
+    @Test
     fun `downloaded item network progress failure opens reader silently and marks source unavailable`() {
         val remoteComic = sampleItem(
             id = "kavita-cbz",
@@ -3460,4 +3537,14 @@ private fun ReadableItem.toJournalItemRef(): JournalItemRef = JournalItemRef(
     coverUrl = coverUrl,
     itemKind = kind,
     format = format,
+)
+
+private fun downloadedKavitaEpub(): ReadableItem = sampleItem(
+    id = "kavita-epub",
+    title = "Downloaded Book",
+    format = FormatType.EPUB,
+).copy(
+    sourceType = SourceType.KAVITA,
+    libraryId = SourceType.KAVITA.remoteLibraryId("kavita-books"),
+    remoteId = "chapter-7",
 )

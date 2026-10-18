@@ -1,6 +1,7 @@
 package com.example.unifiedreader
 
 import android.util.Log
+import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
@@ -12,6 +13,7 @@ import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 class AppReaderCoordinator @Inject constructor(
     private val libraryProgressRefreshCoordinator: AppLibraryProgressRefreshCoordinator,
@@ -179,21 +181,20 @@ class AppReaderCoordinator @Inject constructor(
             }
 
             ReadableAccessDecision.DownloadedRemoteFile -> {
-                openReader(
-                    item = item,
-                    selectedReaderItem = selectedReaderItem,
-                    openMode = openMode,
-                    updateState = updateState,
-                )
-                if (hasProgressSync && remoteSourceConnectivityPolicy.canAttemptDownloadedProgressSync(item.sourceType)) {
-                    scope.launch {
-                        syncProgressForDownloadedItem(
-                            item = item,
-                            requestId = requestId,
-                            refreshProgress = refreshProgress,
-                            onSyncFailures = onSyncFailures,
-                        )
+                val open = { openReader(item, selectedReaderItem, openMode, updateState) }
+                if (!hasProgressSync || !remoteSourceConnectivityPolicy.canAttemptDownloadedProgressSync(item.sourceType)) {
+                    open()
+                    return
+                }
+                // The EPUB and PDF readers restore their position once and ignore a later pull, so they
+                // open after it (bounded); comics follow a pull that lands after they open.
+                val pullFirst = item.format == FormatType.EPUB || item.format == FormatType.PDF
+                if (!pullFirst) open()
+                scope.launch {
+                    withTimeoutOrNull(DOWNLOADED_PROGRESS_PULL_BEFORE_OPEN_MILLIS) {
+                        syncProgressForDownloadedItem(item, requestId, refreshProgress, onSyncFailures)
                     }
+                    if (pullFirst && readerSelectionRequestId == requestId) open()
                 }
                 return
             }
@@ -315,29 +316,11 @@ class AppReaderCoordinator @Inject constructor(
         refreshProgress: () -> Unit,
         onSyncFailures: (List<SourceProgressSyncFailure>) -> Unit,
     ) {
-        var isReachabilityFailure = false
-        val failure = syncItemProgressUseCase(item).fold(
-            onSuccess = {
-                remoteSourceConnectivityPolicy.recordProgressSyncSuccess(item.sourceType)
-                null
-            },
-            onFailure = { throwable ->
-                isReachabilityFailure = throwable.isRemoteServerAddressRetryableFailure()
-                remoteSourceConnectivityPolicy.recordProgressSyncFailure(
-                    sourceType = item.sourceType,
-                    throwable = throwable,
-                )
-                SourceProgressSyncFailure(
-                    sourceType = item.sourceType,
-                    throwable = throwable,
-                )
-            },
-        )
+        val failure = syncProgressBeforeOpen(item).firstOrNull()
         if (readerSelectionRequestId != requestId) return
-        if (failure == null) {
-            refreshProgress()
-        } else if (!isReachabilityFailure) {
-            onSyncFailures(listOf(failure))
+        when {
+            failure == null -> refreshProgress()
+            !failure.throwable.isRemoteServerAddressRetryableFailure() -> onSyncFailures(listOf(failure))
         }
     }
 
@@ -607,4 +590,5 @@ class AppReaderCoordinator @Inject constructor(
 }
 
 private const val LIBRARY_SCROLL_POSITION_CACHE_LIMIT = 64
+private const val DOWNLOADED_PROGRESS_PULL_BEFORE_OPEN_MILLIS = 2_000L
 private const val LOG_TAG = "UnifiedReader"
