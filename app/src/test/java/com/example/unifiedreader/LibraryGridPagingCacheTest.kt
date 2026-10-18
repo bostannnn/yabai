@@ -12,6 +12,7 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runCurrent
@@ -79,10 +80,10 @@ private class RecordingLibraryGridPager : LibraryGridPager {
         }
     }
 
-    override suspend fun alphabetSections(
+    override fun alphabetSections(
         source: SourceType,
         sortMode: LibrarySortMode,
-    ): List<LibraryAlphabetSection> = emptyList()
+    ): Flow<List<LibraryAlphabetSection>> = flowOf(emptyList())
 
     override suspend fun orderedGridRootIds(
         source: SourceType,

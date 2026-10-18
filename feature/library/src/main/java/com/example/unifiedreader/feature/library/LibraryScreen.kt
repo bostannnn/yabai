@@ -126,9 +126,9 @@ fun LibraryScreen(
     // used on the paged path; null (all other callers) keeps the recompute maps as the sole source.
     pagedWindowBadgeResolver: (suspend (List<ReadableItem>) -> LibraryWindowBadges)? = null,
     // Supplies the SQL-computed alphabet rail (present letters + their grid offsets) for a paged rail
-    // sort, so the paged grid can render + jump the A–Z rail without the in-memory ordered list. Null
-    // (non-paged callers) keeps the rail driven by [items].
-    pagedAlphabetSectionsProvider: (suspend (LibrarySortMode) -> List<LibraryAlphabetSection>)? = null,
+    // sort, so the paged grid can render + jump the A–Z rail without the in-memory ordered list. It
+    // emits again when the grid roots change. Null (non-paged callers) keeps the rail driven by [items].
+    pagedAlphabetSectionsProvider: ((LibrarySortMode) -> Flow<List<LibraryAlphabetSection>>)? = null,
     // Also run the badge overlay for a non-paged but *bounded* view (series browse): there the grid +
     // progress/rating come from the synchronous computeQuick, but download availability lands only with
     // the async recompute, so resolving the visible issues' download status early commits it with them.
@@ -206,11 +206,16 @@ fun LibraryScreen(
         }
     }
     // On the paged path the ordered set isn't in memory, so the rail comes from SQL (present letters +
-    // the grid offset of each section's first root). Resolved off-thread; empty for rail-less sorts.
+    // the grid offset of each section's first root). Resolved off-thread and followed as the grid roots
+    // change (a sync, the rebuild after a migration); empty for rail-less sorts.
     val latestAlphabetProvider by rememberUpdatedState(pagedAlphabetSectionsProvider)
     val pagedAlphabetSections by produceState(emptyList<LibraryAlphabetSection>(), isPaged, sortMode) {
         val provider = latestAlphabetProvider
-        value = if (isPaged && provider != null && sortMode.usesAlphabetRail) provider(sortMode) else emptyList()
+        if (isPaged && provider != null && sortMode.usesAlphabetRail) {
+            provider(sortMode).collect { sections -> value = sections }
+        } else {
+            value = emptyList()
+        }
     }
     // Rail buttons + per-section scroll offsets. Both variants are computed unconditionally (remember
     // must not be called inside a branch — `isPaged` can flip when a runtime filter is applied) and the

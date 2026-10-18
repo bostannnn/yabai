@@ -41,6 +41,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
@@ -100,12 +102,12 @@ interface LibraryGridPager {
      * The alphabet rail for a paged rail sort (TITLE / AUTHOR / SERIES): the present section letters
      * with the grid offset of each section's first root, computed in SQL over the precomputed sort
      * keys. Empty for the non-rail sorts. Lets the paged grid render + jump the A–Z rail without the
-     * in-memory ordered list.
+     * in-memory ordered list. Emits again whenever the grid roots change.
      */
-    suspend fun alphabetSections(
+    fun alphabetSections(
         source: SourceType,
         sortMode: LibrarySortMode,
-    ): List<LibraryAlphabetSection>
+    ): Flow<List<LibraryAlphabetSection>>
 
     /**
      * The first [limit] grid-root ids for [source] under [sortMode], in the same order
@@ -338,20 +340,17 @@ class RoomRemoteCatalogRepository(
         }
     }.flow.map { pagingData -> pagingData.map(LibraryGridRootEntity::toDomain) }
 
-    override suspend fun alphabetSections(
+    override fun alphabetSections(
         source: SourceType,
         sortMode: LibrarySortMode,
-    ): List<LibraryAlphabetSection> = withContext(ioDispatcher) {
-        val buckets = when (sortMode) {
-            LibrarySortMode.TITLE -> remoteCatalogDao.getTitleAlphabetBuckets(source.name)
-            LibrarySortMode.AUTHOR -> remoteCatalogDao.getAuthorAlphabetBuckets(source.name)
-            LibrarySortMode.SERIES -> remoteCatalogDao.getSeriesAlphabetBuckets(source.name)
-            LibrarySortMode.DATE_ADDED,
-            LibrarySortMode.LAST_READ,
-            LibrarySortMode.ISSUE_COUNT -> emptyList()
-        }
-        assembleLibraryAlphabetSections(buckets)
-    }
+    ): Flow<List<LibraryAlphabetSection>> = when (sortMode) {
+        LibrarySortMode.TITLE -> remoteCatalogDao.observeTitleAlphabetBuckets(source.name)
+        LibrarySortMode.AUTHOR -> remoteCatalogDao.observeAuthorAlphabetBuckets(source.name)
+        LibrarySortMode.SERIES -> remoteCatalogDao.observeSeriesAlphabetBuckets(source.name)
+        LibrarySortMode.DATE_ADDED,
+        LibrarySortMode.LAST_READ,
+        LibrarySortMode.ISSUE_COUNT -> flowOf(emptyList())
+    }.map(::assembleLibraryAlphabetSections).flowOn(ioDispatcher)
 
     override suspend fun orderedGridRootIds(
         source: SourceType,

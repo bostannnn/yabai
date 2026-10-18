@@ -14,6 +14,11 @@ import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.assembleLibraryAlphabetSections
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -294,8 +299,43 @@ class RemoteCatalogGridPagingTest {
                 LibraryAlphabetSection(letter = "B", itemOffset = 1),
                 LibraryAlphabetSection(letter = "G", itemOffset = 3),
             ),
-            assembleLibraryAlphabetSections(dao.getTitleAlphabetBuckets(SourceType.KAVITA.name)),
+            assembleLibraryAlphabetSections(dao.observeTitleAlphabetBuckets(SourceType.KAVITA.name).first()),
         )
+    }
+
+    @Test
+    fun `the alphabet rail buckets follow writes to the grid roots`() = runBlocking {
+        val emissions = Channel<List<String>>(Channel.UNLIMITED)
+        val collector = launch(Dispatchers.IO) {
+            dao.observeTitleAlphabetBuckets(SourceType.KAVITA.name).collect { buckets ->
+                emissions.send(buckets.map { bucket -> bucket.firstChar.orEmpty() })
+            }
+        }
+        try {
+            // As on the first launch after the v28 migration, before the rebuild writes any roots.
+            assertEquals(emptyList<String>(), withTimeout(5_000L) { emissions.receive() })
+
+            dao.replaceSourceCatalog(
+                sourceType = SourceType.KAVITA.name,
+                libraries = listOf(kavitaLibrary()),
+                items = listOf(book(id = "kavita:item:1", title = "Akira"), book(id = "kavita:item:2", title = "Berserk")),
+            )
+            assertEquals(listOf("a", "b"), withTimeout(5_000L) { emissions.receiveUntilChanged(emptyList()) })
+
+            // A later sync adds a letter.
+            dao.replaceSourceCatalog(
+                sourceType = SourceType.KAVITA.name,
+                libraries = listOf(kavitaLibrary()),
+                items = listOf(
+                    book(id = "kavita:item:1", title = "Akira"),
+                    book(id = "kavita:item:2", title = "Berserk"),
+                    book(id = "kavita:item:3", title = "Claymore"),
+                ),
+            )
+            assertEquals(listOf("a", "b", "c"), withTimeout(5_000L) { emissions.receiveUntilChanged(listOf("a", "b")) })
+        } finally {
+            collector.cancel()
+        }
     }
 
     @Test
@@ -395,3 +435,10 @@ private fun book(
     comicLanguagesJson = null,
     updatedAtEpochMillis = addedAt ?: 0L,
 )
+
+private suspend fun <T> Channel<T>.receiveUntilChanged(previous: T): T {
+    while (true) {
+        val next = receive()
+        if (next != previous) return next
+    }
+}

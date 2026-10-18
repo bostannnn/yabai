@@ -289,10 +289,11 @@ internal fun createViewModel(
             limit: Int,
         ): List<String> = emptyList()
 
-        override suspend fun alphabetSections(
+        override fun alphabetSections(
             source: SourceType,
             sortMode: com.example.unifiedreader.core.model.LibrarySortMode,
-        ): List<com.example.unifiedreader.core.model.LibraryAlphabetSection> = emptyList()
+        ): Flow<List<com.example.unifiedreader.core.model.LibraryAlphabetSection>> =
+            kotlinx.coroutines.flow.flowOf(emptyList())
 
         override suspend fun rebuildGridRootsIfEmpty() = Unit
     }

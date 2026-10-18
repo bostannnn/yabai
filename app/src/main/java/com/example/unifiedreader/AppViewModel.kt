@@ -144,9 +144,9 @@ class AppViewModel @Inject constructor(
      * the paged grid can render + jump the A–Z rail without the in-memory ordered list. Empty for the
      * rail-less sorts. Reads the current source from [uiState].
      */
-    suspend fun pagedAlphabetSections(
+    fun pagedAlphabetSections(
         sortMode: com.example.unifiedreader.core.model.LibrarySortMode,
-    ): List<com.example.unifiedreader.core.model.LibraryAlphabetSection> =
+    ): kotlinx.coroutines.flow.Flow<List<com.example.unifiedreader.core.model.LibraryAlphabetSection>> =
         libraryGridPager.alphabetSections(uiState.selectedSource, sortMode)
 
     fun onTopLevelSelected(destination: TopLevelDestination) {

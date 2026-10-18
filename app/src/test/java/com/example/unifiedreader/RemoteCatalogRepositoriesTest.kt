@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.dropWhile
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -678,11 +679,11 @@ private class FakeRemoteCatalogDao(
     override fun pagingGridRootsBySeries(sourceType: String): PagingSource<Int, LibraryGridRootEntity> =
         throw UnsupportedOperationException("paging not used in FakeRemoteCatalogDao")
 
-    override fun getTitleAlphabetBuckets(sourceType: String): List<LibraryAlphabetBucket> = emptyList()
+    override fun observeTitleAlphabetBuckets(sourceType: String): Flow<List<LibraryAlphabetBucket>> = flowOf(emptyList())
 
-    override fun getAuthorAlphabetBuckets(sourceType: String): List<LibraryAlphabetBucket> = emptyList()
+    override fun observeAuthorAlphabetBuckets(sourceType: String): Flow<List<LibraryAlphabetBucket>> = flowOf(emptyList())
 
-    override fun getSeriesAlphabetBuckets(sourceType: String): List<LibraryAlphabetBucket> = emptyList()
+    override fun observeSeriesAlphabetBuckets(sourceType: String): Flow<List<LibraryAlphabetBucket>> = flowOf(emptyList())
 
     override fun pagingGridRootsByDateAdded(sourceType: String): PagingSource<Int, LibraryGridRootEntity> =
         throw UnsupportedOperationException("paging not used in FakeRemoteCatalogDao")

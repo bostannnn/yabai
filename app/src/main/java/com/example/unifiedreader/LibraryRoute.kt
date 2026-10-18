@@ -45,7 +45,7 @@ internal fun LibraryRoute(
     viewMode: LibraryViewMode,
     pagedGridFlow: Flow<PagingData<ReadableItem>>? = null,
     pagedWindowBadgeResolver: (suspend (List<ReadableItem>) -> LibraryWindowBadges)? = null,
-    pagedAlphabetSectionsProvider: (suspend (LibrarySortMode) -> List<LibraryAlphabetSection>)? = null,
+    pagedAlphabetSectionsProvider: ((LibrarySortMode) -> Flow<List<LibraryAlphabetSection>>)? = null,
     browseContextKey: String,
     initialScrollPosition: LibraryScrollPosition,
     scrollToTopRequest: Long,

@@ -173,26 +173,27 @@ abstract class RemoteCatalogDao {
 
     // Alphabet-rail buckets: how many roots share each first character of the sort key, in sort order.
     // assembleLibraryAlphabetSections turns these into per-letter scroll offsets (bounded to <=~40 rows).
+    // Flows, so the rail follows every write to the grid roots (a catalog sync, the post-migration rebuild).
     @Query(
         "SELECT substr(sortTitleKey, 1, 1) AS firstChar, COUNT(*) AS count FROM library_grid_roots " +
             "WHERE sourceType = :sourceType AND sortTitleKey IS NOT NULL " +
             "GROUP BY firstChar ORDER BY MIN(sortTitleKey) ASC",
     )
-    abstract fun getTitleAlphabetBuckets(sourceType: String): List<LibraryAlphabetBucket>
+    abstract fun observeTitleAlphabetBuckets(sourceType: String): Flow<List<LibraryAlphabetBucket>>
 
     @Query(
         "SELECT substr(sortAuthorKey, 1, 1) AS firstChar, COUNT(*) AS count FROM library_grid_roots " +
             "WHERE sourceType = :sourceType AND sortAuthorKey IS NOT NULL " +
             "GROUP BY firstChar ORDER BY MIN(sortAuthorKey) ASC",
     )
-    abstract fun getAuthorAlphabetBuckets(sourceType: String): List<LibraryAlphabetBucket>
+    abstract fun observeAuthorAlphabetBuckets(sourceType: String): Flow<List<LibraryAlphabetBucket>>
 
     @Query(
         "SELECT substr(sortSeriesKey, 1, 1) AS firstChar, COUNT(*) AS count FROM library_grid_roots " +
             "WHERE sourceType = :sourceType AND sortSeriesKey IS NOT NULL " +
             "GROUP BY firstChar ORDER BY MIN(sortSeriesKey) ASC",
     )
-    abstract fun getSeriesAlphabetBuckets(sourceType: String): List<LibraryAlphabetBucket>
+    abstract fun observeSeriesAlphabetBuckets(sourceType: String): Flow<List<LibraryAlphabetBucket>>
 
     @Query(
         "SELECT * FROM library_grid_roots WHERE sourceType = :sourceType " +
