@@ -163,6 +163,9 @@ private class RecoveringPreferencesDataStore(
 ) : DataStore<Preferences> {
     private val collectionStarted = CompletableDeferred<Unit>()
     private val failRead = CompletableDeferred<Unit>()
+    // Holds the retried read until the test sets the next value, so the startup fallback the
+    // store emits on failure isn't replaced before the test observes it.
+    private val resumeRead = CompletableDeferred<Unit>()
     private val shouldFail = AtomicBoolean(true)
     private val preferencesState = MutableStateFlow<Preferences>(
         initialSourceOrder?.let { sourceOrder ->
@@ -178,6 +181,7 @@ private class RecoveringPreferencesDataStore(
             failRead.await()
             throw IOException("Simulated read failure")
         }
+        resumeRead.await()
         emitAll(preferencesState)
     }
 
@@ -195,6 +199,7 @@ private class RecoveringPreferencesDataStore(
         preferencesState.value = mutablePreferencesOf(
             stringPreferencesKey(SourceNavigationPreferencesStoreTestAccess.sourceOrderKey) to sourceOrder,
         )
+        resumeRead.complete(Unit)
     }
 
     override suspend fun updateData(
