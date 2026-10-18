@@ -19,8 +19,8 @@ Baseline: `testDebugUnitTest` passes, 1033 tests, 0 failures.
 - **Branch:** the fixes after 0.8.0 were made on `claude/app-review-doc-01d75d` and fast-forwarded into the
   local `main` on 2026-10-18. `main` is not pushed to `origin`, and the fixes are in no release yet: the 0.8.0
   release holds #1-#5 only.
-- **Done:** every P0 item (#1-#6, #41) and, from P1, #7, #8, #9, #10, #12, #13, #14, #23, #24 and #25.
-- **Next, in the suggested order:** the rest of P1: #15-#19 with #42, #21, #22.
+- **Done:** every P0 item (#1-#6, #41) and, from P1, #7, #8, #9, #10, #12, #13, #14, #15, #23, #24 and #25.
+- **Next, in the suggested order:** the rest of P1: #16-#19 with #42, #21, #22.
 - **Decided, not built:** #11 (the most recent read wins; see its entry for what to check first) and #20
   (refresh detects progress from the series list's `PagesRead` and `LatestReadDate`).
 - **Not checked on a device:** #6, #7, #8, #41 (unit tests only); #10 (no reachable source on the tablet has an
@@ -40,8 +40,8 @@ Baseline: `testDebugUnitTest` passes, 1033 tests, 0 failures.
 
 ### Fixed
 
-Fixed, each with a regression test that fails without the fix. Full suite with #9: 1230 tests
-(1108 `testDebugUnitTest` + 122 JVM `test`), 0 failures.
+Fixed, each with a regression test that fails without the fix. Full suite with #15: 1231 tests
+(1109 `testDebugUnitTest` + 122 JVM `test`), 0 failures.
 
 - #1 EPUB reader crash on activity recreation (`faa5bd4b`). Checked on the emulator.
 - #2 Kavita sync dropping other sources' progress (`7651eab8`).
@@ -51,6 +51,7 @@ Fixed, each with a regression test that fails without the fix. Full suite with #
 - #41 Kavita pending flush dropping progress outside its batch (`575028cf`). Only the catalog syncs treat a missing Kavita item as deleted on the server; the flush leaves it for a later push.
 - #8 EPUB sample-book fallback (`66753926`). A missing file shows "This book's file isn't available…", and the sample generator lives only in `androidTest`. Also fixed: closing a reader that never showed its book (still opening, or any error screen) re-saved the stored progress as DIRTY with a new timestamp.
 - #9 EPUB layout-mode change jumping back to the opening position (`92f5adf8`). The navigator rebuilt for a new layout mode was created with the locator the book was opened at, and its first location event saved that spot as progress. It now starts where the previous navigator stopped (`EpubNavigatorResumePoint`, kept in `EpubNavigatorSurface.kt` because `EpubReaderEntry.kt` is a hotspot). Checked on the emulator with an 8-chapter EPUB: from chapter 3 in Page mode, Scroll kept chapter 3 at 25 %, and Page again opened the page holding the scrolled-to paragraph. The unit test covers the resume point; the Readium navigator itself can't run in unit tests.
+- #15 "Mark as unread" moving the item to the top of "Last read" (`b8b1d888`). The paged query, the cold-start root-id query and the filtered query took `MAX(updatedAt)` over every progress row, including the reset row "Mark as unread" writes with the current time; they now skip reset rows, as the in-memory order does, so the item sorts with the unread ones. The shelves input query still counts reset rows, which only adds candidates that the in-memory shelves then drop. Unit tests only (Room, in memory).
 - #12 Route lost after process death (`d6829c2c`). The route always stores the open book's item, so the reader reopens before the catalog loads; a series sub-screen is kept until its source's catalog has loaded. Checked on the emulator (see below).
 - #6 Downloads stopped by Android recorded as user cancels (`bcfa819b`). A cancellation is a user cancel only when the entry is already Canceling or Canceled; any other stop puts the entry back to Queued with its finished files kept, and the worker returns `Result.retry()`, so WorkManager's rerun resumes after them. "Clear completed" now only clears the list; Remove on a single failed or canceled entry still deletes its files. Entries already wrongly marked Canceled before this fix stay that way (Retry resumes them). Unit tests only.
 - #7 Stale comic resume anchor beating synced progress (`5af76586`). The session now stores the progress page with the resume anchor (`resumeProgressPage`), and the anchor, segment and scroll offset are ignored once the saved progress is on another page, as after a pull from another device. Sessions saved before keep the anchor only when it is the progress page itself. A page restored after the reader opened (a pull for a downloaded comic) also moves the anchor, which the pager and the webtoon list follow; before, only the page counter changed and the next settle saved the old page. Unit tests only.
@@ -70,7 +71,7 @@ had lost the book. The 0.8.0 build at `aeb722a2` reopened in the book. Back then
 library and cleared the saved book, and the crash log stayed empty. Not checked: a remote book or a
 series sub-screen (no server on the emulator); the unit tests cover those.
 
-Next is #15, "Mark as unread" moving the item to the top of "Last read". Learned while fixing these:
+Next is #16, removed badges staying until you scroll. Learned while fixing these:
 
 - **Process death (#12):** after process death the app opened on the library, not the book. Seen on the emulator; fixed in `d6829c2c`.
 - **Hanging suite:** `SourceNavigationPreferencesStoreTest`'s IO-retry test could wait forever: with a 0 ms retry delay the store's startup fallback was replaced before the test saw it. It hung the suite for 30 minutes during #25; made deterministic in `bfdc4440`.
@@ -129,7 +130,7 @@ How the list is ordered:
 **P1: broken features hit often**
 13. Paged library: covers don't load after a rail jump or a deep scroll. Fixed `a2275a42`.
 14. Paged library: the scroll position is lost when returning from the reader. Fixed `7ab1f02f`.
-15. Paged library: "Mark as unread" puts the item at the top of "Last read".
+15. Paged library: "Mark as unread" puts the item at the top of "Last read". Fixed `b8b1d888`.
 16. Paged library: removed badges stay until you scroll.
 17. Paged library: the A–Z rail is never refreshed.
 18. Paged library: "Select all" only selects the loaded window.
@@ -173,7 +174,7 @@ How the list is ordered:
 
 The unfinished features in section 4 are feature work that needs product decisions, so they don't get fix sessions.
 
-Suggested order after the second pass: 6, 41, 7, 10, 13, 14, 24, 25, 23, then the rest of P1. 6, 41, 7, 10, 13, 14, 24, 25, 23, 9, 8 and 12 are done; 15 is next.
+Suggested order after the second pass: 6, 41, 7, 10, 13, 14, 24, 25, 23, then the rest of P1. 6, 41, 7, 10, 13, 14, 24, 25, 23, 9, 15, 8 and 12 are done; 16 is next.
 
 Decisions, 2026-10-18: #11 most recent read wins; #20 uses the series read fields; #41, then #8, then #12.
 
@@ -210,7 +211,7 @@ Decisions, 2026-10-18: #11 most recent read wins; #20 uses the series read field
 - **Returning from the reader loses the scroll position.** Fixed `7ab1f02f`. A new Pager starts with 0 items, the grid clamps the index, and
   the clamped index is then saved. Broader than described: any re-entry (source or sort switch and back) rebuilds the Pager, and on Last read or Date added any index past the first ~180 is clamped and re-saved even after the first page lands. `UnifiedReaderScaffold.kt:280-292`, `LibraryScreen.kt:232,248-254,303-312`, `AppReaderCoordinator.kt:369-375`. **Checked.** Fix confirmed on the tablet (series, reader and source-switch returns, Title sort).
 - **"Mark as unread" moves the item to the top of "Last read"**, because the SQL takes `MAX(updatedAt)` and includes reset rows. The in-memory
-  path excludes them, so the two orders disagree. Limited to user-marked items: sync deletes rather than writes reset rows. `core/database/.../RemoteCatalogDao.kt:203-216,249-263`, `AppProgressSummaries.kt:18`. **Checked.**
+  path excludes them, so the two orders disagree. Limited to user-marked items: sync deletes rather than writes reset rows. `core/database/.../RemoteCatalogDao.kt:203-216,249-263`, `AppProgressSummaries.kt:18`. **Checked.** Fixed `b8b1d888`.
 - **Removed badges stay until you scroll**, for example the Finished fade after "mark unread" or "downloaded" after deleting a download.
   Worse than described: the overlay is left-biased for removals and keyed on the loaded snapshot, not the viewport, so it stays stale across in-window scrolling until a new page loads or the sort changes.
   `LibraryScreen.kt:160-199`, `LibraryWindowBadges.kt:33-41`. **Checked.**
