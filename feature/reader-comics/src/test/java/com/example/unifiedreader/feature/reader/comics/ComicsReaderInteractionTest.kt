@@ -288,26 +288,26 @@ class ComicsReaderInteractionTest {
 
     @Test
     fun `webtoon position stays on the page at the top until the strip reaches its end`() {
-        val visiblePages = listOf(
-            ContinuousVisiblePage(index = 8, offset = -300, size = 1200),
-            ContinuousVisiblePage(index = 9, offset = 900, size = 1200),
-        )
-
         val midStrip = continuousReaderVisiblePosition(
-            visiblePages = visiblePages,
+            visiblePages = listOf(
+                ContinuousVisiblePage(index = 8, offset = -300, size = 1200),
+                ContinuousVisiblePage(index = 9, offset = 900, size = 1200),
+            ),
             pageCount = 10,
             isScrolledToEnd = false,
         )
         assertEquals(8, midStrip?.pageIndex)
         assertEquals(0.25f, midStrip?.offsetRatio ?: -1f, 0.001f)
-        assertFalse(
-            isComicProgressFinished(
-                pageIndex = midStrip!!.pageIndex,
-                pageCount = 10,
-                segment = null,
-                readingDirection = ComicReadingDirection.LTR,
-            ),
+        assertFalse(midStrip!!.isFinishedInWebtoonMode(pageCount = 10))
+
+        // A tall last page at the top of the screen still has a strip to read.
+        val tallLastPageAtTop = continuousReaderVisiblePosition(
+            visiblePages = listOf(ContinuousVisiblePage(index = 9, offset = -1000, size = 5000)),
+            pageCount = 10,
+            isScrolledToEnd = false,
         )
+        assertEquals(9, tallLastPageAtTop?.pageIndex)
+        assertFalse(tallLastPageAtTop!!.isFinishedInWebtoonMode(pageCount = 10))
 
         val shortLastPageAtEnd = continuousReaderVisiblePosition(
             visiblePages = listOf(
@@ -317,9 +317,38 @@ class ComicsReaderInteractionTest {
             pageCount = 10,
             isScrolledToEnd = true,
         )
-        assertEquals(9, shortLastPageAtEnd?.pageIndex)
+        assertEquals(ContinuousVisiblePosition(pageIndex = 9, offsetRatio = 1f), shortLastPageAtEnd)
+        assertTrue(shortLastPageAtEnd!!.isFinishedInWebtoonMode(pageCount = 10))
         assertNull(continuousReaderVisiblePosition(emptyList(), pageCount = 10, isScrolledToEnd = true))
     }
+
+    @Test
+    fun `webtoon positions are reported only when a scroll produced them`() {
+        val reporter = ContinuousPositionReporter()
+        val restored = ContinuousVisiblePosition(pageIndex = 9, offsetRatio = 1f)
+        val drifted = ContinuousVisiblePosition(pageIndex = 8, offsetRatio = 0.9f)
+
+        // Reopened at the end; the placeholders then grow into the real page heights.
+        assertNull(reporter.onFrame(isScrolling = false, position = restored))
+        assertNull(reporter.onFrame(isScrolling = false, position = drifted))
+
+        val scrolling = ContinuousVisiblePosition(pageIndex = 8, offsetRatio = 0.5f)
+        assertEquals(scrolling, reporter.onFrame(isScrolling = true, position = scrolling))
+        assertNull(reporter.onFrame(isScrolling = true, position = scrolling.copy(offsetRatio = 0.51f)))
+        assertEquals(restored, reporter.onFrame(isScrolling = false, position = restored))
+        // An image loading after the scroll ended.
+        assertNull(reporter.onFrame(isScrolling = false, position = drifted))
+    }
+
+    private fun ContinuousVisiblePosition.isFinishedInWebtoonMode(pageCount: Int): Boolean =
+        isComicProgressFinished(
+            pageIndex = pageIndex,
+            pageCount = pageCount,
+            segment = null,
+            readingDirection = ComicReadingDirection.LTR,
+            readerMode = ComicReaderMode.VerticalScroll,
+            scrollOffsetRatio = offsetRatio,
+        )
 
     @Test
     fun `auto spread mode prefers large or landscape layouts`() {

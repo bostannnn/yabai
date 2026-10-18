@@ -23,8 +23,6 @@ import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
 import kotlin.math.abs
 import kotlin.math.roundToInt
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.filterNotNull
 
 @Composable
 internal fun ComicsContinuousReaderSurface(
@@ -89,34 +87,47 @@ internal fun ComicsContinuousReaderSurface(
                 return@LaunchedEffect
             }
             listState.scrollToItem(targetIndex, 0)
-            if (targetRatio <= 0f) return@LaunchedEffect
             withFrameNanos { }
-            val visibleItem = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == targetIndex }
-            val targetOffset = visibleItem
-                ?.size
-                ?.takeIf { it > 0 }
-                ?.let { size -> (size * targetRatio).roundToInt() }
-                ?: return@LaunchedEffect
-            listState.scrollToItem(
-                index = targetIndex,
-                scrollOffset = targetOffset,
-            )
+            if (targetRatio > 0f) {
+                val visibleItem = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == targetIndex }
+                val targetOffset = visibleItem
+                    ?.size
+                    ?.takeIf { it > 0 }
+                    ?.let { size -> (size * targetRatio).roundToInt() }
+                if (targetOffset != null) {
+                    listState.scrollToItem(
+                        index = targetIndex,
+                        scrollOffset = targetOffset,
+                    )
+                    withFrameNanos { }
+                }
+            }
+            // A last page too short to reach the top lands at the end of the strip, which is where the
+            // reader was: sessions saved before the end was reported, a jump to the last page, or a
+            // switch from paged mode on it.
+            if (targetIndex == pages.lastIndex && !listState.canScrollForward) {
+                readerState.onContinuousRestoreLanded(
+                    pageIndex = targetIndex,
+                    offsetRatio = ContinuousStripEndOffsetRatio,
+                )
+            }
         }
 
         LaunchedEffect(item.id, listState, pages.size) {
-            snapshotFlow { listState.currentVisiblePosition(pageCount = pages.size) }
-                .filterNotNull()
-                .distinctUntilChanged { previous, next ->
-                    previous.pageIndex == next.pageIndex &&
-                        abs(previous.offsetRatio - next.offsetRatio) < 0.02f
-                }
-                .collect { position ->
-                    readerState.onContinuousPositionSettled(
-                        pageIndex = position.pageIndex,
-                        offsetRatio = position.offsetRatio,
-                    )
+            val reporter = ContinuousPositionReporter()
+            snapshotFlow {
+                listState.isScrollInProgress to listState.currentVisiblePosition(pageCount = pages.size)
+            }.collect { (isScrolling, position) ->
+                if (position != null) {
                     settledPageIndexForPrefetch = position.pageIndex
                 }
+                reporter.onFrame(isScrolling = isScrolling, position = position)?.let { reported ->
+                    readerState.onContinuousPositionSettled(
+                        pageIndex = reported.pageIndex,
+                        offsetRatio = reported.offsetRatio,
+                    )
+                }
+            }
         }
 
         LaunchedEffect(item.id, settledPageIndexForPrefetch, loadedVisiblePageIndexes, pages.size) {
@@ -186,19 +197,22 @@ private fun androidx.compose.foundation.lazy.LazyListState.currentVisiblePositio
     isScrolledToEnd = !canScrollForward,
 )
 
-// The reading position is the page at the top of the viewport. The last page takes over once the
-// strip is scrolled to its end, since a short last page never reaches the top; its top edge coming
-// into view is not the end of the book, and the last page counts as finished.
+/** The offset a position reports for the end of the strip: past the whole last page. */
+internal const val ContinuousStripEndOffsetRatio = 1f
+
+// The reading position is the page at the top of the viewport. The end of the strip is the last page
+// at a full offset, the one position that finishes the book: a short last page never reaches the top,
+// and its top edge coming into view, or a tall one reaching the top, is not the end yet.
 internal fun continuousReaderVisiblePosition(
     visiblePages: List<ContinuousVisiblePage>,
     pageCount: Int,
     isScrolledToEnd: Boolean,
 ): ContinuousVisiblePosition? {
     val pagesInRange = visiblePages.filter { page -> page.index in 0 until pageCount }
-    val visiblePage = pagesInRange
-        .lastOrNull { page -> isScrolledToEnd && page.index == pageCount - 1 }
-        ?: pagesInRange.firstOrNull()
-        ?: return null
+    if (isScrolledToEnd && pagesInRange.any { page -> page.index == pageCount - 1 }) {
+        return ContinuousVisiblePosition(pageIndex = pageCount - 1, offsetRatio = ContinuousStripEndOffsetRatio)
+    }
+    val visiblePage = pagesInRange.firstOrNull() ?: return null
     val offsetPixels = (-visiblePage.offset).coerceAtLeast(0)
     val ratio = if (visiblePage.size > 0) {
         offsetPixels / visiblePage.size.toFloat()
@@ -209,4 +223,29 @@ internal fun continuousReaderVisiblePosition(
         pageIndex = visiblePage.index,
         offsetRatio = sanitizeComicResumeScrollOffsetRatio(ratio) ?: 0f,
     )
+}
+
+/**
+ * Picks the webtoon positions that are the reader's: the ones a scroll produced. A page at the top
+ * changing height as its image replaces the placeholder also moves the position, as after reopening a
+ * book, and must not overwrite the restored progress.
+ */
+internal class ContinuousPositionReporter {
+    private var scrolledSinceReport = false
+    private var lastReported: ContinuousVisiblePosition? = null
+
+    fun onFrame(isScrolling: Boolean, position: ContinuousVisiblePosition?): ContinuousVisiblePosition? {
+        if (isScrolling) scrolledSinceReport = true
+        if (!scrolledSinceReport || position == null) return null
+        if (!isScrolling) scrolledSinceReport = false
+        val previous = lastReported
+        if (previous != null &&
+            previous.pageIndex == position.pageIndex &&
+            abs(previous.offsetRatio - position.offsetRatio) < 0.02f
+        ) {
+            return null
+        }
+        lastReported = position
+        return position
+    }
 }

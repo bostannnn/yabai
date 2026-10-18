@@ -162,6 +162,8 @@ fun ComicsReaderScreen(
                     pageCount = pages.size,
                     segment = readerState.resumeSegment,
                     readingDirection = readerState.readingDirection,
+                    readerMode = readerState.readerMode,
+                    scrollOffsetRatio = readerState.resumeScrollOffsetRatio,
                 ),
             )
         },
@@ -325,6 +327,8 @@ fun ComicsReaderScreen(
             pageCount = pages.size,
             segment = readerState.resumeSegment,
             readingDirection = readerState.readingDirection,
+            readerMode = readerState.readerMode,
+            scrollOffsetRatio = readerState.resumeScrollOffsetRatio,
         )
         if (completionMonitoringReady && isFinished && !hasAutoRequestedCompletion) {
             hasAutoRequestedCompletion = true

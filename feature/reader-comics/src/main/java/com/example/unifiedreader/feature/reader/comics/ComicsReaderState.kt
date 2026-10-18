@@ -436,6 +436,17 @@ class ComicsReaderState internal constructor(
         hasRestoredResumeScrollOffsetRatio = resumeScrollOffsetRatio != null
     }
 
+    // The spot a restore scrolled to, which is not the reader navigating: a pulled page can still move it.
+    fun onContinuousRestoreLanded(
+        pageIndex: Int,
+        offsetRatio: Float?,
+    ) {
+        currentPage = pageIndex.coerceIn(0, pageCount - 1)
+        resumeAnchorPage = currentPage
+        resumeSegment = null
+        resumeScrollOffsetRatio = sanitizeComicResumeScrollOffsetRatio(offsetRatio)
+    }
+
     fun restorePageIfUnchanged(pageIndex: Int): Boolean {
         val safePageIndex = pageIndex.coerceIn(0, pageCount - 1)
         if (hasUserNavigated || currentPage == safePageIndex) return false
@@ -598,11 +609,17 @@ internal fun isComicProgressFinished(
     pageCount: Int,
     segment: ComicPageSegment?,
     readingDirection: ComicReadingDirection,
+    readerMode: ComicReaderMode = ComicReaderMode.Paged,
+    scrollOffsetRatio: Float? = null,
 ): Boolean {
     if (pageCount <= 0) return false
     val lastPageIndex = pageCount - 1
     if (pageIndex < lastPageIndex) return false
     if (pageIndex > lastPageIndex) return true
+    // Webtoon mode reports the end of the strip as the last page at a full offset.
+    if (readerMode == ComicReaderMode.VerticalScroll) {
+        return (scrollOffsetRatio ?: 0f) >= ContinuousStripEndOffsetRatio
+    }
     return when (segment ?: ComicPageSegment.Full) {
         ComicPageSegment.Full -> true
         ComicPageSegment.LeftHalf -> readingDirection == ComicReadingDirection.RTL
