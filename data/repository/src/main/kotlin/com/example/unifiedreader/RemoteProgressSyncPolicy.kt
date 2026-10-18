@@ -25,7 +25,12 @@ fun decideRemoteProgressSync(
     nowEpochMillis: Long,
     missingRemoteClearsLocal: Boolean = false,
     remoteClearOverridesLocal: Boolean = true,
+    localRefinesRemote: (local: ProgressSyncSnapshot, remote: ReadingProgress?) -> Boolean = { _, _ -> false },
 ): RemoteProgressSyncDecision {
+    // A source that stores positions coarsely can report the local position back less precisely.
+    if (local != null && localRefinesRemote(local, remote)) {
+        return RemoteProgressSyncDecision.KeepLocal
+    }
     if (remote == null) {
         if (!missingRemoteClearsLocal) {
             return RemoteProgressSyncDecision.KeepLocal

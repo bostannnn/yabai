@@ -9,6 +9,40 @@ import org.junit.Test
 
 class RemoteProgressSyncPolicyTest {
     @Test
+    fun `local position that refines the remote one is kept even when the remote is newer`() {
+        val local = ProgressSyncSnapshot(
+            itemId = "book-1",
+            locatorType = LocatorType.CFI,
+            cfi = "{}",
+            syncState = SyncState.CLEAN,
+            updatedAtEpochMillis = 10L,
+        )
+        val remote = ReadingProgress(
+            itemId = "book-1",
+            locatorType = LocatorType.PAGE,
+            page = 3,
+            updatedAtEpochMillis = 20L,
+        )
+
+        val refined = decideRemoteProgressSync(
+            local = local,
+            remote = remote,
+            nowEpochMillis = 30L,
+            localRefinesRemote = { _, _ -> true },
+        )
+        val cleared = decideRemoteProgressSync(
+            local = local,
+            remote = null,
+            nowEpochMillis = 30L,
+            missingRemoteClearsLocal = true,
+            localRefinesRemote = { _, _ -> true },
+        )
+
+        assertEquals(RemoteProgressSyncDecision.KeepLocal, refined)
+        assertEquals(RemoteProgressSyncDecision.KeepLocal, cleared)
+    }
+
+    @Test
     fun `missing remote progress keeps dirty local progress by default`() {
         val local = ProgressSyncSnapshot(
             itemId = "book-1",

@@ -55,6 +55,43 @@ class EpubReaderSessionCodecTest {
     }
 
     @Test
+    fun `saved locator carries the reading order index without changing the readium locator`() {
+        val locator = Locator(
+            href = requireNotNull(Url.fromDecodedPath("/chapter-4.xhtml")),
+            mediaType = MediaType.XHTML,
+            locations = Locator.Locations(
+                progression = 0.4,
+                position = 145,
+                totalProgression = 0.31,
+            ),
+        )
+
+        val saved = buildReaderLocator(locator.withReadingOrderIndex(3))
+        val restored = ReaderProgressSnapshot(
+            itemId = "epub-1",
+            locatorType = LocatorType.CFI,
+            cfi = saved.cfi,
+        ).toReadiumLocator()
+
+        assertEquals(3, epubReadingOrderIndexOf(saved.cfi))
+        assertEquals(locator.href, restored?.href)
+        assertEquals(locator.locations.progression, restored?.locations?.progression)
+        assertEquals(locator.locations.position, restored?.locations?.position)
+    }
+
+    @Test
+    fun `reading order index is absent from older saves and from non json values`() {
+        val locator = Locator(
+            href = requireNotNull(Url.fromDecodedPath("/chapter-4.xhtml")),
+            mediaType = MediaType.XHTML,
+        )
+
+        assertNull(epubReadingOrderIndexOf(buildReaderLocator(locator).cfi))
+        assertNull(epubReadingOrderIndexOf("epubcfi(/6/2!/4/2)"))
+        assertNull(epubReadingOrderIndexOf(null))
+    }
+
+    @Test
     fun `bare cfi does not synthesize invalid readium href`() {
         val restored = ReaderProgressSnapshot(
             itemId = "epub-1",

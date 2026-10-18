@@ -563,8 +563,10 @@ fun KavitaChapterInfoDto.toProgressUpdate(
             .toIntOrNull()
         ?: return null
     val safePageCount = (pages ?: item.pageCount ?: 0).coerceAtLeast(0)
+    // Kavita marks a chapter read once pageNum reaches its page count.
     val remotePage = when {
         isFinished && safePageCount > 0 -> safePageCount
+        safePageCount > 0 -> page.coerceIn(0, safePageCount - 1)
         else -> page.coerceAtLeast(0)
     }
     return KavitaProgressUpdate(
@@ -590,8 +592,10 @@ fun ReadableItem.toKavitaProgressUpdate(
         ?: return null
     val safePageCount = (pageCount ?: 0).coerceAtLeast(0)
     if (isFinished && safePageCount <= 0) return null
+    // Kavita marks a chapter read once pageNum reaches its page count.
     val remotePage = when {
         isFinished && safePageCount > 0 -> safePageCount
+        safePageCount > 0 -> page.coerceIn(0, safePageCount - 1)
         else -> page.coerceAtLeast(0)
     }
     return KavitaProgressUpdate(

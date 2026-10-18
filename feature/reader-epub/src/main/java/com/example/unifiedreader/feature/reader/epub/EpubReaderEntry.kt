@@ -524,9 +524,11 @@ fun EpubReaderScreen(
                 key3 = serializedInitialLocator,
             ) {
                 value = EpubInitialLocatorState.Ready(
-                    serializedInitialLocator ?: withContext(Dispatchers.IO) {
-                        restoreProgressSnapshot?.toProgressionFallbackLocator(state.publication)
-                    },
+                    serializedInitialLocator
+                        ?: restoreProgressSnapshot?.toReadingOrderStartLocator(state.publication)
+                        ?: withContext(Dispatchers.IO) {
+                            restoreProgressSnapshot?.toProgressionFallbackLocator(state.publication)
+                        },
                 )
             }
             DisposableEffect(state.publication) {
@@ -636,7 +638,10 @@ fun EpubReaderScreen(
                         ),
                         currentHref = currentHref,
                         currentProgress = currentProgress,
-                        onLocationChanged = { locator, pageIndex, _ ->
+                        onLocationChanged = { reportedLocator, pageIndex, _ ->
+                            val locator = reportedLocator.withReadingOrderIndex(
+                                state.publication.readingOrderIndexOf(reportedLocator),
+                            )
                             val shouldPersistProgress = initialRestoreLocked
                             if (!initialRestoreLocked) {
                                 initialRestoreLocked = true
@@ -1208,12 +1213,15 @@ internal fun resolveEpubTapAction(
 
 private fun Publication.readingOrderPositionFor(
     locator: Locator,
+): Int? = readingOrderIndexOf(locator)?.plus(1)
+
+private fun Publication.readingOrderIndexOf(
+    locator: Locator,
 ): Int? {
     val href = locator.href.removeFragment().toString()
     return readingOrder
         .indexOfFirst { link -> link.url().removeFragment().toString() == href }
         .takeUnless { it < 0 }
-        ?.plus(1)
 }
 
 internal const val EpubReaderSurfaceTag = "epub-reader-surface"
@@ -1275,6 +1283,16 @@ private fun buildCurrentReaderLocator(
     page = page,
     percent = percent.coerceIn(0.0, 1.0),
 )
+
+// A PAGE position on an EPUB comes from Kavita, which stores the reading-order index of the
+// chapter; open that chapter at its start.
+private fun ReaderProgressSnapshot.toReadingOrderStartLocator(
+    publication: Publication,
+): Locator? {
+    if (locatorType != LocatorType.PAGE || isFinished) return null
+    val link = publication.readingOrder.getOrNull(page ?: return null) ?: return null
+    return publication.locatorFromLink(link)
+}
 
 private suspend fun ReaderProgressSnapshot.toProgressionFallbackLocator(
     publication: Publication,

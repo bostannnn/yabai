@@ -724,6 +724,29 @@ class KavitaDtosTest {
     }
 
     @Test
+    fun `unfinished progress update never reaches the page count`() {
+        val item = com.example.unifiedreader.core.model.ReadableItem(
+            id = SourceType.KAVITA.remoteItemId("42"),
+            sourceType = SourceType.KAVITA,
+            libraryId = SourceType.KAVITA.remoteLibraryId("5"),
+            remoteId = "42",
+            remoteFileId = "7",
+            remoteFileType = "12",
+            title = "Chapter 42",
+            format = FormatType.EPUB,
+            pageCount = 30,
+        )
+
+        val update = item.toKavitaProgressUpdate(
+            page = 145,
+            isFinished = false,
+            updatedAtEpochMillis = 123L,
+        )
+
+        assertEquals(29, update?.pageNum)
+    }
+
+    @Test
     fun `finished catalog item progress update requires known page count`() {
         val item = com.example.unifiedreader.core.model.ReadableItem(
             id = SourceType.KAVITA.remoteItemId("42"),

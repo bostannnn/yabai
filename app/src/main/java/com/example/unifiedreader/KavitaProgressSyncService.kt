@@ -55,6 +55,7 @@ class KavitaProgressSyncService @Inject constructor(
                 nowEpochMillis = nowEpochMillis(),
                 missingRemoteClearsLocal = true,
                 remoteClearOverridesLocal = false,
+                localRefinesRemote = ::kavitaEpubLocalRefinesRemote,
             ),
         )
     }

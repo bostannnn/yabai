@@ -7,6 +7,7 @@ import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadingProgress
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.progress.ProgressSyncSnapshot
 import com.example.unifiedreader.core.model.progress.ProgressSyncStore
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.async
@@ -46,6 +47,7 @@ suspend fun <Entry, Session> finalizeRemoteCatalogSync(
     progressOf: (Entry) -> ReadingProgress?,
     missingRemoteClearsLocal: (Entry) -> Boolean = { false },
     remoteClearOverridesLocal: (Entry) -> Boolean = { false },
+    localRefinesRemote: (local: ProgressSyncSnapshot, remote: ReadingProgress?) -> Boolean = { _, _ -> false },
     syncGroups: List<RemoteCatalogSyncGroupEntity> = emptyList(),
     pushDirtyProgress: suspend (items: List<ReadableItem>) -> RemoteCatalogProgressPushResult<Session>,
 ): RemoteCatalogSyncOutcome<Session> {
@@ -76,6 +78,7 @@ suspend fun <Entry, Session> finalizeRemoteCatalogSync(
         progressOf = progressOf,
         missingRemoteClearsLocal = missingRemoteClearsLocal,
         remoteClearOverridesLocal = remoteClearOverridesLocal,
+        localRefinesRemote = localRefinesRemote,
     )
     val progressPushResult = pushDirtyProgress(items)
     return RemoteCatalogSyncOutcome(
@@ -149,6 +152,7 @@ fun <Entry> applyRemoteCatalogProgress(
     progressOf: (Entry) -> ReadingProgress?,
     missingRemoteClearsLocal: (Entry) -> Boolean,
     remoteClearOverridesLocal: (Entry) -> Boolean,
+    localRefinesRemote: (local: ProgressSyncSnapshot, remote: ReadingProgress?) -> Boolean = { _, _ -> false },
 ) {
     val store = progressSyncStore ?: return
     entries.forEach { entry ->
@@ -163,6 +167,7 @@ fun <Entry> applyRemoteCatalogProgress(
                 nowEpochMillis = nowEpochMillis,
                 missingRemoteClearsLocal = missingRemoteClearsLocal(entry),
                 remoteClearOverridesLocal = remoteClearOverridesLocal(entry),
+                localRefinesRemote = localRefinesRemote,
             ),
         )
     }

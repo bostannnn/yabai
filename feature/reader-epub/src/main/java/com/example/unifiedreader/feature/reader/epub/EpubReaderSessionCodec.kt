@@ -164,6 +164,33 @@ private fun deserializeLocator(
     Locator.Companion.fromJSON(JSONObject(serialized))
 }.getOrNull()
 
+// Kavita keeps an EPUB position only as a reading-order (spine) index, so the saved locator
+// carries the index alongside Readium's own locations.
+private const val ReadingOrderIndexKey = "readingOrderIndex"
+
+internal fun Locator.withReadingOrderIndex(
+    index: Int?,
+): Locator {
+    if (index == null || index < 0) return this
+    return copy(
+        locations = locations.copy(
+            otherLocations = locations.otherLocations + (ReadingOrderIndexKey to index),
+        ),
+    )
+}
+
+/** The reading-order (spine) index in a locator the EPUB reader saved, if it has one. */
+fun epubReadingOrderIndexOf(
+    serializedLocator: String?,
+): Int? {
+    if (serializedLocator.isNullOrBlank()) return null
+    return runCatching {
+        JSONObject(serializedLocator).optJSONObject("locations")
+            ?.takeIf { locations -> locations.has(ReadingOrderIndexKey) }
+            ?.getInt(ReadingOrderIndexKey)
+    }.getOrNull()?.takeIf { it >= 0 }
+}
+
 internal enum class EpubReaderTheme(
     override val label: String,
 ) : EpubLabeledOption {
