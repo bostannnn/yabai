@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeGestures
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -22,9 +23,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -37,13 +38,13 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import com.example.unifiedreader.core.model.ReadableItem
-import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
 import com.example.unifiedreader.feature.reader.core.ImmersiveReaderOverlay
 import com.example.unifiedreader.feature.reader.core.ReaderActiveSessionTracker
 import com.example.unifiedreader.feature.reader.core.ReaderBottomProgressBar
+import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
+import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
-import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.journal.JournalReadingSessionRecorder
 import kotlin.math.roundToInt
@@ -580,9 +581,11 @@ private fun EmptyComicsReader(
                 item = item,
                 diagnostic = diagnostic,
             ),
-            color = tokens.colors.tertiaryText,
+            style = MaterialTheme.typography.bodyLarge,
+            color = tokens.colors.secondaryText,
             textAlign = TextAlign.Center,
         )
+
     }
 }
 

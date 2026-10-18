@@ -3,13 +3,13 @@ package com.example.unifiedreader.feature.library
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Checkbox
-import androidx.compose.ui.Alignment
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.ui.components.AppCheckbox
 
 @Composable
 internal fun GridCoverCard(
@@ -85,7 +85,7 @@ internal fun GridCoverCard(
                     )
                 }
                 if (isSelectionMode) {
-                    Checkbox(
+                    AppCheckbox(
                         checked = isSelected,
                         onCheckedChange = { onSelectionToggle() },
                         modifier = Modifier

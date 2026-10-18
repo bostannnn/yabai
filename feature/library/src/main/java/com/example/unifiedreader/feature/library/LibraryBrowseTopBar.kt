@@ -143,15 +143,9 @@ private fun LibraryBrowseTopBarSearchField(
             AppPanel(
                 modifier = Modifier.fillMaxSize(),
                 shape = controlShape,
-                color = colors.surfaceContainerHigh.copy(alpha = if (active) 0.92f else 0.52f),
-                border = BorderStroke(
-                    1.dp,
-                    if (active) {
-                        semanticColors.sourceAccent.copy(alpha = 0.82f)
-                    } else {
-                        colors.outlineVariant.copy(alpha = 0.36f)
-                    },
-                ),
+                color = colors.surfaceContainerHigh,
+                border = if (active) BorderStroke(1.dp, semanticColors.sourceAccent) else null,
+
             ) {
                 Row(
                     modifier = Modifier

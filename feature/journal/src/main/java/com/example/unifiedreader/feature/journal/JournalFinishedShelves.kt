@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -108,7 +107,7 @@ private fun FinishedItemCard(
     Column(
         modifier = Modifier
             .width(92.dp)
-            .clip(RoundedCornerShape(8.dp))
+            .clip(MaterialTheme.shapes.extraSmall)
             .clickable(onClick = onOpen)
             .padding(4.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),

@@ -55,24 +55,24 @@ internal fun ShelfPreviewPlaceholderRow(
                     modifier = Modifier
                         .width(94.dp)
                         .height(12.dp)
-                        .clip(RoundedCornerShape(presentation.chipCornerRadius))
-                        .background(semanticColors.surfaceSelected.copy(alpha = 0.54f)),
+                        .clip(RoundedCornerShape(presentation.coverCornerRadius))
+                        .background(semanticColors.surfaceOverlay),
                 )
                 Box(
                     modifier = Modifier
                         .padding(top = 2.dp)
                         .width(72.dp)
                         .height(10.dp)
-                        .clip(RoundedCornerShape(presentation.chipCornerRadius))
-                        .background(semanticColors.sourceAccent.copy(alpha = 0.25f)),
+                        .clip(RoundedCornerShape(presentation.coverCornerRadius))
+                        .background(semanticColors.surfaceOverlay),
                 )
                 Box(
                     modifier = Modifier
                         .padding(top = 2.dp)
                         .width(84.dp)
                         .height(10.dp)
-                        .clip(RoundedCornerShape(presentation.chipCornerRadius))
-                        .background(semanticColors.syncAccent.copy(alpha = 0.25f)),
+                        .clip(RoundedCornerShape(presentation.coverCornerRadius))
+                        .background(semanticColors.surfaceOverlay),
                 )
             }
         }
@@ -113,15 +113,15 @@ internal fun LibraryShelvesSlotPlaceholder(
                         modifier = Modifier
                             .width(154.dp)
                             .height(18.dp)
-                            .clip(RoundedCornerShape(presentation.chipCornerRadius))
-                            .background(semanticColors.surfaceSelected.copy(alpha = 0.5f)),
+                            .clip(RoundedCornerShape(presentation.coverCornerRadius))
+                            .background(semanticColors.surfaceOverlay),
                     )
                     Box(
                         modifier = Modifier
                             .width(72.dp)
                             .height(12.dp)
-                            .clip(RoundedCornerShape(presentation.chipCornerRadius))
-                            .background(semanticColors.sourceAccent.copy(alpha = 0.24f)),
+                            .clip(RoundedCornerShape(presentation.coverCornerRadius))
+                            .background(semanticColors.surfaceOverlay),
                     )
                 }
                 ShelfPreviewPlaceholderRow(coverWidth = coverWidth)

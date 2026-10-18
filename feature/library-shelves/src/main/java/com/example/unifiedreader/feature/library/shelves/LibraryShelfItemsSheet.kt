@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -24,7 +25,6 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -65,7 +65,6 @@ import com.example.unifiedreader.feature.library.menu.LibraryItemMenuButtonStyle
 import com.example.unifiedreader.feature.library.minLibraryGridCellSizeDp
 import com.example.unifiedreader.feature.library.sanitizeLibraryGridCellSizeDp
 import com.example.unifiedreader.ui.components.AppBackground
-import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -143,7 +142,6 @@ fun LibraryShelfItemsBrowser(
     contentTopInset: Dp = 0.dp,
     modifier: Modifier = Modifier,
 ) {
-    val semanticColors = UnifiedReaderThemeTokens.colors
     val gridState = rememberLazyGridState()
     val listState = rememberLazyListState()
     var localSearchQuery by rememberSaveable(browseContextKey, browser.kind) { mutableStateOf("") }
@@ -197,20 +195,9 @@ fun LibraryShelfItemsBrowser(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = contentTopInset),
-        ) {
-            if (showEmbeddedTopBar) {
-                LibraryShelfBrowserTopBar(
-                    title = browser.title,
-                    count = browser.count,
-                    searchQuery = effectiveSearchQuery,
-                    onSearchQueryChanged = updateSearchQuery,
-                    onBack = onBack,
-                )
-            }
+        // The controls strip is the first row of the grid or list, so the whole browser
+        // scrolls under the glass top bar like the library home.
+        val controls: @Composable () -> Unit = {
             ShelfBrowserControls(
                 sortMode = sortMode,
                 showListView = showListView,
@@ -222,24 +209,37 @@ fun LibraryShelfItemsBrowser(
                 onGridCellSizeDpChanged = onGridCellSizeDpChanged,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .then(
-                        if (showEmbeddedTopBar) {
-                            Modifier.background(semanticColors.surfaceOverlay.copy(alpha = 0.36f))
-                        } else {
-                            Modifier
-                        },
-                    )
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(bottom = 12.dp),
             )
+        }
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (showEmbeddedTopBar) {
+                LibraryShelfBrowserTopBar(
+                    title = browser.title,
+                    count = browser.count,
+                    searchQuery = effectiveSearchQuery,
+                    onSearchQueryChanged = updateSearchQuery,
+                    onBack = onBack,
+                )
+            }
             Box(modifier = Modifier.fillMaxSize()) {
                 if (visibleEntries.isEmpty()) {
-                    ShelfBrowserEmptyState(
-                        searchActive = effectiveSearchQuery.isNotBlank(),
-                        modifier = Modifier.fillMaxSize(),
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = 16.dp + contentTopInset, start = 16.dp, end = 16.dp),
+                    ) {
+                        controls()
+                        ShelfBrowserEmptyState(
+                            searchActive = effectiveSearchQuery.isNotBlank(),
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
                 } else {
                     ShelfBrowserItems(
                         entries = visibleEntries,
+                        header = controls,
+                        contentTopInset = contentTopInset,
                         showListView = showListView,
                         gridCellSizeDp = sanitizedGridCellSizeDp,
                         gridState = gridState,
@@ -269,28 +269,6 @@ fun LibraryShelfItemsBrowser(
             },
         )
     }
-}
-
-@Deprecated("Use LibraryShelfItemsBrowser for the full-screen shelf browser.")
-@Composable
-internal fun LibraryShelfItemsSheet(
-    sheet: LibraryShelfBrowserState,
-    itemActionContext: LibraryItemActionContext,
-    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
-    onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
-    onDismiss: () -> Unit,
-    onItemSelected: (ReadableItem) -> Unit,
-    onDeleteImportedItem: (ReadableItem) -> Unit,
-) {
-    LibraryShelfItemsBrowser(
-        browser = sheet,
-        itemActionContext = itemActionContext,
-        coverImageUrlProvider = coverImageUrlProvider,
-        onCoverVisible = onCoverVisible,
-        onBack = onDismiss,
-        onItemSelected = onItemSelected,
-        onDeleteImportedItem = onDeleteImportedItem,
-    )
 }
 
 @Composable
@@ -372,6 +350,8 @@ private fun ShelfBrowserControls(
 @Composable
 private fun ShelfBrowserItems(
     entries: List<LibraryShelfBrowserEntry>,
+    header: @Composable () -> Unit,
+    contentTopInset: Dp,
     showListView: Boolean,
     gridCellSizeDp: Int,
     gridState: LazyGridState,
@@ -387,6 +367,8 @@ private fun ShelfBrowserItems(
     if (showListView) {
         ShelfBrowserList(
             entries = entries,
+            header = header,
+            contentTopInset = contentTopInset,
             listState = listState,
             itemActionContext = itemActionContext,
             coverImageUrlProvider = coverImageUrlProvider,
@@ -399,6 +381,8 @@ private fun ShelfBrowserItems(
     } else {
         ShelfBrowserGrid(
             entries = entries,
+            header = header,
+            contentTopInset = contentTopInset,
             gridCellSizeDp = gridCellSizeDp,
             gridState = gridState,
             itemActionContext = itemActionContext,
@@ -414,6 +398,8 @@ private fun ShelfBrowserItems(
 @Composable
 private fun ShelfBrowserGrid(
     entries: List<LibraryShelfBrowserEntry>,
+    header: @Composable () -> Unit,
+    contentTopInset: Dp,
     gridCellSizeDp: Int,
     gridState: LazyGridState,
     itemActionContext: LibraryItemActionContext,
@@ -429,10 +415,11 @@ private fun ShelfBrowserGrid(
         columns = GridCells.Adaptive(sanitizedGridCellSizeDp.dp),
         state = gridState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp + contentTopInset, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(if (compactGrid) 12.dp else 16.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        item(key = ShelfBrowserHeaderKey, span = { GridItemSpan(maxLineSpan) }) { header() }
         items(
             items = entries,
             key = { it.item.id },
@@ -455,6 +442,8 @@ private fun ShelfBrowserGrid(
 @Composable
 private fun ShelfBrowserList(
     entries: List<LibraryShelfBrowserEntry>,
+    header: @Composable () -> Unit,
+    contentTopInset: Dp,
     listState: LazyListState,
     itemActionContext: LibraryItemActionContext,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
@@ -467,9 +456,10 @@ private fun ShelfBrowserList(
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         state = listState,
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp + contentTopInset, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        item(key = ShelfBrowserHeaderKey) { header() }
         items(
             items = entries,
             key = { it.item.id },
@@ -521,24 +511,14 @@ private fun ShelfBrowserGridCard(
     onExpandedMenuChange: (ReadableItem, Boolean) -> Unit,
     onDeleteImportedRequested: (ReadableItem) -> Unit,
 ) {
-    val semanticColors = UnifiedReaderThemeTokens.colors
-    val presentation = UnifiedReaderThemeTokens.presentation
     val hasMenuContent = itemActionContext.hasMenuContent(entry.item)
     val metadata = if (compact) {
         entry.trailingText
     } else {
         entry.metadataText ?: entry.trailingText
     }
-    AppPanel(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(presentation.cardCornerRadius),
-        color = semanticColors.surfaceRaised.copy(alpha = 0.76f),
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(if (compact) 8.dp else 10.dp),
-        ) {
+    // A bare tile, like the library grid's and the shelves'.
+    Box(modifier = Modifier.fillMaxWidth()) {
             LibraryCoverActionCard(
                 item = entry.item,
                 title = entry.title,
@@ -585,7 +565,6 @@ private fun ShelfBrowserGridCard(
                     }
                 },
             )
-        }
     }
 }
 
@@ -987,6 +966,7 @@ private fun Long.relativeTimeLabel(
     ).toString()
 }
 
+private const val ShelfBrowserHeaderKey = "shelf-browser-controls"
 private val com.example.unifiedreader.feature.library.ItemProgressSummary.isShelfComplete: Boolean
     get() = isFinished || fraction >= 0.999f
 

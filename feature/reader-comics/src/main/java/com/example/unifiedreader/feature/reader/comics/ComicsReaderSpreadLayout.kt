@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
@@ -41,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.ui.components.AppBackground
+import com.example.unifiedreader.ui.components.AppCircularProgress
 import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlinx.coroutines.async
@@ -371,7 +373,7 @@ private fun PageResultContent(
         )
 
         is ComicPageLoadResult.Failure -> ReaderPageMessage(message = result.message)
-        null -> ReaderPageMessage(message = "Loading page...")
+        null -> ReaderPageMessage(message = "Loading page...", isLoading = true)
     }
 }
 
@@ -419,6 +421,7 @@ private fun ComicPageBitmap(
 @Composable
 internal fun ReaderPageMessage(
     message: String,
+    isLoading: Boolean = false,
 ) {
     val tokens = readerOverlayTokens()
     Box(
@@ -427,13 +430,22 @@ internal fun ReaderPageMessage(
             .background(tokens.colors.fallbackPage),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = tokens.colors.tertiaryText,
-        )
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (isLoading) {
+                AppCircularProgress(color = tokens.colors.accent)
+            }
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = tokens.colors.secondaryText,
+            )
+        }
     }
 }
+
 
 internal fun ComicPageFitMode.contentScale(): ContentScale = when (this) {
     ComicPageFitMode.FitPage -> ContentScale.Fit

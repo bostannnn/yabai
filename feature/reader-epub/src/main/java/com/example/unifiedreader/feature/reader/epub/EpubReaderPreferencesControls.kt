@@ -1,7 +1,6 @@
 package com.example.unifiedreader.feature.reader.epub
 
 import android.graphics.Typeface
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -13,9 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -31,6 +27,7 @@ import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppSegment
 import com.example.unifiedreader.ui.components.AppSegmentedRow
+import com.example.unifiedreader.ui.components.AppSlider
 import java.util.Locale
 
 @Composable
@@ -56,11 +53,10 @@ internal fun EpubTextSizeStepper(
                 color = tokens.colors.tertiaryText,
             )
         }
-        Slider(
+        AppSlider(
             value = value.toFloat(),
             onValueChange = { onValueChanged(it.toDouble()) },
             valueRange = 0.8f..2.4f,
-            colors = epubSliderColors(),
         )
     }
 }
@@ -91,38 +87,11 @@ internal fun EpubSliderSection(
                 color = tokens.colors.tertiaryText,
             )
         }
-        Slider(
+        AppSlider(
             value = value.toFloat(),
             onValueChange = { onValueChanged(it.toDouble()) },
             valueRange = valueRange,
-            colors = epubSliderColors(),
         )
-    }
-}
-
-@Composable
-private fun epubSliderColors() = SliderDefaults.colors(
-    thumbColor = readerOverlayTokens().colors.accent,
-    activeTrackColor = readerOverlayTokens().colors.accent,
-    inactiveTrackColor = readerOverlayTokens().colors.divider,
-)
-
-@Composable
-internal fun EpubFontSection(
-    selected: EpubReaderFontFamily,
-    onSelected: (EpubReaderFontFamily) -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        EpubSectionLabel("Font")
-        EpubSelectableRowGroup {
-            EpubReaderFontFamily.entries.forEach { entry ->
-                EpubSelectableRow(
-                    label = entry.label,
-                    selected = entry == selected,
-                    onClick = { onSelected(entry) },
-                )
-            }
-        }
     }
 }
 
@@ -383,14 +352,8 @@ internal fun <T> EpubSegmentedSection(
                 AppSegment(
                     selected = selected == entry,
                     onClick = { onSelected(entry) },
-                    colors = SegmentedButtonDefaults.colors(
-                        activeContainerColor = tokens.colors.selectedContainer,
-                        activeContentColor = tokens.colors.primaryText,
-                        inactiveContainerColor = tokens.colors.elevatedContainer,
-                        inactiveContentColor = tokens.colors.primaryText,
-                    ),
-                    border = BorderStroke(1.dp, tokens.colors.divider),
                     index = index,
+
                     count = entries.size,
                     label = { Text(text = entry.label) },
                 )

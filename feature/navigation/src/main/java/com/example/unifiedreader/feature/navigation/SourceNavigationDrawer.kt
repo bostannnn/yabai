@@ -23,12 +23,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.NavigationDrawerItem
-import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
@@ -36,6 +33,7 @@ import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.ui.components.AppDivider
+import com.example.unifiedreader.ui.components.AppDrawerItem
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.appGlass
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
@@ -74,7 +72,6 @@ fun SourceNavigationDrawer(
                     )
                     .padding(start = 12.dp, top = 12.dp, bottom = 12.dp)
                     .widthIn(max = 320.dp)
-                    .shadow(elevation = 8.dp, shape = drawerShape, clip = false)
                     .appGlass(shape = drawerShape),
                 drawerShape = drawerShape,
                 drawerContainerColor = Color.Transparent,
@@ -120,32 +117,28 @@ fun SourceNavigationDrawer(
                         }
                     }
                     AppDivider(modifier = Modifier.padding(vertical = 12.dp))
-                    NavigationDrawerItem(
+                    AppDrawerItem(
                         label = { Text(text = "Journal") },
                         selected = selectedDestination == SourceNavigationDestination.Journal,
                         onClick = { onDestinationSelected(SourceNavigationDestination.Journal) },
                         icon = {
-                            androidx.compose.material3.Icon(
+                            Icon(
                                 imageVector = AppIcons.History,
                                 contentDescription = null,
                             )
                         },
-                        colors = sourceNavigationItemColors(),
-                        shape = sourceNavigationItemShape(),
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    NavigationDrawerItem(
+                    AppDrawerItem(
                         label = { Text(text = "Settings") },
                         selected = selectedDestination == SourceNavigationDestination.Settings,
                         onClick = { onDestinationSelected(SourceNavigationDestination.Settings) },
                         icon = {
-                            androidx.compose.material3.Icon(
+                            Icon(
                                 imageVector = AppIcons.Settings,
                                 contentDescription = null,
                             )
                         },
-                        colors = sourceNavigationItemColors(),
-                        shape = sourceNavigationItemShape(),
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -177,7 +170,7 @@ private fun KavitaNavigationGroup(
         )
     }
     KavitaLibrarySection.entries.forEach { section ->
-        NavigationDrawerItem(
+        AppDrawerItem(
             label = { Text(text = section.displayName()) },
             selected = selectedDestination.isSelectedKavitaSection(section),
             onClick = {
@@ -191,8 +184,6 @@ private fun KavitaNavigationGroup(
                     contentDescription = null,
                 )
             },
-            colors = sourceNavigationItemColors(),
-            shape = sourceNavigationItemShape(),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(start = 16.dp),
@@ -206,7 +197,7 @@ private fun SourceNavigationItem(
     selected: Boolean,
     onDestinationSelected: (SourceNavigationDestination) -> Unit,
 ) {
-    NavigationDrawerItem(
+    AppDrawerItem(
         label = { Text(text = sourceType.displayName()) },
         selected = selected,
         onClick = {
@@ -220,25 +211,10 @@ private fun SourceNavigationItem(
                 contentDescription = null,
             )
         },
-        colors = sourceNavigationItemColors(),
-        shape = sourceNavigationItemShape(),
+        modifier = Modifier.fillMaxWidth(),
     )
 }
 
-@Composable
-private fun sourceNavigationItemColors() = NavigationDrawerItemDefaults.colors(
-    // The selected destination is a solid accent pill, as in the approved mock.
-    selectedContainerColor = UnifiedReaderThemeTokens.colors.readerAccent,
-    selectedIconColor = UnifiedReaderThemeTokens.colors.onReaderAccent,
-    selectedTextColor = UnifiedReaderThemeTokens.colors.onReaderAccent,
-    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-)
-
-@Composable
-private fun sourceNavigationItemShape() = RoundedCornerShape(
-    UnifiedReaderThemeTokens.presentation.controlCornerRadius,
-)
 
 private fun SourceNavigationDestination.isSelectedKavitaSection(
     section: KavitaLibrarySection,

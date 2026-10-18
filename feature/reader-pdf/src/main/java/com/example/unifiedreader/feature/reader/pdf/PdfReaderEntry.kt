@@ -46,6 +46,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -560,10 +561,7 @@ private fun PdfPagePreviewStrip(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 10.dp)
-            .readerOverlaySurface(
-                role = ReaderOverlaySurfaceRole.PreviewStrip,
-                containerColor = tokens.colors.container.copy(alpha = 0.84f),
-            )
+            .readerOverlaySurface(role = ReaderOverlaySurfaceRole.PreviewStrip)
             .height(PdfPreviewStripHeight)
             .testTag(PdfPagePreviewStripTag),
         contentPadding = PaddingValues(horizontal = 12.dp),
@@ -624,12 +622,13 @@ private fun PdfPagePreviewItem(
             modifier = Modifier
                 .width(PdfPreviewItemWidth)
                 .height(if (selected) PdfSelectedPreviewHeight else PdfNormalPreviewHeight)
+                .clip(tokens.shapes.previewItem)
                 .border(
-                    width = if (selected) 3.dp else 0.dp,
+                    width = if (selected) 2.dp else 0.dp,
                     color = if (selected) tokens.colors.accent else Color.Transparent,
                     shape = tokens.shapes.previewItem,
                 )
-                .padding(if (selected) 3.dp else 0.dp)
+                .padding(if (selected) 2.dp else 0.dp)
                 .background(tokens.colors.fallbackPage, tokens.shapes.previewItem)
                 .clickable(onClick = onClick),
             contentAlignment = Alignment.Center,
@@ -869,10 +868,9 @@ private fun PdfStatus(
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(modifier = Modifier.height(8.dp))
-        Spacer(modifier = Modifier.width(1.dp))
     }
 }
+
 
 private suspend fun inspectPdfDocument(
     context: Context,

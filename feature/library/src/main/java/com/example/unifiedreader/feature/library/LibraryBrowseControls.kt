@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -21,13 +20,12 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.ui.components.AppCheckbox
 import com.example.unifiedreader.ui.components.AppChip
 import com.example.unifiedreader.ui.components.AppDivider
-import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppMenu
 import com.example.unifiedreader.ui.components.AppMenuItem
-import com.example.unifiedreader.ui.components.AppTextField
 
 data class LibraryBrowseOption(
     val id: String,
@@ -46,42 +44,6 @@ data class LibraryBrowseLockedOption(
     val sectionTitle: String,
     val label: String,
 )
-
-@Composable
-fun LibraryBrowseSearchField(
-    query: String,
-    onQueryChanged: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    label: String = "Search library",
-    clearContentDescription: String = "Clear search",
-) {
-    AppTextField(
-        value = query,
-        onValueChange = onQueryChanged,
-        modifier = modifier,
-        singleLine = true,
-        leadingIcon = {
-            Icon(
-                imageVector = AppIcons.Search,
-                contentDescription = null,
-            )
-        },
-        trailingIcon = if (query.isNotEmpty()) {
-            {
-                AppIconButton(onClick = { onQueryChanged("") }) {
-                    Icon(
-                        imageVector = AppIcons.Clear,
-                        contentDescription = clearContentDescription,
-                    )
-                }
-            }
-        } else {
-            null
-        },
-        label = { Text(text = label) },
-        shape = libraryAccentTextFieldShape(),
-    )
-}
 
 @Composable
 fun LibraryBrowseOptionsMenu(
@@ -172,7 +134,7 @@ fun LibraryBrowseOptionsMenu(
                 AppMenuItem(
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(
+                            AppCheckbox(
                                 checked = fadeReadItems,
                                 onCheckedChange = null,
                             )

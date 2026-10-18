@@ -167,7 +167,6 @@ fun KavitaScopeLandingScreen(
                 span = { GridItemSpan(maxLineSpan) },
             ) {
                 KavitaScopeLandingHeader(
-                    title = title,
                     itemCount = items.size,
                     visibleCount = searchedItems.size,
                     searchActive = searchQuery.isNotBlank(),
@@ -269,9 +268,9 @@ fun KavitaScopeLandingScreen(
     }
 }
 
+/** The section title is in the top bar; the grid header carries only the count and errors. */
 @Composable
 private fun KavitaScopeLandingHeader(
-    title: String,
     itemCount: Int,
     visibleCount: Int,
     searchActive: Boolean,
@@ -284,13 +283,7 @@ private fun KavitaScopeLandingHeader(
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(
-            text = title,
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Text(
+
             text = if (searchActive) {
                 "${visibleCount.itemCountLabel()} of ${itemCount.itemCountLabel()}"
             } else {

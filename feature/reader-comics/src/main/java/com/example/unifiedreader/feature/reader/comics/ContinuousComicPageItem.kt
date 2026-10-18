@@ -116,7 +116,7 @@ internal fun ContinuousComicPageItem(
                         .height(placeholderHeight),
                     contentAlignment = Alignment.Center,
                 ) {
-                    ReaderPageMessage(message = "Loading page...")
+                    ReaderPageMessage(message = "Loading page...", isLoading = true)
                 }
             }
         }

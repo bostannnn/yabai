@@ -50,7 +50,30 @@ class RemoteCoverControllerTest {
     }
 
     @Test
+    fun `coverImageUrlFor returns a local import's own cover file`() {
+        val controller = RemoteCoverController(
+            kavitaCoverRepository = EmptyKavitaCoverDataSource(),
+            stumpCoverRepository = EmptyStumpCoverDataSource(),
+            grimmoryCoverRepository = EmptyGrimmoryCoverDataSource(),
+            kavitaCredentialStore = FakeKavitaCredentialStore(),
+            stumpCredentialStore = FakeStumpCredentialStore(),
+            grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
+            appDispatchers = immediateAppDispatchers(),
+        )
+        val localItem = remoteItem(
+            id = "comic-local-1",
+            sourceType = SourceType.LOCAL,
+            coverUrl = "file:///data/user/0/app/files/imported-cover-cache/comic-local-1.1.jpg",
+        )
+
+        assertEquals(localItem.coverUrl, controller.coverImageUrlFor(localItem, LibraryCoverImageVariant.Grid))
+        assertNull(controller.coverImageUrlFor(localItem.copy(coverUrl = null), LibraryCoverImageVariant.Grid))
+    }
+
+    @Test
     fun `coverImageUrlFor returns cached file immediately while viewport is scrolling`() {
+
         val cachedUri = Uri.parse("file:///tmp/persistent-kavita-cover.png")
         val kavitaDataSource = PersistentCachedKavitaCoverDataSource(
             cachedUri = cachedUri,

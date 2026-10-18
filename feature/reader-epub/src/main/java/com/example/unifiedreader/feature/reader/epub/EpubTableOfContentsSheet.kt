@@ -1,7 +1,6 @@
 package com.example.unifiedreader.feature.reader.epub
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,7 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
@@ -145,11 +144,6 @@ private fun EpubTableOfContentsSheetRow(
                 color = if (selected) tokens.colors.selectedContainer else Color.Transparent,
                 shape = tokens.shapes.selectedRow,
             )
-            .border(
-                width = if (selected) 1.dp else 0.dp,
-                color = if (selected) tokens.colors.selectedBorder else Color.Transparent,
-                shape = tokens.shapes.selectedRow,
-            )
             .clickable(onClick = onClick)
             .padding(
                 start = 16.dp + tocRowIndent(entry.depth),
@@ -165,9 +159,10 @@ private fun EpubTableOfContentsSheetRow(
                 modifier = Modifier
                     .size(width = 6.dp, height = 6.dp)
                     .background(
-                        color = if (selected) tokens.colors.primaryText.copy(alpha = 0.6f) else tokens.colors.tertiaryText.copy(alpha = 0.28f),
-                        shape = RoundedCornerShape(100.dp),
+                        color = if (selected) tokens.colors.primaryText else tokens.colors.tertiaryText,
+                        shape = CircleShape,
                     ),
+
             )
         }
         Text(

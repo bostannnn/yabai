@@ -556,7 +556,7 @@ fun LibraryScreen(
                 },
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
-                    .padding(end = 8.dp, top = 8.dp, bottom = 8.dp),
+                    .padding(end = 8.dp, top = contentTopInset + 8.dp, bottom = 8.dp),
             )
         }
         AnimatedVisibility(

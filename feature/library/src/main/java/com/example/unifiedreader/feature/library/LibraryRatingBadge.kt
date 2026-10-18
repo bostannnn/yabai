@@ -23,15 +23,13 @@ fun RatingBadge(
     modifier: Modifier = Modifier,
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
-    val presentation = UnifiedReaderThemeTokens.presentation
     AppBadge(
         modifier = modifier.semantics {
             contentDescription = state.contentDescription
         },
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(presentation.chipCornerRadius),
-        color = semanticColors.syncAccent.copy(alpha = 0.96f),
-        tonalElevation = 2.dp,
+        color = semanticColors.syncAccent,
     ) {
+
         Row(
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),

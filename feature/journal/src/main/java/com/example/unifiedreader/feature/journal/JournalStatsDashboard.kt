@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -249,7 +248,7 @@ private fun CompactMetricCell(
 ) {
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(MaterialTheme.shapes.extraSmall)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.36f))
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -276,7 +275,7 @@ private fun ReadingMix(
 ) {
     val scheme = MaterialTheme.colorScheme
     val bookColor = scheme.primary
-    val comicColor = Color(0xFFFFB84D)
+    val comicColor = scheme.tertiary
     val bookPages = overview.stats.bookPagesRead
     val comicPages = overview.stats.comicPagesRead
     val totalPages = (bookPages + comicPages).coerceAtLeast(1)
@@ -305,7 +304,7 @@ private fun ReadingMix(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(18.dp)
-                .clip(RoundedCornerShape(9.dp))
+                .clip(MaterialTheme.shapes.extraSmall)
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.44f)),
         ) {
             if (bookPages > 0) {
@@ -349,7 +348,7 @@ private fun MixLegendItem(
         Box(
             modifier = Modifier
                 .size(9.dp)
-                .clip(RoundedCornerShape(2.dp))
+                .clip(MaterialTheme.shapes.extraSmall)
                 .background(color),
         )
         Text(

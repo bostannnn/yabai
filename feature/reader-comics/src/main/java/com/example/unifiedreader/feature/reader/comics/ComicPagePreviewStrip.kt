@@ -51,6 +51,7 @@ import kotlinx.coroutines.withContext
 private val NormalPreviewHeight = 154.dp
 private val SelectedPreviewHeight = 176.dp
 private val PreviewStripHeight = 214.dp
+private val PreviewSelectedEdge = 2.dp
 private val SinglePreviewFallbackWidth = 104.dp
 private val SpreadPreviewGap = 5.dp
 private val MinPreviewPageWidth = 56.dp
@@ -135,10 +136,7 @@ internal fun ComicPagePreviewStrip(
                 .fillMaxWidth()
                 .then(if (applySafeGesturesPadding) Modifier.safeGesturesPadding() else Modifier)
                 .padding(horizontal = 10.dp)
-                .readerOverlaySurface(
-                    role = ReaderOverlaySurfaceRole.PreviewStrip,
-                    containerColor = tokens.colors.container.copy(alpha = 0.84f),
-                )
+                .readerOverlaySurface(role = ReaderOverlaySurfaceRole.PreviewStrip)
                 .height(PreviewStripHeight)
                 .testTag(ComicPagePreviewStripTag),
             contentPadding = PaddingValues(horizontal = 12.dp),
@@ -243,16 +241,17 @@ private fun ComicSpreadPreviewItem(
                 .height(previewHeight)
                 .clip(tokens.shapes.previewItem)
                 .border(
-                    width = if (selected) 3.dp else 0.dp,
+                    width = if (selected) PreviewSelectedEdge else 0.dp,
                     color = if (selected) tokens.colors.accent else Color.Transparent,
                     shape = tokens.shapes.previewItem,
                 )
                 .clickable(onClick = onClick)
-                .padding(if (selected) 3.dp else 0.dp),
+                .padding(if (selected) PreviewSelectedEdge else 0.dp),
             contentAlignment = Alignment.Center,
         ) {
             Row(
-                modifier = Modifier.height(if (selected) previewHeight - 6.dp else previewHeight),
+                modifier = Modifier.height(if (selected) previewHeight - PreviewSelectedEdge * 2 else previewHeight),
+
                 horizontalArrangement = Arrangement.spacedBy(SpreadPreviewGap),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

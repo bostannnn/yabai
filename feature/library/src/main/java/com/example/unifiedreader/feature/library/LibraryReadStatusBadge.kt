@@ -24,8 +24,8 @@ internal fun LibraryReadStatusBadge(
         modifier = modifier.semantics { contentDescription = "Read" },
         shape = CircleShape,
         color = semanticColors.readerAccent,
-        shadowElevation = 2.dp,
     ) {
+
         Box(
             modifier = Modifier.size(22.dp),
             contentAlignment = Alignment.Center,

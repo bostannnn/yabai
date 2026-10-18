@@ -32,6 +32,23 @@ Started 2026-10-17. Scope so far is the library home; other screens are listed a
   tried on the tablet (`f1956814`) and rejected: with a few books per shelf the rows were mostly
   empty and pushed the grid below the fold. The "no boxes inside boxes" idea is dropped for shelves.
 - Shelf labels keep the app's existing Title Case ("Continue Reading", "Up Next").
+- **Two glass tints** (2026-10-18). Bars and the drawer keep the 0.86 tint (thin strips of text,
+  legibility wins). The large reader panes (preferences, table of contents) use 0.72
+  (`AppGlassDefaults.paneTintAlpha`) so the page shows through; at 0.86 they read as opaque
+  panels. Tint does not change blur cost. A paper-colored tint for EPUB panes was considered and
+  dropped: the reading theme and the app theme can differ, and the pane text is app-colored. An
+  EPUB page is blank paper, so its panes look tinted whatever the alpha.
+- **EPUB glass needs the WebView in a hardware layer** (2026-10-18, tablet, Android 16,
+  WebView 150). Readium draws the page in a WebView that renders through its own SurfaceControl
+  overlay ("WebView overlays are enabled" in logcat), so `hazeSource` captured nothing and the
+  chrome re-recorded an empty layer on every page update while the overlay swapped underneath:
+  no glass, visible flicker. `setLayerType(LAYER_TYPE_HARDWARE)` on the Readium
+  `FragmentContainerView` keeps the page inside our layer; the glass then samples it (page text
+  visibly blurs through the preferences pane on the tablet) and a page turn renders 190 frames at
+  p50 8 ms / p90 10 ms with one janky frame. `ImmersiveReaderOverlay(glass = false)` remains as
+  the escape hatch. The glass fallback surface (no blur available) is now fully opaque: at 0.96
+  unblurred page text bled through the bars. The emulator's WebView does not use overlays, which
+  is why it looked fine there.
 
 - **Settings redesign approved 2026-10-18: a hub of grouped rows plus one page per form.**
   Mock: https://claude.ai/artifact/QNjJtXQYKrxmJpEB64KB98 (hub, source page, theme picker,
@@ -80,7 +97,8 @@ Pull-request-sized steps; each lands and gets judged on the tablet before the ne
    keep a title, a muted count, and See all, with no accent rail, mark, or count pill. One
    `LibraryCoverProgressBar` (4 dp, accent over a dark track) draws on covers in the grid, the
    shelves, the shelf rows, and the shelf browser; finished books get a check circle instead
-   of the Read pill and no dimming. Reader bars, panes, and the preview strip use the same glass
+   of the Read pill. (The opt-in "Fade read books" toggle in the sort menu stays: it is off by
+   default and some readers want it.) Reader bars, panes, and the preview strip use the same glass
    through `readerOverlaySurface`, with the pages as the source via `ImmersiveReaderOverlay`.
    Checked on the emulator (library, drawer, comics reader).
    Bottom sheets stay opaque (a modal sheet is its own window, so it cannot blur the screen
@@ -151,7 +169,7 @@ Cormorant Garamond) are only for EPUB book text.
 
 ### 3a. Shelves `[~]`
 
-On branch `claude/distracted-feynman-c0cc8c`, not merged to main. Final layout is `cec77761`.
+Merged to main (final layout `cec77761`).
 
 - [x] Shelf covers use the grid's cell width, 2:3 shape, and cover image variant
       (`LibraryGridMetrics` and `libraryGridColumns()` in `LibraryGridConfiguration.kt`, which
@@ -186,13 +204,28 @@ sort button. Optional differences from the 2026-10-17 mockup:
       `LibraryFilterComponents.kt` shrank from 915 to 492 lines. The Kavita reading-list scope
       keeps its dialog.
 - [x] A × on applied-filter chips removes that filter in one tap.
+- [x] **Side sheet fit and feel** (2026-10-18, tablet). The dialog's content was laid out at the
+      full screen height while the window manager fitted the window between the system bars, so
+      the panel ran 126 px past the bottom (no margin, under the gesture bar). `AppSideSheet` now
+      clamps its content to the window's visible frame (`getWindowVisibleDisplayFrame`), which
+      is a no-op where the two agree; margins are 12 dp above and below like the drawer. It slides
+      in from the end edge instead of popping with the window fade. Opening a section re-sorted the
+      facet values on every recomposition with the author key recomputed per comparison; the sort
+      now runs once per input change with precomputed keys and the rows animate in. Section open
+      on the tablet: worst frame 18 to 21 ms (was 60 to 200 ms as reported; most of that was
+      post-idle vsync accounting, the real work was about 20 ms).
 
 ### 3c. Covers and placeholders `[ ]`
 
-- [ ] **Investigate first:** on the emulator, imported comics have cover files in
-      `files/imported-cover-cache`, but both the grid and the shelves show the grey "CBZ"
-      placeholder. Not caused by 3a (the grid's cover loading wasn't changed). The tablet showed the
-      same for many Kavita books, so this may be a real bug.
+- [x] **Fixed 2026-10-18.** Imported comics had cover files in `files/imported-cover-cache` but
+      the grid and shelves showed the placeholder because every cover request goes through
+      `RemoteCoverController.coverImageUrlFor`, which had no branch for `SourceType.LOCAL`: no
+      cover data source, never "reachable", and the remote fallback returned null. Since the
+      persistent cover store landed (`f8869ed7`, April) local imports never showed a cover. The
+      controller now returns a local item's own `coverUrl` (regression test in
+      `RemoteCoverControllerTest`); checked on the emulator. The Kavita placeholders on the tablet
+      are a different path: Kavita covers wait for the cached file instead of using the remote URL,
+      so they appear once the cache warms.
 - [x] Design chosen 2026-10-17 (mockup, no code yet). The current placeholder is one grey
       gradient with the format name; for PDF the label is empty, so a PDF without a cover is blank.
   - **EPUB, PDF: title cover.** Color from the title (stable per book); title and author set like
@@ -222,12 +255,91 @@ sort button. Optional differences from the 2026-10-17 mockup:
       reader chrome; colored placeholders (3c) can use the same palette code.
 - [ ] Extract colors off the main thread and cache them per cover.
 
+## 6. Second pass: everything the first pass left on the old language `[x]`
+
+Audit of 2026-10-17 (code read). Everything below landed on 2026-10-18 in one commit per
+group; checked on the emulator, then on the tablet (release build, Android 16): flat covers,
+local covers, the drawer, and the EPUB reader with its glass panes, where the WebView overlay
+problem was found and fixed (see Decisions).
+
+### 6a. Kit gaps `[x]`
+
+- [x] Menus and the snackbar drew at 6 dp because `MenuDefaults.shape` and `SnackbarDefaults.shape`
+      resolve to `Shapes.extraSmall`, which the theme maps to the cover radius. `AppMenu`,
+      `AppSnackbar`, `AppDrawerItem`, and `AppSegment` end caps are on the 12 dp control radius.
+- [x] `AppCheckbox`, `AppSwitch`, `AppSlider`, `AppSnackbar`, `AppDrawerItem`; the import rule now
+      forbids the raw Material controls, `Snackbar`, `NavigationDrawerItem`, and their `*Defaults`.
+      `Scaffold` and `ModalNavigationDrawer` stay raw (structural, no styling of their own). The
+      drawer's accent-pill selection lives in `AppDrawerItemDefaults`; the drawer lost its extra
+      shadow.
+- [x] The app snackbar clears the navigation bar.
+- [x] `AppDialogDefaults` (shape, container color) so custom dialogs built from `AppDialogHost` +
+      `AppPanel` sit on the same surface as `AppDialog`.
+
+### 6b. Covers sit flat `[x]`
+
+- [x] `LibraryCover` is the raised surface under the image with a hairline edge: no shadow, no
+      gradient backdrop, no `CoverSurfaceTreatment`.
+- [x] Count, rating, read, and downloaded badges have no tonal or shadow elevation and no alpha.
+- [x] One loading skeleton: `LibraryGridPlaceholderCard` (2:3, cover radius, raised surface);
+      the first-load skeleton tiles it.
+
+### 6c. Reader chrome inside the glass `[x]`
+
+- [x] `ReaderOverlayTokens` shapes come from `MaterialTheme.shapes` (control for bars, buttons,
+      selected rows; container for panes and the preview strip; cover for thumbnails); colors are
+      plain theme roles; the dead hardcoded palette is gone.
+- [x] `readerOverlaySurface` is the kit glass only; the attached pane lost its 18 dp shadow and
+      uses the lighter pane tint (see Decisions).
+- [x] Preferences panes: rows follow the tokens, text size and margins use `AppSlider`, the EPUB
+      tabs are plain `AppSegment`s.
+- [x] Preview strips: no compounded container alpha; the selected thumbnail has a 2 dp accent edge
+      at the cover radius; PDF thumbnails are clipped.
+- [x] EPUB table of contents selects by container color; the depth dot is a token color.
+- [x] EPUB footnote popup is an `AppPanel` on the container radius.
+- [x] Comics and EPUB loading states show `AppCircularProgress`; the fallback `ReaderTopBar`
+      uses `AppIconButton`.
+- [x] The page slider follows a drag and seeks on release (tap still seeks directly).
+
+### 6d. Library surfaces outside the home grid `[x]`
+
+- [x] Shelf browser: bare tiles, the controls strip is the first row of the grid or list so the
+      whole browser scrolls under the bar, deprecated `LibraryShelfItemsSheet` removed.
+- [x] Item kebab menu: reading direction and reader mode are `AppSegmentedRow`s; the menu
+      buttons use the control and cover radii on the raised surface.
+- [x] Alphabet rail and back-to-top on the opaque raised surface; the rail clears the top bar.
+- [x] Top-bar search field: no alpha fill, accent edge only while a query is typed; connectivity
+      badge without alpha fills or borders.
+- [x] Kavita landing: the title is only in the top bar.
+- [x] Kavita reading-list dialog on `AppDialogDefaults`.
+- [x] `EmptyLibraryState` matches the other empty states.
+- [x] Shelf placeholders use neutral fills at the cover radius.
+
+### 6e. Smaller screens `[x]`
+
+- [x] Downloads sheet: flat rows with the ripple clipped to the control radius, no extra cover
+      clip, status tints from the semantic accents.
+- [x] Journal: details modal on the dialog surface; chart corners at the cover radius or a circle;
+      the comics mix color is the theme's tertiary.
+- [x] Settings: theme swatches on the cover radius without the alpha border; filter visibility on
+      `AppCheckbox`.
+- [x] Dead code removed: `ProgressSummary`, `LibraryBrowseSearchField`, `LibraryShelfItemsSheet`,
+      `EpubFontSection`, `ReaderOverlayDropdownMenu`/`Item`, `ReaderOverlayMenuAction`,
+      `rememberReaderOverlayPanelState`, `ReadingDirectionButton`.
+
+### 6f. Still open
+
+- [x] Checked on the tablet 2026-10-18 (covers, drawer, EPUB reader panes).
+- [ ] `LibraryPerf` scroll run on the tablet: the cover change removes a shadow and a gradient per
+      tile, so the numbers should only improve, but they are not recorded yet.
+- [ ] 3a: run the shelf instrumentation tests.
+- [ ] Section 1 (Compose BOM) and section 5 (cover-derived color) are untouched.
+
 ## Not yet designed
 
-- Reader preferences panel and page slider beyond their glass surfaces (the bars themselves are
-  done in step 3)
 - Series view (the series browse reuses the library grid; it has no header of its own)
 - Book detail (does not exist yet)
+
 
 ## Open questions
 

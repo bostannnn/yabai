@@ -3,9 +3,7 @@ package com.example.unifiedreader.feature.library.menu
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -19,6 +17,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppTonalIconButton
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 enum class LibraryItemMenuButtonStyle {
     Tonal,
@@ -56,11 +55,7 @@ private fun TonalLibraryItemMenuButton(
     AppTonalIconButton(
         onClick = onClick,
         modifier = modifier.size(40.dp),
-        shape = RoundedCornerShape(10.dp),
-        colors = IconButtonDefaults.filledTonalIconButtonColors(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        ),
+        shape = MaterialTheme.shapes.medium,
     ) {
         Icon(
             imageVector = AppIcons.MoreVert,
@@ -76,7 +71,8 @@ private fun CompactOverlayLibraryItemMenuButton(
     modifier: Modifier = Modifier,
 ) {
     val dotColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f)
+    val containerColor = UnifiedReaderThemeTokens.colors.surfaceRaised
+    val cornerRadiusDp = UnifiedReaderThemeTokens.presentation.coverCornerRadius
 
     Box(
         modifier = modifier
@@ -92,7 +88,8 @@ private fun CompactOverlayLibraryItemMenuButton(
                 onClick = onClick,
             )
             .drawWithCache {
-                val cornerRadius = CornerRadius(9.dp.toPx(), 9.dp.toPx())
+                val cornerRadius = CornerRadius(cornerRadiusDp.toPx(), cornerRadiusDp.toPx())
+
                 val dotRadius = 1.6.dp.toPx()
                 val dotSpacing = 5.2.dp.toPx()
                 val centerX = size.width / 2f

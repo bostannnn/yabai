@@ -10,10 +10,12 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -47,6 +49,7 @@ import com.example.unifiedreader.journal.JournalItemRef
 import com.example.unifiedreader.ui.components.AppBackground
 import com.example.unifiedreader.ui.components.AppButton
 import com.example.unifiedreader.ui.components.AppDialog
+import com.example.unifiedreader.ui.components.AppSnackbar
 import com.example.unifiedreader.ui.components.AppTextButton
 import com.example.unifiedreader.ui.theme.UnifiedReaderTheme
 import com.example.unifiedreader.ui.theme.applyAndroidThemeMode
@@ -299,10 +302,12 @@ private fun BoxScope.ProgressSyncNoticeHost(
         delay(PROGRESS_SYNC_NOTICE_DURATION_MILLIS)
         onDismiss(notice.id)
     }
-    Snackbar(
+    AppSnackbar(
         modifier = Modifier
-            .padding(16.dp)
-            .align(Alignment.BottomCenter),
+            .align(Alignment.BottomCenter)
+            .windowInsetsPadding(WindowInsets.navigationBars)
+            .padding(16.dp),
+
         containerColor = if (notice.isError) {
             MaterialTheme.colorScheme.errorContainer
         } else {

@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -30,6 +29,7 @@ import com.example.unifiedreader.core.model.availableLibraryFilterPanels
 import com.example.unifiedreader.core.model.defaultVisibleLibraryFilterPanels
 import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.core.model.resolveLibraryFilterPanels
+import com.example.unifiedreader.ui.components.AppCheckbox
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppSegment
 import com.example.unifiedreader.ui.components.AppSegmentedRow
@@ -154,7 +154,7 @@ private fun FilterPanelRow(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Checkbox(
+        AppCheckbox(
             checked = visible,
             enabled = !visible || canHide,
             onCheckedChange = { onVisibilityChanged() },

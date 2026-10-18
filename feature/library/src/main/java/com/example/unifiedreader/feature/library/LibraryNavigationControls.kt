@@ -33,7 +33,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
@@ -66,7 +65,7 @@ internal fun AlphabetNavigationRail(
                 .fillMaxSize()
                 .onSizeChanged { size -> railHeightPx.intValue = size.height }
                 .clip(railShape)
-                .background(semanticColors.surfaceBase.copy(alpha = 0.94f))
+                .background(semanticColors.surfaceRaised)
                 .pointerInput(sections, railHeightPx.intValue) {
                     var lastSelectedSection: String? = null
                     fun selectSectionAt(position: Offset) {
@@ -136,7 +135,7 @@ private fun AlphabetNavigationItem(
     ) {
         val selectedMarker = if (selected && backgroundColor != Color.Transparent) {
             Modifier
-                .background(backgroundColor, RoundedCornerShape(4.dp))
+                .background(backgroundColor, MaterialTheme.shapes.extraSmall)
                 .padding(horizontal = 4.dp, vertical = 1.dp)
         } else {
             Modifier.padding(horizontal = 2.dp, vertical = 1.dp)
@@ -146,7 +145,6 @@ private fun AlphabetNavigationItem(
             modifier = selectedMarker,
             style = MaterialTheme.typography.labelSmall,
             color = textColor,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
             maxLines = 1,
         )
     }
@@ -164,8 +162,9 @@ internal fun LibraryBackToTopButton(
         modifier = modifier
             .size(48.dp)
             .clip(shape)
-            .background(semanticColors.surfaceRaised.copy(alpha = 0.94f))
+            .background(semanticColors.surfaceRaised)
             .testTag(LibraryBackToTopTag)
+
             .semantics {
                 contentDescription = "Back to top"
                 role = Role.Button

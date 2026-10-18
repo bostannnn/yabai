@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.MenuItemColors
 import androidx.compose.runtime.Composable
@@ -13,14 +14,18 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 
-/** A popup menu anchored to its parent. */
+/**
+ * A popup menu anchored to its parent, on the control radius. (Material's own default is
+ * `Shapes.extraSmall`, which this theme uses for covers.)
+ */
 @Composable
 fun AppMenu(
     expanded: Boolean,
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
     offset: DpOffset = DpOffset(0.dp, 0.dp),
-    shape: Shape = MenuDefaults.shape,
+    shape: Shape = MaterialTheme.shapes.medium,
+
     containerColor: Color = MenuDefaults.containerColor,
     content: @Composable ColumnScope.() -> Unit,
 ) {

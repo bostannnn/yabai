@@ -2,31 +2,33 @@ package com.example.unifiedreader.feature.library
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 /**
- * A sized, neutral stand-in for a not-yet-loaded paged grid cell. The rail sorts page with
- * placeholders enabled (so the A–Z rail can jump by grid offset), which means the grid renders slots
- * for rows Paging hasn't loaded yet; without a sized cell those rows would collapse. Mirrors the real
- * card's footprint — a 2:3 cover plus a two-line title block — so rows keep a stable height and only
- * the cover/title content fades in when the page loads.
+ * The one loading stand-in for a grid cell: a 2:3 block at the cover radius plus two title
+ * lines, on the raised surface. The paged grid renders it for rows Paging hasn't loaded yet
+ * (the rail sorts page with placeholders enabled, so unloaded rows need a sized cell), and
+ * the first-load skeleton tiles it. Mirrors the real card's footprint so rows keep a stable
+ * height and only the content fades in.
  */
 @Composable
 internal fun LibraryGridPlaceholderCard(
     modifier: Modifier = Modifier,
 ) {
-    val blockColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
-    val blockShape = RoundedCornerShape(12.dp)
+    val semanticColors = UnifiedReaderThemeTokens.colors
+    val presentation = UnifiedReaderThemeTokens.presentation
+    val blockColor = semanticColors.surfaceRaised
+    val coverShape = RoundedCornerShape(presentation.coverCornerRadius)
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -35,21 +37,21 @@ internal fun LibraryGridPlaceholderCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f)
-                .clip(blockShape)
+                .clip(coverShape)
                 .background(blockColor),
         )
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(12.dp)
-                .clip(RoundedCornerShape(6.dp))
+                .clip(coverShape)
                 .background(blockColor),
         )
         Box(
             modifier = Modifier
                 .fillMaxWidth(fraction = 0.6f)
                 .height(12.dp)
-                .clip(RoundedCornerShape(6.dp))
+                .clip(coverShape)
                 .background(blockColor),
         )
     }

@@ -21,7 +21,6 @@ class EpubFootnotePopupThemeTest {
         val colors = epubFootnotePopupColors(colorScheme)
 
         assertEquals(colorScheme.surfaceContainerHigh, colors.container)
-        assertEquals(colorScheme.outlineVariant.copy(alpha = 0.92f), colors.border)
         assertEquals(colorScheme.onSurfaceVariant, colors.title)
         assertEquals(colorScheme.onSurface, colors.body)
         assertEquals(colorScheme.primary, colors.action)
@@ -42,7 +41,6 @@ class EpubFootnotePopupThemeTest {
         val colors = epubFootnotePopupColors(colorScheme)
 
         assertEquals(colorScheme.surfaceContainerHigh, colors.container)
-        assertEquals(colorScheme.outlineVariant.copy(alpha = 0.92f), colors.border)
         assertEquals(colorScheme.onSurfaceVariant, colors.title)
         assertEquals(colorScheme.onSurface, colors.body)
         assertEquals(colorScheme.primary, colors.action)

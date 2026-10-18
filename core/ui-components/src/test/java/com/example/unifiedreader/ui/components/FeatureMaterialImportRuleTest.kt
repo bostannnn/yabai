@@ -7,8 +7,9 @@ import org.junit.Test
 /**
  * Feature and app code builds screens from the `core:ui-components` kit, not from raw
  * Material components. This keeps every screen on one set of shapes, colors, and
- * paddings. Material primitives that the kit does not cover yet (form controls, drawer,
- * navigation rail, snackbar, scaffold) stay allowed until the kit grows a replacement.
+ * paddings. Material primitives that the kit does not cover (`Scaffold`,
+ * `ModalNavigationDrawer`, navigation rail) stay allowed: they are structural and carry no
+ * styling of their own.
  */
 class FeatureMaterialImportRuleTest {
 
@@ -27,7 +28,11 @@ class FeatureMaterialImportRuleTest {
         "OutlinedTextField", "TextField", "ListItem",
         "FloatingActionButton", "ExtendedFloatingActionButton", "SmallFloatingActionButton",
         "LargeFloatingActionButton",
+        "Checkbox", "TriStateCheckbox", "Switch", "Slider", "RangeSlider", "RadioButton",
+        "Snackbar", "SnackbarHost", "NavigationDrawerItem", "NavigationDrawerItemDefaults",
+        "SegmentedButtonDefaults", "SliderDefaults", "CheckboxDefaults", "SwitchDefaults",
     )
+
 
     private val forbiddenImports: Set<String> =
         forbiddenMaterialSymbols.map { "androidx.compose.material3.$it" }.toSet() +
