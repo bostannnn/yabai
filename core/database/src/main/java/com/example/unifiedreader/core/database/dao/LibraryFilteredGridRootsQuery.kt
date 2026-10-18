@@ -28,7 +28,7 @@ fun buildFilteredGridRootsQuery(
         sql.append(
             " LEFT JOIN (SELECT m.rootId AS rootId, MAX(p.updatedAtEpochMillis) AS lastReadAt " +
                 "FROM library_root_members m INNER JOIN reading_progress p ON p.itemId = m.itemId " +
-                "WHERE m.sourceType = ? GROUP BY m.rootId) lr ON lr.rootId = r.id",
+                "WHERE m.sourceType = ? AND p.isExplicitUnreadReset = 0 GROUP BY m.rootId) lr ON lr.rootId = r.id",
         )
         args.add(sourceType)
     }

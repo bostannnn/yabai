@@ -141,6 +141,43 @@ class RemoteCatalogGridPagingTest {
     }
 
     @Test
+    fun `last-read order leaves out the rows mark as unread writes, in every query`() = runBlocking {
+        dao.replaceSourceCatalog(
+            sourceType = SourceType.KAVITA.name,
+            libraries = listOf(kavitaLibrary()),
+            items = listOf(
+                book(id = "kavita:item:read", title = "B Read"),
+                book(id = "kavita:item:unread", title = "A Marked Unread"),
+                book(id = "kavita:item:never", title = "C Never Opened"),
+            ),
+        )
+        database.readingProgressDao().insertOrReplace(progress(itemId = "kavita:item:read", updatedAt = 5_000L))
+        // "Mark as unread" writes a reset row stamped now, newer than any real read.
+        database.readingProgressDao().insertOrReplace(
+            progress(itemId = "kavita:item:unread", updatedAt = 9_000L).copy(
+                percent = null,
+                isExplicitUnreadReset = true,
+            ),
+        )
+        // Like a root with no progress: after the read roots, by title.
+        val expected = listOf("kavita:item:read", "kavita:item:unread", "kavita:item:never")
+        val loadParams = PagingSource.LoadParams.Refresh<Int>(key = null, loadSize = 10, placeholdersEnabled = false)
+
+        val paged = dao.pagingGridRootsByLastRead(SourceType.KAVITA.name).load(loadParams)
+        val filtered = dao.pagingGridRootsFiltered(
+            buildFilteredGridRootsQuery(
+                sourceType = SourceType.KAVITA.name,
+                sortMode = LibrarySortMode.LAST_READ,
+                filters = LibraryFilterState(formats = setOf(FormatType.EPUB)),
+            ),
+        ).load(loadParams)
+
+        assertEquals(expected, (paged as PagingSource.LoadResult.Page).data.map { it.id })
+        assertEquals(expected, dao.getGridRootIdsByLastRead(SourceType.KAVITA.name, limit = 10))
+        assertEquals(expected, (filtered as PagingSource.LoadResult.Page).data.map { it.id })
+    }
+
+    @Test
     fun `date-added root ids order newest first`() = runBlocking {
         dao.replaceSourceCatalog(
             sourceType = SourceType.KAVITA.name,
