@@ -49,6 +49,21 @@ Started 2026-10-17. Scope so far is the library home; other screens are listed a
   the escape hatch. The glass fallback surface (no blur available) is now fully opaque: at 0.96
   unblurred page text bled through the bars. The emulator's WebView does not use overlays, which
   is why it looked fine there.
+- **Reader menus: one panel component, three placements** (2026-10-18). Proposal and mocks:
+  https://claude.ai/artifact/MMcLhoAZ312eJugJ1H2bsZ. Placement follows content size: a
+  content-sized menu anchors under its button (comics quick settings), a content-heavy one docks
+  to a screen edge as a full-height panel shaped like the drawer (EPUB contents at the start
+  edge, 360 dp; EPUB reading settings at the end edge, 400 dp), and under 600 dp each of them is
+  a bottom sheet. Panels keep the glass at the pane tint; each one is measured on the tablet when
+  it lands, and opaque `surfaceRaised` is the fallback if the blur region costs too much. Any
+  setting with two or three values is one row (label + `AppSegmentedRow`); lists are only for
+  fonts and chapters. An open panel means a scrim over the page, a highlighted button, and a
+  close control in docked panels. Direction reads "Left to right" / "Right to left". The EPUB
+  settings become sections in the tall tablet panel and keep their tabs in the phone sheet.
+  Comics settings keep their current stores (per item or per series as today). All of this is
+  built in the kit (`AppFloatingPanel`, `AppPanelHeader`, the `App*Row` form rows) and replaces
+  `ReaderAttachedPane`; the segmented control is the existing `AppSegmentedRow`, so restyling it
+  later changes settings, the cover menu, and the reader together.
 
 ## Constraints (from `ARCHITECTURE_RULES.md`)
 
@@ -315,6 +330,52 @@ problem was found and fixed (see Decisions).
       tile, so the numbers should only improve, but they are not recorded yet.
 - [ ] 3a: run the shelf instrumentation tests.
 - [ ] Section 1 (Compose BOM) and section 5 (cover-derived color) are untouched.
+
+## 7. Reader menus `[ ]`
+
+Decided 2026-10-18 (see Decisions). After the second pass the reader menus are on the right
+radii and material, but they are still radio lists in free-floating cards: the comics pane needs
+scrolling for five two- or three-way settings and clips its last header; the EPUB contents card
+is 312 dp wide at the bottom left and does not scroll to the current chapter when it opens; no
+pane has a scrim or a close control; the preferences icon in comics is a carousel glyph. Each
+step below lands and is judged on the emulator, then the tablet, before the next.
+
+### 7a. Kit `[~]`
+
+- [x] `AppFloatingPanel`: an in-tree panel (not a dialog window, so it animates with the bars,
+      respects the reader's insets, and can be glass). Placements `Start`, `End`, `TopEnd`;
+      under 600 dp every placement becomes a bottom sheet. Scrim, back handling, slide-in, the
+      container radius, glass at `paneTintAlpha` with the opaque raised surface as the no-blur
+      fallback. `resolveAppFloatingPanelLayout` is the pure placement rule, unit-tested.
+- [x] `AppPanelHeader`: title, subtitle, optional back and close.
+- [x] Form rows: `AppChoiceRow` (label + `AppSegmentedRow`, stacks below 360 dp),
+      `AppSliderRow`, `AppStepperRow`.
+- [ ] Checked on the emulator once 7b uses them.
+
+### 7b. Comics quick settings `[ ]`
+
+- [ ] `TopEnd` panel under the preferences button, 400 dp: Layout, Direction, Pages, Page turn,
+      Fit as choice rows; rows that do not apply in scroll mode are disabled, not removed, so the
+      panel keeps its height. Icon becomes `Tune`. Stores unchanged.
+- [ ] Tablet frame measurement with the panel open over a comic page (glass vs opaque).
+
+### 7c. EPUB contents `[ ]`
+
+- [ ] `Start` panel, 360 dp: indent-only hierarchy (no depth dots), current chapter on
+      `surfaceSelected`, finished chapters muted, footer with chapter and position, list scrolled
+      to the current chapter on open.
+
+### 7d. EPUB reading settings `[ ]`
+
+- [ ] `End` panel, 400 dp: Text, Theme, Layout as sections on tablets; the segmented tabs stay
+      in the phone sheet. Typography and alignment as choice rows, text size as a stepper row,
+      the sliders as slider rows, the theme as three swatches, the font picker as a second page
+      with back in the header.
+
+### 7e. Loose ends `[ ]`
+
+- [ ] `ReaderAttachedPane` removed once nothing uses it.
+- [ ] PDF bar: nothing to change beyond what 6c did.
 
 ## Not yet designed
 
