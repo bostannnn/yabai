@@ -9,6 +9,7 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.isKavitaSeriesContainer
 import com.example.unifiedreader.core.model.isStumpSeriesContainer
 import com.example.unifiedreader.core.model.remoteLibraryId
+import com.example.unifiedreader.feature.downloads.DownloadEntry
 import com.example.unifiedreader.feature.downloads.DownloadEntryStatus
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -477,7 +478,7 @@ class AppViewModelRemoteDownloadsTest {
     }
 
     @Test
-    fun `cancelled download does not surface an error message`() = runBlocking {
+    fun `download stopped without a user cancel stays queued and shows no error`() = runBlocking {
         val remoteComic = sampleItem(
             id = "chapter-1",
             title = "Akira 001",
@@ -499,11 +500,17 @@ class AppViewModelRemoteDownloadsTest {
         viewModel.onDownloadRemoteItem(remoteComic)
         waitForUiState { dataSource.hasStartedFirstDownload }
 
+        // A cancellation the user didn't ask for is Android stopping the work (network lost, time
+        // limit, Doze): the entry goes back in the queue for WorkManager's rerun.
         dataSource.cancelFirstDownload()
         shadowOf(Looper.getMainLooper()).idle()
 
-        assertTrue(viewModel.uiState.downloadingRemoteItemIds.isEmpty())
         assertTrue(viewModel.downloadsSnapshot.failedEntries.isEmpty())
+        assertTrue(viewModel.downloadsSnapshot.completedEntries.isEmpty())
+        assertEquals(
+            listOf(DownloadEntryStatus.Queued),
+            viewModel.downloadsSnapshot.entries.map(DownloadEntry::status),
+        )
     }
 
     @Test

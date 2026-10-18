@@ -77,6 +77,10 @@ class RemoteDownloadWorker(
             RemoteDownloadWorkerOutcome.Canceled -> Result.success()
 
             RemoteDownloadWorkerOutcome.Failure -> Result.failure()
+
+            // WorkManager ignores the result of work it stopped and reruns it itself; retry covers
+            // a cancellation that didn't come from a stop.
+            RemoteDownloadWorkerOutcome.Stopped -> Result.retry()
         }
     }
 

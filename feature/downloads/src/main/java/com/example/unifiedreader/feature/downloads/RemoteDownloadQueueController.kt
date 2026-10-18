@@ -221,27 +221,13 @@ class RemoteDownloadQueueController(
         return store.deleteEntry(entryId) > 0
     }
 
-    suspend fun clearCompleted(): Int {
-        var removedCount = 0
-        val completedEntries = store.getEntries().filter { entry ->
+    // Clearing only tidies the list: files a canceled batch already downloaded stay downloaded.
+    // Remove on a single entry is the action that deletes them.
+    suspend fun clearCompleted(): Int = store.getEntries()
+        .filter { entry ->
             entry.status == DownloadEntryStatus.Completed || entry.status == DownloadEntryStatus.Canceled
         }
-        for (entry in completedEntries) {
-            val removed = when (entry.status) {
-                DownloadEntryStatus.Completed -> store.deleteEntry(entry.id) > 0
-                DownloadEntryStatus.Canceled -> remove(entry.id)
-                DownloadEntryStatus.Queued,
-                DownloadEntryStatus.PausedConnectivity,
-                DownloadEntryStatus.Running,
-                DownloadEntryStatus.Canceling,
-                DownloadEntryStatus.Failed -> false
-            }
-            if (removed) {
-                removedCount += 1
-            }
-        }
-        return removedCount
-    }
+        .count { entry -> store.deleteEntry(entry.id) > 0 }
 
     suspend fun resolveOpenItem(
         entryId: String,

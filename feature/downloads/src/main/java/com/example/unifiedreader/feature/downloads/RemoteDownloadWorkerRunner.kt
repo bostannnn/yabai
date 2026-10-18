@@ -9,6 +9,9 @@ enum class RemoteDownloadWorkerOutcome {
     Success,
     Failure,
     Canceled,
+
+    /** Stopped by the system, not the user; the entry is queued again for WorkManager's rerun. */
+    Stopped,
 }
 
 class RemoteDownloadWorkerRunner(
@@ -101,9 +104,8 @@ class RemoteDownloadWorkerRunner(
             }
         } catch (cancellation: CancellationException) {
             withContext(NonCancellable) {
-                finalizeCanceled(entryId)
+                finalizeStopped(entryId)
             }
-            RemoteDownloadWorkerOutcome.Canceled
         } catch (throwable: Throwable) {
             store.updateStatus(
                 entryId = entryId,
@@ -121,6 +123,24 @@ class RemoteDownloadWorkerRunner(
         DownloadEntryStatus.Canceled -> RemoteDownloadWorkerOutcome.Canceled
         DownloadEntryStatus.Failed -> RemoteDownloadWorkerOutcome.Failure
         else -> RemoteDownloadWorkerOutcome.Success
+    }
+
+    // A user cancel marks the entry Canceling (or Canceled) before WorkManager stops the work. Any
+    // other stop (network constraint lost, execution time limit, Doze) leaves it Running: queue it
+    // again so the rerun resumes after the files already downloaded, instead of recording a cancel.
+    private suspend fun finalizeStopped(
+        entryId: String,
+    ): RemoteDownloadWorkerOutcome = when (store.getEntry(entryId)?.status) {
+        DownloadEntryStatus.Canceling,
+        DownloadEntryStatus.Canceled -> finalizeCanceled(entryId)
+        else -> {
+            store.updateStatusIfCurrentStatusIn(
+                entryId = entryId,
+                expectedStatuses = setOf(DownloadEntryStatus.Running),
+                status = DownloadEntryStatus.Queued,
+            )
+            RemoteDownloadWorkerOutcome.Stopped
+        }
     }
 
     private suspend fun finalizeCanceled(

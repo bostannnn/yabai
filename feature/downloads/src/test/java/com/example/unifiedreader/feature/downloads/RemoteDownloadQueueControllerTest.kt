@@ -674,7 +674,7 @@ class RemoteDownloadWorkerRunnerTest {
     }
 
     @Test
-    fun `run entry cancels when side effect is cancelled`() = runTest {
+    fun `run entry queues the download again when stopped during a side effect`() = runTest {
         val item = testReadableItem("book-1")
         val store = InMemoryDownloadQueueStore(
             initialEntries = listOf(
@@ -701,8 +701,83 @@ class RemoteDownloadWorkerRunnerTest {
         val outcome = runner.runEntry("entry-1")
         val entry = checkNotNull(store.entries.singleOrNull())
 
+        assertEquals(RemoteDownloadWorkerOutcome.Stopped, outcome)
+        assertEquals(DownloadEntryStatus.Queued, entry.status)
+        assertEquals(setOf(item.id), entry.completedItemIds)
+    }
+
+    @Test
+    fun `run entry queues a download stopped by the system and the rerun resumes it`() = runTest {
+        var stopDuringItemId: String? = "book-2"
+        val dataSource = TestRemoteItemDownloadDataSource(
+            onDownload = { item ->
+                if (item.id == stopDuringItemId) {
+                    stopDuringItemId = null
+                    // WorkManager stopping the work (network lost, time limit, Doze) cancels it.
+                    throw kotlinx.coroutines.CancellationException("work stopped")
+                }
+            },
+        )
+        val store = InMemoryDownloadQueueStore(
+            initialEntries = listOf(threeBookEntry(status = DownloadEntryStatus.Queued)),
+        )
+        val runner = RemoteDownloadWorkerRunner(
+            store = store,
+            remoteDownloadDataSources = listOf(dataSource),
+            completionSideEffects = emptyList(),
+        )
+
+        val stopped = runner.runEntry("entry-1")
+        val stoppedEntry = checkNotNull(store.entries.singleOrNull())
+
+        assertEquals(RemoteDownloadWorkerOutcome.Stopped, stopped)
+        assertEquals(DownloadEntryStatus.Queued, stoppedEntry.status)
+        assertEquals(setOf("book-1"), stoppedEntry.completedItemIds)
+
+        val rerun = runner.runEntry("entry-1")
+        val finishedEntry = checkNotNull(store.entries.singleOrNull())
+
+        assertEquals(RemoteDownloadWorkerOutcome.Success, rerun)
+        assertEquals(DownloadEntryStatus.Completed, finishedEntry.status)
+        assertEquals(setOf("book-1", "book-2", "book-3"), finishedEntry.completedItemIds)
+        assertEquals(listOf("book-1", "book-2", "book-2", "book-3"), dataSource.downloadedItemIds)
+    }
+
+    @Test
+    fun `run entry records a user cancel that stops the work as canceled`() = runTest {
+        lateinit var controller: RemoteDownloadQueueController
+        val scheduler = RecordingDownloadWorkScheduler()
+        val dataSource = TestRemoteItemDownloadDataSource(
+            onDownload = { item ->
+                if (item.id == "book-2") {
+                    // The user's cancel marks the entry Canceling, then WorkManager cancels the work.
+                    controller.cancel("entry-1")
+                    throw kotlinx.coroutines.CancellationException("work canceled")
+                }
+            },
+        )
+        val store = InMemoryDownloadQueueStore(
+            initialEntries = listOf(threeBookEntry(status = DownloadEntryStatus.Queued)),
+        )
+        controller = RemoteDownloadQueueController(
+            store = store,
+            scheduler = scheduler,
+            remoteDownloadDataSources = listOf(dataSource),
+        )
+        val runner = RemoteDownloadWorkerRunner(
+            store = store,
+            remoteDownloadDataSources = listOf(dataSource),
+            completionSideEffects = emptyList(),
+        )
+
+        val outcome = runner.runEntry("entry-1")
+        val entry = checkNotNull(store.entries.singleOrNull())
+
         assertEquals(RemoteDownloadWorkerOutcome.Canceled, outcome)
         assertEquals(DownloadEntryStatus.Canceled, entry.status)
+        assertEquals(setOf("book-1"), entry.completedItemIds)
+        assertEquals(RemoteDownloadWorkerOutcome.Success, runner.runEntry("entry-1"))
+        assertEquals(DownloadEntryStatus.Canceled, store.entries.single().status)
     }
 
     @Test
@@ -871,7 +946,7 @@ class RemoteDownloadWorkerRunnerTest {
     }
 
     @Test
-    fun `clear completed deletes files for partially completed canceled entries`() = runTest {
+    fun `clear completed keeps the files of a partially completed canceled entry`() = runTest {
         val dataSource = TestRemoteItemDownloadDataSource(
             storedItemIds = mutableSetOf("book-1"),
         )
@@ -902,7 +977,7 @@ class RemoteDownloadWorkerRunnerTest {
 
         assertEquals(1, removedCount)
         assertTrue(store.entries.isEmpty())
-        assertNull(dataSource.storedDocumentUri(testReadableItem("book-1")))
+        assertTrue(dataSource.storedDocumentUri(testReadableItem("book-1")) != null)
     }
 
     @Test
@@ -1151,6 +1226,21 @@ private class CancelingDownloadCompletionSideEffect : DownloadCompletionSideEffe
         throw kotlinx.coroutines.CancellationException("cancelled during side effect")
     }
 }
+
+private fun threeBookEntry(
+    status: DownloadEntryStatus,
+): DownloadEntry = DownloadEntry(
+    id = "entry-1",
+    selectedItemId = "book-1",
+    selectedItemTitle = "3 selected items",
+    sourceType = SourceType.KAVITA,
+    actionItems = listOf(testQueuedItem("book-1"), testQueuedItem("book-2"), testQueuedItem("book-3")),
+    trackedItemIds = setOf("book-1", "book-2", "book-3"),
+    completedItemIds = emptySet(),
+    status = status,
+    createdAtEpochMillis = 1L,
+    updatedAtEpochMillis = 1L,
+)
 
 private fun testReadableItem(
     id: String,
