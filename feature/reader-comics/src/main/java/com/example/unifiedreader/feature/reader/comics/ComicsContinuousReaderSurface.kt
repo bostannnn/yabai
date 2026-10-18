@@ -165,29 +165,48 @@ internal fun ComicsContinuousReaderSurface(
     }
 }
 
-private data class ContinuousVisiblePosition(
+internal data class ContinuousVisiblePosition(
     val pageIndex: Int,
     val offsetRatio: Float,
 )
 
+internal data class ContinuousVisiblePage(
+    val index: Int,
+    val offset: Int,
+    val size: Int,
+)
+
 private fun androidx.compose.foundation.lazy.LazyListState.currentVisiblePosition(
     pageCount: Int,
+): ContinuousVisiblePosition? = continuousReaderVisiblePosition(
+    visiblePages = layoutInfo.visibleItemsInfo.map { item ->
+        ContinuousVisiblePage(index = item.index, offset = item.offset, size = item.size)
+    },
+    pageCount = pageCount,
+    isScrolledToEnd = !canScrollForward,
+)
+
+// The reading position is the page at the top of the viewport. The last page takes over once the
+// strip is scrolled to its end, since a short last page never reaches the top; its top edge coming
+// into view is not the end of the book, and the last page counts as finished.
+internal fun continuousReaderVisiblePosition(
+    visiblePages: List<ContinuousVisiblePage>,
+    pageCount: Int,
+    isScrolledToEnd: Boolean,
 ): ContinuousVisiblePosition? {
-    val visibleItems = layoutInfo.visibleItemsInfo
-        .filter { item -> item.index in 0 until pageCount }
-    val visibleItem = visibleItems
-        .lastOrNull { item -> item.index == pageCount - 1 }
-        ?: visibleItems
-        .firstOrNull { it.index >= 0 }
+    val pagesInRange = visiblePages.filter { page -> page.index in 0 until pageCount }
+    val visiblePage = pagesInRange
+        .lastOrNull { page -> isScrolledToEnd && page.index == pageCount - 1 }
+        ?: pagesInRange.firstOrNull()
         ?: return null
-    val offsetPixels = (-visibleItem.offset).coerceAtLeast(0)
-    val ratio = if (visibleItem.size > 0) {
-        offsetPixels / visibleItem.size.toFloat()
+    val offsetPixels = (-visiblePage.offset).coerceAtLeast(0)
+    val ratio = if (visiblePage.size > 0) {
+        offsetPixels / visiblePage.size.toFloat()
     } else {
         0f
     }
     return ContinuousVisiblePosition(
-        pageIndex = visibleItem.index,
+        pageIndex = visiblePage.index,
         offsetRatio = sanitizeComicResumeScrollOffsetRatio(ratio) ?: 0f,
     )
 }

@@ -1,9 +1,11 @@
 package com.example.unifiedreader.feature.reader.comics
 
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -223,7 +225,7 @@ class ComicsReaderInteractionTest {
                 horizontalDrag = -24f,
                 verticalDrag = 2f,
                 readingDirection = ComicReadingDirection.LTR,
-                touchSlop = 8f,
+                minDistance = 8f,
             ),
         )
         assertFalse(
@@ -231,7 +233,7 @@ class ComicsReaderInteractionTest {
                 horizontalDrag = 24f,
                 verticalDrag = 2f,
                 readingDirection = ComicReadingDirection.LTR,
-                touchSlop = 8f,
+                minDistance = 8f,
             ),
         )
         assertTrue(
@@ -239,7 +241,7 @@ class ComicsReaderInteractionTest {
                 horizontalDrag = 24f,
                 verticalDrag = 2f,
                 readingDirection = ComicReadingDirection.RTL,
-                touchSlop = 8f,
+                minDistance = 8f,
             ),
         )
     }
@@ -251,7 +253,7 @@ class ComicsReaderInteractionTest {
                 horizontalDrag = -4f,
                 verticalDrag = 0f,
                 readingDirection = ComicReadingDirection.LTR,
-                touchSlop = 8f,
+                minDistance = 8f,
             ),
         )
         assertFalse(
@@ -259,9 +261,64 @@ class ComicsReaderInteractionTest {
                 horizontalDrag = -24f,
                 verticalDrag = 32f,
                 readingDirection = ComicReadingDirection.LTR,
-                touchSlop = 8f,
+                minDistance = 8f,
             ),
         )
+    }
+
+    @Test
+    fun `terminal swipe ends the book only for a released single-finger swipe past the minimum`() {
+        fun swipe(vararg moves: Pair<Int, Offset>): Boolean {
+            val gesture = ComicTerminalSwipeGesture(
+                readingDirection = ComicReadingDirection.LTR,
+                minDistance = 72f,
+            )
+            moves.forEach { (pointers, drag) -> gesture.onPointerEvent(pointers, drag) }
+            return gesture.isForwardSwipeOnRelease()
+        }
+
+        assertTrue(swipe(1 to Offset(-50f, 0f), 1 to Offset(-40f, 2f)))
+        // A small drag on the last page, well past the touch slop.
+        assertFalse(swipe(1 to Offset(-30f, 0f)))
+        // The first finger of a pinch moves first, then the second finger lands.
+        assertFalse(swipe(1 to Offset(-100f, 0f), 2 to Offset(-20f, 0f), 1 to Offset.Zero))
+        // A forward drag taken back before release.
+        assertFalse(swipe(1 to Offset(-100f, 0f), 1 to Offset(80f, 0f)))
+    }
+
+    @Test
+    fun `webtoon position stays on the page at the top until the strip reaches its end`() {
+        val visiblePages = listOf(
+            ContinuousVisiblePage(index = 8, offset = -300, size = 1200),
+            ContinuousVisiblePage(index = 9, offset = 900, size = 1200),
+        )
+
+        val midStrip = continuousReaderVisiblePosition(
+            visiblePages = visiblePages,
+            pageCount = 10,
+            isScrolledToEnd = false,
+        )
+        assertEquals(8, midStrip?.pageIndex)
+        assertEquals(0.25f, midStrip?.offsetRatio ?: -1f, 0.001f)
+        assertFalse(
+            isComicProgressFinished(
+                pageIndex = midStrip!!.pageIndex,
+                pageCount = 10,
+                segment = null,
+                readingDirection = ComicReadingDirection.LTR,
+            ),
+        )
+
+        val shortLastPageAtEnd = continuousReaderVisiblePosition(
+            visiblePages = listOf(
+                ContinuousVisiblePage(index = 8, offset = -100, size = 1200),
+                ContinuousVisiblePage(index = 9, offset = 1100, size = 400),
+            ),
+            pageCount = 10,
+            isScrolledToEnd = true,
+        )
+        assertEquals(9, shortLastPageAtEnd?.pageIndex)
+        assertNull(continuousReaderVisiblePosition(emptyList(), pageCount = 10, isScrolledToEnd = true))
     }
 
     @Test
