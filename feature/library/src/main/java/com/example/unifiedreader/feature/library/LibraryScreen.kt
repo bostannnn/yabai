@@ -240,9 +240,13 @@ fun LibraryScreen(
     val selectableDownloadItemIds = remember(selectableDownloadItems) {
         selectableDownloadItems.mapTo(mutableSetOf(), ReadableItem::id)
     }
-    val selectedDownloadItemIdSet = selectedDownloadItemIds
-        .filter { itemId -> itemId in selectableDownloadItemIds }
-        .toSet()
+    val renderedItemIds = remember(renderedItems) { renderedItems.mapTo(mutableSetOf(), ReadableItem::id) }
+    val selectedDownloadItemIdSet = sanitizeLibraryDownloadSelection(
+        selectedIds = selectedDownloadItemIds,
+        renderedIds = renderedItemIds,
+        selectableIds = selectableDownloadItemIds,
+        isPaged = isPaged,
+    ).toSet()
     val gridState = remember(browseContextKey) {
         LazyGridState(
             firstVisibleItemIndex = initialScrollPosition.index,
@@ -353,11 +357,18 @@ fun LibraryScreen(
         onSelectableDownloadItemsChanged(selectableDownloadItems)
     }
     LaunchedEffect(browseContextKey, selectableDownloadItemIds, selectedDownloadItemIds, isDownloadSelectionMode) {
-        val sanitizedSelection = selectedDownloadItemIds.filter { itemId -> itemId in selectableDownloadItemIds }
+        val sanitizedSelection = sanitizeLibraryDownloadSelection(
+            selectedIds = selectedDownloadItemIds,
+            renderedIds = renderedItemIds,
+            selectableIds = selectableDownloadItemIds,
+            isPaged = isPaged,
+        )
         if (sanitizedSelection != selectedDownloadItemIds) {
             onSelectedDownloadItemIdsChanged(sanitizedSelection)
         }
-        if (selectableDownloadItemIds.isEmpty() && isDownloadSelectionMode) {
+        // A paged window can lack selectable roots while picks remain elsewhere; the host ends the
+        // mode once the whole view has none.
+        if (selectableDownloadItemIds.isEmpty() && isDownloadSelectionMode && !isPaged) {
             onDownloadSelectionModeChanged(false)
         }
     }
@@ -365,9 +376,11 @@ fun LibraryScreen(
     fun toggleDownloadSelection(item: ReadableItem) {
         if (item.id !in selectableDownloadItemIds) return
         onSelectedDownloadItemIdsChanged(
-            selectedDownloadItemIdSet
-                .toggle(item.id)
-                .let { selectedIds -> renderedItems.map(ReadableItem::id).filter { it in selectedIds } },
+            orderLibraryDownloadSelection(
+                selectedIds = selectedDownloadItemIdSet.toggle(item.id),
+                renderedIds = renderedItems.map(ReadableItem::id),
+                isPaged = isPaged,
+            ),
         )
     }
 
@@ -376,9 +389,11 @@ fun LibraryScreen(
         onDownloadSelectionModeChanged(true)
         if (item.id !in selectedDownloadItemIdSet) {
             onSelectedDownloadItemIdsChanged(
-                renderedItems
-                    .map(ReadableItem::id)
-                    .filter { itemId -> itemId == item.id || itemId in selectedDownloadItemIdSet },
+                orderLibraryDownloadSelection(
+                    selectedIds = selectedDownloadItemIdSet + item.id,
+                    renderedIds = renderedItems.map(ReadableItem::id),
+                    isPaged = isPaged,
+                ),
             )
         }
     }

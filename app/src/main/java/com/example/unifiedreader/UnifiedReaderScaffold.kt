@@ -35,6 +35,7 @@ import com.example.unifiedreader.data.repository.RemoteSyncArtifact
 import com.example.unifiedreader.feature.downloads.DownloadsSheet
 import com.example.unifiedreader.feature.journal.JournalScreen
 import com.example.unifiedreader.feature.library.LibraryViewMode
+import com.example.unifiedreader.feature.library.libraryDownloadSelectableItems
 import com.example.unifiedreader.feature.library.shelves.LibraryShelfBrowserKind
 import com.example.unifiedreader.feature.library.shelves.LibraryShelfBrowserTopBar
 import com.example.unifiedreader.feature.library.shelves.browserState
@@ -85,8 +86,8 @@ fun UnifiedReaderScaffold(
         mutableStateOf<List<String>>(emptyList())
     }
     // The rendered downloadable items reported up by the active library screen (paged snapshot or
-    // in-memory), so select-all/download never scan the in-memory [AppUiState.visibleItems] for the
-    // paged path.
+    // in-memory). For the paged path that's only the loaded window, so select-all/download add the
+    // recompute's [AppUiState.visibleItems] (see libraryDownloadSelectableItems).
     var selectableDownloadItems by remember(uiState.libraryBrowseContextKey) {
         mutableStateOf<List<ReadableItem>>(emptyList())
     }
@@ -109,8 +110,8 @@ fun UnifiedReaderScaffold(
     } else {
         null
     }
-    // Fallback for the brief window before the screen reports (and for the in-memory paths, where
-    // visibleItems is always populated); the paged path is served by the screen report above.
+    // The whole view's downloadable roots, once the recompute has landed: the fallback before the
+    // screen reports, and the rest of a paged view beyond its loaded window.
     val visibleDownloadableItems = remember(
         uiState.visibleItems,
         uiState.remoteDownloadActionAvailability.downloadableItemIds,
@@ -121,10 +122,18 @@ fun UnifiedReaderScaffold(
                 item.id !in uiState.remoteDownloadActionAvailability.activeDownloadingItemIds
         }
     }
-    val effectiveSelectableDownloadItems = if (hasScreenSelectableDownloadItems) {
-        selectableDownloadItems
-    } else {
-        visibleDownloadableItems
+    val isPagedLibrary = LibraryPagingFeature.isPageable(uiState)
+    val effectiveSelectableDownloadItems = remember(
+        hasScreenSelectableDownloadItems,
+        selectableDownloadItems,
+        visibleDownloadableItems,
+        isPagedLibrary,
+    ) {
+        libraryDownloadSelectableItems(
+            screenSelectableItems = selectableDownloadItems.takeIf { hasScreenSelectableDownloadItems },
+            viewDownloadableItems = visibleDownloadableItems,
+            isPaged = isPagedLibrary,
+        )
     }
     val effectiveSelectableDownloadItemIds = remember(effectiveSelectableDownloadItems) {
         effectiveSelectableDownloadItems.mapTo(mutableSetOf(), ReadableItem::id)
