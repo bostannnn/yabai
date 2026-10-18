@@ -319,6 +319,7 @@ fun EpubReaderScreen(
             if (hydrated &&
                 restoredSessionState &&
                 shouldFlushEpubReaderProgress(
+                    navigatorShowedBook = initialRestoreLocked,
                     restoreProgressSnapshot = restoreProgressSnapshot,
                     currentLocator = currentLocator,
                     currentPage = currentPage,
@@ -440,17 +441,16 @@ fun EpubReaderScreen(
         value = when (val uriState = documentUriState) {
             ReaderDocumentUriState.Loading -> EpubPublicationState.Loading
             is ReaderDocumentUriState.Error -> EpubPublicationState.Error(uriState.message)
-            is ReaderDocumentUriState.Ready -> withContext(Dispatchers.IO) {
+            // No file (the source is offline or signed out, or the cache was evicted): say so
+            // instead of opening a stand-in book whose position would be saved over this one's.
+            is ReaderDocumentUriState.Ready -> if (uriState.uri == null) {
+                EpubPublicationState.Error(EpubDocumentUnavailableMessage)
+            } else withContext(Dispatchers.IO) {
             runCatching {
-                val publicationFile = uriState.uri?.let { importedUri ->
-                    prepareImportedEpubFile(
-                        context = context.applicationContext,
-                        item = item,
-                        documentUri = importedUri,
-                    )
-                } ?: ensureSampleEpubFile(
+                val publicationFile = prepareImportedEpubFile(
                     context = context.applicationContext,
                     item = item,
+                    documentUri = uriState.uri,
                 )
                 val httpClient = DefaultHttpClient()
                 val assetRetriever = AssetRetriever(
@@ -1258,17 +1258,6 @@ private fun ReaderProgressSnapshot?.needsEpubProgressionLocator(
     serializedLocator == null &&
     percent != null
 
-private fun shouldFlushEpubReaderProgress(
-    restoreProgressSnapshot: ReaderProgressSnapshot?,
-    currentLocator: Locator?,
-    currentPage: Int,
-    currentProgress: Double,
-): Boolean =
-    restoreProgressSnapshot != null ||
-        currentLocator != null ||
-        currentPage > 0 ||
-        currentProgress > 0.0
-
 private fun buildCurrentReaderLocator(
     locator: Locator?,
     page: Int?,
@@ -1336,6 +1325,8 @@ private data class EpubTocNavigationRequest(
 ) : EpubNavigationRequest
 
 private const val EpubNavigationZoneFraction = 0.25f
+internal const val EpubDocumentUnavailableMessage =
+    "This book's file isn't available. Check the connection to its server, then open it again."
 private val EpubFootnoteLinkHints = listOf(
     "edn",
     "enote",

@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.reader.epub
 
 import android.content.res.Configuration
+import android.net.Uri
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.geometry.Offset
@@ -14,6 +15,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.fragment.app.FragmentActivity
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
@@ -24,6 +26,7 @@ import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -37,11 +40,13 @@ class EpubReaderEdgeTapSmokeTest {
     fun topCenterTapOnLiveEpubSurfaceShowsOverlay() {
         val sessionStore = FakeReaderSessionStore()
         val item = sampleEpubItem()
+        val documentUri = sampleEpubUri(item)
 
         composeRule.setContent {
             EpubReaderScreen(
                 item = item,
                 sessionStore = sessionStore,
+                documentUri = documentUri,
                 onBack = {},
             )
         }
@@ -60,12 +65,14 @@ class EpubReaderEdgeTapSmokeTest {
     fun bottomCenterTapOnLiveEpubSurfaceShowsOverlay() {
         val sessionStore = FakeReaderSessionStore()
         val item = sampleEpubItem(id = "epub-edge-bottom")
+        val documentUri = sampleEpubUri(item)
 
         composeRule.setContent {
             LightThemeTestSurface {
                 EpubReaderScreen(
                     item = item,
                     sessionStore = sessionStore,
+                    documentUri = documentUri,
                     onBack = {},
                 )
             }
@@ -84,6 +91,7 @@ class EpubReaderEdgeTapSmokeTest {
     @Test
     fun followAppThemeClearsPersistedThemeOverride() {
         val item = sampleEpubItem(id = "epub-theme-reset")
+        val documentUri = sampleEpubUri(item)
         val sessionStore = FakeReaderSessionStore(
             initialSessions = mapOf(
                 item.id to ReaderSessionSnapshot(
@@ -101,6 +109,7 @@ class EpubReaderEdgeTapSmokeTest {
                 EpubReaderScreen(
                     item = item,
                     sessionStore = sessionStore,
+                    documentUri = documentUri,
                     onBack = {},
                 )
             }
@@ -120,6 +129,7 @@ class EpubReaderEdgeTapSmokeTest {
     @Test
     fun autoLayoutClearsPersistedLayoutOverride() {
         val item = sampleEpubItem(id = "epub-layout-reset")
+        val documentUri = sampleEpubUri(item)
         val sessionStore = FakeReaderSessionStore(
             initialSessions = mapOf(
                 item.id to ReaderSessionSnapshot(
@@ -137,6 +147,7 @@ class EpubReaderEdgeTapSmokeTest {
                 EpubReaderScreen(
                     item = item,
                     sessionStore = sessionStore,
+                    documentUri = documentUri,
                     onBack = {},
                 )
             }
@@ -158,12 +169,14 @@ class EpubReaderEdgeTapSmokeTest {
     fun tableOfContentsButtonShowsBottomSheet() {
         val sessionStore = FakeReaderSessionStore()
         val item = sampleEpubItem(id = "epub-toc-sheet")
+        val documentUri = sampleEpubUri(item)
 
         composeRule.setContent {
             LightThemeTestSurface {
                 EpubReaderScreen(
                     item = item,
                     sessionStore = sessionStore,
+                    documentUri = documentUri,
                     onBack = {},
                 )
             }
@@ -273,6 +286,16 @@ private fun LightThemeTestSurface(
         content = content,
     )
 }
+
+// The reader no longer stands in a generated book for a missing file, so the tests hand it one.
+private fun sampleEpubUri(item: ReadableItem): Uri = Uri.fromFile(
+    runBlocking {
+        ensureSampleEpubFile(
+            context = InstrumentationRegistry.getInstrumentation().targetContext,
+            item = item,
+        )
+    },
+)
 
 private fun sampleEpubItem(
     id: String = "epub-edge-top",
