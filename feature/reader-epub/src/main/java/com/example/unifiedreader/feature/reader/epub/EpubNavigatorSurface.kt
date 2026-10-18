@@ -128,3 +128,29 @@ internal class EpubNavigatorResumePoint {
         removedNavigatorLocator = locator
     }
 }
+
+/**
+ * Whether the reader sees the end of the book: the last page of the last reading-order resource.
+ * Readium reports a page by where it starts, so the book's last position, or a progression near 1,
+ * begins before the end (half-way through a two-position book). A paginated layout knows its page
+ * ([pageIndex] of [totalPages], a spread counting as one); scroll mode asks the web view whether it is
+ * scrolled to the bottom ([scrolledToResourceEnd]).
+ */
+internal fun isEpubBookEnd(
+    isLastResource: Boolean,
+    isScrollMode: Boolean,
+    pageIndex: Int,
+    totalPages: Int?,
+    scrolledToResourceEnd: Boolean?,
+): Boolean = when {
+    !isLastResource -> false
+    isScrollMode -> scrolledToResourceEnd == true
+    else -> totalPages != null && totalPages > 0 && pageIndex >= totalPages - 1
+}
+
+internal val EpubScrolledToResourceEndScript = """
+    (function() {
+      var element = document.scrollingElement || document.documentElement;
+      return window.scrollY + window.innerHeight >= element.scrollHeight - 2;
+    })();
+""".trimIndent()
