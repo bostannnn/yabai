@@ -19,8 +19,8 @@ Baseline: `testDebugUnitTest` passes, 1033 tests, 0 failures.
 - **Branch:** the fixes after 0.8.0 were made on `claude/app-review-doc-01d75d` and fast-forwarded into the
   local `main` on 2026-10-18. `main` is not pushed to `origin`, and the fixes are in no release yet: the 0.8.0
   release holds #1-#5 only.
-- **Done:** every P0 item (#1-#6, #41) and, from P1, #7, #8, #9, #10, #12, #13, #14, #15, #16, #17, #23, #24 and #25.
-- **Next, in the suggested order:** the rest of P1: #18, #19 with #42, #21, #22.
+- **Done:** every P0 item (#1-#6, #41) and, from P1, #7, #8, #9, #10, #12, #13, #14, #15, #16, #17, #18, #23, #24 and #25.
+- **Next, in the suggested order:** the rest of P1: #19 with #42, #21, #22.
 - **Decided, not built:** #11 (the most recent read wins; see its entry for what to check first) and #20
   (refresh detects progress from the series list's `PagesRead` and `LatestReadDate`).
 - **Not checked on a device:** #6, #7, #8, #41 (unit tests only); #10 (no reachable source on the tablet has an
@@ -40,8 +40,8 @@ Baseline: `testDebugUnitTest` passes, 1033 tests, 0 failures.
 
 ### Fixed
 
-Fixed, each with a regression test that fails without the fix. Full suite with #17: 1233 tests
-(1111 `testDebugUnitTest` + 122 JVM `test`), 0 failures.
+Fixed, each with a regression test that fails without the fix. Full suite with #18: 1237 tests
+(1115 `testDebugUnitTest` + 122 JVM `test`), 0 failures.
 
 - #1 EPUB reader crash on activity recreation (`faa5bd4b`). Checked on the emulator.
 - #2 Kavita sync dropping other sources' progress (`7651eab8`).
@@ -54,6 +54,7 @@ Fixed, each with a regression test that fails without the fix. Full suite with #
 - #15 "Mark as unread" moving the item to the top of "Last read" (`b8b1d888`). The paged query, the cold-start root-id query and the filtered query took `MAX(updatedAt)` over every progress row, including the reset row "Mark as unread" writes with the current time; they now skip reset rows, as the in-memory order does, so the item sorts with the unread ones. The shelves input query still counts reset rows, which only adds candidates that the in-memory shelves then drop. Unit tests only (Room, in memory).
 - #16 Removed badges staying until you scroll (`28be7b0e`). The paged grid unions its early window badges with the recompute's maps, and the window's copy was resolved again only when the loaded window's size or endpoints changed, so a badge the recompute dropped (the Finished fade after "Mark as unread", Downloaded after deleting the file) stayed until a page loaded or the sort changed. The window badges (now `rememberLibraryWindowBadges` in `LibraryWindowBadges.kt`, out of `LibraryScreen.kt`) are also resolved again whenever one of the recompute's badge maps changes; the resolve is the existing bounded one, off the main thread. Tested with a Robolectric Compose test (activity-compose added to `feature:library`'s test classpath). Not checked on a device: paging is Kavita-only and the emulator has no Kavita server.
 - #17 Paged A–Z rail never refreshed (`0e20bf11`). The rail was queried once per sort, so it went stale after a sync, and after the v28 migration it stayed hidden because its one query raced the root rebuild and found no roots. The three alphabet-bucket DAO queries are now Room flows, which re-run on every write to `library_grid_roots`, and the screen collects the current sort's flow; the re-query is the same per-source `GROUP BY`, and roots are written only by syncs and the rebuild. The DAO test checks that the buckets follow root writes (empty, then a, b, then a, b, c); the old one-shot query couldn't be observed at all, so this test has no "fix off" run. Not checked on a device (Kavita-only paging).
+- #18 "Select all" covering only the loaded window, and picks pruned after a rail jump (`528569e5`). The screen now drops only a rendered root that is no longer selectable and keeps picks outside its window (`sanitizeLibraryDownloadSelection`, `orderLibraryDownloadSelection`). The scaffold adds the recompute's `visibleItems`, which have the paged view's membership (every root when unfiltered, the in-memory filtered set otherwise), so "Select all" and "Download selected" cover the whole view (`libraryDownloadSelectableItems`). Until the recompute lands at cold start (about a second) only the window is known. Unit tests only; not checked on a device (Kavita-only paging).
 - #12 Route lost after process death (`d6829c2c`). The route always stores the open book's item, so the reader reopens before the catalog loads; a series sub-screen is kept until its source's catalog has loaded. Checked on the emulator (see below).
 - #6 Downloads stopped by Android recorded as user cancels (`bcfa819b`). A cancellation is a user cancel only when the entry is already Canceling or Canceled; any other stop puts the entry back to Queued with its finished files kept, and the worker returns `Result.retry()`, so WorkManager's rerun resumes after them. "Clear completed" now only clears the list; Remove on a single failed or canceled entry still deletes its files. Entries already wrongly marked Canceled before this fix stay that way (Retry resumes them). Unit tests only.
 - #7 Stale comic resume anchor beating synced progress (`5af76586`). The session now stores the progress page with the resume anchor (`resumeProgressPage`), and the anchor, segment and scroll offset are ignored once the saved progress is on another page, as after a pull from another device. Sessions saved before keep the anchor only when it is the progress page itself. A page restored after the reader opened (a pull for a downloaded comic) also moves the anchor, which the pager and the webtoon list follow; before, only the page counter changed and the next settle saved the old page. Unit tests only.
@@ -73,7 +74,7 @@ had lost the book. The 0.8.0 build at `aeb722a2` reopened in the book. Back then
 library and cleared the saved book, and the crash log stayed empty. Not checked: a remote book or a
 series sub-screen (no server on the emulator); the unit tests cover those.
 
-Next is #18, "Select all" in paged views. Learned while fixing these:
+Next is #19 with #42, Kavita address failover. Learned while fixing these:
 
 - **Process death (#12):** after process death the app opened on the library, not the book. Seen on the emulator; fixed in `d6829c2c`.
 - **Hanging suite:** `SourceNavigationPreferencesStoreTest`'s IO-retry test could wait forever: with a 0 ms retry delay the store's startup fallback was replaced before the test saw it. It hung the suite for 30 minutes during #25; made deterministic in `bfdc4440`.
@@ -135,7 +136,7 @@ How the list is ordered:
 15. Paged library: "Mark as unread" puts the item at the top of "Last read". Fixed `b8b1d888`.
 16. Paged library: removed badges stay until you scroll. Fixed `28be7b0e`.
 17. Paged library: the A–Z rail is never refreshed. Fixed `0e20bf11`.
-18. Paged library: "Select all" only selects the loaded window.
+18. Paged library: "Select all" only selects the loaded window. Fixed `528569e5`.
 19. Kavita address failover never triggers on push failures and never returns to the LAN address.
 20. Kavita fast sync (the library refresh) never pulls progress. Decided: detect progress made elsewhere through the series list, not one request per chapter. Kavita's `all-v2` series already carries the user's `PagesRead` and `LatestReadDate` (checked in 0.8.9 and `develop`); adding them to the change fingerprint re-fetches only series read since the last sync.
 21. EPUB finish detection fires too early (the start of the last Readium position), and a right tap on a reopened finished book does nothing. The first pass had this backwards: the end *is* detected.
@@ -176,7 +177,7 @@ How the list is ordered:
 
 The unfinished features in section 4 are feature work that needs product decisions, so they don't get fix sessions.
 
-Suggested order after the second pass: 6, 41, 7, 10, 13, 14, 24, 25, 23, then the rest of P1. 6, 41, 7, 10, 13, 14, 24, 25, 23, 9, 15, 16, 17, 8 and 12 are done; 18 is next.
+Suggested order after the second pass: 6, 41, 7, 10, 13, 14, 24, 25, 23, then the rest of P1. 6, 41, 7, 10, 13, 14, 24, 25, 23, 9, 15, 16, 17, 18, 8 and 12 are done; 19 with 42 is next.
 
 Decisions, 2026-10-18: #11 most recent read wins; #20 uses the series read fields; #41, then #8, then #12.
 
@@ -219,7 +220,7 @@ Decisions, 2026-10-18: #11 most recent read wins; #20 uses the series read field
   `LibraryScreen.kt:160-199`, `LibraryWindowBadges.kt:33-41`. **Checked.** Fixed `28be7b0e`.
 - **"Select all" in paged views selects only the loaded window** (about 180 roots), and picks made earlier are pruned after a rail jump.
   Both prune paths (`LibraryScreen.kt:325-333`, `UnifiedReaderScaffold.kt:134-146`) drop earlier picks once `maxSize` evicts pages.
-  `LibraryScreen.kt:234-247,320-342`, `UnifiedReaderScaffold.kt:176-178`. **Checked.**
+  `LibraryScreen.kt:234-247,320-342`, `UnifiedReaderScaffold.kt:176-178`. **Checked.** Fixed `528569e5`.
 - **The paged A–Z rail is computed once per sort and never refreshed.** It goes stale after a refresh, and on the first launch after the v28 migration it stays hidden.
   The v28 migration deletes `library_grid_roots` and the rebuild in `viewModelScope` races the rail query.
   `LibraryScreen.kt:218-221`, `UnifiedReaderDatabase.kt:920-931`, `AppViewModel.kt:111-113`. **Checked.** Fixed `0e20bf11`.
