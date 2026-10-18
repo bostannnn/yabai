@@ -14,8 +14,8 @@ Baseline: `testDebugUnitTest` passes, 1033 tests, 0 failures.
 
 ## Status
 
-Fixed, each with a regression test that fails without the fix. Full suite with #10: 1210 tests
-(1088 `testDebugUnitTest` + 122 JVM `test`), 0 failures, and `androidTest` compiles.
+Fixed, each with a regression test that fails without the fix. Full suite with #13: 1211 tests
+(1089 `testDebugUnitTest` + 122 JVM `test`), 0 failures, and `androidTest` compiles.
 
 - #1 EPUB reader crash on activity recreation (`faa5bd4b`). Checked on the emulator.
 - #2 Kavita sync dropping other sources' progress (`7651eab8`).
@@ -28,6 +28,7 @@ Fixed, each with a regression test that fails without the fix. Full suite with #
 - #6 Downloads stopped by Android recorded as user cancels (`bcfa819b`). A cancellation is a user cancel only when the entry is already Canceling or Canceled; any other stop puts the entry back to Queued with its finished files kept, and the worker returns `Result.retry()`, so WorkManager's rerun resumes after them. "Clear completed" now only clears the list; Remove on a single failed or canceled entry still deletes its files. Entries already wrongly marked Canceled before this fix stay that way (Retry resumes them). Unit tests only.
 - #7 Stale comic resume anchor beating synced progress (`5af76586`). The session now stores the progress page with the resume anchor (`resumeProgressPage`), and the anchor, segment and scroll offset are ignored once the saved progress is on another page, as after a pull from another device. Sessions saved before keep the anchor only when it is the progress page itself. A page restored after the reader opened (a pull for a downloaded comic) also moves the anchor, which the pager and the webtoon list follow; before, only the page counter changed and the next settle saved the old page. Unit tests only.
 - #10 Downloaded remote EPUB opening before its progress pull (`ef693736`). When the source is reachable, a downloaded EPUB or PDF now opens after its progress pull, bounded at 2 s, and opens anyway on a failure or timeout; both readers restore their position once and ignore a later pull. PDF had the same gap. Downloaded comics still open at once, since they now follow a late pull (#7). Offline opens are unchanged (no pull is attempted). Unit tests only.
+- #13 Paged-library covers not loading after a rail jump or a deep scroll (`a2275a42`). The visible-cover prefetcher now looks grid slots up in the paging snapshot list, which keeps unloaded placeholders as nulls at their positions, instead of its compacted `items`, which shifted every slot after a jump or once leading pages were dropped. Unit tests only: paging is Kavita-only and the emulator has no Kavita server.
 
 #41, #8 and #12 were done in that order (third session) because restoring a reader at cold start is what
 triggers the first two. #41 and #8 have unit tests only.
@@ -38,7 +39,7 @@ had lost the book. The 0.8.0 build at `aeb722a2` reopened in the book. Back then
 library and cleared the saved book, and the crash log stayed empty. Not checked: a remote book or a
 series sub-screen (no server on the emulator); the unit tests cover those.
 
-Next is #13, paged-library covers that never load after a rail jump or a deep scroll. Learned while fixing these:
+Next is #14, the paged library losing its scroll position on return from the reader. Learned while fixing these:
 
 - **Process death (#12):** after process death the app opened on the library, not the book. Seen on the emulator; fixed in `d6829c2c`.
 - **"0% · 1/2" label:** the library's progress label and the early "finished" flag have the same cause as #21. Readium reports progression at position starts, and the reader marks a book finished once it reaches the last position's start. A 2-position test book was marked finished at 50%.
@@ -94,7 +95,7 @@ How the list is ordered:
 12. After process death, the reader or series route is not restored (2.10). Fixed `d6829c2c`, after #41 and #8: restoring a reader route at cold start is what triggers both.
 
 **P1: broken features hit often**
-13. Paged library: covers don't load after a rail jump or a deep scroll.
+13. Paged library: covers don't load after a rail jump or a deep scroll. Fixed `a2275a42`.
 14. Paged library: the scroll position is lost when returning from the reader.
 15. Paged library: "Mark as unread" puts the item at the top of "Last read".
 16. Paged library: removed badges stay until you scroll.
@@ -140,7 +141,7 @@ How the list is ordered:
 
 The unfinished features in section 4 are feature work that needs product decisions, so they don't get fix sessions.
 
-Suggested order after the second pass: 6, 41, 7, 10, 13, 14, 24, 25, 23, then the rest of P1. 6, 41, 7, 10, 8 and 12 are done; 13 is next.
+Suggested order after the second pass: 6, 41, 7, 10, 13, 14, 24, 25, 23, then the rest of P1. 6, 41, 7, 10, 13, 8 and 12 are done; 14 is next.
 
 Decisions, 2026-10-18: #11 most recent read wins; #20 uses the series read fields; #41, then #8, then #12.
 
@@ -171,7 +172,7 @@ Decisions, 2026-10-18: #11 most recent read wins; #20 uses the series read field
 ## 3. Broken or incorrect features
 
 ### Library (paged grids)
-- **Covers never load after an A–Z rail jump or a deep scroll** on Title, Author or Series. The prefetcher maps absolute grid
+- **Covers never load after an A–Z rail jump or a deep scroll** on Title, Author or Series. Fixed `a2275a42`. The prefetcher maps absolute grid
   indices onto `itemSnapshotList.items`, which excludes placeholders. Kavita has no remote fallback URL, so cards stay as
   placeholder art. Paging is Kavita-only (`LibraryPagingFeature.kt:23`). Rail sorts use `enablePlaceholders = true, maxSize = 360`, so the compacted snapshot and the absolute grid indices diverge after a jump or once leading pages are dropped, and the card itself never fetches (`RemoteCoverController.kt:75-85`). `feature/library/.../LibraryScreen.kt:152,373-382`, `LibraryVisibleCoverPrefetcher.kt:100-104`, `RemoteCatalogRepositories.kt:314-319`. **Checked.**
 - **Returning from the reader loses the scroll position.** A new Pager starts with 0 items, the grid clamps the index, and
