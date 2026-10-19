@@ -4,11 +4,12 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.feature.reader.core.curl.PageTurnStyle
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import kotlinx.coroutines.flow.Flow
@@ -71,7 +72,7 @@ data class ComicReaderPreferencesSnapshot(
     val readingDirection: ComicReadingDirection,
     val pageFitMode: ComicPageFitMode,
     val spreadMode: ComicSpreadMode,
-    val pageTurnStyle: ComicPageTurnStyle = ComicPageTurnStyle.Slide,
+    val pageTurnStyle: PageTurnStyle = PageTurnStyle.Slide,
     val splitWidePages: Boolean,
     val resumeAnchorPage: Int? = null,
     val resumeSegment: ComicPageSegment?,
@@ -153,11 +154,11 @@ interface ComicReaderPreferencesStore {
 
     fun loadPageTurnStyle(
         item: ReadableItem,
-    ): ComicPageTurnStyle = ComicPageTurnStyle.Slide
+    ): PageTurnStyle = PageTurnStyle.Slide
 
     fun savePageTurnStyle(
         item: ReadableItem,
-        pageTurnStyle: ComicPageTurnStyle,
+        pageTurnStyle: PageTurnStyle,
     ) = Unit
 
     fun loadSplitWidePages(
@@ -291,7 +292,7 @@ class ComicsReaderState internal constructor(
     initialReadingDirection: ComicReadingDirection,
     initialPageFitMode: ComicPageFitMode,
     initialSpreadMode: ComicSpreadMode,
-    initialPageTurnStyle: ComicPageTurnStyle = ComicPageTurnStyle.Slide,
+    initialPageTurnStyle: PageTurnStyle = PageTurnStyle.Slide,
     initialSplitWidePages: Boolean,
     initialResumeAnchorPage: Int?,
     initialResumeSegment: ComicPageSegment?,
@@ -409,7 +410,7 @@ class ComicsReaderState internal constructor(
         this.spreadMode = spreadMode
     }
 
-    fun onPageTurnStyleChanged(pageTurnStyle: ComicPageTurnStyle) {
+    fun onPageTurnStyleChanged(pageTurnStyle: PageTurnStyle) {
         hasExplicitPageTurnStyle = true
         this.pageTurnStyle = pageTurnStyle
     }
@@ -487,7 +488,7 @@ class ComicsReaderState internal constructor(
         return true
     }
 
-    fun restorePageTurnStyleIfUnchanged(pageTurnStyle: ComicPageTurnStyle): Boolean {
+    fun restorePageTurnStyleIfUnchanged(pageTurnStyle: PageTurnStyle): Boolean {
         if (hasExplicitPageTurnStyle || this.pageTurnStyle == pageTurnStyle) return false
         this.pageTurnStyle = pageTurnStyle
         return true
@@ -576,8 +577,8 @@ class ComicsReaderState internal constructor(
                     initialSpreadMode = (restored[5] as String)
                         .let(ComicSpreadMode::valueOf),
                     initialPageTurnStyle = (restored.getOrNull(19) as? String)
-                        ?.let(ComicPageTurnStyle::valueOf)
-                        ?: ComicPageTurnStyle.Slide,
+                        ?.let(PageTurnStyle::valueOf)
+                        ?: PageTurnStyle.Slide,
                     initialSplitWidePages = (restored.getOrNull(6) as? Int) == 1,
                     initialResumeAnchorPage = (restored.getOrNull(7) as? Int),
                     initialResumeSegment = sanitizeComicResumeSegment(

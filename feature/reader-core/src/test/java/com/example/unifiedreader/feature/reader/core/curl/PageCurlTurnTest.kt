@@ -1,14 +1,15 @@
-package com.example.unifiedreader.feature.reader.comics
+package com.example.unifiedreader.feature.reader.core.curl
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.IntRect
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class ComicPageCurlTurnTest {
+class PageCurlTurnTest {
     @Test
     fun `forward turn starts at rest and catches the grabbed edge up with the finger`() {
-        val turn = sampleTurn(follow = ComicPageCurlFollow.Edge)
+        val turn = sampleTurn(follow = PageCurlFollow.Edge)
         val grab = turn.grabPoint(300f)
         val start = Offset(400f, 300f)
 
@@ -27,7 +28,7 @@ class ComicPageCurlTurnTest {
 
     @Test
     fun `off centre grabs pick the page up nearer the corner so the corner leads`() {
-        val turn = sampleTurn(follow = ComicPageCurlFollow.Edge)
+        val turn = sampleTurn(follow = PageCurlFollow.Edge)
         val grab = turn.grabPoint(450f)
         val start = Offset(480f, 450f)
 
@@ -41,13 +42,13 @@ class ComicPageCurlTurnTest {
 
     @Test
     fun `backward single page turn starts turned and brings the roll's leading edge under the finger`() {
-        val turn = sampleTurn(follow = ComicPageCurlFollow.Fold)
+        val turn = sampleTurn(follow = PageCurlFollow.Fold)
         val grab = turn.grabPoint(300f)
         val start = Offset(110f, 300f)
 
         val atStart = turn.edgeForFinger(grab = grab, start = start, finger = start)
         val dragged = turn.edgeForFinger(grab = grab, start = start, finger = Offset(260f, 300f))
-        val axis = calculateComicPageCurlAxis(sheet = turn.sheet, grab = grab, edge = dragged)
+        val axis = calculatePageCurlAxis(sheet = turn.sheet, grab = grab, edge = dragged)
 
         assertEquals(turn.sheet.turnedPoint(grab).x, atStart.x, 0.01f)
         assertEquals(260f, axis.originX + axis.directionX * axis.radius, 0.5f)
@@ -55,7 +56,7 @@ class ComicPageCurlTurnTest {
 
     @Test
     fun `backward turn dragged past the page lays the previous page flat instead of overshooting`() {
-        val turn = sampleTurn(follow = ComicPageCurlFollow.Fold)
+        val turn = sampleTurn(follow = PageCurlFollow.Fold)
         val grab = turn.grabPoint(300f)
 
         val edge = turn.edgeForFinger(grab = grab, start = Offset(300f, 300f), finger = Offset(700f, 300f))
@@ -67,8 +68,8 @@ class ComicPageCurlTurnTest {
 
     @Test
     fun `commit progress and velocity point toward the target page`() {
-        val forward = sampleTurn(follow = ComicPageCurlFollow.Edge)
-        val backward = sampleTurn(follow = ComicPageCurlFollow.Fold)
+        val forward = sampleTurn(follow = PageCurlFollow.Edge)
+        val backward = sampleTurn(follow = PageCurlFollow.Fold)
         val grab = forward.grabPoint(300f)
 
         assertEquals(0f, forward.commitProgress(grab, forward.restingEdge(grab)), 0.0001f)
@@ -82,7 +83,7 @@ class ComicPageCurlTurnTest {
 
     @Test
     fun `automatic turn runs from rest to the target page`() {
-        listOf(ComicPageCurlFollow.Edge, ComicPageCurlFollow.Fold).forEach { follow ->
+        listOf(PageCurlFollow.Edge, PageCurlFollow.Fold).forEach { follow ->
             val turn = sampleTurn(follow = follow)
             val grab = turn.grabPoint(500f)
 
@@ -97,7 +98,7 @@ class ComicPageCurlTurnTest {
 
     @Test
     fun `settling takes longer the further the page has to travel`() {
-        val turn = sampleTurn(follow = ComicPageCurlFollow.Edge)
+        val turn = sampleTurn(follow = PageCurlFollow.Edge)
         val grab = turn.grabPoint(300f)
 
         val short = turn.settleDurationMillis(from = Offset(grab.x - 40f, grab.y), to = grab)
@@ -108,12 +109,12 @@ class ComicPageCurlTurnTest {
 }
 
 private fun sampleTurn(
-    follow: ComicPageCurlFollow,
-): ComicPageCurlTurn {
-    val paper = ComicRasterRect(left = 100, top = 0, width = 400, height = 600)
-    return ComicPageCurlTurn(
-        target = if (follow == ComicPageCurlFollow.Edge) ComicPageCurlTarget.Next else ComicPageCurlTarget.Previous,
-        sheet = ComicPageCurlSheet(hingeX = 100f, top = 0f, bottom = 600f, width = 400f, outward = 1f),
+    follow: PageCurlFollow,
+): PageCurlTurn {
+    val paper = IntRect(left = 100, top = 0, right = 500, bottom = 600)
+    return PageCurlTurn(
+        target = if (follow == PageCurlFollow.Edge) PageCurlTarget.Next else PageCurlTarget.Previous,
+        sheet = PageCurlSheet(hingeX = 100f, top = 0f, bottom = 600f, width = 400f, outward = 1f),
         paperBounds = paper,
         bookBounds = paper,
         follow = follow,

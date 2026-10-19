@@ -5,6 +5,7 @@ import androidx.compose.runtime.saveable.SaverScope
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.feature.reader.core.curl.PageTurnStyle
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -16,7 +17,7 @@ class ComicsReaderStateTest {
     fun `page turn style defaults to slide`() {
         val state = comicsReaderState()
 
-        assertEquals(ComicPageTurnStyle.Slide, state.pageTurnStyle)
+        assertEquals(PageTurnStyle.Slide, state.pageTurnStyle)
     }
 
     @Test
@@ -170,13 +171,13 @@ class ComicsReaderStateTest {
     fun `page turn style restore respects explicit user selection`() {
         val state = comicsReaderState()
 
-        assertTrue(state.restorePageTurnStyleIfUnchanged(ComicPageTurnStyle.Curl))
-        assertEquals(ComicPageTurnStyle.Curl, state.pageTurnStyle)
+        assertTrue(state.restorePageTurnStyleIfUnchanged(PageTurnStyle.Curl))
+        assertEquals(PageTurnStyle.Curl, state.pageTurnStyle)
 
-        state.onPageTurnStyleChanged(ComicPageTurnStyle.Slide)
+        state.onPageTurnStyleChanged(PageTurnStyle.Slide)
 
-        assertFalse(state.restorePageTurnStyleIfUnchanged(ComicPageTurnStyle.Curl))
-        assertEquals(ComicPageTurnStyle.Slide, state.pageTurnStyle)
+        assertFalse(state.restorePageTurnStyleIfUnchanged(PageTurnStyle.Curl))
+        assertEquals(PageTurnStyle.Slide, state.pageTurnStyle)
     }
 
     @Test
@@ -187,8 +188,8 @@ class ComicsReaderStateTest {
             initialResumeSegment = ComicPageSegment.Full,
         )
 
-        state.onPageTurnStyleChanged(ComicPageTurnStyle.Curl)
-        state.onPageTurnStyleChanged(ComicPageTurnStyle.Slide)
+        state.onPageTurnStyleChanged(PageTurnStyle.Curl)
+        state.onPageTurnStyleChanged(PageTurnStyle.Slide)
 
         assertEquals(3, state.currentPage)
         assertEquals(2, state.resumeAnchorPage)
@@ -199,14 +200,14 @@ class ComicsReaderStateTest {
     @Test
     fun `state saver restores page turn style and old payloads default to slide`() {
         val state = comicsReaderState()
-        state.onPageTurnStyleChanged(ComicPageTurnStyle.Curl)
+        state.onPageTurnStyleChanged(PageTurnStyle.Curl)
         val saved = saveState(state)
 
         val restored = restoreState(saved)
-        assertEquals(ComicPageTurnStyle.Curl, restored.pageTurnStyle)
+        assertEquals(PageTurnStyle.Curl, restored.pageTurnStyle)
 
         val restoredOldPayload = restoreState(saved.dropLast(2))
-        assertEquals(ComicPageTurnStyle.Slide, restoredOldPayload.pageTurnStyle)
+        assertEquals(PageTurnStyle.Slide, restoredOldPayload.pageTurnStyle)
     }
 }
 
@@ -217,7 +218,7 @@ private fun comicsReaderState(
     initialReadingDirection: ComicReadingDirection = ComicReadingDirection.LTR,
     initialPageFitMode: ComicPageFitMode = ComicPageFitMode.FitPage,
     initialSpreadMode: ComicSpreadMode = ComicSpreadMode.Auto,
-    initialPageTurnStyle: ComicPageTurnStyle = ComicPageTurnStyle.Slide,
+    initialPageTurnStyle: PageTurnStyle = PageTurnStyle.Slide,
     initialSplitWidePages: Boolean = false,
     initialResumeAnchorPage: Int? = null,
     initialResumeSegment: ComicPageSegment? = null,

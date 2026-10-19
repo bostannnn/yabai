@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.feature.reader.core.curl.PageTurnStyle
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.ui.components.AppChoiceRow
@@ -30,13 +31,13 @@ internal fun ComicsReaderPreferencesSheet(
     readingDirection: ComicReadingDirection,
     pageFitMode: ComicPageFitMode,
     spreadMode: ComicSpreadMode,
-    pageTurnStyle: ComicPageTurnStyle,
+    pageTurnStyle: PageTurnStyle,
     onDismissRequest: () -> Unit,
     onReaderModeChanged: (ComicReaderMode) -> Unit,
     onReadingDirectionChanged: (ComicReadingDirection) -> Unit,
     onPageFitModeChanged: (ComicPageFitMode) -> Unit,
     onSpreadModeChanged: (ComicSpreadMode) -> Unit,
-    onPageTurnStyleChanged: (ComicPageTurnStyle) -> Unit,
+    onPageTurnStyleChanged: (PageTurnStyle) -> Unit,
 ) {
     val paged = readerMode == ComicReaderMode.Paged
     AppFloatingPanel(
@@ -81,7 +82,7 @@ internal fun ComicsReaderPreferencesSheet(
             )
             AppChoiceRow(
                 label = "Page turn",
-                options = ComicPageTurnStyle.entries,
+                options = PageTurnStyle.entries,
                 selected = pageTurnStyle,
                 onSelected = onPageTurnStyleChanged,
                 optionLabel = { it.label },

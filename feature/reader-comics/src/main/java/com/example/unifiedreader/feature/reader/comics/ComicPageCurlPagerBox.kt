@@ -6,7 +6,6 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -18,6 +17,12 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.feature.reader.core.curl.PageCurlState
+import com.example.unifiedreader.feature.reader.core.curl.PageCurlSurface
+import com.example.unifiedreader.feature.reader.core.curl.PageCurlTapTurnDurationMillis
+import com.example.unifiedreader.feature.reader.core.curl.PageCurlTapTurner
+import com.example.unifiedreader.feature.reader.core.curl.PageCurlTarget
+import com.example.unifiedreader.feature.reader.core.curl.pageCurlDragGesture
 import kotlinx.coroutines.delay
 
 @Composable
@@ -28,7 +33,7 @@ internal fun ComicPageCurlPagerBox(
     pageSource: ComicPageSource,
     pagerState: PagerState,
     loadedVisiblePageIndexes: Set<Int>,
-    tapTurner: ComicPageCurlTapTurner,
+    tapTurner: PageCurlTapTurner,
     modifier: Modifier = Modifier,
     content: @Composable (userScrollEnabled: Boolean) -> Unit,
 ) {
@@ -45,7 +50,7 @@ internal fun ComicPageCurlPagerBox(
 
     val coroutineScope = rememberCoroutineScope()
     var containerSize by remember(item.id) { mutableStateOf(IntSize.Zero) }
-    val curlState = remember { ComicPageCurlState() }
+    val curlState = remember { PageCurlState() }
     val curlCompositeCache = remember(item.id, pageSource) { ComicPageCurlCompositeCache() }
     var curlInteraction by remember(item.id) { mutableStateOf<ComicPageCurlInteraction?>(null) }
     val density = LocalDensity.current
@@ -111,8 +116,8 @@ internal fun ComicPageCurlPagerBox(
                 readingDirection = latestReadingDirection.value,
                 currentComposite = latestCurrentCurlComposite.value,
                 adjacentComposite = when (target) {
-                    ComicPageCurlTarget.Previous -> latestPreviousCurlComposite.value
-                    ComicPageCurlTarget.Next -> latestNextCurlComposite.value
+                    PageCurlTarget.Previous -> latestPreviousCurlComposite.value
+                    PageCurlTarget.Next -> latestNextCurlComposite.value
                 },
                 downPosition = null,
             ) ?: return@handler false
@@ -120,7 +125,7 @@ internal fun ComicPageCurlPagerBox(
             try {
                 val turn = interaction.turn
                 curlState.snapTo(turn.restingEdge(interaction.grab))
-                curlState.animateAlong(durationMillis = ComicPageCurlTapTurnDurationMillis) { fraction ->
+                curlState.animateAlong(durationMillis = PageCurlTapTurnDurationMillis) { fraction ->
                     turn.automaticTurnEdge(grab = interaction.grab, fraction = fraction)
                 }
                 pagerState.scrollToPage(interaction.targetSpreadIndex)
@@ -172,35 +177,44 @@ internal fun ComicPageCurlPagerBox(
     Box(
         modifier = modifier
             .onSizeChanged { containerSize = it }
-            .then(
-                Modifier.comicPageCurlPagerGesture(
-                    enabled = curlBaseEnabled,
-                    currentSpreadIndex = currentSpreadIndex,
-                    spreadCount = spreads.size,
-                    containerSize = containerSize,
-                    readingDirection = readerState.readingDirection,
-                    currentComposite = { latestCurrentCurlComposite.value },
-                    previousComposite = { latestPreviousCurlComposite.value },
-                    nextComposite = { latestNextCurlComposite.value },
-                    isInteractionActive = { latestCurlInteractionActive.value },
-                    state = curlState,
-                    gestureScope = coroutineScope,
-                    onInteractionStarted = { interaction ->
-                        curlInteraction = interaction
-                    },
-                    onInteractionEnded = {
-                        curlInteraction = null
-                    },
-                    onTurnCommitted = { targetSpreadIndex ->
-                        pagerState.scrollToPage(targetSpreadIndex)
-                    },
-                ),
+            .pageCurlDragGesture(
+                enabled = curlBaseEnabled,
+                rightToLeft = readerState.readingDirection == ComicReadingDirection.RTL,
+                state = curlState,
+                gestureScope = coroutineScope,
+                isTurnActive = { latestCurlInteractionActive.value },
+                startTurn = { target, down ->
+                    startComicPageCurlInteraction(
+                        target = target,
+                        currentSpreadIndex = currentSpreadIndex,
+                        spreadCount = spreads.size,
+                        readingDirection = readerState.readingDirection,
+                        currentComposite = latestCurrentCurlComposite.value,
+                        adjacentComposite = when (target) {
+                            PageCurlTarget.Previous -> latestPreviousCurlComposite.value
+                            PageCurlTarget.Next -> latestNextCurlComposite.value
+                        },
+                        downPosition = down,
+                    )?.takeIf { containerSize.width > 0 && containerSize.height > 0 }
+                        ?.also { interaction -> curlInteraction = interaction }
+                },
+                onTurnSettled = { drag, committed ->
+                    if (committed) {
+                        pagerState.scrollToPage((drag as ComicPageCurlInteraction).targetSpreadIndex)
+                    }
+                },
+                onTurnEnded = {
+                    curlInteraction = null
+                },
+                keys = *arrayOf(currentSpreadIndex, spreads.size, containerSize, pagerState),
             ),
     ) {
         content(curlInteraction == null)
         curlInteraction?.let { interaction ->
-            ComicPageCurlSurface(
-                interaction = interaction,
+            PageCurlSurface(
+                turn = interaction.turn,
+                grab = interaction.grab,
+                frames = interaction.frames,
                 state = curlState,
                 modifier = Modifier.fillMaxSize(),
             )
@@ -211,14 +225,3 @@ internal fun ComicPageCurlPagerBox(
 // Short enough that a reader turning again soon after a turn still gets a curl, long enough to let
 // the settled page draw first: rasterizing is off the main thread, but it competes for CPU.
 private const val ComicPageCurlIdlePrewarmDelayMillis = 300L
-
-/** Lets tap navigation play a curl instead of the pager's slide. */
-@Stable
-internal class ComicPageCurlTapTurner {
-    internal var turnHandler: (suspend (ComicPageCurlTarget) -> Boolean)? = null
-
-    /** True when the tap was handled: played as a curl, or ignored because a turn is in progress. */
-    suspend fun turn(
-        target: ComicPageCurlTarget,
-    ): Boolean = turnHandler?.invoke(target) ?: false
-}

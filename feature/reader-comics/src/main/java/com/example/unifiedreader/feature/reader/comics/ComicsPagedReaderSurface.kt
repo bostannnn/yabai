@@ -12,6 +12,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.feature.reader.core.curl.PageCurlTapTurner
+import com.example.unifiedreader.feature.reader.core.curl.PageCurlTarget
 import kotlinx.coroutines.launch
 
 @Composable
@@ -56,7 +58,7 @@ internal fun ComicsPagedReaderSurface(
             pageCount = { spreads.size },
         )
         val currentSpread = spreads.getOrNull(pagerState.currentPage) ?: spreads.first()
-        val curlTapTurner = remember(item.id) { ComicPageCurlTapTurner() }
+        val curlTapTurner = remember(item.id) { PageCurlTapTurner() }
 
         LaunchedEffect(spreads, readerState.resumeAnchorPage, readerState.resumeSegment) {
             val targetSpreadIndex = spreads.indexOfPage(readerState.resumeAnchorPage, readerState.resumeSegment)
@@ -117,7 +119,7 @@ internal fun ComicsPagedReaderSurface(
                 onNavigatePrevious = { spreadIndex ->
                     if (spreadIndex > 0) {
                         coroutineScope.launch {
-                            if (!curlTapTurner.turn(ComicPageCurlTarget.Previous)) {
+                            if (!curlTapTurner.turn(PageCurlTarget.Previous)) {
                                 pagerState.animateScrollToPage(spreadIndex - 1)
                             }
                         }
@@ -126,7 +128,7 @@ internal fun ComicsPagedReaderSurface(
                 onNavigateNext = { spreadIndex ->
                     if (spreadIndex < spreads.lastIndex) {
                         coroutineScope.launch {
-                            if (!curlTapTurner.turn(ComicPageCurlTarget.Next)) {
+                            if (!curlTapTurner.turn(PageCurlTarget.Next)) {
                                 pagerState.animateScrollToPage(spreadIndex + 1)
                             }
                         }

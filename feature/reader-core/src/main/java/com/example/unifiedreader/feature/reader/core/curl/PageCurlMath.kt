@@ -1,4 +1,4 @@
-package com.example.unifiedreader.feature.reader.comics
+package com.example.unifiedreader.feature.reader.core.curl
 
 import androidx.compose.ui.geometry.Offset
 import kotlin.math.PI
@@ -8,9 +8,9 @@ import kotlin.math.min
 import kotlin.math.sin
 import kotlin.math.sqrt
 
-internal const val DefaultCurlMaxRadiusFraction = 0.12f
+const val DefaultPageCurlMaxRadiusFraction = 0.12f
 
-internal enum class ComicPageCurlTarget {
+enum class PageCurlTarget {
     Previous,
     Next,
 }
@@ -19,7 +19,7 @@ internal enum class ComicPageCurlTarget {
  * The fold the shader draws: points with `dot(p - origin, direction) > 0` have lifted off the page and
  * wrap around a cylinder of [radius] whose base sits on that line.
  */
-internal data class ComicPageCurlAxis(
+data class PageCurlAxis(
     val originX: Float,
     val originY: Float,
     val directionX: Float,
@@ -31,7 +31,7 @@ internal data class ComicPageCurlAxis(
  * A page that turns like a book leaf: it is attached along the vertical spine at [hingeX] and, while
  * flat, lies between [hingeX] and `hingeX + outward * width`.
  */
-internal data class ComicPageCurlSheet(
+data class PageCurlSheet(
     val hingeX: Float,
     val top: Float,
     val bottom: Float,
@@ -54,17 +54,15 @@ internal data class ComicPageCurlSheet(
     }
 }
 
-internal fun resolveComicPageCurlTarget(
+/** The page a horizontal drag past [touchSlop] turns toward, or null while it is still a tap. */
+fun resolvePageCurlTarget(
     horizontalDrag: Float,
-    readingDirection: ComicReadingDirection,
+    rightToLeft: Boolean,
     touchSlop: Float,
-): ComicPageCurlTarget? {
+): PageCurlTarget? {
     if (abs(horizontalDrag) <= touchSlop) return null
-    val isForwardDrag = when (readingDirection) {
-        ComicReadingDirection.LTR -> horizontalDrag < 0f
-        ComicReadingDirection.RTL -> horizontalDrag > 0f
-    }
-    return if (isForwardDrag) ComicPageCurlTarget.Next else ComicPageCurlTarget.Previous
+    val isForwardDrag = if (rightToLeft) horizontalDrag > 0f else horizontalDrag < 0f
+    return if (isForwardDrag) PageCurlTarget.Next else PageCurlTarget.Previous
 }
 
 /**
@@ -72,8 +70,8 @@ internal fun resolveComicPageCurlTarget(
  * may end up on the folded side, which holds exactly when the edge stays within reach of both spine
  * ends (the fold's distance test is affine along the spine).
  */
-internal fun clampComicPageCurlEdge(
-    sheet: ComicPageCurlSheet,
+fun clampPageCurlEdge(
+    sheet: PageCurlSheet,
     grab: Offset,
     edge: Offset,
 ): Offset {
@@ -93,17 +91,17 @@ internal fun clampComicPageCurlEdge(
  * Places the fold so the paper point picked up at [grab] is drawn at [edge] after wrapping around the
  * curl cylinder. The radius shrinks to zero as the fold nears the spine so the spine never lifts.
  */
-internal fun calculateComicPageCurlAxis(
-    sheet: ComicPageCurlSheet,
+fun calculatePageCurlAxis(
+    sheet: PageCurlSheet,
     grab: Offset,
     edge: Offset,
-    maxRadius: Float = sheet.width * DefaultCurlMaxRadiusFraction,
-): ComicPageCurlAxis {
+    maxRadius: Float = sheet.width * DefaultPageCurlMaxRadiusFraction,
+): PageCurlAxis {
     val deltaX = grab.x - edge.x
     val deltaY = grab.y - edge.y
     val distance = sqrt(deltaX * deltaX + deltaY * deltaY)
     if (distance < MinimumCurlDistancePx) {
-        return ComicPageCurlAxis(
+        return PageCurlAxis(
             originX = grab.x + sheet.outward * (maxRadius + 1f),
             originY = grab.y,
             directionX = sheet.outward,
@@ -125,10 +123,10 @@ internal fun calculateComicPageCurlAxis(
     val lineCoordinate = if (distance >= PI.toFloat() * radius) {
         bisectorCoordinate - PI.toFloat() * radius / 2f
     } else {
-        grabCoordinate - solveComicPageCurlRollArc(distance = distance, radius = radius)
+        grabCoordinate - solvePageCurlRollArc(distance = distance, radius = radius)
     }
     val shift = lineCoordinate - bisectorCoordinate
-    return ComicPageCurlAxis(
+    return PageCurlAxis(
         originX = (grab.x + edge.x) / 2f + directionX * shift,
         originY = (grab.y + edge.y) / 2f + directionY * shift,
         directionX = directionX,
@@ -138,7 +136,7 @@ internal fun calculateComicPageCurlAxis(
 }
 
 /** Paper length `s` on the roll whose projection reaches [distance]: solves `s - r sin(s / r) = distance`. */
-internal fun solveComicPageCurlRollArc(
+fun solvePageCurlRollArc(
     distance: Float,
     radius: Float,
 ): Float {

@@ -1,13 +1,14 @@
-package com.example.unifiedreader.feature.reader.comics
+package com.example.unifiedreader.feature.reader.core.curl
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.IntRect
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.pow
 import kotlin.math.sign
 import kotlin.math.sin
 
-internal enum class ComicPageCurlFollow {
+enum class PageCurlFollow {
     /** The leaf starts flat and its outer edge follows the finger (forward turns, spread back turns). */
     Edge,
 
@@ -16,39 +17,39 @@ internal enum class ComicPageCurlFollow {
 }
 
 /** One page turn: which leaf turns, where it is hinged, and how the finger drives it. */
-internal data class ComicPageCurlTurn(
-    val target: ComicPageCurlTarget,
-    val sheet: ComicPageCurlSheet,
-    val paperBounds: ComicRasterRect,
-    val bookBounds: ComicRasterRect,
-    val follow: ComicPageCurlFollow,
+data class PageCurlTurn(
+    val target: PageCurlTarget,
+    val sheet: PageCurlSheet,
+    val paperBounds: IntRect,
+    val bookBounds: IntRect,
+    val follow: PageCurlFollow,
     /** On spreads the back of the turning leaf is the target spread's facing page. */
     val backIsFacingPage: Boolean,
 ) {
     /** On single pages a backward turn brings the previous page itself back over the current one. */
     val sheetIsAdjacentPage: Boolean
-        get() = follow == ComicPageCurlFollow.Fold
+        get() = follow == PageCurlFollow.Fold
 
     private val maxRadius: Float
-        get() = sheet.width * DefaultCurlMaxRadiusFraction
+        get() = sheet.width * DefaultPageCurlMaxRadiusFraction
 
     /**
      * The point of the leaf a finger touching at [touchY] picks up. Edge turns take it nearer the
      * closest corner, so an off-centre grab leads with that corner like a real page.
      */
     fun grabPoint(touchY: Float): Offset = when (follow) {
-        ComicPageCurlFollow.Edge -> sheet.grabPoint(cornerBiasedY(touchY))
-        ComicPageCurlFollow.Fold -> sheet.grabPoint(touchY)
+        PageCurlFollow.Edge -> sheet.grabPoint(cornerBiasedY(touchY))
+        PageCurlFollow.Fold -> sheet.grabPoint(touchY)
     }
 
     fun restingEdge(grab: Offset): Offset = when (follow) {
-        ComicPageCurlFollow.Edge -> grab
-        ComicPageCurlFollow.Fold -> sheet.turnedPoint(grab)
+        PageCurlFollow.Edge -> grab
+        PageCurlFollow.Fold -> sheet.turnedPoint(grab)
     }
 
     fun committedEdge(grab: Offset): Offset = when (follow) {
-        ComicPageCurlFollow.Edge -> sheet.turnedPoint(grab)
-        ComicPageCurlFollow.Fold -> grab
+        PageCurlFollow.Edge -> sheet.turnedPoint(grab)
+        PageCurlFollow.Fold -> grab
     }
 
     /**
@@ -64,12 +65,12 @@ internal data class ComicPageCurlTurn(
     ): Offset {
         val travel = ((finger.x - start.x) * towardCommit).coerceAtLeast(0f)
         val edge = when (follow) {
-            ComicPageCurlFollow.Edge -> {
+            PageCurlFollow.Edge -> {
                 val lead = grab - start
                 finger + lead * catchUpRemaining(travel = travel, distance = lead.getDistance())
             }
 
-            ComicPageCurlFollow.Fold -> {
+            PageCurlFollow.Fold -> {
                 val lead = sheet.hingeX - start.x
                 val rollEdgeX = finger.x + lead * catchUpRemaining(travel = travel, distance = abs(lead))
                 val foldFromSpine = foldForRollEdge((rollEdgeX - sheet.hingeX) * sheet.outward)
@@ -80,7 +81,7 @@ internal data class ComicPageCurlTurn(
                 Offset(2f * fold.x - grab.x, 2f * fold.y - grab.y)
             }
         }
-        return clampComicPageCurlEdge(sheet = sheet, grab = grab, edge = edge)
+        return clampPageCurlEdge(sheet = sheet, grab = grab, edge = edge)
     }
 
     /** Edge position for an automatic (tap) turn at [fraction] of the way from rest to committed. */
@@ -92,7 +93,7 @@ internal data class ComicPageCurlTurn(
         val end = committedEdge(grab)
         val t = fraction.coerceIn(0f, 1f)
         val lift = cornerLiftSlope(grab) * sheet.width * sin(PI.toFloat() * t)
-        return clampComicPageCurlEdge(
+        return clampPageCurlEdge(
             sheet = sheet,
             grab = grab,
             edge = Offset(
@@ -109,8 +110,8 @@ internal data class ComicPageCurlTurn(
     ): Float {
         val turned = sheet.turnFraction(grab = grab, edge = edge)
         return when (follow) {
-            ComicPageCurlFollow.Edge -> turned
-            ComicPageCurlFollow.Fold -> 1f - turned
+            PageCurlFollow.Edge -> turned
+            PageCurlFollow.Fold -> 1f - turned
         }
     }
 
@@ -125,8 +126,8 @@ internal data class ComicPageCurlTurn(
     /** +1 or -1: the horizontal direction the finger moves to complete the turn. */
     private val towardCommit: Float
         get() = when (follow) {
-            ComicPageCurlFollow.Edge -> -sheet.outward
-            ComicPageCurlFollow.Fold -> sheet.outward
+            PageCurlFollow.Edge -> -sheet.outward
+            PageCurlFollow.Fold -> sheet.outward
         }
 
     fun settleDurationMillis(
@@ -140,7 +141,7 @@ internal data class ComicPageCurlTurn(
 
     /**
      * Where the fold sits, measured from the spine, when the roll's leading edge is [rollEdge] from
-     * it. The roll (see [calculateComicPageCurlAxis]) reaches `(pi / 2 - 1) * radius` short of the
+     * it. The roll (see [calculatePageCurlAxis]) reaches `(pi / 2 - 1) * radius` short of the
      * fold, and its radius grows from zero at the spine.
      */
     private fun foldForRollEdge(
@@ -176,8 +177,55 @@ internal data class ComicPageCurlTurn(
     }
 }
 
-internal const val ComicPageCurlTapGrabFraction = 0.82f
-internal const val ComicPageCurlTapTurnDurationMillis = 380
+/**
+ * A turn of the leaf lying flat on [paperBounds], hinged on its left edge when [outward] is positive
+ * (the leaf turns over to the left) and on its right edge otherwise; it is drawn inside [bookBounds].
+ * Null when either rect is empty.
+ */
+fun buildPageCurlTurn(
+    target: PageCurlTarget,
+    paperBounds: IntRect,
+    bookBounds: IntRect,
+    outward: Float,
+    follow: PageCurlFollow,
+    backIsFacingPage: Boolean,
+): PageCurlTurn? {
+    if (paperBounds.width <= 0 || paperBounds.height <= 0) return null
+    if (bookBounds.width <= 0 || bookBounds.height <= 0) return null
+    return PageCurlTurn(
+        target = target,
+        sheet = PageCurlSheet(
+            hingeX = if (outward > 0f) paperBounds.left.toFloat() else paperBounds.right.toFloat(),
+            top = paperBounds.top.toFloat(),
+            bottom = paperBounds.bottom.toFloat(),
+            width = paperBounds.width.toFloat(),
+            outward = outward,
+        ),
+        paperBounds = paperBounds,
+        bookBounds = bookBounds,
+        follow = follow,
+        backIsFacingPage = backIsFacingPage,
+    )
+}
+
+/**
+ * Whether a released turn completes: a flick toward the target (or away from it) decides, otherwise
+ * how far the leaf has turned. [progress] and [velocity] come from [PageCurlTurn.commitProgress] and
+ * [PageCurlTurn.commitVelocity].
+ */
+fun shouldCommitPageCurl(
+    progress: Float,
+    velocity: Float = 0f,
+    progressThreshold: Float = PageCurlCommitProgressThreshold,
+    velocityThreshold: Float = PageCurlCommitVelocityThreshold,
+): Boolean = when {
+    velocity > velocityThreshold -> true
+    velocity < -velocityThreshold -> false
+    else -> progress > progressThreshold
+}
+
+const val PageCurlTapGrabFraction = 0.82f
+const val PageCurlTapTurnDurationMillis = 380
 
 /** Share of the start-to-edge offset still left after [travel] of a [distance]-long catch-up. */
 private fun catchUpRemaining(
@@ -190,6 +238,8 @@ private fun catchUpRemaining(
 }
 
 private const val CornerLiftSlope = 0.22f
+private const val PageCurlCommitProgressThreshold = 0.25f
+private const val PageCurlCommitVelocityThreshold = 1.0f
 private const val CornerBiasExponent = 0.7f
 private const val HalfPi = (PI / 2).toFloat()
 private const val MinimumSettleDurationMillis = 140

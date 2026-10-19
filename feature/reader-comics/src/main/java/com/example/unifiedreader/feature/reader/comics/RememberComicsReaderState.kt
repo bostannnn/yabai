@@ -3,6 +3,7 @@ package com.example.unifiedreader.feature.reader.comics
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.saveable.rememberSaveable
+import com.example.unifiedreader.feature.reader.core.curl.PageTurnStyle
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 
@@ -15,7 +16,7 @@ fun rememberComicsReaderState(
     initialReadingDirection: ComicReadingDirection = ComicReadingDirection.LTR,
     initialPageFitMode: ComicPageFitMode = ComicPageFitMode.FitPage,
     initialSpreadMode: ComicSpreadMode = ComicSpreadMode.Auto,
-    initialPageTurnStyle: ComicPageTurnStyle = ComicPageTurnStyle.Slide,
+    initialPageTurnStyle: PageTurnStyle = PageTurnStyle.Slide,
     initialSplitWidePages: Boolean = false,
     initialResumeAnchorPage: Int? = null,
     initialResumeSegment: ComicPageSegment? = null,

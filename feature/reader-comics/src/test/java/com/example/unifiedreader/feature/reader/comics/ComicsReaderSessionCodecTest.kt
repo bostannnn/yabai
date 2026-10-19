@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.reader.comics
 
 import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
+import com.example.unifiedreader.feature.reader.core.curl.PageTurnStyle
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -23,7 +24,7 @@ class ComicsReaderSessionCodecTest {
         assertEquals(ComicReadingDirection.RTL, restored.readingDirection)
         assertEquals(ComicPageFitMode.FitPage, restored.pageFitMode)
         assertEquals(ComicSpreadMode.Auto, restored.spreadMode)
-        assertEquals(ComicPageTurnStyle.Slide, restored.pageTurnStyle)
+        assertEquals(PageTurnStyle.Slide, restored.pageTurnStyle)
         assertEquals(false, restored.splitWidePages)
         assertNull(restored.resumeAnchorPage)
         assertNull(restored.resumeSegment)
@@ -64,21 +65,21 @@ class ComicsReaderSessionCodecTest {
             ReaderSessionSnapshot(
                 itemId = "comic-1",
                 preferences = mapOf(
-                    ComicsPageTurnStyleKey to ComicPageTurnStyle.Curl.name,
+                    ComicsPageTurnStyleKey to PageTurnStyle.Curl.name,
                 ),
             ),
         )
 
         requireNotNull(restored)
-        assertEquals(ComicPageTurnStyle.Curl, restored.pageTurnStyle)
+        assertEquals(PageTurnStyle.Curl, restored.pageTurnStyle)
     }
 
     @Test
     fun `build comic reader preferences patch includes page turn style`() {
         val patch = buildComicReaderPreferencesPatch(
-            pageTurnStyle = ComicPageTurnStyle.Curl,
+            pageTurnStyle = PageTurnStyle.Curl,
         )
 
-        assertEquals(ComicPageTurnStyle.Curl.name, patch[ComicsPageTurnStyleKey])
+        assertEquals(PageTurnStyle.Curl.name, patch[ComicsPageTurnStyleKey])
     }
 }

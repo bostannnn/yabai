@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.reader.comics
 
 import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
+import com.example.unifiedreader.feature.reader.core.curl.PageTurnStyle
 import com.example.unifiedreader.feature.reader.core.enumValueOrNull
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
@@ -49,8 +50,8 @@ fun restoreComicReaderPreferences(
             ?.enumValueOrNull<ComicSpreadMode>()
             ?: ComicSpreadMode.Auto,
         pageTurnStyle = preferences[ComicsPageTurnStyleKey]
-            ?.enumValueOrNull<ComicPageTurnStyle>()
-            ?: ComicPageTurnStyle.Slide,
+            ?.enumValueOrNull<PageTurnStyle>()
+            ?: PageTurnStyle.Slide,
         splitWidePages = preferences[ComicsSplitWidePagesKey]
             ?.toBooleanStrictOrNull()
             ?: false,
@@ -106,7 +107,7 @@ fun buildComicReaderPreferencesPatch(
     readingDirection: ComicReadingDirection? = null,
     pageFitMode: ComicPageFitMode? = null,
     spreadMode: ComicSpreadMode? = null,
-    pageTurnStyle: ComicPageTurnStyle? = null,
+    pageTurnStyle: PageTurnStyle? = null,
     splitWidePages: Boolean? = null,
     resumeAnchorPage: Int? = null,
     resumeSegment: ComicPageSegment? = null,

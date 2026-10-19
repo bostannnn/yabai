@@ -1,17 +1,17 @@
-package com.example.unifiedreader.feature.reader.comics
+package com.example.unifiedreader.feature.reader.core.curl
 
 /**
  * Cylinder page curl. The leaf lies flat where `x = dot(p - origin, dir) <= 0`, wraps around a
  * cylinder of `radius` on `0 < x < radius`, and continues flat on top, back face up, beyond it.
  * Inputs are canvas-sized composites in canvas coordinates:
  *  - sheetFront: the turning leaf's front; sheetBack: its back (read mirrored about the spine when
- *    `backMirrored` is set, otherwise a paper tint with the front bleeding through);
+ *    `backMirrored` is set, otherwise `backTint`, the paper colour, with the front bleeding through);
  *  - revealed: what the lifted leaf uncovers inside its own paper;
  *  - outside: everything off the leaf (the facing page, margins).
  * Rects are (left, top, right, bottom); the leaf is only ever drawn inside `book`. Shadows scale
  * with `maxRadius`, the roll's radius away from the spine.
  */
-internal const val ComicPageCurlAgsl = """
+const val PageCurlAgsl = """
 uniform shader sheetFront;
 uniform shader sheetBack;
 uniform shader revealed;
@@ -24,9 +24,9 @@ uniform float radius;
 uniform float maxRadius;
 uniform float hingeX;
 uniform float backMirrored;
+uniform float4 backTint;
 
 const float PI = 3.141592653589793;
-const half3 PaperTint = half3(0.965, 0.955, 0.94);
 const half BleedThrough = 0.18;
 const float OverhangShadow = 0.2;
 const float RollShadow = 0.36;
@@ -49,7 +49,7 @@ half4 backFace(float2 pp, float light) {
     if (backMirrored > 0.5) {
         c = sheetBack.eval(float2(2.0 * hingeX - pp.x, pp.y)).rgb;
     } else {
-        c = mix(PaperTint, sheetFront.eval(pp).rgb, BleedThrough);
+        c = mix(half3(backTint.rgb), sheetFront.eval(pp).rgb, BleedThrough);
     }
     return half4(c * half(light), 1.0);
 }

@@ -1,6 +1,10 @@
 package com.example.unifiedreader.feature.reader.comics
 
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.IntRect
+import com.example.unifiedreader.feature.reader.core.curl.PageCurlFollow
+import com.example.unifiedreader.feature.reader.core.curl.PageCurlTarget
+import com.example.unifiedreader.feature.reader.core.curl.PageCurlTurn
+import com.example.unifiedreader.feature.reader.core.curl.buildPageCurlTurn
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -21,14 +25,14 @@ internal enum class ComicPageCurlTransitionPolicy {
 
 internal fun resolveComicPageCurlOutgoingSheetSide(
     readingDirection: ComicReadingDirection,
-    target: ComicPageCurlTarget,
+    target: PageCurlTarget,
 ): ComicPageCurlSheetSide = when (target) {
-    ComicPageCurlTarget.Next -> when (readingDirection) {
+    PageCurlTarget.Next -> when (readingDirection) {
         ComicReadingDirection.LTR -> ComicPageCurlSheetSide.Right
         ComicReadingDirection.RTL -> ComicPageCurlSheetSide.Left
     }
 
-    ComicPageCurlTarget.Previous -> when (readingDirection) {
+    PageCurlTarget.Previous -> when (readingDirection) {
         ComicReadingDirection.LTR -> ComicPageCurlSheetSide.Left
         ComicReadingDirection.RTL -> ComicPageCurlSheetSide.Right
     }
@@ -37,7 +41,7 @@ internal fun resolveComicPageCurlOutgoingSheetSide(
 internal fun resolveComicPageCurlSheetBounds(
     layout: ComicSpreadRasterLayout,
     readingDirection: ComicReadingDirection,
-    target: ComicPageCurlTarget,
+    target: PageCurlTarget,
 ): ComicPageCurlSheetBounds? {
     val canvasBounds = layout.canvasBounds() ?: return null
     val side = resolveComicPageCurlOutgoingSheetSide(
@@ -69,12 +73,12 @@ internal fun resolveComicPageCurlSheetBounds(
  * back over the spine. The leaf is drawn between the book's outer edges but may swing above and below
  * the pages, which a tilted fold does with its corners.
  */
-internal fun resolveComicPageCurlTurn(
+internal fun resolvePageCurlTurn(
     currentLayout: ComicSpreadRasterLayout,
     targetLayout: ComicSpreadRasterLayout,
     readingDirection: ComicReadingDirection,
-    target: ComicPageCurlTarget,
-): ComicPageCurlTurn? {
+    target: PageCurlTarget,
+): PageCurlTurn? {
     val policy = resolveComicPageCurlTransitionPolicy(
         currentLayout = currentLayout,
         targetLayout = targetLayout,
@@ -99,12 +103,12 @@ internal fun resolveComicPageCurlTurn(
             ComicPageCurlSheetSide.Left -> -1f
             ComicPageCurlSheetSide.Right -> 1f
         }
-        return comicPageCurlTurn(
+        return buildPageCurlTurn(
             target = target,
-            paperBounds = sheetBounds.bounds,
-            bookBounds = bookBounds,
+            paperBounds = sheetBounds.bounds.toIntRect(),
+            bookBounds = bookBounds.toIntRect(),
             outward = outward,
-            follow = ComicPageCurlFollow.Edge,
+            follow = PageCurlFollow.Edge,
             backIsFacingPage = true,
         )
     }
@@ -116,13 +120,13 @@ internal fun resolveComicPageCurlTurn(
         ?.spanningHeightOf(canvasBounds)
         ?: return null
     val follow = when (target) {
-        ComicPageCurlTarget.Next -> ComicPageCurlFollow.Edge
-        ComicPageCurlTarget.Previous -> ComicPageCurlFollow.Fold
+        PageCurlTarget.Next -> PageCurlFollow.Edge
+        PageCurlTarget.Previous -> PageCurlFollow.Fold
     }
-    return comicPageCurlTurn(
+    return buildPageCurlTurn(
         target = target,
-        paperBounds = if (follow == ComicPageCurlFollow.Edge) currentPaper else targetPaper,
-        bookBounds = bookBounds,
+        paperBounds = (if (follow == PageCurlFollow.Edge) currentPaper else targetPaper).toIntRect(),
+        bookBounds = bookBounds.toIntRect(),
         outward = when (readingDirection) {
             ComicReadingDirection.LTR -> 1f
             ComicReadingDirection.RTL -> -1f
@@ -132,36 +136,11 @@ internal fun resolveComicPageCurlTurn(
     )
 }
 
-private fun comicPageCurlTurn(
-    target: ComicPageCurlTarget,
-    paperBounds: ComicRasterRect,
-    bookBounds: ComicRasterRect,
-    outward: Float,
-    follow: ComicPageCurlFollow,
-    backIsFacingPage: Boolean,
-): ComicPageCurlTurn? {
-    if (!paperBounds.hasArea || !bookBounds.hasArea) return null
-    return ComicPageCurlTurn(
-        target = target,
-        sheet = ComicPageCurlSheet(
-            hingeX = if (outward > 0f) paperBounds.left.toFloat() else paperBounds.right.toFloat(),
-            top = paperBounds.top.toFloat(),
-            bottom = paperBounds.bottom.toFloat(),
-            width = paperBounds.width.toFloat(),
-            outward = outward,
-        ),
-        paperBounds = paperBounds,
-        bookBounds = bookBounds,
-        follow = follow,
-        backIsFacingPage = backIsFacingPage,
-    )
-}
-
 internal fun resolveComicPageCurlTransitionPolicy(
     currentLayout: ComicSpreadRasterLayout?,
     targetLayout: ComicSpreadRasterLayout?,
     readingDirection: ComicReadingDirection,
-    target: ComicPageCurlTarget,
+    target: PageCurlTarget,
 ): ComicPageCurlTransitionPolicy {
     val currentKind = currentLayout?.comicPageCurlLayoutKind()
         ?: return ComicPageCurlTransitionPolicy.YieldToPager
@@ -188,14 +167,6 @@ internal fun resolveComicPageCurlTransitionPolicy(
         ComicPageCurlTransitionPolicy.YieldToPager
     }
 }
-
-internal fun ComicRasterRect.contains(
-    position: Offset,
-): Boolean = hasArea &&
-    position.x >= left &&
-    position.x <= right &&
-    position.y >= top &&
-    position.y <= bottom
 
 private enum class ComicPageCurlLayoutKind {
     SinglePage,
@@ -229,6 +200,13 @@ private fun ComicSpreadRasterLayout.singlePagePaperBounds(
             ?.intersect(canvasBounds)
             ?: placement.pageBounds.intersect(canvasBounds)
     }
+
+internal fun ComicRasterRect.toIntRect(): IntRect = IntRect(
+    left = left,
+    top = top,
+    right = right,
+    bottom = bottom,
+)
 
 private fun ComicRasterRect.spanningHeightOf(
     canvasBounds: ComicRasterRect,

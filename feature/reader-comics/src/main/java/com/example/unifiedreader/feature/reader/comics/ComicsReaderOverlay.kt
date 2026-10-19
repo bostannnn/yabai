@@ -22,6 +22,7 @@ import androidx.compose.ui.zIndex
 import com.example.unifiedreader.feature.reader.core.CompactReaderOverlayFrame
 import com.example.unifiedreader.feature.reader.core.ReaderOverlayBackButton
 import com.example.unifiedreader.feature.reader.core.ReaderOverlayIconButton
+import com.example.unifiedreader.feature.reader.core.curl.PageTurnStyle
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.ui.components.AppIcons
@@ -35,14 +36,14 @@ internal fun ReaderOverlayBar(
     readingDirection: ComicReadingDirection,
     pageFitMode: ComicPageFitMode,
     spreadMode: ComicSpreadMode,
-    pageTurnStyle: ComicPageTurnStyle,
+    pageTurnStyle: PageTurnStyle,
     overlayVisible: Boolean,
     onBack: () -> Unit,
     onReaderModeChanged: (ComicReaderMode) -> Unit,
     onReadingDirectionChanged: (ComicReadingDirection) -> Unit,
     onPageFitModeChanged: (ComicPageFitMode) -> Unit,
     onSpreadModeChanged: (ComicSpreadMode) -> Unit,
-    onPageTurnStyleChanged: (ComicPageTurnStyle) -> Unit,
+    onPageTurnStyleChanged: (PageTurnStyle) -> Unit,
 ) {
     val tokens = readerOverlayTokens()
     var isPreferencesSheetOpen by rememberSaveable(itemId) { mutableStateOf(false) }

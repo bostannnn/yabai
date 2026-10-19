@@ -1,7 +1,7 @@
 package com.example.unifiedreader.feature.reader.comics
 
-import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
@@ -9,6 +9,7 @@ import com.example.unifiedreader.feature.reader.core.ReaderLocator
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
+import com.example.unifiedreader.feature.reader.core.curl.PageTurnStyle
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderModePreferences
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderModePreferencesStore
@@ -19,13 +20,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -226,8 +227,8 @@ class ComicsReaderSessionAdapterTest {
             scope = scope,
         )
 
-        assertEquals(ComicPageTurnStyle.Slide, adapter.loadPageTurnStyle(item))
-        assertEquals(ComicPageTurnStyle.Slide, adapter.observePreferences(item).first()?.pageTurnStyle)
+        assertEquals(PageTurnStyle.Slide, adapter.loadPageTurnStyle(item))
+        assertEquals(PageTurnStyle.Slide, adapter.observePreferences(item).first()?.pageTurnStyle)
         scope.cancel()
     }
 
@@ -243,13 +244,13 @@ class ComicsReaderSessionAdapterTest {
             scope = scope,
         )
 
-        adapter.savePageTurnStyle(item, ComicPageTurnStyle.Curl)
+        adapter.savePageTurnStyle(item, PageTurnStyle.Curl)
 
         assertEquals(
-            ComicPageTurnStyle.Curl.name,
+            PageTurnStyle.Curl.name,
             sessionStore.getSession(item)?.preferences?.get(ComicsPageTurnStyleKey),
         )
-        assertEquals(ComicPageTurnStyle.Curl, adapter.loadPageTurnStyle(item))
+        assertEquals(PageTurnStyle.Curl, adapter.loadPageTurnStyle(item))
         scope.cancel()
     }
 

@@ -7,24 +7,25 @@ import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.feature.reader.core.ReaderLocator
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
+import com.example.unifiedreader.feature.reader.core.curl.PageTurnStyle
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderModePreferences
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderModePreferencesStore
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirectionPreferences
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirectionPreferencesStore
-import com.example.unifiedreader.feature.reader.preferences.normalizeComicItemModeOverride
 import com.example.unifiedreader.feature.reader.preferences.normalizeComicItemDirectionOverride
+import com.example.unifiedreader.feature.reader.preferences.normalizeComicItemModeOverride
 import com.example.unifiedreader.feature.reader.preferences.resolveComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.resolveComicReadingDirection
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
 
 class ComicsReaderSessionAdapter(
@@ -209,14 +210,14 @@ class ComicsReaderSessionAdapter(
         )
     }
 
-    override fun loadPageTurnStyle(item: ReadableItem): ComicPageTurnStyle =
+    override fun loadPageTurnStyle(item: ReadableItem): PageTurnStyle =
         restoreComicReaderPreferences(sessionStore.getSession(item))
             ?.pageTurnStyle
-            ?: ComicPageTurnStyle.Slide
+            ?: PageTurnStyle.Slide
 
     override fun savePageTurnStyle(
         item: ReadableItem,
-        pageTurnStyle: ComicPageTurnStyle,
+        pageTurnStyle: PageTurnStyle,
     ) {
         sessionStore.updateSession(
             item = item,
@@ -318,7 +319,7 @@ private fun com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot?
             readingDirection = ComicReadingDirection.LTR,
             pageFitMode = ComicPageFitMode.FitPage,
             spreadMode = ComicSpreadMode.Auto,
-            pageTurnStyle = ComicPageTurnStyle.Slide,
+            pageTurnStyle = PageTurnStyle.Slide,
             splitWidePages = false,
             resumeAnchorPage = null,
             resumeSegment = null,

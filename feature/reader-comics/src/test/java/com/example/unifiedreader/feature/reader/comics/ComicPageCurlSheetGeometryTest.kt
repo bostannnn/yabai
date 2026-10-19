@@ -1,6 +1,8 @@
 package com.example.unifiedreader.feature.reader.comics
 
 import androidx.compose.ui.unit.IntSize
+import com.example.unifiedreader.feature.reader.core.curl.PageCurlFollow
+import com.example.unifiedreader.feature.reader.core.curl.PageCurlTarget
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -20,7 +22,7 @@ class ComicPageCurlSheetGeometryTest {
         val sheet = resolveComicPageCurlSheetBounds(
             layout = layout,
             readingDirection = ComicReadingDirection.LTR,
-            target = ComicPageCurlTarget.Next,
+            target = PageCurlTarget.Next,
         ) ?: error("Expected single page sheet bounds")
 
         assertEquals(ComicPageCurlSheetSide.Right, sheet.side)
@@ -45,7 +47,7 @@ class ComicPageCurlSheetGeometryTest {
         val sheet = resolveComicPageCurlSheetBounds(
             layout = layout,
             readingDirection = ComicReadingDirection.LTR,
-            target = ComicPageCurlTarget.Next,
+            target = PageCurlTarget.Next,
         ) ?: error("Expected wide page sheet bounds")
 
         assertEquals(ComicRasterRect(left = 0, top = 100, width = 400, height = 200), sheet.bounds)
@@ -70,7 +72,7 @@ class ComicPageCurlSheetGeometryTest {
         val sheet = resolveComicPageCurlSheetBounds(
             layout = layout,
             readingDirection = ComicReadingDirection.LTR,
-            target = ComicPageCurlTarget.Next,
+            target = PageCurlTarget.Next,
         ) ?: error("Expected split page sheet bounds")
 
         assertEquals(ComicRasterRect(left = 113, top = 0, width = 75, height = 300), sheet.bounds)
@@ -98,7 +100,7 @@ class ComicPageCurlSheetGeometryTest {
         val sheet = resolveComicPageCurlSheetBounds(
             layout = layout,
             readingDirection = ComicReadingDirection.LTR,
-            target = ComicPageCurlTarget.Next,
+            target = PageCurlTarget.Next,
         ) ?: error("Expected spread sheet bounds")
 
         assertEquals(ComicPageCurlSheetSide.Right, sheet.side)
@@ -117,28 +119,28 @@ class ComicPageCurlSheetGeometryTest {
         val current = sampleCurlGeometryLayout(*spreads[1].pages.toTypedArray())
         val next = sampleCurlGeometryLayout(*spreads[2].pages.toTypedArray())
 
-        val forward = resolveComicPageCurlTurn(
+        val forward = resolvePageCurlTurn(
             currentLayout = current,
             targetLayout = next,
             readingDirection = ComicReadingDirection.LTR,
-            target = ComicPageCurlTarget.Next,
+            target = PageCurlTarget.Next,
         ) ?: error("Expected a spread turn")
-        val backward = resolveComicPageCurlTurn(
+        val backward = resolvePageCurlTurn(
             currentLayout = current,
             targetLayout = next,
             readingDirection = ComicReadingDirection.LTR,
-            target = ComicPageCurlTarget.Previous,
+            target = PageCurlTarget.Previous,
         ) ?: error("Expected a spread turn")
 
-        assertEquals(ComicRasterRect(left = 250, top = 0, width = 150, height = 300), forward.paperBounds)
+        assertEquals(ComicRasterRect(left = 250, top = 0, width = 150, height = 300).toIntRect(), forward.paperBounds)
         assertEquals(250f, forward.sheet.hingeX, 0.0001f)
         assertEquals(1f, forward.sheet.outward, 0.0001f)
-        assertEquals(ComicRasterRect(left = 100, top = 0, width = 300, height = 300), forward.bookBounds)
+        assertEquals(ComicRasterRect(left = 100, top = 0, width = 300, height = 300).toIntRect(), forward.bookBounds)
         assertTrue(forward.backIsFacingPage)
-        assertEquals(ComicPageCurlFollow.Edge, forward.follow)
+        assertEquals(PageCurlFollow.Edge, forward.follow)
         assertEquals(250f, backward.sheet.hingeX, 0.0001f)
         assertEquals(-1f, backward.sheet.outward, 0.0001f)
-        assertEquals(ComicPageCurlFollow.Edge, backward.follow)
+        assertEquals(PageCurlFollow.Edge, backward.follow)
     }
 
     @Test
@@ -152,31 +154,31 @@ class ComicPageCurlSheetGeometryTest {
             canvasSize = IntSize(300, 300),
         )
 
-        val forward = resolveComicPageCurlTurn(
+        val forward = resolvePageCurlTurn(
             currentLayout = current,
             targetLayout = adjacent,
             readingDirection = ComicReadingDirection.LTR,
-            target = ComicPageCurlTarget.Next,
+            target = PageCurlTarget.Next,
         ) ?: error("Expected a single page turn")
-        val backward = resolveComicPageCurlTurn(
+        val backward = resolvePageCurlTurn(
             currentLayout = current,
             targetLayout = adjacent,
             readingDirection = ComicReadingDirection.LTR,
-            target = ComicPageCurlTarget.Previous,
+            target = PageCurlTarget.Previous,
         ) ?: error("Expected a single page turn")
-        val rtlForward = resolveComicPageCurlTurn(
+        val rtlForward = resolvePageCurlTurn(
             currentLayout = current,
             targetLayout = adjacent,
             readingDirection = ComicReadingDirection.RTL,
-            target = ComicPageCurlTarget.Next,
+            target = PageCurlTarget.Next,
         ) ?: error("Expected a single page turn")
 
-        assertEquals(ComicRasterRect(left = 75, top = 0, width = 150, height = 300), forward.paperBounds)
+        assertEquals(ComicRasterRect(left = 75, top = 0, width = 150, height = 300).toIntRect(), forward.paperBounds)
         assertEquals(forward.paperBounds, forward.bookBounds)
         assertEquals(75f, forward.sheet.hingeX, 0.0001f)
-        assertEquals(ComicPageCurlFollow.Edge, forward.follow)
+        assertEquals(PageCurlFollow.Edge, forward.follow)
         assertTrue(!forward.backIsFacingPage)
-        assertEquals(ComicPageCurlFollow.Fold, backward.follow)
+        assertEquals(PageCurlFollow.Fold, backward.follow)
         assertTrue(backward.sheetIsAdjacentPage)
         assertEquals(75f, backward.sheet.hingeX, 0.0001f)
         assertEquals(225f, rtlForward.sheet.hingeX, 0.0001f)
@@ -194,15 +196,15 @@ class ComicPageCurlSheetGeometryTest {
             canvasSize = IntSize(300, 700),
         )
 
-        val turn = resolveComicPageCurlTurn(
+        val turn = resolvePageCurlTurn(
             currentLayout = current,
             targetLayout = adjacent,
             readingDirection = ComicReadingDirection.LTR,
-            target = ComicPageCurlTarget.Next,
+            target = PageCurlTarget.Next,
         ) ?: error("Expected a single page turn")
 
-        assertEquals(ComicRasterRect(left = 0, top = 50, width = 300, height = 600), turn.paperBounds)
-        assertEquals(ComicRasterRect(left = 0, top = 0, width = 300, height = 700), turn.bookBounds)
+        assertEquals(ComicRasterRect(left = 0, top = 50, width = 300, height = 600).toIntRect(), turn.paperBounds)
+        assertEquals(ComicRasterRect(left = 0, top = 0, width = 300, height = 700).toIntRect(), turn.bookBounds)
     }
 
     @Test
@@ -218,11 +220,11 @@ class ComicPageCurlSheetGeometryTest {
         )
 
         assertNull(
-            resolveComicPageCurlTurn(
+            resolvePageCurlTurn(
                 currentLayout = single,
                 targetLayout = spread,
                 readingDirection = ComicReadingDirection.LTR,
-                target = ComicPageCurlTarget.Next,
+                target = PageCurlTarget.Next,
             ),
         )
     }
@@ -252,7 +254,7 @@ class ComicPageCurlSheetGeometryTest {
                 currentLayout = firstSingle,
                 targetLayout = nextSingle,
                 readingDirection = ComicReadingDirection.LTR,
-                target = ComicPageCurlTarget.Next,
+                target = PageCurlTarget.Next,
             ),
         )
         assertEquals(
@@ -261,7 +263,7 @@ class ComicPageCurlSheetGeometryTest {
                 currentLayout = firstSpread,
                 targetLayout = nextSpread,
                 readingDirection = ComicReadingDirection.LTR,
-                target = ComicPageCurlTarget.Next,
+                target = PageCurlTarget.Next,
             ),
         )
     }
@@ -283,7 +285,7 @@ class ComicPageCurlSheetGeometryTest {
                 currentLayout = single,
                 targetLayout = spread,
                 readingDirection = ComicReadingDirection.LTR,
-                target = ComicPageCurlTarget.Next,
+                target = PageCurlTarget.Next,
             ),
         )
         assertEquals(
@@ -292,7 +294,7 @@ class ComicPageCurlSheetGeometryTest {
                 currentLayout = spread,
                 targetLayout = single,
                 readingDirection = ComicReadingDirection.LTR,
-                target = ComicPageCurlTarget.Next,
+                target = PageCurlTarget.Next,
             ),
         )
     }
@@ -321,7 +323,7 @@ class ComicPageCurlSheetGeometryTest {
                 currentLayout = portraitLayout,
                 targetLayout = wideLayout,
                 readingDirection = ComicReadingDirection.LTR,
-                target = ComicPageCurlTarget.Next,
+                target = PageCurlTarget.Next,
             ),
         )
     }
@@ -332,28 +334,28 @@ class ComicPageCurlSheetGeometryTest {
             ComicPageCurlSheetSide.Right,
             resolveComicPageCurlOutgoingSheetSide(
                 readingDirection = ComicReadingDirection.LTR,
-                target = ComicPageCurlTarget.Next,
+                target = PageCurlTarget.Next,
             ),
         )
         assertEquals(
             ComicPageCurlSheetSide.Left,
             resolveComicPageCurlOutgoingSheetSide(
                 readingDirection = ComicReadingDirection.LTR,
-                target = ComicPageCurlTarget.Previous,
+                target = PageCurlTarget.Previous,
             ),
         )
         assertEquals(
             ComicPageCurlSheetSide.Left,
             resolveComicPageCurlOutgoingSheetSide(
                 readingDirection = ComicReadingDirection.RTL,
-                target = ComicPageCurlTarget.Next,
+                target = PageCurlTarget.Next,
             ),
         )
         assertEquals(
             ComicPageCurlSheetSide.Right,
             resolveComicPageCurlOutgoingSheetSide(
                 readingDirection = ComicReadingDirection.RTL,
-                target = ComicPageCurlTarget.Previous,
+                target = PageCurlTarget.Previous,
             ),
         )
     }
@@ -372,7 +374,7 @@ class ComicPageCurlSheetGeometryTest {
             resolveComicPageCurlTargetSpreadIndex(
                 currentSpreadIndex = 0,
                 spreadCount = 3,
-                target = ComicPageCurlTarget.Previous,
+                target = PageCurlTarget.Previous,
             ),
         )
         assertEquals(
@@ -380,7 +382,7 @@ class ComicPageCurlSheetGeometryTest {
             resolveComicPageCurlTargetSpreadIndex(
                 currentSpreadIndex = 0,
                 spreadCount = 3,
-                target = ComicPageCurlTarget.Next,
+                target = PageCurlTarget.Next,
             ),
         )
         assertEquals(
@@ -388,26 +390,26 @@ class ComicPageCurlSheetGeometryTest {
             resolveComicPageCurlTargetSpreadIndex(
                 currentSpreadIndex = 2,
                 spreadCount = 3,
-                target = ComicPageCurlTarget.Previous,
+                target = PageCurlTarget.Previous,
             ),
         )
         assertNull(
             resolveComicPageCurlTargetSpreadIndex(
                 currentSpreadIndex = 2,
                 spreadCount = 3,
-                target = ComicPageCurlTarget.Next,
+                target = PageCurlTarget.Next,
             ),
         )
 
         val firstForwardSheet = resolveComicPageCurlSheetBounds(
             layout = layout,
             readingDirection = ComicReadingDirection.LTR,
-            target = ComicPageCurlTarget.Next,
+            target = PageCurlTarget.Next,
         ) ?: error("Expected first spread fallback bounds")
         val lastBackwardSheet = resolveComicPageCurlSheetBounds(
             layout = layout,
             readingDirection = ComicReadingDirection.LTR,
-            target = ComicPageCurlTarget.Previous,
+            target = PageCurlTarget.Previous,
         ) ?: error("Expected last spread fallback bounds")
 
         assertEquals(ComicPageCurlSheetSide.Right, firstForwardSheet.side)
