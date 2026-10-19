@@ -8,7 +8,8 @@ package com.example.unifiedreader.feature.reader.comics
  *    `backMirrored` is set, otherwise a paper tint with the front bleeding through);
  *  - revealed: what the lifted leaf uncovers inside its own paper;
  *  - outside: everything off the leaf (the facing page, margins).
- * Rects are (left, top, right, bottom); the leaf is only ever drawn inside `book`.
+ * Rects are (left, top, right, bottom); the leaf is only ever drawn inside `book`. Shadows scale
+ * with `maxRadius`, the roll's radius away from the spine.
  */
 internal const val ComicPageCurlAgsl = """
 uniform shader sheetFront;
@@ -20,12 +21,15 @@ uniform float4 book;
 uniform float2 origin;
 uniform float2 dir;
 uniform float radius;
+uniform float maxRadius;
 uniform float hingeX;
 uniform float backMirrored;
 
 const float PI = 3.141592653589793;
 const half3 PaperTint = half3(0.965, 0.955, 0.94);
 const half BleedThrough = 0.18;
+const float OverhangShadow = 0.2;
+const float RollShadow = 0.36;
 
 bool inRect(float2 p, float4 r) {
     return p.x >= r.x && p.y >= r.y && p.x <= r.z && p.y <= r.w;
@@ -50,23 +54,40 @@ half4 backFace(float2 pp, float light) {
     return half4(c * half(light), 1.0);
 }
 
+// Shade from the turned-over part of the leaf hanging above the page next to the fold. [overhang] is
+// how far p is from that part's free edge as if it lay flat on top; the inside of the roll uses the
+// same measure, so the page darkens continuously as it curls up under the edge.
+float overhangShade(float overhang, float r) {
+    float k = 1.0 - clamp(overhang / (0.15 * maxRadius + 0.35 * r), 0.0, 1.0);
+    return 1.0 - OverhangShadow * k * k;
+}
+
+// Distance along dir from q to where that line leaves the paper.
+float paperExit(float2 q) {
+    float2 d = float2(
+        abs(dir.x) < 0.0001 ? 0.0001 : dir.x,
+        abs(dir.y) < 0.0001 ? 0.0001 : dir.y
+    );
+    float2 exits = max((paper.xy - q) / d, (paper.zw - q) / d);
+    return min(exits.x, exits.y);
+}
+
 half4 main(float2 p) {
     if (!inRect(p, book)) {
         return outside.eval(p);
     }
     float r = max(radius, 0.5);
-    float shadowWidth = max(r, 6.0);
     float x = dot(p - origin, dir);
+    float2 flap = p + dir * (PI * r - 2.0 * x);
+    float overhang = overhangShade(rectDistance(flap, paper), r);
 
     if (x <= 0.0) {
         // Flat region: the folded-over flap lies on top where it reaches.
-        float2 flap = p + dir * (PI * r - 2.0 * x);
         if (inRect(flap, paper)) {
             return backFace(flap, 1.0);
         }
         half4 base = inRect(p, paper) ? sheetFront.eval(p) : outside.eval(p);
-        float flapShadow = 1.0 - smoothstep(0.0, shadowWidth, rectDistance(flap, paper));
-        return shaded(base, 1.0 - 0.22 * flapShadow);
+        return shaded(base, overhang);
     }
 
     if (x < r) {
@@ -78,18 +99,23 @@ half4 main(float2 p) {
             float light = 1.0 - 0.42 * pow(t, 2.4) + 0.07 * exp(-pow((t - 0.35) / 0.13, 2.0));
             return backFace(upper, light);
         }
-        // Lower half: the front face curving up, in the roll's own shade.
+        // Lower half: the front face curving up, turned from the light and under the free edge.
         float2 lower = p + dir * (theta * r - x);
         if (inRect(lower, paper)) {
-            return shaded(sheetFront.eval(lower), 1.0 - 0.45 * pow(t, 1.6));
+            return shaded(sheetFront.eval(lower), (1.0 - 0.45 * pow(t, 1.6)) * overhang);
         }
     }
 
-    // Uncovered: the lifted leaf casts a soft shadow just beyond the roll.
+    // Uncovered: the roll on this line casts a shadow beyond its silhouette that grows as it rises.
     half4 base = inRect(p, paper) ? revealed.eval(p) : outside.eval(p);
-    float2 rollTop = p + dir * (PI * r * 0.5 - x);
-    float presence = 1.0 - smoothstep(0.0, 6.0, rectDistance(rollTop, paper));
-    float s = clamp((x - 0.5 * r) / (1.8 * shadowWidth), 0.0, 1.0);
-    return shaded(base, 1.0 - 0.38 * presence * (1.0 - s) * (1.0 - s));
+    float2 fold = p - dir * x;
+    float lifted = clamp(paperExit(fold), 0.0, PI * r);
+    float height = r * (1.0 - cos(lifted / r));
+    float silhouette = r * sin(min(lifted, 0.5 * PI * r) / r);
+    float width = 0.25 * maxRadius + 0.6 * height;
+    float presence = 1.0 - smoothstep(0.0, 0.5 * width, rectDistance(fold + dir * (0.5 * lifted), paper));
+    float fade = 1.0 - clamp((x - silhouette) / width, 0.0, 1.0);
+    float shadow = RollShadow * presence * smoothstep(0.0, r, height) * fade * fade;
+    return shaded(base, 1.0 - shadow);
 }
 """

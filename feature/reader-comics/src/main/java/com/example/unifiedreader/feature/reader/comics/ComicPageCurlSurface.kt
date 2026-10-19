@@ -163,6 +163,7 @@ private fun ComicPageCurlShaderSurfaceApi33(
         shader.setFloatUniform("origin", axis.originX, axis.originY)
         shader.setFloatUniform("dir", axis.directionX, axis.directionY)
         shader.setFloatUniform("radius", axis.radius)
+        shader.setFloatUniform("maxRadius", turn.sheet.width * DefaultCurlMaxRadiusFraction)
         shader.setFloatUniform("hingeX", turn.sheet.hingeX)
         shader.setFloatUniform("backMirrored", if (turn.backIsFacingPage) 1f else 0f)
 

@@ -97,6 +97,8 @@ internal fun Modifier.comicPageCurlPagerGesture(
             }
             var accumulatedDrag = Offset.Zero
             var activeInteraction: ComicPageCurlInteraction? = null
+            // Where the finger was when the turn started; the page follows the drag from there.
+            var turnStart = firstDown.position
             var yielded = blockedByOpenInteraction
 
             while (true) {
@@ -142,13 +144,8 @@ internal fun Modifier.comicPageCurlPagerGesture(
                             if (started == null) {
                                 yielded = true
                             } else {
-                                state.snapTo(
-                                    started.turn.edgeForFinger(
-                                        grab = started.grab,
-                                        down = firstDown.position,
-                                        finger = change.position,
-                                    ),
-                                )
+                                turnStart = change.position
+                                state.snapTo(started.turn.restingEdge(started.grab))
                                 activeInteraction = started
                                 interactionOpen = true
                                 onInteractionStarted(started)
@@ -162,7 +159,7 @@ internal fun Modifier.comicPageCurlPagerGesture(
                     state.snapTo(
                         interaction.turn.edgeForFinger(
                             grab = interaction.grab,
-                            down = firstDown.position,
+                            start = turnStart,
                             finger = change.position,
                         ),
                     )

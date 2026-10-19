@@ -7,39 +7,62 @@ import org.junit.Test
 
 class ComicPageCurlTurnTest {
     @Test
-    fun `forward turn edge follows the finger one to one from a centred grab`() {
+    fun `forward turn starts at rest and catches the grabbed edge up with the finger`() {
         val turn = sampleTurn(follow = ComicPageCurlFollow.Edge)
         val grab = turn.grabPoint(300f)
-        val down = Offset(480f, 300f)
+        val start = Offset(400f, 300f)
 
-        val edge = turn.edgeForFinger(grab = grab, down = down, finger = Offset(330f, 280f))
+        val atStart = turn.edgeForFinger(grab = grab, start = start, finger = start)
+        val halfway = turn.edgeForFinger(grab = grab, start = start, finger = Offset(350f, 300f))
+        val caughtUp = turn.edgeForFinger(grab = grab, start = start, finger = Offset(250f, 280f))
 
-        assertEquals(grab.x - 150f, edge.x, 0.01f)
-        assertEquals(grab.y - 20f, edge.y, 0.01f)
+        assertEquals(grab.x, atStart.x, 0.01f)
+        assertEquals(grab.y, atStart.y, 0.01f)
+        // Halfway through the catch-up a quarter of the 100 px lead is left: the edge moved 75 px
+        // while the finger moved 50.
+        assertEquals(375f, halfway.x, 0.01f)
+        assertEquals(250f, caughtUp.x, 0.01f)
+        assertEquals(280f, caughtUp.y, 0.01f)
     }
 
     @Test
-    fun `low grabs lead with the bottom corner`() {
+    fun `off centre grabs pick the page up nearer the corner so the corner leads`() {
         val turn = sampleTurn(follow = ComicPageCurlFollow.Edge)
-        val grab = turn.grabPoint(560f)
+        val grab = turn.grabPoint(450f)
+        val start = Offset(480f, 450f)
 
-        val edge = turn.edgeForFinger(grab = grab, down = grab, finger = Offset(grab.x - 200f, grab.y))
+        val edge = turn.edgeForFinger(grab = grab, start = start, finger = Offset(200f, 450f))
 
-        assertTrue("edge should lift above the finger, was ${edge.y}", edge.y < grab.y)
+        assertTrue("grab should sit below the touch, was ${grab.y}", grab.y > 450f)
+        assertEquals(300f, turn.grabPoint(300f).y, 0.01f)
+        assertEquals(200f, edge.x, 0.01f)
+        assertEquals(450f, edge.y, 0.01f)
     }
 
     @Test
-    fun `backward single page turn starts turned and brings the fold under the finger`() {
+    fun `backward single page turn starts turned and brings the roll's leading edge under the finger`() {
         val turn = sampleTurn(follow = ComicPageCurlFollow.Fold)
         val grab = turn.grabPoint(300f)
-        val down = Offset(110f, 300f)
+        val start = Offset(110f, 300f)
 
-        val atDown = turn.edgeForFinger(grab = grab, down = down, finger = down)
-        val dragged = turn.edgeForFinger(grab = grab, down = down, finger = Offset(260f, 300f))
+        val atStart = turn.edgeForFinger(grab = grab, start = start, finger = start)
+        val dragged = turn.edgeForFinger(grab = grab, start = start, finger = Offset(260f, 300f))
+        val axis = calculateComicPageCurlAxis(sheet = turn.sheet, grab = grab, edge = dragged)
 
-        assertEquals(turn.sheet.turnedPoint(grab).x, atDown.x, 0.01f)
-        val foldX = (dragged.x + grab.x) / 2f
-        assertTrue("fold should sit just ahead of the finger, was $foldX", foldX in 250f..290f)
+        assertEquals(turn.sheet.turnedPoint(grab).x, atStart.x, 0.01f)
+        assertEquals(260f, axis.originX + axis.directionX * axis.radius, 0.5f)
+    }
+
+    @Test
+    fun `backward turn dragged past the page lays the previous page flat instead of overshooting`() {
+        val turn = sampleTurn(follow = ComicPageCurlFollow.Fold)
+        val grab = turn.grabPoint(300f)
+
+        val edge = turn.edgeForFinger(grab = grab, start = Offset(300f, 300f), finger = Offset(700f, 300f))
+
+        assertEquals(grab.x, edge.x, 0.01f)
+        assertEquals(grab.y, edge.y, 0.01f)
+        assertEquals(1f, turn.commitProgress(grab = grab, edge = edge), 0.0001f)
     }
 
     @Test

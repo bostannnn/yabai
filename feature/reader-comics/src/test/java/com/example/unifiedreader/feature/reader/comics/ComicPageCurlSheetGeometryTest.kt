@@ -184,6 +184,28 @@ class ComicPageCurlSheetGeometryTest {
     }
 
     @Test
+    fun `turning leaf may swing above and below a letterboxed page but not past its sides`() {
+        val current = sampleCurlGeometryLayout(
+            ComicSpreadPage(spec = sampleCurlGeometryPage(1)),
+            canvasSize = IntSize(300, 700),
+        )
+        val adjacent = sampleCurlGeometryLayout(
+            ComicSpreadPage(spec = sampleCurlGeometryPage(2)),
+            canvasSize = IntSize(300, 700),
+        )
+
+        val turn = resolveComicPageCurlTurn(
+            currentLayout = current,
+            targetLayout = adjacent,
+            readingDirection = ComicReadingDirection.LTR,
+            target = ComicPageCurlTarget.Next,
+        ) ?: error("Expected a single page turn")
+
+        assertEquals(ComicRasterRect(left = 0, top = 50, width = 300, height = 600), turn.paperBounds)
+        assertEquals(ComicRasterRect(left = 0, top = 0, width = 300, height = 700), turn.bookBounds)
+    }
+
+    @Test
     fun `incompatible layouts resolve no curl turn`() {
         val single = sampleCurlGeometryLayout(
             ComicSpreadPage(spec = sampleCurlGeometryPage(0)),

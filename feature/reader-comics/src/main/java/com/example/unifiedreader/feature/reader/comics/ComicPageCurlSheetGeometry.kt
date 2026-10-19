@@ -66,7 +66,8 @@ internal fun resolveComicPageCurlSheetBounds(
  * Resolves the leaf that turns. On spreads it is the current page on the outgoing side, hinged at the
  * gutter, and its back is the target spread's facing page. On single pages the leaf is hinged on the
  * reading-start edge: a forward turn lifts the current page, a backward turn brings the previous page
- * back over the spine.
+ * back over the spine. The leaf is drawn between the book's outer edges but may swing above and below
+ * the pages, which a tilted fold does with its corners.
  */
 internal fun resolveComicPageCurlTurn(
     currentLayout: ComicSpreadRasterLayout,
@@ -92,6 +93,7 @@ internal fun resolveComicPageCurlTurn(
         val bookBounds = currentLayout.pages
             .mapNotNull { placement -> placement.pageBounds.intersect(canvasBounds) }
             .unionOrNull()
+            ?.spanningHeightOf(canvasBounds)
             ?: return null
         val outward = when (sheetBounds.side) {
             ComicPageCurlSheetSide.Left -> -1f
@@ -109,6 +111,10 @@ internal fun resolveComicPageCurlTurn(
 
     val currentPaper = currentLayout.singlePagePaperBounds(canvasBounds) ?: return null
     val targetPaper = targetLayout.singlePagePaperBounds(canvasBounds) ?: return null
+    val bookBounds = listOf(currentPaper, targetPaper)
+        .unionOrNull()
+        ?.spanningHeightOf(canvasBounds)
+        ?: return null
     val follow = when (target) {
         ComicPageCurlTarget.Next -> ComicPageCurlFollow.Edge
         ComicPageCurlTarget.Previous -> ComicPageCurlFollow.Fold
@@ -116,7 +122,7 @@ internal fun resolveComicPageCurlTurn(
     return comicPageCurlTurn(
         target = target,
         paperBounds = if (follow == ComicPageCurlFollow.Edge) currentPaper else targetPaper,
-        bookBounds = listOf(currentPaper, targetPaper).unionOrNull() ?: return null,
+        bookBounds = bookBounds,
         outward = when (readingDirection) {
             ComicReadingDirection.LTR -> 1f
             ComicReadingDirection.RTL -> -1f
@@ -223,6 +229,15 @@ private fun ComicSpreadRasterLayout.singlePagePaperBounds(
             ?.intersect(canvasBounds)
             ?: placement.pageBounds.intersect(canvasBounds)
     }
+
+private fun ComicRasterRect.spanningHeightOf(
+    canvasBounds: ComicRasterRect,
+): ComicRasterRect = ComicRasterRect(
+    left = left,
+    top = canvasBounds.top,
+    width = width,
+    height = canvasBounds.height,
+)
 
 private fun List<ComicRasterRect>.unionOrNull(): ComicRasterRect? {
     if (isEmpty()) return null
