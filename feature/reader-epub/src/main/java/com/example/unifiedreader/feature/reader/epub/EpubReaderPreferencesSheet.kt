@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.example.unifiedreader.feature.reader.core.curl.PageTurnStyle
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.ui.components.AppFloatingPanel
 import com.example.unifiedreader.ui.components.AppFloatingPanelPlacement
@@ -31,6 +32,7 @@ internal fun EpubPreferencesSheet(
     useAppThemeDefault: Boolean,
     layoutMode: EpubReaderLayoutMode,
     useOrientationLayoutDefault: Boolean,
+    pageTurnStyle: PageTurnStyle,
     onDismissRequest: () -> Unit,
     onTypographyModeChanged: (EpubTypographyMode) -> Unit,
     onFontFamilyChanged: (EpubReaderFontFamily) -> Unit,
@@ -44,6 +46,7 @@ internal fun EpubPreferencesSheet(
     onUseAppThemeDefault: () -> Unit,
     onLayoutModeChanged: (EpubReaderLayoutMode) -> Unit,
     onUseOrientationLayoutDefault: () -> Unit,
+    onPageTurnStyleChanged: (PageTurnStyle) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(EpubPreferencesTab.Text) }
@@ -74,6 +77,7 @@ internal fun EpubPreferencesSheet(
             useAppThemeDefault = useAppThemeDefault,
             layoutMode = layoutMode,
             useOrientationLayoutDefault = useOrientationLayoutDefault,
+            pageTurnStyle = pageTurnStyle,
             selectedTab = selectedTab,
             isFontPickerOpen = isFontPickerOpen,
             onDismissRequest = onDismissRequest,
@@ -91,6 +95,7 @@ internal fun EpubPreferencesSheet(
             onUseAppThemeDefault = onUseAppThemeDefault,
             onLayoutModeChanged = onLayoutModeChanged,
             onUseOrientationLayoutDefault = onUseOrientationLayoutDefault,
+            onPageTurnStyleChanged = onPageTurnStyleChanged,
         )
     }
     // Registered after the panel's own handler, so it runs first: back leaves the font page

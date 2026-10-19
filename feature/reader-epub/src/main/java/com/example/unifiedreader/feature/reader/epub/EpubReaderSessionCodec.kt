@@ -6,6 +6,7 @@ import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.feature.reader.core.ReaderLocator
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
+import com.example.unifiedreader.feature.reader.core.curl.PageTurnStyle
 import com.example.unifiedreader.feature.reader.core.enumValueOrNull
 import org.json.JSONObject
 import org.readium.r2.navigator.epub.EpubPreferences
@@ -29,6 +30,7 @@ internal const val EpubThemeKey = "epub.theme"
 internal const val EpubThemeOverrideKey = "epub.themeOverride"
 internal const val EpubLayoutModeKey = "epub.layoutMode"
 internal const val EpubLayoutOverrideKey = "epub.layoutOverride"
+internal const val EpubPageTurnStyleKey = "epub.pageTurn"
 
 internal data class EpubReaderPreferences(
     val typographyMode: EpubTypographyMode = EpubTypographyMode.Custom,
@@ -43,6 +45,7 @@ internal data class EpubReaderPreferences(
     val themeOverride: Boolean = false,
     val layoutMode: EpubReaderLayoutMode = EpubReaderLayoutMode.Scroll,
     val layoutModeOverride: Boolean = false,
+    val pageTurnStyle: PageTurnStyle = PageTurnStyle.Slide,
 )
 
 internal fun restoreEpubPreferences(
@@ -91,6 +94,9 @@ internal fun restoreEpubPreferences(
         layoutModeOverride = preferences[EpubLayoutOverrideKey]
             ?.toBooleanStrictOrNull()
             ?: false,
+        pageTurnStyle = preferences[EpubPageTurnStyleKey]
+            ?.enumValueOrNull<PageTurnStyle>()
+            ?: PageTurnStyle.Slide,
     )
 }
 
@@ -109,6 +115,7 @@ internal fun buildEpubPreferencesMap(
     EpubThemeOverrideKey to preferences.themeOverride.toString(),
     EpubLayoutModeKey to preferences.layoutMode.name,
     EpubLayoutOverrideKey to preferences.layoutModeOverride.toString(),
+    EpubPageTurnStyleKey to preferences.pageTurnStyle.name,
 )
 
 internal fun EpubReaderPreferences.toNavigatorPreferences(): EpubPreferences = EpubPreferences(

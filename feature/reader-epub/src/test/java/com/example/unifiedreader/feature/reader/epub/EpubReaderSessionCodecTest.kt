@@ -3,6 +3,7 @@ package com.example.unifiedreader.feature.reader.epub
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
+import com.example.unifiedreader.feature.reader.core.curl.PageTurnStyle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -227,6 +228,22 @@ class EpubReaderSessionCodecTest {
         assertEquals("1.4", preferences[EpubPageMarginsKey])
         assertEquals("0.5", preferences[EpubParagraphSpacingKey])
         assertEquals("1.2", preferences[EpubParagraphIndentKey])
+    }
+
+    @Test
+    fun `page turn style is saved and restored and defaults to slide`() {
+        val saved = buildEpubPreferencesMap(EpubReaderPreferences(pageTurnStyle = PageTurnStyle.Curl))
+
+        assertEquals(PageTurnStyle.Curl.name, saved[EpubPageTurnStyleKey])
+        assertEquals(
+            PageTurnStyle.Curl,
+            restoreEpubPreferences(ReaderSessionSnapshot(itemId = "book", preferences = saved)).pageTurnStyle,
+        )
+        assertEquals(PageTurnStyle.Slide, restoreEpubPreferences(ReaderSessionSnapshot(itemId = "book", preferences = emptyMap())).pageTurnStyle)
+        assertEquals(
+            PageTurnStyle.Slide,
+            restoreEpubPreferences(ReaderSessionSnapshot(itemId = "book", preferences = mapOf(EpubPageTurnStyleKey to "Fold"))).pageTurnStyle,
+        )
     }
 
     @Test
