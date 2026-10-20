@@ -1,6 +1,7 @@
 package com.example.unifiedreader.data.grimmory
 
 import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.remoteItemId
@@ -8,6 +9,9 @@ import com.example.unifiedreader.core.model.remoteLibraryId
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.double
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -380,6 +384,112 @@ class GrimmoryDtosTest {
         assertEquals(0.5, item.progress?.percent ?: 0.0, 0.0001)
         assertEquals(false, item.isExplicitUnreadReset)
     }
+
+    @Test
+    fun webReaderProgressBecomesAnEncodedChapterLocatorCarryingTheCfi() {
+        // Grimmory's web reader saves its contents entry's href, decoded and with its anchor.
+        val progress = epubProgressPull(
+            GrimmoryEpubProgressDto(
+                cfi = "epubcfi(/6/12!/4/2[ch3]/120/1:0)",
+                href = "OEBPS/Text/Глава 3.xhtml#ch3",
+                percentage = 39f,
+            ),
+        )
+
+        assertEquals(LocatorType.CFI, progress.locatorType)
+        val locator = Json.parseToJsonElement(checkNotNull(progress.cfi)).jsonObject
+        assertEquals(
+            "OEBPS/Text/%D0%93%D0%BB%D0%B0%D0%B2%D0%B0%203.xhtml#ch3",
+            locator["href"]?.jsonPrimitive?.content,
+        )
+        val locations = checkNotNull(locator["locations"]).jsonObject
+        assertEquals(
+            "epubcfi(/6/12!/4/2[ch3]/120/1:0)",
+            locations["fragments"]?.jsonArray?.single()?.jsonPrimitive?.content,
+        )
+        assertEquals(0.39, checkNotNull(locations["totalProgression"]).jsonPrimitive.double, 0.0001)
+        assertNull(locations["progression"])
+    }
+
+    @Test
+    fun chapterProgressWithoutCfiBecomesAChapterLocatorAtThatProgress() {
+        // What Kobo devices and this app save: the chapter file and how far into it.
+        val progress = epubProgressPull(
+            GrimmoryEpubProgressDto(
+                href = "OEBPS/text/part06.xhtml",
+                contentSourceProgressPercent = 40f,
+                percentage = 46.9f,
+            ),
+        )
+
+        assertEquals(LocatorType.CFI, progress.locatorType)
+        val locator = Json.parseToJsonElement(checkNotNull(progress.cfi)).jsonObject
+        assertEquals("OEBPS/text/part06.xhtml", locator["href"]?.jsonPrimitive?.content)
+        val locations = checkNotNull(locator["locations"]).jsonObject
+        assertNull(locations["fragments"])
+        assertEquals(0.4, checkNotNull(locations["progression"]).jsonPrimitive.double, 0.0001)
+        assertEquals(0.469, checkNotNull(locations["totalProgression"]).jsonPrimitive.double, 0.0001)
+    }
+
+    @Test
+    fun readerLocatorTheAppUploadedAsTheCfiIsRestoredAsItIs() {
+        val uploaded = """{"href":"OEBPS\/text\/part06.xhtml","type":"application\/xhtml+xml",""" +
+            """"locations":{"progression":0.4,"position":99,"totalProgression":0.4688}}"""
+        val progress = epubProgressPull(
+            GrimmoryEpubProgressDto(
+                cfi = uploaded,
+                href = "OEBPS/text/part06.xhtml",
+                percentage = 46.9f,
+            ),
+        )
+
+        assertEquals(LocatorType.CFI, progress.locatorType)
+        assertEquals(uploaded, progress.cfi)
+    }
+
+    @Test
+    fun encodedHrefIsNotEncodedTwice() {
+        assertEquals("OEBPS/text/%D0%93%201.xhtml", "OEBPS/text/%D0%93%201.xhtml".toEncodedEpubHref())
+        assertEquals("text/a%25b.xhtml#n1", "text/a%b.xhtml#n1".toEncodedEpubHref())
+    }
+
+    @Test
+    fun epubProgressWithoutCfiSendsTheChapterAndItsProgress() {
+        val body = testJson.encodeToString(
+            GrimmoryReadProgressRequestDto.serializer(),
+            GrimmoryProgressUpdate(
+                bookId = "12",
+                bookFileId = "99",
+                bookType = "EPUB",
+                positionData = null,
+                positionHref = "OEBPS/text/part06.xhtml",
+                percent = 0.469,
+                contentSourceProgressPercent = 40.0,
+            ).toRequestDto(),
+        )
+        val fileProgress = checkNotNull(Json.parseToJsonElement(body).jsonObject["fileProgress"]).jsonObject
+
+        assertNull(fileProgress["positionData"]?.takeUnless { it == JsonNull })
+        assertEquals("OEBPS/text/part06.xhtml", fileProgress["positionHref"]?.jsonPrimitive?.content)
+        assertEquals(40.0, checkNotNull(fileProgress["contentSourceProgressPercent"]).jsonPrimitive.double, 0.0001)
+    }
+
+    private fun epubProgressPull(
+        progress: GrimmoryEpubProgressDto,
+    ) = checkNotNull(
+        GrimmoryBookDto(
+            id = 12,
+            libraryId = 4,
+            primaryFile = GrimmoryBookFileDto(
+                bookType = "EPUB",
+                extension = "epub",
+            ),
+            lastReadTime = "2026-10-20T10:00:00Z",
+            epubProgress = progress,
+        ).toCatalogEntry(
+            baseUrl = "https://grimmory.example",
+        )?.progress,
+    )
 
     @Test
     fun pdfProgressPullConvertsOneBasedRemotePageToZeroBasedLocalPage() {

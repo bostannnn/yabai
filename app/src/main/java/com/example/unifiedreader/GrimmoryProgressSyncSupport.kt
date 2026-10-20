@@ -1,5 +1,7 @@
 package com.example.unifiedreader
 
+import android.net.Uri
+import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SyncState
@@ -102,12 +104,20 @@ internal fun ReaderProgressSnapshot.toGrimmoryProgressUpdate(
     pageCount: Int? = item.pageCount,
 ): GrimmoryProgressUpdate? {
     val remoteItemId = item.remoteId ?: return null
-    val positionData = when (locatorType) {
-        LocatorType.CFI -> cfi?.toGrimmoryEpubPosition()?.cfi
-        LocatorType.PAGE -> page?.let { (it + 1).coerceAtLeast(1).toString() }
-        LocatorType.PERCENT -> percent?.let { (it.coerceIn(0.0, 1.0) * 100.0).toInt().toString() }
-    } ?: return null
-    val epubPosition = cfi?.toGrimmoryEpubPosition()
+    val epubPosition = if (item.format == FormatType.EPUB) {
+        toGrimmoryEpubPosition() ?: percent?.let { GrimmoryEpubPosition() } ?: return null
+    } else {
+        null
+    }
+    val positionData = if (epubPosition != null) {
+        epubPosition.cfi
+    } else {
+        when (locatorType) {
+            LocatorType.CFI -> cfi
+            LocatorType.PAGE -> page?.let { (it + 1).coerceAtLeast(1).toString() }
+            LocatorType.PERCENT -> percent?.let { (it.coerceIn(0.0, 1.0) * 100.0).toInt().toString() }
+        } ?: return null
+    }
     return GrimmoryProgressUpdate(
         bookId = remoteItemId,
         bookFileId = item.remoteFileId,
@@ -115,6 +125,7 @@ internal fun ReaderProgressSnapshot.toGrimmoryProgressUpdate(
         positionData = positionData,
         positionHref = epubPosition?.href,
         percent = percent ?: pagePercent(pageCount) ?: 0.0,
+        contentSourceProgressPercent = epubPosition?.chapterProgressPercent,
         isFinished = isFinished,
         updatedAtEpochMillis = updatedAtEpochMillis,
     )
@@ -130,23 +141,41 @@ private fun ReaderProgressSnapshot.pagePercent(
     return ((pageIndex + 1).toDouble() / count).coerceIn(0.0, 1.0)
 }
 
+/**
+ * An EPUB position as Grimmory stores it. [cfi] is only ever a real EPUB CFI (one that came from
+ * Grimmory's web reader): that reader takes any other position data for a file path, fails to
+ * resolve it and loses the position. Without one, it opens [href] and scrolls to
+ * [chapterProgressPercent] in it, as it does for Kobo positions.
+ */
 private data class GrimmoryEpubPosition(
-    val cfi: String,
-    val href: String?,
+    val cfi: String? = null,
+    val href: String? = null,
+    val chapterProgressPercent: Double? = null,
 )
 
-private fun String.toGrimmoryEpubPosition(): GrimmoryEpubPosition {
-    if (!trimStart().startsWith("{")) {
-        return GrimmoryEpubPosition(cfi = this, href = null)
+private fun ReaderProgressSnapshot.toGrimmoryEpubPosition(): GrimmoryEpubPosition? {
+    if (locatorType != LocatorType.CFI) return null
+    val serialized = cfi?.trim()?.takeIf(String::isNotEmpty) ?: return null
+    if (!serialized.startsWith("{")) {
+        return GrimmoryEpubPosition(cfi = serialized.takeIf(String::isEpubCfi))
     }
     return runCatching {
-        val locator = JSONObject(this)
-        val href = locator.optString("href").takeIf(String::isNotBlank)
-        val fragments = locator.optJSONObject("locations")?.optJSONArray("fragments")
-        val cfi = fragments?.optString(0)?.takeIf(String::isNotBlank)
-            ?: return@runCatching GrimmoryEpubPosition(cfi = this, href = href)
-        GrimmoryEpubPosition(cfi = cfi, href = href)
-    }.getOrElse {
-        GrimmoryEpubPosition(cfi = this, href = null)
-    }
+        val locator = JSONObject(serialized)
+        val locations = locator.optJSONObject("locations")
+        val fragments = locations?.optJSONArray("fragments")
+            ?.let { array -> (0 until array.length()).map(array::optString) }
+            .orEmpty()
+        GrimmoryEpubPosition(
+            // The reader may put the chapter's anchor ahead of Grimmory's CFI (resolveEpubRestoredLocator).
+            cfi = fragments.firstOrNull(String::isEpubCfi),
+            // Decoded, like the paths Grimmory's web reader and Kobo save and compare.
+            href = locator.optString("href").substringBefore('#').takeIf(String::isNotBlank)?.let(Uri::decode),
+            chapterProgressPercent = locations
+                ?.optDouble("progression", Double.NaN)
+                ?.takeIf { it in 0.0..1.0 }
+                ?.let { it * 100.0 },
+        )
+    }.getOrNull()
 }
+
+private fun String.isEpubCfi(): Boolean = startsWith("epubcfi(")

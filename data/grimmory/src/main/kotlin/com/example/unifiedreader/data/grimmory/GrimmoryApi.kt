@@ -189,9 +189,13 @@ data class GrimmoryProgressUpdate(
     val bookId: String,
     val bookFileId: String?,
     val bookType: String?,
-    val positionData: String,
+    // An EPUB's CFI, or null when there is none: Grimmory's web reader then opens [positionHref] and
+    // scrolls to [contentSourceProgressPercent] in it, as it does for Kobo positions.
+    val positionData: String?,
     val positionHref: String? = null,
     val percent: Double,
+    // How far into [positionHref] the position is, in percent.
+    val contentSourceProgressPercent: Double? = null,
     val ttsPositionCfi: String? = null,
     val isFinished: Boolean = false,
     val clearsFinishedState: Boolean = false,

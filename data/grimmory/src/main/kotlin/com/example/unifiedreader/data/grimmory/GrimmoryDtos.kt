@@ -226,6 +226,7 @@ internal data class GrimmoryEpubProgressDto(
     val href: String? = null,
     val percentage: Float? = null,
     val ttsPositionCfi: String? = null,
+    val contentSourceProgressPercent: Float? = null,
 )
 
 @Serializable
@@ -244,10 +245,11 @@ internal data class GrimmoryReadProgressRequestDto(
 @Serializable
 internal data class GrimmoryBookFileProgressDto(
     val bookFileId: Long,
-    val positionData: String,
+    val positionData: String? = null,
     val positionHref: String? = null,
     val progressPercent: Float,
     val ttsPositionCfi: String? = null,
+    val contentSourceProgressPercent: Float? = null,
 )
 
 internal fun GrimmoryLoginResponseDto.toSession(): GrimmorySession = GrimmorySession(

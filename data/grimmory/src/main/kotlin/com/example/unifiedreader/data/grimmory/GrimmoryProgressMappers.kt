@@ -32,6 +32,7 @@ internal fun GrimmoryProgressUpdate.toRequestDto(): GrimmoryReadProgressRequestD
                 positionHref = positionHref,
                 progressPercent = clampedPercent,
                 ttsPositionCfi = ttsPositionCfi,
+                contentSourceProgressPercent = contentSourceProgressPercent?.coerceIn(0.0, 100.0)?.toFloat(),
             )
         },
         deprecatedEpubProgress = if (parsedBookFileId == null) {
@@ -69,6 +70,7 @@ private fun GrimmoryProgressUpdate.toDeprecatedEpubProgress(
         href = positionHref,
         percentage = clampedPercent,
         ttsPositionCfi = ttsPositionCfi,
+        contentSourceProgressPercent = contentSourceProgressPercent?.coerceIn(0.0, 100.0)?.toFloat(),
     )
 }
 
@@ -77,7 +79,7 @@ private fun GrimmoryProgressUpdate.toDeprecatedPdfProgress(
 ): GrimmoryPdfProgressDto? {
     if (bookType?.equals("PDF", ignoreCase = true) != true) return null
     return GrimmoryPdfProgressDto(
-        page = positionData.toIntOrNull(),
+        page = positionData?.toIntOrNull(),
         percentage = clampedPercent,
     )
 }
@@ -88,7 +90,7 @@ private fun GrimmoryProgressUpdate.toDeprecatedCbxProgress(
     val type = bookType ?: return null
     if (ComicBookTypes.none { comicType -> comicType.equals(type, ignoreCase = true) }) return null
     return GrimmoryCbxProgressDto(
-        page = positionData.toIntOrNull(),
+        page = positionData?.toIntOrNull(),
         percentage = clampedPercent,
     )
 }
