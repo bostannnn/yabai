@@ -104,16 +104,16 @@ internal fun List<EpubTocEntry>.activeEpubTocEntry(
         .maxByOrNull { entry -> entry.progression ?: 0.0 }
 }
 
-/** Which top-level chapter the reader is in, counted among the top-level entries only. */
+/** Which chapter the reader is in, counted among the chapter entries ([epubTocChapterIndices]). */
 internal data class EpubTocChapterPosition(
     val index: Int,
     val count: Int,
 )
 
 /**
- * The 1-based index of the top-level entry that contains [activeEntry] (itself, or the nearest
- * top-level entry before it), and the number of top-level entries. Null when there are no
- * top-level entries or nothing is active.
+ * The 1-based index of the chapter entry that contains [activeEntry] (itself, or the chapter it
+ * is nested in), and the number of chapters. Null when nothing is active or the active entry is
+ * outside every chapter (a foreword next to the entry that wraps the chapters).
  */
 internal fun List<EpubTocEntry>.epubTocChapterPosition(
     activeEntry: EpubTocEntry?,
@@ -121,11 +121,40 @@ internal fun List<EpubTocEntry>.epubTocChapterPosition(
     if (activeEntry == null) return null
     val activeIndex = indexOfFirst { it.id == activeEntry.id }
     if (activeIndex < 0) return null
-    val chapterStart = (activeIndex downTo 0).firstOrNull { this[it].depth == 0 } ?: return null
-    val count = count { it.depth == 0 }
-    val index = subList(0, chapterStart + 1).count { it.depth == 0 }
-    return EpubTocChapterPosition(index = index, count = count)
+    val chapters = epubTocChapterIndices()
+    val chapter = chapters.lastOrNull { it <= activeIndex } ?: return null
+    if (activeIndex >= epubTocSubtreeEnd(chapter, size)) return null
+    return EpubTocChapterPosition(index = chapters.indexOf(chapter) + 1, count = chapters.size)
 }
+
+/**
+ * Indices of the entries that count as chapters: the top-level ones, unless one of them wraps
+ * most of the contents (a book-title entry holding the chapters, as FB2 conversions have: a
+ * foreword, "Девица Кристина" with I to XVIII, notes). Its children are the chapters then,
+ * with the same rule applied inside it.
+ */
+internal fun List<EpubTocEntry>.epubTocChapterIndices(): List<Int> {
+    var start = 0
+    var end = size
+    var depth = 0
+    while (true) {
+        val level = (start until end).filter { this[it].depth == depth }
+        val wrapper = level.firstOrNull { index ->
+            val subtreeEnd = epubTocSubtreeEnd(index, end)
+            val children = (index + 1 until subtreeEnd).count { this[it].depth == depth + 1 }
+            children >= 2 && (subtreeEnd - index - 1) * 2 > end - start
+        } ?: return level
+        end = epubTocSubtreeEnd(wrapper, end)
+        start = wrapper + 1
+        depth += 1
+    }
+}
+
+// The index after the last entry nested under the entry at [index], [limit] at most.
+private fun List<EpubTocEntry>.epubTocSubtreeEnd(
+    index: Int,
+    limit: Int,
+): Int = (index + 1 until limit).firstOrNull { this[it].depth <= this[index].depth } ?: limit
 
 /** An entry the reader has passed: it starts before the active entry does. Entries without a progression are never "finished". */
 internal fun EpubTocEntry.isEpubTocEntryFinished(activeEntry: EpubTocEntry?): Boolean {

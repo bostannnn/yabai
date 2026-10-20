@@ -110,6 +110,48 @@ class EpubTableOfContentsModelTest {
     }
 
     @Test
+    fun chaptersAreTheChildrenOfAnEntryThatWrapsMostOfTheContents() {
+        // Девица Кристина: a foreword, the title entry holding I to XVIII, then the notes.
+        val chapters = (1..18).map { number ->
+            tocEntry(
+                id = "ch$number",
+                title = "Chapter $number",
+                href = "https://example.com/part$number.xhtml",
+                progression = number / 20.0,
+                depth = 1,
+            )
+        }
+        val entries = listOf(
+            tocEntry(id = "foreword", title = "Foreword", href = "https://example.com/foreword.xhtml", progression = 0.01),
+            tocEntry(id = "book", title = "Book", href = "https://example.com/part1.xhtml", progression = 0.05),
+        ) + chapters + tocEntry(id = "notes", title = "Notes", href = "https://example.com/notes.xhtml", progression = 0.99)
+
+        assertEquals((2..19).toList(), entries.epubTocChapterIndices())
+        assertEquals(EpubTocChapterPosition(index = 6, count = 18), entries.epubTocChapterPosition(chapters[5]))
+        assertNull(entries.epubTocChapterPosition(entries.first()))
+        assertNull(entries.epubTocChapterPosition(entries.last()))
+    }
+
+    @Test
+    fun chaptersStayTopLevelWhenNoEntryWrapsMostOfTheContents() {
+        val entries = (1..3).flatMap { part ->
+            listOf(tocEntry(id = "part$part", title = "Part $part", href = "https://example.com/p$part.xhtml", progression = part / 4.0)) +
+                (1..3).map { chapter ->
+                    tocEntry(
+                        id = "part$part-$chapter",
+                        title = "Chapter $chapter",
+                        href = "https://example.com/p$part-$chapter.xhtml",
+                        progression = part / 4.0 + chapter / 20.0,
+                        depth = 1,
+                    )
+                }
+        }
+
+        assertEquals(listOf(0, 4, 8), entries.epubTocChapterIndices())
+        assertEquals(EpubTocChapterPosition(index = 2, count = 3), entries.epubTocChapterPosition(entries[6]))
+    }
+
+    @Test
     fun finishedEntriesStartBeforeTheActiveOneAndNeverIncludeIt() {
         val first = tocEntry(id = "c1", title = "Chapter 1", href = "https://example.com/1.xhtml", progression = 0.0)
         val active = tocEntry(id = "c2", title = "Chapter 2", href = "https://example.com/2.xhtml", progression = 0.3)

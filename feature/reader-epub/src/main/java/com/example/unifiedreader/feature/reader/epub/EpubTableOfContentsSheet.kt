@@ -60,7 +60,7 @@ internal fun EpubTableOfContentsSheet(
     val chapterPosition = remember(entries, activeEntry) {
         entries.epubTocChapterPosition(activeEntry)
     }
-    val chapterCount = remember(entries) { entries.count { it.depth == 0 } }
+    val chapterCount = remember(entries) { entries.epubTocChapterIndices().size }
     val listState = rememberLazyListState()
     LaunchedEffect(isOpen, activeEntry?.id, entries) {
         if (!isOpen) return@LaunchedEffect

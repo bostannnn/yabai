@@ -388,7 +388,9 @@ step below lands and is judged on the emulator, then the tablet, before the next
 ### 7c. EPUB contents `[~]`
 
 - [x] `Start` panel, 360 dp, a sibling of the two docks so it covers the bars like the drawer
-      does: header "Contents" with the top-level chapter count and a close button, indent-only
+      does: header "Contents" with the chapter count and a close button (chapters are the top-level
+      entries, or the children of one that wraps most of the contents, as FB2 conversions have:
+      `epubTocChapterIndices`, 2026-10-20), indent-only
       hierarchy (no depth dots), current entry on the selected container, entries already read
       muted, footer "Chapter k of n" with percent and position, list scrolled to two rows above
       the current entry on open. `epubTocChapterPosition` and `isEpubTocEntryFinished` are pure
