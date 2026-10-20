@@ -57,7 +57,6 @@ import org.readium.r2.navigator.preferences.ReadingProgression
 import org.readium.r2.shared.publication.Link
 import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.publication.Publication
-import org.readium.r2.shared.publication.services.locateProgression
 import org.readium.r2.shared.util.asset.AssetRetriever
 import org.readium.r2.shared.util.format.FormatHints
 import org.readium.r2.shared.util.http.DefaultHttpClient
@@ -483,18 +482,21 @@ fun EpubReaderScreen(
         )
 
         is EpubPublicationState.Ready -> {
+            val restoredLocator = remember(state.publication, serializedInitialLocator) {
+                serializedInitialLocator?.let(state.publication::resolveEpubRestoredLocator)
+            }
             val initialLocatorState by produceState<EpubInitialLocatorState>(
-                initialValue = if (restoreProgressSnapshot.needsEpubProgressionLocator(serializedInitialLocator)) {
+                initialValue = if (restoreProgressSnapshot.needsEpubProgressionLocator(restoredLocator)) {
                     EpubInitialLocatorState.Loading
                 } else {
-                    EpubInitialLocatorState.Ready(serializedInitialLocator)
+                    EpubInitialLocatorState.Ready(restoredLocator)
                 },
                 key1 = state.publication,
                 key2 = restoreProgressSnapshot,
-                key3 = serializedInitialLocator,
+                key3 = restoredLocator,
             ) {
                 value = EpubInitialLocatorState.Ready(
-                    serializedInitialLocator
+                    restoredLocator
                         ?: restoreProgressSnapshot?.toReadingOrderStartLocator(state.publication)
                         ?: withContext(Dispatchers.IO) {
                             restoreProgressSnapshot?.toProgressionFallbackLocator(state.publication)
@@ -966,23 +968,6 @@ private fun buildCurrentReaderLocator(
     page = page,
     percent = percent.coerceIn(0.0, 1.0),
 )
-
-// A PAGE position on an EPUB comes from Kavita, which stores the reading-order index of the
-// chapter; open that chapter at its start.
-private fun ReaderProgressSnapshot.toReadingOrderStartLocator(
-    publication: Publication,
-): Locator? {
-    if (locatorType != LocatorType.PAGE || isFinished) return null
-    val link = publication.readingOrder.getOrNull(page ?: return null) ?: return null
-    return publication.locatorFromLink(link)
-}
-
-private suspend fun ReaderProgressSnapshot.toProgressionFallbackLocator(
-    publication: Publication,
-): Locator? {
-    val progress = percent ?: return null
-    return publication.locateProgression(progress.coerceIn(0.0, 1.0))
-}
 
 private sealed interface ReaderDocumentUriState {
     val cacheKey: String
