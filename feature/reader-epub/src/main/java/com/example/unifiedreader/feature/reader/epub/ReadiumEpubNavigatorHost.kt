@@ -54,7 +54,7 @@ internal fun ReadiumEpubNavigatorHost(
     initialLocator: Locator?,
     preferences: EpubReaderPreferences,
     // The last argument: whether the reader sees the end of the book (isEpubBookEnd).
-    onLocationChanged: (Locator, Int, Int?, Boolean) -> Unit,
+    onLocationChanged: (Locator, EpubResourcePage, Boolean) -> Unit,
     onSurfaceTap: () -> Unit,
     onEndNavigationRequested: () -> Unit,
     onFootnoteActivated: (EpubFootnoteContent) -> Unit,
@@ -171,15 +171,17 @@ internal fun ReadiumEpubNavigatorHost(
         var navigatorFragment: EpubNavigatorFragment? = null
         val footnoteNavigationJobs = mutableSetOf<Job>()
         val isScrollMode = preferences.layoutMode == EpubReaderLayoutMode.Scroll
+        val isReflowableSpread = preferences.layoutMode == EpubReaderLayoutMode.DoublePage &&
+            publication.metadata.presentation.layout != EpubLayout.FIXED
         var isAtBookEnd = false
         var bookEndCheckJob: Job? = null
-        fun reportLocation(locator: Locator, pageIndex: Int, totalPages: Int?, atBookEnd: Boolean) {
+        fun reportLocation(locator: Locator, page: EpubResourcePage, atBookEnd: Boolean) {
             isAtBookEnd = atBookEnd
             curlHost.onPageChanged(
-                isAtBookStart = pageIndex == 0 && publication.readingOrderIndexOf(locator) == 0,
+                isAtBookStart = page.pageIndex == 0 && publication.readingOrderIndexOf(locator) == 0,
                 isAtBookEnd = atBookEnd,
             )
-            latestOnLocationChanged.value(locator, pageIndex, totalPages, atBookEnd)
+            latestOnLocationChanged.value(locator, page, atBookEnd)
         }
         val fragmentFactory = navigatorFactory.createFragmentFactory(
             initialLocator = resumePoint.startLocator(initialLocator),
@@ -236,24 +238,36 @@ internal fun ReadiumEpubNavigatorHost(
                 ) {
                     bookEndCheckJob?.cancel()
                     val isLastResource = publication.readingOrderIndexOf(locator) == publication.readingOrder.lastIndex
-                    if (!isScrollMode || !isLastResource) {
+                    val checksScrollEnd = isScrollMode && isLastResource
+                    // Only a resource's last spread can end on Readium's blank column.
+                    val checksBlankColumn = isReflowableSpread && pageIndex >= totalPages - 1
+                    if (!checksScrollEnd && !checksBlankColumn) {
                         reportLocation(
                             locator = locator,
-                            pageIndex = pageIndex,
-                            totalPages = totalPages,
+                            page = EpubResourcePage(pageIndex = pageIndex, totalPages = totalPages),
                             atBookEnd = isEpubBookEnd(isLastResource, isScrollMode, pageIndex, totalPages, null),
                         )
                         return
                     }
                     bookEndCheckJob = footnoteNavigationScope.launch {
-                        val scrolledToEnd = navigatorFragment
-                            ?.evaluateJavascript(EpubScrolledToResourceEndScript)
+                        val scrolledToEnd = if (checksScrollEnd) {
+                            navigatorFragment
+                                ?.evaluateJavascript(EpubScrolledToResourceEndScript)
+                                ?.trim() == "true"
+                        } else {
+                            null
+                        }
+                        val isSecondColumnBlank = checksBlankColumn && navigatorFragment
+                            ?.evaluateJavascript(EpubSecondColumnBlankScript)
                             ?.trim() == "true"
                         reportLocation(
                             locator = locator,
-                            pageIndex = pageIndex,
-                            totalPages = totalPages,
-                            atBookEnd = isEpubBookEnd(true, true, pageIndex, totalPages, scrolledToEnd),
+                            page = EpubResourcePage(
+                                pageIndex = pageIndex,
+                                totalPages = totalPages,
+                                isSecondColumnBlank = isSecondColumnBlank,
+                            ),
+                            atBookEnd = isEpubBookEnd(isLastResource, isScrollMode, pageIndex, totalPages, scrolledToEnd),
                         )
                     }
                 }
@@ -334,7 +348,11 @@ internal fun ReadiumEpubNavigatorHost(
             navigator?.let {
                 it.removeInputListener(tapZoneListener)
                 resumePoint.onNavigatorRemoved(it.currentLocator.value)
-                latestOnLocationChanged.value(it.currentLocator.value, 0, null, isAtBookEnd)
+                latestOnLocationChanged.value(
+                    it.currentLocator.value,
+                    EpubResourcePage(pageIndex = 0, totalPages = null),
+                    isAtBookEnd,
+                )
             }
             fragmentManager.findFragmentByTag(fragmentTag)?.let { existing ->
                 fragmentManager.beginTransaction()

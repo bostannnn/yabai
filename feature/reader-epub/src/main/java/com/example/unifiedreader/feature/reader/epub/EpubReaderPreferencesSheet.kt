@@ -33,6 +33,7 @@ internal fun EpubPreferencesSheet(
     layoutMode: EpubReaderLayoutMode,
     useOrientationLayoutDefault: Boolean,
     pageTurnStyle: PageTurnStyle,
+    pageNumbersVisible: Boolean,
     onDismissRequest: () -> Unit,
     onTypographyModeChanged: (EpubTypographyMode) -> Unit,
     onFontFamilyChanged: (EpubReaderFontFamily) -> Unit,
@@ -47,6 +48,7 @@ internal fun EpubPreferencesSheet(
     onLayoutModeChanged: (EpubReaderLayoutMode) -> Unit,
     onUseOrientationLayoutDefault: () -> Unit,
     onPageTurnStyleChanged: (PageTurnStyle) -> Unit,
+    onPageNumbersVisibleChanged: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(EpubPreferencesTab.Text) }
@@ -78,6 +80,7 @@ internal fun EpubPreferencesSheet(
             layoutMode = layoutMode,
             useOrientationLayoutDefault = useOrientationLayoutDefault,
             pageTurnStyle = pageTurnStyle,
+            pageNumbersVisible = pageNumbersVisible,
             selectedTab = selectedTab,
             isFontPickerOpen = isFontPickerOpen,
             onDismissRequest = onDismissRequest,
@@ -96,6 +99,7 @@ internal fun EpubPreferencesSheet(
             onLayoutModeChanged = onLayoutModeChanged,
             onUseOrientationLayoutDefault = onUseOrientationLayoutDefault,
             onPageTurnStyleChanged = onPageTurnStyleChanged,
+            onPageNumbersVisibleChanged = onPageNumbersVisibleChanged,
         )
     }
     // Registered after the panel's own handler, so it runs first: back leaves the font page

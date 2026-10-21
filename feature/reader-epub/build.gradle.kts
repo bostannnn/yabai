@@ -32,6 +32,7 @@ dependencies {
     implementation(project(":core:ui-components"))
     implementation(project(":core:model"))
     implementation(project(":feature:reader-core"))
+    implementation(project(":feature:reader-preferences"))
     implementation(platform(libs.androidx.compose.bom))
     implementation("androidx.compose.animation:animation")
     implementation("androidx.compose.foundation:foundation")

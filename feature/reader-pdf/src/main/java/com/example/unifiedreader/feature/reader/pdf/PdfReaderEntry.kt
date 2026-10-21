@@ -78,6 +78,10 @@ import com.example.unifiedreader.feature.reader.core.CompactReaderOverlayFrame
 import com.example.unifiedreader.feature.reader.core.ImmersiveReaderOverlay
 import com.example.unifiedreader.feature.reader.core.ReaderActiveSessionTracker
 import com.example.unifiedreader.feature.reader.core.ReaderBottomProgressBar
+import com.example.unifiedreader.feature.reader.core.ReaderPageNumber
+import com.example.unifiedreader.feature.reader.core.ReaderPageNumberPills
+import com.example.unifiedreader.feature.reader.preferences.InMemoryReaderPageNumberPreferencesStore
+import com.example.unifiedreader.feature.reader.preferences.ReaderPageNumberPreferencesStore
 import com.example.unifiedreader.feature.reader.core.ReaderLocator
 import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
 import com.example.unifiedreader.feature.reader.core.ReaderOverlayBackButton
@@ -110,6 +114,7 @@ fun PdfReaderScreen(
     documentUriProvider: (suspend (ReadableItem) -> Uri?)? = null,
     sessionStore: ReaderSessionStore? = null,
     journalReadingSessionRecorder: JournalReadingSessionRecorder? = null,
+    pageNumberPreferences: ReaderPageNumberPreferencesStore = remember { InMemoryReaderPageNumberPreferencesStore() },
     openMode: ReaderOpenMode = ReaderOpenMode.Default,
     onBack: () -> Unit = {},
     onCompletionRequested: () -> Unit = {},
@@ -323,6 +328,7 @@ fun PdfReaderScreen(
     BackHandler(onBack = closeReader)
 
     val safePageIndex = currentPageIndex.coerceIn(0, (pageCount - 1).coerceAtLeast(0))
+    val pageNumbersVisible by pageNumberPreferences.isVisibleFlow.collectAsState()
     val currentPageProgress = if (pageCount > 0) {
         (safePageIndex + 1).toFloat() / pageCount.toFloat()
     } else {
@@ -366,6 +372,11 @@ fun PdfReaderScreen(
             overlayState = overlayState,
             autoHideDelayMillis = 0L,
             modifier = Modifier.fillMaxSize(),
+            pageIndicator = if (pageNumbersVisible && pageCount > 0) {
+                { ReaderPageNumberPills(listOf(ReaderPageNumber("${safePageIndex + 1} / $pageCount"))) }
+            } else {
+                null
+            },
             content = {
                 PdfPageViewport(
                     pageState = pageState,

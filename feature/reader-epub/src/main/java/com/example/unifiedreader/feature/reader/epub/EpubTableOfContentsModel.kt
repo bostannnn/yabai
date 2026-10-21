@@ -34,6 +34,7 @@ internal suspend fun Publication.buildEpubBookProgress(): EpubBookProgress {
         pageCount = pageCount,
         chapterMarks = tocMarks,
         tocEntries = tocEntries,
+        resourcePositions = positionsByReadingOrder.toEpubResourcePositions(),
     )
 }
 
@@ -167,6 +168,7 @@ internal data class EpubBookProgress(
     val pageCount: Int,
     val chapterMarks: List<Float>,
     val tocEntries: List<EpubTocEntry>,
+    val resourcePositions: List<EpubResourcePositions> = emptyList(),
 )
 
 internal data class EpubTocEntry(

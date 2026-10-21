@@ -32,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -42,10 +43,14 @@ import com.example.unifiedreader.feature.reader.core.ImmersiveReaderOverlay
 import com.example.unifiedreader.feature.reader.core.ReaderActiveSessionTracker
 import com.example.unifiedreader.feature.reader.core.ReaderBottomProgressBar
 import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
+import com.example.unifiedreader.feature.reader.core.ReaderPageNumber
+import com.example.unifiedreader.feature.reader.core.ReaderPageNumberPills
 import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
+import com.example.unifiedreader.feature.reader.preferences.InMemoryReaderPageNumberPreferencesStore
+import com.example.unifiedreader.feature.reader.preferences.ReaderPageNumberPreferencesStore
 import com.example.unifiedreader.journal.JournalReadingSessionRecorder
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
@@ -57,6 +62,7 @@ fun ComicsReaderScreen(
     progressStore: ComicReaderProgressStore,
     preferencesStore: ComicReaderPreferencesStore,
     journalReadingSessionRecorder: JournalReadingSessionRecorder? = null,
+    pageNumberPreferences: ReaderPageNumberPreferencesStore = remember { InMemoryReaderPageNumberPreferencesStore() },
     onBack: () -> Unit,
     openMode: ReaderOpenMode = ReaderOpenMode.Default,
     readerWorkCoordinator: ReaderWorkCoordinator? = null,
@@ -70,6 +76,7 @@ fun ComicsReaderScreen(
     val progressHydrated by progressStore.isHydratedFlow.collectAsState()
     val preferencesHydrated by preferencesStore.isHydratedFlow.collectAsState()
     val savedPagesByItemId by progressStore.savedPagesFlow.collectAsState()
+    val pageNumbersVisible by pageNumberPreferences.isVisibleFlow.collectAsState()
     val restoredPreferences by preferencesStore.observePreferences(item).collectAsState(initial = null)
 
     if (pages.isEmpty()) {
@@ -444,10 +451,40 @@ fun ComicsReaderScreen(
             metadataLoadingEnabled = readerState.currentPage in loadedVisiblePageIndexes,
             readerWorkCoordinator = readerWorkCoordinator,
         )
+        // Built here, not in the paged surface, so the page numbers and the top bar know the spread on screen.
+        val pagedSpreads = if (readerState.readerMode == ComicReaderMode.Paged) {
+            remember(pages, readerState.readingDirection, useDoublePageSpreadsForPlan, spreadPlanState.metadataByPageId) {
+                buildComicPageSpreads(
+                    pages = pages,
+                    readingDirection = readerState.readingDirection,
+                    useDoublePageSpreads = useDoublePageSpreadsForPlan,
+                    pageMetadataById = spreadPlanState.metadataByPageId,
+                )
+            }
+        } else {
+            emptyList()
+        }
+        val currentSpread = pagedSpreads.getOrNull(
+            pagedSpreads.indexOfPage(readerState.resumeAnchorPage, readerState.resumeSegment),
+        )
+        val containerSize = IntSize(constraints.maxWidth, constraints.maxHeight)
         ImmersiveReaderOverlay(
             overlayState = overlayState,
             autoHideDelayMillis = 0L,
             modifier = Modifier.fillMaxSize(),
+            pageIndicator = if (pageNumbersVisible) {
+                {
+                    ReaderPageNumberPills(
+                        numbers = currentSpread?.pageNumbers(
+                            pageCount = pages.size,
+                            containerSize = containerSize,
+                            pageFitMode = readerState.pageFitMode,
+                        ) ?: listOf(ReaderPageNumber(comicPageNumberLabel(readerState.currentPage, pages.size))),
+                    )
+                }
+            } else {
+                null
+            },
             content = {
                 val surfaceStateKey = remember(pages) {
                     Triple(
@@ -461,9 +498,9 @@ fun ComicsReaderScreen(
                         ComicReaderMode.Paged -> ComicsPagedReaderSurface(
                             item = item,
                             pages = pages,
+                            spreads = pagedSpreads,
                             pageSource = pageSource,
                             readerState = readerState,
-                            spreadPlanState = spreadPlanState,
                             loadedVisiblePageIndexes = loadedVisiblePageIndexes,
                             onVisiblePagesLoaded = onVisiblePagesLoaded,
                             onToggleOverlay = overlayState::toggle,
@@ -495,12 +532,14 @@ fun ComicsReaderScreen(
                     ReaderOverlayBar(
                         itemId = item.id,
                         title = comicReaderDisplayTitle(item),
-                        progressLabel = "${readerState.currentPage + 1} / ${pages.size}",
+                        progressLabel = currentSpread?.progressLabel
+                            ?: comicPageNumberLabel(readerState.currentPage, pages.size),
                         readerMode = readerState.readerMode,
                         readingDirection = readerState.readingDirection,
                         pageFitMode = readerState.pageFitMode,
                         spreadMode = readerState.spreadMode,
                         pageTurnStyle = readerState.pageTurnStyle,
+                        pageNumbersVisible = pageNumbersVisible,
                         overlayVisible = overlayState.isVisible,
                         onBack = closeReader,
                         onReaderModeChanged = readerState::onReaderModeChanged,
@@ -508,6 +547,7 @@ fun ComicsReaderScreen(
                         onPageFitModeChanged = readerState::onPageFitModeChanged,
                         onSpreadModeChanged = readerState::onSpreadModeChanged,
                         onPageTurnStyleChanged = readerState::onPageTurnStyleChanged,
+                        onPageNumbersVisibleChanged = pageNumberPreferences::setVisible,
                     )
                     Column(
                         modifier = Modifier

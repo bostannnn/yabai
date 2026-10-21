@@ -82,6 +82,9 @@ private val ReaderOverlayStateSaver: Saver<ReaderOverlayState, List<Any>> = Save
  * the pages are not drawn by Compose: a WebView on Android 15+ renders through its own
  * SurfaceControl overlay, so the glass layer captures nothing and its per-frame re-record
  * fights the overlay (visible as flicker). The chrome then sits on the plain fallback surface.
+ *
+ * [pageIndicator] shows over the pages while the chrome is hidden and fades out as it appears,
+ * so the page number is on screen exactly when the bars that carry it are not.
  */
 @Composable
 fun ImmersiveReaderOverlay(
@@ -89,6 +92,7 @@ fun ImmersiveReaderOverlay(
     autoHideDelayMillis: Long,
     modifier: Modifier = Modifier,
     glass: Boolean = true,
+    pageIndicator: (@Composable BoxScope.() -> Unit)? = null,
     content: @Composable BoxScope.() -> Unit,
     overlay: @Composable BoxScope.() -> Unit,
 ) {
@@ -111,6 +115,17 @@ fun ImmersiveReaderOverlay(
                     .appGlassSource(),
                 content = content,
             )
+
+            if (pageIndicator != null) {
+                AnimatedVisibility(
+                    visible = !overlayState.isVisible,
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    Box(modifier = Modifier.fillMaxSize(), content = pageIndicator)
+                }
+            }
 
             AnimatedVisibility(
                 visible = overlayState.isVisible,
