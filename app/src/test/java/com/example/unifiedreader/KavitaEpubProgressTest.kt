@@ -72,15 +72,15 @@ class KavitaEpubProgressTest {
     fun `remote position in the local chapter keeps the exact local spot`() {
         val local = localEpubProgress(readingOrderIndex = 4)
 
-        assertTrue(kavitaEpubLocalRefinesRemote(local, remoteChapter(4)))
-        assertFalse(kavitaEpubLocalRefinesRemote(local, remoteChapter(5)))
-        assertFalse(kavitaEpubLocalRefinesRemote(local, remoteChapter(4).copy(isFinished = true)))
+        assertTrue(kavitaLocalRefinesRemote(local, remoteChapter(4)))
+        assertFalse(kavitaLocalRefinesRemote(local, remoteChapter(5)))
+        assertFalse(kavitaLocalRefinesRemote(local, remoteChapter(4).copy(isFinished = true)))
     }
 
     @Test
     fun `remote unread keeps a local position only in the first chapter`() {
-        assertTrue(kavitaEpubLocalRefinesRemote(localEpubProgress(readingOrderIndex = 0), null))
-        assertFalse(kavitaEpubLocalRefinesRemote(localEpubProgress(readingOrderIndex = 2), null))
+        assertTrue(kavitaLocalRefinesRemote(localEpubProgress(readingOrderIndex = 0), null))
+        assertFalse(kavitaLocalRefinesRemote(localEpubProgress(readingOrderIndex = 2), null))
     }
 
     @Test
@@ -92,8 +92,24 @@ class KavitaEpubProgressTest {
             syncState = SyncState.CLEAN,
         )
 
-        assertFalse(kavitaEpubLocalRefinesRemote(comic, remoteChapter(4)))
-        assertFalse(kavitaEpubLocalRefinesRemote(localEpubProgress(readingOrderIndex = null), remoteChapter(0)))
+        assertFalse(kavitaLocalRefinesRemote(comic, remoteChapter(4)))
+        assertFalse(kavitaLocalRefinesRemote(localEpubProgress(readingOrderIndex = null), remoteChapter(0)))
+    }
+
+    @Test
+    fun `remote unread keeps a comic open on its first page`() {
+        val comic = ProgressSyncSnapshot(
+            itemId = EpubItem.id,
+            locatorType = LocatorType.PAGE,
+            page = 0,
+            syncState = SyncState.CLEAN,
+        )
+
+        // Kavita stores page index 0 as zero pages read, which reads back as unread.
+        assertTrue(kavitaLocalRefinesRemote(comic, null))
+        assertFalse(kavitaLocalRefinesRemote(comic.copy(page = 3), null))
+        assertFalse(kavitaLocalRefinesRemote(comic.copy(isFinished = true), null))
+        assertFalse(kavitaLocalRefinesRemote(comic.copy(isExplicitUnreadReset = true), null))
     }
 
     private fun localEpubProgress(

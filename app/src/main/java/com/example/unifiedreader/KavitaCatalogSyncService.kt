@@ -162,7 +162,7 @@ class KavitaCatalogSyncService(
                 progressOf = KavitaChapterCatalogEntry::progress,
                 missingRemoteClearsLocal = KavitaChapterCatalogEntry::isExplicitUnreadReset,
                 remoteClearOverridesLocal = { false },
-                localRefinesRemote = ::kavitaEpubLocalRefinesRemote,
+                localRefinesRemote = ::kavitaLocalRefinesRemote,
                 syncGroups = fetchResult.value.syncGroups,
             ) { items ->
                 val progressSync = pushDirtyProgress(
@@ -458,7 +458,7 @@ class KavitaCatalogSyncService(
             progressOf = KavitaChapterCatalogEntry::progress,
             missingRemoteClearsLocal = KavitaChapterCatalogEntry::isExplicitUnreadReset,
             remoteClearOverridesLocal = { false },
-            localRefinesRemote = ::kavitaEpubLocalRefinesRemote,
+            localRefinesRemote = ::kavitaLocalRefinesRemote,
         )
     }
 

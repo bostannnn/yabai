@@ -135,14 +135,16 @@ internal fun ReaderProgressSnapshot.kavitaPageNum(
 }
 
 /**
- * Kavita keeps an EPUB position only as a chapter index, and reads index 0 as unread, so a remote
- * position in the chapter the local one is in carries nothing new: keep the exact local spot.
+ * Kavita keeps a position as a page index, an EPUB's only as a chapter index, and reads index 0 as
+ * unread. So a remote "unread" for a book open on its first page, or a remote position in the
+ * chapter the local one is in, carries nothing new: keep the exact local spot.
  */
-internal fun kavitaEpubLocalRefinesRemote(
+internal fun kavitaLocalRefinesRemote(
     local: ProgressSyncSnapshot,
     remote: ReadingProgress?,
 ): Boolean {
     if (local.isFinished || local.isExplicitUnreadReset || remote?.isFinished == true) return false
+    if (local.locatorType == LocatorType.PAGE) return remote == null && local.page == 0
     if (local.locatorType != LocatorType.CFI) return false
     val localChapter = epubReadingOrderIndexOf(local.cfi) ?: return false
     val remoteChapter = when {
