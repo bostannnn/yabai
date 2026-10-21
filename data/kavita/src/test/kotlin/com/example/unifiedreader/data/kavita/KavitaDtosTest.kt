@@ -157,6 +157,24 @@ class KavitaDtosTest {
     }
 
     @Test
+    fun `series keeps the user's pages read and latest read date`() {
+        val series = KavitaSeriesDto(
+            id = 12,
+            name = "Saga",
+            libraryId = 5,
+            format = 1,
+            pagesRead = 40,
+            latestReadDate = "2026-04-09T10:15:30.1234567",
+        ).toEntry(
+            baseUrl = "https://kavita.example",
+            apiKey = "secret",
+        ) ?: error("Expected series entry.")
+
+        assertEquals(40, series.pagesRead)
+        assertEquals("2026-04-09T10:15:30.1234567", series.latestReadDate)
+    }
+
+    @Test
     fun `series date added maps kavita local date time`() {
         val series = KavitaSeriesDto(
             id = 12,

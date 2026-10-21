@@ -71,6 +71,8 @@ internal data class KavitaSeriesDto(
     val genres: List<KavitaGenreTagDto>? = null,
     val tags: List<KavitaTagDto>? = null,
     val language: String? = null,
+    val pagesRead: Int? = null,
+    val latestReadDate: String? = null,
 )
 
 @Serializable
@@ -347,6 +349,8 @@ internal fun KavitaSeriesDto.toEntry(
         genres = genres.toFacetNames(),
         tags = tags.toTagNames(),
         languages = language.toFacetNames(),
+        pagesRead = pagesRead?.coerceAtLeast(0),
+        latestReadDate = latestReadDate?.takeIf(String::isNotBlank),
     )
 }
 

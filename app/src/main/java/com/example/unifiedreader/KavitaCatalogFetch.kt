@@ -244,12 +244,16 @@ private fun KavitaSeriesEntry.kavitaCatalogFingerprint(
         tags.stableFingerprintPart(),
         languages.stableFingerprintPart(),
     ).joinToString(KAVITA_CATALOG_FINGERPRINT_FIELD_SEPARATOR)
-    val marker = recentUpdateMarker?.takeIf(String::isNotBlank) ?: return baseFingerprint
-    return listOf(
-        baseFingerprint,
-        "recent",
-        marker,
-    ).joinToString(KAVITA_CATALOG_FINGERPRINT_FIELD_SEPARATOR)
+    val parts = mutableListOf(baseFingerprint)
+    // Reading on any device changes these, so the fast sync re-fetches the series and pulls its
+    // progress. Only a series with pages read carries them: unread ones keep their fingerprint.
+    if ((pagesRead ?: 0) > 0) {
+        parts += listOf("read", pagesRead.toString(), latestReadDate.orEmpty())
+    }
+    recentUpdateMarker?.takeIf(String::isNotBlank)?.let { marker ->
+        parts += listOf("recent", marker)
+    }
+    return parts.joinToString(KAVITA_CATALOG_FINGERPRINT_FIELD_SEPARATOR)
 }
 
 private fun List<String>.stableFingerprintPart(): String = asSequence()

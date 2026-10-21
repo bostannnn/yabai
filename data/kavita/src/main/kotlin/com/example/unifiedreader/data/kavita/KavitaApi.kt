@@ -187,6 +187,9 @@ data class KavitaSeriesEntry(
     val genres: List<String> = emptyList(),
     val tags: List<String> = emptyList(),
     val languages: List<String> = emptyList(),
+    // The user's reading of the series, on any device: pages read and the last progress save.
+    val pagesRead: Int? = null,
+    val latestReadDate: String? = null,
 )
 
 data class KavitaSeriesUpdateEntry(

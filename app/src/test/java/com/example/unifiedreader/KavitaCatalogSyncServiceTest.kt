@@ -810,6 +810,66 @@ class KavitaCatalogSyncServiceTest {
     }
 
     @Test
+    fun `fast sync refetches kavita series read since the last sync and pulls their progress`() = runBlocking {
+        val writer = RecordingKavitaRemoteCatalogWriter()
+        val readerSessionStore = KavitaTestReaderSessionStore()
+        val request = KavitaCatalogSyncRequest(
+            displayName = "Kavita",
+            baseUrl = "https://kavita.example",
+            username = "reader",
+            accessToken = "saved-access-token",
+            apiKey = "saved-api-key",
+        )
+        val readChapter = kavitaChapterEntry(chapterId = "99", libraryId = "5", seriesId = "12")
+        val unreadChapter = kavitaChapterEntry(chapterId = "120", libraryId = "5", seriesId = "13")
+            .copy(progress = null, isExplicitUnreadReset = true)
+        FakeKavitaApi(
+            libraries = listOf(kavitaLibrary("5")),
+            series = listOf(
+                kavitaSeriesEntry(id = "12", libraryId = "5", pagesRead = 3, latestReadDate = "2026-04-07T06:00:00"),
+                kavitaSeriesEntry(id = "13", libraryId = "5", pagesRead = 0, latestReadDate = "0001-01-01T00:00:00"),
+            ),
+            entriesBySeriesId = mapOf(
+                "12" to listOf(readChapter),
+                "13" to listOf(unreadChapter),
+            ),
+        ).also { api ->
+            KavitaCatalogSyncService(
+                kavitaApiFactory = KavitaApiFactory { _ -> api },
+                remoteCatalogWriter = writer,
+                readerSessionStore = readerSessionStore,
+            ).sync(request = request)
+        }
+        // Read on another device: series 12 moved on; series 13 was opened on its first page.
+        val readElsewhere = readChapter.copy(
+            progress = readChapter.progress?.copy(page = 10, updatedAtEpochMillis = 1775628000000L),
+        )
+        val secondApi = FakeKavitaApi(
+            libraries = listOf(kavitaLibrary("5")),
+            series = listOf(
+                kavitaSeriesEntry(id = "12", libraryId = "5", pagesRead = 10, latestReadDate = "2026-04-08T06:00:00"),
+                kavitaSeriesEntry(id = "13", libraryId = "5", pagesRead = 0, latestReadDate = "2026-04-08T07:00:00"),
+            ),
+            entriesBySeriesId = mapOf(
+                "12" to listOf(readElsewhere),
+                "13" to listOf(unreadChapter),
+            ),
+        )
+
+        KavitaCatalogSyncService(
+            kavitaApiFactory = KavitaApiFactory { _ -> secondApi },
+            remoteCatalogWriter = writer,
+            readerSessionStore = readerSessionStore,
+        ).fastSync(request = request)
+
+        assertEquals(listOf("12"), secondApi.detailRequests)
+        assertTrue(secondApi.progressRequests.isEmpty())
+        val progress = readerSessionStore.getProgress(readElsewhere.item)
+        assertEquals(10, progress?.page)
+        assertEquals(SyncState.CLEAN, progress?.syncState)
+    }
+
+    @Test
     fun `fast sync skips unchanged progress pull by default`() = runBlocking {
         val series = kavitaSeriesEntry(id = "12", libraryId = "5")
         val writer = RecordingKavitaRemoteCatalogWriter()
@@ -1141,6 +1201,8 @@ private fun kavitaSeriesEntry(
     format: FormatType = FormatType.CBZ,
     addedAtEpochMillis: Long? = null,
     lastChapterAddedAtEpochMillis: Long = 100L,
+    pagesRead: Int? = null,
+    latestReadDate: String? = null,
 ): KavitaSeriesEntry = KavitaSeriesEntry(
     id = id,
     libraryId = libraryId,
@@ -1150,6 +1212,8 @@ private fun kavitaSeriesEntry(
     addedAtEpochMillis = addedAtEpochMillis,
     lastChapterAddedAtEpochMillis = lastChapterAddedAtEpochMillis,
     coverUrl = "https://kavita.example/api/Image/series-cover?seriesId=$id&apiKey=seed",
+    pagesRead = pagesRead,
+    latestReadDate = latestReadDate,
 )
 
 private fun kavitaRecentUpdateEntry(
