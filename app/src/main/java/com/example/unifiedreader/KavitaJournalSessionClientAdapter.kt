@@ -35,6 +35,7 @@ class KavitaJournalSessionClientAdapter @Inject constructor(
                     accessToken = accessToken,
                     entries = items,
                     journalRepository = journalRepository,
+                    itemsAreWholeCatalog = false,
                     pushJournalEntries = pushJournalEntries,
                 )
             }

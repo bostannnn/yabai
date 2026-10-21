@@ -519,6 +519,7 @@ class KavitaCatalogSyncService(
             accessToken = accessToken,
             entries = entries,
             journalRepository = journalRepository,
+            itemsAreWholeCatalog = true,
         )
     }
 

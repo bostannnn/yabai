@@ -108,6 +108,7 @@ class KavitaJournalSyncSupportTest {
             accessToken = "token",
             entries = listOf(item),
             journalRepository = repository,
+            itemsAreWholeCatalog = true,
         )
 
         assertEquals(77, api.updatedRatingSeriesId)
@@ -190,6 +191,7 @@ class KavitaJournalSyncSupportTest {
             accessToken = "token",
             entries = listOf(item),
             journalRepository = repository,
+            itemsAreWholeCatalog = true,
         )
 
         assertEquals(4.5f, api.updatedRating ?: -1f, 0.0001f)
@@ -219,6 +221,7 @@ class KavitaJournalSyncSupportTest {
             accessToken = "token",
             entries = listOf(item),
             journalRepository = repository,
+            itemsAreWholeCatalog = true,
         )
 
         assertEquals(4.5f, api.updatedRating ?: -1f, 0.0001f)
@@ -536,6 +539,7 @@ class KavitaJournalSyncSupportTest {
             accessToken = "token",
             entries = listOf(item),
             journalRepository = repository,
+            itemsAreWholeCatalog = true,
         )
 
         assertEquals(0f, api.updatedRating ?: -1f, 0.0001f)
@@ -564,6 +568,7 @@ class KavitaJournalSyncSupportTest {
             accessToken = "token",
             entries = listOf(item),
             journalRepository = repository,
+            itemsAreWholeCatalog = true,
         )
 
         assertEquals(0f, api.updatedRating ?: -1f, 0.0001f)
@@ -584,10 +589,37 @@ class KavitaJournalSyncSupportTest {
             accessToken = "token",
             entries = emptyList(),
             journalRepository = repository,
+            itemsAreWholeCatalog = true,
         )
 
         assertTrue(failures.isEmpty())
         assertEquals(SyncState.CLEAN, repository.markedSyncStates[item.id])
+    }
+
+    @Test
+    fun `kavita dirty push leaves entries outside a pending flush batch dirty`() = runTest {
+        val flushedItem = readableItem(sourceType = SourceType.KAVITA, remoteId = "42")
+        val otherItem = readableItem(sourceType = SourceType.KAVITA, remoteId = "43")
+        val repository = RecordingJournalRepository(
+            dirtyEntries = listOf(
+                journalEntry(item = flushedItem, rating = 7, reviewText = "In the batch"),
+                journalEntry(item = otherItem, rating = 8, reviewText = "Not in the batch"),
+            ),
+        )
+        val api = FakeKavitaApi(chapterInfo = KavitaChapterInfoDto(seriesId = 77))
+
+        val failures = pushDirtyKavitaJournalEntries(
+            api = api,
+            accessToken = "token",
+            entries = listOf(flushedItem),
+            journalRepository = repository,
+            itemsAreWholeCatalog = false,
+        )
+
+        assertTrue(failures.isEmpty())
+        assertEquals(SyncState.CLEAN, repository.markedSyncStates[flushedItem.id])
+        assertEquals(null, repository.markedSyncStates[otherItem.id])
+        assertEquals(42, api.updatedRatingChapterId)
     }
 
     @Test
@@ -610,6 +642,7 @@ class KavitaJournalSyncSupportTest {
             accessToken = "token",
             entries = listOf(failingItem, successfulItem),
             journalRepository = repository,
+            itemsAreWholeCatalog = true,
         )
 
         assertEquals(SyncState.FAILED, repository.markedSyncStates[failingItem.id])
@@ -634,6 +667,7 @@ class KavitaJournalSyncSupportTest {
                 accessToken = "token",
                 entries = listOf(item),
                 journalRepository = repository,
+                itemsAreWholeCatalog = true,
             )
         }.exceptionOrNull()
 

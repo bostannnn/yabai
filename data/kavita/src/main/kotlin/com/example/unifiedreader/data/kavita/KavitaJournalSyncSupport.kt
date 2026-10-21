@@ -156,6 +156,9 @@ suspend fun pushDirtyKavitaJournalEntries(
     accessToken: String,
     entries: List<ReadableItem>,
     journalRepository: JournalRepository?,
+    // True only when `entries` is the whole Kavita catalog (a catalog sync), so a dirty entry
+    // missing from it belongs to a chapter deleted on the server. A pending flush passes a subset.
+    itemsAreWholeCatalog: Boolean,
     pushJournalEntries: Boolean = true,
 ): List<Throwable> {
     val repository = journalRepository ?: return emptyList()
@@ -165,6 +168,9 @@ suspend fun pushDirtyKavitaJournalEntries(
     repository.getDirtyJournalEntriesForSource(SourceType.KAVITA).forEach { entry ->
         val item = itemById[entry.itemId]
         if (item == null) {
+            // Outside this batch: leave it for a later push.
+            if (!itemsAreWholeCatalog) return@forEach
+            // A Kavita chapter missing from the catalog was removed on the server; stop retrying it.
             repository.markJournalEntrySyncState(entry.itemId, SyncState.CLEAN)
             return@forEach
         }
