@@ -3,6 +3,7 @@ package com.example.unifiedreader
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.ReadingProgress
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.data.stump.StumpApi
@@ -73,6 +74,47 @@ class StumpProgressSyncSupportTest {
         assertEquals(8, snapshot.page)
         assertEquals(SyncState.DIRTY, snapshot.syncState)
         assertEquals(456L, snapshot.updatedAtEpochMillis)
+    }
+
+    @Test
+    fun `a Stump copy read later on another device is kept instead of the queued save`() = runTest {
+        val item = ReadableItem(
+            id = "stump:item:42",
+            sourceType = SourceType.STUMP,
+            libraryId = "stump:library:5",
+            remoteId = "42",
+            title = "Chapter 42",
+            format = FormatType.CBZ,
+            pageCount = 28,
+        )
+        val store = TestStumpReaderSessionStore()
+        store.saveProgress(
+            item = item,
+            locator = ReaderLocator(locatorType = LocatorType.PAGE, page = 3),
+            syncState = SyncState.DIRTY,
+            updatedAtEpochMillis = 1_000_000L,
+        )
+        val api = RecordingStumpApi(
+            serverProgress = ReadingProgress(
+                itemId = item.id,
+                locatorType = LocatorType.PAGE,
+                page = 20,
+                updatedAtEpochMillis = 1_000_000L + 10 * 60_000L,
+            ),
+        )
+
+        pushDirtyStumpProgress(
+            api = api,
+            initialAccessToken = "access-token",
+            initialRefreshToken = null,
+            items = listOf(item),
+            readerSessionStore = store,
+        )
+
+        assertTrue(api.pagedProgressCalls.isEmpty())
+        val kept = checkNotNull(store.progressByItemIdFlow.value[item.id])
+        assertEquals(20, kept.page)
+        assertEquals(SyncState.CLEAN, kept.syncState)
     }
 
     @Test
@@ -287,6 +329,7 @@ private class RecordingStumpProgressSyncDiagnostics : StumpProgressSyncDiagnosti
 private class RecordingStumpApi(
     private val beforeProgressReturns: (suspend () -> Unit)? = null,
     private val updateError: Throwable? = null,
+    private val serverProgress: ReadingProgress? = null,
 ) : StumpApi {
     val pagedProgressCalls = mutableListOf<PagedProgressCall>()
     val completionCalls = mutableListOf<CompletionCall>()
@@ -319,7 +362,7 @@ private class RecordingStumpApi(
         mediaId: String,
         itemId: String,
         pageCount: Int?,
-    ) = error("Not needed in test.")
+    ) = serverProgress
 
     override suspend fun updatePagedProgress(
         accessToken: String,

@@ -49,28 +49,28 @@ internal suspend fun pushDirtyStumpProgress(
                 initialAccessToken = activeAccessToken,
                 initialRefreshToken = activeRefreshToken,
             ) { token ->
+                val serverCopy = progress.newerServerCopy(
+                    remote = api.getProgress(
+                        accessToken = token,
+                        mediaId = mediaId,
+                        itemId = item.id,
+                        pageCount = item.pageCount,
+                    ),
+                )
+                if (serverCopy != null) return@runWithTokenRefresh PendingProgressPush.ServerNewer(serverCopy)
                 api.pushStumpProgressOperation(
                     accessToken = token,
                     mediaId = mediaId,
                     operation = operation,
                 )
+                PendingProgressPush.Pushed
             }
         }.onSuccess { uploadResult ->
             diagnostics.onSuccess(event)
             activeAccessToken = uploadResult.accessToken
             activeRefreshToken = uploadResult.refreshToken
             latestSession = uploadResult.refreshedSession ?: latestSession
-            if (progress.isExplicitUnreadReset) {
-                readerSessionStore.replaceProgressIfCurrent(
-                    expected = progress,
-                    replacement = null,
-                )
-            } else {
-                readerSessionStore.replaceProgressIfCurrent(
-                    expected = progress,
-                    replacement = progress.copy(syncState = SyncState.CLEAN),
-                )
-            }
+            readerSessionStore.settlePendingProgress(progress, uploadResult.value)
         }.onFailure { throwable ->
             if (throwable is CancellationException) {
                 throw throwable

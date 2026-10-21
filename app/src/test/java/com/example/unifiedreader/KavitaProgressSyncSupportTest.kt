@@ -495,6 +495,70 @@ class KavitaProgressSyncSupportTest {
     }
 
     @Test
+    fun `a server copy read later on another device is kept instead of the queued save`() = runTest {
+        val item = kavitaCatalogItem()
+        val store = TestKavitaReaderSessionStore()
+        store.saveProgress(
+            item = item,
+            locator = ReaderLocator(locatorType = LocatorType.PAGE, page = 3),
+            syncState = SyncState.DIRTY,
+            updatedAtEpochMillis = SAVED_AT_EPOCH_MILLIS,
+        )
+        val api = RecordingKavitaApi(
+            chapterInfo = KavitaChapterInfoDto(),
+            // Read to page 10 on another device ten minutes after this save.
+            serverProgress = KavitaProgressDto(chapterId = 42, pageNum = 10, lastModifiedUtc = "2026-04-07T06:10:00Z"),
+        )
+
+        val failures = pushDirtyKavitaProgress(
+            api = api,
+            initialAccessToken = "access-token",
+            initialRefreshToken = null,
+            initialApiKey = null,
+            items = listOf(item),
+            readerSessionStore = store,
+            itemsAreWholeCatalog = false,
+        )
+
+        assertEquals(emptyList<Throwable>(), failures.value)
+        assertTrue(api.progressUpdates.isEmpty())
+        val kept = checkNotNull(store.progressByItemIdFlow.value[item.id])
+        assertEquals(10, kept.page)
+        assertEquals(SyncState.CLEAN, kept.syncState)
+    }
+
+    @Test
+    fun `the server copy of this device's last push does not beat its next save`() = runTest {
+        val item = kavitaCatalogItem()
+        val store = TestKavitaReaderSessionStore()
+        store.saveProgress(
+            item = item,
+            locator = ReaderLocator(locatorType = LocatorType.PAGE, page = 3),
+            syncState = SyncState.DIRTY,
+            updatedAtEpochMillis = SAVED_AT_EPOCH_MILLIS,
+        )
+        val api = RecordingKavitaApi(
+            chapterInfo = KavitaChapterInfoDto(),
+            // Page 2, stamped by a server clock running a minute ahead of this device.
+            serverProgress = KavitaProgressDto(chapterId = 42, pageNum = 2, lastModifiedUtc = "2026-04-07T06:01:00Z"),
+        )
+
+        pushDirtyKavitaProgress(
+            api = api,
+            initialAccessToken = "access-token",
+            initialRefreshToken = null,
+            initialApiKey = null,
+            items = listOf(item),
+            readerSessionStore = store,
+            itemsAreWholeCatalog = false,
+        )
+
+        assertEquals(listOf("42"), api.progressRequests)
+        assertEquals(3, api.progressUpdates.single().pageNum)
+        assertEquals(SyncState.CLEAN, store.progressByItemIdFlow.value[item.id]?.syncState)
+    }
+
+    @Test
     fun `finished Kavita upload fetches chapter info when catalog page count is unknown`() = runTest {
         val item = ReadableItem(
             id = "kavita:item:42",
@@ -594,12 +658,29 @@ class KavitaProgressSyncSupportTest {
     }
 }
 
+// 2026-04-07T06:00:00Z
+private const val SAVED_AT_EPOCH_MILLIS = 1_775_541_600_000L
+
+private fun kavitaCatalogItem(): ReadableItem = ReadableItem(
+    id = "kavita:item:42",
+    sourceType = SourceType.KAVITA,
+    libraryId = "kavita:library:5",
+    remoteId = "42",
+    remoteFileId = "7",
+    remoteFileType = "12",
+    title = "Chapter 42",
+    format = FormatType.CBZ,
+    pageCount = 28,
+)
+
 private class RecordingKavitaApi(
     private val chapterInfo: KavitaChapterInfoDto,
     private val beforeUpdateProgressReturns: (suspend () -> Unit)? = null,
     private val updateError: Throwable? = null,
+    private val serverProgress: KavitaProgressDto = KavitaProgressDto(),
 ) : KavitaApi {
     val progressUpdates = mutableListOf<KavitaProgressUpdate>()
+    val progressRequests = mutableListOf<String>()
     var chapterInfoRequests = 0
 
     override suspend fun login(
@@ -630,7 +711,10 @@ private class RecordingKavitaApi(
     override suspend fun getProgress(
         accessToken: String,
         chapterId: String,
-    ): KavitaProgressDto = error("Not needed in test.")
+    ): KavitaProgressDto {
+        progressRequests += chapterId
+        return serverProgress
+    }
 
     override suspend fun getChapterInfo(
         accessToken: String,

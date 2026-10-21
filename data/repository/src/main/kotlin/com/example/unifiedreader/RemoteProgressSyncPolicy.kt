@@ -54,12 +54,26 @@ fun decideRemoteProgressSync(
         return RemoteProgressSyncDecision.KeepLocal
     }
 
-    return if (remoteUpdatedAtEpochMillis > local.updatedAtEpochMillis) {
+    // The most recent read wins. A save not yet pushed has to lose by a margin: see the tolerance.
+    val pendingLocalTolerance = if (local.syncState == SyncState.CLEAN) {
+        0L
+    } else {
+        PENDING_LOCAL_PROGRESS_CLOCK_TOLERANCE_MILLIS
+    }
+    return if (remoteUpdatedAtEpochMillis > local.updatedAtEpochMillis + pendingLocalTolerance) {
         remote.toApplyRemoteDecision(updatedAtEpochMillis = remoteUpdatedAtEpochMillis)
     } else {
         RemoteProgressSyncDecision.KeepLocal
     }
 }
+
+/**
+ * How much newer a server copy has to be than a local save that isn't pushed yet to replace it. The
+ * server stamps each push with its own clock when the push lands, so this device's previous push
+ * can look newer than its next save: when the server clock runs ahead, or when a page turns while
+ * a push is in flight. A read on another device made after that still wins.
+ */
+const val PENDING_LOCAL_PROGRESS_CLOCK_TOLERANCE_MILLIS = 2 * 60 * 1000L
 
 fun applyRemoteProgressSyncDecision(
     store: ProgressSyncStore,

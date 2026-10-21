@@ -45,6 +45,10 @@ internal suspend fun pushDirtyGrimmoryProgress(
                 initialAccessToken = activeAccessToken,
                 initialRefreshToken = activeRefreshToken,
             ) { token ->
+                val serverCopy = progress.newerServerCopy(
+                    remote = api.getBookEntry(accessToken = token, bookId = remoteItemId)?.progress,
+                )
+                if (serverCopy != null) return@runWithTokenRefresh PendingProgressPush.ServerNewer(serverCopy)
                 if (progress.isExplicitUnreadReset) {
                     api.resetBookProgress(
                         accessToken = token,
@@ -56,22 +60,13 @@ internal suspend fun pushDirtyGrimmoryProgress(
                         progress = checkNotNull(update),
                     )
                 }
+                PendingProgressPush.Pushed
             }
         }.onSuccess {
             activeAccessToken = it.accessToken
             activeRefreshToken = it.refreshToken
             latestSession = it.refreshedSession ?: latestSession
-            if (progress.isExplicitUnreadReset) {
-                readerSessionStore.replaceProgressIfCurrent(
-                    expected = progress,
-                    replacement = null,
-                )
-            } else {
-                readerSessionStore.replaceProgressIfCurrent(
-                    expected = progress,
-                    replacement = progress.copy(syncState = SyncState.CLEAN),
-                )
-            }
+            readerSessionStore.settlePendingProgress(progress, it.value)
         }.onFailure { throwable ->
             if (throwable is CancellationException) {
                 throw throwable

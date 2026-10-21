@@ -69,6 +69,52 @@ class GrimmoryProgressSyncServiceTest {
     }
 
     @Test
+    fun `push keeps a Grimmory copy read later on another device instead of the queued save`() = runBlocking {
+        val item = grimmoryItem(remoteId = "book-1")
+        val readerSessionStore = ProgressSyncTestReaderSessionStore().apply {
+            saveProgress(
+                item = item,
+                locator = ReaderLocator(locatorType = LocatorType.PERCENT, percent = 0.2),
+                syncState = SyncState.DIRTY,
+                updatedAtEpochMillis = 1_000_000L,
+            )
+        }
+        val api = RecordingGrimmoryApi(
+            bookEntriesById = mapOf(
+                "book-1" to GrimmoryBookCatalogEntry(
+                    item = item,
+                    progress = ReadingProgress(
+                        itemId = item.id,
+                        locatorType = LocatorType.PERCENT,
+                        percent = 0.6,
+                        updatedAtEpochMillis = 1_000_000L + 10 * 60_000L,
+                    ),
+                ),
+            ),
+        )
+        val service = GrimmoryProgressSyncService(
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
+            grimmoryCredentialStore = ProgressSyncTestGrimmoryCredentialStore(
+                GrimmoryStoredSession(
+                    displayName = "Home Grimmory",
+                    baseUrl = "https://grimmory.example",
+                    username = "reader",
+                    accessToken = "access-token",
+                    refreshToken = "refresh-token",
+                ),
+            ),
+            readerSessionStore = readerSessionStore,
+        )
+
+        service.pushPendingProgress(listOf(item))
+
+        assertEquals(emptyList<GrimmoryProgressUpdate>(), api.progressUpdates)
+        val kept = checkNotNull(readerSessionStore.getProgress(item))
+        assertEquals(0.6, kept.percent)
+        assertEquals(SyncState.CLEAN, kept.syncState)
+    }
+
+    @Test
     fun `sync item ignores grimmory item without remote id`() = runBlocking {
         val orphanedItem = grimmoryItem(remoteId = null, id = "orphan-book")
         val api = RecordingGrimmoryApi(

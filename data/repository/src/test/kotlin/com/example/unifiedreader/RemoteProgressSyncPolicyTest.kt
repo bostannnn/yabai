@@ -43,6 +43,40 @@ class RemoteProgressSyncPolicyTest {
     }
 
     @Test
+    fun `a pending local save gives way only to a server copy newer by more than the clock tolerance`() {
+        val local = ProgressSyncSnapshot(
+            itemId = "book-1",
+            locatorType = LocatorType.PAGE,
+            page = 12,
+            syncState = SyncState.DIRTY,
+            updatedAtEpochMillis = 1_000_000L,
+        )
+        fun remoteAt(updatedAtEpochMillis: Long) = ReadingProgress(
+            itemId = "book-1",
+            locatorType = LocatorType.PAGE,
+            page = 30,
+            updatedAtEpochMillis = updatedAtEpochMillis,
+        )
+
+        // The server's stamp of this device's own last push, a minute ahead of the next save.
+        val ownPush = decideRemoteProgressSync(local, remoteAt(1_000_000L + 60_000L), nowEpochMillis = 0L)
+        val readElsewhere = decideRemoteProgressSync(
+            local = local,
+            remote = remoteAt(1_000_000L + PENDING_LOCAL_PROGRESS_CLOCK_TOLERANCE_MILLIS + 1L),
+            nowEpochMillis = 0L,
+        )
+        val overCleanLocal = decideRemoteProgressSync(
+            local = local.copy(syncState = SyncState.CLEAN),
+            remote = remoteAt(1_000_000L + 60_000L),
+            nowEpochMillis = 0L,
+        )
+
+        assertEquals(RemoteProgressSyncDecision.KeepLocal, ownPush)
+        assertEquals(30, (readElsewhere as RemoteProgressSyncDecision.ApplyRemote).locator.page)
+        assertEquals(30, (overCleanLocal as RemoteProgressSyncDecision.ApplyRemote).locator.page)
+    }
+
+    @Test
     fun `missing remote progress keeps dirty local progress by default`() {
         val local = ProgressSyncSnapshot(
             itemId = "book-1",

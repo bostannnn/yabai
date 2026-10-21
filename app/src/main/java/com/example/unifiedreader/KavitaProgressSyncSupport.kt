@@ -11,6 +11,7 @@ import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.data.kavita.KavitaApi
 import com.example.unifiedreader.data.kavita.toKavitaProgressUpdate
 import com.example.unifiedreader.data.kavita.toProgressUpdate
+import com.example.unifiedreader.data.kavita.toReadingProgress
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import com.example.unifiedreader.feature.reader.epub.epubReadingOrderIndexOf
@@ -63,6 +64,12 @@ internal suspend fun pushDirtyKavitaProgress(
                 initialRefreshToken = activeRefreshToken,
                 initialApiKey = initialApiKey,
             ) { token, _ ->
+                val serverCopy = progress.newerServerCopy(
+                    remote = api.getProgress(accessToken = token, chapterId = chapterId)
+                        .toReadingProgress(itemId = item.id, pageCount = item.pageCount),
+                    localRefinesRemote = ::kavitaLocalRefinesRemote,
+                )
+                if (serverCopy != null) return@runWithTokenRefresh PendingProgressPush.ServerNewer(serverCopy)
                 val progressPage = if (progress.isExplicitUnreadReset) 0 else progress.kavitaPageNum(item)
                 val update = item.toKavitaProgressUpdate(
                     page = progressPage,
@@ -76,29 +83,18 @@ internal suspend fun pushDirtyKavitaProgress(
                     page = progressPage,
                     isFinished = progress.isFinished,
                     updatedAtEpochMillis = progress.updatedAtEpochMillis,
-                ) ?: return@runWithTokenRefresh false
+                ) ?: return@runWithTokenRefresh PendingProgressPush.Skipped
                 api.updateProgress(
                     accessToken = token,
                     progress = update,
                 )
-                true
+                PendingProgressPush.Pushed
             }
         }.onSuccess { uploadResult ->
             activeAccessToken = uploadResult.accessToken
             activeRefreshToken = uploadResult.refreshToken
             latestSession = uploadResult.refreshedSession ?: latestSession
-            if (!uploadResult.value) return@forEach
-            if (progress.isExplicitUnreadReset) {
-                readerSessionStore.replaceProgressIfCurrent(
-                    expected = progress,
-                    replacement = null,
-                )
-            } else {
-                readerSessionStore.replaceProgressIfCurrent(
-                    expected = progress,
-                    replacement = progress.copy(syncState = SyncState.CLEAN),
-                )
-            }
+            readerSessionStore.settlePendingProgress(progress, uploadResult.value)
         }.onFailure { throwable ->
             if (throwable is CancellationException) {
                 throw throwable
