@@ -50,7 +50,6 @@ import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
 import com.example.unifiedreader.journal.JournalReadingSessionRecorder
 import com.example.unifiedreader.ui.components.AppCircularProgress
 import com.example.unifiedreader.ui.components.AppTextButton
-import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.readium.r2.navigator.preferences.ReadingProgression
@@ -121,6 +120,10 @@ fun EpubReaderScreen(
         return
     }
     var initialRestoreLocked by rememberSaveable(item.id) { mutableStateOf(false) }
+    // Locations reported before the page is touched or navigated are the book opening and settling
+    // where it was. Saving them would stamp it as read now, over newer progress from another device.
+    var readerTouched by remember(item.id) { mutableStateOf(false) }
+    var positionMovedSinceOpen by rememberSaveable(item.id) { mutableStateOf(false) }
     var restoreProgressSnapshot by remember(item.id) {
         mutableStateOf(progressSnapshot)
     }
@@ -294,7 +297,7 @@ fun EpubReaderScreen(
                     currentProgress = currentProgress,
                 )
             ) {
-                sessionStore.saveProgress(
+                if (positionMovedSinceOpen) sessionStore.saveProgress(
                     item = item,
                     locator = buildCurrentReaderLocator(
                         locator = currentLocator.takeUnless { navigationRequest != null },
@@ -633,6 +636,7 @@ fun EpubReaderScreen(
                             if (reportedPage > 0) {
                                 currentPage = reportedPage
                             }
+                            if (readerTouched) positionMovedSinceOpen = true
                             currentProgress = (
                                 locator.locations.totalProgression
                                     ?: locator.locations.progression
@@ -642,7 +646,7 @@ fun EpubReaderScreen(
                                     ?: currentProgress
                                 ).coerceIn(0.0, 1.0)
                             if (shouldPersistProgress) {
-                                sessionStore.saveProgress(
+                                if (positionMovedSinceOpen) sessionStore.saveProgress(
                                     item = item,
                                     locator = buildReaderLocator(
                                         locator = locator,
@@ -674,7 +678,7 @@ fun EpubReaderScreen(
                         onNavigationRequestConsumed = {
                             navigationRequest = null
                         },
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxSize().onEveryTouchDown { readerTouched = true },
                     )
                 },
                 overlay = {
@@ -711,6 +715,7 @@ fun EpubReaderScreen(
                             },
                             onProgressSelected = { selectedProgress ->
                                 currentProgress = selectedProgress.toDouble()
+                                readerTouched = true
                                 navigationRequest = EpubProgressSeekRequest(
                                     id = seekRequestId++,
                                     progress = selectedProgress,
@@ -732,6 +737,7 @@ fun EpubReaderScreen(
                             },
                             onEntrySelected = { entry ->
                                 isTocSheetOpen = false
+                                readerTouched = true
                                 navigationRequest = EpubTocNavigationRequest(
                                     id = seekRequestId++,
                                     link = entry.link,
@@ -852,34 +858,6 @@ private fun EpubReaderMessage(
             }
         }
     }
-}
-
-private fun buildEpubProgressLabel(
-    progress: Double,
-    position: Int,
-    pageCount: Int,
-): String = when {
-    position > 0 && pageCount > 0 -> {
-        "${buildEpubPercentLabel(progress)} read · $position/$pageCount"
-    }
-
-    progress > 0.0 -> "${buildEpubPercentLabel(progress)} read"
-    pageCount > 0 -> "$pageCount locations"
-    else -> "Saved location"
-}
-
-internal fun buildEpubPercentLabel(
-    progress: Double,
-): String = "${((progress.coerceIn(0.0, 1.0) * 100.0).roundToInt()).coerceIn(0, 100)}%"
-
-internal fun buildEpubPageProgressLabel(
-    position: Int,
-    pageCount: Int,
-): String = when {
-    position > 0 && pageCount > 0 -> "$position/$pageCount"
-    pageCount > 0 -> "?/$pageCount"
-    position > 0 -> "$position"
-    else -> "?/?"
 }
 
 internal enum class EpubTapAction {

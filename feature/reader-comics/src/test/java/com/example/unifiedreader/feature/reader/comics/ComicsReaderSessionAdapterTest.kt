@@ -149,6 +149,30 @@ class ComicsReaderSessionAdapterTest {
     }
 
     @Test
+    fun `saving the stored page again keeps its timestamp and sync state`() = runBlocking {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val item = comicItem()
+        val stored = pageProgress(item, page = 10).copy(updatedAtEpochMillis = 100L)
+        val sessionStore = TestReaderSessionStore(
+            isHydrated = true,
+            progressByItemId = mapOf(item.id to stored),
+        )
+        val adapter = comicsSessionAdapter(sessionStore, scope)
+
+        // Opening at the stored page and settling there.
+        adapter.savePage(item, pageIndex = 10, pageCount = 24, isFinished = false)
+
+        assertEquals(stored, sessionStore.getProgress(item))
+        assertEquals(24, sessionStore.getSession(item)?.pageCount)
+
+        adapter.savePage(item, pageIndex = 11, pageCount = 24, isFinished = false)
+
+        assertEquals(11, sessionStore.getProgress(item)?.page)
+        assertEquals(SyncState.DIRTY, sessionStore.getProgress(item)?.syncState)
+        scope.cancel()
+    }
+
+    @Test
     fun `resume position saved with the current page is kept`() = runBlocking {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
         val item = comicItem()
@@ -278,8 +302,8 @@ private class TestReaderSessionStore(
     sessionByItemId: Map<String, ReaderSessionSnapshot> = emptyMap(),
 ) : ReaderSessionStore {
     override val isHydratedFlow: StateFlow<Boolean> = MutableStateFlow(isHydrated)
-    override val progressByItemIdFlow: StateFlow<Map<String, ReaderProgressSnapshot>> =
-        MutableStateFlow(progressByItemId)
+    private val progress = MutableStateFlow(progressByItemId)
+    override val progressByItemIdFlow: StateFlow<Map<String, ReaderProgressSnapshot>> = progress
     private val sessions = MutableStateFlow(sessionByItemId)
     override val sessionByItemIdFlow: StateFlow<Map<String, ReaderSessionSnapshot>> = sessions
     var flushPendingWritesCalls: Int = 0
@@ -297,7 +321,22 @@ private class TestReaderSessionStore(
         syncState: SyncState,
         pageCount: Int?,
         updatedAtEpochMillis: Long,
-    ) = Unit
+    ) {
+        progress.value = progress.value + (
+            item.id to ReaderProgressSnapshot(
+                itemId = item.id,
+                locatorType = locator.locatorType,
+                page = locator.page,
+                cfi = locator.cfi,
+                percent = locator.percent,
+                isFinished = isFinished,
+                isExplicitUnreadReset = isExplicitUnreadReset,
+                syncState = syncState,
+                updatedAtEpochMillis = updatedAtEpochMillis,
+            )
+        )
+        if (pageCount != null) updateSession(itemId = item.id, pageCount = pageCount)
+    }
 
     override suspend fun replaceProgressIfCurrent(
         expected: ReaderProgressSnapshot,

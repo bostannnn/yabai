@@ -85,6 +85,18 @@ class ComicsReaderSessionAdapter(
         isFinished: Boolean,
     ) {
         val safePageIndex = pageIndex.coerceIn(0, (pageCount - 1).coerceAtLeast(0))
+        // The reader saves where it opened and where it settles. Re-saving the stored page would
+        // only stamp it as read now, and that stamp would beat newer progress from another device.
+        val stored = sessionStore.getProgress(item)
+        if (stored != null &&
+            !stored.isExplicitUnreadReset &&
+            stored.locatorType == LocatorType.PAGE &&
+            stored.page == safePageIndex &&
+            stored.isFinished == isFinished
+        ) {
+            sessionStore.updateSession(item = item, pageCount = pageCount.coerceAtLeast(0))
+            return
+        }
         sessionStore.saveProgress(
             item = item,
             locator = ReaderLocator(

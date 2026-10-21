@@ -3,8 +3,13 @@ package com.example.unifiedreader.feature.reader.epub
 import android.view.Gravity
 import android.view.MotionEvent
 import android.widget.FrameLayout
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.publication.Publication
@@ -77,6 +82,14 @@ internal fun FrameLayout.updateEpubGutterTapListener(
 
             else -> isTrackingGutterTap
         }
+    }
+}
+
+/** Calls [onTouch] on every touch down here, before the content sees it, without consuming it. */
+internal fun Modifier.onEveryTouchDown(onTouch: () -> Unit): Modifier = pointerInput(Unit) {
+    awaitEachGesture {
+        awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+        onTouch()
     }
 }
 
