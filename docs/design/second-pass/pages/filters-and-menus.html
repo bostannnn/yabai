@@ -1,0 +1,433 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:dark}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style></head><body><title>Yabai Menus and Filters</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,300..700;1,7..72,400&family=Manrope:wght@400..800&display=swap">
+<style>
+/* Layout: one column of today-vs-proposed cards for every menu, sheet and panel, with two global
+   switches (control shape, title face) that restyle every mock at once. */
+:root {
+  --bg: #f3f3f1; --panel: #ffffff; --sunk: #ecece9; --fg: #1b1d20; --muted: #5b626b; --faint: #8a9098;
+  --line: rgba(27, 29, 32, 0.12); --accent: #405f6b; --accent-soft: rgba(64, 95, 107, 0.12);
+  --do: #2f7a4f; --maybe: #9a6400; --dont: #b0413e;
+  --display: "Literata", Georgia, "Times New Roman", serif;
+  --ui: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1113; --panel: #171a1d; --sunk: #121417; --fg: #e7eaee; --muted: #9ea7b1; --faint: #6f7882;
+    --line: rgba(231, 234, 238, 0.12); --accent: #b7c7d9; --accent-soft: rgba(183, 199, 217, 0.14);
+    --do: #8fd1a6; --maybe: #f1c26b; --dont: #f0a09b; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1113; --panel: #171a1d; --sunk: #121417; --fg: #e7eaee; --muted: #9ea7b1; --faint: #6f7882;
+  --line: rgba(231, 234, 238, 0.12); --accent: #b7c7d9; --accent-soft: rgba(183, 199, 217, 0.14);
+  --do: #8fd1a6; --maybe: #f1c26b; --dont: #f0a09b; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--ui); font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 36px 120px; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+a { color: var(--accent); }
+button, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+code { font-size: .88em; background: var(--accent-soft); padding: .05em .35em; border-radius: 5px; }
+.col { max-width: 1120px; margin-inline: auto; }
+.eyebrow { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--display); font-weight: 500; font-size: clamp(34px, 5.4vw, 50px); line-height: 1.05; letter-spacing: -0.015em; margin: 10px 0 0; text-wrap: balance; font-variation-settings: "opsz" 72; }
+.lede { font-size: 18px; max-width: 68ch; margin: 16px 0 0; }
+
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; margin-top: 24px; background: color-mix(in oklab, var(--bg) 88%, transparent);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-bottom: 1px solid var(--line); padding-block: 12px; }
+.bar .in { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; }
+.sw-group { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 650; }
+.sw-group small { font-weight: 600; color: var(--maybe); font-size: 12px; }
+.seg { display: inline-flex; padding: 3px; border-radius: 999px; background: var(--accent-soft); gap: 2px; }
+.seg button { border: 0; background: transparent; padding: 6px 13px; border-radius: 999px; font-size: 13.5px; font-weight: 650; color: var(--muted); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--panel); color: var(--fg); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.bar .sp { flex: 1; }
+.status { font-size: 13px; color: var(--muted); }
+
+.list { list-style: none; padding: 0; margin: 22px 0 0; display: grid; gap: 18px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 22px 24px 20px; }
+.card h2 { font-family: var(--display); font-weight: 500; font-size: 25px; line-height: 1.2; margin: 0; text-wrap: balance; font-variation-settings: "opsz" 28; }
+.where { font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: .02em; margin-top: 4px; }
+.what { margin: 10px 0 0; font-size: 15.5px; max-width: 76ch; }
+.what li { margin-top: 4px; }
+.what ul { margin: 6px 0 0; padding-left: 20px; }
+.panes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 16px; align-items: start; }
+.pane { min-width: 0; }
+.plabel { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin-bottom: 7px; }
+.plabel small { text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--faint); }
+.frame { position: relative; width: 100%; max-width: 100%; border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 1px var(--line); background: var(--sunk); }
+.frame > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.data { margin-top: 14px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 24px; font-size: 14px; }
+.data div { min-width: 0; }
+.data b { display: block; font-size: 12.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.data ul { margin: 0; padding-left: 18px; }
+@media (max-width: 760px) { .panes, .data { grid-template-columns: 1fr; } .card { padding: 18px 16px; } }
+.choose { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.pick { display: inline-flex; gap: 6px; }
+.pick button { border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 8px 16px; font-size: 14px; font-weight: 700; cursor: pointer; color: var(--muted); }
+.pick button[data-v="do"][aria-pressed="true"] { background: color-mix(in oklab, var(--do) 16%, transparent); border-color: var(--do); color: var(--do); }
+.pick button[data-v="maybe"][aria-pressed="true"] { background: color-mix(in oklab, var(--maybe) 16%, transparent); border-color: var(--maybe); color: var(--maybe); }
+.pick button[data-v="dont"][aria-pressed="true"] { background: color-mix(in oklab, var(--dont) 16%, transparent); border-color: var(--dont); color: var(--dont); }
+.note { flex: 1; min-width: 200px; border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 8px 14px; font-size: 14px; }
+.foot { margin-top: 32px; font-size: 14px; color: var(--muted); max-width: 72ch; }
+
+/* ================= app mocks ================= */
+.cv { position: absolute; left: 0; top: 0; transform-origin: 0 0; transform: scale(var(--s, .5)); overflow: hidden; font-family: var(--ui); color: var(--m-fg); background: var(--m-bg); }
+.app {
+  --m-bg: #101214; --m-surface: #171a1d; --m-c1: #1d2125; --m-c2: #252a2f; --m-c3: #30363c; --m-c4: #3a4148;
+  --m-fg: #e7eaee; --m-fg2: #c8d0d8; --m-fg3: #8b949e; --m-line: rgba(231,234,238,.10);
+  --m-acc: #b7c7d9; --m-on-acc: #1d2c3d; --m-acc-c: #33475e; --m-on-acc-c: #d6e4f5; --m-scrim: rgba(0,0,0,.55);
+  --r: 999px; --r-in: 999px;
+}
+.shape-round .app { --r: 12px; --r-in: 9px; }
+.frame.app { background: var(--m-bg); }
+.app svg.i { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex: none; display: block; }
+.ttl { font-family: var(--ui); font-weight: 650; letter-spacing: -0.005em; }
+.serif-on .app .ttl { font-family: var(--display); font-weight: 500; letter-spacing: -0.01em; }
+.cover { position: relative; width: 100%; aspect-ratio: 2 / 3; border-radius: 6px; overflow: hidden; background: var(--m-c2); box-shadow: 0 0 0 1px var(--m-line); }
+.cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.chip { height: 36px; padding: 0 14px; border-radius: var(--r); border: 1px solid var(--m-line); display: inline-flex; align-items: center; gap: 7px; font-weight: 650; font-size: 14px; color: var(--m-fg2); white-space: nowrap; }
+.chip svg.i { width: 18px; height: 18px; }
+.chip.on { background: var(--m-acc-c); color: var(--m-on-acc-c); border-color: transparent; }
+.chip .n { font-size: 12px; font-weight: 600; opacity: .75; font-variant-numeric: tabular-nums; }
+.chip .badge { min-width: 20px; height: 20px; border-radius: 10px; background: var(--m-acc); color: var(--m-on-acc); font-size: 12px; font-weight: 700; display: grid; place-items: center; padding: 0 6px; }
+.mseg { display: inline-flex; background: var(--m-c1); border-radius: var(--r); padding: 3px; }
+.mseg span { height: 34px; padding: 0 15px; border-radius: var(--r-in); font-size: 14px; font-weight: 650; color: var(--m-fg3); display: inline-flex; align-items: center; white-space: nowrap; }
+.mseg .on { background: var(--m-acc-c); color: var(--m-on-acc-c); }
+.btn { height: 46px; padding: 0 20px; border-radius: var(--r); font-weight: 700; font-size: 15px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.btn.pri { background: var(--m-acc); color: var(--m-on-acc); }
+.btn.ton { background: var(--m-c3); color: var(--m-fg); }
+.ib { width: 40px; height: 40px; border-radius: 999px; display: grid; place-items: center; color: var(--m-fg2); position: relative; flex: none; }
+.ib .ring { position: absolute; inset: 3px; }
+.search { height: 42px; border-radius: var(--r); background: var(--m-c3); display: flex; align-items: center; gap: 10px; padding: 0 14px; color: var(--m-fg3); font-size: 14px; }
+.gbar { display: flex; align-items: center; gap: 6px; height: 56px; border-radius: 20px; background: rgba(23,26,29,.86); border: 1px solid var(--m-line); padding: 0 8px; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+.gbar .nm { flex: 1; font-size: 16px; font-weight: 600; padding-left: 4px; }
+.sheet { position: absolute; top: 12px; right: 12px; bottom: 12px; border-radius: 26px; overflow: hidden; background: var(--m-surface); box-shadow: 0 20px 60px rgba(0,0,0,.45); display: flex; flex-direction: column; }
+.sh-head { display: flex; align-items: center; gap: 8px; padding: 16px 12px 12px 22px; }
+.sh-body { flex: 1; overflow: hidden; padding: 0 22px; }
+.sh-foot { padding: 12px 18px 16px; border-top: 1px solid var(--m-line); background: var(--m-surface); }
+.sec { padding: 14px 0 16px; border-bottom: 1px solid var(--m-line); }
+.sec:last-child { border-bottom: 0; }
+.sec .h { font-size: 13px; font-weight: 700; color: var(--m-fg3); margin-bottom: 10px; display: flex; justify-content: space-between; }
+.wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+.row { display: flex; align-items: center; gap: 12px; min-height: 52px; border-bottom: 1px solid var(--m-line); font-size: 15px; font-weight: 600; }
+.row .v { color: var(--m-fg3); font-weight: 500; font-size: 14px; margin-left: auto; text-align: right; max-width: 190px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .v.set { color: var(--m-acc); font-weight: 650; }
+.row svg.i { color: var(--m-fg3); width: 20px; height: 20px; }
+.menu { position: absolute; border-radius: 16px; background: var(--m-c2); box-shadow: 0 14px 44px rgba(0,0,0,.45); padding: 8px 0; }
+.menu .hd { font-size: 12.5px; font-weight: 700; color: var(--m-fg3); padding: 10px 18px 6px; }
+.menu .it { height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 18px; font-size: 15px; font-weight: 550; }
+.menu .it .ck { width: 20px; color: var(--m-acc); flex: none; }
+.menu .it.sel { font-weight: 700; }
+.menu .it svg.i { width: 20px; height: 20px; color: var(--m-fg2); }
+.menu hr { border: 0; border-top: 1px solid var(--m-line); margin: 6px 0; }
+.tog { width: 44px; height: 26px; border-radius: 999px; background: var(--m-c4); position: relative; margin-left: auto; flex: none; }
+.tog::after { content: ""; position: absolute; left: 4px; top: 4px; width: 18px; height: 18px; border-radius: 50%; background: var(--m-fg3); }
+.tog.on { background: var(--m-acc); } .tog.on::after { left: 22px; background: var(--m-on-acc); }
+.chk { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+.chk.on { background: var(--m-acc); color: var(--m-on-acc); }
+.chk.off { box-shadow: inset 0 0 0 2px var(--m-c4); }
+.chk svg.i { width: 14px; height: 14px; stroke-width: 2.8; }
+.slider { position: relative; height: 34px; }
+.slider .tr { position: absolute; inset: 6px 0; border-radius: 999px; background: var(--m-c3); overflow: hidden; }
+.slider .tr i { display: block; height: 100%; background: var(--m-acc); }
+.slider .th { position: absolute; top: 0; bottom: 0; width: 4px; border-radius: 4px; background: var(--m-fg); }
+.frm { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; font-size: 15px; font-weight: 600; }
+.panel { position: absolute; border-radius: 26px; background: rgba(23,26,29,.94); border: 1px solid var(--m-line); box-shadow: 0 20px 60px rgba(0,0,0,.45); overflow: hidden; }
+.dim { position: absolute; inset: 0; background: var(--m-scrim); }
+.ctx { display: flex; align-items: center; gap: 8px; height: 56px; border-radius: 20px; background: var(--m-acc-c); color: var(--m-on-acc-c); padding: 0 8px 0 4px; }
+.pick-dot { position: absolute; top: 8px; right: 8px; }
+.dataTag { display: inline-block; font-size: 11px; font-weight: 700; border-radius: 999px; padding: 2px 8px; margin-left: 8px; vertical-align: 2px; }
+.dataTag.now { background: rgba(143, 209, 166, .16); color: #8fd1a6; }
+.dataTag.db { background: rgba(241, 194, 107, .16); color: #f1c26b; }
+.dataTag.new { background: rgba(240, 160, 155, .16); color: #f0a09b; }
+@media (prefers-reduced-motion: reduce) { .cv * { transition-duration: 0s !important; } }
+</style>
+<style>
+/* Final decision 2026-10-22: UI titles stay in Manrope; only book text uses a serif. */
+.cv, .dev { --display: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+.cv .rpage, .dev .ptxt { --display: "Literata", Georgia, "Times New Roman", serif; }
+.cv .bigt, .cv .hero h5, .cv .sheet h6, .cv [style*="var(--display)"] { font-weight: 700 !important; letter-spacing: -0.02em; }
+.cv .rpage [style*="var(--display)"], .cv .rpage h6 { font-weight: 500 !important; letter-spacing: 0; }
+</style>
+
+<div class="col">
+  <div class="eyebrow">Yabai · visual language</div>
+  <h1>Filters, menus and panels</h1>
+  <p class="lede">Every menu, sheet and panel in the app, today next to how it would look with the changes you picked on the <a href="https://claude.ai/artifact/JPHMSHf3WMJab1fihdKJgu">decision board</a>: segmented controls without checkmarks, menus with headings and checks, the thicker slider, and the book page. Two of your Maybes change how every mock looks, so they are switches below. Flip them and pick the version you prefer.</p>
+</div>
+
+<div class="bar">
+  <div class="col in">
+    <div class="sw-group">Control shape <small>was Maybe</small>
+      <div class="seg" role="group" aria-label="Control shape"><button type="button" data-shape="pill" aria-pressed="true">Pills</button><button type="button" data-shape="round" aria-pressed="false">12 dp corners (today)</button></div></div>
+    <div class="sw-group">Titles <small>was Maybe</small>
+      <div class="seg" role="group" aria-label="Title face"><button type="button" data-font="sans" aria-pressed="true">Sans (today's font)</button><button type="button" data-font="serif" aria-pressed="false">Serif</button></div></div>
+    <span class="sp"></span><span class="status" id="status">Saved in this browser</span>
+  </div>
+</div>
+
+<div class="col">
+  <ol class="list" id="list"></ol>
+  <p class="foot">The switches save too: whichever shape and title face are selected when you leave is your answer to those two Maybes. Today's screenshots are from the emulator with the test library, Graphite theme, 800 dp portrait. Tell me in the chat when you're done.</p>
+</div>
+
+<script>try{localStorage.setItem("yabai-menus-choices","{\"filter-row\": {\"choice\": \"do\", \"note\": \"\"}, \"filter-sheet\": {\"choice\": \"do\", \"note\": \"\"}, \"filter-list\": {\"choice\": \"do\", \"note\": \"\"}, \"sort-menu\": {\"choice\": \"do\", \"note\": \"\"}, \"overflow\": {\"choice\": \"do\", \"note\": \"\"}, \"selection\": {\"choice\": \"do\", \"note\": \"\"}, \"book-page\": {\"choice\": \"do\", \"note\": \"\"}, \"comics-panel\": {\"choice\": \"do\", \"note\": \"\"}, \"epub-panel\": {\"choice\": \"do\", \"note\": \"\"}, \"epub-contents\": {\"choice\": \"do\", \"note\": \"\"}, \"_shape\": {\"choice\": \"pill\"}, \"_font\": {\"choice\": \"sans\"}}")}catch(e){}</script>
+<script>
+(() => {
+  const C = "img/covers/", T = "img/today-menus/";
+  const I = {
+    dots: '<svg class="i" viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="18" cy="12" r="1.3" fill="currentColor"/></svg>',
+    check: '<svg class="i" viewBox="0 0 24 24"><path d="m6 12.5 4 4 8-9"/></svg>',
+    menu: '<svg class="i" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
+    search: '<svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg>',
+    dl: '<svg class="i" viewBox="0 0 24 24"><path d="M12 4.5v10m0 0 4-4m-4 4-4-4M5.5 19.5h13"/></svg>',
+    plus: '<svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+    back: '<svg class="i" viewBox="0 0 24 24"><path d="M19 12H5m0 0 6-6m-6 6 6 6"/></svg>',
+    tune: '<svg class="i" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>',
+    filter: '<svg class="i" viewBox="0 0 24 24"><path d="M4 6.5h16M7 12h10M10 17.5h4"/></svg>',
+    down: '<svg class="i" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg>',
+    next: '<svg class="i" viewBox="0 0 24 24"><path d="m10 7 5 5-5 5"/></svg>',
+    close: '<svg class="i" viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17"/></svg>',
+    book: '<svg class="i" viewBox="0 0 24 24"><path d="M5 4.5h6a3 3 0 0 1 3 3v12a2.5 2.5 0 0 0-2.5-2.5H5z"/><path d="M19 4.5h-2a3 3 0 0 0-3 3"/></svg>',
+    refresh: '<svg class="i" viewBox="0 0 24 24"><path d="M19 12a7 7 0 1 1-2.1-5"/><path d="M19 4.5V9h-4.5"/></svg>',
+    done: '<svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="m8.5 12.3 2.4 2.4 4.6-5"/></svg>',
+    trash: '<svg class="i" viewBox="0 0 24 24"><path d="M5 7h14M10 11v6M14 11v6M6.5 7l1 12h9l1-12M9.5 7V4.5h5V7"/></svg>',
+    minus: '<svg class="i" viewBox="0 0 24 24"><path d="M6 12h12"/></svg>',
+    list: '<svg class="i" viewBox="0 0 24 24"><path d="M9 7h11M9 12h11M9 17h11M4.5 7h.01M4.5 12h.01M4.5 17h.01"/></svg>',
+  };
+  const cov = (id, style) => `<div class="cover"${style ? ` style="${style}"` : ""}><img src="${C}${id}.jpg" alt="" loading="lazy"></div>`;
+  const chk = on => `<span class="chk ${on ? "on" : "off"}">${on ? I.check : ""}</span>`;
+  const lib = (o = .35) => `<div style="padding:84px 24px 0;opacity:${o}"><div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:22px">${["severny-veter", "Glass-Meridian", "Neon-Ronin-002", "The-Salt-Orchard", "dom-u-reki", "Moths-of-Lisbon", "Quiet-Engines", "The-Lantern-Keepers", "Afterglow-Protocol", "Hollow-Moon-004", "Star-Courier-001", "Paper-Cranes-in-Winter"].map(i => `<div>${cov(i)}<div style="height:10px;border-radius:5px;background:var(--m-c2);margin-top:10px;width:80%"></div><div style="height:8px;border-radius:4px;background:var(--m-c2);margin-top:6px;width:50%"></div></div>`).join("")}</div></div>`;
+  const topbar = () => `<div style="position:absolute;left:16px;right:16px;top:12px"><div class="gbar"><span class="ib">${I.menu}</span><span class="nm">Local</span><span class="ib">${I.search}</span><span class="ib">${I.dl}</span><span class="ib">${I.dots}</span></div></div>`;
+  const slider = (k, label, val) => `<div style="padding:6px 0 10px"><div style="display:flex;justify-content:space-between;font-size:15px;font-weight:600"><span>${label}</span><span style="color:var(--m-fg3);font-variant-numeric:tabular-nums">${val}</span></div><div class="slider" style="margin-top:8px"><div class="tr"><i style="width:${k * 100}%"></i></div><span class="th" style="left:calc(${k * 100}% - 2px)"></span></div></div>`;
+
+  const ITEMS = [
+    { id: "filter-row", t: "The filter row above the grid", where: "Library, under the shelves",
+      what: `<p>One <b>Filters</b> button with a count of what's applied, a chip for each applied filter with an × to remove it, and the sort on the right. Today's row already works this way. What changes: applied chips name the value ("EPUB", "In progress") instead of "Format (1)", the Filters button carries the count, and the shape follows the switch above.</p>`,
+      w: 800, h: 220,
+      today: { img: "filter-row.jpg" },
+      prop: () => `<div style="padding:26px 24px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span class="chip">${I.filter}Filters<span class="badge">2</span></span>
+          <span class="chip on">EPUB ${I.close.replace('class="i"', 'class="i" style="width:16px;height:16px"')}</span>
+          <span class="chip on">In progress ${I.close.replace('class="i"', 'class="i" style="width:16px;height:16px"')}</span>
+          <span style="flex:1"></span><span class="chip">Last read${I.down}</span></div>
+        <div style="padding:22px 24px 0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:22px;opacity:.9">${["severny-veter", "Glass-Meridian", "The-Salt-Orchard", "dom-u-reki"].map(i => cov(i)).join("")}</div>` },
+    { id: "filter-sheet", t: "The filter sheet", where: "Filters button · side sheet on tablets, bottom sheet on phones",
+      what: `<p>Today the sheet is a list of collapsible sections and only one opens at a time. Proposed:</p>
+        <ul><li><b>Short choices stay open</b> as chips with counts: reading status, format, location.</li>
+        <li><b>Long lists become rows</b> showing what's selected (Author, Series, Genre, Tag, Language, Publisher, Library); tapping one opens its list on the next card.</li>
+        <li><b>A live count</b> at the top ("14 of 21") and a <b>Show 14 books</b> button at the bottom that closes the sheet. Filters still apply as you tap.</li></ul>`,
+      w: 800, h: 1180,
+      today: { img: "filter-sheet.jpg" },
+      prop: () => `${lib()}<div class="dim"></div>
+        <div class="sheet" style="width:420px">
+          <div class="sh-head"><div style="flex:1"><div class="ttl" style="font-size:24px">Filters</div><div style="font-size:13.5px;color:var(--m-fg3);font-weight:600;margin-top:2px">Showing 14 of 21</div></div><span style="font-size:14px;font-weight:700;color:var(--m-acc);padding:0 8px">Clear all</span><span class="ib">${I.close}</span></div>
+          <div class="sh-body">
+            <div class="sec"><div class="h"><span>Reading status</span></div><div class="wrap"><span class="chip">Not started <span class="n">9</span></span><span class="chip on">In progress <span class="n">7</span></span><span class="chip">Finished <span class="n">5</span></span></div></div>
+            <div class="sec"><div class="h"><span>Format</span></div><div class="wrap"><span class="chip on">EPUB <span class="n">12</span></span><span class="chip">CBZ <span class="n">9</span></span><span class="chip">PDF <span class="n">0</span></span></div></div>
+            <div class="sec"><div class="h"><span>Location</span></div><div class="wrap"><span class="chip">On this device <span class="n">21</span></span><span class="chip">On the server <span class="n">0</span></span></div></div>
+            <div style="margin-top:4px">${[["Author", "Any"], ["Series", "Neon Ronin", 1], ["Genre", "Any"], ["Tag", "Any"], ["Language", "Русский, English", 1], ["Publisher", "Any"]].map(r => `<div class="row"><span>${r[0]}</span><span class="v${r[2] ? " set" : ""}">${r[1]}</span>${I.next}</div>`).join("")}</div>
+          </div>
+          <div class="sh-foot"><div class="btn pri" style="width:100%">Show 14 books</div></div></div>` },
+    { id: "filter-list", t: "A long list inside the filter sheet", where: "Filters → Author (also Series, Genre, Tag, Language, Publisher, Library)",
+      what: `<p>The list opens as a page inside the sheet with a back arrow, so the sheet keeps its place. A search field, what you've picked pinned at the top, the rest grouped by letter with how many books each has. Today the list opens inline under its section with checkboxes, and the search field appears only past eight values.</p>`,
+      w: 800, h: 1180,
+      today: { img: "filter-list.jpg" },
+      prop: () => `${lib()}<div class="dim"></div>
+        <div class="sheet" style="width:420px">
+          <div class="sh-head" style="padding-left:8px"><span class="ib">${I.back}</span><div style="flex:1"><div class="ttl" style="font-size:22px">Author</div></div><span style="font-size:14px;font-weight:700;color:var(--m-acc);padding:0 8px">Clear</span></div>
+          <div style="padding:0 18px 8px"><div class="search">${I.search}Search 13 authors</div></div>
+          <div class="sh-body" style="padding:0 18px">
+            <div style="font-size:12.5px;font-weight:700;color:var(--m-fg3);margin:10px 4px 2px">Selected</div>
+            ${[["Анна Лесная", 1, 1]].map(a => `<div class="row" style="padding:0 4px">${a[0]}<span class="v" style="margin-left:auto">${a[1]}</span>${chk(a[2])}</div>`).join("")}
+            ${[["A", [["Ruth Amari", 1], ["Lena Aster", 1]]], ["E", [["Tomas Ellery", 1]]], ["F", [["Oona Fitch", 1]]], ["K", [["Mira Kalden", 1]]], ["M", [["Dev Malhotra", 1], ["Hana Moriya", 1]]], ["O", [["J. R. Okafor", 1]]], ["S", [["Paulo Serra", 1]]], ["Г", [["Илья Горский", 1]]]].map(g => `<div style="font-size:12.5px;font-weight:700;color:var(--m-fg3);margin:14px 4px 2px">${g[0]}</div>${g[1].map(a => `<div class="row" style="padding:0 4px">${a[0]}<span class="v" style="margin-left:auto">${a[1]}</span>${chk(false)}</div>`).join("")}`).join("")}
+          </div>
+          <div class="sh-foot"><div class="btn pri" style="width:100%">Show 1 book</div></div></div>` },
+    { id: "sort-menu", t: "Sort and view menu", where: "The sort chip on the right of the filter row",
+      what: `<p>Headings instead of greyed-out items, a check on the current sort, a switch for "Fade read books", and cover size as a three-way choice inside the menu instead of five "180dp cards · 6 cols" lines. (You marked moving cover size out of the menu as Maybe; this keeps it in the menu, just readable.)</p>`,
+      w: 800, h: 760,
+      today: { img: "sort-menu.jpg" },
+      prop: () => `${lib(.25)}${topbar()}<div style="position:absolute;right:24px;top:84px"><span class="chip">Last read${I.down}</span></div>
+        <div class="menu" style="right:24px;top:132px;width:300px">
+          <div class="hd">Sort by</div>${["Last read", "Date added", "Title", "Author", "Series"].map(s => `<div class="it${s === "Last read" ? " sel" : ""}"><span class="ck">${s === "Last read" ? I.check : ""}</span>${s}</div>`).join("")}
+          <hr><div class="hd">View</div><div class="it">Fade read books<span class="tog"></span></div>
+          <div style="padding:6px 18px 12px"><div style="font-size:14px;font-weight:600;margin-bottom:8px">Cover size</div><span class="mseg" style="display:flex"><span style="flex:1;justify-content:center">Small</span><span class="on" style="flex:1;justify-content:center">Medium</span><span style="flex:1;justify-content:center">Large</span></span></div></div>` },
+    { id: "overflow", t: "The top bar's \"•••\" menu, without Select", where: "Top bar, right edge",
+      what: `<p>You asked whether the Select button is needed at all. It isn't: long-pressing a cover already starts selection on Kavita, Stump and Grimmory, so the button can go. The bar keeps Search, Downloads and one menu with <b>Import a file</b> and, on Kavita, <b>Refresh library</b>. The first time someone opens the menu on a server source, a one-line tip under the items says "Long-press a cover to select books".</p>`,
+      w: 800, h: 520,
+      today: { img: "topbar.jpg" },
+      prop: () => `${lib(.25)}${topbar()}
+        <div class="menu" style="right:24px;top:74px;width:290px"><div class="it">${I.plus}Import a file</div><div class="it">${I.refresh}Refresh library</div><hr><div style="padding:6px 18px 8px;font-size:13px;color:var(--m-fg3);font-weight:500;line-height:1.4">Long-press a cover to select books for download.</div></div>` },
+    { id: "selection", t: "Selecting books after a long-press", where: "Library on a server source, after long-pressing a cover",
+      what: `<p>The top bar turns into a selection bar: close, how many are picked, Select all, and the action (Download). Picked covers get a check in the corner. This is what replaces the Select button. Today's version is redrawn from the code, because selection only runs on server sources and the emulator has none.</p>`,
+      w: 800, h: 560,
+      today: { redrawn: 1, html: () => `<div style="position:absolute;left:16px;right:16px;top:12px"><div class="gbar"><span class="ib">${I.close}</span><span class="nm">3 selected</span><span style="font-size:14px;color:var(--m-acc);font-weight:600;padding:0 10px">Select all</span><span style="font-size:14px;color:var(--m-acc);font-weight:600;padding:0 10px">Download</span></div></div>
+          <div style="padding:90px 24px 0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:22px">${["Glass-Meridian", "Neon-Ronin-002", "The-Salt-Orchard", "dom-u-reki", "Moths-of-Lisbon", "Quiet-Engines", "Afterglow-Protocol", "Hollow-Moon-004"].map((i, n) => `<div style="position:relative">${cov(i)}<span style="position:absolute;top:6px;left:6px;width:22px;height:22px;border-radius:4px;background:${[0, 2, 5].includes(n) ? "var(--m-acc)" : "rgba(0,0,0,.4)"};border:2px solid var(--m-fg2)"></span></div>`).join("")}</div>` },
+      prop: () => `<div style="position:absolute;left:16px;right:16px;top:12px"><div class="ctx"><span class="ib" style="color:inherit">${I.close}</span><span class="ttl" style="flex:1;font-size:18px">3 selected</span><span style="font-size:14px;font-weight:700;padding:0 12px">Select all</span><span class="btn pri" style="height:40px">${I.dl}Download 3</span></div></div>
+          <div style="padding:90px 24px 0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:22px">${["Glass-Meridian", "Neon-Ronin-002", "The-Salt-Orchard", "dom-u-reki", "Moths-of-Lisbon", "Quiet-Engines", "Afterglow-Protocol", "Hollow-Moon-004"].map((i, n) => { const on = [0, 2, 5].includes(n); return `<div style="position:relative;transform:scale(${on ? .94 : 1});transition:transform .2s">${cov(i, on ? "box-shadow:0 0 0 3px var(--m-acc)" : "")}<span class="pick-dot">${chk(on)}</span></div>`; }).join("")}</div>` },
+    { id: "book-page", t: "The book page that replaces the cover's \"•••\" menu", where: "\"•••\" under a cover, or Details on the reading card",
+      what: `<p>You asked what belongs on this page. My proposal, top to bottom, with where the data comes from:</p>`,
+      data: `<div><b>Top</b><ul><li>Cover, title, author, series and number <span class="dataTag now">have it</span></li><li>Continue reading with the page or chapter <span class="dataTag now">have it</span></li><li>Download or Remove, Mark as finished <span class="dataTag now">have it</span></li><li>Progress bar and last read date <span class="dataTag now">have it</span></li></ul></div>
+        <div><b>Reading</b><ul><li>Direction and Paged or Scroll for this book, moved from today's menu <span class="dataTag now">have it</span></li></ul><b style="margin-top:10px">About</b><ul><li>Description <span class="dataTag db">servers send it; the app drops it</span></li><li>Genres and tags as chips; tapping one filters the library <span class="dataTag now">have it</span></li><li>Format, pages, size, language, publisher <span class="dataTag now">have it</span></li></ul></div>
+        <div><b>More to read</b><ul><li>More in this series <span class="dataTag now">have it</span></li><li>More by this author <span class="dataTag now">have it</span></li><li>Similar: books sharing two or more genres or tags <span class="dataTag now">have it</span>; Kavita's own recommendations later <span class="dataTag new">new work</span></li></ul></div>
+        <div><b>Left out on purpose</b><ul><li>Ratings and reviews from the web, which would need an outside service</li><li>Reading statistics per book, which belong in the journal</li></ul></div>`,
+      w: 800, h: 1280,
+      today: { img: "item-menu.jpg" },
+      prop: () => `${lib(.3)}<div class="dim"></div>
+        <div class="sheet" style="width:440px">
+          <div style="padding:16px 22px 18px;background:linear-gradient(180deg, color-mix(in oklab, #fc508b 42%, var(--m-surface)), var(--m-surface));position:relative">
+            <span class="ib" style="position:absolute;right:12px;top:12px">${I.close}</span>
+            <div style="display:flex;gap:18px;align-items:flex-end;margin-top:8px"><div style="width:118px;flex:none">${cov("Neon-Ronin-002", "box-shadow:0 14px 30px rgba(0,0,0,.45)")}</div>
+              <div style="min-width:0"><div class="ttl" style="font-size:26px;line-height:1.1">Neon Ronin #2</div><div style="font-size:14px;color:var(--m-fg2);margin-top:6px;font-weight:600">Neon Ronin · 2 of 3</div><div style="font-size:13.5px;color:var(--m-fg3);margin-top:2px">Kira Vance, Dax Moreno</div></div></div>
+            <div class="btn" style="width:100%;margin-top:18px;background:#fc508b;color:#fff">${I.book}Continue · page 3 of 8</div>
+            <div style="display:flex;gap:8px;margin-top:10px"><span class="btn ton" style="flex:1;height:42px;font-size:14px">${I.done}Mark finished</span><span class="btn ton" style="flex:1;height:42px;font-size:14px">${I.trash}Remove file</span></div>
+            <div style="margin-top:14px"><div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:600;color:var(--m-fg2)"><span>38% · read yesterday</span><span>3 / 8</span></div><div style="height:6px;border-radius:6px;background:var(--m-c3);margin-top:6px;overflow:hidden"><i style="display:block;height:100%;width:38%;background:#fc508b"></i></div></div>
+          </div>
+          <div class="sh-body" style="padding-top:2px">
+            <div class="sec" style="padding-top:8px"><div class="frm" style="min-height:46px"><span>Direction</span><span class="mseg"><span class="on">Left to right</span><span>Right to left</span></span></div><div class="frm" style="min-height:46px"><span>Open as</span><span class="mseg"><span class="on">Paged</span><span>Scroll</span></span></div></div>
+            <div class="sec"><div class="h"><span>About</span></div><div style="font-size:14px;line-height:1.5;color:var(--m-fg2)">Kai has one night to deliver a stolen blade across a city that never switches off its lights. The second issue follows the chase into the flooded lower districts. <span style="color:var(--m-acc);font-weight:650">More</span></div>
+              <div class="wrap" style="margin-top:12px"><span class="chip" style="height:30px;font-size:13px">Action</span><span class="chip" style="height:30px;font-size:13px">Cyberpunk</span><span class="chip" style="height:30px;font-size:13px">Neon</span></div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;margin-top:12px;font-size:13px"><span style="color:var(--m-fg3)">Format</span><span>CBZ · 8 pages</span><span style="color:var(--m-fg3)">Size</span><span>1.2 MB</span><span style="color:var(--m-fg3)">Language</span><span>English</span></div></div>
+            <div class="sec"><div class="h"><span>More in Neon Ronin</span><span style="color:var(--m-acc)">See all</span></div><div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px">${["Neon-Ronin-001", "Neon-Ronin-003"].map(i => cov(i)).join("")}</div></div>
+            <div class="sec"><div class="h"><span>Similar</span></div><div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px">${["Star-Courier-001", "Hollow-Moon-004", "Afterglow-Protocol", "Ashfall-Academy-v01"].map(i => cov(i)).join("")}</div></div>
+          </div></div>` },
+    { id: "comics-panel", t: "Comics reading settings", where: "Comics reader → the settings button in the top bar",
+      what: `<p>Same panel and the same five settings. The selected option becomes a filled shape instead of a checkmark and outline, labels sit on one line, and the header names the book.</p>`,
+      w: 800, h: 700,
+      today: { img: "comic-settings.jpg" },
+      prop: () => `<div style="position:absolute;inset:0;background:#0a0d11"></div><div style="position:absolute;left:100px;top:110px;width:600px;display:grid;grid-template-columns:1fr 1fr;opacity:.75">${cov("Star-Courier-001", "border-radius:0;box-shadow:none")}${cov("Star-Courier-002", "border-radius:0;box-shadow:none")}</div>
+        <div style="position:absolute;left:16px;right:16px;top:12px"><div class="gbar"><span class="ib">${I.back}</span><div style="flex:1;text-align:center"><div style="font-size:14px;font-weight:650">Curl-Test-Comic</div><div style="font-size:11.5px;color:var(--m-fg3)">7 / 12</div></div><span class="ib" style="background:var(--m-acc-c);color:var(--m-on-acc-c)">${I.tune}</span></div></div>
+        <div class="panel" style="right:16px;top:80px;width:470px;padding:18px 20px 12px">
+          <div class="ttl" style="font-size:20px">Reading</div><div style="font-size:13px;color:var(--m-fg3);font-weight:600;margin-bottom:8px">Curl-Test-Comic</div>
+          ${[["Layout", ["Paged", "Scroll"], 0], ["Direction", ["Left to right", "Right to left"], 0], ["Pages", ["Auto", "Single", "Spread"], 2], ["Page turn", ["Slide", "Curl"], 1], ["Fit", ["Screen", "Width", "Height"], 0]].map(r => `<div class="frm"><span>${r[0]}</span><span class="mseg">${r[1].map((o, i) => `<span class="${i === r[2] ? "on" : ""}">${o}</span>`).join("")}</span></div>`).join("")}</div>` },
+    { id: "epub-panel", t: "EPUB reading settings", where: "EPUB reader → the Aa button",
+      what: `<p>Same sections and settings. Sliders get the thick track you picked, the size stepper gets larger buttons, segmented rows lose the checkmark, and section titles are sentence case instead of capitals.</p>`,
+      w: 800, h: 1180,
+      today: { img: "epub-settings.jpg" },
+      prop: () => `<div style="position:absolute;inset:0;background:#000"></div><div style="position:absolute;left:150px;top:120px;width:420px;font-family:var(--display);font-size:17px;line-height:1.6;color:#6f6a62">It was the kind of evening that seemed to go on longer than the clocks allowed, the light thinning but never quite giving up. She counted the windows on the far side of the square.</div>
+        <div class="panel" style="right:12px;top:12px;bottom:12px;width:420px;padding:16px 22px">
+          <div style="display:flex;align-items:center"><div class="ttl" style="font-size:20px;flex:1">Reading settings</div><span class="ib">${I.close}</span></div>
+          <div style="font-size:14px;font-weight:700;color:var(--m-fg3);margin:10px 0 2px">Text</div>
+          <div class="frm"><span>Typography</span><span class="mseg"><span>Book's own</span><span class="on">Custom</span></span></div>
+          <div class="frm"><span>Font</span><span style="color:var(--m-fg3);font-weight:500;display:flex;align-items:center;gap:4px">Literata${I.next}</span></div>
+          <div class="frm"><span>Text size</span><span style="display:flex;align-items:center;gap:10px"><span class="ib" style="background:var(--m-c3);width:42px;height:42px">${I.minus}</span><span style="font-variant-numeric:tabular-nums;width:46px;text-align:center">100%</span><span class="ib" style="background:var(--m-c3);width:42px;height:42px">${I.plus}</span></span></div>
+          ${slider(.42, "Line height", "1.50")}
+          <div class="frm"><span>Alignment</span><span class="mseg"><span class="on">Auto</span><span>Left</span><span>Justify</span></span></div>
+          <div style="font-size:14px;font-weight:700;color:var(--m-fg3);margin:14px 0 8px">Page colour</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">${[["Follow app", "#171a1d", "#e7eaee", 1], ["Light", "#fbf6ee", "#2b2723"], ["Dark", "#000", "#d8d4cc"]].map(t => `<div style="border-radius:16px;padding:8px;background:var(--m-c2);${t[3] ? "box-shadow:0 0 0 2px var(--m-acc)" : ""}"><div style="height:44px;border-radius:10px;background:${t[1]};color:${t[2]};display:grid;place-items:center;font-family:var(--display);font-size:18px;box-shadow:0 0 0 1px var(--m-line)">Aa</div><div style="font-size:12.5px;font-weight:650;text-align:center;margin-top:6px">${t[0]}</div></div>`).join("")}</div>
+          <div style="font-size:14px;font-weight:700;color:var(--m-fg3);margin:16px 0 4px">Layout</div>
+          <div style="font-size:15px;font-weight:600;margin-top:6px">Pages</div><div style="font-size:12.5px;color:var(--m-fg3)">Auto: one page in portrait, two in landscape</div>
+          <span class="mseg" style="display:flex;margin-top:8px">${["Auto", "Scroll", "Page", "Spread"].map((o, i) => `<span class="${i ? "" : "on"}" style="flex:1;justify-content:center">${o}</span>`).join("")}</span>
+          <div class="frm"><span>Page turn</span><span class="mseg"><span class="on">Slide</span><span>Curl</span></span></div>
+          ${slider(.35, "Margins", "1.00×")}${slider(0, "Paragraph spacing", "0.0 rem")}</div>` },
+    { id: "epub-contents", t: "EPUB contents", where: "EPUB reader → the list button bottom left",
+      what: `<p>This panel is already close. The changes are small: finished chapters are dimmed with a check, the current chapter shows how far into it you are, the footer gets a progress bar, and the title follows the switch above. Page numbers and indented sub-chapters stay.</p>`,
+      w: 800, h: 1180,
+      today: { img: "epub-toc.jpg" },
+      prop: () => `<div style="position:absolute;inset:0;background:#000"></div><div class="dim" style="background:rgba(0,0,0,.4)"></div>
+        <div class="panel" style="left:12px;top:12px;bottom:12px;width:380px;display:flex;flex-direction:column">
+          <div style="display:flex;align-items:center;padding:16px 10px 8px 22px"><div style="flex:1"><div class="ttl" style="font-size:22px">Contents</div><div style="font-size:13px;color:var(--m-fg3);font-weight:600">A Short History of Rain · 6 chapters</div></div><span class="ib">${I.close}</span></div>
+          <div style="flex:1;padding:6px 12px">${[["Chapter 1", 0, "done", 1], ["Chapter 2", 0, "done", 13], ["Chapter 3", 0, "cur", 26], ["The river", 1, "", 30], ["The letter", 1, "", 33], ["Chapter 4", 0, "", 37], ["Chapter 5", 0, "", 49], ["Chapter 6", 0, "", 61]].map(c => `<div style="display:flex;align-items:center;gap:10px;height:48px;border-radius:var(--r-in);padding:0 14px 0 ${14 + c[1] * 22}px;${c[2] === "cur" ? "background:var(--m-acc-c);color:var(--m-on-acc-c)" : ""};${c[2] === "done" ? "color:var(--m-fg3)" : ""};font-size:15px;font-weight:${c[2] === "cur" ? 700 : 550}"><span style="flex:1">${c[0]}${c[2] === "cur" ? '<span style="font-size:12px;font-weight:650;opacity:.75;margin-left:8px">40% through</span>' : ""}</span>${c[2] === "done" ? I.check.replace('class="i"', 'class="i" style="width:16px;height:16px"') : ""}<span style="font-size:12.5px;font-variant-numeric:tabular-nums;opacity:.7;width:24px;text-align:right">${c[3]}</span></div>`).join("")}</div>
+          <div style="padding:14px 22px 18px;border-top:1px solid var(--m-line)"><div style="display:flex;justify-content:space-between;font-size:13px;font-weight:650;color:var(--m-fg2)"><span>Chapter 3 of 6</span><span>42%</span></div><div style="height:6px;border-radius:6px;background:var(--m-c3);margin-top:8px;overflow:hidden"><i style="display:block;height:100%;width:42%;background:var(--m-acc)"></i></div></div></div>` },
+  ];
+
+  const list = document.getElementById("list");
+  const pane = (it, side) => {
+    const p = side === "today" ? it.today : null;
+    const label = side === "today" ? "Today" : "Proposed";
+    const sub = side === "today" ? (p.img ? "<small>emulator screenshot</small>" : "<small>redrawn from the code</small>") : "";
+    const body = side === "today" && p.img
+      ? `<img src="${T}${p.img}" alt="${it.t}, today" loading="lazy">`
+      : `<div class="cv" style="width:${it.w}px;height:${it.h}px">${side === "today" ? p.html() : it.prop()}</div>`;
+    return `<div class="pane"><div class="plabel">${label}${sub}</div><div class="frame app" style="aspect-ratio:${it.w} / ${it.h}">${body}</div></div>`;
+  };
+  ITEMS.forEach(it => {
+    const li = document.createElement("li"); li.className = "card"; li.id = it.id;
+    li.innerHTML = `<h2>${it.t}</h2><div class="where">${it.where}</div><div class="what">${it.what}</div>${it.data ? `<div class="data">${it.data}</div>` : ""}
+      <div class="panes">${pane(it, "today")}${pane(it, "prop")}</div>
+      <div class="choose"><div class="pick" role="group" aria-label="Decision for ${it.t}"><button type="button" data-v="do" aria-pressed="false">Do</button><button type="button" data-v="maybe" aria-pressed="false">Maybe</button><button type="button" data-v="dont" aria-pressed="false">Don't</button></div>
+      <input class="note" id="note-${it.id}" type="text" placeholder="Note (optional)" autocomplete="off"></div>`;
+    list.appendChild(li);
+  });
+  const frames = [...document.querySelectorAll(".frame")];
+  const fit = f => { const cv = f.querySelector(".cv"); if (cv) cv.style.setProperty("--s", String(f.clientWidth / cv.offsetWidth)); };
+  frames.forEach(fit);
+  try { const ro = new ResizeObserver(es => es.forEach(e => fit(e.target))); frames.forEach(f => ro.observe(f)); } catch (e) { addEventListener("resize", () => frames.forEach(fit)); }
+
+  /* state: per-card choices plus the two switches */
+  const state = { _shape: { choice: "pill" }, _font: { choice: "sans" } };
+  ITEMS.forEach(it => state[it.id] = { choice: null, note: "" });
+  const LS = "yabai-menus-choices";
+  try { const s = JSON.parse(localStorage.getItem(LS) || "{}"); Object.keys(s).forEach(k => { if (state[k]) Object.assign(state[k], s[k]); }); } catch (e) {}
+  const saveLocal = () => { try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {} };
+  const statusEl = document.getElementById("status");
+  let col = null; const pending = {};
+  function paint() {
+    document.body.classList.toggle("shape-round", state._shape.choice === "round");
+    document.body.classList.toggle("serif-on", state._font.choice === "serif");
+    document.querySelectorAll("[data-shape]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.shape === state._shape.choice)));
+    document.querySelectorAll("[data-font]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.font === state._font.choice)));
+    ITEMS.forEach(it => {
+      const li = document.getElementById(it.id), s = state[it.id];
+      li.querySelectorAll(".pick button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === s.choice)));
+      const n = li.querySelector(".note"); if (document.activeElement !== n && n.value !== (s.note || "")) n.value = s.note || "";
+    });
+  }
+  async function write(id) {
+    saveLocal(); if (!col) return;
+    if (pending[id]) { pending[id].again = true; return; }
+    pending[id] = { again: false }; statusEl.textContent = "Saving…";
+    const it = ITEMS.find(x => x.id === id);
+    try {
+      do { pending[id].again = false; await col.doc(id.replace(/^_/, "switch-")).set({ choice: state[id].choice, note: state[id].note || "", title: it ? it.t : (id === "_shape" ? "Control shape" : "Title face"), at: new Date().toISOString() }); } while (pending[id].again);
+      statusEl.textContent = "Saved to this page";
+    } catch (e) { statusEl.textContent = "Couldn't save to the page; kept in this browser"; } finally { delete pending[id]; }
+  }
+  document.querySelectorAll("[data-shape]").forEach(b => b.onclick = () => { state._shape.choice = b.dataset.shape; paint(); write("_shape"); });
+  document.querySelectorAll("[data-font]").forEach(b => b.onclick = () => { state._font.choice = b.dataset.font; paint(); write("_font"); });
+  list.addEventListener("click", e => { const b = e.target.closest(".pick button"); if (!b) return; const id = b.closest(".card").id; state[id].choice = state[id].choice === b.dataset.v ? null : b.dataset.v; paint(); write(id); });
+  const timers = {};
+  list.addEventListener("input", e => { if (!e.target.classList.contains("note")) return; const id = e.target.closest(".card").id; state[id].note = e.target.value; saveLocal(); clearTimeout(timers[id]); timers[id] = setTimeout(() => write(id), 700); });
+  paint();
+  (async () => {
+    try {
+      const cl = await new Promise(res => { let n = 0; const t = setInterval(() => { if ((window.claude && window.claude.use) || ++n > 50) { clearInterval(t); res(window.claude && window.claude.use ? window.claude : null); } }, 100); });
+      if (!cl) return;
+      const db = await cl.use("db"); if (!db) return;
+      col = db.collection("choices");
+      col.onSnapshot(snap => {
+        snap.docs.forEach(d => { const v = d.data(); const k = d.id.startsWith("switch-") ? "_" + d.id.slice(7) : d.id; if (v && state[k]) { state[k].choice = v.choice || (k.startsWith("_") ? state[k].choice : null); if (!pending[k]) state[k].note = v.note || ""; } });
+        saveLocal(); paint();
+        if (!snap.metadata.hasPendingWrites) statusEl.textContent = "Saved to this page";
+      }, () => { statusEl.textContent = "Kept in this browser"; col = null; });
+    } catch (e) {}
+  })();
+})();
+</script>
+
+<script>
+(() => {
+  const q = new URLSearchParams(location.search);
+  const only = q.get("only");
+  if (only) {
+    document.querySelectorAll(".card").forEach(c => { if (c.id !== only) c.style.display = "none"; });
+    document.querySelectorAll("body > .col:first-of-type, .bar, .foot, .copybox, .empty, section:not(:has(#" + only + "))").forEach(e => e.style.display = "none");
+    document.body.style.paddingBlock = "16px";
+  }
+  if (q.get("proto")) {
+    const click = s => { const b = document.querySelector(s); if (b) b.click(); };
+    click('[data-r="' + (q.get("r") || "book") + '"]');
+    click('[data-z="' + (q.get("z") || "tp") + '"]');
+    click('[data-go="' + (q.get("p") || "on") + '"]');
+    document.querySelectorAll("body > .col:first-of-type, section:not(:has(#stage)), .ctrls, .states, #proto, #proto + *, .eyebrow").forEach(e => e.style.display = "none");
+    const st = document.getElementById("stage"); st.parentElement.style.display = "flex";
+    document.body.style.paddingBlock = "12px";
+  }
+})();
+</script></body></html>

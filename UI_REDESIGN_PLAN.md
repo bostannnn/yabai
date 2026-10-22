@@ -5,7 +5,7 @@ anything that changes the plan under "Decisions" or "Open questions".
 
 Status: `[x]` done · `[~]` done but not shipped (uncommitted, unmeasured, or not on the tablet) · `[ ]` not started
 
-Started 2026-10-17. Scope so far is the library home; other screens are listed at the end but not designed yet.
+Started 2026-10-17. Sections 0-7 are the first pass; section 8 is the second pass approved 2026-10-22.
 
 ## Decisions
 
@@ -71,6 +71,31 @@ Started 2026-10-17. Scope so far is the library home; other screens are listed a
   and carried the library's import action. Decided with it: About page (version and the bundled
   third-party notices), drag to reorder for filter chips and drawer order (no library; a small
   reorder helper in the kit), and the LAN/Tailscale default server addresses stay.
+
+- **Second pass approved 2026-10-22: cover-led and alive.** Review and plan:
+  https://claude.ai/artifact/8TSpyrGAszggJMK4vUnrNX. The user decided each change on three boards
+  (today next to a mock, Do/Maybe/Don't): library and app
+  https://claude.ai/artifact/JPHMSHf3WMJab1fihdKJgu, filters and menus
+  https://claude.ai/artifact/FciEVVZo2pYSM3NjKQZBpB, reader menus
+  https://claude.ai/artifact/Tnrj9TXe5YoVjux3Hkf8sn. The work is section 8. It replaces four
+  earlier decisions:
+  - The library home gets a reading card for the last-read book (cover tint, title, chapter,
+    progress, Continue and Details). Its cover stays the grid's cell size, so "one cover size per
+    screen" holds; this answers the open question about Continue Reading's emphasis.
+  - Shelves become tabs (In progress, Up next, Finished) over one strip of covers next to the
+    reading card, replacing "shelves stay side by side in their panels". The band has the same
+    height whatever the counts, which is what sank the full-width rows.
+  - The control radius becomes a pill for buttons, chips, segmented rows, tabs and the search
+    field; menus, text fields and list rows keep 12 dp. Replaces "control 12" from section 0 step 2.
+  - Reader panels (contents, pages, settings) open between the top bar and the bottom dock and
+    never cover them, replacing 7c/7d's "a sibling of the two docks so it covers the bars like the
+    drawer does". The button that opened a panel stays visible and filled.
+
+  Rejected: the open-book cover zoom (opening a book uses the plain fade of the other routes), the
+  cover fade-in while loading, a serif display face (titles stay in Manrope; hierarchy comes from
+  size and weight), quieter placeholder covers (3c's designs stay), and trimming the themes (all
+  twelve stay). The grid tile changes only its progress bar. Cover size stays in the sort menu, as
+  Small / Medium / Large. Screens without an approved mock get one when their step starts.
 
 ## Constraints (from `ARCHITECTURE_RULES.md`)
 
@@ -155,7 +180,7 @@ Pull-request-sized steps; each lands and gets judged on the tablet before the ne
    `appReorderHandle`, and five icons. The app wires one `SourceSettingsEntry` per source instead
    of fifty lambdas. Checked on the emulator in both orientations; not yet on the tablet.
 
-## 1. Compose and Material 3 upgrade `[ ]`
+## 1. Compose and Material 3 upgrade `[ ]` (step 8.0 of the second pass)
 
 Foundation for the newer components (Expressive shapes and motion, `LoadingIndicator`,
 `ButtonGroup`, `FloatingToolbar`, carousels).
@@ -264,7 +289,7 @@ sort button. Optional differences from the 2026-10-17 mockup:
 - [x] Measured on the tablet (numbers under step 3 in section 0): scroll p50/p90 unchanged, GPU
       p90 9 ms against an 8.3 ms budget at 120 Hz.
 
-## 5. Cover-derived color `[ ]`
+## 5. Cover-derived color `[ ]` (superseded by 8.6)
 
 - [ ] Use MaterialKolor to build a color scheme from a book's cover for the book detail view and
       reader chrome; colored placeholders (3c) can use the same palette code.
@@ -426,13 +451,141 @@ step below lands and is judged on the emulator, then the tablet, before the next
 - [ ] Tablet pass over 7b, 7c and 7d together (one signed release build): glass over a comic
       page and over an EPUB page with each panel open, frame times with a panel open.
 
+## 8. Second pass: cover-led and alive `[ ]`
+
+Approved 2026-10-22 (see Decisions). **Build spec:
+[`docs/design/second-pass/README.md`](docs/design/second-pass/README.md)**: the mock image for every
+change (`docs/design/second-pass/mocks/`), exact sizes and behaviour, what each step depends on, what
+can run in parallel, and what was rejected. Where this section and the spec disagree, fix both.
+
+Build in the order below (8.0 first, 8.9 last); the order puts the cheapest changes with the widest
+reach first. Each step lands and is judged on the tablet before the next; a screen without an
+approved mock gets one before it is built; anything that changes runtime work carries `LibraryPerf`
+numbers.
+
+### 8.0 Prep `[ ]`
+
+- [ ] Section 1, the Compose BOM and material3 upgrade. The pressed-shape morph and `MotionScheme`
+      need it, and Haze 1.6 needs Compose 1.8. No visual change.
+- [ ] `LibraryPerf` baselines on the tablet before 8.1: cold start, grid fling, drawer, reader open.
+
+### 8.1 Motion `[ ]`
+
+- [ ] `AppMotion` tokens in `core:ui-theme`: spatial (spring, damping 0.8, stiffness 380),
+      spatialFast (0.6, 800), effects (1.0, 1600); mapped onto `MotionScheme` after 8.0. The
+      220/160 ms tweens in `AppFloatingPanel` and `AppSideSheet` move onto them.
+- [ ] Route transitions: fade-through (90 ms out, 210 ms in, 0.96 to 1 scale) between Library,
+      Journal and Settings (`when (uiState.topLevel)` in `UnifiedReaderScaffold.kt`) and for opening
+      and leaving the reader (the reader/shell switch in `UnifiedReaderRoute.kt`); a 30 dp
+      shared-axis slide for the series view, shelf browser and Kavita landing (`LibraryRoute.kt`)
+      and for settings pages (`SettingsScreen.kt`).
+- [ ] Predictive back: `android:enableOnBackInvokedCallback`, with `PredictiveBackHandler` progress
+      for the drawer, `AppFloatingPanel`, `AppSideSheet`, settings pages and leaving the reader.
+      The existing `BackHandler` order (footnote popup, preferences) stays.
+- [ ] Press feedback: 0.96 scale on spatialFast for covers, chips and buttons; pressed buttons morph
+      toward a rounded square (after 8.0); a bounded ripple on "More actions"
+      (`LibraryItemMenuButton.kt` sets `indication = null`).
+- [ ] `animateItem()` in the library grid when sort or filters change, checked against paging
+      placeholders and `libraryScrollRestoreStep`.
+- [ ] A pulse on the loading skeletons (`LibraryGridPlaceholderCard`, shelf placeholders), off under
+      reduced motion; an exit animation for `AppSideSheet`.
+
+### 8.2 Kit `[ ]`
+
+- [ ] Pill control shape (see Decisions); `AppSegment` without the checkmark, the selected segment
+      filled; an `AppSlider` with a thick track and a slim handle; `AppDialog` and `AppSheet`
+      composed in the kit instead of the stock dialog and sheet handle; `AppMenu` section headings,
+      a check on the current choice, switches instead of checkboxes; a progress ring on Downloads
+      instead of the error-red `Badge`.
+- [ ] `FeatureMaterialImportRuleTest` also forbids `ButtonDefaults.shape` and the stock segmented icon.
+
+### 8.3 Library home `[ ]`
+
+- [ ] Mock the phone layout and the series view header first (tablet portrait and landscape are
+      on the boards).
+- [ ] Header: the source name as a large title with a one-line summary ("12 books · 9 comics · 7 in
+      progress"), folding into today's glass bar on scroll.
+- [ ] The reading card over three grid columns (full width in portrait), cover at the grid's cell
+      width, Continue and Details; tinted with the theme accent until 8.6.
+- [ ] Shelf tabs (In progress, Up next, Finished) over one strip at the grid's cover size, with See all.
+- [ ] Tile: only the new progress bar (inset and rounded on the cover). Titles, the kebab and the
+      text block stay.
+- [ ] Filter row: applied chips name their value ("EPUB", not "Format (1)"); the Filters button
+      carries the count.
+- [ ] Series tiles drawn as a stack of covers instead of a count badge; empty states with a drawing,
+      a sentence and the action that fixes them.
+- [ ] Presentation coherence holds (nothing jumps after the grid shows); the shelf instrumentation
+      tests are updated and run; cold start unchanged.
+
+### 8.4 Filters, sort and the top bar `[ ]`
+
+- [ ] Filter sheet: reading status, format and location as always-open chips with counts; the long
+      facets (Author, Series, Genre, Tag, Language, Publisher, Library) as rows showing the
+      selection, each opening a page inside the sheet with search, picks pinned on top, A-Z groups
+      and counts; "Showing 14 of 21" at the top and a "Show 14 books" button that closes the sheet.
+      Filters still apply as they are tapped.
+- [ ] Sort and view menu: headings, a check on the current sort, a switch for "Fade read books",
+      cover size as Small / Medium / Large instead of "180dp cards · 6 cols".
+- [ ] Top bar: search as a field on tablets; Select removed (a long-press already starts
+      selection); "•••" holds Import and, on Kavita, Refresh, with a one-time "Long-press a cover to
+      select" tip on server sources; the selection bar shows close, the count, Select all and
+      Download N.
+
+### 8.5 Book page `[ ]`
+
+- [ ] A sheet (a side sheet at 600 dp and wider) opened by "•••" and by the reading card's Details,
+      replacing the `LibraryItemMenu` dropdown: cover, title, series position, Continue, Download or
+      Remove, Mark finished, progress and last read; per-book direction and Paged/Scroll; About
+      (description; genres and tags as chips that filter the library; format, size, language,
+      publisher); More in this series, More by this author, Similar (two or more shared genres or tags).
+- [ ] Keep the description: the Kavita and Stump DTOs parse `summary` and Grimmory's parse
+      `description`, but the domain model drops them. Add it to the item model and Room (a v29
+      migration), plus EPUB `dc:description` and ComicInfo `Summary` for local files.
+
+### 8.6 Colour from the cover `[ ]` (replaces section 5)
+
+- [ ] A palette per cover, extracted off the main thread and cached with the cover file; the accent
+      clamped for contrast on the theme's surface, the theme primary as the fallback. Used by the
+      reading card, the book page and the reader's accent; the grid and lists stay neutral.
+      Extraction time and memory measured on the tablet.
+
+### 8.7 Reader menus `[ ]`
+
+- [ ] On tablets, panels open between the top bar and the bottom dock and never cover them; the
+      button that opened one stays filled and closes it; one panel at a time; a tap on the page
+      closes it.
+- [ ] Same places in both readers: bottom left is Contents (EPUB) or Pages (comics), top right is
+      reading settings.
+- [ ] The top bar's second line names the chapter or issue; the position stays in the dock only.
+- [ ] Comics: the page strip moves inside the dock above the slider; a new Pages panel shows every
+      page as a grid.
+- [ ] Phones: panels are bottom sheets, the top bar stays, the dock steps aside while one is open.
+- [ ] Panel contents as on the menus board: segmented rows without checks, thick sliders,
+      sentence-case section titles, contents rows with a done check and "% through", a progress
+      footer. PDF uses the same frame.
+- [ ] Frame times on the tablet with a panel open over an EPUB page and over a comic page.
+
+### 8.8 Navigation rail `[ ]`
+
+- [ ] A rail at 840 dp and wider (sources, Journal, Settings; Kavita's Home, Collections and Reading
+      Lists open from its rail item); phones keep the drawer.
+- [ ] One window-size helper instead of the ten breakpoint values in use (360 to 860 dp).
+
+### 8.9 Screen passes `[ ]` (each mocked first)
+
+- [ ] Journal: larger figures, the chart in the accent with a soft fill, the calendar as an
+      intensity heatmap, book titles from metadata instead of file names, empty sections folded
+      away, no uppercase captions.
+- [ ] Settings: a title, sentence-case group headings, a theme preview on the Theme row.
+- [ ] Downloads sheet, Kavita landing, first run.
+
 ## Not yet designed
 
-- Series view (the series browse reuses the library grid; it has no header of its own)
-- Book detail (does not exist yet)
+Each is mocked when its step in section 8 starts: the phone library home and the series view
+header (8.3), the journal below its header, the settings pages, downloads, Kavita landing and first
+run (8.9). The book page is designed (8.5).
 
 
 ## Open questions
 
-- Should Continue Reading get more emphasis (e.g. a tile spanning two grid columns) if the
-  same-size row feels too flat on the tablet?
+- Answered 2026-10-22: Continue Reading gets the reading card (8.3) instead of a wider tile.
