@@ -16,8 +16,8 @@ Baseline: `testDebugUnitTest` passes, 1033 tests, 0 failures.
 
 ### Where it stopped (2026-10-21, end of the fifth session)
 
-- **Branch:** `claude/app-review-remaining-81a1e7`, cut from `main` at `476a4862` (release 0.10.1). Not merged
-  into `main` and not released.
+- **Branch:** `claude/app-review-remaining-81a1e7`, cut from `main` at `476a4862` (release 0.10.1). Merged with
+  0.11.0 and fast-forwarded into `main` at `e5e8a3c6`, pushed 2026-10-22 (1301 tests, 0 failures). Not released yet.
 - **Done:** #43 (`695baee2`), #20 (`c010fc51`, after `7f1fa2ee`) and #11 (`d75a460b`, `6a0efd73`). With them every
   P0 and P1 item is fixed. Each has a regression test that fails without the fix (checked by switching it off).
 - **Full suite:** 1281 tests (`testDebugUnitTest` plus the JVM `test` tasks), 0 failures.
