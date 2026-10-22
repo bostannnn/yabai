@@ -37,6 +37,7 @@ internal fun ReaderOverlayBar(
     pageFitMode: ComicPageFitMode,
     spreadMode: ComicSpreadMode,
     pageTurnStyle: PageTurnStyle,
+    pageNumbersVisible: Boolean,
     overlayVisible: Boolean,
     onBack: () -> Unit,
     onReaderModeChanged: (ComicReaderMode) -> Unit,
@@ -44,6 +45,7 @@ internal fun ReaderOverlayBar(
     onPageFitModeChanged: (ComicPageFitMode) -> Unit,
     onSpreadModeChanged: (ComicSpreadMode) -> Unit,
     onPageTurnStyleChanged: (PageTurnStyle) -> Unit,
+    onPageNumbersVisibleChanged: (Boolean) -> Unit,
 ) {
     val tokens = readerOverlayTokens()
     var isPreferencesSheetOpen by rememberSaveable(itemId) { mutableStateOf(false) }
@@ -100,12 +102,14 @@ internal fun ReaderOverlayBar(
                 pageFitMode = pageFitMode,
                 spreadMode = spreadMode,
                 pageTurnStyle = pageTurnStyle,
+                pageNumbersVisible = pageNumbersVisible,
                 onDismissRequest = { isPreferencesSheetOpen = false },
                 onReaderModeChanged = onReaderModeChanged,
                 onReadingDirectionChanged = onReadingDirectionChanged,
                 onPageFitModeChanged = onPageFitModeChanged,
                 onSpreadModeChanged = onSpreadModeChanged,
                 onPageTurnStyleChanged = onPageTurnStyleChanged,
+                onPageNumbersVisibleChanged = onPageNumbersVisibleChanged,
             )
         }
     }

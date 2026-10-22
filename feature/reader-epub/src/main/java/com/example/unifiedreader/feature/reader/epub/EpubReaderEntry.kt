@@ -47,6 +47,8 @@ import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import com.example.unifiedreader.feature.reader.core.findContextAncestor
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
+import com.example.unifiedreader.feature.reader.preferences.InMemoryReaderPageNumberPreferencesStore
+import com.example.unifiedreader.feature.reader.preferences.ReaderPageNumberPreferencesStore
 import com.example.unifiedreader.journal.JournalReadingSessionRecorder
 import com.example.unifiedreader.ui.components.AppCircularProgress
 import com.example.unifiedreader.ui.components.AppTextButton
@@ -70,6 +72,7 @@ fun EpubReaderScreen(
     journalReadingSessionRecorder: JournalReadingSessionRecorder? = null,
     documentUri: Uri? = null,
     documentUriProvider: (suspend (ReadableItem) -> Uri?)? = null,
+    pageNumberPreferences: ReaderPageNumberPreferencesStore = remember { InMemoryReaderPageNumberPreferencesStore() },
     onBack: () -> Unit,
     onCompletionRequested: () -> Unit = {},
 ) {
@@ -191,6 +194,8 @@ fun EpubReaderScreen(
     var currentLocator by remember(item.id) {
         mutableStateOf(serializedInitialLocator)
     }
+    var secondSpreadPage by remember(item.id) { mutableStateOf<Int?>(null) }
+    val pageNumbersVisible by pageNumberPreferences.isVisibleFlow.collectAsState()
     var hasAutoRequestedCompletion by rememberSaveable(item.id) {
         mutableStateOf(false)
     }
@@ -594,6 +599,22 @@ fun EpubReaderScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag(EpubReaderViewportTag),
+                pageIndicator = if (pageNumbersVisible) {
+                    {
+                        EpubPageNumbers(
+                            numbers = state.publication.buildEpubPageNumbers(
+                                currentPage = currentPage,
+                                pageCount = pageCount,
+                                layoutMode = layoutMode,
+                                secondSpreadPage = secondSpreadPage,
+                            ),
+                            theme = theme,
+                            isLandscape = isLandscape,
+                        )
+                    }
+                } else {
+                    null
+                },
 
                 content = {
                     ReadiumEpubNavigatorHost(
@@ -614,7 +635,7 @@ fun EpubReaderScreen(
                             layoutMode = layoutMode,
                             pageTurnStyle = pageTurnStyle,
                         ),
-                        onLocationChanged = { reportedLocator, pageIndex, _, isAtBookEnd ->
+                        onLocationChanged = { reportedLocator, resourcePage, isAtBookEnd ->
                             val locator = reportedLocator.withReadingOrderIndex(
                                 state.publication.readingOrderIndexOf(reportedLocator),
                             )
@@ -632,11 +653,15 @@ fun EpubReaderScreen(
                             }
                             val reportedPage = locator.locations.position
                                 ?: state.publication.readingOrderPositionFor(locator)
-                                ?: pageIndex + 1
+                                ?: resourcePage.pageIndex + 1
                             if (reportedPage > 0) {
                                 currentPage = reportedPage
                             }
                             if (readerTouched) positionMovedSinceOpen = true
+                            if (resourcePage.totalPages != null) {
+                                secondSpreadPage = state.publication
+                                    .epubSecondSpreadPage(locator, resourcePage, bookProgress.resourcePositions)
+                            }
                             currentProgress = (
                                 locator.locations.totalProgression
                                     ?: locator.locations.progression
@@ -760,6 +785,7 @@ fun EpubReaderScreen(
                             layoutMode = layoutMode,
                             useOrientationLayoutDefault = useOrientationLayoutDefault,
                             pageTurnStyle = pageTurnStyle,
+                            pageNumbersVisible = pageNumbersVisible,
                             onDismissRequest = {
                                 isPreferencesPaneOpen = false
                             },
@@ -806,6 +832,7 @@ fun EpubReaderScreen(
                             onPageTurnStyleChanged = {
                                 pageTurnStyle = it
                             },
+                            onPageNumbersVisibleChanged = pageNumberPreferences::setVisible,
                             modifier = Modifier.fillMaxSize(),
                         )
                         EpubFootnotePopup(

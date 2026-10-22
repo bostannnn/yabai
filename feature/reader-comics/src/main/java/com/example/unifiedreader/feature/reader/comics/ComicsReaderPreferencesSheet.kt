@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.feature.reader.core.ReaderPageNumberChoiceRow
 import com.example.unifiedreader.feature.reader.core.curl.PageTurnStyle
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
@@ -18,7 +19,7 @@ import com.example.unifiedreader.ui.components.AppFloatingPanelPlacement
 import com.example.unifiedreader.ui.components.AppPanelHeader
 
 /**
- * The comics quick settings: five one-line choices in a card under the settings button (a
+ * The comics quick settings: six one-line choices in a card under the settings button (a
  * bottom sheet on phones). Rows that only apply to the paged layout stay in place but
  * disabled while scrolling, so the card never changes height.
  */
@@ -32,12 +33,14 @@ internal fun ComicsReaderPreferencesSheet(
     pageFitMode: ComicPageFitMode,
     spreadMode: ComicSpreadMode,
     pageTurnStyle: PageTurnStyle,
+    pageNumbersVisible: Boolean,
     onDismissRequest: () -> Unit,
     onReaderModeChanged: (ComicReaderMode) -> Unit,
     onReadingDirectionChanged: (ComicReadingDirection) -> Unit,
     onPageFitModeChanged: (ComicPageFitMode) -> Unit,
     onSpreadModeChanged: (ComicSpreadMode) -> Unit,
     onPageTurnStyleChanged: (PageTurnStyle) -> Unit,
+    onPageNumbersVisibleChanged: (Boolean) -> Unit,
 ) {
     val paged = readerMode == ComicReaderMode.Paged
     AppFloatingPanel(
@@ -95,6 +98,10 @@ internal fun ComicsReaderPreferencesSheet(
                 onSelected = onPageFitModeChanged,
                 optionLabel = ::comicPageFitLabel,
                 enabled = paged,
+            )
+            ReaderPageNumberChoiceRow(
+                visible = pageNumbersVisible,
+                onVisibleChanged = onPageNumbersVisibleChanged,
             )
         }
     }

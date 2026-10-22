@@ -1,6 +1,6 @@
 package com.example.unifiedreader.feature.reader.comics
 
-import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
@@ -20,9 +20,9 @@ import kotlinx.coroutines.launch
 internal fun ComicsPagedReaderSurface(
     item: ReadableItem,
     pages: List<ComicPageSpec>,
+    spreads: List<ComicPageSpread>,
     pageSource: ComicPageSource,
     readerState: ComicsReaderState,
-    spreadPlanState: ComicSpreadPlanState,
     loadedVisiblePageIndexes: Set<Int>,
     onVisiblePagesLoaded: (Collection<Int>) -> Unit,
     onToggleOverlay: () -> Unit,
@@ -31,28 +31,9 @@ internal fun ComicsPagedReaderSurface(
     val coroutineScope = rememberCoroutineScope()
     var lastPrefetchedPageIndex by remember(item.id) { mutableStateOf<Int?>(null) }
 
-    BoxWithConstraints(
+    Box(
         modifier = Modifier.fillMaxSize(),
     ) {
-        val useDoublePageSpreads = shouldUseDoublePageSpreads(
-            spreadMode = readerState.spreadMode,
-            maxWidthDp = maxWidth.value,
-            maxHeightDp = maxHeight.value,
-            pageCount = pages.size,
-        )
-        val spreads = remember(
-            pages,
-            readerState.readingDirection,
-            useDoublePageSpreads,
-            spreadPlanState.metadataByPageId,
-        ) {
-            buildComicPageSpreads(
-                pages = pages,
-                readingDirection = readerState.readingDirection,
-                useDoublePageSpreads = useDoublePageSpreads,
-                pageMetadataById = spreadPlanState.metadataByPageId,
-            )
-        }
         val pagerState = rememberPagerState(
             initialPage = spreads.indexOfPage(readerState.resumeAnchorPage, readerState.resumeSegment),
             pageCount = { spreads.size },

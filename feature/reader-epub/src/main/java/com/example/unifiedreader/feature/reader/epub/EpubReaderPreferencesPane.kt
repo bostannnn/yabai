@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.unifiedreader.feature.reader.core.ReaderPageNumberChoiceRow
 import com.example.unifiedreader.feature.reader.core.curl.PageTurnStyle
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.ui.components.AppChoiceRow
@@ -58,6 +59,7 @@ internal fun ColumnScope.EpubPreferencesPaneContent(
     layoutMode: EpubReaderLayoutMode,
     useOrientationLayoutDefault: Boolean,
     pageTurnStyle: PageTurnStyle,
+    pageNumbersVisible: Boolean,
     selectedTab: EpubPreferencesTab,
     isFontPickerOpen: Boolean,
     onDismissRequest: () -> Unit,
@@ -76,6 +78,7 @@ internal fun ColumnScope.EpubPreferencesPaneContent(
     onLayoutModeChanged: (EpubReaderLayoutMode) -> Unit,
     onUseOrientationLayoutDefault: () -> Unit,
     onPageTurnStyleChanged: (PageTurnStyle) -> Unit,
+    onPageNumbersVisibleChanged: (Boolean) -> Unit,
 ) {
     val compact = LocalConfiguration.current.screenWidthDp < AppFloatingPanelDefaults.compactWidthDp
     if (isFontPickerOpen) {
@@ -165,12 +168,14 @@ internal fun ColumnScope.EpubPreferencesPaneContent(
                     layoutMode = layoutMode,
                     useOrientationLayoutDefault = useOrientationLayoutDefault,
                     pageTurnStyle = pageTurnStyle,
+                    pageNumbersVisible = pageNumbersVisible,
                     onPageMarginsChanged = onPageMarginsChanged,
                     onParagraphSpacingChanged = onParagraphSpacingChanged,
                     onParagraphIndentChanged = onParagraphIndentChanged,
                     onLayoutModeChanged = onLayoutModeChanged,
                     onUseOrientationLayoutDefault = onUseOrientationLayoutDefault,
                     onPageTurnStyleChanged = onPageTurnStyleChanged,
+                    onPageNumbersVisibleChanged = onPageNumbersVisibleChanged,
                 )
             }
         }
@@ -242,12 +247,14 @@ private fun EpubLayoutSection(
     layoutMode: EpubReaderLayoutMode,
     useOrientationLayoutDefault: Boolean,
     pageTurnStyle: PageTurnStyle,
+    pageNumbersVisible: Boolean,
     onPageMarginsChanged: (Double) -> Unit,
     onParagraphSpacingChanged: (Double) -> Unit,
     onParagraphIndentChanged: (Double) -> Unit,
     onLayoutModeChanged: (EpubReaderLayoutMode) -> Unit,
     onUseOrientationLayoutDefault: () -> Unit,
     onPageTurnStyleChanged: (PageTurnStyle) -> Unit,
+    onPageNumbersVisibleChanged: (Boolean) -> Unit,
 ) {
     AppChoiceRow(
         label = "Pages",
@@ -269,6 +276,10 @@ private fun EpubLayoutSection(
         onSelected = onPageTurnStyleChanged,
         optionLabel = { it.label },
         enabled = layoutMode != EpubReaderLayoutMode.Scroll,
+    )
+    ReaderPageNumberChoiceRow(
+        visible = pageNumbersVisible,
+        onVisibleChanged = onPageNumbersVisibleChanged,
     )
     if (typographyMode == EpubTypographyMode.Original) {
         Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) {
