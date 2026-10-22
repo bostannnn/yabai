@@ -54,7 +54,7 @@ fun rememberReaderOverlayState(
     key: String,
     initiallyVisible: Boolean = true,
 ): ReaderOverlayState = rememberSaveable(
-    key = key,
+    key,
     saver = ReaderOverlayStateSaver,
 ) {
     ReaderOverlayState(

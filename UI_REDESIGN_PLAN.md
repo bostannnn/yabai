@@ -180,18 +180,45 @@ Pull-request-sized steps; each lands and gets judged on the tablet before the ne
    `appReorderHandle`, and five icons. The app wires one `SourceSettingsEntry` per source instead
    of fifty lambdas. Checked on the emulator in both orientations; not yet on the tablet.
 
-## 1. Compose and Material 3 upgrade `[ ]` (step 8.0 of the second pass)
+## 1. Compose and Material 3 upgrade `[~]` (step 8.0 of the second pass)
 
 Foundation for the newer components (Expressive shapes and motion, `LoadingIndicator`,
-`ButtonGroup`, `FloatingToolbar`, carousels).
+`ButtonGroup`, `FloatingToolbar`, carousels). Done 2026-10-22 on `claude/ui-redesign-step-8-8f714b`.
 
-- [ ] Bump `composeBom` (currently `2024.12.01`, material3 ~1.3) to the current stable BOM
-      (Compose 1.12, material3 1.4.0 as of 2026-10). Separate branch, no visual changes.
-- [ ] Fix deprecations and compile errors across all modules.
-- [ ] `./gradlew testDebugUnitTest` green; library and reader smoke-tested on the emulator.
+- [x] `composeBom` `2024.12.01` to `2026.09.00` (Compose 1.12.1, material3 1.3.1 to 1.4.0), Haze
+      1.5.3 to 1.7.3 (the last 1.x; 2.0 is a rewrite). Compose 1.12 and Haze 1.7.3 require
+      compileSdk 37, which AGP 9.1 does not support, so AGP is 9.2.1 (the first release that
+      does) with Gradle 9.4.1, and every module compiles against 37. `targetSdk` stays 35, so
+      runtime behaviour does not change. The catalog now names the versions that already resolve
+      (activity 1.12.2, lifecycle 2.9.4, core-ktx 1.16.0, coroutines 1.10.2; the app's resolved
+      graph is identical before and after). Haze 1.7.3 brings kotlin-stdlib 2.3.20 while the
+      Kotlin compiler stays 2.2.10, which reads one version ahead; a Kotlin bump is its own step.
+      Bumping Compose further needs nothing new: BOMs up to `2026.06.01` (Compose 1.11) still
+      worked with compileSdk 35, everything from `2026.08.00` needs 37.
+- [x] Deprecations and breaks: AGP 9.2's old-DSL `sourceSets` accessor fails with
+      `android.newDsl=false` (cast to a class the source set does not implement), so
+      `feature/settings` reaches the generated licenses folder through the new DSL type;
+      `rememberSaveable(key = …)` is deprecated, so the reader overlay state takes the book id as
+      an input (same reset per book). The instrumentation tests compile but warn that
+      `createComposeRule` is deprecated for the `v2` rule, which queues coroutine work instead
+      of running it at once; not migrated, because the tests are not run in CI and running
+      them on a shared emulator uninstalls the app (wiping its library).
+- [x] No visual change, checked on the emulator (`yabai_review_35`, Graphite, the 21-book
+      library): 14 screens (library, drawer, sort menu, filter sheet, cover menu, settings, theme,
+      journal, comic reader and its settings panel, EPUB reader with contents and settings) are
+      pixel-identical to the pre-upgrade build. Two material3 1.4 defaults changed and are pinned
+      in the kit until 8.2 restyles both: the chip edge (`outline` became `outlineVariant`) in
+      `AppChip`, and the unselected segment fill (`surface` became transparent) in `AppSegment`.
+      Other 1.4 behaviour changes: components animate through `MotionScheme`, and the
+      indeterminate circular indicator moves differently.
+- [x] Unit tests green (1301 across the Android and plain-Kotlin modules). Signed release builds
+      with the release certificate and runs on the emulator; the APK is 61.1 MB against 0.11.0's
+      56.9 MB, all of it dex (+4.1 MB of newer library code; release builds are not minified).
 - [ ] `LibraryPerf` cold-start numbers on the tablet compared before and after.
-- [ ] Decide whether to opt into the experimental Expressive APIs now or wait for material3 1.5
-      stable (1.5.0-beta01 was out on 2026-10-07).
+- [x] Expressive APIs: wait for material3 1.5 stable (1.5.0-beta02 now). 1.4.0 already has what
+      8.1 needs, `MotionScheme` and `MaterialTheme(motionScheme = …)`, both stable. `ButtonGroup`,
+      `LoadingIndicator`, `FloatingToolbar` and the `ButtonDefaults.shapes()` press morph exist
+      only in 1.5, so 8.1 builds the pressed-corner morph in the kit.
 
 ## 2. Typography and icons `[ ]`
 
@@ -373,7 +400,8 @@ problem was found and fixed (see Decisions).
 - [ ] `LibraryPerf` scroll run on the tablet: the cover change removes a shadow and a gradient per
       tile, so the numbers should only improve, but they are not recorded yet.
 - [ ] 3a: run the shelf instrumentation tests.
-- [ ] Section 1 (Compose BOM) and section 5 (cover-derived color) are untouched.
+- [~] Section 1 (Compose BOM) landed with 8.0 (tablet numbers pending); section 5 (cover-derived
+      color) is superseded by 8.6.
 
 ## 7. Reader menus `[ ]`
 
@@ -463,11 +491,13 @@ reach first. Each step lands and is judged on the tablet before the next; a scre
 approved mock gets one before it is built; anything that changes runtime work carries `LibraryPerf`
 numbers.
 
-### 8.0 Prep `[ ]`
+### 8.0 Prep `[~]`
 
-- [ ] Section 1, the Compose BOM and material3 upgrade. The pressed-shape morph and `MotionScheme`
-      need it, and Haze 1.6 needs Compose 1.8. No visual change.
+- [x] Section 1, the Compose BOM and material3 upgrade (Compose 1.12.1, material3 1.4.0, Haze
+      1.7.3, AGP 9.2.1, compileSdk 37). No visual change: checked pixel by pixel on the emulator.
 - [ ] `LibraryPerf` baselines on the tablet before 8.1: cold start, grid fling, drawer, reader open.
+      Measure the installed 0.11.0 first, then this build, so the upgrade gets its own before
+      and after.
 
 ### 8.1 Motion `[ ]`
 
@@ -481,9 +511,12 @@ numbers.
       and for settings pages (`SettingsScreen.kt`).
 - [ ] Predictive back: `android:enableOnBackInvokedCallback`, with `PredictiveBackHandler` progress
       for the drawer, `AppFloatingPanel`, `AppSideSheet`, settings pages and leaving the reader.
-      The existing `BackHandler` order (footnote popup, preferences) stays.
+      The existing `BackHandler` order (footnote popup, preferences) stays. Today Back with the
+      drawer open leaves the app (found on the emulator 2026-10-22): the drawer has no back
+      handler of its own.
 - [ ] Press feedback: 0.96 scale on spatialFast for covers, chips and buttons; pressed buttons morph
-      toward a rounded square (after 8.0); a bounded ripple on "More actions"
+      toward a rounded square (an animated corner in the kit; material3 1.4 has no press morph);
+      a bounded ripple on "More actions"
       (`LibraryItemMenuButton.kt` sets `indication = null`).
 - [ ] `animateItem()` in the library grid when sort or filters change, checked against paging
       placeholders and `libraryScrollRestoreStep`.
@@ -496,7 +529,8 @@ numbers.
       filled; an `AppSlider` with a thick track and a slim handle; `AppDialog` and `AppSheet`
       composed in the kit instead of the stock dialog and sheet handle; `AppMenu` section headings,
       a check on the current choice, switches instead of checkboxes; a progress ring on Downloads
-      instead of the error-red `Badge`.
+      instead of the error-red `Badge`. The 8.0 pins of material3 1.3's chip edge and segment fill
+      in `AppChip` and `AppSegment` go with this restyle.
 - [ ] `FeatureMaterialImportRuleTest` also forbids `ButtonDefaults.shape` and the stock segmented icon.
 
 ### 8.3 Library home `[ ]`

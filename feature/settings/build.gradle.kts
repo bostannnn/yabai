@@ -8,7 +8,7 @@ val thirdPartyNoticesDir = layout.buildDirectory.dir("generated/thirdPartyNotice
 
 android {
     namespace = "com.example.unifiedreader.feature.settings"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         minSdk = 28
@@ -27,7 +27,10 @@ android {
         compose = true
     }
 
-    sourceSets.getByName("main").assets.srcDir(thirdPartyNoticesDir)
+    // Through the new DSL type: with android.newDsl=false, AGP 9.2's typed accessor casts the
+    // main source set to a class it does not implement and fails the configuration.
+    val mainSourceSet = (sourceSets as NamedDomainObjectContainer<*>).getByName("main")
+    (mainSourceSet as com.android.build.api.dsl.AndroidSourceSet).assets.srcDir(thirdPartyNoticesDir)
 }
 
 // The licenses page shows the repository's THIRD_PARTY_NOTICES.md; copy it into a generated

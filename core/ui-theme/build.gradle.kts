@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.example.unifiedreader.core.ui.theme"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         minSdk = 28

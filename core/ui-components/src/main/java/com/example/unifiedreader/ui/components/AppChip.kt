@@ -3,6 +3,7 @@ package com.example.unifiedreader.ui.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SelectableChipColors
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -20,7 +21,12 @@ fun AppChip(
     trailingIcon: (@Composable () -> Unit)? = null,
     shape: Shape = FilterChipDefaults.shape,
     colors: SelectableChipColors = FilterChipDefaults.filterChipColors(),
-    border: BorderStroke? = FilterChipDefaults.filterChipBorder(enabled, selected),
+    // material3 1.4 moved the default edge to outlineVariant; this keeps the 1.3 edge.
+    border: BorderStroke? = FilterChipDefaults.filterChipBorder(
+        enabled = enabled,
+        selected = selected,
+        borderColor = MaterialTheme.colorScheme.outline,
+    ),
 ) {
     FilterChip(
         selected = selected,

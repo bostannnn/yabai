@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.example.unifiedreader.feature.reader.preferences"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         minSdk = 28

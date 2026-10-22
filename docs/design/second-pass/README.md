@@ -32,7 +32,7 @@ start. A screen that has no mock here gets a quick mock and the user's OK before
 
 | # | Step | Needs first | Can run alongside | Size |
 |---|------|-------------|-------------------|------|
-| 1 | **8.0 Prep**: Compose BOM, material3 and Haze upgrade; tablet `LibraryPerf` baselines | | 8.1 tokens and transitions | M |
+| 1 | **8.0 Prep**: Compose BOM, material3 and Haze upgrade (done: Compose 1.12.1, material3 1.4.0, Haze 1.7.3, AGP 9.2.1, compileSdk 37); tablet `LibraryPerf` baselines | | 8.1 tokens and transitions | M |
 | 2 | **8.1 Motion**: tokens, route transitions, predictive back, press feedback, grid reorder, skeleton pulse | 8.0 baselines (the press shape morph needs the 8.0 upgrade) | 8.2 | M |
 | 3 | **8.2 Kit**: pills, segmented, slider, dialogs, sheets, menus, download ring | | 8.1 | M |
 | 4 | **8.3 Library home**: header, reading card, shelf tabs, tile progress bar, filter row, series stack, empty states | 8.2 | | L |
@@ -93,8 +93,9 @@ in `pages/library-and-app.html`.
   system commit finishes it; otherwise it springs back. It covers the drawer, `AppFloatingPanel`,
   `AppSideSheet`, settings pages and leaving the reader. The existing `BackHandler` order (footnote
   popup, preferences) stays.
-- **Press**: covers, chips and buttons scale to 0.96 on spatialFast while pressed. After 8.0, a
-  pressed button's corners morph from pill to 14 dp. "More actions" gets a bounded ripple
+- **Press**: covers, chips and buttons scale to 0.96 on spatialFast while pressed. A pressed
+  button's corners morph from pill to 14 dp, animated in the kit (material3 1.4.0 has no press
+  morph; `ButtonDefaults.shapes()` is 1.5 only). "More actions" gets a bounded ripple
   (`LibraryItemMenuButton.kt` sets `indication = null` today).
 - **Grid reorder**: `Modifier.animateItem(placementSpec = spatial)` on library grid items, so sort
   and filter changes move covers. Check it against paging placeholders and `libraryScrollRestoreStep`.

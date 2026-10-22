@@ -35,7 +35,11 @@ fun SingleChoiceSegmentedButtonRowScope.AppSegment(
     label: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    colors: SegmentedButtonColors = SegmentedButtonDefaults.colors(),
+    // material3 1.4 made unselected segments transparent; this keeps the 1.3 surface fill.
+    colors: SegmentedButtonColors = SegmentedButtonDefaults.colors(
+        inactiveContainerColor = MaterialTheme.colorScheme.surface,
+        disabledInactiveContainerColor = MaterialTheme.colorScheme.surface,
+    ),
     border: BorderStroke? = null,
     icon: @Composable () -> Unit = { SegmentedButtonDefaults.Icon(selected) },
 ) {
