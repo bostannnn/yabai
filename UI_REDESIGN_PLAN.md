@@ -214,11 +214,13 @@ Foundation for the newer components (Expressive shapes and motion, `LoadingIndic
 - [x] Unit tests green (1301 across the Android and plain-Kotlin modules). Signed release builds
       with the release certificate and runs on the emulator; the APK is 61.1 MB against 0.11.0's
       56.9 MB, all of it dex (+4.1 MB of newer library code; release builds are not minified).
-- [ ] `LibraryPerf` cold-start numbers on the tablet compared before and after.
-- [x] Expressive APIs: wait for material3 1.5 stable (1.5.0-beta02 now). 1.4.0 already has what
-      8.1 needs, `MotionScheme` and `MaterialTheme(motionScheme = …)`, both stable. `ButtonGroup`,
-      `LoadingIndicator`, `FloatingToolbar` and the `ButtonDefaults.shapes()` press morph exist
-      only in 1.5, so 8.1 builds the pressed-corner morph in the kit.
+- [ ] `LibraryPerf` cold-start numbers on the tablet compared before and after (deferred, see 8.0).
+- [x] Expressive APIs: wait for material3 1.5 stable (1.5.0-beta02 now). In 1.4.0 `MotionScheme`
+      is `internal` (components use the standard scheme, and `MaterialTheme(motionScheme = …)`
+      cannot be called), and `ButtonGroup`, `LoadingIndicator`, `FloatingToolbar` and the
+      `ButtonDefaults.shapes()` press morph exist only in 1.5. So 8.1 uses `AppMotion` in our own
+      components and builds the pressed-corner morph in the kit; Material's own components (switch,
+      bottom sheet, drawer) move onto `AppMotion` when 1.5 is adopted.
 
 ## 2. Typography and icons `[ ]`
 
@@ -495,33 +497,64 @@ numbers.
 
 - [x] Section 1, the Compose BOM and material3 upgrade (Compose 1.12.1, material3 1.4.0, Haze
       1.7.3, AGP 9.2.1, compileSdk 37). No visual change: checked pixel by pixel on the emulator.
-- [ ] `LibraryPerf` baselines on the tablet before 8.1: cold start, grid fling, drawer, reader open.
-      Measure the installed 0.11.0 first, then this build, so the upgrade gets its own before
-      and after.
+- [ ] **Deferred** (user, 2026-10-22: test performance later; 8.1 went ahead without it).
+      `LibraryPerf` on the tablet: cold start, grid fling, drawer, reader open. The 0.11.0 release
+      APK (GitHub release `0.11.0`) stays the "before", so the upgrade and each later step can
+      still be measured against it.
 
-### 8.1 Motion `[ ]`
+### 8.1 Motion `[~]`
 
-- [ ] `AppMotion` tokens in `core:ui-theme`: spatial (spring, damping 0.8, stiffness 380),
-      spatialFast (0.6, 800), effects (1.0, 1600); mapped onto `MotionScheme` after 8.0. The
-      220/160 ms tweens in `AppFloatingPanel` and `AppSideSheet` move onto them.
-- [ ] Route transitions: fade-through (90 ms out, 210 ms in, 0.96 to 1 scale) between Library,
-      Journal and Settings (`when (uiState.topLevel)` in `UnifiedReaderScaffold.kt`) and for opening
-      and leaving the reader (the reader/shell switch in `UnifiedReaderRoute.kt`); a 30 dp
-      shared-axis slide for the series view, shelf browser and Kavita landing (`LibraryRoute.kt`)
-      and for settings pages (`SettingsScreen.kt`).
-- [ ] Predictive back: `android:enableOnBackInvokedCallback`, with `PredictiveBackHandler` progress
-      for the drawer, `AppFloatingPanel`, `AppSideSheet`, settings pages and leaving the reader.
-      The existing `BackHandler` order (footnote popup, preferences) stays. Today Back with the
-      drawer open leaves the app (found on the emulator 2026-10-22): the drawer has no back
-      handler of its own.
-- [ ] Press feedback: 0.96 scale on spatialFast for covers, chips and buttons; pressed buttons morph
-      toward a rounded square (an animated corner in the kit; material3 1.4 has no press morph);
-      a bounded ripple on "More actions"
-      (`LibraryItemMenuButton.kt` sets `indication = null`).
-- [ ] `animateItem()` in the library grid when sort or filters change, checked against paging
-      placeholders and `libraryScrollRestoreStep`.
-- [ ] A pulse on the loading skeletons (`LibraryGridPlaceholderCard`, shelf placeholders), off under
-      reduced motion; an exit animation for `AppSideSheet`.
+Built 2026-10-23 on `claude/ui-redesign-step-8-8f714b`, checked on the emulator (`yabai_review_35`,
+gesture navigation, animations slowed 10x for mid-flight frames); not yet on the tablet, and its
+frame times are part of the deferred `LibraryPerf` pass.
+
+- [x] `AppMotion` tokens in `core:ui-theme`: spatial (spring, damping 0.8, stiffness 380),
+      spatialFast (0.6, 800), effects (1.0, 1600), plus the screen, press and predictive-back
+      constants. The 220/160 ms tweens in `AppFloatingPanel` and `AppSideSheet` are gone. Mapping
+      them onto Material's `MotionScheme` waits for material3 1.5 (internal in 1.4.0), so Material's
+      own components (switch, bottom sheet, drawer) still move on the standard scheme.
+- [x] Screen transitions through one kit component, `AppScreenHost` (on `SeekableTransitionState`):
+      fade-through (90 ms out, 210 ms in from 0.96) between Library, Journal and Settings and for
+      opening and leaving a book; the 30 dp shared-axis slide by depth in the library (series view,
+      shelf browser, Kavita Collections and Reading Lists landings and the lists opened from them)
+      and for settings pages on narrow windows. Another source fades through, and so do sibling
+      settings pages in the wide two-column layout. The leaving screen keeps drawing the state it
+      was last shown with (a per-screen frame), so a sliding-out grid does not show the new
+      screen's items. Top bars switch at once.
+- [x] Predictive back: `android:enableOnBackInvokedCallback`. Leaving a book and leaving a settings
+      page scrub the screen change: the current screen follows the finger 60 dp, shrinks to 0.88
+      and rounds to 28 dp, the screen underneath (the library, the settings hub) grows from 0.94;
+      the gesture covers the first 75% of the change and the fade-out plays after release, so the
+      screen stays opaque while dragged. Readers keep saving their place first: their back
+      handler is now `AppScreenBackHandler`, which reports the gesture to the host and runs
+      `closeReader` on release. `AppFloatingPanel` and `AppSideSheet` move and shrink toward their
+      own edge with the scrim fading and close from there. The drawer now uses
+      `ModalDrawerSheet(drawerState = …)`, which gives Material's own predictive back and fixes Back
+      with the drawer open leaving the app. Footnote and font-page handlers keep their priority.
+- [x] Press feedback: kit buttons, chips and covers shrink to 0.96 on spatialFast; pill buttons
+      (and the round tonal icon button) round toward 14 dp corners as they shrink, unless a caller
+      gives its own shape (only the tonal cover-menu button does). The compact "More actions"
+      buttons get a bounded ripple. Pressing a cover's title opens the book but does not shrink the
+      cover (a shared press state would mirror the ripple).
+- [x] `animateItem()` on library grid cards (placement only, no fades; paging placeholders not
+      animated). The in-memory grid now keeps one `LazyGridState` per screen instead of per
+      sort/filter/search key, so covers glide to their new places when a sort or filter changes
+      while the grid is at the top; scrolled down, the existing scroll-to-top on sort and filter
+      changes jumps as before (a jump plays no item animations). Kavita's paged grid builds a new
+      paging stream for every sort or filter, so it still cuts; animating it would need the pager
+      refreshed in place, a paging change of its own.
+- [x] Loading skeletons pulse 1 to 0.45 alpha over 1.4 s (`Modifier.appSkeletonPulse`, one shared
+      clock so a screen of them breathes together, still when the system animator scale is 0):
+      `LibraryGridPlaceholderCard` and the shelf placeholders. `AppSideSheet` has an exit animation
+      (it slides a third of its width toward its edge and fades); its content closes it through
+      `AppSideSheetScope.dismiss()`.
+- [x] Found while checking: a library composed under a back gesture before its shelves were
+      computed (the app relaunched into a book) kept the shelves above the screen once they
+      arrived. `LibraryScreen` now scrolls a row that appears above a grid still at its very top
+      into view.
+- [ ] Tablet: feel of the springs, the reader gesture over an EPUB page (WebView in a scaled
+      layer), and frame times with the screen host (two screens composed during a change; the
+      library composed under the reader for the length of a back gesture).
 
 ### 8.2 Kit `[ ]`
 

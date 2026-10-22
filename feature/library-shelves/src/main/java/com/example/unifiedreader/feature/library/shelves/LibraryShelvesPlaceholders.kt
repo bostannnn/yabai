@@ -23,6 +23,7 @@ import com.example.unifiedreader.feature.library.LibraryCoverAspectRatio
 import com.example.unifiedreader.feature.library.LibraryGridMetrics
 import com.example.unifiedreader.feature.library.libraryGridColumns
 import com.example.unifiedreader.ui.components.AppPanel
+import com.example.unifiedreader.ui.components.appSkeletonPulse
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 internal const val LibraryShelvesSlotPlaceholderTag = "library-shelves-slot-placeholder"
@@ -35,7 +36,7 @@ internal fun ShelfPreviewPlaceholderRow(
     val semanticColors = UnifiedReaderThemeTokens.colors
     val presentation = UnifiedReaderThemeTokens.presentation
     Row(
-        modifier = modifier,
+        modifier = modifier.appSkeletonPulse(),
         horizontalArrangement = Arrangement.spacedBy(presentation.shelfItemSpacing),
     ) {
         repeat(ShelfPreviewPlaceholderCount) {
@@ -108,7 +109,10 @@ internal fun LibraryShelvesSlotPlaceholder(
                     ),
                 verticalArrangement = Arrangement.spacedBy(presentation.shelfItemSpacing),
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(
+                    modifier = Modifier.appSkeletonPulse(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
                     Box(
                         modifier = Modifier
                             .width(154.dp)

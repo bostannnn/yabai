@@ -1,7 +1,6 @@
 package com.example.unifiedreader.feature.settings
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,6 +18,9 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.navigation.DrawerOrderSettingsGroup
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
+import com.example.unifiedreader.ui.components.AppScreenBack
+import com.example.unifiedreader.ui.components.AppScreenHost
+import com.example.unifiedreader.ui.components.AppScreenTransition
 
 internal const val DefaultKavitaServerUrl = "http://192.168.50.60:5000/"
 internal const val DefaultKavitaBackupServerUrl = "http://100.84.32.88:5000/"
@@ -29,8 +31,9 @@ internal const val DefaultStumpBackupServerUrl = "http://100.84.32.88:10801/"
 
 /**
  * The settings route: a hub of grouped rows and one page per thing that needs a form. On a
- * wide window the hub stays as a side column; on a narrow one the open [page] replaces it and
- * the caller's top bar shows a back arrow.
+ * wide window the hub stays as a side column; on a narrow one the open [page] slides in over
+ * it, the caller's top bar shows a back arrow, and back (or the predictive gesture) returns to
+ * the hub.
  */
 @Composable
 fun SettingsScreen(
@@ -125,13 +128,27 @@ fun SettingsScreen(
                     .width(SettingsSidePaneWidthDp.dp)
                     .fillMaxHeight(),
             )
-            Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                pageContent(shownPage, 0.dp)
+            AppScreenHost(
+                screen = shownPage,
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+            ) { openPage ->
+                pageContent(openPage, 0.dp)
             }
         }
     } else {
-        Box(modifier = modifier.fillMaxSize()) {
-            if (page == null) {
+        AppScreenHost(
+            screen = page,
+            modifier = modifier.fillMaxSize(),
+            back = page?.let { AppScreenBack<SettingsPage?>(target = null) { onPageChanged(null) } },
+            transitionFor = { from, to ->
+                when {
+                    from == null -> AppScreenTransition.Forward
+                    to == null -> AppScreenTransition.Backward
+                    else -> AppScreenTransition.FadeThrough
+                }
+            },
+        ) { openPage ->
+            if (openPage == null) {
                 SettingsHub(
                     themeMode = themeMode,
                     sources = orderedSources,
@@ -143,7 +160,7 @@ fun SettingsScreen(
                     contentTopInset = contentTopInset,
                 )
             } else {
-                pageContent(page, SettingsScreenHorizontalPaddingDp.dp)
+                pageContent(openPage, SettingsScreenHorizontalPaddingDp.dp)
             }
         }
     }

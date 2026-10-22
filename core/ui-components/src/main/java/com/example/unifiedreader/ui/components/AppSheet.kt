@@ -26,11 +26,20 @@ import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import kotlinx.coroutines.launch
 
 /** The app's modal bottom sheet. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppSheet(
     onDismissRequest: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
+) {
+    AppSheetLayout(onDismissRequest = onDismissRequest) { _ -> content() }
+}
+
+/** [AppSheet], with a `hide` for the content that slides the sheet away before dismissing it. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun AppSheetLayout(
+    onDismissRequest: () -> Unit,
+    content: @Composable ColumnScope.(hide: () -> Unit) -> Unit,
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
     val presentation = UnifiedReaderThemeTokens.presentation
@@ -43,6 +52,12 @@ fun AppSheet(
         topStart = presentation.cardCornerRadius,
         topEnd = presentation.cardCornerRadius,
     )
+    val hide: () -> Unit = {
+        scope.launch {
+            sheetState.hide()
+            if (!sheetState.isVisible) onDismissRequest()
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
@@ -62,10 +77,7 @@ fun AppSheet(
                     .align(Alignment.CenterHorizontally)
                     .semantics(mergeDescendants = true) {
                         dismiss(dismissLabel) {
-                            scope.launch {
-                                sheetState.hide()
-                                if (!sheetState.isVisible) onDismissRequest()
-                            }
+                            hide()
                             true
                         }
                         when (sheetState.currentValue) {
@@ -87,7 +99,7 @@ fun AppSheet(
             ) {
                 BottomSheetDefaults.DragHandle()
             }
-            content()
+            content(hide)
         }
     }
 }

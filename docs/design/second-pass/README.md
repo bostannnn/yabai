@@ -65,7 +65,8 @@ tall with 28 dp corners, so they read as pills.
 | meta | 12.5 / 16, tabular | Medium | counts, progress, page numbers |
 | overline | 11.5, +0.08 em, caps | Bold | "Continue reading" on the card only |
 
-**Motion** (`AppMotion` in `core:ui-theme`, mapped onto `MotionScheme` after 8.0):
+**Motion** (`AppMotion` in `core:ui-theme`; mapped onto Material's `MotionScheme` once material3 1.5
+is adopted, since it is internal in 1.4.0):
 spatial `spring(dampingRatio = 0.8f, stiffness = 380f)`, spatialFast `spring(0.6f, 800f)`,
 effects `spring(1f, 1600f)`. All of it is off when the system animator scale is 0.
 
@@ -89,8 +90,9 @@ in `pages/library-and-app.html`.
   the start and fades out; back reverses it.
 - **Predictive back** (`android:enableOnBackInvokedCallback="true"`, `PredictiveBackHandler`): at
   progress p the current screen moves `translationX = p * 60 dp`, scales `1 - p * 0.12` and rounds
-  its corners to `p * 28 dp`; the screen underneath scales from 0.94 to 1. Release past p = 0.45 or a
-  system commit finishes it; otherwise it springs back. It covers the drawer, `AppFloatingPanel`,
+  its corners to `p * 28 dp`; the screen underneath scales from 0.94 to 1. The system decides
+  between finishing and cancelling (as built, 2026-10-23): letting go finishes it, dragging back to
+  the edge springs it back. The screen stays opaque while dragged and fades only as it finishes. It covers the drawer, `AppFloatingPanel`,
   `AppSideSheet`, settings pages and leaving the reader. The existing `BackHandler` order (footnote
   popup, preferences) stays.
 - **Press**: covers, chips and buttons scale to 0.96 on spatialFast while pressed. A pressed

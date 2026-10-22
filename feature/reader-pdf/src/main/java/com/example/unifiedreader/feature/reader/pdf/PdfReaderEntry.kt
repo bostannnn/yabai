@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -98,6 +97,7 @@ import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
 import com.example.unifiedreader.journal.JournalReadingSessionRecorder
 import com.example.unifiedreader.ui.components.AppCircularProgress
 import com.example.unifiedreader.ui.components.AppIcons
+import com.example.unifiedreader.ui.components.AppScreenBackHandler
 import java.util.LinkedHashMap
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CancellationException
@@ -325,7 +325,7 @@ fun PdfReaderScreen(
             flushSessionStoreWrites()
         }
     }
-    BackHandler(onBack = closeReader)
+    AppScreenBackHandler(onBack = closeReader)
 
     val safePageIndex = currentPageIndex.coerceIn(0, (pageCount - 1).coerceAtLeast(0))
     val pageNumbersVisible by pageNumberPreferences.isVisibleFlow.collectAsState()

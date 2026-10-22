@@ -2,7 +2,6 @@ package com.example.unifiedreader.feature.reader.epub
 
 import android.content.res.Configuration
 import android.net.Uri
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -51,6 +50,7 @@ import com.example.unifiedreader.feature.reader.preferences.InMemoryReaderPageNu
 import com.example.unifiedreader.feature.reader.preferences.ReaderPageNumberPreferencesStore
 import com.example.unifiedreader.journal.JournalReadingSessionRecorder
 import com.example.unifiedreader.ui.components.AppCircularProgress
+import com.example.unifiedreader.ui.components.AppScreenBackHandler
 import com.example.unifiedreader.ui.components.AppTextButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -408,7 +408,7 @@ fun EpubReaderScreen(
             flushSessionStoreWrites()
         }
     }
-    BackHandler(onBack = closeReader)
+    AppScreenBackHandler(onBack = closeReader)
 
     val publicationState by produceState<EpubPublicationState>(
         initialValue = EpubPublicationState.Loading,

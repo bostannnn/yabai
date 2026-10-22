@@ -64,8 +64,10 @@ fun SourceNavigationDrawer(
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            // A floating glass panel, inset from the screen edges and the system bars.
+            // A floating glass panel, inset from the screen edges and the system bars. Given the
+            // drawer state, the sheet closes on back and follows the predictive back gesture.
             ModalDrawerSheet(
+                drawerState = drawerState,
                 modifier = Modifier
                     .windowInsetsPadding(
                         WindowInsets.systemBars.only(WindowInsetsSides.Vertical + WindowInsetsSides.Start),

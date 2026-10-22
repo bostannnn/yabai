@@ -3,10 +3,14 @@ package com.example.unifiedreader.feature.library.menu
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -81,9 +85,10 @@ private fun CompactOverlayLibraryItemMenuButton(
                 contentDescription = "More actions"
                 role = Role.Button
             }
+            .clip(RoundedCornerShape(cornerRadiusDp))
             .clickable(
                 interactionSource = null,
-                indication = null,
+                indication = ripple(),
                 role = Role.Button,
                 onClick = onClick,
             )
@@ -133,9 +138,10 @@ private fun CompactInlineLibraryItemMenuButton(
                 contentDescription = "More actions"
                 role = Role.Button
             }
+            .clip(CircleShape)
             .clickable(
                 interactionSource = null,
-                indication = null,
+                indication = ripple(),
                 role = Role.Button,
                 onClick = onClick,
             )

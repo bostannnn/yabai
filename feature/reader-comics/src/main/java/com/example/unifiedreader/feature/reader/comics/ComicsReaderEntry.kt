@@ -1,6 +1,5 @@
 package com.example.unifiedreader.feature.reader.comics
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -54,6 +53,7 @@ import com.example.unifiedreader.feature.reader.preferences.ReaderPageNumberPref
 import com.example.unifiedreader.journal.JournalReadingSessionRecorder
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
+import com.example.unifiedreader.ui.components.AppScreenBackHandler
 
 @Composable
 fun ComicsReaderScreen(
@@ -423,7 +423,7 @@ fun ComicsReaderScreen(
             }
         }
     }
-    BackHandler(onBack = closeReader)
+    AppScreenBackHandler(onBack = closeReader)
 
     BoxWithConstraints(
         modifier = Modifier

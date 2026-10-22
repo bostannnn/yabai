@@ -1,15 +1,17 @@
 package com.example.unifiedreader.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SelectableChipColors
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 
-/** A selectable chip for filters, sort options, and theme choices. */
+/** A selectable chip for filters, sort options, and theme choices. It shrinks a little while pressed. */
 @Composable
 fun AppChip(
     selected: Boolean,
@@ -28,16 +30,18 @@ fun AppChip(
         borderColor = MaterialTheme.colorScheme.outline,
     ),
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
     FilterChip(
         selected = selected,
         onClick = onClick,
         label = label,
-        modifier = modifier,
+        modifier = modifier.appPressScale(interactionSource),
         enabled = enabled,
         leadingIcon = leadingIcon,
         trailingIcon = trailingIcon,
         shape = shape,
         colors = colors,
         border = border,
+        interactionSource = interactionSource,
     )
 }

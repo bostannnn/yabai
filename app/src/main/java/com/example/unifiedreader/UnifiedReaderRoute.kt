@@ -49,6 +49,8 @@ import com.example.unifiedreader.journal.JournalItemRef
 import com.example.unifiedreader.ui.components.AppBackground
 import com.example.unifiedreader.ui.components.AppButton
 import com.example.unifiedreader.ui.components.AppDialog
+import com.example.unifiedreader.ui.components.AppScreenBack
+import com.example.unifiedreader.ui.components.AppScreenHost
 import com.example.unifiedreader.ui.components.AppSnackbar
 import com.example.unifiedreader.ui.components.AppTextButton
 import com.example.unifiedreader.ui.theme.UnifiedReaderTheme
@@ -142,9 +144,9 @@ fun UnifiedReaderAppContent(
             onDispose { }
         }
         val isReaderMode = uiState.activeReader != null && uiState.selectedItem != null
+        // Leaving the reader is handled by the screen host below, with the predictive gesture.
         BackHandler(
-            enabled = isReaderMode ||
-                uiState.selectedKavitaSeriesKey != null ||
+            enabled = uiState.selectedKavitaSeriesKey != null ||
                 uiState.selectedStumpSeriesKey != null ||
                 uiState.isKavitaScopeActive ||
                 uiState.isKavitaVisualSectionActive,
@@ -155,26 +157,41 @@ fun UnifiedReaderAppContent(
             color = MaterialTheme.colorScheme.background,
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                if (isReaderMode) {
-                    ReaderHost(
-                        item = uiState.selectedItem!!,
-                        factories = viewModel.readerFactories,
-                        onBack = viewModel::onBackPressed,
-                        readerWorkCoordinator = viewModel.readerWorkCoordinator,
-                        navigationActions = ReaderNavigationActions(
-                            onRequestNextInSeries = viewModel::onReaderNextRequested,
-                            onRequestCompletion = viewModel::onReaderCompletionRequested,
-                            currentOpenMode = uiState.selectedReaderOpenMode,
-                        ),
-                    )
+                val rootScreen = if (isReaderMode) {
+                    AppRootScreen.Reader(itemId = uiState.selectedItem!!.id)
                 } else {
-                    UnifiedReaderScaffold(
-                        uiState = uiState,
-                        libraryViewMode = libraryViewMode,
-                        onLibraryViewModeChanged = { libraryViewMode = it },
-                        onImportLocalFileClick = onImportLocalFileClick,
-                        viewModel = viewModel,
-                    )
+                    AppRootScreen.Shell
+                }
+                AppScreenHost(
+                    screen = rootScreen,
+                    // The reader that is closing keeps drawing its book while it fades.
+                    frame = uiState.selectedItem,
+                    back = if (isReaderMode) AppScreenBack(AppRootScreen.Shell, viewModel::onBackPressed) else null,
+                    // One reader slot: the next book in a series replaces the open one in place.
+                    contentKey = { screen -> screen is AppRootScreen.Reader },
+                    modifier = Modifier.fillMaxSize(),
+                ) { screen, readerItem ->
+                    if (screen is AppRootScreen.Reader && readerItem != null) {
+                        ReaderHost(
+                            item = readerItem,
+                            factories = viewModel.readerFactories,
+                            onBack = viewModel::onBackPressed,
+                            readerWorkCoordinator = viewModel.readerWorkCoordinator,
+                            navigationActions = ReaderNavigationActions(
+                                onRequestNextInSeries = viewModel::onReaderNextRequested,
+                                onRequestCompletion = viewModel::onReaderCompletionRequested,
+                                currentOpenMode = uiState.selectedReaderOpenMode,
+                            ),
+                        )
+                    } else {
+                        UnifiedReaderScaffold(
+                            uiState = uiState,
+                            libraryViewMode = libraryViewMode,
+                            onLibraryViewModeChanged = { libraryViewMode = it },
+                            onImportLocalFileClick = onImportLocalFileClick,
+                            viewModel = viewModel,
+                        )
+                    }
                 }
                 ProgressSyncNoticeHost(
                     notice = uiState.progressSyncNotice,
@@ -187,6 +204,13 @@ fun UnifiedReaderAppContent(
             }
         }
     }
+}
+
+/** The two screens at the root: the app shell (library, journal, settings) or a book. */
+private sealed interface AppRootScreen {
+    data object Shell : AppRootScreen
+
+    data class Reader(val itemId: String) : AppRootScreen
 }
 
 @Composable

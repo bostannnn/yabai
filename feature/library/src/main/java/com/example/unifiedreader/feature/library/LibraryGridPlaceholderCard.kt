@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.ui.components.appSkeletonPulse
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 /**
@@ -19,7 +20,7 @@ import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
  * lines, on the raised surface. The paged grid renders it for rows Paging hasn't loaded yet
  * (the rail sorts page with placeholders enabled, so unloaded rows need a sized cell), and
  * the first-load skeleton tiles it. Mirrors the real card's footprint so rows keep a stable
- * height and only the content fades in.
+ * height and only the content fades in. It pulses while it waits.
  */
 @Composable
 internal fun LibraryGridPlaceholderCard(
@@ -30,7 +31,9 @@ internal fun LibraryGridPlaceholderCard(
     val blockColor = semanticColors.surfaceRaised
     val coverShape = RoundedCornerShape(presentation.coverCornerRadius)
     Column(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .appSkeletonPulse(),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Box(

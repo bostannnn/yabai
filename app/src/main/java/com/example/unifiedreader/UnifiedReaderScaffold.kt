@@ -59,6 +59,7 @@ import com.example.unifiedreader.feature.settings.direction.buildComicReadingDir
 import com.example.unifiedreader.feature.settings.mode.ReaderModeLibraryUiState
 import com.example.unifiedreader.feature.settings.mode.buildComicReaderModeLibraryRows
 import com.example.unifiedreader.ui.components.AppBackground
+import com.example.unifiedreader.ui.components.AppScreenHost
 import com.example.unifiedreader.ui.components.AppTopBarDefaults
 import com.example.unifiedreader.ui.components.LocalAppGlassState
 import com.example.unifiedreader.ui.components.appGlassSource
@@ -166,13 +167,6 @@ fun UnifiedReaderScaffold(
     }
     BackHandler(enabled = activeLibraryShelfBrowser != null) {
         activeLibraryShelfBrowserKind = null
-    }
-    BackHandler(
-        enabled = uiState.topLevel == TopLevelDestination.Settings &&
-            settingsPage != null &&
-            !settingsUsesSidePane,
-    ) {
-        settingsPage = null
     }
 
     fun updateLibraryDownloadSelectionMode(enabled: Boolean) {
@@ -282,105 +276,110 @@ fun UnifiedReaderScaffold(
                         .fillMaxSize()
                         .appGlassSource(),
                 ) {
-                    when (uiState.topLevel) {
-                        TopLevelDestination.Library -> LibraryRoute(
-                            uiState = uiState,
-                            viewMode = libraryViewMode,
-                            pagedGridFlow = if (LibraryPagingFeature.isPageable(uiState)) {
-                                remember(
-                                    uiState.selectedSource,
-                                    uiState.selectedLibrarySortMode,
-                                    uiState.selectedLibraryFilters,
-                                ) {
-                                    viewModel.libraryGridPagingData(
-                                        source = uiState.selectedSource,
-                                        sortMode = uiState.selectedLibrarySortMode,
-                                        filters = uiState.selectedLibraryFilters,
-                                    )
-                                }
-                            } else {
-                                null
-                            },
-                            pagedWindowBadgeResolver = viewModel::resolvePagedWindowBadges,
-                            pagedAlphabetSectionsProvider = viewModel::pagedAlphabetSections,
-                            browseContextKey = uiState.libraryBrowseContextKey,
-                            initialScrollPosition = viewModel.libraryScrollPositionFor(uiState.libraryBrowseContextKey),
-                            scrollToTopRequest = uiState.libraryScrollToTopRequest,
-                            coverImageUrlProvider = viewModel::coverImageUrlFor,
-                            coverPrefetchKeyProvider = viewModel::coverPrefetchKeyFor,
-                            onPrepareCoverSource = viewModel::prepareCoverSource,
-                            onCoverVisible = viewModel::ensureCoverCached,
-                            onCoverViewportScrollingChanged = viewModel::onLibraryViewportScrollingChanged,
-                            onScrollPositionChanged = { position ->
-                                viewModel.onLibraryScrollPositionChanged(
-                                    contextKey = uiState.libraryBrowseContextKey,
-                                    position = position,
-                                )
-                            },
-                            isDownloadSelectionMode = isLibraryDownloadSelectionMode,
-                            selectedDownloadItemIds = selectedDownloadItemIds,
-                            onDownloadSelectionModeChanged = ::updateLibraryDownloadSelectionMode,
-                            onSelectedDownloadItemIdsChanged = { selectedIds ->
-                                selectedDownloadItemIds = selectedIds
-                            },
-                            onSelectableDownloadItemsChanged = { selectableItems ->
-                                hasScreenSelectableDownloadItems = true
-                                selectableDownloadItems = selectableItems
-                            },
-                            onItemSelected = viewModel::onItemSelected,
-                            seriesReadingDirectionFor = viewModel::seriesReadingDirectionFor,
-                            onSeriesDirectionSelected = viewModel::onSeriesDirectionSelected,
-                            seriesReaderModeFor = viewModel::seriesReaderModeFor,
-                            onSeriesReaderModeSelected = viewModel::onSeriesReaderModeSelected,
-                            onDeleteImportedItem = viewModel::onDeleteImportedItem,
-                            onDownloadRemoteItem = viewModel::onDownloadRemoteItem,
-                            onDeleteRemoteLocalFile = viewModel::onDeleteRemoteLocalFile,
-                            onSetReadStatus = viewModel::onSetReadStatus,
-                            onFilterStateChanged = viewModel::onLibraryFiltersChanged,
-                            onClearFilters = viewModel::clearLibraryFilters,
-                            onReadingListSelected = viewModel::onKavitaReadingListSelected,
-                            onSortModeChanged = viewModel::onLibrarySortModeChanged,
-                            onViewModeChanged = onLibraryViewModeChanged,
-                            onGridCellSizeDpChanged = viewModel::onLibraryGridCellSizeChanged,
-                            onFadeReadItemsChanged = viewModel::onLibraryFadeReadItemsChanged,
-                            showSortControl = !uiState.isSeriesBrowseActive && !uiState.isKavitaReadingListActive,
-                            activeShelfBrowserKind = activeLibraryShelfBrowserKind,
-                            onActiveShelfBrowserKindChanged = { activeLibraryShelfBrowserKind = it },
-                            shelfSearchQuery = activeLibraryShelfSearchQuery,
-                            onShelfSearchQueryChanged = { query -> activeLibraryShelfSearchQuery = query },
-                            contentTopInset = AppTopBarDefaults.contentInset,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-
-                        TopLevelDestination.Journal -> {
-                            // Only compute the heavy full journal snapshot (stats/timelines/catalog
-                            // join) while the Journal tab is actually on screen; elsewhere uiState
-                            // carries just the lightweight write-state.
-                            val journalSnapshot by viewModel.journalFullSnapshotFlow
-                                .collectAsStateWithLifecycle(initialValue = uiState.journalSnapshot)
-                            JournalScreen(
-                                snapshot = journalSnapshot,
+                    AppScreenHost(
+                        screen = uiState.topLevel,
+                        modifier = Modifier.fillMaxSize(),
+                    ) { topLevel ->
+                        when (topLevel) {
+                            TopLevelDestination.Library -> LibraryRoute(
+                                uiState = uiState,
+                                viewMode = libraryViewMode,
+                                pagedGridFlow = if (LibraryPagingFeature.isPageable(uiState)) {
+                                    remember(
+                                        uiState.selectedSource,
+                                        uiState.selectedLibrarySortMode,
+                                        uiState.selectedLibraryFilters,
+                                    ) {
+                                        viewModel.libraryGridPagingData(
+                                            source = uiState.selectedSource,
+                                            sortMode = uiState.selectedLibrarySortMode,
+                                            filters = uiState.selectedLibraryFilters,
+                                        )
+                                    }
+                                } else {
+                                    null
+                                },
+                                pagedWindowBadgeResolver = viewModel::resolvePagedWindowBadges,
+                                pagedAlphabetSectionsProvider = viewModel::pagedAlphabetSections,
+                                browseContextKey = uiState.libraryBrowseContextKey,
+                                initialScrollPosition = viewModel.libraryScrollPositionFor(uiState.libraryBrowseContextKey),
+                                scrollToTopRequest = uiState.libraryScrollToTopRequest,
                                 coverImageUrlProvider = viewModel::coverImageUrlFor,
+                                coverPrefetchKeyProvider = viewModel::coverPrefetchKeyFor,
+                                onPrepareCoverSource = viewModel::prepareCoverSource,
                                 onCoverVisible = viewModel::ensureCoverCached,
-                                onDeleteItemJournal = viewModel::deleteItemJournal,
-                                onSaveJournalEntry = viewModel::saveJournalEntry,
+                                onCoverViewportScrollingChanged = viewModel::onLibraryViewportScrollingChanged,
+                                onScrollPositionChanged = { position ->
+                                    viewModel.onLibraryScrollPositionChanged(
+                                        contextKey = uiState.libraryBrowseContextKey,
+                                        position = position,
+                                    )
+                                },
+                                isDownloadSelectionMode = isLibraryDownloadSelectionMode,
+                                selectedDownloadItemIds = selectedDownloadItemIds,
+                                onDownloadSelectionModeChanged = ::updateLibraryDownloadSelectionMode,
+                                onSelectedDownloadItemIdsChanged = { selectedIds ->
+                                    selectedDownloadItemIds = selectedIds
+                                },
+                                onSelectableDownloadItemsChanged = { selectableItems ->
+                                    hasScreenSelectableDownloadItems = true
+                                    selectableDownloadItems = selectableItems
+                                },
+                                onItemSelected = viewModel::onItemSelected,
+                                seriesReadingDirectionFor = viewModel::seriesReadingDirectionFor,
+                                onSeriesDirectionSelected = viewModel::onSeriesDirectionSelected,
+                                seriesReaderModeFor = viewModel::seriesReaderModeFor,
+                                onSeriesReaderModeSelected = viewModel::onSeriesReaderModeSelected,
+                                onDeleteImportedItem = viewModel::onDeleteImportedItem,
+                                onDownloadRemoteItem = viewModel::onDownloadRemoteItem,
+                                onDeleteRemoteLocalFile = viewModel::onDeleteRemoteLocalFile,
+                                onSetReadStatus = viewModel::onSetReadStatus,
+                                onFilterStateChanged = viewModel::onLibraryFiltersChanged,
+                                onClearFilters = viewModel::clearLibraryFilters,
+                                onReadingListSelected = viewModel::onKavitaReadingListSelected,
+                                onSortModeChanged = viewModel::onLibrarySortModeChanged,
+                                onViewModeChanged = onLibraryViewModeChanged,
+                                onGridCellSizeDpChanged = viewModel::onLibraryGridCellSizeChanged,
+                                onFadeReadItemsChanged = viewModel::onLibraryFadeReadItemsChanged,
+                                showSortControl = !uiState.isSeriesBrowseActive && !uiState.isKavitaReadingListActive,
+                                activeShelfBrowserKind = activeLibraryShelfBrowserKind,
+                                onActiveShelfBrowserKindChanged = { activeLibraryShelfBrowserKind = it },
+                                shelfSearchQuery = activeLibraryShelfSearchQuery,
+                                onShelfSearchQueryChanged = { query -> activeLibraryShelfSearchQuery = query },
+                                contentTopInset = AppTopBarDefaults.contentInset,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+
+                            TopLevelDestination.Journal -> {
+                                // Only compute the heavy full journal snapshot (stats/timelines/catalog
+                                // join) while the Journal tab is actually on screen; elsewhere uiState
+                                // carries just the lightweight write-state.
+                                val journalSnapshot by viewModel.journalFullSnapshotFlow
+                                    .collectAsStateWithLifecycle(initialValue = uiState.journalSnapshot)
+                                JournalScreen(
+                                    snapshot = journalSnapshot,
+                                    coverImageUrlProvider = viewModel::coverImageUrlFor,
+                                    onCoverVisible = viewModel::ensureCoverCached,
+                                    onDeleteItemJournal = viewModel::deleteItemJournal,
+                                    onSaveJournalEntry = viewModel::saveJournalEntry,
+                                    contentTopInset = AppTopBarDefaults.contentInset,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            }
+
+                            TopLevelDestination.Settings -> SettingsRoute(
+                                uiState = uiState,
+                                viewModel = viewModel,
+                                page = settingsPage,
+                                onPageChanged = { page -> settingsPage = page },
+                                kavitaReadingDirectionLibraries = kavitaReadingDirectionLibraries,
+                                stumpReadingDirectionLibraries = stumpReadingDirectionLibraries,
+                                kavitaReaderModeLibraries = kavitaReaderModeLibraries,
+                                stumpReaderModeLibraries = stumpReaderModeLibraries,
                                 contentTopInset = AppTopBarDefaults.contentInset,
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
-
-                        TopLevelDestination.Settings -> SettingsRoute(
-                            uiState = uiState,
-                            viewModel = viewModel,
-                            page = settingsPage,
-                            onPageChanged = { page -> settingsPage = page },
-                            kavitaReadingDirectionLibraries = kavitaReadingDirectionLibraries,
-                            stumpReadingDirectionLibraries = stumpReadingDirectionLibraries,
-                            kavitaReaderModeLibraries = kavitaReaderModeLibraries,
-                            stumpReaderModeLibraries = stumpReaderModeLibraries,
-                            contentTopInset = AppTopBarDefaults.contentInset,
-                            modifier = Modifier.fillMaxSize(),
-                        )
                     }
                 }
                 Box(modifier = Modifier.align(Alignment.TopCenter)) {

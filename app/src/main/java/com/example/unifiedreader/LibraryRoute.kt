@@ -30,6 +30,7 @@ import com.example.unifiedreader.feature.library.LibraryScrollPosition
 import com.example.unifiedreader.feature.library.LibraryViewMode
 import com.example.unifiedreader.feature.library.LibraryWindowBadges
 import com.example.unifiedreader.feature.library.shelves.LibraryShelfBrowserKind
+import com.example.unifiedreader.feature.library.shelves.LibraryShelfBrowserState
 import com.example.unifiedreader.feature.library.shelves.LibraryShelfItemsBrowser
 import com.example.unifiedreader.feature.library.shelves.LibraryShelvesTopSlot
 import com.example.unifiedreader.feature.library.shelves.browserState
@@ -37,6 +38,8 @@ import com.example.unifiedreader.feature.library.withWindowBadges
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import com.example.unifiedreader.ui.components.AppBackground
+import com.example.unifiedreader.ui.components.AppScreenHost
+import com.example.unifiedreader.ui.components.AppScreenTransition
 import kotlinx.coroutines.flow.Flow
 
 @Composable
@@ -95,164 +98,188 @@ internal fun LibraryRoute(
             onActiveShelfBrowserKindChanged(null)
         }
     }
-    // The shelves (and the "See all" browser) render from this context. Its download/read maps come
-    // from the late in-memory recompute, so at cold start the shelves' badges lag ~1 s behind the grid.
-    // Resolve the bounded shelf item set's badges from the same early window resolver as the grid and
-    // overlay them, so the shelf badges commit early too.
-    val shelfItems = remember(uiState.libraryShelvesState) { uiState.libraryShelvesState.allItems() }
-    val latestShelfBadgeResolver by rememberUpdatedState(pagedWindowBadgeResolver)
-    val shelfWindowBadges by produceState(LibraryWindowBadges(), shelfItems) {
-        val resolver = latestShelfBadgeResolver
-        value = if (resolver != null && shelfItems.isNotEmpty()) resolver(shelfItems) else LibraryWindowBadges()
-    }
-    val itemActionContext = LibraryItemActionContext(
-        progressByItemId = uiState.displayProgressByItemId,
-        locallyAvailableItemIds = uiState.locallyAvailableRemoteItemIds,
-        downloadableItemIds = uiState.remoteDownloadActionAvailability.downloadableItemIds,
-        deletableDownloadedItemIds = uiState.remoteDownloadActionAvailability.deletableDownloadedItemIds,
-        downloadingItemIds = uiState.remoteDownloadActionAvailability.activeDownloadingItemIds,
-        seriesReadingDirectionFor = seriesReadingDirectionFor,
-        onSeriesDirectionSelected = onSeriesDirectionSelected,
-        seriesReaderModeFor = seriesReaderModeFor,
-        onSeriesReaderModeSelected = onSeriesReaderModeSelected,
-        onDownloadItem = onDownloadRemoteItem,
-        onDeleteDownloadedItem = onDeleteRemoteLocalFile,
-        onSetReadStatus = onSetReadStatus,
-    ).withWindowBadges(shelfWindowBadges)
+    val screen = libraryScreenKey(uiState, activeShelfBrowser?.kind)
+    val currentFrame = LibraryRouteFrame(
+        uiState = uiState,
+        viewMode = viewMode,
+        pagedGridFlow = pagedGridFlow,
+        browseContextKey = browseContextKey,
+        initialScrollPosition = initialScrollPosition,
+        scrollToTopRequest = scrollToTopRequest,
+        isDownloadSelectionMode = isDownloadSelectionMode,
+        selectedDownloadItemIds = selectedDownloadItemIds,
+        showSortControl = showSortControl,
+        activeShelfBrowser = activeShelfBrowser,
+        shelfSearchQuery = shelfSearchQuery,
+    )
     AppBackground(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
     ) {
-        if (activeShelfBrowser != null) {
-            LibraryShelfItemsBrowser(
-                browser = activeShelfBrowser,
-                browseContextKey = "$browseContextKey:shelf:${activeShelfBrowser.kind.name}",
-                itemActionContext = itemActionContext,
-                coverImageUrlProvider = coverImageUrlProvider,
-                coverPrefetchKeyProvider = coverPrefetchKeyProvider,
-                gridCellSizeDp = uiState.libraryGridCellSizeDp,
-                onGridCellSizeDpChanged = onGridCellSizeDpChanged,
-                searchQuery = shelfSearchQuery,
-                onSearchQueryChanged = onShelfSearchQueryChanged,
-                showEmbeddedTopBar = false,
-                contentTopInset = contentTopInset,
-                onCoverVisible = onCoverVisible,
-                onCoverViewportScrollingChanged = onCoverViewportScrollingChanged,
-                onBack = { onActiveShelfBrowserKindChanged(null) },
-                onItemSelected = { item ->
-                    onActiveShelfBrowserKindChanged(null)
-                    onItemSelected(item)
-                },
-                onDeleteImportedItem = onDeleteImportedItem,
-            )
-        } else if (uiState.isKavitaVisualSectionActive) {
-            KavitaScopeLandingScreen(
-                contentTopInset = contentTopInset,
-                title = uiState.kavitaLibrarySection.displayName(),
-                items = uiState.kavitaScopeLandingItems(),
-                isLoading = !uiState.isSelectedSourceHydrated || uiState.kavitaReadingLists.isLoadingSummaries,
-                errorMessage = uiState.kavitaReadingLists.errorMessage,
-                searchQuery = uiState.selectedLibrarySearchQuery,
-                gridCellSizeDp = uiState.libraryGridCellSizeDp,
-                browseContextKey = browseContextKey,
-                emptyMessage = when (uiState.kavitaLibrarySection) {
-                    KavitaLibrarySection.Collections -> "No Kavita collections yet"
-                    KavitaLibrarySection.ReadingLists -> "No Kavita reading lists yet"
-                    KavitaLibrarySection.Home -> "No Kavita lists yet"
-                },
-                coverImageUrlProvider = coverImageUrlProvider,
-                coverPrefetchKeyProvider = coverPrefetchKeyProvider,
-                onCoverVisible = onCoverVisible,
-                onCoverViewportScrollingChanged = onCoverViewportScrollingChanged,
-                onItemSelected = onReadingListSelected,
-            )
-        } else {
-            LibraryScreen(
-                contentTopInset = contentTopInset,
-                selectedSource = uiState.selectedSource,
-                browseContextKey = browseContextKey,
-                items = uiState.visibleItems,
-                viewMode = viewMode,
-                progressByItemId = uiState.displayProgressByItemId,
-                ratingByItemId = uiState.displayRatingByItemId,
-                fadeReadItems = uiState.libraryFadeReadItems,
-                locallyAvailableItemIds = uiState.locallyAvailableRemoteItemIds,
-                downloadableItemIds = uiState.remoteDownloadActionAvailability.downloadableItemIds,
-                deletableDownloadedItemIds = uiState.remoteDownloadActionAvailability.deletableDownloadedItemIds,
-                downloadingItemIds = uiState.remoteDownloadActionAvailability.activeDownloadingItemIds,
-                isLoadingSource = !uiState.isSelectedSourceHydrated ||
-                    (uiState.selectedSource == SourceType.KAVITA && uiState.kavitaReadingLists.isLoadingSelectedItems) ||
-                    uiState.isSelectedLibraryLocalAvailabilityPending,
-                filterState = uiState.selectedLibraryFilters,
-                filterPanels = uiState.selectedLibraryFilterPanels,
-                filterFacets = uiState.selectedLibraryFilterFacets,
-                libraryTitlesById = uiState.selectedSourceLibraryTitlesById,
-                searchQuery = uiState.selectedLibrarySearchQuery,
-                sortMode = uiState.selectedLibrarySortMode,
-                gridCellSizeDp = uiState.libraryGridCellSizeDp,
-                showSortControl = showSortControl,
-                preferIssueLabels = uiState.isSeriesBrowseActive || uiState.isKavitaReadingListActive,
-                includeSeriesInIssueLabels = uiState.isKavitaReadingListActive,
-                lockedSortLabel = "List order".takeIf { uiState.isKavitaReadingListActive },
-                readingListScopeState = if (uiState.selectedSource == SourceType.KAVITA) {
-                    uiState.kavitaReadingListScopeState()
-                } else {
-                    LibraryReadingListScopeState()
-                },
-                coverImageUrlProvider = coverImageUrlProvider,
-                coverPrefetchKeyProvider = coverPrefetchKeyProvider,
-                onCoverVisible = onCoverVisible,
-                onCoverViewportScrollingChanged = onCoverViewportScrollingChanged,
-                topContent = if (uiState.shouldShowLibraryShelves) {
-                    @Composable { gridMetrics: LibraryGridMetrics ->
-                        LibraryShelvesTopSlot(
-                            browseContextKey = browseContextKey,
-                            shouldReserveSlot = uiState.shouldReserveLibraryShelvesSlot,
-                            state = uiState.libraryShelvesState,
-                            gridMetrics = gridMetrics,
-                            itemActionContext = itemActionContext,
-                            coverImageUrlProvider = coverImageUrlProvider,
-                            coverPrefetchKeyProvider = coverPrefetchKeyProvider,
-                            onCoverVisible = onCoverVisible,
-                            onItemSelected = onItemSelected,
-                            onBrowseShelf = onActiveShelfBrowserKindChanged,
-                            onDeleteImportedItem = onDeleteImportedItem,
-                        )
-                    }
-                } else {
-                    null
-                },
-                onFilterStateChanged = onFilterStateChanged,
-                onClearFilters = onClearFilters,
-                onReadingListSelected = onReadingListSelected,
-                onSortModeChanged = onSortModeChanged,
-                onViewModeChanged = onViewModeChanged,
-                onGridCellSizeDpChanged = onGridCellSizeDpChanged,
-                onFadeReadItemsChanged = onFadeReadItemsChanged,
-                initialScrollPosition = initialScrollPosition,
-                scrollToTopRequest = scrollToTopRequest,
-                onScrollPositionChanged = onScrollPositionChanged,
-                isDownloadSelectionMode = isDownloadSelectionMode,
-                selectedDownloadItemIds = selectedDownloadItemIds,
-                onDownloadSelectionModeChanged = onDownloadSelectionModeChanged,
-                onSelectedDownloadItemIdsChanged = onSelectedDownloadItemIdsChanged,
-                onSelectableDownloadItemsChanged = onSelectableDownloadItemsChanged,
-                onItemSelected = onItemSelected,
+        // A series, a shelf or a list slides in over the library and back out; another source
+        // fades through. The screen that is leaving keeps drawing its own frame.
+        AppScreenHost(
+            screen = screen,
+            frame = currentFrame,
+            transitionFor = ::libraryScreenTransition,
+            modifier = Modifier.fillMaxSize(),
+        ) { shownScreen, frame ->
+            // The shelves (and the "See all" browser) render from this context. Its download/read maps come
+            // from the late in-memory recompute, so at cold start the shelves' badges lag ~1 s behind the grid.
+            // Resolve the bounded shelf item set's badges from the same early window resolver as the grid and
+            // overlay them, so the shelf badges commit early too.
+            val shelfItems = remember(frame.uiState.libraryShelvesState) { frame.uiState.libraryShelvesState.allItems() }
+            val latestShelfBadgeResolver by rememberUpdatedState(pagedWindowBadgeResolver)
+            val shelfWindowBadges by produceState(LibraryWindowBadges(), shelfItems) {
+                val resolver = latestShelfBadgeResolver
+                value = if (resolver != null && shelfItems.isNotEmpty()) resolver(shelfItems) else LibraryWindowBadges()
+            }
+            val itemActionContext = LibraryItemActionContext(
+                progressByItemId = frame.uiState.displayProgressByItemId,
+                locallyAvailableItemIds = frame.uiState.locallyAvailableRemoteItemIds,
+                downloadableItemIds = frame.uiState.remoteDownloadActionAvailability.downloadableItemIds,
+                deletableDownloadedItemIds = frame.uiState.remoteDownloadActionAvailability.deletableDownloadedItemIds,
+                downloadingItemIds = frame.uiState.remoteDownloadActionAvailability.activeDownloadingItemIds,
                 seriesReadingDirectionFor = seriesReadingDirectionFor,
                 onSeriesDirectionSelected = onSeriesDirectionSelected,
                 seriesReaderModeFor = seriesReaderModeFor,
                 onSeriesReaderModeSelected = onSeriesReaderModeSelected,
-                onDeleteImportedItem = onDeleteImportedItem,
                 onDownloadItem = onDownloadRemoteItem,
                 onDeleteDownloadedItem = onDeleteRemoteLocalFile,
                 onSetReadStatus = onSetReadStatus,
-                pagedGridItems = pagedGridFlow,
-                pagedWindowBadgeResolver = pagedWindowBadgeResolver,
-                pagedAlphabetSectionsProvider = pagedAlphabetSectionsProvider,
-                // Series browse is non-paged but bounded (one series' issues); resolve its badges early
-                // too so download status commits with the grid instead of waiting for the async recompute.
-                resolveWindowBadgesForVisibleItems = uiState.isSeriesBrowseActive,
-            )
+            ).withWindowBadges(shelfWindowBadges)
+            if (frame.activeShelfBrowser != null) {
+                LibraryShelfItemsBrowser(
+                    browser = frame.activeShelfBrowser,
+                    browseContextKey = "${frame.browseContextKey}:shelf:${frame.activeShelfBrowser.kind.name}",
+                    itemActionContext = itemActionContext,
+                    coverImageUrlProvider = coverImageUrlProvider,
+                    coverPrefetchKeyProvider = coverPrefetchKeyProvider,
+                    gridCellSizeDp = frame.uiState.libraryGridCellSizeDp,
+                    onGridCellSizeDpChanged = onGridCellSizeDpChanged,
+                    searchQuery = frame.shelfSearchQuery,
+                    onSearchQueryChanged = onShelfSearchQueryChanged,
+                    showEmbeddedTopBar = false,
+                    contentTopInset = contentTopInset,
+                    onCoverVisible = onCoverVisible,
+                    onCoverViewportScrollingChanged = onCoverViewportScrollingChanged,
+                    onBack = { onActiveShelfBrowserKindChanged(null) },
+                    onItemSelected = { item ->
+                        onActiveShelfBrowserKindChanged(null)
+                        onItemSelected(item)
+                    },
+                    onDeleteImportedItem = onDeleteImportedItem,
+                )
+            } else if (frame.uiState.isKavitaVisualSectionActive) {
+                KavitaScopeLandingScreen(
+                    contentTopInset = contentTopInset,
+                    title = frame.uiState.kavitaLibrarySection.displayName(),
+                    items = frame.uiState.kavitaScopeLandingItems(),
+                    isLoading = !frame.uiState.isSelectedSourceHydrated || frame.uiState.kavitaReadingLists.isLoadingSummaries,
+                    errorMessage = frame.uiState.kavitaReadingLists.errorMessage,
+                    searchQuery = frame.uiState.selectedLibrarySearchQuery,
+                    gridCellSizeDp = frame.uiState.libraryGridCellSizeDp,
+                    browseContextKey = frame.browseContextKey,
+                    emptyMessage = when (frame.uiState.kavitaLibrarySection) {
+                        KavitaLibrarySection.Collections -> "No Kavita collections yet"
+                        KavitaLibrarySection.ReadingLists -> "No Kavita reading lists yet"
+                        KavitaLibrarySection.Home -> "No Kavita lists yet"
+                    },
+                    coverImageUrlProvider = coverImageUrlProvider,
+                    coverPrefetchKeyProvider = coverPrefetchKeyProvider,
+                    onCoverVisible = onCoverVisible,
+                    onCoverViewportScrollingChanged = onCoverViewportScrollingChanged,
+                    onItemSelected = onReadingListSelected,
+                )
+            } else {
+                LibraryScreen(
+                    contentTopInset = contentTopInset,
+                    selectedSource = frame.uiState.selectedSource,
+                    browseContextKey = frame.browseContextKey,
+                    gridIdentityKey = shownScreen,
+                    items = frame.uiState.visibleItems,
+                    viewMode = frame.viewMode,
+                    progressByItemId = frame.uiState.displayProgressByItemId,
+                    ratingByItemId = frame.uiState.displayRatingByItemId,
+                    fadeReadItems = frame.uiState.libraryFadeReadItems,
+                    locallyAvailableItemIds = frame.uiState.locallyAvailableRemoteItemIds,
+                    downloadableItemIds = frame.uiState.remoteDownloadActionAvailability.downloadableItemIds,
+                    deletableDownloadedItemIds = frame.uiState.remoteDownloadActionAvailability.deletableDownloadedItemIds,
+                    downloadingItemIds = frame.uiState.remoteDownloadActionAvailability.activeDownloadingItemIds,
+                    isLoadingSource = !frame.uiState.isSelectedSourceHydrated ||
+                        (frame.uiState.selectedSource == SourceType.KAVITA && frame.uiState.kavitaReadingLists.isLoadingSelectedItems) ||
+                        frame.uiState.isSelectedLibraryLocalAvailabilityPending,
+                    filterState = frame.uiState.selectedLibraryFilters,
+                    filterPanels = frame.uiState.selectedLibraryFilterPanels,
+                    filterFacets = frame.uiState.selectedLibraryFilterFacets,
+                    libraryTitlesById = frame.uiState.selectedSourceLibraryTitlesById,
+                    searchQuery = frame.uiState.selectedLibrarySearchQuery,
+                    sortMode = frame.uiState.selectedLibrarySortMode,
+                    gridCellSizeDp = frame.uiState.libraryGridCellSizeDp,
+                    showSortControl = frame.showSortControl,
+                    preferIssueLabels = frame.uiState.isSeriesBrowseActive || frame.uiState.isKavitaReadingListActive,
+                    includeSeriesInIssueLabels = frame.uiState.isKavitaReadingListActive,
+                    lockedSortLabel = "List order".takeIf { frame.uiState.isKavitaReadingListActive },
+                    readingListScopeState = if (frame.uiState.selectedSource == SourceType.KAVITA) {
+                        frame.uiState.kavitaReadingListScopeState()
+                    } else {
+                        LibraryReadingListScopeState()
+                    },
+                    coverImageUrlProvider = coverImageUrlProvider,
+                    coverPrefetchKeyProvider = coverPrefetchKeyProvider,
+                    onCoverVisible = onCoverVisible,
+                    onCoverViewportScrollingChanged = onCoverViewportScrollingChanged,
+                    topContent = if (frame.uiState.shouldShowLibraryShelves) {
+                        @Composable { gridMetrics: LibraryGridMetrics ->
+                            LibraryShelvesTopSlot(
+                                browseContextKey = frame.browseContextKey,
+                                shouldReserveSlot = frame.uiState.shouldReserveLibraryShelvesSlot,
+                                state = frame.uiState.libraryShelvesState,
+                                gridMetrics = gridMetrics,
+                                itemActionContext = itemActionContext,
+                                coverImageUrlProvider = coverImageUrlProvider,
+                                coverPrefetchKeyProvider = coverPrefetchKeyProvider,
+                                onCoverVisible = onCoverVisible,
+                                onItemSelected = onItemSelected,
+                                onBrowseShelf = onActiveShelfBrowserKindChanged,
+                                onDeleteImportedItem = onDeleteImportedItem,
+                            )
+                        }
+                    } else {
+                        null
+                    },
+                    onFilterStateChanged = onFilterStateChanged,
+                    onClearFilters = onClearFilters,
+                    onReadingListSelected = onReadingListSelected,
+                    onSortModeChanged = onSortModeChanged,
+                    onViewModeChanged = onViewModeChanged,
+                    onGridCellSizeDpChanged = onGridCellSizeDpChanged,
+                    onFadeReadItemsChanged = onFadeReadItemsChanged,
+                    initialScrollPosition = frame.initialScrollPosition,
+                    scrollToTopRequest = frame.scrollToTopRequest,
+                    onScrollPositionChanged = onScrollPositionChanged,
+                    isDownloadSelectionMode = frame.isDownloadSelectionMode,
+                    selectedDownloadItemIds = frame.selectedDownloadItemIds,
+                    onDownloadSelectionModeChanged = onDownloadSelectionModeChanged,
+                    onSelectedDownloadItemIdsChanged = onSelectedDownloadItemIdsChanged,
+                    onSelectableDownloadItemsChanged = onSelectableDownloadItemsChanged,
+                    onItemSelected = onItemSelected,
+                    seriesReadingDirectionFor = seriesReadingDirectionFor,
+                    onSeriesDirectionSelected = onSeriesDirectionSelected,
+                    seriesReaderModeFor = seriesReaderModeFor,
+                    onSeriesReaderModeSelected = onSeriesReaderModeSelected,
+                    onDeleteImportedItem = onDeleteImportedItem,
+                    onDownloadItem = onDownloadRemoteItem,
+                    onDeleteDownloadedItem = onDeleteRemoteLocalFile,
+                    onSetReadStatus = onSetReadStatus,
+                    pagedGridItems = frame.pagedGridFlow,
+                    pagedWindowBadgeResolver = pagedWindowBadgeResolver,
+                    pagedAlphabetSectionsProvider = pagedAlphabetSectionsProvider,
+                    // Series browse is non-paged but bounded (one series' issues); resolve its badges early
+                    // too so download status commits with the grid instead of waiting for the async recompute.
+                    resolveWindowBadgesForVisibleItems = frame.uiState.isSeriesBrowseActive,
+                )
+            }
         }
     }
 }
@@ -286,3 +313,66 @@ private fun AppUiState.kavitaScopeLandingItems(): List<KavitaScopeLandingItem> =
 
     KavitaLibrarySection.Home -> emptyList()
 }
+
+/** Which library screen is up. Each level of depth is one thing opened from the level above. */
+internal data class LibraryScreenKey(
+    val source: SourceType,
+    /** The Kavita Collections or Reading Lists landing, and everything opened from it. */
+    val kavitaSection: KavitaLibrarySection?,
+    /** An open Kavita reading list or collection. */
+    val scopeId: String?,
+    val seriesKey: String?,
+    val shelf: LibraryShelfBrowserKind?,
+) {
+    val depth: Int
+        get() = listOfNotNull(kavitaSection, scopeId, seriesKey, shelf).size
+}
+
+internal fun libraryScreenKey(
+    uiState: AppUiState,
+    shelf: LibraryShelfBrowserKind?,
+): LibraryScreenKey {
+    val source = uiState.selectedSource
+    val kavita = source == SourceType.KAVITA
+    return LibraryScreenKey(
+        source = source,
+        kavitaSection = uiState.kavitaLibrarySection.takeIf { kavita && it != KavitaLibrarySection.Home },
+        scopeId = if (kavita) {
+            uiState.kavitaReadingLists.selectedReadingListId ?: uiState.kavitaReadingLists.selectedCollectionId
+        } else {
+            null
+        },
+        seriesKey = when (source) {
+            SourceType.KAVITA -> uiState.selectedKavitaSeriesKey
+            SourceType.STUMP -> uiState.selectedStumpSeriesKey
+            SourceType.GRIMMORY,
+            SourceType.LOCAL -> null
+        },
+        shelf = shelf,
+    )
+}
+
+internal fun libraryScreenTransition(
+    from: LibraryScreenKey,
+    to: LibraryScreenKey,
+): AppScreenTransition = when {
+    from.source != to.source -> AppScreenTransition.FadeThrough
+    to.depth > from.depth -> AppScreenTransition.Forward
+    to.depth < from.depth -> AppScreenTransition.Backward
+    else -> AppScreenTransition.FadeThrough
+}
+
+/** Everything one library screen draws from, kept per screen while it animates out. */
+private class LibraryRouteFrame(
+    val uiState: AppUiState,
+    val viewMode: LibraryViewMode,
+    val pagedGridFlow: Flow<PagingData<ReadableItem>>?,
+    val browseContextKey: String,
+    val initialScrollPosition: LibraryScrollPosition,
+    val scrollToTopRequest: Long,
+    val isDownloadSelectionMode: Boolean,
+    val selectedDownloadItemIds: List<String>,
+    val showSortControl: Boolean,
+    val activeShelfBrowser: LibraryShelfBrowserState?,
+    val shelfSearchQuery: String,
+)

@@ -1,9 +1,11 @@
 package com.example.unifiedreader.feature.library
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -23,6 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.ui.components.appPressScale
 
 @Composable
 @OptIn(ExperimentalFoundationApi::class)
@@ -52,11 +56,15 @@ fun LibraryCoverActionCard(
     coverOverlay: (@Composable BoxScope.() -> Unit)? = null,
     emptyCoverContent: (@Composable BoxScope.() -> Unit)? = null,
 ) {
+    // Pressing the cover shrinks it a little.
+    val coverInteractionSource = remember { MutableInteractionSource() }
     Column(modifier = modifier.fillMaxWidth()) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .appPressScale(coverInteractionSource)
                 .libraryCoverClickable(
+                    interactionSource = coverInteractionSource,
                     onClick = onClick,
                     onLongClick = onLongClick,
                 ),
@@ -86,6 +94,7 @@ fun LibraryCoverActionCard(
                 Text(
                     text = title,
                     modifier = Modifier.libraryCoverClickable(
+                        interactionSource = null,
                         onClick = onClick,
                         onLongClick = onLongClick,
                     ).then(title.marqueeModifier()),
@@ -132,13 +141,21 @@ private fun String.marqueeModifier(): Modifier =
     }
 
 @OptIn(ExperimentalFoundationApi::class)
+@Composable
 private fun Modifier.libraryCoverClickable(
+    interactionSource: MutableInteractionSource?,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)?,
 ): Modifier = if (onLongClick == null) {
-    clickable(onClick = onClick)
+    clickable(
+        interactionSource = interactionSource,
+        indication = LocalIndication.current,
+        onClick = onClick,
+    )
 } else {
     combinedClickable(
+        interactionSource = interactionSource,
+        indication = LocalIndication.current,
         onClick = onClick,
         onLongClick = onLongClick,
     )

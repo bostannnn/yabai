@@ -1,10 +1,11 @@
 package com.example.unifiedreader.ui.components
 
-import androidx.activity.compose.BackHandler
+import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -32,19 +33,27 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.ui.theme.AppMotion
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
+import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.launch
 
 /** Where an [AppFloatingPanel] sits on a wide screen. Under the compact width every placement is a bottom sheet. */
 enum class AppFloatingPanelPlacement {
@@ -125,7 +134,8 @@ fun resolveAppFloatingPanelLayout(
  * from the system bars and from any bar the panel must not cover ([contentPadding] adds the
  * panel's own margin inside that slot; the bottom sheet ignores the bottom and side margins).
  * While visible, a scrim covers the slot, tapping it or pressing back calls
- * [onDismissRequest], and the panel slides in from its edge.
+ * [onDismissRequest], and the panel slides in from its edge. A predictive back gesture moves
+ * and shrinks the panel toward its edge as it goes; letting go closes it from there.
  */
 @Composable
 fun AppFloatingPanel(
@@ -142,7 +152,21 @@ fun AppFloatingPanel(
     testTag: String? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    BackHandler(enabled = visible, onBack = onDismissRequest)
+    val backProgress = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    PredictiveBackHandler(enabled = visible) { events ->
+        try {
+            events.collect { event -> backProgress.snapTo(event.progress) }
+            onDismissRequest()
+        } catch (cancelled: CancellationException) {
+            scope.launch { backProgress.animateTo(0f, AppMotion.spatial()) }
+            throw cancelled
+        }
+    }
+    // The panel leaves from wherever the gesture let go of it; a fresh opening starts square.
+    LaunchedEffect(visible) {
+        if (visible) backProgress.snapTo(0f)
+    }
 
     val layout = resolveAppFloatingPanelLayout(
         placement = placement,
@@ -155,13 +179,14 @@ fun AppFloatingPanel(
     Box(modifier = modifier.fillMaxSize()) {
         AnimatedVisibility(
             visible = visible,
-            enter = fadeIn(animationSpec = tween(AppFloatingPanelDefaults.enterMillis)),
-            exit = fadeOut(animationSpec = tween(AppFloatingPanelDefaults.exitMillis)),
+            enter = fadeIn(animationSpec = AppMotion.effects()),
+            exit = fadeOut(animationSpec = AppMotion.effects()),
             modifier = Modifier.fillMaxSize(),
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .graphicsLayer { alpha = 1f - backProgress.value }
                     .background(scrimColor)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
@@ -191,6 +216,16 @@ fun AppFloatingPanel(
                         )
                         .then(if (layout.fillHeight) Modifier.fillMaxHeight() else Modifier)
                         .then(if (maxHeight.isSpecified) Modifier.heightIn(max = maxHeight) else Modifier)
+                        .graphicsLayer {
+                            val progress = backProgress.value
+                            val shift = AppMotion.predictiveBackShift.toPx() * progress
+                            val toward = layout.dockedEdge(layoutDirection)
+                            translationX = toward.x * shift
+                            translationY = toward.y * shift
+                            scaleX = 1f - AppMotion.predictiveBackShrink * progress
+                            scaleY = scaleX
+                            transformOrigin = toward.origin
+                        }
                         .panelSurface(shape = shape, containerColor = containerColor, glass = glass)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
@@ -262,8 +297,8 @@ private fun AppFloatingPanelLayout.padding(
 }
 
 private fun AppFloatingPanelLayout.enter(layoutDirection: LayoutDirection): EnterTransition {
-    val spec = tween<androidx.compose.ui.unit.IntOffset>(AppFloatingPanelDefaults.enterMillis)
-    val fade = fadeIn(animationSpec = tween(AppFloatingPanelDefaults.enterMillis))
+    val spec = AppMotion.spatial(IntOffset.VisibilityThreshold)
+    val fade = fadeIn(animationSpec = AppMotion.effects())
     return when (mode) {
         AppFloatingPanelMode.BottomSheet -> slideInVertically(spec) { height -> height / 3 } + fade
         AppFloatingPanelMode.AnchoredCard -> slideInVertically(spec) { height -> -height / 4 } + fade
@@ -274,8 +309,8 @@ private fun AppFloatingPanelLayout.enter(layoutDirection: LayoutDirection): Ente
 }
 
 private fun AppFloatingPanelLayout.exit(layoutDirection: LayoutDirection): ExitTransition {
-    val spec = tween<androidx.compose.ui.unit.IntOffset>(AppFloatingPanelDefaults.exitMillis)
-    val fade = fadeOut(animationSpec = tween(AppFloatingPanelDefaults.exitMillis))
+    val spec = AppMotion.spatial(IntOffset.VisibilityThreshold)
+    val fade = fadeOut(animationSpec = AppMotion.effects())
     return when (mode) {
         AppFloatingPanelMode.BottomSheet -> slideOutVertically(spec) { height -> height / 3 } + fade
         AppFloatingPanelMode.AnchoredCard -> slideOutVertically(spec) { height -> -height / 4 } + fade
@@ -292,6 +327,21 @@ private fun AppFloatingPanelLayout.edgeOffset(width: Int, layoutDirection: Layou
     return if (towardLeft) -width / 3 else width / 3
 }
 
+/** The edge a panel leaves through: a unit direction and the matching transform origin. */
+private class PanelEdge(val x: Float, val y: Float, val origin: TransformOrigin)
+
+private fun AppFloatingPanelLayout.dockedEdge(layoutDirection: LayoutDirection): PanelEdge = when (mode) {
+    AppFloatingPanelMode.BottomSheet -> PanelEdge(0f, 1f, TransformOrigin(0.5f, 1f))
+    AppFloatingPanelMode.AnchoredCard -> {
+        val right = layoutDirection == LayoutDirection.Ltr
+        PanelEdge(if (right) 1f else -1f, -1f, TransformOrigin(if (right) 1f else 0f, 0f))
+    }
+    AppFloatingPanelMode.EdgePanel -> {
+        val left = (alignment == Alignment.CenterStart) == (layoutDirection == LayoutDirection.Ltr)
+        PanelEdge(if (left) -1f else 1f, 0f, TransformOrigin(if (left) 0f else 1f, 0.5f))
+    }
+}
+
 private val Dp.isSpecified: Boolean
     get() = this != Dp.Unspecified
 
@@ -302,8 +352,6 @@ object AppFloatingPanelDefaults {
     /** Below this width every placement is a bottom sheet, matching [AppSideSheetDefaults]. */
     const val compactWidthDp: Int = AppSideSheetDefaults.compactWidthDp
 
-    const val enterMillis: Int = 220
-    const val exitMillis: Int = 160
     const val scrimAlpha: Float = 0.2f
 
     fun width(placement: AppFloatingPanelPlacement): Dp = when (placement) {

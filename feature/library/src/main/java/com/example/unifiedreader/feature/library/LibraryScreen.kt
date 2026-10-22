@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.library
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -12,6 +13,7 @@ import androidx.compose.foundation.lazy.grid.LazyGridLayoutInfo
 import androidx.compose.foundation.lazy.grid.LazyGridPrefetchScope
 import androidx.compose.foundation.lazy.grid.LazyGridPrefetchStrategy
 import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.lazy.grid.LazyGridItemScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.layout.NestedPrefetchScope
@@ -20,6 +22,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -31,6 +34,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.paging.LoadState
 import androidx.paging.PagingData
@@ -47,6 +51,7 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.library.menu.LibraryItemMenuButtonStyle
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
+import com.example.unifiedreader.ui.theme.AppMotion
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
@@ -62,6 +67,10 @@ import kotlinx.coroutines.launch
 fun LibraryScreen(
     selectedSource: SourceType,
     browseContextKey: String,
+    // What the grid shows apart from its sort, filters and search (a source, a series). While it
+    // stays the same, the in-memory grid keeps one state, so a sort or filter change moves the
+    // covers instead of rebuilding the grid. Null keeps a grid per browse context.
+    gridIdentityKey: Any? = null,
     items: List<ReadableItem>,
     viewMode: LibraryViewMode,
     progressByItemId: Map<String, ItemProgressSummary> = emptyMap(),
@@ -247,12 +256,27 @@ fun LibraryScreen(
         selectableIds = selectableDownloadItemIds,
         isPaged = isPaged,
     ).toSet()
-    val gridState = remember(browseContextKey) {
+    // The paged grid reloads from scratch on every sort or filter change, so it has nothing to
+    // move and keeps a grid per browse context.
+    val gridStateKey = if (isPaged || gridIdentityKey == null) browseContextKey else gridIdentityKey
+    val gridState = remember(gridStateKey) {
         LazyGridState(
             firstVisibleItemIndex = initialScrollPosition.index,
             firstVisibleItemScrollOffset = initialScrollPosition.offset,
             prefetchStrategy = LibraryGridScrollPrefetchStrategy,
         )
+    }
+    // A kept grid still opens each sort and filter combination where it was left: one saved
+    // further down is restored below (pendingScrollRestore); one near the top is set here. A
+    // scroll jump plays no item animations, so covers only move when the grid stays put.
+    var gridStateContextKey by remember(gridStateKey) { mutableStateOf(browseContextKey) }
+    if (gridStateContextKey != browseContextKey) {
+        LaunchedEffect(browseContextKey) {
+            gridStateContextKey = browseContextKey
+            if (initialScrollPosition.index == 0) {
+                gridState.scrollToItem(0, initialScrollPosition.offset)
+            }
+        }
     }
     // Held, and not reported, until the grid can reach it (see LibraryScrollRestoreStep); a drag or
     // fling hands the position back to the user.
@@ -266,6 +290,21 @@ fun LibraryScreen(
     }
     val leadingContentItemCount = 1 +
         (if (topContent != null) 1 else 0)
+    // A row that arrives above a grid still at its very top (the shelves, when the library was
+    // drawn under a back gesture before they were computed) is scrolled into view: the lazy grid
+    // would otherwise keep its old first row in place and leave the new one above the screen.
+    var shownLeadingContentItemCount by remember(browseContextKey) { mutableIntStateOf(leadingContentItemCount) }
+    LaunchedEffect(leadingContentItemCount) {
+        val added = leadingContentItemCount - shownLeadingContentItemCount
+        shownLeadingContentItemCount = leadingContentItemCount
+        if (added > 0 &&
+            pendingScrollRestore == null &&
+            gridState.firstVisibleItemIndex <= added &&
+            gridState.firstVisibleItemScrollOffset == 0
+        ) {
+            gridState.scrollToItem(0)
+        }
+    }
     pendingScrollRestore?.let { savedPosition ->
         val gridItemCount = leadingContentItemCount + if (isPaged) pagedItems!!.itemCount else visibleItems.size
         val restoreStep = libraryScrollRestoreStep(
@@ -426,7 +465,8 @@ fun LibraryScreen(
             onCoverVisible = onCoverVisible,
         )
 
-        val gridCard: @Composable (ReadableItem) -> Unit = { item ->
+        // Sort and filter changes move covers to their new places instead of cutting.
+        val gridCard: @Composable LazyGridItemScope.(ReadableItem) -> Unit = { item ->
             val hasMenuContent = itemActionContext.hasMenuContent(item)
             GridCoverCard(
                 item = item,
@@ -469,6 +509,11 @@ fun LibraryScreen(
                 } else {
                     null
                 },
+                modifier = Modifier.animateItem(
+                    fadeInSpec = null,
+                    placementSpec = AppMotion.spatial(IntOffset.VisibilityThreshold),
+                    fadeOutSpec = null,
+                ),
             )
         }
 

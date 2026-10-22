@@ -81,7 +81,7 @@ internal fun LibraryFilterSheet(
         FilterSheetHeader(
             activeCount = activeCount,
             onClearFilters = onClearFilters,
-            onDismiss = onDismiss,
+            onDismiss = { dismiss() },
         )
         AppDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
         LazyColumn(
