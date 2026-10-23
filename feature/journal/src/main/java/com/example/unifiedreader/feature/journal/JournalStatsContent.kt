@@ -1,7 +1,7 @@
 package com.example.unifiedreader.feature.journal
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -31,6 +31,8 @@ import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppSegment
 import com.example.unifiedreader.ui.components.AppSegmentedRow
+import com.example.unifiedreader.ui.components.AppWindowWidth
+import com.example.unifiedreader.ui.components.currentAppWindowWidth
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -78,8 +80,8 @@ fun JournalStatsContent(
         )
     }
 
-    BoxWithConstraints(modifier = modifier) {
-        val useDialog = maxWidth >= 600.dp
+    val useDialog = currentAppWindowWidth() >= AppWindowWidth.Medium
+    Box(modifier = modifier) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(16.dp),

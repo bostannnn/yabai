@@ -1016,11 +1016,45 @@ phone width, with an EPUB and a comic. Not yet on the tablet.
 - [ ] Tablet: the frame and panels over a real EPUB and comic, the feel of the slider, and frame
       times with a panel open over an EPUB page and over a comic page.
 
-### 8.8 Navigation rail `[ ]`
+### 8.8 Navigation rail `[~]`
 
-- [ ] A rail at 840 dp and wider (sources, Journal, Settings; Kavita's Home, Collections and Reading
-      Lists open from its rail item); phones keep the drawer.
-- [ ] One window-size helper instead of the ten breakpoint values in use (360 to 860 dp).
+Built 2026-10-23 on `claude/ui-redesign-step-8-135c61`, checked on the emulator (`yabai_tablet_35` on
+port 5558, the Local library) at 800 dp portrait (drawer), 1280 dp landscape (rail), Graphite and
+Paper, and at phone landscape (891 x 411 dp through `wm size`, drawer). Not yet on the tablet.
+
+- [x] `AppWindowWidth` in core:ui-components (`AppWindowSize.kt`, unit-tested): Compact < 600,
+      Medium 600-839, Expanded >= 840 dp, from `currentAppWindowWidth()`; `AppWindowHeight` (Compact
+      < 480, Medium, Expanded >= 900) for the rail only.
+- [x] The window breakpoints moved onto it: 600 (side sheets, floating panels, the reader frame and
+      strip, EPUB settings tabs, Downloads, the library header and reading card, the journal's
+      dialogs) is Compact; 760 (the search bar's full-width field, library and shelf browser) is
+      Compact too, so 600-759 dp windows now get the centred field; 840 (search in the bar) and 860
+      (the settings hub beside its page, a sum of column widths) are Expanded, so 840-859 dp windows
+      now get the side pane. `AppSideSheetDefaults.compactWidthDp`, `AppFloatingPanelDefaults
+      .compactWidthDp`, `LibraryCompactWidth` and the settings side pane's minimum page width are gone.
+- [x] Kept as they are, because they measure the space a component has, not the window: 360 (a form
+      row stacks its control; the footnote popup), 520 and 560 (settings choices inline, the server
+      form in two columns: the page is narrower than the window beside the hub), 520 (the footnote
+      popup), 640, 680, 760 and 840 inside the journal's sections (8.9 redoes the journal), and 700
+      (comics spreads in Auto: a reading rule on the reader's own box). The other large dp values
+      are sizes and caps (360 dp panels, 560 and 640 dp max widths, the 800 dp settings page).
+- [x] `AppNavigationRail` and `AppNavigationRailItem` in the kit: 88 dp on the screen background with
+      a 1 dp `outlineVariant` line at its end, 80 dp items (a 56 x 32 dp pill, `surfaceSelected` when
+      selected, around a 24 dp icon; a 12 SemiBold label in `onSurface` / `onSurfaceVariant`), the
+      first item level with the top bar, colours on effects, press scale and a ripple in the pill,
+      `Role.Tab`. The destinations scroll when the window is short; the footer stays at the bottom.
+- [x] `SourceNavigationRail` and `SourceNavigationFrame` (feature:navigation): sources in the drawer
+      order, then Journal and Settings at the bottom (a dot on Settings for a waiting update, read
+      out as "Update <version> available"). Kavita's item opens a menu beside the rail ("Kavita": Home,
+      Collections, Reading Lists, the open one checked). The rail shows at Expanded width unless the
+      height is Compact, so a phone on its side keeps the drawer. With the rail the drawer is closed
+      and its swipe off, and the top bars have no menu button (`onDrawerClick` is null). The screens
+      keep their place in the tree either way. The reader covers the shell, rail included.
+- Not seen: the Settings dot (needs a waiting update) and the Kavita menu's sections on a connected
+  Kavita (the emulator has none).
+- [ ] Tablet: the rail in landscape and portrait (914 dp is Expanded, so portrait gets the rail and
+      the settings side pane, with a 446 dp page), the Kavita menu over a real library, and the
+      update dot.
 
 ### 8.9 Screen passes `[ ]` (each mocked first)
 

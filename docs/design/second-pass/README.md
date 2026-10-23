@@ -316,7 +316,10 @@ Mock: `8.8-navigation-rail.jpg`.
   a serif). Kavita's Home, Collections and Reading Lists open from a small menu on its rail item.
   Phones keep the drawer.
 - One window-size helper in `core:ui-components` (Compact < 600, Medium 600-839, Expanded ≥ 840 dp)
-  replaces the ten breakpoint values in use today (360, 520, 560, 600, 640, 680, 700, 760, 840, 860).
+  replaces the breakpoints that measure the window (600, 760, 840, 860). The others in use (360,
+  520, 560, 640, 680, 700, and 760 and 840 inside the journal) measure the space a component has, so
+  they stay; `UI_REDESIGN_PLAN.md` 8.8 lists each. A window under 480 dp tall (a phone on its side)
+  keeps the drawer at any width.
 
 ## 8.9 Screen passes
 

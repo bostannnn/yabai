@@ -19,7 +19,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
@@ -32,7 +31,8 @@ import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppLinearProgress
 import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.components.AppSideSheet
-import com.example.unifiedreader.ui.components.AppSideSheetDefaults
+import com.example.unifiedreader.ui.components.AppWindowWidth
+import com.example.unifiedreader.ui.components.currentAppWindowWidth
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 @Composable
@@ -50,7 +50,7 @@ fun DownloadsSheet(
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
     // A side sheet like the filters and the book page; a bottom sheet on phones.
-    val wide = LocalConfiguration.current.screenWidthDp >= AppSideSheetDefaults.compactWidthDp
+    val wide = currentAppWindowWidth() >= AppWindowWidth.Medium
     AppSideSheet(
         onDismissRequest = onDismiss,
     ) {

@@ -60,12 +60,15 @@ fun SourceNavigationDrawer(
     onDestinationSelected: (SourceNavigationDestination) -> Unit,
     /** Shown at the end of the Settings row, such as the version of a waiting update. */
     settingsBadge: String? = null,
+    /** False while the rail shows: then nothing opens the drawer, not even a swipe. */
+    gesturesEnabled: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     val presentation = UnifiedReaderThemeTokens.presentation
     val drawerShape = RoundedCornerShape(presentation.cardCornerRadius)
     ModalNavigationDrawer(
         drawerState = drawerState,
+        gesturesEnabled = gesturesEnabled,
         drawerContent = {
             // A floating glass panel, inset from the screen edges and the system bars. Given the
             // drawer state, the sheet closes on back and follows the predictive back gesture.
@@ -229,7 +232,7 @@ private fun SourceNavigationItem(
 }
 
 
-private fun SourceNavigationDestination.isSelectedKavitaSection(
+internal fun SourceNavigationDestination.isSelectedKavitaSection(
     section: KavitaLibrarySection,
 ): Boolean = this == SourceNavigationDestination.KavitaSection(section) ||
     (this == SourceNavigationDestination.Source(SourceType.KAVITA) && section == KavitaLibrarySection.Home)

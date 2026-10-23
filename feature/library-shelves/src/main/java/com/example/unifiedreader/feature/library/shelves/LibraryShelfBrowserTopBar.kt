@@ -24,6 +24,8 @@ import com.example.unifiedreader.feature.library.LibraryBrowseSearchModeTopBar
 import com.example.unifiedreader.feature.library.LibraryBrowseTopBarContainer
 import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
+import com.example.unifiedreader.ui.components.AppWindowWidth
+import com.example.unifiedreader.ui.components.currentAppWindowWidth
 
 @Composable
 fun rememberLibraryShelfBrowserSearchQuery(
@@ -52,7 +54,7 @@ fun LibraryShelfBrowserTopBar(
     }
 
     LibraryBrowseTopBarContainer {
-        val compactToolbar = maxWidth < ShelfBrowserTopBarCompactBreakpoint
+        val compactToolbar = currentAppWindowWidth() == AppWindowWidth.Compact
         if (searchModeOpen || searchQuery.isNotBlank()) {
             LibraryBrowseSearchModeTopBar(
                 query = searchQuery,
@@ -115,4 +117,3 @@ private fun Int.itemCountLabel(): String = when (this) {
     else -> "$this items"
 }
 
-private val ShelfBrowserTopBarCompactBreakpoint = 760.dp

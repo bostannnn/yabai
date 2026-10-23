@@ -7,7 +7,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -18,14 +17,14 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
+import com.example.unifiedreader.ui.components.AppWindowWidth
+import com.example.unifiedreader.ui.components.currentAppWindowWidth
 
 internal const val LibraryHeaderItemKey = "header"
 
-/** Below this window width (phones) the header and the reading card take their compact layouts. */
-val LibraryCompactWidth: Dp = 600.dp
-
+/** In compact windows (phones) the header and the reading card take their compact layouts. */
 @Composable
-fun isLibraryCompactWindow(): Boolean = LocalConfiguration.current.screenWidthDp.dp < LibraryCompactWidth
+fun isLibraryCompactWindow(): Boolean = currentAppWindowWidth() == AppWindowWidth.Compact
 
 /** The top of the library: the source (or series) name as a large title and a one-line summary. */
 data class LibraryHeader(

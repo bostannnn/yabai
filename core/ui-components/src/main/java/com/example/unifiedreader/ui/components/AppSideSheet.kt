@@ -31,7 +31,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
@@ -67,7 +66,7 @@ fun AppSideSheet(
     width: Dp = AppSideSheetDefaults.width,
     content: @Composable AppSideSheetScope.() -> Unit,
 ) {
-    val compact = LocalConfiguration.current.screenWidthDp < AppSideSheetDefaults.compactWidthDp
+    val compact = currentAppWindowWidth() == AppWindowWidth.Compact
     if (compact) {
         // Opened all the way: a side sheet's task (its footer included) needs the whole height.
         AppSheetLayout(onDismissRequest = onDismissRequest, skipPartiallyExpanded = true) { hide ->
@@ -173,5 +172,4 @@ object AppSideSheetDefaults {
     val width: Dp = 400.dp
     val margin: Dp = 12.dp
     val cornerRadius: Dp = 26.dp
-    const val compactWidthDp: Int = 600
 }

@@ -42,7 +42,6 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -51,13 +50,14 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.unifiedreader.ui.components.AppFloatingPanel
-import com.example.unifiedreader.ui.components.AppFloatingPanelDefaults
 import com.example.unifiedreader.ui.components.AppFloatingPanelPlacement
 import com.example.unifiedreader.ui.components.AppFloatingPanelScrim
+import com.example.unifiedreader.ui.components.AppGlassDefaults
 import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
-import com.example.unifiedreader.ui.components.AppGlassDefaults
+import com.example.unifiedreader.ui.components.AppWindowWidth
 import com.example.unifiedreader.ui.components.appGlass
+import com.example.unifiedreader.ui.components.currentAppWindowWidth
 
 /*
  * The reader's chrome (UI redesign 8.7): a top bar and a bottom dock, both 28 dp-cornered glass
@@ -207,7 +207,7 @@ fun ReaderChromeFrame(
     modifier: Modifier = Modifier,
     panels: @Composable BoxScope.(ReaderPanelSlot) -> Unit,
 ) {
-    val compact = LocalConfiguration.current.screenWidthDp < AppFloatingPanelDefaults.compactWidthDp
+    val compact = currentAppWindowWidth() == AppWindowWidth.Compact
     val inset = if (compact) ReaderChromeDefaults.compactInset else ReaderChromeDefaults.inset
     val density = LocalDensity.current
     // The bars' edges in root pixels, measured as they are placed.
@@ -328,7 +328,7 @@ object ReaderChromeDefaults {
 
     /** A page strip's thumbnails in the dock: 110 dp tall in portrait, 96 in landscape, 70 on phones. */
     fun stripThumbnailHeight(screenWidthDp: Int, screenHeightDp: Int): Dp = when {
-        screenWidthDp < AppFloatingPanelDefaults.compactWidthDp -> 70.dp
+        AppWindowWidth.of(screenWidthDp) == AppWindowWidth.Compact -> 70.dp
         screenWidthDp > screenHeightDp -> 96.dp
         else -> 110.dp
     }

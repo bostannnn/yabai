@@ -11,11 +11,11 @@ import org.junit.Test
 class AppFloatingPanelLayoutTest {
 
     @Test
-    fun `every placement is a full-width bottom sheet under the compact width`() {
+    fun `every placement is a full-width bottom sheet in a compact window`() {
         AppFloatingPanelPlacement.entries.forEach { placement ->
             val layout = resolveAppFloatingPanelLayout(
                 placement = placement,
-                screenWidthDp = 411,
+                windowWidth = AppWindowWidth.Compact,
                 width = 400.dp,
             )
             assertEquals(placement.name, AppFloatingPanelMode.BottomSheet, layout.mode)
@@ -26,31 +26,27 @@ class AppFloatingPanelLayoutTest {
     }
 
     @Test
-    fun `the compact threshold is exclusive`() {
-        val atThreshold = resolveAppFloatingPanelLayout(
-            placement = AppFloatingPanelPlacement.End,
-            screenWidthDp = AppFloatingPanelDefaults.compactWidthDp,
-            width = 400.dp,
-        )
-        val below = resolveAppFloatingPanelLayout(
-            placement = AppFloatingPanelPlacement.End,
-            screenWidthDp = AppFloatingPanelDefaults.compactWidthDp - 1,
-            width = 400.dp,
-        )
-        assertEquals(AppFloatingPanelMode.EdgePanel, atThreshold.mode)
-        assertEquals(AppFloatingPanelMode.BottomSheet, below.mode)
+    fun `medium and expanded windows get edge panels`() {
+        listOf(AppWindowWidth.Medium, AppWindowWidth.Expanded).forEach { windowWidth ->
+            val layout = resolveAppFloatingPanelLayout(
+                placement = AppFloatingPanelPlacement.End,
+                windowWidth = windowWidth,
+                width = 400.dp,
+            )
+            assertEquals(windowWidth.name, AppFloatingPanelMode.EdgePanel, layout.mode)
+        }
     }
 
     @Test
     fun `start and end placements are full-height edge panels at the requested width`() {
         val start = resolveAppFloatingPanelLayout(
             placement = AppFloatingPanelPlacement.Start,
-            screenWidthDp = 800,
+            windowWidth = AppWindowWidth.Medium,
             width = 360.dp,
         )
         val end = resolveAppFloatingPanelLayout(
             placement = AppFloatingPanelPlacement.End,
-            screenWidthDp = 800,
+            windowWidth = AppWindowWidth.Medium,
             width = 400.dp,
         )
         assertEquals(AppFloatingPanelMode.EdgePanel, start.mode)
@@ -68,7 +64,7 @@ class AppFloatingPanelLayoutTest {
     fun `top-end placement is a content-sized card under the bar`() {
         val layout = resolveAppFloatingPanelLayout(
             placement = AppFloatingPanelPlacement.TopEnd,
-            screenWidthDp = 800,
+            windowWidth = AppWindowWidth.Medium,
             width = 400.dp,
         )
         assertEquals(AppFloatingPanelMode.AnchoredCard, layout.mode)
@@ -82,6 +78,5 @@ class AppFloatingPanelLayoutTest {
         assertEquals(360.dp, AppFloatingPanelDefaults.width(AppFloatingPanelPlacement.Start))
         assertEquals(AppSideSheetDefaults.width, AppFloatingPanelDefaults.width(AppFloatingPanelPlacement.End))
         assertEquals(AppSideSheetDefaults.width, AppFloatingPanelDefaults.width(AppFloatingPanelPlacement.TopEnd))
-        assertEquals(AppSideSheetDefaults.compactWidthDp, AppFloatingPanelDefaults.compactWidthDp)
     }
 }

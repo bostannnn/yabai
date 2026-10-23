@@ -1,27 +1,22 @@
 package com.example.unifiedreader.feature.settings
 
-import org.junit.Assert.assertEquals
+import com.example.unifiedreader.ui.components.AppWindowWidth
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SettingsLayoutTest {
     @Test
-    fun `side pane needs the hub column, the gap and a readable page`() {
-        val threshold = (SettingsScreenHorizontalPaddingDp * 2) +
-            SettingsSidePaneWidthDp +
-            SettingsSidePaneSpacingDp +
-            SettingsSidePaneMinPageWidthDp
-
-        assertEquals(860, threshold)
-        assertFalse(settingsUsesSidePane(windowWidthDp = threshold - 1))
-        assertTrue(settingsUsesSidePane(windowWidthDp = threshold))
+    fun `only expanded windows keep the hub beside the page`() {
+        assertFalse(settingsUsesSidePane(AppWindowWidth.Compact))
+        assertFalse(settingsUsesSidePane(AppWindowWidth.Medium))
+        assertTrue(settingsUsesSidePane(AppWindowWidth.Expanded))
     }
 
     @Test
-    fun `tablet portrait stacks and landscape keeps the side pane`() {
-        assertFalse(settingsUsesSidePane(windowWidthDp = 800))
-        assertTrue(settingsUsesSidePane(windowWidthDp = 1280))
+    fun `tablet portrait on the emulator stacks and landscape keeps the side pane`() {
+        assertFalse(settingsUsesSidePane(AppWindowWidth.of(800)))
+        assertTrue(settingsUsesSidePane(AppWindowWidth.of(1280)))
     }
 
     @Test

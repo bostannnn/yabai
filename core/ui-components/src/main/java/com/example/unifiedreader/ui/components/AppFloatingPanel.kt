@@ -44,7 +44,6 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
@@ -85,16 +84,15 @@ data class AppFloatingPanelLayout(
 )
 
 /**
- * The placement rule, kept pure so it can be tested: wide screens get the requested
- * placement, compact screens (under [compactWidthDp]) get a bottom sheet whatever was asked.
+ * The placement rule, kept pure so it can be tested: wider windows get the requested
+ * placement, compact ones get a bottom sheet whatever was asked.
  */
 fun resolveAppFloatingPanelLayout(
     placement: AppFloatingPanelPlacement,
-    screenWidthDp: Int,
+    windowWidth: AppWindowWidth,
     width: Dp,
-    compactWidthDp: Int = AppFloatingPanelDefaults.compactWidthDp,
 ): AppFloatingPanelLayout {
-    if (screenWidthDp < compactWidthDp) {
+    if (windowWidth == AppWindowWidth.Compact) {
         return AppFloatingPanelLayout(
             mode = AppFloatingPanelMode.BottomSheet,
             alignment = Alignment.BottomCenter,
@@ -172,7 +170,7 @@ fun AppFloatingPanel(
 
     val layout = resolveAppFloatingPanelLayout(
         placement = placement,
-        screenWidthDp = LocalConfiguration.current.screenWidthDp,
+        windowWidth = currentAppWindowWidth(),
         width = width,
     )
     val layoutDirection = LocalLayoutDirection.current
@@ -368,9 +366,6 @@ private val Dp.isSpecified: Boolean
 object AppFloatingPanelDefaults {
     /** The drawer's and side sheet's distance from the screen edges. */
     val margin: Dp = 12.dp
-
-    /** Below this width every placement is a bottom sheet, matching [AppSideSheetDefaults]. */
-    const val compactWidthDp: Int = AppSideSheetDefaults.compactWidthDp
 
     /** How far a panel slides in from its edge as it fades in. */
     val slideDistance: Dp = 28.dp

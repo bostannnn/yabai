@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.Library
@@ -23,6 +22,7 @@ import com.example.unifiedreader.feature.updates.AppUpdateState
 import com.example.unifiedreader.ui.components.AppScreenBack
 import com.example.unifiedreader.ui.components.AppScreenHost
 import com.example.unifiedreader.ui.components.AppScreenTransition
+import com.example.unifiedreader.ui.components.currentAppWindowWidth
 
 internal const val DefaultKavitaServerUrl = "http://192.168.50.60:5000/"
 internal const val DefaultKavitaBackupServerUrl = "http://100.84.32.88:5000/"
@@ -58,7 +58,7 @@ fun SettingsScreen(
     updateState: AppUpdateState = AppUpdateState(),
     updateActions: AppUpdateActions = AppUpdateActions(),
 ) {
-    val usesSidePane = settingsUsesSidePane(LocalConfiguration.current.screenWidthDp)
+    val usesSidePane = settingsUsesSidePane(currentAppWindowWidth())
     val orderedSources = remember(sources, sourceOrder) {
         sources.sortedBy { entry -> sourceOrder.indexOf(entry.sourceType).takeIf { it >= 0 } ?: Int.MAX_VALUE }
     }

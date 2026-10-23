@@ -21,7 +21,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -43,30 +42,32 @@ import com.example.unifiedreader.feature.library.shelves.LibraryShelfBrowserTopB
 import com.example.unifiedreader.feature.library.shelves.browserState
 import com.example.unifiedreader.feature.library.shelves.rememberLibraryShelfBrowserSearchQuery
 import com.example.unifiedreader.feature.navigation.SourceNavigationDestination
-import com.example.unifiedreader.feature.navigation.SourceNavigationDrawer
+import com.example.unifiedreader.feature.navigation.SourceNavigationFrame
+import com.example.unifiedreader.feature.navigation.sourceNavigationUsesRail
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
-import com.example.unifiedreader.feature.settings.ServerConnectionAction
 import com.example.unifiedreader.feature.settings.RemoteSourceSettingsActions
+import com.example.unifiedreader.feature.settings.ServerConnectionAction
 import com.example.unifiedreader.feature.settings.SettingsPage
 import com.example.unifiedreader.feature.settings.SettingsPageSaver
 import com.example.unifiedreader.feature.settings.SettingsScreen
 import com.example.unifiedreader.feature.settings.SourceSettingsEntry
-import com.example.unifiedreader.feature.settings.settingsUsesSidePane
 import com.example.unifiedreader.feature.settings.SyncSettingsItemRow
 import com.example.unifiedreader.feature.settings.SyncSettingsSourceGroup
 import com.example.unifiedreader.feature.settings.SyncSettingsUiState
 import com.example.unifiedreader.feature.settings.direction.ReadingDirectionLibraryUiState
-import com.example.unifiedreader.feature.updates.AppUpdateActions
-import com.example.unifiedreader.feature.updates.AppUpdateState
 import com.example.unifiedreader.feature.settings.direction.buildComicReadingDirectionLibraryRows
 import com.example.unifiedreader.feature.settings.mode.ReaderModeLibraryUiState
 import com.example.unifiedreader.feature.settings.mode.buildComicReaderModeLibraryRows
+import com.example.unifiedreader.feature.settings.settingsUsesSidePane
+import com.example.unifiedreader.feature.updates.AppUpdateActions
+import com.example.unifiedreader.feature.updates.AppUpdateState
 import com.example.unifiedreader.ui.components.AppBackground
 import com.example.unifiedreader.ui.components.AppScreenHost
 import com.example.unifiedreader.ui.components.AppTopBarDefaults
 import com.example.unifiedreader.ui.components.LocalAppGlassState
 import com.example.unifiedreader.ui.components.appGlassSource
+import com.example.unifiedreader.ui.components.currentAppWindowWidth
 import com.example.unifiedreader.ui.components.rememberAppGlassState
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import java.text.DateFormat
@@ -86,6 +87,12 @@ fun UnifiedReaderScaffold(
     val themeColors = UnifiedReaderThemeTokens.colors
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val drawerScope = rememberCoroutineScope()
+    // With the rail beside the screens, the bars have no menu button.
+    val openDrawer: (() -> Unit)? = if (sourceNavigationUsesRail()) {
+        null
+    } else {
+        { drawerScope.launch { drawerState.open() } }
+    }
     var isLibraryDownloadSelectionMode by rememberSaveable(uiState.libraryBrowseContextKey) {
         mutableStateOf(false)
     }
@@ -109,7 +116,7 @@ fun UnifiedReaderScaffold(
     var settingsPage by rememberSaveable(stateSaver = SettingsPageSaver) {
         mutableStateOf<SettingsPage?>(null)
     }
-    val settingsUsesSidePane = settingsUsesSidePane(LocalConfiguration.current.screenWidthDp)
+    val settingsUsesSidePane = settingsUsesSidePane(currentAppWindowWidth())
     var activeLibraryShelfSearchQuery by rememberLibraryShelfBrowserSearchQuery(
         browseContextKey = uiState.libraryBrowseContextKey,
         browserKind = activeLibraryShelfBrowserKind,
@@ -249,7 +256,7 @@ fun UnifiedReaderScaffold(
     val glassState = rememberAppGlassState()
     CompositionLocalProvider(LocalAppGlassState provides glassState) {
     val waitingUpdateVersion = updateState.newerRelease?.version?.toString()
-    SourceNavigationDrawer(
+    SourceNavigationFrame(
         drawerState = drawerState,
         sourceOrder = uiState.sourceOrder,
         settingsBadge = waitingUpdateVersion,
@@ -442,11 +449,7 @@ fun UnifiedReaderScaffold(
                                             uiState.kavitaConnection.activeAction == ServerConnectionAction.FastSync,
                                     ),
                                     onSourceConnectivityClick = viewModel::retrySelectedSourceConnection,
-                                    onDrawerClick = {
-                                        drawerScope.launch {
-                                            drawerState.open()
-                                        }
-                                    },
+                                    onDrawerClick = openDrawer,
                                     onSearchQueryChanged = viewModel::onLibrarySearchQueryChanged,
                                     onRefreshClick = viewModel::fastSyncKavitaLibraryInPlace,
                                     downloadsButtonState = viewModel.downloadsSnapshot.buttonState,
@@ -467,21 +470,13 @@ fun UnifiedReaderScaffold(
                             }
 
                             TopLevelDestination.Journal -> JournalTopBar(
-                                onDrawerClick = {
-                                    drawerScope.launch {
-                                        drawerState.open()
-                                    }
-                                },
+                                onDrawerClick = openDrawer,
                                 onImportLocalFileClick = onImportLocalFileClick,
                             )
 
                             TopLevelDestination.Settings -> SettingsTopBar(
                                 title = if (settingsUsesSidePane) "Settings" else settingsPage?.title ?: "Settings",
-                                onDrawerClick = {
-                                    drawerScope.launch {
-                                        drawerState.open()
-                                    }
-                                },
+                                onDrawerClick = openDrawer,
                                 onBack = if (settingsPage != null && !settingsUsesSidePane) {
                                     { settingsPage = null }
                                 } else {

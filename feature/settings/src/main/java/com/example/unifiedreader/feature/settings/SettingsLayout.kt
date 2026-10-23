@@ -15,24 +15,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.ui.components.AppWindowWidth
 
 internal const val SettingsScreenHorizontalPaddingDp = 20
 internal const val SettingsSidePaneWidthDp = 320
 internal const val SettingsSidePaneSpacingDp = 20
-internal const val SettingsSidePaneMinPageWidthDp = 480
 internal const val SettingsServerFormTwoColumnBreakpointDp = 560
 internal const val SettingsInlineChoiceControlsBreakpointDp = 520
 
 internal val SettingsPageMaxWidth: Dp = 800.dp
 
 /**
- * Wide windows keep the hub as a side column next to the open page; narrow ones push the page
- * over the hub.
+ * Expanded windows keep the hub as a side column next to the open page; narrower ones push the
+ * page over the hub.
  */
-fun settingsUsesSidePane(windowWidthDp: Int): Boolean {
-    val contentWidth = windowWidthDp - (SettingsScreenHorizontalPaddingDp * 2)
-    return contentWidth >= SettingsSidePaneWidthDp + SettingsSidePaneSpacingDp + SettingsSidePaneMinPageWidthDp
-}
+fun settingsUsesSidePane(windowWidth: AppWindowWidth): Boolean = windowWidth == AppWindowWidth.Expanded
 
 internal data class SettingsAdaptiveLayout(
     val useTwoColumnServerForm: Boolean,

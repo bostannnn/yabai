@@ -28,9 +28,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.layout
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -47,8 +46,10 @@ import com.example.unifiedreader.feature.library.LibraryTopBarMoreMenu
 import com.example.unifiedreader.ui.components.AppBadge
 import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
+import com.example.unifiedreader.ui.components.AppWindowWidth
 import com.example.unifiedreader.ui.components.appBadgeDot
 import com.example.unifiedreader.ui.components.appProgressRing
+import com.example.unifiedreader.ui.components.currentAppWindowWidth
 import com.example.unifiedreader.ui.theme.AppMotion
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import kotlin.math.roundToInt
@@ -62,7 +63,8 @@ fun LibraryTopBar(
     downloadSelectionState: LibraryDownloadSelectionTopBarState = LibraryDownloadSelectionTopBarState(),
     refreshState: LibraryRefreshTopBarState = LibraryRefreshTopBarState(),
     onSourceConnectivityClick: () -> Unit,
-    onDrawerClick: () -> Unit,
+    // Null where the rail shows: the bar has no menu button then.
+    onDrawerClick: (() -> Unit)?,
     onSearchQueryChanged: (String) -> Unit,
     onRefreshClick: () -> Unit = {},
     downloadsButtonState: DownloadsButtonState,
@@ -83,8 +85,9 @@ fun LibraryTopBar(
             searchModeOpen = true
         }
     }
-    // Wide windows keep search as a field in the resting bar instead of a mode of its own.
-    val searchFieldInBar = LocalConfiguration.current.screenWidthDp >= LibrarySearchFieldMinWindowWidthDp
+    // Expanded windows keep search as a field in the resting bar instead of a mode of its own.
+    val windowWidth = currentAppWindowWidth()
+    val searchFieldInBar = windowWidth == AppWindowWidth.Expanded
     val searching = !searchFieldInBar && (searchModeOpen || searchQuery.isNotBlank())
     val selecting = downloadSelectionState.isSelectionMode
     ThemedTopBarContainer(
@@ -101,7 +104,7 @@ fun LibraryTopBar(
                 modifier = Modifier.fillMaxWidth(),
             )
         } else {
-            val compactToolbar = maxWidth < 760.dp
+            val compactToolbar = windowWidth == AppWindowWidth.Compact
             if (searching) {
                 LibraryBrowseSearchModeTopBar(
                     query = searchQuery,
@@ -172,7 +175,7 @@ private fun LibraryRestingTopBar(
     downloadsButtonState: DownloadsButtonState,
     showTitle: Boolean,
     onSourceConnectivityClick: () -> Unit,
-    onDrawerClick: () -> Unit,
+    onDrawerClick: (() -> Unit)?,
     search: @Composable () -> Unit,
     onDownloadsClick: () -> Unit,
     moreMenu: @Composable () -> Unit,
@@ -220,7 +223,7 @@ data class LibraryRefreshTopBarState(
 @Composable
 fun SettingsTopBar(
     title: String,
-    onDrawerClick: () -> Unit,
+    onDrawerClick: (() -> Unit)?,
     onBack: (() -> Unit)?,
 ) {
     ThemedTopBarContainer {
@@ -239,7 +242,7 @@ fun SettingsTopBar(
                         contentDescription = "Back to settings",
                     )
                 }
-            } else {
+            } else if (onDrawerClick != null) {
                 DrawerMenuButton(onClick = onDrawerClick)
             }
             Text(
@@ -255,7 +258,7 @@ fun SettingsTopBar(
 
 @Composable
 fun JournalTopBar(
-    onDrawerClick: () -> Unit,
+    onDrawerClick: (() -> Unit)?,
     onImportLocalFileClick: () -> Unit,
 ) {
     ThemedTopBarContainer {
@@ -304,7 +307,7 @@ private fun LibraryTopBarTitle(
     sourceConnectivity: SourceConnectivityState,
     seriesTitle: String?,
     onSourceConnectivityClick: () -> Unit,
-    onDrawerClick: () -> Unit,
+    onDrawerClick: (() -> Unit)?,
     onLeaveSeries: () -> Unit,
     modifier: Modifier = Modifier,
     showTitle: Boolean = true,
@@ -320,7 +323,9 @@ private fun LibraryTopBarTitle(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        DrawerMenuButton(onClick = onDrawerClick)
+        if (onDrawerClick != null) {
+            DrawerMenuButton(onClick = onDrawerClick)
+        }
         if (seriesTitle != null) {
             AppIconButton(
                 onClick = onLeaveSeries,
@@ -431,7 +436,7 @@ private data class SourceConnectivityIndicatorStyle(
 @Composable
 private fun AppSectionHeader(
     title: String,
-    onDrawerClick: () -> Unit,
+    onDrawerClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -439,7 +444,9 @@ private fun AppSectionHeader(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        DrawerMenuButton(onClick = onDrawerClick)
+        if (onDrawerClick != null) {
+            DrawerMenuButton(onClick = onDrawerClick)
+        }
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
@@ -476,7 +483,6 @@ private fun DownloadsButton(
     }
 }
 
-private const val LibrarySearchFieldMinWindowWidthDp = 840
 private val LibraryBarSearchFieldWidth = 320.dp
 
 /** True while something waits in the drawer (an app update), to dot the menu button. */

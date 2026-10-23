@@ -20,7 +20,6 @@ import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,15 +29,16 @@ import com.example.unifiedreader.feature.reader.core.ReaderPageNumberChoiceRow
 import com.example.unifiedreader.feature.reader.core.curl.PageTurnStyle
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.ui.components.AppChoiceRow
-import com.example.unifiedreader.ui.components.AppFloatingPanelDefaults
+import com.example.unifiedreader.ui.components.AppFormRow
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.components.AppPanelHeader
 import com.example.unifiedreader.ui.components.AppSegment
 import com.example.unifiedreader.ui.components.AppSegmentedRow
 import com.example.unifiedreader.ui.components.AppSliderRow
-import com.example.unifiedreader.ui.components.AppFormRow
 import com.example.unifiedreader.ui.components.AppStepperRow
+import com.example.unifiedreader.ui.components.AppWindowWidth
+import com.example.unifiedreader.ui.components.currentAppWindowWidth
 
 /**
  * The reading settings: Text, Page and Layout. On a wide screen the panel is tall, so the
@@ -81,7 +81,7 @@ internal fun ColumnScope.EpubPreferencesPaneContent(
     onPageTurnStyleChanged: (PageTurnStyle) -> Unit,
     onPageNumbersVisibleChanged: (Boolean) -> Unit,
 ) {
-    val compact = LocalConfiguration.current.screenWidthDp < AppFloatingPanelDefaults.compactWidthDp
+    val compact = currentAppWindowWidth() == AppWindowWidth.Compact
     if (isFontPickerOpen) {
         AppPanelHeader(
             title = "Font",
