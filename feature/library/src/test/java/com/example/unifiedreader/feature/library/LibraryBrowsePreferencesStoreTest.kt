@@ -164,7 +164,11 @@ class LibraryBrowsePreferencesStoreTest {
             startupPreferences = startupPreferences,
         )
 
+        // Wait for each value to come back through the store's flow: it mirrors every DataStore
+        // emission into the startup preferences, so an unobserved 140 could land there after the
+        // default was written. (The flow starts at the default, so waiting for it alone returns at once.)
         store.setGridCellSizeDp(140)
+        store.preferencesFlow.first { current -> current.gridCellSizeDp == 140 }
         store.setGridCellSizeDp(defaultLibraryGridCellSizeDp)
 
         val preferences = store.preferencesFlow.first { current ->
