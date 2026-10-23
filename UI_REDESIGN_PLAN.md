@@ -680,7 +680,7 @@ has no Kavita or Stump source), only its unit-tested parts.
 
 ### 8.4 Filters, sort and the top bar `[~]`
 
-Built 2026-10-23 on `claude/ui-redesign-step-8-e779ee`, checked on the emulator (`yabai_tablet_35` on
+Built 2026-10-23 on `claude/ui-redesign-step-8-e779ee`, released in 0.15.0, checked on the emulator (`yabai_tablet_35` on
 port 5558, Graphite, the Local library) at 800 dp portrait, 1280 dp landscape and 411 dp phone width.
 Selection, the tip and Refresh only appear on server sources, so they were checked with a throwaway
 build that treated Local books as downloadable and showed Refresh as running. Not yet on the tablet.
@@ -729,7 +729,7 @@ build that treated Local books as downloadable and showed Refresh as running. No
 
 ### 8.5 Book page `[~]`
 
-Built 2026-10-23 on `claude/ui-redesign-step-8-e779ee`, checked on the emulator (`yabai_tablet_35`,
+Built 2026-10-23 on `claude/ui-redesign-step-8-e779ee`, released in 0.15.0, checked on the emulator (`yabai_tablet_35`,
 Graphite, the Local library) at 800 dp and at 411 dp phone width, with a test EPUB imported for its
 description (and removed again through the page). Kavita, Stump and Grimmory pages, and the
 Reading rows (series direction and Paged/Scroll only exist for server series), were not seen on a
@@ -772,7 +772,7 @@ device; their parts are unit-tested. Not yet on the tablet.
 
 ### 8.6 Colour from the cover `[~]` (replaces section 5)
 
-Built 2026-10-23 on `claude/ui-redesign-step-8-e779ee`, checked on the emulator (`yabai_tablet_35`,
+Built 2026-10-23 on `claude/ui-redesign-step-8-e779ee`, released in 0.15.0, checked on the emulator (`yabai_tablet_35`,
 Graphite and Paper, the Local library): the reading card, the book page and the EPUB reading
 settings. Not yet on the tablet.
 
