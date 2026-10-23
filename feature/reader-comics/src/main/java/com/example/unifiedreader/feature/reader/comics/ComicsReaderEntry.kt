@@ -3,17 +3,8 @@ package com.example.unifiedreader.feature.reader.comics
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeGestures
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,7 +31,6 @@ import androidx.lifecycle.lifecycleScope
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.reader.core.ImmersiveReaderOverlay
 import com.example.unifiedreader.feature.reader.core.ReaderActiveSessionTracker
-import com.example.unifiedreader.feature.reader.core.ReaderBottomProgressBar
 import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
 import com.example.unifiedreader.feature.reader.core.ReaderPageNumber
 import com.example.unifiedreader.feature.reader.core.ReaderPageNumberPills
@@ -68,7 +58,6 @@ fun ComicsReaderScreen(
     readerWorkCoordinator: ReaderWorkCoordinator? = null,
     onNextItemRequested: () -> Unit = {},
 ) {
-    val overlayTokens = readerOverlayTokens()
     val pages = rememberObservedComicPages(
         item = item,
         pageSource = pageSource,
@@ -528,84 +517,47 @@ fun ComicsReaderScreen(
                 }
             },
             overlay = {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    ReaderOverlayBar(
-                        itemId = item.id,
-                        title = comicReaderDisplayTitle(item),
-                        progressLabel = currentSpread?.progressLabel
-                            ?: comicPageNumberLabel(readerState.currentPage, pages.size),
-                        readerMode = readerState.readerMode,
-                        readingDirection = readerState.readingDirection,
-                        pageFitMode = readerState.pageFitMode,
-                        spreadMode = readerState.spreadMode,
-                        pageTurnStyle = readerState.pageTurnStyle,
-                        pageNumbersVisible = pageNumbersVisible,
-                        overlayVisible = overlayState.isVisible,
-                        onBack = closeReader,
-                        onReaderModeChanged = readerState::onReaderModeChanged,
-                        onReadingDirectionChanged = readerState::onReadingDirectionChanged,
-                        onPageFitModeChanged = readerState::onPageFitModeChanged,
-                        onSpreadModeChanged = readerState::onSpreadModeChanged,
-                        onPageTurnStyleChanged = readerState::onPageTurnStyleChanged,
-                        onPageNumbersVisibleChanged = pageNumberPreferences::setVisible,
-                    )
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .windowInsetsPadding(
-                                WindowInsets.safeGestures.only(
-                                    WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom,
-                                ),
-                            ),
-                    ) {
-                        ComicPagePreviewStrip(
-                            item = item,
-                            pages = pages,
-                            currentPage = readerState.currentPage,
-                            readingDirection = readerState.readingDirection,
-                            spreadMode = spreadModeForPlan,
-                            spreadPlanState = spreadPlanState,
-                            pageSource = pageSource,
-                            readerWorkCoordinator = readerWorkCoordinator,
-                            previewLoadingEnabled = previewLoadingArmed &&
-                                readerState.currentPage in loadedVisiblePageIndexes,
-                            applySafeGesturesPadding = false,
-                            onPageSelected = { targetPage ->
-                                when (readerState.readerMode) {
-                                    ComicReaderMode.Paged -> readerState.onPageSettled(targetPage)
-                                    ComicReaderMode.VerticalScroll -> readerState.onContinuousPositionSettled(
-                                        pageIndex = targetPage,
-                                        offsetRatio = 0f,
-                                    )
-                                }
-                            },
-                        )
-                        Spacer(modifier = Modifier.height(overlayTokens.spacing.smallGap))
-                        ReaderBottomProgressBar(
-                            progress = currentPageProgress,
-                            percentLabel = "${(currentPageProgress * 100f).roundToInt()}%",
-                            pageLabel = "${readerState.currentPage + 1}/${pages.size}",
-                            readingDirection = comicProgressBarDirection(
-                                readerMode = readerState.readerMode,
-                                readingDirection = readerState.readingDirection,
-                            ),
-                            applySafeGesturesPadding = false,
-                            onProgressSelected = { selectedProgress ->
-                                val targetPage = (selectedProgress * (pages.size - 1))
-                                    .roundToInt()
-                                    .coerceIn(0, pages.lastIndex)
-                                when (readerState.readerMode) {
-                                    ComicReaderMode.Paged -> readerState.onPageSettled(targetPage)
-                                    ComicReaderMode.VerticalScroll -> readerState.onContinuousPositionSettled(
-                                        pageIndex = targetPage,
-                                        offsetRatio = 0f,
-                                    )
-                                }
-                            },
+                // Moves the reader the way its controls ask: a page in paged mode, the top of a
+                // page while scrolling.
+                val goToPage = { targetPage: Int ->
+                    when (readerState.readerMode) {
+                        ComicReaderMode.Paged -> readerState.onPageSettled(targetPage)
+                        ComicReaderMode.VerticalScroll -> readerState.onContinuousPositionSettled(
+                            pageIndex = targetPage,
+                            offsetRatio = 0f,
                         )
                     }
                 }
+                ComicsReaderChrome(
+                    item = item,
+                    pages = pages,
+                    currentPage = readerState.currentPage,
+                    currentPageIndexes = currentSpread?.pageIndexes?.toSet() ?: setOf(readerState.currentPage),
+                    progress = currentPageProgress,
+                    readerMode = readerState.readerMode,
+                    readingDirection = readerState.readingDirection,
+                    pageFitMode = readerState.pageFitMode,
+                    spreadMode = readerState.spreadMode,
+                    stripSpreadMode = spreadModeForPlan,
+                    spreadPlanState = spreadPlanState,
+                    pageTurnStyle = readerState.pageTurnStyle,
+                    pageNumbersVisible = pageNumbersVisible,
+                    pageSource = pageSource,
+                    readerWorkCoordinator = readerWorkCoordinator,
+                    stripLoadingEnabled = previewLoadingArmed && readerState.currentPage in loadedVisiblePageIndexes,
+                    overlayVisible = overlayState.isVisible,
+                    onBack = closeReader,
+                    onPageSelected = goToPage,
+                    onProgressSelected = { selectedProgress ->
+                        goToPage((selectedProgress * (pages.size - 1)).roundToInt().coerceIn(0, pages.lastIndex))
+                    },
+                    onReaderModeChanged = readerState::onReaderModeChanged,
+                    onReadingDirectionChanged = readerState::onReadingDirectionChanged,
+                    onPageFitModeChanged = readerState::onPageFitModeChanged,
+                    onSpreadModeChanged = readerState::onSpreadModeChanged,
+                    onPageTurnStyleChanged = readerState::onPageTurnStyleChanged,
+                    onPageNumbersVisibleChanged = pageNumberPreferences::setVisible,
+                )
             },
         )
     }

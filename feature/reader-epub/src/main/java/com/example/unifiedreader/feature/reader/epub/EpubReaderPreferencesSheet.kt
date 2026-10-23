@@ -1,23 +1,19 @@
 package com.example.unifiedreader.feature.reader.epub
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.safeGestures
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import com.example.unifiedreader.feature.reader.core.curl.PageTurnStyle
-import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
-import com.example.unifiedreader.ui.components.AppFloatingPanel
+import com.example.unifiedreader.feature.reader.core.ReaderChromeDefaults
+import com.example.unifiedreader.feature.reader.core.ReaderPanel
+import com.example.unifiedreader.feature.reader.core.ReaderPanelSlot
 import com.example.unifiedreader.ui.components.AppFloatingPanelPlacement
 
-/** The reading settings as an end-edge panel (a bottom sheet on phones), a sibling of the reader's bars. */
+/** The reading settings as an end-edge panel between the bars (a bottom sheet on phones). */
 @Composable
 internal fun EpubPreferencesSheet(
     isOpen: Boolean,
@@ -50,7 +46,7 @@ internal fun EpubPreferencesSheet(
     onUseOrientationLayoutDefault: () -> Unit,
     onPageTurnStyleChanged: (PageTurnStyle) -> Unit,
     onPageNumbersVisibleChanged: (Boolean) -> Unit,
-    modifier: Modifier = Modifier,
+    slot: ReaderPanelSlot,
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(EpubPreferencesTab.Text) }
     var isFontPickerOpen by rememberSaveable { mutableStateOf(false) }
@@ -59,15 +55,13 @@ internal fun EpubPreferencesSheet(
             isFontPickerOpen = false
         }
     }
-    AppFloatingPanel(
+    ReaderPanel(
         visible = isOpen,
         placement = AppFloatingPanelPlacement.End,
+        width = ReaderChromeDefaults.settingsWidth,
+        slot = slot,
         onDismissRequest = onDismissRequest,
-        containerColor = readerOverlayTokens().colors.container,
-        // EpubReaderEntry dims the whole screen itself; this panel's slot is inside the insets.
-        scrimColor = Color.Transparent,
         testTag = EpubPreferencesSheetTag,
-        modifier = modifier.windowInsetsPadding(WindowInsets.safeGestures),
     ) {
         EpubPreferencesPaneContent(
             typographyMode = typographyMode,

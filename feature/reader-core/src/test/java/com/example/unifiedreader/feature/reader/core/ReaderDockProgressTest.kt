@@ -4,7 +4,7 @@ import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirectio
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-class ReaderBottomProgressBarTest {
+class ReaderDockProgressTest {
     @Test
     fun `rtl progress is drawn from the right edge`() {
         assertEquals(

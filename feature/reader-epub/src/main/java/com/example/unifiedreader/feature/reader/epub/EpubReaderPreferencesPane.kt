@@ -37,10 +37,11 @@ import com.example.unifiedreader.ui.components.AppPanelHeader
 import com.example.unifiedreader.ui.components.AppSegment
 import com.example.unifiedreader.ui.components.AppSegmentedRow
 import com.example.unifiedreader.ui.components.AppSliderRow
+import com.example.unifiedreader.ui.components.AppFormRow
 import com.example.unifiedreader.ui.components.AppStepperRow
 
 /**
- * The reading settings: Text, Theme and Layout. On a wide screen the panel is tall, so the
+ * The reading settings: Text, Page and Layout. On a wide screen the panel is tall, so the
  * three are sections in one scrolling column; in the phone sheet they are tabs. The font
  * picker is a second page with back in the header.
  */
@@ -146,13 +147,20 @@ internal fun ColumnScope.EpubPreferencesPaneContent(
                     onTextAlignChanged = onTextAlignChanged,
                 )
             }
-            if (!compact || selectedTab == EpubPreferencesTab.Theme) {
-                if (!compact) EpubSettingsSectionLabel("Theme")
-                EpubThemeSwatches(
-                    theme = theme,
-                    useAppThemeDefault = useAppThemeDefault,
-                    onThemeChanged = onThemeChanged,
-                    onUseAppThemeDefault = onUseAppThemeDefault,
+            if (!compact || selectedTab == EpubPreferencesTab.Page) {
+                if (!compact) EpubSettingsSectionLabel("Page")
+                AppFormRow(label = "Page colour", stacked = true) { controlModifier ->
+                    EpubThemeSwatches(
+                        theme = theme,
+                        useAppThemeDefault = useAppThemeDefault,
+                        onThemeChanged = onThemeChanged,
+                        onUseAppThemeDefault = onUseAppThemeDefault,
+                        modifier = controlModifier,
+                    )
+                }
+                ReaderPageNumberChoiceRow(
+                    visible = pageNumbersVisible,
+                    onVisibleChanged = onPageNumbersVisibleChanged,
                 )
             }
             if (!compact || selectedTab == EpubPreferencesTab.Layout) {
@@ -165,14 +173,12 @@ internal fun ColumnScope.EpubPreferencesPaneContent(
                     layoutMode = layoutMode,
                     useOrientationLayoutDefault = useOrientationLayoutDefault,
                     pageTurnStyle = pageTurnStyle,
-                    pageNumbersVisible = pageNumbersVisible,
                     onPageMarginsChanged = onPageMarginsChanged,
                     onParagraphSpacingChanged = onParagraphSpacingChanged,
                     onParagraphIndentChanged = onParagraphIndentChanged,
                     onLayoutModeChanged = onLayoutModeChanged,
                     onUseOrientationLayoutDefault = onUseOrientationLayoutDefault,
                     onPageTurnStyleChanged = onPageTurnStyleChanged,
-                    onPageNumbersVisibleChanged = onPageNumbersVisibleChanged,
                 )
             }
         }
@@ -216,8 +222,6 @@ private fun EpubTextSection(
         onIncrement = { onFontSizeChanged(stepEpubFontSize(fontSize, +1)) },
         canDecrement = canStepEpubFontSize(fontSize, -1),
         canIncrement = canStepEpubFontSize(fontSize, +1),
-        decrementIcon = { Text(text = "A", fontSize = 13.sp, fontWeight = FontWeight.SemiBold) },
-        incrementIcon = { Text(text = "A", fontSize = 19.sp, fontWeight = FontWeight.SemiBold) },
     )
     AppSliderRow(
         label = "Line height",
@@ -244,14 +248,12 @@ private fun EpubLayoutSection(
     layoutMode: EpubReaderLayoutMode,
     useOrientationLayoutDefault: Boolean,
     pageTurnStyle: PageTurnStyle,
-    pageNumbersVisible: Boolean,
     onPageMarginsChanged: (Double) -> Unit,
     onParagraphSpacingChanged: (Double) -> Unit,
     onParagraphIndentChanged: (Double) -> Unit,
     onLayoutModeChanged: (EpubReaderLayoutMode) -> Unit,
     onUseOrientationLayoutDefault: () -> Unit,
     onPageTurnStyleChanged: (PageTurnStyle) -> Unit,
-    onPageNumbersVisibleChanged: (Boolean) -> Unit,
 ) {
     AppChoiceRow(
         label = "Pages",
@@ -273,10 +275,6 @@ private fun EpubLayoutSection(
         onSelected = onPageTurnStyleChanged,
         optionLabel = { it.label },
         enabled = layoutMode != EpubReaderLayoutMode.Scroll,
-    )
-    ReaderPageNumberChoiceRow(
-        visible = pageNumbersVisible,
-        onVisibleChanged = onPageNumbersVisibleChanged,
     )
     if (typographyMode == EpubTypographyMode.Original) {
         Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) {
@@ -352,12 +350,11 @@ private fun EpubThemeSwatches(
     useAppThemeDefault: Boolean,
     onThemeChanged: (EpubReaderTheme) -> Unit,
     onUseAppThemeDefault: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val colorScheme = MaterialTheme.colorScheme
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 8.dp),
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         EpubThemeSwatch(
@@ -449,10 +446,11 @@ private fun epubThemeSwatchInk(theme: EpubReaderTheme): Color = when (theme) {
 
 @Composable
 private fun EpubSettingsSectionLabel(text: String) {
+    // Sentence case, as the spec has every section title.
     Text(
-        text = text.uppercase(),
-        style = MaterialTheme.typography.labelMedium,
-        letterSpacing = 1.sp,
+        text = text,
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.SemiBold,
         color = readerOverlayTokens().colors.secondaryText,
         modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 2.dp),
     )
@@ -464,6 +462,6 @@ internal enum class EpubPreferencesTab(
     override val label: String,
 ) : EpubLabeledOption {
     Text("Text"),
-    Theme("Theme"),
+    Page("Page"),
     Layout("Layout"),
 }

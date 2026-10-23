@@ -6,29 +6,14 @@ import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeGestures
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,7 +30,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -57,13 +41,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -73,30 +54,24 @@ import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
-import com.example.unifiedreader.feature.reader.core.CompactReaderOverlayFrame
+import com.example.unifiedreader.core.model.primaryAuthor
 import com.example.unifiedreader.feature.reader.core.ImmersiveReaderOverlay
 import com.example.unifiedreader.feature.reader.core.ReaderActiveSessionTracker
-import com.example.unifiedreader.feature.reader.core.ReaderBottomProgressBar
 import com.example.unifiedreader.feature.reader.core.ReaderPageNumber
 import com.example.unifiedreader.feature.reader.core.ReaderPageNumberPills
 import com.example.unifiedreader.feature.reader.preferences.InMemoryReaderPageNumberPreferencesStore
 import com.example.unifiedreader.feature.reader.preferences.ReaderPageNumberPreferencesStore
 import com.example.unifiedreader.feature.reader.core.ReaderLocator
 import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
-import com.example.unifiedreader.feature.reader.core.ReaderOverlayBackButton
-import com.example.unifiedreader.feature.reader.core.ReaderOverlayIconButton
-import com.example.unifiedreader.feature.reader.core.ReaderOverlaySurfaceRole
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import com.example.unifiedreader.feature.reader.core.ReaderZoomLayout
 import com.example.unifiedreader.feature.reader.core.ReaderZoomViewportState
 import com.example.unifiedreader.feature.reader.core.detectReaderZoomGestures
-import com.example.unifiedreader.feature.reader.core.readerOverlaySurface
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
 import com.example.unifiedreader.journal.JournalReadingSessionRecorder
 import com.example.unifiedreader.ui.components.AppCircularProgress
-import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppScreenBackHandler
 import java.util.LinkedHashMap
 import kotlin.math.roundToInt
@@ -392,54 +367,21 @@ fun PdfReaderScreen(
                 )
             },
             overlay = {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    PdfReaderOverlayBar(
-                        title = item.title,
-                        progressLabel = pdfProgressLabel(
-                            currentPageIndex = safePageIndex,
-                            pageCount = pageCount,
-                        ),
-                        canNavigatePrevious = pageCount > 0 && currentPageIndex > 0,
-                        canNavigateNext = pageCount > 0,
-                        onBack = closeReader,
-                        onPrevious = navigatePrevious,
-                        onNext = navigateNext,
-                    )
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .windowInsetsPadding(
-                                WindowInsets.safeGestures.only(
-                                    WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom,
-                                ),
-                            ),
-                    ) {
-                        PdfPagePreviewStrip(
-                            context = context.applicationContext,
-                            documentUriState = documentUriState,
-                            pageCount = pageCount,
-                            currentPageIndex = safePageIndex,
-                            onPageSelected = navigateToPage,
-                        )
-                        Spacer(modifier = Modifier.height(tokens.spacing.smallGap))
-                        ReaderBottomProgressBar(
-                            progress = currentPageProgress,
-                            percentLabel = "${(currentPageProgress * 100f).roundToInt()}%",
-                            pageLabel = if (pageCount > 0) "${safePageIndex + 1}/$pageCount" else "0/0",
-                            applySafeGesturesPadding = false,
-                            onProgressSelected = { selectedProgress ->
-                                if (pageCount > 0) {
-                                    navigateToPage(
-                                        (selectedProgress * (pageCount - 1))
-                                            .roundToInt()
-                                            .coerceIn(0, pageCount - 1),
-                                    )
-                                }
-                            },
-                        )
-                    }
-                }
+                PdfReaderChrome(
+                    title = item.title,
+                    author = item.bookMetadata?.primaryAuthor(),
+                    context = context.applicationContext,
+                    documentUriState = documentUriState,
+                    pageCount = pageCount,
+                    currentPageIndex = safePageIndex,
+                    progress = currentPageProgress,
+                    canNavigatePrevious = pageCount > 0 && currentPageIndex > 0,
+                    canNavigateNext = pageCount > 0,
+                    onBack = closeReader,
+                    onPrevious = navigatePrevious,
+                    onNext = navigateNext,
+                    onPageSelected = navigateToPage,
+                )
             },
         )
     }
@@ -473,212 +415,6 @@ private fun rememberDocumentUriState(
             }
         }
     }
-}
-
-@Composable
-private fun PdfReaderOverlayBar(
-    title: String,
-    progressLabel: String,
-    canNavigatePrevious: Boolean,
-    canNavigateNext: Boolean,
-    onBack: () -> Unit,
-    onPrevious: () -> Unit,
-    onNext: () -> Unit,
-) {
-    val tokens = readerOverlayTokens()
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .windowInsetsPadding(
-                WindowInsets.safeGestures.only(
-                    WindowInsetsSides.Horizontal + WindowInsetsSides.Top,
-                ),
-            ),
-    ) {
-        CompactReaderOverlayFrame(
-            title = title,
-            progressLabel = progressLabel,
-            applySafeGesturesPadding = false,
-            bottomPadding = 0.dp,
-            leadingActions = {
-                ReaderOverlayBackButton(onClick = onBack)
-            },
-            trailingActions = {
-                ReaderOverlayIconButton(
-                    onClick = onPrevious,
-                    isActive = false,
-                    enabled = canNavigatePrevious,
-                ) {
-                    Icon(
-                        imageVector = AppIcons.NavigateBefore,
-                        contentDescription = "Previous page",
-                        tint = if (canNavigatePrevious) {
-                            tokens.colors.primaryText
-                        } else {
-                            tokens.colors.tertiaryText
-                        },
-                    )
-                }
-                ReaderOverlayIconButton(
-                    onClick = onNext,
-                    isActive = false,
-                    enabled = canNavigateNext,
-                ) {
-                    Icon(
-                        imageVector = AppIcons.NavigateNext,
-                        contentDescription = "Next page",
-                        tint = if (canNavigateNext) {
-                            tokens.colors.primaryText
-                        } else {
-                            tokens.colors.tertiaryText
-                        },
-                    )
-                }
-            },
-        )
-    }
-}
-
-@Composable
-private fun PdfPagePreviewStrip(
-    context: Context,
-    documentUriState: ReaderDocumentUriState,
-    pageCount: Int,
-    currentPageIndex: Int,
-    onPageSelected: (Int) -> Unit,
-) {
-    if (pageCount <= 0) return
-    val documentUri = (documentUriState as? ReaderDocumentUriState.Ready)?.uri ?: return
-    val tokens = readerOverlayTokens()
-    val listState = rememberLazyListState()
-    val safeCurrentPage = currentPageIndex.coerceIn(0, pageCount - 1)
-    val pages = remember(pageCount) { List(pageCount) { it } }
-    val previewCache = remember(documentUriState.cacheKey) {
-        PdfPreviewBitmapCache(maxEntries = PDF_PREVIEW_CACHE_MAX_ENTRIES)
-    }
-
-    DisposableEffect(previewCache) {
-        onDispose {
-            previewCache.clear()
-        }
-    }
-
-    LaunchedEffect(documentUriState.cacheKey, safeCurrentPage, pageCount) {
-        listState.scrollToItem((safeCurrentPage - 2).coerceAtLeast(0))
-    }
-
-    LazyRow(
-        state = listState,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 10.dp)
-            .readerOverlaySurface(role = ReaderOverlaySurfaceRole.PreviewStrip)
-            .height(PdfPreviewStripHeight)
-            .testTag(PdfPagePreviewStripTag),
-        contentPadding = PaddingValues(horizontal = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        items(
-            items = pages,
-            key = { pageIndex -> "pdf-page-$pageIndex" },
-        ) { pageIndex ->
-            PdfPagePreviewItem(
-                context = context,
-                documentUri = documentUri,
-                previewCache = previewCache,
-                pageIndex = pageIndex,
-                selected = pageIndex == safeCurrentPage,
-                onClick = { onPageSelected(pageIndex) },
-            )
-        }
-    }
-}
-
-@Composable
-private fun PdfPagePreviewItem(
-    context: Context,
-    documentUri: Uri,
-    previewCache: PdfPreviewBitmapCache,
-    pageIndex: Int,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    val tokens = readerOverlayTokens()
-    val previewState by produceState<PdfPageRenderState>(
-        initialValue = PdfPageRenderState.Loading,
-        key1 = documentUri.toString(),
-        key2 = pageIndex,
-    ) {
-        value = withContext(Dispatchers.IO) {
-            previewCache.get(pageIndex)
-                ?: renderPdfPage(
-                    context = context,
-                    documentUri = documentUri,
-                    pageIndex = pageIndex,
-                    targetLongEdgePx = PDF_PREVIEW_RENDER_LONG_EDGE_PX,
-                ).also { renderedState ->
-                    if (renderedState is PdfPageRenderState.Ready) {
-                        previewCache.put(pageIndex, renderedState)
-                    }
-                }
-        }
-    }
-    Column(
-        modifier = Modifier.width(PdfPreviewItemWidth),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(7.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .width(PdfPreviewItemWidth)
-                .height(if (selected) PdfSelectedPreviewHeight else PdfNormalPreviewHeight)
-                .clip(tokens.shapes.previewItem)
-                .border(
-                    width = if (selected) 2.dp else 0.dp,
-                    color = if (selected) tokens.colors.accent else Color.Transparent,
-                    shape = tokens.shapes.previewItem,
-                )
-                .padding(if (selected) 2.dp else 0.dp)
-                .background(tokens.colors.fallbackPage, tokens.shapes.previewItem)
-                .clickable(onClick = onClick),
-            contentAlignment = Alignment.Center,
-        ) {
-            when (val state = previewState) {
-                PdfPageRenderState.Empty -> PdfPreviewFallback(pageIndex = pageIndex)
-                PdfPageRenderState.Loading -> AppCircularProgress(
-                    color = tokens.colors.accent,
-                )
-                is PdfPageRenderState.Error -> PdfPreviewFallback(pageIndex = pageIndex)
-                is PdfPageRenderState.Ready -> {
-                    Image(
-                        bitmap = state.bitmap.asImageBitmap(),
-                        contentDescription = state.contentDescription,
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
-            }
-        }
-        Text(
-            text = "${pageIndex + 1}",
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (selected) tokens.colors.primaryText else tokens.colors.tertiaryText,
-            maxLines = 1,
-        )
-    }
-}
-
-@Composable
-private fun PdfPreviewFallback(pageIndex: Int) {
-    val tokens = readerOverlayTokens()
-    Text(
-        text = "${pageIndex + 1}",
-        style = MaterialTheme.typography.labelLarge,
-        color = tokens.colors.tertiaryText,
-        textAlign = TextAlign.Center,
-    )
 }
 
 @Composable
@@ -901,7 +637,7 @@ private suspend fun inspectPdfDocument(
     PdfDocumentInfoState.Error("Unable to open this PDF.")
 }
 
-private suspend fun renderPdfPage(
+internal suspend fun renderPdfPage(
     context: Context,
     documentUri: Uri,
     pageIndex: Int,
@@ -1010,7 +746,7 @@ private sealed interface PdfDocumentInfoState {
     data class Error(val message: String) : PdfDocumentInfoState
 }
 
-private sealed interface PdfPageRenderState {
+internal sealed interface PdfPageRenderState {
     val cacheKey: String
 
     data object Empty : PdfPageRenderState {
@@ -1034,7 +770,7 @@ private sealed interface PdfPageRenderState {
     }
 }
 
-private sealed interface ReaderDocumentUriState {
+internal sealed interface ReaderDocumentUriState {
     val cacheKey: String
 
     data object Loading : ReaderDocumentUriState {
@@ -1054,7 +790,7 @@ private sealed interface ReaderDocumentUriState {
     }
 }
 
-private class PdfPreviewBitmapCache(
+internal class PdfPreviewBitmapCache(
     private val maxEntries: Int,
 ) {
     private val lock = Any()
@@ -1108,15 +844,8 @@ private fun PdfPageRenderState.Ready.recycle() {
     }
 }
 
-private val PdfPreviewStripHeight = 190.dp
-private val PdfNormalPreviewHeight = 126.dp
-private val PdfSelectedPreviewHeight = 146.dp
-private val PdfPreviewItemWidth = 92.dp
-private const val PdfPagePreviewStripTag = "pdf-page-preview-strip"
-private const val PDF_PREVIEW_CACHE_MAX_ENTRIES = 64
 private const val PDF_RENDER_LONG_EDGE_PX = 2200
 private const val PDF_RENDER_MEDIUM_LONG_EDGE_PX = 3200
 private const val PDF_RENDER_MAX_LONG_EDGE_PX = 4096
 private const val PDF_RENDER_REQUEST_DEBOUNCE_MILLIS = 180L
-private const val PDF_PREVIEW_RENDER_LONG_EDGE_PX = 420
 private const val PDF_EDGE_TAP_FRACTION = 0.28f

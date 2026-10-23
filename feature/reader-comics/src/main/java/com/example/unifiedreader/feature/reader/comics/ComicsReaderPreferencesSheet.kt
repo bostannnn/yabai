@@ -1,21 +1,19 @@
 package com.example.unifiedreader.feature.reader.comics
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.feature.reader.core.ReaderChromeDefaults
 import com.example.unifiedreader.feature.reader.core.ReaderPageNumberChoiceRow
+import com.example.unifiedreader.feature.reader.core.ReaderPanel
+import com.example.unifiedreader.feature.reader.core.ReaderPanelSlot
 import com.example.unifiedreader.feature.reader.core.curl.PageTurnStyle
-import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.ui.components.AppChoiceRow
-import com.example.unifiedreader.ui.components.AppFloatingPanel
 import com.example.unifiedreader.ui.components.AppFloatingPanelPlacement
 import com.example.unifiedreader.ui.components.AppPanelHeader
 
@@ -27,7 +25,7 @@ import com.example.unifiedreader.ui.components.AppPanelHeader
 @Composable
 internal fun ComicsReaderPreferencesSheet(
     isOpen: Boolean,
-    maxSheetHeight: Dp,
+    slot: ReaderPanelSlot,
     title: String,
     readerMode: ComicReaderMode,
     readingDirection: ComicReadingDirection,
@@ -44,15 +42,13 @@ internal fun ComicsReaderPreferencesSheet(
     onPageNumbersVisibleChanged: (Boolean) -> Unit,
 ) {
     val paged = readerMode == ComicReaderMode.Paged
-    AppFloatingPanel(
+    // A card as tall as its content, at the top of the space between the bars.
+    ReaderPanel(
         visible = isOpen,
         placement = AppFloatingPanelPlacement.TopEnd,
+        width = ReaderChromeDefaults.settingsWidth,
+        slot = slot,
         onDismissRequest = onDismissRequest,
-        maxHeight = maxSheetHeight,
-        contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = 8.dp, bottom = 10.dp),
-        containerColor = readerOverlayTokens().colors.container,
-        // ReaderOverlayBar dims the whole page itself; the panel's slot is smaller.
-        scrimColor = Color.Transparent,
         testTag = ComicsPreferencesSheetTag,
     ) {
         Column(
@@ -61,8 +57,9 @@ internal fun ComicsReaderPreferencesSheet(
                 .padding(bottom = 12.dp),
         ) {
             AppPanelHeader(
-                title = "Reading",
+                title = "Reading settings",
                 subtitle = title,
+                onClose = onDismissRequest,
             )
             AppChoiceRow(
                 label = "Layout",

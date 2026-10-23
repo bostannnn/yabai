@@ -39,6 +39,7 @@ import androidx.lifecycle.lifecycleScope
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SyncState
+import com.example.unifiedreader.core.model.primaryAuthor
 import com.example.unifiedreader.feature.reader.core.ImmersiveReaderOverlay
 import com.example.unifiedreader.feature.reader.core.ReaderActiveSessionTracker
 import com.example.unifiedreader.feature.reader.core.ReaderChapterPosition
@@ -52,7 +53,6 @@ import com.example.unifiedreader.feature.reader.preferences.InMemoryReaderPageNu
 import com.example.unifiedreader.feature.reader.preferences.ReaderPageNumberPreferencesStore
 import com.example.unifiedreader.journal.JournalReadingSessionRecorder
 import com.example.unifiedreader.ui.components.AppCircularProgress
-import com.example.unifiedreader.ui.components.AppFloatingPanelScrim
 import com.example.unifiedreader.ui.components.AppScreenBackHandler
 import com.example.unifiedreader.ui.components.AppTextButton
 import kotlinx.coroutines.Dispatchers
@@ -721,35 +721,31 @@ fun EpubReaderScreen(
                 },
                 overlay = {
                     Box(modifier = Modifier.fillMaxSize()) {
-                        EpubReaderTopDock(
+                        EpubReaderChrome(
                             title = item.title,
-                            progressLabel = buildEpubProgressLabel(
-                                progress = currentProgress,
-                                position = currentPage,
-                                pageCount = pageCount,
-                            ),
-                            isPreferencesOpen = isPreferencesPaneOpen,
-                            onBack = closeReader,
-                            onPreferencesClick = {
-                                overlayState.show()
-                                isTocSheetOpen = false
-                                isPreferencesPaneOpen = !isPreferencesPaneOpen
-                            },
-                            modifier = Modifier
-                                .align(Alignment.TopCenter)
-                                .fillMaxSize()
-                                .testTag(EpubReaderOverlayTag),
-                        )
-                        EpubReaderBottomDock(
+                            author = item.bookMetadata?.primaryAuthor(),
+                            tocEntries = bookProgress.tocEntries,
+                            currentHref = currentHref,
                             currentProgress = currentProgress,
                             currentPage = currentPage,
                             pageCount = pageCount,
                             chapterMarks = bookProgress.chapterMarks,
                             isTocOpen = isTocSheetOpen,
+                            isPreferencesOpen = isPreferencesPaneOpen,
+                            onBack = closeReader,
                             onTocClick = {
                                 overlayState.show()
                                 isPreferencesPaneOpen = false
                                 isTocSheetOpen = !isTocSheetOpen
+                            },
+                            onPreferencesClick = {
+                                overlayState.show()
+                                isTocSheetOpen = false
+                                isPreferencesPaneOpen = !isPreferencesPaneOpen
+                            },
+                            onDismissPanels = {
+                                isTocSheetOpen = false
+                                isPreferencesPaneOpen = false
                             },
                             onProgressSelected = { selectedProgress ->
                                 currentProgress = selectedProgress.toDouble()
@@ -759,104 +755,93 @@ fun EpubReaderScreen(
                                     progress = selectedProgress,
                                 )
                             },
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .fillMaxSize(),
-                        )
-                        // One scrim for both panels over the whole screen: each panel sits inside
-                        // the gesture insets, and its own scrim left a bright frame on a light page.
-                        AppFloatingPanelScrim(
-                            visible = isTocSheetOpen || isPreferencesPaneOpen,
-                            onDismissRequest = {
-                                isTocSheetOpen = false
-                                isPreferencesPaneOpen = false
-                            },
-                        )
-                        EpubTableOfContentsSheet(
-                            entries = bookProgress.tocEntries,
-                            currentHref = currentHref,
-                            currentProgress = currentProgress,
-                            currentPage = currentPage,
-                            pageCount = pageCount,
-                            isOpen = isTocSheetOpen,
-                            onDismissRequest = {
-                                isTocSheetOpen = false
-                            },
-                            onEntrySelected = { entry ->
-                                isTocSheetOpen = false
-                                readerTouched = true
-                                navigationRequest = EpubTocNavigationRequest(
-                                    id = seekRequestId++,
-                                    link = entry.link,
-                                )
-                            },
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                        EpubPreferencesSheet(
-                            isOpen = isPreferencesPaneOpen,
-                            typographyMode = typographyMode,
-                            fontFamily = fontFamily,
-                            fontSize = fontSize,
-                            lineHeight = lineHeight,
-                            pageMargins = pageMargins,
-                            paragraphSpacing = paragraphSpacing,
-                            paragraphIndent = paragraphIndent,
-                            textAlign = textAlign,
-                            theme = theme,
-                            useAppThemeDefault = useAppThemeDefault,
-                            layoutMode = layoutMode,
-                            useOrientationLayoutDefault = useOrientationLayoutDefault,
-                            pageTurnStyle = pageTurnStyle,
-                            pageNumbersVisible = pageNumbersVisible,
-                            onDismissRequest = {
-                                isPreferencesPaneOpen = false
-                            },
-                            onTypographyModeChanged = {
-                                typographyMode = it
-                            },
-                            onFontFamilyChanged = {
-                                fontFamily = it
-                            },
-                            onFontSizeChanged = {
-                                fontSize = it
-                            },
-                            onLineHeightChanged = {
-                                lineHeight = it
-                            },
-                            onPageMarginsChanged = {
-                                pageMargins = it
-                            },
-                            onParagraphSpacingChanged = {
-                                paragraphSpacing = it
-                            },
-                            onParagraphIndentChanged = {
-                                paragraphIndent = it
-                            },
-                            onTextAlignChanged = {
-                                textAlign = it
-                            },
-                            onThemeChanged = {
-                                useAppThemeDefault = false
-                                theme = it
-                            },
-                            onUseAppThemeDefault = {
-                                useAppThemeDefault = true
-                                theme = appReaderTheme
-                            },
-                            onLayoutModeChanged = {
-                                useOrientationLayoutDefault = false
-                                layoutMode = it
-                            },
-                            onUseOrientationLayoutDefault = {
-                                useOrientationLayoutDefault = true
-                                layoutMode = defaultEpubLayoutMode(isLandscape)
-                            },
-                            onPageTurnStyleChanged = {
-                                pageTurnStyle = it
-                            },
-                            onPageNumbersVisibleChanged = pageNumberPreferences::setVisible,
-                            modifier = Modifier.fillMaxSize(),
-                        )
+                            modifier = Modifier.testTag(EpubReaderOverlayTag),
+                        ) { slot ->
+                            EpubTableOfContentsSheet(
+                                entries = bookProgress.tocEntries,
+                                bookTitle = item.title,
+                                currentHref = currentHref,
+                                currentProgress = currentProgress,
+                                isOpen = isTocSheetOpen,
+                                slot = slot,
+                                onDismissRequest = {
+                                    isTocSheetOpen = false
+                                },
+                                onEntrySelected = { entry ->
+                                    isTocSheetOpen = false
+                                    readerTouched = true
+                                    navigationRequest = EpubTocNavigationRequest(
+                                        id = seekRequestId++,
+                                        link = entry.link,
+                                    )
+                                },
+                            )
+                            EpubPreferencesSheet(
+                                isOpen = isPreferencesPaneOpen,
+                                typographyMode = typographyMode,
+                                fontFamily = fontFamily,
+                                fontSize = fontSize,
+                                lineHeight = lineHeight,
+                                pageMargins = pageMargins,
+                                paragraphSpacing = paragraphSpacing,
+                                paragraphIndent = paragraphIndent,
+                                textAlign = textAlign,
+                                theme = theme,
+                                useAppThemeDefault = useAppThemeDefault,
+                                layoutMode = layoutMode,
+                                useOrientationLayoutDefault = useOrientationLayoutDefault,
+                                pageTurnStyle = pageTurnStyle,
+                                pageNumbersVisible = pageNumbersVisible,
+                                onDismissRequest = {
+                                    isPreferencesPaneOpen = false
+                                },
+                                onTypographyModeChanged = {
+                                    typographyMode = it
+                                },
+                                onFontFamilyChanged = {
+                                    fontFamily = it
+                                },
+                                onFontSizeChanged = {
+                                    fontSize = it
+                                },
+                                onLineHeightChanged = {
+                                    lineHeight = it
+                                },
+                                onPageMarginsChanged = {
+                                    pageMargins = it
+                                },
+                                onParagraphSpacingChanged = {
+                                    paragraphSpacing = it
+                                },
+                                onParagraphIndentChanged = {
+                                    paragraphIndent = it
+                                },
+                                onTextAlignChanged = {
+                                    textAlign = it
+                                },
+                                onThemeChanged = {
+                                    useAppThemeDefault = false
+                                    theme = it
+                                },
+                                onUseAppThemeDefault = {
+                                    useAppThemeDefault = true
+                                    theme = appReaderTheme
+                                },
+                                onLayoutModeChanged = {
+                                    useOrientationLayoutDefault = false
+                                    layoutMode = it
+                                },
+                                onUseOrientationLayoutDefault = {
+                                    useOrientationLayoutDefault = true
+                                    layoutMode = defaultEpubLayoutMode(isLandscape)
+                                },
+                                onPageTurnStyleChanged = {
+                                    pageTurnStyle = it
+                                },
+                                onPageNumbersVisibleChanged = pageNumberPreferences::setVisible,
+                                slot = slot,
+                            )
+                        }
                         EpubFootnotePopup(
                             footnote = footnoteContent,
                             onDismissRequest = {

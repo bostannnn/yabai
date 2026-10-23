@@ -6,8 +6,6 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 
 /** Colors the reader chrome uses by role. Every value comes from the theme; see [readerOverlayTokens]. */
 @Immutable
@@ -26,30 +24,20 @@ data class ReaderOverlayColors(
 )
 
 /**
- * Reader chrome shapes, on the app's three radii: bars, buttons, and selected rows at the
- * control radius; panes and the preview strip at the container radius; thumbnails at the
- * cover radius.
+ * Reader chrome shapes on the app's radii: buttons and controls at the control radius,
+ * thumbnails at the cover radius. The bars' 28 dp shape is [ReaderChromeDefaults.barShape].
  */
 @Immutable
 data class ReaderOverlayShapes(
     val button: Shape,
     val controlBar: Shape,
-    val sheet: Shape,
-    val selectedRow: Shape,
-    val previewStrip: Shape,
     val previewItem: Shape,
-)
-
-@Immutable
-data class ReaderOverlaySpacing(
-    val smallGap: Dp = 2.dp,
 )
 
 @Immutable
 data class ReaderOverlayTokens(
     val colors: ReaderOverlayColors,
     val shapes: ReaderOverlayShapes,
-    val spacing: ReaderOverlaySpacing = ReaderOverlaySpacing(),
 )
 
 @Composable
@@ -77,9 +65,6 @@ fun readerOverlayTokens(): ReaderOverlayTokens {
         shapes = ReaderOverlayShapes(
             button = shapes.medium,
             controlBar = shapes.medium,
-            sheet = shapes.large,
-            selectedRow = shapes.medium,
-            previewStrip = shapes.large,
             previewItem = shapes.extraSmall,
         ),
     )

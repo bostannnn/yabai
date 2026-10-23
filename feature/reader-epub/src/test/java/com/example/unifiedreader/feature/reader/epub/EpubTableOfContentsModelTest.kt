@@ -166,6 +166,44 @@ class EpubTableOfContentsModelTest {
         assertEquals(false, first.isEpubTocEntryFinished(unknown))
     }
 
+    @Test
+    fun chapterEntryIsTheChapterAroundTheActiveSection() {
+        val one = tocEntry(id = "one", title = "Глава 1", href = "https://example.com/1.xhtml", progression = 0.0)
+        val three = tocEntry(id = "three", title = "Глава 3", href = "https://example.com/3.xhtml", progression = 0.4)
+        val river = tocEntry(id = "river", title = "The river", href = "https://example.com/3b.xhtml", progression = 0.45, depth = 1)
+        val four = tocEntry(id = "four", title = "Глава 4", href = "https://example.com/4.xhtml", progression = 0.6)
+        val entries = listOf(one, three, river, four)
+
+        assertEquals("Глава 3", entries.epubTocChapterEntry(river)?.title)
+        assertEquals("Глава 1", entries.epubTocChapterEntry(one)?.title)
+        assertNull(entries.epubTocChapterEntry(null))
+    }
+
+    @Test
+    fun entryFractionRunsToTheNextEntryAtItsLevel() {
+        val three = tocEntry(id = "three", title = "Chapter 3", href = "https://example.com/3.xhtml", progression = 0.4)
+        val river = tocEntry(id = "river", title = "The river", href = "https://example.com/3b.xhtml", progression = 0.45, depth = 1)
+        val four = tocEntry(id = "four", title = "Chapter 4", href = "https://example.com/4.xhtml", progression = 0.6)
+        val entries = listOf(three, river, four)
+
+        // Chapter 3 spans 0.4 to 0.6, so 0.48 is 40% through it.
+        assertEquals(0.4f, entries.epubTocEntryFraction(three, currentProgress = 0.48)!!, 0.001f)
+        // The last entry runs to the end of the book.
+        assertEquals(0.5f, entries.epubTocEntryFraction(four, currentProgress = 0.8)!!, 0.001f)
+        assertEquals("40% through", epubTocThroughLabel(0.4f))
+    }
+
+    @Test
+    fun labelsForTheBarsAndThePanel() {
+        assertEquals("Глава 3 · Анна Лесная", epubReaderSubtitle(chapterTitle = "Глава 3", author = "Анна Лесная"))
+        assertEquals("Анна Лесная", epubReaderSubtitle(chapterTitle = null, author = "Анна Лесная"))
+        assertNull(epubReaderSubtitle(chapterTitle = " ", author = null))
+        assertEquals("p. 37 / 412", buildEpubDockPositionLabel(position = 37, pageCount = 412))
+        assertEquals("412 pages", buildEpubDockPositionLabel(position = 0, pageCount = 412))
+        assertEquals("A Short History of Rain · 6 chapters", epubTocSubtitle(bookTitle = "A Short History of Rain", chapterCount = 6))
+        assertEquals("1 chapter", epubTocSubtitle(bookTitle = "", chapterCount = 1))
+    }
+
     private fun tocEntry(
         id: String,
         title: String,

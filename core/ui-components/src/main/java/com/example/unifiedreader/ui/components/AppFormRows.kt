@@ -6,7 +6,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -211,7 +213,7 @@ fun AppStepperRow(
     enabled: Boolean = true,
     canDecrement: Boolean = true,
     canIncrement: Boolean = true,
-    decrementIcon: @Composable () -> Unit = { Text(text = "−", style = MaterialTheme.typography.titleMedium) },
+    decrementIcon: @Composable () -> Unit = { Icon(imageVector = AppIcons.Remove, contentDescription = null) },
     incrementIcon: @Composable () -> Unit = { Icon(imageVector = AppIcons.Add, contentDescription = null) },
 ) {
     AppFormRow(
@@ -226,9 +228,12 @@ fun AppStepperRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
+            // 42 dp round buttons, as the spec has them.
             AppTonalIconButton(
                 onClick = onDecrement,
                 enabled = enabled && canDecrement,
+                shape = CircleShape,
+                modifier = Modifier.size(AppFormRowDefaults.stepperButtonSize),
                 content = decrementIcon,
             )
             Text(
@@ -241,6 +246,8 @@ fun AppStepperRow(
             AppTonalIconButton(
                 onClick = onIncrement,
                 enabled = enabled && canIncrement,
+                shape = CircleShape,
+                modifier = Modifier.size(AppFormRowDefaults.stepperButtonSize),
                 content = incrementIcon,
             )
         }
@@ -254,6 +261,7 @@ object AppFormRowDefaults {
     /** Width of the control at the end of a row (fits three short segments). */
     val controlWidth: Dp = 220.dp
     val stepperWidth: Dp = 160.dp
+    val stepperButtonSize: Dp = 42.dp
 
     /** Rows narrower than this stack the control under the label. */
     val stackBelowWidth: Dp = 360.dp

@@ -9,43 +9,71 @@ import org.junit.Test
 
 class ComicReaderDisplayTitleTest {
     @Test
-    fun `series and title are joined`() {
+    fun `an issue reads as its series and number, over its place in the series`() {
         val item = displayTitleItem(
-            title = "Romance Dawn",
-            comicMetadata = ComicMetadata(series = "One Piece"),
+            title = "Neon-Ronin-002",
+            comicMetadata = ComicMetadata(series = "Neon Ronin", issueTitle = "Neon Ronin #2", issueNumber = "2"),
         )
 
-        assertEquals("One Piece • Romance Dawn", comicReaderDisplayTitle(item))
+        assertEquals(ComicReaderTitles("Neon Ronin #2", "Neon Ronin · issue 2"), comicReaderTitles(item))
     }
 
     @Test
-    fun `missing series shows only the title`() {
+    fun `an issue with a title of its own shows it under the number`() {
         val item = displayTitleItem(
-            title = "An Extraordinarily Long Comic Title",
-            comicMetadata = ComicMetadata(series = null),
+            title = "Swamp Thing (1986)",
+            comicMetadata = ComicMetadata(
+                series = "Swamp Thing (1986)",
+                issueTitle = "Issue #52 - Natural Consequences",
+                issueNumber = "52",
+            ),
         )
 
-        assertEquals("An Extraordinarily Long Comic Title", comicReaderDisplayTitle(item))
+        assertEquals(
+            ComicReaderTitles("Swamp Thing (1986) #52", "Issue #52 - Natural Consequences"),
+            comicReaderTitles(item),
+        )
     }
 
     @Test
-    fun `missing detail title shows only the series`() {
+    fun `a Kavita volume reads as the series over Volume 1`() {
         val item = displayTitleItem(
-            title = " ",
-            comicMetadata = ComicMetadata(series = "One Piece"),
+            title = "Chapter v1",
+            comicMetadata = ComicMetadata(series = "Goodbye, Eri", issueTitle = "Chapter v1", issueNumber = "v1"),
         )
 
-        assertEquals("One Piece", comicReaderDisplayTitle(item))
+        assertEquals(ComicReaderTitles("Goodbye, Eri", "Volume 1"), comicReaderTitles(item))
     }
 
     @Test
-    fun `series equal to title is shown once`() {
-        val item = displayTitleItem(
-            title = "One Piece",
-            comicMetadata = ComicMetadata(series = "One Piece"),
+    fun `the series over the file title, or the title alone without a series`() {
+        assertEquals(
+            ComicReaderTitles("One Piece", "Romance Dawn"),
+            comicReaderTitles(displayTitleItem(title = "Romance Dawn", comicMetadata = ComicMetadata(series = "One Piece"))),
+        )
+        assertEquals(
+            ComicReaderTitles("An Extraordinarily Long Comic Title", null),
+            comicReaderTitles(displayTitleItem(title = "An Extraordinarily Long Comic Title", comicMetadata = null)),
+        )
+        assertEquals(
+            ComicReaderTitles("One Piece", null),
+            comicReaderTitles(displayTitleItem(title = "One Piece", comicMetadata = ComicMetadata(series = "One Piece"))),
+        )
+    }
+
+    @Test
+    fun `generated names and impossible numbers are left out`() {
+        val volume = displayTitleItem(
+            title = "Chapter -100000",
+            comicMetadata = ComicMetadata(series = "One Piece", volume = "2"),
+        )
+        val badNumber = displayTitleItem(
+            title = "Volume 2.cbz",
+            comicMetadata = ComicMetadata(series = "One Piece", issueNumber = "-10000"),
         )
 
-        assertEquals("One Piece", comicReaderDisplayTitle(item))
+        assertEquals(ComicReaderTitles("One Piece", "Volume 2"), comicReaderTitles(volume))
+        assertEquals(ComicReaderTitles("One Piece", "Volume 2.cbz"), comicReaderTitles(badNumber))
     }
 }
 

@@ -13,14 +13,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.safeGesturesPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -36,10 +34,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.unifiedreader.core.model.ReadableItem
-import com.example.unifiedreader.feature.reader.core.ReaderOverlaySurfaceRole
 import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
-import com.example.unifiedreader.feature.reader.core.readerOverlaySurface
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -48,22 +45,26 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-private val NormalPreviewHeight = 154.dp
-private val SelectedPreviewHeight = 176.dp
-private val PreviewStripHeight = 214.dp
 private val PreviewSelectedEdge = 2.dp
-private val SinglePreviewFallbackWidth = 104.dp
-private val SpreadPreviewGap = 5.dp
-private val MinPreviewPageWidth = 56.dp
-private val MaxPreviewPageWidth = 240.dp
-private val MaxWidePreviewPageWidth = 360.dp
-private val PreviewOptions = ComicPagePreviewOptions(
+private val SpreadPreviewGap = 4.dp
+
+// A page's width against the strip's height: 2:3 until its size is known, then its own shape
+// within these bounds (a double-page scan stays visibly landscape).
+private const val FallbackPageWidthRatio = 2f / 3f
+private const val MinPageWidthRatio = 0.4f
+private const val MaxPageWidthRatio = 1.4f
+private const val MaxWidePageWidthRatio = 2.4f
+internal val PreviewOptions = ComicPagePreviewOptions(
     targetLongEdge = 520,
     maxPixelCount = 320_000,
 )
 private const val PreviewPrefetchRadius = 6
 private const val PreviewUnavailableRetryDelayMillis = 300L
 
+/**
+ * The page strip inside the reader's dock: the pages as [thumbnailHeight] thumbnails, spreads
+ * paired, the current one in a 2 dp accent ring, each with its page numbers under it.
+ */
 @Composable
 internal fun ComicPagePreviewStrip(
     item: ReadableItem,
@@ -73,10 +74,10 @@ internal fun ComicPagePreviewStrip(
     spreadMode: ComicSpreadMode,
     spreadPlanState: ComicSpreadPlanState,
     pageSource: ComicPageSource,
+    thumbnailHeight: Dp,
     modifier: Modifier = Modifier,
     readerWorkCoordinator: ReaderWorkCoordinator? = null,
     previewLoadingEnabled: Boolean = true,
-    applySafeGesturesPadding: Boolean = true,
     onPageSelected: (Int) -> Unit,
 ) {
     if (pages.isEmpty()) return
@@ -134,14 +135,10 @@ internal fun ComicPagePreviewStrip(
             reverseLayout = readingDirection == ComicReadingDirection.RTL,
             modifier = Modifier
                 .fillMaxWidth()
-                .then(if (applySafeGesturesPadding) Modifier.safeGesturesPadding() else Modifier)
-                .padding(horizontal = 10.dp)
-                .readerOverlaySurface(role = ReaderOverlaySurfaceRole.PreviewStrip)
-                .height(PreviewStripHeight)
                 .testTag(ComicPagePreviewStripTag),
             contentPadding = PaddingValues(horizontal = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(18.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top,
         ) {
             items(
                 items = spreads,
@@ -152,6 +149,7 @@ internal fun ComicPagePreviewStrip(
                     spread = spread,
                     pageSource = pageSource,
                     selected = safeCurrentPage in spread.pageIndexes,
+                    previewHeight = thumbnailHeight,
                     readerWorkCoordinator = readerWorkCoordinator,
                     previewLoadingEnabled = previewLoadingEnabled,
                     onClick = { onPageSelected(spread.resumePageIndex) },
@@ -167,6 +165,7 @@ private fun ComicSpreadPreviewItem(
     spread: ComicPageSpread,
     pageSource: ComicPageSource,
     selected: Boolean,
+    previewHeight: Dp,
     readerWorkCoordinator: ReaderWorkCoordinator?,
     previewLoadingEnabled: Boolean,
     onClick: () -> Unit,
@@ -221,10 +220,6 @@ private fun ComicSpreadPreviewItem(
             value = retryState.associate { it.pageId to it.result }
         }
     }
-    val previewHeight by animateDpAsState(
-        targetValue = if (selected) SelectedPreviewHeight else NormalPreviewHeight,
-        label = "comic-page-preview-height",
-    )
     val itemWidth = previewItemWidth(
         spread = spread,
         previewResults = previewResults,
@@ -233,7 +228,7 @@ private fun ComicSpreadPreviewItem(
     Column(
         modifier = Modifier.width(itemWidth),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Box(
             modifier = Modifier
@@ -256,7 +251,7 @@ private fun ComicSpreadPreviewItem(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 spread.pages.forEach { spreadPage ->
-                    val pageHeight = if (selected) previewHeight - 6.dp else previewHeight
+                    val pageHeight = if (selected) previewHeight - PreviewSelectedEdge * 2 else previewHeight
                     ComicPagePreviewImage(
                         page = spreadPage.spec,
                         result = previewResults[spreadPage.spec.id] ?: ComicPagePreviewResult.Unavailable,
@@ -276,7 +271,7 @@ private fun ComicSpreadPreviewItem(
         Text(
             text = spread.previewLabel(),
             color = if (selected) tokens.colors.primaryText else tokens.colors.secondaryText,
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp, fontFeatureSettings = "tnum"),
             fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
         )
     }
@@ -362,15 +357,15 @@ internal fun previewPageWidth(
         result is ComicPagePreviewResult.Success && result.image.height > 0 -> result.image.width / result.image.height.toFloat()
         else -> null
     }
-    val width = aspectRatio?.let { ratio -> previewHeight * ratio } ?: SinglePreviewFallbackWidth
-    val maxWidth = if (aspectRatio != null && aspectRatio >= ComicPageMetadata.DefaultWidePageAspectRatioThreshold) {
-        MaxWidePreviewPageWidth
+    val width = previewHeight * (aspectRatio ?: FallbackPageWidthRatio)
+    val maxRatio = if (aspectRatio != null && aspectRatio >= ComicPageMetadata.DefaultWidePageAspectRatioThreshold) {
+        MaxWidePageWidthRatio
     } else {
-        MaxPreviewPageWidth
+        MaxPageWidthRatio
     }
     return width
-        .coerceAtLeast(MinPreviewPageWidth)
-        .coerceAtMost(maxWidth)
+        .coerceAtLeast(previewHeight * MinPageWidthRatio)
+        .coerceAtMost(previewHeight * maxRatio)
 }
 
 private inline fun Iterable<ComicSpreadPage>.sumOfDp(
@@ -386,7 +381,7 @@ private fun ComicPageSpread.previewLabel(): String {
     return if (indexes.size == 1) {
         (indexes.first() + 1).toString()
     } else {
-        "${indexes.first() + 1}-${indexes.last() + 1}"
+        "${indexes.first() + 1}–${indexes.last() + 1}"
     }
 }
 

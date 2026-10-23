@@ -129,6 +129,41 @@ internal fun List<EpubTocEntry>.epubTocChapterPosition(
 }
 
 /**
+ * The chapter entry the reader is in: the one [epubTocChapterPosition] counts, or [activeEntry]
+ * itself when it lies outside every chapter (a foreword, the notes).
+ */
+internal fun List<EpubTocEntry>.epubTocChapterEntry(
+    activeEntry: EpubTocEntry?,
+): EpubTocEntry? {
+    if (activeEntry == null) return null
+    val activeIndex = indexOfFirst { it.id == activeEntry.id }
+    if (activeIndex < 0) return activeEntry
+    val chapter = epubTocChapterIndices().lastOrNull { it <= activeIndex } ?: return activeEntry
+    return if (activeIndex < epubTocSubtreeEnd(chapter, size)) this[chapter] else activeEntry
+}
+
+/**
+ * How far into [entry] the reader is, from 0 to 1: from where it starts to where the next entry
+ * at its level or above starts (the end of the book after the last). Null without positions.
+ */
+internal fun List<EpubTocEntry>.epubTocEntryFraction(
+    entry: EpubTocEntry,
+    currentProgress: Double,
+): Float? {
+    val start = entry.progression ?: return null
+    val index = indexOfFirst { it.id == entry.id }
+    if (index < 0) return null
+    val end = (index + 1 until size)
+        .asSequence()
+        .map { this[it] }
+        .firstOrNull { next -> next.depth <= entry.depth && (next.progression ?: start) > start }
+        ?.progression
+        ?: 1.0
+    if (end <= start) return null
+    return ((currentProgress - start) / (end - start)).coerceIn(0.0, 1.0).toFloat()
+}
+
+/**
  * Indices of the entries that count as chapters: the top-level ones, unless one of them wraps
  * most of the contents (a book-title entry holding the chapters, as FB2 conversions have: a
  * foreword, "Девица Кристина" with I to XVIII, notes). Its children are the chapters then,

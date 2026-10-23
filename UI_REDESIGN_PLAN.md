@@ -972,21 +972,49 @@ from Details and "•••", Show issues, cover colours on the card, book page 
 closing on × and tap outside, predictive back in the reader (scrubs and cancels), the remove dialog
 (cancelled), the Stump empty state's layout.
 
-### 8.7 Reader menus `[ ]`
+### 8.7 Reader menus `[~]`
 
-- [ ] On tablets, panels open between the top bar and the bottom dock and never cover them; the
-      button that opened one stays filled and closes it; one panel at a time; a tap on the page
-      closes it.
-- [ ] Same places in both readers: bottom left is Contents (EPUB) or Pages (comics), top right is
-      reading settings.
-- [ ] The top bar's second line names the chapter or issue; the position stays in the dock only.
-- [ ] Comics: the page strip moves inside the dock above the slider; a new Pages panel shows every
-      page as a grid.
-- [ ] Phones: panels are bottom sheets, the top bar stays, the dock steps aside while one is open.
-- [ ] Panel contents as on the menus board: segmented rows without checks, thick sliders,
-      sentence-case section titles, contents rows with a done check and "% through", a progress
-      footer. PDF uses the same frame.
-- [ ] Frame times on the tablet with a panel open over an EPUB page and over a comic page.
+Built 2026-10-23 on `claude/ui-redesign-step-8-6ff666`, checked on the emulator (`yabai_review_35`,
+Graphite, the Local test books) at 800 dp portrait, 1280 dp landscape and 411 dp phone width, with
+an EPUB and a comic. Not released and not yet on the tablet.
+
+- [x] The frame (`ReaderChrome.kt` in reader-core): `ReaderTopBar` (56 dp, 28 dp corners, Back,
+      the title in 15 SemiBold over a 12 SemiBold second line, the end action), `ReaderDock` (an
+      optional strip over the 60 dp row), `ReaderBarButton` (42 dp, filled while its panel is
+      open) and `ReaderChromeFrame`: bars inset 12 dp (8 on phones), a 45% scrim over the page
+      only, and the panels in the space between the bars, 10 dp clear of each (measured as the
+      bars are placed). One panel at a time; its button, the ×, the scrim (a tap on the page) or
+      Back closes it. Panels slide 28 dp from their edge (`AppFloatingPanelDefaults.slideDistance`).
+- [x] Same places in both readers: bottom left is Contents (EPUB) or the new Pages (comics), top
+      right is reading settings (Aa, or the settings icon).
+- [x] The second line names where you are: "Chapter 4 · Mira Kalden" (`epubTocChapterEntry`), "Star
+      Courier · issue 2" or "Volume 1" (`comicReaderTitles`, which also drops Kavita's generated
+      names). The position is in the dock only: "p. 37 / 73", "4–5 / 8".
+- [x] The dock row: the panel button, the percentage (13 SemiBold), an 8 dp track filled in the
+      accent with 2 × 14 dp chapter ticks and a 4 × 20 dp knob (`ReaderDockProgress`), the position.
+- [x] Comics: the page strip is inside the dock above the row, thumbnails 110 dp tall in portrait,
+      96 in landscape, 70 on phones, spreads paired, the current one in a 2 dp accent ring with its
+      label. Pages (`ComicPagesPanel.kt`): "Pages", "<issue> · 8 pages", three columns of 2:3
+      thumbnails 12 dp apart, the page or spread on screen ringed (2.5 dp), "Pages 4–5 of 8 · 50%";
+      a thumbnail jumps there and closes the panel.
+- [x] Phones: panels are bottom sheets, full width and up to 70% tall, with the handle; the dock
+      slides away while one is open and the top bar stays.
+- [x] Contents: "Contents" (panel titles are now 20 Bold in `AppPanelHeader`) and "<book> · 6
+      chapters", 48 dp pill rows, the current one filled with "40% through", read ones muted with a
+      check, page numbers in a fixed tabular column, 22 dp indent per level, footer "Chapter 4 of 6"
+      and the percentage over a 6 dp bar; it still opens two rows above the current entry.
+- [x] Settings: EPUB in Text / Page / Layout (sentence case; Page holds Page colour and Page
+      number; the phone tabs follow), text size with 42 dp round − and + (`AppStepperRow`, new
+      `AppIcons.Remove`); comics as before under "Reading settings" with a ×, as a card the height
+      of its content at the top of the space between the bars.
+- [x] PDF on the same frame: title over the author, previous and next at the top end, its strip in
+      the dock, no panels. Its chrome and strip moved out of `PdfReaderEntry.kt` (1122 → 851 lines)
+      into `PdfReaderChrome.kt`; the EPUB and comics entries shrank too. `CompactReaderOverlayFrame`,
+      `ReaderOverlayControls` and `ReaderOverlaySurface` are gone.
+- Not as the mock: the comics second line has no "of 3" (the reader is not told how many issues
+  the series has; that needs the series passed in).
+- [ ] Tablet: the frame and panels over a real EPUB and comic, the feel of the slider, and frame
+      times with a panel open over an EPUB page and over a comic page.
 
 ### 8.8 Navigation rail `[ ]`
 

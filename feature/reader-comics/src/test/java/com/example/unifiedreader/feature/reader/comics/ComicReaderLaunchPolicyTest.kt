@@ -95,7 +95,7 @@ class ComicReaderLaunchPolicyTest {
             ),
         )
 
-        assertEquals("One Piece • Volume 2", comicReaderDisplayTitle(item))
+        assertEquals(ComicReaderTitles("One Piece", "Volume 2"), comicReaderTitles(item))
     }
 
     @Test
@@ -112,6 +112,6 @@ class ComicReaderLaunchPolicyTest {
             ),
         )
 
-        assertEquals("One Piece • Volume 2.cbz", comicReaderDisplayTitle(item))
+        assertEquals(ComicReaderTitles("One Piece", "Volume 2.cbz"), comicReaderTitles(item))
     }
 }

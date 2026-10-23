@@ -29,3 +29,14 @@ internal fun buildEpubPageProgressLabel(
     position > 0 -> "$position"
     else -> "?/?"
 }
+
+/** The dock's position: "p. 37 / 412", or the bare count before the page is known. */
+internal fun buildEpubDockPositionLabel(
+    position: Int,
+    pageCount: Int,
+): String = when {
+    position > 0 && pageCount > 0 -> "p. $position / $pageCount"
+    pageCount > 0 -> "$pageCount pages"
+    position > 0 -> "p. $position"
+    else -> ""
+}

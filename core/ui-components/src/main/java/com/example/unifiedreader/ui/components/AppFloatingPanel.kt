@@ -45,6 +45,7 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
@@ -175,6 +176,7 @@ fun AppFloatingPanel(
         width = width,
     )
     val layoutDirection = LocalLayoutDirection.current
+    val slidePx = with(LocalDensity.current) { AppFloatingPanelDefaults.slideDistance.roundToPx() }
     val shape = AppFloatingPanelDefaults.shape(layout.mode)
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -191,8 +193,8 @@ fun AppFloatingPanel(
         ) {
             AnimatedVisibility(
                 visible = visible,
-                enter = layout.enter(layoutDirection),
-                exit = layout.exit(layoutDirection),
+                enter = layout.enter(layoutDirection, slidePx),
+                exit = layout.exit(layoutDirection, slidePx),
                 modifier = Modifier.align(layout.alignment),
             ) {
                 Column(
@@ -317,35 +319,32 @@ private fun AppFloatingPanelLayout.padding(
     )
 }
 
-private fun AppFloatingPanelLayout.enter(layoutDirection: LayoutDirection): EnterTransition {
+// Panels and cards slide [AppFloatingPanelDefaults.slideDistance] in from their edge as they fade.
+private fun AppFloatingPanelLayout.enter(layoutDirection: LayoutDirection, slidePx: Int): EnterTransition {
     val spec = AppMotion.spatial(IntOffset.VisibilityThreshold)
     val fade = fadeIn(animationSpec = AppMotion.effects())
     return when (mode) {
         AppFloatingPanelMode.BottomSheet -> slideInVertically(spec) { height -> height / 3 } + fade
-        AppFloatingPanelMode.AnchoredCard -> slideInVertically(spec) { height -> -height / 4 } + fade
-        AppFloatingPanelMode.EdgePanel -> slideInHorizontally(spec) { width ->
-            edgeOffset(width, layoutDirection)
-        } + fade
+        AppFloatingPanelMode.AnchoredCard -> slideInVertically(spec) { -slidePx } + fade
+        AppFloatingPanelMode.EdgePanel -> slideInHorizontally(spec) { edgeOffset(slidePx, layoutDirection) } + fade
     }
 }
 
-private fun AppFloatingPanelLayout.exit(layoutDirection: LayoutDirection): ExitTransition {
+private fun AppFloatingPanelLayout.exit(layoutDirection: LayoutDirection, slidePx: Int): ExitTransition {
     val spec = AppMotion.spatial(IntOffset.VisibilityThreshold)
     val fade = fadeOut(animationSpec = AppMotion.effects())
     return when (mode) {
         AppFloatingPanelMode.BottomSheet -> slideOutVertically(spec) { height -> height / 3 } + fade
-        AppFloatingPanelMode.AnchoredCard -> slideOutVertically(spec) { height -> -height / 4 } + fade
-        AppFloatingPanelMode.EdgePanel -> slideOutHorizontally(spec) { width ->
-            edgeOffset(width, layoutDirection)
-        } + fade
+        AppFloatingPanelMode.AnchoredCard -> slideOutVertically(spec) { -slidePx } + fade
+        AppFloatingPanelMode.EdgePanel -> slideOutHorizontally(spec) { edgeOffset(slidePx, layoutDirection) } + fade
     }
 }
 
-/** A third of the panel's width, toward the edge it is docked to, in layout-direction terms. */
-private fun AppFloatingPanelLayout.edgeOffset(width: Int, layoutDirection: LayoutDirection): Int {
+/** [distance] toward the edge the panel is docked to, in layout-direction terms. */
+private fun AppFloatingPanelLayout.edgeOffset(distance: Int, layoutDirection: LayoutDirection): Int {
     val dockedAtStart = alignment == Alignment.CenterStart
     val towardLeft = dockedAtStart == (layoutDirection == LayoutDirection.Ltr)
-    return if (towardLeft) -width / 3 else width / 3
+    return if (towardLeft) -distance else distance
 }
 
 /** The edge a panel leaves through: a unit direction and the matching transform origin. */
@@ -372,6 +371,9 @@ object AppFloatingPanelDefaults {
 
     /** Below this width every placement is a bottom sheet, matching [AppSideSheetDefaults]. */
     const val compactWidthDp: Int = AppSideSheetDefaults.compactWidthDp
+
+    /** How far a panel slides in from its edge as it fades in. */
+    val slideDistance: Dp = 28.dp
 
     /** The spec's scrim: black at 45% on a dark theme, 32% on a light one. */
     const val scrimAlphaDark: Float = 0.45f
