@@ -89,6 +89,29 @@ class LibraryBookPageModelTest {
     }
 
     @Test
+    fun `more by the author shows one book per other series, by name`() {
+        // Kavita volumes are all titled "Chapter vN"; the row used to sort on that.
+        fun volume(id: String, series: String, number: String) = issue(
+            id = id,
+            number = number,
+            series = series,
+            writers = listOf("Fujimoto Tatsuki"),
+        ).let { item -> item.copy(title = "Chapter $number", comicMetadata = item.comicMetadata?.copy(issueTitle = "Chapter $number")) }
+        val eri = volume("eri", "Goodbye, Eri", "v1")
+        val pool = listOf(
+            volume("csm10", "Chainsaw Man", "v10"),
+            volume("fp1", "Fire Punch", "v1"),
+            volume("csm1", "Chainsaw Man", "v1"),
+            volume("fp2", "Fire Punch", "v2"),
+            eri,
+        )
+
+        val related = libraryBookPageRelated(item = eri, pool = pool)
+
+        assertEquals(listOf("csm1", "fp1"), related.moreByAuthor.map { it.remoteId })
+    }
+
+    @Test
     fun `similar shows one book per series`() {
         val item = issue(id = "x", number = "1", series = "Chainsaw Man", genres = listOf("Action", "Horror"))
         val fire = (1..4).map { number ->

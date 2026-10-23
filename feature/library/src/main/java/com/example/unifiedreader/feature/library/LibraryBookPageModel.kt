@@ -7,6 +7,7 @@ import com.example.unifiedreader.core.model.facetMetadata
 import com.example.unifiedreader.core.model.isKavitaSeriesContainer
 import com.example.unifiedreader.core.model.isStumpSeriesContainer
 import com.example.unifiedreader.core.model.libraryDisplayLabel
+import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.core.model.normalizedAuthors
 import com.example.unifiedreader.core.model.ownIssueTitle
 import com.example.unifiedreader.core.model.supportsManualReadStatusAction
@@ -247,8 +248,8 @@ internal data class LibraryBookPageRelated(
 
 /**
  * The rows under a book, from [pool] (the books of its source): the rest of its series in issue
- * order; more by its first author or writer; and books that share at least two of its genres and
- * tags, most shared first. A book shows in one row only. A series container is compared with the
+ * order; more by its first author or writer, one book per series; and books that share at least
+ * two of its genres and tags, most shared first, one per series. A book shows in one row only. A series container is compared with the
  * other series containers, an issue or a book with the other issues and books.
  */
 internal fun libraryBookPageRelated(
@@ -274,13 +275,20 @@ internal fun libraryBookPageRelated(
     val shown = moreInSeries.mapTo(mutableSetOf(item.id), ReadableItem::id)
 
     val authorName = (itemFacets.authors + itemFacets.writers).firstOrNull()
+    // The author's other works: one book per series (its first), none from this book's series,
+    // by name. Kavita titles volumes "Chapter v1", so sorting by title mixed the series up.
     val moreByAuthor = authorName?.let { name ->
         candidates
             .filter { other ->
+                val facets = other.facetMetadata()
                 other.id !in shown &&
-                    (other.facetMetadata().authors + other.facetMetadata().writers).any { it.equals(name, ignoreCase = true) }
+                    facets.series.none { series -> seriesName != null && series.equals(seriesName, ignoreCase = true) } &&
+                    (facets.authors + facets.writers).any { it.equals(name, ignoreCase = true) }
             }
-            .sortedBy { other -> other.title.lowercase() }
+            .groupBy { other -> other.facetMetadata().series.firstOrNull()?.lowercase() ?: other.id }
+            .values
+            .map { works -> works.sortedInCanonicalSeriesIssueOrder().first() }
+            .sortedBy { other -> other.libraryPrimaryText().lowercase() }
             .take(RelatedRowLimit)
     }.orEmpty()
     moreByAuthor.mapTo(shown, ReadableItem::id)

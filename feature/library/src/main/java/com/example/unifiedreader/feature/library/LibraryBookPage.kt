@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import com.example.unifiedreader.ui.components.AppButton
@@ -553,7 +554,7 @@ private fun LibraryBookPageRow(
                         modifier = Modifier
                             .width(coverWidth)
                             .aspectRatio(LibraryCoverAspectRatio)
-                            .semantics { contentDescription = book.title }
+                            .semantics { contentDescription = book.libraryDisplayLabel() }
                             .clickable { onShowBook(book) },
                     )
                 }

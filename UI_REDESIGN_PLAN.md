@@ -818,6 +818,17 @@ The "Wrong or inconsistent" group is fixed too (same worktree): unit tests pass 
 items marked "Checked" were seen on `yabai_review_35` at 1280 dp landscape in Graphite. The rest
 need a server source (Kavita titles, Collections, selection) or are unit-tested only.
 
+Checked on the tablet the same evening (signed release of this branch, `adb install -r` over
+0.15.0, data kept; High Contrast, portrait and landscape): "Volume 1" on the reading card, book
+page, series tiles and cover descriptions; the series card at the home card's width; the
+selection bar's black Download pill and one check per read cover; "Showing 304 of 1474" on the
+paged grid; Collections' "56 items" and its A-Z rail; the Online badge by the menu button; the
+landscape card as tall as the shelf; Back between books; folded chips, "English", the description
+without its link; Settings' selected row and Version row; the drawer's selection; the round
+back-to-top button. The tablet showed one more problem, fixed and rechecked there: "More by"
+sorted Kavita's "Chapter vN" titles, so it interleaved volumes of different series, and its covers
+were described as "Chapter v1"; it now shows one book per series, by name.
+
 Broken:
 
 - [x] Settings: a selected row (Theme, the open source page) keeps its icon, supporting text, value
