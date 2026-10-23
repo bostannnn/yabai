@@ -6,6 +6,7 @@ import android.util.LruCache
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoaderCacheSizing
@@ -136,7 +137,7 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
             ComicPageSpec(
                 id = index.toString(),
                 pageIndex = index,
-                contentDescription = "${item.title} page ${index + 1}",
+                contentDescription = "${item.libraryDisplayLabel()} page ${index + 1}",
             )
         }
     }

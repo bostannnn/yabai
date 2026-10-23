@@ -400,6 +400,29 @@ class JournalStateComputerTest {
     }
 
     @Test
+    fun `calendar days match active days when a book's sessions fall on days without its events`() {
+        val april10 = epochMillis(2026, Calendar.APRIL, 10)
+        val april11 = epochMillis(2026, Calendar.APRIL, 11)
+        val events = listOf(startedEvent(page = 40, percent = 0.4, occurredAtEpochMillis = april10 + 9 * 60 * 60 * 1000L))
+        val sessions = listOf(
+            journalSession(
+                startedAtEpochMillis = april11 + 20 * 60 * 60 * 1000L,
+                endedAtEpochMillis = april11 + 20 * 60 * 60 * 1000L + 60_000L,
+                fromPage = 40,
+                toPage = 52,
+            ),
+        )
+
+        val days = computeActivityDays(events, sessions)
+        val stats = computeStats(events, sessions)
+
+        assertEquals(2, stats.activeDays)
+        assertEquals(stats.activeDays, days.size)
+        // The session's pages are already in the book's events, so its day adds no pages.
+        assertEquals(computeActivityDays(events).sumOf(JournalActivityDay::pagesRead), days.sumOf(JournalActivityDay::pagesRead))
+    }
+
+    @Test
     fun `period overview activity days include session only reading`() {
         val april10 = epochMillis(2026, Calendar.APRIL, 10)
         val snapshot = JournalStateComputer(nowEpochMillis = { april10 }).snapshot(

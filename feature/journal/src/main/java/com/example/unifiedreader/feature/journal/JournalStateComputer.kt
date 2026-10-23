@@ -250,10 +250,12 @@ fun computeActivityDays(
         }
     }
     val eventItemIds = events.map(JournalReadingEvent::itemId).toSet()
-    sessions.filterNot { session -> session.itemId in eventItemIds }.forEach { session ->
+    sessions.forEach { session ->
         val activeDayKeys = session.activeDayKeys(periodStart, periodEnd)
         if (activeDayKeys.isEmpty()) return@forEach
-        val pageDelta = session.positivePageDelta()
+        // An item with progress events counts its pages from them; its sessions still mark the days
+        // it was read, as the active-days figure counts them.
+        val pageDelta = if (session.itemId in eventItemIds) 0 else session.positivePageDelta()
         activeDayKeys.forEachIndexed { index, dayKey ->
             val accumulator = dayAccumulators.getOrPut(dayKey) { JournalActivityDayAccumulator(dayKey) }
             accumulator.pagesRead += splitSessionPages(pageDelta, activeDayKeys.size, index)

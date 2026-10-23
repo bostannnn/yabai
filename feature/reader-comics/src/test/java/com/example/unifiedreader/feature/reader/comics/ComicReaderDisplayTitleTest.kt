@@ -36,6 +36,16 @@ class ComicReaderDisplayTitleTest {
     }
 
     @Test
+    fun `a volume that is the series' year reads as the year`() {
+        val item = displayTitleItem(
+            title = "Conan - The Legend 001",
+            comicMetadata = ComicMetadata(series = "Conan: The Legend", issueNumber = "1", volume = "2003"),
+        )
+
+        assertEquals(ComicReaderTitles("Conan: The Legend #1", "2003"), comicReaderTitles(item))
+    }
+
+    @Test
     fun `a Kavita volume reads as the series over Volume 1`() {
         val item = displayTitleItem(
             title = "Chapter v1",

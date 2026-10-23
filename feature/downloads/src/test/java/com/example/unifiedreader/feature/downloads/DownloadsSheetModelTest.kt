@@ -1,5 +1,8 @@
 package com.example.unifiedreader.feature.downloads
 
+import com.example.unifiedreader.core.model.BookMetadata
+import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import java.time.LocalDateTime
 import java.time.ZoneOffset
@@ -108,6 +111,24 @@ class DownloadsSheetModelTest {
 
         assertEquals("3 files · 10:42", done.finishedLabel(null, now, zone))
         assertEquals("Stopped after 6 of 24 files · 18 Oct", stopped.finishedLabel(null, now, zone))
+    }
+
+    @Test
+    fun `several files show their count, one book its own line`() {
+        val book = ReadableItem(
+            id = "a",
+            sourceType = SourceType.KAVITA,
+            libraryId = "library",
+            title = "The Salt Orchard",
+            format = FormatType.EPUB,
+            bookMetadata = BookMetadata(author = "Mira Kalden"),
+        )
+        val one = entry("a", DownloadEntryStatus.Completed, files = 1, done = 1, finishedAt = at(2026, 10, 23, 9, 15))
+        val several = entry("b", DownloadEntryStatus.Completed, files = 3, done = 3, finishedAt = at(2026, 10, 23, 9, 15))
+
+        assertEquals("Mira Kalden · 09:15", one.finishedLabel(book, now, zone))
+        assertEquals("3 files · 09:15", several.finishedLabel(book, now, zone))
+        assertEquals("3 files", entry("c", DownloadEntryStatus.Queued, files = 3).waitingLabel(book))
     }
 
     @Test

@@ -39,7 +39,9 @@ internal fun SourceLibraryGroup(
                 syncRunning -> "Syncing"
                 !formState.hasStoredSession -> "Connect to the server first"
                 lastSyncedAtEpochMillis != null -> "Synced ${formatSettingsMoment(lastSyncedAtEpochMillis)}"
-                else -> "Not synced on this device yet"
+                // Sync times are kept from 0.17.0 on, so an older install's library has synced before:
+                // until the next sync, say what Sync does, not that it never ran.
+                else -> "Gets new and changed books from the server"
             },
             trailing = {
                 val fastSync = actions.onFastSync

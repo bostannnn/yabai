@@ -111,7 +111,8 @@ internal fun DownloadEntry.activityLabel(): String = when (status) {
 /** A waiting row's line: what it is, or which server it waits for. */
 internal fun DownloadEntry.waitingLabel(item: ReadableItem?): String = when (status) {
     DownloadEntryStatus.PausedConnectivity -> "Waiting for ${sourceType.displayName()}"
-    else -> downloadItemDetail(item) ?: fileCountLabel() ?: "Waiting"
+    // Several files say how many: the item's own line would name only the first of them.
+    else -> fileCountLabel() ?: downloadItemDetail(item) ?: "Waiting"
 }
 
 /** A failed row's line: how far it got and what went wrong. */
@@ -137,7 +138,7 @@ internal fun DownloadEntry.finishedLabel(
         } else {
             "Stopped"
         }
-        else -> downloadItemDetail(item) ?: fileCountLabel()
+        else -> fileCountLabel() ?: downloadItemDetail(item)
     }
     return listOfNotNull(what, downloadFinishedTimeLabel(finishedAtEpochMillis, nowEpochMillis, zone)).joinToString(" · ")
 }

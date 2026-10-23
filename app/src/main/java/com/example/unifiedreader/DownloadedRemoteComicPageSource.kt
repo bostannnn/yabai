@@ -5,6 +5,7 @@ import android.net.Uri
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.isComicReaderFormat
+import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.feature.downloads.downloadDataSourceFor
 import com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
@@ -72,7 +73,7 @@ class DownloadedRemoteComicPageSource @Inject constructor(
                 ComicPageSpec(
                     id = index.toString(),
                     pageIndex = index,
-                    contentDescription = "${item.title} page ${index + 1}",
+                    contentDescription = "${item.libraryDisplayLabel()} page ${index + 1}",
                 )
             }
         }
@@ -493,6 +494,6 @@ private fun List<String>.toComicPageSpecs(
     ComicPageSpec(
         id = entryName,
         pageIndex = index,
-        contentDescription = "${item.title} page ${index + 1}",
+        contentDescription = "${item.libraryDisplayLabel()} page ${index + 1}",
     )
 }

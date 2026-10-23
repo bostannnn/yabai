@@ -46,13 +46,14 @@ internal fun comicReaderTitles(item: ReadableItem): ComicReaderTitles {
 
 private fun formatComicVolumeLabel(
     volume: String,
-): String = if (volume.startsWith("vol", ignoreCase = true) ||
-    volume.startsWith("volume", ignoreCase = true)
-) {
-    volume
-} else {
-    "Volume $volume"
+): String = when {
+    volume.startsWith("vol", ignoreCase = true) -> volume
+    // Western comics' ComicInfo keeps the series' first year in Volume: it reads as the year.
+    ComicSeriesYear.matches(volume) -> volume
+    else -> "Volume $volume"
 }
+
+private val ComicSeriesYear = Regex("""^(19|20)\d{2}$""")
 
 // Kavita's placeholder for a chapter without a title, with an impossible number ("Chapter -100000").
 private val GeneratedChapterTitle = Regex("""(?i)^chapter\s+-\d+(\.\d+)?$""")

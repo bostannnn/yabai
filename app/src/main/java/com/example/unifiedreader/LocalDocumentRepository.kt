@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import com.example.unifiedreader.core.database.dao.ImportedComicArchiveDao
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageMetadata
@@ -133,7 +134,7 @@ class LocalDocumentRepository private constructor(
             ComicPageSpec(
                 id = entryName,
                 pageIndex = index,
-                contentDescription = "${item.title} page ${index + 1}",
+                contentDescription = "${item.libraryDisplayLabel()} page ${index + 1}",
             )
         }
     }
