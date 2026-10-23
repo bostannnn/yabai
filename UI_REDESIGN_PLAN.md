@@ -809,7 +809,7 @@ Grimmory, Local), driven over adb at the user's request; the light themes and po
 dp) followed the same day. Not covered: PDF, a real download, Reading Lists, phone width. Fix these
 before 8.7.
 
-The Broken group is fixed in this worktree (not committed or released): all unit tests pass (1390,
+Both groups and the More by fix below are released in 0.16.0. The Broken group was fixed in this worktree: all unit tests pass (1390,
 both lines), and the fixes that show on a Local library were checked on `yabai_review_35` (debug
 build, Graphite, High Contrast and Paper, portrait and 1280 dp landscape). The Kavita-only ones
 (volume names, series card width, selection bar, paged filter count) wait for the tablet.
@@ -974,9 +974,9 @@ closing on × and tap outside, predictive back in the reader (scrubs and cancels
 
 ### 8.7 Reader menus `[~]`
 
-Built 2026-10-23 on `claude/ui-redesign-step-8-6ff666`, checked on the emulator (`yabai_review_35`,
-Graphite, the Local test books) at 800 dp portrait, 1280 dp landscape and 411 dp phone width, with
-an EPUB and a comic. Not released and not yet on the tablet.
+Built 2026-10-23 on `claude/ui-redesign-step-8-6ff666`, released in 0.16.0, checked on the emulator
+(`yabai_review_35`, Graphite, the Local test books) at 800 dp portrait, 1280 dp landscape and 411 dp
+phone width, with an EPUB and a comic. Not yet on the tablet.
 
 - [x] The frame (`ReaderChrome.kt` in reader-core): `ReaderTopBar` (56 dp, 28 dp corners, Back,
       the title in 15 SemiBold over a 12 SemiBold second line, the end action), `ReaderDock` (an
