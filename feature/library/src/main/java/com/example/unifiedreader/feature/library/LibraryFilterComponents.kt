@@ -1,23 +1,16 @@
 package com.example.unifiedreader.feature.library
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,198 +21,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
-import com.example.unifiedreader.core.model.LibraryFilterFacets
-import com.example.unifiedreader.core.model.LibraryFilterPanel
-import com.example.unifiedreader.core.model.LibraryFilterState
-import com.example.unifiedreader.core.model.LibrarySortMode
-import com.example.unifiedreader.core.model.SourceType
-import com.example.unifiedreader.core.model.displayName
-import com.example.unifiedreader.ui.components.AppChip
-import com.example.unifiedreader.ui.components.AppChipDefaults
 import com.example.unifiedreader.ui.components.AppDialogDefaults
 import com.example.unifiedreader.ui.components.AppDialogHost
 import com.example.unifiedreader.ui.components.AppDivider
-import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.components.AppTextButton
 import com.example.unifiedreader.ui.components.AppTextField
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
-
-@Composable
-internal fun EmptyLibraryState(
-    selectedSource: SourceType,
-    filtersActive: Boolean,
-    searchActive: Boolean,
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 48.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = when {
-                searchActive && filtersActive -> "No items match this search and these filters"
-                searchActive -> "No items match this search"
-                filtersActive -> "No items match these filters"
-                else -> "No items yet for ${selectedSource.displayName()}"
-            },
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-    }
-}
-
-@Composable
-internal fun LibraryFilterSummary(
-    filterPanels: List<LibraryFilterPanel>,
-    filterState: LibraryFilterState,
-    filterFacets: LibraryFilterFacets,
-    libraryTitlesById: Map<String, String>,
-    sortMode: LibrarySortMode,
-    gridCellSizeDp: Int,
-    gridSizeOptions: List<LibraryGridSizeOption>,
-    fadeReadItems: Boolean,
-    showSortControl: Boolean,
-    availableSortModes: List<LibrarySortMode> = LibrarySortMode.entries,
-    lockedSortLabel: String? = null,
-    readingListScopeState: LibraryReadingListScopeState = LibraryReadingListScopeState(),
-    onOpenReadingListScope: () -> Unit = {},
-    // null opens the filter sheet at the top; a panel opens it at that section.
-    onOpenFilterPanel: (LibraryFilterPanel?) -> Unit,
-    onClearFilterPanel: (LibraryFilterPanel) -> Unit = {},
-    onClearFilters: () -> Unit,
-    onSortModeChanged: (LibrarySortMode) -> Unit,
-    onGridCellSizeDpChanged: (Int) -> Unit,
-    onFadeReadItemsChanged: (Boolean) -> Unit,
-) {
-    val filterOptions = remember(filterPanels, filterState, filterFacets, libraryTitlesById) {
-        filterPanels.map { panel ->
-            LibraryFilterPanelSummary(
-                panel = panel,
-                selectedCount = panel.selectedCount(filterState),
-                enabled = panel.isEnabled(
-                    filterState = filterState,
-                    filterFacets = filterFacets,
-                    libraryTitlesById = libraryTitlesById,
-                ),
-            )
-        }
-    }
-    val activeFilterOptions = filterOptions.filter { option -> option.selectedCount > 0 }
-    val filtersEnabled = filterOptions.any { option -> option.enabled } || !filterState.isEmpty
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Row(
-            modifier = Modifier
-                .weight(1f)
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (readingListScopeState.shouldShow) {
-                val selectedOption = readingListScopeState.selectedOption
-                LibraryFacetChip(
-                    label = selectedOption?.chipLabel() ?: "Kavita lists",
-                    count = 0,
-                    selected = selectedOption != null,
-                    showCount = false,
-                    enabled = readingListScopeState.shouldShow,
-                    onClick = onOpenReadingListScope,
-                )
-            }
-            activeFilterOptions.forEach { option ->
-                LibraryFacetChip(
-                    label = option.panel.label,
-                    count = option.selectedCount,
-                    enabled = option.enabled,
-                    onClick = { onOpenFilterPanel(option.panel) },
-                    onRemove = { onClearFilterPanel(option.panel) },
-                )
-            }
-        }
-        Spacer(modifier = Modifier.width(8.dp))
-        AppChip(
-            selected = !filterState.isEmpty,
-            enabled = filtersEnabled,
-            onClick = { onOpenFilterPanel(null) },
-            leadingIcon = {
-                Icon(
-                    imageVector = AppIcons.FilterList,
-                    contentDescription = null,
-                    modifier = Modifier.size(AppChipDefaults.iconSize),
-                )
-            },
-            label = {
-                Text(
-                    text = "Filters",
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            },
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        LibraryBrowseOptionsSelector(
-            sortMode = sortMode,
-            gridCellSizeDp = gridCellSizeDp,
-            gridSizeOptions = gridSizeOptions,
-            fadeReadItems = fadeReadItems,
-            showSortOptions = showSortControl,
-            availableSortModes = availableSortModes,
-            lockedSortLabel = lockedSortLabel,
-            onSortModeChanged = onSortModeChanged,
-            onGridCellSizeDpChanged = onGridCellSizeDpChanged,
-            onFadeReadItemsChanged = onFadeReadItemsChanged,
-        )
-    }
-}
-
-private data class LibraryFilterPanelSummary(
-    val panel: LibraryFilterPanel,
-    val selectedCount: Int,
-    val enabled: Boolean,
-)
-
-@Composable
-private fun LibraryFacetChip(
-    label: String,
-    count: Int,
-    enabled: Boolean,
-    onClick: () -> Unit,
-    selected: Boolean = count > 0,
-    showCount: Boolean = true,
-    onRemove: (() -> Unit)? = null,
-) {
-    AppChip(
-        selected = selected,
-        enabled = enabled,
-        onClick = onClick,
-        label = {
-            Text(
-                text = if (showCount && count > 0) "$label ($count)" else label,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        },
-        trailingIcon = onRemove?.let { remove ->
-            {
-                Icon(
-                    imageVector = AppIcons.Close,
-                    contentDescription = "Remove $label filter",
-                    modifier = Modifier
-                        .size(AppChipDefaults.iconSize)
-                        .clickable(onClick = remove),
-                )
-            }
-        },
-    )
-}
 
 @Composable
 internal fun LibraryReadingListScopeDialog(
@@ -371,7 +181,7 @@ private fun LibraryReadingListScopeOption.scopeLabel(): String =
         title
     }
 
-private fun LibraryReadingListScopeOption.chipLabel(): String = when (kind) {
+internal fun LibraryReadingListScopeOption.chipLabel(): String = when (kind) {
     LibraryReadingListScopeOptionKind.Collection -> "Collection: $title"
     LibraryReadingListScopeOptionKind.ReadingList -> "Reading list: $title"
 }

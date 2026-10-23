@@ -17,6 +17,7 @@ import com.example.unifiedreader.core.model.LibraryAlphabetSection
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.feature.library.KavitaScopeLandingItem
@@ -74,6 +75,9 @@ internal fun LibraryRoute(
     onSetReadStatus: (ReadableItem, Boolean) -> Unit,
     onFilterStateChanged: (LibraryFilterState) -> Unit,
     onClearFilters: () -> Unit,
+    onImportLocalFile: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onRetrySourceConnection: () -> Unit,
     onReadingListSelected: (String?) -> Unit,
     onSortModeChanged: (LibrarySortMode) -> Unit,
     onViewModeChanged: (LibraryViewMode) -> Unit,
@@ -250,6 +254,11 @@ internal fun LibraryRoute(
                     },
                     onFilterStateChanged = onFilterStateChanged,
                     onClearFilters = onClearFilters,
+                    sourceUnreachable = frame.uiState.selectedSource != SourceType.LOCAL &&
+                        frame.uiState.selectedSourceConnectivity == SourceConnectivityState.Offline,
+                    onImportLocalFile = onImportLocalFile,
+                    onConnectServer = onOpenSettings,
+                    onRetrySource = onRetrySourceConnection,
                     onReadingListSelected = onReadingListSelected,
                     onSortModeChanged = onSortModeChanged,
                     onViewModeChanged = onViewModeChanged,

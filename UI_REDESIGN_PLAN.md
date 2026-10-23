@@ -609,21 +609,42 @@ throwaway build with a faked queue (no remote source on that emulator). Not yet 
 - [ ] Tablet: the pills, the sliders over an EPUB page, the dialog, and the ring during a real
       Kavita download.
 
-### 8.3 Library home `[ ]`
+### 8.3 Library home `[~]`
 
-- [ ] Mock the phone layout and the series view header first (tablet portrait and landscape are
-      on the boards).
+Started 2026-10-23 on `claude/ui-redesign-step-8-2` (on top of 8.2). The pieces with approved mocks
+that do not depend on the phone decisions are built and checked on the emulator (`yabai_review_35`);
+the header, the reading card and the shelf tabs wait for the phone board.
+
+- [~] Mock the phone layout and the series view header first: board
+      https://claude.ai/artifact/G4aXzrCHb1o66ntsWCE3Wk (`docs/design/second-pass/pages/library-phone.html`;
+      picks save to the page). Three cards: the phone home, the phone reading card (A: 96 dp cover and
+      a button row; B: a slim resume bar), the series header (A: title, summary, Continue; B: the
+      reading card for the next issue). Waiting for picks.
 - [ ] Header: the source name as a large title with a one-line summary ("12 books · 9 comics · 7 in
-      progress"), folding into today's glass bar on scroll.
+      progress"), folding into today's glass bar on scroll. No per-source counts exist yet; they would
+      be counted from the source's items (books and comics by kind, in progress from the summaries).
 - [ ] The reading card over three grid columns (full width in portrait), cover at the grid's cell
-      width, Continue and Details; tinted with the theme accent until 8.6.
+      width, Continue and Details; tinted with the theme accent until 8.6. The book is the first of
+      Continue Reading. EPUB progress records no chapter (the saved count is Readium positions), so
+      "Chapter 3 of 6" needs the reader to store the chapter position when it saves; until then the
+      card can show the page ("Page 47 of 73").
 - [ ] Shelf tabs (In progress, Up next, Finished) over one strip at the grid's cover size, with See all.
-- [ ] Tile: only the new progress bar (inset and rounded on the cover). Titles, the kebab and the
-      text block stay.
-- [ ] Filter row: applied chips name their value ("EPUB", not "Format (1)"); the Filters button
-      carries the count.
-- [ ] Series tiles drawn as a stack of covers instead of a count badge; empty states with a drawing,
-      a sentence and the action that fixes them.
+- [x] Tile: only the new progress bar, a 4 dp pill inset 7 dp from the cover's sides and bottom over a
+      42% black track (`LibraryCoverProgressBar`, so the grid, the shelves and the shelf browser all
+      change). Titles, the kebab and the text block stay.
+- [x] Filter row (`LibraryFilterRow.kt`, moved out of `LibraryFilterComponents.kt`, which went from 492
+      to 312 lines): the Filters chip first with a 20 dp accent badge counting the applied values, then
+      one selected chip per value naming it ("EPUB", "In progress", an author, a library's title)
+      whose × removes only that value, the sort chip at the end. `appliedLibraryFilters` is pure and
+      unit-tested.
+- [x] Series tiles (Kavita and Stump containers): two card edges behind the cover, inset 7 and 14 dp and
+      raised 6 and 12 dp into the row gap (`Modifier.librarySeriesStack`), and "3 issues" on the meta
+      line (with the percentage when started); the count badge that showed under the issue-count sort
+      is gone. Checked with a throwaway build that drew every tile as a series (Local never groups).
+- [x] Empty states on the kit's new `AppEmptyState` (drawing of three books, 28 Bold title, one
+      sentence, actions): no search matches; "No books match these filters" with Clear filters;
+      "Can't reach Kavita" with Try again when a server source is offline and empty; "Nothing here
+      yet" with Import a file and Connect a server (opens Settings) on Local.
 - [ ] Presentation coherence holds (nothing jumps after the grid shows); the shelf instrumentation
       tests are updated and run; cold start unchanged.
 

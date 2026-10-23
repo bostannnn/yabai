@@ -2,9 +2,10 @@ package com.example.unifiedreader.feature.library
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -31,8 +32,9 @@ internal val ItemProgressSummary.progressDetailLabel: String
     }
 
 /**
- * The thin reading-progress bar drawn along the bottom edge of a cover, in the grid, the
- * shelves, and the shelf browser alike.
+ * The reading-progress bar on a cover, in the grid, the shelves, and the shelf browser alike: a
+ * 4 dp pill inset 7 dp from the cover's sides and bottom, the accent
+ * over a dark track. Callers align it to the bottom and give it the cover's width.
  */
 @Composable
 fun LibraryCoverProgressBar(
@@ -40,21 +42,22 @@ fun LibraryCoverProgressBar(
     modifier: Modifier = Modifier,
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
-    val presentation = UnifiedReaderThemeTokens.presentation
-    val barShape = androidx.compose.foundation.shape.RoundedCornerShape(
-        bottomStart = presentation.coverCornerRadius,
-        bottomEnd = presentation.coverCornerRadius,
-    )
     Box(
         modifier = modifier
+            .padding(
+                start = LibraryCoverProgressBarInset,
+                end = LibraryCoverProgressBarInset,
+                bottom = LibraryCoverProgressBarInset,
+            )
             .height(LibraryCoverProgressBarHeight)
-            .clip(barShape)
+            .clip(CircleShape)
             .appProgressFill(
                 fraction = fraction.coerceIn(0f, 1f),
                 progressColor = semanticColors.readerAccent,
-                trackColor = Color.Black.copy(alpha = 0.35f),
+                trackColor = Color.Black.copy(alpha = 0.42f),
             ),
     )
 }
 
 private val LibraryCoverProgressBarHeight = 4.dp
+private val LibraryCoverProgressBarInset = 7.dp

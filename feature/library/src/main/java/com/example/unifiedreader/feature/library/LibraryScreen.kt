@@ -104,6 +104,11 @@ fun LibraryScreen(
     contentTopInset: Dp = 0.dp,
     onFilterStateChanged: (LibraryFilterState) -> Unit = {},
     onClearFilters: () -> Unit = {},
+    // The empty library's actions; null leaves an action out.
+    sourceUnreachable: Boolean = false,
+    onImportLocalFile: (() -> Unit)? = null,
+    onConnectServer: (() -> Unit)? = null,
+    onRetrySource: (() -> Unit)? = null,
     onReadingListSelected: (String?) -> Unit = {},
     onSortModeChanged: (LibrarySortMode) -> Unit = {},
     onViewModeChanged: (LibraryViewMode) -> Unit = {},
@@ -476,9 +481,7 @@ fun LibraryScreen(
                 fadeRead = fadeReadItems,
                 imageVariant = gridCoverImageVariant,
                 coverImageUrlProvider = coverImageUrlProvider,
-                issueCountBadge = item.issueCount.takeIf { count ->
-                    showSortControl && sortMode == LibrarySortMode.ISSUE_COUNT && count != null && count > 0
-                },
+                seriesIssueCount = item.issueCount,
                 title = when {
                     preferIssueLabels && includeSeriesInIssueLabels -> itemMixedIssueBrowsePrimaryText(item)
                     preferIssueLabels -> itemSeriesBrowsePrimaryText(item)
@@ -549,7 +552,7 @@ fun LibraryScreen(
                 contentType = LibraryScreenContentTypes.FilterSummary,
                 span = { GridItemSpan(maxLineSpan) },
             ) {
-                LibraryFilterSummary(
+                LibraryFilterRow(
                     filterPanels = filterPanels,
                     filterState = filterState,
                     filterFacets = filterFacets,
@@ -567,8 +570,7 @@ fun LibraryScreen(
                         openFilterPanel = panel
                         isFilterSheetOpen = true
                     },
-                    onClearFilterPanel = { panel -> onFilterStateChanged(filterState.clearing(panel)) },
-                    onClearFilters = onClearFilters,
+                    onFilterStateChanged = onFilterStateChanged,
                     onSortModeChanged = onSortModeChanged,
                     onGridCellSizeDpChanged = onGridCellSizeDpChanged,
                     onFadeReadItemsChanged = onFadeReadItemsChanged,
@@ -590,10 +592,17 @@ fun LibraryScreen(
                             gridCellSizeDp = gridPresentation.selectedGridSize.cellSizeDp,
                         )
                     } else {
-                        EmptyLibraryState(
+                        LibraryEmptyState(
+                            reason = libraryEmptyReason(
+                                searchActive = searchQuery.isNotBlank(),
+                                filtersActive = !filterState.isEmpty,
+                                sourceUnreachable = sourceUnreachable,
+                            ),
                             selectedSource = selectedSource,
-                            filtersActive = !filterState.isEmpty,
-                            searchActive = searchQuery.isNotBlank(),
+                            onClearFilters = onClearFilters,
+                            onImportFile = onImportLocalFile,
+                            onConnectServer = onConnectServer,
+                            onRetry = onRetrySource,
                         )
                     }
                 }

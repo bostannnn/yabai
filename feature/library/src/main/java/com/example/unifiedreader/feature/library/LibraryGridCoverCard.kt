@@ -20,7 +20,8 @@ internal fun GridCoverCard(
     fadeRead: Boolean,
     imageVariant: LibraryCoverImageVariant,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
-    issueCountBadge: Int? = null,
+    // A series tile (Kavita or Stump): its issue count draws the stack and fills the meta line.
+    seriesIssueCount: Int? = null,
     title: String = itemPrimaryText(item),
     isSelectionMode: Boolean = false,
     isSelected: Boolean = false,
@@ -33,6 +34,8 @@ internal fun GridCoverCard(
     val progressLabel = progress
         ?.takeIf { it.shouldShowCoverProgress }
         ?.percentLabel
+    val seriesLabel = seriesIssueCount?.let { count -> if (count == 1) "1 issue" else "$count issues" }
+    val metaLabel = listOfNotNull(seriesLabel, progressLabel).joinToString(" · ").ifEmpty { null }
 
     LibraryCoverActionCard(
         item = item,
@@ -49,17 +52,18 @@ internal fun GridCoverCard(
             .testTag("library-grid-card-${item.id}"),
         coverModifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(LibraryCoverAspectRatio),
-        trailingText = progressLabel,
+            .aspectRatio(LibraryCoverAspectRatio)
+            .then(if (seriesIssueCount != null && seriesIssueCount > 1) Modifier.librarySeriesStack() else Modifier),
+        trailingText = metaLabel,
         menuContent = menuContent.takeUnless { isSelectionMode },
         emptyCoverContent = {
             LibraryCoverPlaceholder(
                 item = item,
-                reserveTopBadge = progress?.isComplete == true || issueCountBadge != null || isSelectionMode,
+                reserveTopBadge = progress?.isComplete == true || isSelectionMode,
                 reserveBottomBadge = rating != null || isDownloaded,
             )
         },
-        coverOverlay = if (rating != null || issueCountBadge != null || isSelectionMode || progressLabel != null) {
+        coverOverlay = if (rating != null || isSelectionMode || progressLabel != null) {
             {
                 progress?.takeIf { it.shouldShowCoverProgress }?.let { summary ->
                     LibraryCoverProgressBar(
@@ -67,14 +71,6 @@ internal fun GridCoverCard(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth(),
-                    )
-                }
-                issueCountBadge?.takeUnless { isSelectionMode }?.let { count ->
-                    LibraryCountBadge(
-                        count = count,
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(6.dp),
                     )
                 }
                 rating?.let { state ->

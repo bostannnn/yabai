@@ -1,0 +1,398 @@
+<title>Phone Library Mocks</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400..600&family=Manrope:wght@400..800&display=swap">
+<style>
+/* Layout: one column of decision cards, as on the earlier boards. Each card shows the app today
+   next to the proposal (or two options side by side) and ends in a choice. The board speaks in
+   Literata; everything inside a mock is the app: Manrope only, the Graphite palette, dp as px. */
+:root {
+  --bg: #f3f3f1; --panel: #ffffff; --sunk: #ecece9; --fg: #1b1d20; --muted: #5b626b; --faint: #8a9098;
+  --line: rgba(27, 29, 32, 0.12); --accent: #405f6b; --accent-soft: rgba(64, 95, 107, 0.12);
+  --do: #2f7a4f; --maybe: #9a6400; --dont: #b0413e;
+  --display: "Literata", Georgia, "Times New Roman", serif;
+  --ui: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1113; --panel: #171a1d; --sunk: #121417; --fg: #e7eaee; --muted: #9ea7b1; --faint: #6f7882;
+    --line: rgba(231, 234, 238, 0.12); --accent: #b7c7d9; --accent-soft: rgba(183, 199, 217, 0.14);
+    --do: #8fd1a6; --maybe: #f1c26b; --dont: #f0a09b; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1113; --panel: #171a1d; --sunk: #121417; --fg: #e7eaee; --muted: #9ea7b1; --faint: #6f7882;
+  --line: rgba(231, 234, 238, 0.12); --accent: #b7c7d9; --accent-soft: rgba(183, 199, 217, 0.14);
+  --do: #8fd1a6; --maybe: #f1c26b; --dont: #f0a09b; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--ui); font-size: 16px; line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 36px 120px;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+button, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.col { max-width: 1120px; margin-inline: auto; }
+.eyebrow { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--display); font-weight: 500; font-size: clamp(32px, 5vw, 48px); line-height: 1.06; letter-spacing: -0.015em; margin: 10px 0 0; text-wrap: balance; }
+.lede { font-size: 18px; max-width: 66ch; margin: 16px 0 0; }
+.how { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 18px; font-size: 14px; color: var(--muted); }
+.how b { color: var(--fg); font-weight: 650; }
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; margin-top: 26px; background: color-mix(in oklab, var(--bg) 88%, transparent);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-bottom: 1px solid var(--line); padding-block: 12px; }
+.bar .in { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; font-size: 14px; }
+.bar .tally { font-weight: 650; font-variant-numeric: tabular-nums; }
+.bar .sp { flex: 1; }
+.status { font-size: 13px; color: var(--muted); }
+.list { list-style: none; padding: 0; margin: 22px 0 0; display: grid; gap: 18px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 22px 24px 20px; display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 0 16px; }
+.rank { font-family: var(--display); font-size: 40px; line-height: .95; font-weight: 500; color: var(--faint); transition: color .2s; }
+.card[data-c] .rank { color: var(--do); }
+.card[data-c="maybe"] .rank, .card[data-c="b"] .rank { color: var(--maybe); }
+.card[data-c="dont"] .rank, .card[data-c="neither"] .rank { color: var(--dont); }
+.card[data-c=""] .rank { color: var(--faint); }
+.body { min-width: 0; }
+.card h2 { font-family: var(--display); font-weight: 500; font-size: 24px; line-height: 1.2; margin: 0; text-wrap: balance; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.tag { font-size: 12px; font-weight: 700; border-radius: 999px; padding: 3px 10px; background: var(--accent-soft); color: var(--muted); }
+.tag.pick { background: color-mix(in oklab, var(--do) 14%, transparent); color: var(--do); }
+.what { margin: 10px 0 0; font-size: 15.5px; max-width: 76ch; }
+.what + .what { margin-top: 8px; }
+.panes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 16px; align-items: start; }
+.panes.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.pane { min-width: 0; }
+.plabel { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin-bottom: 7px; }
+.plabel small { text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--faint); }
+.frame { position: relative; width: 100%; border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 1px var(--line); background: var(--sunk); }
+.frame > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.toggle { position: absolute; left: 10px; bottom: 10px; z-index: 30; border: 0; border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 700; cursor: pointer;
+  background: rgba(20, 22, 26, .8); color: #fff; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.hint { font-size: 13px; color: var(--muted); margin-top: 8px; }
+.choose { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.pick { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.pick button { border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 8px 16px; font-size: 14px; font-weight: 700; cursor: pointer; color: var(--muted); transition: background .15s, color .15s, border-color .15s; }
+.pick button[aria-pressed="true"] { background: color-mix(in oklab, var(--do) 16%, transparent); border-color: var(--do); color: var(--do); }
+.pick button[data-v="maybe"][aria-pressed="true"], .pick button[data-v="b"][aria-pressed="true"] { background: color-mix(in oklab, var(--maybe) 16%, transparent); border-color: var(--maybe); color: var(--maybe); }
+.pick button[data-v="dont"][aria-pressed="true"], .pick button[data-v="neither"][aria-pressed="true"] { background: color-mix(in oklab, var(--dont) 16%, transparent); border-color: var(--dont); color: var(--dont); }
+.note { flex: 1; min-width: 200px; border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 8px 14px; font-size: 14px; }
+.note::placeholder { color: var(--faint); }
+.foot { margin-top: 36px; font-size: 14px; color: var(--muted); max-width: 70ch; }
+@media (max-width: 760px) { .panes, .panes.three { grid-template-columns: 1fr; } .card { grid-template-columns: 1fr; padding: 18px 16px; } .rank { font-size: 32px; margin-bottom: 6px; } }
+
+/* ============ app mocks: the app's own Graphite palette, 1 px = 1 dp ============ */
+.cv { position: absolute; left: 0; top: 0; transform-origin: 0 0; transform: scale(var(--s, .5)); overflow: hidden; font-family: var(--ui); color: var(--m-fg); background: var(--m-bg);
+  --m-bg: #101214; --m-surface: #171a1d; --m-c1: #1d2125; --m-c2: #252a2f; --m-c3: #30363c;
+  --m-fg: #e7eaee; --m-fg2: #c8d0d8; --m-fg3: #8b949e; --m-line: rgba(231,234,238,.10);
+  --m-acc: #b7c7d9; --m-on-acc: #1d2c3d; --m-acc-c: #33475e; --m-on-acc-c: #d6e4f5; --m-glass: rgba(23,26,29,.82); }
+.cv svg.i { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex: none; display: block; }
+.sbar { height: 24px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; font-size: 13px; font-weight: 600; color: var(--m-fg2); }
+.trow { height: 56px; display: flex; align-items: center; padding: 0 8px; gap: 2px; }
+.trow .sp { flex: 1; }
+.ib { width: 40px; height: 40px; border-radius: 999px; display: grid; place-items: center; color: var(--m-fg2); position: relative; flex: none; }
+.gbar { position: absolute; left: 12px; right: 12px; top: 30px; height: 56px; display: flex; align-items: center; gap: 2px; border-radius: 20px; background: var(--m-glass);
+  border: 1px solid var(--m-line); padding: 0 8px; box-shadow: 0 6px 18px rgba(0,0,0,.25); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); z-index: 5; }
+.gbar .nm { flex: 1; font-size: 20px; font-weight: 600; padding-left: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.htitle { padding: 2px 16px 0; font-size: 32px; line-height: 36px; font-weight: 700; letter-spacing: -0.02em; }
+.hsum { padding: 8px 16px 0; font-size: 14px; font-weight: 500; color: var(--m-fg3); font-variant-numeric: tabular-nums; }
+.cover { position: relative; width: 100%; aspect-ratio: 2 / 3; border-radius: 6px; overflow: hidden; background: var(--m-c2); box-shadow: 0 0 0 1px var(--m-line); }
+.cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.prog { position: absolute; left: 7px; right: 7px; bottom: 7px; height: 4px; border-radius: 4px; background: rgba(0,0,0,.42); overflow: hidden; }
+.prog i { display: block; height: 100%; background: var(--m-acc); border-radius: 4px; }
+.chk { position: absolute; top: 7px; right: 7px; width: 22px; height: 22px; border-radius: 50%; background: var(--m-acc); color: var(--m-on-acc); display: grid; place-items: center; }
+.chk svg.i { width: 14px; height: 14px; stroke-width: 2.6; }
+/* shelf card text, as today */
+.st { margin-top: 8px; font-size: 14px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ss { font-size: 13px; color: var(--m-fg3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sp2 { font-size: 12.5px; color: var(--m-fg3); font-variant-numeric: tabular-nums; }
+/* grid tile text, as today */
+.gt { display: flex; align-items: center; gap: 4px; margin-top: 8px; font-size: 13px; }
+.gt span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gt .k { width: 28px; color: var(--m-fg2); display: grid; place-items: center; }
+.gt .k svg.i { width: 20px; height: 20px; }
+.gp { font-size: 12px; color: var(--m-fg3); }
+/* buttons, chips, tabs */
+.btn { height: 44px; padding: 0 20px; border-radius: 999px; font-weight: 700; font-size: 15px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap; }
+.btn svg.i { width: 20px; height: 20px; }
+.chip { height: 36px; padding: 0 15px; border-radius: 999px; border: 1px solid var(--m-line); display: inline-flex; align-items: center; gap: 7px; font-weight: 650; font-size: 14px; color: var(--m-fg2); white-space: nowrap; }
+.chip svg.i { width: 18px; height: 18px; }
+.tabs { display: flex; align-items: center; gap: 2px; padding: 0 16px; }
+.tab { height: 34px; padding: 0 12px; border-radius: 999px; font-size: 14px; font-weight: 650; color: var(--m-fg3); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.tab .n { font-weight: 600; font-size: 12px; opacity: .8; }
+.tab.on { background: var(--m-c2); color: var(--m-fg); }
+.tabs .all { margin-left: auto; font-size: 14px; font-weight: 650; color: var(--m-acc); white-space: nowrap; }
+.strip { display: flex; gap: 16px; padding: 14px 16px 0; overflow: hidden; }
+.strip > div { width: 182px; flex: none; }
+.frow { display: flex; align-items: center; gap: 8px; padding: 0 16px; }
+.frow .sp { flex: 1; }
+.grid2 { display: grid; grid-template-columns: repeat(2, 182px); gap: 18px 16px; padding: 0 16px; }
+/* reading card */
+.rc { margin: 0 16px; border-radius: 24px; position: relative; overflow: hidden; color: #f6eef1; --acc: #f0aa9e; --on: #3b1915; --trk: rgba(255,255,255,.18); }
+.rc .bgl { position: absolute; inset: 0; background: radial-gradient(120% 140% at 0% 0%, #2b2f4e, transparent 70%), radial-gradient(120% 140% at 100% 100%, #5d3c50, transparent 70%), #2b2f4e; }
+.rc.acc .bgl { background: var(--m-acc-c); }
+.rc.acc { color: var(--m-on-acc-c); --acc: var(--m-acc); --on: var(--m-on-acc); --trk: rgba(255,255,255,.16); }
+.rc > *:not(.bgl) { position: relative; }
+.rc .eb { font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity: .72; }
+.rc .ti { font-weight: 700; letter-spacing: -0.01em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.rc .au { font-size: 14px; opacity: .74; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rc .pm { font-size: 13px; font-weight: 600; opacity: .82; display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
+.rc .hb { height: 6px; border-radius: 6px; background: var(--trk); overflow: hidden; }
+.rc .hb i { display: block; height: 100%; background: var(--acc); border-radius: 6px; }
+.rc .pri { background: var(--acc); color: var(--on); }
+.rc .ton { background: var(--trk); color: inherit; }
+.rc .round { width: 48px; height: 48px; border-radius: 999px; background: var(--acc); color: var(--on); display: grid; place-items: center; flex: none; }
+.fold { position: absolute; left: 0; right: 0; height: 0; border-top: 2px dashed rgba(240, 170, 158, .9); z-index: 6; }
+.fold span { position: absolute; right: 8px; top: -24px; font-size: 12px; font-weight: 700; color: #f0aa9e; background: rgba(16,18,20,.85); padding: 2px 8px; border-radius: 999px; }
+.dim { position: absolute; inset: 0; pointer-events: none; }
+.callout { position: absolute; z-index: 7; font-size: 12.5px; font-weight: 700; color: #101214; background: #f1c26b; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+</style>
+
+<main class="col">
+  <div class="eyebrow">Redesign step 8.3 · mocks before building</div>
+  <h1>The library home on a phone, and the series header</h1>
+  <p class="lede">The tablet library home is decided. These are the two screens the plan says get a mock first: the same home at phone width (412 dp, two grid columns), and the top of a series once you open it. Mocks use the Graphite theme and real covers from the test library.</p>
+  <div class="how"><span><b>Pick</b> on each card; your picks save to this page and I read them back.</span><span><b>Notes</b> say what you'd change.</span><span>Sizes are in dp.</span></div>
+  <div class="bar"><div class="in"><span class="tally" id="tally"></span><span class="sp"></span><span class="status" id="status">Loading…</span></div></div>
+  <ol class="list" id="list"></ol>
+  <p class="foot">Not on this board, because they are already decided: the tablet header, reading card and shelf tabs, the tile progress bar, the filter chips that name their value, the series stack and the empty states (boards of 2026-10-22). The header's icons are the ones 8.4 settles on (search, Downloads, "•••"); until 8.4 lands the bar keeps today's icons.</p>
+</main>
+
+<script>
+(() => {
+  const C = "img/covers/", P = "img/today-phone/";
+  const I = {
+    menu: '<svg class="i" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
+    search: '<svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg>',
+    dl: '<svg class="i" viewBox="0 0 24 24"><path d="M12 4.5v10m0 0 4-4m-4 4-4-4M5.5 19.5h13"/></svg>',
+    dots: '<svg class="i" viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="18" cy="12" r="1.4" fill="currentColor"/></svg>',
+    kebab: '<svg class="i" viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="18" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg>',
+    back: '<svg class="i" viewBox="0 0 24 24"><path d="M19 12H5m0 0 6-6m-6 6 6 6"/></svg>',
+    tune: '<svg class="i" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>',
+    filter: '<svg class="i" viewBox="0 0 24 24"><path d="M4 6.5h16M7 12h10M10 17.5h4"/></svg>',
+    down: '<svg class="i" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg>',
+    book: '<svg class="i" viewBox="0 0 24 24"><path d="M5 4.5h6a3 3 0 0 1 3 3v12a2.5 2.5 0 0 0-2.5-2.5H5z"/><path d="M19 4.5h-2a3 3 0 0 0-3 3"/></svg>',
+    play: '<svg class="i" viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor" stroke="none"/></svg>',
+    check: '<svg class="i" viewBox="0 0 24 24"><path d="m6 12.5 4 4 8-9"/></svg>',
+  };
+  const B = {
+    "severny-veter": { t: "Северный ветер", a: "Анна Лесная", p: 42, w: "Ch. 3/6" },
+    "Glass-Meridian": { t: "Glass Meridian", a: "J. R. Okafor", p: 12, w: "Ch. 1/6" },
+    "Neon-Ronin-001": { t: "Neon Ronin", a: "Neon Ronin #1", done: 1 },
+    "Neon-Ronin-002": { t: "Neon Ronin", a: "Neon Ronin #2", p: 38, w: "3/8" },
+    "Neon-Ronin-003": { t: "Neon Ronin", a: "Neon Ronin #3" },
+    "The-Salt-Orchard": { t: "The Salt Orchard", a: "Mira Kalden", p: 64, w: "47/73" },
+    "Star-Courier-001": { t: "Star Courier", a: "Star Courier #1", done: 1 },
+    "Star-Courier-002": { t: "Star Courier", a: "Star Courier #2", p: 12, w: "1/8" },
+    "dom-u-reki": { t: "Дом у реки", a: "Илья Горский", p: 27, w: "Ch. 2/6" },
+    "Quiet-Engines": { t: "Quiet Engines", a: "Lena Aster" },
+    "Moths-of-Lisbon": { t: "Moths of Lisbon", a: "Paulo Serra" },
+    "Hollow-Moon-004": { t: "Hollow Moon", a: "Hollow Moon #4" },
+    "The-Lantern-Keepers": { t: "The Lantern Keepers", a: "Oona Fitch" },
+    "Paper-Cranes-in-Winter": { t: "Paper Cranes in Winter", a: "Hana Moriya", done: 1 },
+  };
+  const cov = (id, o = {}) => {
+    const b = B[id] || {};
+    const p = b.p && !o.noprog ? `<span class="prog"><i style="width:${b.p}%"></i></span>` : "";
+    const d = b.done && !o.nodone ? `<span class="chk">${I.check}</span>` : "";
+    return `<div class="cover"${o.style ? ` style="${o.style}"` : ""}><img src="${C}${id}.jpg" alt="" loading="lazy">${p}${d}</div>`;
+  };
+  // today's shelf card text: title, subtitle, progress
+  const shelfTile = id => { const b = B[id]; return `<div>${cov(id)}<div class="st">${b.t}</div><div class="ss">${b.a}</div><div class="sp2">${b.p ? b.p + "% · " + b.w : "&nbsp;"}</div></div>`; };
+  // today's grid tile text: one line and the kebab, progress under it
+  const gridTile = id => { const b = B[id]; return `<div>${cov(id)}<div class="gt"><span>${b.t}</span><b class="k">${I.kebab}</b></div><div class="gp">${b.p ? b.p + "%" : "&nbsp;"}</div></div>`; };
+  const icons = (ids) => ids.map(k => `<span class="ib">${I[k]}</span>`).join("");
+
+  // ---------- pieces ----------
+  const header = (title, sum, o = {}) => `<div class="sbar"><span>11:14</span><span></span></div>
+    <div class="trow"><span class="ib">${o.back ? I.back : I.menu}</span><span class="sp"></span>${icons(o.icons || ["search", "dl", "dots"])}</div>
+    <div class="htitle">${title}</div><div class="hsum">${sum}</div>`;
+  const cardA = (id, o = {}) => { const b = B[id]; return `<div class="rc${o.acc ? " acc" : ""}" style="padding:18px"><div class="bgl"></div>
+      <div style="display:flex;gap:18px">
+        <div style="width:96px;flex:none">${cov(id, { nodone: 1, style: "box-shadow:0 10px 24px rgba(0,0,0,.35)" })}</div>
+        <div style="min-width:0;flex:1;display:flex;flex-direction:column">
+          <div class="eb">${o.eb || "Continue reading"}</div>
+          <div class="ti" style="margin-top:6px;font-size:22px;line-height:26px">${o.title || b.t}</div>
+          <div class="au" style="margin-top:4px">${o.au || b.a}</div>
+          <div style="margin-top:auto"><div class="pm"><span>${o.where || "Chapter 3 of 6"}</span><span>${b.p}%</span></div><div class="hb" style="margin-top:7px"><i style="width:${b.p}%"></i></div></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:16px"><span class="btn pri" style="flex:1">${I.book}${o.cta || "Continue"}</span><span class="btn ton">Details</span></div>
+    </div>`; };
+  const cardB = (id, o = {}) => { const b = B[id]; return `<div class="rc${o.acc ? " acc" : ""}" style="padding:14px 14px 14px 14px"><div class="bgl"></div>
+      <div style="display:flex;gap:14px;align-items:center">
+        <div style="width:52px;flex:none">${cov(id, { nodone: 1, noprog: 1 })}</div>
+        <div style="min-width:0;flex:1">
+          <div class="ti" style="font-size:17px;line-height:22px;-webkit-line-clamp:1">${o.title || b.t}</div>
+          <div class="pm" style="margin-top:3px"><span>${o.where || "Chapter 3 of 6"}</span><span>${b.p}%</span></div>
+          <div class="hb" style="margin-top:7px"><i style="width:${b.p}%"></i></div>
+        </div>
+        <span class="round" aria-label="Continue">${I.play}</span>
+      </div>
+    </div>`; };
+  const tabs = (on = 0) => `<div class="tabs">${[["In progress", 6], ["Up next", 3], ["Finished", 4]].map(([t, n], i) => `<span class="tab${i === on ? " on" : ""}">${t}<span class="n">${n}</span></span>`).join("")}<span class="all">See all</span></div>`;
+  const strip = ids => `<div class="strip">${ids.map(shelfTile).join("")}</div>`;
+  const filterRow = () => `<div class="frow"><span class="chip">${I.filter}Filters</span><span class="sp"></span><span class="chip">${I.tune}Last read${I.down.replace('class="i"', 'class="i" style="width:16px;height:16px"')}</span></div>`;
+  const grid = ids => `<div class="grid2">${ids.map(gridTile).join("")}</div>`;
+  const fold = (y, label) => `<div class="fold" style="top:${y}px"><span>${label}</span></div>`;
+
+  const GRID = ["severny-veter", "Glass-Meridian", "Neon-Ronin-002", "The-Salt-Orchard", "Star-Courier-002", "dom-u-reki", "Quiet-Engines", "Moths-of-Lisbon"];
+  const SHELF = ["Glass-Meridian", "Neon-Ronin-002", "The-Salt-Orchard", "Star-Courier-002"];
+
+  const phoneHome = (card) => `<div style="position:relative">${header("Local", "12 books · 9 comics · 7 in progress")}
+      <div style="height:20px"></div>${card}
+      <div style="height:24px"></div>${tabs()}${strip(SHELF)}
+      <div style="height:22px"></div>${filterRow()}<div style="height:16px"></div>${grid(GRID)}</div>`;
+  const phoneScrolled = () => `<div style="position:relative;padding-top:96px">
+      <div class="gbar"><span class="ib">${I.menu}</span><span class="nm">Local</span>${icons(["search", "dl", "dots"])}</div>
+      <div class="sbar" style="position:absolute;top:0;left:0;right:0">${"<span>11:14</span><span></span>"}</div>
+      ${grid(GRID.concat(["Hollow-Moon-004", "The-Lantern-Keepers"]))}</div>`;
+
+  // series: Neon Ronin, three issues (one finished, one in progress)
+  const SERIES = ["Neon-Ronin-001", "Neon-Ronin-002", "Neon-Ronin-003"];
+  const seriesToday = () => `<div class="sbar"><span>11:14</span><span></span></div>
+      <div class="gbar" style="position:relative;left:auto;right:auto;top:auto;margin:6px 12px 0"><span class="ib">${I.back}</span><span class="nm" style="font-size:16px">Neon Ronin</span>${icons(["search", "dl", "dots"])}</div>
+      <div style="height:18px"></div>${filterRow()}<div style="height:16px"></div>${grid(SERIES)}`;
+  const seriesA = () => `${header("Neon Ronin", "3 issues · 1 read · 1 in progress", { back: 1 })}
+      <div style="padding:16px 16px 0;display:flex;gap:10px"><span class="btn" style="background:var(--m-acc);color:var(--m-on-acc)">${I.book}Continue #2</span></div>
+      <div style="height:22px"></div>${filterRow()}<div style="height:16px"></div>${grid(SERIES)}`;
+  const seriesB = () => `${header("Neon Ronin", "3 issues · 1 read · 1 in progress", { back: 1 })}
+      <div style="height:20px"></div>${cardA("Neon-Ronin-002", { eb: "Up next in this series", title: "Neon Ronin #2", au: "Issue 2", where: "Page 3 of 8", acc: 1 })}
+      <div style="height:22px"></div>${filterRow()}<div style="height:16px"></div>${grid(SERIES)}`;
+
+  // ---------- cards ----------
+  const ITEMS = [
+    {
+      id: "phone-home", t: "The library home on a phone",
+      tags: ["Library", "Phone"], rec: "My pick: Do",
+      what: ["The tablet layout, stacked: the icons share the first row with the menu button, the source name sits under them at 32 sp with the summary, then the reading card, the shelf tabs over one strip of covers, the filter row and the grid. Covers stay the grid's size everywhere (182 dp on this phone), so the strip shows two at a time and scrolls sideways.",
+        "The cost is height: the grid starts about 860 dp down, just below the bottom of a typical phone screen (dashed line). Today it starts at 570 dp. The next card is about the reading card's size, which is most of the difference."],
+      panes: [
+        { label: "Today", sub: "emulator, 412 dp wide", w: 412, h: 813, img: P + "home.jpg" },
+        { label: "Proposed", sub: "at rest; Scroll shows the folded bar", w: 412, h: 1040, html: () => phoneHome(cardA("severny-veter")) + fold(866, "bottom of the screen"),
+          alt: () => phoneScrolled(), altLabel: ["Scroll", "Back to the top"] },
+      ],
+      choices: [["do", "Do"], ["maybe", "Maybe"], ["dont", "Don't"]],
+    },
+    {
+      id: "phone-card", t: "The reading card at phone width",
+      tags: ["Library", "Phone", "Your call"],
+      what: ["At 380 dp the tablet card does not fit: a cover at the grid's width (182 dp) leaves 130 dp for the title. Both options here break the \"one cover size per screen\" rule for the card only; the strip and the grid keep 182 dp.",
+        "A keeps the tablet card's parts with a 96 dp cover and the buttons in a row under it (236 dp tall). B is a slim resume bar: a 52 dp cover, the title, the progress and a round Continue button; tapping the bar opens Details (114 dp tall, which brings the grid up by about 120 dp)."],
+      panes: [
+        { label: "Option A", sub: "the card, smaller cover", w: 412, h: 520, html: () => header("Local", "12 books · 9 comics · 7 in progress") + `<div style="height:20px"></div>${cardA("severny-veter")}<div style="height:24px"></div>${tabs()}${strip(SHELF)}` },
+        { label: "Option B", sub: "a slim resume bar", w: 412, h: 520, html: () => header("Local", "12 books · 9 comics · 7 in progress") + `<div style="height:20px"></div>${cardB("severny-veter")}<div style="height:24px"></div>${tabs()}${strip(SHELF)}` },
+      ],
+      choices: [["a", "A"], ["b", "B"], ["neither", "Neither"]],
+    },
+    {
+      id: "series-header", t: "The top of a series",
+      tags: ["Library", "Series", "Tablet and phone", "Your call"],
+      what: ["Opening a Kavita or Stump series shows its issues. Today the bar just carries the series name. Proposed: the same header as the library home, with the series name as the large title and a summary of the issues, folding into the bar with the back arrow on scroll.",
+        "A adds one Continue button for the issue to read next. B uses the reading card for that issue instead, tinted like the home card (the theme accent until covers tint it in 8.6). Shown at phone width; on a tablet the same header holds the search field on the right, as on the home screen."],
+      panes: [
+        { label: "Option A", sub: "title, summary, Continue", w: 412, h: 760, html: seriesA },
+        { label: "Option B", sub: "title, summary, reading card", w: 412, h: 760, html: seriesB },
+      ],
+      today: { label: "Today", sub: "redrawn from the code", w: 412, h: 760, html: seriesToday },
+      choices: [["a", "A"], ["b", "B"], ["neither", "Neither"]],
+    },
+  ];
+
+  // ---------- render ----------
+  const list = document.getElementById("list");
+  const paneHTML = (p, k) => `<div class="pane" data-k="${k}"><div class="plabel">${p.label}<small>${p.sub || ""}</small></div>
+      <div class="frame" style="aspect-ratio:${p.w} / ${p.h}">${p.img ? `<img src="${p.img}" alt="${p.label}: the app today">` : `<div class="cv" style="width:${p.w}px;height:${p.h}px">${p.html()}</div>`}
+      ${p.alt ? `<button type="button" class="toggle">${p.altLabel[0]}</button>` : ""}</div></div>`;
+  ITEMS.forEach((it, n) => {
+    const li = document.createElement("li");
+    li.className = "card"; li.id = it.id; li.dataset.c = "";
+    const panes = (it.today ? [it.today, ...it.panes] : it.panes);
+    li.innerHTML = `<div class="rank">${n + 1}</div><div class="body">
+      <h2>${it.t}</h2>
+      <div class="tags">${it.tags.map(t => `<span class="tag">${t}</span>`).join("")}${it.rec ? `<span class="tag pick">${it.rec}</span>` : ""}</div>
+      ${it.what.map(w => `<p class="what">${w}</p>`).join("")}
+      <div class="panes${panes.length === 3 ? " three" : ""}">${panes.map((p, i) => paneHTML(p, i)).join("")}</div>
+      <div class="choose"><div class="pick" role="group" aria-label="Decision for ${it.t}">${it.choices.map(([v, l]) => `<button type="button" data-v="${v}" aria-pressed="false">${l}</button>`).join("")}</div>
+        <input class="note" id="note-${it.id}" type="text" placeholder="Note (optional): what you'd change" autocomplete="off"></div></div>`;
+    list.appendChild(li);
+    panes.forEach((p, i) => {
+      if (!p.alt) return;
+      const pane = li.querySelector(`[data-k="${i}"]`), cv = pane.querySelector(".cv"), btn = pane.querySelector(".toggle");
+      let alt = false;
+      btn.onclick = () => { alt = !alt; cv.innerHTML = alt ? p.alt() : p.html(); btn.textContent = p.altLabel[alt ? 1 : 0]; };
+    });
+  });
+  const frames = [...document.querySelectorAll(".frame")];
+  const fit = f => { const cv = f.querySelector(".cv"); if (cv) cv.style.setProperty("--s", String(f.clientWidth / cv.offsetWidth)); };
+  frames.forEach(fit);
+  try { const ro = new ResizeObserver(es => es.forEach(e => fit(e.target))); frames.forEach(f => ro.observe(f)); } catch (e) { addEventListener("resize", () => frames.forEach(fit)); }
+
+  // ---------- picks: saved to the page when it can, this browser otherwise ----------
+  const state = {}; ITEMS.forEach(it => state[it.id] = { choice: null, note: "" });
+  const statusEl = document.getElementById("status");
+  const LS = "yabai-phone-library-picks";
+  let col = null;
+  try { const saved = JSON.parse(localStorage.getItem(LS) || "{}"); Object.keys(saved).forEach(k => { if (state[k]) Object.assign(state[k], saved[k]); }); } catch (e) {}
+  const saveLocal = () => { try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {} };
+  function paint() {
+    let decided = 0;
+    ITEMS.forEach(it => {
+      const li = document.getElementById(it.id), s = state[it.id];
+      li.dataset.c = s.choice || "";
+      li.querySelectorAll(".pick button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === s.choice)));
+      const note = li.querySelector(".note"); if (document.activeElement !== note && note.value !== (s.note || "")) note.value = s.note || "";
+      if (s.choice) decided++;
+    });
+    document.getElementById("tally").textContent = `${decided} of ${ITEMS.length} decided`;
+  }
+  const pending = {};
+  async function write(id) {
+    saveLocal();
+    if (!col) return;
+    if (pending[id]) { pending[id].again = true; return; }
+    pending[id] = { again: false };
+    statusEl.textContent = "Saving…";
+    const it = ITEMS.find(x => x.id === id);
+    try {
+      do {
+        pending[id].again = false;
+        await col.doc(id).set({ choice: state[id].choice, note: state[id].note || "", title: it.t, at: new Date().toISOString() });
+      } while (pending[id].again);
+      statusEl.textContent = "Saved to this page";
+    } catch (e) {
+      statusEl.textContent = e && e.code === "invalid_argument" ? "You can view these picks but not change them" : "Couldn't save to the page; kept in this browser";
+    } finally { delete pending[id]; }
+  }
+  list.addEventListener("click", e => {
+    const b = e.target.closest(".pick button"); if (!b) return;
+    const id = b.closest(".card").id, v = b.dataset.v;
+    state[id].choice = state[id].choice === v ? null : v;
+    paint(); write(id);
+  });
+  const timers = {};
+  list.addEventListener("input", e => {
+    if (!e.target.classList.contains("note")) return;
+    const id = e.target.closest(".card").id; state[id].note = e.target.value; saveLocal();
+    clearTimeout(timers[id]); timers[id] = setTimeout(() => write(id), 700);
+  });
+  paint();
+  statusEl.textContent = "Saved in this browser";
+  (async () => {
+    try {
+      const cl = await new Promise(res => { let n = 0; const t = setInterval(() => { if ((window.claude && window.claude.use) || ++n > 50) { clearInterval(t); res(window.claude && window.claude.use ? window.claude : null); } }, 100); });
+      const db = cl ? await cl.use("db") : null;
+      if (!db) return;
+      col = db.collection("picks");
+      statusEl.textContent = "Saved to this page";
+      col.onSnapshot(snap => {
+        snap.docs.forEach(d => { const v = d.data(); if (v && state[d.id] && !pending[d.id]) { state[d.id].choice = v.choice || null; state[d.id].note = v.note || ""; } });
+        saveLocal(); paint();
+      }, () => { col = null; statusEl.textContent = "Saved in this browser"; });
+    } catch (e) { col = null; }
+  })();
+})();
+</script>
