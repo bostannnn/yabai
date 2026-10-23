@@ -569,8 +569,8 @@ frame times are part of the deferred `LibraryPerf` pass.
 
 ### 8.2 Kit `[~]`
 
-Built 2026-10-23 on `claude/ui-redesign-step-8-2`, checked on the emulator (`yabai_review_35`,
-Graphite, the 21-book library): library filter row and sort menu, cover menu, remove dialog,
+Built 2026-10-23 on `claude/ui-redesign-step-8-2`, released in 0.14.0 (main, tag `0.14.0`), checked on
+the emulator (`yabai_review_35`, Graphite, the 21-book library): library filter row and sort menu, cover menu, remove dialog,
 Downloads sheet, journal, EPUB reading settings (sliders dragged); the Downloads ring through a
 throwaway build with a faked queue (no remote source on that emulator). Not yet on the tablet.
 
@@ -611,7 +611,7 @@ throwaway build with a faked queue (no remote source on that emulator). Not yet 
 
 ### 8.3 Library home `[~]`
 
-Built 2026-10-23 on `claude/ui-redesign-step-8-2` (on top of 8.2), checked on the emulator
+Built 2026-10-23 on `claude/ui-redesign-step-8-2` (on top of 8.2), released in 0.14.0, checked on the emulator
 (`yabai_review_35`, Graphite, the 21-book Local library) at 800 dp portrait, 1280 dp landscape and
 411 dp phone width. Not yet on the tablet; the series view was not seen on a device (the emulator
 has no Kavita or Stump source), only its unit-tested parts.
