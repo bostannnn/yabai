@@ -218,6 +218,9 @@ Use this ownership map when deciding where code goes.
   - journal entries, journal stats, and journal-facing UI/state
 - `feature:settings`
   - settings UI and settings-facing state
+- `feature:updates`
+  - the in-app updater: GitHub release check, APK download and checks, the install session,
+    and its dialogs and settings rows
 
 If code does not obviously belong to one owner, stop and decide ownership before implementing.
 

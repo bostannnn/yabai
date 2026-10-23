@@ -95,6 +95,7 @@ dependencies {
     implementation(project(":feature:downloads"))
     implementation(project(":feature:journal"))
     implementation(project(":feature:navigation"))
+    implementation(project(":feature:updates"))
 
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.core.ktx)

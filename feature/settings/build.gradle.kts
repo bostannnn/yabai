@@ -50,6 +50,7 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":feature:reader-preferences"))
     implementation(project(":feature:navigation"))
+    implementation(project(":feature:updates"))
     implementation(libs.androidx.datastore.preferences)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)

@@ -22,6 +22,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -32,6 +33,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.core.model.librarySecondaryText
@@ -45,6 +47,11 @@ import com.example.unifiedreader.feature.reader.core.ReaderCompletionDialog
 import com.example.unifiedreader.feature.reader.core.ReaderHost
 import com.example.unifiedreader.feature.reader.core.ReaderNavigationActions
 import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
+import com.example.unifiedreader.feature.updates.AppUpdateActions
+import com.example.unifiedreader.feature.updates.AppUpdateController
+import com.example.unifiedreader.feature.updates.AppUpdateHost
+import com.example.unifiedreader.feature.updates.AppUpdateState
+import com.example.unifiedreader.feature.updates.rememberAppUpdateActions
 import com.example.unifiedreader.journal.JournalItemRef
 import com.example.unifiedreader.ui.components.AppBackground
 import com.example.unifiedreader.ui.components.AppButton
@@ -56,10 +63,12 @@ import com.example.unifiedreader.ui.components.AppTextButton
 import com.example.unifiedreader.ui.theme.UnifiedReaderTheme
 import com.example.unifiedreader.ui.theme.applyAndroidThemeMode
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 
 @Composable
 fun UnifiedReaderRoute() {
     val viewModel: AppViewModel = hiltViewModel()
+    val updates: AppUpdatesViewModel = hiltViewModel()
     val context = LocalContext.current
     val localFileImportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
@@ -80,6 +89,7 @@ fun UnifiedReaderRoute() {
                 arrayOf("*/*"),
             )
         },
+        updateController = updates.controller,
     )
     if (viewModel.isUnsupportedImportDialogVisible) {
         AppDialog(
@@ -99,8 +109,15 @@ fun UnifiedReaderRoute() {
 fun UnifiedReaderAppContent(
     viewModel: AppViewModel,
     onImportLocalFileClick: () -> Unit,
+    updateController: AppUpdateController? = null,
 ) {
     val uiState = viewModel.uiState
+    val updateStateFlow = remember(updateController) {
+        updateController?.state ?: MutableStateFlow(AppUpdateState())
+    }
+    val updateState by updateStateFlow.collectAsStateWithLifecycle()
+    val updateActions = updateController?.let { controller -> rememberAppUpdateActions(controller) }
+        ?: remember { AppUpdateActions() }
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var libraryViewMode by rememberSaveable { mutableStateOf(LibraryViewMode.Grid) }
@@ -190,6 +207,8 @@ fun UnifiedReaderAppContent(
                             onLibraryViewModeChanged = { libraryViewMode = it },
                             onImportLocalFileClick = onImportLocalFileClick,
                             viewModel = viewModel,
+                            updateState = updateState,
+                            updateActions = updateActions,
                         )
                     }
                 }
@@ -201,6 +220,18 @@ fun UnifiedReaderAppContent(
                     uiState = uiState,
                     viewModel = viewModel,
                 )
+                if (updateController != null) {
+                    AppUpdateHost(
+                        controller = updateController,
+                        state = updateState,
+                        actions = updateActions,
+                        isReaderOpen = isReaderMode,
+                        isLibraryVisible = !isReaderMode &&
+                            uiState.topLevel == TopLevelDestination.Library &&
+                            !viewModel.isDownloadsSheetVisible &&
+                            uiState.readerCompletionState == null,
+                    )
+                }
             }
         }
     }

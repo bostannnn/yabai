@@ -33,6 +33,7 @@ import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.ui.components.AppDivider
+import com.example.unifiedreader.ui.components.AppDrawerBadge
 import com.example.unifiedreader.ui.components.AppDrawerItem
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.appGlass
@@ -57,6 +58,8 @@ fun SourceNavigationDrawer(
     sourceOrder: List<SourceType>,
     selectedDestination: SourceNavigationDestination,
     onDestinationSelected: (SourceNavigationDestination) -> Unit,
+    /** Shown at the end of the Settings row, such as the version of a waiting update. */
+    settingsBadge: String? = null,
     content: @Composable () -> Unit,
 ) {
     val presentation = UnifiedReaderThemeTokens.presentation
@@ -140,6 +143,14 @@ fun SourceNavigationDrawer(
                                 imageVector = AppIcons.Settings,
                                 contentDescription = null,
                             )
+                        },
+                        badge = settingsBadge?.let { badge ->
+                            {
+                                AppDrawerBadge(
+                                    text = badge,
+                                    selected = selectedDestination == SourceNavigationDestination.Settings,
+                                )
+                            }
                         },
                         modifier = Modifier.fillMaxWidth(),
                     )

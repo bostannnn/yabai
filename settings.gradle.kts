@@ -43,4 +43,5 @@ include(
     ":feature:library-shelves",
     ":feature:navigation",
     ":feature:settings",
+    ":feature:updates",
 )

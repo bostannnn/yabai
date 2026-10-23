@@ -7,11 +7,18 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 
-fun buildHttpClient(): HttpClient =
+/**
+ * The shared client. Its short default timeouts suit the home servers on the LAN; a client for
+ * the internet (the GitHub updater) passes longer ones.
+ */
+fun buildHttpClient(
+    connectTimeoutMillis: Long = DEFAULT_CONNECT_TIMEOUT_MILLIS,
+    socketTimeoutMillis: Long = DEFAULT_SOCKET_TIMEOUT_MILLIS,
+): HttpClient =
     HttpClient(OkHttp) {
         install(HttpTimeout) {
-            connectTimeoutMillis = DEFAULT_CONNECT_TIMEOUT_MILLIS
-            socketTimeoutMillis = DEFAULT_SOCKET_TIMEOUT_MILLIS
+            this.connectTimeoutMillis = connectTimeoutMillis
+            this.socketTimeoutMillis = socketTimeoutMillis
         }
         install(ContentNegotiation) {
             json(

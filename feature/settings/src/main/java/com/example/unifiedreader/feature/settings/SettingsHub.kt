@@ -8,6 +8,10 @@ import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.feature.navigation.navigationIcon
+import com.example.unifiedreader.feature.updates.AppUpdateActions
+import com.example.unifiedreader.feature.updates.AppUpdateAutoCheckRow
+import com.example.unifiedreader.feature.updates.AppUpdateState
+import com.example.unifiedreader.feature.updates.AppUpdateVersionRow
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppSettingsDefaults
 import com.example.unifiedreader.ui.components.AppSettingsGroup
@@ -22,6 +26,8 @@ internal fun SettingsHub(
     sourceOrder: List<SourceType>,
     syncSettings: SyncSettingsUiState,
     versionName: String,
+    updateState: AppUpdateState,
+    updateActions: AppUpdateActions,
     selectedPage: SettingsPage?,
     onOpenPage: (SettingsPage) -> Unit,
     contentTopInset: Dp,
@@ -87,10 +93,15 @@ internal fun SettingsHub(
             )
         }
         AppSettingsGroup(label = "About") {
-            AppSettingsRow(
-                title = "Version",
-                icon = AppIcons.Info,
-                value = versionName,
+            AppUpdateVersionRow(
+                versionName = versionName,
+                state = updateState,
+                actions = updateActions,
+            )
+            AppSettingsRowDivider()
+            AppUpdateAutoCheckRow(
+                state = updateState,
+                onCheckedChange = updateActions.onAutoCheckChanged,
             )
             AppSettingsRowDivider(inset = AppSettingsDefaults.dividerInset)
             AppSettingsRow(

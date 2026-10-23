@@ -97,6 +97,17 @@ Started 2026-10-17. Sections 0-7 are the first pass; section 8 is the second pas
   twelve stay). The grid tile changes only its progress bar. Cover size stays in the sort menu, as
   Small / Medium / Large. Screens without an approved mock get one when their step starts.
 
+- **In-app updater, 2026-10-23.** Board: https://claude.ai/artifact/3zJepLSa879ARYnWfjjc9C (eight
+  cards; no picks were saved and the user said "implement everything", so all eight are built, with
+  the Dialog variant of the offer). Built in `feature:updates`: the Version row in Settings › About
+  carries the next step as a pill (Check for updates, Update, Cancel, Install, Try again), a
+  "Check for updates automatically" switch under it, the offer and its download, permission and
+  failure steps as one dialog, a dot on the menu button and a version badge on Settings in the
+  drawer while an update waits, and "Updated to x.y.z" with What's new on the first launch after
+  an update. It brought three kit pieces ahead of 8.2: `AppDialogCard` (the 8.2 dialog layout;
+  `AppDialog` should move onto it in 8.2), `AppTonalButton`, and `AppDrawerBadge` /
+  `Modifier.appBadgeDot`; `AppSettingsRow` gained `supportingIcon` and `supportingContent`.
+
 ## Constraints (from `ARCHITECTURE_RULES.md`)
 
 - New shared visual tokens go in `core:ui-theme`; feature UI stays in its feature module; `app` only wires.
@@ -560,7 +571,8 @@ frame times are part of the deferred `LibraryPerf` pass.
 
 - [ ] Pill control shape (see Decisions); `AppSegment` without the checkmark, the selected segment
       filled; an `AppSlider` with a thick track and a slim handle; `AppDialog` and `AppSheet`
-      composed in the kit instead of the stock dialog and sheet handle; `AppMenu` section headings,
+      composed in the kit instead of the stock dialog and sheet handle (`AppDialogCard`, added for
+      the updater, already has the dialog layout); `AppMenu` section headings,
       a check on the current choice, switches instead of checkboxes; a progress ring on Downloads
       instead of the error-red `Badge`. The 8.0 pins of material3 1.3's chip edge and segment fill
       in `AppChip` and `AppSegment` go with this restyle.

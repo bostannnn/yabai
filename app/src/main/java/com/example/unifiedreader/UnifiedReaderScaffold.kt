@@ -55,6 +55,8 @@ import com.example.unifiedreader.feature.settings.SyncSettingsItemRow
 import com.example.unifiedreader.feature.settings.SyncSettingsSourceGroup
 import com.example.unifiedreader.feature.settings.SyncSettingsUiState
 import com.example.unifiedreader.feature.settings.direction.ReadingDirectionLibraryUiState
+import com.example.unifiedreader.feature.updates.AppUpdateActions
+import com.example.unifiedreader.feature.updates.AppUpdateState
 import com.example.unifiedreader.feature.settings.direction.buildComicReadingDirectionLibraryRows
 import com.example.unifiedreader.feature.settings.mode.ReaderModeLibraryUiState
 import com.example.unifiedreader.feature.settings.mode.buildComicReaderModeLibraryRows
@@ -76,6 +78,8 @@ fun UnifiedReaderScaffold(
     onLibraryViewModeChanged: (LibraryViewMode) -> Unit,
     onImportLocalFileClick: () -> Unit,
     viewModel: AppViewModel,
+    updateState: AppUpdateState = AppUpdateState(),
+    updateActions: AppUpdateActions = AppUpdateActions(),
 ) {
     val themeColors = UnifiedReaderThemeTokens.colors
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -232,9 +236,11 @@ fun UnifiedReaderScaffold(
     // One glass state for the whole shell: the drawer and the top bar both blur the content.
     val glassState = rememberAppGlassState()
     CompositionLocalProvider(LocalAppGlassState provides glassState) {
+    val waitingUpdateVersion = updateState.newerRelease?.version?.toString()
     SourceNavigationDrawer(
         drawerState = drawerState,
         sourceOrder = uiState.sourceOrder,
+        settingsBadge = waitingUpdateVersion,
         selectedDestination = when (uiState.topLevel) {
             TopLevelDestination.Library -> if (uiState.selectedSource == SourceType.KAVITA) {
                 SourceNavigationDestination.KavitaSection(uiState.kavitaLibrarySection)
@@ -376,6 +382,8 @@ fun UnifiedReaderScaffold(
                                 stumpReadingDirectionLibraries = stumpReadingDirectionLibraries,
                                 kavitaReaderModeLibraries = kavitaReaderModeLibraries,
                                 stumpReaderModeLibraries = stumpReaderModeLibraries,
+                                updateState = updateState,
+                                updateActions = updateActions,
                                 contentTopInset = AppTopBarDefaults.contentInset,
                                 modifier = Modifier.fillMaxSize(),
                             )
@@ -383,77 +391,79 @@ fun UnifiedReaderScaffold(
                     }
                 }
                 Box(modifier = Modifier.align(Alignment.TopCenter)) {
-                    when (uiState.topLevel) {
-                        TopLevelDestination.Library -> if (activeLibraryShelfBrowser != null) {
-                            LibraryShelfBrowserTopBar(
-                                title = activeLibraryShelfBrowser.title,
-                                count = activeLibraryShelfBrowser.count,
-                                searchQuery = activeLibraryShelfSearchQuery,
-                                onSearchQueryChanged = { query -> activeLibraryShelfSearchQuery = query },
-                                onBack = { activeLibraryShelfBrowserKind = null },
-                            )
-                        } else {
-                            LibraryTopBar(
-                                selectedSource = uiState.selectedSource,
-                                sourceConnectivity = uiState.selectedSourceConnectivity,
-                                searchQuery = uiState.selectedLibrarySearchQuery,
-                                seriesTitle = uiState.selectedLibraryContextTitle,
-                                downloadSelectionState = LibraryDownloadSelectionTopBarState(
-                                    isSelectionMode = isLibraryDownloadSelectionMode,
-                                    selectedCount = selectedDownloadItemIdSet.size,
-                                    selectableCount = effectiveSelectableDownloadItemIds.size,
-                                ),
-                                refreshState = LibraryRefreshTopBarState(
-                                    isVisible = uiState.selectedSource == SourceType.KAVITA &&
-                                        uiState.kavitaConnection.hasStoredSession,
-                                    isEnabled = uiState.selectedSource == SourceType.KAVITA &&
-                                        uiState.kavitaConnection.hasStoredSession &&
-                                        !uiState.kavitaConnection.isConnecting,
-                                    isRefreshing = uiState.selectedSource == SourceType.KAVITA &&
-                                        uiState.kavitaConnection.hasStoredSession &&
-                                        uiState.kavitaConnection.isConnecting &&
-                                        uiState.kavitaConnection.activeAction == ServerConnectionAction.FastSync,
-                                ),
-                                onSourceConnectivityClick = viewModel::retrySelectedSourceConnection,
+                    CompositionLocalProvider(LocalDrawerButtonDot provides (waitingUpdateVersion != null)) {
+                        when (uiState.topLevel) {
+                            TopLevelDestination.Library -> if (activeLibraryShelfBrowser != null) {
+                                LibraryShelfBrowserTopBar(
+                                    title = activeLibraryShelfBrowser.title,
+                                    count = activeLibraryShelfBrowser.count,
+                                    searchQuery = activeLibraryShelfSearchQuery,
+                                    onSearchQueryChanged = { query -> activeLibraryShelfSearchQuery = query },
+                                    onBack = { activeLibraryShelfBrowserKind = null },
+                                )
+                            } else {
+                                LibraryTopBar(
+                                    selectedSource = uiState.selectedSource,
+                                    sourceConnectivity = uiState.selectedSourceConnectivity,
+                                    searchQuery = uiState.selectedLibrarySearchQuery,
+                                    seriesTitle = uiState.selectedLibraryContextTitle,
+                                    downloadSelectionState = LibraryDownloadSelectionTopBarState(
+                                        isSelectionMode = isLibraryDownloadSelectionMode,
+                                        selectedCount = selectedDownloadItemIdSet.size,
+                                        selectableCount = effectiveSelectableDownloadItemIds.size,
+                                    ),
+                                    refreshState = LibraryRefreshTopBarState(
+                                        isVisible = uiState.selectedSource == SourceType.KAVITA &&
+                                            uiState.kavitaConnection.hasStoredSession,
+                                        isEnabled = uiState.selectedSource == SourceType.KAVITA &&
+                                            uiState.kavitaConnection.hasStoredSession &&
+                                            !uiState.kavitaConnection.isConnecting,
+                                        isRefreshing = uiState.selectedSource == SourceType.KAVITA &&
+                                            uiState.kavitaConnection.hasStoredSession &&
+                                            uiState.kavitaConnection.isConnecting &&
+                                            uiState.kavitaConnection.activeAction == ServerConnectionAction.FastSync,
+                                    ),
+                                    onSourceConnectivityClick = viewModel::retrySelectedSourceConnection,
+                                    onDrawerClick = {
+                                        drawerScope.launch {
+                                            drawerState.open()
+                                        }
+                                    },
+                                    onSearchQueryChanged = viewModel::onLibrarySearchQueryChanged,
+                                    onRefreshClick = viewModel::fastSyncKavitaLibraryInPlace,
+                                    downloadBadgeCount = viewModel.downloadsSnapshot.badgeCount,
+                                    onDownloadsClick = viewModel::showDownloadsSheet,
+                                    onDownloadSelectionModeChanged = ::updateLibraryDownloadSelectionMode,
+                                    onSelectAllDownloadItems = ::selectAllLibraryDownloadItems,
+                                    onDownloadSelectedItems = ::downloadSelectedLibraryItems,
+                                    onImportLocalFileClick = onImportLocalFileClick,
+                                    onLeaveSeries = viewModel::onBackPressed,
+                                )
+                            }
+
+                            TopLevelDestination.Journal -> JournalTopBar(
                                 onDrawerClick = {
                                     drawerScope.launch {
                                         drawerState.open()
                                     }
                                 },
-                                onSearchQueryChanged = viewModel::onLibrarySearchQueryChanged,
-                                onRefreshClick = viewModel::fastSyncKavitaLibraryInPlace,
-                                downloadBadgeCount = viewModel.downloadsSnapshot.badgeCount,
-                                onDownloadsClick = viewModel::showDownloadsSheet,
-                                onDownloadSelectionModeChanged = ::updateLibraryDownloadSelectionMode,
-                                onSelectAllDownloadItems = ::selectAllLibraryDownloadItems,
-                                onDownloadSelectedItems = ::downloadSelectedLibraryItems,
                                 onImportLocalFileClick = onImportLocalFileClick,
-                                onLeaveSeries = viewModel::onBackPressed,
+                            )
+
+                            TopLevelDestination.Settings -> SettingsTopBar(
+                                title = if (settingsUsesSidePane) "Settings" else settingsPage?.title ?: "Settings",
+                                onDrawerClick = {
+                                    drawerScope.launch {
+                                        drawerState.open()
+                                    }
+                                },
+                                onBack = if (settingsPage != null && !settingsUsesSidePane) {
+                                    { settingsPage = null }
+                                } else {
+                                    null
+                                },
                             )
                         }
-
-                        TopLevelDestination.Journal -> JournalTopBar(
-                            onDrawerClick = {
-                                drawerScope.launch {
-                                    drawerState.open()
-                                }
-                            },
-                            onImportLocalFileClick = onImportLocalFileClick,
-                        )
-
-                        TopLevelDestination.Settings -> SettingsTopBar(
-                            title = if (settingsUsesSidePane) "Settings" else settingsPage?.title ?: "Settings",
-                            onDrawerClick = {
-                                drawerScope.launch {
-                                    drawerState.open()
-                                }
-                            },
-                            onBack = if (settingsPage != null && !settingsUsesSidePane) {
-                                { settingsPage = null }
-                            } else {
-                                null
-                            },
-                        )
                     }
                 }
                 if (viewModel.isDownloadsSheetVisible) {
@@ -488,6 +498,8 @@ private fun SettingsRoute(
     stumpReadingDirectionLibraries: List<ReadingDirectionLibraryUiState>,
     kavitaReaderModeLibraries: List<ReaderModeLibraryUiState>,
     stumpReaderModeLibraries: List<ReaderModeLibraryUiState>,
+    updateState: AppUpdateState,
+    updateActions: AppUpdateActions,
     contentTopInset: Dp = 0.dp,
     modifier: Modifier = Modifier,
 ) {
@@ -583,6 +595,8 @@ private fun SettingsRoute(
             onLibraryReaderModeSelected = viewModel::onLibraryReaderModeSelected,
             versionName = versionName,
             contentTopInset = contentTopInset,
+            updateState = updateState,
+            updateActions = updateActions,
         )
     }
 }

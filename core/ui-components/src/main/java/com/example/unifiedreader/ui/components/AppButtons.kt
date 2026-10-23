@@ -11,6 +11,7 @@ import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonColors
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -68,6 +69,39 @@ fun AppOutlinedButton(
         contentPadding = contentPadding,
         interactionSource = interactionSource,
         content = content,
+    )
+}
+
+/**
+ * Secondary action on a quiet filled pill (`surfaceContainerHighest`): Cancel and Later in
+ * dialogs, and row actions that sit next to a filled [AppButton].
+ */
+@Composable
+fun AppTonalButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    shape: Shape? = null,
+    colors: ButtonColors = AppButtonDefaults.tonalColors(),
+    contentPadding: PaddingValues = ButtonDefaults.ContentPadding,
+    content: @Composable RowScope.() -> Unit,
+) {
+    AppButton(
+        onClick = onClick,
+        modifier = modifier,
+        enabled = enabled,
+        shape = shape,
+        colors = colors,
+        contentPadding = contentPadding,
+        content = content,
+    )
+}
+
+object AppButtonDefaults {
+    @Composable
+    fun tonalColors(): ButtonColors = ButtonDefaults.buttonColors(
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+        contentColor = MaterialTheme.colorScheme.onSurface,
     )
 }
 

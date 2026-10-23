@@ -58,7 +58,8 @@ fun AppSettingsGroup(
 
 /**
  * One row in an [AppSettingsGroup]: optional leading icon, a title with optional supporting
- * text, then an optional value, a custom [trailing] slot, and a chevron when the row opens
+ * text (after a small [supportingIcon], and with [supportingContent] such as a progress bar
+ * under it), then an optional value, a custom [trailing] slot, and a chevron when the row opens
  * something ([onClick] set and [showChevron] true).
  */
 @Composable
@@ -73,6 +74,8 @@ fun AppSettingsRow(
     selected: Boolean = false,
     showChevron: Boolean = onClick != null,
     supportingColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    supportingIcon: ImageVector? = null,
+    supportingContent: (@Composable ColumnScope.() -> Unit)? = null,
     trailing: (@Composable RowScope.() -> Unit)? = null,
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
@@ -116,12 +119,26 @@ fun AppSettingsRow(
                     .copy(alpha = contentAlpha),
             )
             if (supporting != null) {
-                Text(
-                    text = supporting,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = supportingColor.copy(alpha = contentAlpha),
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (supportingIcon != null) {
+                        Icon(
+                            imageVector = supportingIcon,
+                            contentDescription = null,
+                            tint = supportingColor.copy(alpha = contentAlpha),
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                    Text(
+                        text = supporting,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = supportingColor.copy(alpha = contentAlpha),
+                    )
+                }
             }
+            supportingContent?.invoke(this)
         }
         if (value != null) {
             Text(

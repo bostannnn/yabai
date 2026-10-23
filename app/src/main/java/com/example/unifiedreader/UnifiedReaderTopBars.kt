@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -38,6 +39,7 @@ import com.example.unifiedreader.ui.components.AppBadge
 import com.example.unifiedreader.ui.components.AppCircularProgress
 import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
+import com.example.unifiedreader.ui.components.appBadgeDot
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 @Composable
@@ -203,15 +205,7 @@ fun SettingsTopBar(
                     )
                 }
             } else {
-                AppIconButton(
-                    onClick = onDrawerClick,
-                    modifier = Modifier.size(36.dp),
-                ) {
-                    Icon(
-                        imageVector = AppIcons.Menu,
-                        contentDescription = "Open navigation drawer",
-                    )
-                }
+                DrawerMenuButton(onClick = onDrawerClick)
             }
             Text(
                 text = title,
@@ -275,15 +269,7 @@ private fun LibraryTopBarTitle(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AppIconButton(
-            onClick = onDrawerClick,
-            modifier = Modifier.size(36.dp),
-        ) {
-            Icon(
-                imageVector = AppIcons.Menu,
-                contentDescription = "Open navigation drawer",
-            )
-        }
+        DrawerMenuButton(onClick = onDrawerClick)
         if (seriesTitle != null) {
             AppIconButton(
                 onClick = onLeaveSeries,
@@ -389,15 +375,7 @@ private fun AppSectionHeader(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AppIconButton(
-            onClick = onDrawerClick,
-            modifier = Modifier.size(36.dp),
-        ) {
-            Icon(
-                imageVector = AppIcons.Menu,
-                contentDescription = "Open navigation drawer",
-            )
-        }
+        DrawerMenuButton(onClick = onDrawerClick)
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
@@ -554,3 +532,21 @@ private fun selectedDownloadsLabel(selectedCount: Int): String =
     } else {
         "$selectedCount selected"
     }
+
+/** True while something waits in the drawer (an app update), to dot the menu button. */
+val LocalDrawerButtonDot = staticCompositionLocalOf { false }
+
+@Composable
+private fun DrawerMenuButton(onClick: () -> Unit) {
+    val hasDot = LocalDrawerButtonDot.current
+    AppIconButton(
+        onClick = onClick,
+        modifier = Modifier.size(36.dp),
+    ) {
+        Icon(
+            imageVector = AppIcons.Menu,
+            contentDescription = if (hasDot) "Open navigation drawer, update available" else "Open navigation drawer",
+            modifier = Modifier.appBadgeDot(visible = hasDot, color = MaterialTheme.colorScheme.primary),
+        )
+    }
+}

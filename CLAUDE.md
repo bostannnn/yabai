@@ -2,7 +2,7 @@
 
 Kotlin + Jetpack Compose reader for EPUB/PDF/CBZ/CBR from Kavita, Grimmory, Stump, or local files.
 Package `com.example.unifiedreader`. Hilt DI, Room DB, Ktor networking, Readium (EPUB),
-`PdfRenderer` (PDF). 23 Gradle modules; ownership map in `ARCHITECTURE_RULES.md`.
+`PdfRenderer` (PDF). 24 Gradle modules; ownership map in `ARCHITECTURE_RULES.md`.
 Screens are built from the component kit in `core:ui-components` (`AppPanel`, `AppDialog`,
 `AppButton`, `AppIcons`, ...), never from raw Material `Card`/`Surface`/`Button` or the Material
 Icons artifacts; a unit test enforces this. UI font: bundled Manrope; icons: Material Symbols Rounded.
@@ -71,6 +71,19 @@ Keystore `~/yabai.jks`, alias `key0`. The release cert SHA-256 must be
   in `app/build.gradle.kts` (the job fails otherwise), so bump `versionName` and `versionCode` first.
   Manual runs (`gh workflow run release-apk.yml --ref main`) only keep the APK as the run's
   `unified-reader-release-apk` artifact. Signing comes from the `ANDROID_SIGNING_*` repo secrets.
+- The release notes come from `.github/scripts/release-notes.sh`: one bullet per commit since the
+  previous tag, without merges, the "Release x.y.z" commit and docs-only commits. The app's updater
+  shows those bullets as "What's new", so write commit subjects for people; reword the release on
+  GitHub afterwards if needed (the app reads it at check time).
+
+## In-app updater (`feature:updates`)
+
+- Checks `bostannnn/yabai`'s latest GitHub release (once a day after the library appears, or from
+  Settings › About › Version), downloads `yabai-<tag>.apk`, checks GitHub's SHA-256, the package
+  name, the signing certificate and a higher `versionCode`, then installs through Android's
+  `PackageInstaller`. So a release must keep the release key and raise `versionCode`.
+- Debug builds never check by themselves, and their button stops at "This copy can't update
+  itself" (debug key). Testing the install step needs release-signed builds on both sides.
 
 ## Device
 

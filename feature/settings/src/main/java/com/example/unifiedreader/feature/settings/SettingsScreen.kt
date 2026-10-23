@@ -18,6 +18,8 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.navigation.DrawerOrderSettingsGroup
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
+import com.example.unifiedreader.feature.updates.AppUpdateActions
+import com.example.unifiedreader.feature.updates.AppUpdateState
 import com.example.unifiedreader.ui.components.AppScreenBack
 import com.example.unifiedreader.ui.components.AppScreenHost
 import com.example.unifiedreader.ui.components.AppScreenTransition
@@ -53,6 +55,8 @@ fun SettingsScreen(
     versionName: String,
     contentTopInset: Dp = 0.dp,
     modifier: Modifier = Modifier,
+    updateState: AppUpdateState = AppUpdateState(),
+    updateActions: AppUpdateActions = AppUpdateActions(),
 ) {
     val usesSidePane = settingsUsesSidePane(LocalConfiguration.current.screenWidthDp)
     val orderedSources = remember(sources, sourceOrder) {
@@ -120,6 +124,8 @@ fun SettingsScreen(
                 sourceOrder = sourceOrder,
                 syncSettings = syncSettings,
                 versionName = versionName,
+                updateState = updateState,
+                updateActions = updateActions,
                 selectedPage = shownPage,
                 onOpenPage = onPageChanged,
                 contentTopInset = contentTopInset,
@@ -155,6 +161,8 @@ fun SettingsScreen(
                     sourceOrder = sourceOrder,
                     syncSettings = syncSettings,
                     versionName = versionName,
+                    updateState = updateState,
+                    updateActions = updateActions,
                     selectedPage = null,
                     onOpenPage = onPageChanged,
                     contentTopInset = contentTopInset,
