@@ -1018,7 +1018,8 @@ phone width, with an EPUB and a comic. Not yet on the tablet.
 
 ### 8.8 Navigation rail `[~]`
 
-Built 2026-10-23 on `claude/ui-redesign-step-8-135c61`, checked on the emulator (`yabai_tablet_35` on
+Built 2026-10-23 on `claude/ui-redesign-step-8-135c61` and merged to main the same day (not released),
+checked on the emulator (`yabai_tablet_35` on
 port 5558, the Local library) at 800 dp portrait (drawer), 1280 dp landscape (rail), Graphite and
 Paper, and at phone landscape (891 x 411 dp through `wm size`, drawer). Not yet on the tablet.
 
@@ -1063,7 +1064,7 @@ Paper, and at phone landscape (891 x 411 dp through `wm size`, drawer). Not yet 
       month heatmap Do, Year A (twelve months), When you read Maybe, one Finished row Don't (the two
       rows stay), Ratings Do, Most read B (side by side), the day and book sheet Do, the empty month
       Do.
-- [~] Journal, built 2026-10-23 on `claude/ui-redesign-step-8-135c61`, checked on the emulator
+- [~] Journal, built 2026-10-23 on `claude/ui-redesign-step-8-135c61` and merged to main (not released), checked on the emulator
       (`yabai_tablet_35` on 5558, Graphite, the Local library) at 800 dp portrait, 1280 dp landscape with
       the rail and 411 dp phone width. Not yet on the tablet.
   - [x] Top as the 8.9 mock: Month / Year as a 240 dp segmented row, the period as a 30 Bold title
@@ -1104,7 +1105,7 @@ Paper, and at phone landscape (891 x 411 dp through `wm size`, drawer). Not yet 
     1003 lines to 307 (the dead metric grid and pace panels and the facet charts are gone).
   - [ ] Tablet: the journal over the real Kavita history (ratings, most read, Year), the sheet, and
         "Open in library" on a Kavita book.
-- [~] Settings, started 2026-10-23 on `claude/ui-redesign-step-8-135c61`:
+- [~] Settings, built 2026-10-23 on `claude/ui-redesign-step-8-135c61` and merged to main (not released):
   - [x] The hub as the 8.9 mock, checked on the emulator at 800 dp, 1280 dp landscape (two panes,
         rail) and phone width: "Settings" as the screen title (the kit's new `AppScreenTitle`, which
         the library header now uses too), group headings in sentence case at 15 SemiBold (in
@@ -1142,9 +1143,9 @@ Paper, and at phone landscape (891 x 411 dp through `wm size`, drawer). Not yet 
 
 ## Not yet designed
 
-Each is mocked when its step in section 8 starts: the phone library home and the series view
-header (8.3), the journal below its header, the settings pages, downloads, Kavita landing and first
-run (8.9). The book page is designed (8.5).
+Each is mocked when its step in section 8 starts: downloads, the Kavita landing and first run (8.9).
+Designed since: the phone library home and the series view header (8.3), the book page (8.5), the
+journal below its header and the settings pages (8.9, boards linked there).
 
 
 ## Open questions

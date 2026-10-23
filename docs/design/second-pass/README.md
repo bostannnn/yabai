@@ -323,8 +323,9 @@ Mock: `8.8-navigation-rail.jpg`.
 
 ## 8.9 Screen passes
 
-Mocks: `8.9-journal.jpg` (top of the journal), `8.9-settings.jpg` (hub). **Mock first:** the rest of
-the journal, the settings pages, downloads, Kavita landing and first run.
+Mocks: `8.9-journal.jpg` (top of the journal), `8.9-settings.jpg` (hub), and the boards for the rest of
+the journal (`pages/journal.html`) and the settings pages (`pages/settings.html`), with the picks
+below. **Mock first:** downloads, Kavita landing and first run.
 
 - **Journal**: the Month / Year segmented row and the month as a 30 Bold centred title between
   arrows; four figures at 46 Bold, tabular (hours read, pages, finished, active days), each with a
@@ -332,8 +333,24 @@ the journal, the settings pages, downloads, Kavita landing and first run.
   2.5 dp accent line, a 16% accent fill and day labels every seven days; "Books and comics" as a 12 dp
   split bar. No uppercase captions; book titles from metadata, not file names; empty sections fold
   away.
+- **Journal below the header** (board picks, 2026-10-23): Reading days as a heatmap (44 dp squares,
+  four accent steps scaled to the busiest day, today ringed, a dot for a finish) with the longest
+  run, the busiest day and the most finished in a day beside it; Year as twelve small months
+  without numbers. When you read keeps its bars under a plain heading. Finished and Needs rating
+  stay two rows. Ratings as books and comics side by side, five rows each. Most read as the kinds
+  side by side, top three each with See all. Days, books and names open a 440 dp side sheet with a
+  page stack; a book's page saves its rating on tap and its review when the field is left. A period
+  with nothing read shows the kit's empty state with a way to the latest month with reading.
 - **Settings hub**: screenTitle "Settings"; group headings at 15 SemiBold in sentence case; the
   Theme row shows three covers drawn in the current theme's colours.
+- **Settings pages** (board picks, 2026-10-23): a page's name stays in the bar. Theme tiles show
+  the hub's three covers in each theme's colours, the chosen theme's description above them. A
+  server not connected is the form alone; a connected one leads with its state, address and
+  account, then Sync (with when it last ran), the cover cache and the reading defaults, the
+  address and account behind Edit. Filter chips: the handle first, a switch at the end, a hidden
+  filter dimmed. Drawer order is Source order. Sync: what waits and since when, when it last
+  tried, a book's uploads of one kind on one row, the last error per source. Licenses as a list,
+  each opening its notice.
 
 ## Not built (rejected 2026-10-22)
 
@@ -344,12 +361,19 @@ the journal, the settings pages, downloads, Kavita landing and first run.
 - Trimming the theme list (all twelve stay).
 - Grid tile changes other than the progress bar: no two-line titles, meta line or quieter "•••".
 - Cover size as separate icon buttons outside the sort menu.
+- (2026-10-23) One Finished row with ratings in the journal: Finished and Needs rating stay.
+- (2026-10-23) A large title on every settings page: only the hub has one.
+- (2026-10-23, Maybe) The journal's When you read in the accent with labels every six hours: it
+  kept its bars, with only the new heading.
 
 ## Sources
 
 The live decision pages, with the user's saved picks: library and app
 https://claude.ai/artifact/JPHMSHf3WMJab1fihdKJgu, filters and menus
 https://claude.ai/artifact/FciEVVZo2pYSM3NjKQZBpB, reader menus
-https://claude.ai/artifact/Tnrj9TXe5YoVjux3Hkf8sn, and the review that started it
+https://claude.ai/artifact/Tnrj9TXe5YoVjux3Hkf8sn, the phone library
+https://claude.ai/artifact/G4aXzrCHb1o66ntsWCE3Wk, the journal
+https://claude.ai/artifact/2XyoEPyPe98aN3xweVFbkY, the settings pages
+https://claude.ai/artifact/YJg8ydR6QvxnFogMAc8tc8, and the review that started it
 https://claude.ai/artifact/8TSpyrGAszggJMK4vUnrNX. The copies in `pages/` have the final decisions
 baked in and UI titles switched to Manrope.
