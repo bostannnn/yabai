@@ -1139,8 +1139,8 @@ Paper, and at phone landscape (891 x 411 dp through `wm size`, drawer). Not yet 
       (`SettingsPage.License`, whose Back returns to the list, in one pane and two).
   - [ ] Tablet: the hub and pages in both orientations and themes (High Contrast in particular),
         a connected Kavita page with its sync time, and the sync page with the real queue.
-- [~] Downloads sheet, Kavita landing, first run, built 2026-10-23 in worktree `ui-redesign-step-8-69954f`
-      (not committed at the time). All unit tests pass (both lines).
+- [~] Downloads sheet, Kavita landing, first run, built 2026-10-23 on `claude/ui-redesign-step-8-69954f`
+      (f7007946) and merged to main (not released). All unit tests pass (both lines).
   - [x] Mock them first: board https://claude.ai/artifact/586zsjvQUR4N6VJCPUyexC
         (`docs/design/second-pass/pages/downloads-kavita-start.html`, today's screenshots of a fresh
         install in `pages/img/today-start/`; picks save to the page). Picked 2026-10-23: the running
