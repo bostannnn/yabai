@@ -431,7 +431,7 @@ fun UnifiedReaderScaffold(
                                     },
                                     onSearchQueryChanged = viewModel::onLibrarySearchQueryChanged,
                                     onRefreshClick = viewModel::fastSyncKavitaLibraryInPlace,
-                                    downloadBadgeCount = viewModel.downloadsSnapshot.badgeCount,
+                                    downloadsButtonState = viewModel.downloadsSnapshot.buttonState,
                                     onDownloadsClick = viewModel::showDownloadsSheet,
                                     onDownloadSelectionModeChanged = ::updateLibraryDownloadSelectionMode,
                                     onSelectAllDownloadItems = ::selectAllLibraryDownloadItems,

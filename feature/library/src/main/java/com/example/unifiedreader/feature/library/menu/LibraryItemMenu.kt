@@ -157,12 +157,10 @@ private fun ReadingDirectionMenuRow(
 ) {
     val directions = ComicReadingDirection.entries
     AppSegmentedRow(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-        directions.forEachIndexed { index, direction ->
+        directions.forEach { direction ->
             AppSegment(
                 selected = direction == state.selectedDirection,
                 onClick = { onDirectionSelected(direction) },
-                index = index,
-                count = directions.size,
                 label = { Text(text = direction.label) },
             )
         }

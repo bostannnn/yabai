@@ -56,6 +56,7 @@ import com.example.unifiedreader.journal.JournalItemRef
 import com.example.unifiedreader.ui.components.AppBackground
 import com.example.unifiedreader.ui.components.AppButton
 import com.example.unifiedreader.ui.components.AppDialog
+import com.example.unifiedreader.ui.components.AppDialogConfirmButton
 import com.example.unifiedreader.ui.components.AppScreenBack
 import com.example.unifiedreader.ui.components.AppScreenHost
 import com.example.unifiedreader.ui.components.AppSnackbar
@@ -97,9 +98,7 @@ fun UnifiedReaderRoute() {
             title = { Text(text = "Unsupported file") },
             text = { Text(text = UnsupportedImportSelectionMessage) },
             confirmButton = {
-                AppTextButton(onClick = viewModel::dismissUnsupportedImportDialog) {
-                    Text(text = "OK")
-                }
+                AppDialogConfirmButton(text = "OK", onClick = viewModel::dismissUnsupportedImportDialog)
             },
         )
     }

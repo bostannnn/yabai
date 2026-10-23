@@ -38,6 +38,16 @@ class FeatureMaterialImportRuleTest {
         forbiddenMaterialSymbols.map { "androidx.compose.material3.$it" }.toSet() +
             setOf("androidx.compose.ui.window.Dialog", "androidx.compose.material3.*")
 
+    /**
+     * Stock shapes and marks the kit replaced (pill controls, segments without a checkmark),
+     * caught as references because `ButtonDefaults` itself stays importable for its paddings.
+     */
+    private val forbiddenReferences = listOf(
+        "ButtonDefaults.shape", "ButtonDefaults.outlinedShape", "ButtonDefaults.textShape",
+        "ButtonDefaults.filledTonalShape", "ButtonDefaults.elevatedShape",
+        "FilterChipDefaults.shape", "SegmentedButtonDefaults.Icon", "SegmentedButtonDefaults.ActiveIcon",
+    ).associateWith { reference -> Regex("""\b${Regex.escape(reference)}\b""") }
+
     @Test
     fun `feature and app main sources use the component kit instead of raw Material components`() {
         val root = repositoryRoot()
@@ -47,11 +57,13 @@ class FeatureMaterialImportRuleTest {
         val violations = sourceRoots
             .filter { it.isDirectory }
             .flatMap { sourceRoot -> sourceRoot.walkTopDown().filter { it.isFile && it.extension == "kt" } }
-            .flatMap { file -> forbiddenImportsIn(file).map { "${file.relativeTo(root)}: $it" } }
+            .flatMap { file ->
+                (forbiddenImportsIn(file) + forbiddenReferencesIn(file)).map { "${file.relativeTo(root)}: $it" }
+            }
             .sorted()
 
         assertTrue(
-            "Use core:ui-components (AppPanel, AppDialog, AppButton, AppIcons, ...) instead of these imports:\n" +
+            "Use core:ui-components (AppPanel, AppDialog, AppButton, AppIcons, ...) instead of these:\n" +
                 violations.joinToString("\n"),
             violations.isEmpty(),
         )
@@ -64,6 +76,13 @@ class FeatureMaterialImportRuleTest {
                 .map { it.removePrefix("import ").substringBefore(" as ").trim() }
                 .filter { it in forbiddenImports || it.startsWith("androidx.compose.material.icons.") }
                 .toList()
+        }
+
+    private fun forbiddenReferencesIn(file: File): List<String> =
+        file.useLines { lines ->
+            lines.flatMap { line ->
+                forbiddenReferences.filterValues { it.containsMatchIn(line) }.keys
+            }.toList()
         }
 
     private fun repositoryRoot(): File {

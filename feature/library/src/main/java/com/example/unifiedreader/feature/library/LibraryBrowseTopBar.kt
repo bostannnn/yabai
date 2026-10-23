@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -118,7 +118,6 @@ private fun LibraryBrowseTopBarSearchField(
     val colors = MaterialTheme.colorScheme
     val semanticColors = UnifiedReaderThemeTokens.colors
     val presentation = UnifiedReaderThemeTokens.presentation
-    val controlShape = RoundedCornerShape(presentation.controlCornerRadius)
     val active = query.isNotEmpty()
     val focusRequester = remember { FocusRequester() }
 
@@ -142,7 +141,7 @@ private fun LibraryBrowseTopBarSearchField(
         decorationBox = { innerTextField ->
             AppPanel(
                 modifier = Modifier.fillMaxSize(),
-                shape = controlShape,
+                shape = CircleShape,
                 color = colors.surfaceContainerHigh,
                 border = if (active) BorderStroke(1.dp, semanticColors.sourceAccent) else null,
 
@@ -150,7 +149,7 @@ private fun LibraryBrowseTopBarSearchField(
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(start = 12.dp, end = 2.dp),
+                        .padding(start = 14.dp, end = 2.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {

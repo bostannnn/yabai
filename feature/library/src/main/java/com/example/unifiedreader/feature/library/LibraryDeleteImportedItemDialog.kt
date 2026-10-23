@@ -5,7 +5,8 @@ import androidx.compose.runtime.Composable
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.ui.components.AppDialog
-import com.example.unifiedreader.ui.components.AppTextButton
+import com.example.unifiedreader.ui.components.AppDialogConfirmButton
+import com.example.unifiedreader.ui.components.AppDialogDismissButton
 
 @Composable
 fun LibraryDeleteImportedItemDialog(
@@ -22,16 +23,10 @@ fun LibraryDeleteImportedItemDialog(
             )
         },
         confirmButton = {
-            AppTextButton(
-                onClick = { onConfirmDelete(item) },
-            ) {
-                Text(text = "Remove")
-            }
+            AppDialogConfirmButton(text = "Remove", onClick = { onConfirmDelete(item) }, destructive = true)
         },
         dismissButton = {
-            AppTextButton(onClick = onDismiss) {
-                Text(text = "Cancel")
-            }
+            AppDialogDismissButton(text = "Cancel", onClick = onDismiss)
         },
     )
 }

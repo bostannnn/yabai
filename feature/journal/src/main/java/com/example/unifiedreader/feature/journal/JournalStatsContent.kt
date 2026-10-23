@@ -193,12 +193,10 @@ private fun JournalStatsScopeSelector(
     onScopeSelected: (JournalStatsScope) -> Unit,
 ) {
     AppSegmentedRow(modifier = Modifier.fillMaxWidth()) {
-        JournalStatsScope.entries.forEachIndexed { index, scope ->
+        JournalStatsScope.entries.forEach { scope ->
             AppSegment(
                 selected = selectedScope == scope,
                 onClick = { onScopeSelected(scope) },
-                index = index,
-                count = JournalStatsScope.entries.size,
                 label = { Text(text = scope.label) },
             )
         }

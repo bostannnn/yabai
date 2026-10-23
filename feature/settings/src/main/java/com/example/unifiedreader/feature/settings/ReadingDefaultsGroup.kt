@@ -106,12 +106,10 @@ private fun ReadingDefaultsLibraryRow(
     val controls: @Composable (Modifier) -> Unit = { controlModifier ->
         row.direction?.let { direction ->
             AppSegmentedRow(modifier = controlModifier) {
-                ComicReadingDirection.entries.forEachIndexed { index, option ->
+                ComicReadingDirection.entries.forEach { option ->
                     AppSegment(
                         selected = option == direction,
                         onClick = { onLibraryDirectionSelected(row.libraryId, option) },
-                        index = index,
-                        count = ComicReadingDirection.entries.size,
                         label = { Text(text = option.label) },
                     )
                 }
@@ -119,12 +117,10 @@ private fun ReadingDefaultsLibraryRow(
         }
         row.mode?.let { mode ->
             AppSegmentedRow(modifier = controlModifier) {
-                ComicReaderMode.entries.forEachIndexed { index, option ->
+                ComicReaderMode.entries.forEach { option ->
                     AppSegment(
                         selected = option == mode,
                         onClick = { onLibraryModeSelected(row.libraryId, option) },
-                        index = index,
-                        count = ComicReaderMode.entries.size,
                         label = { Text(text = option.label) },
                     )
                 }

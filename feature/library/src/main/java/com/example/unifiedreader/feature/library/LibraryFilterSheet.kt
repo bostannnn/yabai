@@ -285,8 +285,6 @@ internal fun FilterToggleChip(
     AppChip(
         selected = selected,
         onClick = onClick,
-        colors = libraryAccentFilterChipColors(),
-        shape = libraryAccentFilterChipShape(),
         label = {
             Text(
                 text = label,

@@ -567,16 +567,47 @@ frame times are part of the deferred `LibraryPerf` pass.
       layer), and frame times with the screen host (two screens composed during a change; the
       library composed under the reader for the length of a back gesture).
 
-### 8.2 Kit `[ ]`
+### 8.2 Kit `[~]`
 
-- [ ] Pill control shape (see Decisions); `AppSegment` without the checkmark, the selected segment
-      filled; an `AppSlider` with a thick track and a slim handle; `AppDialog` and `AppSheet`
-      composed in the kit instead of the stock dialog and sheet handle (`AppDialogCard`, added for
-      the updater, already has the dialog layout); `AppMenu` section headings,
-      a check on the current choice, switches instead of checkboxes; a progress ring on Downloads
-      instead of the error-red `Badge`. The 8.0 pins of material3 1.3's chip edge and segment fill
-      in `AppChip` and `AppSegment` go with this restyle.
-- [ ] `FeatureMaterialImportRuleTest` also forbids `ButtonDefaults.shape` and the stock segmented icon.
+Built 2026-10-23 on `claude/ui-redesign-step-8-2`, checked on the emulator (`yabai_review_35`,
+Graphite, the 21-book library): library filter row and sort menu, cover menu, remove dialog,
+Downloads sheet, journal, EPUB reading settings (sliders dragged); the Downloads ring through a
+throwaway build with a faked queue (no remote source on that emulator). Not yet on the tablet.
+
+- [x] Pills: `AppChip` is a 36 dp pill with SemiBold labels, a 1 dp `outlineVariant` edge and the
+      selected container with no edge, plus an optional `count`; the colours moved from the
+      library's `libraryAccentFilterChip*` helpers (deleted) into `AppChipDefaults`. The top-bar
+      search field is a pill. Text fields, menus and settings rows keep 12 dp.
+- [x] `AppSegmentedRow` is the kit's own row (no Material `SegmentedButton`): a
+      `surfaceContainerLow` pill track with 3 dp padding, 34 dp pill segments in equal shares, the
+      selected one filled with `surfaceSelected` (the fill fades on effects), no checkmark, no
+      outline. `AppSegment` lost `index`, `count`, `colors` and `border`; `icon` is optional.
+- [x] `AppSlider`: Material's slider for drag, keys and semantics, with the kit's track (18 dp
+      pill, accent fill to the value) and handle (4 × 28 dp, 3 dp corners, `onSurface`). Callers
+      lost the `colors` parameter. The reader's page slider is its own control and changes in 8.7.
+- [x] `AppDialog` is built on the `AppDialogCard` layout (380 dp, `surfaceContainerHigh`, 28 dp,
+      bold 24 sp title, 14 sp `onSurfaceVariant` body, the `icon` slot as the 52 dp leading image);
+      `AppDialogConfirmButton` (filled, `destructive` in `error` / `onError`, the mock's pink) and
+      `AppDialogDismissButton` (tonal) are the 42 dp pills, used by every dialog and the updater.
+      `AppDialogDefaults` (custom dialogs) moved to 28 dp too. The remove dialog has no cover
+      thumbnail yet: its three callers have no cover loader; the book page (8.5) is the place.
+- [x] `AppSheet` draws its own handle (36 × 4 dp, `outline`, 16 dp above and below) and 28 dp top
+      corners; `AppFloatingPanel`'s phone sheet uses the same handle and corners.
+- [x] `AppMenu`: `surfaceContainerHigh`, 16 dp corners, 44 dp rows with 18 dp side padding;
+      `AppMenuHeading`, `AppMenuChoiceItem` (20 dp check column, accent check, bold current choice)
+      and `AppMenuSwitchItem`. The sort menu uses all three already (taken from 8.4: headings, the
+      check and the "Fade read books" switch); the cover size labels stay for 8.4.
+- [x] Downloads: `Modifier.appProgressRing` (2 dp ring, 40 dp, accent from 12 o'clock; a turning
+      quarter arc while the first file of a run downloads, still with animations off) replaces the
+      red `Badge`. `DownloadEntriesSnapshot.buttonState` counts the files of the run (the active
+      entries plus those completed since the oldest of them was queued); a failure with nothing
+      running shows an error dot. Unit-tested (`DownloadsButtonStateTest`).
+- [x] The material3 1.3 pins in `AppChip` and `AppSegment` are gone with the restyle.
+- [x] `FeatureMaterialImportRuleTest` also forbids references to `ButtonDefaults.shape` (and the
+      outlined, text, tonal and elevated shapes), `FilterChipDefaults.shape` and the stock
+      segmented-button icons.
+- [ ] Tablet: the pills, the sliders over an EPUB page, the dialog, and the ring during a real
+      Kavita download.
 
 ### 8.3 Library home `[ ]`
 
@@ -603,8 +634,8 @@ frame times are part of the deferred `LibraryPerf` pass.
       selection, each opening a page inside the sheet with search, picks pinned on top, A-Z groups
       and counts; "Showing 14 of 21" at the top and a "Show 14 books" button that closes the sheet.
       Filters still apply as they are tapped.
-- [ ] Sort and view menu: headings, a check on the current sort, a switch for "Fade read books",
-      cover size as Small / Medium / Large instead of "180dp cards · 6 cols".
+- [ ] Sort and view menu: cover size as Small / Medium / Large instead of "180dp cards · 6 cols"
+      (the headings, the check on the current sort and the "Fade read books" switch came with 8.2).
 - [ ] Top bar: search as a field on tablets; Select removed (a long-press already starts
       selection); "•••" holds Import and, on Kavita, Refresh, with a one-time "Long-press a cover to
       select" tip on server sources; the selection bar shows close, the count, Select all and

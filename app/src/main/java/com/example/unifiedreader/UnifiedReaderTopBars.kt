@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -33,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
+import com.example.unifiedreader.feature.downloads.DownloadsButtonState
 import com.example.unifiedreader.feature.library.LibraryBrowseSearchModeTopBar
 import com.example.unifiedreader.feature.library.LibraryBrowseTopBarContainer
 import com.example.unifiedreader.ui.components.AppBadge
@@ -40,6 +39,7 @@ import com.example.unifiedreader.ui.components.AppCircularProgress
 import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.appBadgeDot
+import com.example.unifiedreader.ui.components.appProgressRing
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 @Composable
@@ -54,7 +54,7 @@ fun LibraryTopBar(
     onDrawerClick: () -> Unit,
     onSearchQueryChanged: (String) -> Unit,
     onRefreshClick: () -> Unit = {},
-    downloadBadgeCount: Int,
+    downloadsButtonState: DownloadsButtonState,
     onDownloadsClick: () -> Unit,
     onDownloadSelectionModeChanged: (Boolean) -> Unit = {},
     onSelectAllDownloadItems: () -> Unit = {},
@@ -99,7 +99,7 @@ fun LibraryTopBar(
                     seriesTitle = seriesTitle,
                     refreshState = refreshState,
                     downloadSelectionState = downloadSelectionState,
-                    downloadBadgeCount = downloadBadgeCount,
+                    downloadsButtonState = downloadsButtonState,
                     onSourceConnectivityClick = onSourceConnectivityClick,
                     onDrawerClick = onDrawerClick,
                     onSearchClick = { searchModeOpen = true },
@@ -121,7 +121,7 @@ private fun LibraryRestingTopBar(
     seriesTitle: String?,
     refreshState: LibraryRefreshTopBarState,
     downloadSelectionState: LibraryDownloadSelectionTopBarState,
-    downloadBadgeCount: Int,
+    downloadsButtonState: DownloadsButtonState,
     onSourceConnectivityClick: () -> Unit,
     onDrawerClick: () -> Unit,
     onSearchClick: () -> Unit,
@@ -160,7 +160,7 @@ private fun LibraryRestingTopBar(
             LibraryToolbarActions(
                 refreshState = refreshState,
                 onRefreshClick = onRefreshClick,
-                downloadBadgeCount = downloadBadgeCount,
+                downloadsButtonState = downloadsButtonState,
                 onDownloadsClick = onDownloadsClick,
                 downloadSelectionEnabled = downloadSelectionState.selectableCount > 0,
                 onDownloadSelectionClick = { onDownloadSelectionModeChanged(true) },
@@ -390,7 +390,7 @@ private fun AppSectionHeader(
 private fun LibraryToolbarActions(
     refreshState: LibraryRefreshTopBarState = LibraryRefreshTopBarState(),
     onRefreshClick: () -> Unit = {},
-    downloadBadgeCount: Int = 0,
+    downloadsButtonState: DownloadsButtonState = DownloadsButtonState(),
     onDownloadsClick: (() -> Unit)? = null,
     downloadSelectionEnabled: Boolean = false,
     onDownloadSelectionClick: (() -> Unit)? = null,
@@ -434,22 +434,24 @@ private fun LibraryToolbarActions(
             }
         }
         onDownloadsClick?.let { handler ->
-            AppIconButton(onClick = handler) {
-                BadgedBox(
-                    badge = {
-                        if (downloadBadgeCount > 0) {
-                            Badge {
-                                Text(text = downloadBadgeCount.toString())
-                            }
-                        }
+            val downloading = downloadsButtonState.activeCount > 0
+            AppIconButton(
+                onClick = handler,
+                modifier = if (downloading) Modifier.appProgressRing(downloadsButtonState.progress) else Modifier,
+            ) {
+                Icon(
+                    imageVector = AppIcons.Download,
+                    contentDescription = when {
+                        downloading -> "Downloads, ${downloadsButtonState.activeCount} downloading"
+                        downloadsButtonState.hasFailed -> "Downloads, a download failed"
+                        else -> "Downloads"
                     },
-                ) {
-                    Icon(
-                        imageVector = AppIcons.Download,
-                        contentDescription = "Downloads",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.appBadgeDot(
+                        visible = !downloading && downloadsButtonState.hasFailed,
+                        color = MaterialTheme.colorScheme.error,
+                    ),
+                )
             }
         }
         onDownloadSelectionClick?.let { handler ->

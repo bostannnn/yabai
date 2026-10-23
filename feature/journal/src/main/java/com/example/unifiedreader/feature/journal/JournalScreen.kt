@@ -14,7 +14,8 @@ import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.ui.components.AppDialog
-import com.example.unifiedreader.ui.components.AppTextButton
+import com.example.unifiedreader.ui.components.AppDialogConfirmButton
+import com.example.unifiedreader.ui.components.AppDialogDismissButton
 
 @Composable
 fun JournalScreen(
@@ -73,14 +74,10 @@ private fun JournalDeleteConfirmationDialog(
         title = { Text(text = target.title) },
         text = { Text(text = target.body) },
         confirmButton = {
-            AppTextButton(onClick = onConfirm) {
-                Text(text = "Remove")
-            }
+            AppDialogConfirmButton(text = "Remove", onClick = onConfirm, destructive = true)
         },
         dismissButton = {
-            AppTextButton(onClick = onDismiss) {
-                Text(text = "Cancel")
-            }
+            AppDialogDismissButton(text = "Cancel", onClick = onDismiss)
         },
     )
 }

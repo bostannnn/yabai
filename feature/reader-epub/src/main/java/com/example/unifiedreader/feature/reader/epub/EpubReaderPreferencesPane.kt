@@ -115,13 +115,10 @@ internal fun ColumnScope.EpubPreferencesPaneContent(
                 .fillMaxWidth()
                 .padding(start = 20.dp, end = 20.dp, top = 2.dp, bottom = 6.dp),
         ) {
-            EpubPreferencesTab.entries.forEachIndexed { index, tab ->
+            EpubPreferencesTab.entries.forEach { tab ->
                 AppSegment(
                     selected = tab == selectedTab,
                     onClick = { onSelectedTabChanged(tab) },
-                    index = index,
-                    count = EpubPreferencesTab.entries.size,
-                    icon = {},
                     label = { Text(text = tab.label) },
                 )
             }

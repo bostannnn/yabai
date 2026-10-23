@@ -65,12 +65,10 @@ internal fun FilterChipsSettingsPage(
         horizontalPadding = horizontalPadding,
     ) {
         AppSegmentedRow(modifier = Modifier.fillMaxWidth()) {
-            SourceType.entries.forEachIndexed { index, sourceType ->
+            SourceType.entries.forEach { sourceType ->
                 AppSegment(
                     selected = sourceType == selectedSource,
                     onClick = { selectedSource = sourceType },
-                    index = index,
-                    count = SourceType.entries.size,
                     label = { Text(text = sourceType.displayName()) },
                 )
             }

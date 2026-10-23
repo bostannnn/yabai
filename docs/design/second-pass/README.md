@@ -120,7 +120,9 @@ Mocks: `8.2-pill-controls.jpg`, `8.2-segmented.jpg`, `8.2-slider.jpg`, `8.2-dial
   end of the label row.
 - **Dialogs** (`AppDialog`): 380 dp wide, `surfaceContainerHigh`, 28 dp corners, 24 dp padding;
   optional 52 dp cover thumbnail before the title; title 24 Bold; body 14 `onSurfaceVariant`;
-  buttons are 42 dp pills, Cancel tonal and a destructive action filled with the error container.
+  buttons are 42 dp pills, Cancel tonal and a destructive action filled with the error colour
+  (`error` / `onError`, the pink fill the mock shows; `errorContainer` is a dark red on the dark
+  themes, as built 2026-10-23).
 - **Sheets** (`AppSheet`): our own handle (36 × 4 dp, 2 dp corners, `outline`), 28 dp top corners.
 - **Menus** (`AppMenu`): `surfaceContainerHigh`, 16 dp corners, 8 dp vertical padding. Section
   headings are 12.5 Bold `onSurfaceVariant` text, not disabled items. Rows are 44 dp with 18 dp side
@@ -194,7 +196,8 @@ Mocks: `8.4-filter-sheet.jpg`, `8.4-filter-list.jpg`, `8.4-sort-menu.jpg`, `8.4-
   52 dp: name, count, and a 22 dp round check (accent fill with a check, or a 2 dp ring). Footer
   "Show N books".
 - **Sort and view menu** (`AppMenu`, 300 dp, anchored under the sort chip): "Sort by" with a check
-  on the current sort; a divider; "View" with a "Fade read books" switch; "Cover size" as a
+  on the current sort; a divider; "View" with a "Fade read books" switch (the headings, the check
+  and the switch landed with the 8.2 kit, 2026-10-23); "Cover size" as a
   full-width segmented row: Small (140 dp cells), Medium (180, the default) and Large (240). The
   160 and 200 settings snap to Medium. This replaces "180dp cards · 6 cols".
 - **Top bar**: on 840 dp and wider, search is a field in the bar; on phones it stays an icon. The

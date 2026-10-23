@@ -52,8 +52,7 @@ fun ReaderCompletionDialog(
                 }
             }
         },
-        confirmButton = {},
-        dismissButton = {},
+        confirmButton = null,
     )
 }
 

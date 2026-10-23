@@ -99,9 +99,19 @@ fun AppTonalButton(
 
 object AppButtonDefaults {
     @Composable
+    fun filledColors(): ButtonColors = ButtonDefaults.buttonColors()
+
+    @Composable
     fun tonalColors(): ButtonColors = ButtonDefaults.buttonColors(
         containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
         contentColor = MaterialTheme.colorScheme.onSurface,
+    )
+
+    /** Remove, Delete: the error color, so the risky action reads as one. */
+    @Composable
+    fun destructiveColors(): ButtonColors = ButtonDefaults.buttonColors(
+        containerColor = MaterialTheme.colorScheme.error,
+        contentColor = MaterialTheme.colorScheme.onError,
     )
 }
 

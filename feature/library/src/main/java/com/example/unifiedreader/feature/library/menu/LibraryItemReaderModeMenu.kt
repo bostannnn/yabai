@@ -32,12 +32,10 @@ internal fun ReaderModeMenuRow(
 ) {
     val modes = ComicReaderMode.entries
     AppSegmentedRow(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-        modes.forEachIndexed { index, mode ->
+        modes.forEach { mode ->
             AppSegment(
                 selected = mode == state.selectedMode,
                 onClick = { onModeSelected(mode) },
-                index = index,
-                count = modes.size,
                 label = { Text(text = mode.label) },
             )
         }

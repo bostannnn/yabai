@@ -269,11 +269,11 @@ private fun ColumnScope.AppFloatingPanelHandle() {
         modifier = Modifier
             .align(Alignment.CenterHorizontally)
             .padding(top = 10.dp, bottom = 2.dp)
-            .width(32.dp)
-            .height(4.dp)
+            .width(AppSheetDefaults.handleWidth)
+            .height(AppSheetDefaults.handleHeight)
             .background(
-                color = MaterialTheme.colorScheme.outlineVariant,
-                shape = RoundedCornerShape(2.dp),
+                color = MaterialTheme.colorScheme.outline,
+                shape = RoundedCornerShape(AppSheetDefaults.handleCornerRadius),
             ),
     )
 }
@@ -367,12 +367,15 @@ object AppFloatingPanelDefaults {
     val scrimColor: Color
         @Composable get() = MaterialTheme.colorScheme.scrim.copy(alpha = scrimAlpha)
 
-    /** Container radius; a bottom sheet rounds only its top corners. */
+    /** Container radius; a bottom sheet rounds only its top corners, like [AppSheet]. */
     @Composable
     fun shape(mode: AppFloatingPanelMode): Shape {
         val radius = UnifiedReaderThemeTokens.presentation.cardCornerRadius
         return when (mode) {
-            AppFloatingPanelMode.BottomSheet -> RoundedCornerShape(topStart = radius, topEnd = radius)
+            AppFloatingPanelMode.BottomSheet -> RoundedCornerShape(
+                topStart = AppSheetDefaults.cornerRadius,
+                topEnd = AppSheetDefaults.cornerRadius,
+            )
             AppFloatingPanelMode.EdgePanel,
             AppFloatingPanelMode.AnchoredCard -> RoundedCornerShape(radius)
         }

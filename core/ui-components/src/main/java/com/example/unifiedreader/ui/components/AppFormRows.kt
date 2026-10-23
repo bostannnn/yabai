@@ -128,14 +128,12 @@ fun <T> AppChoiceRow(
         controlWidth = controlWidth,
     ) { controlModifier ->
         AppSegmentedRow(modifier = controlModifier) {
-            options.forEachIndexed { index, option ->
+            options.forEach { option ->
                 AppSegment(
                     selected = option == selected,
                     onClick = { onSelected(option) },
-                    index = index,
-                    count = options.size,
                     enabled = enabled,
-                    icon = { optionIcon?.invoke(option) },
+                    icon = optionIcon?.let { optionIcon -> { optionIcon(option) } },
                     label = {
                         Text(
                             text = optionLabel(option),

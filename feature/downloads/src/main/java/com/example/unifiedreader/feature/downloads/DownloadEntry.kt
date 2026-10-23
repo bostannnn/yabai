@@ -97,9 +97,44 @@ data class DownloadEntriesSnapshot(
             entry.status == DownloadEntryStatus.Completed || entry.status == DownloadEntryStatus.Canceled
         }
 
-    val badgeCount: Int
-        get() = activeEntries.size + failedEntries.size
+    /**
+     * The Downloads button: files finished out of the files in this run, where the run is the
+     * active entries plus the entries that completed since the oldest of them was queued.
+     */
+    val buttonState: DownloadsButtonState
+        get() {
+            val active = activeEntries
+            if (active.isEmpty()) return DownloadsButtonState(hasFailed = failedEntries.isNotEmpty())
+            val runStartedAt = active.minOf(DownloadEntry::createdAtEpochMillis)
+            val run = active + entries.filter { entry ->
+                entry.status == DownloadEntryStatus.Completed &&
+                    (entry.completedAtEpochMillis ?: entry.updatedAtEpochMillis) >= runStartedAt
+            }
+            val total = run.sumOf(DownloadEntry::totalItemCount)
+            val completed = run.sumOf { entry -> entry.completedItemCount.coerceAtMost(entry.totalItemCount) }
+            val running = active.any { entry -> entry.status == DownloadEntryStatus.Running }
+            return DownloadsButtonState(
+                activeCount = active.size,
+                progress = when {
+                    total == 0 -> 0f
+                    completed == 0 && running -> null
+                    else -> completed.toFloat() / total
+                },
+                hasFailed = failedEntries.isNotEmpty(),
+            )
+        }
 
     val activeTrackedItemIds: Set<String>
         get() = activeEntries.flatMapTo(linkedSetOf()) { entry -> entry.trackedItemIds }
 }
+
+/**
+ * What the Downloads button shows: a ring while [activeCount] entries are queued or running, full
+ * to [progress] (null while the first file of the run is still downloading), and a dot when an
+ * entry failed and nothing is running.
+ */
+data class DownloadsButtonState(
+    val activeCount: Int = 0,
+    val progress: Float? = 0f,
+    val hasFailed: Boolean = false,
+)

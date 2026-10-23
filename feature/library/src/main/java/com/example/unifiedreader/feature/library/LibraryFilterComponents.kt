@@ -17,7 +17,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -39,6 +38,7 @@ import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.ui.components.AppChip
+import com.example.unifiedreader.ui.components.AppChipDefaults
 import com.example.unifiedreader.ui.components.AppDialogDefaults
 import com.example.unifiedreader.ui.components.AppDialogHost
 import com.example.unifiedreader.ui.components.AppDivider
@@ -149,13 +149,11 @@ internal fun LibraryFilterSummary(
             selected = !filterState.isEmpty,
             enabled = filtersEnabled,
             onClick = { onOpenFilterPanel(null) },
-            colors = libraryAccentFilterChipColors(),
-            shape = libraryAccentFilterChipShape(),
             leadingIcon = {
                 Icon(
                     imageVector = AppIcons.FilterList,
                     contentDescription = null,
-                    modifier = Modifier.size(FilterChipDefaults.IconSize),
+                    modifier = Modifier.size(AppChipDefaults.iconSize),
                 )
             },
             label = {
@@ -202,8 +200,6 @@ private fun LibraryFacetChip(
         selected = selected,
         enabled = enabled,
         onClick = onClick,
-        colors = libraryAccentFilterChipColors(),
-        shape = libraryAccentFilterChipShape(),
         label = {
             Text(
                 text = if (showCount && count > 0) "$label ($count)" else label,
@@ -217,7 +213,7 @@ private fun LibraryFacetChip(
                     imageVector = AppIcons.Close,
                     contentDescription = "Remove $label filter",
                     modifier = Modifier
-                        .size(FilterChipDefaults.IconSize)
+                        .size(AppChipDefaults.iconSize)
                         .clickable(onClick = remove),
                 )
             }

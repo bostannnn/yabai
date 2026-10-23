@@ -33,12 +33,12 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
-import com.example.unifiedreader.ui.components.AppButton
 import com.example.unifiedreader.ui.components.AppCircularProgress
 import com.example.unifiedreader.ui.components.AppDialogCard
 import com.example.unifiedreader.ui.components.AppDialogCardDefaults
+import com.example.unifiedreader.ui.components.AppDialogConfirmButton
+import com.example.unifiedreader.ui.components.AppDialogDismissButton
 import com.example.unifiedreader.ui.components.AppIcons
-import com.example.unifiedreader.ui.components.AppTonalButton
 import com.example.unifiedreader.ui.components.appProgressFill
 import kotlin.math.roundToInt
 
@@ -188,15 +188,10 @@ private fun RowScope.DialogButton(
     button: AppUpdateButton,
     onAction: (AppUpdateAction) -> Unit,
 ) {
-    val modifier = Modifier.height(AppDialogCardDefaults.buttonHeight)
     if (button.filled) {
-        AppButton(onClick = { onAction(button.action) }, modifier = modifier) {
-            Text(text = button.label, style = MaterialTheme.typography.labelLarge)
-        }
+        AppDialogConfirmButton(text = button.label, onClick = { onAction(button.action) })
     } else {
-        AppTonalButton(onClick = { onAction(button.action) }, modifier = modifier) {
-            Text(text = button.label, style = MaterialTheme.typography.labelLarge)
-        }
+        AppDialogDismissButton(text = button.label, onClick = { onAction(button.action) })
     }
 }
 
