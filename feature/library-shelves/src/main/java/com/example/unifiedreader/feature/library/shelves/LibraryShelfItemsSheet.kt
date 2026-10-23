@@ -73,6 +73,7 @@ enum class LibraryShelfBrowserKind {
     RecentlyFinished,
 }
 
+/** A shelf's "See all" page; its title is the tab's name ("In progress", "Up next", "Finished"). */
 sealed interface LibraryShelfBrowserState {
     val kind: LibraryShelfBrowserKind
     val title: String
@@ -82,7 +83,7 @@ sealed interface LibraryShelfBrowserState {
         val items: List<ContinueReadingShelfItem>,
     ) : LibraryShelfBrowserState {
         override val kind: LibraryShelfBrowserKind = LibraryShelfBrowserKind.ContinueReading
-        override val title: String = "Continue Reading"
+        override val title: String = "In progress"
         override val count: Int = items.size
     }
 
@@ -90,7 +91,7 @@ sealed interface LibraryShelfBrowserState {
         val items: List<NextInSeriesShelfItem>,
     ) : LibraryShelfBrowserState {
         override val kind: LibraryShelfBrowserKind = LibraryShelfBrowserKind.NextInSeries
-        override val title: String = "Up Next"
+        override val title: String = "Up next"
         override val count: Int = items.size
     }
 
@@ -98,7 +99,7 @@ sealed interface LibraryShelfBrowserState {
         val items: List<RecentlyFinishedShelfItem>,
     ) : LibraryShelfBrowserState {
         override val kind: LibraryShelfBrowserKind = LibraryShelfBrowserKind.RecentlyFinished
-        override val title: String = "Recently Finished"
+        override val title: String = "Finished"
         override val count: Int = items.size
     }
 }
@@ -862,19 +863,10 @@ private fun shelfBrowserSortModes(
     }
 }
 
+/** The meta line under a cover: neutral, like the grid's, whichever shelf it is. */
 @Composable
-private fun LibraryShelfBrowserEntry.accentColor(): Color = when (kind) {
-    LibraryShelfBrowserKind.ContinueReading -> UnifiedReaderThemeTokens.colors.readerAccent
-    LibraryShelfBrowserKind.NextInSeries -> UnifiedReaderThemeTokens.colors.sourceAccent
-    LibraryShelfBrowserKind.RecentlyFinished -> UnifiedReaderThemeTokens.colors.syncAccent
-}
+private fun LibraryShelfBrowserEntry.accentColor(): Color = MaterialTheme.colorScheme.onSurfaceVariant
 
-@Composable
-private fun LibraryShelfBrowserKind.accentColor(): Color = when (this) {
-    LibraryShelfBrowserKind.ContinueReading -> UnifiedReaderThemeTokens.colors.readerAccent
-    LibraryShelfBrowserKind.NextInSeries -> UnifiedReaderThemeTokens.colors.sourceAccent
-    LibraryShelfBrowserKind.RecentlyFinished -> UnifiedReaderThemeTokens.colors.syncAccent
-}
 
 private fun ReadableItem.compactMetadataText(): String? = buildList {
     pageCount?.takeIf { count -> count > 0 }?.let { count -> add("$count pages") }
@@ -916,8 +908,9 @@ internal enum class ShelfBrowserSortMode {
 private fun ShelfBrowserSortMode.label(
     kind: LibraryShelfBrowserKind,
 ): String = when (this) {
+    // The names the library's own sort menu uses.
     ShelfBrowserSortMode.ShelfOrder -> when (kind) {
-        LibraryShelfBrowserKind.ContinueReading -> "Recently read"
+        LibraryShelfBrowserKind.ContinueReading -> "Last read"
         LibraryShelfBrowserKind.NextInSeries -> "Shelf order"
         LibraryShelfBrowserKind.RecentlyFinished -> "Recently finished"
     }

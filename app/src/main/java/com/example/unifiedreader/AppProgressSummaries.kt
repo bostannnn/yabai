@@ -9,6 +9,7 @@ import com.example.unifiedreader.feature.reader.core.ReaderChapterPosition
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
 import com.example.unifiedreader.feature.reader.core.chapterPosition
+import kotlin.math.roundToInt
 
 internal fun buildProgressSummaries(
     items: List<ReadableItem>,
@@ -101,7 +102,7 @@ private fun buildPercentProgressSummary(
     } else {
         percent?.coerceIn(0.0, 1.0) ?: return null
     }
-    val percentLabel = (normalizedPercent * 100).toInt()
+    val percentLabel = (normalizedPercent * 100).roundToInt()
     return ItemProgressSummary(
         label = if (isFinished) "Finished" else "Resume at $percentLabel%",
         fraction = normalizedPercent.toFloat(),

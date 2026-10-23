@@ -235,9 +235,10 @@ fun KavitaScopeLandingScreen(
                         }
                     }
                 },
+                // Under the floating top bar, like the library's rail.
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
-                    .padding(end = 8.dp, top = 8.dp, bottom = 8.dp),
+                    .padding(end = 8.dp, top = contentTopInset + 8.dp, bottom = 8.dp),
             )
         }
         AnimatedVisibility(
@@ -379,7 +380,7 @@ private fun KavitaScopeLandingEmptyState(
 }
 
 private fun Int.itemCountLabel(): String =
-    if (this == 1) "1 Item" else "$this Items"
+    if (this == 1) "1 item" else "$this items"
 
 private fun String.initialsFallback(): String {
     val initials = trim()

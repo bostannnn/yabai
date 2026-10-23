@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -155,9 +156,9 @@ internal fun LibraryBackToTopButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val presentation = UnifiedReaderThemeTokens.presentation
     val semanticColors = UnifiedReaderThemeTokens.colors
-    val shape = RoundedCornerShape(presentation.controlCornerRadius)
+    // A round control, as the spec has every control a pill.
+    val shape = CircleShape
     Box(
         modifier = modifier
             .size(48.dp)

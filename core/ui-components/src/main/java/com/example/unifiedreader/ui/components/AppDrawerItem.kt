@@ -19,8 +19,8 @@ import androidx.compose.ui.unit.sp
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 /**
- * One destination in the navigation drawer. The selected destination is a solid accent pill
- * on the control radius; unselected rows are muted.
+ * One destination in the navigation drawer. The selected destination sits on the selected
+ * container, as a selected settings row or chip does; unselected rows are muted.
  */
 @Composable
 fun AppDrawerItem(
@@ -50,9 +50,9 @@ object AppDrawerItemDefaults {
     fun colors(): NavigationDrawerItemColors {
         val semanticColors = UnifiedReaderThemeTokens.colors
         return NavigationDrawerItemDefaults.colors(
-            selectedContainerColor = semanticColors.readerAccent,
-            selectedIconColor = semanticColors.onReaderAccent,
-            selectedTextColor = semanticColors.onReaderAccent,
+            selectedContainerColor = semanticColors.surfaceSelected,
+            selectedIconColor = semanticColors.onSurfaceSelected,
+            selectedTextColor = semanticColors.onSurfaceSelected,
             unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
             unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -71,8 +71,8 @@ fun AppDrawerBadge(
     val semanticColors = UnifiedReaderThemeTokens.colors
     AppBadge(
         shape = CircleShape,
-        color = if (selected) semanticColors.onReaderAccent else MaterialTheme.colorScheme.primary,
-        contentColor = if (selected) semanticColors.readerAccent else MaterialTheme.colorScheme.onPrimary,
+        color = if (selected) semanticColors.onSurfaceSelected else MaterialTheme.colorScheme.primary,
+        contentColor = if (selected) semanticColors.surfaceSelected else MaterialTheme.colorScheme.onPrimary,
     ) {
         Text(
             text = text,

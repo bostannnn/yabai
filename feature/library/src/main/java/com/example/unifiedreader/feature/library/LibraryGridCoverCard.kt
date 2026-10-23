@@ -64,6 +64,7 @@ internal fun GridCoverCard(
         isDownloaded = isDownloaded,
         isRead = progress?.isComplete == true,
         fadeRead = fadeRead,
+        showReadBadge = !isSelectionMode,
         onClick = if (isSelectionMode) onSelectionToggle else onClick,
         onLongClick = onSelectionStart.takeUnless { isSelectionMode },
         modifier = modifier

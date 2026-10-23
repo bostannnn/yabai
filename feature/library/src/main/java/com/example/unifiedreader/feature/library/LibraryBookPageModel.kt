@@ -105,7 +105,9 @@ internal fun libraryBookPageText(
     val facts = buildList {
         val pages = item.pageCount?.takeIf { it > 0 && item.kind == ReadableItemKind.COMIC }
         add("Format" to listOfNotNull(item.format.name, pages?.let { count -> "$count pages" }).joinToString(" · "))
-        facets.languages.takeIf(List<String>::isNotEmpty)?.let { add("Language" to it.joinToString(", ")) }
+        facets.languages.takeIf(List<String>::isNotEmpty)?.let { languages ->
+            add("Language" to languages.map(::libraryLanguageName).distinct().joinToString(", "))
+        }
         facets.publishers.takeIf(List<String>::isNotEmpty)?.let { add("Publisher" to it.joinToString(", ")) }
     }
     return LibraryBookPageText(
@@ -195,11 +197,29 @@ private fun dateFormatter(read: LocalDate, today: LocalDate): DateTimeFormatter 
     }
 
 /**
+ * A language as people read it: "en" is "English", "pt-BR" "Portuguese (Brazil)", in [locale]'s
+ * words. A value that is not a language code (already "English", say) stays as it is.
+ */
+internal fun libraryLanguageName(value: String, locale: Locale = Locale.getDefault()): String {
+    val code = value.trim()
+    if (!LanguageCodePattern.matches(code)) return code
+    val language = Locale.forLanguageTag(code.replace('_', '-'))
+    return language.getDisplayName(locale)
+        .takeIf { name -> name.isNotBlank() && !name.equals(code, ignoreCase = true) }
+        ?.replaceFirstChar { first -> first.titlecase(locale) }
+        ?: code
+}
+
+private val LanguageCodePattern = Regex("(?i)^[a-z]{2,3}([-_][a-z0-9]{2,8})*$")
+
+/**
  * A server summary or an EPUB's `dc:description` as plain text: paragraphs and line breaks kept
  * as single new lines (a blank line would take one of the four lines the page shows folded),
- * every other tag dropped, the common entities decoded.
+ * every other tag dropped, the common entities decoded, and Markdown links (Kavita's AniList
+ * summaries) reduced to their text.
  */
 internal fun plainTextDescription(raw: String): String = raw
+    .replace(Regex("\\[([^\\]]+)]\\((?:https?://|www\\.)[^)\\s]*\\)"), "$1")
     .replace(Regex("(?i)<br\\s*/?>"), "\n")
     .replace(Regex("(?i)</(p|div|li|h[1-6])>"), "\n")
     .replace(Regex("<[^>]*>"), "")
@@ -279,6 +299,8 @@ internal fun libraryBookPageRelated(
             .filter { (_, shared) -> shared >= SimilarSharedThemes }
             .sortedWith(compareByDescending<Pair<ReadableItem, Int>> { it.second }.thenBy { it.first.title.lowercase() })
             .map { it.first }
+            // One book per series: four volumes of one manga are one suggestion, not four.
+            .distinctBy { other -> other.facetMetadata().series.firstOrNull()?.lowercase() ?: other.id }
             .take(SimilarLimit)
             .toList()
     }

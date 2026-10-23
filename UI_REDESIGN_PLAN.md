@@ -814,6 +814,10 @@ both lines), and the fixes that show on a Local library were checked on `yabai_r
 build, Graphite, High Contrast and Paper, portrait and 1280 dp landscape). The Kavita-only ones
 (volume names, series card width, selection bar, paged filter count) wait for the tablet.
 
+The "Wrong or inconsistent" group is fixed too (same worktree): unit tests pass (1397), and the
+items marked "Checked" were seen on `yabai_review_35` at 1280 dp landscape in Graphite. The rest
+need a server source (Kavita titles, Collections, selection) or are unit-tested only.
+
 Broken:
 
 - [x] Settings: a selected row (Theme, the open source page) keeps its icon, supporting text, value
@@ -872,37 +876,63 @@ Broken:
 
 Wrong or inconsistent:
 
-- [ ] Book page description keeps Markdown links ("[Official English](https://www.viz.com/…)");
+- [x] Book page description keeps Markdown links ("[Official English](https://www.viz.com/…)");
       only HTML is stripped. Language shows the raw code "en".
-- [ ] Book page: a cover in More by / Similar replaces the page, and Back then closes the sheet
+      Fixed: Markdown links keep their text; languages read as names (`libraryLanguageName`).
+- [x] Book page: a cover in More by / Similar replaces the page, and Back then closes the sheet
       instead of returning to the first book.
-- [ ] Book page: Similar can be four volumes of one series (Fire Punch); Chainsaw Man has 28 tag
+      Fixed: the route keeps a stack of pages; Back or the new arrow returns, × closes them all.
+      Checked on the emulator.
+- [x] Book page: Similar can be four volumes of one series (Fire Punch); Chainsaw Man has 28 tag
       chips, which push More by and Similar far down.
-- [ ] Book page Reading rows: "Direction" and "Open as" sit 20 dp right of the "Reading" heading
+      Fixed: Similar takes one book per series; chips fold to ten with "+N more".
+- [x] Book page Reading rows: "Direction" and "Open as" sit 20 dp right of the "Reading" heading
       and the About text.
-- [ ] Percentages disagree between card and reader: 38% vs 39% (78/202), 63% vs 64% (134/209).
-- [ ] Selection mode: a read cover shows two checks, the read badge top left and the selection ring
+      Fixed: the page no longer pads the rows on top of `AppFormRow`'s own 20 dp.
+- [x] Percentages disagree between card and reader: 38% vs 39% (78/202), 63% vs 64% (134/209).
+      Fixed: the library rounds as the readers do (it truncated).
+- [x] Selection mode: a read cover shows two checks, the read badge top left and the selection ring
       top right.
-- [ ] Content scrolls into the 12 dp gap above the floating top bar: in Settings the white selected
+      Fixed: the read badge hides while selecting (`showReadBadge`); the fade stays.
+- [x] Content scrolls into the 12 dp gap above the floating top bar: in Settings the white selected
       row shows as a strip above the bar.
-- [ ] Top bar: the hidden source name still takes its width, so "Online" floats ~80 dp from the
+      Fixed: `AppTopBar` paints the screen background over the status bar and half the gap, then
+      fades, while its glass shows. Checked on the emulator.
+- [x] Top bar: the hidden source name still takes its width, so "Online" floats ~80 dp from the
       menu button (and from the back arrow in the series view).
-- [ ] Collections: the A-Z scroller starts under the top bar ("A" hidden); "56 Items" capitalised.
-- [ ] Stump, not connected, says "Nothing here yet. Books added to Stump show up here after the next
+      Fixed: the hidden name's width animates with its fade, so the badge slides in beside it.
+- [x] Collections: the A-Z scroller starts under the top bar ("A" hidden); "56 Items" capitalised.
+      Fixed: the rail starts under the bar, as the library's does; "56 items".
+- [x] Stump, not connected, says "Nothing here yet. Books added to Stump show up here after the next
       sync." It should say it isn't connected and offer Connect.
-- [ ] Downloads sheet: some finished downloads keep a full white progress bar, others none; on a
+      Fixed: "Stump isn't connected" with Connect Stump (opens Settings), for any server source
+      with no stored session. Checked on the emulator.
+- [x] Downloads sheet: some finished downloads keep a full white progress bar, others none; on a
       1292 dp landscape screen it is a 700 dp bottom sheet.
-- [ ] Shelf strip third lines: Up next in blue, Finished in amber, neither from the theme or cover.
-- [ ] EPUB contents: nested entries are smaller and muted next to their parents (the spec has indent
+      Fixed: finished downloads have no bar; the sheet is an `AppSideSheet` (a bottom sheet on
+      phones), like the filters and the book page. Its full pass is still 8.9.
+- [x] Shelf strip third lines: Up next in blue, Finished in amber, neither from the theme or cover.
+      Fixed: every shelf's meta line is `onSurfaceVariant`, in the strip and on See all.
+- [x] EPUB contents: nested entries are smaller and muted next to their parents (the spec has indent
       only), and every chapter is muted (clear in Paper), so read and unread look the same.
-- [ ] EPUB contents in portrait: when the list is shorter than the panel, the "Chapter 10 of 18"
+      Fixed: one size for every entry, a 22 dp indent per level (the spec), unread entries bright,
+      read ones muted with a 16 dp check, page numbers in a fixed column. Checked on the emulator.
+- [x] EPUB contents in portrait: when the list is shorter than the panel, the "Chapter 10 of 18"
       footer sits right under the last entry, mid-panel, with the panel empty below it.
-- [ ] Paper: the drawer marks the current page with a dark filled pill, Settings with a light one.
-- [ ] See all opens "Continue Reading · 14 items" from the tab "In progress 13"; its sort chip says
+      Fixed: the list fills the panel, so the footer stays at the bottom. Checked on the emulator.
+- [x] Paper: the drawer marks the current page with a dark filled pill, Settings with a light one.
+      Fixed: the drawer's selected row is `surfaceSelected`, the spec's selected role.
+- [x] See all opens "Continue Reading · 14 items" from the tab "In progress 13"; its sort chip says
       "Recently read" where the library says "Last read".
-- [ ] Reading card: a two-line title puts the author directly on the page line.
-- [ ] Smaller: the remove dialog still has no cover; the strip's "Downloaded" badge is a download
+      Fixed: See all is titled like its tab ("In progress", "Up next", "Finished") and sorts by
+      "Last read"; the In progress tab counts the whole shelf (as the header and See all do), its
+      strip still leaves out the card's book.
+- [x] Reading card: a two-line title puts the author directly on the page line.
+      Fixed: at least 12 dp between the author and the page line.
+- [x] Smaller: the remove dialog still has no cover; the strip's "Downloaded" badge is a download
       arrow; the scroll-to-top button is a rounded square, not a pill.
+      Fixed: the remove dialog shows the cover (checked on the emulator), the badge is the
+      done-download icon, the button is round.
 
 Measured (release build, 120 Hz): the idle Kavita library drew 0 frames in 10 s; six grid flings drew
 2174 frames with 1 missed deadline (p50 12 ms, p90 18 ms, p99 28 ms). `LibraryPerf`: one cover

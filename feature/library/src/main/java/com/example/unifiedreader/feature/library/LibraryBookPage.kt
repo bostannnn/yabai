@@ -28,6 +28,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -55,9 +56,11 @@ import com.example.unifiedreader.ui.components.AppChoiceRow
 import com.example.unifiedreader.ui.components.AppDivider
 import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
+import com.example.unifiedreader.ui.components.AppScreenBackHandler
 import com.example.unifiedreader.ui.components.AppSideSheet
 import com.example.unifiedreader.ui.components.AppTextButton
 import com.example.unifiedreader.ui.components.AppTonalButton
+import com.example.unifiedreader.ui.components.LocalAppScreenBackGesture
 import com.example.unifiedreader.ui.components.appProgressFill
 import com.example.unifiedreader.ui.theme.AppCoverColors
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
@@ -70,6 +73,7 @@ import kotlinx.coroutines.withContext
  * facts, and rows of more in its series, more by its author and similar books. [relatedPool] is
  * where those rows come from (the books of its source); a cover there shows that book's page.
  * A genre or tag filters the library when [onFilterByGenre] / [onFilterByTag] are given.
+ * [onBack], when given, returns to the book this page was opened from (Back, or the arrow).
  */
 @Composable
 fun LibraryBookPage(
@@ -81,6 +85,7 @@ fun LibraryBookPage(
     onShowBook: (ReadableItem) -> Unit,
     onDeleteImported: (ReadableItem) -> Unit,
     onDismiss: () -> Unit,
+    onBack: (() -> Unit)? = null,
     onFilterByGenre: ((String) -> Unit)? = null,
     onFilterByTag: ((String) -> Unit)? = null,
     // "See all" on the series row; given the page's book.
@@ -112,6 +117,11 @@ fun LibraryBookPage(
     // A cover in the rows swaps the page's book; the new one starts at its top.
     val listState = remember(item.id) { LazyListState() }
     AppSideSheet(onDismissRequest = onDismiss, width = LibraryBookPageWidth) {
+        // Back steps to the previous book before it closes the sheet. Not the screen host's
+        // gesture: the library under the sheet stays put.
+        CompositionLocalProvider(LocalAppScreenBackGesture provides null) {
+            AppScreenBackHandler(enabled = onBack != null) { onBack?.invoke() }
+        }
         LazyColumn(
             state = listState,
             modifier = Modifier.weight(1f),
@@ -131,12 +141,14 @@ fun LibraryBookPage(
                     },
                     onRemoveImported = { confirmRemove = true },
                     onClose = { dismiss() },
+                    onBack = onBack,
                 )
             }
             val direction = actionContext.seriesReadingDirectionFor(item)
             val mode = actionContext.seriesReaderModeFor(item)
             if (direction != null || mode != null) {
                 item(key = "reading") {
+                    // AppChoiceRow pads itself 20 dp, in line with the heading and About.
                     Column(modifier = Modifier.padding(top = 8.dp)) {
                         LibraryBookPageHeading(text = "Reading")
                         direction?.let { selected ->
@@ -146,7 +158,6 @@ fun LibraryBookPage(
                                 selected = selected,
                                 onSelected = { picked -> actionContext.onSeriesDirectionSelected(item, picked) },
                                 optionLabel = ComicReadingDirection::pageLabel,
-                                modifier = Modifier.padding(horizontal = 20.dp),
                             )
                         }
                         mode?.let { selected ->
@@ -156,7 +167,6 @@ fun LibraryBookPage(
                                 selected = selected,
                                 onSelected = { picked -> actionContext.onSeriesReaderModeSelected(item, picked) },
                                 optionLabel = ComicReaderMode::label,
-                                modifier = Modifier.padding(horizontal = 20.dp),
                             )
                         }
                     }
@@ -205,6 +215,7 @@ fun LibraryBookPage(
     if (confirmRemove) {
         LibraryDeleteImportedItemDialog(
             item = item,
+            coverImageUrlProvider = coverImageUrlProvider,
             onDismiss = { confirmRemove = false },
             onConfirmDelete = { removed ->
                 confirmRemove = false
@@ -226,6 +237,7 @@ private fun LibraryBookPageTop(
     onOpen: () -> Unit,
     onRemoveImported: () -> Unit,
     onClose: () -> Unit,
+    onBack: (() -> Unit)?,
 ) {
     val secondaryText = tint.content.copy(alpha = SecondaryTextAlpha)
     Box(
@@ -339,13 +351,19 @@ private fun LibraryBookPageTop(
                 )
             }
         }
-        AppIconButton(
-            onClick = onClose,
+        Row(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(8.dp),
         ) {
-            Icon(imageVector = AppIcons.Close, contentDescription = "Close book page", tint = tint.content)
+            onBack?.let { back ->
+                AppIconButton(onClick = back) {
+                    Icon(imageVector = AppIcons.ArrowBack, contentDescription = "Previous book", tint = tint.content)
+                }
+            }
+            AppIconButton(onClick = onClose) {
+                Icon(imageVector = AppIcons.Close, contentDescription = "Close book page", tint = tint.content)
+            }
         }
     }
 }
@@ -441,7 +459,12 @@ private fun LibraryBookPageAbout(
                 Spacer(modifier = Modifier.height(8.dp))
             }
         }
-        val chips = text.genres.map { genre -> genre to onFilterByGenre } + text.tags.map { tag -> tag to onFilterByTag }
+        val allChips = (text.genres.map { genre -> genre to onFilterByGenre } + text.tags.map { tag -> tag to onFilterByTag })
+            .distinctBy { (value, _) -> value.lowercase() }
+        var showAllChips by rememberSaveable(text.genres, text.tags) { mutableStateOf(false) }
+        // Genres come first, so a folded list keeps them and cuts the long tail of tags.
+        val chips = if (showAllChips) allChips else allChips.take(BookPageFoldedChipCount)
+        val hiddenChips = allChips.size - chips.size
         if (chips.isNotEmpty()) {
             FlowRow(
                 modifier = Modifier
@@ -450,7 +473,7 @@ private fun LibraryBookPageAbout(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                chips.distinctBy { (value, _) -> value.lowercase() }.forEach { (value, filter) ->
+                chips.forEach { (value, filter) ->
                     AppChip(
                         selected = false,
                         onClick = { filter?.invoke(value) },
@@ -458,6 +481,14 @@ private fun LibraryBookPageAbout(
                         modifier = Modifier.height(LibraryBookPageChipHeight),
                         label = { Text(text = value, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     )
+                }
+                if (hiddenChips > 0) {
+                    AppTextButton(
+                        onClick = { showAllChips = true },
+                        modifier = Modifier.height(LibraryBookPageChipHeight),
+                    ) {
+                        Text(text = "+$hiddenChips more", fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
         }
@@ -565,6 +596,9 @@ private val LibraryBookPageWidth = 440.dp
 private const val SecondaryTextAlpha = 0.74f
 private val LibraryBookPageCoverWidth = 118.dp
 private val LibraryBookPageChipHeight = 30.dp
+
+/** Genre and tag chips shown before "+N more". */
+private const val BookPageFoldedChipCount = 10
 private val LibraryBookPageFactLabelWidth = 110.dp
 private val RelatedCoverGap = 12.dp
 private const val DescriptionCollapsedLines = 4

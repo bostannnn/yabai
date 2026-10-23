@@ -8,6 +8,7 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.buildKavitaSeriesContainer
 import java.time.LocalDateTime
 import java.time.ZoneOffset
+import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -71,6 +72,34 @@ class LibraryBookPageModelTest {
             plainTextDescription("<p>Kai has <b>one</b> night.</p><p>The second issue &amp; more.</p>"),
         )
         assertEquals("Line one\nLine two", plainTextDescription("Line one<br/>Line two"))
+        // Kavita's AniList summaries end with Markdown links.
+        assertEquals(
+            "Yuta meets Eri. Official English",
+            plainTextDescription("Yuta meets Eri. [Official English](https://www.viz.com/manga-books/goodbye-eri/7484)"),
+        )
+        assertEquals("A [bracketed] aside", plainTextDescription("A [bracketed] aside"))
+    }
+
+    @Test
+    fun `languages read as names, not codes`() {
+        assertEquals("English", libraryLanguageName("en", Locale.ENGLISH))
+        assertEquals("Japanese", libraryLanguageName("ja", Locale.ENGLISH))
+        assertEquals("Portuguese (Brazil)", libraryLanguageName("pt-BR", Locale.ENGLISH))
+        assertEquals("English", libraryLanguageName("English", Locale.ENGLISH))
+    }
+
+    @Test
+    fun `similar shows one book per series`() {
+        val item = issue(id = "x", number = "1", series = "Chainsaw Man", genres = listOf("Action", "Horror"))
+        val fire = (1..4).map { number ->
+            issue(id = "f$number", number = "$number", series = "Fire Punch", genres = listOf("Action", "Horror"))
+        }
+        val other = issue(id = "o", number = "1", series = "Dorohedoro", genres = listOf("Action", "Horror"))
+
+        val related = libraryBookPageRelated(item = item, pool = fire + other + item)
+
+        // Ties go by title: Dorohedoro, then the first Fire Punch volume only.
+        assertEquals(listOf("o", "f1"), related.similar.map { it.remoteId })
     }
 
     @Test

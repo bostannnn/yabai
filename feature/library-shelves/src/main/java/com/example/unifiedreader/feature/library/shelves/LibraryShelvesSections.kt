@@ -46,7 +46,6 @@ import com.example.unifiedreader.feature.library.isDownloaded
 import com.example.unifiedreader.feature.library.menu.LibraryItemMenuButtonStyle
 import com.example.unifiedreader.ui.components.AppTextButton
 import com.example.unifiedreader.ui.theme.AppMotion
-import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 /** The three shelves as tabs, in their fixed order. */
 internal enum class LibraryShelfTab(
@@ -59,14 +58,16 @@ internal enum class LibraryShelfTab(
 }
 
 /**
- * The tabs that have something to show, with their counts. In progress leaves out the book the
- * reading card already shows ([readingCardItemId]).
+ * The tabs that have something to show, with their counts. The counts are the whole shelf, as the
+ * header and See all say; In progress's strip leaves out the book the reading card already shows
+ * ([readingCardItemId]), so that tab only shows when there is another one.
  */
 internal fun libraryShelfTabCounts(
     state: LibraryShelvesState,
     readingCardItemId: String?,
-): List<Pair<LibraryShelfTab, Int>> = listOf(
-    LibraryShelfTab.InProgress to state.continueReading.count { it.item.id != readingCardItemId },
+): List<Pair<LibraryShelfTab, Int>> = listOfNotNull(
+    (LibraryShelfTab.InProgress to state.continueReading.size)
+        .takeIf { state.continueReading.any { it.item.id != readingCardItemId } },
     LibraryShelfTab.UpNext to state.nextInSeries.size,
     LibraryShelfTab.Finished to state.recentlyFinished.size,
 ).filter { (_, count) -> count > 0 }
@@ -145,7 +146,7 @@ internal fun LibraryShelfTabsBand(
                                 item = shelfItem.item,
                                 supportingText = continueReadingSupportingText(shelfItem.item),
                                 trailingText = shelfItem.progress.detailLabel,
-                                accentColor = UnifiedReaderThemeTokens.colors.readerAccent,
+                                accentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                 progress = shelfItem.progress,
                                 itemActionContext = itemActionContext,
                                 coverImageUrlProvider = coverImageUrlProvider,
@@ -158,7 +159,7 @@ internal fun LibraryShelfTabsBand(
                             item = shelfItem.item,
                             supportingText = shelfItem.item.librarySecondaryText() ?: shelfItem.item.title,
                             trailingText = "After ${shelfItem.currentItem.librarySecondaryText() ?: shelfItem.currentItem.title}",
-                            accentColor = UnifiedReaderThemeTokens.colors.sourceAccent,
+                            accentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             progress = itemActionContext.progressByItemId[shelfItem.item.id],
                             itemActionContext = itemActionContext,
                             coverImageUrlProvider = coverImageUrlProvider,
@@ -176,7 +177,7 @@ internal fun LibraryShelfTabsBand(
                                 DateUtils.MINUTE_IN_MILLIS,
                                 DateUtils.FORMAT_ABBREV_RELATIVE,
                             ).toString(),
-                            accentColor = UnifiedReaderThemeTokens.colors.syncAccent,
+                            accentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             progress = shelfItem.progress,
                             itemActionContext = itemActionContext,
                             coverImageUrlProvider = coverImageUrlProvider,
@@ -224,7 +225,10 @@ private fun LibraryShelfTabPill(
     }
 }
 
-/** Today's shelf card: the cover with a progress bar while started, the title, a line and an accent line. */
+/**
+ * Today's shelf card: the cover with a progress bar while started, the title, a line and a meta
+ * line. The meta line is neutral like the grid's, not a colour per shelf.
+ */
 @Composable
 private fun ShelfStripCard(
     item: ReadableItem,

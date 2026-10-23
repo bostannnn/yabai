@@ -31,8 +31,9 @@ data class ItemProgressSummary(
     val chapter: Int? = null,
     val chapterCount: Int? = null,
 ) {
+    /** Rounded, as the readers' own percentages are, so the card and the reader agree. */
     val percentLabel: String
-        get() = "${(fraction.coerceIn(0f, 1f) * 100f).toInt()}%"
+        get() = "${(fraction.coerceIn(0f, 1f) * 100f).roundToInt()}%"
 
     val pageProgressLabel: String?
         get() = pageCount?.takeIf { it > 0 }?.let { count ->

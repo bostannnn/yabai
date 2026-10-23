@@ -18,6 +18,7 @@ import com.example.unifiedreader.feature.library.LibraryItemActionContext
 /**
  * The book page over the library for [itemId], opened by the "•••" under a cover or the reading
  * card's Details. It follows the item as the library updates and closes if the item goes away.
+ * [onBack] returns to the book whose page this one was opened from, when there is one.
  */
 @Composable
 internal fun LibraryBookPageHost(
@@ -27,6 +28,7 @@ internal fun LibraryBookPageHost(
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     onItemSelected: (ReadableItem) -> Unit,
     onShowItem: (ReadableItem) -> Unit,
+    onBack: (() -> Unit)?,
     onDeleteImportedItem: (ReadableItem) -> Unit,
     onFilterStateChanged: (LibraryFilterState) -> Unit,
     onDismiss: () -> Unit,
@@ -60,6 +62,7 @@ internal fun LibraryBookPageHost(
         coverImageUrlProvider = coverImageUrlProvider,
         onOpen = onItemSelected,
         onShowBook = onShowItem,
+        onBack = onBack,
         onDeleteImported = onDeleteImportedItem,
         onDismiss = onDismiss,
         onFilterByGenre = { genre: String -> onFilterStateChanged(filters.copy(genres = setOf(genre))) }

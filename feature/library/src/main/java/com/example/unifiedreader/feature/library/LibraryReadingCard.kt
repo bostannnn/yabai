@@ -222,8 +222,11 @@ private fun ColumnScope.LibraryReadingCardText(
     }
     Spacer(modifier = Modifier.weight(1f))
     val fraction = progress?.fraction?.coerceIn(0f, 1f) ?: 0f
+    // At least this much under the author, so a two-line title doesn't run into the page line.
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         val metaStyle = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold)

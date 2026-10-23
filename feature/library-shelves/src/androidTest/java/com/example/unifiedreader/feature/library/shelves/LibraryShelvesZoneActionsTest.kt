@@ -126,7 +126,7 @@ class LibraryShelvesZoneActionsTest {
             }
         }
 
-        composeRule.onNodeWithText("Continue Reading").assertExists()
+        composeRule.onNodeWithText("In progress").assertExists()
         composeRule.onNodeWithContentDescription("More actions").assertExists().performClick()
         composeRule.runOnIdle { assertEquals(item, opened) }
     }

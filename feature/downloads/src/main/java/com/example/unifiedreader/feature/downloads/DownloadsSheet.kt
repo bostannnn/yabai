@@ -19,6 +19,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
@@ -30,7 +31,8 @@ import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppLinearProgress
 import com.example.unifiedreader.ui.components.AppPanel
-import com.example.unifiedreader.ui.components.AppSheet
+import com.example.unifiedreader.ui.components.AppSideSheet
+import com.example.unifiedreader.ui.components.AppSideSheetDefaults
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 @Composable
@@ -47,13 +49,17 @@ fun DownloadsSheet(
     onOpenEntry: (String) -> Unit,
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
-    AppSheet(
+    // A side sheet like the filters and the book page; a bottom sheet on phones.
+    val wide = LocalConfiguration.current.screenWidthDp >= AppSideSheetDefaults.compactWidthDp
+    AppSideSheet(
         onDismissRequest = onDismiss,
     ) {
+        // Plays the sheet's exit before it closes.
+        val closeSheet = { dismiss() }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 24.dp),
+                .padding(top = if (wide) 20.dp else 0.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Row(
@@ -88,7 +94,7 @@ fun DownloadsSheet(
                             )
                         }
                     }
-                    AppIconButton(onClick = onDismiss) {
+                    AppIconButton(onClick = closeSheet) {
                         Icon(
                             imageVector = AppIcons.Close,
                             contentDescription = "Close downloads",
@@ -317,13 +323,7 @@ private fun DownloadEntryCard(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
-
-                entry.status == DownloadEntryStatus.Completed && entry.totalItemCount > 1 -> {
-                    AppLinearProgress(
-                        progress = { 1f },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
+                // A finished download shows its done icon and file count, not a full bar.
             }
         }
     }

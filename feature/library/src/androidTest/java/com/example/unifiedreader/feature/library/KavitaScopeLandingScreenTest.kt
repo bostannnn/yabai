@@ -48,7 +48,7 @@ class KavitaScopeLandingScreenTest {
 
         // The section's name is in the top bar; the grid header carries only the count.
         composeRule.onNodeWithText("Collections").assertDoesNotExist()
-        composeRule.onNodeWithText("2 Items").assertExists()
+        composeRule.onNodeWithText("2 items").assertExists()
         composeRule.onNodeWithText("Alan Moore").assertExists()
         composeRule.onNodeWithText("AM").assertExists()
         composeRule.onNodeWithText("CBZ").assertDoesNotExist()

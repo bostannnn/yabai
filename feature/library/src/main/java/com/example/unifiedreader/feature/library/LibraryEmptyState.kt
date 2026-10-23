@@ -26,6 +26,9 @@ internal enum class LibraryEmptyReason {
     /** A server source has nothing to show because it cannot be reached. */
     SourceUnreachable,
 
+    /** A server source was never connected (no stored session), so it has nothing to sync. */
+    SourceNotConnected,
+
     /** The source has no books at all. */
     Empty,
 }
@@ -34,9 +37,11 @@ internal fun libraryEmptyReason(
     searchActive: Boolean,
     filtersActive: Boolean,
     sourceUnreachable: Boolean,
+    sourceNotConnected: Boolean = false,
 ): LibraryEmptyReason = when {
     searchActive -> LibraryEmptyReason.NoSearchMatches
     filtersActive -> LibraryEmptyReason.NoFilterMatches
+    sourceNotConnected -> LibraryEmptyReason.SourceNotConnected
     sourceUnreachable -> LibraryEmptyReason.SourceUnreachable
     else -> LibraryEmptyReason.Empty
 }
@@ -74,6 +79,12 @@ internal fun LibraryEmptyState(
             body = "Check that the server is running and that this device can reach it, then try again.",
             modifier = modifier,
             actions = onRetry?.let { retry -> { LibraryEmptyAction("Try again", retry, filled = true) } },
+        )
+        LibraryEmptyReason.SourceNotConnected -> AppEmptyState(
+            title = "$sourceName isn't connected",
+            body = "Add your $sourceName server in Settings, and its books show up here after the first sync.",
+            modifier = modifier,
+            actions = onConnectServer?.let { connect -> { LibraryEmptyAction("Connect $sourceName", connect, filled = true) } },
         )
         LibraryEmptyReason.Empty -> AppEmptyState(
             title = "Nothing here yet",

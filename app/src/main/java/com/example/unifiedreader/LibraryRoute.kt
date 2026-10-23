@@ -113,8 +113,10 @@ internal fun LibraryRoute(
             onActiveShelfBrowserKindChanged(null)
         }
     }
-    // The book page opened by a cover's "•••" or the reading card's Details.
-    var bookPageItemId by rememberSaveable { mutableStateOf<String?>(null) }
+    // The book page opened by a cover's "•••" or the reading card's Details, with the pages opened
+    // from its rows of covers on top: Back returns to the book before, × closes them all.
+    var bookPageStack by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
+    val bookPageItemId = bookPageStack.lastOrNull()
     fun itemActionContextFor(state: AppUiState) = LibraryItemActionContext(
         progressByItemId = state.displayProgressByItemId,
         locallyAvailableItemIds = state.locallyAvailableRemoteItemIds,
@@ -128,7 +130,7 @@ internal fun LibraryRoute(
         onDownloadItem = onDownloadRemoteItem,
         onDeleteDownloadedItem = onDeleteRemoteLocalFile,
         onSetReadStatus = onSetReadStatus,
-        onOpenItemPage = { item -> bookPageItemId = item.id },
+        onOpenItemPage = { item -> bookPageStack = listOf(item.id) },
     )
     val screen = libraryScreenKey(uiState, activeShelfBrowser?.kind)
     val currentFrame = LibraryRouteFrame(
@@ -310,6 +312,7 @@ internal fun LibraryRoute(
                     onClearFilters = onClearFilters,
                     sourceUnreachable = frame.uiState.selectedSource != SourceType.LOCAL &&
                         frame.uiState.selectedSourceConnectivity == SourceConnectivityState.Offline,
+                    sourceNotConnected = !frame.uiState.hasStoredSessionFor(frame.uiState.selectedSource),
                     onImportLocalFile = onImportLocalFile,
                     onConnectServer = onOpenSettings,
                     onRetrySource = onRetrySourceConnection,
@@ -331,7 +334,7 @@ internal fun LibraryRoute(
                     onSeriesDirectionSelected = onSeriesDirectionSelected,
                     seriesReaderModeFor = seriesReaderModeFor,
                     onSeriesReaderModeSelected = onSeriesReaderModeSelected,
-                    onOpenItemPage = { item -> bookPageItemId = item.id },
+                    onOpenItemPage = { item -> bookPageStack = listOf(item.id) },
                     onDownloadItem = onDownloadRemoteItem,
                     onDeleteDownloadedItem = onDeleteRemoteLocalFile,
                     onSetReadStatus = onSetReadStatus,
@@ -355,12 +358,21 @@ internal fun LibraryRoute(
                 onActiveShelfBrowserKindChanged(null)
                 onItemSelected(item)
             },
-            onShowItem = { item -> bookPageItemId = item.id },
+            onShowItem = { item -> bookPageStack = bookPageStack + item.id },
+            onBack = { bookPageStack = bookPageStack.dropLast(1) }.takeIf { bookPageStack.size > 1 },
             onDeleteImportedItem = onDeleteImportedItem,
             onFilterStateChanged = onFilterStateChanged,
-            onDismiss = { bookPageItemId = null },
+            onDismiss = { bookPageStack = emptyList() },
         )
     }
+}
+
+/** Whether [source] has a server session saved; Local always has its books. */
+private fun AppUiState.hasStoredSessionFor(source: SourceType): Boolean = when (source) {
+    SourceType.LOCAL -> true
+    SourceType.KAVITA -> kavitaConnection.hasStoredSession
+    SourceType.STUMP -> stumpConnection.hasStoredSession
+    SourceType.GRIMMORY -> grimmoryConnection.hasStoredSession
 }
 
 private fun AppUiState.kavitaScopeLandingItems(): List<KavitaScopeLandingItem> = when (kavitaLibrarySection) {

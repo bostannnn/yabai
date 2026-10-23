@@ -111,6 +111,8 @@ fun LibraryScreen(
     onClearFilters: () -> Unit = {},
     // The empty library's actions; null leaves an action out.
     sourceUnreachable: Boolean = false,
+    // A server source with no stored session: the empty state offers Connect instead of a sync.
+    sourceNotConnected: Boolean = false,
     onImportLocalFile: (() -> Unit)? = null,
     onConnectServer: (() -> Unit)? = null,
     onRetrySource: (() -> Unit)? = null,
@@ -604,6 +606,7 @@ fun LibraryScreen(
                                 searchActive = searchQuery.isNotBlank(),
                                 filtersActive = !filterState.isEmpty,
                                 sourceUnreachable = sourceUnreachable,
+                                sourceNotConnected = sourceNotConnected,
                             ),
                             selectedSource = selectedSource,
                             onClearFilters = onClearFilters,

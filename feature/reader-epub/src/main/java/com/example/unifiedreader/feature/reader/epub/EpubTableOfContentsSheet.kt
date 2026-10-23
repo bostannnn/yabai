@@ -10,10 +10,13 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeGestures
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -30,6 +34,7 @@ import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.ui.components.AppDivider
 import com.example.unifiedreader.ui.components.AppFloatingPanel
 import com.example.unifiedreader.ui.components.AppFloatingPanelPlacement
+import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppPanelHeader
 
 /**
@@ -97,9 +102,10 @@ internal fun EpubTableOfContentsSheet(
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
             )
         } else {
+            // Fills the panel, so the footer stays at its bottom under a short list.
             LazyColumn(
                 state = listState,
-                modifier = Modifier.weight(1f, fill = false),
+                modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = 4.dp, bottom = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
@@ -157,11 +163,11 @@ private fun EpubTableOfContentsRow(
 ) {
     val tokens = readerOverlayTokens()
     val topLevel = entry.depth == 0
+    // Hierarchy is the indent only; read entries are muted and checked, unread ones are not.
     val titleColor = when {
         selected -> tokens.colors.primaryText
         finished -> tokens.colors.mutedText
-        topLevel -> tokens.colors.primaryText
-        else -> tokens.colors.secondaryText
+        else -> tokens.colors.primaryText
     }
     Row(
         modifier = Modifier
@@ -174,31 +180,38 @@ private fun EpubTableOfContentsRow(
             .padding(
                 start = 12.dp + tocRowIndent(entry.depth),
                 end = 12.dp,
-                top = if (topLevel) 11.dp else 8.dp,
-                bottom = if (topLevel) 11.dp else 8.dp,
+                top = 11.dp,
+                bottom = 11.dp,
             ),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(
             text = entry.title,
-            style = if (topLevel) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium,
-            fontWeight = when {
-                selected -> FontWeight.SemiBold
-                topLevel -> FontWeight.Medium
-                else -> FontWeight.Normal
-            },
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
             color = titleColor,
             maxLines = if (topLevel) 3 else 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
+        if (finished && !selected) {
+            Icon(
+                imageVector = AppIcons.Check,
+                contentDescription = "Read",
+                tint = tokens.colors.mutedText,
+                modifier = Modifier.size(16.dp),
+            )
+        }
         entry.position?.let { position ->
+            // A fixed column, so the read checks before it line up.
             Text(
                 text = position.toString(),
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
                 color = if (selected) tokens.colors.primaryText else tokens.colors.mutedText,
                 maxLines = 1,
+                textAlign = TextAlign.End,
+                modifier = Modifier.widthIn(min = 32.dp),
             )
         }
     }
@@ -214,7 +227,7 @@ private fun buildEpubTocFooterProgress(
     return if (pages.isEmpty()) percent else "$percent · $pages"
 }
 
-private fun tocRowIndent(depth: Int): Dp = (depth.coerceAtLeast(0) * 16).dp
+private fun tocRowIndent(depth: Int): Dp = (depth.coerceAtLeast(0) * 22).dp
 
 /** Rows kept above the current entry when the list opens, so it reads in context. */
 private const val EpubTocRowsAboveActive = 2

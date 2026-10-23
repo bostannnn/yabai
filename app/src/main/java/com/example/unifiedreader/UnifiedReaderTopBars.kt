@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -50,6 +51,7 @@ import com.example.unifiedreader.ui.components.appBadgeDot
 import com.example.unifiedreader.ui.components.appProgressRing
 import com.example.unifiedreader.ui.theme.AppMotion
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
+import kotlin.math.roundToInt
 
 @Composable
 fun LibraryTopBar(
@@ -337,6 +339,13 @@ private fun LibraryTopBarTitle(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .weight(1f, fill = false)
+                // The hidden name gives up its width too, so the connection badge sits by the
+                // menu button instead of where the name would end.
+                .layout { measurable, constraints ->
+                    val placeable = measurable.measure(constraints)
+                    val width = (placeable.width * titleShown.coerceIn(0f, 1f)).roundToInt()
+                    layout(width, placeable.height) { placeable.place(0, 0) }
+                }
                 .graphicsLayer {
                     alpha = titleShown.coerceIn(0f, 1f)
                     translationY = (1f - titleShown) * 12.dp.toPx()

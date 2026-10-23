@@ -42,6 +42,8 @@ fun LibraryCover(
     downloadBadgeBottomInset: Dp = 0.dp,
     imageVariant: LibraryCoverImageVariant = LibraryCoverImageVariant.Grid,
     modifier: Modifier = Modifier,
+    // Off while selecting: the selection check takes the corner, and two checks read as one state.
+    showReadBadge: Boolean = true,
     emptyCoverContent: (@Composable BoxScope.() -> Unit)? = null,
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
@@ -84,7 +86,7 @@ fun LibraryCover(
                 )
             }
         }
-        if (isRead) {
+        if (isRead && showReadBadge) {
             LibraryReadStatusBadge(
                 modifier = Modifier
                     .align(Alignment.TopStart)
@@ -98,7 +100,7 @@ fun LibraryCover(
                     .padding(end = 6.dp, bottom = 6.dp + downloadBadgeBottomInset),
             ) {
                 Icon(
-                    imageVector = AppIcons.Download,
+                    imageVector = AppIcons.DownloadDone,
                     contentDescription = "Downloaded",
                     tint = semanticColors.onSurfaceSelected,
                     modifier = Modifier
@@ -120,6 +122,7 @@ fun ResolvedLibraryCover(
     downloadBadgeBottomInset: Dp = 0.dp,
     imageVariant: LibraryCoverImageVariant = LibraryCoverImageVariant.Grid,
     modifier: Modifier = Modifier,
+    showReadBadge: Boolean = true,
     emptyCoverContent: (@Composable BoxScope.() -> Unit)? = null,
 ) {
     LibraryCover(
@@ -131,6 +134,7 @@ fun ResolvedLibraryCover(
         downloadBadgeBottomInset = downloadBadgeBottomInset,
         imageVariant = imageVariant,
         modifier = modifier,
+        showReadBadge = showReadBadge,
         emptyCoverContent = emptyCoverContent,
     )
 }

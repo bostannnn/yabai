@@ -38,6 +38,7 @@ fun LibraryCoverActionCard(
     isDownloaded: Boolean,
     isRead: Boolean,
     fadeRead: Boolean = false,
+    showReadBadge: Boolean = true,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
@@ -77,6 +78,7 @@ fun LibraryCoverActionCard(
                 fadeRead = fadeRead,
                 imageVariant = imageVariant,
                 modifier = coverModifier,
+                showReadBadge = showReadBadge,
                 emptyCoverContent = emptyCoverContent,
             )
             coverOverlay?.invoke(this)
