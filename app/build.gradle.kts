@@ -14,8 +14,8 @@ android {
         applicationId = "com.example.unifiedreader"
         minSdk = 28
         targetSdk = 35
-        versionCode = 16
-        versionName = "0.17.0"
+        versionCode = 17
+        versionName = "0.17.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
