@@ -6,7 +6,6 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -57,7 +56,6 @@ import com.example.unifiedreader.feature.library.LibraryCoverProgressBar
 import com.example.unifiedreader.feature.library.LibraryDeleteImportedItemDialog
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
 import com.example.unifiedreader.feature.library.LocalLibraryCoverGeneration
-import com.example.unifiedreader.feature.library.availableLibraryGridSizeOptions
 import com.example.unifiedreader.feature.library.defaultLibraryGridCellSizeDp
 import com.example.unifiedreader.feature.library.hasMenuContent
 import com.example.unifiedreader.feature.library.isDownloaded
@@ -284,11 +282,7 @@ private fun ShelfBrowserControls(
     onGridCellSizeDpChanged: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    BoxWithConstraints(modifier = modifier) {
-        val gridSizeOptions = availableLibraryGridSizeOptions(
-            maxWidth = maxWidth,
-            endPadding = 16.dp,
-        )
+    Box(modifier = modifier) {
         val sanitizedGridCellSizeDp = sanitizeLibraryGridCellSizeDp(gridCellSizeDp)
 
         @Composable
@@ -314,7 +308,6 @@ private fun ShelfBrowserControls(
                         shelfBrowserLayoutOptionSection(showListView = showListView),
                     ),
                     gridCellSizeDp = sanitizedGridCellSizeDp,
-                    gridSizeOptions = gridSizeOptions,
                     fadeReadItems = false,
                     showFadeReadItems = false,
                     showGridSizeOptions = !showListView,

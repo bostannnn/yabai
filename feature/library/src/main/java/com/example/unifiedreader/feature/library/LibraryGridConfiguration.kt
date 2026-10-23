@@ -10,13 +10,25 @@ const val defaultLibraryGridCellSizeDp: Int = 180
 const val minLibraryGridCellSizeDp: Int = 140
 const val maxLibraryGridCellSizeDp: Int = 240
 
-internal val supportedLibraryGridCellSizesDp: List<Int> = listOf(
-    140,
-    160,
-    180,
-    200,
-    240,
-)
+internal val supportedLibraryGridCellSizesDp: List<Int> = LibraryCoverSize.entries.map(LibraryCoverSize::cellSizeDp)
+
+/** The cover sizes the sort menu offers. Grids saved at 160 or 200 dp, sizes it no longer has, read as Medium. */
+enum class LibraryCoverSize(
+    val label: String,
+    val cellSizeDp: Int,
+) {
+    Small("Small", minLibraryGridCellSizeDp),
+    Medium("Medium", defaultLibraryGridCellSizeDp),
+    Large("Large", maxLibraryGridCellSizeDp),
+    ;
+
+    companion object {
+        fun of(gridCellSizeDp: Int): LibraryCoverSize {
+            val sanitized = sanitizeLibraryGridCellSizeDp(gridCellSizeDp)
+            return entries.first { size -> size.cellSizeDp == sanitized }
+        }
+    }
+}
 
 internal val libraryGridHorizontalSpacingDp: Dp = 16.dp
 internal val libraryGridStartPaddingDp: Dp = 16.dp
@@ -76,11 +88,11 @@ internal data class LibraryGridPresentation(
 
 fun sanitizeLibraryGridCellSizeDp(
     value: Int,
-): Int {
-    val clampedValue = value.coerceIn(minLibraryGridCellSizeDp, maxLibraryGridCellSizeDp)
-    return supportedLibraryGridCellSizesDp.minWith(
-        compareBy<Int>({ abs(it - clampedValue) }, { if (it > clampedValue) 1 else 0 }),
-    )
+): Int = when {
+    value <= SmallCoverUpperBoundDp -> minLibraryGridCellSizeDp
+    value >= LargeCoverLowerBoundDp -> maxLibraryGridCellSizeDp
+    // Medium, including the 160 and 200 dp sizes the menu used to offer.
+    else -> defaultLibraryGridCellSizeDp
 }
 
 internal fun libraryGridPresentation(
@@ -168,5 +180,7 @@ private fun libraryGridColumnCount(
         .coerceAtLeast(1)
 }
 
+private const val SmallCoverUpperBoundDp = 150
+private const val LargeCoverLowerBoundDp = 220
 private const val largeGridCoverCellSizeDp = 180
 private const val extraLargeGridCoverCellSizeDp = 200

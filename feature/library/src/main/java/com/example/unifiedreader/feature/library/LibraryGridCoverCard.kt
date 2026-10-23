@@ -1,15 +1,26 @@
 package com.example.unifiedreader.feature.library
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
-import com.example.unifiedreader.ui.components.AppCheckbox
+import com.example.unifiedreader.ui.components.AppRoundCheck
+import com.example.unifiedreader.ui.theme.AppMotion
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 @Composable
 internal fun GridCoverCard(
@@ -36,6 +47,14 @@ internal fun GridCoverCard(
         ?.percentLabel
     val seriesLabel = seriesIssueCount?.let { count -> if (count == 1) "1 issue" else "$count issues" }
     val metaLabel = listOfNotNull(seriesLabel, progressLabel).joinToString(" · ").ifEmpty { null }
+    // A picked cover steps back a little inside an accent ring.
+    val picked = isSelectionMode && isSelected
+    val coverScale by animateFloatAsState(
+        targetValue = if (picked) SelectedCoverScale else 1f,
+        animationSpec = AppMotion.spatial(),
+        label = "libraryGridCoverSelection",
+    )
+    val coverShape = RoundedCornerShape(UnifiedReaderThemeTokens.presentation.coverCornerRadius)
 
     LibraryCoverActionCard(
         item = item,
@@ -49,11 +68,23 @@ internal fun GridCoverCard(
         onLongClick = onSelectionStart.takeUnless { isSelectionMode },
         modifier = modifier
             .fillMaxWidth()
-            .testTag("library-grid-card-${item.id}"),
+            .testTag("library-grid-card-${item.id}")
+            .then(if (isSelectionMode) Modifier.semantics { selected = isSelected } else Modifier),
         coverModifier = Modifier
             .fillMaxWidth()
             .aspectRatio(LibraryCoverAspectRatio)
-            .then(if (seriesIssueCount != null && seriesIssueCount > 1) Modifier.librarySeriesStack() else Modifier),
+            .then(if (seriesIssueCount != null && seriesIssueCount > 1) Modifier.librarySeriesStack() else Modifier)
+            .graphicsLayer {
+                scaleX = coverScale
+                scaleY = coverScale
+            }
+            .then(
+                if (picked) {
+                    Modifier.border(SelectedCoverRingWidth, MaterialTheme.colorScheme.primary, coverShape)
+                } else {
+                    Modifier
+                },
+            ),
         trailingText = metaLabel,
         menuContent = menuContent.takeUnless { isSelectionMode },
         emptyCoverContent = {
@@ -82,12 +113,14 @@ internal fun GridCoverCard(
                     )
                 }
                 if (isSelectionMode) {
-                    AppCheckbox(
+                    // The whole cover toggles; the check only shows the state.
+                    AppRoundCheck(
                         checked = isSelected,
-                        onCheckedChange = { onSelectionToggle() },
+                        ringColor = Color.White.copy(alpha = 0.92f),
+                        ringBackdrop = Color.Black.copy(alpha = 0.4f),
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .padding(4.dp),
+                            .padding(8.dp),
                     )
                 }
             }
@@ -96,3 +129,6 @@ internal fun GridCoverCard(
         },
     )
 }
+
+private const val SelectedCoverScale = 0.94f
+private val SelectedCoverRingWidth = 3.dp

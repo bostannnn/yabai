@@ -37,6 +37,7 @@ import com.example.unifiedreader.feature.downloads.DownloadsSheet
 import com.example.unifiedreader.feature.journal.JournalScreen
 import com.example.unifiedreader.feature.library.LibraryViewMode
 import com.example.unifiedreader.feature.library.libraryDownloadSelectableItems
+import com.example.unifiedreader.feature.library.rememberLibrarySelectionTip
 import com.example.unifiedreader.feature.library.shelves.LibraryShelfBrowserKind
 import com.example.unifiedreader.feature.library.shelves.LibraryShelfBrowserTopBar
 import com.example.unifiedreader.feature.library.shelves.browserState
@@ -175,12 +176,20 @@ fun UnifiedReaderScaffold(
     BackHandler(enabled = activeLibraryShelfBrowser != null) {
         activeLibraryShelfBrowserKind = null
     }
+    // Selection starts with a long-press and has no button of its own, so the tip in the "•••"
+    // menu explains it until the first time.
+    val librarySelectionTip = rememberLibrarySelectionTip()
 
     fun updateLibraryDownloadSelectionMode(enabled: Boolean) {
         isLibraryDownloadSelectionMode = enabled
-        if (!enabled) {
+        if (enabled) {
+            librarySelectionTip.markSelected()
+        } else {
             selectedDownloadItemIds = emptyList()
         }
+    }
+    BackHandler(enabled = isLibraryDownloadSelectionMode) {
+        updateLibraryDownloadSelectionMode(false)
     }
 
     fun selectAllLibraryDownloadItems() {
@@ -448,6 +457,7 @@ fun UnifiedReaderScaffold(
                                     onImportLocalFileClick = onImportLocalFileClick,
                                     onLeaveSeries = viewModel::onBackPressed,
                                     // Until the screen reports, a library that opens at its top shows its title.
+                                    showSelectionTip = librarySelectionTip.shouldShow,
                                     headerOnScreen = libraryHeaderOnScreen[uiState.libraryBrowseContextKey]
                                         ?: (
                                             uiState.showsLibraryHeader &&

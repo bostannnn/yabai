@@ -194,7 +194,8 @@ Mocks: `8.4-filter-sheet.jpg`, `8.4-filter-list.jpg`, `8.4-sort-menu.jpg`, `8.4-
   Tag, Language, Publisher, Library) are 52 dp rows: label 15 SemiBold, the selection summary at the
   end ("Any" when empty, accent when set), and a chevron. Footer: a full-width 46 dp pill "Show 14
   books" that closes the sheet. Filters still apply as they are tapped, and counts reflect the
-  other active filters. Which facets show still follows `availableLibraryFilterPanels`; the Kavita
+  other active filters. (Built: the groups keep the order of Settings › Filter chips, so Format comes
+  first by default; a format or location the source has stays at 0 rather than disappearing.) Which facets show still follows `availableLibraryFilterPanels`; the Kavita
   reading-list scope keeps its dialog.
 - **Facet page**, shown inside the sheet with the shared-axis slide: back arrow, the facet name
   (22 Bold) and "Clear"; an always-visible 42 dp search pill (today it appears only past eight

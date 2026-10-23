@@ -40,6 +40,7 @@ object AppIcons {
     val KeyboardArrowRight: ImageVector @Composable get() = icon(R.drawable.ic_keyboard_arrow_right)
     val Menu: ImageVector @Composable get() = icon(R.drawable.ic_menu)
     val MenuBook: ImageVector @Composable get() = icon(R.drawable.ic_menu_book)
+    val MoreHoriz: ImageVector @Composable get() = icon(R.drawable.ic_more_horiz)
     val MoreVert: ImageVector @Composable get() = icon(R.drawable.ic_more_vert)
     val NavigateBefore: ImageVector @Composable get() = icon(R.drawable.ic_navigate_before)
     val NavigateNext: ImageVector @Composable get() = icon(R.drawable.ic_navigate_next)

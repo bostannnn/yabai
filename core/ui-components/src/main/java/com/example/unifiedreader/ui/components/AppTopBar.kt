@@ -1,6 +1,7 @@
 package com.example.unifiedreader.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
@@ -24,12 +25,14 @@ import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
  * The floating glass top bar. It overlays the screen's content, which should keep
  * [AppTopBarDefaults.contentInset] of top padding so nothing starts hidden under it. With
  * [surfaceVisible] false the glass fades away and only the content (icons) stays, for a screen
- * whose own large title sits under the bar until it scrolls away.
+ * whose own large title sits under the bar until it scrolls away. A [containerColor] replaces
+ * the glass with that solid color (the library's selection bar).
  */
 @Composable
 fun AppTopBar(
     modifier: Modifier = Modifier,
     surfaceVisible: Boolean = true,
+    containerColor: Color? = null,
     content: @Composable BoxWithConstraintsScope.() -> Unit,
 ) {
     val shape = RoundedCornerShape(UnifiedReaderThemeTokens.presentation.cardCornerRadius)
@@ -60,7 +63,9 @@ fun AppTopBar(
                         ambientColor = Color.Black.copy(alpha = 0.35f),
                         spotColor = Color.Black.copy(alpha = 0.35f),
                     )
-                    .appGlass(shape = shape),
+                    .then(
+                        if (containerColor != null) Modifier.background(containerColor, shape) else Modifier.appGlass(shape = shape),
+                    ),
             )
         }
         BoxWithConstraints(

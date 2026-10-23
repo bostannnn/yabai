@@ -85,6 +85,8 @@ fun LibraryScreen(
     filterPanels: List<LibraryFilterPanel> = emptyList(),
     filterFacets: LibraryFilterFacets = LibraryFilterFacets(),
     libraryTitlesById: Map<String, String> = emptyMap(),
+    // How many items this view has before filters and search, for the filter sheet's "14 of 21".
+    totalItemCount: Int? = null,
     searchQuery: String = "",
     sortMode: LibrarySortMode = defaultLibrarySortMode,
     gridCellSizeDp: Int = defaultLibraryGridCellSizeDp,
@@ -572,8 +574,9 @@ fun LibraryScreen(
                     filterFacets = filterFacets,
                     libraryTitlesById = libraryTitlesById,
                     sortMode = sortMode,
-                    gridCellSizeDp = gridPresentation.selectedGridSize.cellSizeDp,
-                    gridSizeOptions = gridPresentation.availableGridSizes,
+                    // What was picked, not what the width made of it: on a phone Small and Medium
+                    // can lay out alike, and the menu still shows the pick.
+                    gridCellSizeDp = gridCellSizeDp,
                     fadeReadItems = fadeReadItems,
                     showSortControl = showSortControl,
                     availableSortModes = availableSortModes,
@@ -726,6 +729,8 @@ fun LibraryScreen(
             filterState = filterState,
             filterFacets = filterFacets,
             libraryTitlesById = libraryTitlesById,
+            shownCount = if (isPaged) pagedItems!!.itemCount else visibleItems.size,
+            totalCount = totalItemCount,
             initialPanel = openFilterPanel,
             onFilterStateChanged = onFilterStateChanged,
             onClearFilters = onClearFilters,

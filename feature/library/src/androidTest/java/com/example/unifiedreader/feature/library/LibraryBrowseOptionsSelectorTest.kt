@@ -30,11 +30,6 @@ class LibraryBrowseOptionsSelectorTest {
                 LibraryBrowseOptionsSelector(
                     sortMode = LibrarySortMode.LAST_READ,
                     gridCellSizeDp = selectedGridCellSizeDp,
-                    gridSizeOptions = listOf(
-                        LibraryGridSizeOption(cellSizeDp = 140, columnCount = 5),
-                        LibraryGridSizeOption(cellSizeDp = 180, columnCount = 4),
-                        LibraryGridSizeOption(cellSizeDp = 240, columnCount = 3),
-                    ),
                     fadeReadItems = false,
                     showSortOptions = true,
                     onSortModeChanged = {},
@@ -48,8 +43,8 @@ class LibraryBrowseOptionsSelectorTest {
             .assertExists()
             .performClick()
 
-        composeRule.onNodeWithText("Grid size").assertExists()
-        composeRule.onNodeWithText("180dp cards · 4 cols").assertExists()
+        composeRule.onNodeWithText("Cover size").assertExists()
+        composeRule.onNodeWithText("Medium").assertExists()
         composeRule.onNodeWithTag(LibraryGridSizeOptionTagPrefix + "140")
             .performClick()
 
@@ -65,9 +60,6 @@ class LibraryBrowseOptionsSelectorTest {
                 LibraryBrowseOptionsSelector(
                     sortMode = selectedSortMode,
                     gridCellSizeDp = defaultLibraryGridCellSizeDp,
-                    gridSizeOptions = listOf(
-                        LibraryGridSizeOption(cellSizeDp = 180, columnCount = 4),
-                    ),
                     fadeReadItems = false,
                     showSortOptions = true,
                     availableSortModes = listOf(
@@ -100,9 +92,6 @@ class LibraryBrowseOptionsSelectorTest {
                 LibraryBrowseOptionsSelector(
                     sortMode = selectedSortMode,
                     gridCellSizeDp = defaultLibraryGridCellSizeDp,
-                    gridSizeOptions = listOf(
-                        LibraryGridSizeOption(cellSizeDp = 180, columnCount = 4),
-                    ),
                     fadeReadItems = false,
                     showSortOptions = true,
                     lockedSortLabel = "Manual order",
@@ -130,9 +119,6 @@ class LibraryBrowseOptionsSelectorTest {
                 LibraryBrowseOptionsSelector(
                     sortMode = LibrarySortMode.LAST_READ,
                     gridCellSizeDp = defaultLibraryGridCellSizeDp,
-                    gridSizeOptions = listOf(
-                        LibraryGridSizeOption(cellSizeDp = 180, columnCount = 4),
-                    ),
                     fadeReadItems = fadeReadItems,
                     showSortOptions = true,
                     onSortModeChanged = {},
@@ -180,7 +166,6 @@ class LibraryBrowseOptionsSelectorTest {
                         ),
                     ),
                     gridCellSizeDp = defaultLibraryGridCellSizeDp,
-                    gridSizeOptions = emptyList(),
                     fadeReadItems = false,
                     showFadeReadItems = false,
                     onOptionSelected = { sectionId, optionId -> selectedOption = "$sectionId:$optionId" },

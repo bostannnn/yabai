@@ -45,10 +45,11 @@ fun AppSheet(
 @Composable
 internal fun AppSheetLayout(
     onDismissRequest: () -> Unit,
+    skipPartiallyExpanded: Boolean = false,
     content: @Composable ColumnScope.(hide: () -> Unit) -> Unit,
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
-    val sheetState = rememberModalBottomSheetState()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = skipPartiallyExpanded)
     val scope = rememberCoroutineScope()
     val dismissLabel = stringResource(R.string.app_sheet_dismiss)
     val expandLabel = stringResource(R.string.app_sheet_expand)

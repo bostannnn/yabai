@@ -56,6 +56,8 @@ data class LibraryFilterFacets(
     val genres: List<String> = emptyList(),
     val tags: List<String> = emptyList(),
     val languages: List<String> = emptyList(),
+    // Empty where nothing counted them (the SQL-assembled facets of the unfiltered paged view).
+    val counts: LibraryFilterFacetCounts = LibraryFilterFacetCounts(),
 ) {
     val isEmpty: Boolean
         get() = formats.isEmpty() &&
@@ -216,62 +218,56 @@ fun buildContextualLibraryFilterFacets(
     filters: LibraryFilterState,
     downloadedRemoteItemIds: Set<String> = emptySet(),
     readingStatusProvider: (ReadableItem) -> LibraryReadingStatus? = { null },
-): LibraryFilterFacets = LibraryFilterFacets(
-    formats = applyLibraryFilters(
+): LibraryFilterFacets {
+    // Each dimension's values (and their counts) come from the items every *other* filter leaves.
+    fun itemsWithout(dimensionCleared: LibraryFilterState): List<ReadableItem> = applyLibraryFilters(
         items = items,
-        filters = filters.copy(formats = emptySet()),
+        filters = dimensionCleared,
         downloadedRemoteItemIds = downloadedRemoteItemIds,
         readingStatusProvider = readingStatusProvider,
-    ).map(ReadableItem::format).distinctByEnumOrder(),
-    libraries = applyLibraryFilters(
-        items = items,
-        filters = filters.copy(libraries = emptySet()),
-        downloadedRemoteItemIds = downloadedRemoteItemIds,
-        readingStatusProvider = readingStatusProvider,
-    ).map(ReadableItem::libraryId).distinctByTextOrder(),
-    fileLocations = applyLibraryFilters(
-        items = items,
-        filters = filters.copy(fileLocations = emptySet()),
-        downloadedRemoteItemIds = downloadedRemoteItemIds,
-        readingStatusProvider = readingStatusProvider,
-    ).map { item -> item.fileLocation(downloadedRemoteItemIds) }.distinctByEnumOrder(),
-    authors = applyLibraryFilters(
-        items = items,
-        filters = filters.copy(authors = emptySet()),
-        downloadedRemoteItemIds = downloadedRemoteItemIds,
-        readingStatusProvider = readingStatusProvider,
-    ).flatMap { item -> item.facetMetadata().authors }.distinctByAuthorOrder(),
-    series = applyLibraryFilters(
-        items = items,
-        filters = filters.copy(series = emptySet()),
-        downloadedRemoteItemIds = downloadedRemoteItemIds,
-        readingStatusProvider = readingStatusProvider,
-    ).flatMap { item -> item.facetMetadata().series }.distinctByTextOrder(),
-    publishers = applyLibraryFilters(
-        items = items,
-        filters = filters.copy(publishers = emptySet()),
-        downloadedRemoteItemIds = downloadedRemoteItemIds,
-        readingStatusProvider = readingStatusProvider,
-    ).flatMap { item -> item.facetMetadata().publishers }.distinctByTextOrder(),
-    genres = applyLibraryFilters(
-        items = items,
-        filters = filters.copy(genres = emptySet()),
-        downloadedRemoteItemIds = downloadedRemoteItemIds,
-        readingStatusProvider = readingStatusProvider,
-    ).flatMap { item -> item.facetMetadata().genres }.distinctByTextOrder(),
-    tags = applyLibraryFilters(
-        items = items,
-        filters = filters.copy(tags = emptySet()),
-        downloadedRemoteItemIds = downloadedRemoteItemIds,
-        readingStatusProvider = readingStatusProvider,
-    ).flatMap { item -> item.facetMetadata().tags }.distinctByTextOrder(),
-    languages = applyLibraryFilters(
-        items = items,
-        filters = filters.copy(languages = emptySet()),
-        downloadedRemoteItemIds = downloadedRemoteItemIds,
-        readingStatusProvider = readingStatusProvider,
-    ).flatMap { item -> item.facetMetadata().languages }.distinctByTextOrder(),
-)
+    )
+    val fileLocationOf = { item: ReadableItem -> item.fileLocation(downloadedRemoteItemIds) }
+    val formatItems = itemsWithout(filters.copy(formats = emptySet()))
+    val locationItems = itemsWithout(filters.copy(fileLocations = emptySet()))
+    val libraries = tallyTextFacet(itemsWithout(filters.copy(libraries = emptySet()))) { item -> listOf(item.libraryId) }
+    val authors = tallyTextFacet(itemsWithout(filters.copy(authors = emptySet()))) { item -> item.facetMetadata().authors }
+    val series = tallyTextFacet(itemsWithout(filters.copy(series = emptySet()))) { item -> item.facetMetadata().series }
+    val publishers = tallyTextFacet(itemsWithout(filters.copy(publishers = emptySet()))) { item ->
+        item.facetMetadata().publishers
+    }
+    val genres = tallyTextFacet(itemsWithout(filters.copy(genres = emptySet()))) { item -> item.facetMetadata().genres }
+    val tags = tallyTextFacet(itemsWithout(filters.copy(tags = emptySet()))) { item -> item.facetMetadata().tags }
+    val languages = tallyTextFacet(itemsWithout(filters.copy(languages = emptySet()))) { item ->
+        item.facetMetadata().languages
+    }
+    return LibraryFilterFacets(
+        formats = formatItems.map(ReadableItem::format).distinctByEnumOrder(),
+        libraries = libraries.values.distinctByTextOrder(),
+        fileLocations = locationItems.map(fileLocationOf).distinctByEnumOrder(),
+        authors = authors.values.distinctByAuthorOrder(),
+        series = series.values.distinctByTextOrder(),
+        publishers = publishers.values.distinctByTextOrder(),
+        genres = genres.values.distinctByTextOrder(),
+        tags = tags.values.distinctByTextOrder(),
+        languages = languages.values.distinctByTextOrder(),
+        counts = LibraryFilterFacetCounts(
+            formats = tallyEnumFacet(formatItems, items.mapTo(HashSet(), ReadableItem::format)) { item -> item.format },
+            fileLocations = tallyEnumFacet(locationItems, items.mapTo(HashSet(), fileLocationOf), fileLocationOf),
+            readingStatuses = tallyEnumFacet(
+                items = itemsWithout(filters.copy(readingStatuses = emptySet())),
+                domain = LibraryReadingStatus.entries,
+                valueOf = readingStatusProvider,
+            ),
+            libraries = libraries.counts,
+            authors = authors.counts,
+            series = series.counts,
+            publishers = publishers.counts,
+            genres = genres.counts,
+            tags = tags.counts,
+            languages = languages.counts,
+        ),
+    )
+}
 
 /**
  * Assembles [LibraryFilterFacets] from facet values sourced per dimension from SQL

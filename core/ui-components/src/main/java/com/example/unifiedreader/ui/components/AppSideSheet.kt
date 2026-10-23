@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -68,7 +69,8 @@ fun AppSideSheet(
 ) {
     val compact = LocalConfiguration.current.screenWidthDp < AppSideSheetDefaults.compactWidthDp
     if (compact) {
-        AppSheetLayout(onDismissRequest = onDismissRequest) { hide ->
+        // Opened all the way: a side sheet's task (its footer included) needs the whole height.
+        AppSheetLayout(onDismissRequest = onDismissRequest, skipPartiallyExpanded = true) { hide ->
             AppSideSheetScopeImpl(column = this, onDismiss = hide).content()
         }
         return
@@ -149,6 +151,7 @@ fun AppSideSheet(
                             indication = null,
                             onClick = {},
                         ),
+                    shape = RoundedCornerShape(AppSideSheetDefaults.cornerRadius),
                     color = UnifiedReaderThemeTokens.colors.surfaceBase,
                     shadowElevation = 16.dp,
                 ) {
@@ -169,5 +172,6 @@ private class AppSideSheetScopeImpl(
 object AppSideSheetDefaults {
     val width: Dp = 400.dp
     val margin: Dp = 12.dp
+    val cornerRadius: Dp = 26.dp
     const val compactWidthDp: Int = 600
 }

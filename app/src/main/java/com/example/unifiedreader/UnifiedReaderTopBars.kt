@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -26,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.semantics
@@ -37,8 +39,11 @@ import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.feature.downloads.DownloadsButtonState
 import com.example.unifiedreader.feature.library.LibraryBrowseSearchModeTopBar
 import com.example.unifiedreader.feature.library.LibraryBrowseTopBarContainer
+import com.example.unifiedreader.feature.library.LibraryBrowseTopBarSearchField
+import com.example.unifiedreader.feature.library.LibraryRefreshAction
+import com.example.unifiedreader.feature.library.LibrarySelectionTopBar
+import com.example.unifiedreader.feature.library.LibraryTopBarMoreMenu
 import com.example.unifiedreader.ui.components.AppBadge
-import com.example.unifiedreader.ui.components.AppCircularProgress
 import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.appBadgeDot
@@ -67,6 +72,8 @@ fun LibraryTopBar(
     onLeaveSeries: () -> Unit,
     // While the screen's large title shows under the bar, the bar is see-through and has no name.
     headerOnScreen: Boolean = false,
+    // The "•••" menu's long-press tip, until the first selection; only server sources select.
+    showSelectionTip: Boolean = false,
 ) {
     var searchModeOpen by remember(selectedSource) { mutableStateOf(searchQuery.isNotBlank()) }
     LaunchedEffect(searchQuery) {
@@ -74,17 +81,21 @@ fun LibraryTopBar(
             searchModeOpen = true
         }
     }
-
-    val searching = searchModeOpen || searchQuery.isNotBlank()
+    // Wide windows keep search as a field in the resting bar instead of a mode of its own.
+    val searchFieldInBar = LocalConfiguration.current.screenWidthDp >= LibrarySearchFieldMinWindowWidthDp
+    val searching = !searchFieldInBar && (searchModeOpen || searchQuery.isNotBlank())
+    val selecting = downloadSelectionState.isSelectionMode
     ThemedTopBarContainer(
-        surfaceVisible = !headerOnScreen || searching || downloadSelectionState.isSelectionMode,
+        surfaceVisible = !headerOnScreen || searching || searchQuery.isNotBlank() || selecting,
+        containerColor = if (selecting) UnifiedReaderThemeTokens.colors.surfaceSelected else null,
     ) {
-        if (downloadSelectionState.isSelectionMode) {
-            LibraryDownloadSelectionTopBar(
-                state = downloadSelectionState,
-                onCancel = { onDownloadSelectionModeChanged(false) },
+        if (selecting) {
+            LibrarySelectionTopBar(
+                selectedCount = downloadSelectionState.selectedCount,
+                selectableCount = downloadSelectionState.selectableCount,
+                onClose = { onDownloadSelectionModeChanged(false) },
                 onSelectAll = onSelectAllDownloadItems,
-                onDownloadSelected = onDownloadSelectedItems,
+                onDownload = onDownloadSelectedItems,
                 modifier = Modifier.fillMaxWidth(),
             )
         } else {
@@ -106,17 +117,44 @@ fun LibraryTopBar(
                     selectedSource = selectedSource,
                     sourceConnectivity = sourceConnectivity,
                     seriesTitle = seriesTitle,
-                    refreshState = refreshState,
-                    downloadSelectionState = downloadSelectionState,
                     downloadsButtonState = downloadsButtonState,
                     showTitle = !headerOnScreen,
                     onSourceConnectivityClick = onSourceConnectivityClick,
                     onDrawerClick = onDrawerClick,
-                    onSearchClick = { searchModeOpen = true },
-                    onRefreshClick = onRefreshClick,
+                    search = {
+                        if (searchFieldInBar) {
+                            LibraryBrowseTopBarSearchField(
+                                query = searchQuery,
+                                onQueryChanged = onSearchQueryChanged,
+                                placeholder = "Search titles, authors, series",
+                                modifier = Modifier.width(LibraryBarSearchFieldWidth),
+                            )
+                        } else {
+                            AppIconButton(onClick = { searchModeOpen = true }) {
+                                Icon(
+                                    imageVector = AppIcons.Search,
+                                    contentDescription = "Search library",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    },
                     onDownloadsClick = onDownloadsClick,
-                    onDownloadSelectionModeChanged = onDownloadSelectionModeChanged,
-                    onImportLocalFileClick = onImportLocalFileClick,
+                    moreMenu = {
+                        LibraryTopBarMoreMenu(
+                            onImportFile = onImportLocalFileClick,
+                            refresh = if (refreshState.isVisible) {
+                                LibraryRefreshAction(
+                                    enabled = refreshState.isEnabled,
+                                    refreshing = refreshState.isRefreshing,
+                                    onRefresh = onRefreshClick,
+                                )
+                            } else {
+                                null
+                            },
+                            showSelectionTip = showSelectionTip && selectedSource != SourceType.LOCAL,
+                        )
+                    },
                     onLeaveSeries = onLeaveSeries,
                 )
             }
@@ -129,17 +167,13 @@ private fun LibraryRestingTopBar(
     selectedSource: SourceType,
     sourceConnectivity: SourceConnectivityState,
     seriesTitle: String?,
-    refreshState: LibraryRefreshTopBarState,
-    downloadSelectionState: LibraryDownloadSelectionTopBarState,
     downloadsButtonState: DownloadsButtonState,
     showTitle: Boolean,
     onSourceConnectivityClick: () -> Unit,
     onDrawerClick: () -> Unit,
-    onSearchClick: () -> Unit,
-    onRefreshClick: () -> Unit,
+    search: @Composable () -> Unit,
     onDownloadsClick: () -> Unit,
-    onDownloadSelectionModeChanged: (Boolean) -> Unit,
-    onImportLocalFileClick: () -> Unit,
+    moreMenu: @Composable () -> Unit,
     onLeaveSeries: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -162,22 +196,9 @@ private fun LibraryRestingTopBar(
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            AppIconButton(onClick = onSearchClick) {
-                Icon(
-                    imageVector = AppIcons.Search,
-                    contentDescription = "Search library",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            LibraryToolbarActions(
-                refreshState = refreshState,
-                onRefreshClick = onRefreshClick,
-                downloadsButtonState = downloadsButtonState,
-                onDownloadsClick = onDownloadsClick,
-                downloadSelectionEnabled = downloadSelectionState.selectableCount > 0,
-                onDownloadSelectionClick = { onDownloadSelectionModeChanged(true) },
-                onImportLocalFileClick = onImportLocalFileClick,
-            )
+            search()
+            DownloadsButton(state = downloadsButtonState, onClick = onDownloadsClick)
+            moreMenu()
         }
     }
 }
@@ -247,10 +268,15 @@ fun JournalTopBar(
                     .align(Alignment.CenterStart)
                     .widthIn(max = 280.dp),
             )
-            LibraryToolbarActions(
-                onImportLocalFileClick = onImportLocalFileClick,
+            AppIconButton(
+                onClick = onImportLocalFileClick,
                 modifier = Modifier.align(Alignment.CenterEnd),
-            )
+            ) {
+                Icon(
+                    imageVector = AppIcons.Add,
+                    contentDescription = "Import local file",
+                )
+            }
         }
     }
 }
@@ -259,11 +285,13 @@ fun JournalTopBar(
 private fun ThemedTopBarContainer(
     modifier: Modifier = Modifier,
     surfaceVisible: Boolean = true,
+    containerColor: Color? = null,
     content: @Composable BoxWithConstraintsScope.() -> Unit,
 ) {
     LibraryBrowseTopBarContainer(
         modifier = modifier,
         surfaceVisible = surfaceVisible,
+        containerColor = containerColor,
         content = content,
     )
 }
@@ -414,153 +442,33 @@ private fun AppSectionHeader(
 }
 
 @Composable
-private fun LibraryToolbarActions(
-    refreshState: LibraryRefreshTopBarState = LibraryRefreshTopBarState(),
-    onRefreshClick: () -> Unit = {},
-    downloadsButtonState: DownloadsButtonState = DownloadsButtonState(),
-    onDownloadsClick: (() -> Unit)? = null,
-    downloadSelectionEnabled: Boolean = false,
-    onDownloadSelectionClick: (() -> Unit)? = null,
-    onImportLocalFileClick: () -> Unit,
-    modifier: Modifier = Modifier,
+private fun DownloadsButton(
+    state: DownloadsButtonState,
+    onClick: () -> Unit,
 ) {
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    val downloading = state.activeCount > 0
+    AppIconButton(
+        onClick = onClick,
+        modifier = if (downloading) Modifier.appProgressRing(state.progress) else Modifier,
     ) {
-        if (refreshState.isVisible) {
-            val isRefreshEnabled = refreshState.isEnabled && !refreshState.isRefreshing
-            AppIconButton(
-                enabled = isRefreshEnabled,
-                onClick = onRefreshClick,
-                modifier = Modifier.semantics {
-                    contentDescription = if (refreshState.isRefreshing) {
-                        "Kavita fast sync in progress"
-                    } else {
-                        "Fast sync Kavita library"
-                    }
-                },
-            ) {
-                if (refreshState.isRefreshing) {
-                    AppCircularProgress(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                    )
-                } else {
-                    Icon(
-                        imageVector = AppIcons.Refresh,
-                        contentDescription = null,
-                        tint = if (isRefreshEnabled) {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        } else {
-                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                        },
-                    )
-                }
-            }
-        }
-        onDownloadsClick?.let { handler ->
-            val downloading = downloadsButtonState.activeCount > 0
-            AppIconButton(
-                onClick = handler,
-                modifier = if (downloading) Modifier.appProgressRing(downloadsButtonState.progress) else Modifier,
-            ) {
-                Icon(
-                    imageVector = AppIcons.Download,
-                    contentDescription = when {
-                        downloading -> "Downloads, ${downloadsButtonState.activeCount} downloading"
-                        downloadsButtonState.hasFailed -> "Downloads, a download failed"
-                        else -> "Downloads"
-                    },
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.appBadgeDot(
-                        visible = !downloading && downloadsButtonState.hasFailed,
-                        color = MaterialTheme.colorScheme.error,
-                    ),
-                )
-            }
-        }
-        onDownloadSelectionClick?.let { handler ->
-            AppIconButton(
-                enabled = downloadSelectionEnabled,
-                onClick = handler,
-            ) {
-                Icon(
-                    imageVector = AppIcons.Checklist,
-                    contentDescription = "Select items to download",
-                    tint = if (downloadSelectionEnabled) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                    },
-                )
-            }
-        }
-        AppIconButton(onClick = onImportLocalFileClick) {
-            Icon(
-                imageVector = AppIcons.Add,
-                contentDescription = "Import local file",
-            )
-        }
-    }
-}
-
-@Composable
-private fun LibraryDownloadSelectionTopBar(
-    state: LibraryDownloadSelectionTopBarState,
-    onCancel: () -> Unit,
-    onSelectAll: () -> Unit,
-    onDownloadSelected: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        AppIconButton(
-            onClick = onCancel,
-            modifier = Modifier.size(36.dp),
-        ) {
-            Icon(
-                imageVector = AppIcons.Close,
-                contentDescription = "Cancel selection",
-            )
-        }
-        Text(
-            text = selectedDownloadsLabel(state.selectedCount),
-            style = MaterialTheme.typography.titleMedium,
-            maxLines = 1,
-            modifier = Modifier.weight(1f),
+        Icon(
+            imageVector = AppIcons.Download,
+            contentDescription = when {
+                downloading -> "Downloads, ${state.activeCount} downloading"
+                state.hasFailed -> "Downloads, a download failed"
+                else -> "Downloads"
+            },
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.appBadgeDot(
+                visible = !downloading && state.hasFailed,
+                color = MaterialTheme.colorScheme.error,
+            ),
         )
-        AppIconButton(
-            enabled = state.selectedCount < state.selectableCount,
-            onClick = onSelectAll,
-        ) {
-            Icon(
-                imageVector = AppIcons.SelectAll,
-                contentDescription = "Select all downloadable items",
-            )
-        }
-        AppIconButton(
-            enabled = state.selectedCount > 0,
-            onClick = onDownloadSelected,
-        ) {
-            Icon(
-                imageVector = AppIcons.Download,
-                contentDescription = "Download selected items",
-            )
-        }
     }
 }
 
-private fun selectedDownloadsLabel(selectedCount: Int): String =
-    if (selectedCount == 1) {
-        "1 selected"
-    } else {
-        "$selectedCount selected"
-    }
+private const val LibrarySearchFieldMinWindowWidthDp = 840
+private val LibraryBarSearchFieldWidth = 320.dp
 
 /** True while something waits in the drawer (an app update), to dot the menu button. */
 val LocalDrawerButtonDot = staticCompositionLocalOf { false }

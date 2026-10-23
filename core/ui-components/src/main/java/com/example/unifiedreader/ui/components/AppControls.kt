@@ -1,5 +1,6 @@
 package com.example.unifiedreader.ui.components
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -12,24 +13,32 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxColors
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchColors
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.ui.theme.AppMotion
 
 /** A checkbox. Pass `null` for [onCheckedChange] when the enclosing row handles the click. */
 @Composable
@@ -135,4 +144,58 @@ object AppSliderDefaults {
     val handleHeight: Dp = 28.dp
     val handleCornerRadius: Dp = 3.dp
     const val disabledAlpha: Float = 0.38f
+}
+
+/**
+ * A round check for things that toggle as a whole (a list row, a cover); the caller handles the
+ * click and the semantics. Checked, it is filled with the accent and carries a check; unchecked,
+ * it is a 2 dp ring. [ringBackdrop] fills the ring, so it reads over a cover.
+ */
+@Composable
+fun AppRoundCheck(
+    checked: Boolean,
+    modifier: Modifier = Modifier,
+    size: Dp = AppRoundCheckDefaults.size,
+    ringColor: Color = MaterialTheme.colorScheme.outline,
+    ringBackdrop: Color = Color.Transparent,
+) {
+    val fill by animateFloatAsState(
+        targetValue = if (checked) 1f else 0f,
+        animationSpec = AppMotion.effects(),
+        label = "appRoundCheck",
+    )
+    val accent = MaterialTheme.colorScheme.primary
+    Box(
+        modifier = modifier
+            .size(size)
+            .drawBehind {
+                val ringWidth = AppRoundCheckDefaults.ringWidth.toPx()
+                if (fill < 1f) {
+                    drawCircle(color = ringBackdrop)
+                    drawCircle(
+                        color = ringColor,
+                        radius = (this.size.minDimension - ringWidth) / 2f,
+                        style = Stroke(ringWidth),
+                    )
+                }
+                if (fill > 0f) drawCircle(color = accent, alpha = fill)
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        if (fill > 0f) {
+            Icon(
+                imageVector = AppIcons.Check,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier
+                    .size(size * 0.72f)
+                    .graphicsLayer { alpha = fill },
+            )
+        }
+    }
+}
+
+object AppRoundCheckDefaults {
+    val size: Dp = 22.dp
+    val ringWidth: Dp = 2.dp
 }

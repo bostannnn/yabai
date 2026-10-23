@@ -16,13 +16,22 @@ class LibraryGridConfigurationTest {
     }
 
     @Test
+    fun `the old 160 and 200 sizes read as Medium`() {
+        assertEquals(LibraryCoverSize.Medium, LibraryCoverSize.of(160))
+        assertEquals(LibraryCoverSize.Medium, LibraryCoverSize.of(200))
+        assertEquals(LibraryCoverSize.Small, LibraryCoverSize.of(140))
+        assertEquals(LibraryCoverSize.Large, LibraryCoverSize.of(240))
+        assertEquals(listOf(140, 180, 240), supportedLibraryGridCellSizesDp)
+    }
+
+    @Test
     fun `grid size options keep only values that change the layout`() {
         val options = availableLibraryGridSizeOptions(
             maxWidth = 900.dp,
             endPadding = libraryGridEndPaddingDp,
         )
 
-        assertEquals(listOf(160, 200, 240), options.map(LibraryGridSizeOption::cellSizeDp))
+        assertEquals(listOf(140, 180, 240), options.map(LibraryGridSizeOption::cellSizeDp))
         assertEquals(listOf(5, 4, 3), options.map(LibraryGridSizeOption::columnCount))
     }
 
@@ -54,7 +63,7 @@ class LibraryGridConfigurationTest {
             requestedGridCellSizeDp = 200,
         )
 
-        assertEquals(200, presentation.selectedGridSize.cellSizeDp)
+        assertEquals(180, presentation.selectedGridSize.cellSizeDp)
         assertEquals(4, presentation.scrollingPrefetchItemLimit)
     }
 

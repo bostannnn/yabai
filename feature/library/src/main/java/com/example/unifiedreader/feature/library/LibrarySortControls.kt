@@ -10,7 +10,6 @@ private const val LibraryBrowseSortSectionId = "sort"
 internal fun LibraryBrowseOptionsSelector(
     sortMode: LibrarySortMode,
     gridCellSizeDp: Int,
-    gridSizeOptions: List<LibraryGridSizeOption>,
     fadeReadItems: Boolean,
     showSortOptions: Boolean,
     availableSortModes: List<LibrarySortMode> = LibrarySortMode.entries,
@@ -36,7 +35,7 @@ internal fun LibraryBrowseOptionsSelector(
             listOf(
                 LibraryBrowseOptionSection(
                     id = LibraryBrowseSortSectionId,
-                    title = "Sort",
+                    title = "Sort by",
                     options = availableSortModes.map { mode ->
                         LibraryBrowseOption(
                             id = mode.name,
@@ -56,7 +55,6 @@ internal fun LibraryBrowseOptionsSelector(
             )
         },
         gridCellSizeDp = sanitizedGridCellSizeDp,
-        gridSizeOptions = gridSizeOptions,
         fadeReadItems = fadeReadItems,
         onOptionSelected = { sectionId, optionId ->
             if (sectionId == LibraryBrowseSortSectionId) {

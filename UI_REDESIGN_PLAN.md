@@ -678,19 +678,54 @@ has no Kavita or Stump source), only its unit-tested parts.
       top-content test holds the clock, so it lets one frame run after the change. Cold start is part
       of the deferred tablet `LibraryPerf` pass.
 
-### 8.4 Filters, sort and the top bar `[ ]`
+### 8.4 Filters, sort and the top bar `[~]`
 
-- [ ] Filter sheet: reading status, format and location as always-open chips with counts; the long
-      facets (Author, Series, Genre, Tag, Language, Publisher, Library) as rows showing the
-      selection, each opening a page inside the sheet with search, picks pinned on top, A-Z groups
-      and counts; "Showing 14 of 21" at the top and a "Show 14 books" button that closes the sheet.
-      Filters still apply as they are tapped.
-- [ ] Sort and view menu: cover size as Small / Medium / Large instead of "180dp cards · 6 cols"
-      (the headings, the check on the current sort and the "Fade read books" switch came with 8.2).
-- [ ] Top bar: search as a field on tablets; Select removed (a long-press already starts
-      selection); "•••" holds Import and, on Kavita, Refresh, with a one-time "Long-press a cover to
-      select" tip on server sources; the selection bar shows close, the count, Select all and
-      Download N.
+Built 2026-10-23 on `claude/ui-redesign-step-8-e779ee`, checked on the emulator (`yabai_tablet_35` on
+port 5558, Graphite, the Local library) at 800 dp portrait, 1280 dp landscape and 411 dp phone width.
+Selection, the tip and Refresh only appear on server sources, so they were checked with a throwaway
+build that treated Local books as downloadable and showed Refresh as running. Not yet on the tablet.
+
+- [x] Filter sheet (`LibraryFilterSheet.kt`, `LibraryFilterFacetPage.kt`, the pure parts in
+      `LibraryFilterSheetModel.kt`, unit-tested): a 420 dp `AppSideSheet` (26 dp corners now; on
+      phones the bottom sheet opens fully, so the footer is in reach), "Filters", "Showing 14 of 21"
+      ("Showing all 33" when nothing is filtered out), "Clear all" while something is applied.
+      Reading status, format and location are open chip groups with counts; the long facets are
+      52 dp rows with the picks ("Any", one or two names, then "+N") and a chevron, "None" and
+      dimmed when the other filters leave no values. Both groups keep the order of Settings ›
+      Filter chips (Format first by default; the mock had Reading status first). A format or
+      location the source has stays as a chip at 0 when the other filters rule it out, so the chips
+      do not move. "Show 14 books" closes the sheet; filters still apply as they are tapped.
+- [x] Facet pages inside the sheet on `AppScreenHost` (the shared-axis slide; Back and the back
+      gesture return to the overview): back arrow, the facet (22 Bold), "Clear", an always-visible
+      42 dp search pill ("Search 13 authors"), the picks under "Selected", the rest under their
+      letter (authors by surname, Cyrillic after Latin), 52 dp rows with the count and the kit's new
+      `AppRoundCheck`. A pick moves to "Selected" and the list stays at the top.
+- [x] Counts: `buildContextualLibraryFilterFacets` also returns `LibraryFilterFacetCounts` (each value
+      counted under every other dimension's filters, an item once per value; unit-tested). The text
+      facets are tallied in the pass that already deduped them; reading status adds one filter pass,
+      and the format and location chips one pass each over the source. Still cached with the facets,
+      so reading a page does not recount. Part of the deferred `LibraryPerf` pass (`derived.facets`).
+- [x] Sort and view menu (300 dp): "Sort by", a divider, "View" with the fade switch and "Cover size"
+      as a Small / Medium / Large `AppSegmentedRow` (140 / 180 / 240 dp) that keeps the menu open.
+      `sanitizeLibraryGridCellSizeDp` reads saved 160 and 200 as Medium. The shelf browser's menu
+      uses the same row. On a phone Small and Medium can give the same columns; the menu still shows
+      the pick.
+- [x] Top bar: at 840 dp and wider search is a field in the bar ("Search titles, authors, series",
+      the kit's new `AppSearchField`, also used by the search bar and the facet pages); narrower, the
+      icon and search bar as before. The Select button is gone. "•••" (`LibraryTopBarMoreMenu`) holds
+      "Import a file" and, on Kavita, "Refresh library" (the button turns the progress ring while it
+      runs); on server sources, "Long-press a cover to select books for download." under the items
+      until the first selection (`LibrarySelectionTip`, a flag in the `library_tips` preferences).
+      The Journal keeps its own + button.
+- [x] Selection bar (`LibrarySelectionTopBar`): the top bar on `surfaceSelected` (`AppTopBar` gained
+      `containerColor`), close, "3 selected" (18 Bold), "Select all" and a 40 dp "Download 3". Back
+      now ends selection. Picked covers shrink to 0.94 inside a 3 dp accent ring with a filled check;
+      the others show an empty ring on a dark disc.
+- [ ] Tablet: the sheet and its facet pages, the menu's cover sizes, the bar's search field in
+      landscape, and selection on a real Kavita library.
+- Found while checking: the app's top-bar instrumentation tests (`LibraryTopBarSearchTest`,
+      `UnifiedReaderAppFlowTest`) already did not compile on `main` (they pass parameters the bar no
+      longer has); they were left as they were.
 
 ### 8.5 Book page `[ ]`
 

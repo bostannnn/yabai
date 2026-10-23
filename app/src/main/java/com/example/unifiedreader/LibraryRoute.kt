@@ -253,6 +253,7 @@ internal fun LibraryRoute(
                     filterPanels = frame.uiState.selectedLibraryFilterPanels,
                     filterFacets = frame.uiState.selectedLibraryFilterFacets,
                     libraryTitlesById = frame.uiState.selectedSourceLibraryTitlesById,
+                    totalItemCount = frame.uiState.sourceItems.size,
                     searchQuery = frame.uiState.selectedLibrarySearchQuery,
                     sortMode = frame.uiState.selectedLibrarySortMode,
                     gridCellSizeDp = frame.uiState.libraryGridCellSizeDp,

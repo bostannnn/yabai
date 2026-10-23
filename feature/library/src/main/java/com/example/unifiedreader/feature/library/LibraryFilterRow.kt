@@ -49,7 +49,6 @@ internal fun LibraryFilterRow(
     libraryTitlesById: Map<String, String>,
     sortMode: LibrarySortMode,
     gridCellSizeDp: Int,
-    gridSizeOptions: List<LibraryGridSizeOption>,
     fadeReadItems: Boolean,
     showSortControl: Boolean,
     availableSortModes: List<LibrarySortMode> = LibrarySortMode.entries,
@@ -113,7 +112,6 @@ internal fun LibraryFilterRow(
         LibraryBrowseOptionsSelector(
             sortMode = sortMode,
             gridCellSizeDp = gridCellSizeDp,
-            gridSizeOptions = gridSizeOptions,
             fadeReadItems = fadeReadItems,
             showSortOptions = showSortControl,
             availableSortModes = availableSortModes,
