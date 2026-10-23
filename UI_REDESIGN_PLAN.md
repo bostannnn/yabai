@@ -667,11 +667,13 @@ has no Kavita or Stump source), only its unit-tested parts.
 - [~] Presentation coherence: the summary line and the tab strip keep their height; the placeholder
       shows the card's footprint, so a source with nothing in progress still drops the card when the
       shelves arrive (as the old panel did). Shelf and library instrumentation tests updated and run on
-      the emulator (new: the card's Details menu, switching tabs; the series tile's "12 issues"). Four
-      fail on `main` too and are unrelated: `shelfItemsBrowserExternalSearchFiltersWithoutEmbeddedSearch`,
-      `KavitaScopeLandingScreenTest`, `LibraryCoverPrefetchSmokeTest`,
-      `readyEmptyTopContentContractDoesNotLeaveDelayedGridShift`. Cold start is part of the deferred
-      tablet `LibraryPerf` pass.
+      the emulator (new: the card's Details menu, switching tabs; the series tile's "12 issues"). The four
+      that also failed on `main` were stale and are fixed, so both modules pass (10 and 14 tests):
+      the shelf browser shows the series over the issue line, not the raw title; the Kavita landing's
+      name moved to the top bar in 6d; the cover prefetch test now checks the current contract (a
+      changed key is fetched again on the next visible pass; see the note in the commit); the
+      top-content test holds the clock, so it lets one frame run after the change. Cold start is part
+      of the deferred tablet `LibraryPerf` pass.
 
 ### 8.4 Filters, sort and the top bar `[ ]`
 

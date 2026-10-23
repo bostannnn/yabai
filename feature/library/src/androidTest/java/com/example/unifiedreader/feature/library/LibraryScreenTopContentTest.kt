@@ -65,6 +65,8 @@ class LibraryScreenTopContentTest {
             isLoading = false
             items = listOf(item)
         }
+        // The clock is held, so let one frame run the recomposition the change schedules.
+        composeRule.mainClock.advanceTimeByFrame()
         composeRule.waitForIdle()
 
         composeRule.onAllNodesWithTag(TopContentTag).assertCountEquals(0)

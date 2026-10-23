@@ -220,8 +220,9 @@ class LibraryShelvesZoneActionsTest {
 
         assertTrue(composeRule.onAllNodesWithText("Search shelf").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithContentDescription("Search shelf").fetchSemanticsNodes().isEmpty())
-        assertTrue(composeRule.onAllNodesWithText("Akira alpha").fetchSemanticsNodes().isEmpty())
-        composeRule.onNodeWithText("Akira metro").assertExists()
+        // Entries show the series ("Akira") over the issue line; the query matched the title of "metro" only.
+        assertTrue(composeRule.onAllNodesWithText("Issue alpha").fetchSemanticsNodes().isEmpty())
+        composeRule.onNodeWithText("Issue metro").assertExists()
     }
 }
 
