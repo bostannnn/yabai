@@ -107,6 +107,12 @@ object AppButtonDefaults {
         contentColor = MaterialTheme.colorScheme.onSurface,
     )
 
+    @Composable
+    fun tonalIconColors(): IconButtonColors = IconButtonDefaults.filledTonalIconButtonColors(
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+    )
+
     /** Remove, Delete: the error color, so the risky action reads as one. */
     @Composable
     fun destructiveColors(): ButtonColors = ButtonDefaults.buttonColors(
@@ -159,14 +165,17 @@ fun AppIconButton(
     )
 }
 
-/** Icon-only action on a tonal container. */
+/**
+ * Icon-only action on a tonal container: the same neutral container as [AppTonalButton], not
+ * Material's `secondaryContainer`, which no theme or cover accent keeps in step with the rest.
+ */
 @Composable
 fun AppTonalIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     shape: Shape? = null,
-    colors: IconButtonColors = IconButtonDefaults.filledTonalIconButtonColors(),
+    colors: IconButtonColors = AppButtonDefaults.tonalIconColors(),
     content: @Composable () -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }

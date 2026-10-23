@@ -182,6 +182,10 @@ enum class ThemeMode(
         isAvailableInSettings = false,
     );
 
+    /** Light or dark as the device is (System Dynamic), so it belongs to neither group. */
+    val followsDevice: Boolean
+        get() = this == SystemDynamic
+
     companion object {
         val settingsEntries: List<ThemeMode> = entries.filter { it.isAvailableInSettings }
 

@@ -26,6 +26,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.isGeneratedComicVolumeTitle
+import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.ui.components.AppBadge
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
@@ -67,7 +69,8 @@ fun LibraryCover(
                 BucketedCoverImage(
                     identityKey = item.id,
                     imageUrl = imageUrl,
-                    contentDescription = item.title,
+                    // Not Kavita's "Chapter v1" for a volume.
+                    contentDescription = item.title.takeUnless(::isGeneratedComicVolumeTitle) ?: item.libraryDisplayLabel(),
                     variant = imageVariant,
                     modifier = Modifier.fillMaxSize(),
                 )

@@ -802,6 +802,135 @@ settings. Not yet on the tablet.
 - [ ] Tablet: the tints over real Kavita covers, the reader accent over an EPUB and a comic, and
       the extraction time and memory.
 
+### Tablet pass over 8.1-8.6 `[ ]` (2026-10-23)
+
+Release 0.15.0 on the OnePlus tablet (1292 x 914 dp landscape, theme High Contrast, Kavita,
+Grimmory, Local), driven over adb at the user's request; the light themes and portrait (914 x 1292
+dp) followed the same day. Not covered: PDF, a real download, Reading Lists, phone width. Fix these
+before 8.7.
+
+The Broken group is fixed in this worktree (not committed or released): all unit tests pass (1390,
+both lines), and the fixes that show on a Local library were checked on `yabai_review_35` (debug
+build, Graphite, High Contrast and Paper, portrait and 1280 dp landscape). The Kavita-only ones
+(volume names, series card width, selection bar, paged filter count) wait for the tablet.
+
+Broken:
+
+- [x] Settings: a selected row (Theme, the open source page) keeps its icon, supporting text, value
+      and chevron in their normal colours on the selection fill. In High Contrast the fill is white,
+      so all four vanish (the light themes get away with it). `AppSettingsRow` recolours only the
+      title (`AppSettingsList.kt`).
+      Fixed: the whole row takes `onSurfaceSelected` (secondary text at 72%); an explicit
+      `supportingColor` (an error) still wins. Checked on the emulator in High Contrast.
+- [x] Settings › About › Version: the trailing button squeezes the status into a ~40 dp column
+      ("0.15.0 / is the / latest / versio / n"). The first visit showed the launch check's
+      "Couldn't reach GitHub" in red; Try again then worked (`AppUpdateSettingsRows.kt`).
+      Fixed: the button sits under the status. Checked on the emulator after a check.
+- [x] Reading card beside the shelf tabs (6+ columns) is shorter than tabs + strip, so it ends
+      above the strip's text. The two sit in a plain `Row` (`LibraryShelvesZone.kt`).
+      Fixed: the row is `IntrinsicSize.Min` and the card fills it (cover centred, buttons at the
+      bottom), the loading placeholder too. Checked on the emulator at 1280 dp landscape.
+- [x] Series view: the "Up next in this series" card spans the full landscape width (nothing beside
+      it), with a ~1100 dp progress bar.
+      Fixed: `readingCardWidth` gives it the home card's width (3 of 6+ columns). Not seen on a
+      device (no Kavita or Stump series on the emulator).
+- [x] Selection bar in High Contrast: "Download 2" is primary on `surfaceSelected`, both white, so
+      the pill is invisible and reads as plain text.
+      Fixed: the button is the selected pair inverted (`onSurfaceSelected` fill, `surfaceSelected`
+      text). Not seen on a device (selection needs a server source).
+- [x] Filter sheet: with the paged grid, "Showing 180 of 1474" and "Show 180 books" count the items
+      loaded so far (`pagedItems.itemCount` in `LibraryScreen.kt`), while the chips say CBZ 304 and
+      Drama 217. Reopened later (unpaged), the same filter said "Showing 304", matching the chips.
+      Fixed: the paged grid's count is the total when nothing is filtered, else the formats the
+      filter keeps added up from the facet counts (`libraryFilterMatchingCount`, unit-tested).
+- [x] Kavita's generated names are shown as titles: the book page reads "Chapter v1" over
+      "Goodbye, Eri #v1"; series tiles read "Issue v1 - Chapter v1"; the reading card's second line
+      and cover descriptions say "Chapter v1". Treat those as no title and say "Volume 1"
+      (`LibraryBookPageModel.kt` `libraryBookPageText`, and the tile label helpers).
+      Fixed: `ComicVolumeNames.kt` (core:model) reads "v1" and "Chapter v1" as volume 1; the book
+      page shows the series over "Volume 1 · 1 of 24", tiles "Volume 1", the card's second line and
+      cover descriptions likewise. Unit-tested; not seen on a device (no Kavita on the emulator).
+- [x] Comics settings panel: the scrim covers only the panel's slot (below the top bar, inset
+      12 dp), so a white page shows a grey box in a white frame; alpha 0.2 against the spec's 45%.
+      8.7 rebuilds this frame, but 0.15.0 ships it.
+      Fixed: the comics overlay and the EPUB reader draw one `AppFloatingPanelScrim` over the whole
+      screen under the bars; the scrim is 45% dark / 32% light. Checked on the emulator (comic,
+      EPUB contents and settings, Graphite and Paper).
+- [x] EPUB reading settings: the text-size − and + buttons are the theme's secondary (yellow in High
+      Contrast, mint in Paper) beside red accent controls. `AppTonalIconButton` uses
+      `secondaryContainer`, which `AppCoverAccentTheme` does not override.
+      Fixed: `AppTonalIconButton` uses the tonal button's neutral `surfaceContainerHighest`.
+      Checked on the emulator in Paper.
+- [x] Light themes: the cover accent's selected segments in the reader panels (and the filled
+      settings button) are a pale tint barely darker than the cream track, so the current choice
+      is hard to see.
+      Fixed: the light accent container is L 0.80 (was 0.88), saturation up to 0.5. Checked on the
+      emulator in Paper; judge on the tablet.
+- [x] Settings › Theme: System Dynamic is listed under Light with a light preview, but it follows
+      the device, so on this tablet (dark mode) it turns the app dark.
+      Fixed: it has its own "Device" group above Light and Dark. Checked on the emulator.
+
+Wrong or inconsistent:
+
+- [ ] Book page description keeps Markdown links ("[Official English](https://www.viz.com/…)");
+      only HTML is stripped. Language shows the raw code "en".
+- [ ] Book page: a cover in More by / Similar replaces the page, and Back then closes the sheet
+      instead of returning to the first book.
+- [ ] Book page: Similar can be four volumes of one series (Fire Punch); Chainsaw Man has 28 tag
+      chips, which push More by and Similar far down.
+- [ ] Book page Reading rows: "Direction" and "Open as" sit 20 dp right of the "Reading" heading
+      and the About text.
+- [ ] Percentages disagree between card and reader: 38% vs 39% (78/202), 63% vs 64% (134/209).
+- [ ] Selection mode: a read cover shows two checks, the read badge top left and the selection ring
+      top right.
+- [ ] Content scrolls into the 12 dp gap above the floating top bar: in Settings the white selected
+      row shows as a strip above the bar.
+- [ ] Top bar: the hidden source name still takes its width, so "Online" floats ~80 dp from the
+      menu button (and from the back arrow in the series view).
+- [ ] Collections: the A-Z scroller starts under the top bar ("A" hidden); "56 Items" capitalised.
+- [ ] Stump, not connected, says "Nothing here yet. Books added to Stump show up here after the next
+      sync." It should say it isn't connected and offer Connect.
+- [ ] Downloads sheet: some finished downloads keep a full white progress bar, others none; on a
+      1292 dp landscape screen it is a 700 dp bottom sheet.
+- [ ] Shelf strip third lines: Up next in blue, Finished in amber, neither from the theme or cover.
+- [ ] EPUB contents: nested entries are smaller and muted next to their parents (the spec has indent
+      only), and every chapter is muted (clear in Paper), so read and unread look the same.
+- [ ] EPUB contents in portrait: when the list is shorter than the panel, the "Chapter 10 of 18"
+      footer sits right under the last entry, mid-panel, with the panel empty below it.
+- [ ] Paper: the drawer marks the current page with a dark filled pill, Settings with a light one.
+- [ ] See all opens "Continue Reading · 14 items" from the tab "In progress 13"; its sort chip says
+      "Recently read" where the library says "Last read".
+- [ ] Reading card: a two-line title puts the author directly on the page line.
+- [ ] Smaller: the remove dialog still has no cover; the strip's "Downloaded" badge is a download
+      arrow; the scroll-to-top button is a rounded square, not a pill.
+
+Measured (release build, 120 Hz): the idle Kavita library drew 0 frames in 10 s; six grid flings drew
+2174 frames with 1 missed deadline (p50 12 ms, p90 18 ms, p99 28 ms). `LibraryPerf`: one cover
+palette extraction 37 ms; Kavita with the Manga filter (unpaged) derived 27 ms and shelves 27 ms;
+`pagedWindowBadges` 113 ms for 180 roots; switching the app theme cost one 613 ms library
+recompute (derived and shelves). No crashes in logcat.
+
+Light themes (System Dynamic, Paper, Sepia Reading, Panel Pop, Detective File): library home, book
+page and Settings read well; the selection bar's Download pill shows (dark), so that bug and the
+selected settings row are High Contrast only. Paper also checked: filter sheet, sort menu, both
+reader panels.
+
+Portrait (High Contrast): library home, series view, filter sheet, book page, selection, Downloads,
+drawer, Journal, Local, Stump, Collections, the shelf browser and both readers with their panels.
+The home and the series view match the 8.3 mock (card full width above the tabs), so the card and
+shelf height mismatch is a landscape problem; the Version row, the scrim frame, the text-size
+buttons and the Collections scroller look the same as in landscape.
+
+Not the redesign, seen in passing: Settings › Reading progress sync holds four Grimmory reading
+sessions, two of them queued since 2026-10-20 ("Под тенью лилии"), and the log shows no upload
+attempt; each reader session is queued separately, so one book appears twice.
+
+Worked as designed: header and glass bar, shelf tabs, sort and view menu, filter sheet and facet
+pages (Back returns to the overview), search field, the "•••" menu and tip, selection, the book page
+from Details and "•••", Show issues, cover colours on the card, book page and both readers, panels
+closing on × and tap outside, predictive back in the reader (scrubs and cancels), the remove dialog
+(cancelled), the Stump empty state's layout.
+
 ### 8.7 Reader menus `[ ]`
 
 - [ ] On tablets, panels open between the top bar and the bottom dock and never cover them; the

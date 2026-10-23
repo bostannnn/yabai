@@ -152,4 +152,14 @@ class LibraryFilterSheetModelTest {
         assertEquals("Show 14 books", libraryFilterShowButtonLabel(14))
         assertEquals(5, libraryFacetValueCount(LibraryFilterPanel.Author, LibraryFilterState(), authorFacets))
     }
+
+    @Test
+    fun `the matching count adds up the formats the filter keeps`() {
+        // Each format counted under the other filters: 180 CBZ and 124 EPUB books are left.
+        val counts = LibraryFilterFacetCounts(formats = mapOf(FormatType.CBZ to 180, FormatType.EPUB to 124))
+
+        assertEquals(304, libraryFilterMatchingCount(LibraryFilterState(genres = setOf("Drama")), counts))
+        assertEquals(124, libraryFilterMatchingCount(LibraryFilterState(formats = setOf(FormatType.EPUB)), counts))
+        assertNull(libraryFilterMatchingCount(LibraryFilterState(), LibraryFilterFacetCounts()))
+    }
 }

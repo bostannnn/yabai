@@ -126,7 +126,8 @@ fun LibraryTopBarMoreMenu(
 
 /**
  * The bar that replaces the top bar while books are selected (it sits on the selected
- * container): close, how many are picked, Select all, and Download N.
+ * container): close, how many are picked, Select all, and Download N. Download is the selected
+ * pair inverted, not `primary`: High Contrast's primary is as white as its selected container.
  */
 @Composable
 fun LibrarySelectionTopBar(
@@ -137,6 +138,7 @@ fun LibrarySelectionTopBar(
     onDownload: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val selected = UnifiedReaderThemeTokens.colors.surfaceSelected
     val onSelected = UnifiedReaderThemeTokens.colors.onSurfaceSelected
     Row(
         modifier = modifier,
@@ -164,6 +166,7 @@ fun LibrarySelectionTopBar(
         AppButton(
             onClick = onDownload,
             enabled = selectedCount > 0,
+            colors = ButtonDefaults.buttonColors(containerColor = onSelected, contentColor = selected),
             contentPadding = PaddingValues(start = 14.dp, end = 18.dp),
             modifier = Modifier.height(40.dp),
         ) {

@@ -25,6 +25,7 @@ import com.example.unifiedreader.feature.reader.core.ReaderOverlayIconButton
 import com.example.unifiedreader.feature.reader.core.curl.PageTurnStyle
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
+import com.example.unifiedreader.ui.components.AppFloatingPanelScrim
 import com.example.unifiedreader.ui.components.AppIcons
 
 @Composable
@@ -54,6 +55,13 @@ internal fun ReaderOverlayBar(
             isPreferencesSheetOpen = false
         }
     }
+    // The panel's scrim covers the whole page, under the bar: the panel's own slot sits below the
+    // bar and inside the gesture insets, and dimming only that left a bright frame around it.
+    AppFloatingPanelScrim(
+        visible = isPreferencesSheetOpen,
+        onDismissRequest = { isPreferencesSheetOpen = false },
+        modifier = Modifier.zIndex(1f),
+    )
     Column(
         modifier = Modifier
             .fillMaxSize()

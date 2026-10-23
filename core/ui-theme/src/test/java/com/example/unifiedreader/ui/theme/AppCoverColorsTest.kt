@@ -46,6 +46,17 @@ class AppCoverColorsTest {
     }
 
     @Test
+    fun `a light theme's selected container stands off the cream track`() {
+        // Paper's segmented track; the 0.15.0 container (L 0.88) was barely darker than it.
+        val creamTrack = 0xFFFBF1E6.toInt()
+        val colors = appCoverColors(dusk, dark = false, fallbackAccent = themePrimary, fallbackOnAccent = themeOnPrimary)
+
+        assertEquals(0.80f, Hsl.of(colors.accentContainer.toArgb()).l, 0.01f)
+        assertTrue(contrastRatio(creamTrack, colors.accentContainer.toArgb()) >= 1.3)
+        assertTrue(contrastRatio(colors.accentContainer.toArgb(), colors.onAccentContainer.toArgb()) >= 7.0)
+    }
+
+    @Test
     fun `a cover without an accent keeps the theme's`() {
         val colors = appCoverColors(dusk.copy(accent = null), dark = true, fallbackAccent = themePrimary, fallbackOnAccent = themeOnPrimary)
 

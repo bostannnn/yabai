@@ -9,10 +9,15 @@ import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.comicVolumeLabel
+import com.example.unifiedreader.core.model.comicVolumeNumber
 import com.example.unifiedreader.core.model.displayName
+import com.example.unifiedreader.core.model.isGeneratedComicVolumeTitle
 import com.example.unifiedreader.core.model.libraryAlphabetKey
 import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.core.model.librarySecondaryText
+import com.example.unifiedreader.core.model.ownIssueTitle
+import com.example.unifiedreader.core.model.volumeNumber
 import kotlin.math.roundToInt
 
 data class ItemProgressSummary(
@@ -87,10 +92,10 @@ private fun itemIssueBrowsePrimaryText(
     val metadata = item.comicMetadata ?: return itemPrimaryText(item)
     val series = metadata.series?.trim()?.takeIf(String::isNotBlank)
     val issueNumber = metadata.issueNumber?.trim()?.takeIf(String::isNotBlank)
-    val issueNumberLabel = issueNumber?.let { number -> "Issue $number" }
-    val issueTitle = metadata.issueTitle
-        ?.trim()
-        ?.takeIf(String::isNotBlank)
+    // A Kavita volume ("Chapter v1", number "v1") reads "Volume 1".
+    val issueNumberLabel = metadata.volumeNumber()?.let(::comicVolumeLabel)
+        ?: issueNumber?.let { number -> "Issue $number" }
+    val issueTitle = metadata.ownIssueTitle()
         ?.withoutSeriesPrefix(series)
         ?.withoutIssueNumberPrefix(issueNumber)
         ?.takeIf(String::isNotBlank)
@@ -99,6 +104,7 @@ private fun itemIssueBrowsePrimaryText(
     val fallbackTitle = item.title
         .trim()
         .takeIf(String::isNotBlank)
+        ?.takeUnless(::isGeneratedComicVolumeTitle)
         ?.withoutSeriesPrefix(series)
         ?.withoutIssueNumberPrefix(issueNumber)
         ?.takeIf(String::isNotBlank)
@@ -135,9 +141,12 @@ internal fun buildComicVolumeIssueLabel(
     metadata: ComicMetadata?,
 ): String? {
     if (metadata == null) return null
+    val volume = metadata.volume?.takeIf(String::isNotBlank) ?: metadata.volumeNumber()
     val parts = buildList {
-        metadata.volume?.takeIf(String::isNotBlank)?.let { add("Vol. $it") }
-        metadata.issueNumber?.takeIf(String::isNotBlank)?.let { add("Issue $it") }
+        volume?.let { add("Vol. $it") }
+        // A Kavita volume's number ("v1") is the volume again, not an issue.
+        metadata.issueNumber?.takeIf { number -> number.isNotBlank() && comicVolumeNumber(number) == null }
+            ?.let { add("Issue $it") }
     }
     return parts.takeIf(List<String>::isNotEmpty)?.joinToString(" • ")
 }

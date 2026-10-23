@@ -7,6 +7,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.feature.reader.core.ReaderPageNumberChoiceRow
@@ -50,6 +51,8 @@ internal fun ComicsReaderPreferencesSheet(
         maxHeight = maxSheetHeight,
         contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = 8.dp, bottom = 10.dp),
         containerColor = readerOverlayTokens().colors.container,
+        // ReaderOverlayBar dims the whole page itself; the panel's slot is smaller.
+        scrimColor = Color.Transparent,
         testTag = ComicsPreferencesSheetTag,
     ) {
         Column(

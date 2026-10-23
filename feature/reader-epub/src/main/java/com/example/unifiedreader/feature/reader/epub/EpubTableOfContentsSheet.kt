@@ -75,6 +75,8 @@ internal fun EpubTableOfContentsSheet(
         placement = AppFloatingPanelPlacement.Start,
         onDismissRequest = onDismissRequest,
         containerColor = tokens.colors.container,
+        // EpubReaderEntry dims the whole screen itself; this panel's slot is inside the insets.
+        scrimColor = Color.Transparent,
         testTag = EpubTocSheetTag,
         modifier = modifier.windowInsetsPadding(WindowInsets.safeGestures),
     ) {

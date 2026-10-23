@@ -35,6 +35,18 @@ class LibraryBookPageModelTest {
     }
 
     @Test
+    fun `a Kavita volume reads as its series and volume, not Chapter v1`() {
+        val volume = issue(id = "v1", number = "v1", series = "Chainsaw Man").let { item ->
+            item.copy(comicMetadata = item.comicMetadata?.copy(issueTitle = "Chapter v1"))
+        }
+
+        val text = libraryBookPageText(volume, null, LibrarySeriesPosition(index = 1, count = 24), now, zone)
+
+        assertEquals("Chainsaw Man", text.title)
+        assertEquals("Volume 1 · 1 of 24", text.seriesLine)
+    }
+
+    @Test
     fun `the primary action follows the reading state`() {
         val book = book(id = "b", title = "The Salt Orchard")
         assertEquals("Start reading", libraryBookPageText(book, null, null, now, zone).primaryAction)

@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -60,7 +61,9 @@ fun AppSettingsGroup(
  * One row in an [AppSettingsGroup]: optional leading icon, a title with optional supporting
  * text (after a small [supportingIcon], and with [supportingContent] such as a progress bar
  * under it), then an optional value, a custom [trailing] slot, and a chevron when the row opens
- * something ([onClick] set and [showChevron] true).
+ * something ([onClick] set and [showChevron] true). A [selected] row sits on `surfaceSelected` and
+ * draws all of its content in `onSurfaceSelected`, so it reads in every theme (High Contrast's
+ * selection is white). [supportingColor] overrides the supporting text's colour (an error, say).
  */
 @Composable
 fun AppSettingsRow(
@@ -73,13 +76,21 @@ fun AppSettingsRow(
     enabled: Boolean = true,
     selected: Boolean = false,
     showChevron: Boolean = onClick != null,
-    supportingColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    supportingColor: Color = Color.Unspecified,
     supportingIcon: ImageVector? = null,
     supportingContent: (@Composable ColumnScope.() -> Unit)? = null,
     trailing: (@Composable RowScope.() -> Unit)? = null,
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
     val contentAlpha = if (enabled) 1f else 0.5f
+    val titleColor = if (selected) semanticColors.onSurfaceSelected else MaterialTheme.colorScheme.onSurface
+    val secondaryColor = if (selected) {
+        semanticColors.onSurfaceSelected.copy(alpha = AppSettingsDefaults.selectedSecondaryAlpha)
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val iconColor = if (selected) semanticColors.onSurfaceSelected else MaterialTheme.colorScheme.primary
+    val resolvedSupportingColor = supportingColor.takeOrElse { secondaryColor }
     val clickModifier = if (onClick != null) {
         Modifier.clickable(enabled = enabled, role = Role.Button, onClick = onClick)
     } else {
@@ -104,7 +115,7 @@ fun AppSettingsRow(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary.copy(alpha = contentAlpha),
+                tint = iconColor.copy(alpha = contentAlpha),
                 modifier = Modifier.size(AppSettingsDefaults.iconSize),
             )
         }
@@ -115,8 +126,7 @@ fun AppSettingsRow(
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
-                color = (if (selected) semanticColors.onSurfaceSelected else MaterialTheme.colorScheme.onSurface)
-                    .copy(alpha = contentAlpha),
+                color = titleColor.copy(alpha = contentAlpha),
             )
             if (supporting != null) {
                 Row(
@@ -127,14 +137,14 @@ fun AppSettingsRow(
                         Icon(
                             imageVector = supportingIcon,
                             contentDescription = null,
-                            tint = supportingColor.copy(alpha = contentAlpha),
+                            tint = resolvedSupportingColor.copy(alpha = contentAlpha),
                             modifier = Modifier.size(16.dp),
                         )
                     }
                     Text(
                         text = supporting,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = supportingColor.copy(alpha = contentAlpha),
+                        color = resolvedSupportingColor.copy(alpha = contentAlpha),
                     )
                 }
             }
@@ -144,7 +154,7 @@ fun AppSettingsRow(
             Text(
                 text = value,
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha),
+                color = secondaryColor.copy(alpha = contentAlpha),
                 maxLines = 1,
             )
         }
@@ -155,7 +165,7 @@ fun AppSettingsRow(
             Icon(
                 imageVector = AppIcons.NavigateNext,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha),
+                tint = secondaryColor.copy(alpha = contentAlpha),
             )
         }
     }
@@ -184,4 +194,7 @@ object AppSettingsDefaults {
 
     /** Divider inset for rows without an icon. */
     val dividerInsetNoIcon: Dp = horizontalPadding
+
+    /** Supporting text, value and chevron of a selected row: `onSurfaceSelected` at this alpha. */
+    const val selectedSecondaryAlpha: Float = 0.72f
 }

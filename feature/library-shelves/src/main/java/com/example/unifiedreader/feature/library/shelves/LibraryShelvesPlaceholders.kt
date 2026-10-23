@@ -5,10 +5,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,6 +28,7 @@ import com.example.unifiedreader.feature.library.LibraryGridMetrics
 import com.example.unifiedreader.feature.library.LibraryReadingCardDefaults
 import com.example.unifiedreader.feature.library.isLibraryCompactWindow
 import com.example.unifiedreader.feature.library.libraryGridColumns
+import com.example.unifiedreader.feature.library.readingCardWidth
 import com.example.unifiedreader.ui.components.appSkeletonPulse
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
@@ -107,7 +111,7 @@ internal fun LibraryShelvesSlotPlaceholder(
         val card = @Composable { cardModifier: Modifier ->
             Box(
                 modifier = cardModifier
-                    .height(cardHeight)
+                    .heightIn(min = cardHeight)
                     .appSkeletonPulse()
                     .clip(RoundedCornerShape(LibraryReadingCardDefaults.cornerRadius))
                     .background(semanticColors.surfaceRaised),
@@ -135,9 +139,13 @@ internal fun LibraryShelvesSlotPlaceholder(
                 )
             }
         }
-        if (columns.count >= SideBySideColumns) {
-            Row(horizontalArrangement = Arrangement.spacedBy(gridMetrics.spacing)) {
-                card(Modifier.width(columns.span(SideBySideColumns / 2, gridMetrics.spacing)))
+        val cardWidth = columns.readingCardWidth(gridMetrics.spacing)
+        if (cardWidth != null) {
+            Row(
+                modifier = Modifier.height(IntrinsicSize.Min),
+                horizontalArrangement = Arrangement.spacedBy(gridMetrics.spacing),
+            ) {
+                card(Modifier.width(cardWidth).fillMaxHeight())
                 band(Modifier.weight(1f))
             }
         } else {

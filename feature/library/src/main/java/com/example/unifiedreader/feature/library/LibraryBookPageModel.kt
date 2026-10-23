@@ -2,12 +2,15 @@ package com.example.unifiedreader.feature.library
 
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
+import com.example.unifiedreader.core.model.comicVolumeLabel
 import com.example.unifiedreader.core.model.facetMetadata
 import com.example.unifiedreader.core.model.isKavitaSeriesContainer
 import com.example.unifiedreader.core.model.isStumpSeriesContainer
 import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.core.model.normalizedAuthors
+import com.example.unifiedreader.core.model.ownIssueTitle
 import com.example.unifiedreader.core.model.supportsManualReadStatusAction
+import com.example.unifiedreader.core.model.volumeNumber
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -51,12 +54,14 @@ internal fun libraryBookPageText(
     val comic = item.comicMetadata
     val series = facets.series.firstOrNull()
     val issueNumber = comic?.issueNumber?.trim()?.takeIf(String::isNotEmpty)
-    val issueTitle = comic?.issueTitle?.trim()
-        ?.takeIf(String::isNotEmpty)
+    // A Kavita volume ("Chapter v1", number "v1") reads as the series over "Volume 1".
+    val volumeNumber = comic?.volumeNumber()
+    val issueTitle = comic?.ownIssueTitle()
         ?.takeUnless { title -> title.equals(series, ignoreCase = true) }
     val title = when {
         item.kind != ReadableItemKind.COMIC || item.isSeriesContainer -> item.title
         issueTitle != null -> issueTitle
+        series != null && volumeNumber != null -> series
         series != null && issueNumber != null -> "$series #$issueNumber"
         else -> item.libraryDisplayLabel()
     }
@@ -64,7 +69,12 @@ internal fun libraryBookPageText(
         item.isSeriesContainer -> item.issueCount?.let { count -> if (count == 1) "1 issue" else "$count issues" }
         series == null -> null
         else -> listOfNotNull(
-            if (issueTitle != null && issueNumber != null) "$series #$issueNumber" else series,
+            when {
+                volumeNumber != null && issueTitle != null -> "$series · ${comicVolumeLabel(volumeNumber)}"
+                volumeNumber != null -> comicVolumeLabel(volumeNumber)
+                issueTitle != null && issueNumber != null -> "$series #$issueNumber"
+                else -> series
+            },
             seriesPosition?.let { position -> "${position.index} of ${position.count}" },
         ).joinToString(" · ")
     }

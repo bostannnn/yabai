@@ -52,6 +52,23 @@ class LibraryItemCardsTest {
     }
 
     @Test
+    fun `a Kavita volume reads Volume 1, not Issue v1 - Chapter v1`() {
+        val item = ReadableItem(
+            id = "kavita:item:chapter-9",
+            sourceType = SourceType.KAVITA,
+            libraryId = "kavita:library:k-manga",
+            remoteId = "chapter-9",
+            title = "Chapter v1",
+            format = FormatType.CBZ,
+            comicMetadata = ComicMetadata(series = "DEAD Tube", issueTitle = "Chapter v1", issueNumber = "v1"),
+        )
+
+        assertEquals("Volume 1", itemSeriesBrowsePrimaryText(item))
+        assertEquals("DEAD Tube - Volume 1", itemMixedIssueBrowsePrimaryText(item))
+        assertEquals("Vol. 1", buildComicVolumeIssueLabel(item.comicMetadata))
+    }
+
+    @Test
     fun `mixed issue title includes series issue number and issue title`() {
         val item = ReadableItem(
             id = "kavita:item:chapter-2",

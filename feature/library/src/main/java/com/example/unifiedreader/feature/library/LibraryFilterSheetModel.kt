@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.library
 
+import com.example.unifiedreader.core.model.LibraryFilterFacetCounts
 import com.example.unifiedreader.core.model.LibraryFilterFacets
 import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibraryFilterState
@@ -225,6 +226,20 @@ internal fun libraryFacetValueCount(
 ): Int = (facets.values(panel).map(String::lowercase) + state.selectedValues(panel).map(String::lowercase))
     .distinct()
     .size
+
+/**
+ * How many items the filters leave, read off the facet counts: every item has one format, and
+ * each format is counted under all the other filters, so the formats the filter keeps (all of them
+ * when it has none) add up to the matches. The paged grid can't say this itself: without
+ * placeholders its item count is the pages loaded so far. Null while the counts are not built.
+ */
+internal fun libraryFilterMatchingCount(state: LibraryFilterState, counts: LibraryFilterFacetCounts): Int? {
+    if (counts.formats.isEmpty()) return null
+    return counts.formats
+        .filterKeys { format -> state.formats.isEmpty() || format in state.formats }
+        .values
+        .sum()
+}
 
 /** "Showing 14 of 21", or "Showing all 21" while nothing is filtered out. */
 internal fun libraryFilterShowingLabel(shownCount: Int, totalCount: Int?): String = when {

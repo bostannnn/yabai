@@ -3,6 +3,7 @@ package com.example.unifiedreader.feature.settings
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.SourceType
@@ -86,7 +87,7 @@ internal fun SettingsHub(
                 supportingColor = if (syncSettings.failedCount > 0) {
                     MaterialTheme.colorScheme.error
                 } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
+                    Color.Unspecified
                 },
                 selected = selectedPage == SettingsPage.SyncStatus,
                 onClick = { onOpenPage(SettingsPage.SyncStatus) },

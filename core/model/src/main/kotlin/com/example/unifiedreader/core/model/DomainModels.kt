@@ -120,7 +120,9 @@ fun ReadableItem.libraryPrimaryText(): String = when (kind) {
 fun ReadableItem.librarySecondaryText(): String? = when (kind) {
     ReadableItemKind.BOOK -> bookMetadata?.primaryAuthor()?.takeIf(String::isNotBlank)
     ReadableItemKind.COMIC -> {
-        val issueTitle = comicMetadata?.issueTitle?.takeIf(String::isNotBlank) ?: return null
+        val metadata = comicMetadata ?: return null
+        // A Kavita volume's generated "Chapter v1" reads "Volume 1".
+        val issueTitle = metadata.ownIssueTitle() ?: metadata.volumeNumber()?.let(::comicVolumeLabel) ?: return null
         if (issueTitle == libraryPrimaryText()) null else issueTitle
     }
 }

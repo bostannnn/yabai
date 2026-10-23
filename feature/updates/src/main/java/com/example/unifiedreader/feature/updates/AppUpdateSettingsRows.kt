@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.updates
 
 import android.text.format.DateUtils
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
@@ -18,7 +19,9 @@ import com.example.unifiedreader.ui.components.AppTonalButton
 
 /**
  * Settings › About › Version: the installed version, what the last check found, and the one
- * button for the next step (Check, Update, Cancel, Install, Try again).
+ * button for the next step (Check, Update, Cancel, Install, Try again). The button sits under the
+ * text, not beside it: the settings list is a ~350 dp column on tablets, and a trailing button
+ * left the status a few letters wide.
  */
 @Composable
 fun AppUpdateVersionRow(
@@ -45,21 +48,27 @@ fun AppUpdateVersionRow(
             AppUpdateTone.Error -> MaterialTheme.colorScheme.error
         },
         supportingIcon = if (copy.showsCheck) AppIcons.Check else null,
-        supportingContent = copy.progress?.let { fraction ->
+        supportingContent = if (copy.progress == null && copy.button == null) {
+            null
+        } else {
             {
-                UpdateProgressBar(
-                    fraction = fraction,
-                    height = 4,
-                    modifier = Modifier
-                        .padding(top = 6.dp)
-                        .widthIn(max = 320.dp),
-                )
+                copy.progress?.let { fraction ->
+                    UpdateProgressBar(
+                        fraction = fraction,
+                        height = 4,
+                        modifier = Modifier
+                            .padding(top = 6.dp)
+                            .widthIn(max = 320.dp),
+                    )
+                }
+                copy.button?.let { button ->
+                    Box(modifier = Modifier.padding(top = 10.dp)) {
+                        RowButton(button = button, onClick = { actions.perform(button.action, state) })
+                    }
+                }
             }
         },
         modifier = modifier,
-        trailing = copy.button?.let { button ->
-            { RowButton(button = button, onClick = { actions.perform(button.action, state) }) }
-        },
     )
 }
 

@@ -3,8 +3,11 @@ package com.example.unifiedreader.feature.library.shelves
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -14,17 +17,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
-import com.example.unifiedreader.feature.library.LibraryGridColumns
 import com.example.unifiedreader.feature.library.LibraryGridMetrics
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
 import com.example.unifiedreader.feature.library.LocalLibraryCoverGeneration
 import com.example.unifiedreader.feature.library.LibraryReadingCard
 import com.example.unifiedreader.feature.library.isLibraryCompactWindow
 import com.example.unifiedreader.feature.library.libraryGridColumns
+import com.example.unifiedreader.feature.library.readingCardWidth
 
 /**
  * The library home's top: the reading card for the book read last, and the shelves as tabs over
@@ -113,9 +115,14 @@ fun LibraryShelvesZone(
                 )
             }
         }
-        if (reading != null && selectedTab != null && columns.count >= SideBySideColumns) {
-            Row(horizontalArrangement = Arrangement.spacedBy(gridMetrics.spacing)) {
-                card(Modifier.width(columns.span(SideBySideColumns / 2, gridMetrics.spacing)))
+        val cardWidth = columns.readingCardWidth(gridMetrics.spacing)
+        if (reading != null && selectedTab != null && cardWidth != null) {
+            // The card is as tall as the tabs and the strip beside it, so their bottoms line up.
+            Row(
+                modifier = Modifier.height(IntrinsicSize.Min),
+                horizontalArrangement = Arrangement.spacedBy(gridMetrics.spacing),
+            ) {
+                card(Modifier.width(cardWidth).fillMaxHeight())
                 band(Modifier.weight(1f))
             }
         } else {
@@ -126,11 +133,5 @@ fun LibraryShelvesZone(
         }
     }
 }
-
-/** The width of [cells] grid cells and the gaps between them. */
-internal fun LibraryGridColumns.span(cells: Int, spacing: Dp): Dp = cellWidth * cells + spacing * (cells - 1)
-
-/** At this many grid columns or more, the reading card and the tabs sit side by side. */
-internal const val SideBySideColumns = 6
 
 internal val StackedSpacing = 24.dp

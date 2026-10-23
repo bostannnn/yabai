@@ -9,8 +9,10 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -152,15 +154,21 @@ fun LibraryReadingCard(
                 Box(modifier = Modifier.padding(top = 16.dp)) { actions(true) }
             }
         } else {
+            // Given a height (beside the shelf tabs), the card fills it: the cover centres and the
+            // progress and buttons stay at the bottom. Otherwise it is as tall as its cover.
             Row(
-                modifier = Modifier.padding(LibraryReadingCardDefaults.padding),
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .padding(LibraryReadingCardDefaults.padding),
                 horizontalArrangement = Arrangement.spacedBy(LibraryReadingCardDefaults.padding),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 cover(coverWidth)
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .height(max(coverWidth * 1.5f, LibraryReadingCardDefaults.minTextHeight)),
+                        .fillMaxHeight()
+                        .heightIn(min = max(coverWidth * 1.5f, LibraryReadingCardDefaults.minTextHeight)),
                 ) {
                     LibraryReadingCardText(item, progress, overline, colors, titleSize = 30, compact = false)
                     Box(modifier = Modifier.padding(top = 16.dp)) { actions(false) }
@@ -321,8 +329,22 @@ object LibraryReadingCardDefaults {
 }
 
 /**
+ * At this many grid columns or more the reading card spans half of them instead of the whole row:
+ * beside the shelf tabs on the home, and on its own above a series' issues.
+ */
+const val LibraryReadingCardSideBySideColumns = 6
+
+/** The width of [cells] grid cells and the gaps between them. */
+private fun LibraryGridColumns.span(cells: Int, spacing: Dp): Dp = cellWidth * cells + spacing * (cells - 1)
+
+/** The reading card's width in these columns, or null below [LibraryReadingCardSideBySideColumns] (the full row). */
+fun LibraryGridColumns.readingCardWidth(spacing: Dp): Dp? =
+    if (count >= LibraryReadingCardSideBySideColumns) span(LibraryReadingCardSideBySideColumns / 2, spacing) else null
+
+/**
  * The top of a series: the reading card for [next], the issue being read or the next one to
- * start, with its cover at the grid's cell width ([gridMetrics]).
+ * start, with its cover at the grid's cell width ([gridMetrics]). On wide windows it is as wide as
+ * the home's card, not the whole row.
  */
 @Composable
 fun LibrarySeriesReadingCard(
@@ -337,21 +359,21 @@ fun LibrarySeriesReadingCard(
 ) {
     val compact = isLibraryCompactWindow()
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
-        val coverWidth = with(LocalDensity.current) {
-            libraryGridColumns(availableWidth = maxWidth, metrics = gridMetrics).cellWidth
-        }
+        val columns = with(LocalDensity.current) { libraryGridColumns(availableWidth = maxWidth, metrics = gridMetrics) }
+        val cardWidth = columns.readingCardWidth(gridMetrics.spacing)
         LibraryReadingCard(
             item = next.item,
             progress = progress,
             overline = if (next.inProgress) "Continue reading" else "Up next in this series",
             continueLabel = if (next.inProgress) "Continue" else "Start",
-            coverWidth = coverWidth,
+            coverWidth = columns.cellWidth,
             compact = compact,
             coverImageUrlProvider = coverImageUrlProvider,
             onCoverVisible = onCoverVisible,
             imageVariant = gridMetrics.coverImageVariant,
             onContinue = { onItemSelected(next.item) },
             actionContext = actionContext,
+            modifier = if (cardWidth != null) Modifier.width(cardWidth) else Modifier,
         )
     }
 }

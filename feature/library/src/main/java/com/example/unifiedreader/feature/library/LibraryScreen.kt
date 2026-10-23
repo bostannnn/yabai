@@ -708,7 +708,12 @@ fun LibraryScreen(
             filterState = filterState,
             filterFacets = filterFacets,
             libraryTitlesById = libraryTitlesById,
-            shownCount = if (isPaged) pagedItems!!.itemCount else visibleItems.size,
+            // The paged grid's item count is only the pages loaded so far.
+            shownCount = when {
+                !isPaged -> visibleItems.size
+                filterState.isEmpty -> totalItemCount ?: pagedItems!!.itemCount
+                else -> libraryFilterMatchingCount(filterState, filterFacets.counts) ?: pagedItems!!.itemCount
+            },
             totalCount = totalItemCount,
             initialPanel = openFilterPanel,
             onFilterStateChanged = onFilterStateChanged,

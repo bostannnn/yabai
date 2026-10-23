@@ -52,6 +52,7 @@ import com.example.unifiedreader.feature.reader.preferences.InMemoryReaderPageNu
 import com.example.unifiedreader.feature.reader.preferences.ReaderPageNumberPreferencesStore
 import com.example.unifiedreader.journal.JournalReadingSessionRecorder
 import com.example.unifiedreader.ui.components.AppCircularProgress
+import com.example.unifiedreader.ui.components.AppFloatingPanelScrim
 import com.example.unifiedreader.ui.components.AppScreenBackHandler
 import com.example.unifiedreader.ui.components.AppTextButton
 import kotlinx.coroutines.Dispatchers
@@ -761,6 +762,15 @@ fun EpubReaderScreen(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
                                 .fillMaxSize(),
+                        )
+                        // One scrim for both panels over the whole screen: each panel sits inside
+                        // the gesture insets, and its own scrim left a bright frame on a light page.
+                        AppFloatingPanelScrim(
+                            visible = isTocSheetOpen || isPreferencesPaneOpen,
+                            onDismissRequest = {
+                                isTocSheetOpen = false
+                                isPreferencesPaneOpen = false
+                            },
                         )
                         EpubTableOfContentsSheet(
                             entries = bookProgress.tocEntries,

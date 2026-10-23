@@ -40,25 +40,19 @@ internal fun ThemeSettingsPage(
     modifier: Modifier = Modifier,
 ) {
     val options = if (themeMode.isAvailableInSettings) ThemeMode.settingsEntries else ThemeMode.settingsEntries + themeMode
-    val lightOptions = options.filterNot(ThemeMode::isDark)
-    val darkOptions = options.filter(ThemeMode::isDark)
     SettingsPageContainer(
         contentTopInset = contentTopInset,
         modifier = modifier,
         horizontalPadding = horizontalPadding,
     ) {
-        ThemeTileGroup(
-            label = "Light",
-            options = lightOptions,
-            selected = themeMode,
-            onSelected = onThemeModeSelected,
-        )
-        ThemeTileGroup(
-            label = "Dark",
-            options = darkOptions,
-            selected = themeMode,
-            onSelected = onThemeModeSelected,
-        )
+        themeTileGroups(options).forEach { (label, groupOptions) ->
+            ThemeTileGroup(
+                label = label,
+                options = groupOptions,
+                selected = themeMode,
+                onSelected = onThemeModeSelected,
+            )
+        }
         Text(
             text = themeMode.description,
             style = MaterialTheme.typography.bodyMedium,
@@ -67,6 +61,16 @@ internal fun ThemeSettingsPage(
         )
     }
 }
+
+/**
+ * The theme page's groups, each with its heading: the theme that follows the device first (it is
+ * dark on a device in dark mode, so it can't sit under Light), then Light and Dark.
+ */
+internal fun themeTileGroups(options: List<ThemeMode>): List<Pair<String, List<ThemeMode>>> = listOf(
+    "Device" to options.filter(ThemeMode::followsDevice),
+    "Light" to options.filterNot { option -> option.isDark || option.followsDevice },
+    "Dark" to options.filter(ThemeMode::isDark),
+).filter { (_, groupOptions) -> groupOptions.isNotEmpty() }
 
 @Composable
 private fun ThemeTileGroup(

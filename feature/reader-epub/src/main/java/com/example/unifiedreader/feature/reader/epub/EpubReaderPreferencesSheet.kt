@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import com.example.unifiedreader.feature.reader.core.curl.PageTurnStyle
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.ui.components.AppFloatingPanel
@@ -63,6 +64,8 @@ internal fun EpubPreferencesSheet(
         placement = AppFloatingPanelPlacement.End,
         onDismissRequest = onDismissRequest,
         containerColor = readerOverlayTokens().colors.container,
+        // EpubReaderEntry dims the whole screen itself; this panel's slot is inside the insets.
+        scrimColor = Color.Transparent,
         testTag = EpubPreferencesSheetTag,
         modifier = modifier.windowInsetsPadding(WindowInsets.safeGestures),
     ) {

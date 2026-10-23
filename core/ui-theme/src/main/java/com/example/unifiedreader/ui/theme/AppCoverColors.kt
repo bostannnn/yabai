@@ -69,8 +69,14 @@ fun appCoverColors(
         ?.takeIf { accent -> onAccent != null && contrastRatio(accent, onAccent) >= MinTextContrast }
     val accent = coverAccent ?: fallbackAccent.toArgb()
     val accentOn = if (coverAccent != null) onAccent!! else fallbackOnAccent.toArgb()
+    // On a light theme the container must still stand off a cream segmented track (L ~0.95), so
+    // it is deeper and a little more saturated than the tints.
     val containerHsl = Hsl.of(accent).let { hsl ->
-        hsl.copy(s = min(hsl.s, ContainerMaxSaturation), l = if (dark) DarkContainerL else LightContainerL)
+        if (dark) {
+            hsl.copy(s = min(hsl.s, ContainerMaxSaturation), l = DarkContainerL)
+        } else {
+            hsl.copy(s = min(hsl.s, LightContainerMaxSaturation), l = LightContainerL)
+        }
     }
     return AppCoverColors(
         tintStart = Color(tintStart.toArgb()),
@@ -197,6 +203,7 @@ private const val MinTextContrast = 4.5
 private const val TintMaxSaturation = 0.45f
 private const val AccentMaxSaturation = 0.85f
 private const val ContainerMaxSaturation = 0.4f
+private const val LightContainerMaxSaturation = 0.5f
 private const val DarkTintStartL = 0.25f
 private const val DarkTintEndL = 0.30f
 private const val LightTintStartL = 0.90f
@@ -206,5 +213,5 @@ private const val DarkOnAccentL = 0.14f
 private const val LightAccentL = 0.35f
 private const val DarkContainerL = 0.30f
 private const val DarkOnContainerL = 0.92f
-private const val LightContainerL = 0.88f
+private const val LightContainerL = 0.80f
 private const val LightOnContainerL = 0.20f

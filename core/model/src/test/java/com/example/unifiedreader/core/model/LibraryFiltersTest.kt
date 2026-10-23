@@ -75,17 +75,28 @@ class LibraryFiltersTest {
 
     @Test
     fun `comic secondary text keeps issue title when raw title is the issue title`() {
-        val issue = item(id = "issue", title = "Chapter v3").copy(
+        val issue = item(id = "issue", title = "Chapter 3").copy(
             format = FormatType.CBZ,
             kind = ReadableItemKind.COMIC,
             comicMetadata = ComicMetadata(
                 series = "GIGANT",
-                issueTitle = "Chapter v3",
+                issueTitle = "Chapter 3",
             ),
         )
 
         assertEquals("GIGANT", issue.libraryPrimaryText())
-        assertEquals("Chapter v3", issue.librarySecondaryText())
+        assertEquals("Chapter 3", issue.librarySecondaryText())
+    }
+
+    @Test
+    fun `comic secondary text names a Kavita volume rather than its Chapter v3`() {
+        val volume = item(id = "volume", title = "Chapter v3").copy(
+            format = FormatType.CBZ,
+            kind = ReadableItemKind.COMIC,
+            comicMetadata = ComicMetadata(series = "GIGANT", issueTitle = "Chapter v3"),
+        )
+
+        assertEquals("Volume 3", volume.librarySecondaryText())
     }
 
     @Test

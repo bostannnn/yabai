@@ -43,6 +43,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
@@ -177,24 +178,12 @@ fun AppFloatingPanel(
     val shape = AppFloatingPanelDefaults.shape(layout.mode)
 
     Box(modifier = modifier.fillMaxSize()) {
-        AnimatedVisibility(
+        AppFloatingPanelScrim(
             visible = visible,
-            enter = fadeIn(animationSpec = AppMotion.effects()),
-            exit = fadeOut(animationSpec = AppMotion.effects()),
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer { alpha = 1f - backProgress.value }
-                    .background(scrimColor)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onDismissRequest,
-                    ),
-            )
-        }
+            onDismissRequest = onDismissRequest,
+            color = scrimColor,
+            modifier = Modifier.graphicsLayer { alpha = 1f - backProgress.value },
+        )
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -278,6 +267,38 @@ private fun ColumnScope.AppFloatingPanelHandle() {
     )
 }
 
+/**
+ * The scrim an [AppFloatingPanel] draws over its slot: it fades in and out with the panel and a
+ * tap on it calls [onDismissRequest]. A host whose slot is smaller than the area to dim (the
+ * comics reader's slot sits under its top bar and inside the gesture insets) draws this over the
+ * whole area itself and gives the panel a transparent `scrimColor`.
+ */
+@Composable
+fun AppFloatingPanelScrim(
+    visible: Boolean,
+    onDismissRequest: () -> Unit,
+    modifier: Modifier = Modifier,
+    color: Color = AppFloatingPanelDefaults.scrimColor,
+) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(animationSpec = AppMotion.effects()),
+        exit = fadeOut(animationSpec = AppMotion.effects()),
+        modifier = modifier.fillMaxSize(),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(color)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismissRequest,
+                ),
+        )
+    }
+}
+
 private fun AppFloatingPanelLayout.padding(
     requested: PaddingValues,
     layoutDirection: LayoutDirection,
@@ -352,7 +373,9 @@ object AppFloatingPanelDefaults {
     /** Below this width every placement is a bottom sheet, matching [AppSideSheetDefaults]. */
     const val compactWidthDp: Int = AppSideSheetDefaults.compactWidthDp
 
-    const val scrimAlpha: Float = 0.2f
+    /** The spec's scrim: black at 45% on a dark theme, 32% on a light one. */
+    const val scrimAlphaDark: Float = 0.45f
+    const val scrimAlphaLight: Float = 0.32f
 
     fun width(placement: AppFloatingPanelPlacement): Dp = when (placement) {
         AppFloatingPanelPlacement.Start -> 360.dp
@@ -365,7 +388,9 @@ object AppFloatingPanelDefaults {
         @Composable get() = UnifiedReaderThemeTokens.colors.surfaceRaised
 
     val scrimColor: Color
-        @Composable get() = MaterialTheme.colorScheme.scrim.copy(alpha = scrimAlpha)
+        @Composable get() = MaterialTheme.colorScheme.scrim.copy(
+            alpha = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) scrimAlphaDark else scrimAlphaLight,
+        )
 
     /** Container radius; a bottom sheet rounds only its top corners, like [AppSheet]. */
     @Composable
