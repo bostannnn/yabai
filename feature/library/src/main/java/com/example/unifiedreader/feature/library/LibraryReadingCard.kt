@@ -41,12 +41,13 @@ import com.example.unifiedreader.ui.components.AppButton
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.components.appProgressFill
+import com.example.unifiedreader.ui.theme.AppCoverColors
 
 /**
  * The card for the book being read: its cover, an [overline] ("Continue reading"), the title
  * and author, the progress, and Continue plus Details. On tablets ([compact] false) the cover is
  * [coverWidth] (the grid's cell width) beside the text; on phones it is 96 dp with the buttons in
- * a row under it. Tinted with the theme accent until covers tint it (step 8.6).
+ * a row under it. Tinted with the cover's colours, or the theme accent for a cover without any.
  */
 @Composable
 fun LibraryReadingCard(
@@ -63,11 +64,25 @@ fun LibraryReadingCard(
     continueLabel: String = "Continue",
     actionContext: LibraryItemActionContext = LibraryItemActionContext(),
 ) {
+    // The cover's colours, the theme accent until they arrive (or for a cover without any).
+    val scheme = MaterialTheme.colorScheme
+    val tint = animateCoverColors(
+        rememberLibraryCoverColors(item, coverImageUrlProvider) ?: AppCoverColors(
+            tintStart = scheme.primaryContainer,
+            tintEnd = scheme.primaryContainer,
+            content = scheme.onPrimaryContainer,
+            track = scheme.onPrimaryContainer.copy(alpha = 0.16f),
+            accent = scheme.primary,
+            onAccent = scheme.onPrimary,
+            accentContainer = scheme.primaryContainer,
+            onAccentContainer = scheme.onPrimaryContainer,
+        ),
+    )
     val colors = LibraryReadingCardColors(
-        container = MaterialTheme.colorScheme.primaryContainer,
-        content = MaterialTheme.colorScheme.onPrimaryContainer,
-        accent = MaterialTheme.colorScheme.primary,
-        onAccent = MaterialTheme.colorScheme.onPrimary,
+        content = tint.content,
+        track = tint.track,
+        accent = tint.accent,
+        onAccent = tint.onAccent,
     )
     val cover = @Composable { width: Dp ->
         Box(
@@ -112,10 +127,14 @@ fun LibraryReadingCard(
         }
     }
 
+    val cardShape = RoundedCornerShape(LibraryReadingCardDefaults.cornerRadius)
     AppPanel(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(LibraryReadingCardDefaults.cornerRadius),
-        color = colors.container,
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(cardShape)
+            .coverTint(tint),
+        shape = cardShape,
+        color = Color.Transparent,
         contentColor = colors.content,
     ) {
         if (compact) {
@@ -280,14 +299,12 @@ internal fun libraryReadingCardPositionLabel(progress: ItemProgressSummary): Str
 }
 
 private class LibraryReadingCardColors(
-    val container: Color,
     val content: Color,
+    /** The progress track and the tonal button. */
+    val track: Color,
     val accent: Color,
     val onAccent: Color,
-) {
-    /** The progress track and the tonal button: the card's text color, faint. */
-    val track: Color = content.copy(alpha = 0.16f)
-}
+)
 
 object LibraryReadingCardDefaults {
     val cornerRadius: Dp = 24.dp

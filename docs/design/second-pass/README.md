@@ -257,6 +257,9 @@ Mock: `8.6-cover-colour.jpg` (tap the small covers on the same card in `pages/li
 - No live blur: the tint is gradients, or a 16 × 24 downscale of the cover drawn stretched.
 - Used by the reading card, the book page and the reader's accent (slider fill, selected states).
   The grid and lists stay neutral.
+- (Built: plain population weighting picked a wide dull sky over a small vivid sun, so saturation
+  is squared against a fourth root of the share. Palettes are cached in memory and in the app's
+  cache directory per cover URL, beside Coil's own copy rather than inside it.)
 
 ## 8.7 Reader menus
 

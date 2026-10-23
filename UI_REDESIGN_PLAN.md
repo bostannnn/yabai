@@ -770,12 +770,37 @@ device; their parts are unit-tested. Not yet on the tablet.
 - [ ] Tablet: the page over a Kavita issue and a Kavita series (download, series rows, See all),
       and its feel as a side sheet.
 
-### 8.6 Colour from the cover `[ ]` (replaces section 5)
+### 8.6 Colour from the cover `[~]` (replaces section 5)
 
-- [ ] A palette per cover, extracted off the main thread and cached with the cover file; the accent
-      clamped for contrast on the theme's surface, the theme primary as the fallback. Used by the
-      reading card, the book page and the reader's accent; the grid and lists stay neutral.
-      Extraction time and memory measured on the tablet.
+Built 2026-10-23 on `claude/ui-redesign-step-8-e779ee`, checked on the emulator (`yabai_tablet_35`,
+Graphite and Paper, the Local library): the reading card, the book page and the EPUB reading
+settings. Not yet on the tablet.
+
+- [x] Swatches (`LibraryCoverPalette.kt`, unit-tested): a 60 x 90 decode of the cover through Coil
+      (so a cover Coil already has on disk is not fetched again; software bitmap, not kept in Coil's
+      memory cache), off the main thread. Colours are grouped into up to 16 clusters of near
+      neighbours; the two largest are the ambient pair; the accent is the most saturated cluster
+      with L 0.22-0.78, S at least 0.25 and at least 1% of the cover, saturation counting far more
+      than area (S squared against a fourth root of the share; plain population weighting picked a
+      wide dull sky over the mock's coral sun). Kept in memory (256 covers) and in
+      `cacheDir/cover_palettes` (one small file per cover URL), so each cover is read once.
+- [x] Colours (`AppCoverColors` in core:ui-theme, unit-tested): dark themes darken the ambient pair
+      to L 0.25 / 0.30 (saturation capped at 0.45) under `#f6eef1` text, and lighten the accent to
+      L 0.75 with dark text of its own hue; light themes use L 0.90 / 0.88 tints under `#2a2233` and an
+      L 0.35 accent with white text. Under 4.5:1, or with no accent, the theme's primary stays.
+      The tint is a flat colour with the second glowing in from the far corner (gradients only).
+- [x] Used by the reading card (and the series card) and the book page's top, with every colour
+      easing in on the effects spring when the palette arrives after the first frame; a palette
+      already in memory is there on the first frame. The reader takes the accent through
+      `AppCoverAccentTheme` around `ReaderHost` (Material primary and primary container, the app's
+      selected and reader-accent roles): slider fills, selected segments, the theme picker's
+      outline. It wraps the reader the same way with or without a palette, so a late palette
+      recolours the reader without rebuilding it. The grid and lists stay neutral.
+- [x] Timing on the emulator: one cold extraction (decode, clustering and the cache write) took
+      121 ms off the main thread during cold start; later opens read the cache. Tablet numbers are
+      part of the deferred `LibraryPerf` pass (log line `cover.palette extract`).
+- [ ] Tablet: the tints over real Kavita covers, the reader accent over an EPUB and a comic, and
+      the extraction time and memory.
 
 ### 8.7 Reader menus `[ ]`
 

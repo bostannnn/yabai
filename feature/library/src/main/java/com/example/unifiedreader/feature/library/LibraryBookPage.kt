@@ -1,6 +1,5 @@
 package com.example.unifiedreader.feature.library
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +23,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -59,6 +59,7 @@ import com.example.unifiedreader.ui.components.AppSideSheet
 import com.example.unifiedreader.ui.components.AppTextButton
 import com.example.unifiedreader.ui.components.AppTonalButton
 import com.example.unifiedreader.ui.components.appProgressFill
+import com.example.unifiedreader.ui.theme.AppCoverColors
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -93,6 +94,20 @@ fun LibraryBookPage(
     val text = remember(item, progress, related.seriesPosition) {
         libraryBookPageText(item, progress, related.seriesPosition)
     }
+    // The top takes the cover's colours; a quiet tint until they arrive or for a cover without any.
+    val scheme = MaterialTheme.colorScheme
+    val tint = animateCoverColors(
+        rememberLibraryCoverColors(item, coverImageUrlProvider) ?: AppCoverColors(
+            tintStart = scheme.surfaceContainerHigh,
+            tintEnd = scheme.surfaceContainerHigh,
+            content = scheme.onSurface,
+            track = scheme.onSurface.copy(alpha = 0.12f),
+            accent = scheme.primary,
+            onAccent = scheme.onPrimary,
+            accentContainer = scheme.primaryContainer,
+            onAccentContainer = scheme.onPrimaryContainer,
+        ),
+    )
     var confirmRemove by remember(item.id) { mutableStateOf(false) }
     // A cover in the rows swaps the page's book; the new one starts at its top.
     val listState = remember(item.id) { LazyListState() }
@@ -106,6 +121,7 @@ fun LibraryBookPage(
                 LibraryBookPageTop(
                     item = item,
                     text = text,
+                    tint = tint,
                     progress = progress,
                     actionContext = actionContext,
                     coverImageUrlProvider = coverImageUrlProvider,
@@ -203,6 +219,7 @@ fun LibraryBookPage(
 private fun LibraryBookPageTop(
     item: ReadableItem,
     text: LibraryBookPageText,
+    tint: AppCoverColors,
     progress: ItemProgressSummary?,
     actionContext: LibraryItemActionContext,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
@@ -210,12 +227,11 @@ private fun LibraryBookPageTop(
     onRemoveImported: () -> Unit,
     onClose: () -> Unit,
 ) {
-    val colors = MaterialTheme.colorScheme
-    // The cover's own colour arrives with 8.6; until then the page's top sits on a quiet tint.
+    val secondaryText = tint.content.copy(alpha = SecondaryTextAlpha)
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(colors.surfaceContainerHigh),
+            .coverTint(tint),
     ) {
         Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 20.dp)) {
             Row(verticalAlignment = Alignment.Bottom) {
@@ -242,6 +258,7 @@ private fun LibraryBookPageTop(
                             lineHeight = 30.sp,
                             fontWeight = FontWeight.Bold,
                         ),
+                        color = tint.content,
                         maxLines = 4,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -249,7 +266,7 @@ private fun LibraryBookPageTop(
                         Text(
                             text = line,
                             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
-                            color = colors.onSurfaceVariant,
+                            color = secondaryText,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -258,7 +275,7 @@ private fun LibraryBookPageTop(
                         Text(
                             text = creators,
                             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.5.sp),
-                            color = colors.onSurfaceVariant,
+                            color = secondaryText,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -268,6 +285,7 @@ private fun LibraryBookPageTop(
             Spacer(modifier = Modifier.height(18.dp))
             AppButton(
                 onClick = onOpen,
+                colors = ButtonDefaults.buttonColors(containerColor = tint.accent, contentColor = tint.onAccent),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(46.dp),
@@ -283,7 +301,7 @@ private fun LibraryBookPageTop(
             if (actions.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    actions.forEach { action -> LibraryBookPageTonalAction(action) }
+                    actions.forEach { action -> LibraryBookPageTonalAction(action, tint) }
                 }
             }
             if (progress != null && text.progressLine != null) {
@@ -292,7 +310,7 @@ private fun LibraryBookPageTop(
                     Text(
                         text = text.progressLine,
                         style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.5.sp, fontWeight = FontWeight.Medium),
-                        color = colors.onSurfaceVariant,
+                        color = secondaryText,
                         modifier = Modifier.weight(1f),
                     )
                     text.progressPages?.let { pages ->
@@ -303,7 +321,7 @@ private fun LibraryBookPageTop(
                                 fontWeight = FontWeight.Medium,
                                 fontFeatureSettings = "tnum",
                             ),
-                            color = colors.onSurfaceVariant,
+                            color = secondaryText,
                         )
                     }
                 }
@@ -315,8 +333,8 @@ private fun LibraryBookPageTop(
                         .clip(CircleShape)
                         .appProgressFill(
                             fraction = progress.fraction,
-                            progressColor = colors.primary,
-                            trackColor = colors.onSurface.copy(alpha = 0.12f),
+                            progressColor = tint.accent,
+                            trackColor = tint.track,
                         ),
                 )
             }
@@ -327,7 +345,7 @@ private fun LibraryBookPageTop(
                 .align(Alignment.TopEnd)
                 .padding(8.dp),
         ) {
-            Icon(imageVector = AppIcons.Close, contentDescription = "Close book page")
+            Icon(imageVector = AppIcons.Close, contentDescription = "Close book page", tint = tint.content)
         }
     }
 }
@@ -369,10 +387,11 @@ private fun bookPageActions(
 }
 
 @Composable
-private fun RowScope.LibraryBookPageTonalAction(action: BookPageAction) {
+private fun RowScope.LibraryBookPageTonalAction(action: BookPageAction, tint: AppCoverColors) {
     AppTonalButton(
         onClick = action.onClick,
         enabled = action.enabled,
+        colors = ButtonDefaults.buttonColors(containerColor = tint.track, contentColor = tint.content),
         contentPadding = PaddingValues(horizontal = 12.dp),
         modifier = Modifier
             .weight(1f)
@@ -543,6 +562,7 @@ private val ComicReadingDirection.pageLabel: String
     }
 
 private val LibraryBookPageWidth = 440.dp
+private const val SecondaryTextAlpha = 0.74f
 private val LibraryBookPageCoverWidth = 118.dp
 private val LibraryBookPageChipHeight = 30.dp
 private val LibraryBookPageFactLabelWidth = 110.dp

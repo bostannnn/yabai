@@ -55,6 +55,7 @@ import com.example.unifiedreader.feature.updates.AppUpdateHost
 import com.example.unifiedreader.feature.updates.AppUpdateState
 import com.example.unifiedreader.feature.updates.rememberAppUpdateActions
 import com.example.unifiedreader.journal.JournalItemRef
+import com.example.unifiedreader.feature.library.rememberLibraryCoverColors
 import com.example.unifiedreader.ui.components.AppBackground
 import com.example.unifiedreader.ui.components.AppButton
 import com.example.unifiedreader.ui.components.AppDialog
@@ -63,6 +64,7 @@ import com.example.unifiedreader.ui.components.AppScreenBack
 import com.example.unifiedreader.ui.components.AppScreenHost
 import com.example.unifiedreader.ui.components.AppSnackbar
 import com.example.unifiedreader.ui.components.AppTextButton
+import com.example.unifiedreader.ui.theme.AppCoverAccentTheme
 import com.example.unifiedreader.ui.theme.UnifiedReaderTheme
 import com.example.unifiedreader.ui.theme.applyAndroidThemeMode
 import kotlinx.coroutines.delay
@@ -190,17 +192,20 @@ fun UnifiedReaderAppContent(
                     modifier = Modifier.fillMaxSize(),
                 ) { screen, readerItem ->
                     if (screen is AppRootScreen.Reader && readerItem != null) {
-                        ReaderHost(
-                            item = readerItem,
-                            factories = viewModel.readerFactories,
-                            onBack = viewModel::onBackPressed,
-                            readerWorkCoordinator = viewModel.readerWorkCoordinator,
-                            navigationActions = ReaderNavigationActions(
-                                onRequestNextInSeries = viewModel::onReaderNextRequested,
-                                onRequestCompletion = viewModel::onReaderCompletionRequested,
-                                currentOpenMode = uiState.selectedReaderOpenMode,
-                            ),
-                        )
+                        // The reader's accent (slider fills, selected states) is the book's cover colour.
+                        AppCoverAccentTheme(rememberLibraryCoverColors(readerItem, viewModel::coverImageUrlFor)) {
+                            ReaderHost(
+                                item = readerItem,
+                                factories = viewModel.readerFactories,
+                                onBack = viewModel::onBackPressed,
+                                readerWorkCoordinator = viewModel.readerWorkCoordinator,
+                                navigationActions = ReaderNavigationActions(
+                                    onRequestNextInSeries = viewModel::onReaderNextRequested,
+                                    onRequestCompletion = viewModel::onReaderCompletionRequested,
+                                    currentOpenMode = uiState.selectedReaderOpenMode,
+                                ),
+                            )
+                        }
                     } else {
                         // Remote covers are asked for again after a reset or a catalog sync.
                         val coverGeneration by viewModel.coverResetGeneration.collectAsStateWithLifecycle()
