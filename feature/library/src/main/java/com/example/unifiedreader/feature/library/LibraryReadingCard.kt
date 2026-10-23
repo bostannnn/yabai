@@ -287,8 +287,14 @@ private fun RowScope.LibraryReadingCardDetails(
     }
 }
 
-/** "Page 47 of 73" when the page is known, otherwise the summary's own label. */
+/**
+ * "Chapter 3 of 6" when the reader saved the chapter, "Page 47 of 73" when the page is known,
+ * otherwise the summary's own label.
+ */
 internal fun libraryReadingCardPositionLabel(progress: ItemProgressSummary): String {
+    val chapter = progress.chapter
+    val chapterCount = progress.chapterCount
+    if (chapter != null && chapterCount != null && chapterCount > 0) return "Chapter $chapter of $chapterCount"
     val pageCount = progress.pageCount?.takeIf { it > 0 } ?: return progress.label
     val page = (progress.currentPage ?: (progress.fraction * pageCount).toInt().coerceAtLeast(1))
         .coerceIn(1, pageCount)

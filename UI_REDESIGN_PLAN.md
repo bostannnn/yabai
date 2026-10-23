@@ -636,8 +636,11 @@ has no Kavita or Stump source), only its unit-tested parts.
       shadow and its progress bar; overline, 30 sp Bold title, author, "Page 1 of 73" and the
       percentage over a 6 dp bar, 44 dp Continue (filled) and Details. Details opens the item's menu
       (`LibraryItemMenuPopup`) until the book page replaces it in 8.5. Under 600 dp the phone layout
-      (A). EPUB progress records no chapter (the saved count is Readium positions), so "Chapter 3
-      of 6" needs the reader to store the chapter position when it saves.
+      (A). The position line reads "Chapter 4 of 6" for EPUBs: the reader saves the chapter it is in
+      (the contents panel's rule, `epubTocChapterPosition`) with each session save, under the
+      reader-core key `reader.chapter` in the session preferences (no Room change), and the progress
+      summary carries it. Books not reopened since show the page ("Page 47 of 73") until their next
+      save; comics and PDFs show the page.
 - [x] Shelf tabs (`LibraryShelvesSections.kt`, rewritten): 34 dp pill tabs "In progress 22", "Up next",
       "Finished" (a tab with nothing is hidden; In progress leaves out the card's book), See all in the
       accent, and one strip of today's shelf cards at the grid's cover width and gap (up to 12, it

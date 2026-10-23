@@ -5,8 +5,10 @@ import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.ItemProgressSummary
+import com.example.unifiedreader.feature.reader.core.ReaderChapterPosition
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
+import com.example.unifiedreader.feature.reader.core.chapterPosition
 
 internal fun buildProgressSummaries(
     items: List<ReadableItem>,
@@ -52,8 +54,12 @@ internal fun buildProgressSummaries(
             lastReadAtEpochMillis = progress.updatedAtEpochMillis,
         )
     } ?: return@associateNotNull null
-    item.id to summary
+    item.id to summary.withChapter(sessionByItemId[item.id]?.chapterPosition)
 }
+
+/** The chapter the reader saved, while the book is not finished. */
+private fun ItemProgressSummary.withChapter(position: ReaderChapterPosition?): ItemProgressSummary =
+    if (position == null || isFinished) this else copy(chapter = position.index, chapterCount = position.count)
 
 private fun buildItemProgressSummary(
     pageIndex: Int,

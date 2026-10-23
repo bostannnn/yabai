@@ -62,12 +62,18 @@ class LibraryHeaderTest {
     }
 
     @Test
-    fun `reading card position names the page when the count is known`() {
+    fun `reading card position names the chapter, else the page, else the summary label`() {
         assertEquals(
             "Page 47 of 73",
             libraryReadingCardPositionLabel(ItemProgressSummary(label = "Resume", fraction = 0.64f, currentPage = 47, pageCount = 73)),
         )
         assertEquals("Resume at 40%", libraryReadingCardPositionLabel(ItemProgressSummary(label = "Resume at 40%", fraction = 0.4f)))
+        assertEquals(
+            "Chapter 3 of 6",
+            libraryReadingCardPositionLabel(
+                ItemProgressSummary(label = "Resume", fraction = 0.64f, currentPage = 47, pageCount = 73, chapter = 3, chapterCount = 6),
+            ),
+        )
     }
 
     private fun finished() = ItemProgressSummary(label = "Finished", fraction = 1f, isFinished = true, lastReadAtEpochMillis = 1)

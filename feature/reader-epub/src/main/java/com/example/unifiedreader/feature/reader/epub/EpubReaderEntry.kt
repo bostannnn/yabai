@@ -41,10 +41,12 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.feature.reader.core.ImmersiveReaderOverlay
 import com.example.unifiedreader.feature.reader.core.ReaderActiveSessionTracker
+import com.example.unifiedreader.feature.reader.core.ReaderChapterPosition
 import com.example.unifiedreader.feature.reader.core.ReaderLocator
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import com.example.unifiedreader.feature.reader.core.findContextAncestor
+import com.example.unifiedreader.feature.reader.core.readerSessionChapterPreference
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
 import com.example.unifiedreader.feature.reader.preferences.InMemoryReaderPageNumberPreferencesStore
 import com.example.unifiedreader.feature.reader.preferences.ReaderPageNumberPreferencesStore
@@ -194,6 +196,8 @@ fun EpubReaderScreen(
     var currentLocator by remember(item.id) {
         mutableStateOf(serializedInitialLocator)
     }
+    // The chapter the reader is in, saved with the session so the library can name it.
+    var currentChapter by remember(item.id) { mutableStateOf<ReaderChapterPosition?>(null) }
     var secondSpreadPage by remember(item.id) { mutableStateOf<Int?>(null) }
     val pageNumbersVisible by pageNumberPreferences.isVisibleFlow.collectAsState()
     var hasAutoRequestedCompletion by rememberSaveable(item.id) {
@@ -332,7 +336,7 @@ fun EpubReaderScreen(
                             layoutModeOverride = !useOrientationLayoutDefault,
                             pageTurnStyle = pageTurnStyle,
                         ),
-                    ),
+                    ) + readerSessionChapterPreference(currentChapter),
                 )
             }
         },
@@ -532,6 +536,14 @@ fun EpubReaderScreen(
                 if (bookProgress.pageCount > 0) {
                     pageCount = bookProgress.pageCount
                 }
+            }
+            // The same chapter the contents panel marks; until the contents load it stays unknown.
+            LaunchedEffect(bookProgress.tocEntries, currentHref, currentProgress) {
+                val entries = bookProgress.tocEntries
+                if (entries.isEmpty()) return@LaunchedEffect
+                currentChapter = entries
+                    .epubTocChapterPosition(entries.activeEpubTocEntry(currentProgress, currentHref))
+                    ?.let { ReaderChapterPosition(index = it.index, count = it.count) }
             }
 
             LaunchedEffect(

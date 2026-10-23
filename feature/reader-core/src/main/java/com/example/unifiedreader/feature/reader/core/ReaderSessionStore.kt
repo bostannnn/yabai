@@ -23,6 +23,31 @@ data class ReaderSessionSnapshot(
     val preferences: Map<String, String> = emptyMap(),
 )
 
+/** Where the reader is among the book's chapters: chapter [index] (from 1) of [count]. */
+data class ReaderChapterPosition(
+    val index: Int,
+    val count: Int,
+)
+
+/**
+ * The session preference that keeps the [ReaderChapterPosition] the reader last saved, as
+ * "index/count", so the library can name the chapter without opening the book. Empty when the
+ * position is outside every chapter (a foreword) or the book has none.
+ */
+const val ReaderSessionChapterKey = "reader.chapter"
+
+fun readerSessionChapterPreference(position: ReaderChapterPosition?): Pair<String, String> =
+    ReaderSessionChapterKey to (position?.let { "${it.index}/${it.count}" } ?: "")
+
+val ReaderSessionSnapshot.chapterPosition: ReaderChapterPosition?
+    get() {
+        val parts = preferences[ReaderSessionChapterKey]?.split('/') ?: return null
+        if (parts.size != 2) return null
+        val index = parts[0].toIntOrNull() ?: return null
+        val count = parts[1].toIntOrNull() ?: return null
+        return ReaderChapterPosition(index, count).takeIf { count > 0 && index in 1..count }
+    }
+
 data class ReaderLocator(
     val locatorType: LocatorType,
     val page: Int? = null,

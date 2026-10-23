@@ -22,6 +22,9 @@ data class ItemProgressSummary(
     val pageCount: Int? = null,
     val lastReadAtEpochMillis: Long = 0L,
     val isFinished: Boolean = false,
+    // The chapter a book was left in (from 1), when its reader recorded one.
+    val chapter: Int? = null,
+    val chapterCount: Int? = null,
 ) {
     val percentLabel: String
         get() = "${(fraction.coerceIn(0f, 1f) * 100f).toInt()}%"
