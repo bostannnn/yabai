@@ -21,6 +21,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -42,13 +44,15 @@ fun AppSettingsGroup(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (label != null) {
+            // A plain heading in sentence case, not an uppercase caption.
             Text(
-                text = label.uppercase(),
-                style = MaterialTheme.typography.labelMedium,
+                text = label,
+                style = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp, lineHeight = 20.sp),
                 fontWeight = FontWeight.SemiBold,
-                letterSpacing = 0.6.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = AppSettingsDefaults.horizontalPadding),
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier
+                    .padding(start = 4.dp)
+                    .semantics { heading() },
             )
         }
         AppPanel(modifier = Modifier.fillMaxWidth()) {

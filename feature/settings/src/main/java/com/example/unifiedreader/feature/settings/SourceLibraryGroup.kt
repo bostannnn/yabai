@@ -14,12 +14,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.ui.components.AppButton
 import com.example.unifiedreader.ui.components.AppLinearProgress
-import com.example.unifiedreader.ui.components.AppOutlinedButton
 import com.example.unifiedreader.ui.components.AppSettingsDefaults
 import com.example.unifiedreader.ui.components.AppSettingsGroup
 import com.example.unifiedreader.ui.components.AppSettingsRow
 import com.example.unifiedreader.ui.components.AppSettingsRowDivider
 import com.example.unifiedreader.ui.components.AppTextButton
+import com.example.unifiedreader.ui.components.AppTonalButton
 
 /** The "Library" group of a source page: syncing the catalogue and the cover cache. */
 @Composable
@@ -28,6 +28,7 @@ internal fun SourceLibraryGroup(
     coverPreload: CoverPreloadUiState,
     actions: RemoteSourceSettingsActions,
     modifier: Modifier = Modifier,
+    lastSyncedAtEpochMillis: Long? = null,
 ) {
     val actionState = buildServerConnectionActionState(formState)
     val syncRunning = actionState.activeAction != null && actionState.activeAction != ServerConnectionAction.Connect
@@ -37,12 +38,13 @@ internal fun SourceLibraryGroup(
             supporting = when {
                 syncRunning -> "Syncing"
                 !formState.hasStoredSession -> "Connect to the server first"
-                else -> "Fetch the library list from the server"
+                lastSyncedAtEpochMillis != null -> "Synced ${formatSettingsMoment(lastSyncedAtEpochMillis)}"
+                else -> "Not synced on this device yet"
             },
             trailing = {
                 val fastSync = actions.onFastSync
                 if (fastSync != null) {
-                    AppOutlinedButton(
+                    AppTonalButton(
                         onClick = fastSync,
                         enabled = actionState.canSync,
                         modifier = Modifier.heightIn(min = SettingsActionButtonMinHeight),
@@ -90,9 +92,10 @@ internal fun SourceLibraryGroup(
                         Text("Cancel")
                     }
                 } else {
-                    AppTextButton(
+                    AppTonalButton(
                         onClick = actions.onClearCoverCache,
                         enabled = coverPreload.canClearCache,
+                        modifier = Modifier.heightIn(min = SettingsActionButtonMinHeight),
                     ) {
                         if (coverPreload.isClearingCache) {
                             SettingsButtonProgressIndicator()
@@ -101,14 +104,14 @@ internal fun SourceLibraryGroup(
                         }
                     }
                     if (coverPreload.canRetryFailed) {
-                        AppOutlinedButton(
+                        AppTonalButton(
                             onClick = actions.onRetryFailedCovers,
                             modifier = Modifier.heightIn(min = SettingsActionButtonMinHeight),
                         ) {
                             Text("Retry failed")
                         }
                     }
-                    AppOutlinedButton(
+                    AppTonalButton(
                         onClick = actions.onPreloadCovers,
                         enabled = coverPreload.canStart && formState.hasStoredSession,
                         modifier = Modifier.heightIn(min = SettingsActionButtonMinHeight),

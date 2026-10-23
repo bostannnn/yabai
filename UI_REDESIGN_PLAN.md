@@ -1104,7 +1104,40 @@ Paper, and at phone landscape (891 x 411 dp through `wm size`, drawer). Not yet 
     1003 lines to 307 (the dead metric grid and pace panels and the facet charts are gone).
   - [ ] Tablet: the journal over the real Kavita history (ratings, most read, Year), the sheet, and
         "Open in library" on a Kavita book.
-- [ ] Settings: a title, sentence-case group headings, a theme preview on the Theme row.
+- [~] Settings, started 2026-10-23 on `claude/ui-redesign-step-8-135c61`:
+  - [x] The hub as the 8.9 mock, checked on the emulator at 800 dp, 1280 dp landscape (two panes,
+        rail) and phone width: "Settings" as the screen title (the kit's new `AppScreenTitle`, which
+        the library header now uses too), group headings in sentence case at 15 SemiBold (in
+        `AppSettingsGroup`, so every settings page has them), and the Theme row's preview as three
+        small covers drawn in the current theme's colours. The bar is see-through and untitled while
+        the title shows; it takes its glass when anything scrolls under it and the name once the
+        hub's title has gone (`SettingsScrollReporter` from the shared page container).
+  - [x] Mock the pages first: board https://claude.ai/artifact/YJg8ydR6QvxnFogMAc8tc8
+        (`docs/design/second-pass/pages/settings.html`; picks save to the page). Picked 2026-10-23:
+        page titles Don't (a page's name stays in the bar), theme Do, connected server Do,
+        unconnected server Do, Filter chips A, Source order Do, sync Do, licenses Do.
+  - [x] Pages, built the same day, checked on the emulator at 800 dp (Graphite, no server):
+    - Theme: the chosen theme's description above the tiles; each tile shows the hub's three
+      covers in that theme's colours on its background (`ThemeCovers`, shared with the hub row).
+    - A server not connected: one line, the form with Connect, and a line saying the library
+      groups appear once connected (they are hidden until then).
+    - A connected server: a Connected / Offline / Checking pill with the host and "signed in as",
+      an error line when the last connect or sync failed, Library (Sync says "Synced today at
+      10:42"; tonal pills), the reading defaults, and Server's "Address and account" row whose Edit
+      opens the form in place. The sync time is new: `SourceSyncTimeStore` (app, a small
+      preferences file) is written by each source's sync success, full or fast, by hand or at
+      launch; `rememberSourceSyncTimes` reads it. Not seen: the emulator has no server.
+    - Filter chips (A): the handle first, the name, a switch at the end; a hidden filter is dimmed
+      in place.
+    - Drawer order is Source order ("The rail and the drawer list your sources in this order").
+    - Reading progress sync: "Everything is uploaded" in one row; with a queue, a pill ("2 waiting
+      since 20 Oct", or the failures), "Last tried …", Retry now, each source's books with a
+      book's uploads of one kind on one row ("2 reading sessions · since 20 Oct"), Waiting or
+      Failed, and the last error under its group. Not seen with a queue (the emulator has none).
+    - Licenses: one row per component (`parseThirdPartyNotices`), each opening its notice
+      (`SettingsPage.License`, whose Back returns to the list, in one pane and two).
+  - [ ] Tablet: the hub and pages in both orientations and themes (High Contrast in particular),
+        a connected Kavita page with its sync time, and the sync page with the real queue.
 - [ ] Downloads sheet, Kavita landing, first run.
 
 ## Not yet designed

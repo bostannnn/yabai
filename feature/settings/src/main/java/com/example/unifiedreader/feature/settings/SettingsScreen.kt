@@ -7,7 +7,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -57,55 +63,92 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     updateState: AppUpdateState = AppUpdateState(),
     updateActions: AppUpdateActions = AppUpdateActions(),
+    // For the top bar: whether the hub's own title shows (the bar then has no name), and whether
+    // anything has scrolled under the bar (it then needs its glass).
+    onTopBarStateChanged: (titleOnScreen: Boolean, scrolled: Boolean) -> Unit = { _, _ -> },
 ) {
     val usesSidePane = settingsUsesSidePane(currentAppWindowWidth())
+    var hubTitleScrolled by remember { mutableStateOf(false) }
+    var pageScrolled by remember { mutableStateOf(false) }
+    val hubScroll = remember { SettingsScrollReporter(threshold = HubTitleScrollThreshold) { hubTitleScrolled = it } }
+    val pageScroll = remember { SettingsScrollReporter(threshold = 0.dp) { pageScrolled = it } }
+    val titleOnScreen = (usesSidePane || page == null) && !hubTitleScrolled
+    val scrolled = hubTitleScrolled || if (usesSidePane) pageScrolled else page != null
+    val latestOnTopBarStateChanged by rememberUpdatedState(onTopBarStateChanged)
+    LaunchedEffect(titleOnScreen, scrolled) { latestOnTopBarStateChanged(titleOnScreen, scrolled) }
     val orderedSources = remember(sources, sourceOrder) {
         sources.sortedBy { entry -> sourceOrder.indexOf(entry.sourceType).takeIf { it >= 0 } ?: Int.MAX_VALUE }
     }
     val pageContent: @Composable (SettingsPage, Dp) -> Unit = { openPage, horizontalPadding ->
-        when (openPage) {
-            SettingsPage.Theme -> ThemeSettingsPage(
-                themeMode = themeMode,
-                onThemeModeSelected = onThemeModeSelected,
-                contentTopInset = contentTopInset,
-                horizontalPadding = horizontalPadding,
-            )
-            is SettingsPage.Source -> {
-                val entry = orderedSources.firstOrNull { it.sourceType == openPage.sourceType }
-                if (entry != null) {
-                    SourceSettingsPage(
-                        entry = entry,
-                        onLibraryDirectionSelected = onLibraryDirectionSelected,
-                        onLibraryReaderModeSelected = onLibraryReaderModeSelected,
-                        contentTopInset = contentTopInset,
-                        horizontalPadding = horizontalPadding,
+        CompositionLocalProvider(LocalSettingsScrollReporter provides pageScroll) {
+            when (openPage) {
+                SettingsPage.Theme -> ThemeSettingsPage(
+                    themeMode = themeMode,
+                    onThemeModeSelected = onThemeModeSelected,
+                    contentTopInset = contentTopInset,
+                    horizontalPadding = horizontalPadding,
+                )
+                is SettingsPage.Source -> {
+                    val entry = orderedSources.firstOrNull { it.sourceType == openPage.sourceType }
+                    if (entry != null) {
+                        SourceSettingsPage(
+                            entry = entry,
+                            onLibraryDirectionSelected = onLibraryDirectionSelected,
+                            onLibraryReaderModeSelected = onLibraryReaderModeSelected,
+                            contentTopInset = contentTopInset,
+                            horizontalPadding = horizontalPadding,
+                        )
+                    }
+                }
+                SettingsPage.FilterChips -> FilterChipsSettingsPage(
+                    filterPanelsBySource = libraryFilterPanelsBySource,
+                    onFilterPanelsChanged = onLibraryFilterPanelsChanged,
+                    contentTopInset = contentTopInset,
+                    horizontalPadding = horizontalPadding,
+                )
+                SettingsPage.DrawerOrder -> SettingsPageContainer(
+                    contentTopInset = contentTopInset,
+                    horizontalPadding = horizontalPadding,
+                ) {
+                    DrawerOrderSettingsGroup(
+                        sourceOrder = sourceOrder,
+                        onSourceOrderChanged = onSourceOrderChanged,
                     )
                 }
-            }
-            SettingsPage.FilterChips -> FilterChipsSettingsPage(
-                filterPanelsBySource = libraryFilterPanelsBySource,
-                onFilterPanelsChanged = onLibraryFilterPanelsChanged,
-                contentTopInset = contentTopInset,
-                horizontalPadding = horizontalPadding,
-            )
-            SettingsPage.DrawerOrder -> SettingsPageContainer(
-                contentTopInset = contentTopInset,
-                horizontalPadding = horizontalPadding,
-            ) {
-                DrawerOrderSettingsGroup(
-                    sourceOrder = sourceOrder,
-                    onSourceOrderChanged = onSourceOrderChanged,
+                SettingsPage.SyncStatus -> SyncStatusSettingsPage(
+                    state = syncSettings,
+                    onRetrySync = onRetrySync,
+                    contentTopInset = contentTopInset,
+                    horizontalPadding = horizontalPadding,
+                )
+                SettingsPage.Licenses -> LicensesSettingsPage(
+                    onOpenNotice = { name -> onPageChanged(SettingsPage.License(name)) },
+                    contentTopInset = contentTopInset,
+                    horizontalPadding = horizontalPadding,
+                )
+                is SettingsPage.License -> LicenseNoticePage(
+                    name = openPage.name,
+                    contentTopInset = contentTopInset,
+                    horizontalPadding = horizontalPadding,
                 )
             }
-            SettingsPage.SyncStatus -> SyncStatusSettingsPage(
-                state = syncSettings,
-                onRetrySync = onRetrySync,
+        }
+    }
+    val hub: @Composable (SettingsPage?, Dp, Modifier) -> Unit = { selected, horizontalPadding, hubModifier ->
+        CompositionLocalProvider(LocalSettingsScrollReporter provides hubScroll) {
+            SettingsHub(
+                themeMode = themeMode,
+                sources = orderedSources,
+                sourceOrder = sourceOrder,
+                syncSettings = syncSettings,
+                versionName = versionName,
+                updateState = updateState,
+                updateActions = updateActions,
+                selectedPage = selected,
+                onOpenPage = onPageChanged,
                 contentTopInset = contentTopInset,
                 horizontalPadding = horizontalPadding,
-            )
-            SettingsPage.Licenses -> LicensesSettingsPage(
-                contentTopInset = contentTopInset,
-                horizontalPadding = horizontalPadding,
+                modifier = hubModifier,
             )
         }
     }
@@ -118,25 +161,12 @@ fun SettingsScreen(
                 .padding(horizontal = SettingsScreenHorizontalPaddingDp.dp),
             horizontalArrangement = Arrangement.spacedBy(SettingsSidePaneSpacingDp.dp),
         ) {
-            SettingsHub(
-                themeMode = themeMode,
-                sources = orderedSources,
-                sourceOrder = sourceOrder,
-                syncSettings = syncSettings,
-                versionName = versionName,
-                updateState = updateState,
-                updateActions = updateActions,
-                selectedPage = shownPage,
-                onOpenPage = onPageChanged,
-                contentTopInset = contentTopInset,
-                horizontalPadding = 0.dp,
-                modifier = Modifier
-                    .width(SettingsSidePaneWidthDp.dp)
-                    .fillMaxHeight(),
-            )
+            hub(shownPage, 0.dp, Modifier.width(SettingsSidePaneWidthDp.dp).fillMaxHeight())
             AppScreenHost(
                 screen = shownPage,
                 modifier = Modifier.weight(1f).fillMaxHeight(),
+                // A license's notice steps back to the list beside the hub.
+                back = shownPage.parent?.let { parent -> AppScreenBack(target = parent) { onPageChanged(parent) } },
             ) { openPage ->
                 pageContent(openPage, 0.dp)
             }
@@ -145,28 +175,17 @@ fun SettingsScreen(
         AppScreenHost(
             screen = page,
             modifier = modifier.fillMaxSize(),
-            back = page?.let { AppScreenBack<SettingsPage?>(target = null) { onPageChanged(null) } },
+            back = page?.let { open -> AppScreenBack<SettingsPage?>(target = open.parent) { onPageChanged(open.parent) } },
             transitionFor = { from, to ->
                 when {
-                    from == null -> AppScreenTransition.Forward
-                    to == null -> AppScreenTransition.Backward
+                    from == null || to?.parent == from -> AppScreenTransition.Forward
+                    to == null || from.parent == to -> AppScreenTransition.Backward
                     else -> AppScreenTransition.FadeThrough
                 }
             },
         ) { openPage ->
             if (openPage == null) {
-                SettingsHub(
-                    themeMode = themeMode,
-                    sources = orderedSources,
-                    sourceOrder = sourceOrder,
-                    syncSettings = syncSettings,
-                    versionName = versionName,
-                    updateState = updateState,
-                    updateActions = updateActions,
-                    selectedPage = null,
-                    onOpenPage = onPageChanged,
-                    contentTopInset = contentTopInset,
-                )
+                hub(null, SettingsScreenHorizontalPaddingDp.dp, Modifier)
             } else {
                 pageContent(openPage, SettingsScreenHorizontalPaddingDp.dp)
             }
@@ -244,3 +263,6 @@ data class StumpConnectionUiState(
             username.isNotBlank() &&
             (password.isNotBlank() || hasStoredSession)
 }
+
+/** Half the hub's title has gone under the bar. */
+private val HubTitleScrollThreshold = 24.dp

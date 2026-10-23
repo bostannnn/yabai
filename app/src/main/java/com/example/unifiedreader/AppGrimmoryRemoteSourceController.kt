@@ -11,6 +11,7 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
     private val grimmoryCoordinator: AppGrimmoryCoordinator,
     private val grimmoryCredentialStore: GrimmoryCredentialStore,
     private val remoteCoverController: RemoteCoverController,
+    private val sourceSyncTimes: SourceSyncTimeStore,
 ) {
     fun initialize(
         updateState: AppUiStateUpdater,
@@ -189,6 +190,7 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
                 )
             ) {
                 is GrimmorySyncExecutionResult.Success -> {
+                    sourceSyncTimes.markSynced(SourceType.GRIMMORY)
                     updateState { state ->
                         state.copy(
                             topLevel = TopLevelDestination.Library,

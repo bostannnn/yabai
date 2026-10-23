@@ -90,6 +90,7 @@ internal fun createViewModel(
     settingsController: AppSettingsController = AppSettingsController(settingsStateCoordinator),
     sourceNavigationPreferencesStore: SourceNavigationPreferencesStore = FakeSourceNavigationPreferencesStore(),
     activeRouteStore: AppActiveRouteStore = FakeAppActiveRouteStore(),
+    sourceSyncTimes: SourceSyncTimeStore = SourceSyncTimeStore { null },
     libraryBrowsePreferencesStore: LibraryBrowsePreferencesStore = FakeLibraryBrowsePreferencesStore(),
     libraryBrowseStateCoordinator: LibraryBrowseStateCoordinator = LibraryBrowseStateCoordinator(libraryBrowsePreferencesStore),
     libraryBrowseController: AppLibraryBrowseController = AppLibraryBrowseController(libraryBrowseStateCoordinator),
@@ -376,6 +377,7 @@ internal fun createViewModel(
                 comicPageSourceCacheController = comicPageSourceCacheController,
                 remoteLibraryCacheStore = remoteLibraryCacheStore,
                 remoteCoverController = remoteCoverController,
+                sourceSyncTimes = sourceSyncTimes,
             ),
             stumpController = AppStumpRemoteSourceController(
                 stumpCoordinator = AppStumpCoordinator(
@@ -387,6 +389,7 @@ internal fun createViewModel(
                 remoteCoverController = remoteCoverController,
                 comicPageSourceCacheController = comicPageSourceCacheController,
                 remoteLibraryCacheStore = remoteLibraryCacheStore,
+                sourceSyncTimes = sourceSyncTimes,
             ),
             grimmoryController = AppGrimmoryRemoteSourceController(
                 grimmoryCoordinator = AppGrimmoryCoordinator(
@@ -396,6 +399,7 @@ internal fun createViewModel(
                 ),
                 grimmoryCredentialStore = grimmoryCredentialStore,
                 remoteCoverController = remoteCoverController,
+                sourceSyncTimes = sourceSyncTimes,
             ),
         ),
         kavitaReadingListController = kavitaReadingListController,

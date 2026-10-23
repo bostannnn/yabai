@@ -1,10 +1,18 @@
 package com.example.unifiedreader.feature.settings
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
@@ -14,6 +22,7 @@ import com.example.unifiedreader.feature.updates.AppUpdateAutoCheckRow
 import com.example.unifiedreader.feature.updates.AppUpdateState
 import com.example.unifiedreader.feature.updates.AppUpdateVersionRow
 import com.example.unifiedreader.ui.components.AppIcons
+import com.example.unifiedreader.ui.components.AppScreenTitle
 import com.example.unifiedreader.ui.components.AppSettingsDefaults
 import com.example.unifiedreader.ui.components.AppSettingsGroup
 import com.example.unifiedreader.ui.components.AppSettingsRow
@@ -40,6 +49,7 @@ internal fun SettingsHub(
         modifier = modifier,
         horizontalPadding = horizontalPadding,
     ) {
+        AppScreenTitle(text = "Settings")
         AppSettingsGroup(label = "Appearance") {
             AppSettingsRow(
                 title = "Theme",
@@ -47,7 +57,7 @@ internal fun SettingsHub(
                 supporting = themeMode.label,
                 selected = selectedPage == SettingsPage.Theme,
                 onClick = { onOpenPage(SettingsPage.Theme) },
-                trailing = { ThemeSwatchDots(swatches = themeMode.previewSwatches) },
+                trailing = { ThemeCoverPreview() },
             )
         }
         AppSettingsGroup(label = "Sources") {
@@ -108,14 +118,42 @@ internal fun SettingsHub(
             AppSettingsRow(
                 title = SettingsPage.Licenses.title,
                 icon = AppIcons.Description,
-                selected = selectedPage == SettingsPage.Licenses,
+                selected = selectedPage == SettingsPage.Licenses || selectedPage?.parent == SettingsPage.Licenses,
                 onClick = { onOpenPage(SettingsPage.Licenses) },
             )
         }
     }
 }
 
+/**
+ * Three small covers drawn in the current theme's colours, so the Theme row shows what the
+ * library will look like: a sun over stripes, a glow, a framed title page.
+ */
+@Composable
+private fun ThemeCoverPreview() {
+    val scheme = MaterialTheme.colorScheme
+    val frame = RoundedCornerShape(8.dp)
+    Row(
+        modifier = Modifier
+            .padding(end = 4.dp)
+            .clip(frame)
+            .background(scheme.background)
+            .border(1.dp, scheme.outlineVariant, frame)
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        ThemeCovers(
+            card = scheme.surfaceContainerHighest,
+            accent = scheme.primary,
+            third = scheme.tertiary,
+            frame = scheme.onTertiary.copy(alpha = 0.6f),
+            coverSize = DpSize(18.dp, 27.dp),
+            gap = 3.dp,
+        )
+    }
+}
+
 internal fun drawerOrderSummary(sourceOrder: List<SourceType>): String {
-    val first = sourceOrder.firstOrNull() ?: return "Sources in the drawer"
+    val first = sourceOrder.firstOrNull() ?: return "The order of your sources"
     return "${first.displayName()} opens on launch"
 }

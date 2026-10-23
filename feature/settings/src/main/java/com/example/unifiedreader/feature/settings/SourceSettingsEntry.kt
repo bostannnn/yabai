@@ -47,6 +47,8 @@ data class SourceSettingsEntry(
     val connectivity: SourceConnectivityState = SourceConnectivityState.Unknown,
     val readingDirectionLibraries: List<ReadingDirectionLibraryUiState> = emptyList(),
     val readerModeLibraries: List<ReaderModeLibraryUiState> = emptyList(),
+    /** When its library last synced on this device, if it has. */
+    val lastSyncedAtEpochMillis: Long? = null,
 )
 
 /** The one-line status under a source's name on the hub. */

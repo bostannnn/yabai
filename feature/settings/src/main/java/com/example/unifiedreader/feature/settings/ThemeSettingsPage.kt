@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.settings
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -13,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -22,11 +22,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
@@ -45,6 +53,13 @@ internal fun ThemeSettingsPage(
         modifier = modifier,
         horizontalPadding = horizontalPadding,
     ) {
+        // What the chosen theme is for, above the tiles rather than at the end of the page.
+        Text(
+            text = themeMode.description,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 4.dp),
+        )
         themeTileGroups(options).forEach { (label, groupOptions) ->
             ThemeTileGroup(
                 label = label,
@@ -53,12 +68,6 @@ internal fun ThemeSettingsPage(
                 onSelected = onThemeModeSelected,
             )
         }
-        Text(
-            text = themeMode.description,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 4.dp),
-        )
     }
 }
 
@@ -82,11 +91,12 @@ private fun ThemeTileGroup(
     if (options.isEmpty()) return
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
-            text = label.uppercase(),
-            style = MaterialTheme.typography.labelMedium,
+            text = label,
+            style = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp, lineHeight = 20.sp),
             fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 4.dp),
+            modifier = Modifier
+                .padding(start = 4.dp)
+                .semantics { heading() },
         )
         BoxWithConstraints {
             val columns = (maxWidth / ThemeTileMinWidth).toInt().coerceIn(2, 4)
@@ -165,7 +175,7 @@ private fun ThemeTile(
     }
 }
 
-/** A miniature of the theme: its surface, a top-bar strip, two covers and three accent dots. */
+/** A miniature of the library in the theme: three covers in its colours on its background. */
 @Composable
 private fun ThemePreview(
     swatches: ThemePreviewSwatches,
@@ -173,70 +183,67 @@ private fun ThemePreview(
     cornerRadius: Dp,
 ) {
     val surface = Color(swatches.surface)
-    val barColor = (if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.05f))
-        .compositeOver(surface)
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(ThemePreviewHeight)
             .clip(RoundedCornerShape(cornerRadius))
             .background(surface),
+        contentAlignment = Alignment.BottomCenter,
     ) {
-        Box(
-            modifier = Modifier
-                .padding(8.dp)
-                .fillMaxWidth()
-                .height(12.dp)
-                .clip(RoundedCornerShape(6.dp))
-                .background(barColor),
+        ThemeCovers(
+            card = (if (isDark) Color.White.copy(alpha = 0.10f) else Color.Black.copy(alpha = 0.08f)).compositeOver(surface),
+            accent = Color(swatches.reader),
+            third = Color(swatches.source),
+            frame = Color.White.copy(alpha = 0.55f),
+            coverSize = DpSize(30.dp, 45.dp),
+            gap = 6.dp,
+            modifier = Modifier.padding(bottom = 12.dp),
         )
-        Row(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(start = 10.dp, bottom = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            listOf(swatches.reader, swatches.sync).forEach { color ->
-                Box(
-                    modifier = Modifier
-                        .size(width = 26.dp, height = 38.dp)
-                        .clip(RoundedCornerShape(3.dp))
-                        .background(Color(color)),
-                )
-            }
-        }
-        Row(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 10.dp, bottom = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
-        ) {
-            listOf(swatches.reader, swatches.sync, swatches.source).forEach { color ->
-                SwatchDot(color = Color(color))
-            }
-        }
     }
 }
 
-/** The four palette dots shown next to the theme's name on the hub. */
+/**
+ * Three small covers drawn in a theme's colours, the same on the hub's Theme row and on the
+ * theme tiles: a sun over two stripes, a glow, a framed title page.
+ */
 @Composable
-internal fun ThemeSwatchDots(swatches: ThemePreviewSwatches) {
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        listOf(swatches.surface, swatches.reader, swatches.sync, swatches.source).forEach { color ->
-            SwatchDot(color = Color(color))
+internal fun ThemeCovers(
+    card: Color,
+    accent: Color,
+    third: Color,
+    frame: Color,
+    coverSize: DpSize,
+    gap: Dp,
+    modifier: Modifier = Modifier,
+) {
+    val corner = RoundedCornerShape(coverSize.width / 10)
+    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(gap)) {
+        Canvas(modifier = Modifier.size(coverSize).clip(corner).background(card)) {
+            drawCircle(color = accent, radius = size.width * 0.3f, center = Offset(size.width / 2f, size.height * 0.42f))
+            repeat(2) { index ->
+                val y = size.height * (0.66f + index * 0.1f)
+                drawLine(accent, Offset(size.width * 0.2f, y), Offset(size.width * 0.8f, y), strokeWidth = size.width * 0.06f)
+            }
+        }
+        Canvas(modifier = Modifier.size(coverSize).clip(corner).background(accent)) {
+            val center = Offset(size.width * 0.5f, size.height * 0.7f)
+            drawCircle(
+                brush = Brush.radialGradient(colors = listOf(third, third.copy(alpha = 0f)), center = center, radius = size.width * 0.8f),
+                radius = size.width * 0.8f,
+                center = center,
+            )
+        }
+        Canvas(modifier = Modifier.size(coverSize).clip(corner).background(third)) {
+            val inset = size.width * 0.11f
+            drawRect(
+                color = frame,
+                topLeft = Offset(inset, inset),
+                size = Size(size.width - inset * 2, size.height - inset * 2),
+                style = Stroke(width = size.width * 0.045f),
+            )
         }
     }
-}
-
-@Composable
-private fun SwatchDot(color: Color) {
-    Box(
-        modifier = Modifier
-            .size(12.dp)
-            .clip(CircleShape)
-            .background(color)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f), CircleShape),
-    )
 }
 
 private val ThemeTileMinWidth: Dp = 200.dp

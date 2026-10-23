@@ -3,6 +3,7 @@ package com.example.unifiedreader.feature.settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -19,8 +20,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.LibraryFilterPanel
@@ -29,13 +32,13 @@ import com.example.unifiedreader.core.model.availableLibraryFilterPanels
 import com.example.unifiedreader.core.model.defaultVisibleLibraryFilterPanels
 import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.core.model.resolveLibraryFilterPanels
-import com.example.unifiedreader.ui.components.AppCheckbox
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppSegment
 import com.example.unifiedreader.ui.components.AppSegmentedRow
 import com.example.unifiedreader.ui.components.AppSettingsDefaults
 import com.example.unifiedreader.ui.components.AppSettingsGroup
 import com.example.unifiedreader.ui.components.AppSettingsRowDivider
+import com.example.unifiedreader.ui.components.AppSwitch
 import com.example.unifiedreader.ui.components.AppTextButton
 import com.example.unifiedreader.ui.components.appReorderHandle
 import com.example.unifiedreader.ui.components.appReorderableItem
@@ -83,7 +86,8 @@ internal fun FilterChipsSettingsPage(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "Shown in the ${selectedSource.displayName()} filter sheet, top to bottom. Drag to reorder.",
+                    text = "The order of the ${selectedSource.displayName()} filter sheet, top to bottom. " +
+                        "Drag to reorder; switch one off to hide it.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f),
@@ -144,25 +148,15 @@ private fun FilterPanelRow(
     modifier: Modifier = Modifier,
     handleModifier: Modifier? = null,
 ) {
+    // The handle first and the switch at the end; a hidden filter stays in place, dimmed.
     Row(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 56.dp)
-            .padding(start = 8.dp, end = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+            .padding(start = 8.dp, end = AppSettingsDefaults.horizontalPadding),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AppCheckbox(
-            checked = visible,
-            enabled = !visible || canHide,
-            onCheckedChange = { onVisibilityChanged() },
-        )
-        Text(
-            text = panel.label,
-            style = MaterialTheme.typography.bodyLarge,
-            color = if (visible) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f),
-        )
         if (handleModifier != null) {
             Icon(
                 imageVector = AppIcons.DragHandle,
@@ -173,8 +167,27 @@ private fun FilterPanelRow(
                     .padding(8.dp)
                     .semantics { contentDescription = "Drag to reorder ${panel.label}" },
             )
+        } else {
+            Spacer(modifier = Modifier.size(40.dp))
         }
+        Text(
+            text = panel.label,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = if (visible) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .weight(1f)
+                .alpha(if (visible) 1f else HiddenFilterAlpha),
+        )
+        AppSwitch(
+            checked = visible,
+            enabled = !visible || canHide,
+            onCheckedChange = { onVisibilityChanged() },
+            modifier = Modifier.semantics { contentDescription = "Show ${panel.label}" },
+        )
     }
 }
 
-private val FilterRowDividerInset: Dp = AppSettingsDefaults.horizontalPadding + 36.dp
+private val FilterRowDividerInset: Dp = 56.dp
+
+private const val HiddenFilterAlpha = 0.55f

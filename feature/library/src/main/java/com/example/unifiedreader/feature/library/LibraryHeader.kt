@@ -7,16 +7,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
+import com.example.unifiedreader.ui.components.AppScreenTitle
 import com.example.unifiedreader.ui.components.AppWindowWidth
 import com.example.unifiedreader.ui.components.currentAppWindowWidth
 
@@ -43,19 +41,7 @@ internal fun LibraryHeaderBlock(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        Text(
-            text = header.title,
-            style = MaterialTheme.typography.displaySmall.copy(
-                fontSize = if (compact) 32.sp else 40.sp,
-                lineHeight = if (compact) 36.sp else 44.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = (-0.02).em,
-            ),
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.semantics { heading() },
-        )
+        AppScreenTitle(text = header.title, compact = compact)
         // The line is kept while the summary is still unknown, so the grid does not move when it arrives.
         Text(
             text = header.summary ?: "\u00A0",

@@ -225,8 +225,17 @@ fun SettingsTopBar(
     title: String,
     onDrawerClick: (() -> Unit)?,
     onBack: (() -> Unit)?,
+    // While the hub's large title shows under the bar the bar has no name, and while nothing has
+    // scrolled under it, no glass.
+    titleOnScreen: Boolean = false,
+    scrolled: Boolean = true,
 ) {
-    ThemedTopBarContainer {
+    val titleShown by animateFloatAsState(
+        targetValue = if (titleOnScreen) 0f else 1f,
+        animationSpec = AppMotion.effects(),
+        label = "settingsTopBarTitle",
+    )
+    ThemedTopBarContainer(surfaceVisible = scrolled || !titleOnScreen) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -250,7 +259,10 @@ fun SettingsTopBar(
                 style = MaterialTheme.typography.titleMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false),
+                modifier = Modifier
+                    .weight(1f, fill = false)
+                    .graphicsLayer { alpha = titleShown }
+                    .then(if (titleOnScreen) Modifier.clearAndSetSemantics {} else Modifier),
             )
         }
     }

@@ -15,6 +15,7 @@ class AppKavitaRemoteSourceController @Inject constructor(
     private val comicPageSourceCacheController: ComicPageSourceCacheController,
     private val remoteLibraryCacheStore: RemoteLibraryCacheStore,
     private val remoteCoverController: RemoteCoverController,
+    private val sourceSyncTimes: SourceSyncTimeStore,
 ) {
     fun initialize(
         updateState: AppUiStateUpdater,
@@ -274,6 +275,7 @@ class AppKavitaRemoteSourceController @Inject constructor(
                 )
             ) {
                 is KavitaSyncExecutionResult.Success -> {
+                    sourceSyncTimes.markSynced(SourceType.KAVITA)
                     remoteLibraryCacheStore.replaceCachedLibraries(
                         sourceType = SourceType.KAVITA,
                         baseUrl = preparation.request.baseUrl,
@@ -342,6 +344,7 @@ class AppKavitaRemoteSourceController @Inject constructor(
                 )
             ) {
                 is KavitaSyncExecutionResult.Success -> {
+                    sourceSyncTimes.markSynced(SourceType.KAVITA)
                     remoteLibraryCacheStore.replaceCachedLibraries(
                         sourceType = SourceType.KAVITA,
                         baseUrl = preparation.request.baseUrl,

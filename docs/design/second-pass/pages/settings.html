@@ -1,0 +1,436 @@
+<title>Settings Page Mocks</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400..600&family=Manrope:wght@400..800&display=swap">
+<style>
+/* Layout: one column of decision cards, as on the earlier boards. Each card shows the app today
+   next to the proposal (or two options side by side) and ends in a choice. The board speaks in
+   Literata; everything inside a mock is the app: Manrope only, the Graphite palette, dp as px. */
+:root {
+  --bg: #f3f3f1; --panel: #ffffff; --sunk: #ecece9; --fg: #1b1d20; --muted: #5b626b; --faint: #8a9098;
+  --line: rgba(27, 29, 32, 0.12); --accent: #405f6b; --accent-soft: rgba(64, 95, 107, 0.12);
+  --do: #2f7a4f; --maybe: #9a6400; --dont: #b0413e;
+  --display: "Literata", Georgia, "Times New Roman", serif;
+  --ui: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1113; --panel: #171a1d; --sunk: #121417; --fg: #e7eaee; --muted: #9ea7b1; --faint: #6f7882;
+    --line: rgba(231, 234, 238, 0.12); --accent: #b7c7d9; --accent-soft: rgba(183, 199, 217, 0.14);
+    --do: #8fd1a6; --maybe: #f1c26b; --dont: #f0a09b; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1113; --panel: #171a1d; --sunk: #121417; --fg: #e7eaee; --muted: #9ea7b1; --faint: #6f7882;
+  --line: rgba(231, 234, 238, 0.12); --accent: #b7c7d9; --accent-soft: rgba(183, 199, 217, 0.14);
+  --do: #8fd1a6; --maybe: #f1c26b; --dont: #f0a09b; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--ui); font-size: 16px; line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 36px 120px;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+button, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.col { max-width: 1120px; margin-inline: auto; }
+.eyebrow { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--display); font-weight: 500; font-size: clamp(32px, 5vw, 48px); line-height: 1.06; letter-spacing: -0.015em; margin: 10px 0 0; text-wrap: balance; }
+.lede { font-size: 18px; max-width: 66ch; margin: 16px 0 0; }
+.how { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 18px; font-size: 14px; color: var(--muted); }
+.how b { color: var(--fg); font-weight: 650; }
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; margin-top: 26px; background: color-mix(in oklab, var(--bg) 88%, transparent);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-bottom: 1px solid var(--line); padding-block: 12px; }
+.bar .in { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; font-size: 14px; }
+.bar .tally { font-weight: 650; font-variant-numeric: tabular-nums; }
+.bar .sp { flex: 1; }
+.status { font-size: 13px; color: var(--muted); }
+.list { list-style: none; padding: 0; margin: 22px 0 0; display: grid; gap: 18px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 22px 24px 20px; display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 0 16px; }
+.rank { font-family: var(--display); font-size: 40px; line-height: .95; font-weight: 500; color: var(--faint); transition: color .2s; }
+.card[data-c] .rank { color: var(--do); }
+.card[data-c="maybe"] .rank, .card[data-c="b"] .rank { color: var(--maybe); }
+.card[data-c="dont"] .rank, .card[data-c="neither"] .rank { color: var(--dont); }
+.card[data-c=""] .rank { color: var(--faint); }
+.body { min-width: 0; }
+.card h2 { font-family: var(--display); font-weight: 500; font-size: 24px; line-height: 1.2; margin: 0; text-wrap: balance; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.tag { font-size: 12px; font-weight: 700; border-radius: 999px; padding: 3px 10px; background: var(--accent-soft); color: var(--muted); }
+.tag.pick { background: color-mix(in oklab, var(--do) 14%, transparent); color: var(--do); }
+.what { margin: 10px 0 0; font-size: 15.5px; max-width: 76ch; }
+.what + .what { margin-top: 8px; }
+.panes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 16px; align-items: start; }
+.panes.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.pane { min-width: 0; }
+.plabel { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin-bottom: 7px; }
+.plabel small { text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--faint); }
+.frame { position: relative; width: 100%; max-width: 100%; border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 1px var(--line); background: var(--sunk); }
+.frame > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.choose { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.pick { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.pick button { border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 8px 16px; font-size: 14px; font-weight: 700; cursor: pointer; color: var(--muted); transition: background .15s, color .15s, border-color .15s; }
+.pick button[aria-pressed="true"] { background: color-mix(in oklab, var(--do) 16%, transparent); border-color: var(--do); color: var(--do); }
+.pick button[data-v="maybe"][aria-pressed="true"], .pick button[data-v="b"][aria-pressed="true"] { background: color-mix(in oklab, var(--maybe) 16%, transparent); border-color: var(--maybe); color: var(--maybe); }
+.pick button[data-v="dont"][aria-pressed="true"], .pick button[data-v="neither"][aria-pressed="true"] { background: color-mix(in oklab, var(--dont) 16%, transparent); border-color: var(--dont); color: var(--dont); }
+.note { flex: 1; min-width: 200px; border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 8px 14px; font-size: 14px; }
+.note::placeholder { color: var(--faint); }
+.foot { margin-top: 36px; font-size: 14px; color: var(--muted); max-width: 70ch; }
+.foot p { margin: 0 0 10px; }
+@media (max-width: 760px) { .panes, .panes.three { grid-template-columns: 1fr; } .card { grid-template-columns: 1fr; padding: 18px 16px; } .rank { font-size: 32px; margin-bottom: 6px; } }
+@media (prefers-reduced-motion: reduce) { .rank, .pick button { transition: none; } }
+
+/* ============ app mocks: the app's own Graphite palette, 1 px = 1 dp ============ */
+.cv { position: absolute; left: 0; top: 0; transform-origin: 0 0; transform: scale(var(--s, .5)); overflow: hidden; font-family: var(--ui); color: var(--m-fg); background: var(--m-bg);
+  --m-bg: #101214; --m-surface: #171a1d; --m-c1: #1d2125; --m-c2: #252a2f; --m-c3: #30363c; --m-sel: #33475e; --m-on-sel: #d6e4f5;
+  --m-fg: #e7eaee; --m-fg2: #c8d0d8; --m-fg3: #8b949e; --m-line: rgba(231,234,238,.10);
+  --m-acc: #b7c7d9; --m-on-acc: #1d2c3d; --m-acc2: #e6b6a3; --m-err: #f2b8b5; --m-ok: #9fd6b0; }
+.cv svg.i { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex: none; display: block; }
+.pg { padding: 18px 20px 24px; display: grid; gap: 24px; align-content: start; }
+.stitle { font-size: 40px; line-height: 44px; font-weight: 700; letter-spacing: -0.02em; }
+.ssub { font-size: 14px; color: var(--m-fg3); margin-top: 4px; }
+.gh { font-size: 15px; line-height: 20px; font-weight: 600; padding-left: 4px; margin-bottom: 8px; }
+.panel { background: var(--m-c1); border-radius: 20px; overflow: hidden; }
+.srow { min-height: 60px; display: flex; align-items: center; gap: 16px; padding: 10px 14px 10px 18px; }
+.srow + .srow { box-shadow: inset 0 1px 0 var(--m-line); }
+.srow .tx { flex: 1; min-width: 0; }
+.srow .tx b { display: block; font-size: 15.5px; font-weight: 600; }
+.srow .tx span { display: block; font-size: 13px; color: var(--m-fg3); margin-top: 2px; }
+.srow .ic { color: var(--m-fg2); }
+.chev { color: var(--m-fg3); }
+.btn { height: 42px; padding: 0 18px; border-radius: 999px; font-weight: 700; font-size: 14.5px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap; background: var(--m-c3); color: var(--m-fg); }
+.btn.pri { background: var(--m-acc); color: var(--m-on-acc); }
+.btn svg.i { width: 18px; height: 18px; }
+.pill { height: 28px; padding: 0 12px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; }
+.pill.ok { background: rgba(159,214,176,.16); color: var(--m-ok); }
+.pill.err { background: rgba(242,184,181,.16); color: var(--m-err); }
+.field { height: 56px; border: 1px solid rgba(231,234,238,.28); border-radius: 12px; padding: 8px 14px; display: flex; flex-direction: column; justify-content: center; }
+.field small { font-size: 12px; color: var(--m-fg3); }
+.field span { font-size: 15px; }
+.fgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 16px; }
+.fgrid .w { grid-column: 1 / -1; }
+.seg { display: flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--m-c2); }
+.seg span { flex: 1; height: 34px; padding: 0 12px; border-radius: 999px; display: grid; place-items: center; font-size: 14px; font-weight: 600; color: var(--m-fg3); white-space: nowrap; }
+.seg span.on { background: var(--m-sel); color: var(--m-on-sel); }
+.sw { width: 52px; height: 32px; border-radius: 999px; background: var(--m-c3); position: relative; flex: none; }
+.sw::after { content: ""; position: absolute; left: 6px; top: 6px; width: 20px; height: 20px; border-radius: 50%; background: var(--m-fg3); }
+.sw.on { background: var(--m-acc); }
+.sw.on::after { left: 26px; top: 4px; width: 24px; height: 24px; background: var(--m-on-acc); }
+.hint { font-size: 13px; color: var(--m-fg3); padding: 0 4px; }
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.tile { border-radius: 18px; background: var(--m-c1); padding: 8px 8px 12px; position: relative; }
+.tile.on { box-shadow: 0 0 0 2px var(--m-acc); }
+.tile .pv { height: 92px; border-radius: 12px; display: flex; align-items: flex-end; justify-content: center; gap: 6px; padding-bottom: 12px; }
+.tile .nm { font-size: 14px; font-weight: 600; margin: 10px 4px 0; display: flex; align-items: center; justify-content: space-between; }
+.mc { width: 30px; height: 45px; border-radius: 3px; position: relative; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,.25); }
+.small .mc { width: 18px; height: 27px; border-radius: 2px; box-shadow: none; }
+.qrow { display: flex; align-items: center; gap: 14px; padding: 12px 16px; }
+.qrow + .qrow { box-shadow: inset 0 1px 0 var(--m-line); }
+.qrow .tx { flex: 1; min-width: 0; }
+.qrow .tx b { display: block; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qrow .tx span { display: block; font-size: 13px; color: var(--m-fg3); margin-top: 2px; }
+.qrow .st { font-size: 13px; font-weight: 700; color: var(--m-fg3); }
+.qrow .st.err { color: var(--m-err); }
+.gbar { position: absolute; left: 12px; right: 12px; top: 12px; height: 56px; display: flex; align-items: center; gap: 6px; border-radius: 20px; background: rgba(23,26,29,.86);
+  border: 1px solid var(--m-line); padding: 0 8px; z-index: 5; }
+.gbar .nm { font-size: 18px; font-weight: 600; }
+.ib { width: 40px; height: 40px; border-radius: 999px; display: grid; place-items: center; color: var(--m-fg2); flex: none; }
+.drag { color: var(--m-fg3); }
+</style>
+
+<main class="col">
+  <div class="eyebrow">Redesign step 8.9 · mocks before building</div>
+  <h1>The settings pages</h1>
+  <p class="lede">The settings front page is done (a large title, headings in sentence case, the theme preview); its headings already reach every page, as the kit draws them. These cards cover the pages it opens, one or two at a time. Mocks use the Graphite theme at 800 dp wide, a tablet in portrait.</p>
+  <div class="how"><span><b>Pick</b> on each card; your picks save to this page and I read them back.</span><span><b>Notes</b> say what you'd change.</span><span>Sizes are in dp.</span></div>
+  <div class="bar"><div class="in"><span class="tally" id="tally"></span><span class="sp"></span><span class="status" id="status">Loading…</span></div></div>
+  <ol class="list" id="list"></ol>
+  <div class="foot">
+    <p>The server pages are drawn connected to Kavita with example libraries, because the emulator has no server; the sync page uses the queue the tablet showed on 23 October.</p>
+    <p>Not on a card: the reader's own settings panels (decided in 8.7), and the Version and update rows, fixed in the tablet pass.</p>
+  </div>
+</main>
+
+<script>
+(() => {
+  const T = "img/today-settings/";
+  const I = {
+    back: '<svg class="i" viewBox="0 0 24 24"><path d="M19 12H5m0 0 6-6m-6 6 6 6"/></svg>',
+    menu: '<svg class="i" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
+    chev: '<svg class="i" viewBox="0 0 24 24"><path d="m9.5 6 6 6-6 6"/></svg>',
+    check: '<svg class="i" viewBox="0 0 24 24"><path d="m6 12.5 4 4 8-9"/></svg>',
+    drag: '<svg class="i" viewBox="0 0 24 24"><path d="M5 9h14M5 15h14"/></svg>',
+    plus: '<svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+    kavita: '<svg class="i" viewBox="0 0 24 24"><rect x="4" y="6" width="12" height="14" rx="1.5"/><path d="M8 3h10.5a1.5 1.5 0 0 1 1.5 1.5V17"/></svg>',
+    book: '<svg class="i" viewBox="0 0 24 24"><path d="M5 4.5h6a3 3 0 0 1 3 3v12a2.5 2.5 0 0 0-2.5-2.5H5z"/><path d="M19 4.5h-2a3 3 0 0 0-3 3"/></svg>',
+    cloud: '<svg class="i" viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 0 0 .5-7.97A6 6 0 0 0 6.1 9.5 4.3 4.3 0 0 0 7 18z"/></svg>',
+    folder: '<svg class="i" viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg>',
+    sync: '<svg class="i" viewBox="0 0 24 24"><path d="M19 8a7.5 7.5 0 0 0-13.4-1.5M5 4v3h3M5 16a7.5 7.5 0 0 0 13.4 1.5M19 20v-3h-3"/></svg>',
+    ok: '<svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.3 2.4 2.4 4.6-5"/></svg>',
+    doc: '<svg class="i" viewBox="0 0 24 24"><path d="M7 3.5h7l4 4v13H7z"/><path d="M14 3.5v4h4M9.5 12h6M9.5 15.5h6"/></svg>',
+    img: '<svg class="i" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m5 17 4.5-4.5 3 3 2-2L19 17"/></svg>',
+  };
+  // Each theme's preview colours, from ThemeMode: [name, background, accent, second, third, dark, description].
+  const THEMES = [
+    ["System Dynamic", "#E8EEF7", "#4667A5", "#5E6F49", "#7A5570", false, "Follow the device appearance and use Android dynamic color when available."],
+    ["Paper", "#FFF8F0", "#405F6B", "#476A53", "#86504E", false, "Warm paper surfaces with clearer separation between cards, sheets and navigation."],
+    ["Sepia Reading", "#FFF3DE", "#7B5B31", "#60764A", "#8A574A", false, ""],
+    ["Panel Pop", "#FFFDF6", "#006E8F", "#C8176B", "#8A6500", false, ""],
+    ["Detective File", "#F3E4C2", "#233D5A", "#B3362D", "#8A6B2F", false, ""],
+    ["Graphite", "#191C20", "#9FCBDB", "#B2D3BC", "#FFB4AB", true, "Neutral dark surfaces with stronger layer contrast for repeated browsing."],
+    ["High Contrast", "#000000", "#FFFFFF", "#FFFF00", "#00E5FF", true, ""],
+    ["OLED Reader", "#000000", "#8FA7FF", "#75D09A", "#E9B4FF", true, ""],
+    ["Terminal 95", "#07110A", "#7CFF8A", "#FFD166", "#6DE7FF", true, ""],
+    ["Crimson Court", "#191016", "#FF6B86", "#E8C276", "#C8B6FF", true, ""],
+    ["Blueprint", "#092139", "#9BE7FF", "#FFC857", "#B8D8FF", true, ""],
+    ["VHS Night", "#171720", "#86CAD5", "#FF5C7A", "#E1D7BA", true, ""],
+  ];
+  // The hub's three covers, drawn in one theme's colours: a sun over stripes, a glow, a framed page.
+  const covers = (t, small) => {
+    const [, bg, acc, , third, dark] = t;
+    const card = dark ? "rgba(255,255,255,.10)" : "rgba(0,0,0,.08)";
+    return `<span class="${small ? "small" : ""}" style="display:inline-flex;gap:${small ? 3 : 6}px">
+      <span class="mc" style="background:${card}"><svg viewBox="0 0 30 45" style="position:absolute;inset:0;width:100%;height:100%"><circle cx="15" cy="19" r="9" fill="${acc}"/><path d="M6 30h18M6 34.5h18" stroke="${acc}" stroke-width="1.8"/></svg></span>
+      <span class="mc" style="background:radial-gradient(80% 60% at 50% 70%, ${third}, transparent 75%), ${acc}"></span>
+      <span class="mc" style="background:${third}"><span style="position:absolute;inset:3px;border:1px solid rgba(255,255,255,.55)"></span></span></span>`;
+  };
+  const row = (o) => `<div class="srow">${o.icon ? `<span class="ic">${I[o.icon]}</span>` : ""}<div class="tx"><b>${o.t}</b>${o.s ? `<span style="${o.sc ? `color:${o.sc}` : ""}">${o.s}</span>` : ""}</div>${o.trail || ""}${o.chev === false ? "" : `<span class="chev">${I.chev}</span>`}</div>`;
+  const group = (label, body, hint) => `<div>${label ? `<div class="gh">${label}</div>` : ""}<div class="panel">${body}</div>${hint ? `<div class="hint" style="margin-top:8px">${hint}</div>` : ""}</div>`;
+  const bar = (title, o = {}) => `<div class="gbar"><span class="ib">${o.back === false ? I.menu : I.back}</span><span class="nm"${o.hidden ? ' style="opacity:0"' : ""}>${title}</span></div>`;
+
+  // ---------- pages ----------
+  const themePage = () => {
+    const tile = (t, on) => `<div class="tile${on ? " on" : ""}"><div class="pv" style="background:${t[1]}">${covers(t)}</div>
+      <div class="nm"><span>${t[0]}</span>${on ? `<span style="color:var(--m-acc)">${I.check.replace('class="i"', 'class="i" style="width:18px;height:18px"')}</span>` : ""}</div></div>`;
+    const section = (label, list) => `<div><div class="gh">${label}</div><div class="tiles">${list.map(t => tile(t, t[0] === "Graphite")).join("")}</div></div>`;
+    return `<div class="pg" style="padding-top:22px">
+      <div><div class="stitle">Theme</div><div class="ssub">Graphite: neutral dark surfaces with stronger layer contrast for repeated browsing.</div></div>
+      ${section("Device", THEMES.slice(0, 1))}${section("Light", THEMES.slice(1, 5))}${section("Dark", THEMES.slice(5))}</div>`;
+  };
+  const titleCard = () => `<div style="position:relative">${bar("Theme", { hidden: true })}<div class="pg" style="padding-top:84px">
+      <div><div class="stitle">Theme</div><div class="ssub">Graphite: neutral dark surfaces with stronger layer contrast for repeated browsing.</div></div>
+      <div><div class="gh">Device</div><div class="tiles"><div class="tile"><div class="pv" style="background:${THEMES[0][1]}">${covers(THEMES[0])}</div><div class="nm">System Dynamic</div></div></div></div></div></div>`;
+
+  const LIBS = [["Manga", "Right to left", "Paged"], ["Western comics", "Left to right", "Paged"], ["Webtoons", "Left to right", "Scroll"]];
+  const libRow = ([name, dir, mode]) => `<div style="padding:14px 16px;display:grid;grid-template-columns:150px 1fr 1fr;gap:14px;align-items:center">
+      <b style="font-size:15px;font-weight:600">${name}</b>
+      <div class="seg"><span class="${dir === "Left to right" ? "on" : ""}">Left to right</span><span class="${dir === "Right to left" ? "on" : ""}">Right to left</span></div>
+      <div class="seg"><span class="${mode === "Paged" ? "on" : ""}">Paged</span><span class="${mode === "Scroll" ? "on" : ""}">Scroll</span></div></div>`;
+  const serverConnected = () => `<div class="pg" style="padding-top:22px">
+      <div><div class="stitle">Kavita</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:10px"><span class="pill ok">${I.ok.replace('class="i"', 'class="i" style="width:16px;height:16px"')}Connected</span><span class="ssub" style="margin:0">192.168.50.60:5000 · signed in as reader</span></div></div>
+      ${group("Library", row({ t: "Sync", s: "Synced today at 10:42 · 1,474 books and comics", icon: "sync", chev: false, trail: `<span class="btn">Fast sync</span><span class="btn pri">Sync now</span>` }) +
+        row({ t: "Cached covers", s: "Kept on this device for browsing offline", icon: "img", chev: false, trail: `<span class="btn">Remove</span><span class="btn">Preload</span>` }))}
+      ${group("Reading defaults", LIBS.map(libRow).join('<div style="height:1px;background:var(--m-line);margin-left:16px"></div>'), "For books you have not opened yet. A book keeps the direction and layout you pick in the reader.")}
+      ${group("Server", row({ t: "Address and account", s: "Backup address 100.84.32.88:5000", icon: "kavita", trail: `<span class="btn">Edit</span>`, chev: false }))}
+    </div>`;
+  const serverForm = () => `<div class="pg" style="padding-top:22px">
+      <div><div class="stitle">Kavita</div><div class="ssub">Sign in to read your Kavita libraries here.</div></div>
+      ${group(null, `<div class="fgrid">
+          <div class="field w"><small>Name</small><span>Kavita</span></div>
+          <div class="field"><small>Server URL</small><span>http://192.168.50.60:5000/</span></div>
+          <div class="field"><small>Backup URL</small><span style="color:var(--m-fg3)">Optional</span></div>
+          <div class="field"><small>Username</small><span>reader</span></div>
+          <div class="field"><small>Password</small><span>••••••••</span></div>
+          <div class="w" style="display:flex;justify-content:flex-end;margin-top:4px"><span class="btn pri" style="width:160px">Connect</span></div></div>`)}
+      <div class="hint">Sync, cached covers and reading defaults appear once you are connected.</div>
+    </div>`;
+
+  const FILTERS = ["Format", "Library", "Location", "Reading status", "Series", "Publisher", "Genre", "Tag", "Language"];
+  const HIDDEN = new Set(["Publisher", "Language"]);
+  const sourceSeg = () => `<div class="seg"><span class="on">Kavita</span><span>Stump</span><span>Grimmory</span><span>Local</span></div>`;
+  const filtersA = () => `<div class="pg" style="padding-top:22px"><div class="stitle">Filter chips</div>${sourceSeg()}
+      <div class="hint">The order of the Kavita filter sheet, top to bottom. Drag to reorder; switch one off to hide it.</div>
+      ${group(null, FILTERS.map(f => `<div class="srow" style="min-height:52px;opacity:${HIDDEN.has(f) ? .55 : 1}"><span class="drag">${I.drag}</span><div class="tx"><b>${f}</b></div><span class="sw${HIDDEN.has(f) ? "" : " on"}"></span></div>`).join(""))}</div>`;
+  const filtersB = () => `<div class="pg" style="padding-top:22px"><div class="stitle">Filter chips</div>${sourceSeg()}
+      ${group("Shown", FILTERS.filter(f => !HIDDEN.has(f)).map(f => `<div class="srow" style="min-height:52px"><span class="drag">${I.drag}</span><div class="tx"><b>${f}</b></div><span class="btn" style="height:34px;padding:0 14px">Hide</span></div>`).join(""), "Top to bottom, as the filter sheet shows them. Drag to reorder.")}
+      ${group("Hidden", [...HIDDEN].map(f => `<div class="srow" style="min-height:52px"><span class="ic" style="color:var(--m-acc)">${I.plus}</span><div class="tx"><b>${f}</b></div></div>`).join(""))}</div>`;
+
+  const orderPage = () => `<div class="pg" style="padding-top:22px"><div><div class="stitle">Source order</div><div class="ssub">The rail and the drawer list your sources in this order. The first opens when the app starts.</div></div>
+      ${group(null, [["Kavita", "kavita", "Opens when the app starts"], ["Stump", "book"], ["Grimmory", "cloud"], ["Local", "folder"]].map(([t, ic, s]) =>
+        `<div class="srow" style="min-height:56px"><span class="ic">${I[ic]}</span><div class="tx"><b>${t}</b>${s ? `<span>${s}</span>` : ""}</div><span class="drag">${I.drag}</span></div>`).join(""))}</div>`;
+
+  const syncPage = () => `<div class="pg" style="padding-top:22px">
+      <div><div class="stitle">Reading progress sync</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:10px"><span class="pill err">2 waiting since 20 Oct</span><span class="ssub" style="margin:0">Last tried today at 09:14</span></div></div>
+      <div style="display:flex;gap:10px"><span class="btn pri">${I.sync}Retry now</span></div>
+      ${group("Grimmory", [
+        ["Под тенью лилии", "2 reading sessions · queued since 20 Oct", "Waiting", ""],
+        ["Под тенью лилии", "Progress · page 214 · queued since 20 Oct", "Waiting", ""],
+        ["Ночной сад", "Journal entry · rating and review", "Failed", "err"],
+      ].map(([t, s, st, c]) => `<div class="qrow"><div class="tx"><b>${t}</b><span>${s}</span></div><span class="st ${c}">${st}</span></div>`).join(""),
+        "Last error: the server answered 401 (sign in again from the Grimmory page).")}
+      ${group("Kavita", `<div class="qrow"><span style="color:var(--m-ok)">${I.ok}</span><div class="tx"><b>All uploaded</b><span>Progress you make is uploaded as you read</span></div></div>`)}
+    </div>`;
+  const syncDone = () => `<div class="pg" style="padding-top:22px"><div class="stitle">Reading progress sync</div>
+      ${group(null, `<div class="qrow" style="padding:18px 16px"><span style="color:var(--m-ok)">${I.ok}</span><div class="tx"><b>Everything is uploaded</b><span>Progress, reading sessions and journal entries go to your servers as you read. Last upload today at 10:41.</span></div></div>`)}</div>`;
+
+  const licensesPage = () => `<div class="pg" style="padding-top:22px"><div><div class="stitle">Open-source licenses</div><div class="ssub">yabai is built with these. Tap one to read its license.</div></div>
+      ${group(null, [["Manrope", "The app's typeface · SIL Open Font License 1.1"], ["Material Symbols Rounded", "The app's icons · Apache License 2.0"]].map(([t, s]) => row({ t, s, icon: "doc" })).join(""))}</div>`;
+
+  // ---------- cards ----------
+  const ITEMS = [
+    {
+      id: "page-titles", t: "Every page opens with its name as a title",
+      tags: ["Settings", "All pages"], rec: "My pick: Do",
+      what: ["Today a page's name is only in the top bar, next to the back arrow. Proposed: like the front page, each page starts with its name at 40 sp (32 on phones) and a line under it where there is something to say (the current theme, a server's state); the bar shows the name once it has scrolled away. Beside the front page on a wide screen, the open page starts with its own title the same way."],
+      today: { label: "Today", sub: "emulator, 800 dp", w: 800, h: 1200, img: T + "theme.jpg" },
+      panes: [{ label: "Proposed", sub: "top of the page, bar see-through", w: 800, h: 420, html: titleCard }],
+      choices: [["do", "Do"], ["maybe", "Maybe"], ["dont", "Don't"]],
+    },
+    {
+      id: "theme", t: "Theme tiles that show the library in each theme",
+      tags: ["Settings", "Theme"], rec: "My pick: Do",
+      what: ["Today each tile is a sketch (a bar, two squares, three dots) and the chosen theme's description sits at the bottom of the page. Proposed: each tile shows the same three covers as the front page's Theme row, drawn in that theme's colours on its background; the chosen tile is ringed in the accent with a check, and its description moves under the title. Headings read Device, Light and Dark."],
+      today: { label: "Today", sub: "emulator, 800 dp", w: 800, h: 1200, img: T + "theme.jpg" },
+      panes: [{ label: "Proposed", sub: "", w: 800, h: 760, html: themePage }],
+      choices: [["do", "Do"], ["maybe", "Maybe"], ["dont", "Don't"]],
+    },
+    {
+      id: "server-connected", t: "A connected server leads with what you use",
+      tags: ["Settings", "Kavita, Stump, Grimmory"], rec: "My pick: Do",
+      what: ["Today a server's page always opens with the full sign-in form, then Sync and Cached covers, then the reading defaults. Proposed, once connected: the title with a Connected pill, the address and the account; then Library (Sync with when it last ran, Cached covers), the reading defaults per library, and the address and account folded into one row with Edit, which opens the form.",
+        "When it last synced is new: the app would keep the time of the last sync."],
+      today: { label: "Today", sub: "emulator, not connected", w: 800, h: 547, img: T + "server.jpg" },
+      panes: [{ label: "Proposed", sub: "connected, example libraries", w: 800, h: 720, html: serverConnected }],
+      choices: [["do", "Do"], ["maybe", "Maybe"], ["dont", "Don't"]],
+    },
+    {
+      id: "server-form", t: "A server you have not connected is just the form",
+      tags: ["Settings", "Kavita, Stump, Grimmory"], rec: "My pick: Do",
+      what: ["Today the page under the form shows Sync and Cached covers with every button greyed out (\"Connect to the server first\"). Proposed: the title and one line, the form, and Connect as the filled button at its end; the library groups appear once you are connected."],
+      today: { label: "Today", sub: "emulator, not connected", w: 800, h: 547, img: T + "server.jpg" },
+      panes: [{ label: "Proposed", sub: "", w: 800, h: 520, html: serverForm }],
+      choices: [["do", "Do"], ["maybe", "Maybe"], ["dont", "Don't"]],
+    },
+    {
+      id: "filter-chips", t: "Filter chips",
+      tags: ["Settings", "Library", "Your call"],
+      what: ["Today: a checkbox at the start of each row and a drag handle at the end. A keeps one list: the handle first, a switch at the end, a hidden filter dimmed in place. B splits the list: Shown (drag to reorder, Hide on each row) and Hidden (tap one to show it again)."],
+      today: { label: "Today", sub: "emulator, 800 dp", w: 800, h: 753, img: T + "filters.jpg" },
+      panes: [
+        { label: "Option A", sub: "one list with switches", w: 800, h: 760, html: filtersA },
+        { label: "Option B", sub: "Shown and Hidden", w: 800, h: 760, html: filtersB },
+      ],
+      choices: [["a", "A"], ["b", "B"], ["neither", "Neither"]],
+    },
+    {
+      id: "source-order", t: "Drawer order becomes Source order",
+      tags: ["Settings", "Library"], rec: "My pick: Do",
+      what: ["The rail uses this order too, so \"Drawer order\" no longer names it. Proposed: \"Source order\", one line saying the rail and the drawer follow it and the first opens at launch, the source icons, and the handle at the end of each row (today's layout, restyled)."],
+      today: { label: "Today", sub: "emulator, 800 dp", w: 800, h: 440, img: T + "order.jpg" },
+      panes: [{ label: "Proposed", sub: "", w: 800, h: 440, html: orderPage }],
+      choices: [["do", "Do"], ["maybe", "Maybe"], ["dont", "Don't"]],
+    },
+    {
+      id: "sync", t: "Reading progress sync says what is stuck and why",
+      tags: ["Settings", "Sync"], rec: "My pick: Do",
+      what: ["Today the page is one row (\"Up to date\") or a list per source of everything queued. Proposed: the title with a pill (\"2 waiting since 20 Oct\") and when it last tried, Retry now as the filled button, then each source with what waits: a book's reading sessions together on one row, failed ones in red with the server's answer under the group. A source with nothing waiting says All uploaded.",
+        "Drawn with the tablet's queue of 23 October; the failed row, its error and the last try are examples. With nothing waiting the page is the title and one row: Everything is uploaded, and when."],
+      today: { label: "Today", sub: "emulator, nothing waiting", w: 800, h: 280, img: T + "sync.jpg" },
+      panes: [
+        { label: "Proposed", sub: "with a queue", w: 800, h: 720, html: syncPage },
+        { label: "Proposed", sub: "nothing waiting", w: 800, h: 720, html: syncDone },
+      ],
+      choices: [["do", "Do"], ["maybe", "Maybe"], ["dont", "Don't"]],
+    },
+    {
+      id: "licenses", t: "Licenses as a list",
+      tags: ["Settings", "About"], rec: "My pick: Do",
+      what: ["Today the page is every license's full text, one after another. Proposed: one row per component (what it is and its license), each opening that license's text on its own page."],
+      today: { label: "Today", sub: "emulator, 800 dp", w: 800, h: 1224, img: T + "licenses.jpg" },
+      panes: [{ label: "Proposed", sub: "", w: 800, h: 420, html: licensesPage }],
+      choices: [["do", "Do"], ["maybe", "Maybe"], ["dont", "Don't"]],
+    },
+  ];
+
+  // ---------- render ----------
+  const list = document.getElementById("list");
+  const paneHTML = (p, k) => `<div class="pane" data-k="${k}"><div class="plabel">${p.label}<small>${p.sub || ""}</small></div>
+      <div class="frame" style="aspect-ratio:${p.w} / ${p.h}">${p.img ? `<img src="${p.img}" alt="${p.label}: the app today">` : `<div class="cv" style="width:${p.w}px;height:${p.h}px">${p.html()}</div>`}</div></div>`;
+  ITEMS.forEach((it, n) => {
+    const li = document.createElement("li");
+    li.className = "card"; li.id = it.id; li.dataset.c = "";
+    const panes = it.today ? [it.today, ...it.panes] : it.panes;
+    li.innerHTML = `<div class="rank">${n + 1}</div><div class="body">
+      <h2>${it.t}</h2>
+      <div class="tags">${it.tags.map(t => `<span class="tag">${t}</span>`).join("")}${it.rec ? `<span class="tag pick">${it.rec}</span>` : ""}</div>
+      ${it.what.map(w => `<p class="what">${w}</p>`).join("")}
+      <div class="panes${panes.length === 3 ? " three" : ""}">${panes.map((p, i) => paneHTML(p, i)).join("")}</div>
+      <div class="choose"><div class="pick" role="group" aria-label="Decision for ${it.t}">${it.choices.map(([v, l]) => `<button type="button" data-v="${v}" aria-pressed="false">${l}</button>`).join("")}</div>
+        <input class="note" id="note-${it.id}" type="text" placeholder="Note (optional): what you'd change" autocomplete="off"></div></div>`;
+    list.appendChild(li);
+  });
+  const frames = [...document.querySelectorAll(".frame")];
+  const fit = f => { const cv = f.querySelector(".cv"); if (cv) cv.style.setProperty("--s", String(f.clientWidth / cv.offsetWidth)); };
+  frames.forEach(fit);
+  try { const ro = new ResizeObserver(es => es.forEach(e => fit(e.target))); frames.forEach(f => ro.observe(f)); } catch (e) { addEventListener("resize", () => frames.forEach(fit)); }
+
+  // ---------- picks: saved to the page when it can, this browser otherwise ----------
+  const state = {}; ITEMS.forEach(it => state[it.id] = { choice: null, note: "" });
+  const statusEl = document.getElementById("status");
+  const LS = "yabai-settings-picks";
+  let col = null;
+  try { const saved = JSON.parse(localStorage.getItem(LS) || "{}"); Object.keys(saved).forEach(k => { if (state[k]) Object.assign(state[k], saved[k]); }); } catch (e) {}
+  const saveLocal = () => { try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {} };
+  function paint() {
+    let decided = 0;
+    ITEMS.forEach(it => {
+      const li = document.getElementById(it.id), s = state[it.id];
+      li.dataset.c = s.choice || "";
+      li.querySelectorAll(".pick button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === s.choice)));
+      const note = li.querySelector(".note"); if (document.activeElement !== note && note.value !== (s.note || "")) note.value = s.note || "";
+      if (s.choice) decided++;
+    });
+    document.getElementById("tally").textContent = `${decided} of ${ITEMS.length} decided`;
+  }
+  const pending = {};
+  async function write(id) {
+    saveLocal();
+    if (!col) return;
+    if (pending[id]) { pending[id].again = true; return; }
+    pending[id] = { again: false };
+    statusEl.textContent = "Saving…";
+    const it = ITEMS.find(x => x.id === id);
+    try {
+      do {
+        pending[id].again = false;
+        await col.doc(id).set({ choice: state[id].choice, note: state[id].note || "", title: it.t, at: new Date().toISOString() });
+      } while (pending[id].again);
+      statusEl.textContent = "Saved to this page";
+    } catch (e) {
+      statusEl.textContent = e && e.code === "invalid_argument" ? "You can view these picks but not change them" : "Couldn't save to the page; kept in this browser";
+    } finally { delete pending[id]; }
+  }
+  list.addEventListener("click", e => {
+    const b = e.target.closest(".pick button"); if (!b) return;
+    const id = b.closest(".card").id, v = b.dataset.v;
+    state[id].choice = state[id].choice === v ? null : v;
+    paint(); write(id);
+  });
+  const timers = {};
+  list.addEventListener("input", e => {
+    if (!e.target.classList.contains("note")) return;
+    const id = e.target.closest(".card").id; state[id].note = e.target.value; saveLocal();
+    clearTimeout(timers[id]); timers[id] = setTimeout(() => write(id), 700);
+  });
+  paint();
+  statusEl.textContent = "Saved in this browser";
+  (async () => {
+    try {
+      const cl = await new Promise(res => { let n = 0; const t = setInterval(() => { if ((window.claude && window.claude.use) || ++n > 50) { clearInterval(t); res(window.claude && window.claude.use ? window.claude : null); } }, 100); });
+      const db = cl ? await cl.use("db") : null;
+      if (!db) return;
+      col = db.collection("picks");
+      statusEl.textContent = "Saved to this page";
+      col.onSnapshot(snap => {
+        snap.docs.forEach(d => { const v = d.data(); if (v && state[d.id] && !pending[d.id]) { state[d.id].choice = v.choice || null; state[d.id].note = v.note || ""; } });
+        saveLocal(); paint();
+      }, () => { col = null; statusEl.textContent = "Saved in this browser"; });
+    } catch (e) { col = null; }
+  })();
+})();
+</script>

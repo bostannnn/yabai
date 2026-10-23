@@ -55,6 +55,9 @@ import com.example.unifiedreader.feature.settings.SourceSettingsEntry
 import com.example.unifiedreader.feature.settings.SyncSettingsItemRow
 import com.example.unifiedreader.feature.settings.SyncSettingsSourceGroup
 import com.example.unifiedreader.feature.settings.SyncSettingsUiState
+import com.example.unifiedreader.feature.settings.formatSettingsDay
+import com.example.unifiedreader.feature.settings.formatSettingsMoment
+import com.example.unifiedreader.feature.settings.parent
 import com.example.unifiedreader.feature.settings.direction.ReadingDirectionLibraryUiState
 import com.example.unifiedreader.feature.settings.direction.buildComicReadingDirectionLibraryRows
 import com.example.unifiedreader.feature.settings.mode.ReaderModeLibraryUiState
@@ -117,6 +120,10 @@ fun UnifiedReaderScaffold(
         mutableStateOf<SettingsPage?>(null)
     }
     val settingsUsesSidePane = settingsUsesSidePane(currentAppWindowWidth())
+    // While the settings hub's own title shows the bar has no name, and with nothing scrolled under
+    // it no glass either.
+    var settingsTitleOnScreen by remember { mutableStateOf(true) }
+    var settingsScrolled by remember { mutableStateOf(false) }
     // The journal's "Open in library": the book's page, once its source has loaded it.
     var pendingBookPageItemId by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(uiState.topLevel) {
@@ -423,6 +430,10 @@ fun UnifiedReaderScaffold(
                                 stumpReaderModeLibraries = stumpReaderModeLibraries,
                                 updateState = updateState,
                                 updateActions = updateActions,
+                                onTopBarStateChanged = { titleOnScreen, scrolled ->
+                                    settingsTitleOnScreen = titleOnScreen
+                                    settingsScrolled = scrolled
+                                },
                                 contentTopInset = AppTopBarDefaults.contentInset,
                                 modifier = Modifier.fillMaxSize(),
                             )
@@ -492,10 +503,12 @@ fun UnifiedReaderScaffold(
                                 title = if (settingsUsesSidePane) "Settings" else settingsPage?.title ?: "Settings",
                                 onDrawerClick = openDrawer,
                                 onBack = if (settingsPage != null && !settingsUsesSidePane) {
-                                    { settingsPage = null }
+                                    { settingsPage = settingsPage?.parent }
                                 } else {
                                     null
                                 },
+                                titleOnScreen = settingsTitleOnScreen,
+                                scrolled = settingsScrolled,
                             )
                         }
                     }
@@ -534,6 +547,7 @@ private fun SettingsRoute(
     stumpReaderModeLibraries: List<ReaderModeLibraryUiState>,
     updateState: AppUpdateState,
     updateActions: AppUpdateActions,
+    onTopBarStateChanged: (titleOnScreen: Boolean, scrolled: Boolean) -> Unit,
     contentTopInset: Dp = 0.dp,
     modifier: Modifier = Modifier,
 ) {
@@ -543,9 +557,11 @@ private fun SettingsRoute(
             context.packageManager.getPackageInfo(context.packageName, 0).versionName
         }.getOrNull().orEmpty()
     }
+    val syncTimes = rememberSourceSyncTimes()
     val sources = listOf(
         SourceSettingsEntry(
             sourceType = SourceType.KAVITA,
+            lastSyncedAtEpochMillis = syncTimes[SourceType.KAVITA],
             connection = uiState.kavitaConnection,
             connectivity = uiState.sourceConnectivityBySource[SourceType.KAVITA] ?: SourceConnectivityState.Unknown,
             readingDirectionLibraries = kavitaReadingDirectionLibraries,
@@ -567,6 +583,7 @@ private fun SettingsRoute(
         ),
         SourceSettingsEntry(
             sourceType = SourceType.GRIMMORY,
+            lastSyncedAtEpochMillis = syncTimes[SourceType.GRIMMORY],
             connection = uiState.grimmoryConnection,
             connectivity = uiState.sourceConnectivityBySource[SourceType.GRIMMORY] ?: SourceConnectivityState.Unknown,
             actions = RemoteSourceSettingsActions(
@@ -585,6 +602,7 @@ private fun SettingsRoute(
         ),
         SourceSettingsEntry(
             sourceType = SourceType.STUMP,
+            lastSyncedAtEpochMillis = syncTimes[SourceType.STUMP],
             connection = uiState.stumpConnection,
             connectivity = uiState.sourceConnectivityBySource[SourceType.STUMP] ?: SourceConnectivityState.Unknown,
             readingDirectionLibraries = stumpReadingDirectionLibraries,
@@ -631,6 +649,7 @@ private fun SettingsRoute(
             contentTopInset = contentTopInset,
             updateState = updateState,
             updateActions = updateActions,
+            onTopBarStateChanged = onTopBarStateChanged,
         )
     }
 }
@@ -639,6 +658,8 @@ private fun AppPendingRemoteSyncSummary.toSyncSettingsUiState(): SyncSettingsUiS
     pendingCount = totalCount,
     queuedCount = queuedCount,
     failedCount = failedCount,
+    waitingSinceLabel = groups.flatMap { it.items }.mapNotNull { it.updatedAtEpochMillis }.minOrNull()?.let { formatSettingsDay(it) },
+    lastAttemptLabel = groups.mapNotNull { it.lastAttempt?.attemptedAtEpochMillis }.maxOrNull()?.let { formatSettingsMoment(it) },
     sourceGroups = groups.map { group ->
         SyncSettingsSourceGroup(
             sourceLabel = group.sourceType.displayName(),
@@ -655,9 +676,7 @@ private fun AppPendingRemoteSyncSummary.toSyncSettingsUiState(): SyncSettingsUiS
                     subtitle = item.itemSubtitle,
                     artifactLabel = item.artifact.settingsLabel(),
                     stateLabel = item.state.settingsLabel(),
-                    updatedAtLabel = item.updatedAtEpochMillis?.let { updatedAt ->
-                        "Updated ${updatedAt.toSettingsDateTimeLabel()}"
-                    },
+                    updatedAtLabel = item.updatedAtEpochMillis?.let { updatedAt -> "since ${formatSettingsDay(updatedAt)}" },
                 )
             },
         )

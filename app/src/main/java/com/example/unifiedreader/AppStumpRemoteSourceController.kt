@@ -14,6 +14,7 @@ class AppStumpRemoteSourceController @Inject constructor(
     private val remoteCoverController: RemoteCoverController,
     private val comicPageSourceCacheController: ComicPageSourceCacheController,
     private val remoteLibraryCacheStore: RemoteLibraryCacheStore,
+    private val sourceSyncTimes: SourceSyncTimeStore,
 ) {
     fun initialize(
         updateState: AppUiStateUpdater,
@@ -223,6 +224,7 @@ class AppStumpRemoteSourceController @Inject constructor(
                 )
             ) {
                 is StumpSyncExecutionResult.Success -> {
+                    sourceSyncTimes.markSynced(SourceType.STUMP)
                     remoteLibraryCacheStore.replaceCachedLibraries(
                         sourceType = SourceType.STUMP,
                         baseUrl = preparation.request.baseUrl,

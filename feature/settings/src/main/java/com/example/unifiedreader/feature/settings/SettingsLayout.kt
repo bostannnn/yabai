@@ -11,10 +11,18 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.flow.distinctUntilChanged
 import com.example.unifiedreader.ui.components.AppWindowWidth
 
 internal const val SettingsScreenHorizontalPaddingDp = 20
@@ -41,6 +49,17 @@ internal fun resolveSettingsAdaptiveLayout(widthDp: Int): SettingsAdaptiveLayout
     useInlineChoiceControls = widthDp >= SettingsInlineChoiceControlsBreakpointDp,
 )
 
+/**
+ * Tells the settings screen whether the column it is given has scrolled past [threshold], so the
+ * top bar can stay see-through and untitled while the hub's own title shows.
+ */
+internal class SettingsScrollReporter(
+    val threshold: Dp,
+    val onScrolledChanged: (Boolean) -> Unit,
+)
+
+internal val LocalSettingsScrollReporter = staticCompositionLocalOf<SettingsScrollReporter?> { null }
+
 /** The scrolling column every settings page and the hub sit in, capped at a readable width. */
 @Composable
 internal fun SettingsPageContainer(
@@ -49,6 +68,15 @@ internal fun SettingsPageContainer(
     horizontalPadding: Dp = SettingsScreenHorizontalPaddingDp.dp,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val scrollState = rememberScrollState()
+    LocalSettingsScrollReporter.current?.let { reporter ->
+        val threshold = with(LocalDensity.current) { reporter.threshold.roundToPx() }
+        val report by rememberUpdatedState(reporter.onScrolledChanged)
+        LaunchedEffect(scrollState, threshold) {
+            snapshotFlow { scrollState.value > threshold }.distinctUntilChanged().collect { report(it) }
+        }
+        DisposableEffect(Unit) { onDispose { report(false) } }
+    }
     Box(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.TopCenter,
@@ -57,7 +85,7 @@ internal fun SettingsPageContainer(
             modifier = Modifier
                 .widthIn(max = SettingsPageMaxWidth)
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(
                     start = horizontalPadding,
                     end = horizontalPadding,

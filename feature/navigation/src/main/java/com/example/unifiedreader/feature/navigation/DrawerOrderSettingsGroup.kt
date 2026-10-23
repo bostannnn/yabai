@@ -20,7 +20,6 @@ import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.ui.components.AppIcons
-import com.example.unifiedreader.ui.components.AppSettingsDefaults
 import com.example.unifiedreader.ui.components.AppSettingsGroup
 import com.example.unifiedreader.ui.components.AppSettingsRow
 import com.example.unifiedreader.ui.components.AppSettingsRowDivider
@@ -29,7 +28,7 @@ import com.example.unifiedreader.ui.components.appReorderableItem
 import com.example.unifiedreader.ui.components.movedItem
 import com.example.unifiedreader.ui.components.rememberAppReorderState
 
-/** The drawer's source order as a drag-to-reorder list; the first source opens on launch. */
+/** The sources' order, for the rail and the drawer, as a drag-to-reorder list; the first opens on launch. */
 @Composable
 fun DrawerOrderSettingsGroup(
     sourceOrder: List<SourceType>,
@@ -38,9 +37,15 @@ fun DrawerOrderSettingsGroup(
 ) {
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        AppSettingsGroup(label = "Drawer order") {
+        Text(
+            text = "The rail and the drawer list your sources in this order. The first opens when the app starts.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 4.dp),
+        )
+        AppSettingsGroup {
             // Rows render from this local copy so consecutive moves in one drag build on each
             // other even before the app state round-trips.
             var order by remember(sourceOrder) { mutableStateOf(sourceOrder) }
@@ -55,7 +60,7 @@ fun DrawerOrderSettingsGroup(
                     AppSettingsRow(
                         title = sourceType.displayName(),
                         icon = sourceType.navigationIcon(),
-                        supporting = if (index == 0) "Opens on launch" else null,
+                        supporting = if (index == 0) "Opens when the app starts" else null,
                         modifier = Modifier.appReorderableItem(reorderState, index),
                         trailing = {
                             Icon(
@@ -73,11 +78,5 @@ fun DrawerOrderSettingsGroup(
                 }
             }
         }
-        Text(
-            text = "The drawer lists sources in this order. Drag to reorder; the first one opens when the app starts.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = AppSettingsDefaults.horizontalPadding),
-        )
     }
 }

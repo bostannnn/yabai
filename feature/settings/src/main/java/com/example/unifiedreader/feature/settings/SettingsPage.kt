@@ -26,7 +26,7 @@ sealed interface SettingsPage {
 
     data object DrawerOrder : SettingsPage {
         override val key: String = "drawer_order"
-        override val title: String = "Drawer order"
+        override val title: String = "Source order"
     }
 
     data object SyncStatus : SettingsPage {
@@ -39,8 +39,15 @@ sealed interface SettingsPage {
         override val title: String = "Open-source licenses"
     }
 
+    /** One component's notice, opened from [Licenses]. */
+    data class License(val name: String) : SettingsPage {
+        override val key: String get() = "$LicenseKeyPrefix$name"
+        override val title: String get() = name
+    }
+
     companion object {
         private const val SourceKeyPrefix = "source:"
+        private const val LicenseKeyPrefix = "license:"
 
         fun fromKey(key: String?): SettingsPage? = when {
             key.isNullOrEmpty() -> null
@@ -49,6 +56,7 @@ sealed interface SettingsPage {
             key == DrawerOrder.key -> DrawerOrder
             key == SyncStatus.key -> SyncStatus
             key == Licenses.key -> Licenses
+            key.startsWith(LicenseKeyPrefix) -> License(key.removePrefix(LicenseKeyPrefix))
             key.startsWith(SourceKeyPrefix) -> SourceType.entries
                 .firstOrNull { sourceType -> sourceType.name == key.removePrefix(SourceKeyPrefix) }
                 ?.let(::Source)
@@ -56,6 +64,10 @@ sealed interface SettingsPage {
         }
     }
 }
+
+/** The page Back returns to before the hub: a license's notice goes back to the list. */
+val SettingsPage.parent: SettingsPage?
+    get() = if (this is SettingsPage.License) SettingsPage.Licenses else null
 
 /** Saves the open page across configuration changes and process death. */
 val SettingsPageSaver: Saver<SettingsPage?, String> = Saver(

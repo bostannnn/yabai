@@ -55,6 +55,6 @@ class SettingsHubLabelsTest {
     @Test
     fun `drawer order summary names the startup source`() {
         assertEquals("Stump opens on launch", drawerOrderSummary(listOf(SourceType.STUMP, SourceType.KAVITA)))
-        assertEquals("Sources in the drawer", drawerOrderSummary(emptyList()))
+        assertEquals("The order of your sources", drawerOrderSummary(emptyList()))
     }
 }
