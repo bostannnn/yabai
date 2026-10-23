@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,10 +21,6 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -67,7 +62,6 @@ fun LibraryReadingCard(
     modifier: Modifier = Modifier,
     continueLabel: String = "Continue",
     actionContext: LibraryItemActionContext = LibraryItemActionContext(),
-    onDeleteImportedRequested: (ReadableItem) -> Unit = {},
 ) {
     val colors = LibraryReadingCardColors(
         container = MaterialTheme.colorScheme.primaryContainer,
@@ -111,14 +105,10 @@ fun LibraryReadingCard(
                 onClick = onContinue,
                 modifier = if (fillContinue) Modifier.weight(1f) else Modifier,
             )
-            if (actionContext.hasMenuContent(item)) {
-                LibraryReadingCardDetails(
-                    item = item,
-                    colors = colors,
-                    actionContext = actionContext,
-                    onDeleteImportedRequested = onDeleteImportedRequested,
-                )
-            }
+            LibraryReadingCardDetails(
+                colors = colors,
+                onClick = { actionContext.onOpenItemPage(item) },
+            )
         }
     }
 
@@ -259,31 +249,19 @@ private fun LibraryReadingCardContinue(
     }
 }
 
-/** Details opens the item's menu until the book page (step 8.5) takes its place. */
+/** Details opens the item's book page. */
 @Composable
-private fun RowScope.LibraryReadingCardDetails(
-    item: ReadableItem,
+private fun LibraryReadingCardDetails(
     colors: LibraryReadingCardColors,
-    actionContext: LibraryItemActionContext,
-    onDeleteImportedRequested: (ReadableItem) -> Unit,
+    onClick: () -> Unit,
 ) {
-    var expanded by remember(item.id) { mutableStateOf(false) }
-    Box {
-        AppButton(
-            onClick = { expanded = true },
-            modifier = Modifier.height(LibraryReadingCardDefaults.buttonHeight),
-            colors = ButtonDefaults.buttonColors(containerColor = colors.track, contentColor = colors.content),
-            contentPadding = LibraryReadingCardDefaults.buttonPadding,
-        ) {
-            Text(text = "Details", style = LibraryReadingCardDefaults.buttonTextStyle())
-        }
-        LibraryItemMenuPopup(
-            item = item,
-            actionContext = actionContext,
-            expanded = expanded,
-            onExpandedChange = { expanded = it },
-            onDeleteImportedRequested = onDeleteImportedRequested,
-        )
+    AppButton(
+        onClick = onClick,
+        modifier = Modifier.height(LibraryReadingCardDefaults.buttonHeight),
+        colors = ButtonDefaults.buttonColors(containerColor = colors.track, contentColor = colors.content),
+        contentPadding = LibraryReadingCardDefaults.buttonPadding,
+    ) {
+        Text(text = "Details", style = LibraryReadingCardDefaults.buttonTextStyle())
     }
 }
 
@@ -339,7 +317,6 @@ fun LibrarySeriesReadingCard(
     onItemSelected: (ReadableItem) -> Unit,
     modifier: Modifier = Modifier,
     actionContext: LibraryItemActionContext = LibraryItemActionContext(),
-    onDeleteImportedRequested: (ReadableItem) -> Unit = {},
 ) {
     val compact = isLibraryCompactWindow()
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
@@ -358,7 +335,6 @@ fun LibrarySeriesReadingCard(
             imageVariant = gridMetrics.coverImageVariant,
             onContinue = { onItemSelected(next.item) },
             actionContext = actionContext,
-            onDeleteImportedRequested = onDeleteImportedRequested,
         )
     }
 }

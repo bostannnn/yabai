@@ -238,7 +238,9 @@ Mock: `8.5-book-page.jpg` (a comic; a book shows author and chapters instead of 
 - **Data**: the description is new. The Kavita and Stump DTOs already parse `summary` and Grimmory's
   parse `description`, but the domain model drops it. Add it to the item model and Room (schema v29,
   with a migration; there is no destructive fallback), plus EPUB `dc:description` and ComicInfo
-  `Summary` for local files. Everything else on the page already exists.
+  `Summary` for local files. Everything else on the page already exists. (Built: the servers'
+  descriptions were already stored; only imports needed the column. There is no file size in the
+  app, so the facts leave Size out.)
 
 ## 8.6 Colour from the cover
 

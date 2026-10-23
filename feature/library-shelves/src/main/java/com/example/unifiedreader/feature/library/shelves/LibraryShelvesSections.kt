@@ -39,10 +39,9 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.core.model.librarySecondaryText
 import com.example.unifiedreader.feature.library.ItemProgressSummary
-import com.example.unifiedreader.feature.library.LibraryAnchoredItemMenu
+import com.example.unifiedreader.feature.library.LibraryItemPageButton
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
-import com.example.unifiedreader.feature.library.hasMenuContent
 import com.example.unifiedreader.feature.library.isDownloaded
 import com.example.unifiedreader.feature.library.menu.LibraryItemMenuButtonStyle
 import com.example.unifiedreader.ui.components.AppTextButton
@@ -89,9 +88,6 @@ internal fun LibraryShelfTabsBand(
     covers: ShelfCoverLayout,
     spacing: Dp,
     onItemSelected: (ReadableItem) -> Unit,
-    expandedMenuItemId: String?,
-    onExpandedMenuChange: (ReadableItem, Boolean) -> Unit,
-    onDeleteImportedRequested: (ReadableItem) -> Unit,
     onSeeAll: (LibraryShelfBrowserKind) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -155,9 +151,6 @@ internal fun LibraryShelfTabsBand(
                                 coverImageUrlProvider = coverImageUrlProvider,
                                 covers = covers,
                                 onItemSelected = onItemSelected,
-                                expandedMenuItemId = expandedMenuItemId,
-                                onExpandedMenuChange = onExpandedMenuChange,
-                                onDeleteImportedRequested = onDeleteImportedRequested,
                             )
                         }
                     LibraryShelfTab.UpNext -> state.nextInSeries.take(ShelfStripItemLimit).forEach { shelfItem ->
@@ -171,9 +164,6 @@ internal fun LibraryShelfTabsBand(
                             coverImageUrlProvider = coverImageUrlProvider,
                             covers = covers,
                             onItemSelected = onItemSelected,
-                            expandedMenuItemId = expandedMenuItemId,
-                            onExpandedMenuChange = onExpandedMenuChange,
-                            onDeleteImportedRequested = onDeleteImportedRequested,
                         )
                     }
                     LibraryShelfTab.Finished -> state.recentlyFinished.take(ShelfStripItemLimit).forEach { shelfItem ->
@@ -192,9 +182,6 @@ internal fun LibraryShelfTabsBand(
                             coverImageUrlProvider = coverImageUrlProvider,
                             covers = covers,
                             onItemSelected = onItemSelected,
-                            expandedMenuItemId = expandedMenuItemId,
-                            onExpandedMenuChange = onExpandedMenuChange,
-                            onDeleteImportedRequested = onDeleteImportedRequested,
                         )
                     }
                 }
@@ -249,11 +236,7 @@ private fun ShelfStripCard(
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     covers: ShelfCoverLayout,
     onItemSelected: (ReadableItem) -> Unit,
-    expandedMenuItemId: String?,
-    onExpandedMenuChange: (ReadableItem, Boolean) -> Unit,
-    onDeleteImportedRequested: (ReadableItem) -> Unit,
 ) {
-    val hasMenuContent = itemActionContext.hasMenuContent(item)
     val isComplete = progress?.let { it.isFinished || it.fraction >= 0.999f } == true
     ShelfPreviewCard(
         item = item,
@@ -264,19 +247,12 @@ private fun ShelfStripCard(
         covers = covers,
         onClick = { onItemSelected(item) },
         accentColor = accentColor,
-        menuContent = if (hasMenuContent) {
-            {
-                LibraryAnchoredItemMenu(
-                    item = item,
-                    actionContext = itemActionContext,
-                    expanded = expandedMenuItemId == item.id,
-                    onExpandedChange = { expanded -> onExpandedMenuChange(item, expanded) },
-                    onDeleteImportedRequested = onDeleteImportedRequested,
-                    buttonStyle = LibraryItemMenuButtonStyle.CompactInline,
-                )
-            }
-        } else {
-            null
+        menuContent = {
+            LibraryItemPageButton(
+                item = item,
+                actionContext = itemActionContext,
+                buttonStyle = LibraryItemMenuButtonStyle.CompactInline,
+            )
         },
         progressFraction = progress?.fraction?.takeIf { it > 0f && !isComplete },
         isDownloaded = itemActionContext.isDownloaded(item),

@@ -18,6 +18,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.library.ItemProgressSummary
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -29,8 +30,9 @@ class LibraryShelvesZoneActionsTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun readingCardDetailsOpensTheItemMenu() {
+    fun readingCardDetailsOpensTheBookPage() {
         val item = comicItem("continue-1")
+        var opened: ReadableItem? = null
 
         composeRule.setContent {
             MaterialTheme {
@@ -43,10 +45,7 @@ class LibraryShelvesZoneActionsTest {
                             ),
                         ),
                     ),
-                    itemActionContext = LibraryItemActionContext(
-                        downloadableItemIds = setOf(item.id),
-                        onDownloadItem = {},
-                    ),
+                    itemActionContext = LibraryItemActionContext(onOpenItemPage = { opened = it }),
                     coverImageUrlProvider = { _, _ -> null },
                     onCoverVisible = { _, _ -> },
                     onItemSelected = {},
@@ -59,7 +58,7 @@ class LibraryShelvesZoneActionsTest {
         // The card's book is not repeated in a tab, so with nothing else there are no tabs.
         assertTrue(composeRule.onAllNodesWithText("In progress").fetchSemanticsNodes().isEmpty())
         composeRule.onNodeWithText("Details").assertExists().performClick()
-        composeRule.onNodeWithText("Download file").assertExists()
+        composeRule.runOnIdle { assertEquals(item, opened) }
     }
 
     @Test
@@ -103,8 +102,9 @@ class LibraryShelvesZoneActionsTest {
     }
 
     @Test
-    fun shelfItemsBrowserRowsShowVisibleActionsButton() {
+    fun shelfItemsBrowserMoreActionsOpensTheBookPage() {
         val item = comicItem("continue-2")
+        var opened: ReadableItem? = null
 
         composeRule.setContent {
             MaterialTheme {
@@ -117,22 +117,18 @@ class LibraryShelvesZoneActionsTest {
                             ),
                         ),
                     ),
-                    itemActionContext = LibraryItemActionContext(
-                        downloadableItemIds = setOf(item.id),
-                        onDownloadItem = {},
-                    ),
+                    itemActionContext = LibraryItemActionContext(onOpenItemPage = { opened = it }),
                     coverImageUrlProvider = { _, _ -> null },
                     onCoverVisible = { _, _ -> },
                     onBack = {},
                     onItemSelected = {},
-                    onDeleteImportedItem = {},
                 )
             }
         }
 
         composeRule.onNodeWithText("Continue Reading").assertExists()
         composeRule.onNodeWithContentDescription("More actions").assertExists().performClick()
-        composeRule.onNodeWithText("Download file").assertExists()
+        composeRule.runOnIdle { assertEquals(item, opened) }
     }
 
     @Test
@@ -158,7 +154,6 @@ class LibraryShelvesZoneActionsTest {
                         onCoverVisible = { _, _ -> },
                         onBack = { activeShelfKind = null },
                         onItemSelected = {},
-                        onDeleteImportedItem = {},
                     )
                 } else {
                     LibraryShelvesZone(
@@ -210,7 +205,6 @@ class LibraryShelvesZoneActionsTest {
                     onCoverVisible = { _, _ -> },
                     onBack = {},
                     onItemSelected = {},
-                    onDeleteImportedItem = {},
                     searchQuery = "metro",
                     onSearchQueryChanged = {},
                     showEmbeddedTopBar = false,

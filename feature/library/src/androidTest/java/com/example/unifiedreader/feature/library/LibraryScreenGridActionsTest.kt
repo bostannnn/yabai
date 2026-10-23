@@ -10,6 +10,7 @@ import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -20,7 +21,7 @@ class LibraryScreenGridActionsTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun gridModeExposesVisibleActionsMenu() {
+    fun gridMoreActionsOpensTheBookPage() {
         val item = ReadableItem(
             id = "kavita:item:1",
             sourceType = SourceType.KAVITA,
@@ -29,6 +30,7 @@ class LibraryScreenGridActionsTest {
             title = "Akira 1",
             format = FormatType.CBZ,
         )
+        var opened: ReadableItem? = null
 
         composeRule.setContent {
             MaterialTheme {
@@ -46,6 +48,7 @@ class LibraryScreenGridActionsTest {
                     downloadableItemIds = setOf(item.id),
                     onItemSelected = {},
                     onDownloadItem = {},
+                    onOpenItemPage = { opened = it },
                 )
             }
         }
@@ -53,8 +56,7 @@ class LibraryScreenGridActionsTest {
         composeRule.onNodeWithText("Akira 1").assertExists()
         composeRule.onNodeWithText("42%").assertExists()
         composeRule.onNodeWithContentDescription("More actions").assertExists().performClick()
-        composeRule.onNodeWithText("Download file").assertExists()
-        composeRule.onNodeWithText("Mark as read").assertExists()
+        composeRule.runOnIdle { assertEquals(item, opened) }
     }
 
     @Test

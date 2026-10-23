@@ -44,7 +44,7 @@ export ANDROID_HOME=~/Library/Android/sdk_new
   that resumes on Main (anything behind a `Dispatchers.IO` hop): the looper can't run and the
   suite hangs with no timeout. Poll while idling the looper instead (`waitForUiState { ... }`).
   If `testDebugUnitTest` stops progressing, `jstack` the Gradle Test Executor JVM.
-- Room schema is v28 (`core/database/.../UnifiedReaderDatabase.kt`), `exportSchema = false`,
+- Room schema is v29 (`core/database/.../UnifiedReaderDatabase.kt`), `exportSchema = false`,
   no destructive fallback: every version bump needs a migration.
 
 ## Release build (signed)

@@ -46,18 +46,16 @@ import com.example.unifiedreader.core.model.applyLibrarySearch
 import com.example.unifiedreader.core.model.facetMetadata
 import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.core.model.librarySecondaryText
-import com.example.unifiedreader.feature.library.LibraryAnchoredItemMenu
+import com.example.unifiedreader.feature.library.LibraryItemPageButton
 import com.example.unifiedreader.feature.library.LibraryBrowseOption
 import com.example.unifiedreader.feature.library.LibraryBrowseOptionSection
 import com.example.unifiedreader.feature.library.LibraryBrowseOptionsMenu
 import com.example.unifiedreader.feature.library.LibraryCoverActionCard
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryCoverProgressBar
-import com.example.unifiedreader.feature.library.LibraryDeleteImportedItemDialog
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
 import com.example.unifiedreader.feature.library.LocalLibraryCoverGeneration
 import com.example.unifiedreader.feature.library.defaultLibraryGridCellSizeDp
-import com.example.unifiedreader.feature.library.hasMenuContent
 import com.example.unifiedreader.feature.library.isDownloaded
 import com.example.unifiedreader.feature.library.libraryGridCoverImageVariant
 import com.example.unifiedreader.feature.library.menu.LibraryItemMenuButtonStyle
@@ -129,7 +127,6 @@ fun LibraryShelfItemsBrowser(
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onBack: () -> Unit,
     onItemSelected: (ReadableItem) -> Unit,
-    onDeleteImportedItem: (ReadableItem) -> Unit,
     browseContextKey: String = browser.kind.name,
     gridCellSizeDp: Int = defaultLibraryGridCellSizeDp,
     onGridCellSizeDpChanged: (Int) -> Unit = {},
@@ -148,8 +145,6 @@ fun LibraryShelfItemsBrowser(
     val updateSearchQuery = onSearchQueryChanged ?: { query: String -> localSearchQuery = query }
     var sortMode by rememberSaveable(browseContextKey, browser.kind) { mutableStateOf(ShelfBrowserSortMode.ShelfOrder) }
     var showListView by rememberSaveable(browseContextKey, browser.kind) { mutableStateOf(false) }
-    var expandedMenuItemId by remember(browseContextKey, browser.kind, browser.count) { mutableStateOf<String?>(null) }
-    var deleteCandidate by remember(browseContextKey, browser.kind) { mutableStateOf<ReadableItem?>(null) }
     val sanitizedGridCellSizeDp = sanitizeLibraryGridCellSizeDp(gridCellSizeDp)
     val allEntries = remember(browser) {
         browser.browserEntries(nowEpochMillis = System.currentTimeMillis())
@@ -247,26 +242,10 @@ fun LibraryShelfItemsBrowser(
                         coverImageUrlProvider = coverImageUrlProvider,
                         onCoverVisible = onCoverVisible,
                         onItemSelected = onItemSelected,
-                        expandedMenuItemId = expandedMenuItemId,
-                        onExpandedMenuChange = { item, expanded ->
-                            expandedMenuItemId = if (expanded) item.id else null
-                        },
-                        onDeleteImportedRequested = { deleteCandidate = it },
                     )
                 }
             }
         }
-    }
-
-    deleteCandidate?.let { item ->
-        LibraryDeleteImportedItemDialog(
-            item = item,
-            onDismiss = { deleteCandidate = null },
-            onConfirmDelete = {
-                onDeleteImportedItem(it)
-                deleteCandidate = null
-            },
-        )
     }
 }
 
@@ -354,9 +333,6 @@ private fun ShelfBrowserItems(
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onItemSelected: (ReadableItem) -> Unit,
-    expandedMenuItemId: String?,
-    onExpandedMenuChange: (ReadableItem, Boolean) -> Unit,
-    onDeleteImportedRequested: (ReadableItem) -> Unit,
 ) {
     if (showListView) {
         ShelfBrowserList(
@@ -368,9 +344,6 @@ private fun ShelfBrowserItems(
             coverImageUrlProvider = coverImageUrlProvider,
             onCoverVisible = onCoverVisible,
             onItemSelected = onItemSelected,
-            expandedMenuItemId = expandedMenuItemId,
-            onExpandedMenuChange = onExpandedMenuChange,
-            onDeleteImportedRequested = onDeleteImportedRequested,
         )
     } else {
         ShelfBrowserGrid(
@@ -382,9 +355,6 @@ private fun ShelfBrowserItems(
             itemActionContext = itemActionContext,
             coverImageUrlProvider = coverImageUrlProvider,
             onItemSelected = onItemSelected,
-            expandedMenuItemId = expandedMenuItemId,
-            onExpandedMenuChange = onExpandedMenuChange,
-            onDeleteImportedRequested = onDeleteImportedRequested,
         )
     }
 }
@@ -399,9 +369,6 @@ private fun ShelfBrowserGrid(
     itemActionContext: LibraryItemActionContext,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     onItemSelected: (ReadableItem) -> Unit,
-    expandedMenuItemId: String?,
-    onExpandedMenuChange: (ReadableItem, Boolean) -> Unit,
-    onDeleteImportedRequested: (ReadableItem) -> Unit,
 ) {
     val sanitizedGridCellSizeDp = sanitizeLibraryGridCellSizeDp(gridCellSizeDp)
     val compactGrid = sanitizedGridCellSizeDp <= minLibraryGridCellSizeDp
@@ -425,9 +392,6 @@ private fun ShelfBrowserGrid(
                 itemActionContext = itemActionContext,
                 coverImageUrlProvider = coverImageUrlProvider,
                 onItemSelected = { onItemSelected(entry.item) },
-                expandedMenuItemId = expandedMenuItemId,
-                onExpandedMenuChange = onExpandedMenuChange,
-                onDeleteImportedRequested = onDeleteImportedRequested,
             )
         }
     }
@@ -443,9 +407,6 @@ private fun ShelfBrowserList(
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onItemSelected: (ReadableItem) -> Unit,
-    expandedMenuItemId: String?,
-    onExpandedMenuChange: (ReadableItem, Boolean) -> Unit,
-    onDeleteImportedRequested: (ReadableItem) -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -458,7 +419,6 @@ private fun ShelfBrowserList(
             items = entries,
             key = { it.item.id },
         ) { entry ->
-            val hasMenuContent = itemActionContext.hasMenuContent(entry.item)
             ShelfListRow(
                 item = entry.item,
                 title = entry.title,
@@ -468,20 +428,11 @@ private fun ShelfBrowserList(
                 coverImageUrlProvider = coverImageUrlProvider,
                 onCoverVisible = onCoverVisible,
                 onClick = { onItemSelected(entry.item) },
-                menuContent = if (hasMenuContent) {
-                    {
-                        LibraryAnchoredItemMenu(
-                            item = entry.item,
-                            actionContext = itemActionContext,
-                            expanded = expandedMenuItemId == entry.item.id,
-                            onExpandedChange = { expanded ->
-                                onExpandedMenuChange(entry.item, expanded)
-                            },
-                            onDeleteImportedRequested = onDeleteImportedRequested,
-                        )
-                    }
-                } else {
-                    null
+                menuContent = {
+                    LibraryItemPageButton(
+                        item = entry.item,
+                        actionContext = itemActionContext,
+                    )
                 },
                 progressFraction = entry.progressFraction,
                 isDownloaded = itemActionContext.isDownloaded(entry.item),
@@ -501,11 +452,7 @@ private fun ShelfBrowserGridCard(
     itemActionContext: LibraryItemActionContext,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     onItemSelected: () -> Unit,
-    expandedMenuItemId: String?,
-    onExpandedMenuChange: (ReadableItem, Boolean) -> Unit,
-    onDeleteImportedRequested: (ReadableItem) -> Unit,
 ) {
-    val hasMenuContent = itemActionContext.hasMenuContent(entry.item)
     val metadata = if (compact) {
         entry.trailingText
     } else {
@@ -531,21 +478,12 @@ private fun ShelfBrowserGridCard(
                 supportingStyle = MaterialTheme.typography.bodySmall,
                 trailingColor = entry.accentColor(),
                 metadataTopPadding = 8.dp,
-                menuContent = if (hasMenuContent) {
-                    {
-                        LibraryAnchoredItemMenu(
-                            item = entry.item,
-                            actionContext = itemActionContext,
-                            expanded = expandedMenuItemId == entry.item.id,
-                            onExpandedChange = { expanded ->
-                                onExpandedMenuChange(entry.item, expanded)
-                            },
-                            onDeleteImportedRequested = onDeleteImportedRequested,
-                            buttonStyle = LibraryItemMenuButtonStyle.CompactInline,
-                        )
-                    }
-                } else {
-                    null
+                menuContent = {
+                    LibraryItemPageButton(
+                        item = entry.item,
+                        actionContext = itemActionContext,
+                        buttonStyle = LibraryItemMenuButtonStyle.CompactInline,
+                    )
                 },
                 coverModifier = Modifier
                     .fillMaxWidth()

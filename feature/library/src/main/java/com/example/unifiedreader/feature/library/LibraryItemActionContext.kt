@@ -1,7 +1,6 @@
 package com.example.unifiedreader.feature.library
 
 import com.example.unifiedreader.core.model.ReadableItem
-import com.example.unifiedreader.core.model.supportsManualReadStatusAction
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 
@@ -18,18 +17,10 @@ data class LibraryItemActionContext(
     val onDownloadItem: (ReadableItem) -> Unit = {},
     val onDeleteDownloadedItem: (ReadableItem) -> Unit = {},
     val onSetReadStatus: (ReadableItem, Boolean) -> Unit = { _, _ -> },
+    // The "•••" under a cover and the reading card's Details open the item's book page.
+    val onOpenItemPage: (ReadableItem) -> Unit = {},
 )
 
 fun LibraryItemActionContext.isDownloaded(
     item: ReadableItem,
 ): Boolean = item.id in locallyAvailableItemIds
-
-fun LibraryItemActionContext.hasMenuContent(
-    item: ReadableItem,
-): Boolean = item.supportsManualReadStatusAction() ||
-    item.id in downloadingItemIds ||
-    item.id in downloadableItemIds ||
-    item.id in deletableDownloadedItemIds ||
-    item.isLocalImport ||
-    seriesReadingDirectionFor(item) != null ||
-    seriesReaderModeFor(item) != null

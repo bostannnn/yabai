@@ -276,6 +276,8 @@ data class ImportedComicArchiveEntity(
     val volume: String?,
     val issueNumber: String?,
     val updatedAtEpochMillis: Long,
+    // The file's own description: an EPUB's `dc:description`, ComicInfo's `Summary`.
+    val summary: String? = null,
 )
 
 @Entity(tableName = "reader_session_state")

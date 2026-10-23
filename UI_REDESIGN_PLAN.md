@@ -727,16 +727,48 @@ build that treated Local books as downloadable and showed Refresh as running. No
       `UnifiedReaderAppFlowTest`) already did not compile on `main` (they pass parameters the bar no
       longer has); they were left as they were.
 
-### 8.5 Book page `[ ]`
+### 8.5 Book page `[~]`
 
-- [ ] A sheet (a side sheet at 600 dp and wider) opened by "•••" and by the reading card's Details,
-      replacing the `LibraryItemMenu` dropdown: cover, title, series position, Continue, Download or
-      Remove, Mark finished, progress and last read; per-book direction and Paged/Scroll; About
-      (description; genres and tags as chips that filter the library; format, size, language,
-      publisher); More in this series, More by this author, Similar (two or more shared genres or tags).
-- [ ] Keep the description: the Kavita and Stump DTOs parse `summary` and Grimmory's parse
-      `description`, but the domain model drops them. Add it to the item model and Room (a v29
-      migration), plus EPUB `dc:description` and ComicInfo `Summary` for local files.
+Built 2026-10-23 on `claude/ui-redesign-step-8-e779ee`, checked on the emulator (`yabai_tablet_35`,
+Graphite, the Local library) at 800 dp and at 411 dp phone width, with a test EPUB imported for its
+description (and removed again through the page). Kavita, Stump and Grimmory pages, and the
+Reading rows (series direction and Paged/Scroll only exist for server series), were not seen on a
+device; their parts are unit-tested. Not yet on the tablet.
+
+- [x] `LibraryBookPage` (feature:library; the pure parts in `LibraryBookPageModel.kt`, unit-tested;
+      two instrumentation tests): a 440 dp side sheet, a full-height bottom sheet on phones. The
+      "•••" under every cover (grid, shelf strip, shelf browser) and the reading card's Details open
+      it through `LibraryItemActionContext.onOpenItemPage`; `LibraryBookPageHost` (app) draws it for
+      the item's id and follows the item as the library updates. The dropdown
+      (`LibraryItemMenu`, `LibraryItemReaderModeMenu`, the read-status menu actions) and the
+      per-screen remove dialogs and expanded-menu state are gone; long-press still selects.
+- [x] Top on `surfaceContainerHigh` until 8.6: close, the 118 dp cover with a shadow, the title
+      (an issue reads "Neon Ronin #2", or its own title), "Neon Ronin · 2 of 3", the authors or the
+      comic's writers and artists; a 46 dp "Continue · page 3 of 8" ("chapter 4 of 6" for a placed
+      EPUB, "Start reading", "Read again", "Show issues" on a series); 42 dp tonal pills for Mark
+      finished / Mark unread (where the source takes it) and Remove file (an imported file, with the
+      confirm dialog), Download, Downloading or Remove download (a partly downloaded series gets
+      both); "38% · read yesterday", "3 / 8" and a 6 dp bar.
+- [x] Reading: Direction ("Left to right" / "Right to left") and Open as (Paged / Scroll) as
+      `AppChoiceRow`s, saved per series as before; only where the old menu had them.
+- [x] About: the description as plain text (markup dropped, paragraphs on their own lines), four
+      lines then More / Less; genre and tag chips (30 dp) that set that filter and close the page
+      when the source shows that facet; Format (with pages for comics), Language, Publisher.
+      Size is left out: nothing in the app knows a file's size.
+- [x] More in <series> (issue order; See all opens the Kavita or Stump series, elsewhere sets the
+      series filter), More by <first author or writer>, Similar (two or more shared genres or tags,
+      most shared first, up to eight); a book appears in one row only, a series is compared with
+      series. Covers four across, 12 dp apart, scrolling sideways; a cover shows that book's page.
+      Worked out off the main thread.
+- [x] Descriptions: servers already stored theirs (Kavita and Stump `summary`, Grimmory
+      `description` map to `ReadableItem.description`, persisted in `readable_items`). Imports now
+      keep EPUB `dc:description` and ComicInfo `Summary` in `imported_comic_archives.summary`
+      (Room v29, `MIGRATION_28_29`, tested) instead of the "Imported local EPUB book." placeholder.
+      Files imported before keep no description until imported again.
+- Changed from the old menu: a book half read had both Mark as read and Mark as unread; the page
+  has one button, so resetting it is Mark finished, then Mark unread.
+- [ ] Tablet: the page over a Kavita issue and a Kavita series (download, series rows, See all),
+      and its feel as a side sheet.
 
 ### 8.6 Colour from the cover `[ ]` (replaces section 5)
 

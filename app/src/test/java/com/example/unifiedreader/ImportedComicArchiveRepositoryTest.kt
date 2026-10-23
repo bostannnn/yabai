@@ -67,6 +67,7 @@ class ImportedComicArchiveRepositoryTest {
                       <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
                         <dc:title>The Dispossessed</dc:title>
                         <dc:creator>Ursula K. Le Guin</dc:creator>
+                        <dc:description>&lt;p&gt;Shevek leaves Anarres.&lt;/p&gt;</dc:description>
                         <meta name="cover" content="cover-image"/>
                       </metadata>
                       <manifest>
@@ -87,7 +88,8 @@ class ImportedComicArchiveRepositoryTest {
         assertEquals(LOCAL_LIBRARY_ID, imported?.libraryId)
         assertEquals("The Dispossessed", imported?.title)
         assertEquals("Ursula K. Le Guin", imported?.bookMetadata?.author)
-        assertEquals("Imported local EPUB book.", imported?.description)
+        // The file's own description, as written; the book page renders its markup.
+        assertEquals("<p>Shevek leaves Anarres.</p>", imported?.description)
         assertTrue(imported?.coverUrl?.startsWith("file:") == true)
     }
 
@@ -170,6 +172,7 @@ class ImportedComicArchiveRepositoryTest {
                       <Title>The Bike Chase</Title>
                       <Volume>1</Volume>
                       <Number>001</Number>
+                      <Summary>Kaneda's gang races into the ruins.</Summary>
                     </ComicInfo>
                 """.trimIndent().encodeToByteArray(),
                 "001.jpg" to singlePixelJpegBytes(),
@@ -194,6 +197,7 @@ class ImportedComicArchiveRepositoryTest {
             ),
             imported?.comicMetadata,
         )
+        assertEquals("Kaneda's gang races into the ruins.", imported?.description)
         assertTrue(imported?.coverUrl?.startsWith("file:") == true)
     }
 
@@ -235,7 +239,7 @@ class ImportedComicArchiveRepositoryTest {
         assertEquals(SourceType.LOCAL, imported?.sourceType)
         assertEquals(LOCAL_LIBRARY_ID, imported?.libraryId)
         assertEquals("left-hand-of-darkness", imported?.title)
-        assertEquals("Imported local PDF document.", imported?.description)
+        assertEquals(null, imported?.description)
         assertEquals(null, imported?.coverUrl)
     }
 

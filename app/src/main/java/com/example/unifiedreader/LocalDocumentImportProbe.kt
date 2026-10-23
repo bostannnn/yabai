@@ -54,6 +54,7 @@ internal class LocalDocumentImportProbe(
                 pageEntryNames = emptyList(),
                 author = metadata?.author,
                 epubCoverEntryName = metadata?.coverEntryName,
+                summary = metadata?.description,
             )
         }
         if (isPdfDocument(displayName, contentType) && isValidPdfDocument(uri)) {
@@ -83,6 +84,7 @@ internal class LocalDocumentImportProbe(
             volume = archive.comicMetadata?.volume,
             issueNumber = archive.comicMetadata?.issueNumber,
             author = archive.comicMetadata?.writer,
+            summary = archive.comicMetadata?.summary,
         )
     }
 

@@ -6,9 +6,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -110,6 +113,23 @@ internal fun LibraryRoute(
             onActiveShelfBrowserKindChanged(null)
         }
     }
+    // The book page opened by a cover's "•••" or the reading card's Details.
+    var bookPageItemId by rememberSaveable { mutableStateOf<String?>(null) }
+    fun itemActionContextFor(state: AppUiState) = LibraryItemActionContext(
+        progressByItemId = state.displayProgressByItemId,
+        locallyAvailableItemIds = state.locallyAvailableRemoteItemIds,
+        downloadableItemIds = state.remoteDownloadActionAvailability.downloadableItemIds,
+        deletableDownloadedItemIds = state.remoteDownloadActionAvailability.deletableDownloadedItemIds,
+        downloadingItemIds = state.remoteDownloadActionAvailability.activeDownloadingItemIds,
+        seriesReadingDirectionFor = seriesReadingDirectionFor,
+        onSeriesDirectionSelected = onSeriesDirectionSelected,
+        seriesReaderModeFor = seriesReaderModeFor,
+        onSeriesReaderModeSelected = onSeriesReaderModeSelected,
+        onDownloadItem = onDownloadRemoteItem,
+        onDeleteDownloadedItem = onDeleteRemoteLocalFile,
+        onSetReadStatus = onSetReadStatus,
+        onOpenItemPage = { item -> bookPageItemId = item.id },
+    )
     val screen = libraryScreenKey(uiState, activeShelfBrowser?.kind)
     val currentFrame = LibraryRouteFrame(
         uiState = uiState,
@@ -146,20 +166,7 @@ internal fun LibraryRoute(
                 val resolver = latestShelfBadgeResolver
                 value = if (resolver != null && shelfItems.isNotEmpty()) resolver(shelfItems) else LibraryWindowBadges()
             }
-            val itemActionContext = LibraryItemActionContext(
-                progressByItemId = frame.uiState.displayProgressByItemId,
-                locallyAvailableItemIds = frame.uiState.locallyAvailableRemoteItemIds,
-                downloadableItemIds = frame.uiState.remoteDownloadActionAvailability.downloadableItemIds,
-                deletableDownloadedItemIds = frame.uiState.remoteDownloadActionAvailability.deletableDownloadedItemIds,
-                downloadingItemIds = frame.uiState.remoteDownloadActionAvailability.activeDownloadingItemIds,
-                seriesReadingDirectionFor = seriesReadingDirectionFor,
-                onSeriesDirectionSelected = onSeriesDirectionSelected,
-                seriesReaderModeFor = seriesReaderModeFor,
-                onSeriesReaderModeSelected = onSeriesReaderModeSelected,
-                onDownloadItem = onDownloadRemoteItem,
-                onDeleteDownloadedItem = onDeleteRemoteLocalFile,
-                onSetReadStatus = onSetReadStatus,
-            ).withWindowBadges(shelfWindowBadges)
+            val itemActionContext = itemActionContextFor(frame.uiState).withWindowBadges(shelfWindowBadges)
             if (frame.activeShelfBrowser != null) {
                 LibraryShelfItemsBrowser(
                     browser = frame.activeShelfBrowser,
@@ -180,7 +187,6 @@ internal fun LibraryRoute(
                         onActiveShelfBrowserKindChanged(null)
                         onItemSelected(item)
                     },
-                    onDeleteImportedItem = onDeleteImportedItem,
                 )
             } else if (frame.uiState.isKavitaVisualSectionActive) {
                 KavitaScopeLandingScreen(
@@ -283,7 +289,6 @@ internal fun LibraryRoute(
                                 onCoverVisible = onCoverVisible,
                                 onItemSelected = onItemSelected,
                                 onBrowseShelf = onActiveShelfBrowserKindChanged,
-                                onDeleteImportedItem = onDeleteImportedItem,
                             )
                         }
                     } else if (seriesNext != null) {
@@ -296,7 +301,6 @@ internal fun LibraryRoute(
                                 onCoverVisible = onCoverVisible,
                                 onItemSelected = onItemSelected,
                                 actionContext = itemActionContext,
-                                onDeleteImportedRequested = onDeleteImportedItem,
                             )
                         }
                     } else {
@@ -327,7 +331,7 @@ internal fun LibraryRoute(
                     onSeriesDirectionSelected = onSeriesDirectionSelected,
                     seriesReaderModeFor = seriesReaderModeFor,
                     onSeriesReaderModeSelected = onSeriesReaderModeSelected,
-                    onDeleteImportedItem = onDeleteImportedItem,
+                    onOpenItemPage = { item -> bookPageItemId = item.id },
                     onDownloadItem = onDownloadRemoteItem,
                     onDeleteDownloadedItem = onDeleteRemoteLocalFile,
                     onSetReadStatus = onSetReadStatus,
@@ -340,6 +344,22 @@ internal fun LibraryRoute(
                 )
             }
         }
+    }
+    bookPageItemId?.let { itemId ->
+        LibraryBookPageHost(
+            uiState = uiState,
+            itemId = itemId,
+            actionContext = itemActionContextFor(uiState),
+            coverImageUrlProvider = coverImageUrlProvider,
+            onItemSelected = { item ->
+                onActiveShelfBrowserKindChanged(null)
+                onItemSelected(item)
+            },
+            onShowItem = { item -> bookPageItemId = item.id },
+            onDeleteImportedItem = onDeleteImportedItem,
+            onFilterStateChanged = onFilterStateChanged,
+            onDismiss = { bookPageItemId = null },
+        )
     }
 }
 

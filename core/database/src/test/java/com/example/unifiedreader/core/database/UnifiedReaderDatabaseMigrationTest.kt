@@ -172,6 +172,31 @@ class UnifiedReaderDatabaseMigrationTest {
     }
 
     @Test
+    fun `migration 28 to 29 adds a summary to imported files and keeps them`() {
+        createTestDatabase(
+            name = "migration-28-29-${System.nanoTime()}",
+            version = 28,
+        ) { database ->
+            createVersion27Schema(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_27_28.migrate(database)
+            database.execSQL(
+                "INSERT INTO imported_comic_archives (itemId, documentUri, displayName, title, format, pageCount, " +
+                    "pageEntryNamesJson, updatedAtEpochMillis) " +
+                    "VALUES ('comic-1', 'content://a', 'a.cbz', 'A', 'CBZ', 3, '[]', 1)",
+            )
+        }.use { database ->
+            UnifiedReaderDatabaseMigrations.MIGRATION_28_29.migrate(database)
+
+            assertTrue(columnExists(database, "imported_comic_archives", "summary"))
+            database.query("SELECT title, summary FROM imported_comic_archives").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals("A", cursor.getString(0))
+                assertTrue(cursor.isNull(1))
+            }
+        }
+    }
+
+    @Test
     fun `room migrates 4 to 5 and validates reader session state schema`() {
         val databaseName = "migration-4-5-${System.nanoTime()}"
         createTestDatabase(
@@ -1295,6 +1320,7 @@ private fun openRoomDatabase(
         UnifiedReaderDatabaseMigrations.MIGRATION_25_26,
         UnifiedReaderDatabaseMigrations.MIGRATION_26_27,
         UnifiedReaderDatabaseMigrations.MIGRATION_27_28,
+        UnifiedReaderDatabaseMigrations.MIGRATION_28_29,
     )
     .build()
 

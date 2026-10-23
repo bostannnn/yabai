@@ -6,13 +6,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.buildKavitaSeriesContainer
 import com.example.unifiedreader.core.model.buildStumpSeriesContainer
-import com.example.unifiedreader.feature.library.menu.ReadStatusMenuActionState
-import com.example.unifiedreader.feature.library.menu.buildLibraryItemMenuActions
-import com.example.unifiedreader.feature.library.menu.buildReadStatusMenuActionState
-import com.example.unifiedreader.feature.library.menu.buildReadingDirectionMenuState
-import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertFalse
@@ -133,23 +127,18 @@ class LibraryItemCardsTest {
                 kavitaIssue(id = "chapter-1", title = "Akira 001", seriesKey = "series-7"),
             ),
         )
-        var selectedItem: ReadableItem? = null
-
         val actionAvailability = buildRemoteDownloadActionAvailability(
             sourceItems = listOf(seriesItem),
             allItems = listOf(kavitaIssue(id = "chapter-1", title = "Akira 001", seriesKey = "series-7")),
             downloadedItemIds = emptySet(),
             downloadingItemIds = emptySet(),
         )
-        val downloadRequest = itemDownloadRequest(
+        val actions = libraryBookFileActions(
             item = seriesItem,
-            downloadableItemIds = actionAvailability.downloadableItemIds,
-            onDownloadItem = { selectedItem = it },
+            actionContext = LibraryItemActionContext(downloadableItemIds = actionAvailability.downloadableItemIds),
         )
 
-        assertNotNull(downloadRequest)
-        downloadRequest?.invoke()
-        assertEquals(seriesItem, selectedItem)
+        assertEquals(listOf(LibraryBookFileAction.Download), actions)
     }
 
     @Test
@@ -160,23 +149,20 @@ class LibraryItemCardsTest {
                 stumpIssue(id = "issue-1", title = "Akira 001", seriesKey = "series-7"),
             ),
         )
-        var selectedItem: ReadableItem? = null
-
         val actionAvailability = buildRemoteDownloadActionAvailability(
             sourceItems = listOf(seriesItem),
             allItems = listOf(stumpIssue(id = "issue-1", title = "Akira 001", seriesKey = "series-7")),
             downloadedItemIds = setOf("stump:item:issue-1"),
             downloadingItemIds = emptySet(),
         )
-        val deleteRequest = itemDownloadedDeleteRequest(
+        val actions = libraryBookFileActions(
             item = seriesItem,
-            deletableDownloadedItemIds = actionAvailability.deletableDownloadedItemIds,
-            onDeleteDownloadedItem = { selectedItem = it },
+            actionContext = LibraryItemActionContext(
+                deletableDownloadedItemIds = actionAvailability.deletableDownloadedItemIds,
+            ),
         )
 
-        assertNotNull(deleteRequest)
-        deleteRequest?.invoke()
-        assertEquals(seriesItem, selectedItem)
+        assertEquals(listOf(LibraryBookFileAction.RemoveDownload), actions)
     }
 
     @Test
@@ -228,6 +214,16 @@ class LibraryItemCardsTest {
 
         assertTrue(seriesItem.id in actionAvailability.downloadableItemIds)
         assertTrue(seriesItem.id in actionAvailability.deletableDownloadedItemIds)
+        assertEquals(
+            listOf(LibraryBookFileAction.Download, LibraryBookFileAction.RemoveDownload),
+            libraryBookFileActions(
+                item = seriesItem,
+                actionContext = LibraryItemActionContext(
+                    downloadableItemIds = actionAvailability.downloadableItemIds,
+                    deletableDownloadedItemIds = actionAvailability.deletableDownloadedItemIds,
+                ),
+            ),
+        )
     }
 
     @Test
@@ -254,96 +250,13 @@ class LibraryItemCardsTest {
     }
 
     @Test
-    fun `series menu keeps download action when reading direction uses icon toggle row`() {
-        val menuActions = buildLibraryItemMenuActions(
-            isDownloading = false,
-            readStatusActionState = null,
-            onDeleteRequested = null,
-            onDownloadRequested = {},
-            onDeleteDownloadedRequested = null,
-        )
-
-        assertEquals("Download file", menuActions[0].label)
-    }
-
-    @Test
-    fun `series menu exposes reading direction toggle state separately`() {
-        val menuState = buildReadingDirectionMenuState(
-            seriesReadingDirection = ComicReadingDirection.RTL,
-            onSeriesReadingDirectionSelected = {},
-        )
-
-        assertEquals(ComicReadingDirection.RTL, menuState?.selectedDirection)
-    }
-
-    @Test
-    fun `reading direction menu state is absent when series direction is unavailable`() {
-        assertNull(
-            buildReadingDirectionMenuState(
-                seriesReadingDirection = null,
-                onSeriesReadingDirectionSelected = {},
-            ),
-        )
-    }
-
-    @Test
-    fun `menu exposes mark as read for unread remote item`() {
-        val menuActions = buildLibraryItemMenuActions(
-            isDownloading = false,
-            readStatusActionState = ReadStatusMenuActionState(
-                actions = listOf(
-                    com.example.unifiedreader.feature.library.menu.ItemMenuAction(
-                        label = "Mark as read",
-                        onClick = {},
-                    ),
-                ),
-            ),
-            onDeleteRequested = null,
-            onDownloadRequested = null,
-            onDeleteDownloadedRequested = null,
-        )
-
-        assertEquals("Mark as read", menuActions.single().label)
-    }
-
-    @Test
-    fun `menu keeps both read status actions for in progress items`() {
-        val menuActions = buildLibraryItemMenuActions(
-            isDownloading = false,
-            readStatusActionState = ReadStatusMenuActionState(
-                actions = listOf(
-                    com.example.unifiedreader.feature.library.menu.ItemMenuAction(
-                        label = "Mark as read",
-                        onClick = {},
-                    ),
-                    com.example.unifiedreader.feature.library.menu.ItemMenuAction(
-                        label = "Mark as unread",
-                        onClick = {},
-                    ),
-                ),
-            ),
-            onDeleteRequested = null,
-            onDownloadRequested = null,
-            onDeleteDownloadedRequested = null,
-        )
-
-        assertEquals(listOf("Mark as read", "Mark as unread"), menuActions.map { it.label })
-    }
-
-    @Test
     fun `series containers do not expose read status toggle`() {
         val seriesItem = buildKavitaSeriesContainer(
             seriesKey = "kavita:library:k-comics::series-7",
             issues = listOf(kavitaIssue(id = "chapter-1", title = "Akira 001", seriesKey = "series-7")),
         )
 
-        assertNull(
-            buildReadStatusMenuActionState(
-                item = seriesItem,
-                progress = null,
-                onSetReadStatus = { _, _ -> },
-            ),
-        )
+        assertNull(libraryBookReadAction(item = seriesItem, progress = null))
     }
 }
 

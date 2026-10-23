@@ -18,7 +18,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
-import com.example.unifiedreader.feature.library.LibraryDeleteImportedItemDialog
 import com.example.unifiedreader.feature.library.LibraryGridColumns
 import com.example.unifiedreader.feature.library.LibraryGridMetrics
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
@@ -43,7 +42,6 @@ fun LibraryShelvesZone(
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onItemSelected: (ReadableItem) -> Unit,
     onBrowseShelf: (LibraryShelfBrowserKind) -> Unit = {},
-    onDeleteImportedItem: (ReadableItem) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     if (!state.hasContent) return
@@ -52,8 +50,6 @@ fun LibraryShelvesZone(
     val tabs = remember(state) { libraryShelfTabCounts(state, readingCardItemId = reading?.item?.id) }
     var selectedTabName by rememberSaveable(browseContextKey) { mutableStateOf(LibraryShelfTab.InProgress.name) }
     val selectedTab = tabs.firstOrNull { (tab, _) -> tab.name == selectedTabName }?.first ?: tabs.firstOrNull()?.first
-    var expandedMenuItemId by remember(browseContextKey, state) { mutableStateOf<String?>(null) }
-    var deleteCandidate by remember(state) { mutableStateOf<ReadableItem?>(null) }
     // Keys carry the cover version, so they are rebuilt when covers are reset or refreshed.
     val coverGeneration = LocalLibraryCoverGeneration.current
     val previewCoverTargets = remember(state, gridMetrics, coverPrefetchKeyProvider, coverGeneration) {
@@ -95,7 +91,6 @@ fun LibraryShelvesZone(
                     imageVariant = covers.imageVariant,
                     onContinue = { onItemSelected(shelfItem.item) },
                     actionContext = itemActionContext,
-                    onDeleteImportedRequested = { deleteCandidate = it },
                     modifier = cardModifier,
                 )
             }
@@ -113,9 +108,6 @@ fun LibraryShelvesZone(
                     covers = covers,
                     spacing = gridMetrics.spacing,
                     onItemSelected = onItemSelected,
-                    expandedMenuItemId = expandedMenuItemId,
-                    onExpandedMenuChange = { item, expanded -> expandedMenuItemId = if (expanded) item.id else null },
-                    onDeleteImportedRequested = { deleteCandidate = it },
                     onSeeAll = onBrowseShelf,
                     modifier = bandModifier,
                 )
@@ -132,17 +124,6 @@ fun LibraryShelvesZone(
                 band(Modifier.fillMaxWidth())
             }
         }
-    }
-
-    deleteCandidate?.let { item ->
-        LibraryDeleteImportedItemDialog(
-            item = item,
-            onDismiss = { deleteCandidate = null },
-            onConfirmDelete = {
-                onDeleteImportedItem(it)
-                deleteCandidate = null
-            },
-        )
     }
 }
 

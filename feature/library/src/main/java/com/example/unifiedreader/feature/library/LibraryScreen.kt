@@ -132,7 +132,8 @@ fun LibraryScreen(
     onSeriesDirectionSelected: (ReadableItem, ComicReadingDirection) -> Unit = { _, _ -> },
     seriesReaderModeFor: (ReadableItem) -> ComicReaderMode? = { null },
     onSeriesReaderModeSelected: (ReadableItem, ComicReaderMode) -> Unit = { _, _ -> },
-    onDeleteImportedItem: (ReadableItem) -> Unit = {},
+    // The "•••" under a cover opens the item's book page, which the host draws.
+    onOpenItemPage: (ReadableItem) -> Unit = {},
     onDownloadItem: (ReadableItem) -> Unit = {},
     onDeleteDownloadedItem: (ReadableItem) -> Unit = {},
     onSetReadStatus: (ReadableItem, Boolean) -> Unit = { _, _ -> },
@@ -157,8 +158,6 @@ fun LibraryScreen(
 ) {
     val pagedItems = pagedGridItems?.collectAsLazyPagingItems()
     val isPaged = pagedItems != null
-    var deleteCandidate by remember { mutableStateOf<ReadableItem?>(null) }
-    var gridExpandedMenuItemId by remember { mutableStateOf<String?>(null) }
     var openFilterPanel by rememberSaveable { mutableStateOf<LibraryFilterPanel?>(null) }
     var isFilterSheetOpen by rememberSaveable { mutableStateOf(false) }
     var isReadingListDialogOpen by rememberSaveable { mutableStateOf(false) }
@@ -213,6 +212,7 @@ fun LibraryScreen(
         onDownloadItem = onDownloadItem,
         onDeleteDownloadedItem = onDeleteDownloadedItem,
         onSetReadStatus = onSetReadStatus,
+        onOpenItemPage = onOpenItemPage,
     )
     val availableSortModes = remember(renderedItems, sortMode) {
         librarySortModesAvailableFor(items = renderedItems, selectedSortMode = sortMode)
@@ -478,7 +478,6 @@ fun LibraryScreen(
 
         // Sort and filter changes move covers to their new places instead of cutting.
         val gridCard: @Composable LazyGridItemScope.(ReadableItem) -> Unit = { item ->
-            val hasMenuContent = itemActionContext.hasMenuContent(item)
             GridCoverCard(
                 item = item,
                 progress = effectiveProgressByItemId[item.id],
@@ -502,21 +501,12 @@ fun LibraryScreen(
                 } else {
                     null
                 },
-                menuContent = if (hasMenuContent) {
-                    {
-                        LibraryAnchoredItemMenu(
-                            item = item,
-                            actionContext = itemActionContext,
-                            expanded = gridExpandedMenuItemId == item.id,
-                            onExpandedChange = { expanded ->
-                                gridExpandedMenuItemId = if (expanded) item.id else null
-                            },
-                            onDeleteImportedRequested = { deleteCandidate = it },
-                            buttonStyle = LibraryItemMenuButtonStyle.CompactInline,
-                        )
-                    }
-                } else {
-                    null
+                menuContent = {
+                    LibraryItemPageButton(
+                        item = item,
+                        actionContext = itemActionContext,
+                        buttonStyle = LibraryItemMenuButtonStyle.CompactInline,
+                    )
                 },
                 modifier = Modifier.animateItem(
                     fadeInSpec = null,
@@ -710,17 +700,6 @@ fun LibraryScreen(
                 },
             )
         }
-    }
-
-    deleteCandidate?.let { item ->
-        LibraryDeleteImportedItemDialog(
-            item = item,
-            onDismiss = { deleteCandidate = null },
-            onConfirmDelete = {
-                onDeleteImportedItem(it)
-                deleteCandidate = null
-            },
-        )
     }
 
     if (isFilterSheetOpen) {

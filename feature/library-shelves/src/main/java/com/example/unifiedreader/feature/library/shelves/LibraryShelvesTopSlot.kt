@@ -19,7 +19,6 @@ fun LibraryShelvesTopSlot(
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onItemSelected: (ReadableItem) -> Unit,
     onBrowseShelf: (LibraryShelfBrowserKind) -> Unit = {},
-    onDeleteImportedItem: (ReadableItem) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     if (!shouldReserveSlot) return
@@ -43,7 +42,6 @@ fun LibraryShelvesTopSlot(
                 onCoverVisible = onCoverVisible,
                 onItemSelected = onItemSelected,
                 onBrowseShelf = onBrowseShelf,
-                onDeleteImportedItem = onDeleteImportedItem,
                 modifier = modifier,
             )
         }

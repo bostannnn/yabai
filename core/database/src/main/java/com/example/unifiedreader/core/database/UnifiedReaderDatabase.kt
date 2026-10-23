@@ -44,7 +44,7 @@ import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
         LibraryRootFacetEntity::class,
         LibraryRootMemberEntity::class,
     ],
-    version = 28,
+    version = 29,
     exportSchema = false,
 )
 abstract class UnifiedReaderDatabase : RoomDatabase() {
@@ -930,6 +930,14 @@ object UnifiedReaderDatabaseMigrations {
             database.execSQL("DELETE FROM `library_grid_roots`")
         }
     }
+
+    val MIGRATION_28_29 = object : Migration(28, 29) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            // An imported file's own description, for the book page. Files imported before stay
+            // without one until they are imported again.
+            database.execSQL("ALTER TABLE `imported_comic_archives` ADD COLUMN `summary` TEXT")
+        }
+    }
 }
 
 object UnifiedReaderDatabaseFactory {
@@ -968,6 +976,7 @@ object UnifiedReaderDatabaseFactory {
             UnifiedReaderDatabaseMigrations.MIGRATION_25_26,
             UnifiedReaderDatabaseMigrations.MIGRATION_26_27,
             UnifiedReaderDatabaseMigrations.MIGRATION_27_28,
+            UnifiedReaderDatabaseMigrations.MIGRATION_28_29,
         )
         .build()
 }

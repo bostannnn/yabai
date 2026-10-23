@@ -135,6 +135,8 @@ internal data class LocalDocumentRecord(
     val issueNumber: String? = null,
     val epubCoverEntryName: String? = null,
     val addedAtEpochMillis: Long = System.currentTimeMillis(),
+    // The file's own description (EPUB `dc:description`, ComicInfo `Summary`), as written.
+    val summary: String? = null,
 )
 
 internal fun LocalDocumentRecord.toEntity(): ImportedComicArchiveEntity = ImportedComicArchiveEntity(
@@ -152,6 +154,7 @@ internal fun LocalDocumentRecord.toEntity(): ImportedComicArchiveEntity = Import
     volume = volume,
     issueNumber = issueNumber,
     updatedAtEpochMillis = addedAtEpochMillis,
+    summary = summary,
 )
 
 internal fun recordToReadableItem(
@@ -166,7 +169,7 @@ internal fun recordToReadableItem(
         title = record.title,
         format = record.format,
         pageCount = record.pageCount.takeIf { it > 0 },
-        description = formatSpec.buildDescription(record),
+        description = record.summary?.takeIf(String::isNotBlank),
         coverUrl = record.coverUri,
         addedAtEpochMillis = record.addedAtEpochMillis,
         // For an EPUB `author` is its creator; for a comic archive it is ComicInfo's Writer list.
@@ -232,6 +235,7 @@ internal fun entityToRecord(
         volume = entity.volume,
         issueNumber = entity.issueNumber,
         addedAtEpochMillis = entity.updatedAtEpochMillis,
+        summary = entity.summary,
     )
 }
 
@@ -305,28 +309,24 @@ internal data class LocalImportFormatSpec(
     val idPrefix: String,
     val libraryId: String,
     val sourceType: SourceType,
-    val buildDescription: (LocalDocumentRecord) -> String,
 )
 
 private val comicLocalImportFormatSpec = LocalImportFormatSpec(
     idPrefix = "comic",
     libraryId = LOCAL_LIBRARY_ID,
     sourceType = SourceType.LOCAL,
-    buildDescription = { record -> "Imported local ${record.format.name} with ${record.pageCount} pages." },
 )
 
 private val epubLocalImportFormatSpec = LocalImportFormatSpec(
     idPrefix = "document",
     libraryId = LOCAL_LIBRARY_ID,
     sourceType = SourceType.LOCAL,
-    buildDescription = { "Imported local EPUB book." },
 )
 
 private val pdfLocalImportFormatSpec = LocalImportFormatSpec(
     idPrefix = "document",
     libraryId = LOCAL_LIBRARY_ID,
     sourceType = SourceType.LOCAL,
-    buildDescription = { "Imported local PDF document." },
 )
 
 internal fun FormatType.localImportFormatSpec(): LocalImportFormatSpec = when (this) {

@@ -19,12 +19,15 @@ internal data class ImportedComicMetadata(
     val issueNumber: String? = null,
     /** ComicInfo's `Writer`, as written (a comma-separated list). */
     val writer: String? = null,
+    val summary: String? = null,
 )
 
 internal data class ImportedEpubMetadata(
     val title: String? = null,
     val author: String? = null,
     val coverEntryName: String? = null,
+    /** `dc:description`, as written (often HTML). */
+    val description: String? = null,
 )
 
 internal suspend fun extractEpubMetadata(
@@ -52,6 +55,7 @@ internal suspend fun extractEpubMetadata(
         title = packageDocument.firstTextByLocalName("title"),
         author = packageDocument.firstTextByLocalName("creator"),
         coverEntryName = packageDocument.resolveEpubCoverEntryPath(rootFilePath),
+        description = packageDocument.firstTextByLocalName("description"),
     )
 }
 
@@ -88,6 +92,7 @@ internal fun parseComicInfoMetadata(
         volume = document.firstTextByLocalName("Volume"),
         issueNumber = document.firstTextByLocalName("Number"),
         writer = document.firstTextByLocalName("Writer"),
+        summary = document.firstTextByLocalName("Summary"),
     )
 }
 
