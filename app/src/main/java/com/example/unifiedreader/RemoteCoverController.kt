@@ -13,6 +13,10 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -40,6 +44,14 @@ class RemoteCoverController @Inject constructor(
     private val activeRequestNonceByKey = mutableMapOf<RemoteCoverRequestKey, Long>()
     private val coverRequestJobsByKey = mutableMapOf<RemoteCoverRequestKey, Job>()
     private val sourceResetVersionBySource = mutableMapOf<SourceType, Long>()
+    private val _coverResetGeneration = MutableStateFlow(0L)
+
+    /**
+     * Ticks whenever a source's covers are reset or refreshed after a catalog sync, so the
+     * library's prefetchers ask again for the covers on screen: those requests were cancelled or
+     * their cached files removed, and the keys they were signaled under no longer apply.
+     */
+    val coverResetGeneration: StateFlow<Long> = _coverResetGeneration.asStateFlow()
     private val sourcesBeingReset = mutableSetOf<SourceType>()
     private val warmedSources = mutableSetOf<SourceType>()
     private val sourceWarmupJobs = mutableMapOf<SourceType, Job>()
@@ -307,6 +319,7 @@ class RemoteCoverController @Inject constructor(
         sourceType: SourceType,
     ) {
         sourceResetVersionBySource[sourceType] = sourceResetVersion(sourceType) + 1L
+        _coverResetGeneration.update { generation -> generation + 1L }
     }
 
     private fun cancelRequestsForSource(

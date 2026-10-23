@@ -56,6 +56,7 @@ import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryCoverProgressBar
 import com.example.unifiedreader.feature.library.LibraryDeleteImportedItemDialog
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
+import com.example.unifiedreader.feature.library.LocalLibraryCoverGeneration
 import com.example.unifiedreader.feature.library.availableLibraryGridSizeOptions
 import com.example.unifiedreader.feature.library.defaultLibraryGridCellSizeDp
 import com.example.unifiedreader.feature.library.hasMenuContent
@@ -640,6 +641,7 @@ private fun ShelfBrowserVisibleCoverPrefetcher(
         variant,
         coverPrefetchKeyProvider,
         onCoverVisible,
+        LocalLibraryCoverGeneration.current,
     ) {
         snapshotFlow {
             if (showListView) {

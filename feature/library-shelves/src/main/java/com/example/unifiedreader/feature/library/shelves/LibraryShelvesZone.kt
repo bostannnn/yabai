@@ -22,6 +22,7 @@ import com.example.unifiedreader.feature.library.LibraryDeleteImportedItemDialog
 import com.example.unifiedreader.feature.library.LibraryGridColumns
 import com.example.unifiedreader.feature.library.LibraryGridMetrics
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
+import com.example.unifiedreader.feature.library.LocalLibraryCoverGeneration
 import com.example.unifiedreader.feature.library.LibraryReadingCard
 import com.example.unifiedreader.feature.library.isLibraryCompactWindow
 import com.example.unifiedreader.feature.library.libraryGridColumns
@@ -53,7 +54,9 @@ fun LibraryShelvesZone(
     val selectedTab = tabs.firstOrNull { (tab, _) -> tab.name == selectedTabName }?.first ?: tabs.firstOrNull()?.first
     var expandedMenuItemId by remember(browseContextKey, state) { mutableStateOf<String?>(null) }
     var deleteCandidate by remember(state) { mutableStateOf<ReadableItem?>(null) }
-    val previewCoverTargets = remember(state, gridMetrics, coverPrefetchKeyProvider) {
+    // Keys carry the cover version, so they are rebuilt when covers are reset or refreshed.
+    val coverGeneration = LocalLibraryCoverGeneration.current
+    val previewCoverTargets = remember(state, gridMetrics, coverPrefetchKeyProvider, coverGeneration) {
         shelfPreviewCoverPrefetchTargets(
             sections = listOf(
                 state.continueReading.map(ContinueReadingShelfItem::item),

@@ -3,12 +3,20 @@ package com.example.unifiedreader.feature.library
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import com.example.unifiedreader.core.model.ReadableItem
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
+
+/**
+ * Changes whenever the app resets or refreshes remote covers (a catalog sync, a cleared cover
+ * cache). Every place that asks for covers restarts its pass when it changes: the requests it
+ * made before were cancelled or their files removed, and its keys carry the old version.
+ */
+val LocalLibraryCoverGeneration = compositionLocalOf { 0L }
 
 /**
  * [items] is indexed by grid slot (after [leadingContentItemCount]). For a paged grid pass the paging
@@ -27,6 +35,7 @@ internal fun VisibleRemoteCoverPrefetcher(
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
 ) {
     val signaledPrefetchKeys = remember(browseContextKey) { mutableSetOf<String>() }
+    val coverGeneration = LocalLibraryCoverGeneration.current
 
     LaunchedEffect(
         browseContextKey,
@@ -35,6 +44,7 @@ internal fun VisibleRemoteCoverPrefetcher(
         leadingContentItemCount,
         coverPrefetchKeyProvider,
         onCoverVisible,
+        coverGeneration,
     ) {
         snapshotFlow {
             VisibleRemoteCoverPrefetchRequest(

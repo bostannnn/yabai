@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.LibraryFilterState
@@ -381,6 +382,10 @@ class AppViewModel @Inject constructor(
     ): String? {
         return libraryActionsCoordinator.coverPrefetchKeyFor(item, variant)
     }
+
+    /** Ticks when covers are reset or refreshed; the library asks again for the covers on screen. */
+    val coverResetGeneration: StateFlow<Long>
+        get() = libraryActionsCoordinator.coverResetGeneration
 
     fun ensureCoverCached(
         item: ReadableItem,

@@ -6,6 +6,7 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.StateFlow
 
 class AppLibraryActionsCoordinator @Inject constructor(
     private val importDocumentUseCase: ImportDocumentUseCase,
@@ -41,6 +42,9 @@ class AppLibraryActionsCoordinator @Inject constructor(
         item: ReadableItem,
         variant: LibraryCoverImageVariant,
     ): String? = remoteCoverController.coverPrefetchKeyFor(item, variant)
+
+    val coverResetGeneration: StateFlow<Long>
+        get() = remoteCoverController.coverResetGeneration
 
     fun ensureCoverCached(
         item: ReadableItem,

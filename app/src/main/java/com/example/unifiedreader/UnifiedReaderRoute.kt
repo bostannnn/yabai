@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -42,6 +43,7 @@ import com.example.unifiedreader.feature.journal.rememberJournalReviewState
 import com.example.unifiedreader.feature.journal.shouldSaveJournalReview
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryViewMode
+import com.example.unifiedreader.feature.library.LocalLibraryCoverGeneration
 import com.example.unifiedreader.feature.library.VisibleResolvedLibraryCover
 import com.example.unifiedreader.feature.reader.core.ReaderCompletionDialog
 import com.example.unifiedreader.feature.reader.core.ReaderHost
@@ -200,15 +202,19 @@ fun UnifiedReaderAppContent(
                             ),
                         )
                     } else {
-                        UnifiedReaderScaffold(
-                            uiState = uiState,
-                            libraryViewMode = libraryViewMode,
-                            onLibraryViewModeChanged = { libraryViewMode = it },
-                            onImportLocalFileClick = onImportLocalFileClick,
-                            viewModel = viewModel,
-                            updateState = updateState,
-                            updateActions = updateActions,
-                        )
+                        // Remote covers are asked for again after a reset or a catalog sync.
+                        val coverGeneration by viewModel.coverResetGeneration.collectAsStateWithLifecycle()
+                        CompositionLocalProvider(LocalLibraryCoverGeneration provides coverGeneration) {
+                            UnifiedReaderScaffold(
+                                uiState = uiState,
+                                libraryViewMode = libraryViewMode,
+                                onLibraryViewModeChanged = { libraryViewMode = it },
+                                onImportLocalFileClick = onImportLocalFileClick,
+                                viewModel = viewModel,
+                                updateState = updateState,
+                                updateActions = updateActions,
+                            )
+                        }
                     }
                 }
                 ProgressSyncNoticeHost(

@@ -21,7 +21,7 @@ fun VisibleResolvedLibraryCover(
     modifier: Modifier = Modifier,
     emptyCoverContent: (@Composable BoxScope.() -> Unit)? = null,
 ) {
-    LaunchedEffect(item.id, item.coverUrl, imageVariant) {
+    LaunchedEffect(item.id, item.coverUrl, imageVariant, LocalLibraryCoverGeneration.current) {
         onCoverVisible(item, imageVariant)
     }
     ResolvedLibraryCover(

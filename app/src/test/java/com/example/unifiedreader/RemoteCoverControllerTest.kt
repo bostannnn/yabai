@@ -344,6 +344,29 @@ class RemoteCoverControllerTest {
     }
 
     @Test
+    fun `cover reset generation ticks on a catalog sync refresh and on a reset`() = runTest {
+        val controller = RemoteCoverController(
+            kavitaCoverRepository = EmptyKavitaCoverDataSource(),
+            stumpCoverRepository = EmptyStumpCoverDataSource(),
+            grimmoryCoverRepository = EmptyGrimmoryCoverDataSource(),
+            kavitaCredentialStore = FakeKavitaCredentialStore(),
+            stumpCredentialStore = FakeStumpCredentialStore(),
+            grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+            visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
+            appDispatchers = immediateAppDispatchers(),
+        )
+
+        assertEquals(0L, controller.coverResetGeneration.value)
+
+        controller.refreshSourceAfterCatalogSync(SourceType.KAVITA)
+        assertEquals(1L, controller.coverResetGeneration.value)
+
+        // A reset bumps the version when it starts and again when the files are gone.
+        controller.resetSource(SourceType.KAVITA)
+        assertEquals(3L, controller.coverResetGeneration.value)
+    }
+
+    @Test
     fun `coverPrefetchKey changes across reset for remote items without cover urls`() = runTest {
         val cachedUri = Uri.parse("file:///tmp/stale-stump-series-cover.png")
         val stumpDataSource = ResettableCachedCoverDataSource(
