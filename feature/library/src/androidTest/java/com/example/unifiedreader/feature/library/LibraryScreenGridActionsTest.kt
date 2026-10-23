@@ -58,7 +58,7 @@ class LibraryScreenGridActionsTest {
     }
 
     @Test
-    fun gridModeShowsIssueCountBadgeForIssueCountSort() {
+    fun gridModeShowsSeriesIssueCountUnderTheTitle() {
         val item = ReadableItem(
             id = "kavita:series:1",
             sourceType = SourceType.KAVITA,
@@ -82,8 +82,9 @@ class LibraryScreenGridActionsTest {
             }
         }
 
+        // A series tile is drawn as a stack with its count on the meta line (step 8.3), not a badge.
         composeRule.onNodeWithText("Akira").assertExists()
-        composeRule.onNodeWithText("12").assertExists()
+        composeRule.onNodeWithText("12 issues").assertExists()
     }
 
     @Test

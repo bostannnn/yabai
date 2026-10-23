@@ -5,21 +5,32 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryDeleteImportedItemDialog
+import com.example.unifiedreader.feature.library.LibraryGridColumns
 import com.example.unifiedreader.feature.library.LibraryGridMetrics
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
+import com.example.unifiedreader.feature.library.LibraryReadingCard
+import com.example.unifiedreader.feature.library.isLibraryCompactWindow
 import com.example.unifiedreader.feature.library.libraryGridColumns
 
+/**
+ * The library home's top: the reading card for the book read last, and the shelves as tabs over
+ * one strip of covers. With six grid columns or more the two sit side by side, the card over
+ * three columns; otherwise the card spans the width above the tabs.
+ */
 @Composable
 fun LibraryShelvesZone(
     browseContextKey: String = "library-shelves",
@@ -36,12 +47,12 @@ fun LibraryShelvesZone(
 ) {
     if (!state.hasContent) return
 
-    val previewDatasetSignature = remember(state) { previewDatasetSignature(state) }
-    var previewExpandedMenuItemId by remember(browseContextKey, previewDatasetSignature) {
-        mutableStateOf<String?>(null)
-    }
+    val reading = state.continueReading.firstOrNull()
+    val tabs = remember(state) { libraryShelfTabCounts(state, readingCardItemId = reading?.item?.id) }
+    var selectedTabName by rememberSaveable(browseContextKey) { mutableStateOf(LibraryShelfTab.InProgress.name) }
+    val selectedTab = tabs.firstOrNull { (tab, _) -> tab.name == selectedTabName }?.first ?: tabs.firstOrNull()?.first
+    var expandedMenuItemId by remember(browseContextKey, state) { mutableStateOf<String?>(null) }
     var deleteCandidate by remember(state) { mutableStateOf<ReadableItem?>(null) }
-    val visibleShelves = visibleShelfCount(state)
     val previewCoverTargets = remember(state, gridMetrics, coverPrefetchKeyProvider) {
         shelfPreviewCoverPrefetchTargets(
             sections = listOf(
@@ -63,57 +74,59 @@ fun LibraryShelvesZone(
         onCoverVisible = onCoverVisible,
     )
 
+    val compact = isLibraryCompactWindow()
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         // The zone spans the grid's full width, so its columns give the grid's cover width.
-        val covers = ShelfCoverLayout(
-            width = with(LocalDensity.current) {
-                libraryGridColumns(availableWidth = maxWidth, metrics = gridMetrics).cellWidth
-            },
-            imageVariant = gridMetrics.coverImageVariant,
-        )
-        if (maxWidth >= ShelvesRowBreakpoint && visibleShelves > 1) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                ShelfSections(
-                    state = state,
-                    itemActionContext = itemActionContext,
+        val columns = with(LocalDensity.current) { libraryGridColumns(availableWidth = maxWidth, metrics = gridMetrics) }
+        val covers = ShelfCoverLayout(width = columns.cellWidth, imageVariant = gridMetrics.coverImageVariant)
+        val card = @Composable { cardModifier: Modifier ->
+            reading?.let { shelfItem ->
+                LibraryReadingCard(
+                    item = shelfItem.item,
+                    progress = shelfItem.progress,
+                    overline = "Continue reading",
+                    coverWidth = covers.width,
+                    compact = compact,
                     coverImageUrlProvider = coverImageUrlProvider,
-                    previewContentEnabled = true,
-                    onItemSelected = onItemSelected,
-                    expandedMenuItemId = previewExpandedMenuItemId,
-                    onExpandedMenuChange = { item, expanded ->
-                        previewExpandedMenuItemId = if (expanded) item.id else null
-                    },
+                    onCoverVisible = onCoverVisible,
+                    imageVariant = covers.imageVariant,
+                    onContinue = { onItemSelected(shelfItem.item) },
+                    actionContext = itemActionContext,
                     onDeleteImportedRequested = { deleteCandidate = it },
-                    onBrowseShelf = onBrowseShelf,
-                    coverLoadingEnabled = true,
-                    covers = covers,
-                    itemModifier = Modifier.weight(1f),
+                    modifier = cardModifier,
                 )
             }
-        } else {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                ShelfSections(
+        }
+        val band = @Composable { bandModifier: Modifier ->
+            if (selectedTab != null) {
+                LibraryShelfTabsBand(
                     state = state,
+                    tabs = tabs,
+                    selectedTab = selectedTab,
+                    onTabSelected = { tab -> selectedTabName = tab.name },
+                    readingCardItemId = reading?.item?.id,
                     itemActionContext = itemActionContext,
                     coverImageUrlProvider = coverImageUrlProvider,
-                    previewContentEnabled = true,
-                    onItemSelected = onItemSelected,
-                    expandedMenuItemId = previewExpandedMenuItemId,
-                    onExpandedMenuChange = { item, expanded ->
-                        previewExpandedMenuItemId = if (expanded) item.id else null
-                    },
-                    onDeleteImportedRequested = { deleteCandidate = it },
-                    onBrowseShelf = onBrowseShelf,
-                    coverLoadingEnabled = true,
                     covers = covers,
-                    itemModifier = Modifier.fillMaxWidth(),
+                    spacing = gridMetrics.spacing,
+                    onItemSelected = onItemSelected,
+                    expandedMenuItemId = expandedMenuItemId,
+                    onExpandedMenuChange = { item, expanded -> expandedMenuItemId = if (expanded) item.id else null },
+                    onDeleteImportedRequested = { deleteCandidate = it },
+                    onSeeAll = onBrowseShelf,
+                    modifier = bandModifier,
                 )
+            }
+        }
+        if (reading != null && selectedTab != null && columns.count >= SideBySideColumns) {
+            Row(horizontalArrangement = Arrangement.spacedBy(gridMetrics.spacing)) {
+                card(Modifier.width(columns.span(SideBySideColumns / 2, gridMetrics.spacing)))
+                band(Modifier.weight(1f))
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(StackedSpacing)) {
+                card(Modifier.fillMaxWidth())
+                band(Modifier.fillMaxWidth())
             }
         }
     }
@@ -130,95 +143,10 @@ fun LibraryShelvesZone(
     }
 }
 
-@Composable
-private fun ShelfSections(
-    state: LibraryShelvesState,
-    itemActionContext: LibraryItemActionContext,
-    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
-    previewContentEnabled: Boolean,
-    onItemSelected: (ReadableItem) -> Unit,
-    expandedMenuItemId: String?,
-    onExpandedMenuChange: (ReadableItem, Boolean) -> Unit,
-    onDeleteImportedRequested: (ReadableItem) -> Unit,
-    onBrowseShelf: (LibraryShelfBrowserKind) -> Unit,
-    coverLoadingEnabled: Boolean,
-    covers: ShelfCoverLayout,
-    itemModifier: Modifier,
-) {
-    if (state.continueReading.isNotEmpty()) {
-        ContinueReadingShelfSection(
-            items = state.continueReading,
-            itemActionContext = itemActionContext,
-            coverImageUrlProvider = coverImageUrlProvider,
-            previewContentEnabled = previewContentEnabled,
-            coverLoadingEnabled = coverLoadingEnabled,
-            covers = covers,
-            onItemSelected = onItemSelected,
-            expandedMenuItemId = expandedMenuItemId,
-            onExpandedMenuChange = onExpandedMenuChange,
-            onDeleteImportedRequested = onDeleteImportedRequested,
-            onSeeAll = {
-                onBrowseShelf(LibraryShelfBrowserKind.ContinueReading)
-            },
-            modifier = itemModifier,
-        )
-    }
-    if (state.nextInSeries.isNotEmpty()) {
-        NextInSeriesShelfSection(
-            items = state.nextInSeries,
-            itemActionContext = itemActionContext,
-            coverImageUrlProvider = coverImageUrlProvider,
-            previewContentEnabled = previewContentEnabled,
-            coverLoadingEnabled = coverLoadingEnabled,
-            covers = covers,
-            onItemSelected = onItemSelected,
-            expandedMenuItemId = expandedMenuItemId,
-            onExpandedMenuChange = onExpandedMenuChange,
-            onDeleteImportedRequested = onDeleteImportedRequested,
-            onSeeAll = {
-                onBrowseShelf(LibraryShelfBrowserKind.NextInSeries)
-            },
-            modifier = itemModifier,
-        )
-    }
-    if (state.recentlyFinished.isNotEmpty()) {
-        RecentlyFinishedShelfSection(
-            items = state.recentlyFinished,
-            itemActionContext = itemActionContext,
-            coverImageUrlProvider = coverImageUrlProvider,
-            previewContentEnabled = previewContentEnabled,
-            coverLoadingEnabled = coverLoadingEnabled,
-            covers = covers,
-            onItemSelected = onItemSelected,
-            expandedMenuItemId = expandedMenuItemId,
-            onExpandedMenuChange = onExpandedMenuChange,
-            onDeleteImportedRequested = onDeleteImportedRequested,
-            onSeeAll = {
-                onBrowseShelf(LibraryShelfBrowserKind.RecentlyFinished)
-            },
-            modifier = itemModifier,
-        )
-    }
-}
+/** The width of [cells] grid cells and the gaps between them. */
+internal fun LibraryGridColumns.span(cells: Int, spacing: Dp): Dp = cellWidth * cells + spacing * (cells - 1)
 
-private fun visibleShelfCount(
-    state: LibraryShelvesState,
-): Int = listOf(
-    state.continueReading.isNotEmpty(),
-    state.nextInSeries.isNotEmpty(),
-    state.recentlyFinished.isNotEmpty(),
-).count { visible -> visible }
+/** At this many grid columns or more, the reading card and the tabs sit side by side. */
+internal const val SideBySideColumns = 6
 
-private fun previewDatasetSignature(
-    state: LibraryShelvesState,
-): List<String> = buildList {
-    add("continue")
-    addAll(state.continueReading.take(ShelfPreviewDatasetLimit).map { it.item.id })
-    add("next")
-    addAll(state.nextInSeries.take(ShelfPreviewDatasetLimit).map { it.item.id })
-    add("finished")
-    addAll(state.recentlyFinished.take(ShelfPreviewDatasetLimit).map { it.item.id })
-}
-
-private const val ShelfPreviewDatasetLimit = 4
-private val ShelvesRowBreakpoint = 840.dp
+internal val StackedSpacing = 24.dp

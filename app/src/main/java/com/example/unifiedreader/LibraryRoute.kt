@@ -3,6 +3,7 @@ package com.example.unifiedreader
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -24,12 +25,17 @@ import com.example.unifiedreader.feature.library.KavitaScopeLandingItem
 import com.example.unifiedreader.feature.library.KavitaScopeLandingScreen
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryGridMetrics
+import com.example.unifiedreader.feature.library.LibraryHeader
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
 import com.example.unifiedreader.feature.library.LibraryReadingListScopeState
 import com.example.unifiedreader.feature.library.LibraryScreen
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
+import com.example.unifiedreader.feature.library.LibrarySeriesReadingCard
 import com.example.unifiedreader.feature.library.LibraryViewMode
 import com.example.unifiedreader.feature.library.LibraryWindowBadges
+import com.example.unifiedreader.feature.library.librarySeriesNextIssue
+import com.example.unifiedreader.feature.library.librarySeriesSummary
+import com.example.unifiedreader.feature.library.librarySourceSummary
 import com.example.unifiedreader.feature.library.shelves.LibraryShelfBrowserKind
 import com.example.unifiedreader.feature.library.shelves.LibraryShelfBrowserState
 import com.example.unifiedreader.feature.library.shelves.LibraryShelfItemsBrowser
@@ -75,6 +81,8 @@ internal fun LibraryRoute(
     onSetReadStatus: (ReadableItem, Boolean) -> Unit,
     onFilterStateChanged: (LibraryFilterState) -> Unit,
     onClearFilters: () -> Unit,
+    // Null when that screen leaves, so the bar falls back to the default for the next one.
+    onHeaderOnScreenChanged: (browseContextKey: String, onScreen: Boolean?) -> Unit,
     onImportLocalFile: () -> Unit,
     onOpenSettings: () -> Unit,
     onRetrySourceConnection: () -> Unit,
@@ -196,8 +204,36 @@ internal fun LibraryRoute(
                     onItemSelected = onReadingListSelected,
                 )
             } else {
+                val header = remember(
+                    frame.uiState.selectedSource,
+                    frame.uiState.selectedLibrarySearchQuery.isBlank(),
+                    frame.uiState.isSeriesBrowseActive,
+                    frame.uiState.isKavitaScopeActive,
+                    frame.uiState.isKavitaVisualSectionActive,
+                    frame.uiState.selectedLibraryContextTitle,
+                    frame.uiState.sourceItems,
+                    frame.uiState.visibleItems,
+                    frame.uiState.displayProgressByItemId,
+                    frame.uiState.libraryShelvesState.continueReading.size,
+                ) { frame.uiState.libraryHeader() }
+                val seriesNext = remember(
+                    frame.uiState.isSeriesBrowseActive,
+                    frame.uiState.visibleItems,
+                    frame.uiState.displayProgressByItemId,
+                ) {
+                    if (frame.uiState.isSeriesBrowseActive) {
+                        librarySeriesNextIssue(frame.uiState.visibleItems, frame.uiState.displayProgressByItemId)
+                    } else {
+                        null
+                    }
+                }
+                DisposableEffect(frame.browseContextKey) {
+                    onDispose { onHeaderOnScreenChanged(frame.browseContextKey, null) }
+                }
                 LibraryScreen(
                     contentTopInset = contentTopInset,
+                    header = header,
+                    onHeaderOnScreenChanged = { onScreen -> onHeaderOnScreenChanged(frame.browseContextKey, onScreen) },
                     selectedSource = frame.uiState.selectedSource,
                     browseContextKey = frame.browseContextKey,
                     gridIdentityKey = shownScreen,
@@ -247,6 +283,19 @@ internal fun LibraryRoute(
                                 onItemSelected = onItemSelected,
                                 onBrowseShelf = onActiveShelfBrowserKindChanged,
                                 onDeleteImportedItem = onDeleteImportedItem,
+                            )
+                        }
+                    } else if (seriesNext != null) {
+                        @Composable { gridMetrics: LibraryGridMetrics ->
+                            LibrarySeriesReadingCard(
+                                next = seriesNext,
+                                progress = frame.uiState.displayProgressByItemId[seriesNext.item.id],
+                                gridMetrics = gridMetrics,
+                                coverImageUrlProvider = coverImageUrlProvider,
+                                onCoverVisible = onCoverVisible,
+                                onItemSelected = onItemSelected,
+                                actionContext = itemActionContext,
+                                onDeleteImportedRequested = onDeleteImportedItem,
                             )
                         }
                     } else {
@@ -385,3 +434,24 @@ private class LibraryRouteFrame(
     val activeShelfBrowser: LibraryShelfBrowserState?,
     val shelfSearchQuery: String,
 )
+
+/**
+ * The large title over the library home (the source's name and what it holds) and over a series
+ * (its name and how far through it you are). None while searching or inside a Kavita list or
+ * section, where the bar keeps the name.
+ */
+private fun AppUiState.libraryHeader(): LibraryHeader? = when {
+    !showsLibraryHeader -> null
+    isSeriesBrowseActive -> LibraryHeader(
+        title = selectedLibraryContextTitle ?: selectedSource.displayName(),
+        summary = librarySeriesSummary(visibleItems, displayProgressByItemId),
+    )
+    else -> LibraryHeader(
+        title = selectedSource.displayName(),
+        summary = librarySourceSummary(sourceItems, inProgressCount = libraryShelvesState.continueReading.size),
+    )
+}
+
+/** Whether the library screen opens with a large title (see [libraryHeader]). */
+internal val AppUiState.showsLibraryHeader: Boolean
+    get() = selectedLibrarySearchQuery.isBlank() && !isKavitaScopeActive && !isKavitaVisualSectionActive

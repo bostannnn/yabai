@@ -611,24 +611,43 @@ throwaway build with a faked queue (no remote source on that emulator). Not yet 
 
 ### 8.3 Library home `[~]`
 
-Started 2026-10-23 on `claude/ui-redesign-step-8-2` (on top of 8.2). The pieces with approved mocks
-that do not depend on the phone decisions are built and checked on the emulator (`yabai_review_35`);
-the header, the reading card and the shelf tabs wait for the phone board.
+Built 2026-10-23 on `claude/ui-redesign-step-8-2` (on top of 8.2), checked on the emulator
+(`yabai_review_35`, Graphite, the 21-book Local library) at 800 dp portrait, 1280 dp landscape and
+411 dp phone width. Not yet on the tablet; the series view was not seen on a device (the emulator
+has no Kavita or Stump source), only its unit-tested parts.
 
-- [~] Mock the phone layout and the series view header first: board
+- [x] Mock the phone layout and the series view header first: board
       https://claude.ai/artifact/G4aXzrCHb1o66ntsWCE3Wk (`docs/design/second-pass/pages/library-phone.html`;
-      picks save to the page). Three cards: the phone home, the phone reading card (A: 96 dp cover and
-      a button row; B: a slim resume bar), the series header (A: title, summary, Continue; B: the
-      reading card for the next issue). Waiting for picks.
-- [ ] Header: the source name as a large title with a one-line summary ("12 books · 9 comics · 7 in
-      progress"), folding into today's glass bar on scroll. No per-source counts exist yet; they would
-      be counted from the source's items (books and comics by kind, in progress from the summaries).
-- [ ] The reading card over three grid columns (full width in portrait), cover at the grid's cell
-      width, Continue and Details; tinted with the theme accent until 8.6. The book is the first of
-      Continue Reading. EPUB progress records no chapter (the saved count is Readium positions), so
-      "Chapter 3 of 6" needs the reader to store the chapter position when it saves; until then the
-      card can show the page ("Page 47 of 73").
-- [ ] Shelf tabs (In progress, Up next, Finished) over one strip at the grid's cover size, with See all.
+      picks save to the page). Picked 2026-10-23: the phone home Do; the phone reading card A (a 96 dp
+      cover with the buttons in a row under it); the series header B (the reading card for the
+      issue to read next). The two data questions were left open and taken as proposed: the card
+      shows the page until the reader stores chapters, and a series counts as its issues.
+- [x] Header (`LibraryHeader.kt`): the first grid row is the source name (40 sp Bold, 32 on phones)
+      and "13 books · 10 comics · 23 in progress" (`librarySourceSummary`: books and comics by kind,
+      a series container counting its issues, in progress = the Continue Reading shelf). The summary
+      line is reserved while unknown, so the grid does not move when it arrives. While the title is
+      on screen the top bar is see-through (`AppTopBar(surfaceVisible = false)`) and has no name;
+      once half of it has scrolled under the bar the glass fades in (effects) and the name slides up
+      (spatial). Search, selection and the Kavita lists and sections keep today's bar and have no
+      header. The bar keeps its row of icons above the title at every width (the tablet mock had the
+      search field beside the title; that arrives with 8.4 and the rail in 8.8).
+- [x] The reading card (`LibraryReadingCard.kt`): the first of Continue Reading; primaryContainer and
+      primary until 8.6; 24 dp corners, 22 dp padding, the cover at the grid's cell width with a
+      shadow and its progress bar; overline, 30 sp Bold title, author, "Page 1 of 73" and the
+      percentage over a 6 dp bar, 44 dp Continue (filled) and Details. Details opens the item's menu
+      (`LibraryItemMenuPopup`) until the book page replaces it in 8.5. Under 600 dp the phone layout
+      (A). EPUB progress records no chapter (the saved count is Readium positions), so "Chapter 3
+      of 6" needs the reader to store the chapter position when it saves.
+- [x] Shelf tabs (`LibraryShelvesSections.kt`, rewritten): 34 dp pill tabs "In progress 22", "Up next",
+      "Finished" (a tab with nothing is hidden; In progress leaves out the card's book), See all in the
+      accent, and one strip of today's shelf cards at the grid's cover width and gap (up to 12, it
+      scrolls sideways). Switching fades the strip in and slides it 12 dp. The panels are gone. With
+      six grid columns or more (landscape) the card spans three of them with the tabs beside it;
+      otherwise the card is full width above the tabs. The loading placeholder has the same shape.
+- [x] Series view (B): the header is the series name and "3 issues · 1 read · 1 in progress"
+      (`librarySeriesSummary`); above the issues, the reading card for the issue being read, or the
+      next one to start after the last finished ("Up next in this series", Start)
+      (`librarySeriesNextIssue`). Unit-tested; not seen on a device.
 - [x] Tile: only the new progress bar, a 4 dp pill inset 7 dp from the cover's sides and bottom over a
       42% black track (`LibraryCoverProgressBar`, so the grid, the shelves and the shelf browser all
       change). Titles, the kebab and the text block stay.
@@ -645,8 +664,14 @@ the header, the reading card and the shelf tabs wait for the phone board.
       sentence, actions): no search matches; "No books match these filters" with Clear filters;
       "Can't reach Kavita" with Try again when a server source is offline and empty; "Nothing here
       yet" with Import a file and Connect a server (opens Settings) on Local.
-- [ ] Presentation coherence holds (nothing jumps after the grid shows); the shelf instrumentation
-      tests are updated and run; cold start unchanged.
+- [~] Presentation coherence: the summary line and the tab strip keep their height; the placeholder
+      shows the card's footprint, so a source with nothing in progress still drops the card when the
+      shelves arrive (as the old panel did). Shelf and library instrumentation tests updated and run on
+      the emulator (new: the card's Details menu, switching tabs; the series tile's "12 issues"). Four
+      fail on `main` too and are unrelated: `shelfItemsBrowserExternalSearchFiltersWithoutEmbeddedSearch`,
+      `KavitaScopeLandingScreenTest`, `LibraryCoverPrefetchSmokeTest`,
+      `readyEmptyTopContentContractDoesNotLeaveDelayedGridShift`. Cold start is part of the deferred
+      tablet `LibraryPerf` pass.
 
 ### 8.4 Filters, sort and the top bar `[ ]`
 

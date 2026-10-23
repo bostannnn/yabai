@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -102,6 +103,8 @@ fun UnifiedReaderScaffold(
     var activeLibraryShelfBrowserKind by rememberSaveable(uiState.libraryBrowseContextKey) {
         mutableStateOf<LibraryShelfBrowserKind?>(null)
     }
+    // Which library screens (by browse context) still show their large title under the bar.
+    val libraryHeaderOnScreen = remember { mutableStateMapOf<String, Boolean>() }
     var settingsPage by rememberSaveable(stateSaver = SettingsPageSaver) {
         mutableStateOf<SettingsPage?>(null)
     }
@@ -342,6 +345,9 @@ fun UnifiedReaderScaffold(
                                 onSetReadStatus = viewModel::onSetReadStatus,
                                 onFilterStateChanged = viewModel::onLibraryFiltersChanged,
                                 onClearFilters = viewModel::clearLibraryFilters,
+                                onHeaderOnScreenChanged = { contextKey, onScreen ->
+                                    if (onScreen == null) libraryHeaderOnScreen.remove(contextKey) else libraryHeaderOnScreen[contextKey] = onScreen
+                                },
                                 onImportLocalFile = onImportLocalFileClick,
                                 onOpenSettings = { viewModel.onTopLevelSelected(TopLevelDestination.Settings) },
                                 onRetrySourceConnection = viewModel::retrySelectedSourceConnection,
@@ -441,6 +447,12 @@ fun UnifiedReaderScaffold(
                                     onDownloadSelectedItems = ::downloadSelectedLibraryItems,
                                     onImportLocalFileClick = onImportLocalFileClick,
                                     onLeaveSeries = viewModel::onBackPressed,
+                                    // Until the screen reports, a library that opens at its top shows its title.
+                                    headerOnScreen = libraryHeaderOnScreen[uiState.libraryBrowseContextKey]
+                                        ?: (
+                                            uiState.showsLibraryHeader &&
+                                                viewModel.libraryScrollPositionFor(uiState.libraryBrowseContextKey).index == 0
+                                            ),
                                 )
                             }
 

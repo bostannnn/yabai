@@ -99,6 +99,9 @@ fun LibraryScreen(
     onCoverViewportScrollingChanged: (Boolean) -> Unit = {},
     // Drawn above the filter summary as a full-width grid row; receives the grid's column setup so it
     // can size its covers to match the grid's.
+    // The large title over everything else; while it shows, the top bar draws no name of its own.
+    header: LibraryHeader? = null,
+    onHeaderOnScreenChanged: (Boolean) -> Unit = {},
     topContent: (@Composable (LibraryGridMetrics) -> Unit)? = null,
     // Extra top padding so the first row clears a floating top bar the content scrolls under.
     contentTopInset: Dp = 0.dp,
@@ -294,6 +297,7 @@ fun LibraryScreen(
         null
     }
     val leadingContentItemCount = 1 +
+        (if (header != null) 1 else 0) +
         (if (topContent != null) 1 else 0)
     // A row that arrives above a grid still at its very top (the shelves, when the library was
     // drawn under a back gesture before they were computed) is scrolled into view: the lazy grid
@@ -530,13 +534,23 @@ fun LibraryScreen(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
                 start = libraryGridStartPaddingDp,
-                top = 16.dp + contentTopInset,
+                // Under a header the bar is see-through, so the title can sit right under its icons.
+                top = contentTopInset + if (header != null) 4.dp else 16.dp,
                 end = gridEndPadding,
                 bottom = 16.dp,
             ),
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalArrangement = Arrangement.spacedBy(libraryGridHorizontalSpacingDp),
         ) {
+            if (header != null) {
+                item(
+                    key = LibraryHeaderItemKey,
+                    contentType = LibraryScreenContentTypes.Header,
+                    span = { GridItemSpan(maxLineSpan) },
+                ) {
+                    LibraryHeaderBlock(header = header, compact = isLibraryCompactWindow())
+                }
+            }
             if (topContent != null) {
                 item(
                     key = "top-content",
@@ -626,6 +640,16 @@ fun LibraryScreen(
                 }
             }
         }
+        // The header counts as gone once half of it has scrolled under the bar. Item offsets start
+        // after the top padding, so at rest the header sits at 0.
+        val headerOnScreen by remember(gridState, header != null) {
+            derivedStateOf {
+                header != null && gridState.layoutInfo.visibleItemsInfo
+                    .firstOrNull { info -> info.key == LibraryHeaderItemKey }
+                    ?.let { info -> info.offset.y + info.size.height / 2 > 0 } == true
+            }
+        }
+        LaunchedEffect(headerOnScreen) { onHeaderOnScreenChanged(headerOnScreen) }
         val showBackToTop by remember(
             gridState,
             leadingContentItemCount,

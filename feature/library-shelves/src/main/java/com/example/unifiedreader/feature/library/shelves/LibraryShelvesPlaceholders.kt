@@ -19,10 +19,12 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.max
 import com.example.unifiedreader.feature.library.LibraryCoverAspectRatio
 import com.example.unifiedreader.feature.library.LibraryGridMetrics
+import com.example.unifiedreader.feature.library.LibraryReadingCardDefaults
+import com.example.unifiedreader.feature.library.isLibraryCompactWindow
 import com.example.unifiedreader.feature.library.libraryGridColumns
-import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.components.appSkeletonPulse
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
@@ -80,55 +82,68 @@ internal fun ShelfPreviewPlaceholderRow(
     }
 }
 
+/**
+ * The shelves zone while it loads, in the shape it will take: the reading card's footprint and
+ * the tabs over a strip of cover tiles, side by side or stacked as [LibraryShelvesZone] lays them.
+ */
 @Composable
 internal fun LibraryShelvesSlotPlaceholder(
     gridMetrics: LibraryGridMetrics,
     modifier: Modifier = Modifier,
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
-    val presentation = UnifiedReaderThemeTokens.presentation
+    val compact = isLibraryCompactWindow()
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
             .testTag(LibraryShelvesSlotPlaceholderTag),
     ) {
-        val coverWidth = with(LocalDensity.current) {
-            libraryGridColumns(availableWidth = maxWidth, metrics = gridMetrics).cellWidth
+        val columns = with(LocalDensity.current) { libraryGridColumns(availableWidth = maxWidth, metrics = gridMetrics) }
+        val cardHeight = if (compact) {
+            LibraryReadingCardDefaults.compactCoverWidth * 1.5f + 96.dp
+        } else {
+            max(columns.cellWidth * 1.5f, LibraryReadingCardDefaults.minTextHeight) + LibraryReadingCardDefaults.padding * 2
         }
-        AppPanel(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(presentation.cardCornerRadius),
-            color = semanticColors.surfaceRaised,
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        horizontal = presentation.shelfCardHorizontalPadding,
-                        vertical = presentation.shelfCardVerticalPadding,
-                    ),
-                verticalArrangement = Arrangement.spacedBy(presentation.shelfItemSpacing),
-            ) {
-                Column(
+        val card = @Composable { cardModifier: Modifier ->
+            Box(
+                modifier = cardModifier
+                    .height(cardHeight)
+                    .appSkeletonPulse()
+                    .clip(RoundedCornerShape(LibraryReadingCardDefaults.cornerRadius))
+                    .background(semanticColors.surfaceRaised),
+            )
+        }
+        val band = @Composable { bandModifier: Modifier ->
+            Column(modifier = bandModifier) {
+                Row(
                     modifier = Modifier.appSkeletonPulse(),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .width(154.dp)
-                            .height(18.dp)
-                            .clip(RoundedCornerShape(presentation.coverCornerRadius))
-                            .background(semanticColors.surfaceOverlay),
-                    )
-                    Box(
-                        modifier = Modifier
-                            .width(72.dp)
-                            .height(12.dp)
-                            .clip(RoundedCornerShape(presentation.coverCornerRadius))
-                            .background(semanticColors.surfaceOverlay),
-                    )
+                    listOf(118.dp, 92.dp, 96.dp).forEach { width ->
+                        Box(
+                            modifier = Modifier
+                                .width(width)
+                                .height(34.dp)
+                                .clip(RoundedCornerShape(17.dp))
+                                .background(semanticColors.surfaceOverlay),
+                        )
+                    }
                 }
-                ShelfPreviewPlaceholderRow(coverWidth = coverWidth)
+                ShelfPreviewPlaceholderRow(
+                    coverWidth = columns.cellWidth,
+                    modifier = Modifier.padding(top = 14.dp),
+                )
+            }
+        }
+        if (columns.count >= SideBySideColumns) {
+            Row(horizontalArrangement = Arrangement.spacedBy(gridMetrics.spacing)) {
+                card(Modifier.width(columns.span(SideBySideColumns / 2, gridMetrics.spacing)))
+                band(Modifier.weight(1f))
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(StackedSpacing)) {
+                card(Modifier.fillMaxWidth())
+                band(Modifier.fillMaxWidth())
             }
         }
     }

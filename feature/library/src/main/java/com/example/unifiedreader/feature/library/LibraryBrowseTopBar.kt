@@ -37,10 +37,12 @@ import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 @Composable
 fun LibraryBrowseTopBarContainer(
     modifier: Modifier = Modifier,
+    surfaceVisible: Boolean = true,
     content: @Composable BoxWithConstraintsScope.() -> Unit,
 ) {
     AppTopBar(
         modifier = modifier,
+        surfaceVisible = surfaceVisible,
         content = content,
     )
 }

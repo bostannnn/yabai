@@ -29,9 +29,8 @@ class LibraryShelvesZoneActionsTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun shelfPreviewBodyWaitsBeforeShowingItemActions() {
+    fun readingCardDetailsOpensTheItemMenu() {
         val item = comicItem("continue-1")
-        composeRule.mainClock.autoAdvance = false
 
         composeRule.setContent {
             MaterialTheme {
@@ -55,15 +54,52 @@ class LibraryShelvesZoneActionsTest {
             }
         }
 
-        composeRule.onNodeWithText("Continue Reading").assertExists()
-        assertTrue(composeRule.onAllNodesWithText("Akira").fetchSemanticsNodes().isEmpty())
+        composeRule.onNodeWithText("CONTINUE READING").assertExists()
+        composeRule.onNodeWithText("Akira").assertExists()
+        // The card's book is not repeated in a tab, so with nothing else there are no tabs.
+        assertTrue(composeRule.onAllNodesWithText("In progress").fetchSemanticsNodes().isEmpty())
+        composeRule.onNodeWithText("Details").assertExists().performClick()
+        composeRule.onNodeWithText("Download file").assertExists()
+    }
 
-        composeRule.mainClock.advanceTimeBy(220L)
+    @Test
+    fun shelfTabsSwitchTheStrip() {
+        val finishedItem = comicItem("finished-1")
+        composeRule.setContent {
+            MaterialTheme {
+                LibraryShelvesZone(
+                    state = LibraryShelvesState(
+                        continueReading = listOf(
+                            ContinueReadingShelfItem(item = comicItem("card"), progress = progress()),
+                            ContinueReadingShelfItem(item = comicItem("strip"), progress = progress()),
+                        ),
+                        recentlyFinished = listOf(
+                            RecentlyFinishedShelfItem(
+                                item = finishedItem,
+                                progress = ItemProgressSummary(
+                                    label = "Finished",
+                                    fraction = 1f,
+                                    isFinished = true,
+                                    lastReadAtEpochMillis = 100L,
+                                ),
+                            ),
+                        ),
+                    ),
+                    coverImageUrlProvider = { _, _ -> null },
+                    onCoverVisible = { _, _ -> },
+                    onItemSelected = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Issue strip").assertExists()
+        assertTrue(composeRule.onAllNodesWithText("Issue finished-1").fetchSemanticsNodes().isEmpty())
+
+        composeRule.onNodeWithText("Finished").assertExists().performClick()
         composeRule.waitForIdle()
 
-        composeRule.onNodeWithText("Akira").assertExists()
-        composeRule.onNodeWithContentDescription("More actions").assertExists().performClick()
-        composeRule.onNodeWithText("Download file").assertExists()
+        composeRule.onNodeWithText("Issue finished-1").assertExists()
+        assertTrue(composeRule.onAllNodesWithText("Issue strip").fetchSemanticsNodes().isEmpty())
     }
 
     @Test

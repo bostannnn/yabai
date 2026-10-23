@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.library
 
 internal object LibraryScreenContentTypes {
+    const val Header = "header"
     const val TopContent = "top_content"
     const val FilterSummary = "filter_summary"
     const val LoadingState = "loading_state"

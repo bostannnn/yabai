@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -24,7 +25,9 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -40,6 +43,7 @@ import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.appBadgeDot
 import com.example.unifiedreader.ui.components.appProgressRing
+import com.example.unifiedreader.ui.theme.AppMotion
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 @Composable
@@ -61,6 +65,8 @@ fun LibraryTopBar(
     onDownloadSelectedItems: () -> Unit = {},
     onImportLocalFileClick: () -> Unit,
     onLeaveSeries: () -> Unit,
+    // While the screen's large title shows under the bar, the bar is see-through and has no name.
+    headerOnScreen: Boolean = false,
 ) {
     var searchModeOpen by remember(selectedSource) { mutableStateOf(searchQuery.isNotBlank()) }
     LaunchedEffect(searchQuery) {
@@ -69,7 +75,10 @@ fun LibraryTopBar(
         }
     }
 
-    ThemedTopBarContainer {
+    val searching = searchModeOpen || searchQuery.isNotBlank()
+    ThemedTopBarContainer(
+        surfaceVisible = !headerOnScreen || searching || downloadSelectionState.isSelectionMode,
+    ) {
         if (downloadSelectionState.isSelectionMode) {
             LibraryDownloadSelectionTopBar(
                 state = downloadSelectionState,
@@ -80,7 +89,7 @@ fun LibraryTopBar(
             )
         } else {
             val compactToolbar = maxWidth < 760.dp
-            if (searchModeOpen || searchQuery.isNotBlank()) {
+            if (searching) {
                 LibraryBrowseSearchModeTopBar(
                     query = searchQuery,
                     onQueryChanged = onSearchQueryChanged,
@@ -100,6 +109,7 @@ fun LibraryTopBar(
                     refreshState = refreshState,
                     downloadSelectionState = downloadSelectionState,
                     downloadsButtonState = downloadsButtonState,
+                    showTitle = !headerOnScreen,
                     onSourceConnectivityClick = onSourceConnectivityClick,
                     onDrawerClick = onDrawerClick,
                     onSearchClick = { searchModeOpen = true },
@@ -122,6 +132,7 @@ private fun LibraryRestingTopBar(
     refreshState: LibraryRefreshTopBarState,
     downloadSelectionState: LibraryDownloadSelectionTopBarState,
     downloadsButtonState: DownloadsButtonState,
+    showTitle: Boolean,
     onSourceConnectivityClick: () -> Unit,
     onDrawerClick: () -> Unit,
     onSearchClick: () -> Unit,
@@ -141,6 +152,7 @@ private fun LibraryRestingTopBar(
             selectedSource = selectedSource,
             sourceConnectivity = sourceConnectivity,
             seriesTitle = seriesTitle,
+            showTitle = showTitle,
             onSourceConnectivityClick = onSourceConnectivityClick,
             onDrawerClick = onDrawerClick,
             onLeaveSeries = onLeaveSeries,
@@ -246,10 +258,12 @@ fun JournalTopBar(
 @Composable
 private fun ThemedTopBarContainer(
     modifier: Modifier = Modifier,
+    surfaceVisible: Boolean = true,
     content: @Composable BoxWithConstraintsScope.() -> Unit,
 ) {
     LibraryBrowseTopBarContainer(
         modifier = modifier,
+        surfaceVisible = surfaceVisible,
         content = content,
     )
 }
@@ -263,7 +277,14 @@ private fun LibraryTopBarTitle(
     onDrawerClick: () -> Unit,
     onLeaveSeries: () -> Unit,
     modifier: Modifier = Modifier,
+    showTitle: Boolean = true,
 ) {
+    // The name slides up into the bar as the screen's own title scrolls away.
+    val titleShown by animateFloatAsState(
+        targetValue = if (showTitle) 1f else 0f,
+        animationSpec = AppMotion.spatial(),
+        label = "libraryTopBarTitle",
+    )
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -286,7 +307,13 @@ private fun LibraryTopBarTitle(
             style = MaterialTheme.typography.titleMedium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f, fill = false),
+            modifier = Modifier
+                .weight(1f, fill = false)
+                .graphicsLayer {
+                    alpha = titleShown.coerceIn(0f, 1f)
+                    translationY = (1f - titleShown) * 12.dp.toPx()
+                }
+                .then(if (showTitle) Modifier else Modifier.clearAndSetSemantics {}),
         )
         SourceConnectivityIndicator(
             sourceType = selectedSource,

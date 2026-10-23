@@ -137,7 +137,13 @@ Mocks: `8.2-pill-controls.jpg`, `8.2-segmented.jpg`, `8.2-slider.jpg`, `8.2-dial
 
 Mocks: `8.3-header.jpg`, `8.3-reading-card.jpg`, `8.3-shelf-tabs.jpg` (tablet landscape: card and
 tabs side by side), `8.3-tile-progress-bar.jpg`, `8.3-filter-row.jpg`, `8.3-series-stack.jpg`,
-`8.3-empty-state.jpg`. **Mock first:** the phone layout and the series view header.
+`8.3-empty-state.jpg`. **Mock first:** the phone layout and the series view header; board
+`pages/library-phone.html` (https://claude.ai/artifact/G4aXzrCHb1o66ntsWCE3Wk), decided 2026-10-23:
+the phone home as mocked; on phones the reading card has a 96 dp cover with Continue and Details in a
+row under it (option A); the series view opens with its name and a summary over the reading card for
+the issue to read next (option B). As built, the top bar's row of icons stays above the large title
+at every width (the search field beside the title on tablets waits for 8.4), and until the book page
+(8.5) the card's Details opens the item's menu.
 
 - **Header**: the source name in screenTitle, then a 14 Medium `onSurfaceVariant` summary 8 dp
   below ("12 books · 9 comics · 7 in progress"). At 840 dp and wider, the end of the header holds the

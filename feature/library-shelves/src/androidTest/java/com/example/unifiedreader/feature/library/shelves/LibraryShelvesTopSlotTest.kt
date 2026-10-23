@@ -56,7 +56,7 @@ class LibraryShelvesTopSlotTest {
     }
 
     @Test
-    fun continue_reading_preview_shows_issue_title_and_progress_detail() {
+    fun reading_card_shows_issue_title_and_page() {
         composeRule.setContent {
             MaterialTheme {
                 LibraryShelvesZone(
@@ -85,8 +85,10 @@ class LibraryShelvesTopSlotTest {
             }
         }
 
+        // One book in progress: it is the reading card, with its page and percentage.
         composeRule.onNodeWithText("Chapter 7").assertExists()
-        composeRule.onNodeWithText("30% · 3/10").assertExists()
+        composeRule.onNodeWithText("Page 3 of 10").assertExists()
+        composeRule.onNodeWithText("30%").assertExists()
     }
 
     @Test
@@ -203,7 +205,7 @@ class LibraryShelvesTopSlotTest {
         }
 
         composeRule.onNodeWithText("Chapter 9").assertExists()
-        composeRule.onNodeWithText("50% · 5/10").assertExists()
+        composeRule.onNodeWithText("Page 5 of 10").assertExists()
 
         composeRule.runOnIdle {
             browseContextKey = "kavita:collection:42"
@@ -212,7 +214,7 @@ class LibraryShelvesTopSlotTest {
 
         composeRule.onNodeWithTag(LibraryShelvesSlotPlaceholderTag).assertExists()
         composeRule.onAllNodesWithText("Chapter 9").assertCountEquals(0)
-        composeRule.onAllNodesWithText("50% · 5/10").assertCountEquals(0)
+        composeRule.onAllNodesWithText("Page 5 of 10").assertCountEquals(0)
     }
 }
 

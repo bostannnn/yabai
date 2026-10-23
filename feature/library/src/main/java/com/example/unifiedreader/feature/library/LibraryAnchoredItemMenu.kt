@@ -4,13 +4,18 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.feature.library.menu.ItemMenuAction
 import com.example.unifiedreader.feature.library.menu.LibraryItemMenuButton
 import com.example.unifiedreader.feature.library.menu.LibraryItemMenuButtonStyle
+import com.example.unifiedreader.feature.library.menu.LibraryItemMenuEntries
 import com.example.unifiedreader.feature.library.menu.LibraryItemOverflowMenu
+import com.example.unifiedreader.feature.library.menu.ReaderModeMenuState
+import com.example.unifiedreader.feature.library.menu.ReadingDirectionMenuState
 import com.example.unifiedreader.feature.library.menu.buildLibraryItemMenuActions
 import com.example.unifiedreader.feature.library.menu.buildReaderModeMenuState
 import com.example.unifiedreader.feature.library.menu.buildReadStatusMenuActionState
 import com.example.unifiedreader.feature.library.menu.buildReadingDirectionMenuState
+import com.example.unifiedreader.ui.components.AppMenu
 
 @Composable
 fun LibraryAnchoredItemMenu(
@@ -33,41 +38,85 @@ fun LibraryAnchoredItemMenu(
         return
     }
 
+    val menu = libraryItemMenuModel(item, actionContext, onDeleteImportedRequested)
     LibraryItemOverflowMenu(
         modifier = modifier,
         buttonStyle = buttonStyle,
-        actions = buildLibraryItemMenuActions(
-            isDownloading = item.id in actionContext.downloadingItemIds,
-            readStatusActionState = buildReadStatusMenuActionState(
-                item = item,
-                progress = actionContext.progressByItemId[item.id],
-                onSetReadStatus = actionContext.onSetReadStatus,
-            ),
-            onDeleteRequested = itemDeleteRequest(item, onDeleteImportedRequested),
-            onDownloadRequested = itemDownloadRequest(
-                item = item,
-                downloadableItemIds = actionContext.downloadableItemIds,
-                onDownloadItem = actionContext.onDownloadItem,
-            ),
-            onDeleteDownloadedRequested = itemDownloadedDeleteRequest(
-                item = item,
-                deletableDownloadedItemIds = actionContext.deletableDownloadedItemIds,
-                onDeleteDownloadedItem = actionContext.onDeleteDownloadedItem,
-            ),
-        ),
-        readingDirectionState = buildReadingDirectionMenuState(
-            seriesReadingDirection = actionContext.seriesReadingDirectionFor(item),
-            onSeriesReadingDirectionSelected = { direction ->
-                actionContext.onSeriesDirectionSelected(item, direction)
-            },
-        ),
-        readerModeState = buildReaderModeMenuState(
-            seriesReaderMode = actionContext.seriesReaderModeFor(item),
-            onSeriesReaderModeSelected = { mode ->
-                actionContext.onSeriesReaderModeSelected(item, mode)
-            },
-        ),
+        actions = menu.actions,
+        readingDirectionState = menu.readingDirectionState,
+        readerModeState = menu.readerModeState,
         expanded = true,
         onExpandedChange = onExpandedChange,
     )
 }
+
+/**
+ * The item's menu without its own button, for a caller that anchors it to another control (the
+ * reading card's Details). Place it in the same `Box` as that control.
+ */
+@Composable
+fun LibraryItemMenuPopup(
+    item: ReadableItem,
+    actionContext: LibraryItemActionContext,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    onDeleteImportedRequested: (ReadableItem) -> Unit,
+) {
+    if (!expanded) return
+    val menu = libraryItemMenuModel(item, actionContext, onDeleteImportedRequested)
+    AppMenu(
+        expanded = true,
+        onDismissRequest = { onExpandedChange(false) },
+    ) {
+        LibraryItemMenuEntries(
+            actions = menu.actions,
+            readingDirectionState = menu.readingDirectionState,
+            readerModeState = menu.readerModeState,
+            onActionHandled = { onExpandedChange(false) },
+        )
+    }
+}
+
+private class LibraryItemMenuModel(
+    val actions: List<ItemMenuAction>,
+    val readingDirectionState: ReadingDirectionMenuState?,
+    val readerModeState: ReaderModeMenuState?,
+)
+
+private fun libraryItemMenuModel(
+    item: ReadableItem,
+    actionContext: LibraryItemActionContext,
+    onDeleteImportedRequested: (ReadableItem) -> Unit,
+) = LibraryItemMenuModel(
+    actions = buildLibraryItemMenuActions(
+        isDownloading = item.id in actionContext.downloadingItemIds,
+        readStatusActionState = buildReadStatusMenuActionState(
+            item = item,
+            progress = actionContext.progressByItemId[item.id],
+            onSetReadStatus = actionContext.onSetReadStatus,
+        ),
+        onDeleteRequested = itemDeleteRequest(item, onDeleteImportedRequested),
+        onDownloadRequested = itemDownloadRequest(
+            item = item,
+            downloadableItemIds = actionContext.downloadableItemIds,
+            onDownloadItem = actionContext.onDownloadItem,
+        ),
+        onDeleteDownloadedRequested = itemDownloadedDeleteRequest(
+            item = item,
+            deletableDownloadedItemIds = actionContext.deletableDownloadedItemIds,
+            onDeleteDownloadedItem = actionContext.onDeleteDownloadedItem,
+        ),
+    ),
+    readingDirectionState = buildReadingDirectionMenuState(
+        seriesReadingDirection = actionContext.seriesReadingDirectionFor(item),
+        onSeriesReadingDirectionSelected = { direction ->
+            actionContext.onSeriesDirectionSelected(item, direction)
+        },
+    ),
+    readerModeState = buildReaderModeMenuState(
+        seriesReaderMode = actionContext.seriesReaderModeFor(item),
+        onSeriesReaderModeSelected = { mode ->
+            actionContext.onSeriesReaderModeSelected(item, mode)
+        },
+    ),
+)
