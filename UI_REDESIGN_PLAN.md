@@ -802,7 +802,7 @@ settings. Not yet on the tablet.
 - [ ] Tablet: the tints over real Kavita covers, the reader accent over an EPUB and a comic, and
       the extraction time and memory.
 
-### Tablet pass over 8.1-8.6 `[ ]` (2026-10-23)
+### Tablet pass over 8.1-8.6 `[x]` (2026-10-23)
 
 Release 0.15.0 on the OnePlus tablet (1292 x 914 dp landscape, theme High Contrast, Kavita,
 Grimmory, Local), driven over adb at the user's request; the light themes and portrait (914 x 1292
@@ -972,6 +972,38 @@ from Details and "•••", Show issues, cover colours on the card, book page 
 closing on × and tap outside, predictive back in the reader (scrubs and cancels), the remove dialog
 (cancelled), the Stump empty state's layout.
 
+### Tablet pass over 8.7-8.9 `[x]` (2026-10-24)
+
+Release 0.17.0 on the OnePlus tablet (`adb install -r` over 0.16.0, data kept; Graphite, portrait at
+914 x 1292 dp, then landscape; High Contrast for Settings, Collections and Downloads). Everything in
+8.7-8.9 worked as designed: both readers' bars, dock, Contents, Pages and settings panels (positions
+checked before and after: no page turned); the rail with Kavita, Grimmory, Local and Add (Stump not
+connected, so hidden) and its Kavita menu; the journal's Month and Year, a day's sheet, a book's page
+and "Open in library"; Settings in two panes; Collections with the switch, "56 collections" and the
+stacked collages; Reading lists ("7 reading lists", "39 items"); an opened list's "7 items · 1 read"
+and "Up next in this list · 2 of 7"; Downloads over the real history, a finished row opening its book
+page.
+
+Fixed after the pass (unit-tested, not yet on the tablet):
+
+- The journal's Year said "96 active days" over a calendar of "92 days in 2026": the calendar left out
+  the days of reading sessions for books that also have progress events (to keep their pages from
+  counting twice). Those sessions now mark their days, without pages, so the counts agree.
+- Downloads of several files showed the first issue's name ("Issue #1 - Book One · 3 Jul") instead of
+  the count, which reads as one issue; waiting and finished rows of several files now say "3 files".
+- A server page's Sync said "Not synced on this device yet" for libraries that have synced for months
+  (sync times are kept from 0.17.0 on); until the next sync it says what Sync does.
+- The comics reader's second line read "Volume 2003" for Western comics, whose ComicInfo keeps the
+  series' first year in Volume; a year now reads as the year. Comic pages' screen-reader names used
+  Kavita's generated "Chapter v1 page 79"; they now use the series and volume ("Goodbye, Eri: Volume 1
+  page 79").
+
+Seen, left as they are: with a page scrolled in the two-pane Settings, the bar takes its glass but no
+name while the hub's title shows (as specified); a reading list inherits Kavita's library filter, so the
+Manga filter hid every item of a comics list (the filter was lifted to see the list, then put back);
+long tile titles caught mid-marquee in screenshots. The testing itself left two short reading sessions
+on 24 October in the journal (Девица Кристина, Goodbye, Eri) and in Grimmory's upload queue.
+
 ### 8.7 Reader menus `[~]`
 
 Built 2026-10-23 on `claude/ui-redesign-step-8-6ff666`, released in 0.16.0, checked on the emulator
@@ -1013,8 +1045,9 @@ phone width, with an EPUB and a comic. Not yet on the tablet.
       `ReaderOverlayControls` and `ReaderOverlaySurface` are gone.
 - Not as the mock: the comics second line has no "of 3" (the reader is not told how many issues
   the series has; that needs the series passed in).
-- [ ] Tablet: the frame and panels over a real EPUB and comic, the feel of the slider, and frame
-      times with a panel open over an EPUB page and over a comic page.
+- [x] Tablet (0.17.0, 2026-10-24, see "Tablet pass over 8.7-8.9"): the frame and panels over a real
+      EPUB and a Kavita comic in portrait, a Local comic in landscape. Frame times with a panel open
+      are part of the deferred performance pass.
 
 ### 8.8 Navigation rail `[~]`
 
@@ -1053,9 +1086,8 @@ Paper, and at phone landscape (891 x 411 dp through `wm size`, drawer). Not yet 
       keep their place in the tree either way. The reader covers the shell, rail included.
 - Not seen: the Settings dot (needs a waiting update) and the Kavita menu's sections on a connected
   Kavita (the emulator has none).
-- [ ] Tablet: the rail in landscape and portrait (914 dp is Expanded, so portrait gets the rail and
-      the settings side pane, with a 446 dp page), the Kavita menu over a real library, and the
-      update dot.
+- [x] Tablet (0.17.0): the rail in portrait and landscape, the settings side pane in both, the
+      Kavita menu over the real library. Not seen: the update dot (no newer release to wait for).
 
 ### 8.9 Screen passes `[~]` (each mocked first)
 
@@ -1103,8 +1135,8 @@ Paper, and at phone landscape (891 x 411 dp through `wm size`, drawer). Not yet 
         have closed an open sheet).
   - The pure parts are in `JournalOverviewModel.kt`, unit-tested; `JournalStatsSections.kt` went from
     1003 lines to 307 (the dead metric grid and pace panels and the facet charts are gone).
-  - [ ] Tablet: the journal over the real Kavita history (ratings, most read, Year), the sheet, and
-        "Open in library" on a Kavita book.
+  - [x] Tablet (0.17.0, portrait): Month and Year over the real history, ratings, most read, a
+        day's sheet, a book's page in the sheet, and "Open in library" on a Kavita volume.
 - [~] Settings, built 2026-10-23 on `claude/ui-redesign-step-8-135c61` and merged to main (not released):
   - [x] The hub as the 8.9 mock, checked on the emulator at 800 dp, 1280 dp landscape (two panes,
         rail) and phone width: "Settings" as the screen title (the kit's new `AppScreenTitle`, which
@@ -1137,8 +1169,8 @@ Paper, and at phone landscape (891 x 411 dp through `wm size`, drawer). Not yet 
       Failed, and the last error under its group. Not seen with a queue (the emulator has none).
     - Licenses: one row per component (`parseThirdPartyNotices`), each opening its notice
       (`SettingsPage.License`, whose Back returns to the list, in one pane and two).
-  - [ ] Tablet: the hub and pages in both orientations and themes (High Contrast in particular),
-        a connected Kavita page with its sync time, and the sync page with the real queue.
+  - [x] Tablet (0.17.0): the hub and pages in portrait and landscape, Graphite and High Contrast, the
+        connected Kavita page, the sync page with the real queue.
 - [~] Downloads sheet, Kavita landing, first run, built 2026-10-23 on `claude/ui-redesign-step-8-69954f`
       (f7007946) and merged to main (not released). All unit tests pass (both lines).
   - [x] Mock them first: board https://claude.ai/artifact/586zsjvQUR4N6VJCPUyexC
@@ -1205,9 +1237,10 @@ Paper, and at phone landscape (891 x 411 dp through `wm size`, drawer). Not yet 
   - Found: the server form is prefilled with this household's addresses (`DefaultKavitaServerUrl`
     and the others in `SettingsScreen.kt`: 192.168.50.60 and the Tailscale 100.84.32.88), so a new
     install elsewhere shows them on the connect page. Not changed here.
-  - [ ] Tablet: the first launch is only for new installs; on the tablet, the drawer and rail without
-        Stump, Collections and Reading lists over the real Kavita lists, an opened reading list's
-        card, and the Downloads sheet during a real download.
+  - [x] Tablet (0.17.0): the rail without Stump, Collections and Reading lists over the real Kavita
+        lists, an opened reading list's card, the Downloads sheet over the real history and a finished
+        row opening its page. Not seen: a download running (none was started), the first launch (new
+        installs only).
 
 ## Not yet designed
 
