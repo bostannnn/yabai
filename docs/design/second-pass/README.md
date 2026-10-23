@@ -325,7 +325,8 @@ Mock: `8.8-navigation-rail.jpg`.
 
 Mocks: `8.9-journal.jpg` (top of the journal), `8.9-settings.jpg` (hub), and the boards for the rest of
 the journal (`pages/journal.html`) and the settings pages (`pages/settings.html`), with the picks
-below. **Mock first:** downloads, Kavita landing and first run.
+below. Downloads, the Kavita lists and first launch were mocked on the board
+`pages/downloads-kavita-start.html` (https://claude.ai/artifact/586zsjvQUR4N6VJCPUyexC), picks below.
 
 - **Journal**: the Month / Year segmented row and the month as a 30 Bold centred title between
   arrows; four figures at 46 Bold, tabular (hours read, pages, finished, active days), each with a
@@ -352,6 +353,21 @@ below. **Mock first:** downloads, Kavita landing and first run.
   tried, a book's uploads of one kind on one row, the last error per source. Licenses as a list,
   each opening its notice.
 
+- **Downloads** (board picks, 2026-10-23): a 20 Bold title with what is going on ("1 downloading ·
+  2 waiting"); the running download as a raised block (larger cover, the file it is on, a 6 dp
+  accent bar counting files, Stop); waiting rows with ×; "Couldn't download" with how far it got,
+  the error, Try again and remove; Finished by Today / Yesterday / Earlier with Clear list, a row
+  opening the book's page and Read on a single book; the kit's empty state.
+- **Collections and Reading lists** (board picks): a switch between the two at the top, the name
+  in the bar (the large title was a Maybe and is left out); the grid with the count on the meta
+  line and a collection drawn as a stack; "isn't connected" apart from "none yet". An opened
+  reading list: its description, counts and the "Up next in this list" card, no large title (also
+  a Maybe, built in part).
+- **First launch** (board picks): a page of its own, "Where are your books?", with the three
+  servers, files on this device and Not now; a server's connect page in the same flow, showing the
+  first sync once signed in; the drawer and rail list connected servers and Local, with "Add a
+  server".
+
 ## Not built (rejected 2026-10-22)
 
 - The cover-zoom open-book animation (the reader uses the fade-through), and a cover fade-in while
@@ -365,6 +381,10 @@ below. **Mock first:** downloads, Kavita landing and first run.
 - (2026-10-23) A large title on every settings page: only the hub has one.
 - (2026-10-23, Maybe) The journal's When you read in the accent with labels every six hours: it
   kept its bars, with only the new heading.
+- (2026-10-23) The space downloads take as a line in the Downloads sheet.
+- (2026-10-23, Maybe) A large title on the Kavita Collections / Reading lists landing and on an
+  opened list: the name stays in the bar.
+- (2026-10-23) The first launch's choices inside Local's empty state (option B): it is a page of its own.
 
 ## Sources
 
@@ -374,6 +394,7 @@ https://claude.ai/artifact/FciEVVZo2pYSM3NjKQZBpB, reader menus
 https://claude.ai/artifact/Tnrj9TXe5YoVjux3Hkf8sn, the phone library
 https://claude.ai/artifact/G4aXzrCHb1o66ntsWCE3Wk, the journal
 https://claude.ai/artifact/2XyoEPyPe98aN3xweVFbkY, the settings pages
-https://claude.ai/artifact/YJg8ydR6QvxnFogMAc8tc8, and the review that started it
+https://claude.ai/artifact/YJg8ydR6QvxnFogMAc8tc8, downloads, the Kavita lists and first launch
+https://claude.ai/artifact/586zsjvQUR4N6VJCPUyexC, and the review that started it
 https://claude.ai/artifact/8TSpyrGAszggJMK4vUnrNX. The copies in `pages/` have the final decisions
 baked in and UI titles switched to Manrope.

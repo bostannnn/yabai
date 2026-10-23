@@ -1057,7 +1057,7 @@ Paper, and at phone landscape (891 x 411 dp through `wm size`, drawer). Not yet 
       the settings side pane, with a 446 dp page), the Kavita menu over a real library, and the
       update dot.
 
-### 8.9 Screen passes `[ ]` (each mocked first)
+### 8.9 Screen passes `[~]` (each mocked first)
 
 - [x] Mock the journal below its header first: board https://claude.ai/artifact/2XyoEPyPe98aN3xweVFbkY
       (`docs/design/second-pass/pages/journal.html`; picks save to the page), 2026-10-23. Picked: the
@@ -1139,11 +1139,80 @@ Paper, and at phone landscape (891 x 411 dp through `wm size`, drawer). Not yet 
       (`SettingsPage.License`, whose Back returns to the list, in one pane and two).
   - [ ] Tablet: the hub and pages in both orientations and themes (High Contrast in particular),
         a connected Kavita page with its sync time, and the sync page with the real queue.
-- [ ] Downloads sheet, Kavita landing, first run.
+- [~] Downloads sheet, Kavita landing, first run, built 2026-10-23 in worktree `ui-redesign-step-8-69954f`
+      (not committed at the time). All unit tests pass (both lines).
+  - [x] Mock them first: board https://claude.ai/artifact/586zsjvQUR4N6VJCPUyexC
+        (`docs/design/second-pass/pages/downloads-kavita-start.html`, today's screenshots of a fresh
+        install in `pages/img/today-start/`; picks save to the page). Picked 2026-10-23: the running
+        download first Do, finished by day Do, the empty sheet Do, the space downloads take Don't;
+        the Collections / Reading lists header Maybe (built: the switch only, the name stays in the
+        bar), tiles A (the grid), an opened reading list Maybe (built: its description, counts and
+        "Up next" card, no large title), not connected vs none made Do; first launch A (a page of
+        its own), connecting in the flow Do, unconnected servers out of the drawer and rail Do.
+        The picks reached the chat, not the page: the board kept them in the browser it was opened
+        in; it now uploads such picks once it reaches its store and has a Copy picks button.
+  - [x] Downloads (`DownloadsSheet.kt`, the pure parts in `DownloadsSheetModel.kt`, unit-tested):
+        `AppPanelHeader` "Downloads" with "1 downloading · 2 waiting · 1 couldn't download";
+        Downloading as a raised 20 dp block (64 dp cover, the file it is on, a 6 dp bar with "12 of
+        24 files", a moving bar for one file, Stop; "Stopping after this file" while it cancels);
+        Waiting rows with × ("Waiting for Kavita" while paused for the server); Couldn't download
+        with how far it got and the error (three lines), Try again and the remove button; Finished
+        with Clear list (the list only, as before), under Today / Yesterday / Earlier with the time
+        or the date. A finished row opens the book's page (the journal's path:
+        `pendingBookPageItemId` plus `openLibrarySource`), Read on a single book opens it; a stopped
+        one keeps Try again and remove. The empty sheet is `AppEmptyState` ("Nothing downloaded").
+        Seen on the emulator: the empty sheet in the app, and the queue through a throwaway
+        instrumentation preview (not committed; no server on the emulator).
+  - [x] Collections and Reading lists (`KavitaScopeLandingScreen.kt`, `KavitaScopeLandingModel.kt`,
+        unit-tested): a 280 dp Collections / Reading lists `AppSegmentedRow` first in the grid, then
+        "56 collections" ("3 of 56" while searching; blank while there is nothing); tiles keep the
+        grid with the count on the meta line ("12 series", "8 items"), a collection drawn with the
+        series stack; the count badge (`LibraryCountBadge`) is gone. Empty states on `AppEmptyState`:
+        "Kavita isn't connected" with Connect Kavita, "Can't reach Kavita" with Try again, "No
+        collections yet" / "No reading lists yet". `KavitaLibrarySection.ReadingLists` reads "Reading
+        lists" everywhere (drawer, rail menu, bar). An opened reading list starts with its
+        description (four lines, More; `LibraryExpandableText`, shared with the book page), "5 items
+        · 2 read" and the series card for the next one ("Up next in this list · 3 of 5"); a
+        collection with its description and "12 series" (`LibraryListScopeTop.kt`,
+        `KavitaListScopeTop.kt` in app). Until a list's items arrive it counts from the list's
+        summary and has no card, so the card commits with the grid. Seen through a throwaway
+        preview only (no Kavita on the emulator); the landing's instrumentation test is updated and
+        passes on the emulator.
+  - [x] First launch (`SourceStartFlow.kt` in feature:settings, `SourceStartRoute.kt` in app): a fresh
+        install (installed, never updated) that has not answered it opens on "Where are your
+        books?" (the theme covers, the title, Kavita / Stump / Grimmory in the source order, Files
+        on this device, Not now), drawn over the whole app. A server opens its connect page in
+        place: "Connect Kavita", the form without Name and with a full-width Connect
+        (`ServerConnectionForm(showDisplayName, fullWidthConnect)`), a line on the backup address.
+        Signed in from there, it starts the first sync and shows Connected, the account, "Getting
+        your library" with the step it is on (`firstSyncState`, unit-tested), Open library and
+        Connect another; the first server connected moves to the top of Source order. Files on
+        this device opens the picker over Local; Not now opens Local. The answer is kept in the
+        `first_launch` preferences. Connect on an empty library (a server's, or Local's "Connect a
+        server") opens the same flow on that page, no longer the Settings front page.
+  - [x] Drawer and rail (`SourceNavigationSources.kt`, unit-tested): they list the connected servers
+        and Local, then "Add a server" ("Add" on the rail) while a server is not connected, which
+        opens the flow's choices with a back arrow. A server counts as connected from its stored
+        session once that has loaded (`isSessionKnown` on the three connection states); until then
+        from the set recorded last time (`connected_sources` in the navigation startup
+        preferences), so nothing jumps at launch; with nothing recorded yet it counts, as before.
+        The app opens on the first source the rail lists. Settings › Sources keeps all three.
+  - Checked on the emulator (`yabai_settings_35` wiped, debug build, System Dynamic, 800 dp portrait and
+    1280 dp landscape): the first launch, Kavita's connect page, Back, Not now landing on Local, the
+    drawer with Local and Add a server, the rail in landscape, Add a server's choices, a relaunch
+    opening on Local without the first launch. Not seen: signing in and the first sync (no server
+    on the emulator), Kavita lists with real data, a finished download opening its page.
+  - Found: the server form is prefilled with this household's addresses (`DefaultKavitaServerUrl`
+    and the others in `SettingsScreen.kt`: 192.168.50.60 and the Tailscale 100.84.32.88), so a new
+    install elsewhere shows them on the connect page. Not changed here.
+  - [ ] Tablet: the first launch is only for new installs; on the tablet, the drawer and rail without
+        Stump, Collections and Reading lists over the real Kavita lists, an opened reading list's
+        card, and the Downloads sheet during a real download.
 
 ## Not yet designed
 
-Each is mocked when its step in section 8 starts: downloads, the Kavita landing and first run (8.9).
+Nothing left: downloads, the Kavita landing and first run (8.9) were the last, on the board linked
+there.
 Designed since: the phone library home and the series view header (8.3), the book page (8.5), the
 journal below its header and the settings pages (8.9, boards linked there).
 

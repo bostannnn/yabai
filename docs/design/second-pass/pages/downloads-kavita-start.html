@@ -1,0 +1,707 @@
+<title>Downloads, Kavita and First Run</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400..600&family=Manrope:wght@400..800&display=swap">
+<style>
+/* Layout: one column of decision cards, as on the earlier boards. Each card shows the app today
+   next to the proposal (or two options side by side) and ends in a choice. The board speaks in
+   Literata; everything inside a mock is the app: Manrope only, the Graphite palette, dp as px. */
+:root {
+  --bg: #f3f3f1; --panel: #ffffff; --sunk: #ecece9; --fg: #1b1d20; --muted: #5b626b; --faint: #8a9098;
+  --line: rgba(27, 29, 32, 0.12); --accent: #405f6b; --accent-soft: rgba(64, 95, 107, 0.12);
+  --do: #2f7a4f; --maybe: #9a6400; --dont: #b0413e;
+  --display: "Literata", Georgia, "Times New Roman", serif;
+  --ui: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1113; --panel: #171a1d; --sunk: #121417; --fg: #e7eaee; --muted: #9ea7b1; --faint: #6f7882;
+    --line: rgba(231, 234, 238, 0.12); --accent: #b7c7d9; --accent-soft: rgba(183, 199, 217, 0.14);
+    --do: #8fd1a6; --maybe: #f1c26b; --dont: #f0a09b; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1113; --panel: #171a1d; --sunk: #121417; --fg: #e7eaee; --muted: #9ea7b1; --faint: #6f7882;
+  --line: rgba(231, 234, 238, 0.12); --accent: #b7c7d9; --accent-soft: rgba(183, 199, 217, 0.14);
+  --do: #8fd1a6; --maybe: #f1c26b; --dont: #f0a09b; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--ui); font-size: 16px; line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 36px 120px;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+button, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.col { max-width: 1120px; margin-inline: auto; }
+.eyebrow { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--display); font-weight: 500; font-size: clamp(32px, 5vw, 48px); line-height: 1.06; letter-spacing: -0.015em; margin: 10px 0 0; text-wrap: balance; }
+.lede { font-size: 18px; max-width: 66ch; margin: 16px 0 0; }
+.how { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 18px; font-size: 14px; color: var(--muted); }
+.how b { color: var(--fg); font-weight: 650; }
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; margin-top: 26px; background: color-mix(in oklab, var(--bg) 88%, transparent);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-bottom: 1px solid var(--line); padding-block: 12px; }
+.bar .in { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; font-size: 14px; }
+.bar .tally { font-weight: 650; font-variant-numeric: tabular-nums; }
+.bar .sp { flex: 1; }
+.bar .jump { display: flex; gap: 6px; flex-wrap: wrap; }
+.bar .jump a { color: var(--muted); text-decoration: none; font-weight: 650; border: 1px solid var(--line); border-radius: 999px; padding: 3px 12px; font-size: 13px; }
+.bar .jump a:hover { color: var(--fg); }
+.status { font-size: 13px; color: var(--muted); }
+.copy { border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 3px 12px; font-size: 13px; font-weight: 650; color: var(--fg); cursor: pointer; }
+.copyout { width: 100%; min-height: 140px; margin-top: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); padding: 10px 12px; font-size: 13px; }
+.part { font-family: var(--display); font-weight: 500; font-size: 28px; margin: 44px 0 0; scroll-margin-top: 70px; }
+.part + .partlede { margin: 6px 0 0; color: var(--muted); max-width: 70ch; font-size: 15.5px; }
+.list { list-style: none; padding: 0; margin: 18px 0 0; display: grid; gap: 18px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 22px 24px 20px; display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 0 16px; }
+.rank { font-family: var(--display); font-size: 40px; line-height: .95; font-weight: 500; color: var(--faint); transition: color .2s; }
+.card[data-c] .rank { color: var(--do); }
+.card[data-c="maybe"] .rank, .card[data-c="b"] .rank { color: var(--maybe); }
+.card[data-c="dont"] .rank, .card[data-c="neither"] .rank { color: var(--dont); }
+.card[data-c=""] .rank { color: var(--faint); }
+.body { min-width: 0; }
+.card h2 { font-family: var(--display); font-weight: 500; font-size: 24px; line-height: 1.2; margin: 0; text-wrap: balance; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.tag { font-size: 12px; font-weight: 700; border-radius: 999px; padding: 3px 10px; background: var(--accent-soft); color: var(--muted); }
+.tag.pick { background: color-mix(in oklab, var(--do) 14%, transparent); color: var(--do); }
+.what { margin: 10px 0 0; font-size: 15.5px; max-width: 76ch; }
+.what + .what { margin-top: 8px; }
+.panes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 16px; align-items: start; }
+.panes.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.panes.narrow { grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 300px)); }
+.pane { min-width: 0; }
+.plabel { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin-bottom: 7px; }
+.plabel small { text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--faint); }
+.frame { position: relative; width: 100%; max-width: 100%; border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 1px var(--line); background: var(--sunk); }
+.frame > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.choose { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.pick { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.pick button { border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 8px 16px; font-size: 14px; font-weight: 700; cursor: pointer; color: var(--muted); transition: background .15s, color .15s, border-color .15s; }
+.pick button[aria-pressed="true"] { background: color-mix(in oklab, var(--do) 16%, transparent); border-color: var(--do); color: var(--do); }
+.pick button[data-v="maybe"][aria-pressed="true"], .pick button[data-v="b"][aria-pressed="true"] { background: color-mix(in oklab, var(--maybe) 16%, transparent); border-color: var(--maybe); color: var(--maybe); }
+.pick button[data-v="dont"][aria-pressed="true"], .pick button[data-v="neither"][aria-pressed="true"] { background: color-mix(in oklab, var(--dont) 16%, transparent); border-color: var(--dont); color: var(--dont); }
+.note { flex: 1; min-width: 200px; border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 8px 14px; font-size: 14px; }
+.note::placeholder { color: var(--faint); }
+.foot { margin-top: 36px; font-size: 14px; color: var(--muted); max-width: 70ch; }
+.foot p { margin: 0 0 10px; }
+@media (max-width: 760px) { .panes, .panes.three { grid-template-columns: 1fr; } .card { grid-template-columns: 1fr; padding: 18px 16px; } .rank { font-size: 32px; margin-bottom: 6px; } }
+@media (prefers-reduced-motion: reduce) { .rank, .pick button { transition: none; } }
+
+/* ============ app mocks: the app's own Graphite palette, 1 px = 1 dp ============ */
+.cv { position: absolute; left: 0; top: 0; transform-origin: 0 0; transform: scale(var(--s, .5)); overflow: hidden; font-family: var(--ui); color: var(--m-fg); background: var(--m-bg); line-height: 1.35;
+  --m-bg: #101214; --m-surface: #171a1d; --m-c1: #1d2125; --m-c2: #252a2f; --m-c3: #30363c; --m-sel: #33475e; --m-on-sel: #d6e4f5;
+  --m-fg: #e7eaee; --m-fg2: #c8d0d8; --m-fg3: #8b949e; --m-line: rgba(231,234,238,.10);
+  --m-acc: #b7c7d9; --m-on-acc: #1d2c3d; --m-err: #f2b8b5; --m-ok: #9fd6b0; --m-glass: rgba(23,26,29,.86); }
+.cv svg.i { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex: none; display: block; }
+.ib { width: 40px; height: 40px; border-radius: 999px; display: grid; place-items: center; color: var(--m-fg2); flex: none; }
+.gbar { position: absolute; left: 12px; right: 12px; top: 12px; height: 56px; display: flex; align-items: center; gap: 2px; border-radius: 20px; background: var(--m-glass);
+  border: 1px solid var(--m-line); padding: 0 8px; z-index: 5; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+.gbar.clear { background: transparent; border-color: transparent; box-shadow: none; }
+.gbar .nm { font-size: 18px; font-weight: 600; padding-left: 4px; white-space: nowrap; }
+.gbar .sp { flex: 1; }
+.stitle { font-size: 40px; line-height: 44px; font-weight: 700; letter-spacing: -0.02em; }
+.ssub { font-size: 14px; color: var(--m-fg3); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.lead { font-size: 16px; line-height: 23px; color: var(--m-fg2); margin-top: 10px; }
+.hint { font-size: 13px; color: var(--m-fg3); }
+.panel { background: var(--m-c1); border-radius: 20px; overflow: hidden; }
+.btn { height: 42px; padding: 0 18px; border-radius: 999px; font-weight: 700; font-size: 14.5px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap; background: var(--m-c3); color: var(--m-fg); flex: none; }
+.btn.pri { background: var(--m-acc); color: var(--m-on-acc); }
+.btn.txt { background: transparent; color: var(--m-fg2); }
+.btn.sm { height: 36px; padding: 0 14px; font-size: 13.5px; }
+.btn.lg { height: 46px; font-size: 15px; }
+.btn svg.i { width: 18px; height: 18px; }
+.pill { height: 28px; padding: 0 12px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; }
+.pill.ok { background: rgba(159,214,176,.16); color: var(--m-ok); }
+.pill svg.i { width: 16px; height: 16px; }
+.seg { display: flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--m-c1); }
+.seg span { flex: 1; height: 34px; padding: 0 14px; border-radius: 999px; display: grid; place-items: center; font-size: 14px; font-weight: 600; color: var(--m-fg3); white-space: nowrap; }
+.seg span.on { background: var(--m-sel); color: var(--m-on-sel); }
+.field { height: 56px; border: 1px solid rgba(231,234,238,.28); border-radius: 12px; padding: 8px 14px; display: flex; flex-direction: column; justify-content: center; }
+.field small { font-size: 12px; color: var(--m-fg3); }
+.field span { font-size: 15px; }
+.fgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 16px; }
+.fgrid .w { grid-column: 1 / -1; }
+.chip { height: 36px; padding: 0 15px; border-radius: 999px; border: 1px solid var(--m-line); display: inline-flex; align-items: center; gap: 7px; font-weight: 650; font-size: 14px; color: var(--m-fg2); white-space: nowrap; }
+.chip svg.i { width: 18px; height: 18px; }
+/* covers */
+.cover { position: relative; width: 100%; aspect-ratio: 2 / 3; border-radius: 6px; overflow: hidden; background: var(--m-c2); box-shadow: 0 0 0 1px var(--m-line); z-index: 1; }
+.cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cover.sh { box-shadow: 0 8px 20px rgba(0,0,0,.45), 0 0 0 1px var(--m-line); }
+.prog { position: absolute; left: 7px; right: 7px; bottom: 7px; height: 4px; border-radius: 4px; background: rgba(0,0,0,.42); overflow: hidden; }
+.prog i { display: block; height: 100%; background: var(--m-acc); border-radius: 4px; }
+.chk { position: absolute; top: 7px; left: 7px; width: 22px; height: 22px; border-radius: 50%; background: var(--m-acc); color: var(--m-on-acc); display: grid; place-items: center; }
+.chk svg.i { width: 14px; height: 14px; stroke-width: 2.6; }
+.badge { position: absolute; top: 6px; right: 6px; min-width: 26px; height: 22px; padding: 0 7px; border-radius: 999px; background: var(--m-c3); color: var(--m-fg); font-size: 12px; font-weight: 700; display: grid; place-items: center; }
+.stack { position: relative; margin-top: 12px; }
+.stack::before, .stack::after { content: ""; position: absolute; height: 30px; border-radius: 6px; }
+.stack::before { left: 14px; right: 14px; top: -12px; background: #262b30; }
+.stack::after { left: 7px; right: 7px; top: -6px; background: #343a41; }
+.tgrid { display: grid; gap: 22px 16px; }
+.tt { margin-top: 8px; font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tm { font-size: 12.5px; color: var(--m-fg3); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.az { position: absolute; right: 8px; top: 84px; bottom: 20px; width: 24px; border-radius: 999px; background: var(--m-c1); display: flex; flex-direction: column; align-items: center; justify-content: space-around; font-size: 10.5px; font-weight: 700; color: var(--m-fg3); padding: 8px 0; }
+.az b { color: var(--m-acc); }
+/* lists of rows */
+.crow { display: flex; align-items: center; gap: 16px; padding: 14px 14px 14px 16px; min-height: 76px; }
+.crow + .crow { box-shadow: inset 0 1px 0 var(--m-line); }
+.crow .ic { width: 44px; height: 44px; border-radius: 999px; background: var(--m-c2); color: var(--m-fg2); display: grid; place-items: center; flex: none; }
+.crow .tx { flex: 1; min-width: 0; }
+.crow .tx b { display: block; font-size: 16px; font-weight: 650; }
+.crow .tx span { display: block; font-size: 13.5px; color: var(--m-fg3); margin-top: 2px; }
+.chev { color: var(--m-fg3); }
+/* downloads sheet */
+.sheet { position: absolute; inset: 0; background: var(--m-surface); }
+.dh { display: flex; align-items: flex-start; gap: 4px; padding: 22px 10px 4px 20px; }
+.dh .tx { flex: 1; min-width: 0; }
+.dh b { display: block; font-size: 20px; line-height: 26px; font-weight: 700; }
+.dh span { display: block; font-size: 13.5px; color: var(--m-fg3); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.sh2 { display: flex; align-items: center; padding: 18px 20px 8px; font-size: 15px; font-weight: 600; }
+.sh2 .a { margin-left: auto; color: var(--m-acc); font-size: 14px; font-weight: 700; }
+.sh3 { padding: 6px 20px 2px; font-size: 12.5px; font-weight: 600; color: var(--m-fg3); }
+.now { margin: 0 12px; padding: 14px; border-radius: 20px; background: var(--m-c1); display: flex; gap: 14px; }
+.now .cover { width: 64px; flex: none; }
+.now .tx { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.now b { font-size: 16px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.now .l2 { font-size: 13px; color: var(--m-fg3); margin-top: 1px; }
+.now .cur { font-size: 13px; color: var(--m-fg2); margin-top: auto; }
+.pb { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.pb .t { flex: 1; height: 6px; border-radius: 6px; background: var(--m-c3); overflow: hidden; }
+.pb .t i { display: block; height: 100%; background: var(--m-acc); border-radius: 6px; }
+.pb span { font-size: 12.5px; font-weight: 700; color: var(--m-fg2); font-variant-numeric: tabular-nums; }
+.dr { display: flex; align-items: center; gap: 12px; padding: 7px 10px 7px 20px; min-height: 70px; }
+.dr .cover { width: 38px; flex: none; border-radius: 4px; }
+.dr .tx { flex: 1; min-width: 0; }
+.dr .tx b { display: block; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dr .tx span { display: block; font-size: 13px; color: var(--m-fg3); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dr .tx span.err { color: var(--m-err); white-space: normal; }
+.dr .tm2 { font-size: 12.5px; color: var(--m-fg3); font-variant-numeric: tabular-nums; padding-right: 10px; }
+.dfoot { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 20px 18px; box-shadow: inset 0 1px 0 var(--m-line); background: var(--m-surface); font-size: 13px; color: var(--m-fg3); display: flex; align-items: center; gap: 10px; }
+.dfoot b { color: var(--m-fg); font-weight: 650; }
+/* today's sheet, drawn from DownloadsSheet.kt */
+.td-h { display: flex; align-items: flex-start; padding: 20px 8px 0 20px; }
+.td-h .tx { flex: 1; }
+.td-h b { display: block; font-size: 24px; line-height: 32px; font-weight: 400; }
+.td-h span { display: block; font-size: 14px; color: var(--m-fg3); }
+.td-sec { padding: 16px 20px 4px; font-size: 14px; font-weight: 500; color: var(--m-fg3); }
+.td-row { padding: 10px 20px; }
+.td-row .r { display: flex; gap: 12px; align-items: flex-start; }
+.td-row .cv42 { width: 42px; height: 58px; flex: none; border-radius: 4px; overflow: hidden; }
+.td-row .cv42 img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.td-row .tx { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.td-row .tx b { font-size: 16px; font-weight: 500; }
+.td-row .tx span { font-size: 14px; color: var(--m-fg3); }
+.td-row .tx small { font-size: 12px; color: var(--m-fg3); }
+.td-row .tx small.err { color: var(--m-err); }
+.td-row .lp { height: 4px; border-radius: 4px; background: var(--m-c3); margin-top: 12px; overflow: hidden; }
+.td-row .lp i { display: block; height: 100%; background: var(--m-acc); }
+/* reading card, as 8.3 / 8.6 */
+.rc { border-radius: 24px; position: relative; overflow: hidden; color: #f6eef1; --acc: #f0aa9e; --on: #3b1915; --trk: rgba(255,255,255,.18); padding: 22px; display: flex; gap: 22px; }
+.rc .bgl { position: absolute; inset: 0; background: radial-gradient(120% 140% at 100% 100%, #4f3a49, transparent 70%), #2c3140; }
+.rc > *:not(.bgl) { position: relative; }
+.rc .eb { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity: .72; }
+.rc .ti { font-size: 30px; line-height: 34px; font-weight: 700; letter-spacing: -0.01em; margin-top: 6px; }
+.rc .au { font-size: 15px; opacity: .74; font-weight: 500; margin-top: 4px; }
+.rc .pm { font-size: 13px; font-weight: 600; opacity: .82; display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
+.rc .hb { height: 6px; border-radius: 6px; background: var(--trk); overflow: hidden; margin-top: 8px; }
+.rc .hb i { display: block; height: 100%; background: var(--acc); border-radius: 6px; }
+.rc .btn { height: 44px; padding: 0 22px; }
+.rc .pri { background: var(--acc); color: var(--on); }
+.rc .ton { background: var(--trk); color: inherit; }
+/* drawer and rail */
+.drw { position: absolute; left: 0; top: 0; bottom: 0; width: 360px; background: var(--m-surface); border-radius: 0 28px 28px 0; padding: 24px 12px 16px; display: flex; flex-direction: column; }
+.drw .hd { padding: 4px 16px 12px; font-size: 22px; font-weight: 700; }
+.drw .gh { padding: 4px 16px 6px; font-size: 13px; font-weight: 600; color: var(--m-fg3); }
+.drow { height: 52px; border-radius: 999px; display: flex; align-items: center; gap: 14px; padding: 0 18px; font-size: 15px; font-weight: 600; color: var(--m-fg2); }
+.drow.sub { padding-left: 46px; height: 46px; font-weight: 500; }
+.drow.sub svg.i { width: 20px; height: 20px; }
+.drow.on { background: var(--m-sel); color: var(--m-on-sel); }
+.drow.add { color: var(--m-acc); }
+.rail { position: absolute; left: 0; top: 0; bottom: 0; width: 88px; background: var(--m-bg); box-shadow: inset -1px 0 0 var(--m-line); display: flex; flex-direction: column; align-items: center; padding: 18px 0 18px; gap: 4px; }
+.ri { width: 80px; height: 64px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--m-fg3); }
+.ri .p { width: 56px; height: 32px; border-radius: 999px; display: grid; place-items: center; color: var(--m-fg2); }
+.ri.on { color: var(--m-fg); }
+.ri.on .p { background: var(--m-sel); color: var(--m-on-sel); }
+.ri.add, .ri.add .p { color: var(--m-acc); }
+</style>
+
+<main class="col">
+  <div class="eyebrow">Redesign step 8.9 · mocks before building</div>
+  <h1>Downloads, the Kavita lists and the first launch</h1>
+  <p class="lede">The last three screens of the second pass that have no design yet. Downloads is the sheet behind the top bar's ring; the Kavita lists are Collections and Reading lists, the grids the rail's Kavita menu opens; the first launch is what a new install shows. Mocks use the Graphite theme at 800 dp wide, a tablet in portrait.</p>
+  <div class="how"><span><b>Pick</b> on each card; your picks save to this page and I read them back.</span><span><b>Notes</b> say what you'd change.</span><span>Sizes are in dp.</span></div>
+  <div class="bar"><div class="in"><span class="tally" id="tally"></span><span class="jump"><a href="#part-downloads">Downloads</a><a href="#part-kavita">Kavita lists</a><a href="#part-start">First launch</a></span><span class="sp"></span><span class="status" id="status">Loading…</span><button type="button" class="copy" id="copy">Copy picks</button></div><textarea class="copyout" id="copyout" readonly hidden aria-label="Your picks as text"></textarea></div>
+  <div id="parts"></div>
+  <div class="foot">
+    <p>The emulator has no server, so today's Downloads sheet with a queue and today's Kavita lists are drawn from the code (<code>DownloadsSheet.kt</code>, <code>KavitaScopeLandingScreen.kt</code>); the other "Today" images are screenshots of a fresh install. A new install starts on the System Dynamic theme, which is why those are light. Covers, names, counts and addresses in the mocks are examples.</p>
+    <p>Not on a card: the Downloads button and its ring (decided in 8.2), the book page's Download and Remove download (8.5), and the server pages in Settings (decided on the settings board).</p>
+  </div>
+</main>
+
+<script>
+(() => {
+  const C = "img/covers/", T = "img/today-start/";
+  const I = {
+    back: '<svg class="i" viewBox="0 0 24 24"><path d="M19 12H5m0 0 6-6m-6 6 6 6"/></svg>',
+    menu: '<svg class="i" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
+    close: '<svg class="i" viewBox="0 0 24 24"><path d="m6.5 6.5 11 11m0-11-11 11"/></svg>',
+    search: '<svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg>',
+    dl: '<svg class="i" viewBox="0 0 24 24"><path d="M12 4.5v10m0 0 4-4m-4 4-4-4M5.5 19.5h13"/></svg>',
+    dots: '<svg class="i" viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="18" cy="12" r="1.4" fill="currentColor"/></svg>',
+    chev: '<svg class="i" viewBox="0 0 24 24"><path d="m9.5 6 6 6-6 6"/></svg>',
+    check: '<svg class="i" viewBox="0 0 24 24"><path d="m6 12.5 4 4 8-9"/></svg>',
+    stop: '<svg class="i" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1.5"/></svg>',
+    retry: '<svg class="i" viewBox="0 0 24 24"><path d="M19 8a7.5 7.5 0 1 0 .5 6M19 3.5V8h-4.5"/></svg>',
+    trash: '<svg class="i" viewBox="0 0 24 24"><path d="M5 7h14M10 4h4M7 7l.8 12a1.5 1.5 0 0 0 1.5 1.4h5.4a1.5 1.5 0 0 0 1.5-1.4L17 7"/></svg>',
+    sweep: '<svg class="i" viewBox="0 0 24 24"><path d="M4 7h10M4 12h8M4 17h6M15 13l5 5m0-5-5 5"/></svg>',
+    hour: '<svg class="i" viewBox="0 0 24 24"><path d="M7 4h10M7 20h10M8 4c0 5 8 5 8 8s-8 3-8 8M16 4c0 5-8 5-8 8"/></svg>',
+    plus: '<svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+    ok: '<svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.3 2.4 2.4 4.6-5"/></svg>',
+    filter: '<svg class="i" viewBox="0 0 24 24"><path d="M4 6.5h16M7 12h10M10 17.5h4"/></svg>',
+    tune: '<svg class="i" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>',
+    kavita: '<svg class="i" viewBox="0 0 24 24"><rect x="4" y="6" width="12" height="14" rx="1.5"/><path d="M8 3h10.5a1.5 1.5 0 0 1 1.5 1.5V17"/></svg>',
+    book: '<svg class="i" viewBox="0 0 24 24"><path d="M5 4.5h6a3 3 0 0 1 3 3v12a2.5 2.5 0 0 0-2.5-2.5H5z"/><path d="M19 4.5h-2a3 3 0 0 0-3 3"/></svg>',
+    cloud: '<svg class="i" viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 0 0 .5-7.97A6 6 0 0 0 6.1 9.5 4.3 4.3 0 0 0 7 18z"/></svg>',
+    folder: '<svg class="i" viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg>',
+    home: '<svg class="i" viewBox="0 0 24 24"><path d="M4.5 10.5 12 4.5l7.5 6V19a1 1 0 0 1-1 1h-4v-5.5h-5V20h-4a1 1 0 0 1-1-1z"/></svg>',
+    lists: '<svg class="i" viewBox="0 0 24 24"><path d="m4 7 1.5 1.5L8.5 5.5M4 15l1.5 1.5 3-3M12 7h8M12 15h8"/></svg>',
+    journal: '<svg class="i" viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3M4.5 4.5v3h3"/><path d="M12 8v4.5l3 2"/></svg>',
+    gear: '<svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.3M12 18.2v2.3M3.5 12h2.3M18.2 12h2.3M6 6l1.6 1.6M16.4 16.4 18 18M6 18l1.6-1.6M16.4 7.6 18 6"/></svg>',
+  };
+  const sz = (icon, px) => icon.replace('class="i"', `class="i" style="width:${px}px;height:${px}px"`);
+
+  // ---------- shared pieces ----------
+  const cover = (id, o = {}) => `<div class="cover${o.sh ? " sh" : ""}"${o.style ? ` style="${o.style}"` : ""}><img src="${C}${id}.jpg" alt="">${o.p ? `<span class="prog"><i style="width:${o.p}%"></i></span>` : ""}${o.done ? `<span class="chk">${I.check}</span>` : ""}${o.badge ? `<span class="badge">${o.badge}</span>` : ""}</div>`;
+  const tile = (id, title, meta, o = {}) => `<div>${o.stack ? `<div class="stack">${cover(id, o)}</div>` : cover(id, o)}<div class="tt">${title}</div>${meta ? `<div class="tm">${meta}</div>` : ""}</div>`;
+  // The three covers Settings uses for the theme, drawn in Graphite's colours.
+  const trio = (w) => {
+    const h = w * 1.5, acc = "#9FCBDB", third = "#FFB4AB";
+    const box = (inner, rot, dy) => `<span style="position:relative;width:${w}px;height:${h}px;border-radius:${w / 10}px;overflow:hidden;display:block;transform:rotate(${rot}deg) translateY(${dy}px);box-shadow:0 10px 24px rgba(0,0,0,.4);${inner}"></span>`;
+    return `<div style="display:flex;gap:${w / 5}px;align-items:flex-end">
+      <span style="position:relative;width:${w}px;height:${h}px;border-radius:${w / 10}px;overflow:hidden;display:block;transform:rotate(-6deg) translateY(6px);box-shadow:0 10px 24px rgba(0,0,0,.4);background:rgba(255,255,255,.10)"><svg viewBox="0 0 30 45" style="position:absolute;inset:0;width:100%;height:100%"><circle cx="15" cy="19" r="9" fill="${acc}"/><path d="M6 30h18M6 34.5h18" stroke="${acc}" stroke-width="1.8"/></svg></span>
+      ${box(`background:radial-gradient(80% 60% at 50% 70%, ${third}, transparent 75%), ${acc}`, 0, 0)}
+      <span style="position:relative;width:${w}px;height:${h}px;border-radius:${w / 10}px;overflow:hidden;display:block;transform:rotate(6deg) translateY(6px);box-shadow:0 10px 24px rgba(0,0,0,.4);background:${third}"><span style="position:absolute;inset:${w / 10}px;border:1.5px solid rgba(255,255,255,.55)"></span></span></div>`;
+  };
+  const SOURCES = [
+    ["kavita", "Kavita", "Manga, comics and books from a Kavita server"],
+    ["book", "Stump", "Comics, manga and books from a Stump server"],
+    ["cloud", "Grimmory", "Books from a Grimmory server"],
+    ["folder", "Files on this device", "Import EPUB, PDF, CBZ or CBR files"],
+  ];
+  const choiceRows = () => `<div class="panel">${SOURCES.map(([ic, t, s]) => `<div class="crow"><span class="ic">${I[ic]}</span><div class="tx"><b>${t}</b><span>${s}</span></div><span class="chev">${I.chev}</span></div>`).join("")}</div>`;
+
+  // ---------- Downloads ----------
+  const downloadsToday = () => `<div class="sheet">
+      <div class="td-h"><div class="tx"><b>Downloads</b><span>1 active</span></div><span class="ib">${I.sweep}</span><span class="ib">${I.close}</span></div>
+      <div class="td-sec">Active</div>
+      <div class="td-row"><div class="r"><div class="cv42"><img src="${C}Neon-Ronin-002.jpg" alt=""></div><div class="tx"><b>Neon Ronin</b><span>12/24 files</span><small>Current: Neon Ronin #13</small></div><span class="ib">${I.stop}</span></div><div class="lp"><i style="width:50%"></i></div></div>
+      <div class="td-row"><div class="r"><div class="cv42"><img src="${C}Star-Courier-002.jpg" alt=""></div><div class="tx"><b>Star Courier</b><span>Queued</span></div><span class="ib">${I.stop}</span></div></div>
+      <div class="td-row"><div class="r"><div class="cv42"><img src="${C}Glass-Meridian.jpg" alt=""></div><div class="tx"><b>Glass Meridian</b><span>Queued - J. R. Okafor</span></div><span class="ib">${I.stop}</span></div></div>
+      <div class="td-sec">Failed</div>
+      <div class="td-row"><div class="r"><div class="cv42"><img src="${C}Hollow-Moon-004.jpg" alt=""></div><div class="tx"><b>Hollow Moon</b><span>Failed after 2/4 files</span><small class="err">HTTP 500</small></div><span class="ib">${I.retry}</span><span class="ib">${I.trash}</span></div></div>
+      <div class="td-sec">History</div>
+      <div class="td-row"><div class="r"><div class="cv42"><img src="${C}Ashfall-Academy-v01.jpg" alt=""></div><div class="tx"><b>Ashfall Academy</b><span>Downloaded 3 files</span></div></div></div>
+      <div class="td-row"><div class="r"><div class="cv42"><img src="${C}The-Salt-Orchard.jpg" alt=""></div><div class="tx"><b>The Salt Orchard</b><span>Mira Kalden</span></div></div></div>
+      <div class="td-row"><div class="r"><div class="cv42"><img src="${C}Moths-of-Lisbon.jpg" alt=""></div><div class="tx"><b>Moths of Lisbon</b><span>Paulo Serra</span></div></div></div>
+    </div>`;
+  const dRow = (id, t, s, trail, o = {}) => `<div class="dr"><div class="cover">${`<img src="${C}${id}.jpg" alt="">`}</div><div class="tx"><b>${t}</b><span class="${o.err ? "err" : ""}">${s}</span></div>${trail || ""}</div>`;
+  const nowBlock = () => `<div class="now">${cover("Neon-Ronin-002", { sh: true })}<div class="tx"><b>Neon Ronin</b><span class="l2">Kavita · 24 issues</span><span class="cur">Downloading #13</span>
+        <div class="pb"><span class="t"><i style="width:50%"></i></span><span>12 of 24 files</span></div></div>
+        <span class="btn sm" style="align-self:flex-start">Stop</span></div>`;
+  const downloadsActive = () => `<div class="sheet">
+      <div class="dh"><div class="tx"><b>Downloads</b><span>1 downloading · 2 waiting</span></div><span class="ib">${I.close}</span></div>
+      <div class="sh2">Downloading</div>
+      ${nowBlock()}
+      <div class="sh2">Waiting</div>
+      ${dRow("Star-Courier-002", "Star Courier", "8 issues", `<span class="ib">${sz(I.close, 20)}</span>`)}
+      ${dRow("Glass-Meridian", "Glass Meridian", "J. R. Okafor", `<span class="ib">${sz(I.close, 20)}</span>`)}
+      <div class="sh2">Couldn't download</div>
+      ${dRow("Hollow-Moon-004", "Hollow Moon", "Got 2 of 4 files. Kavita answered with an error (500) for #3.", `<span class="btn sm">Try again</span><span class="ib">${sz(I.trash, 20)}</span>`, { err: true })}
+      <div class="sh2">Finished<span class="a">Clear list</span></div>
+      <div class="sh3">Today</div>
+      ${dRow("Ashfall-Academy-v01", "Ashfall Academy", "3 volumes", `<span class="tm2">10:42</span>`)}
+    </div>`;
+  const downloadsFinished = () => `<div class="sheet">
+      <div class="dh"><div class="tx"><b>Downloads</b><span>Nothing downloading</span></div><span class="ib">${I.close}</span></div>
+      <div class="sh2">Finished<span class="a">Clear list</span></div>
+      <div class="sh3">Today</div>
+      ${dRow("Ashfall-Academy-v01", "Ashfall Academy", "3 volumes · 10:42", `<span class="ib">${I.chev}</span>`)}
+      ${dRow("The-Salt-Orchard", "The Salt Orchard", "Mira Kalden · 09:15", `<span class="btn sm">Read</span>`)}
+      <div class="sh3">Yesterday</div>
+      ${dRow("Moths-of-Lisbon", "Moths of Lisbon", "Paulo Serra · 21:03", `<span class="btn sm">Read</span>`)}
+      ${dRow("Star-Courier-001", "Star Courier", "Issue 1 · 20:58", `<span class="btn sm">Read</span>`)}
+      <div class="sh3">Earlier</div>
+      ${dRow("Neon-Ronin-001", "Neon Ronin", "24 issues · 18 Oct", `<span class="ib">${I.chev}</span>`)}
+      ${dRow("Quiet-Engines", "Quiet Engines", "Lena Aster · 12 Oct", `<span class="btn sm">Read</span>`)}
+    </div>`;
+  const emptyDrawing = () => `<svg viewBox="0 0 120 64" style="width:132px;height:70px;color:var(--m-fg3)" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M22 20.5 50 17l3.5 39-28 3.5z"/><rect x="46" y="8" width="30" height="44" rx="3"/><path d="M98 20.5 70 17l-3.5 39 28 3.5z"/><path d="M10 62h100"/></svg>`;
+  const downloadsEmpty = () => `<div class="sheet">
+      <div class="dh"><div class="tx"><b>Downloads</b></div><span class="ib">${I.close}</span></div>
+      <div style="display:grid;justify-items:center;text-align:center;gap:12px;padding:70px 36px 0">${emptyDrawing()}
+        <div style="font-size:28px;line-height:34px;font-weight:700;margin-top:8px">Nothing downloaded</div>
+        <div style="font-size:15px;line-height:22px;color:var(--m-fg3)">Downloaded books open without the server. Use Download on a book's page, or long-press covers to pick several.</div></div>
+    </div>`;
+  const downloadsSpace = () => `<div class="sheet">
+      <div class="sh3" style="padding-top:14px">Earlier</div>
+      ${dRow("Neon-Ronin-001", "Neon Ronin", "24 issues · 18 Oct", `<span class="ib">${I.chev}</span>`)}
+      ${dRow("Quiet-Engines", "Quiet Engines", "Lena Aster · 12 Oct", `<span class="btn sm">Read</span>`)}
+      <div class="dfoot"><span style="color:var(--m-fg2)">${sz(I.folder, 20)}</span><span>On this device: <b>112 books and comics</b> · <b>3.4 GB</b></span></div>
+    </div>`;
+
+  // ---------- Kavita lists ----------
+  const COLLECTIONS = [
+    ["Glass-Meridian", "Award winners", 14], ["The-Salt-Orchard", "Book club", 5], ["Small-Gods-of-Kitchen", "Comfort reads", 9], ["Neon-Ronin-001", "Cyberpunk", 6],
+    ["Ashfall-Academy-v03", "Finished series", 11], ["The-Lantern-Keepers", "Ghost stories", 7], ["severny-veter", "In Russian", 4], ["Star-Courier-001", "Space operas", 8],
+  ];
+  const LISTS = [
+    ["Ashfall-Academy-v01", "Ashfall Academy, in order", 4, "Volumes 1 to 3, then the side story."],
+    ["The-Salt-Orchard", "Book club 2026", 5, "One a month, chosen by turns."],
+    ["Hollow-Moon-004", "Hollow Moon", 4, ""],
+    ["Moths-of-Lisbon", "Lisbon trip", 2, ""],
+    ["Neon-Ronin-001", "Neon Ronin, in order", 12, "The whole run, with the two specials where they fall."],
+    ["Small-Gods-of-Kitchen", "Short and strange", 7, ""],
+    ["Star-Courier-001", "Star Courier: first arc", 6, "Issues 1 to 6, before the crossover."],
+    ["Paper-Cranes-in-Winter", "Winter reading", 8, "Long novels for the dark months."],
+  ];
+  const AZ = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+  const azRail = (on) => `<div class="az">${AZ.filter((_, i) => i % 2 === 0).map(l => on.includes(l) ? `<b>${l}</b>` : `<span>${l}</span>`).join("")}</div>`;
+  const kavitaToday = () => `<div class="gbar"><span class="ib">${I.menu}</span><span class="ib">${I.back}</span><span class="nm">Collections</span><span class="sp"></span><span class="ib">${I.search}</span><span class="ib">${I.dl}</span><span class="ib">${I.dots}</span></div>
+      <div style="padding:96px 52px 0 24px">
+        <div style="font-size:16px;font-weight:500;color:var(--m-fg3)">56 items</div>
+        <div class="tgrid" style="grid-template-columns:repeat(4,1fr);margin-top:14px">${COLLECTIONS.map(([id, t, n]) => tile(id, t, "", { badge: n })).join("")}</div></div>
+      ${azRail("A")}`;
+  const kavitaHeader = (kind) => `<div class="gbar clear"><span class="ib">${I.menu}</span><span class="ib">${I.back}</span><span class="sp"></span><span class="ib">${I.search}</span><span class="ib">${I.dl}</span><span class="ib">${I.dots}</span></div>
+      <div style="padding:84px 52px 0 24px">
+        <div class="stitle">${kind === "lists" ? "Reading lists" : "Collections"}</div>
+        <div class="ssub">${kind === "lists" ? "14 reading lists" : "56 collections"}</div>
+        <div class="seg" style="width:280px;margin-top:20px"><span class="${kind === "lists" ? "" : "on"}">Collections</span><span class="${kind === "lists" ? "on" : ""}">Reading lists</span></div>`;
+  const kavitaHeaderMock = () => `${kavitaHeader("collections")}
+        <div class="tgrid" style="grid-template-columns:repeat(4,1fr);margin-top:30px">${COLLECTIONS.map(([id, t, n]) => tile(id, t, `${n} series`, { stack: true })).join("")}</div></div>
+      ${azRail("A")}`;
+  const kavitaTilesA = () => `${kavitaHeader("lists")}
+        <div class="tgrid" style="grid-template-columns:repeat(4,1fr);margin-top:24px">${LISTS.map(([id, t, n]) => tile(id, t, `${n} items`)).join("")}</div></div>
+      ${azRail("A")}`;
+  const kavitaTilesB = () => `${kavitaHeader("lists")}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;margin-top:24px">${LISTS.map(([id, t, n, s]) => `<div style="display:flex;gap:14px;padding:8px 0">
+          <div style="width:72px;flex:none">${cover(id)}</div>
+          <div style="min-width:0;padding-top:2px"><div style="font-size:15.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t}</div>
+            ${s ? `<div style="font-size:13px;line-height:18px;color:var(--m-fg2);margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${s}</div>` : ""}
+            <div class="tm" style="margin-top:4px">${n} items</div></div></div>`).join("")}</div></div>
+      ${azRail("A")}`;
+  const BOOKCLUB = [
+    ["The-Salt-Orchard", "The Salt Orchard", "Mira Kalden", { done: 1 }],
+    ["Glass-Meridian", "Glass Meridian", "J. R. Okafor", { done: 1 }],
+    ["Moths-of-Lisbon", "Moths of Lisbon", "Paulo Serra", { p: 22 }],
+    ["Quiet-Engines", "Quiet Engines", "Lena Aster", {}],
+    ["The-Lantern-Keepers", "The Lantern Keepers", "Oona Fitch", {}],
+  ];
+  const listToday = () => `<div class="gbar"><span class="ib">${I.menu}</span><span class="ib">${I.back}</span><span class="nm">Book club 2026</span><span class="sp"></span><span class="ib">${I.search}</span><span class="ib">${I.dl}</span><span class="ib">${I.dots}</span></div>
+      <div style="padding:96px 24px 0">
+        <div style="display:flex;gap:8px"><span class="chip">${I.filter}Filters</span><span style="flex:1"></span><span class="chip" style="opacity:.6">${I.tune}List order</span></div>
+        <div class="tgrid" style="grid-template-columns:repeat(4,1fr);margin-top:22px">${BOOKCLUB.map(([id, t, a, o]) => tile(id, t, a, o)).join("")}</div></div>`;
+  const listOpened = () => `<div class="gbar clear"><span class="ib">${I.menu}</span><span class="ib">${I.back}</span><span class="sp"></span><span class="ib">${I.search}</span><span class="ib">${I.dl}</span><span class="ib">${I.dots}</span></div>
+      <div style="padding:84px 24px 0">
+        <div class="stitle">Book club 2026</div>
+        <div class="lead" style="margin-top:8px;max-width:560px">One a month, chosen by turns. We meet on the last Thursday; finish the book before then.</div>
+        <div class="ssub" style="margin-top:8px">5 items · 2 read</div>
+        <div class="rc" style="margin-top:22px"><span class="bgl"></span>
+          <div style="width:150px;flex:none">${cover("Moths-of-Lisbon", { sh: true, p: 22 })}</div>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+            <div class="eb">Up next in this list · 3 of 5</div><div class="ti">Moths of Lisbon</div><div class="au">Paulo Serra</div>
+            <div style="margin-top:auto"><div class="pm"><span>Page 47 of 210</span><span>22%</span></div><div class="hb"><i style="width:22%"></i></div>
+            <div style="display:flex;gap:10px;margin-top:16px"><span class="btn pri">Continue</span><span class="btn ton">Details</span></div></div></div></div>
+        <div style="display:flex;gap:8px;margin-top:24px"><span class="chip">${I.filter}Filters</span><span style="flex:1"></span><span class="chip" style="opacity:.6">${I.tune}List order</span></div>
+        <div class="tgrid" style="grid-template-columns:repeat(4,1fr);margin-top:22px">${BOOKCLUB.map(([id, t, a, o]) => tile(id, t, a, o)).join("")}</div></div>`;
+  const kavitaEmpty = (connected) => `<div class="gbar clear"><span class="ib">${I.menu}</span><span class="ib">${I.back}</span><span class="sp"></span><span class="ib">${I.search}</span><span class="ib">${I.dl}</span><span class="ib">${I.dots}</span></div>
+      <div style="padding:84px 24px 0"><div class="stitle">Collections</div>
+        <div class="seg" style="width:280px;margin-top:20px"><span class="on">Collections</span><span>Reading lists</span></div>
+        <div style="display:grid;justify-items:center;text-align:center;gap:12px;padding:64px 120px 0">${emptyDrawing()}
+          <div style="font-size:28px;line-height:34px;font-weight:700;margin-top:8px">${connected ? "No collections yet" : "Kavita isn't connected"}</div>
+          <div style="font-size:15px;line-height:22px;color:var(--m-fg3)">${connected ? "Collections you make in Kavita show up here after the next sync." : "Add your Kavita server, and its collections show up here after the first sync."}</div>
+          ${connected ? "" : `<span class="btn pri lg" style="margin-top:8px">Connect Kavita</span>`}</div></div>`;
+
+  // ---------- First launch ----------
+  const welcomeA = () => `<div style="position:absolute;inset:0;display:flex;justify-content:center">
+      <div style="width:520px;padding-top:120px;display:grid;gap:30px;align-content:start">
+        ${trio(58)}
+        <div><div class="stitle">Where are your books?</div><div class="lead">yabai reads EPUB, PDF and comics (CBZ and CBR) from your own server or from this device.</div></div>
+        ${choiceRows()}
+        <div style="display:grid;justify-items:center;gap:4px"><span class="btn txt">Not now</span><span class="hint">You can connect more servers later in Settings.</span></div>
+      </div></div>`;
+  const welcomeB = () => `<div class="gbar clear"><span class="ib">${I.menu}</span><span class="sp"></span><span class="ib">${I.search}</span><span class="ib">${I.dl}</span><span class="ib">${I.dots}</span></div>
+      <div style="padding:84px 24px 0"><div class="stitle">Local</div></div>
+      <div style="display:flex;justify-content:center"><div style="width:480px;display:grid;gap:24px;padding-top:60px">
+        <div style="display:grid;justify-items:center;text-align:center;gap:10px">${emptyDrawing()}
+          <div style="font-size:28px;line-height:34px;font-weight:700;margin-top:8px">Add your books</div>
+          <div style="font-size:15px;line-height:22px;color:var(--m-fg3)">Connect a server, or import files from this device.</div></div>
+        ${choiceRows()}</div></div>`;
+  const connectForm = () => `<div class="gbar clear"><span class="ib">${I.back}</span></div>
+      <div style="position:absolute;inset:0;display:flex;justify-content:center"><div style="width:600px;padding-top:110px;display:grid;gap:24px;align-content:start">
+        <div><div class="stitle">Connect Kavita</div><div class="lead">Use the address you open Kavita at in a browser, and your Kavita account.</div></div>
+        <div class="panel"><div class="fgrid">
+          <div class="field w"><small>Server URL</small><span>http://192.168.1.20:5000</span></div>
+          <div class="field w"><small>Backup URL</small><span style="color:var(--m-fg3)">Optional</span></div>
+          <div class="field"><small>Username</small><span>reader</span></div>
+          <div class="field"><small>Password</small><span>••••••••</span></div></div></div>
+        <span class="btn pri lg" style="width:100%">Connect</span>
+        <div class="hint">The backup address is tried when the first one doesn't answer, such as a Tailscale address for when you are away from home.</div>
+      </div></div>`;
+  const connectSync = () => `<div class="gbar clear"><span class="ib">${I.back}</span></div>
+      <div style="position:absolute;inset:0;display:flex;justify-content:center"><div style="width:600px;padding-top:110px;display:grid;gap:28px;align-content:start">
+        <div><div class="stitle">Kavita</div>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:12px"><span class="pill ok">${I.ok}Connected</span><span class="ssub" style="margin:0">192.168.1.20:5000 · signed in as reader</span></div></div>
+        <div class="panel" style="padding:20px">
+          <div style="font-size:17px;font-weight:650">Getting your library</div>
+          <div class="pb" style="margin-top:14px"><span class="t"><i style="width:35%"></i></span><span>35%</span></div>
+          <div class="hint" style="margin-top:8px">Loading Kavita series…</div>
+          <div style="font-size:14px;line-height:20px;color:var(--m-fg2);margin-top:16px">Books appear as they arrive, so you can start reading now. Kavita opens first when you start the app.</div></div>
+        <div style="display:flex;gap:10px"><span class="btn pri lg" style="flex:1">Open library</span><span class="btn lg">Connect another</span></div>
+      </div></div>`;
+  const drawerMock = () => `<div style="position:absolute;inset:0;background:rgba(0,0,0,.45)"></div><div class="drw">
+      <div class="hd">Library</div><div class="gh">Sources</div>
+      <div class="drow on">${I.kavita}Kavita</div>
+      <div class="drow sub">${I.home}Home</div><div class="drow sub">${I.kavita}Collections</div><div class="drow sub">${I.lists}Reading lists</div>
+      <div class="drow">${I.folder}Local</div>
+      <div class="drow add">${I.plus}Add a server</div>
+      <div style="flex:1"></div><div style="height:1px;background:var(--m-line);margin:8px 16px"></div>
+      <div class="drow">${I.journal}Journal</div><div class="drow">${I.gear}Settings</div></div>`;
+  const railMock = () => `<div class="rail">
+      <div class="ri on"><span class="p">${I.kavita}</span>Kavita</div>
+      <div class="ri"><span class="p">${I.folder}</span>Local</div>
+      <div class="ri add"><span class="p">${I.plus}</span>Add</div>
+      <div style="flex:1"></div>
+      <div class="ri"><span class="p">${I.journal}</span>Journal</div>
+      <div class="ri"><span class="p">${I.gear}</span>Settings</div></div>
+      <div style="position:absolute;left:88px;right:0;top:0;bottom:0;padding:84px 0 0 24px;opacity:.55">
+        <div class="stitle">Kavita</div><div class="ssub">1,474 books and comics</div>
+        <div class="tgrid" style="grid-template-columns:repeat(2,150px);margin-top:26px">${["Neon-Ronin-001", "Glass-Meridian", "Star-Courier-001", "The-Salt-Orchard"].map(id => cover(id)).join("")}</div></div>`;
+
+  // ---------- cards ----------
+  const PARTS = [
+    { id: "part-downloads", t: "Downloads", lede: "The sheet the Downloads button opens: a side sheet on tablets, a bottom sheet on phones. Already decided: it is an AppSideSheet, and finished downloads have no bar." },
+    { id: "part-kavita", t: "Collections and Reading lists", lede: "Kavita's two kinds of lists. Each opens as a grid of covers (the landing), and one of them opens as a grid of its books." },
+    { id: "part-start", t: "The first launch", lede: "What a new install shows before any server is connected." },
+  ];
+  const ITEMS = [
+    {
+      part: "part-downloads", id: "downloads-active", t: "The sheet leads with what is running",
+      tags: ["Downloads"], rec: "My pick: Do",
+      what: ["Today every entry is the same row: a small cover, the title, a status line (\"12/24 files\", \"Queued\"), icon buttons at the end, and a bar under the running one; sections read Active, Failed and History. Proposed: the sheet's title at 20 Bold and what is going on (\"1 downloading · 2 waiting\"). The running download is a raised block with a larger cover, the file it is on (\"Downloading #13\"), a 6 dp accent bar with \"12 of 24 files\", and Stop. Waiting ones are short rows with ×; one held until the server answers says \"Waiting for Kavita\". A failed one, under \"Couldn't download\", says how far it got and what went wrong, with Try again and a remove button (which deletes the files it got).",
+        "The app counts files, not bytes, so the bar moves a file at a time; a single book gets a moving bar."],
+      today: { label: "Today", sub: "drawn from the code", w: 420, h: 820, html: downloadsToday },
+      panes: [{ label: "Proposed", sub: "with a queue", w: 420, h: 820, html: downloadsActive }],
+      choices: [["do", "Do"], ["maybe", "Maybe"], ["dont", "Don't"]],
+    },
+    {
+      part: "part-downloads", id: "downloads-finished", t: "Finished downloads by day, each a way into the book",
+      tags: ["Downloads"], rec: "My pick: Do",
+      what: ["Today finished downloads sit under History (\"Downloaded 3 files\", or the author), a broom icon in the header clears them, and a tap opens the reader. A finished download can't be removed from the sheet; that takes the book's page. Proposed: \"Finished\" with Clear list at its end (it clears the list and keeps the files, as today), and the rows grouped under Today, Yesterday and Earlier with the time. A tap opens the book's page, where Continue and Remove download are; Read on a single book's row opens it straight away."],
+      today: { label: "Today", sub: "drawn from the code", w: 420, h: 820, html: downloadsToday },
+      panes: [{ label: "Proposed", sub: "nothing running", w: 420, h: 820, html: downloadsFinished }],
+      choices: [["do", "Do"], ["maybe", "Maybe"], ["dont", "Don't"]],
+    },
+    {
+      part: "part-downloads", id: "downloads-empty", t: "An empty sheet says what downloads are for",
+      tags: ["Downloads"], rec: "My pick: Do",
+      what: ["Today: \"No downloads yet\" and a grey box saying queued, failed and completed downloads will appear here. Proposed: the kit's empty state (the three-book drawing, a 28 Bold title, one sentence): \"Nothing downloaded\", \"Downloaded books open without the server. Use Download on a book's page, or long-press covers to pick several.\""],
+      today: { label: "Today", sub: "fresh install, 800 dp", w: 800, h: 800, img: T + "downloads-empty.jpg" },
+      panes: [{ label: "Proposed", sub: "", w: 420, h: 520, html: downloadsEmpty }],
+      choices: [["do", "Do"], ["maybe", "Maybe"], ["dont", "Don't"]],
+    },
+    {
+      part: "part-downloads", id: "downloads-space", t: "The sheet says how much space downloads take",
+      tags: ["Downloads", "New data"], rec: "My pick: Do",
+      what: ["Nothing in the app knows a file's size today, so you can't see what downloads cost in space. Proposed: one line at the foot of the sheet, \"On this device: 112 books and comics · 3.4 GB\", added up from the downloaded files off the main thread when the sheet opens. Removing files stays on each book's page; a storage page that removes many at once would be a later step."],
+      panes: [{ label: "Proposed", sub: "the foot of the sheet", w: 420, h: 300, html: downloadsSpace }],
+      narrow: true,
+      choices: [["do", "Do"], ["maybe", "Maybe"], ["dont", "Don't"]],
+    },
+    {
+      part: "part-kavita", id: "kavita-header", t: "A title, and a switch between Collections and Reading lists",
+      tags: ["Kavita lists"], rec: "My pick: Do",
+      what: ["Today the bar holds the menu, a back arrow and \"Collections\"; the page starts with \"56 items\" in grey, and the other kind of list is only reached from the drawer or the rail's Kavita menu. Proposed: like the library and Settings, the page opens with its name at 40 Bold (32 on phones) and \"56 collections\" under it, then a Collections / Reading lists switch (a 280 dp segmented row) that swaps the grid in place. The bar is see-through and has no name while the title shows. Back still returns to Kavita's home."],
+      today: { label: "Today", sub: "drawn from the code", w: 800, h: 760, html: kavitaToday },
+      panes: [{ label: "Proposed", sub: "", w: 800, h: 760, html: kavitaHeaderMock }],
+      choices: [["do", "Do"], ["maybe", "Maybe"], ["dont", "Don't"]],
+    },
+    {
+      part: "part-kavita", id: "kavita-tiles", t: "How a list looks on the landing",
+      tags: ["Kavita lists", "Your call"],
+      what: ["Today each cover has its count in a badge in the corner and the name under it. A keeps the grid and makes it read like the library: the count moves to the meta line (\"8 items\"), the badge goes, and a collection is drawn as a stack, the two card edges series tiles have (shown in the card above). B makes each list a row, two columns on a tablet: a 72 dp cover, the name, the list's description in two lines where it has one, and the count. Reading lists often carry a description in Kavita; collections rarely do, so B could be for Reading lists only."],
+      panes: [
+        { label: "Option A", sub: "the grid, count on the meta line", w: 800, h: 760, html: kavitaTilesA },
+        { label: "Option B", sub: "rows with the description", w: 800, h: 760, html: kavitaTilesB },
+      ],
+      choices: [["a", "A"], ["b", "B"], ["neither", "Neither"]],
+    },
+    {
+      part: "part-kavita", id: "kavita-opened", t: "An open reading list starts with where you are in it",
+      tags: ["Kavita lists"], rec: "My pick: Do",
+      what: ["Today an opened list is the library grid with \"List order\" fixed and no header: the name is in the bar and the list's description is nowhere. Proposed: the series view's top (8.3, B) for lists: the name, the description (four lines, then More), \"5 items · 2 read\", and the reading card for the one to read next (\"Up next in this list · 3 of 5\", Continue, or Start when none is begun). The grid follows in list order. An opened collection gets the name, the description and \"12 series\", without the card: its series have no order to follow."],
+      today: { label: "Today", sub: "drawn from the code", w: 800, h: 760, html: listToday },
+      panes: [{ label: "Proposed", sub: "a reading list", w: 800, h: 1080, html: listOpened }],
+      choices: [["do", "Do"], ["maybe", "Maybe"], ["dont", "Don't"]],
+    },
+    {
+      part: "part-kavita", id: "kavita-empty", t: "Not connected is not \"no collections\"",
+      tags: ["Kavita lists"], rec: "My pick: Do",
+      what: ["Today, with Kavita not connected, Collections reads \"0 items\" and \"No Kavita collections yet\". Proposed: the library's empty states. Not connected: \"Kavita isn't connected\" with Connect Kavita. Connected with none: \"No collections yet\" and \"Collections you make in Kavita show up here after the next sync.\" Reading lists the same."],
+      today: { label: "Today", sub: "fresh install, 800 dp", w: 800, h: 360, img: T + "collections-empty.jpg" },
+      panes: [
+        { label: "Proposed", sub: "not connected", w: 800, h: 620, html: () => kavitaEmpty(false) },
+        { label: "Proposed", sub: "connected, none made", w: 800, h: 620, html: () => kavitaEmpty(true) },
+      ],
+      choices: [["do", "Do"], ["maybe", "Maybe"], ["dont", "Don't"]],
+    },
+    {
+      part: "part-start", id: "start-welcome", t: "A first launch that asks where your books are",
+      tags: ["First launch", "Your call"], rec: "My pick: A",
+      what: ["Today a new install opens on Kavita: an empty library with Filters and Last read chips, \"Kavita isn't connected\" and Connect Kavita. That button opens the Settings front page rather than Kavita's page, and Back from there leaves the app. Stump, Grimmory and importing files go unmentioned.",
+        "A: a one-time page before the library: \"Where are your books?\", one line on what yabai reads, and four choices (Kavita, Stump, Grimmory, Files on this device), with Not now under them. On a phone the column fills the width and the title is 32. B: no page of its own: the app opens on Local, whose empty state offers the same four choices, with the bar and the drawer around it."],
+      today: { label: "Today", sub: "fresh install, 800 dp", w: 800, h: 1000, img: T + "first-run.jpg" },
+      panes: [
+        { label: "Option A", sub: "a page of its own", w: 800, h: 1000, html: welcomeA },
+        { label: "Option B", sub: "in the library", w: 800, h: 1000, html: welcomeB },
+      ],
+      choices: [["a", "A"], ["b", "B"], ["neither", "Neither"]],
+    },
+    {
+      part: "part-start", id: "start-connect", t: "Connecting happens in the same flow, and shows the first sync",
+      tags: ["First launch"], rec: "My pick: Do",
+      what: ["Today Connect Kavita leaves you on the Settings front page (left), one tap away from the form. Proposed, after picking a server: \"Connect Kavita\", one line on which address to use, the same fields as Settings (server URL, backup URL, username, password) and a full-width Connect. Once signed in the page shows Connected and the account, the first sync filling a bar with the step it is on, and Open library ready at once, since books appear as they arrive. The server you connect moves to the top of Source order, so the app opens on it."],
+      today: { label: "Today", sub: "after Connect Kavita", w: 800, h: 800, img: T + "connect.jpg" },
+      panes: [
+        { label: "Proposed", sub: "the form", w: 800, h: 900, html: connectForm },
+        { label: "Proposed", sub: "signed in, first sync", w: 800, h: 900, html: connectSync },
+      ],
+      choices: [["do", "Do"], ["maybe", "Maybe"], ["dont", "Don't"]],
+    },
+    {
+      part: "part-start", id: "start-sources", t: "Servers you haven't set up stay out of the drawer and the rail",
+      tags: ["First launch", "Navigation"], rec: "My pick: Do",
+      what: ["Today the drawer and the rail list Kavita (with Home, Collections and Reading Lists), Stump, Grimmory and Local from the first launch, connected or not; on the tablet, Stump says \"isn't connected\" every time it is opened. Proposed: they list the servers you have connected, then Local, then \"Add a server\", which opens the same four choices as the first launch. Settings › Sources keeps all three servers, connected or not."],
+      today: { label: "Today", sub: "fresh install, drawer", w: 800, h: 1224, img: T + "drawer.jpg" },
+      panes: [
+        { label: "Proposed", sub: "drawer", w: 400, h: 820, html: drawerMock },
+        { label: "Proposed", sub: "rail, 1280 dp landscape", w: 400, h: 820, html: railMock },
+      ],
+      choices: [["do", "Do"], ["maybe", "Maybe"], ["dont", "Don't"]],
+    },
+  ];
+
+  // ---------- render ----------
+  const host = document.getElementById("parts");
+  const paneHTML = (p, k) => `<div class="pane" data-k="${k}"><div class="plabel">${p.label}<small>${p.sub || ""}</small></div>
+      <div class="frame" style="aspect-ratio:${p.w} / ${p.h}">${p.img ? `<img src="${p.img}" alt="${p.label}: the app today">` : `<div class="cv" style="width:${p.w}px;height:${p.h}px">${p.html()}</div>`}</div></div>`;
+  let n = 0;
+  PARTS.forEach(part => {
+    const h = document.createElement("h2"); h.className = "part"; h.id = part.id; h.textContent = part.t; host.appendChild(h);
+    const l = document.createElement("p"); l.className = "partlede"; l.textContent = part.lede; host.appendChild(l);
+    const ol = document.createElement("ol"); ol.className = "list"; host.appendChild(ol);
+    ITEMS.filter(it => it.part === part.id).forEach(it => {
+      n++;
+      const li = document.createElement("li");
+      li.className = "card"; li.id = it.id; li.dataset.c = "";
+      const panes = it.today ? [it.today, ...it.panes] : it.panes;
+      li.innerHTML = `<div class="rank">${n}</div><div class="body">
+        <h2>${it.t}</h2>
+        <div class="tags">${it.tags.map(t => `<span class="tag">${t}</span>`).join("")}${it.rec ? `<span class="tag pick">${it.rec}</span>` : ""}</div>
+        ${it.what.map(w => `<p class="what">${w}</p>`).join("")}
+        <div class="panes${it.narrow ? " narrow" : panes.length === 3 ? " three" : ""}">${panes.map((p, i) => paneHTML(p, i)).join("")}</div>
+        <div class="choose"><div class="pick" role="group" aria-label="Decision for ${it.t}">${it.choices.map(([v, l]) => `<button type="button" data-v="${v}" aria-pressed="false">${l}</button>`).join("")}</div>
+          <input class="note" id="note-${it.id}" type="text" placeholder="Note (optional): what you'd change" autocomplete="off"></div></div>`;
+      ol.appendChild(li);
+    });
+  });
+  const frames = [...document.querySelectorAll(".frame")];
+  const fit = f => { const cv = f.querySelector(".cv"); if (cv) cv.style.setProperty("--s", String(f.clientWidth / cv.offsetWidth)); };
+  frames.forEach(fit);
+  try { const ro = new ResizeObserver(es => es.forEach(e => fit(e.target))); frames.forEach(f => ro.observe(f)); } catch (e) { addEventListener("resize", () => frames.forEach(fit)); }
+
+  // ---------- picks: saved to the page when it can, this browser otherwise ----------
+  const state = {}; ITEMS.forEach(it => state[it.id] = { choice: null, note: "" });
+  const statusEl = document.getElementById("status");
+  const LS = "yabai-start-picks";
+  let col = null;
+  try { const saved = JSON.parse(localStorage.getItem(LS) || "{}"); Object.keys(saved).forEach(k => { if (state[k]) Object.assign(state[k], saved[k]); }); } catch (e) {}
+  const saveLocal = () => { try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {} };
+  function paint() {
+    let decided = 0;
+    ITEMS.forEach(it => {
+      const li = document.getElementById(it.id), s = state[it.id];
+      li.dataset.c = s.choice || "";
+      li.querySelectorAll(".pick button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === s.choice)));
+      const note = li.querySelector(".note"); if (document.activeElement !== note && note.value !== (s.note || "")) note.value = s.note || "";
+      if (s.choice) decided++;
+    });
+    document.getElementById("tally").textContent = `${decided} of ${ITEMS.length} decided`;
+  }
+  const pending = {};
+  async function write(id) {
+    saveLocal();
+    if (!col) return;
+    if (pending[id]) { pending[id].again = true; return; }
+    pending[id] = { again: false };
+    statusEl.textContent = "Saving…";
+    const it = ITEMS.find(x => x.id === id);
+    try {
+      do {
+        pending[id].again = false;
+        const body = { choice: state[id].choice, note: state[id].note || "", title: it.t, at: new Date().toISOString() };
+        try { await col.doc(id).set(body); }
+        catch (e) {
+          if (!e || e.code !== "unavailable") throw e;
+          await new Promise(r => setTimeout(r, 400 + Math.random() * 600));
+          await col.doc(id).set(body);
+        }
+      } while (pending[id].again);
+      statusEl.textContent = "Saved to this page";
+    } catch (e) {
+      statusEl.textContent = e && e.code === "invalid_argument" ? "You can view these picks but not change them" : "Couldn't save to the page; kept in this browser";
+    } finally { delete pending[id]; }
+  }
+  host.addEventListener("click", e => {
+    const b = e.target.closest(".pick button"); if (!b) return;
+    const id = b.closest(".card").id, v = b.dataset.v;
+    state[id].choice = state[id].choice === v ? null : v;
+    paint(); write(id);
+  });
+  const timers = {};
+  host.addEventListener("input", e => {
+    if (!e.target.classList.contains("note")) return;
+    const id = e.target.closest(".card").id; state[id].note = e.target.value; saveLocal();
+    clearTimeout(timers[id]); timers[id] = setTimeout(() => write(id), 700);
+  });
+  document.getElementById("copy").addEventListener("click", async () => {
+    const text = ITEMS.map((it, i) => `${i + 1}. ${it.t} [${it.id}]: ${state[it.id].choice || "no pick"}${state[it.id].note ? `; note: ${state[it.id].note}` : ""}`).join("\n");
+    const out = document.getElementById("copyout");
+    try { await navigator.clipboard.writeText(text); out.hidden = true; statusEl.textContent = "Picks copied; paste them in the chat"; }
+    catch (e) { out.value = text; out.hidden = false; out.focus(); out.select(); statusEl.textContent = "Copy the picks from the box below"; }
+  });
+  paint();
+  statusEl.textContent = "Saved in this browser";
+  (async () => {
+    try {
+      const cl = await new Promise(res => { let k = 0; const t = setInterval(() => { if ((window.claude && window.claude.use) || ++k > 50) { clearInterval(t); res(window.claude && window.claude.use ? window.claude : null); } }, 100); });
+      const db = cl ? await cl.use("db") : null;
+      if (!db) return;
+      col = db.collection("picks");
+      statusEl.textContent = "Saved to this page";
+      let first = true;
+      col.onSnapshot(snap => {
+        if (first) {
+          // Picks made where the page could not reach its store were kept in this browser: upload them.
+          first = false;
+          const stored = new Set(snap.docs.map(d => d.id));
+          ITEMS.forEach(it => { if (!stored.has(it.id) && (state[it.id].choice || state[it.id].note)) write(it.id); });
+        }
+        snap.docs.forEach(d => { const v = d.data(); if (v && state[d.id] && !pending[d.id]) { state[d.id].choice = v.choice || null; state[d.id].note = v.note || ""; } });
+        saveLocal(); paint();
+      }, () => { col = null; statusEl.textContent = "Saved in this browser"; });
+    } catch (e) { col = null; }
+  })();
+})();
+</script>
