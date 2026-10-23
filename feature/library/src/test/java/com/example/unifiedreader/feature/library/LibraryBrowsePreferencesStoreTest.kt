@@ -20,6 +20,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emitAll
@@ -88,6 +89,8 @@ class LibraryBrowsePreferencesStoreTest {
         )
 
         store.setSortMode(SourceType.LOCAL, LibrarySortMode.TITLE)
+        // The flow starts without a LOCAL sort, so wait for TITLE first or the check below proves nothing.
+        store.preferencesFlow.first { current -> current.sortsBySource[SourceType.LOCAL] == LibrarySortMode.TITLE }
         store.setSortMode(SourceType.LOCAL, defaultLibrarySortMode)
 
         val preferences = store.preferencesFlow.first { current ->
@@ -255,14 +258,10 @@ class LibraryBrowsePreferencesStoreTest {
             startupPreferences = startupPreferences,
             preferences = seededPreferences,
         )
-        val file = File.createTempFile("library-browse-startup", ".preferences_pb")
-        val dataStore = PreferenceDataStoreFactory.create(
-            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
-            produceFile = { file },
-        )
-
+        // A DataStore that has not emitted yet: the store's eager collector would otherwise replace
+        // the seeded value with the empty file's defaults before the assertion on a slow machine.
         val store = DataStoreLibraryBrowsePreferencesStore(
-            dataStore = dataStore,
+            dataStore = SilentPreferencesDataStore(),
             startupPreferences = startupPreferences,
         )
 
@@ -274,6 +273,15 @@ private fun testStartupPreferences() = ApplicationProvider.getApplicationContext
     "library-browse-test-${System.nanoTime()}",
     Context.MODE_PRIVATE,
 )
+
+/** A DataStore whose data never emits, for what the store shows before it has read anything. */
+private class SilentPreferencesDataStore : DataStore<Preferences> {
+    override val data: Flow<Preferences> = flow { awaitCancellation() }
+
+    override suspend fun updateData(
+        transform: suspend (t: Preferences) -> Preferences,
+    ): Preferences = transform(emptyPreferences())
+}
 
 private class RecoveringPreferencesDataStore : DataStore<Preferences> {
     private val collectionStarted = CompletableDeferred<Unit>()
