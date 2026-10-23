@@ -789,7 +789,8 @@ class JournalStateComputerTest {
 
         val item = snapshot.itemSummaries.single().item
         assertEquals("Chainsaw Man", item.displayTitle)
-        assertEquals("Chapter v24", item.displaySubtitle)
+        // The library's name for a Kavita volume, not its generated title.
+        assertEquals("Volume 24", item.displaySubtitle)
         assertEquals("https://example.test/catalog-cover.jpg", item.coverUrl)
     }
 

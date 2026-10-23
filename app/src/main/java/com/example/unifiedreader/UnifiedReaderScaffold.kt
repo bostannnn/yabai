@@ -117,6 +117,11 @@ fun UnifiedReaderScaffold(
         mutableStateOf<SettingsPage?>(null)
     }
     val settingsUsesSidePane = settingsUsesSidePane(currentAppWindowWidth())
+    // The journal's "Open in library": the book's page, once its source has loaded it.
+    var pendingBookPageItemId by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(uiState.topLevel) {
+        if (uiState.topLevel != TopLevelDestination.Library) pendingBookPageItemId = null
+    }
     var activeLibraryShelfSearchQuery by rememberLibraryShelfBrowserSearchQuery(
         browseContextKey = uiState.libraryBrowseContextKey,
         browserKind = activeLibraryShelfBrowserKind,
@@ -377,6 +382,8 @@ fun UnifiedReaderScaffold(
                                 onActiveShelfBrowserKindChanged = { activeLibraryShelfBrowserKind = it },
                                 shelfSearchQuery = activeLibraryShelfSearchQuery,
                                 onShelfSearchQueryChanged = { query -> activeLibraryShelfSearchQuery = query },
+                                bookPageRequest = pendingBookPageItemId,
+                                onBookPageRequestHandled = { pendingBookPageItemId = null },
                                 contentTopInset = AppTopBarDefaults.contentInset,
                                 modifier = Modifier.fillMaxSize(),
                             )
@@ -385,7 +392,10 @@ fun UnifiedReaderScaffold(
                                 // Only compute the heavy full journal snapshot (stats/timelines/catalog
                                 // join) while the Journal tab is actually on screen; elsewhere uiState
                                 // carries just the lightweight write-state.
-                                val journalSnapshot by viewModel.journalFullSnapshotFlow
+                                // One flow for the tab's life: a new one would restart from the light
+                                // write-state snapshot, which has no books, and close an open sheet.
+                                val journalSnapshotFlow = remember(viewModel) { viewModel.journalFullSnapshotFlow }
+                                val journalSnapshot by journalSnapshotFlow
                                     .collectAsStateWithLifecycle(initialValue = uiState.journalSnapshot)
                                 JournalScreen(
                                     snapshot = journalSnapshot,
@@ -393,6 +403,10 @@ fun UnifiedReaderScaffold(
                                     onCoverVisible = viewModel::ensureCoverCached,
                                     onDeleteItemJournal = viewModel::deleteItemJournal,
                                     onSaveJournalEntry = viewModel::saveJournalEntry,
+                                    onOpenInLibrary = { item ->
+                                        pendingBookPageItemId = item.id
+                                        viewModel.openLibrarySource(item.sourceType)
+                                    },
                                     contentTopInset = AppTopBarDefaults.contentInset,
                                     modifier = Modifier.fillMaxSize(),
                                 )

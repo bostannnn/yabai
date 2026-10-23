@@ -38,7 +38,7 @@ internal fun FinishedItemsRow(
 ) {
     JournalFinishedShelf(
         title = "Finished",
-        emptyText = "No finished items yet",
+        summary = "${overview.finishedItems.size} in ${overview.periodName()}",
         items = overview.finishedItems,
         coverImageUrlProvider = coverImageUrlProvider,
         onCoverVisible = onCoverVisible,
@@ -53,10 +53,11 @@ internal fun NeedsRatingItemsRow(
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onOpenItem: (JournalItemSummary) -> Unit,
 ) {
+    val unrated = finishedItemsNeedingRating(overview)
     JournalFinishedShelf(
         title = "Needs rating",
-        emptyText = "No unrated finished items",
-        items = finishedItemsNeedingRating(overview),
+        summary = "${unrated.size} to rate",
+        items = unrated,
         coverImageUrlProvider = coverImageUrlProvider,
         onCoverVisible = onCoverVisible,
         onOpenItem = onOpenItem,
@@ -66,32 +67,24 @@ internal fun NeedsRatingItemsRow(
 @Composable
 private fun JournalFinishedShelf(
     title: String,
-    emptyText: String,
+    summary: String,
     items: List<JournalItemSummary>,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onOpenItem: (JournalItemSummary) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            StatsSectionLabel(title)
-        }
-        if (items.isEmpty()) {
-            EmptyStatsMessage(emptyText)
-        } else {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(items, key = { summary -> summary.item.itemId }) { summary ->
-                    FinishedItemCard(
-                        summary = summary,
-                        coverImageUrlProvider = coverImageUrlProvider,
-                        onCoverVisible = onCoverVisible,
-                        onOpen = { onOpenItem(summary) },
-                    )
-                }
+    // An empty row folds away rather than saying so.
+    if (items.isEmpty()) return
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        JournalSectionHeader(title = title, summary = summary)
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            items(items, key = { summary -> summary.item.itemId }) { summary ->
+                FinishedItemCard(
+                    summary = summary,
+                    coverImageUrlProvider = coverImageUrlProvider,
+                    onCoverVisible = onCoverVisible,
+                    onOpen = { onOpenItem(summary) },
+                )
             }
         }
     }
@@ -115,6 +108,7 @@ private fun FinishedItemCard(
         Box {
             JournalCoverArt(
                 item = summary.item,
+                catalogItem = summary.catalogItem,
                 coverImageUrlProvider = coverImageUrlProvider,
                 onCoverVisible = onCoverVisible,
                 modifier = Modifier
@@ -149,7 +143,8 @@ private fun FinishedItemCard(
     }
 }
 
-private fun JournalPeriodOverview.periodLabel(): String = when (period) {
+/** "October", "2026": how the sections name the period. */
+internal fun JournalPeriodOverview.periodName(): String = when (period) {
     JournalPeriod.MONTH -> monthLabel().substringBefore(" ")
     JournalPeriod.YEAR -> yearLabel()
 }

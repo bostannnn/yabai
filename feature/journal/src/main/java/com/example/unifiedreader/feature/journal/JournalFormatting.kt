@@ -41,7 +41,7 @@ internal fun formatDate(
 
 internal fun formatShortDate(
     epochMillis: Long,
-): String = SimpleDateFormat("MMM d", Locale.US).format(Date(epochMillis))
+): String = SimpleDateFormat("d MMM", Locale.US).format(Date(epochMillis))
 
 internal fun formatDateTime(
     epochMillis: Long,

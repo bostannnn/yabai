@@ -99,6 +99,9 @@ internal fun LibraryRoute(
     onActiveShelfBrowserKindChanged: (LibraryShelfBrowserKind?) -> Unit = {},
     shelfSearchQuery: String = "",
     onShelfSearchQueryChanged: (String) -> Unit = {},
+    // A book page asked for from elsewhere (the journal), opened once the book is in this library.
+    bookPageRequest: String? = null,
+    onBookPageRequestHandled: () -> Unit = {},
     contentTopInset: Dp = 0.dp,
     modifier: Modifier = Modifier,
 ) {
@@ -117,6 +120,13 @@ internal fun LibraryRoute(
     // from its rows of covers on top: Back returns to the book before, × closes them all.
     var bookPageStack by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     val bookPageItemId = bookPageStack.lastOrNull()
+    LaunchedEffect(bookPageRequest, uiState.sourceItems, uiState.items) {
+        val requested = bookPageRequest ?: return@LaunchedEffect
+        if (uiState.sourceItems.any { it.id == requested } || uiState.items.any { it.id == requested }) {
+            bookPageStack = listOf(requested)
+            onBookPageRequestHandled()
+        }
+    }
     fun itemActionContextFor(state: AppUiState) = LibraryItemActionContext(
         progressByItemId = state.displayProgressByItemId,
         locallyAvailableItemIds = state.locallyAvailableRemoteItemIds,

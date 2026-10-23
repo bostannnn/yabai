@@ -1058,9 +1058,52 @@ Paper, and at phone landscape (891 x 411 dp through `wm size`, drawer). Not yet 
 
 ### 8.9 Screen passes `[ ]` (each mocked first)
 
-- [ ] Journal: larger figures, the chart in the accent with a soft fill, the calendar as an
-      intensity heatmap, book titles from metadata instead of file names, empty sections folded
-      away, no uppercase captions.
+- [x] Mock the journal below its header first: board https://claude.ai/artifact/2XyoEPyPe98aN3xweVFbkY
+      (`docs/design/second-pass/pages/journal.html`; picks save to the page), 2026-10-23. Picked: the
+      month heatmap Do, Year A (twelve months), When you read Maybe, one Finished row Don't (the two
+      rows stay), Ratings Do, Most read B (side by side), the day and book sheet Do, the empty month
+      Do.
+- [~] Journal, built 2026-10-23 on `claude/ui-redesign-step-8-135c61`, checked on the emulator
+      (`yabai_tablet_35` on 5558, Graphite, the Local library) at 800 dp portrait, 1280 dp landscape with
+      the rail and 411 dp phone width. Not yet on the tablet.
+  - [x] Top as the 8.9 mock: Month / Year as a 240 dp segmented row, the period as a 30 Bold title
+        between arrows, four figures at 46 Bold tabular (two by two on phones), "Pages per day" (per
+        month in Year) with the busiest day in its line and a tapped day instead, an area chart with a
+        2.5 dp accent line over a 16% fill and day labels every seven days, "Books and comics" as a
+        12 dp split bar whose legend carries the pace ("one finished every 2.5 days"). Sections sit
+        flat on the background, 36 dp apart, in a column of at most 960 dp.
+  - [x] Reading days (`JournalStatsCalendars.kt`): 44 dp squares in four accent steps scaled to the
+        busiest day, today ringed, a dot for a finish; beside it (under it on phones) the longest run,
+        the busiest day and the most finished in a day (only from two). Year: the twelve months four
+        across without numbers, scaled to the year. A day opens its sheet.
+  - [x] When you read (Maybe): only the shared rules, the heading and one line ("Busiest around
+        15:00") without the panel; today's bars and hour labels stay (every third hour on phones, where
+        24 did not fit).
+  - [x] Finished and Needs rating (Don't): the two rows stay, with section headings ("6 in October",
+        "5 to rate"), the library's covers and names, and fold away when empty.
+  - [x] Ratings: one section with the period's count and average, books and comics side by side as
+        five rows (a half star counts toward the star below), not shown with nothing rated.
+  - [x] Most read (B): the kinds side by side (authors, genres, writers, artists, tags; genres and
+        tags count books and comics together), the top three with a 4 dp bar each and See all. Still
+        from the finished books, as before.
+  - [x] The sheet (`JournalSheet.kt`, replaces `JournalDetailsModal.kt` and the facet rows dialog):
+        a 440 dp `AppSideSheet` with a page stack (Back steps back, × closes): a day's books (finished
+        first), a name's books, a kind's names, and a book's journal (cover, title, author, "Open in
+        library", the stars that save on tap, the review that saves when the field is left or the page
+        closes, the sessions, "Remove from journal" with the confirm dialog). "Open in library" opens
+        the book page in its source (`LibraryRoute(bookPageRequest)`) once that source has the book.
+  - [x] An empty period shows the kit's empty state with "Go to <the latest month with reading>"
+        (or "Nothing in your journal yet"). Not seen: the emulator's journal has no gap months.
+  - [x] Names and covers from the library: the journal matched books only against the server
+        catalog, so imported files showed file names and letter covers. `JournalRepository
+        .observeSnapshot(extraCatalogItems)` also matches the imported items, and the names come from
+        `libraryPrimaryText` / `librarySecondaryText` (Kavita's "Chapter v1" reads "Volume 1"). The
+        Journal tab keeps one snapshot flow (a new one restarted from the light write-state and would
+        have closed an open sheet).
+  - The pure parts are in `JournalOverviewModel.kt`, unit-tested; `JournalStatsSections.kt` went from
+    1003 lines to 307 (the dead metric grid and pace panels and the facet charts are gone).
+  - [ ] Tablet: the journal over the real Kavita history (ratings, most read, Year), the sheet, and
+        "Open in library" on a Kavita book.
 - [ ] Settings: a title, sentence-case group headings, a theme preview on the Theme row.
 - [ ] Downloads sheet, Kavita landing, first run.
 

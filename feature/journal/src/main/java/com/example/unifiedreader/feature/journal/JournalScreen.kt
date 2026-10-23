@@ -24,6 +24,8 @@ fun JournalScreen(
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit = { _, _ -> },
     onDeleteItemJournal: (String) -> Unit,
     onSaveJournalEntry: (JournalItemRef, Int?, String) -> Unit,
+    // Opens a book's page in the library, from its journal page.
+    onOpenInLibrary: ((ReadableItem) -> Unit)? = null,
     contentTopInset: Dp = 0.dp,
     modifier: Modifier = Modifier,
 ) {
@@ -34,6 +36,7 @@ fun JournalScreen(
         onCoverVisible = onCoverVisible,
         onDeleteItemJournal = { itemId -> deleteTarget = JournalDeleteTarget.Item(itemId) },
         onSaveJournalEntry = onSaveJournalEntry,
+        onOpenInLibrary = onOpenInLibrary,
         contentTopInset = contentTopInset,
         modifier = modifier,
     )
@@ -89,7 +92,7 @@ private sealed interface JournalDeleteTarget {
     data class Item(
         val itemId: String,
     ) : JournalDeleteTarget {
-        override val title: String = "Remove item journal?"
-        override val body: String = "This removes the local Journal entry and cached reading history for this item. Remote ratings and reviews are not cleared."
+        override val title: String = "Remove from journal?"
+        override val body: String = "This removes its rating, review and reading history from this device. Ratings and reviews on your server stay."
     }
 }

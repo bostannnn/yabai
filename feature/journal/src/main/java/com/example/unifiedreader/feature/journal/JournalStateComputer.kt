@@ -1,13 +1,12 @@
 package com.example.unifiedreader.feature.journal
 
 import com.example.unifiedreader.core.model.FormatType
-import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.facetMetadata
 import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.core.model.libraryPrimaryText
-import com.example.unifiedreader.core.model.primaryAuthor
+import com.example.unifiedreader.core.model.librarySecondaryText
 import com.example.unifiedreader.journal.classifyJournalMedia
 import com.example.unifiedreader.journal.journalMediaType
 import java.util.Calendar
@@ -115,23 +114,11 @@ private fun summaryItemRef(
             .firstOrNull { session -> !session.coverUrl.isNullOrBlank() }
             ?.coverUrl
     return (entry?.toItemRef() ?: newestEvent?.toItemRef() ?: newestSession?.toItemRef())?.copy(
-        itemPrimaryText = catalogItem?.journalPrimaryText()?.takeIf(String::isNotBlank),
-        itemSecondaryText = catalogItem?.journalSecondaryText()?.takeIf(String::isNotBlank),
+        // The library's own names: a series and "Volume 1" rather than a file name.
+        itemPrimaryText = catalogItem?.libraryPrimaryText()?.takeIf(String::isNotBlank),
+        itemSecondaryText = catalogItem?.librarySecondaryText()?.takeIf(String::isNotBlank),
         coverUrl = coverUrl,
     )
-}
-
-private fun ReadableItem.journalPrimaryText(): String = when (kind) {
-    ReadableItemKind.BOOK -> title
-    ReadableItemKind.COMIC -> comicMetadata?.series?.takeIf(String::isNotBlank) ?: title
-}
-
-private fun ReadableItem.journalSecondaryText(): String? = when (kind) {
-    ReadableItemKind.BOOK -> bookMetadata?.primaryAuthor()?.takeIf(String::isNotBlank)
-    ReadableItemKind.COMIC -> comicMetadata
-        ?.issueTitle
-        ?.takeIf(String::isNotBlank)
-        ?.takeUnless { issueTitle -> issueTitle == journalPrimaryText() }
 }
 
 fun computeStats(

@@ -10,7 +10,9 @@ import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibraryFilterPanel
@@ -1057,7 +1059,11 @@ class AppViewModel @Inject constructor(
      * the Journal tab collects this flow lazily, i.e. only while it is on screen.
      */
     val journalFullSnapshotFlow: kotlinx.coroutines.flow.Flow<com.example.unifiedreader.journal.JournalSnapshot>
-        get() = journalRepository.observeSnapshot()
+        get() = journalRepository.observeSnapshot(
+            extraCatalogItems = androidx.compose.runtime.snapshotFlow { uiState.items }
+                .distinctUntilChanged()
+                .map { items -> items.filter { item -> item.sourceType == SourceType.LOCAL } },
+        )
 
     private fun updateUiState(
         transform: (AppUiState) -> AppUiState,

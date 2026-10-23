@@ -11,11 +11,13 @@ import com.example.unifiedreader.feature.library.VisibleResolvedLibraryCover
 internal fun JournalCoverArt(
     item: JournalItemRef,
     modifier: Modifier = Modifier,
+    // The library's own item when the journal found it there: its cover resolves as in the library.
+    catalogItem: ReadableItem? = null,
     imageVariant: LibraryCoverImageVariant = LibraryCoverImageVariant.ShelfRow,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String? = { readableItem, _ -> readableItem.coverUrl },
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit = { _, _ -> },
 ) {
-    val readableItem = item.toReadableItem()
+    val readableItem = catalogItem ?: item.toReadableItem()
     VisibleResolvedLibraryCover(
         item = readableItem,
         coverImageUrlProvider = coverImageUrlProvider,

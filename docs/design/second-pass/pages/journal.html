@@ -1,0 +1,555 @@
+<title>Journal Section Mocks</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400..600&family=Manrope:wght@400..800&display=swap">
+<style>
+/* Layout: one column of decision cards, as on the earlier boards. Each card shows the app today
+   next to the proposal (or two options side by side) and ends in a choice. The board speaks in
+   Literata; everything inside a mock is the app: Manrope only, the Graphite palette, dp as px. */
+:root {
+  --bg: #f3f3f1; --panel: #ffffff; --sunk: #ecece9; --fg: #1b1d20; --muted: #5b626b; --faint: #8a9098;
+  --line: rgba(27, 29, 32, 0.12); --accent: #405f6b; --accent-soft: rgba(64, 95, 107, 0.12);
+  --do: #2f7a4f; --maybe: #9a6400; --dont: #b0413e;
+  --display: "Literata", Georgia, "Times New Roman", serif;
+  --ui: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1113; --panel: #171a1d; --sunk: #121417; --fg: #e7eaee; --muted: #9ea7b1; --faint: #6f7882;
+    --line: rgba(231, 234, 238, 0.12); --accent: #b7c7d9; --accent-soft: rgba(183, 199, 217, 0.14);
+    --do: #8fd1a6; --maybe: #f1c26b; --dont: #f0a09b; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1113; --panel: #171a1d; --sunk: #121417; --fg: #e7eaee; --muted: #9ea7b1; --faint: #6f7882;
+  --line: rgba(231, 234, 238, 0.12); --accent: #b7c7d9; --accent-soft: rgba(183, 199, 217, 0.14);
+  --do: #8fd1a6; --maybe: #f1c26b; --dont: #f0a09b; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--ui); font-size: 16px; line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 36px 120px;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+button, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.col { max-width: 1120px; margin-inline: auto; }
+.eyebrow { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--display); font-weight: 500; font-size: clamp(32px, 5vw, 48px); line-height: 1.06; letter-spacing: -0.015em; margin: 10px 0 0; text-wrap: balance; }
+.lede { font-size: 18px; max-width: 66ch; margin: 16px 0 0; }
+.how { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 18px; font-size: 14px; color: var(--muted); }
+.how b { color: var(--fg); font-weight: 650; }
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; margin-top: 26px; background: color-mix(in oklab, var(--bg) 88%, transparent);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-bottom: 1px solid var(--line); padding-block: 12px; }
+.bar .in { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; font-size: 14px; }
+.bar .tally { font-weight: 650; font-variant-numeric: tabular-nums; }
+.bar .sp { flex: 1; }
+.status { font-size: 13px; color: var(--muted); }
+.list { list-style: none; padding: 0; margin: 22px 0 0; display: grid; gap: 18px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 22px 24px 20px; display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 0 16px; }
+.rank { font-family: var(--display); font-size: 40px; line-height: .95; font-weight: 500; color: var(--faint); transition: color .2s; }
+.card[data-c] .rank { color: var(--do); }
+.card[data-c="maybe"] .rank, .card[data-c="b"] .rank { color: var(--maybe); }
+.card[data-c="dont"] .rank, .card[data-c="neither"] .rank { color: var(--dont); }
+.card[data-c=""] .rank { color: var(--faint); }
+.body { min-width: 0; }
+.card h2 { font-family: var(--display); font-weight: 500; font-size: 24px; line-height: 1.2; margin: 0; text-wrap: balance; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.tag { font-size: 12px; font-weight: 700; border-radius: 999px; padding: 3px 10px; background: var(--accent-soft); color: var(--muted); }
+.tag.pick { background: color-mix(in oklab, var(--do) 14%, transparent); color: var(--do); }
+.what { margin: 10px 0 0; font-size: 15.5px; max-width: 76ch; }
+.what + .what { margin-top: 8px; }
+.panes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 16px; align-items: start; }
+.panes.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.pane { min-width: 0; }
+.plabel { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin-bottom: 7px; }
+.plabel small { text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--faint); }
+.frame { position: relative; width: 100%; max-width: 100%; border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 1px var(--line); background: var(--sunk); }
+.frame > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.choose { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.pick { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.pick button { border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 8px 16px; font-size: 14px; font-weight: 700; cursor: pointer; color: var(--muted); transition: background .15s, color .15s, border-color .15s; }
+.pick button[aria-pressed="true"] { background: color-mix(in oklab, var(--do) 16%, transparent); border-color: var(--do); color: var(--do); }
+.pick button[data-v="maybe"][aria-pressed="true"], .pick button[data-v="b"][aria-pressed="true"] { background: color-mix(in oklab, var(--maybe) 16%, transparent); border-color: var(--maybe); color: var(--maybe); }
+.pick button[data-v="dont"][aria-pressed="true"], .pick button[data-v="neither"][aria-pressed="true"] { background: color-mix(in oklab, var(--dont) 16%, transparent); border-color: var(--dont); color: var(--dont); }
+.note { flex: 1; min-width: 200px; border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 8px 14px; font-size: 14px; }
+.note::placeholder { color: var(--faint); }
+.foot { margin-top: 36px; font-size: 14px; color: var(--muted); max-width: 70ch; }
+.foot p { margin: 0 0 10px; }
+@media (max-width: 760px) { .panes, .panes.three { grid-template-columns: 1fr; } .card { grid-template-columns: 1fr; padding: 18px 16px; } .rank { font-size: 32px; margin-bottom: 6px; } }
+@media (prefers-reduced-motion: reduce) { .rank, .pick button { transition: none; } }
+
+/* ============ app mocks: the app's own Graphite palette, 1 px = 1 dp ============ */
+.cv { position: absolute; left: 0; top: 0; transform-origin: 0 0; transform: scale(var(--s, .5)); overflow: hidden; font-family: var(--ui); color: var(--m-fg); background: var(--m-bg);
+  --m-bg: #101214; --m-surface: #171a1d; --m-c1: #1d2125; --m-c2: #252a2f; --m-c3: #30363c; --m-sel: #33475e; --m-on-sel: #d6e4f5;
+  --m-fg: #e7eaee; --m-fg2: #c8d0d8; --m-fg3: #8b949e; --m-line: rgba(231,234,238,.10);
+  --m-acc: #b7c7d9; --m-on-acc: #1d2c3d; --m-acc2: #e6b6a3; --m-err: #f2b8b5; --m-star: #f1c26b; }
+.cv svg.i { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex: none; display: block; }
+.jp { padding: 22px 20px 24px; }
+.sh { font-size: 17px; line-height: 24px; font-weight: 600; }
+.ssum { font-size: 14px; color: var(--m-fg3); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.row { display: flex; align-items: center; }
+.sp { flex: 1; }
+/* heat calendar */
+.wk { display: grid; gap: var(--g); grid-template-columns: repeat(7, var(--c)); }
+.wk .dn { height: 20px; font-size: 12px; font-weight: 600; color: var(--m-fg3); text-align: center; }
+.cell { width: var(--c); height: var(--c); border-radius: var(--r, 10px); background: var(--m-c1); position: relative; display: grid; place-items: center;
+  font-size: 13px; font-weight: 600; color: var(--m-fg3); font-variant-numeric: tabular-nums; }
+.cell.l1 { background: color-mix(in oklab, var(--m-acc) 24%, var(--m-c1)); color: var(--m-fg2); }
+.cell.l2 { background: color-mix(in oklab, var(--m-acc) 46%, var(--m-c1)); color: var(--m-fg); }
+.cell.l3 { background: color-mix(in oklab, var(--m-acc) 72%, var(--m-c1)); color: var(--m-on-acc); }
+.cell.l4 { background: var(--m-acc); color: var(--m-on-acc); }
+.cell.now { box-shadow: 0 0 0 2px var(--m-bg), 0 0 0 4px var(--m-acc); }
+.cell.fin::after { content: ""; position: absolute; right: 5px; bottom: 5px; width: 6px; height: 6px; border-radius: 50%; background: var(--m-acc2); }
+.cell.blank { background: transparent; }
+.legend { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--m-fg3); }
+.legend .cell { --c: 14px; --r: 4px; }
+.fig .v { font-size: 30px; line-height: 34px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.fig .k { font-size: 13px; font-weight: 600; color: var(--m-fg3); margin-top: 2px; }
+.mname { font-size: 13px; font-weight: 600; color: var(--m-fg2); margin-bottom: 6px; }
+/* bars */
+.bars { display: flex; align-items: flex-end; height: 132px; gap: 12px; border-bottom: 1px solid var(--m-line); }
+.bars i { flex: 1; border-radius: 5px 5px 2px 2px; background: color-mix(in oklab, var(--m-acc) 42%, var(--m-c1)); min-height: 0; }
+.bars i.pk { background: var(--m-acc); }
+.blab { display: flex; font-size: 12px; color: var(--m-fg3); margin-top: 6px; font-variant-numeric: tabular-nums; }
+/* covers */
+.cover { position: relative; width: 100%; aspect-ratio: 2 / 3; border-radius: 6px; overflow: hidden; background: var(--m-c2); box-shadow: 0 0 0 1px var(--m-line); }
+.cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ct { margin-top: 8px; font-size: 13.5px; font-weight: 650; line-height: 18px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.cm { font-size: 12.5px; color: var(--m-fg3); margin-top: 3px; display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+.rate { color: var(--m-acc); font-weight: 700; }
+.stars { display: inline-flex; gap: 1px; color: var(--m-star); vertical-align: middle; }
+.star { position: relative; width: var(--z, 13px); height: var(--z, 13px); flex: none; }
+.star svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.star .e { fill: none; stroke: color-mix(in oklab, var(--m-fg3) 70%, transparent); stroke-width: 1.6; }
+.star .f { fill: currentColor; stroke: none; }
+/* ratings */
+.hist { display: grid; grid-template-columns: 30px minmax(0, 1fr) 22px; gap: 9px 10px; align-items: center; font-size: 13px; font-variant-numeric: tabular-nums; }
+.hist .lb { color: var(--m-fg2); font-weight: 600; display: flex; align-items: center; gap: 3px; }
+.hist .tr { height: 8px; border-radius: 8px; background: var(--m-c1); overflow: hidden; }
+.hist .tr i { display: block; height: 100%; border-radius: 8px; background: var(--m-acc); }
+.hist .n { color: var(--m-fg3); text-align: right; }
+/* most read */
+.pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill { height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--m-line); display: inline-flex; align-items: center; gap: 7px; font-weight: 650; font-size: 14px; color: var(--m-fg2); }
+.pill .n { font-size: 12px; font-weight: 600; opacity: .8; }
+.pill.on { background: var(--m-sel); border-color: transparent; color: var(--m-on-sel); }
+.mr { padding: 10px 0; }
+.mr .t { display: flex; align-items: baseline; gap: 10px; font-size: 15px; font-weight: 600; }
+.mr .t span:first-child { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mr .t small { font-size: 13px; font-weight: 600; color: var(--m-fg3); font-variant-numeric: tabular-nums; }
+.mr .tr { height: 4px; border-radius: 4px; background: var(--m-c1); margin-top: 7px; overflow: hidden; }
+.mr .tr i { display: block; height: 100%; border-radius: 4px; background: var(--m-acc); }
+.all { color: var(--m-acc); font-size: 14px; font-weight: 650; }
+/* sheets */
+.sheet { position: absolute; inset: 12px 0 12px 12px; border-radius: 26px 0 0 26px; background: var(--m-surface); box-shadow: -8px 0 30px rgba(0,0,0,.35); padding: 14px 20px 20px; overflow: hidden; }
+.ib { width: 40px; height: 40px; border-radius: 999px; display: grid; place-items: center; color: var(--m-fg2); flex: none; }
+.stitle { font-size: 22px; line-height: 28px; font-weight: 700; }
+.drow { display: flex; align-items: center; gap: 14px; padding: 10px 0; }
+.drow .cover { width: 40px; flex: none; border-radius: 4px; }
+.drow .tx { flex: 1; min-width: 0; }
+.drow .tx b { display: block; font-size: 15px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.drow .tx span { display: block; font-size: 13px; color: var(--m-fg3); margin-top: 2px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.field { border-radius: 14px; background: var(--m-c1); padding: 12px 14px; font-size: 14.5px; line-height: 21px; color: var(--m-fg2); min-height: 96px; }
+.btn { height: 42px; padding: 0 18px; border-radius: 999px; font-weight: 700; font-size: 14.5px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap; background: var(--m-c3); color: var(--m-fg); }
+.lab { font-size: 13px; font-weight: 600; color: var(--m-fg3); margin-bottom: 8px; }
+.sess { display: flex; justify-content: space-between; font-size: 13.5px; padding: 8px 0; border-top: 1px solid var(--m-line); font-variant-numeric: tabular-nums; }
+.sess span:last-child { color: var(--m-fg3); }
+.danger { color: var(--m-err); font-size: 14.5px; font-weight: 700; }
+/* journal top, as decided */
+.seg { display: flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--m-c1); width: 220px; }
+.seg span { flex: 1; height: 34px; border-radius: 999px; display: grid; place-items: center; font-size: 14px; font-weight: 600; color: var(--m-fg3); }
+.seg span.on { background: var(--m-sel); color: var(--m-on-sel); }
+.ptitle { font-size: 30px; line-height: 36px; font-weight: 700; text-align: center; }
+.empty-art { width: 120px; height: 96px; margin: 0 auto; display: block; }
+</style>
+
+<main class="col">
+  <div class="eyebrow">Redesign step 8.9 · mocks before building</div>
+  <h1>The journal below its header</h1>
+  <p class="lede">The top of the journal is decided: Month and Year, the month as a title, four large figures, Pages per day and the Books and comics bar. These cards cover everything under it, in the order the page would show it, plus the sheet a day or a book opens. Mocks use the Graphite theme at 800 dp wide, a tablet in portrait.</p>
+  <div class="how"><span><b>Pick</b> on each card; your picks save to this page and I read them back.</span><span><b>Notes</b> say what you'd change.</span><span>Sizes are in dp.</span></div>
+  <div class="bar"><div class="in"><span class="tally" id="tally"></span><span class="sp"></span><span class="status" id="status">Loading…</span></div></div>
+  <ol class="list" id="list"></ol>
+  <div class="foot">
+    <p>Every proposal drops the uppercase captions and the panels inside panels: a section is a 17 sp heading with one line under it. A section with nothing to show folds away instead of saying "No ratings" or "No metadata yet".</p>
+    <p>Titles and covers come from the library. Today the journal shows file names ("Paper-Moon-01") and letter placeholders for books the library has covers for.</p>
+    <p>Not on a card: the pace line ("Books: 1 every 2.5 days") moves into the Books and comics legend ("Books · 30 pages · one finished every 2.5 days"). Ratings and the most-read rows are example data, because the emulator's library has none; the year calendar uses an example year, because it only has October.</p>
+  </div>
+</main>
+
+<script>
+(() => {
+  const C = "img/covers/", T = "img/today-journal/";
+  const I = {
+    close: '<svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+    back: '<svg class="i" viewBox="0 0 24 24"><path d="M19 12H5m0 0 6-6m-6 6 6 6"/></svg>',
+    left: '<svg class="i" viewBox="0 0 24 24"><path d="m14.5 6-6 6 6 6"/></svg>',
+    right: '<svg class="i" viewBox="0 0 24 24"><path d="m9.5 6 6 6-6 6"/></svg>',
+    lib: '<svg class="i" viewBox="0 0 24 24"><path d="M5 4.5h6a3 3 0 0 1 3 3v12a2.5 2.5 0 0 0-2.5-2.5H5z"/><path d="M19 4.5h-2a3 3 0 0 0-3 3"/></svg>',
+  };
+  const STAR = "M12 3.6l2.55 5.17 5.7.83-4.12 4.02.97 5.68L12 16.62l-5.1 2.68.97-5.68L3.75 9.6l5.7-.83z";
+  // A rating out of 10 (half stars), as the journal stores it.
+  const stars = (r10, z = 13) => {
+    let s = "";
+    for (let i = 1; i <= 5; i++) {
+      const fill = r10 >= 2 * i ? "" : r10 === 2 * i - 1 ? ' style="clip-path:inset(0 50% 0 0)"' : null;
+      s += `<span class="star"><svg viewBox="0 0 24 24"><path class="e" d="${STAR}"/></svg>${fill === null ? "" : `<svg viewBox="0 0 24 24"${fill}><path class="f" d="${STAR}"/></svg>`}</span>`;
+    }
+    return `<span class="stars" style="--z:${z}px">${s}</span>`;
+  };
+  const oneStar = (z = 11) => `<span class="stars" style="--z:${z}px"><span class="star"><svg viewBox="0 0 24 24"><path class="f" d="${STAR}"/></svg></span></span>`;
+  const cov = (id, style = "") => `<div class="cover"${style ? ` style="${style}"` : ""}><img src="${C}${id}.jpg" alt="" loading="lazy"></div>`;
+
+  // ---------- data: October 2026 from the emulator ----------
+  const OCT = { 17: { p: 24, f: 5 }, 18: { p: 3 }, 21: { p: 2 }, 22: { p: 25 }, 23: { p: 2, f: 1 } };
+  const level = (p, max) => !p ? 0 : p / max <= .25 ? 1 : p / max <= .5 ? 2 : p / max <= .75 ? 3 : 4;
+  const dow = (y, m, d) => (new Date(y, m, d).getDay() + 6) % 7; // Monday = 0
+  const daysIn = (y, m) => new Date(y, m + 1, 0).getDate();
+
+  const monthGrid = (y, m, data, o = {}) => {
+    const max = o.max || Math.max(1, ...Object.values(data).map(v => v.p || 0));
+    const start = dow(y, m, 1), n = daysIn(y, m);
+    let cells = o.noHead ? "" : ["M", "T", "W", "T", "F", "S", "S"].map(d => `<div class="dn">${d}</div>`).join("");
+    for (let i = 0; i < start; i++) cells += `<div class="cell blank"></div>`;
+    for (let d = 1; d <= n; d++) {
+      const v = data[d] || {}, l = level(v.p, max);
+      const cls = ["cell", l ? "l" + l : "", v.f && o.finished !== false ? "fin" : "", o.today === d ? "now" : ""].join(" ");
+      cells += `<div class="${cls}">${o.numbers === false ? "" : d}</div>`;
+    }
+    return `<div class="wk" style="--c:${o.c || 44}px;--g:${o.g || 6}px;--r:${o.r || 10}px">${cells}</div>`;
+  };
+  const legend = (fin = true) => `<div class="legend">Less ${[0, 1, 2, 3, 4].map(l => `<span class="cell${l ? " l" + l : ""}"></span>`).join("")} More
+      ${fin ? `<span style="width:14px"></span><span class="cell fin" style="--c:14px;background:transparent"></span>Finished something` : ""}</div>`;
+
+  // An example year (the emulator only has October): seeded so it draws the same every time.
+  const YEAR = (() => {
+    let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const y = {};
+    for (let m = 0; m < 12; m++) {
+      y[m] = {};
+      for (let d = 1; d <= daysIn(2026, m); d++) {
+        if (m > 9 || (m === 9 && d > 23)) continue;
+        const weekend = dow(2026, m, d) >= 5, busy = m === 6 || m === 7 ? 0.7 : 0.45;
+        if (rnd() < (weekend ? busy + 0.2 : busy)) y[m][d] = { p: Math.round(5 + rnd() * (weekend ? 70 : 40)), f: rnd() < 0.08 ? 1 : 0 };
+      }
+    }
+    return y;
+  })();
+  const yearMax = Math.max(...Object.values(YEAR).flatMap(m => Object.values(m).map(v => v.p)));
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  // ---------- pieces ----------
+  const top = (title = "October 2026") => `<div class="row" style="padding:20px 20px 0"><div class="seg"><span class="on">Month</span><span>Year</span></div></div>
+      <div class="row" style="padding:18px 20px 0"><span class="ib">${I.left}</span><span class="sp ptitle">${title}</span><span class="ib">${I.right}</span></div>`;
+
+  const monthCalendar = () => `<div class="jp">
+      <div class="sh">Reading days</div><div class="ssum">5 of 31 days · tap a day to see what you read</div>
+      <div style="display:flex;gap:40px;margin-top:16px;align-items:flex-start">
+        <div>${monthGrid(2026, 9, OCT, { today: 23 })}<div style="margin-top:14px">${legend()}</div></div>
+        <div style="display:grid;gap:22px;padding-top:30px">
+          <div class="fig"><div class="v">3 days</div><div class="k">longest run, 21-23 Oct</div></div>
+          <div class="fig"><div class="v">25 pages</div><div class="k">busiest day, Thu 22 Oct</div></div>
+          <div class="fig"><div class="v">Sat 17</div><div class="k">5 finished in one day</div></div>
+        </div>
+      </div></div>`;
+
+  const yearA = () => {
+    let months = "";
+    for (let m = 0; m < 12; m++) {
+      months += `<div><div class="mname">${MONTHS[m]}</div>${monthGrid(2026, m, YEAR[m], { c: 20, g: 4, r: 5, numbers: false, noHead: true, finished: false, max: yearMax, today: m === 9 ? 23 : 0 })}</div>`;
+    }
+    return `<div class="jp"><div class="sh">Reading days</div><div class="ssum">182 days in 2026 · longest run 11 days, in July</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:22px 24px;margin-top:16px">${months}</div>
+      <div style="margin-top:18px">${legend(false)}</div></div>`;
+  };
+  const yearB = () => {
+    // 53 week columns from Monday 29 Dec 2025; each column is Monday to Sunday.
+    const start = new Date(2025, 11, 29); let cols = "", heads = "";
+    let lastMonth = -1;
+    for (let w = 0; w < 53; w++) {
+      let col = "";
+      for (let d = 0; d < 7; d++) {
+        const day = new Date(start); day.setDate(start.getDate() + w * 7 + d);
+        if (day.getFullYear() !== 2026) { col += `<div class="cell blank" style="--c:11px"></div>`; continue; }
+        const v = YEAR[day.getMonth()][day.getDate()];
+        const l = v ? level(v.p, yearMax) : 0;
+        const now = day.getMonth() === 9 && day.getDate() === 23;
+        col += `<div class="cell${l ? " l" + l : ""}${now ? " now" : ""}" style="--c:11px;--r:3px"></div>`;
+      }
+      const first = new Date(start); first.setDate(start.getDate() + w * 7 + 6);
+      const m = first.getFullYear() === 2026 ? first.getMonth() : -1;
+      heads += `<div style="width:11px;flex:none;overflow:visible;white-space:nowrap;font-size:12px;font-weight:600;color:var(--m-fg3)">${m !== lastMonth && m >= 0 ? MONTHS[m] : ""}</div>`;
+      if (m >= 0) lastMonth = m;
+      cols += `<div style="display:grid;gap:3px">${col}</div>`;
+    }
+    return `<div class="jp"><div class="sh">Reading days</div><div class="ssum">182 days in 2026 · longest run 11 days, in July</div>
+      <div style="display:flex;gap:6px;margin-top:16px">
+        <div style="display:grid;grid-template-rows:20px repeat(7,11px);gap:3px;font-size:11px;font-weight:600;color:var(--m-fg3);width:14px">
+          <span></span><span>M</span><span></span><span>W</span><span></span><span>F</span><span></span><span></span></div>
+        <div><div style="display:flex;gap:3px;height:20px">${heads}</div><div style="display:flex;gap:3px;margin-top:3px">${cols}</div></div>
+      </div>
+      <div style="margin-top:18px">${legend(false)}</div>
+      <div class="ssum" style="margin-top:22px">On a phone the strip scrolls sideways and opens at the current month.</div></div>`;
+  };
+
+  const HOURS = [0.4, 0, 0, 0, 0, 0, 0, 0, 0, 0.3, 0, 0, 0, 0, 2.55, 2.7, 2.6, 2.6, 1.2, 0.6, 0.1, 0.1, 0, 0];
+  const whenYouRead = () => {
+    const max = Math.max(...HOURS);
+    const bars = HOURS.map((v, h) => `<i class="${v === max ? "pk" : ""}" style="height:${v ? Math.max(4, v / max * 132) : 0}px"></i>`).join("");
+    const labels = HOURS.map((_, h) => `<span style="flex:1;text-align:center">${h % 6 === 0 ? String(h).padStart(2, "0") + ":00" : ""}</span>`).join("");
+    return `<div class="jp"><div class="sh">When you read</div><div class="ssum">Mostly in the afternoon, busiest around 15:00</div>
+      <div style="margin-top:18px"><div class="bars">${bars}</div><div class="blab" style="gap:12px">${labels}</div></div>
+      <div class="ssum" style="margin-top:20px">In Year the same chart has twelve bars, one per month.</div></div>`;
+  };
+
+  const FIN = [
+    { id: "The-Lantern-Keepers", t: "The Lantern Keepers", r: 9, d: "Oct 17" },
+    { id: "Paper-Cranes-in-Winter", t: "Paper Cranes in Winter", r: 8, d: "Oct 17" },
+    { id: "Neon-Ronin-001", t: "Neon Ronin #1", r: 0, d: "Oct 17" },
+    { id: "Star-Courier-001", t: "Star Courier #1", r: 0, d: "Oct 17" },
+    { id: "Ashfall-Academy-v01", t: "Ashfall Academy, Volume 1", r: 0, d: "Oct 17" },
+    { id: "The-Salt-Orchard", t: "The Salt Orchard", r: 7, d: "Oct 23" },
+  ];
+  const finished = () => `<div class="jp"><div class="row"><div><div class="sh">Finished in October</div><div class="ssum">6 finished · 3 to rate</div></div></div>
+      <div style="display:flex;gap:16px;margin-top:16px">${FIN.map(b => `<div style="width:104px;flex:none">${cov(b.id)}
+        <div class="ct">${b.t}</div><div class="cm">${b.r ? stars(b.r, 12) : `<span class="rate">Rate</span>`}<span>${b.d}</span></div></div>`).join("")}</div></div>`;
+
+  const ratingCol = (title, sub, rows) => {
+    const max = Math.max(...rows);
+    return `<div><div class="row" style="gap:10px;margin-bottom:12px"><b style="font-size:15px">${title}</b><span class="ssum" style="margin:0">${sub}</span></div>
+      <div class="hist">${rows.map((n, i) => `<span class="lb">${5 - i}${oneStar()}</span>
+        <span class="tr"><i style="width:${n / max * 100}%"></i></span><span class="n">${n}</span>`).join("")}</div></div>`;
+  };
+  const ratings = () => `<div class="jp"><div class="sh">Ratings</div><div class="ssum">23 rated in 2026 · 4.1 average</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:18px">
+        ${ratingCol("Books", "15 rated · 4.2", [5, 7, 2, 1, 0])}
+        ${ratingCol("Comics", "8 rated · 3.9", [2, 4, 1, 1, 0])}
+      </div>
+      <div class="ssum" style="margin-top:18px">A half star counts toward the star below it: 4½ is in the 4 row.</div></div>`;
+
+  const MR = {
+    Authors: [["J. R. Okafor", "4 books", 4], ["Mira Kalden", "3 books", 3], ["Анна Лесная", "2 books", 2], ["Oona Fitch", "2 books", 2], ["Илья Горский", "1 book", 1]],
+    Genres: [["Literary fiction", "7 books", 7], ["Science fiction", "2 books, 4 comics", 6], ["Fantasy", "1 book, 3 comics", 4], ["Mystery", "3 books", 3], ["Historical", "2 books", 2]],
+    Writers: [["Kenji Arai", "9 comics", 9], ["Dana Voss", "5 comics", 5], ["Leo Marsh", "2 comics", 2]],
+    Artists: [["Rui Sato", "9 comics", 9], ["Ines Kühl", "5 comics", 5], ["Leo Marsh", "2 comics", 2]],
+  };
+  const mrRows = (rows, n = 5) => { const max = rows[0][2]; return rows.slice(0, n).map(([t, c, v]) => `<div class="mr"><div class="t"><span>${t}</span><small>${c}</small></div><div class="tr"><i style="width:${v / max * 100}%"></i></div></div>`).join(""); };
+  const mostReadA = () => `<div class="jp"><div class="row"><div><div class="sh">Most read</div><div class="ssum">By the books and comics you read in 2026</div></div></div>
+      <div class="pills" style="margin-top:16px">${[["Authors", 11], ["Genres", 8], ["Writers", 4], ["Artists", 5], ["Tags", 17]].map(([t, n], i) => `<span class="pill${i === 0 ? " on" : ""}">${t}<span class="n">${n}</span></span>`).join("")}</div>
+      <div style="margin-top:8px;max-width:560px">${mrRows(MR.Authors)}</div>
+      <div style="margin-top:10px"><span class="all">See all 11 authors</span></div></div>`;
+  const mostReadB = () => `<div class="jp"><div class="sh">Most read</div><div class="ssum">By the books and comics you read in 2026</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:26px 40px;margin-top:16px">${Object.entries(MR).map(([k, rows]) =>
+        `<div><div class="row"><b style="font-size:15px">${k}</b><span class="sp"></span><span class="all" style="font-size:13px">See all</span></div>${mrRows(rows, 3)}</div>`).join("")}</div></div>`;
+
+  const DAY = [
+    { id: "The-Lantern-Keepers", t: "The Lantern Keepers", l: "Finished 20:05 · 6 pages · 4 min", r: 9 },
+    { id: "Paper-Cranes-in-Winter", t: "Paper Cranes in Winter", l: "Finished 18:44 · 2 pages · 1 min", r: 8 },
+    { id: "Neon-Ronin-001", t: "Neon Ronin #1", l: "Finished 18:43 · 4 pages · 2 min", r: 0 },
+    { id: "Star-Courier-001", t: "Star Courier #1", l: "Finished 18:41 · 4 pages · 2 min", r: 0 },
+    { id: "Ashfall-Academy-v01", t: "Ashfall Academy, Volume 1", l: "Finished 18:30 · 4 pages · 2 min", r: 0 },
+    { id: "The-Salt-Orchard", t: "The Salt Orchard", l: "Read 14:12 · 4 pages · 1 min", r: 0, open: 1 },
+  ];
+  const daySheet = () => `<div style="position:relative;height:100%;background:rgba(0,0,0,.45)"><div class="sheet">
+      <div class="row"><span class="sp"></span><span class="ib">${I.close}</span></div>
+      <div class="stitle">Saturday 17 October</div><div class="ssum">24 pages · 5 finished · 12 min</div>
+      <div style="margin-top:12px">${DAY.map(b => `<div class="drow">${cov(b.id)}<div class="tx"><b>${b.t}</b><span>${b.l}</span></div>
+        ${b.open ? "" : b.r ? stars(b.r, 14) : `<span class="rate" style="font-size:14px">Rate</span>`}</div>`).join("")}</div>
+    </div></div>`;
+  const bookPage = () => `<div style="position:relative;height:100%;background:rgba(0,0,0,.45)"><div class="sheet">
+      <div class="row"><span class="ib">${I.back}</span><span class="sp"></span><span class="ib">${I.close}</span></div>
+      <div style="display:flex;gap:18px;margin-top:8px">
+        <div style="width:96px;flex:none">${cov("The-Lantern-Keepers", "box-shadow:0 10px 24px rgba(0,0,0,.35)")}</div>
+        <div style="min-width:0;padding-top:4px"><div class="stitle">The Lantern Keepers</div><div class="ssum" style="font-size:14.5px;color:var(--m-fg2)">Oona Fitch</div>
+          <div class="ssum" style="margin-top:8px">Finished 17 Oct · 3 sessions · 61 min</div>
+          <div style="margin-top:14px"><span class="btn">${I.lib.replace('class="i"', 'class="i" style="width:18px;height:18px"')}Open in library</span></div></div>
+      </div>
+      <div style="margin-top:24px"><div class="lab">Your rating</div>${stars(9, 34)}</div>
+      <div style="margin-top:22px"><div class="lab">Review</div><div class="field">Slow to start, but the lighthouse chapters stayed with me for days.</div></div>
+      <div style="margin-top:22px"><div class="lab">Sessions</div>
+        <div class="sess"><span>Sat 17 Oct · 20:01</span><span>6 pages · 4 min</span></div>
+        <div class="sess"><span>Tue 29 Sep · 22:10</span><span>41 pages · 26 min</span></div>
+        <div class="sess"><span>Mon 28 Sep · 21:30</span><span>55 pages · 31 min</span></div></div>
+      <div style="position:absolute;left:20px;bottom:22px"><span class="danger">Remove from journal</span></div>
+    </div></div>`;
+
+  const emptyMonth = () => `${top("August 2026")}<div style="padding:70px 20px 0;text-align:center">
+      <svg class="empty-art" viewBox="0 0 120 96" aria-hidden="true">
+        <rect x="18" y="22" width="22" height="64" rx="4" fill="var(--m-c3)"/><rect x="44" y="12" width="24" height="74" rx="4" fill="var(--m-acc)" opacity=".8"/>
+        <rect x="72" y="28" width="20" height="58" rx="4" fill="var(--m-acc2)" opacity=".8" transform="rotate(10 82 57)"/><rect x="10" y="86" width="100" height="3" rx="1.5" fill="var(--m-c3)"/></svg>
+      <div style="font-size:28px;line-height:34px;font-weight:700;margin-top:22px">No reading in August</div>
+      <div class="ssum" style="font-size:15px;margin-top:8px">What you read shows up here as you read it.</div>
+      <div style="margin-top:22px"><span class="btn">Go to October</span></div></div>`;
+
+  // ---------- cards ----------
+  const ITEMS = [
+    {
+      id: "month-calendar", t: "Reading days: the month as a heatmap",
+      tags: ["Journal", "Month"], rec: "My pick: Do",
+      what: ["Today the calendar is grey squares in which a reading day is a slightly lighter grey, inside the dashboard panel. Proposed: its own section under Books and comics. Each day is a 44 dp square shaded in the accent by pages read (four steps, scaled to the month's busiest day), today ringed, a dot on days you finished something. Tapping a day opens that day's sheet (card 7).",
+        "Beside the grid, three figures the calendar makes easy to see: the longest run of reading days, the busiest day and the most finished in one day. On a phone they sit under the grid."],
+      today: { label: "Today", sub: "emulator, 800 dp", w: 800, h: 287, img: T + "calendar-month.jpg" },
+      panes: [{ label: "Proposed", sub: "October 2026, from the emulator", w: 800, h: 470, html: monthCalendar }],
+      choices: [["do", "Do"], ["maybe", "Maybe"], ["dont", "Don't"]],
+    },
+    {
+      id: "year-calendar", t: "Reading days in Year",
+      tags: ["Journal", "Year", "Your call"],
+      what: ["Year shows twelve small calendars today, with the same faint shading. A keeps the twelve months, four across, as heat squares without day numbers (the month names do the work). B is one strip of 53 weeks, Monday to Sunday down each column, the layout people know from activity graphs; it fits 800 dp exactly and scrolls sideways on a phone.",
+        "Both use the month's four accent steps, scaled to the year's busiest day. Example year: the emulator only has October."],
+      today: { label: "Today", sub: "emulator, 800 dp", w: 800, h: 437, img: T + "calendar-year.jpg" },
+      panes: [
+        { label: "Option A", sub: "twelve months", w: 800, h: 640, html: yearA },
+        { label: "Option B", sub: "a 53-week strip", w: 800, h: 640, html: yearB },
+      ],
+      choices: [["a", "A"], ["b", "B"], ["neither", "Neither"]],
+    },
+    {
+      id: "when", t: "When you read",
+      tags: ["Journal"], rec: "My pick: Do",
+      what: ["Today: an uppercase caption, a sentence (\"Most reading happens around 15, averaging 1m\") and peach bars with all 24 hours labelled. Proposed: \"When you read\", a plain summary, bars in the accent with the busiest hour full strength and the rest softer, hour labels every six hours."],
+      today: { label: "Today", sub: "emulator, 800 dp", w: 800, h: 293, img: T + "when.jpg" },
+      panes: [{ label: "Proposed", sub: "", w: 800, h: 300, html: whenYouRead }],
+      choices: [["do", "Do"], ["maybe", "Maybe"], ["dont", "Don't"]],
+    },
+    {
+      id: "finished", t: "One row of finished books, with their ratings",
+      tags: ["Journal"], rec: "My pick: Do",
+      what: ["Today the month has two rows, Finished and Needs rating, which show the same six covers when nothing is rated yet, with file names for titles. Proposed: one row, \"Finished in October\", with \"3 to rate\" in its summary. Each cover has its library title, its stars or a Rate link, and the day it was finished. Rate opens the book's sheet with the stars ready (card 7)."],
+      today: { label: "Today", sub: "emulator, 800 dp", w: 800, h: 387, img: T + "finished.jpg" },
+      panes: [{ label: "Proposed", sub: "October 2026, example ratings", w: 800, h: 330, html: finished }],
+      choices: [["do", "Do"], ["maybe", "Maybe"], ["dont", "Don't"]],
+    },
+    {
+      id: "ratings", t: "Ratings as two small charts",
+      tags: ["Journal"], rec: "My pick: Do",
+      what: ["Today: two full-width panels, Book ratings and Comic ratings, that say \"No ratings\" until you rate something. Proposed: one Ratings section with the month's count and average, then books and comics side by side as five-row bars (five stars at the top). It is not shown at all in a month with no ratings."],
+      today: { label: "Today", sub: "emulator, 800 dp", w: 800, h: 383, img: T + "ratings.jpg" },
+      panes: [{ label: "Proposed", sub: "Year, example ratings", w: 800, h: 300, html: ratings }],
+      choices: [["do", "Do"], ["maybe", "Maybe"], ["dont", "Don't"]],
+    },
+    {
+      id: "most-read", t: "Most read",
+      tags: ["Journal", "Your call"],
+      what: ["Today, \"Most read metadata\" is six tall panels (book genres, book authors, comic genres, comic tags, writers, pencillers), each saying \"No metadata yet\" when empty. Proposed: one \"Most read\" section, genres and tags counting books and comics together, empty kinds left out.",
+        "A: pills switch between the kinds, and the open one lists its top five with a bar each; See all opens the whole list. B: the kinds side by side, the top three of each, each with its own See all. Tapping a name shows what you read by them, as today."],
+      today: { label: "Today", sub: "emulator, 800 dp, cropped", w: 800, h: 640, img: T + "most-read.jpg" },
+      panes: [
+        { label: "Option A", sub: "Year, example data", w: 800, h: 460, html: mostReadA },
+        { label: "Option B", sub: "Year, example data", w: 800, h: 460, html: mostReadB },
+      ],
+      choices: [["a", "A"], ["b", "B"], ["neither", "Neither"]],
+    },
+    {
+      id: "day-sheet", t: "A day, and a book's journal, in a side sheet",
+      tags: ["Journal", "Sheets"], rec: "My pick: Do",
+      what: ["Today a day opens a dialog that repeats the whole rating and review editor for every book read that day, each with its own Save review. Proposed: a 440 dp side sheet like the book page (a bottom sheet on phones). A day lists its books as rows with their stars or Rate; tapping a row slides to that book's journal inside the sheet, and Back returns. A finished cover, Rate and a name under Most read open the same sheet.",
+        "A book's journal: cover, title, author, Open in library, the stars (a rating saves when you tap a star), the review (saves when you leave the field, so no Save button), the reading sessions, and Remove from journal at the bottom with the confirm dialog."],
+      today: { label: "Today", sub: "emulator, a day", w: 800, h: 1224, img: T + "day.jpg" },
+      panes: [
+        { label: "A day", sub: "", w: 452, h: 760, html: daySheet },
+        { label: "A book", sub: "after tapping its row", w: 452, h: 760, html: bookPage },
+      ],
+      choices: [["do", "Do"], ["maybe", "Maybe"], ["dont", "Don't"]],
+    },
+    {
+      id: "empty-month", t: "A month with nothing read",
+      tags: ["Journal", "Empty"], rec: "My pick: Do",
+      what: ["Today a month with no reading still shows every section, each with zeros, an empty chart or \"No metadata yet\". Proposed: under the month's title, the kit's empty state (the drawing, \"No reading in August\", one line) and a button to the latest month with reading. A month with some reading shows only the sections that have something in them."],
+      panes: [{ label: "Proposed", sub: "", w: 800, h: 560, html: emptyMonth }],
+      choices: [["do", "Do"], ["maybe", "Maybe"], ["dont", "Don't"]],
+    },
+  ];
+
+  // ---------- render ----------
+  const list = document.getElementById("list");
+  const paneHTML = (p, k) => `<div class="pane" data-k="${k}"><div class="plabel">${p.label}<small>${p.sub || ""}</small></div>
+      <div class="frame" style="aspect-ratio:${p.w} / ${p.h}">${p.img ? `<img src="${p.img}" alt="${p.label}: the app today">` : `<div class="cv" style="width:${p.w}px;height:${p.h}px">${p.html()}</div>`}</div></div>`;
+  ITEMS.forEach((it, n) => {
+    const li = document.createElement("li");
+    li.className = "card"; li.id = it.id; li.dataset.c = "";
+    const panes = it.today ? [it.today, ...it.panes] : it.panes;
+    li.innerHTML = `<div class="rank">${n + 1}</div><div class="body">
+      <h2>${it.t}</h2>
+      <div class="tags">${it.tags.map(t => `<span class="tag">${t}</span>`).join("")}${it.rec ? `<span class="tag pick">${it.rec}</span>` : ""}</div>
+      ${it.what.map(w => `<p class="what">${w}</p>`).join("")}
+      <div class="panes${panes.length === 3 ? " three" : ""}">${panes.map((p, i) => paneHTML(p, i)).join("")}</div>
+      <div class="choose"><div class="pick" role="group" aria-label="Decision for ${it.t}">${it.choices.map(([v, l]) => `<button type="button" data-v="${v}" aria-pressed="false">${l}</button>`).join("")}</div>
+        <input class="note" id="note-${it.id}" type="text" placeholder="Note (optional): what you'd change" autocomplete="off"></div></div>`;
+    list.appendChild(li);
+  });
+  const frames = [...document.querySelectorAll(".frame")];
+  const fit = f => { const cv = f.querySelector(".cv"); if (cv) cv.style.setProperty("--s", String(f.clientWidth / cv.offsetWidth)); };
+  frames.forEach(fit);
+  try { const ro = new ResizeObserver(es => es.forEach(e => fit(e.target))); frames.forEach(f => ro.observe(f)); } catch (e) { addEventListener("resize", () => frames.forEach(fit)); }
+
+  // ---------- picks: saved to the page when it can, this browser otherwise ----------
+  const state = {}; ITEMS.forEach(it => state[it.id] = { choice: null, note: "" });
+  const statusEl = document.getElementById("status");
+  const LS = "yabai-journal-picks";
+  let col = null;
+  try { const saved = JSON.parse(localStorage.getItem(LS) || "{}"); Object.keys(saved).forEach(k => { if (state[k]) Object.assign(state[k], saved[k]); }); } catch (e) {}
+  const saveLocal = () => { try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {} };
+  function paint() {
+    let decided = 0;
+    ITEMS.forEach(it => {
+      const li = document.getElementById(it.id), s = state[it.id];
+      li.dataset.c = s.choice || "";
+      li.querySelectorAll(".pick button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === s.choice)));
+      const note = li.querySelector(".note"); if (document.activeElement !== note && note.value !== (s.note || "")) note.value = s.note || "";
+      if (s.choice) decided++;
+    });
+    document.getElementById("tally").textContent = `${decided} of ${ITEMS.length} decided`;
+  }
+  const pending = {};
+  async function write(id) {
+    saveLocal();
+    if (!col) return;
+    if (pending[id]) { pending[id].again = true; return; }
+    pending[id] = { again: false };
+    statusEl.textContent = "Saving…";
+    const it = ITEMS.find(x => x.id === id);
+    try {
+      do {
+        pending[id].again = false;
+        await col.doc(id).set({ choice: state[id].choice, note: state[id].note || "", title: it.t, at: new Date().toISOString() });
+      } while (pending[id].again);
+      statusEl.textContent = "Saved to this page";
+    } catch (e) {
+      statusEl.textContent = e && e.code === "invalid_argument" ? "You can view these picks but not change them" : "Couldn't save to the page; kept in this browser";
+    } finally { delete pending[id]; }
+  }
+  list.addEventListener("click", e => {
+    const b = e.target.closest(".pick button"); if (!b) return;
+    const id = b.closest(".card").id, v = b.dataset.v;
+    state[id].choice = state[id].choice === v ? null : v;
+    paint(); write(id);
+  });
+  const timers = {};
+  list.addEventListener("input", e => {
+    if (!e.target.classList.contains("note")) return;
+    const id = e.target.closest(".card").id; state[id].note = e.target.value; saveLocal();
+    clearTimeout(timers[id]); timers[id] = setTimeout(() => write(id), 700);
+  });
+  paint();
+  statusEl.textContent = "Saved in this browser";
+  (async () => {
+    try {
+      const cl = await new Promise(res => { let n = 0; const t = setInterval(() => { if ((window.claude && window.claude.use) || ++n > 50) { clearInterval(t); res(window.claude && window.claude.use ? window.claude : null); } }, 100); });
+      const db = cl ? await cl.use("db") : null;
+      if (!db) return;
+      col = db.collection("picks");
+      statusEl.textContent = "Saved to this page";
+      col.onSnapshot(snap => {
+        snap.docs.forEach(d => { const v = d.data(); if (v && state[d.id] && !pending[d.id]) { state[d.id].choice = v.choice || null; state[d.id].note = v.note || ""; } });
+        saveLocal(); paint();
+      }, () => { col = null; statusEl.textContent = "Saved in this browser"; });
+    } catch (e) { col = null; }
+  })();
+})();
+</script>

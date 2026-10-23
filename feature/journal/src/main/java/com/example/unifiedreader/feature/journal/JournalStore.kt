@@ -10,6 +10,7 @@ import com.example.unifiedreader.journal.journalMediaType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -23,11 +24,16 @@ class RoomJournalRepository(
 ) : JournalRepository, JournalReadingSessionRecorder {
     private val recordMutex = Mutex()
 
-    override fun observeSnapshot(): Flow<JournalSnapshot> = combine(
+    override fun observeSnapshot(): Flow<JournalSnapshot> = observeSnapshot(flowOf(emptyList()))
+
+    override fun observeSnapshot(extraCatalogItems: Flow<List<ReadableItem>>): Flow<JournalSnapshot> = combine(
         journalDao.observeReadingEvents().map { entities -> entities.map { it.toDomain() } },
         journalDao.observeReadingSessions().map { entities -> entities.map { it.toDomain() } },
         journalDao.observeJournalEntries().map { entities -> entities.map { it.toDomain() } },
-        remoteCatalogDao.observeLibraryItems().map { entities -> entities.map { it.toDomain() }.associateBy(ReadableItem::id) },
+        combine(
+            remoteCatalogDao.observeLibraryItems().map { entities -> entities.map { it.toDomain() } },
+            extraCatalogItems,
+        ) { catalogItems, extraItems -> (catalogItems + extraItems).associateBy(ReadableItem::id) },
     ) { events, sessions, entries, catalogItemsById ->
         stateComputer.snapshot(
             events = events,

@@ -1,24 +1,18 @@
 package com.example.unifiedreader.feature.journal
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -27,977 +21,287 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.unifiedreader.ui.components.AppDialogHost
-import com.example.unifiedreader.ui.components.AppIconButton
+import androidx.compose.ui.unit.sp
 import com.example.unifiedreader.ui.components.AppIcons
-import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.components.AppTextButton
-import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
-import java.util.Calendar
-import java.util.Locale
-import kotlin.math.roundToInt
+import com.example.unifiedreader.ui.components.AppWindowWidth
+import com.example.unifiedreader.ui.components.currentAppWindowWidth
 
+/**
+ * When the reading happens: the average time per hour of the day (per month in Year), as bars.
+ * Folds away with no reading sessions.
+ */
 @Composable
-internal fun JournalStatsMetricGrid(
-    overview: JournalPeriodOverview,
-) {
-    val periodDayCount = overview.periodDayCount()
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        StatsSectionLabel("Reading stats")
-        BoxWithConstraints {
-            if (maxWidth >= 760.dp) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    ReadingStatsSummary(
-                        title = "All reading",
-                        hoursMillis = overview.stats.readingTimeMillis,
-                        pages = overview.stats.pagesRead,
-                        completedLabel = "finished",
-                        completed = overview.stats.booksFinished + overview.stats.comicsFinished,
-                        period = overview.period,
-                        periodDayCount = periodDayCount,
-                        modifier = Modifier.weight(1f),
-                    )
-                    ReadingStatsSummary(
-                        title = "Books",
-                        hoursMillis = overview.stats.bookReadingTimeMillis,
-                        pages = overview.stats.bookPagesRead,
-                        completedLabel = "books",
-                        completed = overview.stats.booksFinished,
-                        period = overview.period,
-                        periodDayCount = periodDayCount,
-                        modifier = Modifier.weight(1f),
-                    )
-                    ReadingStatsSummary(
-                        title = "Comics",
-                        hoursMillis = overview.stats.comicReadingTimeMillis,
-                        pages = overview.stats.comicPagesRead,
-                        completedLabel = "comics",
-                        completed = overview.stats.comicsFinished,
-                        period = overview.period,
-                        periodDayCount = periodDayCount,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ReadingStatsSummary(
-                        title = "All reading",
-                        hoursMillis = overview.stats.readingTimeMillis,
-                        pages = overview.stats.pagesRead,
-                        completedLabel = "finished",
-                        completed = overview.stats.booksFinished + overview.stats.comicsFinished,
-                        period = overview.period,
-                        periodDayCount = periodDayCount,
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        ReadingStatsSummary(
-                            title = "Books",
-                            hoursMillis = overview.stats.bookReadingTimeMillis,
-                            pages = overview.stats.bookPagesRead,
-                            completedLabel = "books",
-                            completed = overview.stats.booksFinished,
-                            period = overview.period,
-                            periodDayCount = periodDayCount,
-                            modifier = Modifier.weight(1f),
-                            compact = true,
-                        )
-                        ReadingStatsSummary(
-                            title = "Comics",
-                            hoursMillis = overview.stats.comicReadingTimeMillis,
-                            pages = overview.stats.comicPagesRead,
-                            completedLabel = "comics",
-                            completed = overview.stats.comicsFinished,
-                            period = overview.period,
-                            periodDayCount = periodDayCount,
-                            modifier = Modifier.weight(1f),
-                            compact = true,
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ReadingStatsSummary(
-    title: String,
-    hoursMillis: Long,
-    pages: Int,
-    completedLabel: String,
-    completed: Int,
+internal fun JournalWhenYouRead(
     period: JournalPeriod,
-    periodDayCount: Int,
-    modifier: Modifier = Modifier,
-    compact: Boolean = false,
-) {
-    AppPanel(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        color = UnifiedReaderThemeTokens.colors.surfaceBase,
-    ) {
-        Column(
-            modifier = Modifier.padding(if (compact) 12.dp else 16.dp),
-            verticalArrangement = Arrangement.spacedBy(if (compact) 10.dp else 14.dp),
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
-            StatLine(
-                value = formatHours(hoursMillis),
-                label = "hours read",
-                perPeriod = averageLabel(hoursMillis.toDouble() / 3_600_000.0, period, periodDayCount),
-            )
-            StatLine(
-                value = formatCompactInt(pages),
-                label = "pages read",
-                perPeriod = averageLabel(pages.toDouble(), period, periodDayCount),
-            )
-            StatLine(
-                value = completed.toString(),
-                label = completedLabel,
-                perPeriod = averageLabel(completed.toDouble(), period, periodDayCount),
-            )
-        }
-    }
-}
-
-@Composable
-private fun StatLine(
-    value: String,
-    label: String,
-    perPeriod: String,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = value,
-            modifier = Modifier.width(64.dp),
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Medium,
-            maxLines = 1,
-            textAlign = TextAlign.End,
-        )
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = perPeriod,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-    }
-}
-
-@Composable
-internal fun ReadingPacePanels(
-    overview: JournalPeriodOverview,
-) {
-    BoxWithConstraints {
-        if (maxWidth >= 760.dp) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                ReadingPacePanel(
-                    title = "Reading pace: books",
-                    mediaLabel = "book",
-                    completed = overview.stats.booksFinished,
-                    hoursMillis = overview.stats.bookReadingTimeMillis,
-                    pages = overview.stats.bookPagesRead,
-                    activeDays = overview.stats.bookActiveDays,
-                    modifier = Modifier.weight(1f),
-                )
-                ReadingPacePanel(
-                    title = "Reading pace: comics",
-                    mediaLabel = "comic",
-                    completed = overview.stats.comicsFinished,
-                    hoursMillis = overview.stats.comicReadingTimeMillis,
-                    pages = overview.stats.comicPagesRead,
-                    activeDays = overview.stats.comicActiveDays,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                ReadingPacePanel(
-                    title = "Reading pace: books",
-                    mediaLabel = "book",
-                    completed = overview.stats.booksFinished,
-                    hoursMillis = overview.stats.bookReadingTimeMillis,
-                    pages = overview.stats.bookPagesRead,
-                    activeDays = overview.stats.bookActiveDays,
-                )
-                ReadingPacePanel(
-                    title = "Reading pace: comics",
-                    mediaLabel = "comic",
-                    completed = overview.stats.comicsFinished,
-                    hoursMillis = overview.stats.comicReadingTimeMillis,
-                    pages = overview.stats.comicPagesRead,
-                    activeDays = overview.stats.comicActiveDays,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ReadingPacePanel(
-    title: String,
-    mediaLabel: String,
-    completed: Int,
-    hoursMillis: Long,
-    pages: Int,
-    activeDays: Int,
-    modifier: Modifier = Modifier,
-) {
-    AppPanel(
-        modifier = modifier.fillMaxWidth(),
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            StatsSectionLabel(title)
-            if (completed <= 0 && hoursMillis <= 0L && pages <= 0) {
-                EmptyStatsMessage("No reading sessions yet")
-            } else {
-                Text(
-                    text = paceHeadline(mediaLabel, completed, activeDays),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Medium,
-                )
-                PaceRow(
-                    value = formatHours(hoursMillis),
-                    label = "hours",
-                    average = paceValue(hoursMillis.toDouble() / 3_600_000.0, activeDays),
-                )
-                PaceRow(
-                    value = formatCompactInt(pages),
-                    label = "pages",
-                    average = paceValue(pages.toDouble(), activeDays),
-                )
-                PaceRow(
-                    value = completed.toString(),
-                    label = mediaLabel.pluralize(),
-                    average = paceValue(completed.toDouble(), activeDays),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun PaceRow(
-    value: String,
-    label: String,
-    average: String,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.width(72.dp)) {
-            Text(
-                text = value,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-            )
-        }
-        PaceColumn(value = average, label = "per active day", modifier = Modifier.weight(1f))
-    }
-}
-
-@Composable
-private fun PaceColumn(
-    value: String,
-    label: String,
-    modifier: Modifier = Modifier,
-) {
-    Column(modifier = modifier) {
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-        )
-    }
-}
-
-@Composable
-internal fun RatingBreakdownSection(
-    bookRatings: Map<Int, Int>,
-    comicRatings: Map<Int, Int>,
-) {
-    BoxWithConstraints {
-        if (maxWidth >= 840.dp) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                RatingBreakdown(
-                    title = "Book ratings",
-                    values = bookRatings,
-                    modifier = Modifier.weight(1f),
-                )
-                RatingBreakdown(
-                    title = "Comic ratings",
-                    values = comicRatings,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                RatingBreakdown(
-                    title = "Book ratings",
-                    values = bookRatings,
-                )
-                RatingBreakdown(
-                    title = "Comic ratings",
-                    values = comicRatings,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun RatingBreakdown(
-    title: String,
-    values: Map<Int, Int>,
-    modifier: Modifier = Modifier,
-) {
-    AppPanel(
-        modifier = modifier.fillMaxWidth(),
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            StatsSectionLabel(title)
-            val maxValue = values.values.maxOrNull()?.coerceAtLeast(1)
-            if (maxValue == null) {
-                EmptyStatsMessage("No ratings")
-                return@Column
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.Bottom,
-            ) {
-                (1..10).forEach { rating ->
-                    val count = values[rating] ?: 0
-                    RatingBar(
-                        rating = rating,
-                        count = count,
-                        maxValue = maxValue,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-internal fun AverageReadingTimeChart(
-    title: String,
     buckets: List<JournalTimeBucket>,
 ) {
-    val maxBucket = buckets.maxByOrNull { bucket -> bucket.averageMillis }
-    val maxValue = maxBucket?.averageMillis?.coerceAtLeast(1L) ?: 1L
-    val gridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.62f)
+    val peak = buckets.maxByOrNull(JournalTimeBucket::averageMillis)?.takeIf { it.averageMillis > 0L } ?: return
+    val maxValue = peak.averageMillis
     val barColor = MaterialTheme.colorScheme.tertiary
-    AppPanel(
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            StatsSectionLabel(title)
-            if (maxBucket == null || maxBucket.averageMillis <= 0L) {
-                EmptyStatsMessage("No reading sessions yet")
-            } else {
-                Text(
-                    text = "Most reading happens around ${maxBucket.label}, averaging ${formatDuration(maxBucket.averageMillis)}.",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Medium,
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(176.dp),
-                ) {
-                    Canvas(modifier = Modifier.matchParentSize()) {
-                        val rowHeight = size.height / 4f
-                        repeat(4) { index ->
-                            val y = rowHeight * index
-                            drawLine(
-                                color = gridColor,
-                                start = Offset(0f, y),
-                                end = Offset(size.width, y),
-                                strokeWidth = 1.dp.toPx(),
-                            )
-                        }
-                    }
-                    Row(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .padding(top = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.Bottom,
-                    ) {
-                        buckets.forEach { bucket ->
-                            val fraction = (bucket.averageMillis.toFloat() / maxValue.toFloat()).coerceIn(0f, 1f)
-                            Column(
-                                modifier = Modifier.weight(1f),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(6.dp),
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxWidth(),
-                                    contentAlignment = Alignment.BottomCenter,
-                                ) {
-                                    if (bucket.averageMillis > 0L) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth(0.72f)
-                                                .height((132f * fraction).coerceAtLeast(6f).dp)
-                                                .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                                                .background(barColor),
-                                        )
-                                    }
-                                }
-                                Text(
-                                    text = bucket.label,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-internal fun TopFacetSections(
-    sections: List<JournalFacetSection>,
-    onFacetSelected: (JournalFacetSection, JournalFacetRow) -> Unit,
-    onSeeAllSelected: (JournalFacetSection) -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        StatsSectionLabel("Most read metadata")
-        BoxWithConstraints {
-            if (maxWidth >= 840.dp) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    sections.chunked(2).forEach { pair ->
-                        Row(
-                            modifier = Modifier.height(IntrinsicSize.Min),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            pair.forEach { section ->
-                                FacetChartCard(
-                                    section = section,
-                                    onFacetSelected = onFacetSelected,
-                                    onSeeAllSelected = onSeeAllSelected,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxHeight(),
-                                )
-                            }
-                            if (pair.size == 1) {
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxHeight(),
-                                )
-                            }
-                        }
-                    }
-                }
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    sections.forEach { section ->
-                        FacetChartCard(
-                            section = section,
-                            onFacetSelected = onFacetSelected,
-                            onSeeAllSelected = onSeeAllSelected,
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun FacetChartCard(
-    section: JournalFacetSection,
-    onFacetSelected: (JournalFacetSection, JournalFacetRow) -> Unit,
-    onSeeAllSelected: (JournalFacetSection) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val maxValue = section.rows.maxOfOrNull(JournalFacetRow::count)?.coerceAtLeast(1) ?: 1
-    val visibleRows = section.rows.take(section.visibleFacetRowCount())
-    AppPanel(
-        modifier = modifier
-            .fillMaxWidth()
-            .heightIn(min = FACET_CHART_CARD_MIN_HEIGHT),
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                StatsSectionLabel(section.title)
-                if (section.rows.size > visibleRows.size) {
-                    AppTextButton(onClick = { onSeeAllSelected(section) }) {
-                        Text(text = "See all")
-                    }
-                }
-            }
-            section.rows.firstOrNull()?.let { top ->
-                Text(
-                    text = "${top.label} leads with ${top.count} ${if (top.count == 1) "item" else "items"}.",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            if (visibleRows.isEmpty()) {
-                EmptyStatsMessage("No metadata yet")
-            } else {
-                when {
-                    section.mediaType == JournalMediaType.BOOK &&
-                        section.facetType == JournalFacetType.GENRE -> FacetBarRows(
-                        rows = visibleRows,
-                        maxValue = maxValue,
-                        onFacetSelected = { row -> onFacetSelected(section, row) },
-                    )
-
-                    section.mediaType == JournalMediaType.BOOK &&
-                        section.facetType == JournalFacetType.AUTHOR -> FacetTokenGridRows(
-                        rows = visibleRows,
-                        colorForIndex = { index -> facetColor(index) },
-                        onFacetSelected = { row -> onFacetSelected(section, row) },
-                    )
-
-                    section.mediaType == JournalMediaType.COMIC &&
-                        section.facetType == JournalFacetType.GENRE -> FacetBarRows(
-                        rows = visibleRows,
-                        maxValue = maxValue,
-                        onFacetSelected = { row -> onFacetSelected(section, row) },
-                    )
-
-                    section.mediaType == JournalMediaType.COMIC &&
-                        section.facetType == JournalFacetType.TAG -> FacetHeatChipRows(
-                        rows = visibleRows,
-                        maxValue = maxValue,
-                        colorForIndex = { index -> facetColor(index) },
-                        onFacetSelected = { row -> onFacetSelected(section, row) },
-                    )
-
-                    section.mediaType == JournalMediaType.COMIC &&
-                        section.facetType == JournalFacetType.WRITER -> FacetCreditsRows(
-                        rows = visibleRows,
-                        colorForIndex = { index -> facetColor(index) },
-                        contentColorForIndex = { index -> facetContentColor(index) },
-                        onFacetSelected = { row -> onFacetSelected(section, row) },
-                    )
-
-                    section.mediaType == JournalMediaType.COMIC &&
-                        section.facetType == JournalFacetType.PENCILLER -> FacetCreditsRows(
-                        rows = visibleRows,
-                        colorForIndex = { index -> facetColor(index) },
-                        contentColorForIndex = { index -> facetContentColor(index) },
-                        onFacetSelected = { row -> onFacetSelected(section, row) },
-                    )
-
-                    else -> {
-                        visibleRows.forEachIndexed { index, row ->
-                            FacetBar(
-                                row = row,
-                                maxValue = maxValue,
-                                color = facetColor(index),
-                                onClick = { onFacetSelected(section, row) },
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun FacetBarRows(
-    rows: List<JournalFacetRow>,
-    maxValue: Int,
-    onFacetSelected: (JournalFacetRow) -> Unit,
-) {
-    rows.forEachIndexed { index, row ->
-        FacetBar(
-            row = row,
-            maxValue = maxValue,
-            color = facetColor(index),
-            onClick = { onFacetSelected(row) },
+    // Twenty-four hour labels only fit a tablet; a phone labels every third hour.
+    val labelEvery = if (buckets.size > 12 && currentAppWindowWidth() == AppWindowWidth.Compact) 3 else 1
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        JournalSectionHeader(
+            title = "When you read",
+            summary = when (period) {
+                JournalPeriod.MONTH -> "Busiest around ${peak.label}:00"
+                JournalPeriod.YEAR -> "Busiest in ${longMonthName(peak.key)}"
+            },
         )
-    }
-}
-
-private fun JournalFacetSection.visibleFacetRowCount(): Int = when (facetType) {
-    JournalFacetType.TAG -> 12
-    else -> FACET_CHART_VISIBLE_ROWS
-}
-
-@Composable
-internal fun JournalFacetRowsDialog(
-    section: JournalFacetSection,
-    onRowSelected: (JournalFacetRow) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val maxValue = section.rows.maxOfOrNull(JournalFacetRow::count)?.coerceAtLeast(1) ?: 1
-    AppDialogHost(onDismissRequest = onDismiss) {
-        AppPanel(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .widthIn(max = 520.dp),
-            color = UnifiedReaderThemeTokens.colors.surfaceBase,
-            shadowElevation = 12.dp,
+                .height(150.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.Bottom,
         ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
+            buckets.forEach { bucket ->
+                val fraction = (bucket.averageMillis.toFloat() / maxValue.toFloat()).coerceIn(0f, 1f)
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
+                        if (bucket.averageMillis > 0L) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(0.72f)
+                                    .height((122f * fraction).coerceAtLeast(6f).dp)
+                                    .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                    .background(barColor),
+                            )
+                        }
+                    }
+                    Text(
+                        text = if (bucket.key % labelEvery == 0) bucket.label else "",
+                        // A label may be wider than its bar's column; it spills over the empty neighbours.
+                        modifier = Modifier.wrapContentWidth(unbounded = true),
+                        style = MaterialTheme.typography.labelSmall,
+                        softWrap = false,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The period's ratings: books and comics side by side as five rows of bars, five stars at the
+ * top. Not shown at all while nothing is rated.
+ */
+@Composable
+internal fun JournalRatings(
+    overview: JournalPeriodOverview,
+    periodName: String,
+) {
+    val counts = overview.stats.ratingCountsByMediaType
+    val books = journalRatingSummary(counts[JournalMediaType.BOOK].orEmpty())
+    val comics = journalRatingSummary(counts[JournalMediaType.COMIC].orEmpty())
+    val all = journalRatingSummary(
+        (counts[JournalMediaType.BOOK].orEmpty().keys + counts[JournalMediaType.COMIC].orEmpty().keys).associateWith { rating ->
+            (counts[JournalMediaType.BOOK]?.get(rating) ?: 0) + (counts[JournalMediaType.COMIC]?.get(rating) ?: 0)
+        },
+    ) ?: return
+    val columns = listOfNotNull(books?.let { "Books" to it }, comics?.let { "Comics" to it })
+    Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        JournalSectionHeader(
+            title = "Ratings",
+            summary = "${all.count} rated in $periodName · ${formatJournalAverage(all.average)} average",
+        )
+        val stacked = currentAppWindowWidth() == AppWindowWidth.Compact
+        if (stacked) {
+            Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
+                columns.forEach { (title, summary) -> RatingColumn(title = title, summary = summary) }
+            }
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(40.dp)) {
+                columns.forEach { (title, summary) -> RatingColumn(title = title, summary = summary, modifier = Modifier.weight(1f)) }
+                if (columns.size == 1) Box(modifier = Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun RatingColumn(
+    title: String,
+    summary: JournalRatingSummary,
+    modifier: Modifier = Modifier,
+) {
+    val maxCount = summary.starCounts.max().coerceAtLeast(1)
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(9.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Bottom) {
+            Text(text = title, style = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp), fontWeight = FontWeight.SemiBold)
+            Text(
+                text = "${summary.count} rated · ${formatJournalAverage(summary.average)}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        summary.starCounts.forEachIndexed { index, count ->
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.width(30.dp),
+                    horizontalArrangement = Arrangement.spacedBy(3.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = section.title,
-                        style = MaterialTheme.typography.titleLarge,
+                        text = (5 - index).toString(),
+                        style = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp, fontFeatureSettings = "tnum"),
                         fontWeight = FontWeight.SemiBold,
                     )
-                    AppIconButton(onClick = onDismiss) {
-                        Icon(imageVector = AppIcons.Close, contentDescription = "Close")
-                    }
+                    Icon(
+                        imageVector = AppIcons.Star,
+                        contentDescription = null,
+                        modifier = Modifier.size(12.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
                 }
-                LazyColumn(
-                    modifier = Modifier.heightIn(max = 520.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(8.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                 ) {
-                    items(section.rows, key = { row -> row.label }) { row ->
-                        FacetBar(
-                            row = row,
-                            maxValue = maxValue,
-                            color = facetColor(section.rows.indexOf(row)),
-                            onClick = { onRowSelected(row) },
+                    if (count > 0) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(count.toFloat() / maxCount)
+                                .height(8.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary),
                         )
                     }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun FacetBar(
-    row: JournalFacetRow,
-    maxValue: Int,
-    color: Color,
-    onClick: () -> Unit,
-) {
-    val fraction = (row.count.toFloat() / maxValue.toFloat()).coerceIn(0f, 1f)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(MaterialTheme.shapes.extraSmall)
-            .clickable(onClick = onClick)
-            .padding(vertical = 2.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = row.label,
-            modifier = Modifier.weight(0.34f),
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Medium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.End,
-        )
-        Box(
-            modifier = Modifier
-                .weight(0.52f)
-                .height(22.dp)
-                .clip(MaterialTheme.shapes.extraSmall)
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.44f)),
-            contentAlignment = Alignment.CenterStart,
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(fraction.coerceAtLeast(0.04f))
-                    .height(22.dp)
-                    .clip(MaterialTheme.shapes.extraSmall)
-                    .background(color),
-            )
-        }
-        Text(
-            text = row.count.toString(),
-            modifier = Modifier.weight(0.14f),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-        )
-    }
-}
-
-@Composable
-private fun RatingBar(
-    rating: Int,
-    count: Int,
-    maxValue: Int,
-    modifier: Modifier = Modifier,
-) {
-    val fraction = (count.toFloat() / maxValue.toFloat()).coerceIn(0f, 1f)
-    val barHeight = (88f * fraction).coerceAtLeast(if (count > 0) 12f else 0f).dp
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Text(
-            text = count.toString(),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Box(
-            modifier = Modifier
-                .height(94.dp)
-                .width(14.dp)
-                .clip(MaterialTheme.shapes.extraSmall)
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.58f)),
-            contentAlignment = Alignment.BottomCenter,
-        ) {
-            if (count > 0) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(barHeight)
-                        .clip(MaterialTheme.shapes.extraSmall)
-                        .background(MaterialTheme.colorScheme.primary),
+                Text(
+                    text = count.toString(),
+                    modifier = Modifier.width(22.dp),
+                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp, fontFeatureSettings = "tnum"),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.End,
                 )
             }
         }
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = rating.toString(),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-            androidx.compose.material3.Icon(
-                imageVector = AppIcons.Star,
-                contentDescription = null,
-                modifier = Modifier.size(12.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+    }
+}
+
+/**
+ * Most read: each kind (authors, genres, writers, artists, tags) with its top three, side by
+ * side; See all lists the rest. Kinds with nothing are left out, and so is the section.
+ */
+@Composable
+internal fun JournalMostRead(
+    groups: List<JournalMostReadGroup>,
+    periodName: String,
+    onRowSelected: (JournalMostReadGroup, JournalFacetRow) -> Unit,
+    onSeeAll: (JournalMostReadGroup) -> Unit,
+) {
+    if (groups.isEmpty()) return
+    val columns = if (currentAppWindowWidth() == AppWindowWidth.Compact) 1 else 2
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        JournalSectionHeader(title = "Most read", summary = "From what you finished in $periodName")
+        Column(verticalArrangement = Arrangement.spacedBy(26.dp)) {
+            groups.chunked(columns).forEach { pair ->
+                Row(horizontalArrangement = Arrangement.spacedBy(40.dp)) {
+                    pair.forEach { group ->
+                        MostReadGroup(
+                            group = group,
+                            onRowSelected = { row -> onRowSelected(group, row) },
+                            onSeeAll = { onSeeAll(group) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    repeat(columns - pair.size) { Box(modifier = Modifier.weight(1f)) }
+                }
+            }
         }
     }
 }
 
 @Composable
-internal fun StatsSectionLabel(
-    text: String,
+private fun MostReadGroup(
+    group: JournalMostReadGroup,
+    onRowSelected: (JournalFacetRow) -> Unit,
+    onSeeAll: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Text(
-        text = text.uppercase(Locale.US),
-        style = MaterialTheme.typography.labelLarge,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
+    val maxCount = group.rows.maxOf { it.row.count }.coerceAtLeast(1)
+    Column(modifier = modifier) {
+        Row(modifier = Modifier.fillMaxWidth().height(36.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = group.title,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp),
+                fontWeight = FontWeight.SemiBold,
+            )
+            if (group.rows.size > MostReadVisibleRows) {
+                AppTextButton(onClick = onSeeAll) { Text(text = "See all") }
+            }
+        }
+        group.rows.take(MostReadVisibleRows).forEach { row ->
+            JournalMostReadRowItem(row = row, maxCount = maxCount, onClick = { onRowSelected(row.row) })
+        }
+    }
 }
 
+/** A name, what it counts, and a 4 dp bar against the kind's top name. */
 @Composable
-internal fun EmptyStatsMessage(
-    text: String,
+internal fun JournalMostReadRowItem(
+    row: JournalMostReadRow,
+    maxCount: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier = Modifier
+    Column(
+        modifier = modifier
             .fillMaxWidth()
-            .height(116.dp)
-            .clip(MaterialTheme.shapes.extraSmall)
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.36f)),
-        contentAlignment = Alignment.Center,
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp),
     ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Bottom) {
+            Text(
+                text = row.row.label,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = row.countLabel,
+                style = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp),
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+            )
+        }
+        Box(
+            modifier = Modifier
+                .padding(top = 7.dp)
+                .fillMaxWidth()
+                .height(4.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(row.row.count.toFloat() / maxCount)
+                    .height(4.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary),
+            )
+        }
     }
 }
 
-@Composable
-private fun facetColor(
-    index: Int,
-): Color {
-    val scheme = MaterialTheme.colorScheme
-    return when (index % 7) {
-        0 -> scheme.primary
-        1 -> scheme.tertiary
-        2 -> scheme.secondary
-        3 -> scheme.error
-        4 -> scheme.primaryContainer
-        5 -> scheme.tertiaryContainer
-        else -> scheme.secondaryContainer
-    }
-}
-
-@Composable
-private fun facetContentColor(
-    index: Int,
-): Color {
-    val scheme = MaterialTheme.colorScheme
-    return when (index % 7) {
-        0 -> scheme.onPrimary
-        1 -> scheme.onTertiary
-        2 -> scheme.onSecondary
-        3 -> scheme.onError
-        4 -> scheme.onPrimaryContainer
-        5 -> scheme.onTertiaryContainer
-        else -> scheme.onSecondaryContainer
-    }
-}
-
-@Composable
-private fun averageLabel(
-    total: Double,
-    period: JournalPeriod,
-    periodDayCount: Int,
-): String = when (period) {
-    JournalPeriod.MONTH -> "${formatDecimal(total / periodDayCount.coerceAtLeast(1).toDouble())} per day"
-    JournalPeriod.YEAR -> "${formatDecimal(total / 12.0)} per month"
-}
-
-private fun JournalPeriodOverview.periodDayCount(): Int {
-    val calendar = Calendar.getInstance(Locale.US).apply {
-        timeInMillis = periodStartEpochMillis
-        set(Calendar.HOUR_OF_DAY, 0)
-        set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0)
-        set(Calendar.MILLISECOND, 0)
-    }
-    var days = 0
-    while (calendar.timeInMillis < periodEndEpochMillis) {
-        days += 1
-        calendar.add(Calendar.DAY_OF_YEAR, 1)
-    }
-    return days.coerceAtLeast(1)
-}
-
-private fun paceHeadline(
-    mediaLabel: String,
-    completed: Int,
-    activeDays: Int,
-): String {
-    if (completed <= 0 || activeDays <= 0) return "No completed ${mediaLabel.pluralize()} yet"
-    val daysPerItem = activeDays.toDouble() / completed.toDouble()
-    return "One $mediaLabel every ${formatDecimal(daysPerItem)} days"
-}
-
-private fun paceValue(
-    total: Double,
-    activeDays: Int,
-): String {
-    if (activeDays <= 0 || total <= 0.0) return "0"
-    return formatDecimal(total / activeDays.toDouble())
-}
-
-private fun formatHours(
-    millis: Long,
-): String {
-    val hours = millis.toDouble() / 3_600_000.0
-    return formatDecimal(hours)
-}
-
-private fun formatDuration(
-    millis: Long,
-): String {
-    val minutes = (millis / 60_000L).coerceAtLeast(1L)
-    val hours = minutes / 60L
-    val remainingMinutes = minutes % 60L
-    return if (hours > 0L) {
-        "${hours}h ${remainingMinutes}m"
-    } else {
-        "${minutes}m"
-    }
-}
-
-private fun formatCompactInt(
-    value: Int,
-): String = when {
-    value >= 1_000_000 -> String.format(Locale.US, "%.1fM", value / 1_000_000.0)
-    value >= 1_000 -> String.format(Locale.US, "%.1fK", value / 1_000.0)
-    else -> value.toString()
-}
-
-private fun formatDecimal(
-    value: Double,
-): String = if (value >= 10.0) {
-    value.roundToInt().toString()
-} else {
-    String.format(Locale.US, "%.1f", value)
-}
-
-private fun String.pluralize(): String = when (this) {
-    "book" -> "books"
-    "comic" -> "comics"
-    else -> "${this}s"
-}
-
-private const val FACET_CHART_VISIBLE_ROWS = 6
-private val FACET_CHART_CARD_MIN_HEIGHT = 300.dp
+private const val MostReadVisibleRows = 3
