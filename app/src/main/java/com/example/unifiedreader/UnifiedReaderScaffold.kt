@@ -43,15 +43,17 @@ import com.example.unifiedreader.feature.library.shelves.browserState
 import com.example.unifiedreader.feature.library.shelves.rememberLibraryShelfBrowserSearchQuery
 import com.example.unifiedreader.feature.navigation.SourceNavigationDestination
 import com.example.unifiedreader.feature.navigation.SourceNavigationFrame
+import com.example.unifiedreader.feature.navigation.canAddNavigationSource
+import com.example.unifiedreader.feature.navigation.knownConnectedServers
+import com.example.unifiedreader.feature.navigation.navigationSources
 import com.example.unifiedreader.feature.navigation.sourceNavigationUsesRail
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
-import com.example.unifiedreader.feature.settings.RemoteSourceSettingsActions
 import com.example.unifiedreader.feature.settings.ServerConnectionAction
 import com.example.unifiedreader.feature.settings.SettingsPage
 import com.example.unifiedreader.feature.settings.SettingsPageSaver
 import com.example.unifiedreader.feature.settings.SettingsScreen
-import com.example.unifiedreader.feature.settings.SourceSettingsEntry
+import com.example.unifiedreader.feature.settings.SourceStartMode
 import com.example.unifiedreader.feature.settings.SyncSettingsItemRow
 import com.example.unifiedreader.feature.settings.SyncSettingsSourceGroup
 import com.example.unifiedreader.feature.settings.SyncSettingsUiState
@@ -86,6 +88,8 @@ fun UnifiedReaderScaffold(
     viewModel: AppViewModel,
     updateState: AppUpdateState = AppUpdateState(),
     updateActions: AppUpdateActions = AppUpdateActions(),
+    // "Add a server" and Connect on an empty library open the start flow.
+    onStartSource: (SourceStartRequest) -> Unit = {},
 ) {
     val themeColors = UnifiedReaderThemeTokens.colors
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -124,7 +128,8 @@ fun UnifiedReaderScaffold(
     // it no glass either.
     var settingsTitleOnScreen by remember { mutableStateOf(true) }
     var settingsScrolled by remember { mutableStateOf(false) }
-    // The journal's "Open in library": the book's page, once its source has loaded it.
+    // The journal's "Open in library" and a finished download: the book's page, once its source
+    // has loaded it.
     var pendingBookPageItemId by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(uiState.topLevel) {
         if (uiState.topLevel != TopLevelDestination.Library) pendingBookPageItemId = null
@@ -268,9 +273,16 @@ fun UnifiedReaderScaffold(
     val glassState = rememberAppGlassState()
     CompositionLocalProvider(LocalAppGlassState provides glassState) {
     val waitingUpdateVersion = updateState.newerRelease?.version?.toString()
+    // The rail and the drawer list the connected servers; the set is kept for the next launch.
+    val connectedServers = uiState.navigationConnectedServers
+    val knownConnectedServers = knownConnectedServers(uiState.serverSessions)
+    LaunchedEffect(knownConnectedServers) {
+        knownConnectedServers?.let(viewModel::recordConnectedSources)
+    }
     SourceNavigationFrame(
         drawerState = drawerState,
-        sourceOrder = uiState.sourceOrder,
+        sourceOrder = navigationSources(uiState.sourceOrder, connectedServers),
+        showAddSource = canAddNavigationSource(connectedServers),
         settingsBadge = waitingUpdateVersion,
         selectedDestination = when (uiState.topLevel) {
             TopLevelDestination.Library -> if (uiState.selectedSource == SourceType.KAVITA) {
@@ -288,6 +300,7 @@ fun UnifiedReaderScaffold(
             when (destination) {
                 is SourceNavigationDestination.Source -> viewModel.openLibrarySource(destination.sourceType)
                 is SourceNavigationDestination.KavitaSection -> viewModel.openKavitaLibrarySection(destination.section)
+                SourceNavigationDestination.AddSource -> onStartSource(SourceStartRequest(SourceStartMode.AddSource))
                 SourceNavigationDestination.Journal -> viewModel.onTopLevelSelected(TopLevelDestination.Journal)
                 SourceNavigationDestination.Settings -> {
                     // Picking Settings in the drawer always lands on the hub, even if a page was open.
@@ -377,9 +390,10 @@ fun UnifiedReaderScaffold(
                                     if (onScreen == null) libraryHeaderOnScreen.remove(contextKey) else libraryHeaderOnScreen[contextKey] = onScreen
                                 },
                                 onImportLocalFile = onImportLocalFileClick,
-                                onOpenSettings = { viewModel.onTopLevelSelected(TopLevelDestination.Settings) },
+                                onConnectSource = { server -> onStartSource(SourceStartRequest(SourceStartMode.AddSource, server)) },
                                 onRetrySourceConnection = viewModel::retrySelectedSourceConnection,
                                 onReadingListSelected = viewModel::onKavitaReadingListSelected,
+                                onKavitaSectionSelected = viewModel::openKavitaLibrarySection,
                                 onSortModeChanged = viewModel::onLibrarySortModeChanged,
                                 onViewModeChanged = onLibraryViewModeChanged,
                                 onGridCellSizeDpChanged = viewModel::onLibraryGridCellSizeChanged,
@@ -526,7 +540,12 @@ fun UnifiedReaderScaffold(
                         onRemove = viewModel::removeDownload,
                         onRetry = viewModel::retryDownload,
                         onClearCompleted = viewModel::clearCompletedDownloads,
-                        onOpenEntry = viewModel::openDownloadedEntry,
+                        onReadEntry = viewModel::openDownloadedEntry,
+                        onOpenBookPage = { itemId, source ->
+                            pendingBookPageItemId = itemId
+                            viewModel.hideDownloadsSheet()
+                            viewModel.openLibrarySource(source)
+                        },
                     )
                 }
             }
@@ -557,70 +576,13 @@ private fun SettingsRoute(
             context.packageManager.getPackageInfo(context.packageName, 0).versionName
         }.getOrNull().orEmpty()
     }
-    val syncTimes = rememberSourceSyncTimes()
-    val sources = listOf(
-        SourceSettingsEntry(
-            sourceType = SourceType.KAVITA,
-            lastSyncedAtEpochMillis = syncTimes[SourceType.KAVITA],
-            connection = uiState.kavitaConnection,
-            connectivity = uiState.sourceConnectivityBySource[SourceType.KAVITA] ?: SourceConnectivityState.Unknown,
-            readingDirectionLibraries = kavitaReadingDirectionLibraries,
-            readerModeLibraries = kavitaReaderModeLibraries,
-            actions = RemoteSourceSettingsActions(
-                onDisplayNameChanged = viewModel::onKavitaDisplayNameChanged,
-                onBaseUrlChanged = viewModel::onKavitaBaseUrlChanged,
-                onBackupBaseUrlChanged = viewModel::onKavitaBackupBaseUrlChanged,
-                onUsernameChanged = viewModel::onKavitaUsernameChanged,
-                onPasswordChanged = viewModel::onKavitaPasswordChanged,
-                onConnect = viewModel::connectKavitaServer,
-                onSync = viewModel::refreshKavitaLibrary,
-                onFastSync = viewModel::fastSyncKavitaLibrary,
-                onPreloadCovers = { viewModel.preloadCovers(SourceType.KAVITA) },
-                onRetryFailedCovers = { viewModel.retryFailedCovers(SourceType.KAVITA) },
-                onCancelCoverPreload = { viewModel.cancelCoverPreload(SourceType.KAVITA) },
-                onClearCoverCache = { viewModel.clearCachedCovers(SourceType.KAVITA) },
-            ),
-        ),
-        SourceSettingsEntry(
-            sourceType = SourceType.GRIMMORY,
-            lastSyncedAtEpochMillis = syncTimes[SourceType.GRIMMORY],
-            connection = uiState.grimmoryConnection,
-            connectivity = uiState.sourceConnectivityBySource[SourceType.GRIMMORY] ?: SourceConnectivityState.Unknown,
-            actions = RemoteSourceSettingsActions(
-                onDisplayNameChanged = viewModel::onGrimmoryDisplayNameChanged,
-                onBaseUrlChanged = viewModel::onGrimmoryBaseUrlChanged,
-                onBackupBaseUrlChanged = viewModel::onGrimmoryBackupBaseUrlChanged,
-                onUsernameChanged = viewModel::onGrimmoryUsernameChanged,
-                onPasswordChanged = viewModel::onGrimmoryPasswordChanged,
-                onConnect = viewModel::connectGrimmoryServer,
-                onSync = viewModel::refreshGrimmoryLibrary,
-                onPreloadCovers = { viewModel.preloadCovers(SourceType.GRIMMORY) },
-                onRetryFailedCovers = { viewModel.retryFailedCovers(SourceType.GRIMMORY) },
-                onCancelCoverPreload = { viewModel.cancelCoverPreload(SourceType.GRIMMORY) },
-                onClearCoverCache = { viewModel.clearCachedCovers(SourceType.GRIMMORY) },
-            ),
-        ),
-        SourceSettingsEntry(
-            sourceType = SourceType.STUMP,
-            lastSyncedAtEpochMillis = syncTimes[SourceType.STUMP],
-            connection = uiState.stumpConnection,
-            connectivity = uiState.sourceConnectivityBySource[SourceType.STUMP] ?: SourceConnectivityState.Unknown,
-            readingDirectionLibraries = stumpReadingDirectionLibraries,
-            readerModeLibraries = stumpReaderModeLibraries,
-            actions = RemoteSourceSettingsActions(
-                onDisplayNameChanged = viewModel::onStumpDisplayNameChanged,
-                onBaseUrlChanged = viewModel::onStumpBaseUrlChanged,
-                onBackupBaseUrlChanged = viewModel::onStumpBackupBaseUrlChanged,
-                onUsernameChanged = viewModel::onStumpUsernameChanged,
-                onPasswordChanged = viewModel::onStumpPasswordChanged,
-                onConnect = viewModel::connectStumpServer,
-                onSync = viewModel::refreshStumpLibrary,
-                onPreloadCovers = { viewModel.preloadCovers(SourceType.STUMP) },
-                onRetryFailedCovers = { viewModel.retryFailedCovers(SourceType.STUMP) },
-                onCancelCoverPreload = { viewModel.cancelCoverPreload(SourceType.STUMP) },
-                onClearCoverCache = { viewModel.clearCachedCovers(SourceType.STUMP) },
-            ),
-        ),
+    val sources = rememberSourceSettingsEntries(
+        uiState = uiState,
+        viewModel = viewModel,
+        kavitaReadingDirectionLibraries = kavitaReadingDirectionLibraries,
+        stumpReadingDirectionLibraries = stumpReadingDirectionLibraries,
+        kavitaReaderModeLibraries = kavitaReaderModeLibraries,
+        stumpReaderModeLibraries = stumpReaderModeLibraries,
     )
     AppBackground(
         modifier = modifier.fillMaxWidth(),

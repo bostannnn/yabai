@@ -15,6 +15,7 @@ class AppInitialUiStateFactory @Inject constructor(
         val snapshot = catalogSnapshotsUseCase.initialSnapshot()
         val baseState = AppUiState(
             sourceOrder = navigationState.sourceOrder,
+            lastConnectedSources = navigationState.lastConnectedSources,
             selectedSource = navigationState.startupSource,
             libraries = snapshot.libraries,
             items = snapshot.items,

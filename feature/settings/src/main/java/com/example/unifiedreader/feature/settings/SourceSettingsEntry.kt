@@ -13,6 +13,8 @@ interface RemoteSourceConnectionUiState {
     val username: String
     val password: String
     val hasStoredSession: Boolean
+    /** False until the stored session (or its absence) has loaded after launch. */
+    val isSessionKnown: Boolean
     val isConnecting: Boolean
     val activeAction: ServerConnectionAction?
     val syncProgressFraction: Float?

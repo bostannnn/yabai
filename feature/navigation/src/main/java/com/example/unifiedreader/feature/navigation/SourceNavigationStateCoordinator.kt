@@ -4,9 +4,13 @@ import com.example.unifiedreader.core.model.SourceType
 
 data class SourceNavigationState(
     val sourceOrder: List<SourceType> = SourceType.entries.toList(),
+    /** See [SourceNavigationPreferencesStore.lastConnectedSources]. */
+    val lastConnectedSources: Set<SourceType>? = null,
 ) {
+    /** The first source the rail lists: a server not connected last time is skipped. */
     val startupSource: SourceType
-        get() = sourceOrder.firstOrNull() ?: SourceType.KAVITA
+        get() = navigationSources(sourceOrder, lastConnectedSources ?: NavigationServerSources.toSet())
+            .firstOrNull() ?: SourceType.LOCAL
 }
 
 enum class SourceOrderMoveDirection(
@@ -25,6 +29,11 @@ class SourceNavigationStateCoordinator(
     private val preferencesStore: SourceNavigationPreferencesStore,
 ) {
     fun restoreState(): SourceNavigationState = preferencesStore.preferencesFlow.value.toState()
+        .copy(lastConnectedSources = preferencesStore.lastConnectedSources())
+
+    fun persistConnectedSources(sources: Set<SourceType>) {
+        preferencesStore.setLastConnectedSources(sources)
+    }
 
     fun moveSource(
         currentState: SourceNavigationState,
@@ -36,7 +45,7 @@ class SourceNavigationStateCoordinator(
             direction = direction,
         ) ?: return null
         return SourceOrderSelection(
-            state = SourceNavigationState(sourceOrder = updatedOrder),
+            state = currentState.copy(sourceOrder = updatedOrder),
             sourceOrder = updatedOrder,
         )
     }
@@ -49,7 +58,7 @@ class SourceNavigationStateCoordinator(
         val updatedOrder = normalizeSourceOrder(sourceOrder)
         if (updatedOrder == currentState.sourceOrder) return null
         return SourceOrderSelection(
-            state = SourceNavigationState(sourceOrder = updatedOrder),
+            state = currentState.copy(sourceOrder = updatedOrder),
             sourceOrder = updatedOrder,
         )
     }

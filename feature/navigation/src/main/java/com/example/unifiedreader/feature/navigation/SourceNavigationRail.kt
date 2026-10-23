@@ -35,9 +35,9 @@ fun sourceNavigationUsesRail(): Boolean =
     currentAppWindowWidth() == AppWindowWidth.Expanded && currentAppWindowHeight() != AppWindowHeight.Compact
 
 /**
- * The drawer's destinations as a rail: the sources in the drawer order, then Journal and
- * Settings at the bottom. Kavita's Home, Collections and Reading Lists open from a menu on its
- * item.
+ * The drawer's destinations as a rail: the sources in the drawer order (the connected servers
+ * and Local), "Add" while a server is not connected, then Journal and Settings at the bottom.
+ * Kavita's Home, Collections and Reading lists open from a menu on its item.
  */
 @Composable
 fun SourceNavigationRail(
@@ -47,6 +47,8 @@ fun SourceNavigationRail(
     modifier: Modifier = Modifier,
     /** Something waiting in Settings, such as the version of an update: a dot on its icon. */
     settingsBadge: String? = null,
+    /** "Add" after the sources, while a server is not connected. */
+    showAddSource: Boolean = false,
 ) {
     AppNavigationRail(
         modifier = modifier,
@@ -81,6 +83,14 @@ fun SourceNavigationRail(
                     onClick = { onDestinationSelected(SourceNavigationDestination.Source(sourceType)) },
                 )
             }
+        }
+        if (showAddSource) {
+            AppNavigationRailItem(
+                label = "Add",
+                icon = AppIcons.Add,
+                selected = false,
+                onClick = { onDestinationSelected(SourceNavigationDestination.AddSource) },
+            )
         }
     }
 }

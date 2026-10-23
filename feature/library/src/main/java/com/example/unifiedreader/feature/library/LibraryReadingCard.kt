@@ -359,6 +359,8 @@ fun LibrarySeriesReadingCard(
     onItemSelected: (ReadableItem) -> Unit,
     modifier: Modifier = Modifier,
     actionContext: LibraryItemActionContext = LibraryItemActionContext(),
+    // An opened reading list names its own place ("Up next in this list · 3 of 5").
+    overline: String? = null,
 ) {
     val compact = isLibraryCompactWindow()
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
@@ -367,7 +369,7 @@ fun LibrarySeriesReadingCard(
         LibraryReadingCard(
             item = next.item,
             progress = progress,
-            overline = if (next.inProgress) "Continue reading" else "Up next in this series",
+            overline = overline ?: if (next.inProgress) "Continue reading" else "Up next in this series",
             continueLabel = if (next.inProgress) "Continue" else "Start",
             coverWidth = columns.cellWidth,
             compact = compact,

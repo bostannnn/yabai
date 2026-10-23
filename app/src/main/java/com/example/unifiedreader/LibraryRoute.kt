@@ -30,6 +30,7 @@ import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryGridMetrics
 import com.example.unifiedreader.feature.library.LibraryHeader
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
+import com.example.unifiedreader.feature.library.LibraryListScopeTopContent
 import com.example.unifiedreader.feature.library.LibraryReadingListScopeState
 import com.example.unifiedreader.feature.library.LibraryScreen
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
@@ -87,9 +88,11 @@ internal fun LibraryRoute(
     // Null when that screen leaves, so the bar falls back to the default for the next one.
     onHeaderOnScreenChanged: (browseContextKey: String, onScreen: Boolean?) -> Unit,
     onImportLocalFile: () -> Unit,
-    onOpenSettings: () -> Unit,
+    // Connect on an empty library: that server's connect page, or every choice from Local (null).
+    onConnectSource: (SourceType?) -> Unit,
     onRetrySourceConnection: () -> Unit,
     onReadingListSelected: (String?) -> Unit,
+    onKavitaSectionSelected: (KavitaLibrarySection) -> Unit,
     onSortModeChanged: (LibrarySortMode) -> Unit,
     onViewModeChanged: (LibraryViewMode) -> Unit,
     onGridCellSizeDpChanged: (Int) -> Unit,
@@ -203,18 +206,18 @@ internal fun LibraryRoute(
             } else if (frame.uiState.isKavitaVisualSectionActive) {
                 KavitaScopeLandingScreen(
                     contentTopInset = contentTopInset,
-                    title = frame.uiState.kavitaLibrarySection.displayName(),
+                    section = frame.uiState.kavitaLibrarySection,
                     items = frame.uiState.kavitaScopeLandingItems(),
                     isLoading = !frame.uiState.isSelectedSourceHydrated || frame.uiState.kavitaReadingLists.isLoadingSummaries,
                     errorMessage = frame.uiState.kavitaReadingLists.errorMessage,
                     searchQuery = frame.uiState.selectedLibrarySearchQuery,
                     gridCellSizeDp = frame.uiState.libraryGridCellSizeDp,
                     browseContextKey = frame.browseContextKey,
-                    emptyMessage = when (frame.uiState.kavitaLibrarySection) {
-                        KavitaLibrarySection.Collections -> "No Kavita collections yet"
-                        KavitaLibrarySection.ReadingLists -> "No Kavita reading lists yet"
-                        KavitaLibrarySection.Home -> "No Kavita lists yet"
-                    },
+                    notConnected = !frame.uiState.hasStoredSessionFor(SourceType.KAVITA),
+                    unreachable = frame.uiState.selectedSourceConnectivity == SourceConnectivityState.Offline,
+                    onSectionSelected = onKavitaSectionSelected,
+                    onConnect = { onConnectSource(SourceType.KAVITA) },
+                    onRetry = onRetrySourceConnection,
                     coverImageUrlProvider = coverImageUrlProvider,
                     coverPrefetchKeyProvider = coverPrefetchKeyProvider,
                     onCoverVisible = onCoverVisible,
@@ -245,6 +248,12 @@ internal fun LibraryRoute(
                         null
                     }
                 }
+                val listTop = remember(
+                    frame.uiState.isSeriesBrowseActive,
+                    frame.uiState.kavitaReadingLists,
+                    frame.uiState.visibleItems,
+                    frame.uiState.displayProgressByItemId,
+                ) { frame.uiState.kavitaListScopeTop() }
                 DisposableEffect(frame.browseContextKey) {
                     onDispose { onHeaderOnScreenChanged(frame.browseContextKey, null) }
                 }
@@ -315,6 +324,18 @@ internal fun LibraryRoute(
                                 actionContext = itemActionContext,
                             )
                         }
+                    } else if (listTop != null) {
+                        @Composable { gridMetrics: LibraryGridMetrics ->
+                            LibraryListScopeTopContent(
+                                top = listTop,
+                                progressByItemId = frame.uiState.displayProgressByItemId,
+                                gridMetrics = gridMetrics,
+                                coverImageUrlProvider = coverImageUrlProvider,
+                                onCoverVisible = onCoverVisible,
+                                onItemSelected = onItemSelected,
+                                actionContext = itemActionContext,
+                            )
+                        }
                     } else {
                         null
                     },
@@ -324,7 +345,7 @@ internal fun LibraryRoute(
                         frame.uiState.selectedSourceConnectivity == SourceConnectivityState.Offline,
                     sourceNotConnected = !frame.uiState.hasStoredSessionFor(frame.uiState.selectedSource),
                     onImportLocalFile = onImportLocalFile,
-                    onConnectServer = onOpenSettings,
+                    onConnectServer = { onConnectSource(frame.uiState.selectedSource.takeIf { it != SourceType.LOCAL }) },
                     onRetrySource = onRetrySourceConnection,
                     onReadingListSelected = onReadingListSelected,
                     onSortModeChanged = onSortModeChanged,
@@ -418,7 +439,7 @@ private fun AppUiState.kavitaScopeLandingItems(): List<KavitaScopeLandingItem> =
 /** Which library screen is up. Each level of depth is one thing opened from the level above. */
 internal data class LibraryScreenKey(
     val source: SourceType,
-    /** The Kavita Collections or Reading Lists landing, and everything opened from it. */
+    /** The Kavita Collections or Reading lists landing, and everything opened from it. */
     val kavitaSection: KavitaLibrarySection?,
     /** An open Kavita reading list or collection. */
     val scopeId: String?,

@@ -2,7 +2,6 @@ package com.example.unifiedreader.feature.library
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -10,6 +9,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
@@ -30,13 +30,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.displayName
+import com.example.unifiedreader.ui.components.AppButton
+import com.example.unifiedreader.ui.components.AppEmptyState
+import com.example.unifiedreader.ui.components.AppSegment
+import com.example.unifiedreader.ui.components.AppSegmentedRow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
@@ -51,16 +57,24 @@ data class KavitaScopeLandingItem(
     val coverCacheScope: String = "scope",
 )
 
+/**
+ * Kavita's Collections or Reading lists: a switch between the two, how many there are, and a grid
+ * of their covers with the count on each tile's meta line (a collection drawn as a stack of series).
+ */
 @Composable
 fun KavitaScopeLandingScreen(
-    title: String,
+    section: KavitaLibrarySection,
     items: List<KavitaScopeLandingItem>,
     isLoading: Boolean,
     errorMessage: String?,
     searchQuery: String,
     gridCellSizeDp: Int,
-    browseContextKey: String = title,
-    emptyMessage: String,
+    browseContextKey: String = section.name,
+    notConnected: Boolean = false,
+    unreachable: Boolean = false,
+    onSectionSelected: (KavitaLibrarySection) -> Unit = {},
+    onConnect: (() -> Unit)? = null,
+    onRetry: (() -> Unit)? = null,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String? = { item, _ -> item.coverUrl },
     coverPrefetchKeyProvider: (ReadableItem, LibraryCoverImageVariant) -> String? = coverImageUrlProvider,
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit = { _, _ -> },
@@ -167,14 +181,19 @@ fun KavitaScopeLandingScreen(
                 span = { GridItemSpan(maxLineSpan) },
             ) {
                 KavitaScopeLandingHeader(
-                    itemCount = items.size,
-                    visibleCount = searchedItems.size,
-                    searchActive = searchQuery.isNotBlank(),
-                    errorMessage = errorMessage,
+                    section = section,
+                    countLabel = kavitaScopeLandingCountLabel(
+                        section = section,
+                        total = items.size,
+                        shown = searchedItems.size,
+                        searchActive = searchQuery.isNotBlank(),
+                    ).takeUnless { items.isEmpty() },
+                    errorMessage = errorMessage.takeUnless { notConnected },
+                    onSectionSelected = onSectionSelected,
                 )
             }
             when {
-                isLoading && items.isEmpty() -> item(
+                isLoading && items.isEmpty() && !notConnected -> item(
                     key = "kavita-scope-loading",
                     span = { GridItemSpan(maxLineSpan) },
                 ) {
@@ -188,11 +207,14 @@ fun KavitaScopeLandingScreen(
                     span = { GridItemSpan(maxLineSpan) },
                 ) {
                     KavitaScopeLandingEmptyState(
-                        message = if (searchQuery.isBlank()) {
-                            emptyMessage
-                        } else {
-                            "No items match this search"
-                        },
+                        section = section,
+                        reason = kavitaScopeLandingEmptyReason(
+                            searchActive = searchQuery.isNotBlank(),
+                            notConnected = notConnected,
+                            unreachable = unreachable,
+                        ),
+                        onConnect = onConnect,
+                        onRetry = onRetry,
                     )
                 }
 
@@ -202,6 +224,7 @@ fun KavitaScopeLandingScreen(
                     contentType = { LibraryScreenContentTypes.GridItem },
                 ) { item ->
                     KavitaScopeLandingCard(
+                        section = section,
                         item = item,
                         coverItem = visibleCoverItemsById[item.id] ?: item.toCoverItem(),
                         imageVariant = imageVariant,
@@ -269,28 +292,35 @@ fun KavitaScopeLandingScreen(
     }
 }
 
-/** The section title is in the top bar; the grid header carries only the count and errors. */
+/**
+ * The switch between Collections and Reading lists, then how many there are (its line keeps its
+ * height while they load, so the grid does not move) and any error. The name stays in the bar.
+ */
 @Composable
 private fun KavitaScopeLandingHeader(
-    itemCount: Int,
-    visibleCount: Int,
-    searchActive: Boolean,
+    section: KavitaLibrarySection,
+    countLabel: String?,
     errorMessage: String?,
+    onSectionSelected: (KavitaLibrarySection) -> Unit,
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 2.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+            .padding(bottom = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        AppSegmentedRow(modifier = Modifier.width(KavitaScopeSwitchWidth)) {
+            KavitaScopeSections.forEach { option ->
+                AppSegment(
+                    selected = option == section,
+                    onClick = { if (option != section) onSectionSelected(option) },
+                    label = { Text(text = option.displayName(), maxLines = 1) },
+                )
+            }
+        }
         Text(
-
-            text = if (searchActive) {
-                "${visibleCount.itemCountLabel()} of ${itemCount.itemCountLabel()}"
-            } else {
-                itemCount.itemCountLabel()
-            },
-            style = MaterialTheme.typography.titleMedium,
+            text = countLabel ?: " ",
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, fontFeatureSettings = "tnum"),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         errorMessage?.takeIf(String::isNotBlank)?.let { message ->
@@ -303,8 +333,12 @@ private fun KavitaScopeLandingHeader(
     }
 }
 
+private val KavitaScopeSections = listOf(KavitaLibrarySection.Collections, KavitaLibrarySection.ReadingLists)
+private val KavitaScopeSwitchWidth = 280.dp
+
 @Composable
 private fun KavitaScopeLandingCard(
+    section: KavitaLibrarySection,
     item: KavitaScopeLandingItem,
     coverItem: ReadableItem,
     imageVariant: LibraryCoverImageVariant,
@@ -325,19 +359,10 @@ private fun KavitaScopeLandingCard(
             .testTag("kavita-scope-card-${item.id}"),
         coverModifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(2f / 3f),
-        coverOverlay = if (item.itemCount > 0) {
-            {
-                LibraryCountBadge(
-                    count = item.itemCount,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(6.dp),
-                )
-            }
-        } else {
-            null
-        },
+            .aspectRatio(2f / 3f)
+            // A collection holds series, so it is drawn as their stack.
+            .then(if (section == KavitaLibrarySection.Collections) Modifier.librarySeriesStack() else Modifier),
+        trailingText = kavitaScopeLandingItemMeta(section, item.itemCount),
         emptyCoverContent = {
             Text(
                 text = item.title.initialsFallback(),
@@ -363,24 +388,29 @@ private fun KavitaScopeLandingItem.toCoverItem(): ReadableItem = ReadableItem(
 
 @Composable
 private fun KavitaScopeLandingEmptyState(
-    message: String,
+    section: KavitaLibrarySection,
+    reason: KavitaScopeLandingEmptyReason,
+    onConnect: (() -> Unit)?,
+    onRetry: (() -> Unit)?,
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 48.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+    val text = kavitaScopeLandingEmptyText(section, reason)
+    val action: Pair<String, () -> Unit>? = when (reason) {
+        KavitaScopeLandingEmptyReason.NotConnected -> onConnect?.let { "Connect Kavita" to it }
+        KavitaScopeLandingEmptyReason.Unreachable -> onRetry?.let { "Try again" to it }
+        else -> null
     }
+    AppEmptyState(
+        title = text.title,
+        body = text.body,
+        actions = action?.let { (label, onClick) ->
+            {
+                AppButton(onClick = onClick) {
+                    Text(text = label, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        },
+    )
 }
-
-private fun Int.itemCountLabel(): String =
-    if (this == 1) "1 item" else "$this items"
 
 private fun String.initialsFallback(): String {
     val initials = trim()

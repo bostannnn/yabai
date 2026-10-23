@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -82,6 +83,9 @@ internal fun ServerConnectionForm(
     onPasswordChanged: (String) -> Unit,
     onConnect: () -> Unit,
     modifier: Modifier = Modifier,
+    // The first launch's connect page asks for the address and account only, under one wide Connect.
+    showDisplayName: Boolean = true,
+    fullWidthConnect: Boolean = false,
 ) {
     var isPasswordVisible by rememberSaveable { mutableStateOf(false) }
     val actionState = buildServerConnectionActionState(state)
@@ -94,16 +98,18 @@ internal fun ServerConnectionForm(
                 modifier = Modifier.padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                AppTextField(
-                    value = state.displayName,
-                    onValueChange = onDisplayNameChanged,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = fieldsEnabled,
-                    singleLine = true,
-                    label = { Text("Name") },
-                )
+                if (showDisplayName) {
+                    AppTextField(
+                        value = state.displayName,
+                        onValueChange = onDisplayNameChanged,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = fieldsEnabled,
+                        singleLine = true,
+                        label = { Text("Name") },
+                    )
+                }
                 ServerFormFields(
-                    twoColumns = layout.useTwoColumnServerForm,
+                    twoColumns = layout.useTwoColumnServerForm && !fullWidthConnect,
                     first = {
                         AppTextField(
                             value = state.baseUrl,
@@ -151,58 +157,94 @@ internal fun ServerConnectionForm(
                         )
                     },
                 )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        val connecting = actionState.activeAction == ServerConnectionAction.Connect
-                        if (connecting && state.syncProgressLabel != null) {
-                            AppLinearProgress(
-                                progress = { state.syncProgressFraction ?: 0f },
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                            Text(
-                                text = state.syncProgressLabel,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        } else {
-                            Text(
-                                text = state.message ?: if (state.hasStoredSession) {
-                                    "Signed in. Reconnect after changing the address or account."
-                                } else {
-                                    "Sign in to sync this server's libraries."
-                                },
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = if (state.isError && state.message != null) {
-                                    MaterialTheme.colorScheme.error
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                },
-                            )
-                        }
-                    }
+                if (fullWidthConnect) {
+                    ServerConnectionStatus(state = state, actionState = actionState)
                     AppButton(
                         onClick = onConnect,
                         enabled = state.canConnect,
-                        modifier = Modifier.heightIn(min = SettingsActionButtonMinHeight),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp)
+                            .height(46.dp),
                     ) {
-                        if (actionState.activeAction == ServerConnectionAction.Connect) {
-                            SettingsButtonProgressIndicator()
-                        } else {
-                            Text(if (state.hasStoredSession) "Reconnect" else "Connect")
+                        ServerConnectButtonLabel(state = state, actionState = actionState)
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        ServerConnectionStatus(
+                            state = state,
+                            actionState = actionState,
+                            modifier = Modifier.weight(1f),
+                        )
+                        AppButton(
+                            onClick = onConnect,
+                            enabled = state.canConnect,
+                            modifier = Modifier.heightIn(min = SettingsActionButtonMinHeight),
+                        ) {
+                            ServerConnectButtonLabel(state = state, actionState = actionState)
                         }
                     }
                 }
             }
         }
+    }
+}
+
+/** Under the form: the connection's progress while it signs in, else what to do or what went wrong. */
+@Composable
+private fun ServerConnectionStatus(
+    state: ServerConnectionFormState,
+    actionState: ServerConnectionActionState,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        val connecting = actionState.activeAction == ServerConnectionAction.Connect
+        if (connecting && state.syncProgressLabel != null) {
+            AppLinearProgress(
+                progress = { state.syncProgressFraction ?: 0f },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                text = state.syncProgressLabel,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            Text(
+                text = state.message ?: if (state.hasStoredSession) {
+                    "Signed in. Reconnect after changing the address or account."
+                } else {
+                    "Sign in to sync this server's libraries."
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (state.isError && state.message != null) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun ServerConnectButtonLabel(
+    state: ServerConnectionFormState,
+    actionState: ServerConnectionActionState,
+) {
+    if (actionState.activeAction == ServerConnectionAction.Connect) {
+        SettingsButtonProgressIndicator()
+    } else {
+        Text(if (state.hasStoredSession) "Reconnect" else "Connect")
     }
 }
 

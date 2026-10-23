@@ -15,6 +15,7 @@ internal fun GrimmoryConnectionUiState.withStoredSession(
 ): GrimmoryConnectionUiState = if (session == null) {
     copy(
         hasStoredSession = false,
+        isSessionKnown = true,
         activeAction = null,
         syncProgressFraction = null,
         syncProgressLabel = null,
@@ -27,6 +28,7 @@ internal fun GrimmoryConnectionUiState.withStoredSession(
         username = session.username,
         password = "",
         hasStoredSession = true,
+        isSessionKnown = true,
         activeAction = null,
         syncProgressFraction = null,
         syncProgressLabel = null,
@@ -40,6 +42,7 @@ internal fun KavitaConnectionUiState.withStoredSession(
     copy(
         availableLibraries = emptyList(),
         hasStoredSession = false,
+        isSessionKnown = true,
         activeAction = null,
         syncProgressFraction = null,
         syncProgressLabel = null,
@@ -53,6 +56,7 @@ internal fun KavitaConnectionUiState.withStoredSession(
         password = "",
         availableLibraries = emptyList(),
         hasStoredSession = true,
+        isSessionKnown = true,
         activeAction = null,
         syncProgressFraction = null,
         syncProgressLabel = null,
@@ -66,6 +70,7 @@ internal fun StumpConnectionUiState.withStoredSession(
     copy(
         availableLibraries = emptyList(),
         hasStoredSession = false,
+        isSessionKnown = true,
         activeAction = null,
         syncProgressFraction = null,
         syncProgressLabel = null,
@@ -79,6 +84,7 @@ internal fun StumpConnectionUiState.withStoredSession(
         password = "",
         availableLibraries = emptyList(),
         hasStoredSession = true,
+        isSessionKnown = true,
         activeAction = null,
         syncProgressFraction = null,
         syncProgressLabel = null,

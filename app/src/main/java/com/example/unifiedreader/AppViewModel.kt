@@ -194,6 +194,10 @@ class AppViewModel @Inject constructor(
         )
     }
 
+    fun recordConnectedSources(connectedSources: Set<SourceType>) {
+        navigationController.recordConnectedSources(uiState, ::updateUiState, connectedSources)
+    }
+
     fun moveSourceDown(sourceType: SourceType) {
         navigationController.moveSource(
             currentState = uiState,

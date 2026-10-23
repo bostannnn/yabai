@@ -82,6 +82,8 @@ data class AppKavitaReadingListState(
 data class AppUiState(
     val topLevel: TopLevelDestination = TopLevelDestination.Library,
     val sourceOrder: List<SourceType> = SourceType.entries.toList(),
+    /** The servers connected when the app last knew; see [SourceNavigationState.lastConnectedSources]. */
+    val lastConnectedSources: Set<SourceType>? = null,
     val selectedSource: SourceType = SourceType.KAVITA,
     val kavitaLibrarySection: KavitaLibrarySection = KavitaLibrarySection.Home,
     val selectedItemId: String? = null,

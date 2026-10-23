@@ -16,5 +16,5 @@ enum class KavitaLibrarySection {
 fun KavitaLibrarySection.displayName(): String = when (this) {
     KavitaLibrarySection.Home -> "Home"
     KavitaLibrarySection.Collections -> "Collections"
-    KavitaLibrarySection.ReadingLists -> "Reading Lists"
+    KavitaLibrarySection.ReadingLists -> "Reading lists"
 }

@@ -434,31 +434,11 @@ private fun LibraryBookPageAbout(
     onFilterByGenre: ((String) -> Unit)?,
     onFilterByTag: ((String) -> Unit)?,
 ) {
-    var expanded by rememberSaveable(text.description) { mutableStateOf(false) }
-    // "More" only when four lines do not hold it all.
-    var overflows by remember(text.description) { mutableStateOf(false) }
     Column(modifier = Modifier.fillMaxWidth()) {
         LibraryBookPageHairline()
         LibraryBookPageHeading(text = "About")
         text.description?.let { description ->
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 20.sp),
-                maxLines = if (expanded) Int.MAX_VALUE else DescriptionCollapsedLines,
-                overflow = TextOverflow.Ellipsis,
-                onTextLayout = { layout -> if (!expanded) overflows = layout.hasVisualOverflow },
-                modifier = Modifier.padding(horizontal = 20.dp),
-            )
-            if (overflows || expanded) {
-                AppTextButton(
-                    onClick = { expanded = !expanded },
-                    modifier = Modifier.padding(start = 8.dp),
-                ) {
-                    Text(text = if (expanded) "Less" else "More", fontWeight = FontWeight.SemiBold)
-                }
-            } else {
-                Spacer(modifier = Modifier.height(8.dp))
-            }
+            LibraryExpandableText(text = description, horizontalPadding = 20.dp)
         }
         val allChips = (text.genres.map { genre -> genre to onFilterByGenre } + text.tags.map { tag -> tag to onFilterByTag })
             .distinctBy { (value, _) -> value.lowercase() }
@@ -602,4 +582,3 @@ private val LibraryBookPageChipHeight = 30.dp
 private const val BookPageFoldedChipCount = 10
 private val LibraryBookPageFactLabelWidth = 110.dp
 private val RelatedCoverGap = 12.dp
-private const val DescriptionCollapsedLines = 4

@@ -46,4 +46,15 @@ class AppNavigationController @Inject constructor(
             sourceNavigationStateCoordinator.persistSourceOrder(selection.sourceOrder)
         }
     }
+
+    /** Records which servers are connected, for the rail and the drawer at the next launch. */
+    fun recordConnectedSources(
+        currentState: AppUiState,
+        updateState: AppUiStateUpdater,
+        connectedSources: Set<SourceType>,
+    ) {
+        if (currentState.lastConnectedSources == connectedSources) return
+        updateState { state -> state.copy(lastConnectedSources = connectedSources) }
+        sourceNavigationStateCoordinator.persistConnectedSources(connectedSources)
+    }
 }

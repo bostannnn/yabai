@@ -1,5 +1,7 @@
 package com.example.unifiedreader.feature.library
 
+import com.example.unifiedreader.core.model.KavitaLibrarySection
+
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -19,11 +21,12 @@ class KavitaScopeLandingScreenTest {
     @Test
     fun landingGridShowsVisualCardsAndSelectsItem() {
         var selectedItemId: String? = null
+        var switchedTo: KavitaLibrarySection? = null
 
         composeRule.setContent {
             MaterialTheme {
                 KavitaScopeLandingScreen(
-                    title = "Collections",
+                    section = KavitaLibrarySection.Collections,
                     items = listOf(
                         KavitaScopeLandingItem(
                             id = "kavita:collection:1",
@@ -40,15 +43,16 @@ class KavitaScopeLandingScreenTest {
                     errorMessage = null,
                     searchQuery = "",
                     gridCellSizeDp = defaultLibraryGridCellSizeDp,
-                    emptyMessage = "No Kavita collections yet",
+                    onSectionSelected = { switchedTo = it },
                     onItemSelected = { selectedItemId = it },
                 )
             }
         }
 
-        // The section's name is in the top bar; the grid header carries only the count.
-        composeRule.onNodeWithText("Collections").assertDoesNotExist()
-        composeRule.onNodeWithText("2 items").assertExists()
+        // The name stays in the bar; the grid starts with the switch and the count, and each
+        // collection counts its series on its meta line.
+        composeRule.onNodeWithText("2 collections").assertExists()
+        composeRule.onNodeWithText("10 series").assertExists()
         composeRule.onNodeWithText("Alan Moore").assertExists()
         composeRule.onNodeWithText("AM").assertExists()
         composeRule.onNodeWithText("CBZ").assertDoesNotExist()
@@ -57,5 +61,9 @@ class KavitaScopeLandingScreenTest {
             .performClick()
 
         assertEquals("kavita:collection:1", selectedItemId)
+
+        composeRule.onNodeWithText("Reading lists").performClick()
+
+        assertEquals(KavitaLibrarySection.ReadingLists, switchedTo)
     }
 }

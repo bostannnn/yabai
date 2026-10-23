@@ -31,6 +31,8 @@ fun SourceNavigationFrame(
     onDestinationSelected: (SourceNavigationDestination) -> Unit,
     /** Something waiting in Settings, such as the version of a waiting update. */
     settingsBadge: String? = null,
+    /** "Add a server", while a server is not connected. */
+    showAddSource: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val railShown = sourceNavigationUsesRail()
@@ -44,6 +46,7 @@ fun SourceNavigationFrame(
         selectedDestination = selectedDestination,
         onDestinationSelected = onDestinationSelected,
         settingsBadge = settingsBadge,
+        showAddSource = showAddSource,
         gesturesEnabled = !railShown,
     ) {
         Row(modifier = Modifier.fillMaxSize()) {
@@ -53,6 +56,7 @@ fun SourceNavigationFrame(
                     selectedDestination = selectedDestination,
                     onDestinationSelected = onDestinationSelected,
                     settingsBadge = settingsBadge,
+                    showAddSource = showAddSource,
                 )
             }
             Box(

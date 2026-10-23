@@ -163,6 +163,8 @@ fun UnifiedReaderAppContent(
             applyAndroidThemeMode(uiState.themeMode)
             onDispose { }
         }
+        // The start flow: the first launch, "Add a server", Connect on an empty library.
+        var sourceStartRequest by rememberSourceStartRequest()
         val isReaderMode = uiState.activeReader != null && uiState.selectedItem != null
         // Leaving the reader is handled by the screen host below, with the predictive gesture.
         BackHandler(
@@ -218,9 +220,19 @@ fun UnifiedReaderAppContent(
                                 viewModel = viewModel,
                                 updateState = updateState,
                                 updateActions = updateActions,
+                                onStartSource = { request -> sourceStartRequest = request },
                             )
                         }
                     }
+                }
+                sourceStartRequest?.takeIf { !isReaderMode }?.let { request ->
+                    SourceStartHost(
+                        request = request,
+                        uiState = uiState,
+                        viewModel = viewModel,
+                        onImportLocalFileClick = onImportLocalFileClick,
+                        onFinished = { sourceStartRequest = null },
+                    )
                 }
                 ProgressSyncNoticeHost(
                     notice = uiState.progressSyncNotice,

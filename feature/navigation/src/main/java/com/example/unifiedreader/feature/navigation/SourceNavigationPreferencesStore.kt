@@ -32,6 +32,14 @@ interface SourceNavigationPreferencesStore {
     val preferencesFlow: StateFlow<SourceNavigationPreferences>
 
     suspend fun setSourceOrder(sourceOrder: List<SourceType>)
+
+    /**
+     * The servers that were connected when the app last knew, so the rail and the drawer list them
+     * before the sessions load at launch. Null until first recorded.
+     */
+    fun lastConnectedSources(): Set<SourceType>? = null
+
+    fun setLastConnectedSources(sources: Set<SourceType>) = Unit
 }
 
 class DataStoreSourceNavigationPreferencesStore(
@@ -79,6 +87,15 @@ class DataStoreSourceNavigationPreferencesStore(
         )
         latestPreferences.set(updatedPreferences)
         writeStartupPreferences(updatedPreferences)
+    }
+
+    override fun lastConnectedSources(): Set<SourceType>? =
+        startupPreferences.getString(KEY_CONNECTED_SOURCES, null)?.let(::parseSourceSet)
+
+    override fun setLastConnectedSources(sources: Set<SourceType>) {
+        startupPreferences.edit()
+            .putString(KEY_CONNECTED_SOURCES, sources.sortedBy(SourceType::ordinal).joinToString(",") { it.name })
+            .apply()
     }
 
     private fun writeStartupPreferences(
@@ -158,6 +175,12 @@ private fun serializeSourceOrder(
     sourceType.name
 }
 
+private fun parseSourceSet(storageValue: String): Set<SourceType> =
+    storageValue.split(',')
+        .map(String::trim)
+        .filter(String::isNotEmpty)
+        .mapNotNullTo(linkedSetOf(), ::sourceTypeFromStorageValue)
+
 private fun sourceTypeFromStorageValue(
     storageValue: String,
 ): SourceType? = SourceType.entries.firstOrNull { sourceType ->
@@ -175,6 +198,7 @@ internal const val SOURCE_NAVIGATION_STARTUP_PREFERENCES_NAME =
     "unified_reader_source_navigation_startup_preferences"
 internal const val SOURCE_NAVIGATION_PREFERENCES_IO_RETRY_DELAY_MILLIS = 1_000L
 internal const val KEY_SOURCE_ORDER = "source_order"
+internal const val KEY_CONNECTED_SOURCES = "connected_sources"
 
 internal object SourceNavigationPreferencesStoreTestAccess {
     const val startupSharedPreferencesName: String = SOURCE_NAVIGATION_STARTUP_PREFERENCES_NAME

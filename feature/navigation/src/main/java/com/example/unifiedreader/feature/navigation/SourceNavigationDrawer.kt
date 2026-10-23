@@ -50,6 +50,9 @@ sealed interface SourceNavigationDestination {
 
     data object Settings : SourceNavigationDestination
     data object Journal : SourceNavigationDestination
+
+    /** "Add a server": the choices the first launch offers. */
+    data object AddSource : SourceNavigationDestination
 }
 
 @Composable
@@ -60,6 +63,8 @@ fun SourceNavigationDrawer(
     onDestinationSelected: (SourceNavigationDestination) -> Unit,
     /** Shown at the end of the Settings row, such as the version of a waiting update. */
     settingsBadge: String? = null,
+    /** "Add a server" under the sources, while a server is not connected. */
+    showAddSource: Boolean = false,
     /** False while the rail shows: then nothing opens the drawer, not even a swipe. */
     gesturesEnabled: Boolean = true,
     content: @Composable () -> Unit,
@@ -122,6 +127,20 @@ fun SourceNavigationDrawer(
                                     onDestinationSelected = onDestinationSelected,
                                 )
                             }
+                        }
+                        if (showAddSource) {
+                            AppDrawerItem(
+                                label = { Text(text = "Add a server") },
+                                selected = false,
+                                onClick = { onDestinationSelected(SourceNavigationDestination.AddSource) },
+                                icon = {
+                                    Icon(
+                                        imageVector = AppIcons.Add,
+                                        contentDescription = null,
+                                    )
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
                         }
                     }
                     AppDivider(modifier = Modifier.padding(vertical = 12.dp))

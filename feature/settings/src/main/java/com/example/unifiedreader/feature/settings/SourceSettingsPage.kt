@@ -108,7 +108,7 @@ internal fun SourceSettingsPage(
 
 /** The state of a connected server: a pill, then the address and the account. */
 @Composable
-private fun ServerStatus(entry: SourceSettingsEntry) {
+internal fun ServerStatus(entry: SourceSettingsEntry) {
     val semantic = UnifiedReaderThemeTokens.colors
     val scheme = MaterialTheme.colorScheme
     val connection = entry.connection
