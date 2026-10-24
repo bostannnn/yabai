@@ -52,3 +52,16 @@ collection `picks`) draws the toast at dp size over emulator screenshots (`pages
 above the system bars, 800 dp wide; the phone one 412 dp). Cards: `style` (A raised pill, B glass),
 `placement`, `downloads`, `read-status` (A with Undo, B without), `removals`, `sync`, `update`, `import`.
 Picked: style B, read-status B, update Don't, the rest Do. Built as plan 9.2 records.
+
+## 9.3 Splash and window background, 2026-10-24
+
+`pages/splash.html` (live board: https://claude.ai/artifact/NVtBG1PaX5uZJWzUHAd5bL, picks in its store,
+collection `picks`) shows today's cold start on the emulator (`pages/img/splash/today-*.jpg`, from
+`screenrecord` of the 0.17.1 debug build: Graphite on a light and a dark device, Paper on a dark one) and
+draws the splash at dp size in every theme from `UnifiedReaderTheme.kt`'s `background` and `primary`, with
+the launcher icon's own layers (`img/splash/mark.png`, `mark-mono.png`, cropped from
+`ic_launcher_foreground.png` and `ic_launcher_monochrome.png`) and the library as end frame
+(`img/splash/lib-graphite.jpg`, `lib-paper.jpg`). Cards: `mark` (A monochrome in the accent, B on the
+cream disc, C bare), `colour`, `handoff` (A Android's exit, B the mark steps back; both play in the
+page), `hold`. Picked: mark A, colour Do (stored as Don't at first, a mis-pick corrected in chat), hand-off A,
+hold Do. Built as plan 9.3 records.

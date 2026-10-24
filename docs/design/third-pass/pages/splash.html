@@ -1,0 +1,407 @@
+<meta charset="utf-8">
+<title>yabai Splash</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: a board of decision cards; each card shows the mock at real dp sizes (scaled to fit) beside its spec, with a pick row. Dark-first like the app's Graphite. */
+:root {
+  --bg: #121417;
+  --surface: #1b1e23;
+  --surface-2: #23272d;
+  --line: #2f343b;
+  --fg: #e8eaed;
+  --muted: #9aa3ad;
+  --accent: #e9a6c6;
+  --on-accent: #2a1020;
+  --maybe: #b8c7da;
+  --dont: #ef8a80;
+  --stage: #0b0c0e;
+  --ui: "Manrope", "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f5f4f2; --surface: #ffffff; --surface-2: #efeeeb; --line: #dddad5; --fg: #1c1d20; --muted: #5d636b;
+    --accent: #a23e72; --on-accent: #ffffff; --maybe: #4a5d78; --dont: #b3392e; --stage: #e4e2de; color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f5f4f2; --surface: #ffffff; --surface-2: #efeeeb; --line: #dddad5; --fg: #1c1d20; --muted: #5d636b;
+  --accent: #a23e72; --on-accent: #ffffff; --maybe: #4a5d78; --dont: #b3392e; --stage: #e4e2de; color-scheme: light;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--ui); font-size: 15px; line-height: 1.55; margin: 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 40px 96px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(32px, 5vw, 46px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }
+h3 { font-size: 19px; font-weight: 700; }
+p { margin: 0; }
+code { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 12.5px; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; overflow-wrap: anywhere; }
+.overline { font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; color: var(--muted); }
+.lede { max-width: 70ch; color: var(--muted); font-size: 16px; margin-top: 14px; }
+.lede strong { color: var(--fg); }
+
+.bar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; margin: 26px 0 8px; padding: 10px 14px;
+  border-radius: 999px; border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+}
+.tally { display: flex; gap: 14px; font-weight: 600; font-size: 14px; font-variant-numeric: tabular-nums; }
+.tally b { font-weight: 800; }
+.save-state { color: var(--muted); font-size: 13px; flex: 1 1 200px; min-width: 0; }
+.pill-btn { font: 600 13.5px var(--ui); border-radius: 999px; padding: 8px 16px; cursor: pointer; border: 1px solid var(--line); background: var(--surface-2); color: var(--fg); }
+button:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.today { margin-top: 34px; background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 22px; display: grid; gap: 18px; }
+.today figure { margin: 0; min-width: 0; }
+.today img { width: 100%; display: block; border-radius: 12px; border: 1px solid var(--line); }
+.today .row { display: grid; grid-template-columns: minmax(0, 240px) minmax(0, 1fr); gap: 22px; align-items: start; }
+figcaption { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+ul.spec { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+ul.spec li::marker { color: var(--muted); }
+
+.cards { margin-top: 30px; display: grid; gap: 22px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 22px; display: grid; gap: 18px; }
+.card-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.card-head h3 { flex: 1 1 340px; min-width: 0; }
+.tag { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
+.body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: start; }
+.body > .col { max-width: 80ch; }
+.stages { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; min-width: 0; }
+.stage { background: var(--stage); border-radius: 16px; padding: 14px; display: grid; gap: 8px; justify-items: center; min-width: 0; max-width: 100%; }
+.stage .cap { font-size: 12.5px; color: var(--muted); text-align: center; max-width: 40ch; }
+.stage .cap b { color: var(--fg); }
+.trio { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.col { display: grid; gap: 12px; min-width: 0; }
+
+/* scaled device frame: outer box is the scaled size, inner is real dp */
+.scaled { position: relative; overflow: hidden; border-radius: 14px; flex: none; }
+.scaled > .dev { position: absolute; left: 0; top: 0; transform-origin: 0 0; overflow: hidden; }
+
+.themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 14px 10px; width: 100%; }
+.themes .t { display: grid; gap: 6px; justify-items: center; }
+.themes .t span { font-size: 11.5px; color: var(--muted); text-align: center; line-height: 1.25; }
+.group { font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; color: var(--muted); grid-column: 1 / -1; margin-top: 4px; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; }
+.seg button { font: 600 13px var(--ui); border: 0; border-radius: 999px; padding: 6px 14px; background: transparent; color: var(--fg); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--surface-2); }
+.play { font: 700 13.5px var(--ui); border-radius: 999px; padding: 7px 18px; cursor: pointer; border: 1px solid var(--accent); background: var(--accent); color: var(--on-accent); }
+
+.seq { display: grid; grid-template-columns: auto repeat(3, auto); gap: 8px 10px; align-items: center; justify-content: center; }
+.seq .lbl { font-size: 12.5px; font-weight: 700; color: var(--fg); text-align: right; }
+.seq .arrow { color: var(--muted); }
+.seq figure { margin: 0; display: grid; gap: 4px; justify-items: center; }
+.seq figcaption { margin: 0; font-size: 11.5px; text-align: center; max-width: 18ch; }
+
+/* pick row */
+.pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 14px; border-top: 1px solid var(--line); }
+.pick .label { font-size: 13px; color: var(--muted); font-weight: 600; margin-right: 4px; }
+.pick button { font: 700 13.5px var(--ui); padding: 7px 16px; border-radius: 999px; cursor: pointer; border: 1px solid var(--line); background: transparent; color: var(--fg); }
+.pick button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.pick button[aria-pressed="true"][data-v="maybe"] { background: var(--maybe); color: var(--bg); border-color: var(--maybe); }
+.pick button[aria-pressed="true"][data-v="dont"], .pick button[aria-pressed="true"][data-v="neither"] { background: var(--dont); color: var(--bg); border-color: var(--dont); }
+.pick textarea { flex: 1 1 260px; min-width: 0; min-height: 38px; resize: vertical; font: 14px var(--ui); color: var(--fg); background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; }
+
+@media (max-width: 700px) {
+  .today .row { grid-template-columns: minmax(0, 1fr); }
+  .today .row figure { max-width: 240px; }
+  .seq { grid-template-columns: repeat(3, auto); }
+  .seq .lbl { grid-column: 1 / -1; text-align: left; }
+}
+@media (max-width: 600px) {
+  .card, .today { padding: 16px; border-radius: 20px; }
+  .bar { border-radius: 20px; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="overline">yabai &#183; redesign plan 9.3 &#183; board &#183; 24 October 2026</p>
+    <h1 style="margin-top:10px">Splash and the first second</h1>
+    <p class="lede">You picked Do for the first second of a cold start. Today Android draws its own splash, white on a light device and grey on a dark one whatever theme the app is in, then cross-fades into the app. Below: the mark, the colour, how the splash hands over, and whether it waits for the books. <strong>Card 1 picks the mark</strong> (the rest draw A). Frames are drawn at real sizes (1 px = 1 dp, scaled to fit) over emulator screenshots. Picks save to this page.</p>
+  </header>
+
+  <div class="bar" role="region" aria-label="Your picks">
+    <div class="tally" aria-live="polite"><span><b id="n-picked">0</b> of <b id="n-total">4</b> picked</span></div>
+    <p class="save-state" id="save-state">Picks are kept in this browser until the page's store answers.</p>
+    <button class="pill-btn" id="copy-picks" type="button">Copy picks</button>
+  </div>
+  <textarea id="copy-fallback" aria-label="Picks as text" hidden style="width:100%;min-height:120px;margin-top:8px;font:13px ui-monospace,monospace;background:var(--surface-2);color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:10px"></textarea>
+
+  <section class="today" aria-label="Today">
+    <p class="overline">What's there today (0.17.1, emulator, debug build)</p>
+    <figure><img src="img/splash/today-light.jpg" alt="Four frames of a cold start on a light device with the app in Graphite: a white splash with the icon, the icon fading under a white wash, a grey wash over the dark library, then the dark library"><figcaption>A light device, the app in Graphite: a white splash, the mark fades, then a white wash dissolves into the dark library, through grey. About a second on the emulator.</figcaption></figure>
+    <figure><img src="img/splash/today-dark.jpg" alt="A dark grey splash with the icon on its cream tile, then the Graphite library, then the near-white Paper library"><figcaption>A dark device: the same grey splash with the icon's cream tile whether the app is in Graphite or Paper, then whichever the theme is.</figcaption></figure>
+    <div class="row">
+      <figure><img src="img/splash/today-cut.jpg" alt="Close-up of the splash icon on white: the mark's top and the bottom edge of the book are cut straight"><figcaption>On white the cream tile disappears, and the mark looks sliced: the tile's mask cuts its top and the book's foot.</figcaption></figure>
+      <ul class="spec">
+        <li>No splash is configured: no <code>core-splashscreen</code>, no <code>windowSplashScreen*</code>, and the manifest theme is <code>Theme.AppCompat.DayNight.NoActionBar</code> with no <code>windowBackground</code>. Android 12 and later build a splash from that: the device's light or dark window colour and the whole launcher icon, cream tile included.</li>
+        <li>The saved theme is already read at launch (<code>loadStartupSettingsPreferences</code> in <code>UnifiedReaderApp</code>), but only to set AppCompat's night mode, which neither the system splash nor <code>MainActivity</code> (a <code>FragmentActivity</code>) reads.</li>
+        <li>The window behind Compose is the same light or dark grey, so the hand-off, and any frame before Compose draws, shows it.</li>
+        <li>Sometimes the library's first frame is its grey placeholders (the source or the paged grid still loading); the review's cold start caught one.</li>
+      </ul>
+    </div>
+  </section>
+
+  <div class="cards">
+
+    <article class="card" data-card="mark" data-kind="abc" data-title="The mark">
+      <div class="card-head"><h3>1 &#183; The mark: in the theme's accent, on its cream disc, or bare</h3><span class="tag">pick A, B or C</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div class="trio" id="m-mark-a"></div><p class="cap"><b>A.</b> The icon's one-colour layer (the themed-icon layer the launcher icon already ships) in the theme's accent. Each theme's splash is its own; nothing bright at night.</p></div>
+          <div class="stage"><div class="trio" id="m-mark-b"></div><p class="cap"><b>B.</b> The launcher icon as on the home screen: the mark on its cream disc, the same in every theme. Keeps the orange; on dark themes it is a bright disc.</p></div>
+          <div class="stage"><div class="trio" id="m-mark-c"></div><p class="cap"><b>C.</b> The mark in colour, no disc. The orange book holds; the navy cat sinks into the dark themes and nearly vanishes on Blueprint.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>Shown over Graphite, Paper and Blueprint, a 300 dp square from the screen's centre.</li>
+            <li>Each is a splash-only drawable sized so nothing is cut: A and C fit Android's 192 dp icon circle (the mark 160 dp tall); B is a 160 dp disc with the mark 104 dp tall inside. The home-screen icon does not change.</li>
+            <li>Centred where Android puts it, with no name or caption under it (the wordmark was a Don't).</li>
+            <li>A's accent is the theme's <code>primary</code>: <code>#B7C7D9</code> on Graphite, <code>#405F6B</code> on Paper, <code>#9BE7FF</code> on Blueprint; System Dynamic takes the wallpaper's.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="colour" data-kind="dmd" data-title="Theme colour">
+      <div class="card-head"><h3>2 &#183; Every theme's own colour, from the first frame</h3><span class="tag">core-splashscreen &#183; windowBackground</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage" style="flex:1 1 100%"><div class="themes" id="m-themes"></div><p class="cap">The splash on a 412 dp phone in each theme, with mark A.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>The splash is the saved theme's <code>background</code>, the colour the library's first frame paints (Graphite <code>#101214</code>, Paper <code>#FFF8F0</code>, &#8230;). The status bar and navigation icons follow it: dark on the light themes, light on the dark ones.</li>
+            <li>The window behind the app is that colour too, so the hand-off and any frame before Compose draws never flash white or grey. It also shows while the tablet rotates or a split-screen window resizes.</li>
+            <li>How: one splash style per theme, given to Android with <code>SplashScreen.setSplashScreenTheme</code> (Android 13+) whenever the theme changes; Android keeps it for the next cold start. The window colour is set from the saved theme as the activity starts (it is already read at launch) and again when the theme changes.</li>
+            <li>System Dynamic: the wallpaper's background and accent, light or dark as the device is.</li>
+            <li>Before Android 13 a splash can only follow the device: Paper's colours on a light device, Graphite's on a dark one. The tablet (Android 16) and the emulator (15) get every theme's own.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="handoff" data-kind="ab" data-title="Hand-off">
+      <div class="card-head"><h3>3 &#183; The hand-off: Android's fade, or the mark steps back</h3><span class="tag">pick A or B</span></div>
+      <div class="body">
+        <div class="controls">
+          <div class="seg" role="group" aria-label="Theme for the hand-off">
+            <button type="button" id="ho-graphite" aria-pressed="true">Graphite</button>
+            <button type="button" id="ho-paper" aria-pressed="false">Paper</button>
+          </div>
+          <button type="button" class="play" id="ho-play">Play both</button>
+        </div>
+        <div class="stages" style="justify-content:center">
+          <div class="stage"><div id="m-ho-a"></div><p class="cap"><b>A.</b> Android's own exit: the mark fades, then the splash dissolves into the app. Over the same colour only the books appear. About a second, as today.</p></div>
+          <div class="stage"><div id="m-ho-b"></div><p class="cap"><b>B.</b> The mark shrinks to 0.92 and fades on <code>effects</code> while the library rises 8 dp and fades in on <code>spatial</code>. About 0.3 s.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>Both start once the first screen has drawn; the splash before it is the same.</li>
+            <li>B takes the exit over (<code>setOnExitAnimationListener</code>), so it runs on the app's motion tokens, and when the system animator scale is 0 the splash just goes.</li>
+            <li>If the app reopens in a book, B's exit runs over the book's opening state (9.7) instead of the library.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="hold" data-kind="dmd" data-title="Wait for the books">
+      <div class="card-head"><h3>4 &#183; Wait for the books: the splash stays until the library has them</h3><span class="tag">setKeepOnScreenCondition</span></div>
+      <div class="body">
+        <div class="stages" style="justify-content:center">
+          <div class="stage"><div class="seq" id="m-hold"></div></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>The splash stays until the first screen has what it shows: the library's books (the source loaded, or the paged grid's first page in). A book or Settings releases it at once.</li>
+            <li>Never longer than 800 ms; after that the placeholders show, as today.</li>
+            <li>It loads nothing extra, only waits for what already loads. On the emulator's Local library the books were there on the first frame in most cold starts, so most starts would not wait at all.</li>
+            <li>To measure on the tablet when it is built: how often a cold start waits, and for how long.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+  </div>
+</div>
+
+<script>
+(function () {
+  // ---------- themes (background and primary from UnifiedReaderTheme.kt; System Dynamic is a stand-in for a wallpaper's) ----------
+  var THEMES = [
+    { group: "Device" },
+    { name: "System Dynamic (light)", bg: "#F9F9FF", acc: "#415F91", dark: false },
+    { name: "System Dynamic (dark)", bg: "#111318", acc: "#AAC7FF", dark: true },
+    { group: "Light" },
+    { name: "Paper", bg: "#FFF8F0", acc: "#405F6B", dark: false },
+    { name: "Sepia Reading", bg: "#F7EBD8", acc: "#665037", dark: false },
+    { name: "Panel Pop", bg: "#FFFDF6", acc: "#006E8F", dark: false },
+    { name: "Detective File", bg: "#EBD8AE", acc: "#233D5A", dark: false },
+    { group: "Dark" },
+    { name: "Graphite", bg: "#101214", acc: "#B7C7D9", dark: true },
+    { name: "High Contrast", bg: "#000000", acc: "#FFFFFF", dark: true },
+    { name: "OLED Reader", bg: "#000000", acc: "#B9C7FF", dark: true },
+    { name: "Terminal 95", bg: "#020704", acc: "#7CFF8A", dark: true },
+    { name: "Crimson Court", bg: "#10090D", acc: "#FF6B86", dark: true },
+    { name: "Blueprint", bg: "#06182A", acc: "#9BE7FF", dark: true },
+    { name: "VHS Night", bg: "#101018", acc: "#86CAD5", dark: true }
+  ];
+  function theme(name) { return THEMES.filter(function (t) { return t.name === name; })[0]; }
+  var GRAPHITE = theme("Graphite"), PAPER = theme("Paper"), BLUEPRINT = theme("Blueprint");
+  var LIB = { Graphite: "img/splash/lib-graphite.jpg", Paper: "img/splash/lib-paper.jpg" };
+
+  // The mark crops (mark.png, mark-mono.png) are 240 x 336 px with the art 312 px tall, so the art is 0.93 of the crop's height.
+  function markA(t, artH) { var h = Math.round(artH / 0.93), w = Math.round(h * 240 / 336);
+    var m = "url(img/splash/mark-mono.png) center / contain no-repeat";
+    return '<div aria-hidden="true" style="width:' + w + 'px;height:' + h + 'px;background:' + t.acc + ';-webkit-mask:' + m + ';mask:' + m + '"></div>'; }
+  function markColour(artH) { var h = Math.round(artH / 0.93), w = Math.round(h * 240 / 336);
+    return '<img src="img/splash/mark.png" alt="" style="width:' + w + 'px;height:' + h + 'px;display:block">'; }
+  function markB() { return '<div aria-hidden="true" style="width:160px;height:160px;border-radius:50%;background:#FFF4E8;display:grid;place-items:center">' + markColour(104) + '</div>'; }
+  function mark(kind, t) { return kind === "b" ? markB() : kind === "c" ? markColour(160) : markA(t, 160); }
+
+  function device(w, h, scale, inner, extra) {
+    return '<div class="scaled" style="width:' + Math.round(w * scale) + 'px;height:' + Math.round(h * scale) + 'px' + (extra || "") + '"><div class="dev" style="width:' + w + 'px;height:' + h + 'px;transform:scale(' + scale + ')">' + inner + '</div></div>';
+  }
+  // System bars in the theme's icon colour: dark icons on light themes, light on dark.
+  function bars(t, w) {
+    var c = t.dark ? "rgba(255,255,255,.92)" : "rgba(20,20,22,.88)";
+    return '<div style="position:absolute;left:0;right:0;top:0;height:24px;padding:0 16px;display:flex;align-items:center;justify-content:space-between;font:600 13px var(--ui);color:' + c + '"><span>1:09</span><span style="letter-spacing:3px">&#9662;&#9698;&#9646;</span></div>' +
+      '<div style="position:absolute;left:0;right:0;bottom:0;height:48px;display:flex;align-items:center;justify-content:center;gap:' + (w > 600 ? 64 : 48) + 'px;font-size:15px;color:' + c + '"><span>&#9664;</span><span>&#9679;</span><span>&#9632;</span></div>';
+  }
+  // The splash as a full screen: background, bars, and the mark at the centre.
+  function splashLayer(t, kind, w, h, id) {
+    return '<div ' + (id ? 'data-layer="' + id + '" ' : '') + 'style="position:absolute;inset:0;background:' + t.bg + '">' + bars(t, w) +
+      '<div data-mark style="position:absolute;left:0;right:0;top:0;bottom:0;display:grid;place-items:center">' + mark(kind, t) + '</div></div>';
+  }
+  function set(id, html) { var el = document.getElementById(id); if (el) el.innerHTML = html; }
+
+  // 1 the mark: a 300 dp square from the centre of the screen, in three themes
+  function crop(t, kind) {
+    var inner = '<div style="position:absolute;inset:0;background:' + t.bg + ';display:grid;place-items:center">' + mark(kind, t) + '</div>';
+    return '<div style="display:grid;gap:4px;justify-items:center">' + device(300, 300, 0.5, inner) + '<span style="font-size:11.5px;color:var(--muted)">' + t.name + '</span></div>';
+  }
+  ["a", "b", "c"].forEach(function (k) { set("m-mark-" + k, [GRAPHITE, PAPER, BLUEPRINT].map(function (t) { return crop(t, k); }).join("")); });
+
+  // 2 every theme, phone size
+  set("m-themes", THEMES.map(function (t) {
+    if (t.group) return '<div class="group">' + t.group + '</div>';
+    return '<div class="t">' + device(412, 915, 0.17, splashLayer(t, "a", 412, 915), ';border-radius:10px;box-shadow:0 0 0 1px var(--line)') + '<span>' + t.name + '</span></div>';
+  }).join(""));
+
+  // 3 the hand-off: the library under the splash; Play runs each exit
+  var hoTheme = "Graphite";
+  function handoff(kind) {
+    var t = theme(hoTheme), w = 800, h = 1280;
+    var inner = '<img data-lib src="' + LIB[hoTheme] + '" alt="The ' + hoTheme + ' library" style="position:absolute;left:0;top:0;width:800px;height:1280px">' + splashLayer(t, "a", w, h, kind);
+    return device(w, h, 0.34, inner);
+  }
+  function drawHandoff() { set("m-ho-a", handoff("a")); set("m-ho-b", handoff("b")); }
+  drawHandoff();
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function run(kind) {
+    var root = document.getElementById("m-ho-" + kind); if (!root || !root.animate) return;
+    var layer = root.querySelector("[data-layer]"), m = layer.querySelector("[data-mark]"), lib = root.querySelector("[data-lib]");
+    [layer, m, lib].forEach(function (el) { el.getAnimations().forEach(function (a) { a.cancel(); }); });
+    var hold = 700, opts = function (d, delay, easing) { return { duration: reduce ? 1 : d, delay: reduce ? 0 : delay, easing: easing || "ease", fill: "both" }; };
+    if (kind === "a") {
+      // as recorded on the emulator: the mark fades, then the whole splash dissolves
+      m.animate([{ opacity: 1 }, { opacity: 0 }], opts(380, hold, "linear"));
+      layer.animate([{ opacity: 1 }, { opacity: 0 }], opts(650, hold + 380, "ease-in-out"));
+    } else {
+      // effects ~ a stiff critically damped spring; spatial ~ a softer one that settles in about 300 ms
+      m.animate([{ opacity: 1, transform: "scale(1)" }, { opacity: 0, transform: "scale(.92)" }], opts(180, hold, "cubic-bezier(.2,.7,.3,1)"));
+      layer.animate([{ opacity: 1 }, { opacity: 0 }], opts(160, hold + 40, "linear"));
+      lib.animate([{ opacity: 0, transform: "translateY(8px)" }, { opacity: 1, transform: "translateY(0)" }], opts(320, hold + 40, "cubic-bezier(.2,.8,.2,1)"));
+    }
+  }
+  document.getElementById("ho-play").addEventListener("click", function () { run("a"); run("b"); this.textContent = "Play again"; });
+  [["ho-graphite", "Graphite"], ["ho-paper", "Paper"]].forEach(function (p) {
+    document.getElementById(p[0]).addEventListener("click", function () {
+      hoTheme = p[1];
+      document.getElementById("ho-graphite").setAttribute("aria-pressed", String(hoTheme === "Graphite"));
+      document.getElementById("ho-paper").setAttribute("aria-pressed", String(hoTheme === "Paper"));
+      drawHandoff(); document.getElementById("ho-play").textContent = "Play both";
+    });
+  });
+
+  // 4 wait for the books: today vs held, three frames each
+  function small(inner) { return device(800, 1280, 0.16, inner, ';box-shadow:0 0 0 1px var(--line)'); }
+  var spl = small(splashLayer(GRAPHITE, "a", 800, 1280));
+  var books = small('<img src="' + LIB.Graphite + '" alt="" style="position:absolute;left:0;top:0;width:800px;height:1280px">');
+  var skel = small('<img src="img/splash/today-skeleton.jpg" alt="" style="position:absolute;left:0;top:0;width:800px;height:1282px">');
+  function fig(html, cap) { return '<figure>' + html + '<figcaption>' + cap + '</figcaption></figure>'; }
+  set("m-hold",
+    '<span class="lbl">Today</span>' + fig(spl, "Splash") + fig(skel, "Grey placeholders (here caught mid-fade)") + fig(books, "Books") +
+    '<span class="lbl">Held</span>' + fig(spl, "Splash") + fig(spl, "Still the splash, up to 800 ms") + fig(books, "Books"));
+
+  // ---------- picks (same store layout as the earlier boards: collection "picks") ----------
+  var STORE_KEY = "yabai-splash-board-picks";
+  var cards = Array.prototype.slice.call(document.querySelectorAll("[data-card]"));
+  var LABELS = { "do": "Do", maybe: "Maybe", dont: "Don't", a: "A", b: "B", c: "C", neither: "Neither" };
+  var KINDS = { ab: ["a", "b", "neither"], abc: ["a", "b", "c", "neither"], dmd: ["do", "maybe", "dont"] };
+  var picks = {}; try { picks = JSON.parse(localStorage.getItem(STORE_KEY) || "{}") || {}; } catch (e) { picks = {}; }
+  var db = null, pending = {};
+  function saveLocal() { try { localStorage.setItem(STORE_KEY, JSON.stringify(picks)); } catch (e) {} }
+  function setState(t) { document.getElementById("save-state").textContent = t; }
+  function tally() { var n = 0; cards.forEach(function (c) { if ((picks[c.dataset.card] || {}).choice) n++; }); document.getElementById("n-picked").textContent = n; document.getElementById("n-total").textContent = cards.length; }
+  function paint(card) {
+    var p = picks[card.dataset.card] || {};
+    card.querySelectorAll(".pick button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.v === p.choice)); });
+    var ta = card.querySelector(".pick textarea"); if (ta && document.activeElement !== ta) ta.value = p.note || "";
+  }
+  function write(id) {
+    if (!db) { saveLocal(); return; }
+    var p = picks[id];
+    var run = function () {
+      return db.collection("picks").doc(id).set({ choice: p.choice || null, note: p.note || "", title: p.title || id, updatedAt: p.updatedAt || Date.now() })
+        .then(function () { p.synced = true; saveLocal(); setState("Saved to this page."); })
+        .catch(function (err) { setState(err && err.code === "invalid_argument" ? "This page is read-only for you; picks stay in this browser. Use Copy picks." : "Couldn't save just now; your pick is kept in this browser."); });
+    };
+    pending[id] = (pending[id] || Promise.resolve()).then(run, run);
+  }
+  function update(card, patch) {
+    var id = card.dataset.card;
+    picks[id] = Object.assign({}, picks[id], patch, { title: card.dataset.title, updatedAt: Date.now(), synced: false });
+    saveLocal(); paint(card); tally(); write(id);
+  }
+  cards.forEach(function (card) {
+    var opts = KINDS[card.dataset.kind] || KINDS.dmd;
+    var row = document.createElement("div"); row.className = "pick";
+    row.innerHTML = '<span class="label">Your pick</span>' + opts.map(function (v) { return '<button type="button" data-v="' + v + '" aria-pressed="false">' + LABELS[v] + "</button>"; }).join("") +
+      '<textarea id="note-' + card.dataset.card + '" rows="1" placeholder="Note (optional)" aria-label="Note for ' + card.dataset.title + '"></textarea>';
+    card.appendChild(row);
+    row.querySelectorAll("button").forEach(function (b) { b.addEventListener("click", function () { var cur = (picks[card.dataset.card] || {}).choice; update(card, { choice: cur === b.dataset.v ? null : b.dataset.v }); }); });
+    var ta = row.querySelector("textarea"), t = null;
+    ta.addEventListener("input", function () { clearTimeout(t); t = setTimeout(function () { update(card, { note: ta.value }); }, 700); });
+    ta.addEventListener("change", function () { clearTimeout(t); if ((picks[card.dataset.card] || {}).note !== ta.value) update(card, { note: ta.value }); });
+    paint(card);
+  });
+  tally();
+  document.getElementById("copy-picks").addEventListener("click", function () {
+    var lines = cards.map(function (c) { var p = picks[c.dataset.card] || {}; return c.querySelector("h3").textContent + ": " + (p.choice ? LABELS[p.choice] : "-") + (p.note ? " (" + p.note.trim() + ")" : ""); }).join("\n");
+    var btn = document.getElementById("copy-picks");
+    var fallback = function () { var ta = document.getElementById("copy-fallback"); ta.hidden = false; ta.value = lines; ta.focus(); ta.select(); btn.textContent = "Select and copy"; };
+    try { navigator.clipboard.writeText(lines).then(function () { btn.textContent = "Copied"; setTimeout(function () { btn.textContent = "Copy picks"; }, 1600); }, fallback); } catch (e) { fallback(); }
+  });
+  (async function () {
+    try { db = window.claude && window.claude.use ? await window.claude.use("db") : null; } catch (e) { db = null; }
+    if (!db) { setState("Picks are saved in this browser only. Use Copy picks to send them."); return; }
+    setState("Connected. Picks save to this page.");
+    var first = true;
+    db.collection("picks").onSnapshot(function (snap) {
+      snap.docs.forEach(function (d) { var remote = d.data() || {}, local = picks[d.id]; if (!local || (remote.updatedAt || 0) >= (local.updatedAt || 0)) picks[d.id] = Object.assign({}, remote, { synced: true }); });
+      if (first) { first = false; Object.keys(picks).forEach(function (id) { if (picks[id] && !picks[id].synced) write(id); }); }
+      saveLocal(); cards.forEach(paint); tally();
+    }, function () { setState("The page's store stopped answering; picks stay in this browser."); });
+  })();
+})();
+</script>

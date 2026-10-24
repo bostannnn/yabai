@@ -1370,11 +1370,55 @@ emulator (`yabai_tablet_35` on 5558, Graphite, the Local library) at 800 dp port
   mapping are unit-tested), and the toast over a book with the bars hidden.
 - [ ] Tablet.
 
-### 9.3 Splash and window background `[ ]` (splash)
+### 9.3 Splash and window background `[~]` (splash)
 
-- [ ] `core-splashscreen`; the background follows the saved theme (`SplashScreen.setSplashScreenTheme`
-      on Android 13+, `values-night` before); `windowBackground` set so no white frame shows in a
-      dark theme. Mock: the cold start frames before and after.
+Built 2026-10-24 in worktree `ui-redesign-step-9-a92d10` (branch `claude/ui-redesign-step-9-a92d10`, from
+main 79d9e790), not committed at the time; checked on the emulator (`yabai_tablet_35` on 5558, debug
+build, the Local library) in Graphite, Paper, Blueprint and System Dynamic, on a light and a dark device.
+All unit tests pass (1471, both lines). Not yet on the tablet.
+
+Before: no splash was configured. Android 12+ drew the whole adaptive launcher icon, cream tile included,
+on the device's light (`#FAFAFA`) or dark grey window colour whatever the app theme; on white the tile
+vanished and its mask cut the mark's top and the book's foot. The splash then cross-faded into the
+theme, through grey on a light device in a dark theme (about a second on the emulator). The window
+behind the app was the same light or dark grey.
+
+- [x] Mock first: board https://claude.ai/artifact/NVtBG1PaX5uZJWzUHAd5bL
+      (`docs/design/third-pass/pages/splash.html`, 2026-10-24). Picked, no notes: mark A (the icon's
+      monochrome layer in the theme's `primary`), colour Do (the board says Don't: a mis-pick, corrected
+      in chat and on the board), hand-off A (Android's own exit), hold Do.
+- [x] `core-splashscreen` 1.2.0. `MainActivity`'s manifest theme is `Theme.UnifiedReader.Launch` until
+      `installSplashScreen()` swaps in `Theme.UnifiedReader`. One style per theme
+      (`Theme.UnifiedReader.Launch.<name>`, `AppLaunchSplash` in app) with its background and its
+      primary for the mark (`launch_colors.xml`; `AppLaunchSplashThemeTest` keeps them equal to
+      `UnifiedReaderTheme.kt`). `ApplyLaunchSplashTheme` hands the saved theme's to
+      `SplashScreen.setSplashScreenTheme` (Android 13+) once per process and on every theme change;
+      Android keeps it for the next cold start. The first start after an install has none yet and shows
+      the default, as does everything before Android 13: Paper on a light device, Graphite on a dark
+      one. System Dynamic takes the wallpaper's colours (`system_background_*` / `system_primary_*` on
+      Android 14+, the nearest neutral and accent tones on 12 and 13). The status and navigation bar
+      icons follow: dark over the light themes.
+- [x] The mark: the launcher's monochrome layer traced into a vector (`drawable/launch_mark.xml`, filled
+      with the style's `launchMarkColor`), 151 dp tall so every part of it stays inside the 192 dp circle
+      Android shows (the board drew 160 dp, which would cut its corners). The home-screen icon is as before.
+- [x] The window behind the app is the theme's background: `UnifiedReaderTheme` sets it from
+      `colorScheme.background` (dynamic colour included), and `Theme.UnifiedReader`'s own is Paper or
+      Graphite. The splash hands over to the same colour, so no white or grey frame shows, and rotating
+      or resizing shows the theme behind.
+- [x] Hold: `AppLaunchSplashHold` (kit). At a fresh start (not a rotation) `setKeepOnScreenCondition`
+      keeps the splash while any `appSkeletonPulse` placeholder is on screen (the library's grid and
+      shelf placeholders, the Kavita landing's); it goes when the last one leaves, or 800 ms after the
+      first frame could have drawn, and never holds again. A start into Settings or a book does not
+      wait. Each start logs `LaunchSplash: kept N ms past the first frame` (", stopped waiting" at 800).
+- [x] Hand-off: Android's own exit, no listener.
+- Seen on the emulator: the default Paper splash on the first start after install, then Graphite's;
+  Blueprint's cyan mark on navy; Paper on a dark device (dark status bar icons); System Dynamic on a dark
+  device matching the app's background; the library fading in over the same colour; the hold keeping
+  280 to 370 ms on the Local library (debug build, whose first frame takes about 7 s) and 0 ms into
+  Settings; a rotation (no hold, no splash).
+- Not seen: Android 12 and older, Android 13's approximated System Dynamic colours, a server library's
+  cold start, the 800 ms limit being reached.
+- [ ] Tablet: the look, and how often a cold start waits and for how long (`adb logcat -d -s LaunchSplash`).
 
 ### 9.4 Library tiles and the shelf browser `[ ]` (shelf-browser, tile-meta)
 
