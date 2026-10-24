@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="launch_device_background">@color/launch_graphite_background</color>
+    <color name="launch_device_mark">@color/launch_graphite_mark</color>
+    <!-- UnifiedReaderTheme.kt's DarkUnifiedReaderColorScheme. -->
+    <color name="launch_system_background">#111417</color>
+    <color name="launch_system_mark">#AFCBD4</color>
+</resources>

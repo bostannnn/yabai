@@ -16,7 +16,8 @@
         android:theme="@style/Theme.UnifiedReader">
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:theme="@style/Theme.UnifiedReader.Launch">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

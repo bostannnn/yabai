@@ -42,6 +42,7 @@ import com.example.unifiedreader.ui.components.AppScreenBack
 import com.example.unifiedreader.ui.components.AppScreenHost
 import com.example.unifiedreader.ui.components.LocalAppToastState
 import com.example.unifiedreader.ui.theme.AppCoverAccentTheme
+import com.example.unifiedreader.ui.theme.ApplyLaunchSplashTheme
 import com.example.unifiedreader.ui.theme.UnifiedReaderTheme
 import com.example.unifiedreader.ui.theme.applyAndroidThemeMode
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -129,6 +130,7 @@ fun UnifiedReaderAppContent(
             applyAndroidThemeMode(uiState.themeMode)
             onDispose { }
         }
+        ApplyLaunchSplashTheme(uiState.themeMode)
         // The start flow: the first launch, "Add a server", Connect on an empty library.
         var sourceStartRequest by rememberSourceStartRequest()
         val isReaderMode = uiState.activeReader != null && uiState.selectedItem != null

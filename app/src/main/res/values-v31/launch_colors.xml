@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Material 3 derives tones 98 and 40 here; the nearest system colours are tones 99 and 40. -->
+    <color name="launch_system_background">@android:color/system_neutral2_10</color>
+    <color name="launch_system_mark">@android:color/system_accent1_600</color>
+</resources>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- What Material 3's dynamicDarkColorScheme reads on Android 14 and later. -->
+    <color name="launch_system_background">@android:color/system_background_dark</color>
+    <color name="launch_system_mark">@android:color/system_primary_dark</color>
+</resources>

@@ -3,6 +3,7 @@ package com.example.unifiedreader.ui.theme
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.graphics.drawable.ColorDrawable
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
@@ -497,12 +498,18 @@ fun UnifiedReaderTheme(
         systemDarkTheme = systemDarkTheme,
     )
     val activity = context.findActivity()
+    val windowBackground = resolvedTheme.colorScheme.background.toArgb()
 
     if (!view.isInEditMode && activity != null) {
         SideEffect {
             val window = activity.window
             window.statusBarColor = Color.Transparent.toArgb()
             window.navigationBarColor = Color.Transparent.toArgb()
+            // The window behind the app is the theme's background, so the splash hands over to
+            // the same colour and nothing flashes while the window resizes.
+            if ((window.decorView.background as? ColorDrawable)?.color != windowBackground) {
+                window.setBackgroundDrawable(ColorDrawable(windowBackground))
+            }
             WindowCompat.getInsetsController(window, view).apply {
                 isAppearanceLightStatusBars = !resolvedTheme.isDark
                 isAppearanceLightNavigationBars = !resolvedTheme.isDark
@@ -531,24 +538,10 @@ private fun resolveUnifiedReaderTheme(
     themeMode: ThemeMode,
     systemDarkTheme: Boolean,
 ): UnifiedReaderResolvedTheme {
-    val colorScheme = when {
-        themeMode.usesDynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            if (systemDarkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        themeMode == ThemeMode.SystemDynamic && systemDarkTheme -> DarkUnifiedReaderColorScheme
-        themeMode == ThemeMode.SystemDynamic -> LightUnifiedReaderColorScheme
-        themeMode == ThemeMode.Paper || themeMode == ThemeMode.Light -> LightUnifiedReaderColorScheme
-        themeMode == ThemeMode.Graphite || themeMode == ThemeMode.Dark -> GraphiteUnifiedReaderColorScheme
-        themeMode == ThemeMode.HighContrast -> HighContrastUnifiedReaderColorScheme
-        themeMode == ThemeMode.OledReader -> OledReaderUnifiedReaderColorScheme
-        themeMode == ThemeMode.SepiaReading -> SepiaReadingUnifiedReaderColorScheme
-        themeMode == ThemeMode.Terminal95 -> Terminal95UnifiedReaderColorScheme
-        themeMode == ThemeMode.CrimsonCourt -> CrimsonCourtUnifiedReaderColorScheme
-        themeMode == ThemeMode.PanelPop -> PanelPopUnifiedReaderColorScheme
-        themeMode == ThemeMode.Blueprint -> BlueprintUnifiedReaderColorScheme
-        themeMode == ThemeMode.VhsNight -> VhsNightUnifiedReaderColorScheme
-        themeMode == ThemeMode.DetectiveFile -> DetectiveFileUnifiedReaderColorScheme
-        else -> if (themeMode.isDark) GraphiteUnifiedReaderColorScheme else LightUnifiedReaderColorScheme
+    val colorScheme = if (themeMode.usesDynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        if (systemDarkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    } else {
+        staticUnifiedReaderColorScheme(themeMode, systemDarkTheme)
     }
     val isDark = if (themeMode == ThemeMode.SystemDynamic) systemDarkTheme else themeMode.isDark
     return UnifiedReaderResolvedTheme(
@@ -556,6 +549,27 @@ private fun resolveUnifiedReaderTheme(
         semanticColors = colorScheme.toSemanticColors(isDark = isDark),
         isDark = isDark,
     )
+}
+
+/** [themeMode]'s own colours, or System Dynamic's without dynamic colour (before Android 12). */
+internal fun staticUnifiedReaderColorScheme(
+    themeMode: ThemeMode,
+    systemDarkTheme: Boolean,
+): ColorScheme = when {
+    themeMode == ThemeMode.SystemDynamic && systemDarkTheme -> DarkUnifiedReaderColorScheme
+    themeMode == ThemeMode.SystemDynamic -> LightUnifiedReaderColorScheme
+    themeMode == ThemeMode.Paper || themeMode == ThemeMode.Light -> LightUnifiedReaderColorScheme
+    themeMode == ThemeMode.Graphite || themeMode == ThemeMode.Dark -> GraphiteUnifiedReaderColorScheme
+    themeMode == ThemeMode.HighContrast -> HighContrastUnifiedReaderColorScheme
+    themeMode == ThemeMode.OledReader -> OledReaderUnifiedReaderColorScheme
+    themeMode == ThemeMode.SepiaReading -> SepiaReadingUnifiedReaderColorScheme
+    themeMode == ThemeMode.Terminal95 -> Terminal95UnifiedReaderColorScheme
+    themeMode == ThemeMode.CrimsonCourt -> CrimsonCourtUnifiedReaderColorScheme
+    themeMode == ThemeMode.PanelPop -> PanelPopUnifiedReaderColorScheme
+    themeMode == ThemeMode.Blueprint -> BlueprintUnifiedReaderColorScheme
+    themeMode == ThemeMode.VhsNight -> VhsNightUnifiedReaderColorScheme
+    themeMode == ThemeMode.DetectiveFile -> DetectiveFileUnifiedReaderColorScheme
+    else -> if (themeMode.isDark) GraphiteUnifiedReaderColorScheme else LightUnifiedReaderColorScheme
 }
 
 private fun ColorScheme.toSemanticColors(isDark: Boolean): UnifiedReaderSemanticColors {

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The splash (UI_REDESIGN_PLAN 9.3): each theme's background, and its primary for the mark. These
+     repeat UnifiedReaderTheme.kt's colour schemes; AppLaunchSplashThemeTest keeps them equal. -->
+<resources>
+    <color name="launch_paper_background">#FFF8F0</color>
+    <color name="launch_paper_mark">#405F6B</color>
+    <color name="launch_sepia_reading_background">#F7EBD8</color>
+    <color name="launch_sepia_reading_mark">#665037</color>
+    <color name="launch_panel_pop_background">#FFFDF6</color>
+    <color name="launch_panel_pop_mark">#006E8F</color>
+    <color name="launch_detective_file_background">#EBD8AE</color>
+    <color name="launch_detective_file_mark">#233D5A</color>
+    <color name="launch_graphite_background">#101214</color>
+    <color name="launch_graphite_mark">#B7C7D9</color>
+    <color name="launch_high_contrast_background">#000000</color>
+    <color name="launch_high_contrast_mark">#FFFFFF</color>
+    <color name="launch_oled_reader_background">#000000</color>
+    <color name="launch_oled_reader_mark">#B9C7FF</color>
+    <color name="launch_terminal_95_background">#020704</color>
+    <color name="launch_terminal_95_mark">#7CFF8A</color>
+    <color name="launch_crimson_court_background">#10090D</color>
+    <color name="launch_crimson_court_mark">#FF6B86</color>
+    <color name="launch_blueprint_background">#06182A</color>
+    <color name="launch_blueprint_mark">#9BE7FF</color>
+    <color name="launch_vhs_night_background">#101018</color>
+    <color name="launch_vhs_night_mark">#86CAD5</color>
+
+    <!-- Before Android 13 the splash can't follow the app's theme, only the device: Paper when it is
+         light, Graphite when it is dark (values-night). -->
+    <color name="launch_device_background">@color/launch_paper_background</color>
+    <color name="launch_device_mark">@color/launch_paper_mark</color>
+
+    <!-- System Dynamic without dynamic colour (before Android 12): the light scheme, or the dark one
+         in values-night. Android 12 and later take the wallpaper's (values-v31, values-v34). -->
+    <color name="launch_system_background">#FFF8F0</color>
+    <color name="launch_system_mark">#405F6B</color>
+</resources>

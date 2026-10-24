@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The splash mark's colour (drawable/launch_mark.xml), set by each Theme.UnifiedReader.Launch style. -->
+    <attr name="launchMarkColor" format="color" />
+</resources>

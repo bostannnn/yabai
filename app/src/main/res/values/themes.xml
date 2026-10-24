@@ -2,5 +2,89 @@
     <style name="Theme.UnifiedReader" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
+        <!-- Until the first frame sets the theme's own background (UnifiedReaderTheme). -->
+        <item name="android:windowBackground">@color/launch_device_background</item>
+    </style>
+
+    <!-- The splash (UI_REDESIGN_PLAN 9.3): MainActivity's theme until installSplashScreen() swaps in
+         Theme.UnifiedReader. Android 13 and later get the saved theme's own style below through
+         SplashScreen.setSplashScreenTheme (AppLaunchSplashTheme.kt); before that, this one. -->
+    <style name="Theme.UnifiedReader.Launch" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/launch_device_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/launch_mark</item>
+        <item name="launchMarkColor">@color/launch_device_mark</item>
+        <item name="postSplashScreenTheme">@style/Theme.UnifiedReader</item>
+        <item name="android:windowLightStatusBar">@bool/launch_device_light_bars</item>
+        <item name="android:windowLightNavigationBar">@bool/launch_device_light_bars</item>
+    </style>
+
+    <style name="Theme.UnifiedReader.Launch.Light" parent="Theme.UnifiedReader.Launch">
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+
+    <style name="Theme.UnifiedReader.Launch.Dark" parent="Theme.UnifiedReader.Launch">
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+
+    <style name="Theme.UnifiedReader.Launch.System" parent="Theme.UnifiedReader.Launch">
+        <item name="windowSplashScreenBackground">@color/launch_system_background</item>
+        <item name="launchMarkColor">@color/launch_system_mark</item>
+    </style>
+
+    <style name="Theme.UnifiedReader.Launch.Paper" parent="Theme.UnifiedReader.Launch.Light">
+        <item name="windowSplashScreenBackground">@color/launch_paper_background</item>
+        <item name="launchMarkColor">@color/launch_paper_mark</item>
+    </style>
+
+    <style name="Theme.UnifiedReader.Launch.SepiaReading" parent="Theme.UnifiedReader.Launch.Light">
+        <item name="windowSplashScreenBackground">@color/launch_sepia_reading_background</item>
+        <item name="launchMarkColor">@color/launch_sepia_reading_mark</item>
+    </style>
+
+    <style name="Theme.UnifiedReader.Launch.PanelPop" parent="Theme.UnifiedReader.Launch.Light">
+        <item name="windowSplashScreenBackground">@color/launch_panel_pop_background</item>
+        <item name="launchMarkColor">@color/launch_panel_pop_mark</item>
+    </style>
+
+    <style name="Theme.UnifiedReader.Launch.DetectiveFile" parent="Theme.UnifiedReader.Launch.Light">
+        <item name="windowSplashScreenBackground">@color/launch_detective_file_background</item>
+        <item name="launchMarkColor">@color/launch_detective_file_mark</item>
+    </style>
+
+    <style name="Theme.UnifiedReader.Launch.Graphite" parent="Theme.UnifiedReader.Launch.Dark">
+        <item name="windowSplashScreenBackground">@color/launch_graphite_background</item>
+        <item name="launchMarkColor">@color/launch_graphite_mark</item>
+    </style>
+
+    <style name="Theme.UnifiedReader.Launch.HighContrast" parent="Theme.UnifiedReader.Launch.Dark">
+        <item name="windowSplashScreenBackground">@color/launch_high_contrast_background</item>
+        <item name="launchMarkColor">@color/launch_high_contrast_mark</item>
+    </style>
+
+    <style name="Theme.UnifiedReader.Launch.OledReader" parent="Theme.UnifiedReader.Launch.Dark">
+        <item name="windowSplashScreenBackground">@color/launch_oled_reader_background</item>
+        <item name="launchMarkColor">@color/launch_oled_reader_mark</item>
+    </style>
+
+    <style name="Theme.UnifiedReader.Launch.Terminal95" parent="Theme.UnifiedReader.Launch.Dark">
+        <item name="windowSplashScreenBackground">@color/launch_terminal_95_background</item>
+        <item name="launchMarkColor">@color/launch_terminal_95_mark</item>
+    </style>
+
+    <style name="Theme.UnifiedReader.Launch.CrimsonCourt" parent="Theme.UnifiedReader.Launch.Dark">
+        <item name="windowSplashScreenBackground">@color/launch_crimson_court_background</item>
+        <item name="launchMarkColor">@color/launch_crimson_court_mark</item>
+    </style>
+
+    <style name="Theme.UnifiedReader.Launch.Blueprint" parent="Theme.UnifiedReader.Launch.Dark">
+        <item name="windowSplashScreenBackground">@color/launch_blueprint_background</item>
+        <item name="launchMarkColor">@color/launch_blueprint_mark</item>
+    </style>
+
+    <style name="Theme.UnifiedReader.Launch.VhsNight" parent="Theme.UnifiedReader.Launch.Dark">
+        <item name="windowSplashScreenBackground">@color/launch_vhs_night_background</item>
+        <item name="launchMarkColor">@color/launch_vhs_night_mark</item>
     </style>
 </resources>

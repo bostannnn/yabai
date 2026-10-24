@@ -14,10 +14,12 @@ import kotlin.coroutines.coroutineContext
 /**
  * The loading pulse of placeholder blocks: full opacity down to [AppSkeletonDefaults.minAlpha]
  * and back over [AppSkeletonDefaults.periodMillis]. Every placeholder reads the same clock, so
- * a screen of them breathes together. Still when the system turns animations off.
+ * a screen of them breathes together. Still when the system turns animations off. While one is
+ * on screen at launch, the splash stays up instead (see [AppLaunchSplashHold]).
  */
 @Composable
 fun Modifier.appSkeletonPulse(): Modifier {
+    HoldLaunchSplash()
     val alpha = remember { mutableFloatStateOf(1f) }
     LaunchedEffect(Unit) {
         if (coroutineContext[MotionDurationScale]?.scaleFactor == 0f) return@LaunchedEffect
