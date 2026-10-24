@@ -74,3 +74,13 @@ collection `picks`) sets today's See all, its list view, the home strip, a grid 
 drawn at dp size in Graphite with the emulator's covers (`pages/img/tiles/covers/`, from the second pass's
 cover set). Cards: `browser-tile`, `browser-tabs`, `browser-empty`, `baseline`, `progress-format`,
 `first-page`, `in-progress-1`. Picked: all seven Do, no notes. Built as plan 9.4 records.
+
+## 9.5 The book page's "Your reading", 2026-10-24
+
+`pages/bookpage.html` (live board: https://claude.ai/artifact/XbFW4XEbLT15Q7Mfn9WjKk, picks in its store,
+collection `picks`) sets today's book pages and the journal's "+" (`pages/img/bookpage/today-*.jpg`, the
+emulator after 9.4) beside the page drawn at 440 dp with Glass Meridian's cover colours and its real journal
+record (rated 3.5, started 21 Oct, finished 24 Oct, 9 sessions, 8 min). Cards: `reading-place` (A/B),
+`reading-content`, `file-facts`, `remove-row`, `journal-plus`. Picked: reading-place B, reading-content
+Don't, file-facts Do, remove-row Maybe, journal-plus Do; answered in chat: no "Your reading" section, and both
+removals move to the end. Built as plan 9.5 records.

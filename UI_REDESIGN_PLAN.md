@@ -1470,12 +1470,34 @@ library) at 800 dp and at phone width. All unit tests pass (1481, both lines). N
   open), Up next with a real series, and the switch animation frame by frame.
 - [ ] Tablet.
 
-### 9.5 The book page's "Your reading", and the journal's "+" `[ ]` (book-page-reading, journal-plus)
+### 9.5 The book page's file facts and remove row, and the journal's "+" `[~]` (book-page-reading, journal-plus)
 
-- [ ] Mock first. A "Your reading" section from the journal: the stars (9.1's editor), the note,
-      started and finished dates, sessions and time, Read again once finished; a local book's file
-      facts (pages or chapters, date added). Remove file becomes a quiet row at the end.
-- [ ] The journal's "+" (it opens the import picker) goes; import stays in the library.
+Built 2026-10-24 in worktree `ui-redesign-step-9-a92d10` (branch `claude/ui-redesign-step-9-a92d10`, on main
+7af2d8fc), not committed at the time; checked on the emulator (`yabai_tablet_35` on 5558, debug build, the
+Local library). All unit tests pass (1484, both lines). Not yet on the tablet.
+
+- [x] Mock first: board https://claude.ai/artifact/XbFW4XEbLT15Q7Mfn9WjKk
+      (`docs/design/third-pass/pages/bookpage.html`, 2026-10-24). Picked: `reading-place` B,
+      `reading-content` Don't, `file-facts` Do, `remove-row` Maybe, `journal-plus` Do. Asked in chat,
+      answered: no "Your reading" section at all (B is moot), and the remove row for both removals
+      (the board's store carries the answers as notes).
+- No "Your reading": the rating, note, dates and sessions stay in the journal; the book page doesn't read
+  the journal.
+- [x] About says what the file knows (`libraryBookPageText`): Format on its own, then Pages for a comic or
+      a PDF (`pageCount`, else the reader's), Chapters for an EPUB once its reader has counted them,
+      Language and Publisher as before, and Added (`libraryAddedLabel`: "21 Oct", with the year when
+      not this one) for every book that has an added date. A finished book now keeps its chapter count
+      in its progress (`AppProgressSummaries.withChapter`; the current chapter still clears).
+- [x] Remove is a quiet 48 dp row at the end of the page, after the rows of books: "Remove from library"
+      in the error colour (it asks first, as before) or "Remove download" in the text colour (its toast
+      has Undo). The top keeps Continue or Read again, and Mark finished / unread and Download where the
+      book has them; a local book's top is now just its button and progress.
+- [x] The journal's bar loses its "+" (`JournalTopBar`); importing stays in the library's menu, its
+      empty state and the first launch.
+- Seen on the emulator: Glass Meridian's page (Read again alone at the top; Format, Chapters 6,
+  Added 21 Oct; the remove row and its dialog, cancelled), Star Courier #1 (Pages 8), the journal's bar.
+- Not seen: a server book's page with Download and Remove download (no server on the emulator).
+- [ ] Tablet.
 
 ### 9.6 The reading page `[ ]` (page-colours, page-frame, footnote)
 

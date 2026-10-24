@@ -1,0 +1,403 @@
+<meta charset="utf-8">
+<title>yabai Your Reading</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: a board of decision cards; each card shows the mock at real dp sizes (scaled to fit) beside its spec, with a pick row. Dark-first like the app's Graphite. */
+:root {
+  --bg: #121417;
+  --surface: #1b1e23;
+  --surface-2: #23272d;
+  --line: #2f343b;
+  --fg: #e8eaed;
+  --muted: #9aa3ad;
+  --accent: #e9a6c6;
+  --on-accent: #2a1020;
+  --maybe: #b8c7da;
+  --dont: #ef8a80;
+  --stage: #0b0c0e;
+  --ui: "Manrope", "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f5f4f2; --surface: #ffffff; --surface-2: #efeeeb; --line: #dddad5; --fg: #1c1d20; --muted: #5d636b;
+    --accent: #a23e72; --on-accent: #ffffff; --maybe: #4a5d78; --dont: #b3392e; --stage: #e4e2de; color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f5f4f2; --surface: #ffffff; --surface-2: #efeeeb; --line: #dddad5; --fg: #1c1d20; --muted: #5d636b;
+  --accent: #a23e72; --on-accent: #ffffff; --maybe: #4a5d78; --dont: #b3392e; --stage: #e4e2de; color-scheme: light;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--ui); font-size: 15px; line-height: 1.55; margin: 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 40px 96px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(32px, 5vw, 46px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }
+h3 { font-size: 19px; font-weight: 700; }
+p { margin: 0; }
+code { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 12.5px; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; overflow-wrap: anywhere; }
+.overline { font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; color: var(--muted); }
+.lede { max-width: 70ch; color: var(--muted); font-size: 16px; margin-top: 14px; }
+.lede strong { color: var(--fg); }
+
+.bar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; margin: 26px 0 8px; padding: 10px 14px;
+  border-radius: 999px; border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+}
+.tally { display: flex; gap: 14px; font-weight: 600; font-size: 14px; font-variant-numeric: tabular-nums; }
+.tally b { font-weight: 800; }
+.save-state { color: var(--muted); font-size: 13px; flex: 1 1 200px; min-width: 0; }
+.pill-btn { font: 600 13.5px var(--ui); border-radius: 999px; padding: 8px 16px; cursor: pointer; border: 1px solid var(--line); background: var(--surface-2); color: var(--fg); }
+button:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.today { margin-top: 34px; background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 22px; display: grid; gap: 18px; }
+.today figure { margin: 0; min-width: 0; }
+.today img { width: 100%; display: block; border-radius: 12px; border: 1px solid var(--line); }
+.today .row { display: grid; grid-template-columns: minmax(0, 240px) minmax(0, 1fr); gap: 22px; align-items: start; }
+figcaption { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+ul.spec { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+ul.spec li::marker { color: var(--muted); }
+
+.cards { margin-top: 30px; display: grid; gap: 22px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 22px; display: grid; gap: 18px; }
+.card-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.card-head h3 { flex: 1 1 340px; min-width: 0; }
+.tag { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
+.body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: start; }
+.body > .col { max-width: 80ch; }
+.stages { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; min-width: 0; }
+.stage { background: var(--stage); border-radius: 16px; padding: 14px; display: grid; gap: 8px; justify-items: center; min-width: 0; max-width: 100%; }
+.stage .cap { font-size: 12.5px; color: var(--muted); text-align: center; max-width: 40ch; }
+.stage .cap b { color: var(--fg); }
+.trio { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.col { display: grid; gap: 12px; min-width: 0; }
+
+/* scaled device frame: outer box is the scaled size, inner is real dp */
+.scaled { position: relative; overflow: hidden; border-radius: 14px; flex: none; }
+.scaled > .dev { position: absolute; left: 0; top: 0; transform-origin: 0 0; overflow: hidden; }
+
+.themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 14px 10px; width: 100%; }
+.themes .t { display: grid; gap: 6px; justify-items: center; }
+.themes .t span { font-size: 11.5px; color: var(--muted); text-align: center; line-height: 1.25; }
+.group { font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; color: var(--muted); grid-column: 1 / -1; margin-top: 4px; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; }
+.seg button { font: 600 13px var(--ui); border: 0; border-radius: 999px; padding: 6px 14px; background: transparent; color: var(--fg); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--surface-2); }
+.play { font: 700 13.5px var(--ui); border-radius: 999px; padding: 7px 18px; cursor: pointer; border: 1px solid var(--accent); background: var(--accent); color: var(--on-accent); }
+
+.seq { display: grid; grid-template-columns: auto repeat(3, auto); gap: 8px 10px; align-items: center; justify-content: center; }
+.seq .lbl { font-size: 12.5px; font-weight: 700; color: var(--fg); text-align: right; }
+.seq .arrow { color: var(--muted); }
+.seq figure { margin: 0; display: grid; gap: 4px; justify-items: center; }
+.seq figcaption { margin: 0; font-size: 11.5px; text-align: center; max-width: 18ch; }
+
+/* pick row */
+.pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 14px; border-top: 1px solid var(--line); }
+.pick .label { font-size: 13px; color: var(--muted); font-weight: 600; margin-right: 4px; }
+.pick button { font: 700 13.5px var(--ui); padding: 7px 16px; border-radius: 999px; cursor: pointer; border: 1px solid var(--line); background: transparent; color: var(--fg); }
+.pick button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.pick button[aria-pressed="true"][data-v="maybe"] { background: var(--maybe); color: var(--bg); border-color: var(--maybe); }
+.pick button[aria-pressed="true"][data-v="dont"], .pick button[aria-pressed="true"][data-v="neither"] { background: var(--dont); color: var(--bg); border-color: var(--dont); }
+.pick textarea { flex: 1 1 260px; min-width: 0; min-height: 38px; resize: vertical; font: 14px var(--ui); color: var(--fg); background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; }
+
+@media (max-width: 700px) {
+  .today .row { grid-template-columns: minmax(0, 1fr); }
+  .today .row figure { max-width: 240px; }
+  .seq { grid-template-columns: repeat(3, auto); }
+  .seq .lbl { grid-column: 1 / -1; text-align: left; }
+}
+@media (max-width: 600px) {
+  .card, .today { padding: 16px; border-radius: 20px; }
+  .bar { border-radius: 20px; }
+}
+
+.today .shots { display: flex; flex-wrap: wrap; gap: 10px; }
+.today .shots figure { flex: 1 1 220px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="overline">yabai &#183; redesign plan 9.5 &#183; board &#183; 24 October 2026</p>
+    <h1 style="margin-top:10px">The book page's &#8220;Your reading&#8221;</h1>
+    <p class="lede">You picked Do for both review cards. The book page never shows what you thought of a book: Glass Meridian is rated 3.5 in the journal, read in 9 sessions between 21 and 24 October, and its page says "Format EPUB" and nothing else. "Remove file" sits under Read again with the same weight. And the journal's "+" opens a file picker. <strong>Card 1 picks where the section goes</strong> (the rest draw A). Pages are drawn at real sizes (1 px = 1 dp, scaled to fit) with Glass Meridian's cover colours. Picks save to this page.</p>
+  </header>
+
+  <div class="bar" role="region" aria-label="Your picks">
+    <div class="tally" aria-live="polite"><span><b id="n-picked">0</b> of <b id="n-total">5</b> picked</span></div>
+    <p class="save-state" id="save-state">Picks are kept in this browser until the page's store answers.</p>
+    <button class="pill-btn" id="copy-picks" type="button">Copy picks</button>
+  </div>
+  <textarea id="copy-fallback" aria-label="Picks as text" hidden style="width:100%;min-height:120px;margin-top:8px;font:13px ui-monospace,monospace;background:var(--surface-2);color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:10px"></textarea>
+
+  <section class="today" aria-label="Today">
+    <p class="overline">What's there today (0.17.1 + 9.4, emulator, the Local library)</p>
+    <div class="shots">
+      <figure><img src="img/bookpage/today-finished.jpg" alt="Glass Meridian's book page: cover, title, author, a pink Read again button, a Remove file button under it, 100% read today, then About with only Format EPUB"><figcaption>A finished, rated book: Read again, Remove file, then "Format EPUB".</figcaption></figure>
+      <figure><img src="img/bookpage/today-comic.jpg" alt="Star Courier number 1's book page: Read again, Remove file, Format CBZ 8 pages, then More in Star Courier"><figcaption>A comic: the same, with "CBZ &#183; 8 pages" and its series row.</figcaption></figure>
+      <figure><img src="img/bookpage/today-journal.jpg" alt="Left, the Journal with a plus in its bar; right, the Android Files picker it opens"><figcaption>The journal's "+" opens Android's file picker, an import.</figcaption></figure>
+    </div>
+    <ul class="spec">
+      <li>The rating and note live in the journal (<code>item_journal_entries</code>, the rating in half stars), with the started and finished events and every reading session. The book page (feature:library) reads none of it; the app already keeps a light copy (<code>AppUiState.journalSnapshot</code>: events, sessions, entries).</li>
+      <li>9.1's star editor and private note are journal code, so the book page would take the section as a slot the app fills, not draw it itself.</li>
+      <li>About lists Format (with pages for comics), Language and Publisher when the book says. A local book has only its format; the date it was added is known but not shown.</li>
+    </ul>
+  </section>
+
+  <div class="cards">
+
+    <article class="card" data-card="reading-place" data-kind="ab" data-title="Where Your reading goes">
+      <div class="card-head"><h3>1 &#183; "Your reading": its own section, or inside the cover's colour</h3><span class="tag">pick A or B</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-place-a"></div><p class="cap"><b>A.</b> A section on the page under the top, headed like About.</p></div>
+          <div class="stage"><div id="m-place-b"></div><p class="cap"><b>B.</b> Inside the tinted top under the progress bar, as on the Finished screen.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>A keeps the top short and reads like the rest of the page; the stars take the cover's accent so they still belong to the book.</li>
+            <li>B makes the top the book's whole story (where you are, what you thought), the way the Finished screen looks; the top grows by about 150 dp, pushing About and the rows down.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="reading-content" data-kind="dmd" data-title="What Your reading holds">
+      <div class="card-head"><h3>2 &#183; What the section holds, from the journal</h3><span class="tag">feature:journal slot</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-content-finished"></div><p class="cap">Finished and rated, no note yet.</p></div>
+          <div class="stage"><div id="m-content-reading"></div><p class="cap">Being read, a note written, not rated.</p></div>
+          <div class="stage"><div id="m-content-new"></div><p class="cap">Never opened: no section.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>The stars are 9.1's editor ("Your rating", the hint at the end, 40 dp stars in the cover's accent): a tap rates and saves, a tap on the left half gives a half.</li>
+            <li>The note: "Add a private note" opens the field, as on the Finished screen; a note already written shows as text with Edit. It saves when you leave the field or close the page.</li>
+            <li>"Started 21 Oct &#183; Finished 24 Oct" from the journal's events ("Started 21 Oct" alone while reading), and "9 sessions &#183; 8 min".</li>
+            <li>It shows once a book has been opened or rated. Read again stays the top button once a book is finished, as today.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="file-facts" data-kind="dmd" data-title="Local file facts">
+      <div class="card-head"><h3>3 &#183; About says what the file knows</h3><span class="tag">LibraryBookPageModel</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-facts"></div><p class="cap">An EPUB that has been opened, and a comic.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>Chapters for an EPUB, once the reader has counted them ("6 chapters"); pages for a comic and a PDF, as today, on their own row.</li>
+            <li>Added: when it came into the library ("21 Oct", with the year when not this one), for local books and server books alike.</li>
+            <li>The series and issue number stay in the top block's series line ("Star Courier #1 &#183; 1 of 2"), not repeated here.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="remove-row" data-kind="dmd" data-title="Remove as a quiet row">
+      <div class="card-head"><h3>4 &#183; Remove moves to a quiet row at the end</h3><span class="tag">LibraryBookPage</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-remove"></div><p class="cap">The end of a local book's page.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>"Remove from library" in the error colour, a 48 dp row with the bin icon, after About and the rows of books. It keeps its confirm dialog and the toast after.</li>
+            <li>A downloaded server book gets "Remove download" there too, in the text colour (its toast has Undo); Download and Mark finished stay at the top beside Read again.</li>
+            <li>The top then holds only what you read with: Continue or Read again, and Mark finished / Download where the book has them.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="journal-plus" data-kind="dmd" data-title="Journal without +">
+      <div class="card-head"><h3>5 &#183; The journal's bar loses its "+"</h3><span class="tag">JournalTopBar</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-journal"></div><p class="cap">The journal's bar, today and without the "+".</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>Importing stays where it belongs: the library's "&#8226;&#8226;&#8226;" menu, its empty state and the first launch.</li>
+            <li>The bar keeps the menu button and the journal's name.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+  </div>
+</div>
+
+<script>
+(function () {
+  var G = { bg: "#101214", surface: "#171A1D", high: "#30363C", fg: "#E7EAEE", fg2: "#C8D0D8", line: "#4E5660", err: "#FFB4AB" };
+  // Glass Meridian's cover colours on the page (sampled from the emulator).
+  var P = { ts: "#302757", te: "#5E375D", acc: "#DAA3BA", onAcc: "#3A1C2B", fg: "#FFFFFF" };
+  var FONT = "font-family:var(--ui);";
+  var ICON = {
+    star: "M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z",
+    edit: "M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z",
+    del: "M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z",
+    book: "M21 5c-1.11-.35-2.33-.5-3.5-.5-1.95 0-4.05.4-5.5 1.5-1.45-1.1-3.55-1.5-5.5-1.5S2.45 4.9 1 6v14.65c0 .25.25.5.5.5.1 0 .15-.05.25-.05C3.1 20.45 5.05 20 6.5 20c1.95 0 4.05.4 5.5 1.5 1.35-.85 3.8-1.5 5.5-1.5 1.65 0 3.35.3 4.75 1.05.1.05.15.05.25.05.25 0 .5-.25.5-.5V6c-.6-.45-1.25-.75-2-1zm0 13.5c-1.1-.35-2.3-.5-3.5-.5-1.7 0-4.15.65-5.5 1.5V8c1.35-.85 3.8-1.5 5.5-1.5 1.2 0 2.4.15 3.5.5v11.5z"
+  };
+  var gid = 0;
+  function svg(name, color, size) { return '<svg viewBox="0 0 24 24" width="' + size + '" height="' + size + '" aria-hidden="true" style="flex:none"><path fill="' + color + '" d="' + ICON[name] + '"/></svg>'; }
+  function alpha(hex, a) { var n = parseInt(hex.slice(1), 16); return "rgba(" + (n >> 16) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")"; }
+  function star(fill, on, off, size) {
+    var id = "g" + (++gid);
+    var paint = fill >= 1 ? on : fill <= 0 ? off : "url(#" + id + ")";
+    var defs = fill > 0 && fill < 1 ? '<defs><linearGradient id="' + id + '"><stop offset="50%" stop-color="' + on + '"/><stop offset="50%" stop-color="' + off + '"/></linearGradient></defs>' : "";
+    return '<svg viewBox="0 0 24 24" width="' + size + '" height="' + size + '" aria-hidden="true">' + defs + '<path fill="' + paint + '" d="' + ICON.star + '"/></svg>';
+  }
+  function stars(r, fg, size) { var s = ""; for (var i = 1; i <= 5; i++) s += star(Math.max(0, Math.min(1, r - i + 1)), P.acc, alpha(fg, .28), size); return s; }
+  function set(id, html) { var el = document.getElementById(id); if (el) el.innerHTML = html; }
+  function device(w, h, scale, inner, extra) {
+    return '<div class="scaled" style="width:' + Math.round(w * scale) + 'px;height:' + Math.round(h * scale) + 'px' + (extra || "") + '"><div class="dev" style="width:' + w + 'px;height:' + h + 'px;transform:scale(' + scale + ');background:' + G.surface + ';border-radius:28px 0 0 28px">' + inner + '</div></div>';
+  }
+
+  // The tinted top of the page; o: {title, author, action, progress:[left,right,fraction], removeButton, extra}
+  function top(o) {
+    var sec = alpha(P.fg, .74);
+    var h = '<div style="padding:20px;' + FONT + 'background:radial-gradient(circle at 100% 100%, ' + P.te + ' 0%, ' + alpha(P.te, 0) + ' 95%), ' + P.ts + ';color:' + P.fg + '">' +
+      '<div style="display:flex;align-items:flex-end;gap:16px"><img src="img/tiles/covers/' + (o.cover || "Glass-Meridian") + '.jpg" alt="" style="width:118px;height:177px;border-radius:6px;box-shadow:0 8px 18px rgba(0,0,0,.4)">' +
+      '<div style="display:grid;gap:4px;padding-right:24px"><div style="font-size:26px;line-height:30px;font-weight:700">' + o.title + '</div><div style="font-size:13.5px;color:' + sec + '">' + o.author + '</div></div></div>' +
+      '<div style="margin-top:18px;height:46px;border-radius:23px;background:' + P.acc + ';color:' + P.onAcc + ';display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:600">' + svg("book", P.onAcc, 18) + o.action + '</div>' +
+      (o.removeButton ? '<div style="margin-top:10px;height:42px;border-radius:21px;background:' + alpha(P.fg, .16) + ';display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:600">' + svg("del", P.fg, 18) + 'Remove file</div>' : '') +
+      (o.progress ? '<div style="margin-top:16px;display:flex;font-size:12.5px;font-weight:500;color:' + sec + '"><span style="flex:1">' + o.progress[0] + '</span><span>' + o.progress[1] + '</span></div>' +
+        '<div style="margin-top:8px;height:6px;border-radius:3px;background:' + alpha(P.fg, .16) + '"><div style="height:100%;width:' + Math.round(o.progress[2] * 100) + '%;border-radius:3px;background:' + P.acc + '"></div></div>' : '') +
+      (o.extra || '') + '</div>';
+    return h;
+  }
+  function heading(t) { return '<div style="padding:16px 20px 8px;font-size:13px;font-weight:700;color:' + G.fg2 + ';' + FONT + '">' + t + '</div>'; }
+  function hairline() { return '<div style="margin:0 20px;height:1px;background:' + alpha(G.line, .5) + '"></div>'; }
+
+  // The section's insides; o: {rating, note, dates, sessions}; fg is the text colour it sits on.
+  function reading(o, fg, onTint) {
+    var sec = alpha(fg, .74);
+    var hint = o.rating ? "Rated " + o.rating : "Tap to rate";
+    var h = '<div style="display:grid;gap:12px;' + FONT + 'color:' + fg + '">' +
+      '<div><div style="display:flex;font-size:13px;font-weight:600;margin-bottom:6px"><span style="flex:1">Your rating</span><span style="color:' + sec + '">' + hint + '</span></div>' +
+      '<div style="display:flex;gap:4px">' + stars(o.rating || 0, fg, 40) + '</div></div>';
+    if (o.note) {
+      h += '<div style="border-radius:12px;padding:10px 14px;background:' + alpha(fg, onTint ? .12 : .06) + ';display:flex;gap:10px;align-items:flex-start"><div style="flex:1;font-size:14px;line-height:20px">' + o.note + '</div><span style="font-size:13px;font-weight:600;color:' + P.acc + '">Edit</span></div>';
+    } else {
+      h += '<div style="height:48px;border-radius:24px;border:1px solid ' + alpha(fg, .22) + ';display:flex;align-items:center;gap:10px;padding:0 16px;font-size:14px;font-weight:500;color:' + sec + '">' + svg("edit", sec, 20) + 'Add a private note</div>';
+    }
+    h += '<div style="font-size:13px;line-height:19px;color:' + sec + '">' + o.dates + '<br>' + o.sessions + '</div></div>';
+    return h;
+  }
+  function facts(rows) {
+    return '<div style="padding:8px 20px;display:grid;gap:6px;' + FONT + '">' + rows.map(function (r) {
+      return '<div style="display:flex"><span style="width:110px;font-size:12.5px;color:' + G.fg2 + '">' + r[0] + '</span><span style="flex:1;font-size:13.5px;color:' + G.fg + '">' + r[1] + '</span></div>';
+    }).join("") + '</div>';
+  }
+  var GLASS = { rating: 3.5, dates: "Started 21 Oct &#183; Finished 24 Oct", sessions: "9 sessions &#183; 8 min" };
+  var GLASS_TOP = { title: "Glass Meridian", author: "J. R. Okafor", action: "Read again", progress: ["100% &#183; read today", "73 / 73", 1] };
+  var ABOUT = hairline() + heading("About") + facts([["Format", "EPUB"], ["Chapters", "6"], ["Added", "21 Oct"]]);
+
+  // 1 placement
+  set("m-place-a", device(440, 760, 0.6, top(GLASS_TOP) + heading("Your reading") + '<div style="padding:0 20px 8px">' + reading(GLASS, G.fg, false) + '</div>' + ABOUT));
+  set("m-place-b", device(440, 760, 0.6, top(Object.assign({}, GLASS_TOP, { extra: '<div style="margin-top:18px;padding-top:16px;border-top:1px solid ' + alpha(P.fg, .14) + '">' + reading(GLASS, P.fg, true) + '</div>' })) + ABOUT));
+
+  // 2 content, three states (drawn as A)
+  function sectionOnly(o) { return heading("Your reading") + '<div style="padding:0 20px 12px">' + reading(o, G.fg, false) + '</div>'; }
+  set("m-content-finished", device(440, 330, 0.55, sectionOnly(GLASS)));
+  set("m-content-reading", device(440, 330, 0.55, sectionOnly({ rating: 0, note: "The middle drags, but the ending of chapter 4 was worth it.", dates: "Started 21 Oct", sessions: "2 sessions &#183; 1 min" })));
+  set("m-content-new", device(440, 330, 0.55, '<div style="padding:16px 20px;' + FONT + 'color:' + G.fg2 + ';font-size:13px">A book never opened goes straight from the top to About:</div>' + hairline() + heading("About") + facts([["Format", "EPUB"], ["Added", "18 Oct"]])));
+
+  // 3 facts
+  set("m-facts", '<div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center">' +
+    device(440, 150, 0.7, heading("About") + facts([["Format", "EPUB"], ["Chapters", "6"], ["Language", "English"], ["Added", "21 Oct"]])) +
+    device(440, 150, 0.7, heading("About") + facts([["Format", "CBZ"], ["Pages", "8"], ["Added", "17 Oct"]])) + '</div>');
+
+  // 4 the remove row at the end
+  set("m-remove", device(440, 300, 0.7,
+    hairline() + heading("About") + facts([["Format", "EPUB"], ["Chapters", "6"], ["Added", "21 Oct"]]) +
+    '<div style="margin-top:12px">' + hairline() + '</div>' +
+    '<div style="height:48px;margin:8px 8px 0;padding:0 12px;border-radius:12px;display:flex;align-items:center;gap:14px;' + FONT + 'font-size:14px;font-weight:600;color:' + G.err + '">' + svg("del", G.err, 20) + 'Remove from library</div>'));
+
+  // 5 the journal bar, today and without the +
+  function bar(withPlus) {
+    return '<div style="margin:12px 16px;height:54px;border-radius:27px;background:rgba(29,33,37,.86);border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:12px;padding:0 16px;' + FONT + 'color:' + G.fg + '">' +
+      '<span style="font-size:20px">&#8801;</span><span style="flex:1;font-size:16px;font-weight:600">Journal</span>' + (withPlus ? '<span style="font-size:24px;color:' + G.fg2 + '">+</span>' : '') + '</div>';
+  }
+  set("m-journal", '<div style="display:grid;gap:10px">' + device(800, 78, 0.5, bar(true), ';border-radius:12px') + device(800, 78, 0.5, bar(false), ';border-radius:12px') + '</div>');
+})();
+</script>
+
+<script>
+(function () {
+  // ---------- picks (same store layout as the earlier boards: collection "picks") ----------
+  var STORE_KEY = "yabai-bookpage-board-picks";
+  var cards = Array.prototype.slice.call(document.querySelectorAll("[data-card]"));
+  var LABELS = { "do": "Do", maybe: "Maybe", dont: "Don't", a: "A", b: "B", c: "C", neither: "Neither" };
+  var KINDS = { ab: ["a", "b", "neither"], abc: ["a", "b", "c", "neither"], dmd: ["do", "maybe", "dont"] };
+  var picks = {}; try { picks = JSON.parse(localStorage.getItem(STORE_KEY) || "{}") || {}; } catch (e) { picks = {}; }
+  var db = null, pending = {};
+  function saveLocal() { try { localStorage.setItem(STORE_KEY, JSON.stringify(picks)); } catch (e) {} }
+  function setState(t) { document.getElementById("save-state").textContent = t; }
+  function tally() { var n = 0; cards.forEach(function (c) { if ((picks[c.dataset.card] || {}).choice) n++; }); document.getElementById("n-picked").textContent = n; document.getElementById("n-total").textContent = cards.length; }
+  function paint(card) {
+    var p = picks[card.dataset.card] || {};
+    card.querySelectorAll(".pick button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.v === p.choice)); });
+    var ta = card.querySelector(".pick textarea"); if (ta && document.activeElement !== ta) ta.value = p.note || "";
+  }
+  function write(id) {
+    if (!db) { saveLocal(); return; }
+    var p = picks[id];
+    var run = function () {
+      return db.collection("picks").doc(id).set({ choice: p.choice || null, note: p.note || "", title: p.title || id, updatedAt: p.updatedAt || Date.now() })
+        .then(function () { p.synced = true; saveLocal(); setState("Saved to this page."); })
+        .catch(function (err) { setState(err && err.code === "invalid_argument" ? "This page is read-only for you; picks stay in this browser. Use Copy picks." : "Couldn't save just now; your pick is kept in this browser."); });
+    };
+    pending[id] = (pending[id] || Promise.resolve()).then(run, run);
+  }
+  function update(card, patch) {
+    var id = card.dataset.card;
+    picks[id] = Object.assign({}, picks[id], patch, { title: card.dataset.title, updatedAt: Date.now(), synced: false });
+    saveLocal(); paint(card); tally(); write(id);
+  }
+  cards.forEach(function (card) {
+    var opts = KINDS[card.dataset.kind] || KINDS.dmd;
+    var row = document.createElement("div"); row.className = "pick";
+    row.innerHTML = '<span class="label">Your pick</span>' + opts.map(function (v) { return '<button type="button" data-v="' + v + '" aria-pressed="false">' + LABELS[v] + "</button>"; }).join("") +
+      '<textarea id="note-' + card.dataset.card + '" rows="1" placeholder="Note (optional)" aria-label="Note for ' + card.dataset.title + '"></textarea>';
+    card.appendChild(row);
+    row.querySelectorAll("button").forEach(function (b) { b.addEventListener("click", function () { var cur = (picks[card.dataset.card] || {}).choice; update(card, { choice: cur === b.dataset.v ? null : b.dataset.v }); }); });
+    var ta = row.querySelector("textarea"), t = null;
+    ta.addEventListener("input", function () { clearTimeout(t); t = setTimeout(function () { update(card, { note: ta.value }); }, 700); });
+    ta.addEventListener("change", function () { clearTimeout(t); if ((picks[card.dataset.card] || {}).note !== ta.value) update(card, { note: ta.value }); });
+    paint(card);
+  });
+  tally();
+  document.getElementById("copy-picks").addEventListener("click", function () {
+    var lines = cards.map(function (c) { var p = picks[c.dataset.card] || {}; return c.querySelector("h3").textContent + ": " + (p.choice ? LABELS[p.choice] : "-") + (p.note ? " (" + p.note.trim() + ")" : ""); }).join("\n");
+    var btn = document.getElementById("copy-picks");
+    var fallback = function () { var ta = document.getElementById("copy-fallback"); ta.hidden = false; ta.value = lines; ta.focus(); ta.select(); btn.textContent = "Select and copy"; };
+    try { navigator.clipboard.writeText(lines).then(function () { btn.textContent = "Copied"; setTimeout(function () { btn.textContent = "Copy picks"; }, 1600); }, fallback); } catch (e) { fallback(); }
+  });
+  (async function () {
+    try { db = window.claude && window.claude.use ? await window.claude.use("db") : null; } catch (e) { db = null; }
+    if (!db) { setState("Picks are saved in this browser only. Use Copy picks to send them."); return; }
+    setState("Connected. Picks save to this page.");
+    var first = true;
+    db.collection("picks").onSnapshot(function (snap) {
+      snap.docs.forEach(function (d) { var remote = d.data() || {}, local = picks[d.id]; if (!local || (remote.updatedAt || 0) >= (local.updatedAt || 0)) picks[d.id] = Object.assign({}, remote, { synced: true }); });
+      if (first) { first = false; Object.keys(picks).forEach(function (id) { if (picks[id] && !picks[id].synced) write(id); }); }
+      saveLocal(); cards.forEach(paint); tally();
+    }, function () { setState("The page's store stopped answering; picks stay in this browser."); });
+  })();
+})();
+</script>
