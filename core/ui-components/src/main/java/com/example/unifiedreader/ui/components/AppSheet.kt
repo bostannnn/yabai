@@ -20,6 +20,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.collapse
 import androidx.compose.ui.semantics.dismiss
@@ -31,13 +33,23 @@ import com.example.unifiedreader.core.ui.components.R
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import kotlinx.coroutines.launch
 
-/** The app's modal bottom sheet: 28 dp top corners and the kit's own drag handle. */
+/**
+ * The app's modal bottom sheet: 28 dp top corners and the kit's own drag handle, on
+ * [containerColor] (the theme's base surface when unspecified, or a cover's first tint). With
+ * [skipPartiallyExpanded] a tall sheet opens all the way instead of stopping halfway.
+ */
 @Composable
 fun AppSheet(
     onDismissRequest: () -> Unit,
+    containerColor: Color = Color.Unspecified,
+    skipPartiallyExpanded: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    AppSheetLayout(onDismissRequest = onDismissRequest) { _ -> content() }
+    AppSheetLayout(
+        onDismissRequest = onDismissRequest,
+        skipPartiallyExpanded = skipPartiallyExpanded,
+        containerColor = containerColor,
+    ) { _ -> content() }
 }
 
 /** [AppSheet], with a `hide` for the content that slides the sheet away before dismissing it. */
@@ -46,6 +58,7 @@ fun AppSheet(
 internal fun AppSheetLayout(
     onDismissRequest: () -> Unit,
     skipPartiallyExpanded: Boolean = false,
+    containerColor: Color = Color.Unspecified,
     content: @Composable ColumnScope.(hide: () -> Unit) -> Unit,
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
@@ -68,7 +81,7 @@ internal fun AppSheetLayout(
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
-        containerColor = semanticColors.surfaceBase,
+        containerColor = containerColor.takeOrElse { semanticColors.surfaceBase },
         shape = sheetShape,
         dragHandle = null,
         contentWindowInsets = { WindowInsets(0, 0, 0, 0) },

@@ -35,35 +35,22 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.unifiedreader.core.model.ReadableItem
-import com.example.unifiedreader.core.model.libraryPrimaryText
-import com.example.unifiedreader.core.model.librarySecondaryText
-import com.example.unifiedreader.feature.journal.JournalItemReviewCard
-import com.example.unifiedreader.feature.journal.rememberJournalReviewState
-import com.example.unifiedreader.feature.journal.shouldSaveJournalReview
-import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryViewMode
 import com.example.unifiedreader.feature.library.LocalLibraryCoverGeneration
-import com.example.unifiedreader.feature.library.VisibleResolvedLibraryCover
-import com.example.unifiedreader.feature.reader.core.ReaderCompletionDialog
 import com.example.unifiedreader.feature.reader.core.ReaderHost
 import com.example.unifiedreader.feature.reader.core.ReaderNavigationActions
-import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
 import com.example.unifiedreader.feature.updates.AppUpdateActions
 import com.example.unifiedreader.feature.updates.AppUpdateController
 import com.example.unifiedreader.feature.updates.AppUpdateHost
 import com.example.unifiedreader.feature.updates.AppUpdateState
 import com.example.unifiedreader.feature.updates.rememberAppUpdateActions
-import com.example.unifiedreader.journal.JournalItemRef
 import com.example.unifiedreader.feature.library.rememberLibraryCoverColors
 import com.example.unifiedreader.ui.components.AppBackground
-import com.example.unifiedreader.ui.components.AppButton
 import com.example.unifiedreader.ui.components.AppDialog
 import com.example.unifiedreader.ui.components.AppDialogConfirmButton
 import com.example.unifiedreader.ui.components.AppScreenBack
 import com.example.unifiedreader.ui.components.AppScreenHost
 import com.example.unifiedreader.ui.components.AppSnackbar
-import com.example.unifiedreader.ui.components.AppTextButton
 import com.example.unifiedreader.ui.theme.AppCoverAccentTheme
 import com.example.unifiedreader.ui.theme.UnifiedReaderTheme
 import com.example.unifiedreader.ui.theme.applyAndroidThemeMode
@@ -238,7 +225,7 @@ fun UnifiedReaderAppContent(
                     notice = uiState.progressSyncNotice,
                     onDismiss = viewModel::dismissProgressSyncNotice,
                 )
-                ReaderCompletionDialogHost(
+                ReaderFinishedHost(
                     uiState = uiState,
                     viewModel = viewModel,
                 )
@@ -265,109 +252,6 @@ private sealed interface AppRootScreen {
 
     data class Reader(val itemId: String) : AppRootScreen
 }
-
-@Composable
-private fun ReaderCompletionDialogHost(
-    uiState: AppUiState,
-    viewModel: AppViewModel,
-) {
-    val completionState = uiState.readerCompletionState ?: return
-    val item = uiState.items.firstOrNull { it.id == completionState.itemId }
-        ?: uiState.selectedItem?.takeIf { it.id == completionState.itemId }
-        ?: return
-    val nextItem = completionState.nextItemId?.let { nextItemId ->
-        uiState.items.firstOrNull { item -> item.id == nextItemId }
-    }
-    val entry = uiState.journalSnapshot.entryByItemId[item.id]
-    val reviewState = rememberJournalReviewState(
-        itemId = item.id,
-        initialRating = entry?.rating,
-        initialReviewText = entry?.reviewText.orEmpty(),
-    )
-    val journalItem = item.toJournalItemRef()
-    val saveReviewIfNeeded = {
-        if (shouldSaveJournalReview(
-                initialRating = entry?.rating,
-                initialReviewText = entry?.reviewText.orEmpty(),
-                rating = reviewState.selectedRating,
-                reviewText = reviewState.reviewText,
-            )
-        ) {
-            viewModel.saveJournalEntry(
-                item = journalItem,
-                rating = reviewState.selectedRating,
-                reviewText = reviewState.reviewText,
-            )
-        }
-    }
-    val dismissCompletion = {
-        saveReviewIfNeeded()
-        viewModel.dismissReaderCompletion()
-    }
-
-    ReaderCompletionDialog(
-        nextItem = nextItem,
-        nextItemTitle = nextItem?.libraryPrimaryText(),
-        nextItemSubtitle = nextItem?.librarySecondaryText(),
-        coverContent = { coverItem, modifier ->
-            VisibleResolvedLibraryCover(
-                item = coverItem,
-                coverImageUrlProvider = viewModel::coverImageUrlFor,
-                onCoverVisible = viewModel::ensureCoverCached,
-                imageVariant = LibraryCoverImageVariant.ShelfRow,
-                modifier = modifier,
-            )
-        },
-        reviewContent = {
-            JournalItemReviewCard(
-                item = journalItem,
-                reviewState = reviewState,
-                coverImageUrlProvider = viewModel::coverImageUrlFor,
-                onCoverVisible = viewModel::ensureCoverCached,
-                activityText = "Finished",
-                onRatingSelected = { rating ->
-                    viewModel.saveJournalEntry(
-                        item = journalItem,
-                        rating = rating,
-                        reviewText = reviewState.reviewText,
-                    )
-                },
-            ) {
-                AppTextButton(onClick = dismissCompletion) {
-                    Text(text = "Close")
-                }
-                AppButton(
-                    onClick = {
-                        viewModel.saveJournalEntry(
-                            item = journalItem,
-                            rating = reviewState.selectedRating,
-                            reviewText = reviewState.reviewText,
-                        )
-                    },
-                ) {
-                    Text(text = "Save review")
-                }
-            }
-        },
-        onStartNext = {
-            saveReviewIfNeeded()
-            viewModel.startReaderCompletionNextItem()
-        },
-        onDismiss = dismissCompletion,
-    )
-}
-
-private fun ReadableItem.toJournalItemRef(): JournalItemRef = JournalItemRef(
-    itemId = id,
-    sourceType = sourceType,
-    libraryId = libraryId,
-    itemTitle = title,
-    itemPrimaryText = libraryPrimaryText(),
-    itemSecondaryText = librarySecondaryText(),
-    coverUrl = coverUrl,
-    itemKind = kind,
-    format = format,
-)
 
 @Composable
 private fun BoxScope.ProgressSyncNoticeHost(

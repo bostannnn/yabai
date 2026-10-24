@@ -239,7 +239,7 @@ private const val AccentMinSaturation = 0.25f
  * arrives after the first frame fades in instead of switching.
  */
 @Composable
-internal fun animateCoverColors(target: AppCoverColors): AppCoverColors {
+fun animateCoverColors(target: AppCoverColors): AppCoverColors {
     @Composable
     fun animate(color: Color, label: String): Color =
         animateColorAsState(targetValue = color, animationSpec = AppMotion.effects(), label = label).value
@@ -259,7 +259,7 @@ internal fun animateCoverColors(target: AppCoverColors): AppCoverColors {
  * The cover tint behind a card or a page: the first ambient colour, with the second glowing in
  * from the far corner. Gradients only; no live blur.
  */
-internal fun Modifier.coverTint(colors: AppCoverColors): Modifier = drawBehind {
+fun Modifier.coverTint(colors: AppCoverColors): Modifier = drawBehind {
     drawRect(colors.tintStart)
     drawRect(
         Brush.radialGradient(

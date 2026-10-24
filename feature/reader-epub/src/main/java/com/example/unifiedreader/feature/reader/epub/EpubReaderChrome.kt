@@ -68,9 +68,10 @@ internal fun EpubReaderChrome(
                     active = isTocOpen,
                     onClick = onTocClick,
                 )
+                val dockProgress = epubDockProgress(currentProgress, position = currentPage, pageCount = pageCount)
                 ReaderDockProgress(
-                    progress = currentProgress.toFloat(),
-                    percentLabel = buildEpubPercentLabel(currentProgress),
+                    progress = dockProgress.toFloat(),
+                    percentLabel = buildEpubPercentLabel(dockProgress),
                     positionLabel = buildEpubDockPositionLabel(position = currentPage, pageCount = pageCount),
                     chapterMarks = chapterMarks,
                     onProgressSelected = onProgressSelected,

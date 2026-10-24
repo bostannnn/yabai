@@ -26,6 +26,7 @@ object AppIcons {
     val Delete: ImageVector @Composable get() = icon(R.drawable.ic_delete)
     val DeleteSweep: ImageVector @Composable get() = icon(R.drawable.ic_delete_sweep)
     val DragHandle: ImageVector @Composable get() = icon(R.drawable.ic_drag_handle)
+    val Edit: ImageVector @Composable get() = icon(R.drawable.ic_edit)
     val Download: ImageVector @Composable get() = icon(R.drawable.ic_download)
     val DownloadDone: ImageVector @Composable get() = icon(R.drawable.ic_download_done)
     val ErrorOutline: ImageVector @Composable get() = icon(R.drawable.ic_error)

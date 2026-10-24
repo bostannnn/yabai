@@ -17,6 +17,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 
 // Every button shrinks a little while pressed. A button on the default pill shape also rounds
@@ -101,6 +102,11 @@ object AppButtonDefaults {
     @Composable
     fun filledColors(): ButtonColors = ButtonDefaults.buttonColors()
 
+    /** A pill in colours of its own, for buttons on a cover tint (the cover's accent, or its track). */
+    @Composable
+    fun filledColors(containerColor: Color, contentColor: Color): ButtonColors =
+        ButtonDefaults.buttonColors(containerColor = containerColor, contentColor = contentColor)
+
     @Composable
     fun tonalColors(): ButtonColors = ButtonDefaults.buttonColors(
         containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
@@ -112,6 +118,11 @@ object AppButtonDefaults {
         containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
         contentColor = MaterialTheme.colorScheme.onSurface,
     )
+
+    /** [tonalIconColors] on a cover tint: a faint container of the tint's text colour. */
+    @Composable
+    fun tonalIconColors(containerColor: Color, contentColor: Color): IconButtonColors =
+        IconButtonDefaults.filledTonalIconButtonColors(containerColor = containerColor, contentColor = contentColor)
 
     /** Remove, Delete: the error color, so the risky action reads as one. */
     @Composable

@@ -97,6 +97,14 @@ class JournalRatingEditorTest {
         )
     }
 
+    @Test
+    fun `the Finished screen's hint says what a tap does, then the pick, then the rating`() {
+        assertEquals("Tap to rate", journalLeadingRatingHint(selectedRating = null, previewRating = null))
+        assertEquals("3.5", journalLeadingRatingHint(selectedRating = null, previewRating = 7))
+        assertEquals("4.0", journalLeadingRatingHint(selectedRating = 7, previewRating = 8))
+        assertEquals("Rated 3.5", journalLeadingRatingHint(selectedRating = 7, previewRating = null))
+    }
+
     private fun mappedRating(
         offsetX: Float,
         starSlotWidth: Float = 40f,

@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.journal
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -12,19 +13,23 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -41,30 +46,63 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.unifiedreader.ui.components.AppIcons
+import com.example.unifiedreader.ui.theme.AppMotion
 import java.util.Locale
 import kotlin.math.floor
+import kotlinx.coroutines.delay
 
 private const val MaxRating = 10
 private const val MaxStars = 5
 private val RatingStarSlotSize = 46.dp
 private val RatingStarGap = 6.dp
+private val LeadingStarSlotSize = 44.dp
+private val LeadingStarGap = 4.dp
+private const val StarEntranceDelayMillis = 220L
+private const val StarEntranceStaggerMillis = 50L
 
 internal const val JournalRatingStarsTag = "journal-rating-stars"
 internal const val JournalRatingClearTag = "journal-rating-clear"
 
+/**
+ * Where [JournalRatingEditor] puts things: the journal's stars centred under their label, or
+ * the Finished screen's "Your rating" line over 40 dp stars at the start, in the content color.
+ */
+enum class JournalRatingLayout { Centered, Leading }
+
+/**
+ * Five stars on a 10-point scale: the left half of a star is a half. Tapping the current
+ * rating clears it. With [animateIn] the stars pop in one after another when first shown.
+ */
 @Composable
 fun JournalRatingEditor(
     selectedRating: Int?,
     onRatingSelected: (Int?) -> Unit,
+    modifier: Modifier = Modifier,
+    layout: JournalRatingLayout = JournalRatingLayout.Centered,
+    animateIn: Boolean = false,
 ) {
     val safeRating = selectedRating?.coerceIn(1, MaxRating)
     var previewRating by remember { mutableStateOf<Int?>(null) }
     val displayedRating = previewRating ?: safeRating
+    if (layout == JournalRatingLayout.Leading) {
+        JournalLeadingRatingEditor(
+            displayedRating = displayedRating,
+            selectedRating = safeRating,
+            previewRating = previewRating,
+            onPreviewRatingChanged = { previewRating = it },
+            onRatingSelected = onRatingSelected,
+            animateIn = animateIn,
+            modifier = modifier,
+        )
+        return
+    }
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -85,6 +123,53 @@ fun JournalRatingEditor(
         )
     }
 }
+
+@Composable
+private fun JournalLeadingRatingEditor(
+    displayedRating: Int?,
+    selectedRating: Int?,
+    previewRating: Int?,
+    onPreviewRatingChanged: (Int?) -> Unit,
+    onRatingSelected: (Int?) -> Unit,
+    animateIn: Boolean,
+    modifier: Modifier,
+) {
+    val content = LocalContentColor.current
+    val labelStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp)
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "Your rating",
+                style = labelStyle.copy(fontWeight = FontWeight.SemiBold),
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = journalLeadingRatingHint(selectedRating = selectedRating, previewRating = previewRating),
+                style = labelStyle.copy(fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum"),
+                color = content.copy(alpha = 0.74f),
+            )
+        }
+        JournalRatingStars(
+            displayedRating = displayedRating,
+            selectedRating = selectedRating,
+            previewRating = previewRating,
+            onPreviewRatingChanged = onPreviewRatingChanged,
+            onRatingSelected = onRatingSelected,
+            starSlotSize = LeadingStarSlotSize,
+            starGap = LeadingStarGap,
+            style = RatingStarStyle(empty = content.copy(alpha = 0.28f), emptyActive = content.copy(alpha = 0.4f)),
+            animateIn = animateIn,
+            // The slot's 2 dp inset, so the first star lines up with the text above it.
+            modifier = Modifier.offset(x = (-2).dp),
+        )
+    }
+}
+
+/** The empty star colours: at rest, and once a star of the row is rated or being picked. */
+private class RatingStarStyle(val empty: Color, val emptyActive: Color)
 
 @Composable
 private fun JournalRatingControls(
@@ -130,6 +215,8 @@ private fun JournalRatingStars(
     modifier: Modifier = Modifier,
     starSlotSize: Dp = RatingStarSlotSize,
     starGap: Dp = RatingStarGap,
+    style: RatingStarStyle? = null,
+    animateIn: Boolean = false,
 ) {
     val hapticFeedback = LocalHapticFeedback.current
     val density = LocalDensity.current
@@ -235,6 +322,8 @@ private fun JournalRatingStars(
                 selectedRating = selectedRating,
                 isPreviewing = previewRating != null,
                 starSlotSize = starSlotSize,
+                style = style,
+                animateIn = animateIn,
             )
         }
     }
@@ -247,7 +336,20 @@ private fun JournalRatingStar(
     selectedRating: Int?,
     isPreviewing: Boolean,
     starSlotSize: Dp,
+    style: RatingStarStyle?,
+    animateIn: Boolean,
 ) {
+    val appear = remember { Animatable(if (animateIn) 0f else 1f) }
+    if (animateIn) {
+        LaunchedEffect(Unit) {
+            if (coroutineContext[MotionDurationScale]?.scaleFactor == 0f) {
+                appear.snapTo(1f)
+                return@LaunchedEffect
+            }
+            delay(StarEntranceDelayMillis + starIndex * StarEntranceStaggerMillis)
+            appear.animateTo(1f, AppMotion.spatialFast())
+        }
+    }
     val starRating = displayedRating?.minus(starIndex * 2)?.coerceIn(0, 2) ?: 0
     val selectedStarRating = selectedRating?.minus(starIndex * 2)?.coerceIn(0, 2) ?: 0
     val isActivePreview = isPreviewing && starRating > 0
@@ -267,6 +369,12 @@ private fun JournalRatingStar(
     Box(
         modifier = Modifier
             .size(starSlotSize)
+            .graphicsLayer {
+                val shown = appear.value
+                alpha = shown.coerceIn(0f, 1f)
+                scaleX = StarEntranceScale + (1f - StarEntranceScale) * shown
+                scaleY = scaleX
+            }
             .background(backgroundColor, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
@@ -274,9 +382,13 @@ private fun JournalRatingStar(
             imageVector = AppIcons.StarBorder,
             contentDescription = null,
             modifier = Modifier.size(starIconSize),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                alpha = if (selectedStarRating > 0 || isActivePreview) 0.58f else 0.45f,
-            ),
+            tint = when {
+                style == null -> MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                    alpha = if (selectedStarRating > 0 || isActivePreview) 0.58f else 0.45f,
+                )
+                selectedStarRating > 0 || isActivePreview -> style.emptyActive
+                else -> style.empty
+            },
         )
         if (starRating > 0) {
             Icon(
@@ -302,6 +414,18 @@ private fun ratingStarRowWidth(
     starSlotSize: Dp,
     starGap: Dp,
 ): Dp = ((starSlotSize.value * MaxStars) + (starGap.value * (MaxStars - 1))).dp
+
+private const val StarEntranceScale = 0.6f
+
+/** The Finished screen's hint after "Your rating": what a tap does, the pick, or the rating. */
+internal fun journalLeadingRatingHint(
+    selectedRating: Int?,
+    previewRating: Int?,
+): String = when {
+    previewRating != null -> journalRatingValueLabel(previewRating)
+    selectedRating != null -> "Rated ${journalRatingValueLabel(selectedRating)}"
+    else -> "Tap to rate"
+}
 
 internal fun journalRatingLabel(rating: Int?): String =
     rating?.let { "Rated ${journalRatingValueLabel(it)}" } ?: "No rating"
