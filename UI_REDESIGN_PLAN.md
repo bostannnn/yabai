@@ -1321,14 +1321,54 @@ EPUB page read 99%.
   the coordinator's state had no next id); the comics and PDF readers' Finished (same screen).
 - [ ] Tablet.
 
-### 9.2 Toasts `[ ]` (toasts)
+### 9.2 Toasts `[~]` (toasts)
 
-- [ ] Mock first. `AppToast` in the kit replaces `AppSnackbar` (Material's default `inverseSurface`):
-      a 48 dp pill, icon, text, an optional accent action, one at a time, above the dock or the
-      navigation bar; errors keep the pill with a red icon.
-- [ ] Uses: import ("Added …" · Open), Mark as read / unread with Undo, download queued and already
-      queued (today dropped in `AppRemoteDownloadController.kt`), Remove download with Undo, the
-      progress-sync failure with Retry, "Updated to x.y.z" with What's new.
+Built 2026-10-24 in worktree `app-design-improvements-8aeaa3`, not committed at the time; checked on the
+emulator (`yabai_tablet_35` on 5558, Graphite, the Local library) at 800 dp portrait. All unit tests pass
+(1462, both lines). Not yet on the tablet.
+
+- [x] Mock first: board https://claude.ai/artifact/KmWDzyBYWgTbE1urzEGSbT
+      (`docs/design/third-pass/pages/toasts.html`, 2026-10-24). Picked, no notes: look B (glass),
+      placement Do, downloads Do, Mark finished / unread B (no Undo), removals Do, sync failures Do,
+      "Updated to" Don't (it keeps today's snackbar), import Do.
+- [x] Kit (`AppToast.kt`): `AppToastMessage` (text, a second line, `AppToastIcon`, an action, and
+      `onDismissed` for when it leaves without its action), `AppToastState` (one toast at a time; a new
+      one replaces the old, whose `onDismissed` runs) through `LocalAppToastState`, and `AppToastHost`.
+      The toast is a 48 dp pill (24 dp corners) on the bars' glass with an 8 dp shadow, a 20 dp icon
+      (`error` for errors), 14 SemiBold text over a 12.5 Medium second line, and the action as a 36 dp
+      accent pill. 4 s, 6 s with an action or for an error, longer when TalkBack asks
+      (`calculateRecommendedTimeoutMillis`), paused while held; swiped sideways or down it goes; it
+      rises 16 dp on spatial and leaves dropping 8 dp. A polite live region with a Dismiss action.
+- [x] Hosts: one wherever a toast can show, and only the latest one to appear draws it, so a toast is
+      never hidden under a sheet. The shell (over the content beside the rail, on its glass), a book
+      (`ImmersiveReaderOverlay`: 12 dp above the dock, whose height `ReaderChromeFrame` reports, or above
+      the page number when the bars are hidden), and the kit's `AppSideSheet` and `AppSheet` (their own
+      windows: the toast sits at the bottom of the sheet on an opaque `surfaceContainerHighest`, since
+      there is nothing to blur). The toast clears the keyboard. `Modifier.appToastAvoiding()` lifts the
+      grid's back-to-top button above a toast.
+- [x] Messages (`AppToasts.kt` in app):
+  - Downloads: the queue's results now carry a `DownloadQueueOutcome` and say "Downloading Star Courier
+    #2", "Downloading 3 files" (files, as the Downloads sheet counts), "… is already downloading"
+    (View opens the sheet), "… is already on this device", "Pick books from one source to download them
+    together" (the mixed selection used to do nothing). Before, every result was thrown away.
+  - "Marked as finished" / "Marked as unread" (server books' book page).
+  - "Removed <book> from your library" after Remove file's dialog; "Removed from your journal" after the
+    journal's. Remove download has Undo: the download looks gone at once (the downloaded ids drop from
+    state) and its files are deleted when the toast leaves; Undo puts the ids back. If the app is closed
+    while the toast shows, the files stay.
+  - Sync: "Couldn't send your progress / journal / reading sessions to Kavita" with the reason on the
+    second line and Retry (the sync page's retry); several sources: "… to Kavita and Grimmory". An
+    unreachable source keeps its own message, without Retry. (The board said the reason only when
+    actionable; it is always shown, as there is no rule for which reasons are.)
+  - Import: "Added to Local" over the opened book; a file it can't read is an error toast with "EPUB,
+    PDF, CBZ or CBR", replacing the "Unsupported file" dialog.
+- `AppSnackbar` stays, for "Updated to x.y.z" only (picked Don't).
+- Seen on the emulator: Added to Local over a book above the dock, the unreadable file over a scrolled
+  grid with the back-to-top button lifted, Removed … from your library above the keyboard, Removed from
+  your journal, and a toast inside a book page's window (through a throwaway build). Not seen: the
+  download, read-status, remove-download and sync toasts (server books only; their wording and
+  mapping are unit-tested), and the toast over a book with the bars hidden.
+- [ ] Tablet.
 
 ### 9.3 Splash and window background `[ ]` (splash)
 

@@ -44,3 +44,11 @@ store, collection `picks`) mocks the Finished screen at real dp sizes with the e
 page, B an end page), `numbers`, `rating-note`, `next`, `phone`, `light`, `motion`, `trigger` (A as
 today, B on turning past the end). Picked: layout A, numbers Don't, rating-note, next, phone, light
 and motion Do, trigger A. Built as plan 9.1 records.
+
+## 9.2 Toasts, 2026-10-24
+
+`pages/toasts.html` (live board: https://claude.ai/artifact/KmWDzyBYWgTbE1urzEGSbT, picks in its store,
+collection `picks`) draws the toast at dp size over emulator screenshots (`pages/img/bg-*.jpg`, cropped
+above the system bars, 800 dp wide; the phone one 412 dp). Cards: `style` (A raised pill, B glass),
+`placement`, `downloads`, `read-status` (A with Undo, B without), `removals`, `sync`, `update`, `import`.
+Picked: style B, read-status B, update Don't, the rest Do. Built as plan 9.2 records.

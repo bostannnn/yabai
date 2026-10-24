@@ -1,0 +1,472 @@
+<meta charset="utf-8">
+<title>yabai Toasts</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: a board of decision cards; each card shows the mock at real dp sizes (scaled to fit) beside its spec, with a pick row. Dark-first like the app's Graphite. */
+:root {
+  --bg: #121417;
+  --surface: #1b1e23;
+  --surface-2: #23272d;
+  --line: #2f343b;
+  --fg: #e8eaed;
+  --muted: #9aa3ad;
+  --accent: #e9a6c6;
+  --on-accent: #2a1020;
+  --maybe: #b8c7da;
+  --dont: #ef8a80;
+  --stage: #0b0c0e;
+  --ui: "Manrope", "Segoe UI", system-ui, sans-serif;
+  --book: "Noto Serif", Georgia, "Times New Roman", serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f5f4f2; --surface: #ffffff; --surface-2: #efeeeb; --line: #dddad5; --fg: #1c1d20; --muted: #5d636b;
+    --accent: #a23e72; --on-accent: #ffffff; --maybe: #4a5d78; --dont: #b3392e; --stage: #e4e2de; color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f5f4f2; --surface: #ffffff; --surface-2: #efeeeb; --line: #dddad5; --fg: #1c1d20; --muted: #5d636b;
+  --accent: #a23e72; --on-accent: #ffffff; --maybe: #4a5d78; --dont: #b3392e; --stage: #e4e2de; color-scheme: light;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--ui); font-size: 15px; line-height: 1.55; margin: 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 40px 96px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(32px, 5vw, 46px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }
+h3 { font-size: 19px; font-weight: 700; }
+p { margin: 0; }
+code { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 12.5px; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; overflow-wrap: anywhere; }
+.overline { font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; color: var(--muted); }
+.lede { max-width: 70ch; color: var(--muted); font-size: 16px; margin-top: 14px; }
+.lede strong { color: var(--fg); }
+
+.bar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; margin: 26px 0 8px; padding: 10px 14px;
+  border-radius: 999px; border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+}
+.tally { display: flex; gap: 14px; font-weight: 600; font-size: 14px; font-variant-numeric: tabular-nums; }
+.tally b { font-weight: 800; }
+.save-state { color: var(--muted); font-size: 13px; flex: 1 1 200px; min-width: 0; }
+.pill-btn { font: 600 13.5px var(--ui); border-radius: 999px; padding: 8px 16px; cursor: pointer; border: 1px solid var(--line); background: var(--surface-2); color: var(--fg); }
+button:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.today { margin-top: 34px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 22px; align-items: start;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 22px; }
+.today .shots { display: flex; gap: 10px; }
+.today figure { margin: 0; flex: 1 1 0; min-width: 0; }
+.today img { width: 100%; display: block; border-radius: 12px; border: 1px solid var(--line); }
+figcaption { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+ul.spec { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+ul.spec li::marker { color: var(--muted); }
+
+.cards { margin-top: 30px; display: grid; gap: 22px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 22px; display: grid; gap: 18px; }
+.card-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.card-head h3 { flex: 1 1 340px; min-width: 0; }
+.tag { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
+.body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: start; }
+.body > .col { max-width: 80ch; }
+.stages { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; min-width: 0; }
+.stage { background: var(--stage); border-radius: 16px; padding: 14px; display: grid; gap: 8px; justify-items: center; min-width: 0; max-width: 100%; }
+.stage .cap { font-size: 12.5px; color: var(--muted); text-align: center; max-width: 34ch; }
+.stage .cap b { color: var(--fg); }
+.col { display: grid; gap: 12px; min-width: 0; }
+
+/* scaled device frame: outer box is the scaled size, inner is real dp */
+.scaled { position: relative; overflow: hidden; border-radius: 18px; flex: none; }
+.scaled > .dev { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+
+/* pick row */
+.pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 14px; border-top: 1px solid var(--line); }
+.pick .label { font-size: 13px; color: var(--muted); font-weight: 600; margin-right: 4px; }
+.pick button { font: 700 13.5px var(--ui); padding: 7px 16px; border-radius: 999px; cursor: pointer; border: 1px solid var(--line); background: transparent; color: var(--fg); }
+.pick button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.pick button[aria-pressed="true"][data-v="maybe"] { background: var(--maybe); color: var(--bg); border-color: var(--maybe); }
+.pick button[aria-pressed="true"][data-v="dont"], .pick button[aria-pressed="true"][data-v="neither"] { background: var(--dont); color: var(--bg); border-color: var(--dont); }
+.pick textarea { flex: 1 1 260px; min-width: 0; min-height: 38px; resize: vertical; font: 14px var(--ui); color: var(--fg); background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; }
+
+
+@media (max-width: 900px) { .today { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 600px) {
+  .card, .today { padding: 16px; border-radius: 20px; }
+  .bar { border-radius: 20px; }
+  .today .shots { flex-direction: column; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="overline">yabai &#183; redesign plan 9.2 &#183; board &#183; 24 October 2026</p>
+    <h1 style="margin-top:10px">Toasts</h1>
+    <p class="lede">You picked Do for one confirmation style across the app. Today two messages exist, both Material snackbars: "Updated to x.y.z" and the progress-sync failure. Many actions give no answer at all, and the download queue writes messages that never reach the screen. Below is the toast itself, where it sits, and the messages it would carry. <strong>Card 1 picks the look</strong> (the rest draw A). Toasts are drawn at real sizes (1 px = 1 dp, scaled to fit) over emulator screenshots in Graphite. Picks save to this page.</p>
+  </header>
+
+  <div class="bar" role="region" aria-label="Your picks">
+    <div class="tally" aria-live="polite"><span><b id="n-picked">0</b> of <b id="n-total">8</b> picked</span></div>
+    <p class="save-state" id="save-state">Picks are kept in this browser until the page's store answers.</p>
+    <button class="pill-btn" id="copy-picks" type="button">Copy picks</button>
+  </div>
+  <textarea id="copy-fallback" aria-label="Picks as text" hidden style="width:100%;min-height:120px;margin-top:8px;font:13px ui-monospace,monospace;background:var(--surface-2);color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:10px"></textarea>
+
+  <section class="today" aria-label="Today">
+    <div class="shots">
+      <figure><img src="img/today-updated.jpg" alt="Settings with a pale grey Material snackbar reading Updated to 0.17.1"><figcaption>Today: "Updated to 0.17.1", Material's pale slab on a dark theme.</figcaption></figure>
+      <figure><div id="m-today-sync"></div><figcaption>Today, redrawn from the code: a sync failure, an <code>errorContainer</code> slab for 6 s.</figcaption></figure>
+    </div>
+    <div class="col">
+      <p class="overline">What's there today</p>
+      <ul class="spec">
+        <li><code>AppSnackbar</code> wraps Material's <code>Snackbar</code> in its default <code>inverseSurface</code> colours. Its two callers place it themselves, bottom centre, and dismiss it on their own timers.</li>
+        <li>No answer: Mark finished and Mark unread (server books), Remove download, removing a book or a journal entry after their confirm dialogs, and every download request. <code>RemoteDownloadQueueController</code> builds "Queued 3 files for download.", "Download already queued for &#8230;" and "Selected items must come from one source." and they are thrown away in <code>AppRemoteDownloadController</code>.</li>
+        <li>Importing opens the book straight away; a file it can't read gets the "Unsupported file" dialog.</li>
+      </ul>
+    </div>
+  </section>
+
+  <div class="cards">
+
+    <article class="card" data-card="style" data-kind="ab" data-title="Look">
+      <div class="card-head"><h3>1 &#183; The toast: a raised pill, or glass like the bars</h3><span class="tag">pick A or B</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-style-a"></div><p class="cap"><b>A.</b> A raised pill in <code>surfaceContainerHighest</code> with a soft shadow.</p></div>
+          <div class="stage"><div id="m-style-b"></div><p class="cap"><b>B.</b> The bars' glass: blurred, at their 0.86 tint, with a hairline edge.</p></div>
+          <div class="stage" style="background:#efe6db"><div id="m-style-light"></div><p class="cap" style="color:#514941">Both in Paper: A, then B.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>A 48 dp pill (two lines: 64 dp, 24 dp corners) with a 20 dp icon, the message in 14 SemiBold and, when there is one, an action at the end: a 36 dp pill in the accent at 14% with the accent's text.</li>
+            <li>A is the kit's own surface, quiet on any backdrop. B matches the reader's bars and the drawer, and needs the blur (Haze) over whatever is under it, which costs a little on a scrolling grid.</li>
+            <li>Errors keep the same pill; only the icon turns <code>error</code>.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="placement" data-kind="dmd" data-title="Placement and timing">
+      <div class="card-head"><h3>2 &#183; Where it sits, how long it stays</h3><span class="tag">AppToastHost</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-place-tablet"></div><p class="cap">Tablet: centred over the content, never wider than 480 dp.</p></div>
+          <div class="stage"><div id="m-place-phone"></div><p class="cap">Phone: the width less 16 dp each side.</p></div>
+          <div class="stage"><div id="m-place-reader"></div><p class="cap">In a book: 12 dp above the dock while the bars show; with them hidden, above the page number.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>16 dp above the navigation bar, centred in the content beside the rail (not under it).</li>
+            <li>Anything floating at the bottom moves up out of its way while it shows: the grid's scroll-to-top button rises above it, on <code>spatial</code>.</li>
+            <li>4 seconds, 6 with an action or for an error. A new toast replaces the one showing (it drops away as the new one rises), so they never stack. Swipe it away sideways or down. Touching it keeps it up.</li>
+            <li>It rises 16 dp and fades in on <code>spatial</code> / <code>effects</code>, and fades out sliding 8 dp down. Screen readers hear it as a polite announcement; with an action it waits for TalkBack users instead of timing out.</li>
+            <li>One host for the app (<code>AppToastHost</code> in the kit, fed by a small queue in app), replacing <code>AppSnackbar</code>.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="downloads" data-kind="dmd" data-title="Downloads">
+      <div class="card-head"><h3>3 &#183; Downloads say what they did</h3><span class="tag">RemoteDownloadQueueController</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-dl-frame"></div><p class="cap">After Download on a selection, over the grid.</p></div>
+          <div class="stage" style="align-content:start"><div id="m-dl-list" style="display:grid;gap:10px"></div><p class="cap">The other answers, at 0.8 scale.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>"Downloading Star Courier #2" or "Downloading 3 issues", with View (opens the Downloads sheet).</li>
+            <li>"Star Courier #2 is already downloading" with View, "Star Courier #2 is already on this device".</li>
+            <li>"Pick books from one source to download them together" as an error (the selection mixes sources; today nothing happens).</li>
+            <li>The queue's own strings ("Queued 1 file for download.") are replaced by these; the result types stay.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="read-status" data-kind="ab" data-title="Mark finished / unread">
+      <div class="card-head"><h3>4 &#183; Mark finished and Mark unread: with Undo or without</h3><span class="tag">pick A or B</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-read-a"></div><p class="cap"><b>A.</b> With Undo. (Server books only; the Local page has no such button.)</p></div>
+          <div class="stage" style="align-content:start"><div id="m-read-list" style="display:grid;gap:10px"></div><p class="cap"><b>A</b> above, <b>B</b> below: the message alone.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>"Marked as finished" / "Marked as unread", with the book's title when the toast is not over its page ("Marked Star Courier #2 as finished").</li>
+            <li>A needs data work: Undo puts back the progress from before the change and, for Mark unread, the journal events it deleted (today the use case deletes them for good, review item #15). The change is held until the toast leaves, or snapshotted and restored.</li>
+            <li>B is a plain confirmation; the change stays as now and the button on the page flips back if you want to reverse it.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="removals" data-kind="dmd" data-title="Removals">
+      <div class="card-head"><h3>5 &#183; Removing things</h3><span class="tag">library &#183; journal</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-rm-frame"></div><p class="cap">After Remove file and its confirm dialog.</p></div>
+          <div class="stage" style="align-content:start"><div id="m-rm-list" style="display:grid;gap:10px"></div><p class="cap">Remove download and the journal.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>After a confirm dialog the toast just reports: "Removed Moths of Lisbon from your library", "Removed from your journal". No Undo: the dialog already asked.</li>
+            <li>Remove download has no dialog today, so it gets Undo: the file is deleted when the toast leaves, not when you tap. Undo keeps it.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="sync" data-kind="dmd" data-title="Sync failures">
+      <div class="card-head"><h3>6 &#183; When progress can't reach a server</h3><span class="tag">AppProgressSyncNoticeController</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-sync-frame"></div><p class="cap">The library after leaving a book.</p></div>
+          <div class="stage" style="align-content:start"><div id="m-sync-list" style="display:grid;gap:10px"></div><p class="cap">The wording, one source and several.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>The same pill with the error icon instead of a red slab, 6 s, with Retry (the sync page's Retry now). Two lines when the reason is useful.</li>
+            <li>Wording for people: "Couldn't send your progress to Kavita" (today "Unable to sync Kavita progress: &#8230;"), "Couldn't send your journal to Grimmory", "Couldn't send your progress to Kavita and Grimmory". The reason goes on the second line only when it says something actionable ("Signed out: sign in again").</li>
+            <li>Offline sources stay quiet, as today: their uploads wait and the sync page shows them.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="update" data-kind="dmd" data-title="Updated to">
+      <div class="card-head"><h3>7 &#183; "Updated to 0.17.1"</h3><span class="tag">feature:updates</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-upd-frame"></div><p class="cap">The first launch after an update, on the library.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>The same pill with the update icon and "What's new", 6 s, on the library only, as today (it never shows over a book).</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="import" data-kind="dmd" data-title="Import">
+      <div class="card-head"><h3>8 &#183; Importing a file</h3><span class="tag">app &#183; library</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-imp-frame"></div><p class="cap">The book opens; the toast says where it went.</p></div>
+          <div class="stage" style="align-content:start"><div id="m-imp-list" style="display:grid;gap:10px"></div><p class="cap">A file that isn't a book, instead of the dialog.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>"Added to Local" over the opened book, above the dock, so it's clear the file was copied in and stays in the library.</li>
+            <li>A file it can't read: "That file isn't a book yabai can open (EPUB, PDF, CBZ or CBR)" as an error toast over the library, replacing the "Unsupported file" dialog.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+  </div>
+</div>
+
+<script>
+(function () {
+  // ---------- theme roles (Graphite and Paper, from UnifiedReaderTheme.kt) ----------
+  var D = { high: "#3C434A", fg: "#E7EAEE", fg2: "#C8D0D8", acc: "#B7C7D9", err: "#FFB4AB", glass: "rgba(29,33,37,.86)", edge: "rgba(255,255,255,.08)", shadow: "0 8px 24px rgba(0,0,0,.45)" };
+  var L = { high: "#E8DCCF", fg: "#1B1C1F", fg2: "#514941", acc: "#405F6B", err: "#BA1A1A", glass: "rgba(255,243,231,.86)", edge: "rgba(0,0,0,.08)", shadow: "0 8px 24px rgba(60,40,20,.22)" };
+  var ICON = {
+    check: "M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z",
+    download: "M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z",
+    error: "M11 15h2v2h-2zm0-8h2v6h-2zm.99-5C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z",
+    del: "M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z",
+    history: "M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z",
+    update: "M17 1.01 7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14zm-1-6h-3V8h-2v5H8l4 4 4-4z",
+    cloudOff: "M24 15c0-2.64-2.05-4.78-4.65-4.96A7.49 7.49 0 0 0 12 4c-1.33 0-2.57.36-3.65.97l1.49 1.49C10.51 6.17 11.23 6 12 6c3.04 0 5.5 2.46 5.5 5.5v.5H19a2.996 2.996 0 0 1 1.66 5.49l1.45 1.45C23.25 18.02 24 16.6 24 15zM4.41 3.86 3 5.27l2.77 2.77h-.42A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h11.73l2 2 1.41-1.41L4.41 3.86zM6 18c-2.21 0-4-1.79-4-4s1.79-4 4-4h1.73l8 8H6z",
+    add: "M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-4v4h-2v-4H9V9h4V5h2v4h4v2z"
+  };
+  function svg(name, color, size) { return '<svg viewBox="0 0 24 24" width="' + size + '" height="' + size + '" aria-hidden="true" style="flex:none"><path fill="' + color + '" d="' + ICON[name] + '"/></svg>'; }
+  function alpha(hex, a) { var n = parseInt(hex.slice(1), 16); return "rgba(" + (n >> 16) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")"; }
+
+  // The toast: 48 dp pill (64 with a second line), 20 dp icon, 14 SemiBold text, optional 36 dp action pill.
+  function toast(o) {
+    var t = o.light ? L : D, look = o.look || "a";
+    var two = !!o.sub;
+    var base = "display:flex;align-items:center;gap:12px;box-sizing:border-box;min-height:" + (two ? 64 : 48) + "px;" +
+      "border-radius:" + (two ? 24 : 24) + "px;padding:6px " + (o.action ? 6 : 20) + "px 6px 16px;font-family:var(--ui);color:" + t.fg + ";" +
+      (o.width ? "width:" + o.width + "px;" : "max-width:480px;");
+    var skin = look === "a"
+      ? "background:" + t.high + ";box-shadow:" + t.shadow + ";"
+      : "background:" + t.glass + ";backdrop-filter:blur(22px) saturate(1.2);-webkit-backdrop-filter:blur(22px) saturate(1.2);border:1px solid " + t.edge + ";box-shadow:" + t.shadow.replace(/\.45|\.22/, ".25") + ";";
+    var iconColor = o.err ? t.err : t.fg2;
+    var h = '<div style="' + base + skin + '">' + svg(o.icon, iconColor, 20) +
+      '<span style="flex:1;min-width:0;font-size:14px;font-weight:600;line-height:1.3">' + o.text +
+      (two ? '<span style="display:block;font-size:12.5px;font-weight:500;color:' + t.fg2 + '">' + o.sub + '</span>' : '') + '</span>';
+    if (o.action) h += '<span style="height:36px;padding:0 14px;border-radius:18px;display:inline-flex;align-items:center;font-size:14px;font-weight:800;white-space:nowrap;background:' + alpha(t.acc, .14) + ';color:' + t.acc + '">' + o.action + '</span>';
+    return h + '</div>';
+  }
+  function device(w, h, scale, inner) {
+    return '<div class="scaled" style="width:' + Math.round(w * scale) + 'px;height:' + Math.round(h * scale) + 'px"><div class="dev" style="width:' + w + 'px;height:' + h + 'px;transform:scale(' + scale + ')">' + inner + '</div></div>';
+  }
+  // A screenshot backdrop (already at dp size) with a toast placed over it.
+  function frame(bg, o, place) {
+    place = place || {};
+    var w = place.phone ? 412 : 800, h = place.phone ? 845 : 1227, side = place.phone ? 16 : 0;
+    var bottom = place.bottom || 16;
+    var pos = place.phone
+      ? 'left:16px;right:16px;bottom:' + bottom + 'px;display:flex;justify-content:center'
+      : 'left:0;right:0;bottom:' + bottom + 'px;display:flex;justify-content:center;padding:0 16px';
+    if (place.phone) o.width = 380;
+    var inner = '<img src="img/' + bg + '.jpg" alt="" style="position:absolute;left:0;top:0;width:' + w + 'px;height:' + h + 'px">' +
+      '<div style="position:absolute;' + pos + '">' + toast(o) + '</div>';
+    return device(w, h, place.scale || (place.phone ? 0.6 : 0.42), inner);
+  }
+  function scaledToast(o, scale) {
+    var w = o.width || 440;
+    o.width = w;
+    return '<div class="scaled" style="width:' + Math.round(w * scale) + 'px;border-radius:' + Math.round(24 * scale) + 'px;overflow:visible"><div class="dev" style="position:relative;width:' + w + 'px;transform:scale(' + scale + ');transform-origin:0 0">' + toast(o) + '</div></div>';
+  }
+  function list(items, scale) { return items.map(function (o) { return scaledToast(o, scale || 0.8); }).join(""); }
+  function set(id, html) { var el = document.getElementById(id); if (el) el.innerHTML = html; }
+
+  // today: the sync failure as AppSnackbar draws it (errorContainer, 12 dp corners, the row's full width)
+  set("m-today-sync", device(800, 1227, 0.42,
+    '<img src="img/bg-grid.jpg" alt="" style="position:absolute;left:0;top:0;width:800px;height:1227px">' +
+    '<div style="position:absolute;left:16px;right:16px;bottom:16px;min-height:48px;box-sizing:border-box;padding:14px 16px;border-radius:12px;background:#93000A;color:#FFDAD6;font:400 14px var(--ui);box-shadow:0 3px 8px rgba(0,0,0,.3)">Unable to sync Kavita progress: Request timed out.</div>'));
+
+  // 1 look
+  var sample = { icon: "download", text: "Downloading 3 issues", action: "View" };
+  // A close-up: the bottom of the grid at a larger scale, so the surface can be judged.
+  function closeUp(bg, o, scale) {
+    var hgt = 190, top = 1227 - hgt;
+    var inner = '<img src="img/' + bg + '.jpg" alt="" style="position:absolute;left:0;top:' + (-top) + 'px;width:800px;height:1227px">' +
+      '<div style="position:absolute;left:0;right:0;bottom:16px;display:flex;justify-content:center">' + toast(o) + '</div>';
+    return device(800, hgt, scale, inner);
+  }
+  set("m-style-a", closeUp("bg-grid", Object.assign({ look: "a" }, sample), 0.62));
+  set("m-style-b", closeUp("bg-grid", Object.assign({ look: "b" }, sample), 0.62));
+  set("m-style-light", '<div style="display:grid;gap:12px;padding:8px 4px">' +
+    scaledToast(Object.assign({ look: "a", light: true }, sample), 0.72) +
+    scaledToast(Object.assign({ look: "b", light: true }, sample), 0.72) + '</div>');
+
+  // 2 placement
+  set("m-place-tablet", frame("bg-home", { icon: "check", text: "Marked as finished", action: "Undo" }));
+  set("m-place-phone", frame("bg-phone", { icon: "download", text: "Downloading Star Courier #2", action: "View" }, { phone: true }));
+  set("m-place-reader", frame("bg-reader", { icon: "add", text: "Added to Local" }, { bottom: 87 }));
+
+  // 3 downloads
+  set("m-dl-frame", frame("bg-grid", { icon: "download", text: "Downloading Star Courier #2", action: "View" }));
+  set("m-dl-list", list([
+    { icon: "download", text: "Downloading 3 issues", action: "View" },
+    { icon: "download", text: "Star Courier #2 is already downloading", action: "View" },
+    { icon: "check", text: "Star Courier #2 is already on this device" },
+    { icon: "error", err: true, text: "Pick books from one source to download them together" }
+  ]));
+
+  // 4 read status
+  set("m-read-a", frame("bg-bookpage", { icon: "check", text: "Marked as finished", action: "Undo" }));
+  set("m-read-list", list([
+    { icon: "history", text: "Marked as unread", action: "Undo" },
+    { icon: "check", text: "Marked Star Courier #2 as finished", action: "Undo" },
+    { icon: "check", text: "Marked as finished" },
+    { icon: "history", text: "Marked as unread" }
+  ]));
+
+  // 5 removals
+  set("m-rm-frame", frame("bg-grid", { icon: "del", text: "Removed Moths of Lisbon from your library" }));
+  set("m-rm-list", list([
+    { icon: "del", text: "Removed the download of Star Courier #2", action: "Undo" },
+    { icon: "del", text: "Removed from your journal" }
+  ]));
+
+  // 6 sync
+  set("m-sync-frame", frame("bg-home", { icon: "cloudOff", err: true, text: "Couldn't send your progress to Kavita", action: "Retry" }));
+  set("m-sync-list", list([
+    { icon: "cloudOff", err: true, text: "Couldn't send your journal to Grimmory", action: "Retry" },
+    { icon: "cloudOff", err: true, text: "Couldn't send your progress to Kavita and Grimmory", action: "Retry" },
+    { icon: "cloudOff", err: true, text: "Couldn't send your progress to Kavita", sub: "Signed out: sign in again in Settings", action: "Retry" }
+  ]));
+
+  // 7 update
+  set("m-upd-frame", frame("bg-home", { icon: "update", text: "Updated to 0.17.1", action: "What's new" }));
+
+  // 8 import
+  set("m-imp-frame", frame("bg-reader", { icon: "add", text: "Added to Local" }, { bottom: 87 }));
+  set("m-imp-list", list([
+    { icon: "error", err: true, text: "That file isn't a book yabai can open", sub: "EPUB, PDF, CBZ or CBR" }
+  ]));
+
+  function fitHeights(root) {
+    root.querySelectorAll(".scaled").forEach(function (box) {
+      if (box.style.height) return;
+      var dev = box.firstElementChild; var m = /scale\(([\d.]+)\)/.exec(dev.style.transform); var s = m ? parseFloat(m[1]) : 1;
+      box.style.height = Math.ceil(dev.offsetHeight * s) + "px";
+    });
+  }
+  fitHeights(document);
+  window.addEventListener("load", function () { fitHeights(document); });
+
+  // ---------- picks (same store layout as the earlier boards: collection "picks") ----------
+  var STORE_KEY = "yabai-toasts-board-picks";
+  var cards = Array.prototype.slice.call(document.querySelectorAll("[data-card]"));
+  var LABELS = { "do": "Do", maybe: "Maybe", dont: "Don't", a: "A", b: "B", neither: "Neither" };
+  var picks = {}; try { picks = JSON.parse(localStorage.getItem(STORE_KEY) || "{}") || {}; } catch (e) { picks = {}; }
+  var db = null, pending = {};
+  function saveLocal() { try { localStorage.setItem(STORE_KEY, JSON.stringify(picks)); } catch (e) {} }
+  function setState(t) { document.getElementById("save-state").textContent = t; }
+  function tally() { var n = 0; cards.forEach(function (c) { if ((picks[c.dataset.card] || {}).choice) n++; }); document.getElementById("n-picked").textContent = n; document.getElementById("n-total").textContent = cards.length; }
+  function paint(card) {
+    var p = picks[card.dataset.card] || {};
+    card.querySelectorAll(".pick button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.v === p.choice)); });
+    var ta = card.querySelector(".pick textarea"); if (ta && document.activeElement !== ta) ta.value = p.note || "";
+  }
+  function write(id) {
+    if (!db) { saveLocal(); return; }
+    var p = picks[id];
+    var run = function () {
+      return db.collection("picks").doc(id).set({ choice: p.choice || null, note: p.note || "", title: p.title || id, updatedAt: p.updatedAt || Date.now() })
+        .then(function () { p.synced = true; saveLocal(); setState("Saved to this page."); })
+        .catch(function (err) { setState(err && err.code === "invalid_argument" ? "This page is read-only for you; picks stay in this browser. Use Copy picks." : "Couldn't save just now; your pick is kept in this browser."); });
+    };
+    pending[id] = (pending[id] || Promise.resolve()).then(run, run);
+  }
+  function update(card, patch) {
+    var id = card.dataset.card;
+    picks[id] = Object.assign({}, picks[id], patch, { title: card.dataset.title, updatedAt: Date.now(), synced: false });
+    saveLocal(); paint(card); tally(); write(id);
+  }
+  cards.forEach(function (card) {
+    var opts = card.dataset.kind === "ab" ? ["a", "b", "neither"] : ["do", "maybe", "dont"];
+    var row = document.createElement("div"); row.className = "pick";
+    row.innerHTML = '<span class="label">Your pick</span>' + opts.map(function (v) { return '<button type="button" data-v="' + v + '" aria-pressed="false">' + LABELS[v] + "</button>"; }).join("") +
+      '<textarea id="note-' + card.dataset.card + '" rows="1" placeholder="Note (optional)" aria-label="Note for ' + card.dataset.title + '"></textarea>';
+    card.appendChild(row);
+    row.querySelectorAll("button").forEach(function (b) { b.addEventListener("click", function () { var cur = (picks[card.dataset.card] || {}).choice; update(card, { choice: cur === b.dataset.v ? null : b.dataset.v }); }); });
+    var ta = row.querySelector("textarea"), t = null;
+    ta.addEventListener("input", function () { clearTimeout(t); t = setTimeout(function () { update(card, { note: ta.value }); }, 700); });
+    ta.addEventListener("change", function () { clearTimeout(t); if ((picks[card.dataset.card] || {}).note !== ta.value) update(card, { note: ta.value }); });
+    paint(card);
+  });
+  tally();
+  document.getElementById("copy-picks").addEventListener("click", function () {
+    var lines = cards.map(function (c) { var p = picks[c.dataset.card] || {}; return c.querySelector("h3").textContent + ": " + (p.choice ? LABELS[p.choice] : "-") + (p.note ? " (" + p.note.trim() + ")" : ""); }).join("\n");
+    var btn = document.getElementById("copy-picks");
+    var fallback = function () { var ta = document.getElementById("copy-fallback"); ta.hidden = false; ta.value = lines; ta.focus(); ta.select(); btn.textContent = "Select and copy"; };
+    try { navigator.clipboard.writeText(lines).then(function () { btn.textContent = "Copied"; setTimeout(function () { btn.textContent = "Copy picks"; }, 1600); }, fallback); } catch (e) { fallback(); }
+  });
+  (async function () {
+    try { db = window.claude && window.claude.use ? await window.claude.use("db") : null; } catch (e) { db = null; }
+    if (!db) { setState("Picks are saved in this browser only. Use Copy picks to send them."); return; }
+    setState("Connected. Picks save to this page.");
+    var first = true;
+    db.collection("picks").onSnapshot(function (snap) {
+      snap.docs.forEach(function (d) { var remote = d.data() || {}, local = picks[d.id]; if (!local || (remote.updatedAt || 0) >= (local.updatedAt || 0)) picks[d.id] = Object.assign({}, remote, { synced: true }); });
+      if (first) { first = false; Object.keys(picks).forEach(function (id) { if (picks[id] && !picks[id].synced) write(id); }); }
+      saveLocal(); cards.forEach(paint); tally();
+    }, function () { setState("The page's store stopped answering; picks stay in this browser."); });
+  })();
+})();
+</script>
