@@ -1,0 +1,505 @@
+<meta charset="utf-8">
+<title>yabai Tiles and See all</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: a board of decision cards; each card shows the mock at real dp sizes (scaled to fit) beside its spec, with a pick row. Dark-first like the app's Graphite. */
+:root {
+  --bg: #121417;
+  --surface: #1b1e23;
+  --surface-2: #23272d;
+  --line: #2f343b;
+  --fg: #e8eaed;
+  --muted: #9aa3ad;
+  --accent: #e9a6c6;
+  --on-accent: #2a1020;
+  --maybe: #b8c7da;
+  --dont: #ef8a80;
+  --stage: #0b0c0e;
+  --ui: "Manrope", "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f5f4f2; --surface: #ffffff; --surface-2: #efeeeb; --line: #dddad5; --fg: #1c1d20; --muted: #5d636b;
+    --accent: #a23e72; --on-accent: #ffffff; --maybe: #4a5d78; --dont: #b3392e; --stage: #e4e2de; color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f5f4f2; --surface: #ffffff; --surface-2: #efeeeb; --line: #dddad5; --fg: #1c1d20; --muted: #5d636b;
+  --accent: #a23e72; --on-accent: #ffffff; --maybe: #4a5d78; --dont: #b3392e; --stage: #e4e2de; color-scheme: light;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--ui); font-size: 15px; line-height: 1.55; margin: 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 40px 96px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(32px, 5vw, 46px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }
+h3 { font-size: 19px; font-weight: 700; }
+p { margin: 0; }
+code { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 12.5px; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; overflow-wrap: anywhere; }
+.overline { font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; color: var(--muted); }
+.lede { max-width: 70ch; color: var(--muted); font-size: 16px; margin-top: 14px; }
+.lede strong { color: var(--fg); }
+
+.bar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; margin: 26px 0 8px; padding: 10px 14px;
+  border-radius: 999px; border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+}
+.tally { display: flex; gap: 14px; font-weight: 600; font-size: 14px; font-variant-numeric: tabular-nums; }
+.tally b { font-weight: 800; }
+.save-state { color: var(--muted); font-size: 13px; flex: 1 1 200px; min-width: 0; }
+.pill-btn { font: 600 13.5px var(--ui); border-radius: 999px; padding: 8px 16px; cursor: pointer; border: 1px solid var(--line); background: var(--surface-2); color: var(--fg); }
+button:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.today { margin-top: 34px; background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 22px; display: grid; gap: 18px; }
+.today figure { margin: 0; min-width: 0; }
+.today img { width: 100%; display: block; border-radius: 12px; border: 1px solid var(--line); }
+.today .row { display: grid; grid-template-columns: minmax(0, 240px) minmax(0, 1fr); gap: 22px; align-items: start; }
+figcaption { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+ul.spec { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+ul.spec li::marker { color: var(--muted); }
+
+.cards { margin-top: 30px; display: grid; gap: 22px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 22px; display: grid; gap: 18px; }
+.card-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.card-head h3 { flex: 1 1 340px; min-width: 0; }
+.tag { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
+.body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: start; }
+.body > .col { max-width: 80ch; }
+.stages { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; min-width: 0; }
+.stage { background: var(--stage); border-radius: 16px; padding: 14px; display: grid; gap: 8px; justify-items: center; min-width: 0; max-width: 100%; }
+.stage .cap { font-size: 12.5px; color: var(--muted); text-align: center; max-width: 40ch; }
+.stage .cap b { color: var(--fg); }
+.trio { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.col { display: grid; gap: 12px; min-width: 0; }
+
+/* scaled device frame: outer box is the scaled size, inner is real dp */
+.scaled { position: relative; overflow: hidden; border-radius: 14px; flex: none; }
+.scaled > .dev { position: absolute; left: 0; top: 0; transform-origin: 0 0; overflow: hidden; }
+
+.themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 14px 10px; width: 100%; }
+.themes .t { display: grid; gap: 6px; justify-items: center; }
+.themes .t span { font-size: 11.5px; color: var(--muted); text-align: center; line-height: 1.25; }
+.group { font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; color: var(--muted); grid-column: 1 / -1; margin-top: 4px; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; }
+.seg button { font: 600 13px var(--ui); border: 0; border-radius: 999px; padding: 6px 14px; background: transparent; color: var(--fg); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--surface-2); }
+.play { font: 700 13.5px var(--ui); border-radius: 999px; padding: 7px 18px; cursor: pointer; border: 1px solid var(--accent); background: var(--accent); color: var(--on-accent); }
+
+.seq { display: grid; grid-template-columns: auto repeat(3, auto); gap: 8px 10px; align-items: center; justify-content: center; }
+.seq .lbl { font-size: 12.5px; font-weight: 700; color: var(--fg); text-align: right; }
+.seq .arrow { color: var(--muted); }
+.seq figure { margin: 0; display: grid; gap: 4px; justify-items: center; }
+.seq figcaption { margin: 0; font-size: 11.5px; text-align: center; max-width: 18ch; }
+
+/* pick row */
+.pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 14px; border-top: 1px solid var(--line); }
+.pick .label { font-size: 13px; color: var(--muted); font-weight: 600; margin-right: 4px; }
+.pick button { font: 700 13.5px var(--ui); padding: 7px 16px; border-radius: 999px; cursor: pointer; border: 1px solid var(--line); background: transparent; color: var(--fg); }
+.pick button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.pick button[aria-pressed="true"][data-v="maybe"] { background: var(--maybe); color: var(--bg); border-color: var(--maybe); }
+.pick button[aria-pressed="true"][data-v="dont"], .pick button[aria-pressed="true"][data-v="neither"] { background: var(--dont); color: var(--bg); border-color: var(--dont); }
+.pick textarea { flex: 1 1 260px; min-width: 0; min-height: 38px; resize: vertical; font: 14px var(--ui); color: var(--fg); background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; }
+
+@media (max-width: 700px) {
+  .today .row { grid-template-columns: minmax(0, 1fr); }
+  .today .row figure { max-width: 240px; }
+  .seq { grid-template-columns: repeat(3, auto); }
+  .seq .lbl { grid-column: 1 / -1; text-align: left; }
+}
+@media (max-width: 600px) {
+  .card, .today { padding: 16px; border-radius: 20px; }
+  .bar { border-radius: 20px; }
+}
+
+.today .shots { display: flex; flex-wrap: wrap; gap: 10px; }
+.today .shots figure { flex: 1 1 220px; }
+td.new { color: var(--accent); font-weight: 700; }
+th { color: var(--muted); font-weight: 700; font-size: 12px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="overline">yabai &#183; redesign plan 9.4 &#183; board &#183; 24 October 2026</p>
+    <h1 style="margin-top:10px">Tiles and See all</h1>
+    <p class="lede">You picked Do for two review cards: "See all" kept the old tile, and the tiles disagree about progress and don't line up. The same book reads "96%" in the grid, "96% &#183; 71/73" on the home strip, and "96% &#183; 71/73" plus "Resume from saved location - EPUB - Local" in See all. <strong>Each card is its own pick.</strong> Mocks are drawn at real sizes (1 px = 1 dp, scaled to fit) in Graphite with the emulator's covers. Picks save to this page.</p>
+  </header>
+
+  <div class="bar" role="region" aria-label="Your picks">
+    <div class="tally" aria-live="polite"><span><b id="n-picked">0</b> of <b id="n-total">7</b> picked</span></div>
+    <p class="save-state" id="save-state">Picks are kept in this browser until the page's store answers.</p>
+    <button class="pill-btn" id="copy-picks" type="button">Copy picks</button>
+  </div>
+  <textarea id="copy-fallback" aria-label="Picks as text" hidden style="width:100%;min-height:120px;margin-top:8px;font:13px ui-monospace,monospace;background:var(--surface-2);color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:10px"></textarea>
+
+  <section class="today" aria-label="Today">
+    <p class="overline">What's there today (0.17.1, emulator, the Local library)</p>
+    <div class="shots">
+      <figure><img src="img/tiles/today-seeall.jpg" alt="See all for In progress: a bar with In progress and 19 items, a Last read pill, and tiles whose third line reads Resume from saved location - EPUB - Local"><figcaption>See all: a third line on every tile, cut off, with " - " between its parts.</figcaption></figure>
+      <figure><img src="img/tiles/today-list.jpg" alt="See all as a list: each row has the title, author, 96% &#183; 71/73, and Resume from saved location - EPUB - Local, with a grey square menu button"><figcaption>Its list view: four lines a row, and a grey square menu button.</figcaption></figure>
+      <figure><img src="img/tiles/today-strip.jpg" alt="The home band: tabs In progress 19, Up next 1, Finished 12, See all, and tiles reading 0% &#183; 1/73 and 13% &#183; 1/8"><figcaption>The home strip: "0% &#183; 1/73" for a book only opened, "13% &#183; 1/8" for a comic on page 1.</figcaption></figure>
+    </div>
+    <div class="shots">
+      <figure><img src="img/tiles/today-row.jpg" alt="A grid row: The Salt Orchard, then the Russian book with 96% under its title, Star Courier, Ashfall Academy; the second title sits higher than the others"><figcaption>A grid row: the tile with a progress line lifts its title above its neighbours'.</figcaption></figure>
+      <figure><img src="img/tiles/today-empty.jpg" alt="See all searched for zzz: plain text No shelf items match this search"><figcaption>A search with no match: plain text.</figcaption></figure>
+    </div>
+    <ul class="spec">
+      <li>See all (<code>LibraryShelfItemsSheet.kt</code>, on the hotspot list) builds its own entries: the shelf's <code>detailLabel</code> ("96% &#183; 71/73"), then <code>AppProgressSummaries.kt</code>'s label ("Resume from saved location", "Resume on page 1 of 8") joined with "8 pages - CBZ - Local". The only way to another shelf is Back, a tab, See all.</li>
+      <li>The tile's label row centres its text block beside the 32 dp menu button, so one line (a title) and two lines (title and "96%") sit at different heights.</li>
+      <li>The grid shows the percentage only once a book has started (above 0%); the strip and See all add the page or position ("1/73"). A book opened and closed on its first screen is "0% &#183; 1/73" on the strip and nothing in the grid, and it counts toward In progress (3 of the 19 here).</li>
+    </ul>
+  </section>
+
+  <div class="cards">
+
+    <article class="card" data-card="browser-tile" data-kind="dmd" data-title="See all uses the strip's tile">
+      <div class="card-head"><h3>1 &#183; See all uses the home strip's tile</h3><span class="tag">feature:library-shelves</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-browser"></div><p class="cap">See all on the tablet, In progress (drawn with card 2's tabs).</p></div>
+          <div class="stage" style="align-content:start"><div id="m-list"></div><p class="cap">The same shelf as a list.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>Each tile is the strip's: title, author (or the issue), and one meta line in the format card 5 settles. The third line goes, and with it "Resume from saved location", the page count, the format and "Local".</li>
+            <li>Up next keeps "After Star Courier #1"; Finished keeps "3 days ago".</li>
+            <li>The list view's rows get the same three lines and the tiles' inline menu button instead of the grey square.</li>
+            <li>The browser's own entry building in <code>LibraryShelfItemsSheet.kt</code> goes; the tiles come from the strip's code, so the file shrinks.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="browser-tabs" data-kind="dmd" data-title="Shelf tabs in See all">
+      <div class="card-head"><h3>2 &#183; The three shelf tabs at the top of See all</h3><span class="tag">feature:library-shelves</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-tabs-tablet"></div><p class="cap">Tablet: the tabs where the sort pill's row is, the pill at the end.</p></div>
+          <div class="stage"><div id="m-tabs-phone"></div><p class="cap">Phone: the tabs get the row; sorting moves into the bar as an icon.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>The same 34 dp pills as the home band (In progress 19 &#183; Up next 1 &#183; Finished 12), only the shelves that have something. A tap switches shelves in place, with the strip's fade and 12 dp slide.</li>
+            <li>The bar keeps the shelf's name and count and follows the tab. Back goes to the library, not through the tabs.</li>
+            <li>Each shelf keeps its own sort and layout, as now; a search stays as you switch.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="browser-empty" data-kind="dmd" data-title="Empty See all">
+      <div class="card-head"><h3>3 &#183; When See all has nothing to show</h3><span class="tag">AppEmptyState</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-empty-search"></div><p class="cap">A search with no match.</p></div>
+          <div class="stage"><div id="m-empty-shelf"></div><p class="cap">The shelf emptied while open (you finished its last book).</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>The kit's empty state, as on the empty library: the three books on a shelf, a title, a line, one button.</li>
+            <li>Search: "Nothing matches &#8220;zzz&#8221;", "See all searches titles, authors and series.", Clear search.</li>
+            <li>An emptied shelf: "Nothing in progress" / "Up next is empty" / "Nothing finished yet", with Back to library. Today the page closes by itself.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="baseline" data-kind="dmd" data-title="One title baseline">
+      <div class="card-head"><h3>4 &#183; Titles on one line across a row</h3><span class="tag">LibraryCoverActionCard</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-row-today"></div><p class="cap"><b>Today.</b> The text block is centred beside the menu button.</p></div>
+          <div class="stage"><div id="m-row-new"></div><p class="cap"><b>Proposed.</b> Titles at the top on one baseline, the meta line hanging below.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>The label row aligns to the top: the title's first line and the menu button's centre share a line, whatever hangs below.</li>
+            <li>The tile's height doesn't change: the grid's label keeps room for its title and one meta line, as now, so rows don't move.</li>
+            <li>One change in <code>LibraryCoverActionCard</code>, so the grid, the strip, See all and the series view all get it.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="progress-format" data-kind="dmd" data-title="One progress format">
+      <div class="card-head"><h3>5 &#183; One progress format on every tile</h3><span class="tag">ItemProgressSummary</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage" style="flex:1 1 100%;justify-items:stretch"><div id="m-format" style="overflow-x:auto"></div></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>Tiles say the percentage, rounded as the reader rounds it. Below 1% a book reads "Just started", in the grid too (today the grid says nothing until a book passes 0%).</li>
+            <li>The page or position ("71/73") leaves the tiles; the book page keeps it, beside the percentage.</li>
+            <li>The reading card keeps its own line ("Chapter 6 of 6" and the percentage); Up next and Finished keep theirs.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="first-page" data-kind="dmd" data-title="A comic on its first page">
+      <div class="card-head"><h3>6 &#183; A comic on its first page is "Just started"</h3><span class="tag">AppProgressSummaries.kt</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div class="trio" id="m-first"></div><p class="cap">An 8-page issue open on page 1: today, and proposed.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>A comic counts the page on screen as read, so one opened on page 1 of 8 reads 13% and fills an eighth of the bar; an EPUB opened on its first screen reads 0%.</li>
+            <li>Proposed: on the first page a comic is "Just started" with no bar, like the EPUB; from page 2 it reads its percentage as today. The last page still reads 100%.</li>
+            <li>Only the label and the bar change; the saved position and what syncs stay as they are.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="in-progress-1" data-kind="dmd" data-title="In progress from 1%">
+      <div class="card-head"><h3>7 &#183; A book counts as In progress only from 1%</h3><span class="tag">review: Maybe</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-inprogress"></div><p class="cap">The home band here: 19 in progress today, 16 with this.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>A book opened and closed on its first screen (or a comic on page 1, with card 6) leaves In progress and the header's "19 in progress". The grid still shows it, as "Just started".</li>
+            <li>The reading card follows In progress, so it would skip a book you opened and closed at once and show the one before it.</li>
+            <li>Without this, "Just started" books stay in In progress, after the books you've read into.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Graphite roles (UnifiedReaderTheme.kt)
+  var G = { bg: "#101214", surface: "#171A1D", high: "#30363C", highest: "#3C434A", fg: "#E7EAEE", fg2: "#C8D0D8", acc: "#B7C7D9", line: "#4E5660", glass: "rgba(29,33,37,.86)" };
+  var FONT = "font-family:var(--ui);";
+  function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+  function set(id, html) { var el = document.getElementById(id); if (el) el.innerHTML = html; }
+  function device(w, h, scale, inner, extra) {
+    return '<div class="scaled" style="width:' + Math.round(w * scale) + 'px;height:' + Math.round(h * scale) + 'px' + (extra || "") + '"><div class="dev" style="width:' + w + 'px;height:' + h + 'px;transform:scale(' + scale + ');background:' + G.bg + '">' + inner + '</div></div>';
+  }
+  var DOTS = '<span style="width:32px;height:32px;flex:none;display:grid;place-items:center;color:' + G.fg2 + ';font-size:18px;line-height:1;letter-spacing:1px">\u22ef</span>';
+
+  // A tile: cover (2:3, 6 dp corners, progress bar, read badge) and its label.
+  // o: {cover, w, title, sub, meta, fraction, read, kind: "grid"|"strip", align: "center"|"top"}
+  function tile(o) {
+    var w = o.w, h = Math.round(w * 1.5);
+    var cover = '<div style="position:relative;width:' + w + 'px;height:' + h + 'px;border-radius:6px;overflow:hidden;background:#222">' +
+      '<img src="img/tiles/covers/' + o.cover + '.jpg" alt="" style="width:100%;height:100%;object-fit:cover;display:block">' +
+      (o.fraction ? '<div style="position:absolute;left:7px;right:7px;bottom:7px;height:4px;border-radius:2px;background:rgba(0,0,0,.42);overflow:hidden"><div style="height:100%;width:' + Math.round(o.fraction * 100) + '%;background:' + G.acc + ';border-radius:2px"></div></div>' : '') +
+      (o.read ? '<div style="position:absolute;left:8px;top:8px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.45);display:grid;place-items:center;color:#fff;font-size:13px">\u2713</div>' : '') +
+      '</div>';
+    var strip = o.kind !== "grid";
+    var title = '<div style="' + FONT + 'font-size:' + (strip ? 14 : 12) + 'px;line-height:' + (strip ? 20 : 16) + 'px;font-weight:' + (strip ? 600 : 500) + ';color:' + G.fg + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(o.title) + '</div>';
+    var sub = o.sub ? '<div style="' + FONT + 'font-size:12px;line-height:16px;color:' + G.fg2 + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(o.sub) + '</div>' : '';
+    var meta = (o.meta || []).map(function (m) { return '<div style="' + FONT + 'font-size:11px;line-height:16px;font-weight:500;color:' + G.fg2 + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(m) + '</div>'; }).join("");
+    var top = o.align === "top";
+    // Proposed: the label keeps room for its lines (grid: title + one meta line) and the row aligns to the top.
+    var minH = top ? (strip ? 58 : 35) : 0;
+    var label = '<div style="display:flex;align-items:' + (top ? "flex-start" : "center") + ';gap:0;padding-top:' + (strip ? 8 : 6) + 'px;' + (minH ? "min-height:" + minH + "px;" : "") + '">' +
+      '<div style="flex:1;min-width:0;display:grid;gap:3px">' + title + sub + meta + '</div>' +
+      '<div style="' + (top ? "margin-top:" + ((strip ? 20 : 16) / 2 - 16) + "px" : "") + '">' + DOTS + '</div></div>';
+    return '<div style="width:' + w + 'px">' + cover + label + '</div>';
+  }
+
+  // The In progress shelf on this emulator, in shelf order.
+  var SHELF = [
+    { cover: "dom-u-reki", title: "\u0414\u043e\u043c \u0443 \u0440\u0435\u043a\u0438", sub: "\u0418\u043b\u044c\u044f \u0413\u043e\u0440\u0441\u043a\u0438\u0439", pct: "96%", today: ["96% \u00b7 71/73", "Resume from saved location - EPUB - Local"], fraction: 0.96 },
+    { cover: "severny-veter", title: "\u0421\u0435\u0432\u0435\u0440\u043d\u044b\u0439 \u0432\u0435\u0442\u0435\u0440", sub: "\u0410\u043d\u043d\u0430 \u041b\u0435\u0441\u043d\u0430\u044f", pct: "Just started", today: ["0% \u00b7 1/73", "Resume from saved location - EPUB - Local"] },
+    { cover: "The-Lantern-Keepers", title: "The Lantern Keepers", sub: "Oona Fitch", pct: "Just started", today: ["0% \u00b7 1/74", "Resume from saved location - EPUB - Local"] },
+    { cover: "The-Cartographer-s-Daughter", title: "The Cartographer's Daughter", sub: "Ines Varga", pct: "Just started", today: ["0% \u00b7 1/72", "Resume from saved location - EPUB - Local"] },
+    { cover: "Star-Courier-002", title: "Star Courier", sub: "Star Courier #2", pct: "13%", today: ["13% \u00b7 1/8", "Resume on page 1 of 8 - 8 pages - CBZ - Local"], fraction: 0.13 },
+    { cover: "Neon-Ronin-003", title: "Neon Ronin", sub: "Neon Ronin #3", pct: "13%", today: ["13% \u00b7 1/8", "Resume on page 1 of 8 - 8 pages - CBZ - Local"], fraction: 0.13 },
+    { cover: "Neon-Ronin-002", title: "Neon Ronin", sub: "Neon Ronin #2", pct: "13%", today: ["13% \u00b7 1/8"], fraction: 0.13 },
+    { cover: "Hollow-Moon-004", title: "Hollow Moon", sub: "Hollow Moon #4", pct: "13%", today: ["13% \u00b7 1/8"], fraction: 0.13 }
+  ];
+
+  function glassBar(w, title, count, extra) {
+    return '<div style="position:absolute;left:16px;right:16px;top:12px;height:54px;border-radius:27px;background:' + G.glass + ';border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:8px;padding:0 10px;' + FONT + '">' +
+      '<span style="width:36px;height:36px;display:grid;place-items:center;color:' + G.fg + ';font-size:20px">\u2190</span>' +
+      '<div style="flex:1;min-width:0"><div style="font-size:16px;line-height:22px;font-weight:600;color:' + G.fg + '">' + title + '</div><div style="font-size:11px;line-height:14px;color:' + G.fg2 + '">' + count + '</div></div>' +
+      (extra || '') + '<span style="width:40px;height:40px;display:grid;place-items:center;color:' + G.fg2 + ';font-size:19px">\u26b2</span></div>';
+  }
+  function tabPill(label, count, selected) {
+    return '<span style="height:34px;padding:0 14px;border-radius:17px;display:inline-flex;align-items:center;gap:6px;flex:none;' + FONT + 'background:' + (selected ? G.high : "transparent") + ';color:' + (selected ? G.fg : G.fg2) + '"><span style="font-size:14px;font-weight:600">' + label + '</span><span style="font-size:12px;font-weight:600;opacity:.8">' + count + '</span></span>';
+  }
+  function tabsRow(selected, withSort) {
+    var tabs = [["In progress", 19], ["Up next", 1], ["Finished", 12]].map(function (t) { return tabPill(t[0], t[1], t[0] === selected); }).join("");
+    return '<div style="display:flex;align-items:center;gap:4px">' + tabs + '<span style="flex:1"></span>' +
+      (withSort ? '<span style="height:36px;padding:0 14px;border-radius:18px;border:1px solid ' + G.line + ';display:inline-flex;align-items:center;gap:8px;' + FONT + 'font-size:14px;font-weight:500;color:' + G.fg + '"><span style="color:' + G.fg2 + '">\u2261</span>Last read</span>' : '') + '</div>';
+  }
+
+  // 1 the browser, proposed
+  (function () {
+    var cw = 180, inner = glassBar(800, "In progress", "19 items") +
+      '<div style="position:absolute;left:16px;right:16px;top:82px">' + tabsRow("In progress", true) + '</div>' +
+      '<div style="position:absolute;left:16px;top:136px;display:grid;grid-template-columns:repeat(4,' + cw + 'px);gap:16px">' +
+      SHELF.map(function (b) { return tile({ cover: b.cover, w: cw, title: b.title, sub: b.sub, meta: [b.pct], fraction: b.fraction, kind: "strip", align: "top" }); }).join("") + '</div>';
+    set("m-browser", device(800, 760, 0.42, inner));
+    // list rows
+    var rows = SHELF.slice(0, 5).map(function (b) {
+      return '<div style="display:flex;align-items:center;gap:14px;padding:10px 0">' +
+        '<img src="img/tiles/covers/' + b.cover + '.jpg" alt="" style="width:44px;height:66px;border-radius:4px;object-fit:cover;flex:none">' +
+        '<div style="flex:1;min-width:0;' + FONT + '"><div style="font-size:16px;line-height:22px;font-weight:600;color:' + G.fg + '">' + esc(b.title) + '</div>' +
+        '<div style="font-size:13px;line-height:18px;color:' + G.fg2 + '">' + esc(b.sub) + '</div>' +
+        '<div style="font-size:12px;line-height:16px;font-weight:500;color:' + G.fg2 + '">' + esc(b.pct) + '</div></div>' + DOTS + '</div>';
+    }).join("");
+    set("m-list", device(480, 470, 0.6, '<div style="padding:8px 16px">' + rows + '</div>'));
+  })();
+
+  // 2 tabs: tablet and phone
+  (function () {
+    var t = glassBar(800, "Up next", "1 item") + '<div style="position:absolute;left:16px;right:16px;top:82px">' + tabsRow("Up next", true) + '</div>' +
+      '<div style="position:absolute;left:16px;top:136px">' + tile({ cover: "Ashfall-Academy-v03", w: 180, title: "Ashfall Academy", sub: "Ashfall Academy Vol. 3", meta: ["After Vol. 2"], kind: "strip", align: "top" }) + '</div>';
+    set("m-tabs-tablet", device(800, 470, 0.42, t));
+    var cw = 182;
+    var p = glassBar(412, "In progress", "19 items", '<span style="width:40px;height:40px;display:grid;place-items:center;color:' + G.fg2 + ';font-size:18px">\u2261</span>') +
+      '<div style="position:absolute;left:16px;right:0;top:82px;overflow:hidden">' + tabsRow("In progress", false) + '</div>' +
+      '<div style="position:absolute;left:16px;top:136px;display:grid;grid-template-columns:repeat(2,' + cw + 'px);gap:16px">' +
+      SHELF.slice(0, 4).map(function (b) { return tile({ cover: b.cover, w: cw, title: b.title, sub: b.sub, meta: [b.pct], fraction: b.fraction, kind: "strip", align: "top" }); }).join("") + '</div>';
+    set("m-tabs-phone", device(412, 760, 0.42, p));
+  })();
+
+  // 3 empty states (the kit's AppEmptyState: three books on a shelf, 28 Bold title, 14.5 body, a pill button)
+  function books() {
+    var c = G.fg2, f = G.bg;
+    function book(x, y, deg) { return '<rect x="' + x + '" y="' + y + '" width="38" height="54" rx="5" fill="' + f + '" stroke="' + c + '" stroke-width="2.4" transform="rotate(' + deg + ' ' + (x + 19) + ' ' + (y + 54) + ')"/>'; }
+    return '<svg width="170" height="118" viewBox="0 0 170 118" aria-hidden="true">' + book(35, 44, -7) + book(97, 44, 6) + book(66, 36, 0) +
+      '<line x1="21" y1="104" x2="149" y2="104" stroke="' + c + '" stroke-width="2.4" stroke-linecap="round"/></svg>';
+  }
+  function empty(title, body, action, filled) {
+    return '<div style="display:flex;flex-direction:column;align-items:center;padding:40px 24px;' + FONT + '">' + books() +
+      '<div style="margin-top:24px;font-size:28px;line-height:34px;font-weight:700;color:' + G.fg + ';text-align:center">' + title + '</div>' +
+      '<div style="margin-top:8px;font-size:14.5px;line-height:21px;color:' + G.fg2 + ';text-align:center;max-width:360px">' + body + '</div>' +
+      '<span style="margin-top:20px;height:40px;padding:0 20px;border-radius:20px;display:inline-flex;align-items:center;font-size:14px;font-weight:600;' + (filled ? 'background:' + G.acc + ';color:#223244' : 'background:' + G.high + ';color:' + G.fg) + '">' + action + '</span></div>';
+  }
+  set("m-empty-search", device(800, 520, 0.42,
+    '<div style="position:absolute;left:16px;right:16px;top:12px;height:54px;border-radius:27px;background:' + G.glass + ';border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:10px;padding:0 14px;' + FONT + 'color:' + G.fg + ';font-size:16px"><span>\u2190</span><span style="flex:1">zzz</span><span style="color:' + G.fg2 + '">\u2715</span></div>' +
+    '<div style="position:absolute;left:16px;right:16px;top:82px">' + tabsRow("In progress", true) + '</div>' +
+    '<div style="position:absolute;left:0;right:0;top:130px">' + empty("Nothing matches \u201czzz\u201d", "See all searches titles, authors and series.", "Clear search", false) + '</div>'));
+  set("m-empty-shelf", device(800, 520, 0.42,
+    glassBar(800, "In progress", "0 items") +
+    '<div style="position:absolute;left:0;right:0;top:110px">' + empty("Nothing in progress", "Books you've started show up here.", "Back to library", true) + '</div>'));
+
+  // 4 one baseline: a grid row
+  var ROW = [
+    { cover: "The-Salt-Orchard", title: "The Salt Orchard" },
+    { cover: "dom-u-reki", title: "\u0414\u043e\u043c \u0443 \u0440\u0435\u043a\u0438", meta: ["96%"], fraction: 0.96 },
+    { cover: "Star-Courier-001", title: "Star Courier" },
+    { cover: "Ashfall-Academy-v03", title: "Ashfall Academy" }
+  ];
+  function row(align) {
+    return '<div style="display:flex;gap:16px;padding:12px 16px">' + ROW.map(function (b) { return tile({ cover: b.cover, w: 180, title: b.title, meta: b.meta, fraction: b.fraction, kind: "grid", align: align }); }).join("") + '</div>';
+  }
+  set("m-row-today", device(800, 330, 0.5, row("center")));
+  set("m-row-new", device(800, 330, 0.5, row("top")));
+
+  // 5 the format table
+  (function () {
+    var cell = 'style="padding:8px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;white-space:nowrap"';
+    var head = ['Book', 'Grid', 'Home strip', 'See all', 'Proposed, everywhere'];
+    var rows = [
+      ['\u0414\u043e\u043c \u0443 \u0440\u0435\u043a\u0438 (EPUB, 71 of 73)', '96%', '96% \u00b7 71/73', '96% \u00b7 71/73<br>Resume from saved location - EPUB - Local', '96%'],
+      ['\u0421\u0435\u0432\u0435\u0440\u043d\u044b\u0439 \u0432\u0435\u0442\u0435\u0440 (EPUB, opened)', '(nothing)', '0% \u00b7 1/73', '0% \u00b7 1/73<br>Resume from saved location - EPUB - Local', 'Just started'],
+      ['Star Courier #2 (CBZ, page 1 of 8)', '13%', '13% \u00b7 1/8', '13% \u00b7 1/8<br>Resume on page 1 of 8 - 8 pages - CBZ - Local', '13% (card 6: Just started)'],
+      ['Glass Meridian (finished)', '(read badge)', '3 days ago, on Finished', '3 days ago', 'as today']
+    ];
+    set("m-format", '<table style="border-collapse:collapse;font-size:13px;min-width:720px"><thead><tr>' + head.map(function (h) { return '<th ' + cell + '>' + h + '</th>'; }).join("") + '</tr></thead><tbody>' +
+      rows.map(function (r) { return '<tr>' + r.map(function (c, i) { return '<td ' + cell + (i === 4 ? ' class="new"' : '') + '>' + c + '</td>'; }).join("") + '</tr>'; }).join("") + '</tbody></table>');
+  })();
+
+  // 6 the first page
+  set("m-first",
+    device(212, 330, 0.75, '<div style="padding:16px">' + tile({ cover: "Star-Courier-002", w: 180, title: "Star Courier", sub: "Star Courier #2", meta: ["13%"], fraction: 0.13, kind: "strip", align: "top" }) + '</div>') +
+    device(212, 330, 0.75, '<div style="padding:16px">' + tile({ cover: "Star-Courier-002", w: 180, title: "Star Courier", sub: "Star Courier #2", meta: ["Just started"], kind: "strip", align: "top" }) + '</div>'));
+
+  // 7 in progress from 1%: the band's tabs and the header line, today and with the change
+  (function () {
+    function band(n, label) {
+      var cells = SHELF.filter(function (b) { return n === 19 || b.pct !== "Just started"; }).slice(1, 5);
+      return '<div style="padding:14px 16px;' + FONT + '"><div style="font-size:12px;color:' + G.fg2 + ';margin-bottom:10px">' + label + '</div>' +
+        '<div style="display:flex;gap:4px;align-items:center">' + tabPill("In progress", n, true) + tabPill("Up next", 1, false) + tabPill("Finished", 12, false) + '</div>' +
+        '<div style="display:flex;gap:16px;margin-top:14px">' + cells.map(function (b) { return tile({ cover: b.cover, w: 150, title: b.title, sub: b.sub, meta: [b.pct], fraction: b.fraction, kind: "strip", align: "top" }); }).join("") + '</div></div>';
+    }
+    set("m-inprogress", '<div style="display:grid;gap:12px">' + device(680, 400, 0.6, band(19, "Today: 13 books \u00b7 20 comics \u00b7 19 in progress")) + device(680, 400, 0.6, band(16, "From 1%: 13 books \u00b7 20 comics \u00b7 16 in progress")) + '</div>');
+  })();
+})();
+</script>
+
+<script>
+(function () {
+  // ---------- picks (same store layout as the earlier boards: collection "picks") ----------
+  var STORE_KEY = "yabai-tiles-board-picks";
+  var cards = Array.prototype.slice.call(document.querySelectorAll("[data-card]"));
+  var LABELS = { "do": "Do", maybe: "Maybe", dont: "Don't", a: "A", b: "B", c: "C", neither: "Neither" };
+  var KINDS = { ab: ["a", "b", "neither"], abc: ["a", "b", "c", "neither"], dmd: ["do", "maybe", "dont"] };
+  var picks = {}; try { picks = JSON.parse(localStorage.getItem(STORE_KEY) || "{}") || {}; } catch (e) { picks = {}; }
+  var db = null, pending = {};
+  function saveLocal() { try { localStorage.setItem(STORE_KEY, JSON.stringify(picks)); } catch (e) {} }
+  function setState(t) { document.getElementById("save-state").textContent = t; }
+  function tally() { var n = 0; cards.forEach(function (c) { if ((picks[c.dataset.card] || {}).choice) n++; }); document.getElementById("n-picked").textContent = n; document.getElementById("n-total").textContent = cards.length; }
+  function paint(card) {
+    var p = picks[card.dataset.card] || {};
+    card.querySelectorAll(".pick button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.v === p.choice)); });
+    var ta = card.querySelector(".pick textarea"); if (ta && document.activeElement !== ta) ta.value = p.note || "";
+  }
+  function write(id) {
+    if (!db) { saveLocal(); return; }
+    var p = picks[id];
+    var run = function () {
+      return db.collection("picks").doc(id).set({ choice: p.choice || null, note: p.note || "", title: p.title || id, updatedAt: p.updatedAt || Date.now() })
+        .then(function () { p.synced = true; saveLocal(); setState("Saved to this page."); })
+        .catch(function (err) { setState(err && err.code === "invalid_argument" ? "This page is read-only for you; picks stay in this browser. Use Copy picks." : "Couldn't save just now; your pick is kept in this browser."); });
+    };
+    pending[id] = (pending[id] || Promise.resolve()).then(run, run);
+  }
+  function update(card, patch) {
+    var id = card.dataset.card;
+    picks[id] = Object.assign({}, picks[id], patch, { title: card.dataset.title, updatedAt: Date.now(), synced: false });
+    saveLocal(); paint(card); tally(); write(id);
+  }
+  cards.forEach(function (card) {
+    var opts = KINDS[card.dataset.kind] || KINDS.dmd;
+    var row = document.createElement("div"); row.className = "pick";
+    row.innerHTML = '<span class="label">Your pick</span>' + opts.map(function (v) { return '<button type="button" data-v="' + v + '" aria-pressed="false">' + LABELS[v] + "</button>"; }).join("") +
+      '<textarea id="note-' + card.dataset.card + '" rows="1" placeholder="Note (optional)" aria-label="Note for ' + card.dataset.title + '"></textarea>';
+    card.appendChild(row);
+    row.querySelectorAll("button").forEach(function (b) { b.addEventListener("click", function () { var cur = (picks[card.dataset.card] || {}).choice; update(card, { choice: cur === b.dataset.v ? null : b.dataset.v }); }); });
+    var ta = row.querySelector("textarea"), t = null;
+    ta.addEventListener("input", function () { clearTimeout(t); t = setTimeout(function () { update(card, { note: ta.value }); }, 700); });
+    ta.addEventListener("change", function () { clearTimeout(t); if ((picks[card.dataset.card] || {}).note !== ta.value) update(card, { note: ta.value }); });
+    paint(card);
+  });
+  tally();
+  document.getElementById("copy-picks").addEventListener("click", function () {
+    var lines = cards.map(function (c) { var p = picks[c.dataset.card] || {}; return c.querySelector("h3").textContent + ": " + (p.choice ? LABELS[p.choice] : "-") + (p.note ? " (" + p.note.trim() + ")" : ""); }).join("\n");
+    var btn = document.getElementById("copy-picks");
+    var fallback = function () { var ta = document.getElementById("copy-fallback"); ta.hidden = false; ta.value = lines; ta.focus(); ta.select(); btn.textContent = "Select and copy"; };
+    try { navigator.clipboard.writeText(lines).then(function () { btn.textContent = "Copied"; setTimeout(function () { btn.textContent = "Copy picks"; }, 1600); }, fallback); } catch (e) { fallback(); }
+  });
+  (async function () {
+    try { db = window.claude && window.claude.use ? await window.claude.use("db") : null; } catch (e) { db = null; }
+    if (!db) { setState("Picks are saved in this browser only. Use Copy picks to send them."); return; }
+    setState("Connected. Picks save to this page.");
+    var first = true;
+    db.collection("picks").onSnapshot(function (snap) {
+      snap.docs.forEach(function (d) { var remote = d.data() || {}, local = picks[d.id]; if (!local || (remote.updatedAt || 0) >= (local.updatedAt || 0)) picks[d.id] = Object.assign({}, remote, { synced: true }); });
+      if (first) { first = false; Object.keys(picks).forEach(function (id) { if (picks[id] && !picks[id].synced) write(id); }); }
+      saveLocal(); cards.forEach(paint); tally();
+    }, function () { setState("The page's store stopped answering; picks stay in this browser."); });
+  })();
+})();
+</script>

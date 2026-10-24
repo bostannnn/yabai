@@ -1420,13 +1420,55 @@ behind the app was the same light or dark grey.
   cold start, the 800 ms limit being reached.
 - [ ] Tablet: the look, and how often a cold start waits and for how long (`adb logcat -d -s LaunchSplash`).
 
-### 9.4 Library tiles and the shelf browser `[ ]` (shelf-browser, tile-meta)
+### 9.4 Library tiles and the shelf browser `[~]` (shelf-browser, tile-meta)
 
-- [ ] Mock first. The shelf browser ("See all") uses the home grid's tile; the third line from
-      `AppProgressSummaries.kt` goes; the three shelf tabs sit at its top; `AppEmptyState` when empty.
-- [ ] Tile titles share one baseline whether or not a progress line hangs below.
-- [ ] One progress format on tiles: the percentage, "Just started" below 1%.
-- Maybe: a book counts as In progress only from 1%.
+Built 2026-10-24 in worktree `ui-redesign-step-9-a92d10` (branch `claude/ui-redesign-step-9-a92d10`, on 9.3),
+not committed at the time; checked on the emulator (`yabai_tablet_35` on 5558, debug build, the Local
+library) at 800 dp and at phone width. All unit tests pass (1481, both lines). Not yet on the tablet.
+
+- [x] Mock first: board https://claude.ai/artifact/7m7UaCdjeJaVekarw6dHqR
+      (`docs/design/third-pass/pages/tiles.html`, 2026-10-24). Picked, no notes: all seven Do
+      (`browser-tile`, `browser-tabs`, `browser-empty`, `baseline`, `progress-format`, `first-page`,
+      `in-progress-1`).
+- [x] One progress rule on `ItemProgressSummary` (feature:library): `isJustStarted` (under 1%, or on the
+      first page of more than one, since a comic counts the page on screen as read), `tileLabel` (the
+      rounded percentage, "Just started", nothing once read) and `tileBarFraction` (the cover bar only
+      while the tile shows a percentage). The grid, the home strip and See all all use them; the grid
+      now says "Just started" too. The page or position ("71/73") is only on the book page; the reading
+      card keeps its own line and bar.
+- [x] In progress counts only books read into: `LibraryShelvesStateComputer` leaves just-started ones out,
+      so the header's "in progress", the In progress tab and the reading card follow (19 to 2 on the
+      emulator, where almost every test comic was only opened on page 1). A series header's
+      "in progress" uses the same rule. The library's In progress filter chip is unchanged (it is also
+      SQL on paged libraries).
+- [x] One title baseline: `LibraryCoverActionCard`'s label row aligns to the top, the 32 dp menu button
+      centred on the title's first line; the grid reserves its meta line (`reserveTrailingLine`), so every
+      tile in a row is as tall (3 dp taller than a one-line tile was). The Kavita landing's tiles get it too.
+- [x] See all (feature:library-shelves) shows the home strip's tile: title, author or issue, one meta
+      line (the tile text now comes from `LibraryShelvesText.kt` for both). The third line and
+      `AppProgressSummaries.kt`'s "Resume from saved location" / "8 pages - CBZ - Local" are gone. List
+      rows have the same three lines, a neutral meta line and the inline menu button.
+- [x] Tabs: the band's pills (`LibraryShelfTabPill`, now shared) as the first row of See all, the shelves
+      with books plus the open one; a tap switches in place (the screen key is "See all open", not the
+      shelf), the tiles fading in and sliding 12 dp on spatial for 300 ms after a switch
+      (`animateItem` + `shelfSwitchEntrance`). The bar follows the tab; the search stays while switching
+      and clears when See all closes. Each shelf keeps its sort and layout in
+      `LibraryShelfBrowserViewState` (held in the shell, saved per library context). On phones the
+      options are an icon in the bar (`LibraryBrowseOptionsMenu(iconOnly = true)`), on wider screens the
+      pill at the end of the tabs.
+- [x] Empty: `AppEmptyState` for a search with no match ("Nothing matches “zzz”", Clear search) and for
+      a shelf that empties while open ("Nothing in progress" / "Up next is empty" / "Nothing finished yet",
+      Back to library); See all no longer closes by itself when its shelf empties.
+- `LibraryShelfItemsSheet.kt` (a hotspot) went from 971 to 511 lines: entries, search and sort moved to
+  `LibraryShelfBrowserEntries.kt`, the cover prefetcher to `LibraryShelfBrowserCoverPrefetcher.kt` (which
+  now skips the tabs row when it maps visible rows to tiles; it was one off before), the options and view
+  state to `LibraryShelfBrowserOptions.kt`. The embedded top bar path is gone (the shell draws the bar).
+- Seen on the emulator: the home band (In progress 2, "58%"), See all on Finished then In progress with the
+  bar following, the list view, a search with no match staying across a tab switch, the grid rows on one
+  baseline with "Just started", and phone width with the options icon in the bar.
+- Not seen: an emptied shelf's empty state (needs finishing the last book of a shelf while See all is
+  open), Up next with a real series, and the switch animation frame by frame.
+- [ ] Tablet.
 
 ### 9.5 The book page's "Your reading", and the journal's "+" `[ ]` (book-page-reading, journal-plus)
 

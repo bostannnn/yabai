@@ -65,3 +65,12 @@ the launcher icon's own layers (`img/splash/mark.png`, `mark-mono.png`, cropped 
 cream disc, C bare), `colour`, `handoff` (A Android's exit, B the mark steps back; both play in the
 page), `hold`. Picked: mark A, colour Do (stored as Don't at first, a mis-pick corrected in chat), hand-off A,
 hold Do. Built as plan 9.3 records.
+
+## 9.4 Tiles and See all, 2026-10-24
+
+`pages/tiles.html` (live board: https://claude.ai/artifact/7m7UaCdjeJaVekarw6dHqR, picks in its store,
+collection `picks`) sets today's See all, its list view, the home strip, a grid row and an empty search
+(`pages/img/tiles/today-*.jpg`, 0.17.1 debug build on `yabai_tablet_35`, the Local library) beside tiles
+drawn at dp size in Graphite with the emulator's covers (`pages/img/tiles/covers/`, from the second pass's
+cover set). Cards: `browser-tile`, `browser-tabs`, `browser-empty`, `baseline`, `progress-format`,
+`first-page`, `in-progress-1`. Picked: all seven Do, no notes. Built as plan 9.4 records.
