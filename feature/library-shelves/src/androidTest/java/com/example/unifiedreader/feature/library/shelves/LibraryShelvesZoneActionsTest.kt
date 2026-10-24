@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.library.shelves
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -109,14 +110,19 @@ class LibraryShelvesZoneActionsTest {
         composeRule.setContent {
             MaterialTheme {
                 LibraryShelfItemsBrowser(
-                    browser = LibraryShelfBrowserState.ContinueReading(
-                        items = listOf(
+                    shelves = LibraryShelvesState(
+                        continueReading = listOf(
                             ContinueReadingShelfItem(
                                 item = item,
                                 progress = progress(),
                             ),
                         ),
                     ),
+                    kind = LibraryShelfBrowserKind.ContinueReading,
+                    onKindSelected = {},
+                    viewState = LibraryShelfBrowserViewState(),
+                    searchQuery = "",
+                    onSearchQueryChanged = {},
                     itemActionContext = LibraryItemActionContext(onOpenItemPage = { opened = it }),
                     coverImageUrlProvider = { _, _ -> null },
                     onCoverVisible = { _, _ -> },
@@ -143,18 +149,34 @@ class LibraryShelvesZoneActionsTest {
         composeRule.setContent {
             var activeShelfKind by remember { mutableStateOf<LibraryShelfBrowserKind?>(null) }
             val shelvesState = LibraryShelvesState(continueReading = shelfItems)
-            val browserState = activeShelfKind?.let(shelvesState::browserState)
+            val viewState = remember { LibraryShelfBrowserViewState() }
 
             MaterialTheme {
-                if (browserState != null) {
-                    LibraryShelfItemsBrowser(
-                        browser = browserState,
-                        itemActionContext = LibraryItemActionContext(),
-                        coverImageUrlProvider = { _, _ -> null },
-                        onCoverVisible = { _, _ -> },
-                        onBack = { activeShelfKind = null },
-                        onItemSelected = {},
-                    )
+                val kind = activeShelfKind
+                if (kind != null) {
+                    // The shell draws See all's bar over the browser.
+                    Column {
+                        LibraryShelfBrowserTopBar(
+                            title = shelvesState.browserState(kind).title,
+                            count = shelvesState.browserState(kind).count,
+                            searchQuery = "",
+                            onSearchQueryChanged = {},
+                            onBack = { activeShelfKind = null },
+                        )
+                        LibraryShelfItemsBrowser(
+                            shelves = shelvesState,
+                            kind = kind,
+                            onKindSelected = { activeShelfKind = it },
+                            viewState = viewState,
+                            searchQuery = "",
+                            onSearchQueryChanged = {},
+                            itemActionContext = LibraryItemActionContext(),
+                            coverImageUrlProvider = { _, _ -> null },
+                            onCoverVisible = { _, _ -> },
+                            onBack = { activeShelfKind = null },
+                            onItemSelected = {},
+                        )
+                    }
                 } else {
                     LibraryShelvesZone(
                         state = shelvesState,
@@ -188,8 +210,8 @@ class LibraryShelvesZoneActionsTest {
         composeRule.setContent {
             MaterialTheme {
                 LibraryShelfItemsBrowser(
-                    browser = LibraryShelfBrowserState.ContinueReading(
-                        items = listOf(
+                    shelves = LibraryShelvesState(
+                        continueReading = listOf(
                             ContinueReadingShelfItem(
                                 item = firstItem,
                                 progress = progress(),
@@ -207,7 +229,9 @@ class LibraryShelvesZoneActionsTest {
                     onItemSelected = {},
                     searchQuery = "metro",
                     onSearchQueryChanged = {},
-                    showEmbeddedTopBar = false,
+                    kind = LibraryShelfBrowserKind.ContinueReading,
+                    onKindSelected = {},
+                    viewState = LibraryShelfBrowserViewState(),
                 )
             }
         }

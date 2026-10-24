@@ -86,7 +86,7 @@ fun librarySeriesSummary(
     if (issues.isEmpty()) return null
     val progress = issues.mapNotNull { issue -> progressByItemId[issue.id] }
     val read = progress.count { it.isComplete }
-    val inProgress = progress.count { it.hasStarted && !it.isComplete }
+    val inProgress = progress.count { !it.isComplete && !it.isJustStarted }
     return listOfNotNull(
         countLabel(issues.size, "issue", "issues"),
         "$read read".takeIf { read > 0 },

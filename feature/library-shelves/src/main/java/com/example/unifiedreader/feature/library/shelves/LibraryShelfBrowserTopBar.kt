@@ -27,13 +27,14 @@ import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppWindowWidth
 import com.example.unifiedreader.ui.components.currentAppWindowWidth
 
+/** See all's search: it stays while the tabs switch shelves, and clears when See all closes. */
 @Composable
 fun rememberLibraryShelfBrowserSearchQuery(
     browseContextKey: String,
     browserKind: LibraryShelfBrowserKind?,
 ): MutableState<String> = rememberSaveable(
     browseContextKey,
-    browserKind,
+    browserKind != null,
 ) {
     mutableStateOf("")
 }
@@ -45,8 +46,10 @@ fun LibraryShelfBrowserTopBar(
     searchQuery: String,
     onSearchQueryChanged: (String) -> Unit,
     onBack: () -> Unit,
+    // Before search: the shelf's options on a phone, where See all's tabs row has no room for them.
+    actions: (@Composable () -> Unit)? = null,
 ) {
-    var searchModeOpen by remember(title) { mutableStateOf(searchQuery.isNotBlank()) }
+    var searchModeOpen by remember { mutableStateOf(searchQuery.isNotBlank()) }
     LaunchedEffect(searchQuery) {
         if (searchQuery.isNotBlank()) {
             searchModeOpen = true
@@ -100,6 +103,7 @@ fun LibraryShelfBrowserTopBar(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+                actions?.invoke()
                 AppIconButton(onClick = { searchModeOpen = true }) {
                     Icon(
                         imageVector = AppIcons.Search,

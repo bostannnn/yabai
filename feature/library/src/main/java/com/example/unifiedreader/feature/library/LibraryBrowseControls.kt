@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import com.example.unifiedreader.ui.components.AppChip
 import com.example.unifiedreader.ui.components.AppChipDefaults
 import com.example.unifiedreader.ui.components.AppDivider
+import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppMenu
 import com.example.unifiedreader.ui.components.AppMenuChoiceItem
@@ -67,28 +68,40 @@ fun LibraryBrowseOptionsMenu(
     leadingIconContentDescription: String? = null,
     viewSectionTitle: String = "View",
     fadeReadItemsLabel: String = "Fade read books",
+    // Just the icon, for a top bar: the label becomes its description.
+    iconOnly: Boolean = false,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val coverSize = LibraryCoverSize.of(gridCellSizeDp)
     Box(modifier = modifier) {
-        AppChip(
-            selected = selected,
-            onClick = { expanded = true },
-            leadingIcon = {
+        if (iconOnly) {
+            AppIconButton(onClick = { expanded = true }) {
                 Icon(
                     imageVector = leadingIcon,
-                    contentDescription = leadingIconContentDescription,
-                    modifier = Modifier.size(AppChipDefaults.iconSize),
+                    contentDescription = "Sort and view: $label",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-            },
-            label = {
-                Text(
-                    text = label,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            },
-        )
+            }
+        } else {
+            AppChip(
+                selected = selected,
+                onClick = { expanded = true },
+                leadingIcon = {
+                    Icon(
+                        imageVector = leadingIcon,
+                        contentDescription = leadingIconContentDescription,
+                        modifier = Modifier.size(AppChipDefaults.iconSize),
+                    )
+                },
+                label = {
+                    Text(
+                        text = label,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                },
+            )
+        }
         AppMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },

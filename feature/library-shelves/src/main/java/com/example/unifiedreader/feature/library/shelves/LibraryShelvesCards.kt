@@ -100,7 +100,6 @@ internal fun ShelfListRow(
     title: String,
     supportingText: String,
     trailingText: String,
-    metadataText: String? = null,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     coverLoadingEnabled: Boolean = true,
@@ -112,7 +111,6 @@ internal fun ShelfListRow(
     compact: Boolean = false,
     notifyCoverVisibleOnCompose: Boolean = true,
 ) {
-    val semanticColors = UnifiedReaderThemeTokens.colors
     val presentation = UnifiedReaderThemeTokens.presentation
     val rowShape = RoundedCornerShape(presentation.cardCornerRadius)
     val coverSize = if (compact) {
@@ -171,22 +169,14 @@ internal fun ShelfListRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            // The meta line is neutral, like the tiles'.
             Text(
                 text = trailingText,
                 style = MaterialTheme.typography.labelSmall,
-                color = semanticColors.readerAccent,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            metadataText?.let { metadata ->
-                Text(
-                    text = metadata,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
         }
         menuContent?.invoke()
     }

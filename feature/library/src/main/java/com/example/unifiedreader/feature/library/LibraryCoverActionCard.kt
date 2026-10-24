@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
@@ -21,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -49,6 +52,8 @@ fun LibraryCoverActionCard(
     supportingStyle: TextStyle = MaterialTheme.typography.bodySmall,
     supportingColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     trailingText: String? = null,
+    // Keeps the meta line's room when there is no meta, so every tile in a row is as tall.
+    reserveTrailingLine: Boolean = false,
     trailingStyle: TextStyle = MaterialTheme.typography.labelSmall,
     trailingColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     metadataTopPadding: Dp = 6.dp,
@@ -83,11 +88,14 @@ fun LibraryCoverActionCard(
             )
             coverOverlay?.invoke(this)
         }
+        // The text hangs from the top, so titles share one line across a row whatever follows them,
+        // and the menu button is centred on the title's first line.
+        val titleLineHeight = with(LocalDensity.current) { titleStyle.lineHeight.toDp() }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = metadataTopPadding),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Top,
         ) {
             Column(
                 modifier = Modifier.weight(1f),
@@ -114,20 +122,24 @@ fun LibraryCoverActionCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                trailingText?.let {
+                if (trailingText != null) {
                     Text(
-                        text = it,
+                        text = trailingText,
                         style = trailingStyle,
                         color = trailingColor,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                } else if (reserveTrailingLine) {
+                    Spacer(modifier = Modifier.height(with(LocalDensity.current) { trailingStyle.lineHeight.toDp() }))
                 }
             }
-            if (menuContent != null) {
-                menuContent()
-            } else {
-                Spacer(modifier = Modifier.size(32.dp))
+            Box(modifier = Modifier.offset(y = (titleLineHeight - LibraryCardMenuSize) / 2)) {
+                if (menuContent != null) {
+                    menuContent()
+                } else {
+                    Spacer(modifier = Modifier.size(LibraryCardMenuSize))
+                }
             }
         }
     }
@@ -164,5 +176,7 @@ private fun Modifier.libraryCoverClickable(
 }
 
 private const val LibraryCardTitleMarqueeMinLength = 32
+
+private val LibraryCardMenuSize = 32.dp
 
 private const val LibraryCardTitleMarqueeIterations = 1

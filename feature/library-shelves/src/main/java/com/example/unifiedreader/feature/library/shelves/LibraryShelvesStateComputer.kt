@@ -71,7 +71,8 @@ class LibraryShelvesStateComputer @Inject constructor(
     ): List<ContinueReadingShelfItem> = items.mapNotNull { item ->
         val progress = progressByItemId[item.id] ?: return@mapNotNull null
         if (progress.isComplete) return@mapNotNull null
-        if (!progress.hasActivity) return@mapNotNull null
+        // Opened but not yet begun (under 1%, or on the first page) doesn't count as In progress.
+        if (progress.isJustStarted) return@mapNotNull null
         ContinueReadingShelfItem(
             item = item,
             progress = progress,

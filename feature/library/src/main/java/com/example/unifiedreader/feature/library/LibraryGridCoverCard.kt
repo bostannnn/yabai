@@ -42,9 +42,8 @@ internal fun GridCoverCard(
     menuContent: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
-    val progressLabel = progress
-        ?.takeIf { it.shouldShowCoverProgress }
-        ?.percentLabel
+    val progressLabel = progress?.tileLabel
+    val progressBarFraction = progress?.tileBarFraction
     val seriesLabel = seriesIssueCount?.let { count -> if (count == 1) "1 issue" else "$count issues" }
     val metaLabel = listOfNotNull(seriesLabel, progressLabel).joinToString(" · ").ifEmpty { null }
     // A picked cover steps back a little inside an accent ring.
@@ -87,6 +86,7 @@ internal fun GridCoverCard(
                 },
             ),
         trailingText = metaLabel,
+        reserveTrailingLine = true,
         menuContent = menuContent.takeUnless { isSelectionMode },
         emptyCoverContent = {
             LibraryCoverPlaceholder(
@@ -95,11 +95,11 @@ internal fun GridCoverCard(
                 reserveBottomBadge = rating != null || isDownloaded,
             )
         },
-        coverOverlay = if (rating != null || isSelectionMode || progressLabel != null) {
+        coverOverlay = if (rating != null || isSelectionMode || progressBarFraction != null) {
             {
-                progress?.takeIf { it.shouldShowCoverProgress }?.let { summary ->
+                progressBarFraction?.let { fraction ->
                     LibraryCoverProgressBar(
-                        fraction = summary.fraction,
+                        fraction = fraction,
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth(),

@@ -1,6 +1,5 @@
 package com.example.unifiedreader.feature.library.shelves
 
-import android.text.format.DateUtils
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -37,7 +36,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.libraryPrimaryText
-import com.example.unifiedreader.core.model.librarySecondaryText
 import com.example.unifiedreader.feature.library.ItemProgressSummary
 import com.example.unifiedreader.feature.library.LibraryItemPageButton
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
@@ -144,8 +142,8 @@ internal fun LibraryShelfTabsBand(
                         .forEach { shelfItem ->
                             ShelfStripCard(
                                 item = shelfItem.item,
-                                supportingText = continueReadingSupportingText(shelfItem.item),
-                                trailingText = shelfItem.progress.detailLabel,
+                                supportingText = shelfItem.tileSupportingText(),
+                                trailingText = shelfItem.tileMetaText(),
                                 accentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                 progress = shelfItem.progress,
                                 itemActionContext = itemActionContext,
@@ -157,8 +155,8 @@ internal fun LibraryShelfTabsBand(
                     LibraryShelfTab.UpNext -> state.nextInSeries.take(ShelfStripItemLimit).forEach { shelfItem ->
                         ShelfStripCard(
                             item = shelfItem.item,
-                            supportingText = shelfItem.item.librarySecondaryText() ?: shelfItem.item.title,
-                            trailingText = "After ${shelfItem.currentItem.librarySecondaryText() ?: shelfItem.currentItem.title}",
+                            supportingText = shelfItem.tileSupportingText(),
+                            trailingText = shelfItem.tileMetaText(),
                             accentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             progress = itemActionContext.progressByItemId[shelfItem.item.id],
                             itemActionContext = itemActionContext,
@@ -170,13 +168,8 @@ internal fun LibraryShelfTabsBand(
                     LibraryShelfTab.Finished -> state.recentlyFinished.take(ShelfStripItemLimit).forEach { shelfItem ->
                         ShelfStripCard(
                             item = shelfItem.item,
-                            supportingText = shelfItem.item.librarySecondaryText() ?: shelfItem.progress.label,
-                            trailingText = DateUtils.getRelativeTimeSpanString(
-                                shelfItem.progress.lastReadAtEpochMillis,
-                                System.currentTimeMillis(),
-                                DateUtils.MINUTE_IN_MILLIS,
-                                DateUtils.FORMAT_ABBREV_RELATIVE,
-                            ).toString(),
+                            supportingText = shelfItem.tileSupportingText(),
+                            trailingText = shelfItem.tileMetaText(System.currentTimeMillis()),
                             accentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             progress = shelfItem.progress,
                             itemActionContext = itemActionContext,
@@ -191,9 +184,9 @@ internal fun LibraryShelfTabsBand(
     }
 }
 
-/** A 34 dp pill tab with its count; the selected one is filled. */
+/** A 34 dp pill tab with its count; the selected one is filled. The band and See all both use it. */
 @Composable
-private fun LibraryShelfTabPill(
+internal fun LibraryShelfTabPill(
     label: String,
     count: Int,
     selected: Boolean,
@@ -258,7 +251,7 @@ private fun ShelfStripCard(
                 buttonStyle = LibraryItemMenuButtonStyle.CompactInline,
             )
         },
-        progressFraction = progress?.fraction?.takeIf { it > 0f && !isComplete },
+        progressFraction = progress?.tileBarFraction,
         isDownloaded = itemActionContext.isDownloaded(item),
         isRead = isComplete,
     )

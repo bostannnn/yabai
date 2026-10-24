@@ -39,9 +39,11 @@ import com.example.unifiedreader.feature.library.LibraryViewMode
 import com.example.unifiedreader.feature.library.libraryDownloadSelectableItems
 import com.example.unifiedreader.feature.library.rememberLibrarySelectionTip
 import com.example.unifiedreader.feature.library.shelves.LibraryShelfBrowserKind
+import com.example.unifiedreader.feature.library.shelves.LibraryShelfBrowserOptionsButton
 import com.example.unifiedreader.feature.library.shelves.LibraryShelfBrowserTopBar
 import com.example.unifiedreader.feature.library.shelves.browserState
 import com.example.unifiedreader.feature.library.shelves.rememberLibraryShelfBrowserSearchQuery
+import com.example.unifiedreader.feature.library.shelves.rememberLibraryShelfBrowserViewState
 import com.example.unifiedreader.feature.navigation.SourceNavigationDestination
 import com.example.unifiedreader.feature.navigation.SourceNavigationFrame
 import com.example.unifiedreader.feature.navigation.canAddNavigationSource
@@ -74,6 +76,7 @@ import com.example.unifiedreader.ui.components.AppTopBarDefaults
 import com.example.unifiedreader.ui.components.AppToastHost
 import com.example.unifiedreader.ui.components.LocalAppGlassState
 import com.example.unifiedreader.ui.components.appGlassSource
+import com.example.unifiedreader.ui.components.AppWindowWidth
 import com.example.unifiedreader.ui.components.currentAppWindowWidth
 import com.example.unifiedreader.ui.components.rememberAppGlassState
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
@@ -140,6 +143,7 @@ fun UnifiedReaderScaffold(
         browseContextKey = uiState.libraryBrowseContextKey,
         browserKind = activeLibraryShelfBrowserKind,
     )
+    val libraryShelfBrowserViewState = rememberLibraryShelfBrowserViewState(uiState.libraryBrowseContextKey)
     val activeLibraryShelfBrowser = if (uiState.topLevel == TopLevelDestination.Library) {
         activeLibraryShelfBrowserKind?.let(uiState.libraryShelvesState::browserState)
     } else {
@@ -192,10 +196,9 @@ fun UnifiedReaderScaffold(
             selectedDownloadItemIds = emptyList()
         }
     }
-    LaunchedEffect(uiState.topLevel, activeLibraryShelfBrowserKind, activeLibraryShelfBrowser) {
-        if (uiState.topLevel != TopLevelDestination.Library ||
-            activeLibraryShelfBrowserKind != null && activeLibraryShelfBrowser == null
-        ) {
+    // See all stays open when its shelf empties (it says so); it closes when the library does.
+    LaunchedEffect(uiState.topLevel) {
+        if (uiState.topLevel != TopLevelDestination.Library) {
             activeLibraryShelfBrowserKind = null
         }
     }
@@ -407,6 +410,7 @@ fun UnifiedReaderScaffold(
                                 onActiveShelfBrowserKindChanged = { activeLibraryShelfBrowserKind = it },
                                 shelfSearchQuery = activeLibraryShelfSearchQuery,
                                 onShelfSearchQueryChanged = { query -> activeLibraryShelfSearchQuery = query },
+                                shelfBrowserViewState = libraryShelfBrowserViewState,
                                 bookPageRequest = pendingBookPageItemId,
                                 onBookPageRequestHandled = { pendingBookPageItemId = null },
                                 contentTopInset = AppTopBarDefaults.contentInset,
@@ -468,6 +472,20 @@ fun UnifiedReaderScaffold(
                                     searchQuery = activeLibraryShelfSearchQuery,
                                     onSearchQueryChanged = { query -> activeLibraryShelfSearchQuery = query },
                                     onBack = { activeLibraryShelfBrowserKind = null },
+                                    actions = if (currentAppWindowWidth() == AppWindowWidth.Compact) {
+                                        {
+                                            LibraryShelfBrowserOptionsButton(
+                                                shelves = uiState.libraryShelvesState,
+                                                kind = activeLibraryShelfBrowser.kind,
+                                                viewState = libraryShelfBrowserViewState,
+                                                gridCellSizeDp = uiState.libraryGridCellSizeDp,
+                                                onGridCellSizeDpChanged = viewModel::onLibraryGridCellSizeChanged,
+                                                iconOnly = true,
+                                            )
+                                        }
+                                    } else {
+                                        null
+                                    },
                                 )
                             } else {
                                 LibraryTopBar(

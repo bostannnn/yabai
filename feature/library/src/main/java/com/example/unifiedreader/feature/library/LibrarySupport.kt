@@ -46,6 +46,32 @@ data class ItemProgressSummary(
 
     val detailLabel: String
         get() = listOfNotNull(percentLabel, pageProgressLabel).joinToString(" · ")
+
+    /**
+     * Opened but not yet begun: under 1%, or still on the first page (a comic counts the page on
+     * screen as read, so page 1 of 8 would say 13%). It isn't In progress yet, and tiles say
+     * "Just started" without a bar.
+     */
+    val isJustStarted: Boolean
+        get() = !isFinished && fraction < CompleteFraction &&
+            (fraction < JustStartedFraction || (currentPage == 1 && (pageCount ?: 0) > 1))
+
+    /** What a tile says about progress: the percentage, "Just started", or nothing once read. */
+    val tileLabel: String?
+        get() = when {
+            isFinished || fraction >= CompleteFraction -> null
+            isJustStarted -> "Just started"
+            else -> percentLabel
+        }
+
+    /** How far the bar on a tile's cover fills, while the tile shows a percentage. */
+    val tileBarFraction: Float?
+        get() = fraction.takeIf { tileLabel != null && !isJustStarted }
+
+    private companion object {
+        const val CompleteFraction = 0.999f
+        const val JustStartedFraction = 0.01f
+    }
 }
 
 enum class LibraryViewMode {
