@@ -30,10 +30,11 @@ class AppProgressSummariesTest {
     }
 
     @Test
-    fun `a finished book drops the chapter`() {
+    fun `a finished book drops the chapter but keeps how many it has`() {
         val summary = summaries(isFinished = true).getValue(book.id)
 
         assertNull(summary.chapter)
+        assertEquals(6, summary.chapterCount)
     }
 
     private fun summaries(isFinished: Boolean) = buildProgressSummaries(

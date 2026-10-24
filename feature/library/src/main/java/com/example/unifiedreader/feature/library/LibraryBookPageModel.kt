@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.library
 
+import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.comicVolumeLabel
@@ -37,7 +38,7 @@ internal data class LibraryBookPageText(
     val description: String?,
     val genres: List<String>,
     val tags: List<String>,
-    /** Label to value: Format, Language, Publisher. */
+    /** Label to value: Format, Pages or Chapters, Language, Publisher, Added. */
     val facts: List<Pair<String, String>>,
 )
 
@@ -104,12 +105,18 @@ internal fun libraryBookPageText(
         ?.pageProgressLabel
         ?.replace("/", " / ")
     val facts = buildList {
-        val pages = item.pageCount?.takeIf { it > 0 && item.kind == ReadableItemKind.COMIC }
-        add("Format" to listOfNotNull(item.format.name, pages?.let { count -> "$count pages" }).joinToString(" · "))
+        add("Format" to item.format.name)
+        // A comic or a PDF has its pages; an EPUB its chapters, once its reader has counted them.
+        if (item.format == FormatType.EPUB) {
+            progress?.chapterCount?.takeIf { it > 0 }?.let { count -> add("Chapters" to count.toString()) }
+        } else {
+            (item.pageCount ?: progress?.pageCount)?.takeIf { it > 0 }?.let { count -> add("Pages" to count.toString()) }
+        }
         facets.languages.takeIf(List<String>::isNotEmpty)?.let { languages ->
             add("Language" to languages.map(::libraryLanguageName).distinct().joinToString(", "))
         }
         facets.publishers.takeIf(List<String>::isNotEmpty)?.let { add("Publisher" to it.joinToString(", ")) }
+        libraryAddedLabel(item.addedAtEpochMillis, nowMillis, zone)?.let { add("Added" to it) }
     }
     return LibraryBookPageText(
         title = title,
@@ -137,8 +144,17 @@ internal fun libraryBookReadAction(
     else -> LibraryBookReadAction.MarkFinished
 }
 
-/** The book page's file buttons. */
-internal enum class LibraryBookFileAction { RemoveImported, Downloading, Download, RemoveDownload }
+/** The book page's file actions: Download at the top, the removals in a row at the end. */
+internal enum class LibraryBookFileAction {
+    RemoveImported,
+    Downloading,
+    Download,
+    RemoveDownload,
+    ;
+
+    val isRemoval: Boolean
+        get() = this == RemoveImported || this == RemoveDownload
+}
 
 /**
  * An imported file can be removed; a server book downloads, shows that it is downloading, or
@@ -188,6 +204,17 @@ internal fun libraryLastReadLabel(
         days < 7L -> "read $days days ago"
         else -> "read on ${read.format(dateFormatter(read, today))}"
     }
+}
+
+/** When a book came into the library: "21 Oct", with the year when not this one. */
+internal fun libraryAddedLabel(
+    addedAtEpochMillis: Long?,
+    nowMillis: Long,
+    zone: ZoneId,
+): String? {
+    val added = addedAtEpochMillis?.takeIf { it > 0L }?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalDate() } ?: return null
+    val today = Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate()
+    return added.format(dateFormatter(added, today))
 }
 
 private fun dateFormatter(read: LocalDate, today: LocalDate): DateTimeFormatter =

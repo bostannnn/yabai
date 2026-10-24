@@ -532,7 +532,6 @@ fun UnifiedReaderScaffold(
 
                             TopLevelDestination.Journal -> JournalTopBar(
                                 onDrawerClick = openDrawer,
-                                onImportLocalFileClick = onImportLocalFileClick,
                             )
 
                             TopLevelDestination.Settings -> SettingsTopBar(

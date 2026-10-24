@@ -268,10 +268,10 @@ fun SettingsTopBar(
     }
 }
 
+/** The journal's bar: the menu and its name. Importing a file is the library's. */
 @Composable
 fun JournalTopBar(
     onDrawerClick: (() -> Unit)?,
-    onImportLocalFileClick: () -> Unit,
 ) {
     ThemedTopBarContainer {
         Box(
@@ -285,15 +285,6 @@ fun JournalTopBar(
                     .align(Alignment.CenterStart)
                     .widthIn(max = 280.dp),
             )
-            AppIconButton(
-                onClick = onImportLocalFileClick,
-                modifier = Modifier.align(Alignment.CenterEnd),
-            ) {
-                Icon(
-                    imageVector = AppIcons.Add,
-                    contentDescription = "Import local file",
-                )
-            }
         }
     }
 }

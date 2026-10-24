@@ -32,7 +32,39 @@ class LibraryBookPageModelTest {
         assertEquals("Continue · page 3 of 8", text.primaryAction)
         assertEquals("38% · read yesterday", text.progressLine)
         assertEquals("3 / 8", text.progressPages)
-        assertEquals("Format" to "CBZ · 8 pages", text.facts.first())
+        assertEquals(listOf("Format" to "CBZ", "Pages" to "8"), text.facts.take(2))
+    }
+
+    @Test
+    fun `an EPUB lists its chapters once the reader has counted them, and when it was added`() {
+        val added = LocalDateTime.of(2026, 10, 21, 9, 0).toInstant(zone).toEpochMilli()
+        val book = book(id = "g", title = "Glass Meridian").copy(addedAtEpochMillis = added)
+
+        assertEquals(
+            listOf("Format" to "EPUB", "Added" to "21 Oct"),
+            libraryBookPageText(book, null, null, now, zone).facts,
+        )
+        val read = ItemProgressSummary(label = "", fraction = 0.3f, chapter = 2, chapterCount = 6)
+        assertEquals(
+            listOf("Format" to "EPUB", "Chapters" to "6", "Added" to "21 Oct"),
+            libraryBookPageText(book, read, null, now, zone).facts,
+        )
+    }
+
+    @Test
+    fun `an added date from another year carries the year`() {
+        val lastYear = LocalDateTime.of(2025, 3, 2, 9, 0).toInstant(zone).toEpochMilli()
+
+        assertEquals("2 Mar 2025", libraryAddedLabel(lastYear, now, zone))
+        assertNull(libraryAddedLabel(null, now, zone))
+    }
+
+    @Test
+    fun `removing a file or a download is a removal, downloading is not`() {
+        assertEquals(
+            listOf(LibraryBookFileAction.RemoveImported, LibraryBookFileAction.RemoveDownload),
+            LibraryBookFileAction.entries.filter { it.isRemoval },
+        )
     }
 
     @Test

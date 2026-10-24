@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -40,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -70,8 +72,9 @@ import kotlinx.coroutines.withContext
 
 /**
  * Everything about one book in a side sheet (a bottom sheet on phones): its cover, Continue,
- * Mark finished and the file action, its progress, how it opens, its description, genres and
- * facts, and rows of more in its series, more by its author and similar books. [relatedPool] is
+ * Mark finished and Download, its progress, how it opens, its description, genres and facts,
+ * rows of more in its series, more by its author and similar books, and at the end the quiet
+ * row that removes it. [relatedPool] is
  * where those rows come from (the books of its source); a cover there shows that book's page.
  * A genre or tag filters the library when [onFilterByGenre] / [onFilterByTag] are given.
  * [onBack], when given, returns to the book this page was opened from (Back, or the arrow).
@@ -140,7 +143,6 @@ fun LibraryBookPage(
                         onOpen(item)
                         dismiss()
                     },
-                    onRemoveImported = { confirmRemove = true },
                     onClose = { dismiss() },
                     onBack = onBack,
                 )
@@ -211,6 +213,24 @@ fun LibraryBookPage(
                     )
                 }
             }
+            // Removing is at the end, out of the way of reading.
+            val removals = libraryBookFileActions(item, actionContext).filter { it.isRemoval }
+            if (removals.isNotEmpty()) {
+                item(key = "remove") {
+                    Column(modifier = Modifier.padding(top = 12.dp)) {
+                        LibraryBookPageHairline()
+                        removals.forEach { action ->
+                            LibraryBookPageRemoveRow(
+                                action = action,
+                                onClick = when (action) {
+                                    LibraryBookFileAction.RemoveImported -> { -> confirmRemove = true }
+                                    else -> { -> actionContext.onDeleteDownloadedItem(item) }
+                                },
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
     if (confirmRemove) {
@@ -236,7 +256,6 @@ private fun LibraryBookPageTop(
     actionContext: LibraryItemActionContext,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     onOpen: () -> Unit,
-    onRemoveImported: () -> Unit,
     onClose: () -> Unit,
     onBack: (() -> Unit)?,
 ) {
@@ -310,7 +329,7 @@ private fun LibraryBookPageTop(
                     modifier = Modifier.padding(start = 8.dp),
                 )
             }
-            val actions = bookPageActions(item, progress, actionContext, onRemoveImported)
+            val actions = bookPageActions(item, progress, actionContext)
             if (actions.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -376,12 +395,12 @@ private class BookPageAction(
     val onClick: () -> Unit,
 )
 
+/** Mark finished or unread, and Download; removing a file is the row at the page's end. */
 @Composable
 private fun bookPageActions(
     item: ReadableItem,
     progress: ItemProgressSummary?,
     actionContext: LibraryItemActionContext,
-    onRemoveImported: () -> Unit,
 ): List<BookPageAction> {
     val read = when (libraryBookReadAction(item, progress)) {
         LibraryBookReadAction.MarkFinished ->
@@ -390,19 +409,48 @@ private fun bookPageActions(
             BookPageAction(label = "Mark unread", icon = AppIcons.History) { actionContext.onSetReadStatus(item, false) }
         null -> null
     }
-    val files = libraryBookFileActions(item, actionContext).map { action ->
+    val files = libraryBookFileActions(item, actionContext).mapNotNull { action ->
         when (action) {
-            LibraryBookFileAction.RemoveImported ->
-                BookPageAction(label = "Remove file", icon = AppIcons.Delete, onClick = onRemoveImported)
             LibraryBookFileAction.Downloading ->
                 BookPageAction(label = "Downloading", icon = AppIcons.HourglassTop, enabled = false, onClick = {})
             LibraryBookFileAction.Download ->
                 BookPageAction(label = "Download", icon = AppIcons.Download) { actionContext.onDownloadItem(item) }
-            LibraryBookFileAction.RemoveDownload ->
-                BookPageAction(label = "Remove download", icon = AppIcons.Delete) { actionContext.onDeleteDownloadedItem(item) }
+            LibraryBookFileAction.RemoveImported,
+            LibraryBookFileAction.RemoveDownload -> null
         }
     }
     return listOfNotNull(read) + files
+}
+
+/**
+ * A quiet 48 dp row at the end of the page: "Remove from library" in the error colour (it asks
+ * first), or "Remove download" in the text colour (its toast has Undo).
+ */
+@Composable
+private fun LibraryBookPageRemoveRow(
+    action: LibraryBookFileAction,
+    onClick: () -> Unit,
+) {
+    val removesBook = action == LibraryBookFileAction.RemoveImported
+    val color = if (removesBook) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(role = Role.Button, onClick = onClick)
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(imageVector = AppIcons.Delete, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
+        Text(
+            text = if (removesBook) "Remove from library" else "Remove download",
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
+            color = color,
+        )
+    }
 }
 
 @Composable
