@@ -84,3 +84,15 @@ record (rated 3.5, started 21 Oct, finished 24 Oct, 9 sessions, 8 min). Cards: `
 `reading-content`, `file-facts`, `remove-row`, `journal-plus`. Picked: reading-place B, reading-content
 Don't, file-facts Do, remove-row Maybe, journal-plus Do; answered in chat: no "Your reading" section, and both
 removals move to the end. Built as plan 9.5 records.
+
+## 9.6 The reading page, 2026-10-25
+
+`pages/reading.html` (live board: https://claude.ai/artifact/NY2eKeFXcGkoMrAQ21d3EG, picks in its store,
+collection `picks`) sets today's EPUB page, its Light variant, the reading settings, a landscape spread and the
+light page's band (`pages/img/reading/today-*.jpg`, the 0.17.1 + 9.4 debug build on `yabai_tablet_35`, The Lantern
+Keepers in Graphite) beside pages drawn at dp size with the book's text in Noto Serif (Android's Serif), Literata
+or Atkinson Hyperlegible. Today's footnote popup is drawn from `EpubFootnotePopup.kt`: no emulator book has notes,
+and the note on the board is an example. Cards: `page-colours` (interactive: tap a swatch or a font),
+`follow-app` (A the app theme's own page, B Paper or Black), `settings-units`, `page-frame`, `chapter-line`,
+`footnote`, `go-to-note`, `phone`. Picked: all Do but `follow-app` Neither; answered in chat: no Follow app, and a
+book not set opens on the colour last picked in any book. Built as plan 9.6 records.

@@ -1,0 +1,633 @@
+<meta charset="utf-8">
+<title>yabai Reading Page</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,700;1,7..72,400&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: a board of decision cards; each card shows the mock at real dp sizes (scaled to fit) beside its spec, with a pick row. Dark-first like the app's Graphite. */
+:root {
+  --bg: #121417;
+  --surface: #1b1e23;
+  --surface-2: #23272d;
+  --line: #2f343b;
+  --fg: #e8eaed;
+  --muted: #9aa3ad;
+  --accent: #e9a6c6;
+  --on-accent: #2a1020;
+  --maybe: #b8c7da;
+  --dont: #ef8a80;
+  --stage: #0b0c0e;
+  --ui: "Manrope", "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f5f4f2; --surface: #ffffff; --surface-2: #efeeeb; --line: #dddad5; --fg: #1c1d20; --muted: #5d636b;
+    --accent: #a23e72; --on-accent: #ffffff; --maybe: #4a5d78; --dont: #b3392e; --stage: #e4e2de; color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f5f4f2; --surface: #ffffff; --surface-2: #efeeeb; --line: #dddad5; --fg: #1c1d20; --muted: #5d636b;
+  --accent: #a23e72; --on-accent: #ffffff; --maybe: #4a5d78; --dont: #b3392e; --stage: #e4e2de; color-scheme: light;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--ui); font-size: 15px; line-height: 1.55; margin: 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 40px 96px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(32px, 5vw, 46px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }
+h3 { font-size: 19px; font-weight: 700; }
+p { margin: 0; }
+code { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 12.5px; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; overflow-wrap: anywhere; }
+.overline { font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; color: var(--muted); }
+.lede { max-width: 72ch; color: var(--muted); font-size: 16px; margin-top: 14px; }
+.lede strong { color: var(--fg); }
+
+.bar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; margin: 26px 0 8px; padding: 10px 14px;
+  border-radius: 999px; border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+}
+.tally { display: flex; gap: 14px; font-weight: 600; font-size: 14px; font-variant-numeric: tabular-nums; }
+.tally b { font-weight: 800; }
+.save-state { color: var(--muted); font-size: 13px; flex: 1 1 200px; min-width: 0; }
+.pill-btn { font: 600 13.5px var(--ui); border-radius: 999px; padding: 8px 16px; cursor: pointer; border: 1px solid var(--line); background: var(--surface-2); color: var(--fg); }
+button:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.today { margin-top: 34px; background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 22px; display: grid; gap: 18px; }
+.today figure { margin: 0; min-width: 0; }
+.today img { width: 100%; display: block; border-radius: 12px; border: 1px solid var(--line); }
+.today .shots { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+.today .shots figure { flex: 1 1 200px; }
+.today .shots figure.wide { flex: 2 1 380px; }
+figcaption { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+ul.spec { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+ul.spec li::marker { color: var(--muted); }
+
+.cards { margin-top: 30px; display: grid; gap: 22px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 22px; display: grid; gap: 18px; }
+.card-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.card-head h3 { flex: 1 1 340px; min-width: 0; }
+.tag { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
+.body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: start; }
+.body > .col { max-width: 84ch; }
+.stages { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; min-width: 0; }
+.stage { background: var(--stage); border-radius: 16px; padding: 14px; display: grid; gap: 8px; justify-items: center; min-width: 0; max-width: 100%; }
+.stage .cap { font-size: 12.5px; color: var(--muted); text-align: center; max-width: 42ch; }
+.stage .cap b { color: var(--fg); }
+.row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: flex-start; }
+.row figure { margin: 0; display: grid; gap: 4px; justify-items: center; }
+.row figcaption { margin: 0; font-size: 11.5px; text-align: center; max-width: 24ch; }
+.col { display: grid; gap: 12px; min-width: 0; }
+
+/* scaled device frame: outer box is the scaled size, inner is real dp */
+.scaled { position: relative; overflow: hidden; border-radius: 10px; flex: none; max-width: 100%; }
+.scaled > .dev { position: absolute; left: 0; top: 0; transform-origin: 0 0; overflow: hidden; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: center; }
+.controls .lbl { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+.seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; }
+.seg button { font: 600 13px var(--ui); border: 0; border-radius: 999px; padding: 6px 14px; background: transparent; color: var(--fg); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--surface-2); }
+.sw { all: unset; cursor: pointer; }
+.sw:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 12px; }
+
+.tokens-wrap { overflow-x: auto; }
+table.tokens { border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+table.tokens th, table.tokens td { text-align: left; padding: 5px 12px 5px 0; white-space: nowrap; }
+table.tokens th { color: var(--muted); font-weight: 600; font-size: 12px; }
+table.tokens code { background: transparent; padding: 0; }
+.chip { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: -2px; margin-right: 6px; box-shadow: inset 0 0 0 1px rgba(127,127,127,.35); }
+
+/* pick row */
+.pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 14px; border-top: 1px solid var(--line); }
+.pick .label { font-size: 13px; color: var(--muted); font-weight: 600; margin-right: 4px; }
+.pick button { font: 700 13.5px var(--ui); padding: 7px 16px; border-radius: 999px; cursor: pointer; border: 1px solid var(--line); background: transparent; color: var(--fg); }
+.pick button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.pick button[aria-pressed="true"][data-v="maybe"] { background: var(--maybe); color: var(--bg); border-color: var(--maybe); }
+.pick button[aria-pressed="true"][data-v="dont"], .pick button[aria-pressed="true"][data-v="neither"] { background: var(--dont); color: var(--bg); border-color: var(--dont); }
+.pick textarea { flex: 1 1 260px; min-width: 0; min-height: 38px; resize: vertical; font: 14px var(--ui); color: var(--fg); background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; }
+
+@media (max-width: 600px) {
+  .card, .today { padding: 16px; border-radius: 20px; }
+  .bar { border-radius: 20px; }
+  .stage { padding: 10px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .scaled > .dev { transition: transform .2s ease; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="overline">yabai &#183; redesign plan 9.6 &#183; board &#183; 25 October 2026</p>
+    <h1 style="margin-top:10px">The reading page</h1>
+    <p class="lede">You picked Do for page colours, the page frame and footnotes on the review, and Maybe for a chapter line. Today an EPUB page comes in two colours plus Follow app, the settings read like CSS ("1.50", "1.00x", "0.0 rem"), the light page has a faint band above and below the text, and a footnote opens as an app dialog in the middle of the screen. <strong>Card 2 asks what Follow app should mean</strong> (A or B); the rest are Do, Maybe or Don't. Pages are drawn at real sizes (1 px = 1 dp, scaled to fit) on the emulator's 800 dp tablet with The Lantern Keepers' text. Picks save to this page.</p>
+  </header>
+
+  <div class="bar" role="region" aria-label="Your picks">
+    <div class="tally" aria-live="polite"><span><b id="n-picked">0</b> of <b id="n-total">8</b> picked</span></div>
+    <p class="save-state" id="save-state">Picks are kept in this browser until the page's store answers.</p>
+    <button class="pill-btn" id="copy-picks" type="button">Copy picks</button>
+  </div>
+  <textarea id="copy-fallback" aria-label="Picks as text" hidden style="width:100%;min-height:120px;margin-top:8px;font:13px ui-monospace,monospace;background:var(--surface-2);color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:10px"></textarea>
+
+  <section class="today" aria-label="Today">
+    <p class="overline">What's there today (0.17.1 + 9.4 debug build, emulator, The Lantern Keepers)</p>
+    <div class="shots">
+      <figure><img src="img/reading/today-page.jpg" alt="An EPUB page in white serif text on black, wide side margins, the text starting near the top edge, the page number 4 / 74 at the bottom"><figcaption>Follow app in Graphite gives a black page. The text runs from 32 to 1248 dp of the 1280 dp height, with 120 dp at each side; the number sits in the bottom 32 dp.</figcaption></figure>
+      <figure><img src="img/reading/today-light.jpg" alt="The same page in Light: black text on white"><figcaption>Light: the page is #FFFFFF, but the 32 dp strips above and below it are #FCFCFA.</figcaption></figure>
+      <figure><img src="img/reading/today-settings.jpg" alt="Reading settings panel: Typography, Font Serif, Text size 100%, Line height 1.50, Alignment, Page colour Follow app Light Dark, Page number, Pages, Page turn, Margins 1.00x, Paragraph spacing 0.0 rem, Paragraph indent 1.0 rem"><figcaption>Reading settings: three page colours, and values in CSS units.</figcaption></figure>
+    </div>
+    <div class="shots">
+      <figure class="wide"><img src="img/reading/today-spread.jpg" alt="A landscape spread: two columns of white text on black with page numbers 4 / 74 and 6 / 74"><figcaption>Landscape spread: 48 dp strips, 50 dp outer margins.</figcaption></figure>
+      <figure class="wide"><img src="img/reading/today-light-seam.jpg" alt="The top of the light page with its contrast raised: a grey band above the first line of text, white below"><figcaption>The top of the light page with its contrast raised, so the band shows. On the screen it is a faint off-white stripe.</figcaption></figure>
+    </div>
+    <ul class="spec">
+      <li>Page colour is an enum of two (<code>EpubReaderTheme</code>: Light, Dark), passed to Readium as its LIGHT and DARK themes. Readium paints the text area. The reader paints the strips and the back of a turning page from its own constants (<code>epubReaderSurfaceBackground</code>: #FCFCFA, #000000), and the page number from a third pair. On the light page they don't match.</li>
+      <li>Follow app picks Light or Dark by how bright the app's background is, but its swatch draws the app's background. In Graphite the swatch is #101214 and the page is #000000.</li>
+      <li>Margins is a multiplier from 0.5&#215; to 2&#215;. On this page it moves the side space from 100 dp to 160 dp (120 at 1&#215;). Paragraph spacing (0&#8211;2) and indent (0&#8211;3) are in rem; line height runs 1.1&#8211;2.2.</li>
+      <li>No book on the emulator has footnotes, so card 6 draws today's popup from <code>EpubFootnotePopup.kt</code>: a 420 dp <code>AppPanel</code> in the middle of the screen over a 32% black scrim, at most 260 dp tall, the note in Manrope 14 in app colours, titled "Footnote", with a Close button.</li>
+    </ul>
+  </section>
+
+  <div class="cards">
+
+    <article class="card" data-card="page-colours" data-kind="dmd" data-title="Six page colours">
+      <div class="card-head"><h3>1 &#183; Six page colours, drawn in your font</h3><span class="tag">core:ui-theme + reader-epub</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage">
+            <div class="controls"><span class="lbl">Font</span><div class="seg" id="font-chips" role="group" aria-label="Reading font"><button type="button" data-font="serif" aria-pressed="true">Serif</button><button type="button" data-font="literata" aria-pressed="false">Literata</button><button type="button" data-font="atkinson" aria-pressed="false">Atkinson Hyperlegible</button></div></div>
+            <div id="m-colours-panel"></div>
+            <p class="cap">The Page section of the panel. <b>Tap a swatch</b> to recolour the page.</p>
+          </div>
+          <div class="stage"><div class="row"><div id="m-colours-page"></div><div id="m-colours-crop"></div></div><p class="cap" id="m-colours-cap">The whole page, and a piece of it at real size.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>Follow app, Paper, Sepia, Grey, Dusk and Black as 53 &#215; 44 dp tiles with "Aa" at 20 sp in the font you read in, and the name under each. The chosen one gets a 2 dp ring in the accent. Follow app is drawn here as card 2's A.</li>
+            <li>Each colour is a token in <code>core:ui-theme</code> with four parts: the page, the text, the page number, and a raised surface for the footnote card. Text on page: Paper 15.9:1, Sepia 10.6, Grey 11.3, Dusk 10.1, Black 12.3 (today's Light 18.7, Dark 20.8). The number: 3.4 to 4.1, about today's.</li>
+            <li>Readium gets the page and text colours directly. The strips, the back of a turning page and the page number take the same token, so the light page loses its band.</li>
+            <li>A book that saved Light opens on Paper; one that saved Dark opens on Black.</li>
+          </ul>
+          <div class="tokens-wrap"><table class="tokens" id="token-table"><thead><tr><th scope="col">Colour</th><th scope="col">Page</th><th scope="col">Text</th><th scope="col">Number</th><th scope="col">Raised</th></tr></thead><tbody></tbody></table></div>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="follow-app" data-kind="ab" data-title="What Follow app means">
+      <div class="card-head"><h3>2 &#183; What Follow app gives you</h3><span class="tag">pick A or B</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div class="row" id="m-follow-a"></div><p class="cap"><b>A.</b> The page takes the app theme's own background and text colour.</p></div>
+          <div class="stage"><div class="row" id="m-follow-b"></div><p class="cap"><b>B.</b> Paper on a light theme, Black on a dark one.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>A: Blueprint reads navy, Sepia Reading reads sepia, Graphite reads its own #101214 with its own text colour. The swatch shows exactly the page you'll get. System Dynamic follows the wallpaper. The number and the footnote card are mixed from the theme's two colours.</li>
+            <li>B: today's rule with the new colours. The swatch then shows Paper or Black, not the app's background, so it matches the page.</li>
+            <li>Either way, picking Paper to Black in a book keeps that colour for that book, as today.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="settings-units" data-kind="dmd" data-title="Settings in steps and words">
+      <div class="card-head"><h3>3 &#183; Settings in words a reader uses</h3><span class="tag">EpubReaderPreferencesPane</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div class="row"><figure><img src="img/reading/today-settings.jpg" alt="Today's reading settings panel" style="width:240px;border-radius:12px;display:block"><figcaption>Today</figcaption></figure><figure><div id="m-units-panel"></div><figcaption>Proposed</figcaption></figure></div></div>
+          <div class="stage"><div class="row" id="m-units-margins"></div><p class="cap">Narrow, Normal and Wide on this page: 100, 120 and 160 dp at the sides.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>Line height stays a slider, labelled "1.5&#215;", and moves in tenths from 1.1&#215; to 2.2&#215;.</li>
+            <li>Margins: Narrow, Normal, Wide (today's 0.5&#215;, 1&#215;, 2&#215;).</li>
+            <li>Paragraph spacing: None, Small, Medium, Large (0, 0.5, 1, 1.5 rem; today's slider goes to 2).</li>
+            <li>Paragraph indent: None, Small, Medium, Large (0, 1, 2, 3 em; today's default of 1 is Small).</li>
+            <li>Each row of steps sits under its label in an <code>AppSegmentedRow</code>, as Pages does. A value saved between steps snaps to the nearest one. Text size keeps its stepper and "100%".</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="page-frame" data-kind="dmd" data-title="Equal page frame">
+      <div class="card-head"><h3>4 &#183; The same space above the text as below it</h3><span class="tag">reader-epub</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div class="row" id="m-frame-portrait"></div><p class="cap">Portrait: <b>today</b> 32 dp strips; <b>proposed</b> 56 dp, the number centred in the bottom one.</p></div>
+          <div class="stage"><div class="row" id="m-frame-spread"></div><p class="cap">A spread: <b>today</b> 48 dp; <b>proposed</b> 56 dp.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>Today the first line sits 32 dp from the top of the page while the sides get 120 dp, so a page reads tall and crowded at the top. The number has 31 dp of space above it and 12 dp below.</li>
+            <li>Proposed: a 56 dp strip above the text and one below on tablets, in portrait and on spreads, and 40 dp on phones. The number is centred in the bottom strip, and both strips are the page colour.</li>
+            <li>The text area then has the same top and bottom by construction. Under the last line there can still be up to one line of space, where the text doesn't fill the page exactly.</li>
+            <li>Cost at 100% text: 48 lines a page instead of 50 in portrait, and 28 instead of 29 on each page of a spread.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="chapter-line" data-kind="dmd" data-title="Chapter title in the top strip">
+      <div class="card-head"><h3>5 &#183; The chapter's title in the top strip</h3><span class="tag">Maybe on the review</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-chapter-crop"></div><p class="cap">The top of a portrait page at real size.</p></div>
+          <div class="stage"><div id="m-chapter-spread"></div><p class="cap">A spread: the book over the left page, the chapter over the right.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>12 sp Manrope in the page number's colour, centred in the top strip, on one line, cut with "&#8230;" when long. No clock or battery, as decided for the page number.</li>
+            <li>Not on a chapter's first page, which has the chapter's own heading.</li>
+            <li>It shows and hides with the page number; that setting becomes "Page number and chapter".</li>
+            <li>Without it, the top strip stays empty and the page is the same.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="footnote" data-kind="dmd" data-title="Footnote card in the book's look">
+      <div class="card-head"><h3>6 &#183; Footnotes in the book's own look</h3><span class="tag">EpubFootnotePopup</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div class="row" id="m-note-pages"></div><p class="cap"><b>Today</b>, drawn from the code, on Follow app in Graphite; <b>proposed</b> on Paper and on Black. The note is an example: no emulator book has notes.</p></div>
+          <div class="stage"><div id="m-note-card"></div><p class="cap">The proposed card at real size, on Paper.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>A card that rises from the bottom of the page, as the kit's sheets do: up to 560 dp wide and 45% of the page tall, with 28 dp top corners and the kit's handle. It is the page's raised colour, with a soft shadow on light pages.</li>
+            <li>The note is set in the book's font, size and line height, in the page's text colour. Above it is "Note 12" (the note's mark) in the page number's style. A long note scrolls inside the card.</li>
+            <li>Tap the page, swipe the card down or press Back to close it. There's no Close button; TalkBack gets a Dismiss action.</li>
+            <li>The page behind stays readable: a 12% scrim of the text colour instead of today's 32% black.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="go-to-note" data-kind="dmd" data-title="Go to note for endnotes">
+      <div class="card-head"><h3>7 &#183; "Go to note" for notes at the back of the book</h3><span class="tag">reader-epub</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div class="row" id="m-endnote"></div><p class="cap">The card for an endnote, then the Notes page it opens, with the way back.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>When the note lives in another file of the book (a Notes chapter at the end), the card ends with "Go to note", a quiet pill in the page's colours, which opens the Notes page at that note and marks it for a moment.</li>
+            <li>A toast "Back to page 4" (9.2's, above the page number) offers Back for 6 s. The system Back also returns there, as long as you're still on the note's page.</li>
+            <li>A note in the same file as the text, which is most footnotes, shows only the card.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="phone" data-kind="dmd" data-title="Reading page on a phone">
+      <div class="card-head"><h3>8 &#183; On a phone</h3><span class="tag">412 dp</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div class="row" id="m-phone"></div><p class="cap">The settings sheet's Page tab, and a footnote. Drawn, not captured: the phone's side margins are approximate.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>The six swatches fit one row in the sheet (55 dp each at 412 dp).</li>
+            <li>The footnote card spans the screen's width, with the same corners, handle and colours.</li>
+            <li>40 dp strips above and below the text.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+  </div>
+</div>
+
+<script>
+(function () {
+  var UI = "font-family:var(--ui);";
+  // Single quotes inside: these go into style="..." attributes.
+  var FONTS = { serif: "'Noto Serif', Georgia, serif", literata: "'Literata', Georgia, serif", atkinson: "'Atkinson Hyperlegible', 'Segoe UI', sans-serif" };
+  // Proposed page colours: page, text, page number, raised (the footnote card).
+  var PAL = {
+    paper: { name: "Paper", page: "#FAF7F0", ink: "#1E1C19", muted: "#8A857C", raised: "#F0ECE2", light: true },
+    sepia: { name: "Sepia", page: "#F2E6CC", ink: "#3B2E1C", muted: "#857358", raised: "#E8DABB", light: true },
+    grey: { name: "Grey", page: "#D8D8D4", ink: "#212121", muted: "#6B6B67", raised: "#CCCCC7", light: true },
+    dusk: { name: "Dusk", page: "#24272C", ink: "#D7D4CC", muted: "#878580", raised: "#30343A", light: false },
+    black: { name: "Black", page: "#000000", ink: "#C9C6BF", muted: "#6F6D68", raised: "#17171A", light: false }
+  };
+  // Today, as the reader draws it: Readium's page and text, the reader's strips and number.
+  var TODAY = {
+    light: { name: "Light", page: "#FFFFFF", strip: "#FCFCFA", ink: "#121212", muted: "#8A8985" },
+    dark: { name: "Dark", page: "#000000", strip: "#000000", ink: "#FEFEFE", muted: "#7A7873" }
+  };
+  // App themes' own background and text (UnifiedReaderTheme.kt), for Follow app.
+  var APPS = [
+    { name: "Graphite", page: "#101214", ink: "#E7EAEE", dark: true },
+    { name: "Paper", page: "#FFF8F0", ink: "#1B1C1F", dark: false },
+    { name: "Sepia Reading", page: "#F7EBD8", ink: "#211A12", dark: false },
+    { name: "Blueprint", page: "#06182A", ink: "#E5F3FF", dark: true }
+  ];
+  // The reader panel's Graphite glass (sampled from the emulator).
+  var K = { fg: "#E7EAEE", fg2: "#C8D0D8", label: "#A3ABB4", track: "#23272B", sel: "#344B64", acc: "#B7C7D9", onAcc: "#223244", inactive: "#3C434A", btn: "#30363C" };
+
+  function hex2(n) { return ("0" + Math.round(n).toString(16)).slice(-2); }
+  function mix(a, b, t) {
+    var x = parseInt(a.slice(1), 16), y = parseInt(b.slice(1), 16);
+    var r = (x >> 16) + ((y >> 16) - (x >> 16)) * t, g = ((x >> 8) & 255) + (((y >> 8) & 255) - ((x >> 8) & 255)) * t, bl = (x & 255) + ((y & 255) - (x & 255)) * t;
+    return "#" + hex2(r) + hex2(g) + hex2(bl);
+  }
+  function alpha(hex, a) { var n = parseInt(hex.slice(1), 16); return "rgba(" + (n >> 16) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")"; }
+  function appPal(t) { return { name: "Follow app", page: t.page, ink: t.ink, muted: mix(t.page, t.ink, 0.5), raised: mix(t.page, t.ink, t.dark ? 0.08 : 0.05), light: !t.dark }; }
+  function set(id, html) { var el = document.getElementById(id); if (el) el.innerHTML = html; }
+
+  // A device or crop at real dp; fitAll() shrinks it to the space it has.
+  function device(w, h, scale, inner, extra) {
+    return '<div class="scaled" data-w="' + w + '" data-h="' + h + '" data-s="' + scale + '" style="width:' + Math.round(w * scale) + 'px;height:' + Math.round(h * scale) + 'px' + (extra || "") + '"><div class="dev" style="width:' + w + 'px;height:' + h + 'px;transform:scale(' + scale + ')">' + inner + '</div></div>';
+  }
+  function fitAll() {
+    Array.prototype.forEach.call(document.querySelectorAll(".scaled"), function (el) {
+      var host = el.closest(".stage") || el.parentElement;
+      var avail = host.clientWidth - (host.classList.contains("stage") ? parseFloat(getComputedStyle(host).paddingLeft) * 2 : 0);
+      var w = +el.dataset.w, h = +el.dataset.h, k = Math.min(+el.dataset.s, avail / w);
+      if (!(k > 0)) return;
+      el.style.width = Math.round(w * k) + "px"; el.style.height = Math.round(h * k) + "px";
+      el.firstElementChild.style.transform = "scale(" + k + ")";
+    });
+  }
+
+  // The Lantern Keepers' own (test) text.
+  var S = [
+    "He kept his maps in a tin box under the bed, and on nights when he could not sleep he took them out and traced roads that no longer went anywhere.",
+    "She counted the windows on the far side of the square, the way she had as a child, and found that there was one more than she remembered.",
+    "It was the kind of evening that seemed to go on longer than the clocks allowed, the light thinning but never quite giving up.",
+    "In the mornings the fog came off the water in long pale sheets, and the town woke slowly underneath it, like something that had been buried and was not sure it wanted to come back.",
+    "The river had been low all summer, and by September the stones on its bed had turned the color of old bread.",
+    "Nobody in the house spoke about the letter, though everyone had read it, and each of them kept a different copy of it in their head."
+  ];
+  var ORDER = [[2, 3, 2], [3, 3, 2], [4, 4, 5], [3, 0, 2], [1, 0, 4], [4, 5, 3], [5, 5, 4], [2, 1, 0, 3], [3, 4], [1, 2, 3], [0, 5, 4, 2], [3, 0], [2, 5, 1], [4, 1, 3], [0, 2]];
+  var NOTE = "The ferry to Kessel stopped running in the autumn of 1974, when the new bridge opened upstream. Its timetable is still nailed to the shed on the east bank.";
+  function bodyText(o) {
+    o = o || {};
+    var h = o.lead === false ? "" : '<p style="margin:0 0 ' + (o.space || 0) + 'px">house spoke about the letter, though everyone had read it, and each of them kept a different copy of it in their head.</p>';
+    ORDER.forEach(function (ix, n) {
+      var t = ix.map(function (i) { return S[i]; }).join(" ");
+      if (o.noteRef && n === 1) t = t.replace("come back.", 'come back.<sup style="font-size:.68em;line-height:0;font-weight:700">12</sup>');
+      h += '<p style="margin:0 0 ' + (o.space || 0) + 'px;text-indent:' + (o.indent == null ? 1 : o.indent) + 'em">' + t + "</p>";
+    });
+    return h;
+  }
+
+  // One page: o {w, h, pal, font, side, sideR, top, bottom, number, head, seam, text, overlay, fs, lh}
+  function page(o) {
+    var p = o.pal, fs = o.fs || 16, lh = o.lh || 24;
+    var lines = Math.floor((o.h - o.top - o.bottom) / lh);
+    var h = '<div style="position:relative;width:' + o.w + 'px;height:' + o.h + 'px;background:' + p.page + ';overflow:hidden">';
+    if (o.seam) h += '<div style="position:absolute;left:0;right:0;top:0;height:' + o.top + 'px;background:' + p.strip + '"></div><div style="position:absolute;left:0;right:0;bottom:0;height:' + o.bottom + 'px;background:' + p.strip + '"></div>';
+    h += '<div style="position:absolute;left:' + o.side + 'px;right:' + (o.sideR == null ? o.side : o.sideR) + 'px;top:' + o.top + 'px;height:' + lines * lh + 'px;overflow:hidden;font-family:' + FONTS[o.font || "serif"] + ';font-size:' + fs + 'px;line-height:' + lh + 'px;color:' + p.ink + '">' + (o.text || bodyText(o)) + "</div>";
+    if (o.number) h += '<div style="position:absolute;left:0;right:0;bottom:0;height:' + o.bottom + 'px;display:flex;align-items:center;justify-content:center;' + UI + 'font-size:12px;font-weight:500;font-variant-numeric:tabular-nums;color:' + p.muted + '">' + o.number + "</div>";
+    if (o.head) h += '<div style="position:absolute;left:' + o.side + 'px;right:' + (o.sideR == null ? o.side : o.sideR) + 'px;top:0;height:' + o.top + 'px;display:flex;align-items:center;justify-content:center;' + UI + 'font-size:12px;font-weight:500;color:' + p.muted + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + o.head + "</div>";
+    return h + (o.overlay || "") + "</div>";
+  }
+  function spread(o) {
+    var half = function (left, num, head) {
+      return page({ w: 640, h: 800, pal: o.pal, font: o.font, side: 50, sideR: left ? 52 : 50, top: o.top, bottom: o.bottom, number: num, head: head, seam: o.seam, lead: left, space: 0 });
+    };
+    return '<div style="display:flex;width:1280px;height:800px">' + half(true, "4 / 74", o.heads && o.heads[0]) + half(false, "6 / 74", o.heads && o.heads[1]) + "</div>";
+  }
+  // Dimension marks drawn on a page at real dp.
+  function mark(top, height, label, color, side) {
+    return '<div style="position:absolute;' + (side || "right") + ':10px;top:' + top + 'px;height:' + height + 'px;width:6px;background:' + color + ';border-radius:3px"></div>' +
+      '<div style="position:absolute;' + (side || "right") + ':24px;top:' + (top + height / 2 - 20) + 'px;height:40px;display:flex;align-items:center;' + UI + 'font-size:30px;font-weight:800;color:' + color + '">' + label + "</div>";
+  }
+
+  // ---------- the reader panel ----------
+  function panel(w, rows) { return '<div style="width:' + w + 'px;' + UI + 'background:linear-gradient(180deg,#1F2226,#16191C);border:1px solid rgba(255,255,255,.07);border-radius:28px;color:' + K.fg + ';padding-bottom:14px">' + rows.join("") + "</div>"; }
+  function pHead(t) { return '<div style="display:flex;align-items:center;padding:22px 22px 10px 20px"><span style="flex:1;font-size:21px;font-weight:700">' + t + '</span><span style="font-size:26px;line-height:1">\u00d7</span></div>'; }
+  function pSection(t) { return '<div style="padding:16px 20px 4px;font-size:13px;font-weight:600;color:' + K.label + '">' + t + "</div>"; }
+  function segTrack(opts, sel, fill) {
+    return '<div style="display:flex;gap:2px;padding:3px;border-radius:22px;background:' + K.track + (fill ? "" : ";flex:none") + '">' + opts.map(function (o, i) {
+      return '<span style="' + (fill ? "flex:1;" : "") + 'padding:0 14px;height:38px;display:flex;align-items:center;justify-content:center;border-radius:19px;font-size:14px;font-weight:600;white-space:nowrap;' + (i === sel ? "background:" + K.sel + ";" : "") + "color:" + K.fg + '">' + o + "</span>";
+    }).join("") + "</div>";
+  }
+  function pSeg(label, opts, sel, stacked, hint) {
+    if (stacked) return '<div style="padding:10px 20px"><div style="font-size:15px;font-weight:500">' + label + "</div>" + (hint ? '<div style="font-size:12px;color:' + K.fg2 + ';margin-top:2px">' + hint + "</div>" : "") + '<div style="margin-top:8px">' + segTrack(opts, sel, true) + "</div></div>";
+    return '<div style="display:flex;align-items:center;gap:12px;padding:8px 20px"><span style="flex:1;font-size:15px;font-weight:500">' + label + "</span>" + segTrack(opts, sel, false) + "</div>";
+  }
+  function pSlider(label, value, frac) {
+    return '<div style="padding:10px 20px"><div style="display:flex;font-size:15px;font-weight:500"><span style="flex:1">' + label + '</span><span style="font-size:14px;color:' + K.fg2 + ';font-variant-numeric:tabular-nums">' + value + '</span></div>' +
+      '<div style="position:relative;margin-top:10px;height:22px;border-radius:11px;background:' + K.inactive + '"><div style="position:absolute;left:0;top:0;bottom:0;width:' + frac * 100 + '%;border-radius:11px 0 0 11px;background:' + K.acc + '"></div><div style="position:absolute;top:-6px;left:calc(' + frac * 100 + '% - 2px);width:4px;height:34px;border-radius:2px;background:' + K.fg + '"></div></div></div>';
+  }
+  function pStepper(label, value) {
+    var b = function (t) { return '<span style="width:40px;height:40px;border-radius:20px;background:' + K.btn + ';display:flex;align-items:center;justify-content:center;font-size:22px">' + t + "</span>"; };
+    return '<div style="display:flex;align-items:center;gap:12px;padding:8px 20px"><span style="flex:1;font-size:15px;font-weight:500">' + label + "</span>" + b("\u2212") + '<span style="width:48px;text-align:center;font-size:14px">' + value + "</span>" + b("+") + "</div>";
+  }
+  function pLink(label, value, font) { return '<div style="display:flex;align-items:center;gap:12px;padding:12px 20px"><span style="flex:1;font-size:15px;font-weight:500">' + label + '</span><span style="font-family:' + FONTS[font] + ';font-size:14px;color:' + K.fg2 + '">' + value + '</span><span style="color:' + K.fg2 + ';font-size:18px">\u203a</span></div>'; }
+  function swatch(s, selected, font, attr, width) {
+    var tag = attr ? "button" : "div";
+    return "<" + tag + (attr ? ' type="button" class="sw" ' + attr + ' aria-pressed="' + selected + '" aria-label="' + s.name + '"' : "") + ' style="display:grid;justify-items:center;gap:6px;width:' + width + 'px">' +
+      '<span style="width:' + width + 'px;height:44px;border-radius:12px;background:' + s.page + ";color:" + s.ink + ";display:flex;align-items:center;justify-content:center;font-family:" + FONTS[font] + ";font-size:20px;box-shadow:" + (selected ? "0 0 0 2px #1B1E21, 0 0 0 4px " + K.acc : "inset 0 0 0 1px rgba(255,255,255,.14)") + '">Aa</span>' +
+      '<span style="' + UI + "font-size:11px;font-weight:" + (selected ? 700 : 500) + ";color:" + (selected ? K.fg : K.fg2) + ';white-space:nowrap">' + s.name + "</span></" + tag + ">";
+  }
+  function swatchList(app) { return [app, PAL.paper, PAL.sepia, PAL.grey, PAL.dusk, PAL.black]; }
+  function pSwatches(sel, font, interactive, width) {
+    var list = swatchList(appPal(APPS[0]));
+    var keys = ["app", "paper", "sepia", "grey", "dusk", "black"];
+    return '<div style="padding:10px 20px 6px"><div style="font-size:15px;font-weight:500;margin-bottom:10px">Page colour</div><div style="display:flex;justify-content:space-between">' +
+      list.map(function (s, i) { return swatch(s, keys[i] === sel, font, interactive ? 'data-pal="' + keys[i] + '"' : "", width || 53); }).join("") + "</div></div>";
+  }
+
+  // ---------- 1 page colours (interactive) ----------
+  var cur = "paper", curFont = "serif";
+  function palOf(key) { return key === "app" ? appPal(APPS[0]) : PAL[key]; }
+  function renderColours() {
+    var p = palOf(cur);
+    set("m-colours-panel", device(400, 370, 1, panel(400, [pSection("Page"), pSwatches(cur, curFont, true), pSeg("Page number", ["Show", "Hide"], 0, false), pSection("Layout"), pSeg("Pages", ["Auto", "Scroll", "Page", "Spread"], 0, true)])));
+    set("m-colours-page", device(800, 1280, 0.24, page({ w: 800, h: 1280, pal: p, font: curFont, side: 120, top: 56, bottom: 56, number: "4 / 74" })));
+    set("m-colours-crop", device(330, 300, 1, page({ w: 330, h: 300, pal: p, font: curFont, side: 22, top: 24, bottom: 56, number: "4 / 74" })));
+    set("m-colours-cap", (cur === "app" ? "Follow app in Graphite (card 2's A)" : p.name) + " in " + { serif: "Serif", literata: "Literata", atkinson: "Atkinson Hyperlegible" }[curFont] + ": the whole page, and a piece of it at real size.");
+    Array.prototype.forEach.call(document.querySelectorAll("#m-colours-panel .sw"), function (b) {
+      b.addEventListener("click", function () { cur = b.dataset.pal; renderColours(); var again = document.querySelector('#m-colours-panel .sw[data-pal="' + cur + '"]'); if (again) again.focus(); });
+    });
+    fitAll();
+  }
+  Array.prototype.forEach.call(document.querySelectorAll("#font-chips button"), function (b) {
+    b.addEventListener("click", function () {
+      curFont = b.dataset.font;
+      Array.prototype.forEach.call(document.querySelectorAll("#font-chips button"), function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+      renderColours();
+    });
+  });
+  var tb = document.querySelector("#token-table tbody");
+  ["paper", "sepia", "grey", "dusk", "black"].forEach(function (k) {
+    var p = PAL[k], cell = function (c) { return '<td><span class="chip" style="background:' + c + '"></span><code>' + c + "</code></td>"; };
+    tb.insertAdjacentHTML("beforeend", "<tr><th scope=\"row\">" + p.name + "</th>" + cell(p.page) + cell(p.ink) + cell(p.muted) + cell(p.raised) + "</tr>");
+  });
+
+  // ---------- 2 Follow app ----------
+  function excerpt(p, w, h) { return page({ w: w, h: h, pal: p, side: 18, top: 18, bottom: 40, number: "4 / 74" }); }
+  function follow(id, useApp) {
+    set(id, APPS.map(function (t) {
+      var p = useApp ? appPal(t) : (t.dark ? PAL.black : PAL.paper);
+      return "<figure>" + device(300, 200, 0.7, excerpt(p, 300, 200)) + "<figcaption>" + t.name + " theme \u2192 " + (useApp ? t.page : p.name + " " + p.page) + "</figcaption></figure>";
+    }).join(""));
+  }
+  follow("m-follow-a", true);
+  follow("m-follow-b", false);
+
+  // ---------- 3 settings units ----------
+  set("m-units-panel", device(400, 750, 0.6, panel(400, [
+    pHead("Reading settings"), pSection("Text"), pSeg("Typography", ["Book\u2019s own", "Custom"], 1, false), pLink("Font", "Serif", "serif"), pStepper("Text size", "100%"),
+    pSlider("Line height", "1.5\u00d7", (1.5 - 1.1) / 1.1), pSeg("Alignment", ["Auto", "Left", "Justify"], 0, false),
+    pSection("Layout"), pSeg("Margins", ["Narrow", "Normal", "Wide"], 1, true), pSeg("Paragraph spacing", ["None", "Small", "Medium", "Large"], 0, true), pSeg("Paragraph indent", ["None", "Small", "Medium", "Large"], 1, true)
+  ]), ";border-radius:18px"));
+  set("m-units-margins", [["Narrow", 100], ["Normal", 120], ["Wide", 160]].map(function (m) {
+    return "<figure>" + device(800, 1280, 0.15, page({ w: 800, h: 1280, pal: PAL.paper, side: m[1], top: 56, bottom: 56, number: "4 / 74" })) + "<figcaption>" + m[0] + " \u00b7 " + m[1] + " dp</figcaption></figure>";
+  }).join(""));
+
+  // ---------- 4 page frame ----------
+  var ACC = "#C2185B";
+  set("m-frame-portrait",
+    "<figure>" + device(800, 1280, 0.3, page({ w: 800, h: 1280, pal: TODAY.light, seam: true, side: 120, top: 32, bottom: 32, number: "4 / 74", overlay: mark(0, 32, "32", ACC) + mark(1248, 32, "32", ACC) })) + "<figcaption>Today (Light)</figcaption></figure>" +
+    "<figure>" + device(800, 1280, 0.3, page({ w: 800, h: 1280, pal: PAL.paper, side: 120, top: 56, bottom: 56, number: "4 / 74", overlay: mark(0, 56, "56", ACC) + mark(1224, 56, "56", ACC) })) + "<figcaption>Proposed (Paper)</figcaption></figure>");
+  set("m-frame-spread",
+    "<figure>" + device(1280, 800, 0.24, spread({ pal: TODAY.light, seam: true, top: 48, bottom: 48 })) + "<figcaption>Today</figcaption></figure>" +
+    "<figure>" + device(1280, 800, 0.24, spread({ pal: PAL.paper, top: 56, bottom: 56 })) + "<figcaption>Proposed</figcaption></figure>");
+
+  // ---------- 5 chapter line ----------
+  set("m-chapter-crop", device(800, 180, 0.6, page({ w: 800, h: 180, pal: PAL.paper, side: 120, top: 56, bottom: 0, head: "Chapter 1" })));
+  set("m-chapter-spread", device(1280, 800, 0.3, spread({ pal: PAL.paper, top: 56, bottom: 56, heads: ["The Lantern Keepers", "Chapter 1"] })));
+
+  // ---------- 6 footnotes ----------
+  function handle(p) { return '<div style="width:32px;height:4px;border-radius:2px;background:' + alpha(p.ink, 0.3) + ';margin:0 auto 14px"></div>'; }
+  function noteCard(p, w, o) {
+    o = o || {};
+    return '<div style="width:' + w + 'px;background:' + p.raised + ';border-radius:28px 28px 0 0;padding:12px 28px 32px;box-shadow:' + (p.light ? "0 -10px 30px rgba(40,30,10,.16)" : "0 0 0 1px " + alpha(p.ink, 0.1)) + '">' + handle(p) +
+      '<div style="' + UI + "font-size:12px;font-weight:600;color:" + p.muted + ';margin-bottom:8px">Note 12</div>' +
+      '<div style="font-family:' + FONTS.serif + ";font-size:16px;line-height:24px;color:" + p.ink + '">' + NOTE + "</div>" +
+      (o.goTo ? '<div style="margin-top:16px;display:inline-flex;align-items:center;height:40px;padding:0 18px;border-radius:20px;background:' + alpha(p.ink, 0.08) + ';' + UI + 'font-size:14px;font-weight:700;color:' + p.ink + '">Go to note</div>' : "") + "</div>";
+  }
+  function withCard(p, w, h, cardW, goTo, extra) {
+    return page({ w: w, h: h, pal: p, side: w > 500 ? 120 : 24, top: w > 500 ? 56 : 40, bottom: w > 500 ? 56 : 40, number: "4 / 74", noteRef: true, overlay:
+      '<div style="position:absolute;inset:0;background:' + alpha(p.ink, 0.12) + '"></div><div style="position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:center">' + noteCard(p, cardW, { goTo: goTo }) + "</div>" + (extra || "") });
+  }
+  function todayPopup() {
+    var g = { panel: "#30363C", title: "#C8D0D8", body: "#E7EAEE", action: "#B7C7D9" };
+    return page({ w: 800, h: 1280, pal: TODAY.dark, side: 120, top: 32, bottom: 32, number: "4 / 74", noteRef: true, overlay:
+      '<div style="position:absolute;inset:0;background:rgba(0,0,0,.32);display:flex;align-items:center;justify-content:center"><div style="width:420px;max-height:260px;background:' + g.panel + ';border-radius:20px;padding:14px 18px;' + UI + '">' +
+      '<div style="display:flex;align-items:center"><span style="flex:1;font-size:14px;font-weight:600;color:' + g.title + '">Footnote</span><span style="font-size:14px;font-weight:600;color:' + g.action + ';padding:10px 12px">Close</span></div>' +
+      '<div style="margin-top:6px;font-size:14px;line-height:20px;color:' + g.body + '">12. ' + NOTE + "</div></div></div>" });
+  }
+  set("m-note-pages",
+    "<figure>" + device(800, 1280, 0.28, todayPopup()) + "<figcaption>Today</figcaption></figure>" +
+    "<figure>" + device(800, 1280, 0.28, withCard(PAL.paper, 800, 1280, 560)) + "<figcaption>Paper</figcaption></figure>" +
+    "<figure>" + device(800, 1280, 0.28, withCard(PAL.black, 800, 1280, 560)) + "<figcaption>Black</figcaption></figure>");
+  set("m-note-card", device(560, 210, 1, '<div style="height:100%;display:flex;align-items:flex-end;background:' + mix(PAL.paper.page, PAL.paper.ink, 0.1) + '">' + noteCard(PAL.paper, 560) + "</div>", ";border-radius:14px 14px 0 0"));
+
+  // ---------- 7 endnotes ----------
+  function notesPage(p) {
+    var notes = [
+      ["11", "Kessel had two ferries until 1968; only the smaller one kept its licence."],
+      ["12", NOTE],
+      ["13", "The letter is quoted in full in the town archive, under the wrong year."],
+      ["14", "Her mother\u2019s maps are the ones described in chapter 2."]
+    ];
+    var t = '<div style="font-size:26px;line-height:36px;font-weight:700;margin:24px 0 24px">Notes</div>' + notes.map(function (n) {
+      var hi = n[0] === "12";
+      return '<p style="margin:0 0 12px;padding:' + (hi ? "6px 10px" : "0") + ";margin-left:" + (hi ? "-10px" : "0") + ";border-radius:8px;background:" + (hi ? alpha(p.ink, 0.08) : "transparent") + '">' + n[0] + ". " + n[1] + "</p>";
+    }).join("");
+    var toast = '<div style="position:absolute;left:50%;bottom:68px;transform:translateX(-50%);height:48px;border-radius:24px;background:rgba(29,33,37,.9);box-shadow:0 8px 20px rgba(0,0,0,.25);display:flex;align-items:center;gap:12px;padding:0 6px 0 18px;' + UI + 'color:#E7EAEE;white-space:nowrap">' +
+      '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="#E7EAEE" d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg><span style="font-size:14px;font-weight:600">Back to page 4</span><span style="height:36px;border-radius:18px;background:' + K.acc + ";color:" + K.onAcc + ';font-size:14px;font-weight:700;display:flex;align-items:center;padding:0 16px">Back</span></div>';
+    return page({ w: 800, h: 1280, pal: p, side: 120, top: 56, bottom: 56, number: "73 / 74", text: t, overlay: toast });
+  }
+  set("m-endnote",
+    "<figure>" + device(800, 1280, 0.3, withCard(PAL.paper, 800, 1280, 560, true)) + "<figcaption>1. An endnote: the card adds Go to note</figcaption></figure>" +
+    "<figure>" + device(800, 1280, 0.3, notesPage(PAL.paper)) + "<figcaption>2. The Notes page, note 12 marked, and the way back</figcaption></figure>");
+
+  // ---------- 8 phone ----------
+  function phoneSheet() {
+    var p = PAL.paper;
+    var behind = page({ w: 412, h: 915, pal: p, side: 24, top: 40, bottom: 40, number: "9 / 212" });
+    var sheet = '<div style="position:absolute;left:0;right:0;bottom:0;' + UI + 'background:linear-gradient(180deg,#1F2226,#16191C);border-radius:28px 28px 0 0;color:' + K.fg + ';padding:10px 0 24px">' +
+      '<div style="width:32px;height:4px;border-radius:2px;background:rgba(255,255,255,.3);margin:0 auto 6px"></div>' + pHead("Reading settings") +
+      '<div style="padding:2px 20px 8px">' + segTrack(["Text", "Page", "Layout"], 1, true) + "</div>" +
+      pSwatches("paper", "serif", false, 55) + pSeg("Page number and chapter", ["Show", "Hide"], 0, true) + "</div>";
+    return '<div style="position:relative;width:412px;height:915px">' + behind + '<div style="position:absolute;inset:0;background:rgba(0,0,0,.32)"></div>' + sheet + "</div>";
+  }
+  set("m-phone",
+    "<figure>" + device(412, 915, 0.5, phoneSheet()) + "<figcaption>Settings, Page tab</figcaption></figure>" +
+    "<figure>" + device(412, 915, 0.5, withCard(PAL.paper, 412, 915, 412)) + "<figcaption>A footnote</figcaption></figure>");
+
+  renderColours();
+  window.addEventListener("resize", fitAll);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitAll);
+  fitAll();
+})();
+</script>
+
+<script>
+(function () {
+  // ---------- picks (same store layout as the earlier boards: collection "picks") ----------
+  var STORE_KEY = "yabai-reading-board-picks";
+  var cards = Array.prototype.slice.call(document.querySelectorAll("[data-card]"));
+  var LABELS = { "do": "Do", maybe: "Maybe", dont: "Don't", a: "A", b: "B", c: "C", neither: "Neither" };
+  var KINDS = { ab: ["a", "b", "neither"], abc: ["a", "b", "c", "neither"], dmd: ["do", "maybe", "dont"] };
+  var picks = {}; try { picks = JSON.parse(localStorage.getItem(STORE_KEY) || "{}") || {}; } catch (e) { picks = {}; }
+  var db = null, pending = {};
+  function saveLocal() { try { localStorage.setItem(STORE_KEY, JSON.stringify(picks)); } catch (e) {} }
+  function setState(t) { document.getElementById("save-state").textContent = t; }
+  function tally() { var n = 0; cards.forEach(function (c) { if ((picks[c.dataset.card] || {}).choice) n++; }); document.getElementById("n-picked").textContent = n; document.getElementById("n-total").textContent = cards.length; }
+  function paint(card) {
+    var p = picks[card.dataset.card] || {};
+    card.querySelectorAll(".pick button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.v === p.choice)); });
+    var ta = card.querySelector(".pick textarea"); if (ta && document.activeElement !== ta) ta.value = p.note || "";
+  }
+  function write(id) {
+    if (!db) { saveLocal(); return; }
+    var p = picks[id];
+    var run = function () {
+      return db.collection("picks").doc(id).set({ choice: p.choice || null, note: p.note || "", title: p.title || id, updatedAt: p.updatedAt || Date.now() })
+        .then(function () { p.synced = true; saveLocal(); setState("Saved to this page."); })
+        .catch(function (err) { setState(err && err.code === "invalid_argument" ? "This page is read-only for you; picks stay in this browser. Use Copy picks." : "Couldn't save just now; your pick is kept in this browser."); });
+    };
+    pending[id] = (pending[id] || Promise.resolve()).then(run, run);
+  }
+  function update(card, patch) {
+    var id = card.dataset.card;
+    picks[id] = Object.assign({}, picks[id], patch, { title: card.dataset.title, updatedAt: Date.now(), synced: false });
+    saveLocal(); paint(card); tally(); write(id);
+  }
+  cards.forEach(function (card) {
+    var opts = KINDS[card.dataset.kind] || KINDS.dmd;
+    var row = document.createElement("div"); row.className = "pick";
+    row.innerHTML = '<span class="label">Your pick</span>' + opts.map(function (v) { return '<button type="button" data-v="' + v + '" aria-pressed="false">' + LABELS[v] + "</button>"; }).join("") +
+      '<textarea id="note-' + card.dataset.card + '" rows="1" placeholder="Note (optional)" aria-label="Note for ' + card.dataset.title + '"></textarea>';
+    card.appendChild(row);
+    row.querySelectorAll("button").forEach(function (b) { b.addEventListener("click", function () { var cur = (picks[card.dataset.card] || {}).choice; update(card, { choice: cur === b.dataset.v ? null : b.dataset.v }); }); });
+    var ta = row.querySelector("textarea"), t = null;
+    ta.addEventListener("input", function () { clearTimeout(t); t = setTimeout(function () { update(card, { note: ta.value }); }, 700); });
+    ta.addEventListener("change", function () { clearTimeout(t); if ((picks[card.dataset.card] || {}).note !== ta.value) update(card, { note: ta.value }); });
+    paint(card);
+  });
+  tally();
+  document.getElementById("copy-picks").addEventListener("click", function () {
+    var lines = cards.map(function (c) { var p = picks[c.dataset.card] || {}; return c.querySelector("h3").textContent + ": " + (p.choice ? LABELS[p.choice] : "-") + (p.note ? " (" + p.note.trim() + ")" : ""); }).join("\n");
+    var btn = document.getElementById("copy-picks");
+    var fallback = function () { var ta = document.getElementById("copy-fallback"); ta.hidden = false; ta.value = lines; ta.focus(); ta.select(); btn.textContent = "Select and copy"; };
+    try { navigator.clipboard.writeText(lines).then(function () { btn.textContent = "Copied"; setTimeout(function () { btn.textContent = "Copy picks"; }, 1600); }, fallback); } catch (e) { fallback(); }
+  });
+  (async function () {
+    try { db = window.claude && window.claude.use ? await window.claude.use("db") : null; } catch (e) { db = null; }
+    if (!db) { setState("Picks are saved in this browser only. Use Copy picks to send them."); return; }
+    setState("Connected. Picks save to this page.");
+    var first = true;
+    db.collection("picks").onSnapshot(function (snap) {
+      snap.docs.forEach(function (d) { var remote = d.data() || {}, local = picks[d.id]; if (!local || (remote.updatedAt || 0) >= (local.updatedAt || 0)) picks[d.id] = Object.assign({}, remote, { synced: true }); });
+      if (first) { first = false; Object.keys(picks).forEach(function (id) { if (picks[id] && !picks[id].synced) write(id); }); }
+      saveLocal(); cards.forEach(paint); tally();
+    }, function () { setState("The page's store stopped answering; picks stay in this browser."); });
+  })();
+})();
+</script>

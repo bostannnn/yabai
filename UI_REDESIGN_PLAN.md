@@ -1499,17 +1499,73 @@ Local library). All unit tests pass (1484, both lines). Not yet on the tablet.
 - Not seen: a server book's page with Download and Remove download (no server on the emulator).
 - [ ] Tablet.
 
-### 9.6 The reading page `[ ]` (page-colours, page-frame, footnote)
+### 9.6 The reading page `[~]` (page-colours, page-frame, footnote)
 
-- [ ] Mock first. Page colours: Follow app plus Paper, Sepia, Grey, Dusk and Black as swatches in
-      the chosen font, as tokens in `core:ui-theme` (today Follow app / Light / Dark, hard-coded in
-      `EpubReaderPreferencesPane.kt`).
-- [ ] Settings values a reader understands: margins and paragraph spacing and indent as segmented
-      steps, line height as "1.5×".
-- [ ] Equal space above the first line and below the last (the page-number strip).
-- [ ] Footnotes in the book's font and page colour, as a card from the bottom of the page, with "Go
-      to note" for endnotes (`EpubFootnotePopup.kt`).
-- Maybe: the chapter title in the top strip (no clock or battery, as decided for the page number).
+Built 2026-10-25 in worktree `ui-redesign-step-9-807293` (branch `claude/ui-redesign-step-9-807293`, at main
+bf5986bc); checked on the emulator (`yabai_tablet_35` on 5558, debug build, the Local library) at 800 dp portrait,
+on a spread and at 412 dp phone width. All unit tests pass (1498, both lines). Not yet on the tablet.
+
+- [x] Mock first: board https://claude.ai/artifact/NY2eKeFXcGkoMrAQ21d3EG
+      (`docs/design/third-pass/pages/reading.html`, 2026-10-25), picks in its store, collection `picks`. Picked, no
+      notes: `page-colours`, `settings-units`, `page-frame`, `chapter-line`, `footnote`, `go-to-note` and `phone` Do;
+      `follow-app` Neither. Asked in chat: Follow app goes, and a book you haven't set opens on the colour last
+      picked in any book (Paper until the first pick, the option said; built as Paper or Black by the app theme
+      until then, so books read in a dark theme don't turn white after the update).
+- Found while making the board: on the Light page Readium painted the text area #FFFFFF while the reader painted the
+  32 dp strips above and below it #FCFCFA (`epubReaderSurfaceBackground`), a visible band; Follow app's swatch drew
+  the app's background (Graphite #101214) while the page it gave was #000000; the text box ran from 32 to 1248 dp of
+  the 1280 dp portrait page with 120 dp sides; Margins 0.5×/1×/2× gives 100/120/160 dp of side space at 800 dp.
+- [x] Page colours: `ReaderPageColor` in `core:ui-theme` (Paper, Sepia, Grey, Dusk, Black; each `ReaderPageColors`
+      page, text, number, raised; text on page 10:1 or more). Readium gets the page and text colours
+      (`backgroundColor`, `textColor`, its LIGHT or DARK theme by lightness), and the strips, the curl's back
+      (`curlBack`: the page, or the raised colour on a dark page) and the page number take the same token, so the
+      band is gone. The swatches are 44 dp tiles with "Aa" at 20 sp in the reading font (a serif with Book's own),
+      the name under each and a 2 dp accent ring on the chosen one. Picking one keeps it for that book and saves
+      it as the last pick (`ReaderPageColorPreferencesStore` in feature:reader-preferences, DataStore
+      `reader_page_color_preferences`); the reader waits for that store before it opens a book. Saved Light opens
+      on Paper, Dark on Black (`readerPageColorOrNull`). It holds with Book's own typography too.
+- [x] Settings in words: Margins Narrow / Normal / Wide (0.5, 1, 2), Paragraph spacing None / Small / Medium /
+      Large (0, 0.5, 1, 1.5 rem), Paragraph indent None / Small / Medium / Large (0, 1, 2, 3 em), each an
+      `AppChoiceRow` under its label (`EpubStep`, `nearest`); line height a slider in tenths labelled "1.5×".
+      Values saved by the old sliders snap to the nearest step when a book opens.
+- [x] The frame: 56 dp strips above and below the text on tablets, portrait and spread, 40 dp when the window is
+      Compact in either direction (`epubViewportSpacing`, `currentEpubViewportSpacing`); the number centred in the
+      bottom one. Readium still leaves up to a line free under the last line where the text doesn't fill the page.
+- [x] The chapter line: the chapter's title (`currentEpubChapterTitle`, as the top bar names it) centred in the
+      top strip in `labelMedium` and the number colour; on a spread the book's title over the first page and the
+      chapter over the second (`buildEpubPageHeads`, mirrored for right-to-left books). Not on a chapter's first
+      page (the navigator's page 0 of a file; a scrolled book keeps it). It shows and hides with the page number,
+      whose row in the EPUB settings is now "Page number and chapter" (`ReaderPageNumberChoiceRow(label)`).
+- [x] Footnotes: `EpubFootnoteCard` (the old `EpubFootnotePopup` is gone) rises from the bottom of the page on
+      spatial, at most 560 dp wide and 45% of the screen tall, 28 dp top corners and a handle, on the page's raised
+      colour over a 12% scrim of its text colour. "Note 12" (`epubFootnoteHeading`: the leading number moves into
+      the heading) over the note in the book's font, size and line height. Tap the page, swipe it down (nested
+      scroll, so a long note scrolls first) or press Back to close it; TalkBack gets "Close note". It is drawn in the
+      reader's window through a new `sheet` slot on `ImmersiveReaderOverlay`: as an `AppSheet` window it brought the
+      status and navigation bars back over the page.
+- [x] Go to note: a note in another file of the book (`isSameEpubResource`) gets a "Go to note" pill in the page's
+      colours. It opens the note there and marks it for 1.6 s (a Readium highlight decoration in the number colour,
+      `markEpubNote`), and a toast "Back to page 4" with Back (`AppToastIcon.Back`) offers the way back for 6 s; the
+      system Back also returns while you're still in the note's file. Back, or turning out of that file, takes the
+      toast off (`AppToastState.dismiss(message)`). While at the note the reader saves no progress and doesn't
+      open Finished, though the Notes chapter is usually the book's last page; closing the book there keeps the
+      page the note was opened from.
+- Not as the mock: the card has no shadow (the scrim sets it off); "Page number and chapter" wraps to two lines
+  beside its Show / Hide control at both widths.
+- Kit and wiring: `ReaderPageColors.kt` (ui-theme), `AppToastIcon.Back` and `AppToastState.dismiss(message)` (kit),
+  `ImmersiveReaderOverlay(sheet)` and `ReaderPageNumberChoiceRow(label)` (reader-core). The readers' shared page
+  settings come as one `ReaderDisplayPreferences` (page numbers, page colour) from `ReaderDisplayPreferencesModule`
+  (was `ReaderPageNumberModule`), so `AppModule` didn't grow. `EpubReaderEntry.kt` (a hotspot) went from 1071 to
+  989 lines: the frame, page colours and note return moved to `EpubPageFrame.kt`, `EpubPageColors.kt` and
+  `EpubNoteReturn.kt`, and its three copies of the preferences became one.
+- Seen on the emulator: the frame and chapter line on The Lantern Keepers in Black and Sepia, a Sepia spread with
+  the book and chapter heads, the settings panel and the phone sheet's Page tab, a test EPUB ("Ferry Notes (test)",
+  imported for this) with a footnote and an endnote: the card on the tablet and the phone, closing by a tap, a swipe
+  and Back, Go to note with the mark and the toast, and Back to the page. Book's own typography keeps the page
+  colour.
+- Not seen: Grey and Dusk on a real page (only as swatches), a long note that scrolls, a right-to-left book's heads,
+  scroll mode's chapter line, TalkBack.
+- [ ] Tablet.
 
 ### 9.7 Opening a book and reader errors `[ ]` (opening, picked Maybe)
 
