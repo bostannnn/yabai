@@ -5,7 +5,8 @@ anything that changes the plan under "Decisions" or "Open questions".
 
 Status: `[x]` done · `[~]` done but not shipped (uncommitted, unmeasured, or not on the tablet) · `[ ]` not started
 
-Started 2026-10-17. Sections 0-7 are the first pass; section 8 is the second pass approved 2026-10-22.
+Started 2026-10-17. Sections 0-7 are the first pass; section 8 is the second pass approved 2026-10-22;
+section 9 is the third pass picked 2026-10-24.
 
 ## Decisions
 
@@ -107,6 +108,19 @@ Started 2026-10-17. Sections 0-7 are the first pass; section 8 is the second pas
   an update. It brought three kit pieces ahead of 8.2: `AppDialogCard` (the 8.2 dialog layout;
   `AppDialog` should move onto it in 8.2), `AppTonalButton`, and `AppDrawerBadge` /
   `Modifier.appBadgeDot`; `AppSettingsRow` gained `supportingIcon` and `supportingContent`.
+
+- **Third pass picked 2026-10-24: the moments between screens.** A review of 0.17.1 on the emulator
+  and in code found the surfaces no board had covered: https://claude.ai/artifact/EeiAPfFXXD8mFUfENQMGHM
+  (17 cards with today's screenshots and a proposal each; copy in `docs/design/third-pass/`). Picks,
+  no notes: Do for the Finished screen, toasts, the splash, the shelf browser, footnotes, the
+  journal's "+", the book page's "Your reading", tile baselines and one progress format, page
+  colours and settings units, the EPUB page frame, and the kit drift sweep; Maybe for the opening
+  state and reader errors. The work is section 9.
+
+  Rejected: comic tiles naming their issue and grouping Local comics into series (so a Local comic
+  gets no "Read next"), a "yabai" wordmark in the drawer and a redrawn icon, download notifications,
+  app shortcuts and a home-screen widget, and haptics (so nothing new buzzes, the Finished screen
+  included; the journal's stars keep theirs).
 
 ## Constraints (from `ARCHITECTURE_RULES.md`)
 
@@ -1242,10 +1256,130 @@ Paper, and at phone landscape (891 x 411 dp through `wm size`, drawer). Not yet 
         row opening its page. Not seen: a download running (none was started), the first launch (new
         installs only).
 
+## 9. Third pass: the moments between screens `[ ]`
+
+Picked 2026-10-24 (see Decisions) on the review board https://claude.ai/artifact/EeiAPfFXXD8mFUfENQMGHM;
+the card names below are its card ids. Each step gets its own mock board before it is built, as in
+section 8, and is judged on the tablet before the next one. The "Maybe" lines inside a step are
+sub-points the review card marked Maybe; they are settled on that step's mock. None of the steps
+changes runtime work on the library grid, so none needs `LibraryPerf` numbers.
+
+### 9.1 The Finished screen `[~]` (finished)
+
+Built 2026-10-24 in worktree `app-design-improvements-8aeaa3` (branch
+`claude/app-design-improvements-8aeaa3`, from main 962ecc29), not committed at the time; checked on
+the emulator (`yabai_tablet_35` on 5558, debug build, the Local library) at 800 dp portrait in
+Graphite and Paper and at 411 dp phone width. All unit tests pass (1456, both lines). Not yet on the
+tablet.
+
+Before: `ReaderCompletionDialog` (reader-core) was an `AppDialog` titled "Finished" around the old
+`JournalItemReviewCard`: the cover, title, "Local · EPUB", "Finished", "No rating", outline stars, a
+"Private review" field, Close and Save review in the app accent, and a "Start next" card. The last
+EPUB page read 99%.
+
+- [x] Mock first: board https://claude.ai/artifact/2Kdx3suRVqewsTWQ2zgqWL
+      (`docs/design/third-pass/pages/finished.html`, 2026-10-24). Picked, no notes: layout A (the
+      card), numbers Don't, rating and note Do, next Do, phone Do, light theme Do, motion Do, when it
+      opens A (as today).
+- [x] `JournalFinishedScreen` (feature:journal, the owner of the rating and note; the old dialog's
+      slots into reader-core are gone): one surface tinted by the cover (`coverTint`, now public in
+      feature:library, with `animateCoverColors`), 440 dp at 28 dp corners in a dialog window, an
+      `AppSheet` on Compact widths. A 112 dp cover (88 on phones) beside "FINISHED" (11.5 ExtraBold,
+      the cover accent), the title (26 / 30 Bold) and the author; × top end on tablets. The colours
+      come from `rememberLibraryCoverColors` in the host, the book page's quiet surface until they
+      arrive or for a cover without any. `AppCoverAccentTheme` inside, so the stars and the field's
+      focus take the cover accent.
+- [x] The journal's star editor with `JournalRatingLayout.Leading`: "Your rating" with the hint at
+      the end ("Tap to rate", the value while picking, "Rated 3.5"), 44 dp slots with 40 dp stars at
+      the start, empty stars in the text colour at 28%. Halves still come from the left half of a star
+      (the board said "a second tap makes a half", which was never how it worked; tapping the current
+      rating still clears it). A tap saves, as before.
+- [x] The note: "Add a private note" as a 48 dp pill with the new `AppIcons.Edit`, which opens into
+      the field ("Private note", "Only you can see this", 12 dp corners) and takes focus; a note
+      written before opens the field at once. It saves when the screen closes, whichever way (Save
+      review is gone).
+- [x] Next: a 20 dp strip (the theme's lowest surface at 30% on dark tints, 55% on light) with the
+      next cover at 56 dp, "Up next in <series>" over the issue's name, and Read next filled in the
+      accent; Back to library goes tonal beside it and is the filled button when nothing is next. On
+      phones the two share the bottom row. Back to library saves the note and leaves the reader
+      (`onBackPressed`, the reader saves its place as it closes); × or Back keeps the last page.
+- [x] Motion: the card fades in from 0.96 on effects, the cover rises 12 dp on spatial after 60 ms,
+      the stars pop in from 0.6 on spatialFast, 50 ms apart after 220 ms; all at once with the animator
+      scale at 0. No haptic beyond the editor's existing drag ticks.
+- [x] The dock reads 100% on the last EPUB page and fills the slider (`epubDockProgress`; no earlier
+      page rounds up to 100%). The trigger is as before (picked A).
+- Kit: `AppSheet(containerColor, skipPartiallyExpanded)`, `AppButtonDefaults.filledColors(container,
+  content)` and `tonalIconColors(container, content)` for buttons on a cover tint, `AppIcons.Edit`.
+  Removed: `ReaderCompletionDialog`, `JournalItemReviewCard` (its file is now `JournalReviewState.kt`).
+  The host moved out of `UnifiedReaderRoute.kt` into `ReaderFinishedHost.kt` (app). Six modules: the
+  kit, library (the tint), journal (the screen), reader-core (the deletion), reader-epub (the 100%),
+  app (the host).
+- Not as the mock: the scrim is the dialog window's own dim, as for every `AppDialog`, not a 45% kit
+  scrim; on phones the dock stays under the sheet instead of sliding away (the sheet covers it).
+- Not seen: Read next with a real next item (the emulator has no server series or list; the strip
+  was checked through a throwaway build with a faked next item, whose Read next does nothing because
+  the coordinator's state had no next id); the comics and PDF readers' Finished (same screen).
+- [ ] Tablet.
+
+### 9.2 Toasts `[ ]` (toasts)
+
+- [ ] Mock first. `AppToast` in the kit replaces `AppSnackbar` (Material's default `inverseSurface`):
+      a 48 dp pill, icon, text, an optional accent action, one at a time, above the dock or the
+      navigation bar; errors keep the pill with a red icon.
+- [ ] Uses: import ("Added …" · Open), Mark as read / unread with Undo, download queued and already
+      queued (today dropped in `AppRemoteDownloadController.kt`), Remove download with Undo, the
+      progress-sync failure with Retry, "Updated to x.y.z" with What's new.
+
+### 9.3 Splash and window background `[ ]` (splash)
+
+- [ ] `core-splashscreen`; the background follows the saved theme (`SplashScreen.setSplashScreenTheme`
+      on Android 13+, `values-night` before); `windowBackground` set so no white frame shows in a
+      dark theme. Mock: the cold start frames before and after.
+
+### 9.4 Library tiles and the shelf browser `[ ]` (shelf-browser, tile-meta)
+
+- [ ] Mock first. The shelf browser ("See all") uses the home grid's tile; the third line from
+      `AppProgressSummaries.kt` goes; the three shelf tabs sit at its top; `AppEmptyState` when empty.
+- [ ] Tile titles share one baseline whether or not a progress line hangs below.
+- [ ] One progress format on tiles: the percentage, "Just started" below 1%.
+- Maybe: a book counts as In progress only from 1%.
+
+### 9.5 The book page's "Your reading", and the journal's "+" `[ ]` (book-page-reading, journal-plus)
+
+- [ ] Mock first. A "Your reading" section from the journal: the stars (9.1's editor), the note,
+      started and finished dates, sessions and time, Read again once finished; a local book's file
+      facts (pages or chapters, date added). Remove file becomes a quiet row at the end.
+- [ ] The journal's "+" (it opens the import picker) goes; import stays in the library.
+
+### 9.6 The reading page `[ ]` (page-colours, page-frame, footnote)
+
+- [ ] Mock first. Page colours: Follow app plus Paper, Sepia, Grey, Dusk and Black as swatches in
+      the chosen font, as tokens in `core:ui-theme` (today Follow app / Light / Dark, hard-coded in
+      `EpubReaderPreferencesPane.kt`).
+- [ ] Settings values a reader understands: margins and paragraph spacing and indent as segmented
+      steps, line height as "1.5×".
+- [ ] Equal space above the first line and below the last (the page-number strip).
+- [ ] Footnotes in the book's font and page colour, as a card from the bottom of the page, with "Go
+      to note" for endnotes (`EpubFootnotePopup.kt`).
+- Maybe: the chapter title in the top strip (no clock or battery, as decided for the page number).
+
+### 9.7 Opening a book and reader errors `[ ]` (opening, picked Maybe)
+
+- [ ] Mock first and decide there: one opening state in reader-core (the page colour, the cover,
+      title and author, a moving accent line, no developer words such as "Opening EPUB with
+      Readium…"), and errors on `AppEmptyState` with Try again and Back to library.
+
+### 9.8 Kit drift sweep `[ ]` (kit-drift)
+
+- [ ] Last, after the steps above. `ButtonDefaults` overrides (selection bar, reading card, book
+      page, journal sheet, updater) move onto kit defaults; the Kavita lists dialog gets
+      `AppSearchField`; the comics canvas colour becomes a token; `FeatureMaterialImportRuleTest`
+      forbids `ButtonDefaults` outside the kit.
+
 ## Not yet designed
 
-Nothing left: downloads, the Kavita landing and first run (8.9) were the last, on the board linked
-there.
+Section 9: each step above gets its mock when it starts. Before it, nothing was left: downloads, the
+Kavita landing and first run (8.9) were the last, on the board linked there.
 Designed since: the phone library home and the series view header (8.3), the book page (8.5), the
 journal below its header and the settings pages (8.9, boards linked there).
 

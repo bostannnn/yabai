@@ -1,0 +1,788 @@
+<meta charset="utf-8">
+<title>yabai Third Pass</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column of finding cards; each card sets today's screenshot beside the proposal, with a pick row under it. Dark-first like the app's Graphite theme. */
+:root {
+  --bg: #121417;
+  --surface: #1b1e23;
+  --surface-2: #23272d;
+  --line: #2f343b;
+  --fg: #e8eaed;
+  --muted: #9aa3ad;
+  --accent: #e9a6c6;
+  --on-accent: #2a1020;
+  --maybe: #b8c7da;
+  --dont: #ef8a80;
+  --code-bg: #0e1013;
+  --display: "Manrope", "Segoe UI", system-ui, sans-serif;
+  --body: "Manrope", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f5f4f2; --surface: #ffffff; --surface-2: #efeeeb; --line: #dddad5;
+    --fg: #1c1d20; --muted: #5d636b; --accent: #a23e72; --on-accent: #ffffff;
+    --maybe: #4a5d78; --dont: #b3392e; --code-bg: #ecebe7; color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f5f4f2; --surface: #ffffff; --surface-2: #efeeeb; --line: #dddad5;
+  --fg: #1c1d20; --muted: #5d636b; --accent: #a23e72; --on-accent: #ffffff;
+  --maybe: #4a5d78; --dont: #b3392e; --code-bg: #ecebe7; color-scheme: light;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--body);
+  font-size: 15px; line-height: 1.55; margin: 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 40px 96px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(34px, 5vw, 48px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }
+h2 { font-size: 24px; font-weight: 800; letter-spacing: -0.01em; }
+h3 { font-size: 19px; font-weight: 700; }
+p { margin: 0; }
+.lede { max-width: 68ch; color: var(--muted); font-size: 16.5px; margin-top: 14px; }
+.lede strong { color: var(--fg); font-weight: 600; }
+code, .mono { font-family: var(--mono); font-size: 12.5px; }
+code { background: var(--code-bg); padding: 1px 5px; border-radius: 5px; overflow-wrap: anywhere; }
+.overline { font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; color: var(--muted); }
+
+/* sticky picks bar */
+.bar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  margin: 28px 0 8px; padding: 10px 14px; border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+}
+.tally { display: flex; gap: 14px; font-weight: 600; font-variant-numeric: tabular-nums; font-size: 14px; }
+.tally span b { font-weight: 800; }
+.t-do b { color: var(--accent); } .t-maybe b { color: var(--maybe); } .t-dont b { color: var(--dont); }
+.save-state { color: var(--muted); font-size: 13px; flex: 1 1 200px; min-width: 0; }
+.pill-btn {
+  font: 600 13.5px var(--body); border-radius: 999px; padding: 8px 16px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface-2); color: var(--fg);
+}
+.pill-btn:focus-visible, .pick button:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* sections */
+section.group { margin-top: 56px; display: grid; gap: 22px; }
+.group-head { display: grid; gap: 6px; max-width: 72ch; }
+.group-head p { color: var(--muted); }
+
+/* card */
+.card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 24px;
+  padding: 22px; display: grid; gap: 18px;
+}
+.card-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 12px; }
+.card-head h3 { flex: 1 1 320px; min-width: 0; }
+.tag { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
+.tag.cost { font-variant-numeric: tabular-nums; }
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; }
+.col { display: grid; gap: 12px; align-content: start; min-width: 0; }
+.col > .overline { margin-bottom: -4px; }
+.col ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.col li { padding-left: 2px; }
+.col li::marker { color: var(--muted); }
+.shots { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-start; }
+.shots figure { margin: 0; flex: 1 1 160px; min-width: 0; max-width: 100%; }
+.shots img { display: block; width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--line); }
+.shots.narrow figure { max-width: 300px; }
+figcaption { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+.why { color: var(--muted); font-size: 14px; }
+.files { font-size: 12.5px; color: var(--muted); }
+
+/* picks */
+.pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 14px; border-top: 1px solid var(--line); }
+.pick .label { font-size: 13px; color: var(--muted); font-weight: 600; margin-right: 4px; }
+.pick button {
+  font: 700 13.5px var(--body); padding: 7px 16px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--line); background: transparent; color: var(--fg);
+}
+.pick button[aria-pressed="true"][data-v="do"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.pick button[aria-pressed="true"][data-v="maybe"] { background: var(--maybe); color: var(--bg); border-color: var(--maybe); }
+.pick button[aria-pressed="true"][data-v="dont"] { background: var(--dont); color: var(--bg); border-color: var(--dont); }
+.pick textarea {
+  flex: 1 1 260px; min-width: 0; min-height: 38px; resize: vertical; font: 14px var(--body);
+  color: var(--fg); background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px;
+}
+
+/* plan table */
+.plan { overflow-x: auto; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); }
+.plan table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 14px; }
+.plan th, .plan td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.plan th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 700; }
+.plan tr:last-child td { border-bottom: 0; }
+.plan td:first-child { font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.plan td.size { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* ===== mocks (CSS drawings of the proposals) ===== */
+.mock-stage { border-radius: 14px; border: 1px solid var(--line); padding: 18px; background: #0b0c0e; display: grid; place-items: center; }
+.m-finished {
+  width: 100%; max-width: 360px; border-radius: 28px; padding: 22px 20px 18px; color: #f3eef4;
+  background: radial-gradient(120% 80% at 30% 0%, #5b3a72 0%, #2e2440 55%, #1d1a26 100%);
+  display: grid; gap: 14px; font-family: var(--body); position: relative;
+}
+.m-x { position: absolute; top: 14px; right: 16px; width: 30px; height: 30px; border-radius: 50%; background: rgba(255,255,255,.12); display: grid; place-items: center; font-size: 15px; }
+.m-hero { display: grid; grid-template-columns: 92px 1fr; gap: 16px; align-items: end; }
+.m-cover {
+  aspect-ratio: 2 / 3; border-radius: 6px; position: relative; overflow: hidden;
+  background: radial-gradient(70% 55% at 70% 80%, #e58fb6 0%, rgba(229,143,182,0) 70%), linear-gradient(170deg, #1d2348 0%, #34275a 55%, #6b3a6e 100%);
+  box-shadow: 0 10px 24px rgba(0,0,0,.45);
+}
+.m-cover span { position: absolute; left: 8px; bottom: 16px; font-size: 11px; font-weight: 600; color: #fff; }
+.m-cover i { position: absolute; left: 8px; top: 7px; font-style: normal; font-size: 6px; letter-spacing: .08em; color: #dfe; opacity: .8; }
+.m-eyebrow { font-size: 11px; letter-spacing: .1em; font-weight: 800; color: #f2b8d4; }
+.m-title { font-size: 25px; line-height: 1.05; font-weight: 800; letter-spacing: -0.01em; margin-top: 4px; }
+.m-author { font-size: 13px; color: #cfc6d6; margin-top: 4px; }
+.m-stats { display: flex; flex-wrap: wrap; gap: 6px; }
+.m-stats span { font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 999px; background: rgba(255,255,255,.09); font-variant-numeric: tabular-nums; }
+.m-stars { display: flex; gap: 6px; align-items: center; }
+.m-stars b { font-size: 30px; line-height: 1; color: #f2b8d4; }
+.m-stars b.off { color: rgba(255,255,255,.22); }
+.m-stars em { font-style: normal; font-size: 12.5px; color: #cfc6d6; margin-left: 6px; }
+.m-note { font-size: 13px; color: #cfc6d6; padding: 10px 14px; border-radius: 999px; background: rgba(255,255,255,.07); }
+.m-next { display: grid; grid-template-columns: 44px 1fr auto; gap: 12px; align-items: center; padding: 10px; border-radius: 18px; background: rgba(0,0,0,.22); }
+.m-next .c { aspect-ratio: 2/3; border-radius: 4px; background: linear-gradient(160deg, #e2483c, #f19a3e); }
+.m-next small { display: block; font-size: 11px; color: #cfc6d6; }
+.m-next strong { font-size: 13.5px; }
+.m-btn { font-size: 13px; font-weight: 700; padding: 9px 14px; border-radius: 999px; background: #f2b8d4; color: #3a1530; white-space: nowrap; }
+.m-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.m-btn.tonal { background: rgba(255,255,255,.12); color: #f3eef4; }
+
+.m-opening { width: 100%; max-width: 300px; aspect-ratio: 3 / 4.2; border-radius: 16px; background: #f4ecdc; display: grid; place-items: center; align-content: center; gap: 12px; color: #3b3328; }
+.m-opening .m-cover { width: 84px; }
+.m-opening .t { font-weight: 700; font-size: 15px; }
+.m-opening .a { font-size: 12px; color: #7a6f60; margin-top: -8px; }
+.m-opening .bar2 { width: 84px; height: 3px; border-radius: 3px; background: rgba(59,51,40,.15); overflow: hidden; position: relative; }
+.m-opening .bar2::after { content: ""; position: absolute; inset: 0; width: 40%; border-radius: 3px; background: #a2557e; animation: slide 1.4s ease-in-out infinite; }
+@keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+@media (prefers-reduced-motion: reduce) { .m-opening .bar2::after { animation: none; width: 60%; } }
+
+.m-toasts { display: grid; gap: 10px; justify-items: center; width: 100%; }
+.m-toast { display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 16px; border-radius: 999px; background: #2b2f36; color: #eef0f3; font-size: 13.5px; font-weight: 600; box-shadow: 0 8px 22px rgba(0,0,0,.4); max-width: 100%; }
+.m-toast .ic { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; background: rgba(255,255,255,.12); flex: none; }
+.m-toast .act { color: #f2b8d4; font-weight: 800; padding: 6px 12px; border-radius: 999px; background: rgba(242,184,212,.12); white-space: nowrap; }
+.m-toast.err .ic { background: rgba(239,138,128,.22); color: #ef8a80; }
+.m-toast .txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.m-swatches { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; width: 100%; max-width: 380px; }
+.m-sw { border-radius: 12px; padding: 12px 4px 8px; text-align: center; font-family: Georgia, "Times New Roman", serif; font-size: 20px; border: 1px solid rgba(127,127,127,.3); }
+.m-sw small { display: block; font-family: var(--body); font-size: 10.5px; font-weight: 600; margin-top: 4px; opacity: .8; }
+
+.m-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; width: 100%; max-width: 360px; color: #e8eaed; font-size: 12px; }
+.m-tile .c { aspect-ratio: 2/3; border-radius: 6px; margin-bottom: 6px; }
+.m-tile b { display: block; font-weight: 700; font-size: 12.5px; }
+.m-tile span { color: #9aa3ad; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 760px) {
+  .cols { grid-template-columns: minmax(0, 1fr); }
+  .card { padding: 16px; border-radius: 20px; }
+  .bar { border-radius: 20px; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="overline">yabai &#183; review of 0.17.1 &#183; 24 October 2026</p>
+    <h1 style="margin-top:10px">What the redesign missed</h1>
+    <p class="lede">I ran 0.17.1 (main <code>962ecc29</code>, debug build) on the tablet emulator at 800 dp portrait and 1280 dp landscape in Graphite, over the 21-book Local library, and swept the code for every dialog, sheet, popup and message the app can show. Sections 8.0&#8211;8.9 covered every screen on the boards. <strong>Seven surfaces never reached a board</strong>, and the biggest is the Finished screen you see at the end of every book. Seven more are gaps on screens that were redesigned, and three are things the app doesn't have yet. Each card below shows today's screen next to a proposal. Pick Do, Maybe or Don't. Picks save to this page, the same way the earlier boards worked.</p>
+  </header>
+
+  <div class="bar" role="region" aria-label="Your picks">
+    <div class="tally" aria-live="polite">
+      <span class="t-do"><b id="n-do">0</b> Do</span>
+      <span class="t-maybe"><b id="n-maybe">0</b> Maybe</span>
+      <span class="t-dont"><b id="n-dont">0</b> Don't</span>
+      <span style="color:var(--muted)"><b id="n-open">0</b> open</span>
+    </div>
+    <p class="save-state" id="save-state">Picks are kept in this browser until the page's store answers.</p>
+    <button class="pill-btn" id="copy-picks" type="button">Copy picks</button>
+  </div>
+  <textarea id="copy-fallback" aria-label="Picks as text" hidden style="width:100%;min-height:120px;margin-top:8px;font:13px var(--mono);background:var(--surface-2);color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:10px"></textarea>
+
+  <!-- ================= A ================= -->
+  <section class="group" aria-labelledby="g-a">
+    <div class="group-head">
+      <p class="overline">Group A</p>
+      <h2 id="g-a">Surfaces that were never on a board</h2>
+      <p>These are moments everyone reaches: finishing, opening, the first second after launch, and the small confirmations in between. None of them was mocked in the second pass, so they still use the first pass's look, or Material's.</p>
+    </div>
+
+    <article class="card" data-card="finished" data-title="Finished screen">
+      <div class="card-head"><h3>A1 &#183; The Finished screen</h3><span class="tag">reader-core &#183; journal</span><span class="tag cost">M</span></div>
+      <div class="cols">
+        <div class="col">
+          <p class="overline">Today</p>
+          <div class="shots">
+            <figure><img src="img/finished-crop.jpg" alt="Today's Finished dialog: a dialog titled Finished holding an outlined card with the cover, title, author, Local &#183; EPUB, Finished, No rating, five outline stars, a Private review field, Close and Save review"><figcaption>An EPUB, after dragging the dock to the end.</figcaption></figure>
+            <figure><img src="img/finished-comic.jpg" alt="The same dialog over a comic whose dock is yellow from the cover, while the dialog stays blue-grey"><figcaption>A comic: the dock takes the cover's yellow, but the dialog doesn't.</figcaption></figure>
+          </div>
+          <ul>
+            <li>It's a card inside a dialog. "Finished" appears twice, once as the title and once on the card. "Local &#183; EPUB" is file information, not something a reader needs at this moment.</li>
+            <li>The stars and the dialog's text field and buttons are the old journal card (<code>JournalItemReviewCard</code>). Nothing else uses that card since 8.9. The stars and Save review use the app's accent, not the cover's.</li>
+            <li>It shows no numbers, although the journal knows the sessions, days and time for this book. Nothing marks the moment either: no motion and no haptic.</li>
+            <li>"Start next" appears only for Kavita lists and server series. Local comics (Star Courier #1 &#8594; #2) get no next issue.</li>
+            <li>Dragging the slider to the end opens it, so scrubbing counts as finishing. On the last EPUB page the dock says 99% at "p. 73 / 73".</li>
+          </ul>
+          <p class="files"><code>ReaderCompletionDialog.kt</code>, <code>JournalItemReviewCard.kt</code>, host in <code>UnifiedReaderRoute.kt:270</code>, next item in <code>AppReaderCoordinator.kt:450</code></p>
+        </div>
+        <div class="col">
+          <p class="overline">Proposal</p>
+          <div class="mock-stage">
+            <div class="m-finished" aria-label="Mock of the proposed Finished screen">
+              <div class="m-x" aria-hidden="true">&#10005;</div>
+              <div class="m-hero">
+                <div class="m-cover"><i>J. R. OKAFOR</i><span>Glass Meridian</span></div>
+                <div><div class="m-eyebrow">FINISHED</div><div class="m-title">Glass Meridian</div><div class="m-author">J. R. Okafor</div></div>
+              </div>
+              <div class="m-stats"><span>6 days</span><span>5 sessions</span><span>4 h 12 min</span><span>9th this month</span></div>
+              <div class="m-stars"><b>&#9733;</b><b>&#9733;</b><b>&#9733;</b><b>&#9733;</b><b class="off">&#9733;</b><em>Tap to change</em></div>
+              <div class="m-note">Add a private note&#8230;</div>
+              <div class="m-next"><div class="c"></div><div><small>Up next &#183; 2 of 3</small><strong>Star Courier #2</strong></div><div class="m-btn">Read next</div></div>
+              <div class="m-actions"><div class="m-btn tonal">Back to library</div></div>
+            </div>
+          </div>
+          <ul>
+            <li>One surface with no inner card. On tablets it's a 440 dp card at 28 dp corners, tinted by the book's cover colours (8.6). On phones it's a bottom sheet.</li>
+            <li>A 92 dp cover, the overline "Finished", the title in sheetTitle (26 Bold) and the author.</li>
+            <li>The book's journal numbers as chips: days, sessions, time, and the place in the month ("Read in one sitting" for a single session).</li>
+            <li>The journal's star editor at 40 dp in the cover accent. A tap saves, as it does today. The note starts as a one-line pill and opens into the field when tapped.</li>
+            <li>When there is a next item, "Read next" is the filled pill and "Back to library" is tonal. Without one, "Back to library" is the only button. The &#10005; keeps you on the last page.</li>
+            <li>On open, the cover rises 12 dp and the stars come in one after another on <code>AppMotion.spatial</code>, with one confirm haptic. No confetti.</li>
+            <li>Maybe: open it when you turn past the last page, not when the slider lands there. Show 100% on the last page.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="opening" data-title="Opening a book and reader errors">
+      <div class="card-head"><h3>A2 &#183; Opening a book, and when it can't open</h3><span class="tag">reader-core &#183; all readers</span><span class="tag cost">S&#8211;M</span></div>
+      <div class="cols">
+        <div class="col">
+          <p class="overline">Today</p>
+          <div class="shots"><figure><img src="img/opening.jpg" alt="Four frames: the library, a black screen saying Opening EPUB with Readium with a tiny spinner and Back, the bars over a black page, then the text"><figcaption>Tap Continue &#8594; "Opening EPUB with Readium&#8230;" &#8594; the bars over black &#8594; the page.</figcaption></figure></div>
+          <ul>
+            <li>You see three different screens before the page. The words are developer words: "Restoring EPUB state&#8230;", "Opening EPUB with Readium&#8230;", "Restoring EPUB position&#8230;".</li>
+            <li>The background is black whatever the reading theme is, so a Light page flashes dark first.</li>
+            <li>Errors have no way forward. Comics say "No comic pages available" with no Back button. PDF shows plain text ("Unable to open this PDF.") with no retry. An unsupported format gets its own old top bar.</li>
+          </ul>
+          <p class="files"><code>EpubReaderEntry.kt:122/486/598</code>, <code>ComicsReaderState.kt:212</code>, <code>PdfReaderEntry.kt:606</code>, <code>ReaderHost.kt:107</code></p>
+        </div>
+        <div class="col">
+          <p class="overline">Proposal</p>
+          <div class="mock-stage" style="background:#1a1814">
+            <div class="m-opening" aria-label="Mock of the proposed opening state on a paper page">
+              <div class="m-cover"><i>J. R. OKAFOR</i><span>Glass Meridian</span></div>
+              <div class="t">Glass Meridian</div>
+              <div class="a">J. R. Okafor</div>
+              <div class="bar2" aria-hidden="true"></div>
+            </div>
+          </div>
+          <ul>
+            <li>All three readers share one opening state in reader-core: the reading theme's page colour, the cover at grid size, the title and author, and a 3 dp accent line that moves. No words for the first 600 ms. After that, "Opening&#8230;" or "Finding your page&#8230;".</li>
+            <li>The cover could fade straight into the page, still without the rejected zoom. The bars appear once, then hide as they do today.</li>
+            <li>Errors use <code>AppEmptyState</code> inside the reader frame: "Couldn't open this book", the reason in plain words, Try again (filled) and Back to library (tonal). Server books also get "Download again". The unsupported-format screen moves onto <code>ReaderTopBar</code>.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="toasts" data-title="Feedback toasts (AppToast)">
+      <div class="card-head"><h3>A3 &#183; Confirmations: one toast for the whole app</h3><span class="tag">core:ui-components &#183; app</span><span class="tag cost">M</span></div>
+      <div class="cols">
+        <div class="col">
+          <p class="overline">Today</p>
+          <div class="shots narrow"><figure><img src="img/settings-snackbar.jpg" alt="Settings hub with a pale grey Material snackbar reading Updated to 0.17.1 at the bottom"><figcaption>"Updated to 0.17.1": a pale Material slab on a dark theme.</figcaption></figure></div>
+          <ul>
+            <li><code>AppSnackbar</code> is Material's Snackbar in its default colours (<code>inverseSurface</code>). 8.2 never restyled it.</li>
+            <li>Many actions give no response at all. Importing a file has no progress and no "added". Mark as read and Mark unread have no Undo, even though Mark unread deletes the book's journal events. "Already downloading" and "queued" messages are built and then thrown away (<code>AppRemoteDownloadController.kt:29/50</code>).</li>
+          </ul>
+        </div>
+        <div class="col">
+          <p class="overline">Proposal</p>
+          <div class="mock-stage">
+            <div class="m-toasts" aria-label="Mock of proposed toasts">
+              <div class="m-toast"><span class="ic">&#10003;</span><span class="txt">Marked Glass Meridian as read</span><span class="act">Undo</span></div>
+              <div class="m-toast"><span class="ic">&#8595;</span><span class="txt">Downloading 3 issues</span><span class="act">View</span></div>
+              <div class="m-toast err"><span class="ic">!</span><span class="txt">Couldn't send progress to Kavita</span><span class="act">Retry</span></div>
+            </div>
+          </div>
+          <ul>
+            <li><code>AppToast</code> in the kit: a 48 dp pill in <code>surfaceContainerHighest</code> with a 20 dp icon, 14 SemiBold text and an optional accent action. It rises 16 dp on spatial, shows one at a time for 4 s (6 s with an action), and can be swiped away. It sits above the reader dock or the navigation bar.</li>
+            <li>Errors keep the same pill with a red icon, instead of an <code>errorContainer</code> slab.</li>
+            <li>Uses: "Added <i>title</i> &#183; Open", "Marked as read &#183; Undo", "Downloading 3 issues &#183; View", "Already downloading", "Removed download &#183; Undo", the sync failure with Retry, and "Updated to x &#183; What's new".</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="splash" data-title="Cold start and splash">
+      <div class="card-head"><h3>A4 &#183; The first second: splash and window background</h3><span class="tag">app</span><span class="tag cost">S</span></div>
+      <div class="cols">
+        <div class="col">
+          <p class="overline">Today</p>
+          <div class="shots"><figure><img src="img/coldstart.jpg" alt="Cold start frames: home screen, white system splash with the cat icon, a washed-out grey frame of the library skeleton, then the dark library"><figcaption>A cold start in Graphite: a white splash, a grey half-faded frame, then the dark library.</figcaption></figure></div>
+          <ul>
+            <li>No splash is configured: no <code>core-splashscreen</code> and no <code>windowSplashScreen*</code>. The theme is <code>Theme.AppCompat.DayNight</code> with no <code>windowBackground</code>. Android draws its own white splash, which then fades into a dark app.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <p class="overline">Proposal</p>
+          <ul>
+            <li>Add <code>core-splashscreen</code>. The background is the saved theme's background colour and the icon is the launcher mark. On Android 13+, <code>SplashScreen.setSplashScreenTheme</code> remembers a light or dark splash style each time the theme changes, so the next cold start already matches. Older versions follow <code>values-night</code>.</li>
+            <li>Set <code>windowBackground</code> to the same colour so no white frame shows before Compose draws.</li>
+            <li>Exit: the icon fades as the library header's title comes in on effects. No custom animation beyond that.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="shelf-browser" data-title="Shelf browser (See all)">
+      <div class="card-head"><h3>A5 &#183; "See all": the shelf browser kept the old tile</h3><span class="tag">feature:library-shelves</span><span class="tag cost">S&#8211;M</span></div>
+      <div class="cols">
+        <div class="col">
+          <p class="overline">Today</p>
+          <div class="shots"><figure><img src="img/seeall.jpg" alt="In progress shelf browser: tiles with a third line reading Resume from saved location - EPUB - Local, truncated"><figcaption>"Resume from saved locatio&#8230;", "Resume on page 1 of 8 - 8 pa&#8230;"</figcaption></figure>
+          <figure><img src="img/home-shelf.jpg" alt="Home shelf strip tiles with 0% &#183; 1/73"><figcaption>The same books on the home strip: "0% &#183; 1/73".</figcaption></figure></div>
+          <ul>
+            <li>The browser's tiles carry a third line from <code>AppProgressSummaries.kt:85/122</code>. It is cut off, uses " - " as a separator, and says nothing the home grid doesn't.</li>
+            <li>Its empty state is plain text ("No shelf items"), not <code>AppEmptyState</code>.</li>
+            <li>The only way to another shelf is Back, then a tab, then See all again.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <p class="overline">Proposal</p>
+          <ul>
+            <li>Use the home grid's tile everywhere: title, author, the progress pill. The third line goes.</li>
+            <li>Put the three shelf tabs at the top (In progress 25 &#183; Up next 1 &#183; Finished 7) as the same pills as on the home band, so See all switches shelves in place. The shelf name and count stay in the bar.</li>
+            <li>Empty shelves use <code>AppEmptyState</code>: "Nothing in progress" with "Browse the library".</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+
+    <article class="card" data-card="footnote" data-title="EPUB footnotes">
+      <div class="card-head"><h3>A6 &#183; Footnotes look like app dialogs, not like the book</h3><span class="tag">reader-epub</span><span class="tag cost">S</span></div>
+      <div class="cols">
+        <div class="col">
+          <p class="overline">Today (code only; no emulator book has notes)</p>
+          <ul>
+            <li>A centred <code>AppPanel</code> at most 420 &#215; 260 dp over a 32% scrim. It uses the app's Manrope at 14 sp in app colours, a <code>labelLarge</code> title, and a "Close" text button. It predates the 8.2 dialog and panel shapes.</li>
+            <li>A long note scrolls inside a 260 dp box in the middle of the page, away from where you were reading.</li>
+          </ul>
+          <p class="files"><code>EpubFootnotePopup.kt:70</code></p>
+        </div>
+        <div class="col">
+          <p class="overline">Proposal</p>
+          <ul>
+            <li>Show the note in the book's own font, size and page colour, as a card that rises from the bottom of the page (560 dp wide at most, 26 dp corners, the kit's handle). Swipe it down or tap the page to close it.</li>
+            <li>When the note is a chapter endnote, add a "Go to note" link that jumps there and lets Back return you.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="journal-plus" data-title="Journal's + button">
+      <div class="card-head"><h3>A7 &#183; The journal's "+" opens a file picker</h3><span class="tag">feature:journal</span><span class="tag cost">S</span></div>
+      <div class="cols">
+        <div class="col">
+          <p class="overline">Today</p>
+          <div class="shots"><figure><img src="img/journal-plus.jpg" alt="Journal screen with a plus in the top bar, and the Android file picker it opens"><figcaption>The "+" in the Journal bar &#8594; Android's Files picker (an import).</figcaption></figure></div>
+        </div>
+        <div class="col">
+          <p class="overline">Proposal</p>
+          <ul>
+            <li>Remove it from the Journal. Import already lives in the library's &#8226;&#8226;&#8226; menu and its empty state.</li>
+            <li>Or, if you want a "+" here, give it a job that belongs to the journal: "Add a book you read elsewhere", a manual entry with a title, dates and a rating. That would be a new feature.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ================= B ================= -->
+  <section class="group" aria-labelledby="g-b">
+    <div class="group-head">
+      <p class="overline">Group B</p>
+      <h2 id="g-b">Polish on screens the second pass already redesigned</h2>
+      <p>These are gaps that showed up on the emulator today on screens the boards already covered, plus the reader's own page, which the boards covered only through its menus.</p>
+    </div>
+
+    <article class="card" data-card="book-page-reading" data-title="Book page: Your reading">
+      <div class="card-head"><h3>B1 &#183; The book page doesn't know what you thought of the book</h3><span class="tag">feature:library &#183; journal</span><span class="tag cost">M</span></div>
+      <div class="cols">
+        <div class="col">
+          <p class="overline">Today</p>
+          <div class="shots"><figure><img src="img/bookpage.jpg" alt="Two book pages: Glass Meridian with Continue and Remove file, About Format EPUB; The Lantern Keepers with Start reading and Remove file"><figcaption>Local books: About holds only "Format EPUB". The second book is rated 3.5 in the journal.</figcaption></figure></div>
+          <ul>
+            <li>Below the top block, a local book has one fact, "Format EPUB", and then empty space.</li>
+            <li>Your rating and note live only in the journal. The book page never shows them, even for a book you finished and rated.</li>
+            <li>"Remove file" is a full-width button with the same weight as Continue.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <p class="overline">Proposal</p>
+          <ul>
+            <li>Add a "Your reading" section built from the journal: the stars (the same editor as A1, tap to rate), your note, "Started 18 Oct &#183; Finished 24 Oct", sessions and time, and "Read again" once finished.</li>
+            <li>Local books also get the facts the file has: pages or chapters, the date added, and the series and number from ComicInfo.</li>
+            <li>Remove file becomes a quiet row at the end of the page ("Remove from library", in the error colour) and keeps its confirm dialog.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="tile-meta" data-title="Tile baselines and one meta format">
+      <div class="card-head"><h3>B2 &#183; Tiles: one baseline and one progress format</h3><span class="tag">feature:library</span><span class="tag cost">S</span></div>
+      <div class="cols">
+        <div class="col">
+          <p class="overline">Today</p>
+          <div class="shots"><figure><img src="img/tiles-baseline.jpg" alt="Grid row where Star Courier with 13% sits higher than Quiet Engines and Paper Cranes in Winter"><figcaption>"Star Courier &#183; 13%" sits 6 dp above its neighbours' titles.</figcaption></figure></div>
+          <ul>
+            <li>A tile with a progress line centres two lines in the label area, so the titles in a row don't line up.</li>
+            <li>The same book reads "29%" in the grid, "25% &#183; 2/8" on the shelf strip, and "0% &#183; 1/73" for a book that was only opened. Books at 0% count toward "In progress 28".</li>
+          </ul>
+        </div>
+        <div class="col">
+          <p class="overline">Proposal</p>
+          <div class="mock-stage">
+            <div class="m-tiles" aria-label="Mock of three tiles sharing a title baseline">
+              <div class="m-tile"><div class="c" style="background:linear-gradient(160deg,#e2483c,#f19a3e)"></div><b>Star Courier #2</b><span>13%</span></div>
+              <div class="m-tile"><div class="c" style="background:#efe9de"></div><b>Quiet Engines</b><span>&nbsp;</span></div>
+              <div class="m-tile"><div class="c" style="background:#2f3a52"></div><b>&#1057;&#1077;&#1074;&#1077;&#1088;&#1085;&#1099;&#1081; &#1074;&#1077;&#1090;&#1077;&#1088;</b><span>Just started</span></div>
+            </div>
+          </div>
+          <ul>
+            <li>Titles sit at the top of the label on one shared baseline, and the meta line hangs below. The tile height doesn't change.</li>
+            <li>One format everywhere: the percentage. Below 1% it reads "Just started". The page count moves to the book page.</li>
+            <li>Maybe: a book counts as In progress only from 1%. Below that it stays under Up next.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="comic-labels" data-title="Comic issue labels and Local series">
+      <div class="card-head"><h3>B3 &#183; Two tiles called "Star Courier"</h3><span class="tag">core:model &#183; library</span><span class="tag cost">S, then M</span></div>
+      <div class="cols">
+        <div class="col">
+          <p class="overline">Today</p>
+          <div class="shots"><figure><img src="img/search-comics.jpg" alt="Search results: two tiles both labelled Star Courier"><figcaption>Search "Star": two tiles named "Star Courier".</figcaption></figure>
+          <figure><img src="img/grid-comics.jpg" alt="Grid with three Neon Ronin tiles"><figcaption>Three tiles named "Neon Ronin" in the grid.</figcaption></figure></div>
+          <ul>
+            <li>The issue number appears only in the cover art. Local comics never stack into a series, so they get no series view, no series stack, and no "Read next" at the end of an issue.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <p class="overline">Proposal</p>
+          <ul>
+            <li>Step 1 (S): a comic tile that isn't stacked names its issue or volume: "Star Courier #2", "Ashfall Academy &#183; Vol. 3". This uses the same rules as <code>comicReaderTitles</code>.</li>
+            <li>Step 2 (M): group Local comics into series from ComicInfo's Series and Number, or failing that from the file-name pattern (<code>Star-Courier-002</code>), so they stack like server series and A1 can offer the next issue.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="page-colours" data-title="Reading page colours and settings units">
+      <div class="card-head"><h3>B4 &#183; Reading settings: more page colours, values a reader understands</h3><span class="tag">reader-epub</span><span class="tag cost">S&#8211;M</span></div>
+      <div class="cols">
+        <div class="col">
+          <p class="overline">Today</p>
+          <div class="shots narrow"><figure><img src="img/epub-settings.jpg" alt="Reading settings panel: page colour Follow app, Light, Dark; sliders labelled 1.50, 1.00x, 0.0 rem, 1.0 rem"><figcaption>Page colour: Follow app, Light, Dark. Values: "1.50", "1.00x", "0.0 rem".</figcaption></figure></div>
+          <ul>
+            <li>There is no sepia or paper colour, which most people expect from a reading app. The swatch colours are hard-coded in <code>EpubReaderPreferencesPane.kt:437</code>.</li>
+            <li>Margins, paragraph spacing and indent show CSS units.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <p class="overline">Proposal</p>
+          <div class="mock-stage" style="background:var(--surface-2)">
+            <div class="m-swatches" aria-label="Mock of five page colour swatches">
+              <div class="m-sw" style="background:#fbfaf7;color:#222">Aa<small>Paper</small></div>
+              <div class="m-sw" style="background:#f3e7cf;color:#4a3a22">Aa<small>Sepia</small></div>
+              <div class="m-sw" style="background:#d9d9d6;color:#2a2a2a">Aa<small>Grey</small></div>
+              <div class="m-sw" style="background:#22252a;color:#d8d6d0">Aa<small>Dusk</small></div>
+              <div class="m-sw" style="background:#000;color:#bdbdbd;outline:2px solid #e9a6c6;outline-offset:2px">Aa<small>Black</small></div>
+            </div>
+          </div>
+          <ul>
+            <li>Six swatches: Follow app plus the five above, each drawn in the chosen font. The colours become tokens in <code>core:ui-theme</code>.</li>
+            <li>Margins as Narrow &#183; Normal &#183; Wide in an <code>AppSegmentedRow</code>. Paragraph spacing and indent as None &#183; Small &#183; Medium &#183; Large. Line height stays a slider labelled "1.5&#215;".</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="page-frame" data-title="EPUB page frame">
+      <div class="card-head"><h3>B5 &#183; The page itself: margins and a chapter line</h3><span class="tag">reader-epub</span><span class="tag cost">S&#8211;M</span></div>
+      <div class="cols">
+        <div class="col">
+          <p class="overline">Today</p>
+          <div class="shots narrow"><figure><img src="img/epub-page.jpg" alt="Immersive EPUB page: text starts very near the top, wide side margins, a deep empty band at the bottom, page number 22 / 73"><figcaption>About 30 dp above the text, about 90 dp at each side, and a deep empty band at the bottom.</figcaption></figure></div>
+        </div>
+        <div class="col">
+          <p class="overline">Proposal</p>
+          <ul>
+            <li>Make the top and bottom margins match: the space above the first line equals the strip that holds the page number.</li>
+            <li>Maybe: the chapter title in the top strip at 11.5 sp in the page's muted colour, so the page number has a partner. This keeps your earlier decision of no clock and no battery.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="kit-drift" data-title="Kit drift sweep">
+      <div class="card-head"><h3>B6 &#183; Places that bypass the kit</h3><span class="tag">several modules</span><span class="tag cost">S</span></div>
+      <div class="cols">
+        <div class="col">
+          <p class="overline">Today (code)</p>
+          <ul>
+            <li><code>ButtonDefaults</code> colour overrides: the selection bar (<code>LibraryTopBarControls.kt:162</code>, with fixed 40 dp and 18 sp sizes), the reading card, the book page, the journal's "Remove from journal" (<code>JournalSheet.kt:421</code>), and <code>AppUpdateHost.kt:121</code>.</li>
+            <li>The Kavita lists filter dialog (<code>LibraryFilterComponents.kt:226</code>) is a custom dialog that uses <code>AppTextField</code> where it should use <code>AppSearchField</code>.</li>
+            <li>The comics reader's background is hard-coded <code>#0A0D11</code> in three files and ignores the theme. The cover check uses <code>Color.White</code> and <code>Color.Black</code>.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <p class="overline">Proposal</p>
+          <ul>
+            <li>Move each of these onto kit pieces: cover-tinted variants in <code>AppButtonDefaults</code>, <code>AppSearchField</code>, an <code>AppDialog</code> with a list slot, and a <code>readerCanvas</code> colour token.</li>
+            <li>Extend <code>FeatureMaterialImportRuleTest</code> to forbid <code>ButtonDefaults</code> outside the kit, the same way it already forbids the shapes.</li>
+            <li>The only visible change is the comics canvas following the theme. Its default stays near-black.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="identity" data-title="App identity: drawer wordmark and icon">
+      <div class="card-head"><h3>B7 &#183; Where does "yabai" appear?</h3><span class="tag">navigation &#183; app</span><span class="tag cost">S</span></div>
+      <div class="cols">
+        <div class="col">
+          <p class="overline">Today</p>
+          <div class="shots narrow"><figure><img src="img/drawer.jpg" alt="Drawer headed Library with a small Sources label, Local, Add a server, Journal and Settings"><figcaption>The drawer opens on "Library / Sources".</figcaption></figure></div>
+          <ul>
+            <li>The app's name appears nowhere except the launcher. The icon is a cat on a manga volume marked &#12510;&#12531;&#12460; on a cream background, which reads as a manga-only app.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <p class="overline">Proposal</p>
+          <ul>
+            <li>Put a small "yabai" wordmark (Manrope ExtraBold, 22 sp) with the mark at the top of the drawer and the first-launch page. "Sources" stays as the section heading.</li>
+            <li>Maybe, and your call: keep the cat but redraw the book so it reads as books and comics. The themed monochrome icon already exists.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ================= C ================= -->
+  <section class="group" aria-labelledby="g-c">
+    <div class="group-head">
+      <p class="overline">Group C</p>
+      <h2 id="g-c">Things that would make it feel native to current Android</h2>
+      <p>None of these exist today. They are where an app reads as current rather than just tidy.</p>
+    </div>
+
+    <article class="card" data-card="notifications" data-title="Download notifications">
+      <div class="card-head"><h3>C1 &#183; Downloads you can see outside the app</h3><span class="tag">app &#183; downloads</span><span class="tag cost">M</span></div>
+      <div class="cols">
+        <div class="col">
+          <p class="overline">Today (code)</p>
+          <ul>
+            <li>The app has no notification channel and no notification of any kind. <code>RemoteDownloadWorker</code> is a plain <code>CoroutineWorker</code> with no foreground notice. Leave the app during a 24-file download and you can't see it, and Android may stop the work.</li>
+          </ul>
+        </div>
+        <div class="col">
+          <p class="overline">Proposal</p>
+          <ul>
+            <li>A "Downloads" channel. A progress notification shows the series cover, "Star Courier &#183; 12 of 24 files" and Stop. When it finishes, "Ready to read" opens the book page.</li>
+            <li>The first download asks for notification permission (Android 13+) in an <code>AppDialog</code> that says why, never at launch.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="widget-shortcuts" data-title="Shortcuts and a Continue reading widget">
+      <div class="card-head"><h3>C2 &#183; Continue reading from the home screen</h3><span class="tag">app (new Glance module)</span><span class="tag cost">S, then L</span></div>
+      <div class="cols">
+        <div class="col">
+          <p class="overline">Today</p>
+          <ul><li>Long-pressing the icon shows only Android's defaults. There is no widget.</li></ul>
+        </div>
+        <div class="col">
+          <p class="overline">Proposal</p>
+          <ul>
+            <li>Step 1 (S): dynamic shortcuts. "Continue <i>Glass Meridian</i>" with its cover as the icon, plus Search and Journal.</li>
+            <li>Step 2 (L): a "Continue reading" widget in Glance. The cover, the title and the progress, tinted by the cover colour, with a tap to open. At larger sizes it shows the In progress strip.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="haptics" data-title="Haptics">
+      <div class="card-head"><h3>C3 &#183; A small haptic vocabulary</h3><span class="tag">core:ui-components</span><span class="tag cost">S</span></div>
+      <div class="cols">
+        <div class="col">
+          <p class="overline">Today</p>
+          <ul><li>Only the journal's stars give haptic feedback (<code>JournalRatingEditor.kt</code>).</li></ul>
+        </div>
+        <div class="col">
+          <p class="overline">Proposal</p>
+          <ul>
+            <li><code>AppHaptics</code> in the kit:
+              <ul>
+                <li>a light tick when the dock's slider crosses a chapter mark</li>
+                <li>a confirm on Finished (A1)</li>
+                <li>a tick on long-press selection</li>
+                <li>a tick on segment changes and on reaching the end of a drag-to-reorder</li>
+              </ul>
+            </li>
+            <li>All of them follow the system's touch-feedback setting.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ================= plan ================= -->
+  <section class="group" aria-labelledby="g-plan">
+    <div class="group-head">
+      <p class="overline">Proposed order</p>
+      <h2 id="g-plan">Section 9 of the redesign plan</h2>
+      <p>The rule from section 8 still applies: each Do gets a mock before it is built and is judged on the tablet before the next step. The order puts the moments everyone sees first. Only C1 and C2 add runtime work, so those two need <code>LibraryPerf</code> numbers or battery checks.</p>
+    </div>
+    <div class="plan">
+      <table>
+        <thead><tr><th>Step</th><th>What</th><th>Cards</th><th>Size</th><th>Depends on</th></tr></thead>
+        <tbody>
+          <tr><td>9.1</td><td>The Finished screen, 100% on the last page, and the finish trigger</td><td>A1</td><td class="size">M</td><td>The journal's per-book numbers (a pure function over the snapshot) and 8.6 cover colours</td></tr>
+          <tr><td>9.2</td><td>The opening state and reader errors in reader-core</td><td>A2</td><td class="size">S&#8211;M</td><td>Nothing; can run beside 9.1</td></tr>
+          <tr><td>9.3</td><td><code>AppToast</code> and its uses (import, undo, downloads, sync, update)</td><td>A3, C3</td><td class="size">M</td><td>Nothing; the haptics fit in here</td></tr>
+          <tr><td>9.4</td><td>Splash and window background, and the drawer wordmark</td><td>A4, B7</td><td class="size">S</td><td>Nothing</td></tr>
+          <tr><td>9.5</td><td>The shelf browser on the home tile, tile baselines, one meta format, and comic issue labels</td><td>A5, B2, B3 step 1</td><td class="size">S&#8211;M</td><td>Nothing</td></tr>
+          <tr><td>9.6</td><td>Book page "Your reading", Remove as a quiet row, and the journal "+"</td><td>B1, A7</td><td class="size">M</td><td>9.1 (shares the star editor)</td></tr>
+          <tr><td>9.7</td><td>The reading page: colours, units, footnote card and margins</td><td>B4, B5, A6</td><td class="size">M</td><td>Nothing</td></tr>
+          <tr><td>9.8</td><td>Local comics grouped into series</td><td>B3 step 2</td><td class="size">M</td><td>9.5; lets 9.1 offer the next issue</td></tr>
+          <tr><td>9.9</td><td>The kit drift sweep and the rule test</td><td>B6</td><td class="size">S</td><td>Last, after the steps above have touched the same files</td></tr>
+          <tr><td>9.10</td><td>Download notifications, shortcuts, then the widget</td><td>C1, C2</td><td class="size">M&#8211;L</td><td>The widget reuses 8.6 colours; tablet battery check</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="group" aria-labelledby="g-gaps">
+    <div class="group-head">
+      <p class="overline">Not design, but you'll notice</p>
+      <h2 id="g-gaps">Features a reader app of 2026 has and yabai doesn't</h2>
+      <p>These need product decisions before any design work, so they have no picks. In the EPUB reader there is no search inside the book, no bookmarks, and no highlights or notes. A long press goes to Android's own text selection (<code>PageCurlDragGesture.kt:32</code>), and there is no dictionary or translate panel of the app's own. Each of these would get its own board.</p>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  const STORE_KEY = "yabai-third-pass-picks";
+  const cards = Array.from(document.querySelectorAll("[data-card]"));
+  const labels = { do: "Do", maybe: "Maybe", dont: "Don't" };
+  let picks = {};
+  try { picks = JSON.parse(localStorage.getItem(STORE_KEY) || "{}") || {}; } catch (e) { picks = {}; }
+  let db = null;
+  const pending = {};
+
+  function saveLocal() { try { localStorage.setItem(STORE_KEY, JSON.stringify(picks)); } catch (e) {} }
+  function setState(text) { document.getElementById("save-state").textContent = text; }
+
+  function tally() {
+    const n = { do: 0, maybe: 0, dont: 0 };
+    cards.forEach(c => { const p = picks[c.dataset.card]; if (p && n[p.choice] !== undefined) n[p.choice]++; });
+    document.getElementById("n-do").textContent = n.do;
+    document.getElementById("n-maybe").textContent = n.maybe;
+    document.getElementById("n-dont").textContent = n.dont;
+    document.getElementById("n-open").textContent = cards.length - n.do - n.maybe - n.dont;
+  }
+
+  function paint(card) {
+    const p = picks[card.dataset.card] || {};
+    card.querySelectorAll(".pick button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === p.choice)));
+    const ta = card.querySelector(".pick textarea");
+    if (ta && document.activeElement !== ta) ta.value = p.note || "";
+  }
+
+  function write(id) {
+    if (!db) { saveLocal(); return; }
+    const p = picks[id];
+    const run = () => db.collection("picks").doc(id).set({
+      choice: p.choice || null, note: p.note || "", title: p.title || id, updatedAt: p.updatedAt || Date.now()
+    }).then(() => { p.synced = true; saveLocal(); setState("Saved to this page."); })
+      .catch(err => { setState(err && err.code === "invalid_argument" ? "This page is read-only for you; picks stay in this browser. Use Copy picks." : "Couldn't save just now; your pick is kept in this browser."); });
+    pending[id] = (pending[id] || Promise.resolve()).then(run, run);
+  }
+
+  function update(card, patch) {
+    const id = card.dataset.card;
+    picks[id] = Object.assign({}, picks[id], patch, { title: card.dataset.title, updatedAt: Date.now(), synced: false });
+    saveLocal(); paint(card); tally(); write(id);
+  }
+
+  cards.forEach(card => {
+    const row = document.createElement("div");
+    row.className = "pick";
+    row.innerHTML = '<span class="label">Your pick</span>' +
+      ["do", "maybe", "dont"].map(v => '<button type="button" data-v="' + v + '" aria-pressed="false">' + labels[v] + "</button>").join("") +
+      '<textarea id="note-' + card.dataset.card + '" rows="1" placeholder="Note (optional)" aria-label="Note for ' + card.dataset.title.replace(/"/g, "") + '"></textarea>';
+    card.appendChild(row);
+    row.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+      const cur = (picks[card.dataset.card] || {}).choice;
+      update(card, { choice: cur === b.dataset.v ? null : b.dataset.v });
+    }));
+    const ta = row.querySelector("textarea");
+    let t = null;
+    ta.addEventListener("input", () => { clearTimeout(t); t = setTimeout(() => update(card, { note: ta.value }), 700); });
+    ta.addEventListener("change", () => { clearTimeout(t); if ((picks[card.dataset.card] || {}).note !== ta.value) update(card, { note: ta.value }); });
+    paint(card);
+  });
+  tally();
+
+  document.getElementById("copy-picks").addEventListener("click", () => {
+    const lines = cards.map(c => {
+      const p = picks[c.dataset.card] || {};
+      const head = c.querySelector("h3").textContent.split(" \u00b7 ")[0];
+      return head + " " + c.dataset.title + ": " + (p.choice ? labels[p.choice] : "-") + (p.note ? " (" + p.note.trim() + ")" : "");
+    }).join("\n");
+    const btn = document.getElementById("copy-picks");
+    const fallback = () => { const ta = document.getElementById("copy-fallback"); ta.hidden = false; ta.value = lines; ta.focus(); ta.select(); btn.textContent = "Select and copy"; };
+    try {
+      navigator.clipboard.writeText(lines).then(() => { btn.textContent = "Copied"; setTimeout(() => btn.textContent = "Copy picks", 1600); }, fallback);
+    } catch (e) { fallback(); }
+  });
+
+  (async () => {
+    try { db = window.claude && window.claude.use ? await window.claude.use("db") : null; } catch (e) { db = null; }
+    if (!db) { setState("Picks are saved in this browser only. Use Copy picks to send them."); return; }
+    setState("Connected. Picks save to this page.");
+    let first = true;
+    db.collection("picks").onSnapshot(snap => {
+      snap.docs.forEach(d => {
+        const remote = d.data() || {};
+        const local = picks[d.id];
+        if (!local || (remote.updatedAt || 0) >= (local.updatedAt || 0)) {
+          picks[d.id] = Object.assign({}, remote, { synced: true });
+        }
+      });
+      if (first) {
+        first = false;
+        Object.keys(picks).forEach(id => { if (picks[id] && !picks[id].synced) write(id); });
+      }
+      saveLocal(); cards.forEach(paint); tally();
+    }, () => setState("The page's store stopped answering; picks stay in this browser."));
+  })();
+})();
+</script>

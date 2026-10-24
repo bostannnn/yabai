@@ -1,0 +1,589 @@
+<meta charset="utf-8">
+<title>yabai Finished Screen</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Serif:wght@400;500&display=swap">
+<style>
+/* Layout: a board of decision cards; each card shows the mock at real dp sizes (scaled to fit) beside its spec, with a pick row. Dark-first like the app's Graphite. */
+:root {
+  --bg: #121417;
+  --surface: #1b1e23;
+  --surface-2: #23272d;
+  --line: #2f343b;
+  --fg: #e8eaed;
+  --muted: #9aa3ad;
+  --accent: #e9a6c6;
+  --on-accent: #2a1020;
+  --maybe: #b8c7da;
+  --dont: #ef8a80;
+  --stage: #0b0c0e;
+  --ui: "Manrope", "Segoe UI", system-ui, sans-serif;
+  --book: "Noto Serif", Georgia, "Times New Roman", serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f5f4f2; --surface: #ffffff; --surface-2: #efeeeb; --line: #dddad5; --fg: #1c1d20; --muted: #5d636b;
+    --accent: #a23e72; --on-accent: #ffffff; --maybe: #4a5d78; --dont: #b3392e; --stage: #e4e2de; color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f5f4f2; --surface: #ffffff; --surface-2: #efeeeb; --line: #dddad5; --fg: #1c1d20; --muted: #5d636b;
+  --accent: #a23e72; --on-accent: #ffffff; --maybe: #4a5d78; --dont: #b3392e; --stage: #e4e2de; color-scheme: light;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--ui); font-size: 15px; line-height: 1.55; margin: 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 40px 96px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(32px, 5vw, 46px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }
+h3 { font-size: 19px; font-weight: 700; }
+p { margin: 0; }
+code { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 12.5px; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; overflow-wrap: anywhere; }
+.overline { font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; color: var(--muted); }
+.lede { max-width: 70ch; color: var(--muted); font-size: 16px; margin-top: 14px; }
+.lede strong { color: var(--fg); }
+
+.bar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; margin: 26px 0 8px; padding: 10px 14px;
+  border-radius: 999px; border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+}
+.tally { display: flex; gap: 14px; font-weight: 600; font-size: 14px; font-variant-numeric: tabular-nums; }
+.tally b { font-weight: 800; }
+.save-state { color: var(--muted); font-size: 13px; flex: 1 1 200px; min-width: 0; }
+.pill-btn { font: 600 13.5px var(--ui); border-radius: 999px; padding: 8px 16px; cursor: pointer; border: 1px solid var(--line); background: var(--surface-2); color: var(--fg); }
+button:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.today { margin-top: 34px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 22px; align-items: start;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 22px; }
+.today .shots { display: flex; gap: 10px; }
+.today figure { margin: 0; flex: 1 1 0; min-width: 0; }
+.today img { width: 100%; display: block; border-radius: 12px; border: 1px solid var(--line); }
+figcaption { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+ul.spec { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+ul.spec li::marker { color: var(--muted); }
+
+.cards { margin-top: 30px; display: grid; gap: 22px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 22px; display: grid; gap: 18px; }
+.card-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.card-head h3 { flex: 1 1 340px; min-width: 0; }
+.tag { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
+.body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: start; }
+.body > .col { max-width: 80ch; }
+.stages { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; min-width: 0; }
+.stage { background: var(--stage); border-radius: 16px; padding: 14px; display: grid; gap: 8px; justify-items: center; min-width: 0; max-width: 100%; }
+.stage .cap { font-size: 12.5px; color: var(--muted); text-align: center; max-width: 34ch; }
+.stage .cap b { color: var(--fg); }
+.col { display: grid; gap: 12px; min-width: 0; }
+
+/* scaled device frame: outer box is the scaled size, inner is real dp */
+.scaled { position: relative; overflow: hidden; border-radius: 18px; flex: none; }
+.scaled > .dev { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+
+/* pick row */
+.pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 14px; border-top: 1px solid var(--line); }
+.pick .label { font-size: 13px; color: var(--muted); font-weight: 600; margin-right: 4px; }
+.pick button { font: 700 13.5px var(--ui); padding: 7px 16px; border-radius: 999px; cursor: pointer; border: 1px solid var(--line); background: transparent; color: var(--fg); }
+.pick button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.pick button[aria-pressed="true"][data-v="maybe"] { background: var(--maybe); color: var(--bg); border-color: var(--maybe); }
+.pick button[aria-pressed="true"][data-v="dont"], .pick button[aria-pressed="true"][data-v="neither"] { background: var(--dont); color: var(--bg); border-color: var(--dont); }
+.pick textarea { flex: 1 1 260px; min-width: 0; min-height: 38px; resize: vertical; font: 14px var(--ui); color: var(--fg); background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; }
+
+/* ===== app mock primitives (sizes in dp, 1px = 1dp) ===== */
+.dev { font-family: var(--ui); color: #e7eaee; }
+.page { position: absolute; inset: 0; overflow: hidden; }
+.page .txt { position: absolute; font-family: var(--book); font-size: 17px; line-height: 1.62; }
+.page .txt p { margin: 0; text-indent: 1.4em; }
+.page .txt p.end { text-indent: 0; text-align: center; margin-top: 30px; letter-spacing: .3em; }
+.rbar { position: absolute; height: 56px; border-radius: 28px; display: flex; align-items: center; gap: 10px; padding: 0 8px; }
+.rbar .ib { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+.rbar .t { flex: 1; text-align: center; line-height: 1.2; min-width: 0; }
+.rbar .t b { display: block; font-size: 15px; font-weight: 600; }
+.rbar .t small { font-size: 12px; font-weight: 600; opacity: .72; }
+.dock .pct { font-size: 13px; font-weight: 600; width: 46px; font-variant-numeric: tabular-nums; }
+.dock .trk { flex: 1; height: 8px; border-radius: 4px; position: relative; }
+.dock .trk i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; }
+.dock .pos { font-size: 13px; font-weight: 600; padding-right: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.scrim { position: absolute; inset: 0; }
+
+.fc { position: relative; display: grid; gap: 20px; border-radius: 28px; padding: 24px; }
+.fc .x { position: absolute; top: 16px; right: 16px; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; }
+.fc .hero { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 18px; align-items: end; padding-right: 36px; }
+.fc .cov { border-radius: 6px; display: block; object-fit: cover; box-shadow: 0 12px 28px rgba(0,0,0,.42); }
+.fc .ov { font-size: 11.5px; letter-spacing: .08em; font-weight: 800; }
+.fc .ti { font-size: 26px; line-height: 30px; font-weight: 700; letter-spacing: -0.01em; margin-top: 6px; }
+.fc .au { font-size: 14px; font-weight: 500; margin-top: 4px; opacity: .74; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips span { height: 32px; padding: 0 12px; border-radius: 16px; display: inline-flex; align-items: center; font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rate { display: grid; gap: 8px; }
+.rate .lab { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; }
+.rate .lab span:last-child { opacity: .74; font-weight: 500; }
+.stars { display: flex; gap: 4px; }
+.stars svg { width: 40px; height: 40px; display: block; }
+.note { height: 48px; border-radius: 24px; display: flex; align-items: center; gap: 10px; padding: 0 16px; font-size: 14px; font-weight: 500; }
+.note svg { width: 20px; height: 20px; flex: none; }
+.field { border-radius: 12px; padding: 12px 14px; min-height: 104px; font-size: 15px; line-height: 1.45; position: relative; }
+.field small { position: absolute; top: -9px; left: 12px; font-size: 12px; padding: 0 4px; font-weight: 600; }
+.field .caret { display: inline-block; width: 2px; height: 18px; vertical-align: -3px; margin-left: 1px; }
+.next { border-radius: 20px; padding: 12px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; }
+.next img { width: 56px; height: 84px; border-radius: 4px; object-fit: cover; display: block; }
+.next small { display: block; font-size: 12px; font-weight: 500; opacity: .74; }
+.next b { display: block; font-size: 15px; font-weight: 600; margin-top: 2px; }
+.pbtn { height: 42px; padding: 0 18px; border-radius: 21px; display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; white-space: nowrap; }
+.pbtn svg { width: 18px; height: 18px; }
+.acts { display: flex; justify-content: flex-end; gap: 10px; }
+
+/* end page (layout B) */
+.endp { position: absolute; inset: 0; display: grid; justify-items: center; align-content: start; text-align: center; }
+.endp .back { position: absolute; top: 20px; left: 20px; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; }
+.figs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; }
+.figs div { display: grid; gap: 2px; }
+.figs b { font-size: 34px; line-height: 40px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.figs span { font-size: 12.5px; font-weight: 600; opacity: .74; }
+
+/* motion */
+.play-row { display: flex; gap: 10px; align-items: center; }
+.anim .fc { animation: cardIn 300ms cubic-bezier(.2,.9,.25,1.05) both; }
+.anim .fc .cov { animation: coverUp 520ms cubic-bezier(.2,.9,.3,1.12) 60ms both; }
+.anim .fc .stars svg { animation: starIn 360ms cubic-bezier(.3,1.5,.5,1) both; }
+.anim .fc .stars svg:nth-child(1) { animation-delay: 220ms; }
+.anim .fc .stars svg:nth-child(2) { animation-delay: 270ms; }
+.anim .fc .stars svg:nth-child(3) { animation-delay: 320ms; }
+.anim .fc .stars svg:nth-child(4) { animation-delay: 370ms; }
+.anim .fc .stars svg:nth-child(5) { animation-delay: 420ms; }
+.anim .fc .chips { animation: fadeIn 260ms ease-out 160ms both; }
+.anim .scrim { animation: fadeIn 220ms ease-out both; }
+@keyframes cardIn { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes coverUp { from { transform: translateY(12px); opacity: .0; } to { transform: none; opacity: 1; } }
+@keyframes starIn { from { transform: scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .anim * { animation: none !important; } }
+
+/* trigger flow */
+.flow { display: grid; gap: 10px; width: 100%; }
+.flow .opt { border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; display: grid; gap: 8px; background: var(--surface-2); }
+.flow .opt b { font-size: 14px; }
+.flow ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; font-size: 14px; }
+.miniDock { display: flex; align-items: center; gap: 10px; height: 44px; border-radius: 22px; padding: 0 14px; background: #1d2125; color: #e7eaee; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; width: 100%; max-width: 360px; }
+.miniDock .trk { flex: 1; height: 8px; border-radius: 4px; background: #3a3f46; position: relative; }
+.miniDock .trk i { position: absolute; inset: 0; border-radius: 4px; background: #dba4ba; }
+
+@media (max-width: 900px) {
+  .today { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  .card, .today { padding: 16px; border-radius: 20px; }
+  .bar { border-radius: 20px; }
+  .today .shots { flex-direction: column; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="overline">yabai &#183; redesign plan 9.1 &#183; board &#183; 24 October 2026</p>
+    <h1 style="margin-top:10px">The Finished screen</h1>
+    <p class="lede">You picked Do for this on the review board. Here it is in detail, drawn at real sizes (1 px = 1 dp, scaled to fit) in Graphite with the emulator's real covers and the colours the app's cover-colour code gives them. <strong>The first card picks the layout</strong>. The cards after it draw layout A, and B would carry the same pieces. As before, choose Do, Maybe or Don't on each card, add a note if you like, and your picks save to this page.</p>
+  </header>
+
+  <div class="bar" role="region" aria-label="Your picks">
+    <div class="tally" aria-live="polite"><span><b id="n-picked">0</b> of <b id="n-total">8</b> picked</span></div>
+    <p class="save-state" id="save-state">Picks are kept in this browser until the page's store answers.</p>
+    <button class="pill-btn" id="copy-picks" type="button">Copy picks</button>
+  </div>
+  <textarea id="copy-fallback" aria-label="Picks as text" hidden style="width:100%;min-height:120px;margin-top:8px;font:13px ui-monospace,monospace;background:var(--surface-2);color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:10px"></textarea>
+
+  <section class="today" aria-label="Today">
+    <div class="shots">
+      <figure><img src="img/today-finished.jpg" alt="Today's Finished dialog over an EPUB page"><figcaption>Today, a book: a dialog around a card.</figcaption></figure>
+      <figure><img src="img/today-finished-comic.jpg" alt="Today's Finished dialog over a comic, blue-grey while the dock is yellow"><figcaption>Today, a comic: the dialog ignores the cover colour.</figcaption></figure>
+    </div>
+    <div class="col">
+      <p class="overline">What changes</p>
+      <ul class="spec">
+        <li>One surface, with no card inside the dialog and no repeated "Finished". It is tinted by the cover the way the reading card and the book page already are (<code>Modifier.coverTint</code>, <code>AppCoverAccentTheme</code>).</li>
+        <li>The book's own numbers from the journal: <code>JournalItemSummary</code> already has the start and finish dates, <code>sessionCount</code> and <code>totalReadingTimeMillis</code>.</li>
+        <li>The journal's star editor and the review keep their behaviour: a star saves on tap, and the note saves when the screen closes. They only change look.</li>
+        <li>"Local &#183; EPUB" and "No rating" go. <code>JournalItemReviewCard</code> is deleted, because nothing else uses it.</li>
+        <li>No haptic, since you said Don't to haptics. Motion only.</li>
+      </ul>
+    </div>
+  </section>
+
+  <div class="cards">
+
+    <article class="card" data-card="layout" data-kind="ab" data-title="Layout">
+      <div class="card-head"><h3>1 &#183; Layout: a card over the page, or a page of its own</h3><span class="tag">pick A or B</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-layout-a"></div><p class="cap"><b>A.</b> A 440 dp card over the last page, at the size of the app's dialogs.</p></div>
+          <div class="stage"><div id="m-layout-b"></div><p class="cap"><b>B.</b> An end page: the book's colours fill the screen, the bars go, and &#8592; returns to the last page.</p></div>
+        </div>
+        <div class="col">
+          <p class="overline">A, card</p>
+          <ul class="spec">
+            <li>440 dp wide, 28 dp corners and 24 dp padding over the 45% scrim, centred. The bars stay under the scrim.</li>
+            <li>A 112 &#215; 168 dp cover beside the overline (11.5 Bold, accent), the title (26 / 30 Bold) and the author.</li>
+            <li>&#215; closes it and keeps you on the last page.</li>
+          </ul>
+          <p class="overline">B, end page</p>
+          <ul class="spec">
+            <li>The screen is the cover tint. A 200 &#215; 300 dp cover and a 40 / 44 Bold title, both centred. The numbers are four 34 Bold figures, and the stars are 48 dp.</li>
+            <li>It reads as an ending, like the last page of a printed book, but it is a full screen to leave every time.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="numbers" data-kind="dmd" data-title="Numbers">
+      <div class="card-head"><h3>2 &#183; The book's numbers</h3><span class="tag">journal snapshot</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-num-1"></div><p class="cap">Several sessions: days from the first session to the finish, sessions, time, and its place in the month.</p></div>
+          <div class="stage"><div id="m-num-2"></div><p class="cap">One session: "Read in one sitting".</p></div>
+          <div class="stage"><div id="m-num-3"></div><p class="cap">Nothing recorded on this device (finished elsewhere and synced): the row is left out.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>32 dp pills at 12.5 SemiBold with tabular figures, in the card's text colour at 10%. They wrap on phones.</li>
+            <li>"Days" counts calendar days from the first session or progress event to now: "6 days", or "Read in one sitting" for a single session. Time is "4 h 12 min", or "38 min" under an hour. Pages are left out, because the page count is already on the book page.</li>
+            <li>"9th in October" counts the books, or the comics for a comic, finished this month, matching the journal's Month view. It is hidden for the first one.</li>
+            <li>A pure, unit-tested function over <code>JournalItemSummary</code> and the month's overview, in feature:journal.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="rating-note" data-kind="dmd" data-title="Rating and note">
+      <div class="card-head"><h3>3 &#183; Rating and a private note</h3><span class="tag">JournalRatingEditor</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-rate-1"></div><p class="cap">Not rated yet.</p></div>
+          <div class="stage"><div id="m-rate-2"></div><p class="cap">Rated 3.5. A second tap on a star makes it a half, as today.</p></div>
+          <div class="stage"><div id="m-rate-3"></div><p class="cap">The note opened.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>"Your rating" (13 SemiBold) with the hint at the end of the line: "Tap to rate", then "Tap again for a half", then the value ("3.5").</li>
+            <li>40 dp stars in the cover accent. Empty ones are the card's text colour at 28%.</li>
+            <li>The note starts as a 48 dp pill, "Add a private note", with a pencil. Tapped, it opens into a 12 dp-corner field of three lines labelled "Private note", with the placeholder "Only you can see this" (the journal sheet's words). It saves when the screen closes, as today.</li>
+            <li>A note written earlier opens the field straight away, showing its first two lines.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="next" data-kind="dmd" data-title="Read next">
+      <div class="card-head"><h3>4 &#183; What comes next</h3><span class="tag">AppReaderCoordinator</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-next-1"></div><p class="cap">A comic with a next issue, in Star Courier's colours.</p></div>
+          <div class="stage"><div id="m-next-2"></div><p class="cap">Nothing next: Back to library is the filled button.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>A 20 dp-corner strip (black at 22% on dark tints, white at 55% on light) holds the next cover (56 &#215; 84 dp), "Up next &#183; 2 of 3" or "Up next in <i>list name</i> &#183; 3 of 7", the title, and a filled "Read next" pill in the cover accent.</li>
+            <li>Under it, "Back to library" is tonal. When nothing is next, it becomes the filled button.</li>
+            <li>The next item is the one today's "Start next" uses: the next unread in a Kavita list, or the next in a server series. Local comics get none, because Local series were a Don't.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="phone" data-kind="dmd" data-title="Phone sheet">
+      <div class="card-head"><h3>5 &#183; On phones, a sheet</h3><span class="tag">AppSheet</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-phone"></div><p class="cap">412 dp phone: a bottom sheet over the last page.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>Under 600 dp the card becomes a bottom sheet: full width, 28 dp top corners, the kit's handle, 20 dp padding. Drag it down or tap the page to close it.</li>
+            <li>The cover is 88 &#215; 132 dp. The pills wrap to two lines. The two buttons share the bottom row, each half the width.</li>
+            <li>The reader's dock slides away while the sheet is up, as it does for the reader's panels (8.7).</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="light" data-kind="dmd" data-title="Light theme">
+      <div class="card-head"><h3>6 &#183; In a light theme</h3><span class="tag">appCoverColors(dark = false)</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage" style="background:#d9d5cf"><div id="m-light"></div><p class="cap" style="color:#4a4540">Paper theme, Light page, The Salt Orchard.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>Light themes get the cover's pale tints (about L 0.90) under dark text, and the accent darkened to about L 0.35 with white text, the same as the reading card in Paper.</li>
+            <li>The scrim drops to 32%, as everywhere in light themes. The pills and the note sit on the text colour at 8%.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="motion" data-kind="dmd" data-title="Motion">
+      <div class="card-head"><h3>7 &#183; How it arrives</h3><span class="tag">AppMotion</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage">
+            <div id="m-motion"></div>
+            <div class="play-row"><button class="pill-btn" type="button" id="play">Play</button><span class="cap" id="play-note">At device speed</span></div>
+          </div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>The scrim fades in. The card scales from 0.96 and fades on <code>effects</code>. The cover rises 12 dp on <code>spatial</code>. The pills fade in 160 ms later. The stars pop in from 0.6 on <code>spatialFast</code>, 50 ms apart.</li>
+            <li>It is quiet: no confetti, no sound and no haptic. With animations off in Android, it simply appears.</li>
+            <li>Closing reverses the card and the scrim only.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="trigger" data-kind="ab" data-title="When it opens">
+      <div class="card-head"><h3>8 &#183; When it opens (the review's Maybe)</h3><span class="tag">pick A or B</span></div>
+      <div class="body">
+        <div class="stages" style="flex-direction:column; align-items:stretch">
+          <div class="flow">
+            <div class="opt"><b>A. As today: on reaching the end</b>
+              <ol><li>EPUB and comics: the moment the last position is reached, by reading, by dragging the dock, or by picking the last chapter in Contents.</li><li>PDF: on "next" from the last page.</li></ol>
+            </div>
+            <div class="opt"><b>B. On turning past the end</b>
+              <ol><li>Reaching the last page marks the book finished, as today, and the dock reads 100%.</li><li>The screen opens when you turn once more: a swipe or tap past the last page, as PDF already works.</li><li>A jump with the dock or Contents opens nothing, so you can still read an afterword or the notes.</li><li>The dock's 100% stays tappable and opens it at any time.</li></ol>
+            </div>
+          </div>
+          <div class="stage" style="justify-items:stretch">
+            <div class="miniDock" style="background:#1d2125"><span>99%</span><span class="trk"><i style="right:1%"></i></span><span>p. 73 / 73</span></div>
+            <div class="miniDock"><span>100%</span><span class="trk"><i></i></span><span>p. 73 / 73</span></div>
+            <p class="cap" style="justify-self:center">Top: today on the last EPUB page. Bottom: 100% on the last page, whichever you pick.</p>
+          </div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>The 100% fix applies either way. Readium reports a progression just under 1 on the last page, so the dock rounds it up there.</li>
+            <li>B touches <code>EpubReaderEntry</code> (the auto request at the book's end) and the comics finished check. Their end-navigation callbacks already exist, so B mostly removes the automatic request.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+  </div>
+</div>
+
+<script>
+(function () {
+  // ---------- palettes: computed from each cover with the app's coverSwatches + appCoverColors ----------
+  var P = {
+    glass:  { cover: "img/cover-glass.jpg", title: "Glass Meridian", author: "J. R. Okafor", ts: "#302858", te: "#61385d", fg: "#f6eef1", acc: "#dba4ba", on: "#331421", dark: true },
+    star1:  { cover: "img/cover-star1.jpg", title: "Star Courier #1", author: "Issue 1", ts: "#23415c", te: "#6f622a", fg: "#f6eef1", acc: "#f5e289", on: "#423705", dark: true },
+    salt:   { cover: "img/cover-salt.jpg", title: "The Salt Orchard", author: "Mira Kalden", ts: "#eee7dd", te: "#eedad3", fg: "#2a2233", acc: "#8f3e23", on: "#ffffff", dark: false }
+  };
+  var ICON = {
+    close: "M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z",
+    back: "M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z",
+    edit: "M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z",
+    book: "M21 5c-1.11-.35-2.33-.5-3.5-.5-1.95 0-4.05.4-5.5 1.5-1.45-1.1-3.55-1.5-5.5-1.5S2.45 4.9 1 6v14.65c0 .25.25.5.5.5.1 0 .15-.05.25-.05C3.1 20.45 5.05 20 6.5 20c1.95 0 4.05.4 5.5 1.5 1.35-.85 3.8-1.5 5.5-1.5 1.65 0 3.35.3 4.75 1.05.1.05.15.05.25.05.25 0 .5-.25.5-.5V6c-.6-.45-1.25-.75-2-1zm0 13.5c-1.1-.35-2.3-.5-3.5-.5-1.7 0-4.15.65-5.5 1.5V8c1.35-.85 3.8-1.5 5.5-1.5 1.2 0 2.4.15 3.5.5v11.5z",
+    toc: "M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z",
+    aa: "M2.5 4v3h5v12h3V7h5V4h-13zm19 5h-9v3h3v7h3v-7h3V9z",
+    star: "M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
+  };
+  var gid = 0;
+  function icon(name, color, size) { size = size || 24; return '<svg viewBox="0 0 24 24" width="' + size + '" height="' + size + '" aria-hidden="true"><path fill="' + color + '" d="' + ICON[name] + '"/></svg>'; }
+  function alpha(hex, a) { var n = parseInt(hex.slice(1), 16); return "rgba(" + (n >> 16) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")"; }
+  function tint(p) { return "radial-gradient(circle at 100% 100%, " + p.te + " 0%, " + alpha(p.te, 0) + " 95%), " + p.ts; }
+  function star(fill, on, off, size) {
+    var id = "g" + (++gid); size = size || 40;
+    var paint = fill >= 1 ? on : fill <= 0 ? off : "url(#" + id + ")";
+    var defs = fill > 0 && fill < 1 ? '<defs><linearGradient id="' + id + '"><stop offset="50%" stop-color="' + on + '"/><stop offset="50%" stop-color="' + off + '"/></linearGradient></defs>' : "";
+    return '<svg viewBox="0 0 24 24" width="' + size + '" height="' + size + '" aria-hidden="true">' + defs + '<path fill="' + paint + '" d="' + ICON.star + '"/></svg>';
+  }
+  function stars(r, p, size) { var s = ""; for (var i = 1; i <= 5; i++) s += star(Math.max(0, Math.min(1, r - i + 1)), p.acc, alpha(p.fg, .28), size); return s; }
+
+  // ---------- the Finished card (layout A) ----------
+  function card(p, o) {
+    o = o || {};
+    var w = o.width || 440, pad = o.phone ? 20 : 24, cw = o.phone ? 88 : 112;
+    var chipBg = alpha(p.fg, p.dark ? .10 : .08);
+    var h = '<div class="fc" style="width:' + w + 'px;padding:' + pad + 'px;background:' + tint(p) + ';color:' + p.fg + (o.phone ? ';border-radius:28px 28px 0 0;padding-top:12px' : '') + '">';
+    if (o.phone) h += '<div style="justify-self:center;width:36px;height:4px;border-radius:2px;background:' + alpha(p.fg, .4) + ';margin-bottom:-4px"></div>';
+    else h += '<div class="x" style="background:' + alpha(p.fg, .10) + '">' + icon("close", p.fg, 22) + '</div>';
+    h += '<div class="hero" style="' + (o.phone ? "padding-right:0" : "") + '"><img class="cov" src="' + p.cover + '" alt="" style="width:' + cw + 'px;height:' + (cw * 1.5) + 'px">' +
+      '<div><div class="ov" style="color:' + p.acc + '">FINISHED</div><div class="ti">' + p.title + '</div><div class="au">' + p.author + '</div></div></div>';
+    var chips = o.chips === undefined ? ["6 days", "5 sessions", "4 h 12 min", "9th in October"] : o.chips;
+    if (chips && chips.length) h += '<div class="chips">' + chips.map(function (c) { return '<span style="background:' + chipBg + '">' + c + '</span>'; }).join("") + '</div>';
+    var r = o.rating || 0;
+    var hint = r ? String(r) : "Tap to rate";
+    if (o.hint) hint = o.hint;
+    h += '<div class="rate"><div class="lab"><span>Your rating</span><span>' + hint + '</span></div><div class="stars">' + stars(r, p) + '</div></div>';
+    if (o.noteOpen) {
+      h += '<div class="field" style="border:2px solid ' + p.acc + ';background:' + alpha(p.fg, p.dark ? .06 : .04) + '"><small style="color:' + p.acc + ';background:' + p.ts + '">Private note</small>' +
+        (o.noteText || "") + '<span class="caret" style="background:' + p.acc + '"></span></div>';
+    } else {
+      h += '<div class="note" style="background:' + chipBg + '">' + icon("edit", alpha(p.fg, .74), 20) + '<span style="opacity:.74">Add a private note</span></div>';
+    }
+    var tonal = '<span class="pbtn" style="background:' + alpha(p.fg, p.dark ? .12 : .10) + ';color:' + p.fg + '">Back to library</span>';
+    var filledBack = '<span class="pbtn" style="background:' + p.acc + ';color:' + p.on + '">Back to library</span>';
+    if (o.next) {
+      h += '<div class="next" style="background:' + (p.dark ? "rgba(0,0,0,.22)" : "rgba(255,255,255,.55)") + '"><img src="' + o.next.cover + '" alt=""><div style="min-width:0"><small>' + o.next.meta + '</small><b>' + o.next.title + '</b></div>' +
+        (o.phone ? "" : '<span class="pbtn" style="background:' + p.acc + ';color:' + p.on + '">' + icon("book", p.on, 18) + 'Read next</span>') + '</div>';
+      if (o.phone) h += '<div class="acts" style="justify-content:stretch"><span class="pbtn" style="flex:1;justify-content:center;background:' + alpha(p.fg, .12) + ';color:' + p.fg + '">Back to library</span><span class="pbtn" style="flex:1;justify-content:center;background:' + p.acc + ';color:' + p.on + '">' + icon("book", p.on, 18) + 'Read next</span></div>';
+      else h += '<div class="acts">' + tonal + '</div>';
+    } else if (!o.hideActs) {
+      h += '<div class="acts"' + (o.phone ? ' style="justify-content:stretch"' : '') + '>' + (o.phone ? filledBack.replace('class="pbtn" style="', 'class="pbtn" style="flex:1;justify-content:center;') : filledBack) + '</div>';
+    }
+    return h + '</div>';
+  }
+
+  // ---------- reader page behind ----------
+  var ENDING = [
+    "She left the maps on the table that morning, folded the way he had always folded them, and walked down to the river without taking any of them along.",
+    "The water had come back over the summer stones. The fog lay on it in long pale sheets, and the town woke slowly underneath it, the way it always had, as if it were not sure it wanted to come back.",
+    "On the far side of the square the windows caught the first light one after another. She counted them out of habit and, for the first time since the letter, found exactly as many as she remembered.",
+    "That was enough. She turned for home before the fog had lifted, and did not look back to see whether it would."
+  ];
+  function readerPage(w, h, o) {
+    o = o || {};
+    var paper = o.light ? "#fcfcfa" : "#000", ink = o.light ? "#1c1b19" : "#e6e2da";
+    var barBg = o.light ? "rgba(247,235,222,.94)" : "rgba(29,33,37,.94)", barFg = o.light ? "#1b1c1f" : "#e7eaee";
+    var side = o.phone ? 28 : 92, top = o.phone ? 96 : 110;
+    var s = '<div class="page" style="background:' + paper + '"><div class="txt" style="left:' + side + 'px;right:' + side + 'px;top:' + top + 'px;color:' + ink + (o.phone ? ';font-size:16px' : '') + '">' +
+      ENDING.map(function (t) { return "<p>" + t + "</p>"; }).join("") + '<p class="end">* * *</p></div>';
+    var inset = o.phone ? 8 : 12;
+    s += '<div class="rbar" style="top:' + (inset + (o.phone ? 28 : 24)) + 'px;left:' + inset + 'px;right:' + inset + 'px;background:' + barBg + ';color:' + barFg + '"><span class="ib">' + icon("back", barFg, 24) + '</span><span class="t"><b>' + (o.title || "Glass Meridian") + '</b><small>' + (o.sub || "Chapter 6 \u00b7 J. R. Okafor") + '</small></span><span class="ib">' + icon("aa", barFg, 22) + '</span></div>';
+    if (!o.noDock) s += '<div class="rbar dock" style="bottom:' + (inset + 16) + 'px;left:' + inset + 'px;right:' + inset + 'px;height:60px;background:' + barBg + ';color:' + barFg + '"><span class="ib">' + icon("toc", barFg, 22) + '</span><span class="pct">100%</span><span class="trk" style="background:' + (o.light ? "#d8cdc1" : "#3a3f46") + '"><i style="right:0;background:' + (o.acc || "#dba4ba") + '"></i></span><span class="pos">p. 73 / 73</span></div>';
+    return s + '</div>';
+  }
+  function device(w, h, scale, inner) {
+    return '<div class="scaled" style="width:' + Math.round(w * scale) + 'px;height:' + Math.round(h * scale) + 'px"><div class="dev" style="width:' + w + 'px;height:' + h + 'px;transform:scale(' + scale + ')">' + inner + '</div></div>';
+  }
+  function overlayCentered(w, h, inner, scrimA) {
+    return '<div class="scrim" style="background:rgba(0,0,0,' + scrimA + ')"></div><div style="position:absolute;inset:0;display:grid;place-items:center">' + inner + '</div>';
+  }
+  function cardOnly(p, o, scale) {
+    var w = (o && o.width) || 440;
+    return '<div class="scaled" style="width:' + Math.round(w * scale) + 'px;border-radius:' + Math.round(28 * scale) + 'px"><div class="dev" style="position:relative;width:' + w + 'px;transform:scale(' + scale + ');transform-origin:0 0">' + card(p, o) + '</div></div>';
+  }
+  // cards measured after insertion so their scaled wrapper gets a height
+  function fitHeights(root) {
+    root.querySelectorAll(".scaled").forEach(function (box) {
+      if (box.style.height) return;
+      var dev = box.firstElementChild; var m = /scale\(([\d.]+)\)/.exec(dev.style.transform); var s = m ? parseFloat(m[1]) : 1;
+      box.style.height = Math.ceil(dev.offsetHeight * s) + "px";
+    });
+  }
+
+  var next2 = { cover: "img/cover-star2.jpg", title: "Star Courier #2", meta: "Up next \u00b7 2 of 3" };
+  function set(id, html) { var el = document.getElementById(id); if (el) el.innerHTML = html; }
+
+  // 1 layout
+  set("m-layout-a", device(800, 1280, 0.42, readerPage(800, 1280) + overlayCentered(800, 1280, card(P.glass, { rating: 0 }), .45)));
+  (function () {
+    var p = P.glass;
+    var b = '<div class="endp" style="background:' + tint(p) + ';color:' + p.fg + ';padding-top:132px">' +
+      '<div class="back" style="background:' + alpha(p.fg, .10) + '">' + icon("back", p.fg, 24) + '</div>' +
+      '<img src="' + p.cover + '" alt="" style="width:200px;height:300px;border-radius:6px;box-shadow:0 18px 40px rgba(0,0,0,.45)">' +
+      '<div style="font-size:11.5px;letter-spacing:.08em;font-weight:800;color:' + p.acc + ';margin-top:30px">FINISHED</div>' +
+      '<div style="font-size:40px;line-height:44px;font-weight:700;letter-spacing:-.02em;margin-top:8px">' + p.title + '</div>' +
+      '<div style="font-size:16px;font-weight:500;opacity:.74;margin-top:6px">' + p.author + '</div>' +
+      '<div style="width:520px;display:grid;gap:30px;margin-top:36px">' +
+      '<div class="figs"><div><b>6</b><span>days</span></div><div><b>5</b><span>sessions</span></div><div><b>4.2</b><span>hours</span></div><div><b>9th</b><span>in October</span></div></div>' +
+      '<div style="display:grid;gap:10px;justify-items:center"><div style="font-size:13px;font-weight:600;opacity:.74">Tap to rate</div><div class="stars" style="gap:6px">' + stars(0, p, 48) + '</div></div>' +
+      '<div class="note" style="background:' + alpha(p.fg, .10) + ';justify-content:center">' + icon("edit", alpha(p.fg, .74), 20) + '<span style="opacity:.74">Add a private note</span></div>' +
+      '<div style="display:flex;justify-content:center;gap:12px"><span class="pbtn" style="height:48px;border-radius:24px;padding:0 24px;background:' + p.acc + ';color:' + p.on + '">Back to library</span></div>' +
+      '</div></div>';
+    set("m-layout-b", device(800, 1280, 0.42, b));
+  })();
+
+  // 2 numbers
+  set("m-num-1", cardOnly(P.glass, { rating: 0, hideActs: true }, 0.62));
+  set("m-num-2", cardOnly(P.glass, { rating: 0, chips: ["Read in one sitting", "1 h 05 min", "2nd in October"], hideActs: true }, 0.62));
+  set("m-num-3", cardOnly(P.glass, { rating: 0, chips: [], hideActs: true }, 0.62));
+  // 3 rating & note
+  set("m-rate-1", cardOnly(P.glass, { rating: 0, chips: [], hideActs: true }, 0.62));
+  set("m-rate-2", cardOnly(P.glass, { rating: 3.5, chips: [], hideActs: true }, 0.62));
+  set("m-rate-3", cardOnly(P.glass, { rating: 3.5, chips: [], noteOpen: true, noteText: "The last chapter earns the slow start. Lend to Ira", hideActs: true }, 0.62));
+  // 4 next
+  set("m-next-1", cardOnly(P.star1, { rating: 4, chips: ["3 days", "2 sessions", "41 min", "4th comic in October"], next: next2 }, 0.62));
+  set("m-next-2", cardOnly(P.glass, { rating: 4 }, 0.62));
+  // 5 phone
+  (function () {
+    var sheet = '<div style="position:absolute;left:0;right:0;bottom:0">' + card(P.star1, { width: 412, phone: true, rating: 0, chips: ["3 days", "2 sessions", "41 min", "4th comic in October"], next: next2 }) + '</div>';
+    set("m-phone", device(412, 892, 0.6, readerPage(412, 892, { phone: true, noDock: true, title: "Star Courier #1", sub: "Star Courier \u00b7 issue 1", acc: P.star1.acc }) + '<div class="scrim" style="background:rgba(0,0,0,.45)"></div>' + sheet));
+  })();
+  // 6 light
+  set("m-light", device(800, 1280, 0.42, readerPage(800, 1280, { light: true, title: "The Salt Orchard", sub: "Chapter 9 \u00b7 Mira Kalden", acc: P.salt.acc }) + overlayCentered(800, 1280, card(P.salt, { rating: 4, chips: ["12 days", "9 sessions", "6 h 40 min", "10th in October"] }), .32)));
+  // 7 motion
+  function motionStage() { return device(800, 1280, 0.42, readerPage(800, 1280) + overlayCentered(800, 1280, card(P.glass, { rating: 0 }), .45)); }
+  set("m-motion", motionStage());
+  fitHeights(document);
+  window.addEventListener("load", function () { fitHeights(document); });
+  document.getElementById("play").addEventListener("click", function () {
+    var box = document.getElementById("m-motion");
+    box.classList.remove("anim"); void box.offsetWidth; box.classList.add("anim");
+  });
+
+  // ---------- picks (same store layout as the earlier boards: collection "picks") ----------
+  var STORE_KEY = "yabai-finished-board-picks";
+  var cards = Array.prototype.slice.call(document.querySelectorAll("[data-card]"));
+  var LABELS = { "do": "Do", maybe: "Maybe", dont: "Don't", a: "A", b: "B", neither: "Neither" };
+  var picks = {}; try { picks = JSON.parse(localStorage.getItem(STORE_KEY) || "{}") || {}; } catch (e) { picks = {}; }
+  var db = null, pending = {};
+  function saveLocal() { try { localStorage.setItem(STORE_KEY, JSON.stringify(picks)); } catch (e) {} }
+  function setState(t) { document.getElementById("save-state").textContent = t; }
+  function tally() { var n = 0; cards.forEach(function (c) { if ((picks[c.dataset.card] || {}).choice) n++; }); document.getElementById("n-picked").textContent = n; document.getElementById("n-total").textContent = cards.length; }
+  function paint(card) {
+    var p = picks[card.dataset.card] || {};
+    card.querySelectorAll(".pick button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.v === p.choice)); });
+    var ta = card.querySelector(".pick textarea"); if (ta && document.activeElement !== ta) ta.value = p.note || "";
+  }
+  function write(id) {
+    if (!db) { saveLocal(); return; }
+    var p = picks[id];
+    var run = function () {
+      return db.collection("picks").doc(id).set({ choice: p.choice || null, note: p.note || "", title: p.title || id, updatedAt: p.updatedAt || Date.now() })
+        .then(function () { p.synced = true; saveLocal(); setState("Saved to this page."); })
+        .catch(function (err) { setState(err && err.code === "invalid_argument" ? "This page is read-only for you; picks stay in this browser. Use Copy picks." : "Couldn't save just now; your pick is kept in this browser."); });
+    };
+    pending[id] = (pending[id] || Promise.resolve()).then(run, run);
+  }
+  function update(card, patch) {
+    var id = card.dataset.card;
+    picks[id] = Object.assign({}, picks[id], patch, { title: card.dataset.title, updatedAt: Date.now(), synced: false });
+    saveLocal(); paint(card); tally(); write(id);
+  }
+  cards.forEach(function (card) {
+    var opts = card.dataset.kind === "ab" ? ["a", "b", "neither"] : ["do", "maybe", "dont"];
+    var row = document.createElement("div"); row.className = "pick";
+    row.innerHTML = '<span class="label">Your pick</span>' + opts.map(function (v) { return '<button type="button" data-v="' + v + '" aria-pressed="false">' + LABELS[v] + "</button>"; }).join("") +
+      '<textarea id="note-' + card.dataset.card + '" rows="1" placeholder="Note (optional)" aria-label="Note for ' + card.dataset.title + '"></textarea>';
+    card.appendChild(row);
+    row.querySelectorAll("button").forEach(function (b) { b.addEventListener("click", function () { var cur = (picks[card.dataset.card] || {}).choice; update(card, { choice: cur === b.dataset.v ? null : b.dataset.v }); }); });
+    var ta = row.querySelector("textarea"), t = null;
+    ta.addEventListener("input", function () { clearTimeout(t); t = setTimeout(function () { update(card, { note: ta.value }); }, 700); });
+    ta.addEventListener("change", function () { clearTimeout(t); if ((picks[card.dataset.card] || {}).note !== ta.value) update(card, { note: ta.value }); });
+    paint(card);
+  });
+  tally();
+  document.getElementById("copy-picks").addEventListener("click", function () {
+    var lines = cards.map(function (c) { var p = picks[c.dataset.card] || {}; return c.querySelector("h3").textContent + ": " + (p.choice ? LABELS[p.choice] : "-") + (p.note ? " (" + p.note.trim() + ")" : ""); }).join("\n");
+    var btn = document.getElementById("copy-picks");
+    var fallback = function () { var ta = document.getElementById("copy-fallback"); ta.hidden = false; ta.value = lines; ta.focus(); ta.select(); btn.textContent = "Select and copy"; };
+    try { navigator.clipboard.writeText(lines).then(function () { btn.textContent = "Copied"; setTimeout(function () { btn.textContent = "Copy picks"; }, 1600); }, fallback); } catch (e) { fallback(); }
+  });
+  (async function () {
+    try { db = window.claude && window.claude.use ? await window.claude.use("db") : null; } catch (e) { db = null; }
+    if (!db) { setState("Picks are saved in this browser only. Use Copy picks to send them."); return; }
+    setState("Connected. Picks save to this page.");
+    var first = true;
+    db.collection("picks").onSnapshot(function (snap) {
+      snap.docs.forEach(function (d) { var remote = d.data() || {}, local = picks[d.id]; if (!local || (remote.updatedAt || 0) >= (local.updatedAt || 0)) picks[d.id] = Object.assign({}, remote, { synced: true }); });
+      if (first) { first = false; Object.keys(picks).forEach(function (id) { if (picks[id] && !picks[id].synced) write(id); }); }
+      saveLocal(); cards.forEach(paint); tally();
+    }, function () { setState("The page's store stopped answering; picks stay in this browser."); });
+  })();
+})();
+</script>
