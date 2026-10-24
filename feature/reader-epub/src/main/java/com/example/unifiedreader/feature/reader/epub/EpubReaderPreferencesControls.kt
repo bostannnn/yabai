@@ -228,15 +228,3 @@ internal fun EpubSectionLabel(text: String) {
 internal fun formatEpubFontSizeValue(
     value: Double,
 ): String = String.format(Locale.getDefault(), "%.0f%%", value * 100.0)
-
-internal fun formatEpubLineHeightValue(
-    value: Double,
-): String = String.format(Locale.getDefault(), "%.2f", value)
-
-internal fun formatEpubMultiplierValue(
-    value: Double,
-): String = String.format(Locale.getDefault(), "%.2fx", value)
-
-internal fun formatEpubRemValue(
-    value: Double,
-): String = String.format(Locale.getDefault(), "%.1f rem", value)

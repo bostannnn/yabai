@@ -24,6 +24,9 @@ import com.example.unifiedreader.feature.reader.core.ReaderLocator
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
+import com.example.unifiedreader.feature.reader.preferences.InMemoryReaderPageColorPreferencesStore
+import com.example.unifiedreader.feature.reader.preferences.ReaderDisplayPreferences
+import com.example.unifiedreader.ui.theme.ReaderPageColor
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
@@ -89,20 +92,11 @@ class EpubReaderEdgeTapSmokeTest {
     }
 
     @Test
-    fun followAppThemeClearsPersistedThemeOverride() {
-        val item = sampleEpubItem(id = "epub-theme-reset")
+    fun pickingAPageColourKeepsItForTheBookAndForBooksNotSet() {
+        val item = sampleEpubItem(id = "epub-page-colour")
         val documentUri = sampleEpubUri(item)
-        val sessionStore = FakeReaderSessionStore(
-            initialSessions = mapOf(
-                item.id to ReaderSessionSnapshot(
-                    itemId = item.id,
-                    preferences = mapOf(
-                        EpubThemeKey to EpubReaderTheme.Dark.name,
-                        EpubThemeOverrideKey to true.toString(),
-                    ),
-                ),
-            ),
-        )
+        val sessionStore = FakeReaderSessionStore()
+        val pageColor = InMemoryReaderPageColorPreferencesStore()
 
         composeRule.setContent {
             LightThemeTestSurface {
@@ -110,19 +104,21 @@ class EpubReaderEdgeTapSmokeTest {
                     item = item,
                     sessionStore = sessionStore,
                     documentUri = documentUri,
+                    displayPreferences = ReaderDisplayPreferences(pageColor = pageColor),
                     onBack = {},
                 )
             }
         }
 
         waitForReaderReady(sessionStore, item.id)
-        openThemeMenu()
-        composeRule.onNodeWithText("Follow app theme").performClick()
+        composeRule.onNodeWithContentDescription("Reader preferences").performClick()
+        composeRule.onNodeWithText(ReaderPageColor.Sepia.label).performClick()
 
         composeRule.waitUntil(timeoutMillis = 10_000) {
             val preferences = sessionStore.sessionByItemIdFlow.value[item.id]?.preferences.orEmpty()
-            preferences[EpubThemeOverrideKey] == "false" &&
-                preferences[EpubThemeKey] == EpubReaderTheme.Light.name
+            preferences[EpubThemeOverrideKey] == "true" &&
+                preferences[EpubThemeKey] == ReaderPageColor.Sepia.name &&
+                pageColor.pickFlow.value.name == ReaderPageColor.Sepia.name
         }
     }
 
@@ -250,11 +246,6 @@ class EpubReaderEdgeTapSmokeTest {
             )
         }
         composeRule.waitForIdle()
-    }
-
-    private fun openThemeMenu() {
-        composeRule.onNodeWithContentDescription("Reader theme").performClick()
-        composeRule.onNodeWithText("Follow app theme").assertExists()
     }
 
     private fun openLayoutMenu() {

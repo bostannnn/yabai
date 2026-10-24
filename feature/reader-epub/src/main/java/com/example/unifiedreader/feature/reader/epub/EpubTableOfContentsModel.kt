@@ -90,6 +90,12 @@ private fun List<Double>.toChapterMarks(): List<Float> =
         .distinct()
         .sorted()
 
+/** The chapter at this place, as the top bar and the page's chapter line name it. */
+internal fun List<EpubTocEntry>.currentEpubChapterTitle(
+    currentProgress: Double,
+    currentHref: String?,
+): String? = epubTocChapterEntry(activeEpubTocEntry(currentProgress = currentProgress, currentHref = currentHref))?.title
+
 internal fun List<EpubTocEntry>.activeEpubTocEntry(
     currentProgress: Double,
     currentHref: String?,

@@ -122,15 +122,19 @@ fun BoxScope.ReaderPageNumberPills(
     )
 }
 
-/** The reader settings row for the page number, shared by the readers that have a settings panel. */
+/**
+ * The reader settings row for the page number, shared by the readers that have a settings panel;
+ * [label] names what it shows and hides when that is more than the number.
+ */
 @Composable
 fun ReaderPageNumberChoiceRow(
     visible: Boolean,
     onVisibleChanged: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    label: String = "Page number",
 ) {
     AppChoiceRow(
-        label = "Page number",
+        label = label,
         options = ReaderPageNumberChoices,
         selected = visible,
         onSelected = onVisibleChanged,

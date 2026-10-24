@@ -1,9 +1,11 @@
 package com.example.unifiedreader.feature.reader.epub
 
+import androidx.compose.ui.graphics.toArgb
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
 import com.example.unifiedreader.feature.reader.core.curl.PageTurnStyle
+import com.example.unifiedreader.ui.theme.ReaderPageColor
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -14,6 +16,7 @@ import org.junit.runner.RunWith
 import org.readium.r2.navigator.preferences.FontFamily
 import org.readium.r2.navigator.preferences.ReadingProgression
 import org.readium.r2.navigator.preferences.TextAlign
+import org.readium.r2.navigator.preferences.Theme
 import org.readium.r2.shared.DelicateReadiumApi
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Locator
@@ -127,13 +130,41 @@ class EpubReaderSessionCodecTest {
             ReaderSessionSnapshot(
                 itemId = "epub-1",
                 preferences = mapOf(
-                    EpubThemeKey to EpubReaderTheme.Dark.name,
+                    EpubThemeKey to "Dark",
                 ),
             ),
         )
 
-        assertEquals(EpubReaderTheme.Dark, restored.theme)
+        assertEquals(ReaderPageColor.Black, restored.theme)
         assertFalse(restored.themeOverride)
+    }
+
+    @Test
+    fun `light and dark from before five colours open on paper and black`() {
+        assertEquals(ReaderPageColor.Paper, readerPageColorOrNull("Light"))
+        assertEquals(ReaderPageColor.Black, readerPageColorOrNull("Dark"))
+        assertEquals(ReaderPageColor.Sepia, readerPageColorOrNull("Sepia"))
+        assertNull(readerPageColorOrNull("Neon"))
+    }
+
+    @Test
+    fun `slider values from before the steps snap to the nearest step`() {
+        val restored = restoreEpubPreferences(
+            ReaderSessionSnapshot(
+                itemId = "epub-1",
+                preferences = mapOf(
+                    EpubLineHeightKey to "1.57",
+                    EpubPageMarginsKey to "1.4",
+                    EpubParagraphSpacingKey to "0.3",
+                    EpubParagraphIndentKey to "2.6",
+                ),
+            ),
+        )
+
+        assertEquals(1.6, restored.lineHeight, 0.0001)
+        assertEquals(1.0, restored.pageMargins, 0.0001)
+        assertEquals(0.5, restored.paragraphSpacing, 0.0001)
+        assertEquals(3.0, restored.paragraphIndent, 0.0001)
     }
 
     @Test
@@ -152,33 +183,48 @@ class EpubReaderSessionCodecTest {
     }
 
     @Test
-    fun `legacy theme matching app theme is preserved as override`() {
-        val selection = resolveRestoredThemeSelection(
+    fun `legacy theme value is kept as the book's own colour`() {
+        val selection = resolveRestoredPageColor(
             restoredPreferences = EpubReaderPreferences(
-                theme = EpubReaderTheme.Dark,
+                theme = ReaderPageColor.Paper,
                 themeOverride = false,
             ),
-            rawPreferences = mapOf(EpubThemeKey to EpubReaderTheme.Dark.name),
-            appReaderTheme = EpubReaderTheme.Dark,
+            rawPreferences = mapOf(EpubThemeKey to "Light"),
+            defaultColor = ReaderPageColor.Black,
         )
 
-        assertEquals(EpubReaderTheme.Dark, selection.theme)
-        assertFalse(selection.useAppThemeDefault)
+        assertEquals(ReaderPageColor.Paper, selection.color)
+        assertTrue(selection.isBookOwn)
     }
 
     @Test
-    fun `legacy theme differing from app theme is preserved as override`() {
-        val selection = resolveRestoredThemeSelection(
-            restoredPreferences = EpubReaderPreferences(
-                theme = EpubReaderTheme.Light,
-                themeOverride = false,
-            ),
-            rawPreferences = mapOf(EpubThemeKey to EpubReaderTheme.Light.name),
-            appReaderTheme = EpubReaderTheme.Dark,
+    fun `a book without its own colour opens on the default`() {
+        val selection = resolveRestoredPageColor(
+            restoredPreferences = EpubReaderPreferences(theme = ReaderPageColor.Paper, themeOverride = false),
+            rawPreferences = mapOf(EpubThemeKey to "Paper", EpubThemeOverrideKey to "false"),
+            defaultColor = ReaderPageColor.Sepia,
         )
 
-        assertEquals(EpubReaderTheme.Light, selection.theme)
-        assertFalse(selection.useAppThemeDefault)
+        assertEquals(ReaderPageColor.Sepia, selection.color)
+        assertFalse(selection.isBookOwn)
+    }
+
+    @Test
+    fun `the default is the last pick, else paper or black by the app theme`() {
+        assertEquals(ReaderPageColor.Dusk, defaultEpubPageColor(lastPicked = "Dusk", appBackgroundIsLight = true))
+        assertEquals(ReaderPageColor.Paper, defaultEpubPageColor(lastPicked = null, appBackgroundIsLight = true))
+        assertEquals(ReaderPageColor.Black, defaultEpubPageColor(lastPicked = null, appBackgroundIsLight = false))
+    }
+
+    @Test
+    fun `readium gets the page colour's own page and text`() {
+        val sepia = EpubReaderPreferences(theme = ReaderPageColor.Sepia).toNavigatorPreferences()
+        val dusk = EpubReaderPreferences(theme = ReaderPageColor.Dusk).toNavigatorPreferences()
+
+        assertEquals(ReaderPageColor.Sepia.colors.page.toArgb(), sepia.backgroundColor?.int)
+        assertEquals(ReaderPageColor.Sepia.colors.text.toArgb(), sepia.textColor?.int)
+        assertEquals(Theme.LIGHT, sepia.theme)
+        assertEquals(Theme.DARK, dusk.theme)
     }
 
     @Test
@@ -187,7 +233,7 @@ class EpubReaderSessionCodecTest {
             ReaderSessionSnapshot(
                 itemId = "epub-1",
                 preferences = mapOf(
-                    EpubThemeKey to EpubReaderTheme.Dark.name,
+                    EpubThemeKey to ReaderPageColor.Grey.name,
                     EpubThemeOverrideKey to true.toString(),
                     EpubLayoutModeKey to EpubReaderLayoutMode.DoublePage.name,
                     EpubLayoutOverrideKey to true.toString(),
@@ -195,7 +241,7 @@ class EpubReaderSessionCodecTest {
             ),
         )
 
-        assertEquals(EpubReaderTheme.Dark, restored.theme)
+        assertEquals(ReaderPageColor.Grey, restored.theme)
         assertTrue(restored.themeOverride)
         assertEquals(EpubReaderLayoutMode.DoublePage, restored.layoutMode)
         assertTrue(restored.layoutModeOverride)
@@ -213,7 +259,7 @@ class EpubReaderSessionCodecTest {
                 paragraphSpacing = 0.5,
                 paragraphIndent = 1.2,
                 textAlign = EpubReaderTextAlign.Justify,
-                theme = EpubReaderTheme.Dark,
+                theme = ReaderPageColor.Black,
                 themeOverride = true,
                 layoutMode = EpubReaderLayoutMode.DoublePage,
                 layoutModeOverride = true,

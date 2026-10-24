@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.reader.epub
 
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,6 +12,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -19,7 +23,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -31,7 +36,6 @@ import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.ui.components.AppChoiceRow
 import com.example.unifiedreader.ui.components.AppFormRow
 import com.example.unifiedreader.ui.components.AppIcons
-import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.components.AppPanelHeader
 import com.example.unifiedreader.ui.components.AppSegment
 import com.example.unifiedreader.ui.components.AppSegmentedRow
@@ -39,6 +43,7 @@ import com.example.unifiedreader.ui.components.AppSliderRow
 import com.example.unifiedreader.ui.components.AppStepperRow
 import com.example.unifiedreader.ui.components.AppWindowWidth
 import com.example.unifiedreader.ui.components.currentAppWindowWidth
+import com.example.unifiedreader.ui.theme.ReaderPageColor
 
 /**
  * The reading settings: Text, Page and Layout. On a wide screen the panel is tall, so the
@@ -55,8 +60,7 @@ internal fun ColumnScope.EpubPreferencesPaneContent(
     paragraphSpacing: Double,
     paragraphIndent: Double,
     textAlign: EpubReaderTextAlign,
-    theme: EpubReaderTheme,
-    useAppThemeDefault: Boolean,
+    theme: ReaderPageColor,
     layoutMode: EpubReaderLayoutMode,
     useOrientationLayoutDefault: Boolean,
     pageTurnStyle: PageTurnStyle,
@@ -74,8 +78,7 @@ internal fun ColumnScope.EpubPreferencesPaneContent(
     onParagraphSpacingChanged: (Double) -> Unit,
     onParagraphIndentChanged: (Double) -> Unit,
     onTextAlignChanged: (EpubReaderTextAlign) -> Unit,
-    onThemeChanged: (EpubReaderTheme) -> Unit,
-    onUseAppThemeDefault: () -> Unit,
+    onThemeChanged: (ReaderPageColor) -> Unit,
     onLayoutModeChanged: (EpubReaderLayoutMode) -> Unit,
     onUseOrientationLayoutDefault: () -> Unit,
     onPageTurnStyleChanged: (PageTurnStyle) -> Unit,
@@ -150,17 +153,19 @@ internal fun ColumnScope.EpubPreferencesPaneContent(
             if (!compact || selectedTab == EpubPreferencesTab.Page) {
                 if (!compact) EpubSettingsSectionLabel("Page")
                 AppFormRow(label = "Page colour", stacked = true) { controlModifier ->
-                    EpubThemeSwatches(
-                        theme = theme,
-                        useAppThemeDefault = useAppThemeDefault,
-                        onThemeChanged = onThemeChanged,
-                        onUseAppThemeDefault = onUseAppThemeDefault,
+                    EpubPageColorSwatches(
+                        selected = theme,
+                        // "Aa" in the font the book is read in; the book's own font is a serif.
+                        fontFamily = rememberEpubFontPreviewFamily(fontFamily)
+                            .takeIf { typographyMode == EpubTypographyMode.Custom } ?: FontFamily.Serif,
+                        onSelected = onThemeChanged,
                         modifier = controlModifier,
                     )
                 }
                 ReaderPageNumberChoiceRow(
                     visible = pageNumbersVisible,
                     onVisibleChanged = onPageNumbersVisibleChanged,
+                    label = "Page number and chapter",
                 )
             }
             if (!compact || selectedTab == EpubPreferencesTab.Layout) {
@@ -226,9 +231,11 @@ private fun EpubTextSection(
     AppSliderRow(
         label = "Line height",
         value = lineHeight.toFloat(),
-        onValueChange = { onLineHeightChanged(it.toDouble()) },
-        valueLabel = formatEpubLineHeightValue(lineHeight),
-        valueRange = 1.1f..2.2f,
+        onValueChange = { onLineHeightChanged(snapEpubLineHeight(it.toDouble())) },
+        valueLabel = formatEpubLineHeight(lineHeight),
+        valueRange = EpubLineHeightMin.toFloat()..EpubLineHeightMax.toFloat(),
+        // Tenths: 1.1× to 2.2× is twelve stops, ten between the ends.
+        steps = 10,
     )
     AppChoiceRow(
         label = "Alignment",
@@ -282,26 +289,26 @@ private fun EpubLayoutSection(
         }
         return
     }
-    AppSliderRow(
-        label = "Margins",
-        value = pageMargins.toFloat(),
-        onValueChange = { onPageMarginsChanged(it.toDouble()) },
-        valueLabel = formatEpubMultiplierValue(pageMargins),
-        valueRange = 0.5f..2.0f,
-    )
-    AppSliderRow(
-        label = "Paragraph spacing",
-        value = paragraphSpacing.toFloat(),
-        onValueChange = { onParagraphSpacingChanged(it.toDouble()) },
-        valueLabel = formatEpubRemValue(paragraphSpacing),
-        valueRange = 0.0f..2.0f,
-    )
-    AppSliderRow(
-        label = "Paragraph indent",
-        value = paragraphIndent.toFloat(),
-        onValueChange = { onParagraphIndentChanged(it.toDouble()) },
-        valueLabel = formatEpubRemValue(paragraphIndent),
-        valueRange = 0.0f..3.0f,
+    EpubStepRow(label = "Margins", steps = EpubMarginSteps, value = pageMargins, onSelected = onPageMarginsChanged)
+    EpubStepRow(label = "Paragraph spacing", steps = EpubParagraphSpacingSteps, value = paragraphSpacing, onSelected = onParagraphSpacingChanged)
+    EpubStepRow(label = "Paragraph indent", steps = EpubParagraphIndentSteps, value = paragraphIndent, onSelected = onParagraphIndentChanged)
+}
+
+/** A spacing setting as named steps under its label; a value between steps shows as the nearest. */
+@Composable
+private fun EpubStepRow(
+    label: String,
+    steps: List<EpubStep>,
+    value: Double,
+    onSelected: (Double) -> Unit,
+) {
+    AppChoiceRow(
+        label = label,
+        options = steps,
+        selected = steps.nearest(value),
+        onSelected = { step -> onSelected(step.value) },
+        optionLabel = { step -> step.label },
+        stacked = true,
     )
 }
 
@@ -343,35 +350,26 @@ private fun EpubFontRow(
     }
 }
 
-/** Follow app, Light, Dark as three page-colored tiles. */
+/** The page colours as tiles of the page with "Aa" in the reading [fontFamily], the name under each. */
 @Composable
-private fun EpubThemeSwatches(
-    theme: EpubReaderTheme,
-    useAppThemeDefault: Boolean,
-    onThemeChanged: (EpubReaderTheme) -> Unit,
-    onUseAppThemeDefault: () -> Unit,
+private fun EpubPageColorSwatches(
+    selected: ReaderPageColor,
+    fontFamily: FontFamily,
+    onSelected: (ReaderPageColor) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val colorScheme = MaterialTheme.colorScheme
     Row(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        EpubThemeSwatch(
-            label = "Follow app",
-            page = colorScheme.background,
-            ink = colorScheme.onBackground,
-            selected = useAppThemeDefault,
-            onClick = onUseAppThemeDefault,
-            modifier = Modifier.weight(1f),
-        )
-        EpubReaderTheme.entries.forEach { entry ->
-            EpubThemeSwatch(
-                label = entry.label,
-                page = epubThemeSwatchPage(entry),
-                ink = epubThemeSwatchInk(entry),
-                selected = !useAppThemeDefault && entry == theme,
-                onClick = { onThemeChanged(entry) },
+        ReaderPageColor.entries.forEach { color ->
+            EpubPageColorSwatch(
+                color = color,
+                fontFamily = fontFamily,
+                selected = color == selected,
+                onClick = { onSelected(color) },
                 modifier = Modifier.weight(1f),
             )
         }
@@ -379,69 +377,55 @@ private fun EpubThemeSwatches(
 }
 
 @Composable
-private fun EpubThemeSwatch(
-    label: String,
-    page: Color,
-    ink: Color,
+private fun EpubPageColorSwatch(
+    color: ReaderPageColor,
+    fontFamily: FontFamily,
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val tokens = readerOverlayTokens()
-    val edge = if (selected) tokens.colors.accent else MaterialTheme.colorScheme.outlineVariant
-    AppPanel(
-        onClick = onClick,
-        modifier = modifier,
-        shape = MaterialTheme.shapes.medium,
-        color = tokens.colors.elevatedContainer,
-        border = BorderStroke(if (selected) 2.dp else 1.dp, edge),
+    val shape = RoundedCornerShape(12.dp)
+    Column(
+        modifier = modifier.selectable(selected = selected, role = Role.RadioButton, onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Column(
-            modifier = Modifier.padding(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(44.dp)
+                .then(
+                    // The chosen one is ringed in the accent, 2 dp clear of the tile.
+                    if (selected) {
+                        Modifier
+                            .border(2.dp, tokens.colors.accent, RoundedCornerShape(16.dp))
+                            .padding(4.dp)
+                    } else {
+                        Modifier
+                    },
+                )
+                .clip(shape)
+                .background(color.colors.page)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f), shape),
+            contentAlignment = Alignment.Center,
         ) {
-            AppPanel(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(40.dp),
-                shape = MaterialTheme.shapes.extraSmall,
-                color = page,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            ) {
-                Box(
-                    modifier = Modifier.fillMaxWidth().height(40.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = "Aa",
-                        fontFamily = FontFamily.Serif,
-                        fontSize = 18.sp,
-                        color = ink,
-                    )
-                }
-            }
             Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                color = tokens.colors.primaryText,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                text = "Aa",
+                fontFamily = fontFamily,
+                fontSize = 20.sp,
+                color = color.colors.text,
             )
         }
+        Text(
+            text = color.label,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+            color = if (selected) tokens.colors.primaryText else tokens.colors.secondaryText,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
-}
-
-// Preview colors for the fixed reader themes (the navigator applies its own).
-private fun epubThemeSwatchPage(theme: EpubReaderTheme): Color = when (theme) {
-    EpubReaderTheme.Light -> Color(0xFFFCFCFA)
-    EpubReaderTheme.Dark -> Color(0xFF000000)
-}
-
-private fun epubThemeSwatchInk(theme: EpubReaderTheme): Color = when (theme) {
-    EpubReaderTheme.Light -> Color(0xFF1C1B19)
-    EpubReaderTheme.Dark -> Color(0xFFE6E2DA)
 }
 
 @Composable

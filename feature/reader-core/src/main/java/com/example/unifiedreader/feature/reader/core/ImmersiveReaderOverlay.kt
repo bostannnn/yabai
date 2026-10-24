@@ -90,7 +90,9 @@ private val ReaderOverlayStateSaver: Saver<ReaderOverlayState, List<Any>> = Save
  * fights the overlay (visible as flicker). The chrome then sits on the plain fallback surface.
  *
  * [pageIndicator] shows over the pages while the chrome is hidden and fades out as it appears,
- * so the page number is on screen exactly when the bars that carry it are not.
+ * so the page number is on screen exactly when the bars that carry it are not. [sheet] is drawn
+ * over everything but toasts: something the page raises in its own place, such as a note card,
+ * without leaving the immersive window as a dialog would.
  */
 @Composable
 fun ImmersiveReaderOverlay(
@@ -99,6 +101,7 @@ fun ImmersiveReaderOverlay(
     modifier: Modifier = Modifier,
     glass: Boolean = true,
     pageIndicator: (@Composable BoxScope.() -> Unit)? = null,
+    sheet: (@Composable BoxScope.() -> Unit)? = null,
     content: @Composable BoxScope.() -> Unit,
     overlay: @Composable BoxScope.() -> Unit,
 ) {
@@ -143,6 +146,10 @@ fun ImmersiveReaderOverlay(
                     .zIndex(1f),
             ) {
                 overlay()
+            }
+
+            if (sheet != null) {
+                Box(modifier = Modifier.fillMaxSize().zIndex(1.5f), content = sheet)
             }
 
             // Toasts sit 12 dp above the dock while the bars show, above the page number otherwise.

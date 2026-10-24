@@ -2,14 +2,17 @@
 
 package com.example.unifiedreader.feature.reader.epub
 
+import androidx.compose.ui.graphics.toArgb
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.feature.reader.core.ReaderLocator
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
 import com.example.unifiedreader.feature.reader.core.curl.PageTurnStyle
 import com.example.unifiedreader.feature.reader.core.enumValueOrNull
+import com.example.unifiedreader.ui.theme.ReaderPageColor
 import org.json.JSONObject
 import org.readium.r2.navigator.epub.EpubPreferences
+import org.readium.r2.navigator.preferences.Color as ReadiumColor
 import org.readium.r2.navigator.preferences.ColumnCount
 import org.readium.r2.navigator.preferences.FontFamily
 import org.readium.r2.navigator.preferences.Spread
@@ -41,7 +44,8 @@ internal data class EpubReaderPreferences(
     val paragraphSpacing: Double = 0.0,
     val paragraphIndent: Double = 1.0,
     val textAlign: EpubReaderTextAlign = EpubReaderTextAlign.Default,
-    val theme: EpubReaderTheme = EpubReaderTheme.Light,
+    val theme: ReaderPageColor = ReaderPageColor.Paper,
+    // Whether the book has its own page colour; without, it opens on the last one picked in any book.
     val themeOverride: Boolean = false,
     val layoutMode: EpubReaderLayoutMode = EpubReaderLayoutMode.Scroll,
     val layoutModeOverride: Boolean = false,
@@ -63,28 +67,29 @@ internal fun restoreEpubPreferences(
             ?.toDoubleOrNull()
             ?.coerceIn(0.8, 2.4)
             ?: 1.0,
+        // Values saved by the sliders before 9.6 snap to the steps the settings now offer.
         lineHeight = preferences[EpubLineHeightKey]
             ?.toDoubleOrNull()
-            ?.coerceIn(1.1, 2.2)
+            ?.let(::snapEpubLineHeight)
             ?: 1.5,
         pageMargins = preferences[EpubPageMarginsKey]
             ?.toDoubleOrNull()
-            ?.coerceIn(0.5, 2.0)
+            ?.let { EpubMarginSteps.nearest(it).value }
             ?: 1.0,
         paragraphSpacing = preferences[EpubParagraphSpacingKey]
             ?.toDoubleOrNull()
-            ?.coerceIn(0.0, 2.0)
+            ?.let { EpubParagraphSpacingSteps.nearest(it).value }
             ?: 0.0,
         paragraphIndent = preferences[EpubParagraphIndentKey]
             ?.toDoubleOrNull()
-            ?.coerceIn(0.0, 3.0)
+            ?.let { EpubParagraphIndentSteps.nearest(it).value }
             ?: 1.0,
         textAlign = preferences[EpubTextAlignKey]
             ?.enumValueOrNull<EpubReaderTextAlign>()
             ?: EpubReaderTextAlign.Default,
         theme = preferences[EpubThemeKey]
-            ?.enumValueOrNull<EpubReaderTheme>()
-            ?: EpubReaderTheme.Light,
+            ?.let(::readerPageColorOrNull)
+            ?: ReaderPageColor.Paper,
         themeOverride = preferences[EpubThemeOverrideKey]
             ?.toBooleanStrictOrNull()
             ?: false,
@@ -143,10 +148,10 @@ internal fun EpubReaderPreferences.toNavigatorPreferences(): EpubPreferences = E
         EpubReaderLayoutMode.SinglePage,
         -> Spread.NEVER
     },
-    theme = when (theme) {
-        EpubReaderTheme.Light -> Theme.LIGHT
-        EpubReaderTheme.Dark -> Theme.DARK
-    },
+    // Readium's theme sets its light or dark defaults (links, selection); the page and text are ours.
+    theme = if (theme.colors.isLight) Theme.LIGHT else Theme.DARK,
+    backgroundColor = ReadiumColor(theme.colors.page.toArgb()),
+    textColor = ReadiumColor(theme.colors.text.toArgb()),
 )
 
 internal fun ReaderProgressSnapshot.toReadiumLocator(): Locator? {
@@ -196,13 +201,6 @@ fun epubReadingOrderIndexOf(
             ?.takeIf { locations -> locations.has(ReadingOrderIndexKey) }
             ?.getInt(ReadingOrderIndexKey)
     }.getOrNull()?.takeIf { it >= 0 }
-}
-
-internal enum class EpubReaderTheme(
-    override val label: String,
-) : EpubLabeledOption {
-    Light("Light"),
-    Dark("Dark"),
 }
 
 internal enum class EpubTypographyMode(

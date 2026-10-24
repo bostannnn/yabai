@@ -81,14 +81,13 @@ internal fun ReadiumEpubNavigatorHost(
             else -> configuration.screenWidthDp > configuration.screenHeightDp
         }
     }
-    val viewportSpacing = remember(isLandscape) { defaultEpubViewportSpacing(isLandscape) }
+    val viewportSpacing = currentEpubViewportSpacing(isLandscape)
     val viewportVerticalInsetPx = with(LocalDensity.current) {
         viewportSpacing.containerInset.roundToPx()
     }
     val fragmentManager = activity.supportFragmentManager
-    val surfaceBackground = remember(preferences.theme) {
-        epubReaderSurfaceBackground(preferences.theme)
-    }
+    // The strips around the text and the view behind Readium's page: one colour with the page.
+    val surfaceBackground = preferences.theme.colors.page
     val resumePoint = remember(publication) { EpubNavigatorResumePoint() }
     val curlHost = remember(publication) { EpubPageCurlHost() }
     val curlTapTurner = remember(publication) { PageCurlTapTurner() }
@@ -114,7 +113,7 @@ internal fun ReadiumEpubNavigatorHost(
         enabled = curlEnabled,
         twoPageSpread = preferences.layoutMode == EpubReaderLayoutMode.DoublePage,
         rightToLeft = publication.metadata.readingProgression == ReadingProgression.RTL,
-        backTint = epubPageCurlBackTint(preferences.theme),
+        backTint = preferences.theme.curlBack(),
         tapTurner = curlTapTurner,
         modifier = modifier.fillMaxSize(),
     ) {
@@ -192,11 +191,16 @@ internal fun ReadiumEpubNavigatorHost(
                     context: HyperlinkNavigator.LinkContext?,
                 ): Boolean {
                     val footnoteContext = context as? HyperlinkNavigator.FootnoteContext
+                    // A note in another file of the book (a Notes chapter) can also be opened there.
+                    val endnoteLink = link.takeIf { target ->
+                        val here = navigatorFragment?.currentLocator?.value?.href ?: return@takeIf false
+                        !isSameEpubResource(target.url(), here)
+                    }
                     if (footnoteContext != null) {
                         latestOnFootnoteActivated.value(
                             EpubFootnoteContent(
-                                title = link.title?.takeIf(String::isNotBlank) ?: "Footnote",
                                 body = htmlFootnoteToPlainText(footnoteContext.noteContent),
+                                endnoteLink = endnoteLink,
                             ),
                         )
                         return false
@@ -214,7 +218,7 @@ internal fun ReadiumEpubNavigatorHost(
                             return@launch
                         }
                         if (footnote != null) {
-                            latestOnFootnoteActivated.value(footnote)
+                            latestOnFootnoteActivated.value(footnote.copy(endnoteLink = endnoteLink))
                         } else {
                             activeNavigator.go(link, animated = false)
                         }
@@ -391,6 +395,16 @@ internal fun ReadiumEpubNavigatorHost(
 
             is EpubTocNavigationRequest -> {
                 navigator.go(request.link, animated = false)
+            }
+
+            is EpubLocatorNavigationRequest -> {
+                navigator.go(request.locator, animated = false)
+            }
+
+            is EpubNoteNavigationRequest -> {
+                navigator.go(request.link, animated = false)
+                val tint = preferences.theme.colors.number.toArgb()
+                footnoteNavigationScope.launch { navigator.markEpubNote(request.link, tint) }
             }
         }
         onNavigationRequestConsumed()

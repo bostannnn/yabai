@@ -77,8 +77,8 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/** The mark at the start of a toast. [Error] also colours it. */
-enum class AppToastIcon { Done, Unread, Download, Removed, Added, Error }
+/** The mark at the start of a toast. [Error] also colours it; [Back] offers a way back to where you were. */
+enum class AppToastIcon { Done, Unread, Download, Removed, Added, Back, Error }
 
 /**
  * What a toast says: [text], an optional [supportingText] line, and an optional action
@@ -120,6 +120,12 @@ class AppToastState {
         val previous = current
         current = AppShownToast(id = ++nextId, message = message)
         previous?.message?.onDismissed?.invoke()
+    }
+
+    /** Takes [message] off screen if it is the one showing, as when what it offered was done another way. */
+    fun dismiss(message: AppToastMessage) {
+        val shown = current?.takeIf { it.message === message } ?: return
+        dismiss(shown.id, byAction = false)
     }
 
     internal fun dismiss(id: Long, byAction: Boolean) {
@@ -363,6 +369,7 @@ private val AppToastIcon.vector: ImageVector
         AppToastIcon.Download -> AppIcons.Download
         AppToastIcon.Removed -> AppIcons.Delete
         AppToastIcon.Added -> AppIcons.Add
+        AppToastIcon.Back -> AppIcons.ArrowBack
         AppToastIcon.Error -> AppIcons.ErrorOutline
     }
 

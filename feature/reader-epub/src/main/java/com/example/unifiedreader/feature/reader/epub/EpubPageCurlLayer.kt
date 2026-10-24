@@ -235,14 +235,6 @@ internal fun EpubPageCurlLayer(
     }
 }
 
-/** The back of a turning page: the page colour, lifted on a black page so the leaf still shows. */
-internal fun epubPageCurlBackTint(
-    theme: EpubReaderTheme,
-): Color = when (theme) {
-    EpubReaderTheme.Light -> epubReaderSurfaceBackground(theme)
-    EpubReaderTheme.Dark -> Color(0xFF1E1E1E)
-}
-
 private fun PageCurlTarget.opposite(): PageCurlTarget = when (this) {
     PageCurlTarget.Next -> PageCurlTarget.Previous
     PageCurlTarget.Previous -> PageCurlTarget.Next

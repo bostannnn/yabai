@@ -6,7 +6,6 @@ import android.widget.FrameLayout
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
@@ -91,13 +90,6 @@ internal fun Modifier.onEveryTouchDown(onTouch: () -> Unit): Modifier = pointerI
         awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
         onTouch()
     }
-}
-
-internal fun epubReaderSurfaceBackground(
-    theme: EpubReaderTheme,
-): Color = when (theme) {
-    EpubReaderTheme.Light -> Color(0xFFFCFCFA)
-    EpubReaderTheme.Dark -> Color(0xFF000000)
 }
 
 internal suspend fun applyEpubViewportPadding(

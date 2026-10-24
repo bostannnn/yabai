@@ -38,9 +38,7 @@ internal fun EpubReaderChrome(
     panels: @Composable BoxScope.(ReaderPanelSlot) -> Unit,
 ) {
     val chapterTitle = remember(tocEntries, currentHref, currentProgress) {
-        tocEntries.epubTocChapterEntry(
-            tocEntries.activeEpubTocEntry(currentProgress = currentProgress, currentHref = currentHref),
-        )?.title
+        tocEntries.currentEpubChapterTitle(currentProgress = currentProgress, currentHref = currentHref)
     }
     ReaderChromeFrame(
         panelOpen = isTocOpen || isPreferencesOpen,

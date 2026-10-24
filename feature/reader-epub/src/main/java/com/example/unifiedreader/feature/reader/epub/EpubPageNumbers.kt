@@ -8,6 +8,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.Dp
 import com.example.unifiedreader.feature.reader.core.ReaderPageNumber
 import com.example.unifiedreader.feature.reader.core.ReaderPageNumberStyle
 import com.example.unifiedreader.feature.reader.core.ReaderPageNumbers
@@ -75,11 +76,14 @@ internal fun Publication.buildEpubPageNumbers(
 ): List<ReaderPageNumber> = buildEpubPageNumbers(
     currentPage = currentPage,
     pageCount = pageCount,
-    isSpread = layoutMode == EpubReaderLayoutMode.DoublePage &&
-        metadata.presentation.layout != EpubLayout.FIXED,
+    isSpread = isEpubReflowableSpread(layoutMode),
     isRightToLeft = metadata.readingProgression == ReadingProgression.RTL,
     secondSpreadPage = secondSpreadPage,
 )
+
+/** Whether this book shows two pages side by side: a spread layout of a reflowable book. */
+internal fun Publication.isEpubReflowableSpread(layoutMode: EpubReaderLayoutMode): Boolean =
+    layoutMode == EpubReaderLayoutMode.DoublePage && metadata.presentation.layout != EpubLayout.FIXED
 
 /** [epubSecondSpreadPage] for this book, from the positions of the locator's resource. */
 internal fun Publication.epubSecondSpreadPage(
@@ -118,28 +122,22 @@ internal fun buildEpubPageNumbers(
 
 internal fun epubPageNumberLabel(page: Int, pageCount: Int): String = "${page.coerceAtMost(pageCount)} / $pageCount"
 
-/** The numbers in the blank strip the reader keeps under the text, in that strip's height. */
+/** The numbers in the blank strip the reader keeps under the text, in that strip's [height], in the page's number [color]. */
 @Composable
 internal fun BoxScope.EpubPageNumbers(
     numbers: List<ReaderPageNumber>,
-    theme: EpubReaderTheme,
-    isLandscape: Boolean,
+    color: Color,
+    height: Dp,
 ) {
     ReaderPageNumbers(
         numbers = numbers,
-        style = ReaderPageNumberStyle.OnPaper(epubPageNumberColor(theme)),
+        style = ReaderPageNumberStyle.OnPaper(color),
         modifier = Modifier
             .align(Alignment.BottomCenter)
             .fillMaxWidth()
-            .height(defaultEpubViewportSpacing(isLandscape).containerInset)
+            .height(height)
             .testTag(EpubPageNumbersTag),
     )
-}
-
-// About half-way between the page and its ink: readable, quieter than the text.
-private fun epubPageNumberColor(theme: EpubReaderTheme): Color = when (theme) {
-    EpubReaderTheme.Light -> Color(0xFF8A8985)
-    EpubReaderTheme.Dark -> Color(0xFF7A7873)
 }
 
 // Readium lays a spread out as two equal columns across the page view.

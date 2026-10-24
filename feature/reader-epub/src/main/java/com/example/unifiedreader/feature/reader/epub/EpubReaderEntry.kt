@@ -49,8 +49,7 @@ import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import com.example.unifiedreader.feature.reader.core.findContextAncestor
 import com.example.unifiedreader.feature.reader.core.readerSessionChapterPreference
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
-import com.example.unifiedreader.feature.reader.preferences.InMemoryReaderPageNumberPreferencesStore
-import com.example.unifiedreader.feature.reader.preferences.ReaderPageNumberPreferencesStore
+import com.example.unifiedreader.feature.reader.preferences.ReaderDisplayPreferences
 import com.example.unifiedreader.journal.JournalReadingSessionRecorder
 import com.example.unifiedreader.ui.components.AppCircularProgress
 import com.example.unifiedreader.ui.components.AppScreenBackHandler
@@ -75,7 +74,7 @@ fun EpubReaderScreen(
     journalReadingSessionRecorder: JournalReadingSessionRecorder? = null,
     documentUri: Uri? = null,
     documentUriProvider: (suspend (ReadableItem) -> Uri?)? = null,
-    pageNumberPreferences: ReaderPageNumberPreferencesStore = remember { InMemoryReaderPageNumberPreferencesStore() },
+    displayPreferences: ReaderDisplayPreferences = remember { ReaderDisplayPreferences() },
     onBack: () -> Unit,
     onCompletionRequested: () -> Unit = {},
 ) {
@@ -94,14 +93,8 @@ fun EpubReaderScreen(
             else -> configuration.screenWidthDp > configuration.screenHeightDp
         }
     }
-    val appBackground = MaterialTheme.colorScheme.background
-    val appReaderTheme = remember(appBackground) {
-        if (appBackground.luminance() < 0.5f) {
-            EpubReaderTheme.Dark
-        } else {
-            EpubReaderTheme.Light
-        }
-    }
+    val appBackgroundIsLight = MaterialTheme.colorScheme.background.luminance() >= 0.5f
+    val viewportSpacing = currentEpubViewportSpacing(isLandscape)
     if (activity == null) {
         EpubReaderMessage(
             title = item.title,
@@ -116,7 +109,8 @@ fun EpubReaderScreen(
     val sessionByItemId by sessionStore.sessionByItemIdFlow.collectAsState()
     val progressSnapshot = progressByItemId[item.id]
     val sessionSnapshot = sessionByItemId[item.id]
-    if (!hydrated) {
+    val pageColorPick by displayPreferences.pageColor.pickFlow.collectAsState()
+    if (!hydrated || !pageColorPick.isLoaded) {
         EpubReaderMessage(
             title = item.title,
             body = "Restoring EPUB state…",
@@ -144,11 +138,12 @@ fun EpubReaderScreen(
     }
     val serializedInitialLocator = restoreProgressSnapshot?.toReadiumLocator()
     val restoredPreferences = restoreEpubPreferences(restoreSessionSnapshot)
-    val restoredThemeSelection = remember(restoreSessionSnapshot, restoredPreferences, appReaderTheme) {
-        resolveRestoredThemeSelection(
+    val defaultPageColor = defaultEpubPageColor(pageColorPick.name, appBackgroundIsLight)
+    val restoredThemeSelection = remember(restoreSessionSnapshot, restoredPreferences, defaultPageColor) {
+        resolveRestoredPageColor(
             restoredPreferences = restoredPreferences,
             rawPreferences = restoreSessionSnapshot?.preferences.orEmpty(),
-            appReaderTheme = appReaderTheme,
+            defaultColor = defaultPageColor,
         )
     }
     var typographyMode by rememberSaveable(item.id) { mutableStateOf(restoredPreferences.typographyMode) }
@@ -160,11 +155,7 @@ fun EpubReaderScreen(
     var paragraphIndent by rememberSaveable(item.id) { mutableDoubleStateOf(restoredPreferences.paragraphIndent) }
     var textAlign by rememberSaveable(item.id) { mutableStateOf(restoredPreferences.textAlign) }
     var pageTurnStyle by rememberSaveable(item.id) { mutableStateOf(restoredPreferences.pageTurnStyle) }
-    var theme by rememberSaveable(item.id) {
-        mutableStateOf(
-            restoredThemeSelection.theme,
-        )
-    }
+    var theme by rememberSaveable(item.id) { mutableStateOf(restoredThemeSelection.color) }
     var layoutMode by rememberSaveable(item.id) {
         mutableStateOf(
             if (restoredPreferences.layoutModeOverride) {
@@ -174,7 +165,7 @@ fun EpubReaderScreen(
             },
         )
     }
-    var useAppThemeDefault by rememberSaveable(item.id) { mutableStateOf(restoredThemeSelection.useAppThemeDefault) }
+    var pageColorFollowsDefault by rememberSaveable(item.id) { mutableStateOf(!restoredThemeSelection.isBookOwn) }
     var useOrientationLayoutDefault by rememberSaveable(item.id) {
         mutableStateOf(!restoredPreferences.layoutModeOverride)
     }
@@ -200,7 +191,9 @@ fun EpubReaderScreen(
     // The chapter the reader is in, saved with the session so the library can name it.
     var currentChapter by remember(item.id) { mutableStateOf<ReaderChapterPosition?>(null) }
     var secondSpreadPage by remember(item.id) { mutableStateOf<Int?>(null) }
-    val pageNumbersVisible by pageNumberPreferences.isVisibleFlow.collectAsState()
+    // The navigator's page inside its file; 0 is a chapter's first page.
+    var resourcePageIndex by remember(item.id) { mutableIntStateOf(-1) }
+    val pageNumbersVisible by displayPreferences.pageNumbers.isVisibleFlow.collectAsState()
     var hasAutoRequestedCompletion by rememberSaveable(item.id) {
         mutableStateOf(false)
     }
@@ -209,6 +202,22 @@ fun EpubReaderScreen(
     var isTocSheetOpen by rememberSaveable(item.id) { mutableStateOf(false) }
     var isPreferencesPaneOpen by rememberSaveable(item.id) { mutableStateOf(false) }
     var footnoteContent by remember(item.id) { mutableStateOf<EpubFootnoteContent?>(null) }
+    var noteReturn by remember(item.id) { mutableStateOf<EpubNoteReturn?>(null) }
+    val readerPreferences = EpubReaderPreferences(
+        typographyMode = typographyMode,
+        fontFamily = fontFamily,
+        fontSize = fontSize,
+        lineHeight = lineHeight,
+        pageMargins = pageMargins,
+        paragraphSpacing = paragraphSpacing,
+        paragraphIndent = paragraphIndent,
+        textAlign = textAlign,
+        theme = theme,
+        themeOverride = !pageColorFollowsDefault,
+        layoutMode = layoutMode,
+        layoutModeOverride = !useOrientationLayoutDefault,
+        pageTurnStyle = pageTurnStyle,
+    )
     val overlayState = rememberReaderOverlayState(
         key = "epub-overlay-${item.id}",
         initiallyVisible = true,
@@ -247,9 +256,9 @@ fun EpubReaderScreen(
         }
     }
 
-    LaunchedEffect(hydrated, restoredPreferences, appReaderTheme, isLandscape, useOrientationLayoutDefault) {
+    LaunchedEffect(hydrated, restoredPreferences, defaultPageColor, isLandscape, useOrientationLayoutDefault) {
         if (!hydrated || restoredSessionState) return@LaunchedEffect
-        val restoredThemeUsesDefault = restoredThemeSelection.useAppThemeDefault
+        val restoredThemeUsesDefault = !restoredThemeSelection.isBookOwn
         val restoredLayoutUsesDefault = !restoredPreferences.layoutModeOverride
         typographyMode = restoredPreferences.typographyMode
         fontFamily = restoredPreferences.fontFamily
@@ -260,9 +269,9 @@ fun EpubReaderScreen(
         paragraphIndent = restoredPreferences.paragraphIndent
         textAlign = restoredPreferences.textAlign
         pageTurnStyle = restoredPreferences.pageTurnStyle
-        useAppThemeDefault = restoredThemeUsesDefault
+        pageColorFollowsDefault = restoredThemeUsesDefault
         useOrientationLayoutDefault = restoredLayoutUsesDefault
-        theme = restoredThemeSelection.theme
+        theme = restoredThemeSelection.color
         layoutMode = if (restoredLayoutUsesDefault) {
             defaultEpubLayoutMode(isLandscape)
         } else {
@@ -270,9 +279,9 @@ fun EpubReaderScreen(
         }
         restoredSessionState = true
     }
-    LaunchedEffect(hydrated, restoredSessionState, appReaderTheme, useAppThemeDefault) {
-        if (!hydrated || !restoredSessionState || !useAppThemeDefault) return@LaunchedEffect
-        theme = appReaderTheme
+    LaunchedEffect(hydrated, restoredSessionState, defaultPageColor, pageColorFollowsDefault) {
+        if (!hydrated || !restoredSessionState || !pageColorFollowsDefault) return@LaunchedEffect
+        theme = defaultPageColor
     }
     LaunchedEffect(hydrated, restoredSessionState, isLandscape, useOrientationLayoutDefault) {
         if (!hydrated || !restoredSessionState || !useOrientationLayoutDefault) return@LaunchedEffect
@@ -297,47 +306,35 @@ fun EpubReaderScreen(
     }
     val persistReaderState by rememberUpdatedState(
         newValue = {
+            // At a note opened with Go to note, the place to keep is the page it was opened from.
+            val savedLocator = noteReturn?.locator ?: currentLocator
+            val savedPage = noteReturn?.page ?: currentPage
+            val savedProgress = noteReturn?.progress ?: currentProgress
             if (hydrated &&
                 restoredSessionState &&
                 shouldFlushEpubReaderProgress(
                     navigatorShowedBook = initialRestoreLocked,
                     restoreProgressSnapshot = restoreProgressSnapshot,
-                    currentLocator = currentLocator,
-                    currentPage = currentPage,
-                    currentProgress = currentProgress,
+                    currentLocator = savedLocator,
+                    currentPage = savedPage,
+                    currentProgress = savedProgress,
                 )
             ) {
                 if (positionMovedSinceOpen) sessionStore.saveProgress(
                     item = item,
                     locator = buildCurrentReaderLocator(
-                        locator = currentLocator.takeUnless { navigationRequest != null },
-                        page = currentPage.takeIf { it > 0 },
-                        percent = currentProgress,
+                        locator = savedLocator.takeUnless { navigationRequest != null },
+                        page = savedPage.takeIf { it > 0 },
+                        percent = savedProgress,
                     ),
-                    isFinished = pageCount > 0 && currentPage >= pageCount,
+                    isFinished = pageCount > 0 && savedPage >= pageCount,
                     syncState = SyncState.DIRTY,
                     pageCount = pageCount.takeIf { it > 0 },
                 )
                 sessionStore.updateSession(
                     item = item,
                     pageCount = pageCount.takeIf { it > 0 },
-                    preferences = buildEpubPreferencesMap(
-                        EpubReaderPreferences(
-                            typographyMode = typographyMode,
-                            fontFamily = fontFamily,
-                            fontSize = fontSize,
-                            lineHeight = lineHeight,
-                            pageMargins = pageMargins,
-                            paragraphSpacing = paragraphSpacing,
-                            paragraphIndent = paragraphIndent,
-                            textAlign = textAlign,
-                            theme = theme,
-                            themeOverride = !useAppThemeDefault,
-                            layoutMode = layoutMode,
-                            layoutModeOverride = !useOrientationLayoutDefault,
-                            pageTurnStyle = pageTurnStyle,
-                        ),
-                    ) + readerSessionChapterPreference(currentChapter),
+                    preferences = buildEpubPreferencesMap(readerPreferences) + readerSessionChapterPreference(currentChapter),
                 )
             }
         },
@@ -547,47 +544,12 @@ fun EpubReaderScreen(
                     ?.let { ReaderChapterPosition(index = it.index, count = it.count) }
             }
 
-            LaunchedEffect(
-                item.id,
-                hydrated,
-                restoredSessionState,
-                typographyMode,
-                fontFamily,
-                fontSize,
-                lineHeight,
-                pageMargins,
-                paragraphSpacing,
-                paragraphIndent,
-                textAlign,
-                theme,
-                layoutMode,
-                pageTurnStyle,
-                pageCount,
-                useAppThemeDefault,
-                useOrientationLayoutDefault,
-            ) {
+            LaunchedEffect(item.id, hydrated, restoredSessionState, readerPreferences, pageCount) {
                 if (!hydrated || !restoredSessionState) return@LaunchedEffect
-                val preferences = buildEpubPreferencesMap(
-                        EpubReaderPreferences(
-                            typographyMode = typographyMode,
-                            fontFamily = fontFamily,
-                            fontSize = fontSize,
-                            lineHeight = lineHeight,
-                            pageMargins = pageMargins,
-                            paragraphSpacing = paragraphSpacing,
-                            paragraphIndent = paragraphIndent,
-                            textAlign = textAlign,
-                            theme = theme,
-                            themeOverride = !useAppThemeDefault,
-                            layoutMode = layoutMode,
-                            layoutModeOverride = !useOrientationLayoutDefault,
-                            pageTurnStyle = pageTurnStyle,
-                        ),
-                )
                 sessionStore.updateSession(
                     item = item,
                     pageCount = pageCount.takeIf { it > 0 },
-                    preferences = preferences,
+                    preferences = buildEpubPreferencesMap(readerPreferences),
                 )
             }
 
@@ -614,40 +576,40 @@ fun EpubReaderScreen(
                     .testTag(EpubReaderViewportTag),
                 pageIndicator = if (pageNumbersVisible) {
                     {
-                        EpubPageNumbers(
-                            numbers = state.publication.buildEpubPageNumbers(
-                                currentPage = currentPage,
-                                pageCount = pageCount,
-                                layoutMode = layoutMode,
-                                secondSpreadPage = secondSpreadPage,
-                            ),
-                            theme = theme,
-                            isLandscape = isLandscape,
+                        EpubPageFrameLabels(
+                            publication = state.publication,
+                            bookTitle = item.title,
+                            tocEntries = bookProgress.tocEntries,
+                            location = EpubFrameLocation(currentHref, currentProgress, currentPage, pageCount, secondSpreadPage, resourcePageIndex),
+                            layoutMode = layoutMode,
+                            pageColor = theme,
+                            stripHeight = viewportSpacing.containerInset,
                         )
                     }
                 } else {
                     null
                 },
-
+                sheet = {
+                    EpubFootnoteCard(
+                        footnote = footnoteContent,
+                        pageColor = theme,
+                        type = rememberEpubFootnoteType(typographyMode, fontFamily, fontSize, lineHeight),
+                        onDismissRequest = { footnoteContent = null },
+                        onGoToNote = { link ->
+                            footnoteContent = null
+                            noteReturn = currentLocator?.let { EpubNoteReturn(it, currentPage, currentProgress, link.url().removeFragment().toString()) }
+                            readerTouched = true
+                            navigationRequest = EpubNoteNavigationRequest(id = seekRequestId++, link = link)
+                        },
+                    )
+                },
                 content = {
                     ReadiumEpubNavigatorHost(
                         activity = activity,
                         item = item,
                         publication = state.publication,
                         initialLocator = resolvedInitialLocator,
-                        preferences = EpubReaderPreferences(
-                            typographyMode = typographyMode,
-                            fontFamily = fontFamily,
-                            fontSize = fontSize,
-                            lineHeight = lineHeight,
-                            pageMargins = pageMargins,
-                            paragraphSpacing = paragraphSpacing,
-                            paragraphIndent = paragraphIndent,
-                            textAlign = textAlign,
-                            theme = theme,
-                            layoutMode = layoutMode,
-                            pageTurnStyle = pageTurnStyle,
-                        ),
+                        preferences = readerPreferences,
                         onLocationChanged = { reportedLocator, resourcePage, isAtBookEnd ->
                             val locator = reportedLocator.withReadingOrderIndex(
                                 state.publication.readingOrderIndexOf(reportedLocator),
@@ -670,6 +632,7 @@ fun EpubReaderScreen(
                             if (reportedPage > 0) {
                                 currentPage = reportedPage
                             }
+                            resourcePageIndex = resourcePage.pageIndex
                             if (readerTouched) positionMovedSinceOpen = true
                             if (resourcePage.totalPages != null) {
                                 secondSpreadPage = state.publication
@@ -683,7 +646,8 @@ fun EpubReaderScreen(
                                     }
                                     ?: currentProgress
                                 ).coerceIn(0.0, 1.0)
-                            if (shouldPersistProgress) {
+                            // A note opened with Go to note is a visit: not progress, and not the book's end.
+                            if (shouldPersistProgress && noteReturn == null) {
                                 if (positionMovedSinceOpen) sessionStore.saveProgress(
                                     item = item,
                                     locator = buildReaderLocator(
@@ -707,10 +671,8 @@ fun EpubReaderScreen(
                             onCompletionRequested()
                         },
                         onFootnoteActivated = { footnote ->
-                            isTocSheetOpen = false
-                            isPreferencesPaneOpen = false
+                            overlayState.hide()
                             footnoteContent = footnote
-                            overlayState.show()
                         },
                         navigationRequest = navigationRequest,
                         onNavigationRequestConsumed = {
@@ -787,7 +749,6 @@ fun EpubReaderScreen(
                                 paragraphIndent = paragraphIndent,
                                 textAlign = textAlign,
                                 theme = theme,
-                                useAppThemeDefault = useAppThemeDefault,
                                 layoutMode = layoutMode,
                                 useOrientationLayoutDefault = useOrientationLayoutDefault,
                                 pageTurnStyle = pageTurnStyle,
@@ -820,12 +781,9 @@ fun EpubReaderScreen(
                                     textAlign = it
                                 },
                                 onThemeChanged = {
-                                    useAppThemeDefault = false
+                                    pageColorFollowsDefault = false
                                     theme = it
-                                },
-                                onUseAppThemeDefault = {
-                                    useAppThemeDefault = true
-                                    theme = appReaderTheme
+                                    displayPreferences.pageColor.setLastPicked(it.name)
                                 },
                                 onLayoutModeChanged = {
                                     useOrientationLayoutDefault = false
@@ -838,18 +796,21 @@ fun EpubReaderScreen(
                                 onPageTurnStyleChanged = {
                                     pageTurnStyle = it
                                 },
-                                onPageNumbersVisibleChanged = pageNumberPreferences::setVisible,
+                                onPageNumbersVisibleChanged = displayPreferences.pageNumbers::setVisible,
                                 slot = slot,
                             )
                         }
-                        EpubFootnotePopup(
-                            footnote = footnoteContent,
-                            onDismissRequest = {
-                                footnoteContent = null
-                            },
-                        )
                     }
                 },
+            )
+            EpubNoteReturnEffects(
+                noteReturn = noteReturn,
+                currentHref = currentHref,
+                onReturn = {
+                    noteReturn?.let { jump -> navigationRequest = EpubLocatorNavigationRequest(seekRequestId++, jump.locator) }
+                    noteReturn = null
+                },
+                onLeftNote = { noteReturn = null },
             )
         }
     }
@@ -1019,16 +980,6 @@ private const val EpubNavigationZoneFraction = 0.25f
 internal const val EpubDocumentUnavailableMessage =
     "This book's file isn't available. Check the connection to its server, then open it again."
 
-internal data class EpubViewportSpacing(
-    val containerInset: androidx.compose.ui.unit.Dp,
-    val contentPaddingPx: Int,
-)
-
-internal data class EpubResolvedThemeSelection(
-    val theme: EpubReaderTheme,
-    val useAppThemeDefault: Boolean,
-)
-
 private fun defaultEpubLayoutMode(
     isLandscape: Boolean,
 ): EpubReaderLayoutMode = if (isLandscape) {
@@ -1036,36 +987,3 @@ private fun defaultEpubLayoutMode(
 } else {
     EpubReaderLayoutMode.SinglePage
 }
-
-internal fun defaultEpubViewportSpacing(
-    isLandscape: Boolean,
-): EpubViewportSpacing = if (isLandscape) {
-    EpubViewportSpacing(
-        containerInset = 48.dp,
-        contentPaddingPx = 24,
-    )
-} else {
-    EpubViewportSpacing(
-        containerInset = 32.dp,
-        contentPaddingPx = 12,
-    )
-}
-
-internal fun resolveRestoredThemeSelection(
-    restoredPreferences: EpubReaderPreferences,
-    rawPreferences: Map<String, String>,
-    appReaderTheme: EpubReaderTheme,
-): EpubResolvedThemeSelection {
-    val hasLegacyThemeValue = rawPreferences.containsKey(EpubThemeKey) &&
-        !rawPreferences.containsKey(EpubThemeOverrideKey)
-    val useAppThemeDefault = when {
-        restoredPreferences.themeOverride -> false
-        hasLegacyThemeValue -> false
-        else -> true
-    }
-    return EpubResolvedThemeSelection(
-        theme = if (useAppThemeDefault) appReaderTheme else restoredPreferences.theme,
-        useAppThemeDefault = useAppThemeDefault,
-    )
-}
-

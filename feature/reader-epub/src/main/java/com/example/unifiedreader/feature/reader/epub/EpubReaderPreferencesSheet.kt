@@ -12,6 +12,7 @@ import com.example.unifiedreader.feature.reader.core.ReaderChromeDefaults
 import com.example.unifiedreader.feature.reader.core.ReaderPanel
 import com.example.unifiedreader.feature.reader.core.ReaderPanelSlot
 import com.example.unifiedreader.ui.components.AppFloatingPanelPlacement
+import com.example.unifiedreader.ui.theme.ReaderPageColor
 
 /** The reading settings as an end-edge panel between the bars (a bottom sheet on phones). */
 @Composable
@@ -25,8 +26,7 @@ internal fun EpubPreferencesSheet(
     paragraphSpacing: Double,
     paragraphIndent: Double,
     textAlign: EpubReaderTextAlign,
-    theme: EpubReaderTheme,
-    useAppThemeDefault: Boolean,
+    theme: ReaderPageColor,
     layoutMode: EpubReaderLayoutMode,
     useOrientationLayoutDefault: Boolean,
     pageTurnStyle: PageTurnStyle,
@@ -40,8 +40,7 @@ internal fun EpubPreferencesSheet(
     onParagraphSpacingChanged: (Double) -> Unit,
     onParagraphIndentChanged: (Double) -> Unit,
     onTextAlignChanged: (EpubReaderTextAlign) -> Unit,
-    onThemeChanged: (EpubReaderTheme) -> Unit,
-    onUseAppThemeDefault: () -> Unit,
+    onThemeChanged: (ReaderPageColor) -> Unit,
     onLayoutModeChanged: (EpubReaderLayoutMode) -> Unit,
     onUseOrientationLayoutDefault: () -> Unit,
     onPageTurnStyleChanged: (PageTurnStyle) -> Unit,
@@ -73,7 +72,6 @@ internal fun EpubPreferencesSheet(
             paragraphIndent = paragraphIndent,
             textAlign = textAlign,
             theme = theme,
-            useAppThemeDefault = useAppThemeDefault,
             layoutMode = layoutMode,
             useOrientationLayoutDefault = useOrientationLayoutDefault,
             pageTurnStyle = pageTurnStyle,
@@ -92,7 +90,6 @@ internal fun EpubPreferencesSheet(
             onParagraphIndentChanged = onParagraphIndentChanged,
             onTextAlignChanged = onTextAlignChanged,
             onThemeChanged = onThemeChanged,
-            onUseAppThemeDefault = onUseAppThemeDefault,
             onLayoutModeChanged = onLayoutModeChanged,
             onUseOrientationLayoutDefault = onUseOrientationLayoutDefault,
             onPageTurnStyleChanged = onPageTurnStyleChanged,

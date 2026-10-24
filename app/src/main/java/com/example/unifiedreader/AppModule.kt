@@ -52,7 +52,7 @@ import com.example.unifiedreader.feature.reader.comics.comicsReaderFactory
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderModePreferencesStore
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirectionPreferencesStore
 import com.example.unifiedreader.feature.reader.preferences.DataStoreComicReaderModePreferencesStore
-import com.example.unifiedreader.feature.reader.preferences.ReaderPageNumberPreferencesStore
+import com.example.unifiedreader.feature.reader.preferences.ReaderDisplayPreferences
 import com.example.unifiedreader.feature.reader.preferences.DataStoreComicReadingDirectionPreferencesStore
 import com.example.unifiedreader.feature.reader.core.ReaderScreenFactory
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
@@ -842,7 +842,7 @@ object AppModule {
         localDocumentRepository: LocalDocumentRepository,
         remoteDownloadDataSources: List<@JvmSuppressWildcards RemoteItemDownloadDataSource>,
         remoteDocumentReadCache: RemoteDocumentReadCache,
-        pageNumberPreferences: ReaderPageNumberPreferencesStore,
+        readerDisplay: ReaderDisplayPreferences,
     ): List<@JvmSuppressWildcards ReaderScreenFactory> = listOf(
         comicsReaderFactory(
             pageSource = comicPageSource,
@@ -852,7 +852,7 @@ object AppModule {
             ),
             preferencesStore = adapter,
             journalReadingSessionRecorder = journalReadingSessionRecorder,
-            pageNumberPreferences = pageNumberPreferences,
+            pageNumberPreferences = readerDisplay.pageNumbers,
         ),
         epubReaderFactory(
             sessionStore = JournalRecordingReaderSessionStore(
@@ -867,7 +867,7 @@ object AppModule {
                     }?.storedDocumentUri(item)
                     ?: remoteDocumentReadCache.documentUriForReading(item)
             },
-            pageNumberPreferences = pageNumberPreferences,
+            displayPreferences = readerDisplay,
         ),
         pdfReaderFactory(
             sessionStore = JournalRecordingReaderSessionStore(
@@ -882,7 +882,7 @@ object AppModule {
                     }?.storedDocumentUri(item)
                     ?: remoteDocumentReadCache.documentUriForReading(item)
             },
-            pageNumberPreferences = pageNumberPreferences,
+            pageNumberPreferences = readerDisplay.pageNumbers,
         ),
     )
 }

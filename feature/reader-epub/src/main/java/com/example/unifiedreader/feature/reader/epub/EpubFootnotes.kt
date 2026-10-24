@@ -8,6 +8,7 @@ import java.io.ByteArrayInputStream
 import javax.xml.parsers.DocumentBuilderFactory
 import org.readium.r2.shared.publication.Link
 import org.readium.r2.shared.publication.Publication
+import org.readium.r2.shared.util.Url
 import org.w3c.dom.Element
 
 // Readium already shows `epub:type="noteref"` links as notes (HyperlinkNavigator.FootnoteContext).
@@ -41,11 +42,28 @@ internal suspend fun Publication.extractEpubFootnoteOrNull(
         ?.toString(Charsets.UTF_8)
         .orEmpty()
     val body = extractEpubNoteText(html = html, targetId = fragment) ?: return null
-    return EpubFootnoteContent(
-        title = link.title?.takeIf(String::isNotBlank) ?: "Footnote",
-        body = body,
-    )
+    return EpubFootnoteContent(body = body)
 }
+
+/** A note card's heading and text: "Note 12" over the note without its leading "12.", or "Note" over the note as it is. */
+internal data class EpubFootnoteHeading(
+    val title: String,
+    val text: String,
+)
+
+internal fun epubFootnoteHeading(body: String): EpubFootnoteHeading {
+    val trimmed = body.trim()
+    val marker = EpubNoteTextMarkerPattern.find(trimmed)
+    val number = marker?.groupValues?.get(1)?.takeIf { mark -> mark.all(Char::isDigit) }
+    if (marker == null || number == null) return EpubFootnoteHeading(title = "Note", text = trimmed)
+    return EpubFootnoteHeading(title = "Note $number", text = trimmed.substring(marker.range.last + 1).trim())
+}
+
+/** Whether [target] points into the same file of the book as [current], whatever their anchors. */
+internal fun isSameEpubResource(
+    target: Url,
+    current: Url,
+): Boolean = target.removeFragment().toString() == current.removeFragment().toString()
 
 /**
  * The text of the note [targetId] points at, or null to navigate there instead. A target marked as a

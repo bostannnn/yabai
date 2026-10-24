@@ -30,6 +30,7 @@ android {
 
 dependencies {
     implementation(project(":core:ui-components"))
+    implementation(project(":core:ui-theme"))
     implementation(project(":core:model"))
     implementation(project(":feature:reader-core"))
     implementation(project(":feature:reader-preferences"))

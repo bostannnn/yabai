@@ -52,4 +52,20 @@ class EpubReaderPreferencesModelTest {
         assertEquals("Book's own", epubTypographyModeLabel(EpubTypographyMode.Original))
         assertEquals("Custom", epubTypographyModeLabel(EpubTypographyMode.Custom))
     }
+
+    @Test
+    fun `a value between steps shows as the nearest step`() {
+        assertEquals("Normal", EpubMarginSteps.nearest(1.4).label)
+        assertEquals("Wide", EpubMarginSteps.nearest(1.6).label)
+        assertEquals("Small", EpubParagraphSpacingSteps.nearest(0.4).label)
+        assertEquals("Large", EpubParagraphIndentSteps.nearest(2.6).label)
+    }
+
+    @Test
+    fun `line height moves in tenths inside its range and reads as a multiple`() {
+        assertEquals(1.5, snapEpubLineHeight(1.54), 1e-9)
+        assertEquals(EpubLineHeightMin, snapEpubLineHeight(0.4), 1e-9)
+        assertEquals(EpubLineHeightMax, snapEpubLineHeight(3.0), 1e-9)
+        assertEquals("1.5\u00d7", formatEpubLineHeight(1.5))
+    }
 }
