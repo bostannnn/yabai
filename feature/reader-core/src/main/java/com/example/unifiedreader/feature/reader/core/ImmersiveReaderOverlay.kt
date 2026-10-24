@@ -15,11 +15,17 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.example.unifiedreader.ui.components.LocalAppGlassState
 import com.example.unifiedreader.ui.components.appGlassSource
+import com.example.unifiedreader.ui.components.AppToastHost
 import com.example.unifiedreader.ui.components.rememberAppGlassState
 import kotlinx.coroutines.delay
 
@@ -107,7 +113,8 @@ fun ImmersiveReaderOverlay(
     }
 
     val glassState = if (glass) rememberAppGlassState() else null
-    CompositionLocalProvider(LocalAppGlassState provides glassState) {
+    val dockReach = remember { mutableStateOf(0.dp) }
+    CompositionLocalProvider(LocalAppGlassState provides glassState, LocalReaderDockReach provides dockReach) {
         Box(modifier = modifier.fillMaxSize()) {
             Box(
                 modifier = Modifier
@@ -137,6 +144,25 @@ fun ImmersiveReaderOverlay(
             ) {
                 overlay()
             }
+
+            // Toasts sit 12 dp above the dock while the bars show, above the page number otherwise.
+            val aboveDock = overlayState.isVisible && dockReach.value > 0.dp
+            AppToastHost(
+                modifier = Modifier.zIndex(2f),
+                bottomPadding = if (aboveDock) dockReach.value + ReaderToastGap else ReaderToastPageClearance,
+                aboveNavigationBar = !aboveDock,
+            )
         }
     }
 }
+
+/**
+ * How far the reader's dock reaches up from the bottom of the frame while the bars show, as
+ * [ReaderChromeFrame] measures it; 0 without a dock on screen.
+ */
+internal val LocalReaderDockReach = staticCompositionLocalOf<MutableState<Dp>?> { null }
+
+private val ReaderToastGap = 12.dp
+
+/** Clear of the page number, which sits in the bottom strip while the bars are hidden. */
+private val ReaderToastPageClearance = 44.dp

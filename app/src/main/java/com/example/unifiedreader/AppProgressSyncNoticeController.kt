@@ -8,6 +8,10 @@ data class AppProgressSyncNotice(
     val id: Long,
     val message: String,
     val isError: Boolean = true,
+    /** Why it failed, for the toast's second line. */
+    val reason: String? = null,
+    /** False for a source that can't be reached at all, where trying again now won't help. */
+    val canRetry: Boolean = true,
 )
 
 class AppProgressSyncNoticeController @Inject constructor() {
@@ -19,15 +23,9 @@ class AppProgressSyncNoticeController @Inject constructor() {
     ) {
         val reportableFailures = failures.filterNot(SourceProgressSyncFailure::isQueuedOfflineFailure)
         if (reportableFailures.isEmpty()) return
-        val message = reportableFailures.toProgressSyncNoticeMessage()
+        val notice = reportableFailures.toProgressSyncNotice(id = nextNoticeId++)
         updateState { state ->
-            state.copy(
-                progressSyncNotice = AppProgressSyncNotice(
-                    id = nextNoticeId++,
-                    message = message,
-                    isError = true,
-                ),
-            )
+            state.copy(progressSyncNotice = notice)
         }
     }
 
@@ -46,21 +44,25 @@ class AppProgressSyncNoticeController @Inject constructor() {
 private fun SourceProgressSyncFailure.isQueuedOfflineFailure(): Boolean =
     artifact != null && throwable is RemoteSourceUnavailableException
 
-private fun List<SourceProgressSyncFailure>.toProgressSyncNoticeMessage(): String {
+private fun List<SourceProgressSyncFailure>.toProgressSyncNotice(id: Long): AppProgressSyncNotice {
     val groupedFailures = groupBy(SourceProgressSyncFailure::sourceType)
     if (groupedFailures.size == 1) {
         val (sourceType, failures) = groupedFailures.entries.single()
         failures.first().throwable.takeIf { throwable -> throwable is RemoteSourceUnavailableException }?.let { throwable ->
-            return throwable.userFacingMessage()
+            return AppProgressSyncNotice(id = id, message = throwable.userFacingMessage(), canRetry = false)
         }
         val artifactLabel = failures.first().artifact.syncNoticeLabel()
-        return "Unable to sync ${sourceType.displayName()} $artifactLabel: ${
-            failures.first().throwable.userFacingMessage()
-        }"
+        return AppProgressSyncNotice(
+            id = id,
+            message = "Couldn't send your $artifactLabel to ${sourceType.displayName()}",
+            reason = failures.first().throwable.userFacingMessage(),
+        )
     }
-    return "Unable to sync progress for ${
-        groupedFailures.keys.joinToString { sourceType -> sourceType.displayName() }
-    }."
+    val names = groupedFailures.keys.map { sourceType -> sourceType.displayName() }
+    return AppProgressSyncNotice(
+        id = id,
+        message = "Couldn't send your progress to ${names.dropLast(1).joinToString()} and ${names.last()}",
+    )
 }
 
 private fun RemoteSyncArtifact?.syncNoticeLabel(): String = when (this) {

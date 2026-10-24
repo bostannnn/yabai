@@ -36,6 +36,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.ui.components.AppIcons
+import com.example.unifiedreader.ui.components.appToastAvoiding
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 internal const val AlphabetNavigationSectionTagPrefix = "alphabet-navigation-section-"
@@ -161,6 +162,8 @@ internal fun LibraryBackToTopButton(
     val shape = CircleShape
     Box(
         modifier = modifier
+            // Steps up out of a toast's way.
+            .appToastAvoiding()
             .size(48.dp)
             .clip(shape)
             .background(semanticColors.surfaceRaised)

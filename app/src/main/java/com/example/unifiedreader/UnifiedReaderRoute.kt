@@ -9,14 +9,8 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -26,10 +20,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -46,15 +38,12 @@ import com.example.unifiedreader.feature.updates.AppUpdateState
 import com.example.unifiedreader.feature.updates.rememberAppUpdateActions
 import com.example.unifiedreader.feature.library.rememberLibraryCoverColors
 import com.example.unifiedreader.ui.components.AppBackground
-import com.example.unifiedreader.ui.components.AppDialog
-import com.example.unifiedreader.ui.components.AppDialogConfirmButton
 import com.example.unifiedreader.ui.components.AppScreenBack
 import com.example.unifiedreader.ui.components.AppScreenHost
-import com.example.unifiedreader.ui.components.AppSnackbar
+import com.example.unifiedreader.ui.components.LocalAppToastState
 import com.example.unifiedreader.ui.theme.AppCoverAccentTheme
 import com.example.unifiedreader.ui.theme.UnifiedReaderTheme
 import com.example.unifiedreader.ui.theme.applyAndroidThemeMode
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 
 @Composable
@@ -83,16 +72,6 @@ fun UnifiedReaderRoute() {
         },
         updateController = updates.controller,
     )
-    if (viewModel.isUnsupportedImportDialogVisible) {
-        AppDialog(
-            onDismissRequest = viewModel::dismissUnsupportedImportDialog,
-            title = { Text(text = "Unsupported file") },
-            text = { Text(text = UnsupportedImportSelectionMessage) },
-            confirmButton = {
-                AppDialogConfirmButton(text = "OK", onClick = viewModel::dismissUnsupportedImportDialog)
-            },
-        )
-    }
 }
 
 @Composable
@@ -161,85 +140,88 @@ fun UnifiedReaderAppContent(
                 uiState.isKavitaVisualSectionActive,
             onBack = viewModel::onBackPressed,
         )
-        AppBackground(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background,
-        ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                val rootScreen = if (isReaderMode) {
-                    AppRootScreen.Reader(itemId = uiState.selectedItem!!.id)
-                } else {
-                    AppRootScreen.Shell
-                }
-                AppScreenHost(
-                    screen = rootScreen,
-                    // The reader that is closing keeps drawing its book while it fades.
-                    frame = uiState.selectedItem,
-                    back = if (isReaderMode) AppScreenBack(AppRootScreen.Shell, viewModel::onBackPressed) else null,
-                    // One reader slot: the next book in a series replaces the open one in place.
-                    contentKey = { screen -> screen is AppRootScreen.Reader },
-                    modifier = Modifier.fillMaxSize(),
-                ) { screen, readerItem ->
-                    if (screen is AppRootScreen.Reader && readerItem != null) {
-                        // The reader's accent (slider fills, selected states) is the book's cover colour.
-                        AppCoverAccentTheme(rememberLibraryCoverColors(readerItem, viewModel::coverImageUrlFor)) {
-                            ReaderHost(
-                                item = readerItem,
-                                factories = viewModel.readerFactories,
-                                onBack = viewModel::onBackPressed,
-                                readerWorkCoordinator = viewModel.readerWorkCoordinator,
-                                navigationActions = ReaderNavigationActions(
-                                    onRequestNextInSeries = viewModel::onReaderNextRequested,
-                                    onRequestCompletion = viewModel::onReaderCompletionRequested,
-                                    currentOpenMode = uiState.selectedReaderOpenMode,
-                                ),
-                            )
-                        }
+        // One toast state for the app: the shell, a book and every sheet show it where they are.
+        CompositionLocalProvider(LocalAppToastState provides viewModel.toasts) {
+            AppBackground(
+                modifier = Modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.background,
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    val rootScreen = if (isReaderMode) {
+                        AppRootScreen.Reader(itemId = uiState.selectedItem!!.id)
                     } else {
-                        // Remote covers are asked for again after a reset or a catalog sync.
-                        val coverGeneration by viewModel.coverResetGeneration.collectAsStateWithLifecycle()
-                        CompositionLocalProvider(LocalLibraryCoverGeneration provides coverGeneration) {
-                            UnifiedReaderScaffold(
-                                uiState = uiState,
-                                libraryViewMode = libraryViewMode,
-                                onLibraryViewModeChanged = { libraryViewMode = it },
-                                onImportLocalFileClick = onImportLocalFileClick,
-                                viewModel = viewModel,
-                                updateState = updateState,
-                                updateActions = updateActions,
-                                onStartSource = { request -> sourceStartRequest = request },
-                            )
+                        AppRootScreen.Shell
+                    }
+                    AppScreenHost(
+                        screen = rootScreen,
+                        // The reader that is closing keeps drawing its book while it fades.
+                        frame = uiState.selectedItem,
+                        back = if (isReaderMode) AppScreenBack(AppRootScreen.Shell, viewModel::onBackPressed) else null,
+                        // One reader slot: the next book in a series replaces the open one in place.
+                        contentKey = { screen -> screen is AppRootScreen.Reader },
+                        modifier = Modifier.fillMaxSize(),
+                    ) { screen, readerItem ->
+                        if (screen is AppRootScreen.Reader && readerItem != null) {
+                            // The reader's accent (slider fills, selected states) is the book's cover colour.
+                            AppCoverAccentTheme(rememberLibraryCoverColors(readerItem, viewModel::coverImageUrlFor)) {
+                                ReaderHost(
+                                    item = readerItem,
+                                    factories = viewModel.readerFactories,
+                                    onBack = viewModel::onBackPressed,
+                                    readerWorkCoordinator = viewModel.readerWorkCoordinator,
+                                    navigationActions = ReaderNavigationActions(
+                                        onRequestNextInSeries = viewModel::onReaderNextRequested,
+                                        onRequestCompletion = viewModel::onReaderCompletionRequested,
+                                        currentOpenMode = uiState.selectedReaderOpenMode,
+                                    ),
+                                )
+                            }
+                        } else {
+                            // Remote covers are asked for again after a reset or a catalog sync.
+                            val coverGeneration by viewModel.coverResetGeneration.collectAsStateWithLifecycle()
+                            CompositionLocalProvider(LocalLibraryCoverGeneration provides coverGeneration) {
+                                UnifiedReaderScaffold(
+                                    uiState = uiState,
+                                    libraryViewMode = libraryViewMode,
+                                    onLibraryViewModeChanged = { libraryViewMode = it },
+                                    onImportLocalFileClick = onImportLocalFileClick,
+                                    viewModel = viewModel,
+                                    updateState = updateState,
+                                    updateActions = updateActions,
+                                    onStartSource = { request -> sourceStartRequest = request },
+                                )
+                            }
                         }
                     }
-                }
-                sourceStartRequest?.takeIf { !isReaderMode }?.let { request ->
-                    SourceStartHost(
-                        request = request,
+                    sourceStartRequest?.takeIf { !isReaderMode }?.let { request ->
+                        SourceStartHost(
+                            request = request,
+                            uiState = uiState,
+                            viewModel = viewModel,
+                            onImportLocalFileClick = onImportLocalFileClick,
+                            onFinished = { sourceStartRequest = null },
+                        )
+                    }
+                    ProgressSyncNoticeToast(
+                        notice = uiState.progressSyncNotice,
+                        viewModel = viewModel,
+                    )
+                    ReaderFinishedHost(
                         uiState = uiState,
                         viewModel = viewModel,
-                        onImportLocalFileClick = onImportLocalFileClick,
-                        onFinished = { sourceStartRequest = null },
                     )
-                }
-                ProgressSyncNoticeHost(
-                    notice = uiState.progressSyncNotice,
-                    onDismiss = viewModel::dismissProgressSyncNotice,
-                )
-                ReaderFinishedHost(
-                    uiState = uiState,
-                    viewModel = viewModel,
-                )
-                if (updateController != null) {
-                    AppUpdateHost(
-                        controller = updateController,
-                        state = updateState,
-                        actions = updateActions,
-                        isReaderOpen = isReaderMode,
-                        isLibraryVisible = !isReaderMode &&
-                            uiState.topLevel == TopLevelDestination.Library &&
-                            !viewModel.isDownloadsSheetVisible &&
-                            uiState.readerCompletionState == null,
-                    )
+                    if (updateController != null) {
+                        AppUpdateHost(
+                            controller = updateController,
+                            state = updateState,
+                            actions = updateActions,
+                            isReaderOpen = isReaderMode,
+                            isLibraryVisible = !isReaderMode &&
+                                uiState.topLevel == TopLevelDestination.Library &&
+                                !viewModel.isDownloadsSheetVisible &&
+                                uiState.readerCompletionState == null,
+                        )
+                    }
                 }
             }
         }
@@ -253,34 +235,16 @@ private sealed interface AppRootScreen {
     data class Reader(val itemId: String) : AppRootScreen
 }
 
+/** A failed progress sync becomes an error toast with Retry; the state's notice is then cleared. */
 @Composable
-private fun BoxScope.ProgressSyncNoticeHost(
+private fun ProgressSyncNoticeToast(
     notice: AppProgressSyncNotice?,
-    onDismiss: (Long) -> Unit,
+    viewModel: AppViewModel,
 ) {
     if (notice == null) return
     LaunchedEffect(notice.id) {
-        delay(PROGRESS_SYNC_NOTICE_DURATION_MILLIS)
-        onDismiss(notice.id)
-    }
-    AppSnackbar(
-        modifier = Modifier
-            .align(Alignment.BottomCenter)
-            .windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(16.dp),
-
-        containerColor = if (notice.isError) {
-            MaterialTheme.colorScheme.errorContainer
-        } else {
-            MaterialTheme.colorScheme.inverseSurface
-        },
-        contentColor = if (notice.isError) {
-            MaterialTheme.colorScheme.onErrorContainer
-        } else {
-            MaterialTheme.colorScheme.inverseOnSurface
-        },
-    ) {
-        Text(text = notice.message)
+        viewModel.toasts.show(AppToasts.syncFailure(notice, onRetry = viewModel::retryPendingRemoteSync))
+        viewModel.dismissProgressSyncNotice(notice.id)
     }
 }
 
@@ -298,6 +262,4 @@ internal fun importDocumentIntoApp(
     viewModel.onDocumentImported(uri)
 }
 
-private const val UnsupportedImportSelectionMessage =
-    "Choose an EPUB, PDF, CBZ, or CBR file to import."
-private const val PROGRESS_SYNC_NOTICE_DURATION_MILLIS = 6000L
+

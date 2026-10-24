@@ -8,10 +8,14 @@ import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+/** What a download request did, worded for a toast. [isError] when nothing was queued. */
 data class DownloadQueueActionResult(
     val message: String,
     val isError: Boolean = false,
+    val outcome: DownloadQueueOutcome = DownloadQueueOutcome.Queued,
 )
+
+enum class DownloadQueueOutcome { Queued, AlreadyQueued, AlreadyAvailable, MixedSources, NothingSelected }
 
 interface DownloadWorkScheduler {
     fun scheduleEntry(
@@ -40,8 +44,8 @@ class RemoteDownloadQueueController(
         allItems = items,
         selectedItemId = item.id,
         selectedItemTitle = item.libraryDisplayLabel(),
-        alreadyAvailableMessage = "Local file already available for ${item.libraryDisplayLabel()}.",
-        alreadyQueuedMessage = "Download already queued for ${item.libraryDisplayLabel()}.",
+        alreadyAvailableMessage = "${item.libraryDisplayLabel()} is already on this device",
+        alreadyQueuedMessage = "${item.libraryDisplayLabel()} is already downloading",
         canScheduleSource = canScheduleSource,
     )
 
@@ -53,8 +57,9 @@ class RemoteDownloadQueueController(
         val distinctSelectedItems = selectedItems.distinctBy(ReadableItem::id)
         if (distinctSelectedItems.isEmpty()) {
             return DownloadQueueActionResult(
-                message = "No items selected for download.",
+                message = "Nothing selected to download",
                 isError = true,
+                outcome = DownloadQueueOutcome.NothingSelected,
             )
         }
         if (distinctSelectedItems.size == 1) {
@@ -69,8 +74,8 @@ class RemoteDownloadQueueController(
             allItems = allItems,
             selectedItemId = distinctSelectedItems.first().id,
             selectedItemTitle = "${distinctSelectedItems.size} selected items",
-            alreadyAvailableMessage = "Local files already available for selected items.",
-            alreadyQueuedMessage = "Download already queued for one or more selected items.",
+            alreadyAvailableMessage = "These are already on this device",
+            alreadyQueuedMessage = "Some of these are already downloading",
             canScheduleSource = canScheduleSource,
         )
     }
@@ -101,13 +106,15 @@ class RemoteDownloadQueueController(
         if (actionItems.isEmpty()) {
             return DownloadQueueActionResult(
                 message = alreadyAvailableMessage,
+                outcome = DownloadQueueOutcome.AlreadyAvailable,
             )
         }
         val sourceType = actionItems.first().sourceType
         if (actionItems.any { actionItem -> actionItem.sourceType != sourceType }) {
             return DownloadQueueActionResult(
-                message = "Selected items must come from one source.",
+                message = "Pick books from one source to download them together",
                 isError = true,
+                outcome = DownloadQueueOutcome.MixedSources,
             )
         }
         val trackedItemIds = buildSet {
@@ -132,6 +139,7 @@ class RemoteDownloadQueueController(
             return DownloadQueueActionResult(
                 message = alreadyQueuedMessage,
                 isError = true,
+                outcome = DownloadQueueOutcome.AlreadyQueued,
             )
         }
         if (canScheduleSource(entry.sourceType)) {
@@ -139,11 +147,11 @@ class RemoteDownloadQueueController(
         }
         return DownloadQueueActionResult(
             message = if (actionItems.size == 1 && selectedItems.size == 1) {
-                "Queued $selectedItemTitle for download."
+                "Downloading $selectedItemTitle"
             } else if (actionItems.size == 1) {
-                "Queued 1 file for download."
+                "Downloading 1 file"
             } else {
-                "Queued ${actionItems.size} files for download."
+                "Downloading ${actionItems.size} files"
             },
         )
     }

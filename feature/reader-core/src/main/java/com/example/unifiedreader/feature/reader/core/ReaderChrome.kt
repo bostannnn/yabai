@@ -31,6 +31,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
@@ -215,6 +217,16 @@ fun ReaderChromeFrame(
     var frameBottom by remember { mutableFloatStateOf(0f) }
     var topBarBottom by remember { mutableFloatStateOf(0f) }
     var dockTop by remember { mutableFloatStateOf(Float.NaN) }
+    // Tells the overlay how far the dock reaches up, so toasts can sit above it.
+    val dockReach = LocalReaderDockReach.current
+    DisposableEffect(dockReach) { onDispose { dockReach?.value = 0.dp } }
+    // Read here, in composition, so a new measurement recomposes this and updates the overlay.
+    val reach = if (!dockTop.isNaN() && frameBottom > 0f) {
+        with(density) { (frameBottom - dockTop).coerceAtLeast(0f).toDp() }
+    } else {
+        null
+    }
+    SideEffect { reach?.let { dockReach?.value = it } }
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()

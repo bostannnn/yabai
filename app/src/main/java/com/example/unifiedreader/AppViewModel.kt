@@ -22,6 +22,7 @@ import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.data.repository.JournalEntrySaveUseCase
 import com.example.unifiedreader.feature.downloads.DownloadEntriesSnapshot
+import com.example.unifiedreader.feature.downloads.DownloadQueueActionResult
 import com.example.unifiedreader.journal.JournalItemRef
 import com.example.unifiedreader.journal.JournalRepository
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
@@ -36,6 +37,7 @@ import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirectio
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import com.example.unifiedreader.feature.settings.ThemeMode
+import com.example.unifiedreader.ui.components.AppToastState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlin.jvm.JvmSuppressWildcards
@@ -84,8 +86,8 @@ class AppViewModel @Inject constructor(
         private set
     var isDownloadsSheetVisible by mutableStateOf(false)
         private set
-    var isUnsupportedImportDialogVisible by mutableStateOf(false)
-        private set
+    /** The app's toasts; every screen and sheet shows them through `LocalAppToastState`. */
+    val toasts = AppToastState()
     private var lastDownloadedAvailabilitySignature: Set<String>? = null
 
     init {
@@ -568,21 +570,15 @@ class AppViewModel @Inject constructor(
 
     fun onDeleteImportedItem(item: ReadableItem) {
         viewModelScope.launch {
-            deleteImportedItem(item)
+            if (deleteImportedItem(item)) toasts.show(AppToasts.removedFromLibrary(item))
         }
     }
 
     fun onDocumentImported(uri: Uri) {
         viewModelScope.launch {
             val imported = importDocument(uri)
-            if (!imported) {
-                isUnsupportedImportDialogVisible = true
-            }
+            toasts.show(if (imported != null) AppToasts.imported(imported) else AppToasts.unreadableFile())
         }
-    }
-
-    fun dismissUnsupportedImportDialog() {
-        isUnsupportedImportDialogVisible = false
     }
 
     fun onDownloadRemoteItem(item: ReadableItem) {
@@ -592,6 +588,7 @@ class AppViewModel @Inject constructor(
             scope = viewModelScope,
             item = item,
             canScheduleSource = remoteSourceConnectivityPolicy::canScheduleDownload,
+            onResult = ::showDownloadResult,
         )
     }
 
@@ -602,7 +599,12 @@ class AppViewModel @Inject constructor(
             scope = viewModelScope,
             items = items,
             canScheduleSource = remoteSourceConnectivityPolicy::canScheduleDownload,
+            onResult = ::showDownloadResult,
         )
+    }
+
+    private fun showDownloadResult(result: DownloadQueueActionResult) {
+        toasts.show(AppToasts.download(result, onView = ::showDownloadsSheet))
     }
 
     fun onDeleteRemoteLocalFile(item: ReadableItem) {
@@ -611,6 +613,7 @@ class AppViewModel @Inject constructor(
             updateState = ::updateUiState,
             scope = viewModelScope,
             item = item,
+            showToast = toasts::show,
         )
     }
 
@@ -619,7 +622,10 @@ class AppViewModel @Inject constructor(
             libraryReadStatusController.setReadStatus(
                 item = item,
                 markAsRead = markAsRead,
-                onProgressChanged = ::refreshProgress,
+                onProgressChanged = {
+                    refreshProgress()
+                    toasts.show(AppToasts.readStatus(markedAsRead = markAsRead))
+                },
             )
         }
     }
@@ -930,7 +936,7 @@ class AppViewModel @Inject constructor(
         )
     }
 
-    internal suspend fun importDocument(uri: Uri): Boolean {
+    internal suspend fun importDocument(uri: Uri): ReadableItem? {
         val result = libraryActionsCoordinator.importDocument(uri)
         val importedItem = result.importedItem
         catalogStateCoordinator.updateLibraryState(
@@ -941,10 +947,10 @@ class AppViewModel @Inject constructor(
             selectedItemId = importedItem?.id,
             activeReader = importedItem?.format,
         )
-        return importedItem != null
+        return importedItem
     }
 
-    internal suspend fun deleteImportedItem(item: ReadableItem) {
+    internal suspend fun deleteImportedItem(item: ReadableItem): Boolean {
         val result = libraryActionsCoordinator.deleteImportedItem(item)
         val removed = result.removed
         val isDeletedSelection = removed && uiState.selectedItemId == item.id
@@ -955,6 +961,7 @@ class AppViewModel @Inject constructor(
             selectedItemId = if (isDeletedSelection) null else uiState.selectedItemId,
             activeReader = if (isDeletedSelection) null else uiState.activeReader,
         )
+        return removed
     }
 
     private fun observeAppState() {

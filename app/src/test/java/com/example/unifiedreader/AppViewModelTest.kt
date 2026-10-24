@@ -667,7 +667,7 @@ class AppViewModelTest {
         assertEquals(remoteComic.id, viewModel.uiState.selectedItemId)
         assertEquals(FormatType.CBZ, viewModel.uiState.activeReader)
         assertEquals(
-            "Unable to sync Kavita progress: Sync unavailable",
+            "Couldn't send your progress to Kavita",
             viewModel.uiState.progressSyncNotice?.message,
         )
         assertEquals(RemoteSourceReachability.Reachable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
@@ -1092,7 +1092,7 @@ class AppViewModelTest {
 
         assertEquals(1, progressSync.pushPendingProgressCalls)
         assertEquals(
-            "Unable to sync Kavita progress: Sync unavailable",
+            "Couldn't send your progress to Kavita",
             viewModel.uiState.progressSyncNotice?.message,
         )
         assertEquals("Sync unavailable", viewModel.uiState.pendingRemoteSyncSummary.groups.single().lastAttempt?.errorMessage)
@@ -1163,7 +1163,7 @@ class AppViewModelTest {
         assertEquals(remoteBook.id, viewModel.uiState.selectedItemId)
         assertEquals(FormatType.EPUB, viewModel.uiState.activeReader)
         assertEquals(
-            "Unable to sync Grimmory progress: Sync unavailable",
+            "Couldn't send your progress to Grimmory",
             viewModel.uiState.progressSyncNotice?.message,
         )
     }
@@ -1194,7 +1194,7 @@ class AppViewModelTest {
         assertNull(viewModel.uiState.selectedItemId)
         assertNull(viewModel.uiState.activeReader)
         assertEquals(
-            "Unable to sync Grimmory progress: Network unavailable",
+            "Couldn't send your progress to Grimmory",
             viewModel.uiState.progressSyncNotice?.message,
         )
         assertEquals(RemoteSourceReachability.Unavailable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.GRIMMORY))
@@ -1232,7 +1232,7 @@ class AppViewModelTest {
         assertNull(viewModel.uiState.activeReader)
         assertEquals(0, kavitaDownloadDataSource.downloadToLocalStorageCalls)
         assertEquals(
-            "Unable to sync Kavita progress: Network unavailable",
+            "Couldn't send your progress to Kavita",
             viewModel.uiState.progressSyncNotice?.message,
         )
         assertEquals(RemoteSourceReachability.Unavailable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))

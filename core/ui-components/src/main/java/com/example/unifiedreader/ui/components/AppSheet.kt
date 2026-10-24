@@ -86,44 +86,48 @@ internal fun AppSheetLayout(
         dragHandle = null,
         contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .windowInsetsPadding(BottomSheetDefaults.windowInsets),
-        ) {
-            Box(
+        // The sheet is its own window, so toasts raised from it show inside it.
+        Box {
+            Column(
                 modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .semantics(mergeDescendants = true) {
-                        dismiss(dismissLabel) {
-                            hide()
-                            true
-                        }
-                        when (sheetState.currentValue) {
-                            SheetValue.PartiallyExpanded -> expand(expandLabel) {
-                                scope.launch { sheetState.expand() }
-                                true
-                            }
-                            SheetValue.Expanded -> {
-                                if (sheetState.hasPartiallyExpandedState) {
-                                    collapse(collapseLabel) {
-                                        scope.launch { sheetState.partialExpand() }
-                                        true
-                                    }
-                                }
-                            }
-                            SheetValue.Hidden -> Unit
-                        }
-                    },
+                    .fillMaxWidth()
+                    .windowInsetsPadding(BottomSheetDefaults.windowInsets),
             ) {
                 Box(
                     modifier = Modifier
-                        .padding(vertical = AppSheetDefaults.handleVerticalPadding)
-                        .size(width = AppSheetDefaults.handleWidth, height = AppSheetDefaults.handleHeight)
-                        .background(MaterialTheme.colorScheme.outline, RoundedCornerShape(AppSheetDefaults.handleCornerRadius)),
-                )
+                        .align(Alignment.CenterHorizontally)
+                        .semantics(mergeDescendants = true) {
+                            dismiss(dismissLabel) {
+                                hide()
+                                true
+                            }
+                            when (sheetState.currentValue) {
+                                SheetValue.PartiallyExpanded -> expand(expandLabel) {
+                                    scope.launch { sheetState.expand() }
+                                    true
+                                }
+                                SheetValue.Expanded -> {
+                                    if (sheetState.hasPartiallyExpandedState) {
+                                        collapse(collapseLabel) {
+                                            scope.launch { sheetState.partialExpand() }
+                                            true
+                                        }
+                                    }
+                                }
+                                SheetValue.Hidden -> Unit
+                            }
+                        },
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .padding(vertical = AppSheetDefaults.handleVerticalPadding)
+                            .size(width = AppSheetDefaults.handleWidth, height = AppSheetDefaults.handleHeight)
+                            .background(MaterialTheme.colorScheme.outline, RoundedCornerShape(AppSheetDefaults.handleCornerRadius)),
+                    )
+                }
+                content(hide)
             }
-            content(hide)
+            AppToastHost(modifier = Modifier.matchParentSize())
         }
     }
 }

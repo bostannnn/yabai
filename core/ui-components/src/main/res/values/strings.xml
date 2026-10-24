@@ -3,4 +3,5 @@
     <string name="app_sheet_dismiss">Dismiss bottom sheet</string>
     <string name="app_sheet_expand">Expand bottom sheet</string>
     <string name="app_sheet_collapse">Collapse bottom sheet</string>
+    <string name="app_toast_dismiss">Dismiss</string>
 </resources>

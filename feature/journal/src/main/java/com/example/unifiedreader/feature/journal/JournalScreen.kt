@@ -16,6 +16,9 @@ import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.ui.components.AppDialog
 import com.example.unifiedreader.ui.components.AppDialogConfirmButton
 import com.example.unifiedreader.ui.components.AppDialogDismissButton
+import com.example.unifiedreader.ui.components.AppToastIcon
+import com.example.unifiedreader.ui.components.AppToastMessage
+import com.example.unifiedreader.ui.components.LocalAppToastState
 
 @Composable
 fun JournalScreen(
@@ -40,6 +43,7 @@ fun JournalScreen(
         contentTopInset = contentTopInset,
         modifier = modifier,
     )
+    val toasts = LocalAppToastState.current
     deleteTarget?.let { target ->
         JournalDeleteConfirmationDialog(
             target = target,
@@ -49,6 +53,7 @@ fun JournalScreen(
                     is JournalDeleteTarget.Item -> onDeleteItemJournal(target.itemId)
                 }
                 deleteTarget = null
+                toasts?.show(AppToastMessage(text = "Removed from your journal", icon = AppToastIcon.Removed))
             },
         )
     }

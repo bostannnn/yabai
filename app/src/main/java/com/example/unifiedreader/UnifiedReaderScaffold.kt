@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.ReadableItem
@@ -70,6 +71,7 @@ import com.example.unifiedreader.feature.updates.AppUpdateState
 import com.example.unifiedreader.ui.components.AppBackground
 import com.example.unifiedreader.ui.components.AppScreenHost
 import com.example.unifiedreader.ui.components.AppTopBarDefaults
+import com.example.unifiedreader.ui.components.AppToastHost
 import com.example.unifiedreader.ui.components.LocalAppGlassState
 import com.example.unifiedreader.ui.components.appGlassSource
 import com.example.unifiedreader.ui.components.currentAppWindowWidth
@@ -321,6 +323,8 @@ fun UnifiedReaderScaffold(
                     .fillMaxSize()
                     .padding(innerPadding),
             ) {
+                // Toasts float over the content (beside the rail), blurring it like the bars.
+                AppToastHost(modifier = Modifier.zIndex(1f), aboveNavigationBar = false)
                 Box(
                     modifier = Modifier
                         .fillMaxSize()

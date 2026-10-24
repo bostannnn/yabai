@@ -32,7 +32,8 @@ class RemoteDownloadQueueControllerTest {
         val result = controller.enqueue(item = item, items = listOf(item))
 
         assertFalse(result.isError)
-        assertEquals("Queued book-1 for download.", result.message)
+        assertEquals("Downloading book-1", result.message)
+        assertEquals(DownloadQueueOutcome.Queued, result.outcome)
         assertEquals(1, store.entries.size)
         assertEquals(DownloadEntryStatus.Queued, store.entries.single().status)
         assertEquals(listOf(store.entries.single().id), scheduler.scheduledEntryIds)
@@ -57,7 +58,7 @@ class RemoteDownloadQueueControllerTest {
 
         val entry = store.entries.single()
         assertFalse(result.isError)
-        assertEquals("Queued 2 files for download.", result.message)
+        assertEquals("Downloading 2 files", result.message)
         assertEquals("2 selected items", entry.selectedItemTitle)
         assertEquals(listOf("book-1", "book-2"), entry.actionItems.map(QueuedDownloadItem::id))
         assertEquals(setOf("book-1", "book-2"), entry.trackedItemIds)
@@ -150,6 +151,8 @@ class RemoteDownloadQueueControllerTest {
 
         assertFalse(first.isError)
         assertTrue(second.isError)
+        assertEquals(DownloadQueueOutcome.AlreadyQueued, second.outcome)
+        assertEquals("book-1 is already downloading", second.message)
         assertEquals(1, store.entries.size)
     }
 

@@ -12,6 +12,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -154,7 +155,13 @@ fun AppSideSheet(
                     color = UnifiedReaderThemeTokens.colors.surfaceBase,
                     shadowElevation = 16.dp,
                 ) {
-                    AppSideSheetScopeImpl(column = this, onDismiss = dismiss).content()
+                    // The sheet is its own window, so toasts raised from it show inside it.
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            AppSideSheetScopeImpl(column = this, onDismiss = dismiss).content()
+                        }
+                        AppToastHost(aboveNavigationBar = false)
+                    }
                 }
             }
         }
