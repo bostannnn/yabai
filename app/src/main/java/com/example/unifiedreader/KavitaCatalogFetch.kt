@@ -265,6 +265,7 @@ private fun List<String>.stableFingerprintPart(): String = asSequence()
 private fun String.normalizedKavitaCoverUrlForFingerprint(): String =
     substringBefore("&apiKey=").substringBefore("?apiKey=")
 
-private const val KAVITA_CATALOG_FINGERPRINT_VERSION = "v1"
+// v2: chapters carry their release year; every series is read again once for it.
+private const val KAVITA_CATALOG_FINGERPRINT_VERSION = "v2"
 private const val KAVITA_CATALOG_FINGERPRINT_FIELD_SEPARATOR = "\u001F"
 private const val KAVITA_CATALOG_FINGERPRINT_LIST_SEPARATOR = "\u001E"

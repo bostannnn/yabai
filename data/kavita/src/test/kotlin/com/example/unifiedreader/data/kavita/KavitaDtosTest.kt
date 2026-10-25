@@ -102,6 +102,7 @@ class KavitaDtosTest {
                             pagesRead = 9,
                             lastReadingProgressUtc = "2026-04-07T06:00:00Z",
                             volumeId = 7,
+                            releaseDate = "2012-03-14T00:00:00",
                             writers = listOf(KavitaPersonDto(name = "Brian K. Vaughan")),
                             pencillers = listOf(KavitaPersonDto(name = "Fiona Staples")),
                         ),
@@ -130,6 +131,7 @@ class KavitaDtosTest {
         assertEquals(listOf("Space Opera"), entry.item.comicMetadata?.tags)
         assertEquals(listOf("English"), entry.item.comicMetadata?.languages)
         assertEquals(1775729730000L, entry.item.addedAtEpochMillis)
+        assertEquals(2012, entry.item.publishedYear)
         assertEquals(9, entry.progress?.page)
         assertFalse(entry.progress?.isFinished ?: true)
         assertFalse(entry.isExplicitUnreadReset)

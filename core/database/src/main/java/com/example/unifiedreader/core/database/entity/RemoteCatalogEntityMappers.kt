@@ -70,6 +70,7 @@ fun ReadableItem.toEntity(
     seriesCoverUrl = seriesCoverUrl,
     description = description,
     addedAtEpochMillis = addedAtEpochMillis,
+    publishedYear = publishedYear,
     bookAuthor = bookMetadata?.primaryAuthor(),
     bookAuthorsJson = encodeMetadataValues(bookMetadata?.normalizedAuthors()),
     bookSeriesName = bookMetadata?.seriesName,
@@ -106,6 +107,7 @@ fun ReadableItemEntity.toDomain(): ReadableItem = ReadableItem(
     seriesCoverUrl = seriesCoverUrl,
     description = description,
     addedAtEpochMillis = addedAtEpochMillis,
+    publishedYear = publishedYear,
     bookMetadata = bookMetadataOrNull(),
     comicMetadata = comicMetadataOrNull(),
 )
@@ -126,6 +128,7 @@ fun ReadableItemLibraryEntity.toDomain(): ReadableItem = ReadableItem(
     seriesCoverUrl = seriesCoverUrl,
     description = description,
     addedAtEpochMillis = addedAtEpochMillis,
+    publishedYear = publishedYear,
     bookMetadata = bookMetadataOrNull(),
     comicMetadata = comicMetadataOrNull(),
 )

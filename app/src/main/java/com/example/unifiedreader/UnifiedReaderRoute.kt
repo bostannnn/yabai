@@ -140,8 +140,7 @@ fun UnifiedReaderAppContent(
         BackHandler(
             enabled = uiState.selectedKavitaSeriesKey != null ||
                 uiState.selectedStumpSeriesKey != null ||
-                uiState.isKavitaScopeActive ||
-                uiState.isKavitaVisualSectionActive,
+                uiState.isKavitaScopeActive,
             onBack = viewModel::onBackPressed,
         )
         // One toast state for the app: the shell, a book and every sheet show it where they are.

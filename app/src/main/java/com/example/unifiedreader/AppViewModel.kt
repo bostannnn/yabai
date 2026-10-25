@@ -13,7 +13,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibrarySortMode
@@ -162,13 +161,6 @@ class AppViewModel @Inject constructor(
     fun openLibrarySource(sourceType: SourceType) {
         readerCoordinator.onLibrarySourceSelected(
             sourceType = sourceType,
-            updateState = ::updateUiState,
-        )
-    }
-
-    fun openKavitaLibrarySection(section: KavitaLibrarySection) {
-        readerCoordinator.onKavitaLibrarySectionSelected(
-            section = section,
             updateState = ::updateUiState,
         )
     }

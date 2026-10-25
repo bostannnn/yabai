@@ -11,6 +11,7 @@ import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.core.model.normalizedAuthors
 import com.example.unifiedreader.core.model.ownIssueTitle
+import com.example.unifiedreader.core.model.printedPageCount
 import com.example.unifiedreader.core.model.supportsManualReadStatusAction
 import com.example.unifiedreader.core.model.volumeNumber
 import java.time.Instant
@@ -38,7 +39,7 @@ internal data class LibraryBookPageText(
     val description: String?,
     val genres: List<String>,
     val tags: List<String>,
-    /** Label to value: Format, Pages or Chapters, Language, Publisher, Added. */
+    /** Label to value: Format, Pages, Chapters, Language, Publisher, Published, Added. */
     val facts: List<Pair<String, String>>,
 )
 
@@ -51,6 +52,8 @@ internal fun libraryBookPageText(
     seriesPosition: LibrarySeriesPosition?,
     nowMillis: Long = System.currentTimeMillis(),
     zone: ZoneId = ZoneId.systemDefault(),
+    /** The whole description when the page has loaded it; the library keeps only its start. */
+    description: String? = item.description,
 ): LibraryBookPageText {
     val facets = item.facetMetadata()
     val comic = item.comicMetadata
@@ -106,16 +109,18 @@ internal fun libraryBookPageText(
         ?.replace("/", " / ")
     val facts = buildList {
         add("Format" to item.format.name)
-        // A comic or a PDF has its pages; an EPUB its chapters, once its reader has counted them.
+        // A comic or a PDF has its pages. An EPUB has its printed edition's when its server knows
+        // them, and its chapters once its reader has counted them.
+        val pages = if (item.format == FormatType.EPUB) item.printedPageCount() else item.pageCount ?: progress?.pageCount
+        pages?.takeIf { it > 0 }?.let { count -> add("Pages" to count.toString()) }
         if (item.format == FormatType.EPUB) {
             progress?.chapterCount?.takeIf { it > 0 }?.let { count -> add("Chapters" to count.toString()) }
-        } else {
-            (item.pageCount ?: progress?.pageCount)?.takeIf { it > 0 }?.let { count -> add("Pages" to count.toString()) }
         }
         facets.languages.takeIf(List<String>::isNotEmpty)?.let { languages ->
             add("Language" to languages.map(::libraryLanguageName).distinct().joinToString(", "))
         }
         facets.publishers.takeIf(List<String>::isNotEmpty)?.let { add("Publisher" to it.joinToString(", ")) }
+        item.publishedYear?.let { year -> add("Published" to year.toString()) }
         libraryAddedLabel(item.addedAtEpochMillis, nowMillis, zone)?.let { add("Added" to it) }
     }
     return LibraryBookPageText(
@@ -125,7 +130,7 @@ internal fun libraryBookPageText(
         primaryAction = primaryAction,
         progressLine = progressLine,
         progressPages = progressPages,
-        description = item.description?.let(::plainTextDescription)?.ifEmpty { null },
+        description = description?.let(::plainTextDescription)?.ifEmpty { null },
         genres = facets.genres,
         tags = facets.tags,
         facts = facts,

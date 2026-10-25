@@ -5,7 +5,6 @@ import android.content.SharedPreferences
 import com.example.unifiedreader.core.model.BookMetadata
 import com.example.unifiedreader.core.model.ComicMetadata
 import com.example.unifiedreader.core.model.FormatType
-import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
@@ -18,7 +17,6 @@ import org.json.JSONObject
 data class AppActiveRouteSnapshot(
     val topLevel: TopLevelDestination,
     val selectedSource: SourceType,
-    val kavitaLibrarySection: KavitaLibrarySection,
     val selectedKavitaSeriesKey: String? = null,
     val selectedStumpSeriesKey: String? = null,
     val selectedKavitaReadingListId: String? = null,
@@ -61,14 +59,10 @@ class SharedPreferencesAppActiveRouteStore @Inject constructor(
         if (!preferences.getBoolean(KEY_HAS_SNAPSHOT, false)) return null
         val topLevel = preferences.enumValueOrNull<TopLevelDestination>(KEY_TOP_LEVEL) ?: return null
         val selectedSource = preferences.enumValueOrNull<SourceType>(KEY_SELECTED_SOURCE) ?: return null
-        val kavitaLibrarySection = preferences.enumValueOrNull<KavitaLibrarySection>(
-            KEY_KAVITA_LIBRARY_SECTION,
-        ) ?: KavitaLibrarySection.Home
         val readerFormat = preferences.enumValueOrNull<FormatType>(KEY_READER_FORMAT)
         return AppActiveRouteSnapshot(
             topLevel = topLevel,
             selectedSource = selectedSource,
-            kavitaLibrarySection = kavitaLibrarySection,
             selectedKavitaSeriesKey = preferences.getString(KEY_SELECTED_KAVITA_SERIES_KEY, null),
             selectedStumpSeriesKey = preferences.getString(KEY_SELECTED_STUMP_SERIES_KEY, null),
             selectedKavitaReadingListId = preferences.getString(KEY_SELECTED_KAVITA_READING_LIST_ID, null),
@@ -85,7 +79,8 @@ class SharedPreferencesAppActiveRouteStore @Inject constructor(
         .putBoolean(KEY_HAS_SNAPSHOT, true)
         .putString(KEY_TOP_LEVEL, snapshot.topLevel.name)
         .putString(KEY_SELECTED_SOURCE, snapshot.selectedSource.name)
-        .putString(KEY_KAVITA_LIBRARY_SECTION, snapshot.kavitaLibrarySection.name)
+        // Kavita no longer has sections; drop the one older versions saved.
+        .remove(KEY_KAVITA_LIBRARY_SECTION)
         .putNullableString(KEY_SELECTED_KAVITA_SERIES_KEY, snapshot.selectedKavitaSeriesKey)
         .putNullableString(KEY_SELECTED_STUMP_SERIES_KEY, snapshot.selectedStumpSeriesKey)
         .putNullableString(KEY_SELECTED_KAVITA_READING_LIST_ID, snapshot.selectedKavitaReadingListId)

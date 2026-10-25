@@ -1741,6 +1741,45 @@ Seen, left as they are:
   to Black, which is now its saved colour and the last pick. Its place (p. 134) and the Continue reading
   card were kept.
 
+### 9.9 Fixes from the tablet: Kavita in one tap, book facts `[~]` (fixes board)
+
+Found by the user on the tablet on 0.19.0 (2026-10-25), mocked on `docs/design/third-pass/pages/fixes.html` (live
+board: https://claude.ai/artifact/1QaNozs5CV86DuJKDgcoZG, picks in its store, collection `picks`) and built in worktree
+`ui-redesign-step-9-issues-7c94a9` (branch `claude/ui-redesign-step-9-issues-7c94a9`, at main 42128ac8). Picked:
+`kavita-item` Do, `kavita-lists` B, `description` Do, `length` Do, `published` Do.
+
+- [x] Kavita is one plain item in the rail and the drawer, like the other sources: the rail's menu (Home, Collections,
+      Reading lists) and the drawer's heading over three indented rows are gone, and so is
+      `SourceNavigationDestination.KavitaSection`.
+- [x] Collections and reading lists open only from Home's Kavita lists chip (B). The covers grids are gone
+      (`KavitaScopeLandingScreen`, `KavitaScopeLandingModel` and their tests), and with them `KavitaLibrarySection`
+      (core:model), `AppUiState.kavitaLibrarySection`, `isKavitaVisualSectionActive` and the saved section (the route
+      store now removes `kavita_library_section` when it saves). An open list is one level below Kavita's home, so
+      Back from it lands there.
+- [x] The book page asks for the whole description when it opens (`LibraryBookDescriptionLoader`, given by
+      `MainActivity` through `LocalLibraryBookDescriptionLoader`): the catalog row's own (the library's rows keep its
+      first 512 characters), else the server's, kept in the new `item_details` table so the next sync can't wipe it and
+      it shows at once next time and offline (asked again after 30 days, "none" included). Grimmory:
+      `GrimmoryApi.getBookDescription` (`GET /api/v1/books/{id}?withDescription=true`; the catalog sync keeps
+      `withDescription=false`). Kavita: a chapter with no summary of its own, and a series page, take the series'
+      summary (`KavitaApi.getSeriesSummary`, `GET /api/Series/metadata`), once per series per run. Stump and local files
+      keep theirs. Three faint pulsing lines hold the place only for a book with nothing yet, after 150 ms.
+- [x] Pages for an EPUB: Grimmory's metadata page count (`ReadableItem.printedPageCount()`), then Chapters once the
+      reader has counted them. Kavita's EPUB page count is its number of files, so a Kavita EPUB keeps Chapters only.
+      Stump has no EPUBs.
+- [x] Published: the year from Grimmory's `publishedDate`, Kavita's chapter `releaseDate` (year 1 means none) and
+      Stump's media `year` (added to its GraphQL query), under Publisher. A series takes its first issue's year.
+- [x] Room v30 (`MIGRATION_29_30` in its own file): `readable_items.publishedYear` and the `item_details` table.
+      Kavita's catalog fingerprint moved to v2, so every Kavita series is read again once on the next sync; Grimmory
+      and Stump replace their catalogs on each sync anyway.
+- All unit tests pass (1511, both lines). On `yabai_review_35` (5560, the Local library, Graphite) the debug build
+  migrated the emulator's database from 29 to 30 and started cleanly; a local EPUB's page is as before (no
+  placeholder, Format, Chapters, Added).
+- Not seen: anything with a server. The emulator has no Kavita or Grimmory connection, so the one-tap Kavita item,
+  Back from a list, a fetched description, the placeholder lines, Pages and Published were not run on a device;
+  the description fetch, the facts and the year parsing are covered by unit tests only.
+- [ ] Tablet.
+
 ### 9.10 Journal readability `[~]` (2026-10-25)
 
 On the tablet the user found the 8.9 journal unreadable: "a lot of info just flying in the air without any

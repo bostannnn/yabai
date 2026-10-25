@@ -2,7 +2,6 @@ package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.CollectionSeriesRef
 import com.example.unifiedreader.core.model.CollectionSummary
-import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.ReadingListItemRef
 import com.example.unifiedreader.core.model.ReadingListSummary
@@ -66,7 +65,6 @@ class AppKavitaReadingListControllerTest {
         advanceUntilIdle()
 
         assertEquals(secondListId, state.kavitaReadingLists.selectedReadingListId)
-        assertEquals(KavitaLibrarySection.ReadingLists, state.kavitaLibrarySection)
         assertFalse(state.kavitaReadingLists.isLoadingSelectedItems)
         assertEquals(emptyList<String>(), fakeApi.itemRequests)
     }
@@ -137,7 +135,6 @@ class AppKavitaReadingListControllerTest {
 
         assertEquals(null, state.kavitaReadingLists.selectedReadingListId)
         assertEquals(collectionId, state.kavitaReadingLists.selectedCollectionId)
-        assertEquals(KavitaLibrarySection.Collections, state.kavitaLibrarySection)
         assertFalse(state.kavitaReadingLists.isLoadingSelectedItems)
         assertEquals(
             listOf("kavita:library:1::100"),

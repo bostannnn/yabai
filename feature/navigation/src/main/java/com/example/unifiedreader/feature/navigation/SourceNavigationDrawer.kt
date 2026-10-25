@@ -2,7 +2,6 @@ package com.example.unifiedreader.feature.navigation
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -11,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -29,7 +27,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
-import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.ui.components.AppDivider
@@ -42,10 +39,6 @@ import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 sealed interface SourceNavigationDestination {
     data class Source(
         val sourceType: SourceType,
-    ) : SourceNavigationDestination
-
-    data class KavitaSection(
-        val section: KavitaLibrarySection,
     ) : SourceNavigationDestination
 
     data object Settings : SourceNavigationDestination
@@ -114,19 +107,11 @@ fun SourceNavigationDrawer(
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         sourceOrder.forEach { sourceType ->
-                            if (sourceType == SourceType.KAVITA) {
-                                KavitaNavigationGroup(
-                                    selectedDestination = selectedDestination,
-                                    onDestinationSelected = onDestinationSelected,
-                                )
-                            } else {
-                                SourceNavigationItem(
-                                    sourceType = sourceType,
-                                    selected = selectedDestination ==
-                                        SourceNavigationDestination.Source(sourceType),
-                                    onDestinationSelected = onDestinationSelected,
-                                )
-                            }
+                            SourceNavigationItem(
+                                sourceType = sourceType,
+                                selected = selectedDestination == SourceNavigationDestination.Source(sourceType),
+                                onDestinationSelected = onDestinationSelected,
+                            )
                         }
                         if (showAddSource) {
                             AppDrawerItem(
@@ -184,49 +169,6 @@ fun SourceNavigationDrawer(
 }
 
 @Composable
-private fun KavitaNavigationGroup(
-    selectedDestination: SourceNavigationDestination,
-    onDestinationSelected: (SourceNavigationDestination) -> Unit,
-) {
-    Row(
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Icon(
-            imageVector = SourceType.KAVITA.navigationIcon(),
-            contentDescription = null,
-            modifier = Modifier.size(24.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = SourceType.KAVITA.displayName(),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-    KavitaLibrarySection.entries.forEach { section ->
-        AppDrawerItem(
-            label = { Text(text = section.displayName()) },
-            selected = selectedDestination.isSelectedKavitaSection(section),
-            onClick = {
-                onDestinationSelected(
-                    SourceNavigationDestination.KavitaSection(section),
-                )
-            },
-            icon = {
-                Icon(
-                    imageVector = section.navigationIcon(),
-                    contentDescription = null,
-                )
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp),
-        )
-    }
-}
-
-@Composable
 private fun SourceNavigationItem(
     sourceType: SourceType,
     selected: Boolean,
@@ -250,23 +192,10 @@ private fun SourceNavigationItem(
     )
 }
 
-
-internal fun SourceNavigationDestination.isSelectedKavitaSection(
-    section: KavitaLibrarySection,
-): Boolean = this == SourceNavigationDestination.KavitaSection(section) ||
-    (this == SourceNavigationDestination.Source(SourceType.KAVITA) && section == KavitaLibrarySection.Home)
-
 @Composable
 fun SourceType.navigationIcon(): ImageVector = when (this) {
     SourceType.KAVITA -> AppIcons.CollectionsBookmark
     SourceType.STUMP -> AppIcons.MenuBook
     SourceType.GRIMMORY -> AppIcons.Cloud
     SourceType.LOCAL -> AppIcons.Folder
-}
-
-@Composable
-private fun KavitaLibrarySection.navigationIcon(): ImageVector = when (this) {
-    KavitaLibrarySection.Home -> AppIcons.Home
-    KavitaLibrarySection.Collections -> AppIcons.CollectionsBookmark
-    KavitaLibrarySection.ReadingLists -> AppIcons.Checklist
 }

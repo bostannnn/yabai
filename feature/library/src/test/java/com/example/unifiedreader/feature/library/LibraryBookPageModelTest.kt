@@ -52,6 +52,45 @@ class LibraryBookPageModelTest {
     }
 
     @Test
+    fun `a Grimmory EPUB has its printed pages, a Kavita EPUB only its chapters`() {
+        val read = ItemProgressSummary(label = "", fraction = 0.3f, chapter = 2, chapterCount = 24)
+        val grimmory = book(id = "g", title = "Glass Meridian")
+            .copy(sourceType = SourceType.GRIMMORY, isLocalImport = false, pageCount = 352)
+        val kavita = grimmory.copy(sourceType = SourceType.KAVITA, pageCount = 31)
+
+        assertEquals(listOf("Format" to "EPUB", "Pages" to "352"), libraryBookPageText(grimmory, null, null, now, zone).facts)
+        assertEquals(
+            listOf("Format" to "EPUB", "Pages" to "352", "Chapters" to "24"),
+            libraryBookPageText(grimmory, read, null, now, zone).facts,
+        )
+        assertEquals(listOf("Format" to "EPUB", "Chapters" to "24"), libraryBookPageText(kavita, read, null, now, zone).facts)
+    }
+
+    @Test
+    fun `the year it came out follows the publisher`() {
+        val book = book(id = "g", title = "Glass Meridian").copy(
+            publishedYear = 2021,
+            bookMetadata = BookMetadata(publishers = listOf("Harbour & Pike")),
+        )
+
+        assertEquals(
+            listOf("Format" to "EPUB", "Publisher" to "Harbour & Pike", "Published" to "2021"),
+            libraryBookPageText(book, null, null, now, zone).facts,
+        )
+    }
+
+    @Test
+    fun `a loaded description replaces the library's start of it`() {
+        val book = book(id = "g", title = "Glass Meridian").copy(description = "When the great lens")
+
+        assertEquals("When the great lens", libraryBookPageText(book, null, null, now, zone).description)
+        assertEquals(
+            "When the great lens cracks.",
+            libraryBookPageText(book, null, null, now, zone, description = "When the great lens cracks.").description,
+        )
+    }
+
+    @Test
     fun `an added date from another year carries the year`() {
         val lastYear = LocalDateTime.of(2025, 3, 2, 9, 0).toInstant(zone).toEpochMilli()
 

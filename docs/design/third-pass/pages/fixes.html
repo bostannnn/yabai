@@ -1,0 +1,497 @@
+<meta charset="utf-8">
+<title>yabai Kavita and Book Facts</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: a board of decision cards; each card shows the mock at real dp sizes (scaled to fit) beside its spec, with a pick row. Dark-first like the app's Graphite. */
+:root {
+  --bg: #121417;
+  --surface: #1b1e23;
+  --surface-2: #23272d;
+  --line: #2f343b;
+  --fg: #e8eaed;
+  --muted: #9aa3ad;
+  --accent: #e9a6c6;
+  --on-accent: #2a1020;
+  --maybe: #b8c7da;
+  --dont: #ef8a80;
+  --stage: #0b0c0e;
+  --ui: "Manrope", "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f5f4f2; --surface: #ffffff; --surface-2: #efeeeb; --line: #dddad5; --fg: #1c1d20; --muted: #5d636b;
+    --accent: #a23e72; --on-accent: #ffffff; --maybe: #4a5d78; --dont: #b3392e; --stage: #e4e2de; color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f5f4f2; --surface: #ffffff; --surface-2: #efeeeb; --line: #dddad5; --fg: #1c1d20; --muted: #5d636b;
+  --accent: #a23e72; --on-accent: #ffffff; --maybe: #4a5d78; --dont: #b3392e; --stage: #e4e2de; color-scheme: light;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--ui); font-size: 15px; line-height: 1.55; margin: 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 40px 96px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(32px, 5vw, 46px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }
+h3 { font-size: 19px; font-weight: 700; }
+p { margin: 0; }
+code { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 12.5px; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; overflow-wrap: anywhere; }
+.overline { font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; color: var(--muted); }
+.lede { max-width: 72ch; color: var(--muted); font-size: 16px; margin-top: 14px; }
+.lede strong { color: var(--fg); }
+
+.bar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; margin: 26px 0 8px; padding: 10px 14px;
+  border-radius: 999px; border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+}
+.tally { display: flex; gap: 14px; font-weight: 600; font-size: 14px; font-variant-numeric: tabular-nums; }
+.tally b { font-weight: 800; }
+.save-state { color: var(--muted); font-size: 13px; flex: 1 1 200px; min-width: 0; }
+.pill-btn { font: 600 13.5px var(--ui); border-radius: 999px; padding: 8px 16px; cursor: pointer; border: 1px solid var(--line); background: var(--surface-2); color: var(--fg); }
+button:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.today { margin-top: 34px; background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 22px; display: grid; gap: 18px; }
+.today figure { margin: 0; min-width: 0; }
+.today img { width: 100%; display: block; border-radius: 12px; border: 1px solid var(--line); }
+figcaption { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+ul.spec { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+ul.spec li::marker { color: var(--muted); }
+
+.cards { margin-top: 30px; display: grid; gap: 22px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 22px; display: grid; gap: 18px; }
+.card-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.card-head h3 { flex: 1 1 340px; min-width: 0; }
+.tag { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
+.body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: start; }
+.stages { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; min-width: 0; }
+.stage { background: var(--stage); border-radius: 16px; padding: 14px; display: grid; gap: 8px; justify-items: center; min-width: 0; max-width: 100%; }
+.stage .cap { font-size: 12.5px; color: var(--muted); text-align: center; max-width: 44ch; }
+.stage .cap b { color: var(--fg); }
+.col { display: grid; gap: 12px; min-width: 0; max-width: 80ch; }
+
+/* scaled device frame: outer box is the scaled size, inner is real dp */
+.scaled { position: relative; overflow: hidden; border-radius: 14px; flex: none; max-width: 100%; }
+.scaled > .dev { position: absolute; left: 0; top: 0; transform-origin: 0 0; overflow: hidden; }
+
+/* pick row */
+.pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 14px; border-top: 1px solid var(--line); }
+.pick .label { font-size: 13px; color: var(--muted); font-weight: 600; margin-right: 4px; }
+.pick button { font: 700 13.5px var(--ui); padding: 7px 16px; border-radius: 999px; cursor: pointer; border: 1px solid var(--line); background: transparent; color: var(--fg); }
+.pick button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.pick button[aria-pressed="true"][data-v="maybe"] { background: var(--maybe); color: var(--bg); border-color: var(--maybe); }
+.pick button[aria-pressed="true"][data-v="dont"], .pick button[aria-pressed="true"][data-v="neither"] { background: var(--dont); color: var(--bg); border-color: var(--dont); }
+.pick textarea { flex: 1 1 260px; min-width: 0; min-height: 38px; resize: vertical; font: 14px var(--ui); color: var(--fg); background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; }
+
+.today .shots { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+.today .shots figure { flex: 0 1 auto; }
+.today .shots .stage { justify-items: start; }
+
+@media (max-width: 600px) {
+  .card, .today { padding: 16px; border-radius: 20px; }
+  .bar { border-radius: 20px; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="overline">yabai &#183; step 9 fixes &#183; board &#183; 25 October 2026</p>
+    <h1 style="margin-top:10px">Kavita in one tap, and book pages with something to say</h1>
+    <p class="lede">Two things you found on the tablet, and what is behind them. Kavita's place in the rail opens a menu instead of Kavita, and a Grimmory book's page has no description and no length. <strong>Card 2 picks where Kavita's collections and reading lists go</strong> once the menu is gone (A, B or C); the rest are Do / Maybe / Don't. Screens are drawn at real sizes (1 px = 1 dp, scaled to fit) in Graphite. Picks save to this page.</p>
+  </header>
+
+  <div class="bar" role="region" aria-label="Your picks">
+    <div class="tally" aria-live="polite"><span><b id="n-picked">0</b> of <b id="n-total">5</b> picked</span></div>
+    <p class="save-state" id="save-state">Picks are kept in this browser until the page's store answers.</p>
+    <button class="pill-btn" id="copy-picks" type="button">Copy picks</button>
+  </div>
+  <textarea id="copy-fallback" aria-label="Picks as text" hidden style="width:100%;min-height:120px;margin-top:8px;font:13px ui-monospace,monospace;background:var(--surface-2);color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:10px"></textarea>
+
+  <section class="today" aria-label="Today">
+    <p class="overline">What's there today (0.19.0)</p>
+    <div class="shots">
+      <figure><div class="stage"><div id="t-rail"></div></div><figcaption>The rail: Kavita opens a menu; Home is a second tap. Drawn from the code (the emulator has no Kavita server).</figcaption></figure>
+      <figure><div class="stage"><div id="t-drawer"></div></div><figcaption>The drawer: Kavita is a heading over three rows.</figcaption></figure>
+      <figure style="max-width:300px"><img src="img/fixes/today-bookpage.jpg" alt="A book page on the emulator: cover, title, Continue, progress, then About with only Format EPUB and Added 21 Oct, then Remove from library"><figcaption>An EPUB's page on the emulator: About is Format and Added. A Grimmory EPUB adds Language and Publisher at most.</figcaption></figure>
+    </div>
+    <ul class="spec">
+      <li><b>Kavita's menu.</b> Every other source opens in one tap; Kavita's rail item opens a menu of Home, Collections and Reading lists (<code>KavitaRailItem</code>), and the drawer draws Kavita as a heading over the same three rows. Kavita's home also has a <b>Kavita lists</b> chip in its filter row that opens every collection and reading list in a searchable dialog, so the lists are reachable twice, in two different looks.</li>
+      <li><b>No description from Grimmory.</b> The app asks Grimmory for its books with <code>withDescription=false</code>, both for the whole catalog and for a single book, so a description never arrives. The book page would show one if it had it.</li>
+      <li><b>No length for EPUBs.</b> Grimmory does send a page count, but the book page shows Pages only for comics and PDFs. An EPUB gets "Chapters" once it has been opened in the reader, and nothing before.</li>
+      <li><b>Kavita descriptions, likely the same.</b> Kavita books take their description from each chapter's summary. Kavita usually keeps the summary on the series, so many Kavita books probably show none either (not checked against your server).</li>
+    </ul>
+  </section>
+
+  <div class="cards">
+
+    <article class="card" data-card="kavita-item" data-kind="dmd" data-title="Kavita opens in one tap">
+      <div class="card-head"><h3>1 &#183; Kavita opens in one tap, like every other source</h3><span class="tag">feature:navigation</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-rail"></div><p class="cap">The rail: Kavita is a plain item.</p></div>
+          <div class="stage"><div id="m-drawer"></div><p class="cap">The drawer: one Kavita row.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>Tapping Kavita opens Kavita's home, with no menu. Its pill stays lit on every Kavita page: a series, a collection, a reading list.</li>
+            <li>In the drawer Kavita is one row in the source list, the same as Grimmory and Local. The heading and the three indented rows go.</li>
+            <li>Back from a collection or a reading list returns to Kavita's home, as it does from a series today.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="kavita-lists" data-kind="abc" data-title="Where Kavita lists live">
+      <div class="card-head"><h3>2 &#183; Where Collections and Reading lists live</h3><span class="tag">pick A, B or C</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-lists-a"></div><p class="cap"><b>A.</b> Two more tabs in the shelf strip, beside In progress and Up next. See all opens today's covers grid.</p></div>
+          <div class="stage"><div id="m-lists-b"></div><p class="cap"><b>B.</b> Only the Kavita lists chip and its dialog, as today. The covers grids go.</p></div>
+          <div class="stage"><div id="m-lists-c"></div><p class="cap"><b>C.</b> Two links under the title, each opening today's covers grid.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li><b>A</b> puts the lists where you already look for what to read next, with their covers, and adds no new screen. A collection shows as a stack of its series, a reading list as its cover. A tab shows only when Kavita has lists of that kind, and the strip remembers the last tab, as today.</li>
+            <li><b>B</b> is the smallest change: nothing new is drawn. You see a name and a count before opening a list, never its cover, and the covers grids are removed.</li>
+            <li><b>C</b> keeps the covers grids as pages of their own (with today's Collections / Reading lists switch) and adds the least to the home.</li>
+            <li>In A and C the Kavita lists chip goes, since it opens the same lists a second way. Opening a list stays as it is in all three: its description and counts, Up next, then its books.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="description" data-kind="dmd" data-title="Descriptions from Grimmory and Kavita series">
+      <div class="card-head"><h3>3 &#183; The book page asks for the description when it opens</h3><span class="tag">data:grimmory, data:kavita</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-desc-loading"></div><p class="cap">The first time: three faint lines while Grimmory answers.</p></div>
+          <div class="stage"><div id="m-desc-loaded"></div><p class="cap">Then, and every time after: four lines and More.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>The catalog sync stays light: it fetches thousands of books without descriptions on purpose. When a Grimmory book's page opens, the app asks for that one book with its description (<code>GET /api/v1/books/{id}?withDescription=true</code>), shows it and keeps it with the book, so next time, and offline, it is there at once.</li>
+            <li>While it loads, three faint lines hold its place under About, usually for well under a second at home. If the book has none, or the server can't be reached, About starts with the genres and facts, as today.</li>
+            <li>Kavita: when a chapter has no summary of its own, the page uses its series' summary, asked for once per series. A Kavita series page gets it too.</li>
+            <li>Stump already sends summaries with its books, and local EPUBs read theirs from the file. No change there.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="length" data-kind="dmd" data-title="Pages for EPUBs">
+      <div class="card-head"><h3>4 &#183; An EPUB says how long it is</h3><span class="tag">LibraryBookPageModel</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-length-new"></div><p class="cap">A Grimmory EPUB never opened.</p></div>
+          <div class="stage"><div id="m-length-read"></div><p class="cap">The same book after the reader has counted its chapters.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>"Pages" for an EPUB when the server gives a page count: Grimmory's metadata, and Stump's where its book metadata has one. It is the printed edition's length (352), on the row comics and PDFs already use.</li>
+            <li>"Chapters" joins it once the reader has counted them, as today.</li>
+            <li>Kavita EPUBs keep chapters only: Kavita's page count for an EPUB is its number of files, not pages.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="published" data-kind="dmd" data-title="Published year">
+      <div class="card-head"><h3>5 &#183; The year it came out</h3><span class="tag">new data &#183; Room v30</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-published"></div><p class="cap">About with the year, under Publisher.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>"Published 2021" from Grimmory's published date, Kavita's release year and Stump's year. A book whose server doesn't know it shows no row.</li>
+            <li>The app doesn't read this today, so it is one more stored field on server books (a Room migration to v30) and a little parsing per source.</li>
+            <li>Server books' About would then read Format, Pages, Language, Publisher, Published, Added, which is close to what Grimmory's own book page shows.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+  </div>
+</div>
+
+<script>
+(function () {
+  var G = { bg: "#101214", surface: "#171A1D", high: "#30363C", fg: "#E7EAEE", fg2: "#C8D0D8", line: "#4E5660", sel: "#33475E", drawer: "#272A2C", menu: "#23272B", primary: "#B4CBE8" };
+  // Glass Meridian's cover colours on the page (sampled from the emulator).
+  var P = { ts: "#302757", te: "#5E375D", acc: "#DAA3BA", onAcc: "#3A1C2B", fg: "#FFFFFF" };
+  var FONT = "font-family:var(--ui);";
+  var COVERS = "img/tiles/covers/";
+  var ICON = {
+    kavita: "M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 10l-2.5-1.5L15 12V4h5v8z",
+    cloud: "M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z",
+    folder: "M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z",
+    home: "M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z",
+    list: "M22 7h-9v2h9V7zm0 8h-9v2h9v-2zM5.54 11 2 7.46l1.41-1.41 2.12 2.12 4.24-4.24 1.41 1.41L5.54 11zm0 8L2 15.46l1.41-1.41 2.12 2.12 4.24-4.24 1.41 1.41L5.54 19z",
+    check: "M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z",
+    history: "M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z",
+    menu: "M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z",
+    search: "M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z",
+    filter: "M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z",
+    tune: "M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z",
+    chev: "M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z",
+    close: "M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z",
+    box: "M19 5v14H5V5h14m0-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z",
+    book: "M21 5c-1.11-.35-2.33-.5-3.5-.5-1.95 0-4.05.4-5.5 1.5-1.45-1.1-3.55-1.5-5.5-1.5S2.45 4.9 1 6v14.65c0 .25.25.5.5.5.1 0 .15-.05.25-.05C3.1 20.45 5.05 20 6.5 20c1.95 0 4.05.4 5.5 1.5 1.35-.85 3.8-1.5 5.5-1.5 1.65 0 3.35.3 4.75 1.05.1.05.15.05.25.05.25 0 .5-.25.5-.5V6c-.6-.45-1.25-.75-2-1zm0 13.5c-1.1-.35-2.3-.5-3.5-.5-1.7 0-4.15.65-5.5 1.5V8c1.35-.85 3.8-1.5 5.5-1.5 1.2 0 2.4.15 3.5.5v11.5z"
+  };
+  function svg(name, color, size) { return '<svg viewBox="0 0 24 24" width="' + size + '" height="' + size + '" aria-hidden="true" style="flex:none;display:block"><path fill="' + color + '" d="' + ICON[name] + '"/></svg>'; }
+  function alpha(hex, a) { var n = parseInt(hex.slice(1), 16); return "rgba(" + (n >> 16) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")"; }
+  function set(id, html) { var el = document.getElementById(id); if (el) el.innerHTML = html; }
+  function device(w, h, scale, inner, o) {
+    o = o || {};
+    return '<div class="scaled" style="width:' + Math.round(w * scale) + 'px;height:' + Math.round(h * scale) + 'px"><div class="dev" style="width:' + w + 'px;height:' + h + 'px;transform:scale(' + scale + ');background:' + (o.bg || G.bg) + ';border-radius:' + (o.radius || "0") + ';' + FONT + 'color:' + G.fg + '">' + inner + '</div></div>';
+  }
+  function cover(name, w, extra) { return '<img src="' + COVERS + name + '.jpg" alt="" style="width:' + w + 'px;height:' + Math.round(w * 1.5) + 'px;border-radius:6px;display:block;object-fit:cover;' + (extra || "") + '">'; }
+
+  // ---------- navigation: rail, menu, drawer ----------
+  function railItem(icon, label, selected) {
+    return '<div style="display:grid;justify-items:center;gap:4px;height:64px">' +
+      '<div style="width:56px;height:32px;border-radius:16px;display:grid;place-items:center;background:' + (selected ? G.sel : "transparent") + '">' + svg(icon, selected ? G.fg : G.fg2, 24) + '</div>' +
+      '<div style="font-size:12px;font-weight:' + (selected ? 700 : 500) + ';color:' + (selected ? G.fg : G.fg2) + '">' + label + '</div></div>';
+  }
+  function rail(h) {
+    return '<div style="position:absolute;left:0;top:0;width:88px;height:' + h + 'px;border-right:1px solid ' + G.line + ';padding-top:36px;display:grid;align-content:start;gap:8px">' +
+      railItem("kavita", "Kavita", true) + railItem("cloud", "Grimmory", false) + railItem("folder", "Local", false) + '</div>';
+  }
+  function pageTitle(x) {
+    return '<div style="position:absolute;left:' + x + 'px;top:88px"><div style="font-size:44px;font-weight:700;letter-spacing:-0.5px;line-height:52px">Kavita</div>' +
+      '<div style="font-size:15px;color:' + G.fg2 + ';margin-top:8px">214 series &#183; 1,830 issues &#183; 3 in progress</div></div>';
+  }
+  function menuItem(text, selected) {
+    return '<div style="height:48px;display:flex;align-items:center;padding:0 16px">' +
+      '<div style="width:24px">' + (selected ? svg("check", G.primary, 18) : "") + '</div>' +
+      '<div style="padding-left:8px;font-size:15px;font-weight:' + (selected ? 700 : 400) + '">' + text + '</div></div>';
+  }
+  function kavitaMenu(x, y) {
+    return '<div style="position:absolute;left:' + x + 'px;top:' + y + 'px;width:208px;padding:8px 0;border-radius:16px;background:' + G.menu + ';border:1px solid rgba(255,255,255,.07);box-shadow:0 12px 30px rgba(0,0,0,.5)">' +
+      '<div style="padding:8px 16px 6px;font-size:12px;font-weight:700;letter-spacing:.4px;color:' + G.fg2 + '">Kavita</div>' +
+      menuItem("Home", true) + menuItem("Collections", false) + menuItem("Reading lists", false) + '</div>';
+  }
+  function drawerRow(icon, label, selected, indent) {
+    return '<div style="height:52px;margin-left:' + (indent ? 16 : 0) + 'px;border-radius:26px;display:flex;align-items:center;gap:12px;padding:0 16px;background:' + (selected ? G.sel : "transparent") + '">' +
+      svg(icon, selected ? G.fg : G.fg2, 24) + '<span style="font-size:15px;font-weight:' + (selected ? 600 : 500) + '">' + label + '</span></div>';
+  }
+  function drawer(rows) {
+    return '<div style="position:absolute;left:12px;top:12px;right:12px;bottom:12px;border-radius:28px;background:' + G.drawer + ';padding:16px 12px;display:grid;align-content:start;gap:4px">' +
+      '<div style="padding:0 16px;font-size:24px;font-weight:500">Library</div>' +
+      '<div style="padding:0 16px 6px;font-size:12px;font-weight:500;color:' + G.fg2 + '">Sources</div>' + rows + '</div>';
+  }
+  var DRAWER_TODAY =
+    '<div style="display:flex;align-items:center;gap:12px;padding:8px 16px">' + svg("kavita", G.fg2, 24) + '<span style="font-size:14px;font-weight:600;color:' + G.fg2 + '">Kavita</span></div>' +
+    drawerRow("home", "Home", true, true) + drawerRow("kavita", "Collections", false, true) + drawerRow("list", "Reading lists", false, true) +
+    drawerRow("cloud", "Grimmory", false) + drawerRow("folder", "Local", false);
+  var DRAWER_AFTER = drawerRow("kavita", "Kavita", true) + drawerRow("cloud", "Grimmory", false) + drawerRow("folder", "Local", false);
+
+  set("t-rail", device(420, 300, 0.62, rail(300) + pageTitle(112) + kavitaMenu(96, 34)));
+  set("t-drawer", device(344, 440, 0.62, drawer(DRAWER_TODAY), { bg: "#0c0d0f" }));
+  set("m-rail", device(520, 300, 0.7, rail(300) + pageTitle(112)));
+  set("m-drawer", device(344, 300, 0.7, drawer(DRAWER_AFTER), { bg: "#0c0d0f" }));
+
+  // ---------- Kavita home ----------
+  function topBar() {
+    return '<div style="height:64px;display:flex;align-items:center;padding:0 16px 0 20px;gap:28px">' + svg("menu", G.fg, 24) + '<span style="flex:1"></span>' + svg("search", G.fg, 24) + svg("tune", G.fg, 24) + '</div>';
+  }
+  function header(links) {
+    var h = '<div style="padding:12px 16px 0"><div style="font-size:44px;font-weight:700;letter-spacing:-0.5px;line-height:52px">Kavita</div>' +
+      '<div style="font-size:15px;color:' + G.fg2 + ';margin-top:8px">214 series &#183; 1,830 issues &#183; 3 in progress</div>';
+    if (links) {
+      h += '<div style="display:flex;gap:10px;margin-top:16px">' + linkPill("kavita", "Collections", "6") + linkPill("list", "Reading lists", "3") + '</div>';
+    }
+    return h + '</div>';
+  }
+  function linkPill(icon, label, count) {
+    return '<div style="height:40px;border-radius:20px;background:' + G.high + ';display:flex;align-items:center;gap:8px;padding:0 10px 0 14px">' + svg(icon, G.fg2, 18) +
+      '<span style="font-size:14px;font-weight:600">' + label + '</span><span style="font-size:13px;color:' + G.fg2 + '">' + count + '</span>' + svg("chev", G.fg2, 20) + '</div>';
+  }
+  function hero() {
+    return '<div style="margin:20px 16px 0;height:228px;border-radius:28px;background:linear-gradient(110deg,#4A2A22,#5C4A2A);display:flex;gap:24px;padding:22px">' +
+      cover("Star-Courier-002", 122) +
+      '<div style="flex:1;display:flex;flex-direction:column"><div style="font-size:12px;font-weight:700;letter-spacing:1.2px;color:' + alpha(G.fg, .75) + '">CONTINUE READING</div>' +
+      '<div style="font-size:30px;font-weight:600;margin-top:8px">Star Courier</div><div style="font-size:14px;color:' + alpha(G.fg, .75) + ';margin-top:4px">Star Courier #2</div><span style="flex:1"></span>' +
+      '<div style="height:5px;border-radius:3px;background:' + alpha(G.fg, .2) + '"><div style="width:50%;height:100%;border-radius:3px;background:#E8A090"></div></div>' +
+      '<div style="display:flex;gap:10px;margin-top:14px"><div style="height:42px;padding:0 20px;border-radius:21px;background:#E8A090;color:#3A160C;display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600">' + svg("book", "#3A160C", 18) + 'Continue</div>' +
+      '<div style="height:42px;padding:0 20px;border-radius:21px;background:' + alpha("#E8C8A0", .3) + ';display:flex;align-items:center;font-size:15px;font-weight:600">Details</div></div></div></div>';
+  }
+  function tabs(list, sel) {
+    return '<div style="display:flex;align-items:center;gap:6px;padding:0 16px;margin-top:28px">' + list.map(function (t, i) {
+      var on = i === sel;
+      return '<div style="height:38px;border-radius:19px;padding:0 16px;display:flex;align-items:center;gap:6px;background:' + (on ? G.high : "transparent") + ';font-size:15px;font-weight:' + (on ? 600 : 500) + ';color:' + (on ? G.fg : G.fg2) + '">' + t[0] + '<span style="font-size:12.5px;color:' + G.fg2 + '">' + t[1] + '</span></div>';
+    }).join("") + '<span style="flex:1"></span><span style="font-size:15px;font-weight:600;color:' + G.fg2 + '">See all</span></div>';
+  }
+  function stackTile(names, title, meta) {
+    var art = '<div style="position:relative;width:180px;height:270px">' +
+      '<div style="position:absolute;left:28px;top:0">' + cover(names[2], 152, "filter:brightness(.55)") + '</div>' +
+      '<div style="position:absolute;left:14px;top:21px">' + cover(names[1], 152, "filter:brightness(.75)") + '</div>' +
+      '<div style="position:absolute;left:0;top:42px">' + cover(names[0], 152, "box-shadow:0 6px 14px rgba(0,0,0,.45)") + '</div></div>';
+    return tileBody(art, title, meta);
+  }
+  function coverTile(name, title, meta) { return tileBody(cover(name, 180), title, meta); }
+  function tileBody(art, title, meta) {
+    return '<div style="width:180px">' + art + '<div style="font-size:15px;font-weight:600;margin-top:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + title + '</div>' +
+      '<div style="font-size:13px;color:' + G.fg2 + ';margin-top:2px">' + meta + '</div></div>';
+  }
+  function row(tiles) { return '<div style="display:flex;gap:16px;padding:16px 16px 0">' + tiles + '</div>'; }
+  function chip(icon, label, opts) {
+    opts = opts || {};
+    return '<div style="height:44px;border-radius:22px;border:1px solid ' + (opts.on ? G.primary : G.line) + ';display:flex;align-items:center;gap:8px;padding:0 16px;font-size:15px;font-weight:500;background:' + (opts.on ? alpha(G.primary, .12) : "transparent") + '">' + (icon ? svg(icon, G.fg2, 18) : "") + label + '</div>';
+  }
+  function filterRow(withLists, listsOn) {
+    return '<div style="display:flex;align-items:center;gap:8px;padding:24px 16px 0">' + chip("filter", "Filters") + (withLists ? chip(null, "Kavita lists", { on: listsOn }) : "") +
+      '<span style="flex:1"></span>' + chip("tune", "Last read") + '</div>';
+  }
+  var COLLECTIONS = stackTile(["Star-Courier-001", "Neon-Ronin-002", "Hollow-Moon-004"], "Space westerns", "6 series") +
+    stackTile(["Neon-Ronin-003", "Star-Courier-002", "Ashfall-Academy-v03"], "Neon nights", "4 series") +
+    stackTile(["Ashfall-Academy-v03", "Hollow-Moon-004", "Neon-Ronin-002"], "Ashfall universe", "3 series") +
+    stackTile(["Hollow-Moon-004", "Star-Courier-001", "Neon-Ronin-003"], "Award winners", "9 series");
+  var BOOKS = coverTile("Star-Courier-001", "Star Courier #1", "Read") + coverTile("Neon-Ronin-002", "Neon Ronin #2", "8 pages") +
+    coverTile("Hollow-Moon-004", "Hollow Moon #4", "12 pages") + coverTile("Ashfall-Academy-v03", "Ashfall Academy", "Vol. 3");
+
+  // A: tabs in the shelf strip (hero kept, Collections tab open)
+  set("m-lists-a", device(800, 960, 0.42, topBar() + header(false) + hero() +
+    tabs([["In progress", "3"], ["Up next", "5"], ["Collections", "6"], ["Reading lists", "3"]], 2) + row(COLLECTIONS) + filterRow(false)));
+
+  // B: the chip and today's dialog over the home
+  function dialogRow(label, count, on) {
+    return '<div style="height:48px;display:flex;align-items:center;gap:14px;padding:0 12px">' + svg(on ? "check" : "box", on ? G.primary : G.fg2, 22) +
+      '<span style="font-size:15px">' + label + ' <span style="color:' + G.fg2 + '">(' + count + ')</span></span></div>';
+  }
+  var DIALOG = '<div style="position:absolute;inset:0;background:rgba(0,0,0,.55)"></div>' +
+    '<div style="position:absolute;left:180px;top:250px;width:440px;border-radius:28px;background:#22262A;padding:24px 20px 16px;box-shadow:0 20px 50px rgba(0,0,0,.6)">' +
+    '<div style="font-size:22px;font-weight:600;padding:0 4px">Kavita lists</div>' +
+    '<div style="margin-top:16px;height:48px;border-radius:24px;background:#30363C;display:flex;align-items:center;gap:10px;padding:0 16px;color:' + G.fg2 + ';font-size:15px">' + svg("search", G.fg2, 20) + 'Search lists</div>' +
+    '<div style="font-size:13px;font-weight:700;color:' + G.fg2 + ';padding:18px 12px 4px">Collections</div>' +
+    dialogRow("Award winners", 9) + dialogRow("Ashfall universe", 3) + dialogRow("Neon nights", 4) + dialogRow("Space westerns", 6) +
+    '<div style="font-size:13px;font-weight:700;color:' + G.fg2 + ';padding:14px 12px 4px">Reading lists</div>' +
+    dialogRow("Hollow Moon event", 8) + dialogRow("Relay saga", 14) +
+    '<div style="display:flex;justify-content:flex-end;padding-top:10px"><span style="font-size:15px;font-weight:600;color:' + G.primary + ';padding:10px 14px">Done</span></div></div>';
+  set("m-lists-b", device(800, 960, 0.42, topBar() + header(false) + hero() +
+    tabs([["In progress", "3"], ["Up next", "5"]], 0) + row(BOOKS) + filterRow(true, true) + DIALOG));
+
+  // C: links under the title
+  set("m-lists-c", device(800, 960, 0.42, topBar() + header(true) + hero() +
+    tabs([["In progress", "3"], ["Up next", "5"]], 0) + row(BOOKS) + filterRow(false)));
+
+  // ---------- book page ----------
+  function top() {
+    var sec = alpha(P.fg, .74);
+    return '<div style="padding:20px;background:radial-gradient(circle at 100% 100%, ' + P.te + ' 0%, ' + alpha(P.te, 0) + ' 95%), ' + P.ts + ';color:' + P.fg + '">' +
+      '<div style="display:flex;justify-content:flex-end;margin:-6px -6px 0 0">' + svg("close", P.fg, 24) + '</div>' +
+      '<div style="display:flex;align-items:flex-end;gap:16px;margin-top:-18px">' + cover("Glass-Meridian", 118, "box-shadow:0 8px 18px rgba(0,0,0,.4)") +
+      '<div style="display:grid;gap:4px;padding-right:24px"><div style="font-size:26px;line-height:30px;font-weight:700">Glass Meridian</div><div style="font-size:13.5px;color:' + sec + '">J. R. Okafor</div></div></div>' +
+      '<div style="margin-top:18px;height:46px;border-radius:23px;background:' + P.acc + ';color:' + P.onAcc + ';display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:600">' + svg("book", P.onAcc, 18) + 'Start reading</div>' +
+      '<div style="display:flex;gap:10px;margin-top:10px"><div style="flex:1;height:42px;border-radius:21px;background:' + alpha(P.fg, .16) + ';display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600">Mark finished</div>' +
+      '<div style="flex:1;height:42px;border-radius:21px;background:' + alpha(P.fg, .16) + ';display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600">Download</div></div></div>';
+  }
+  function heading(t) { return '<div style="padding:16px 20px 8px;font-size:13px;font-weight:700;color:' + G.fg2 + '">' + t + '</div>'; }
+  function hairline() { return '<div style="margin:0 20px;height:1px;background:' + alpha(G.line, .5) + '"></div>'; }
+  function facts(rows, mark) {
+    return '<div style="padding:8px 20px;display:grid;gap:6px">' + rows.map(function (r) {
+      var on = mark && mark.indexOf(r[0]) >= 0;
+      return '<div style="display:flex;align-items:center"><span style="width:110px;font-size:12.5px;color:' + G.fg2 + '">' + r[0] + '</span><span style="flex:1;font-size:13.5px;color:' + G.fg + '">' + r[1] + '</span>' +
+        (on ? '<span style="font-size:11px;font-weight:700;color:' + P.acc + ';border:1px solid ' + alpha(P.acc, .5) + ';border-radius:9px;padding:0 7px;line-height:17px">new</span>' : '') + '</div>';
+    }).join("") + '</div>';
+  }
+  function chips(list) {
+    return '<div style="display:flex;flex-wrap:wrap;gap:8px;padding:4px 20px 8px">' + list.map(function (c) {
+      return '<div style="height:30px;border-radius:15px;border:1px solid ' + G.line + ';padding:0 12px;display:flex;align-items:center;font-size:13px;font-weight:500">' + c + '</div>';
+    }).join("") + '</div>';
+  }
+  var DESC = "When the great lens at Port Avel cracks along its meridian line, glazier In&#233;s Varo is sent to mend it before the winter fleets come home. Inside the glass she finds a chart of the coast that nobody drew, and a name she has not heard since her brother drowned. A quiet, salt-bitten mystery about craft, grief and the light we keep for other people.";
+  function description() {
+    return '<div style="padding:0 20px;font-size:14px;line-height:20px;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden">' + DESC + '</div>' +
+      '<div style="padding:6px 20px 4px;font-size:14px;font-weight:600;color:' + G.primary + '">More</div>';
+  }
+  function skeleton() {
+    return '<div style="padding:2px 20px 12px;display:grid;gap:8px">' + [100, 96, 58].map(function (w) {
+      return '<div style="height:12px;width:' + w + '%;border-radius:6px;background:' + alpha(G.fg, .08) + '"></div>';
+    }).join("") + '</div>';
+  }
+  var GENRES = chips(["Mystery", "Literary", "Coastal", "Found family"]);
+  var FACTS_GRIM = [["Format", "EPUB"], ["Pages", "352"], ["Language", "English"], ["Publisher", "Harbour &amp; Pike"], ["Added", "12 Oct"]];
+  var SHEET = { bg: G.surface, radius: "28px 0 0 28px" };
+
+  set("m-desc-loading", device(440, 760, 0.6, top() + hairline() + heading("About") + skeleton() + GENRES + facts(FACTS_GRIM), SHEET));
+  set("m-desc-loaded", device(440, 760, 0.6, top() + hairline() + heading("About") + description() + GENRES + facts(FACTS_GRIM), SHEET));
+
+  set("m-length-new", device(440, 196, 0.7, heading("About") + facts([["Format", "EPUB"], ["Pages", "352"], ["Language", "English"], ["Publisher", "Harbour &amp; Pike"], ["Added", "12 Oct"]], ["Pages"]), SHEET));
+  set("m-length-read", device(440, 196, 0.7, heading("About") + facts([["Format", "EPUB"], ["Pages", "352"], ["Chapters", "24"], ["Language", "English"], ["Publisher", "Harbour &amp; Pike"], ["Added", "12 Oct"]], ["Pages"]), SHEET));
+
+  set("m-published", device(440, 196, 0.7, heading("About") + facts([["Format", "EPUB"], ["Pages", "352"], ["Language", "English"], ["Publisher", "Harbour &amp; Pike"], ["Published", "2021"], ["Added", "12 Oct"]], ["Published"]), SHEET));
+})();
+</script>
+
+<script>
+(function () {
+  // ---------- picks (same store layout as the earlier boards: collection "picks") ----------
+  var STORE_KEY = "yabai-fixes-board-picks";
+  var cards = Array.prototype.slice.call(document.querySelectorAll("[data-card]"));
+  var LABELS = { "do": "Do", maybe: "Maybe", dont: "Don't", a: "A", b: "B", c: "C", neither: "Neither" };
+  var KINDS = { ab: ["a", "b", "neither"], abc: ["a", "b", "c", "neither"], dmd: ["do", "maybe", "dont"] };
+  var picks = {}; try { picks = JSON.parse(localStorage.getItem(STORE_KEY) || "{}") || {}; } catch (e) { picks = {}; }
+  var db = null, pending = {};
+  function saveLocal() { try { localStorage.setItem(STORE_KEY, JSON.stringify(picks)); } catch (e) {} }
+  function setState(t) { document.getElementById("save-state").textContent = t; }
+  function tally() { var n = 0; cards.forEach(function (c) { if ((picks[c.dataset.card] || {}).choice) n++; }); document.getElementById("n-picked").textContent = n; document.getElementById("n-total").textContent = cards.length; }
+  function paint(card) {
+    var p = picks[card.dataset.card] || {};
+    card.querySelectorAll(".pick button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.v === p.choice)); });
+    var ta = card.querySelector(".pick textarea"); if (ta && document.activeElement !== ta) ta.value = p.note || "";
+  }
+  function write(id) {
+    if (!db) { saveLocal(); return; }
+    var p = picks[id];
+    var run = function () {
+      return db.collection("picks").doc(id).set({ choice: p.choice || null, note: p.note || "", title: p.title || id, updatedAt: p.updatedAt || Date.now() })
+        .then(function () { p.synced = true; saveLocal(); setState("Saved to this page."); })
+        .catch(function (err) { setState(err && err.code === "invalid_argument" ? "This page is read-only for you; picks stay in this browser. Use Copy picks." : "Couldn't save just now; your pick is kept in this browser."); });
+    };
+    pending[id] = (pending[id] || Promise.resolve()).then(run, run);
+  }
+  function update(card, patch) {
+    var id = card.dataset.card;
+    picks[id] = Object.assign({}, picks[id], patch, { title: card.dataset.title, updatedAt: Date.now(), synced: false });
+    saveLocal(); paint(card); tally(); write(id);
+  }
+  cards.forEach(function (card) {
+    var opts = KINDS[card.dataset.kind] || KINDS.dmd;
+    var row = document.createElement("div"); row.className = "pick";
+    row.innerHTML = '<span class="label">Your pick</span>' + opts.map(function (v) { return '<button type="button" data-v="' + v + '" aria-pressed="false">' + LABELS[v] + "</button>"; }).join("") +
+      '<textarea id="note-' + card.dataset.card + '" rows="1" placeholder="Note (optional)" aria-label="Note for ' + card.dataset.title + '"></textarea>';
+    card.appendChild(row);
+    row.querySelectorAll("button").forEach(function (b) { b.addEventListener("click", function () { var cur = (picks[card.dataset.card] || {}).choice; update(card, { choice: cur === b.dataset.v ? null : b.dataset.v }); }); });
+    var ta = row.querySelector("textarea"), t = null;
+    ta.addEventListener("input", function () { clearTimeout(t); t = setTimeout(function () { update(card, { note: ta.value }); }, 700); });
+    ta.addEventListener("change", function () { clearTimeout(t); if ((picks[card.dataset.card] || {}).note !== ta.value) update(card, { note: ta.value }); });
+    paint(card);
+  });
+  tally();
+  document.getElementById("copy-picks").addEventListener("click", function () {
+    var lines = cards.map(function (c) { var p = picks[c.dataset.card] || {}; return c.querySelector("h3").textContent + ": " + (p.choice ? LABELS[p.choice] : "-") + (p.note ? " (" + p.note.trim() + ")" : ""); }).join("\n");
+    var btn = document.getElementById("copy-picks");
+    var fallback = function () { var ta = document.getElementById("copy-fallback"); ta.hidden = false; ta.value = lines; ta.focus(); ta.select(); btn.textContent = "Select and copy"; };
+    try { navigator.clipboard.writeText(lines).then(function () { btn.textContent = "Copied"; setTimeout(function () { btn.textContent = "Copy picks"; }, 1600); }, fallback); } catch (e) { fallback(); }
+  });
+  (async function () {
+    try { db = window.claude && window.claude.use ? await window.claude.use("db") : null; } catch (e) { db = null; }
+    if (!db) { setState("Picks are saved in this browser only. Use Copy picks to send them."); return; }
+    setState("Connected. Picks save to this page.");
+    var first = true;
+    db.collection("picks").onSnapshot(function (snap) {
+      snap.docs.forEach(function (d) { var remote = d.data() || {}, local = picks[d.id]; if (!local || (remote.updatedAt || 0) >= (local.updatedAt || 0)) picks[d.id] = Object.assign({}, remote, { synced: true }); });
+      if (first) { first = false; Object.keys(picks).forEach(function (id) { if (picks[id] && !picks[id].synced) write(id); }); }
+      saveLocal(); cards.forEach(paint); tally();
+    }, function () { setState("The page's store stopped answering; picks stay in this browser."); });
+  })();
+})();
+</script>

@@ -8,12 +8,14 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.unifiedreader.core.database.dao.ImportedComicArchiveDao
 import com.example.unifiedreader.core.database.dao.DownloadQueueDao
+import com.example.unifiedreader.core.database.dao.ItemDetailsDao
 import com.example.unifiedreader.core.database.dao.JournalDao
 import com.example.unifiedreader.core.database.dao.ReadingProgressDao
 import com.example.unifiedreader.core.database.dao.ReaderSessionStateDao
 import com.example.unifiedreader.core.database.dao.RemoteCatalogDao
 import com.example.unifiedreader.core.database.entity.DownloadQueueEntryEntity
 import com.example.unifiedreader.core.database.entity.ImportedComicArchiveEntity
+import com.example.unifiedreader.core.database.entity.ItemDetailsEntity
 import com.example.unifiedreader.core.database.entity.ItemJournalEntryEntity
 import com.example.unifiedreader.core.database.entity.JournalReadingEventEntity
 import com.example.unifiedreader.core.database.entity.JournalReadingSessionEntity
@@ -43,13 +45,15 @@ import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
         LibraryGridRootEntity::class,
         LibraryRootFacetEntity::class,
         LibraryRootMemberEntity::class,
+        ItemDetailsEntity::class,
     ],
-    version = 29,
+    version = 30,
     exportSchema = false,
 )
 abstract class UnifiedReaderDatabase : RoomDatabase() {
     abstract fun importedComicArchiveDao(): ImportedComicArchiveDao
     abstract fun downloadQueueDao(): DownloadQueueDao
+    abstract fun itemDetailsDao(): ItemDetailsDao
     abstract fun journalDao(): JournalDao
     abstract fun readingProgressDao(): ReadingProgressDao
     abstract fun readerSessionStateDao(): ReaderSessionStateDao
@@ -977,6 +981,7 @@ object UnifiedReaderDatabaseFactory {
             UnifiedReaderDatabaseMigrations.MIGRATION_26_27,
             UnifiedReaderDatabaseMigrations.MIGRATION_27_28,
             UnifiedReaderDatabaseMigrations.MIGRATION_28_29,
+            MIGRATION_29_30,
         )
         .build()
 }

@@ -1,6 +1,5 @@
 package com.example.unifiedreader
 
-import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.belongsToKavitaSeries
@@ -12,7 +11,6 @@ internal fun AppUiState.toActiveRouteSnapshot(): AppActiveRouteSnapshot {
     return AppActiveRouteSnapshot(
         topLevel = topLevel,
         selectedSource = readerItem?.sourceType ?: selectedSource,
-        kavitaLibrarySection = kavitaLibrarySection,
         selectedKavitaSeriesKey = selectedKavitaSeriesKey,
         selectedStumpSeriesKey = selectedStumpSeriesKey,
         selectedKavitaReadingListId = kavitaReadingLists.selectedReadingListId,
@@ -69,15 +67,6 @@ internal fun AppUiState.withActiveRouteSnapshot(
             selectedSource == SourceType.KAVITA &&
                 selectedKavitaSeriesKey == null
         }
-    val kavitaLibrarySection = if (selectedSource == SourceType.KAVITA) {
-        when {
-            selectedReadingListId != null -> KavitaLibrarySection.ReadingLists
-            selectedCollectionId != null -> KavitaLibrarySection.Collections
-            else -> snapshot.kavitaLibrarySection
-        }
-    } else {
-        snapshot.kavitaLibrarySection
-    }
     return copy(
         topLevel = if (shouldRestoreReader) {
             TopLevelDestination.Library
@@ -85,7 +74,6 @@ internal fun AppUiState.withActiveRouteSnapshot(
             snapshot.topLevel
         },
         selectedSource = selectedSource,
-        kavitaLibrarySection = kavitaLibrarySection,
         selectedItemId = restoredReaderItem?.id.takeIf { shouldRestoreReader },
         activeReader = restoredReaderItem?.format.takeIf { shouldRestoreReader },
         selectedReaderOpenMode = ReaderOpenMode.Default,

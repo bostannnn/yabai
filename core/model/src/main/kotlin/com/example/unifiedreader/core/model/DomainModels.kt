@@ -96,6 +96,8 @@ data class ReadableItem(
     val seriesCoverUrl: String? = null,
     val description: String? = null,
     val addedAtEpochMillis: Long? = null,
+    /** The year it came out, as its server records it. */
+    val publishedYear: Int? = null,
     val issueCount: Int? = null,
     val bookMetadata: BookMetadata? = null,
     val comicMetadata: ComicMetadata? = null,
@@ -263,6 +265,8 @@ fun buildKavitaSeriesContainer(
             issue.description?.takeIf(String::isNotBlank)
         },
         addedAtEpochMillis = issues.mapNotNull(ReadableItem::addedAtEpochMillis).maxOrNull(),
+        // A series came out when its first issue did.
+        publishedYear = issues.mapNotNull(ReadableItem::publishedYear).minOrNull(),
         issueCount = issueCount,
         comicMetadata = ComicMetadata(
             series = seriesTitle,
@@ -299,6 +303,8 @@ fun buildStumpSeriesContainer(
             issue.description?.takeIf(String::isNotBlank)
         },
         addedAtEpochMillis = issues.mapNotNull(ReadableItem::addedAtEpochMillis).maxOrNull(),
+        // A series came out when its first issue did.
+        publishedYear = issues.mapNotNull(ReadableItem::publishedYear).minOrNull(),
         issueCount = issueCount,
         comicMetadata = ComicMetadata(
             series = seriesTitle,

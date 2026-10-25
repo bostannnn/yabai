@@ -106,3 +106,13 @@ beside the opening state and the error screen drawn at dp size with 9.6's page c
 drawn from the code. Cards: `opening-look` (A/B), `opening-words`, `handoff`, `error-screen`, `error-words`,
 `comics-loading`, `unsupported`, `download-again`, `phone`. Picked (pasted in chat; the board's store stayed empty):
 opening-look A, the rest Do. Built as plan 9.7 records.
+
+## 9.9 Fixes from the tablet, 2026-10-25
+
+`pages/fixes.html` (live board: https://claude.ai/artifact/1QaNozs5CV86DuJKDgcoZG, picks in its store, collection
+`picks`) answers two things the user found on the tablet on 0.19.0: Kavita's rail item opened a menu instead of
+Kavita, and a Grimmory book's page had no description or length. Today's rail menu and drawer are drawn from the
+code (the emulator has no Kavita server); the book page crop (`pages/img/fixes/today-bookpage.jpg`) is a local EPUB
+on `yabai_review_35`. Cards: `kavita-item`, `kavita-lists` (A shelf-strip tabs, B the Kavita lists chip only, C links
+under the title), `description`, `length`, `published`. Picked: kavita-lists B, the rest Do. Built as plan 9.9
+records.

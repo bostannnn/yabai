@@ -197,6 +197,38 @@ class UnifiedReaderDatabaseMigrationTest {
     }
 
     @Test
+    fun `migration 29 to 30 adds the published year and the item details table`() {
+        createTestDatabase(
+            name = "migration-29-30-${System.nanoTime()}",
+            version = 29,
+        ) { database ->
+            createVersion27Schema(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_27_28.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_28_29.migrate(database)
+            database.execSQL(
+                "INSERT INTO readable_items (id, sourceType, libraryId, isLocalImport, title, format, kind, " +
+                    "updatedAtEpochMillis) VALUES ('grimmory:item:1', 'GRIMMORY', 'libA', 0, 'Book', 'EPUB', 'BOOK', 1)",
+            )
+        }.use { database ->
+            MIGRATION_29_30.migrate(database)
+
+            assertTrue(columnExists(database, "readable_items", "publishedYear"))
+            database.query("SELECT title, publishedYear FROM readable_items").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals("Book", cursor.getString(0))
+                assertTrue(cursor.isNull(1))
+            }
+            database.execSQL(
+                "INSERT INTO item_details (itemId, description, updatedAtEpochMillis) VALUES ('grimmory:item:1', NULL, 2)",
+            )
+            database.query("SELECT COUNT(*) FROM item_details").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals(1, cursor.getInt(0))
+            }
+        }
+    }
+
+    @Test
     fun `room migrates 4 to 5 and validates reader session state schema`() {
         val databaseName = "migration-4-5-${System.nanoTime()}"
         createTestDatabase(
@@ -1321,6 +1353,7 @@ private fun openRoomDatabase(
         UnifiedReaderDatabaseMigrations.MIGRATION_26_27,
         UnifiedReaderDatabaseMigrations.MIGRATION_27_28,
         UnifiedReaderDatabaseMigrations.MIGRATION_28_29,
+        MIGRATION_29_30,
     )
     .build()
 

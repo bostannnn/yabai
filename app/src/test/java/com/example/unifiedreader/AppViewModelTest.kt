@@ -15,7 +15,6 @@ import com.example.unifiedreader.core.model.LibraryFileLocation
 import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
-import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceConnectivityState
@@ -135,7 +134,6 @@ class AppViewModelTest {
                 AppActiveRouteSnapshot(
                     topLevel = TopLevelDestination.Library,
                     selectedSource = downloadedOnlyItem.sourceType,
-                    kavitaLibrarySection = KavitaLibrarySection.Home,
                     readerItemId = downloadedOnlyItem.id,
                     readerFormat = downloadedOnlyItem.format,
                     readerFallbackItem = downloadedOnlyItem,
@@ -176,7 +174,6 @@ class AppViewModelTest {
             AppActiveRouteSnapshot(
                 topLevel = TopLevelDestination.Library,
                 selectedSource = downloadedOnlyItem.sourceType,
-                kavitaLibrarySection = KavitaLibrarySection.Home,
                 readerItemId = downloadedOnlyItem.id,
                 readerFormat = downloadedOnlyItem.format,
                 readerFallbackItem = downloadedOnlyItem,
@@ -327,7 +324,6 @@ class AppViewModelTest {
                 AppActiveRouteSnapshot(
                     topLevel = TopLevelDestination.Library,
                     selectedSource = SourceType.KAVITA,
-                    kavitaLibrarySection = KavitaLibrarySection.Home,
                     selectedKavitaSeriesKey = seriesKey,
                 ),
             )

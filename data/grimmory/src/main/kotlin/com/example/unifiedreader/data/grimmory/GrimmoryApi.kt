@@ -70,6 +70,12 @@ interface GrimmoryApi {
         bookId: String,
     ): GrimmoryBookCatalogEntry? = error("Fetching a Grimmory book with progress is not implemented.")
 
+    /** The book's description alone; the catalog fetches leave it out to stay light. */
+    suspend fun getBookDescription(
+        accessToken: String,
+        bookId: String,
+    ): String? = error("Fetching a Grimmory book's description is not implemented.")
+
     fun bookContentUrl(
         bookId: String,
         bookType: String? = null,
@@ -331,6 +337,20 @@ class KtorGrimmoryApi(
         response.body<GrimmoryBookDto>().toCatalogEntry(
             baseUrl = normalizedBaseUrl,
         )
+    }
+
+    override suspend fun getBookDescription(
+        accessToken: String,
+        bookId: String,
+    ): String? = authenticatedRequest {
+        val response = httpClient.get("$normalizedBaseUrl/api/v1/books/$bookId") {
+            bearerAuth(accessToken)
+            url {
+                parameters.append("withDescription", "true")
+            }
+        }
+        response.throwIfGrimmoryError()
+        response.body<GrimmoryBookDto>().metadata?.description?.takeIf(String::isNotBlank)
     }
 
     override fun bookContentUrl(

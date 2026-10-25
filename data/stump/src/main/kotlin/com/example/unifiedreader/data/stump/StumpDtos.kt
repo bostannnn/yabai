@@ -9,6 +9,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.ReadingProgress
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.isPlausiblePublishedYear
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
 import java.time.Instant
@@ -137,6 +138,7 @@ internal data class StumpMediaMetadataDto(
     val publisher: String? = null,
     val genres: List<String>? = null,
     val language: String? = null,
+    val year: Int? = null,
 )
 
 @Serializable
@@ -307,6 +309,7 @@ internal fun StumpMediaNodeDto.toCatalogEntry(
         coverUrl = thumbnail?.url.toAbsoluteStumpUrl(baseUrl),
         seriesCoverUrl = series.coverUrl,
         description = metadata?.summary?.takeIf(String::isNotBlank),
+        publishedYear = metadata?.year?.takeIf(::isPlausiblePublishedYear),
         comicMetadata = ComicMetadata(
             series = series.title,
             issueTitle = issueTitle.takeIf { it != series.title },

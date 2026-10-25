@@ -12,6 +12,7 @@ import com.example.unifiedreader.core.model.ReadingListItemRef
 import com.example.unifiedreader.core.model.ReadingListSummary
 import com.example.unifiedreader.core.model.ReadingProgress
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.publishedYearOf
 import com.example.unifiedreader.core.model.readableFormatFromTypeOrExtension
 import com.example.unifiedreader.core.model.toReadableFormatTypeOrNull
 import com.example.unifiedreader.core.model.remoteItemId
@@ -119,6 +120,11 @@ internal data class KavitaSeriesDetailDto(
 )
 
 @Serializable
+internal data class KavitaSeriesMetadataDto(
+    val summary: String? = null,
+)
+
+@Serializable
 internal data class KavitaVolumeDto(
     val id: Int? = null,
     val name: String? = null,
@@ -140,6 +146,7 @@ internal data class KavitaChapterDto(
     val lastReadingProgressUtc: String? = null,
     val volumeId: Int? = null,
     val summary: String? = null,
+    val releaseDate: String? = null,
     val volumeTitle: String? = null,
     val writers: List<KavitaPersonDto>? = null,
     val pencillers: List<KavitaPersonDto>? = null,
@@ -501,6 +508,7 @@ internal fun KavitaChapterDto.toCatalogEntry(
         } ?: series.coverUrl,
         description = summary,
         addedAtEpochMillis = series.addedAtEpochMillis,
+        publishedYear = publishedYearOf(releaseDate),
         comicMetadata = ComicMetadata(
             series = series.title,
             issueTitle = issueTitle,

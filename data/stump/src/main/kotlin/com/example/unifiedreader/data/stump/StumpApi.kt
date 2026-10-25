@@ -281,6 +281,7 @@ class KtorStumpApi(
                         publisher
                         genres
                         language
+                        year
                       }
                       tags {
                         name

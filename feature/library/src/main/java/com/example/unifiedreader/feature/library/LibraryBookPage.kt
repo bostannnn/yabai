@@ -100,8 +100,9 @@ fun LibraryBookPage(
     val related by produceState(LibraryBookPageRelated(), item.id, relatedPool) {
         value = withContext(Dispatchers.Default) { libraryBookPageRelated(item, relatedPool) }
     }
-    val text = remember(item, progress, related.seriesPosition) {
-        libraryBookPageText(item, progress, related.seriesPosition)
+    val description = rememberLibraryBookDescription(item)
+    val text = remember(item, progress, related.seriesPosition, description.text) {
+        libraryBookPageText(item, progress, related.seriesPosition, description = description.text)
     }
     // The top takes the cover's colours; a quiet tint until they arrive or for a cover without any.
     val scheme = MaterialTheme.colorScheme
@@ -178,6 +179,7 @@ fun LibraryBookPage(
             item(key = "about") {
                 LibraryBookPageAbout(
                     text = text,
+                    descriptionLoading = description.loading,
                     onFilterByGenre = onFilterByGenre?.let { filter -> { genre: String -> filter(genre); dismiss() } },
                     onFilterByTag = onFilterByTag?.let { filter -> { tag: String -> filter(tag); dismiss() } },
                 )
@@ -479,14 +481,19 @@ private fun RowScope.LibraryBookPageTonalAction(action: BookPageAction, tint: Ap
 @Composable
 private fun LibraryBookPageAbout(
     text: LibraryBookPageText,
+    descriptionLoading: Boolean,
     onFilterByGenre: ((String) -> Unit)?,
     onFilterByTag: ((String) -> Unit)?,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         LibraryBookPageHairline()
         LibraryBookPageHeading(text = "About")
-        text.description?.let { description ->
-            LibraryExpandableText(text = description, horizontalPadding = 20.dp)
+        if (descriptionLoading) {
+            LibraryBookDescriptionPlaceholder()
+        } else {
+            text.description?.let { description ->
+                LibraryExpandableText(text = description, horizontalPadding = 20.dp)
+            }
         }
         val allChips = (text.genres.map { genre -> genre to onFilterByGenre } + text.tags.map { tag -> tag to onFilterByTag })
             .distinctBy { (value, _) -> value.lowercase() }

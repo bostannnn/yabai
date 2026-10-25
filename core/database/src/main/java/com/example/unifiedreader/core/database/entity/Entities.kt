@@ -69,6 +69,7 @@ data class ReadableItemEntity(
     @ColumnInfo(defaultValue = "NULL") val seriesCoverUrl: String? = null,
     val description: String?,
     val addedAtEpochMillis: Long?,
+    @ColumnInfo(defaultValue = "NULL") val publishedYear: Int? = null,
     val bookAuthor: String?,
     val bookAuthorsJson: String?,
     val bookSeriesName: String?,
@@ -105,6 +106,7 @@ data class ReadableItemLibraryEntity(
     val seriesCoverUrl: String? = null,
     val description: String?,
     val addedAtEpochMillis: Long?,
+    val publishedYear: Int? = null,
     val bookAuthor: String?,
     val bookAuthorsJson: String?,
     val bookSeriesName: String?,
@@ -122,6 +124,19 @@ data class ReadableItemLibraryEntity(
     val comicGenresJson: String?,
     val comicTagsJson: String?,
     val comicLanguagesJson: String?,
+)
+
+/**
+ * What a server says about one book beyond its catalog entry, asked for when its page opens:
+ * Grimmory's catalog leaves descriptions out, and Kavita keeps most of them on the series. Kept
+ * apart from `readable_items` so the next catalog sync does not wipe it.
+ */
+@Entity(tableName = "item_details")
+data class ItemDetailsEntity(
+    @PrimaryKey val itemId: String,
+    /** Null when the server has none. */
+    val description: String?,
+    val updatedAtEpochMillis: Long,
 )
 
 /**

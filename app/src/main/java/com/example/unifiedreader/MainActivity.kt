@@ -7,14 +7,19 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.fragment.app.FragmentActivity
+import com.example.unifiedreader.feature.library.LocalLibraryBookDescriptionLoader
 import com.example.unifiedreader.feature.reader.epub.discardRestoredEpubNavigators
 import com.example.unifiedreader.feature.reader.epub.installEpubNavigatorRestoreFactory
 import com.example.unifiedreader.ui.components.AppLaunchSplashHold
 import com.example.unifiedreader.ui.components.LocalAppLaunchSplashHold
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
+    @Inject
+    lateinit var bookDescriptions: BookDescriptionRepository
+
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
         installEpubNavigatorRestoreFactory()
@@ -31,7 +36,10 @@ class MainActivity : FragmentActivity() {
         }
         enableEdgeToEdge()
         setContent {
-            CompositionLocalProvider(LocalAppLaunchSplashHold provides launchHold) {
+            CompositionLocalProvider(
+                LocalAppLaunchSplashHold provides launchHold,
+                LocalLibraryBookDescriptionLoader provides bookDescriptions,
+            ) {
                 UnifiedReaderRoute()
             }
         }

@@ -7,14 +7,9 @@ fun SourceType.displayName(): String = when (this) {
     SourceType.LOCAL -> "Local"
 }
 
-enum class KavitaLibrarySection {
-    Home,
-    Collections,
-    ReadingLists,
-}
-
-fun KavitaLibrarySection.displayName(): String = when (this) {
-    KavitaLibrarySection.Home -> "Home"
-    KavitaLibrarySection.Collections -> "Collections"
-    KavitaLibrarySection.ReadingLists -> "Reading lists"
-}
+/**
+ * An EPUB's printed page count, which Grimmory's book metadata gives. Kavita's page count for an
+ * EPUB is its number of files and a local EPUB has none, so neither is a length in pages.
+ */
+fun ReadableItem.printedPageCount(): Int? = pageCount
+    ?.takeIf { count -> count > 0 && format == FormatType.EPUB && sourceType == SourceType.GRIMMORY }
