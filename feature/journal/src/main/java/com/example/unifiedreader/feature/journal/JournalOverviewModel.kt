@@ -25,9 +25,13 @@ internal fun journalHeatLevel(value: Int, maxValue: Int): Int {
     }
 }
 
-/** A day's weight on the calendar: its pages, and at least 1 for a day with any reading. */
+/**
+ * A day's weight on the calendar: its minutes of reading, and at least 1 for a day with any
+ * (reading on another device leaves progress but no time). Pages would let a jump outweigh a
+ * month of evenings.
+ */
 internal val JournalActivityDay.heatValue: Int
-    get() = pagesRead.coerceAtLeast(if (eventCount > 0) 1 else 0)
+    get() = ((readingMillis + 59_999L) / 60_000L).toInt().coerceAtLeast(if (eventCount > 0) 1 else 0)
 
 internal val JournalActivityDay.finishedCount: Int
     get() = finishedBooks + finishedComics
@@ -53,25 +57,8 @@ internal fun longestReadingRun(days: List<JournalActivityDay>): JournalReadingRu
     return best
 }
 
-private val JournalActivityDay.epochDay: Long
+internal val JournalActivityDay.epochDay: Long
     get() = LocalDate.of(year, month + 1, dayOfMonth).toEpochDay()
-
-/** The month's figures beside its calendar; each is null when there is nothing to say. */
-internal data class JournalMonthHighlights(
-    val longestRun: JournalReadingRun?,
-    val busiestDay: JournalActivityDay?,
-    val mostFinishedDay: JournalActivityDay?,
-)
-
-internal fun journalMonthHighlights(days: List<JournalActivityDay>): JournalMonthHighlights {
-    val chronological = days.sortedBy(JournalActivityDay::epochDay)
-    return JournalMonthHighlights(
-        longestRun = longestReadingRun(days)?.takeIf { run -> run.length >= 2 },
-        busiestDay = chronological.filter { it.pagesRead > 0 }.maxByOrNull(JournalActivityDay::pagesRead),
-        // One finish a day is ordinary; the figure is for a day that finished several.
-        mostFinishedDay = chronological.filter { it.finishedCount >= 2 }.maxByOrNull(JournalActivityDay::finishedCount),
-    )
-}
 
 /** "21–23 Oct", or "30 Sep – 2 Oct" across a month's end. */
 internal fun JournalReadingRun.rangeLabel(): String {
@@ -102,25 +89,6 @@ internal fun shortMonthName(month: Int): String =
 internal fun longMonthName(month: Int): String =
     java.text.DateFormatSymbols.getInstance(Locale.US).months[month]
 
-/** "182 days in 2026 · longest run 11 days, in July". */
-internal fun JournalPeriodOverview.yearDaysSummary(): String {
-    val year = SimpleDateFormat("yyyy", Locale.US).format(Date(periodStartEpochMillis))
-    val readingDays = activityDays.count { day -> day.heatValue > 0 }
-    val run = longestReadingRun(activityDays)?.takeIf { it.length >= 2 }
-    return listOfNotNull(
-        "${readingDays.counted("day")} in $year",
-        run?.let { "longest run ${it.length} days, in ${longMonthName(it.last.month)}" },
-    ).joinToString(" · ")
-}
-
-/** "5 of 31 days". */
-internal fun JournalPeriodOverview.monthDaysSummary(): String {
-    val daysInMonth = Calendar.getInstance(Locale.US).apply { timeInMillis = periodStartEpochMillis }
-        .getActualMaximum(Calendar.DAY_OF_MONTH)
-    val readingDays = activityDays.count { day -> day.heatValue > 0 }
-    return "$readingDays of $daysInMonth days"
-}
-
 /** One book or comic on a day's sheet: what was read of it that day. */
 internal data class JournalDayEntry(
     val summary: JournalItemSummary,
@@ -149,10 +117,7 @@ internal fun JournalPeriodOverview.dayEntries(day: JournalActivityDay): List<Jou
                 events.map(JournalReadingEvent::occurredAtEpochMillis) +
                     sessions.map(JournalReadingSession::endedAtEpochMillis)
                 ).max(),
-            pages = maxOf(
-                events.sumOf(JournalReadingEvent::positivePageDelta),
-                sessions.sumOf(JournalReadingSession::positivePageDelta),
-            ),
+            pages = journalItemPages(events, sessions),
             readingMillis = sessions.sumOf { session -> session.durationMillis.coerceAtLeast(0L) },
         )
     }.sortedWith(
@@ -297,16 +262,6 @@ internal fun JournalSnapshot.lastReadAtEpochMillis(): Long? = listOfNotNull(
     events.maxOfOrNull(JournalReadingEvent::occurredAtEpochMillis),
     sessions.maxOfOrNull(JournalReadingSession::endedAtEpochMillis),
 ).maxOrNull()
-
-/** "one finished every 2.5 days", "2 finished a day"; null with nothing finished. */
-internal fun journalFinishPace(finished: Int, activeDays: Int): String? {
-    if (finished <= 0 || activeDays <= 0) return null
-    return if (finished >= activeDays) {
-        "${formatJournalDecimal(finished.toDouble() / activeDays)} finished a day"
-    } else {
-        "one finished every ${formatJournalDecimal(activeDays.toDouble() / finished)} days"
-    }
-}
 
 /** One decimal, dropping ".0": "2.5", "2", "12". */
 internal fun formatJournalDecimal(value: Double): String {

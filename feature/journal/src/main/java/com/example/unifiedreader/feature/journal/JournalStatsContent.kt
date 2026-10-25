@@ -2,33 +2,41 @@ package com.example.unifiedreader.feature.journal
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
@@ -38,16 +46,20 @@ import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppSegment
 import com.example.unifiedreader.ui.components.AppSegmentedRow
+import com.example.unifiedreader.ui.components.AppWindowWidth
+import com.example.unifiedreader.ui.components.currentAppWindowWidth
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
 /**
- * The journal: Month or Year, the period as a title, then its sections in order (the four
- * figures, pages per day, books and comics, reading days, when you read, finished, needs rating,
- * ratings, most read). A section with nothing in it is left out, and a period with nothing at all
- * shows one empty state. Days, books and names open the journal's side sheet.
+ * The journal: "Journal" over the period, its arrows and Month / Year, then the period in panels.
+ * Month: the summary, what you read, reading days, when you read (and ratings and most read once
+ * there is enough finished). Year: the summary, reading days, time by month, ratings, finished
+ * and most read. Two columns where the window is wide, one on phones; a panel with nothing in it
+ * is left out, and a period with nothing at all shows one empty state. Days, books and names open
+ * the journal's side sheet.
  */
 @Composable
 fun JournalStatsContent(
@@ -58,6 +70,8 @@ fun JournalStatsContent(
     onSaveJournalEntry: (JournalItemRef, Int?, String) -> Unit,
     onOpenInLibrary: ((ReadableItem) -> Unit)? = null,
     contentTopInset: Dp = 0.dp,
+    // Whether "Journal" at the top still shows, and whether anything has scrolled under the bar.
+    onTopBarStateChanged: (titleOnScreen: Boolean, scrolled: Boolean) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
 ) {
     val now = rememberJournalNowEpochMillis()
@@ -82,102 +96,113 @@ fun JournalStatsContent(
     val overview = remember(snapshot, period, selected) {
         computePeriodOverview(snapshot = snapshot, period = period, referenceEpochMillis = selected)
     }
-    val mostRead = remember(overview) { journalMostReadGroups(overview.topFacets, overview.mediaByItemId()) }
+    val summary = remember(overview, now) { overview.summary(now) }
+    val mostRead = remember(overview) {
+        if (overview.showsMostRead) journalMostReadGroups(overview.topFacets, overview.mediaByItemId()) else emptyList()
+    }
     fun select(epochMillis: Long) {
         val start = periodBounds(period, epochMillis).first
         if (period == JournalPeriod.MONTH) selectedMonth = start else selectedYear = start
     }
     val first = if (period == JournalPeriod.MONTH) firstMonth else firstYear
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(36.dp),
-        contentPadding = PaddingValues(start = 20.dp, top = 16.dp + contentTopInset, end = 20.dp, bottom = 40.dp),
-    ) {
-        section("period") {
-            Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
-                AppSegmentedRow(modifier = Modifier.width(240.dp)) {
-                    JournalStatsScope.entries.forEach { scope ->
-                        AppSegment(
-                            selected = selectedScope == scope,
-                            onClick = { selectedScope = scope },
-                            label = { Text(text = scope.label) },
-                        )
-                    }
-                }
-                PeriodHeader(
+    val openItem = { item: JournalItemSummary -> sheetPages = listOf(JournalSheetPage.Item(item.item.itemId)) }
+    val openDay = { day: JournalActivityDay -> sheetPages = listOf(JournalSheetPage.Day(day)) }
+
+    val listState = rememberLazyListState()
+    val titleThreshold = with(LocalDensity.current) { JournalTitleScrollThreshold.roundToPx() }
+    val titleOnScreen by remember {
+        derivedStateOf { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < titleThreshold }
+    }
+    val scrolled by remember { derivedStateOf { listState.canScrollBackward } }
+    val latestOnTopBarStateChanged by rememberUpdatedState(onTopBarStateChanged)
+    LaunchedEffect(titleOnScreen, scrolled) { latestOnTopBarStateChanged(titleOnScreen, scrolled) }
+
+    val compact = currentAppWindowWidth() == AppWindowWidth.Compact
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val sidePadding = if (compact) 16.dp else 32.dp
+        val wide = (maxWidth - sidePadding * 2).coerceAtMost(JournalMaxWidth) >= JournalTwoColumnMinWidth
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(start = sidePadding, top = 12.dp + contentTopInset, end = sidePadding, bottom = 40.dp),
+        ) {
+            section("header") {
+                JournalHeader(
                     title = if (period == JournalPeriod.MONTH) overview.monthLabel() else overview.yearLabel(),
+                    scope = selectedScope,
+                    onScopeSelected = { scope -> selectedScope = scope },
                     canNavigatePrevious = selected > first,
                     canNavigateNext = selected < periodBounds(period, now).first,
                     onPrevious = { select(shiftPeriod(selected, period, -1)) },
                     onNext = { select(shiftPeriod(selected, period, 1)) },
+                    compact = compact,
                 )
             }
-        }
-        if (overview.isEmpty) {
-            section("empty") {
-                EmptyPeriod(
-                    overview = overview,
-                    lastReadAt = lastReadAt,
-                    onGoTo = ::select,
-                )
+            if (overview.isEmpty) {
+                section("empty") {
+                    EmptyPeriod(
+                        overview = overview,
+                        lastReadAt = lastReadAt,
+                        onGoTo = ::select,
+                    )
+                }
+                return@LazyColumn
             }
-            return@LazyColumn
-        }
-        val periodName = overview.periodName()
-        section("figures") { JournalFigures(overview = overview) }
-        val hasReadingDays = overview.activityDays.any { it.heatValue > 0 }
-        if (hasReadingDays) {
-            section("pages") { JournalPagesChart(overview = overview) }
-        }
-        if (overview.stats.bookPagesRead > 0 || overview.stats.comicPagesRead > 0) {
-            section("mix") { JournalBooksAndComics(overview = overview) }
-        }
-        if (hasReadingDays) {
-            section("days") {
-                val openDay = { day: JournalActivityDay -> sheetPages = listOf(JournalSheetPage.Day(day)) }
+            section("summary") { JournalSummaryPanel(overview = overview, summary = summary) }
+            val readingDays: @Composable () -> Unit = {
                 if (period == JournalPeriod.MONTH) {
-                    JournalMonthReadingDays(overview = overview, nowEpochMillis = now, onDaySelected = openDay)
+                    JournalMonthReadingDaysPanel(overview = overview, nowEpochMillis = now, onDaySelected = openDay)
                 } else {
-                    JournalYearReadingDays(overview = overview, nowEpochMillis = now, onDaySelected = openDay)
+                    JournalYearReadingDaysPanel(overview = overview, nowEpochMillis = now, onDaySelected = openDay)
                 }
             }
-        }
-        if (overview.averageReadingTimeBuckets.any { it.averageMillis > 0L }) {
-            section("when") { JournalWhenYouRead(period = period, buckets = overview.averageReadingTimeBuckets) }
-        }
-        val openItem = { summary: JournalItemSummary -> sheetPages = listOf(JournalSheetPage.Item(summary.item.itemId)) }
-        if (overview.finishedItems.isNotEmpty()) {
-            section("finished") {
-                FinishedItemsRow(
-                    overview = overview,
-                    coverImageUrlProvider = coverImageUrlProvider,
-                    onCoverVisible = onCoverVisible,
-                    onOpenItem = openItem,
+            val ratings: @Composable () -> Unit = { JournalRatingsPanel(overview = overview) }
+            if (period == JournalPeriod.MONTH) {
+                val whatYouRead: @Composable () -> Unit = {
+                    JournalWhatYouReadPanel(
+                        overview = overview,
+                        coverImageUrlProvider = coverImageUrlProvider,
+                        onCoverVisible = onCoverVisible,
+                        onOpenItem = openItem,
+                    )
+                }
+                val whenYouRead: @Composable () -> Unit = { JournalWhenYouReadPanel(buckets = overview.averageReadingTimeBuckets) }
+                columns(
+                    key = "month",
+                    wide = wide,
+                    start = listOf(whatYouRead),
+                    end = listOf(readingDays, whenYouRead, ratings),
                 )
+            } else {
+                val timeByMonth: @Composable () -> Unit = { JournalTimeByMonthPanel(buckets = overview.averageReadingTimeBuckets) }
+                columns(
+                    key = "year",
+                    wide = wide,
+                    start = listOf(readingDays),
+                    end = listOf(timeByMonth, ratings),
+                )
+                section("finished") {
+                    JournalFinishedPanel(
+                        overview = overview,
+                        coverImageUrlProvider = coverImageUrlProvider,
+                        onCoverVisible = onCoverVisible,
+                        onOpenItem = openItem,
+                        onSeeAll = { sheetPages = listOf(JournalSheetPage.Finished(waitingOnly = false)) },
+                        onRateWaiting = { sheetPages = listOf(JournalSheetPage.Finished(waitingOnly = true)) },
+                    )
+                }
             }
-        }
-        if (finishedItemsNeedingRating(overview).isNotEmpty()) {
-            section("needs-rating") {
-                NeedsRatingItemsRow(
-                    overview = overview,
-                    coverImageUrlProvider = coverImageUrlProvider,
-                    onCoverVisible = onCoverVisible,
-                    onOpenItem = openItem,
-                )
-            }
-        }
-        if (overview.stats.ratingCountsByMediaType.values.any { counts -> counts.values.sum() > 0 }) {
-            section("ratings") { JournalRatings(overview = overview, periodName = periodName) }
-        }
-        if (mostRead.isNotEmpty()) {
-            section("most-read") {
-                JournalMostRead(
-                    groups = mostRead,
-                    periodName = periodName,
-                    onRowSelected = { group, row -> sheetPages = listOf(JournalSheetPage.Name(group, row)) },
-                    onSeeAll = { group -> sheetPages = listOf(JournalSheetPage.AllNames(group)) },
-                )
+            if (mostRead.isNotEmpty()) {
+                section("most-read") {
+                    JournalMostReadPanel(
+                        groups = mostRead,
+                        finishedCount = overview.finishedItems.size,
+                        onRowSelected = { group, row -> sheetPages = listOf(JournalSheetPage.Name(group, row)) },
+                        onSeeAll = { group -> sheetPages = listOf(JournalSheetPage.AllNames(group)) },
+                    )
+                }
             }
         }
     }
@@ -198,10 +223,125 @@ fun JournalStatsContent(
     }
 }
 
-/** One of the journal's sections, centred and no wider than a comfortable reading column. */
+/** One of the journal's rows, centred and no wider than the journal's column. */
 private fun LazyListScope.section(key: String, content: @Composable () -> Unit) {
     item(key = key) {
         Box(modifier = Modifier.widthIn(max = JournalMaxWidth).fillMaxWidth()) { content() }
+    }
+}
+
+/**
+ * Panels in two columns, seven twelfths and five, where the journal is wide; one after another
+ * where it isn't. A panel with nothing to show draws nothing and leaves no gap.
+ */
+private fun LazyListScope.columns(
+    key: String,
+    wide: Boolean,
+    start: List<@Composable () -> Unit>,
+    end: List<@Composable () -> Unit>,
+) {
+    if (wide) {
+        section(key) {
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Column(modifier = Modifier.weight(7f), verticalArrangement = Arrangement.spacedBy(16.dp)) { start.forEach { it() } }
+                Column(modifier = Modifier.weight(5f), verticalArrangement = Arrangement.spacedBy(16.dp)) { end.forEach { it() } }
+            }
+        }
+    } else {
+        // One item, so a panel that folds away doesn't leave its gap in the list.
+        section(key) {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) { (start + end).forEach { it() } }
+        }
+    }
+}
+
+/**
+ * "Journal" over the period's name between its arrows, Month / Year at the end; on phones the
+ * arrows follow the name and Month / Year takes its own line.
+ */
+@Composable
+private fun JournalHeader(
+    title: String,
+    scope: JournalStatsScope,
+    onScopeSelected: (JournalStatsScope) -> Unit,
+    canNavigatePrevious: Boolean,
+    canNavigateNext: Boolean,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    compact: Boolean,
+) {
+    val segmented = @Composable { segmentModifier: Modifier ->
+        AppSegmentedRow(modifier = segmentModifier) {
+            JournalStatsScope.entries.forEach { entry ->
+                AppSegment(
+                    selected = scope == entry,
+                    onClick = { onScopeSelected(entry) },
+                    label = { Text(text = entry.label) },
+                )
+            }
+        }
+    }
+    val previous = @Composable {
+        AppIconButton(onClick = onPrevious, enabled = canNavigatePrevious) {
+            Icon(imageVector = AppIcons.KeyboardArrowLeft, contentDescription = "Previous period")
+        }
+    }
+    val next = @Composable {
+        AppIconButton(onClick = onNext, enabled = canNavigateNext) {
+            Icon(imageVector = AppIcons.KeyboardArrowRight, contentDescription = "Next period")
+        }
+    }
+    val periodTitle = @Composable { titleModifier: Modifier ->
+        Text(
+            text = title,
+            modifier = titleModifier.semantics { heading() },
+            style = MaterialTheme.typography.headlineMedium.copy(
+                fontSize = if (compact) 26.sp else 30.sp,
+                lineHeight = if (compact) 32.sp else 36.sp,
+                letterSpacing = (-0.01).em,
+            ),
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+        )
+    }
+    val eyebrow = @Composable {
+        Text(
+            text = "Journal",
+            style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp),
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    if (compact) {
+        Column(modifier = Modifier.padding(horizontal = 2.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column {
+                eyebrow()
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    periodTitle(Modifier.weight(1f))
+                    Row(modifier = Modifier.offset(x = 8.dp)) {
+                        previous()
+                        next()
+                    }
+                }
+            }
+            segmented(Modifier.fillMaxWidth())
+        }
+    } else {
+        Row(
+            modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                eyebrow()
+                // The arrow before the name sits out in the margin, so the name lines up with the panels.
+                Row(modifier = Modifier.offset(x = (-12).dp), verticalAlignment = Alignment.CenterVertically) {
+                    previous()
+                    periodTitle(Modifier)
+                    next()
+                }
+            }
+            segmented(Modifier.width(240.dp).padding(bottom = 2.dp))
+        }
     }
 }
 
@@ -227,31 +367,6 @@ private fun EmptyPeriod(
             null
         },
     )
-}
-
-@Composable
-private fun PeriodHeader(
-    title: String,
-    onPrevious: () -> Unit,
-    onNext: () -> Unit,
-    canNavigatePrevious: Boolean,
-    canNavigateNext: Boolean,
-) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        AppIconButton(onClick = onPrevious, enabled = canNavigatePrevious) {
-            Icon(imageVector = AppIcons.KeyboardArrowLeft, contentDescription = "Previous period")
-        }
-        Text(
-            text = title,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.headlineMedium.copy(fontSize = 30.sp, lineHeight = 36.sp),
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-        )
-        AppIconButton(onClick = onNext, enabled = canNavigateNext) {
-            Icon(imageVector = AppIcons.KeyboardArrowRight, contentDescription = "Next period")
-        }
-    }
 }
 
 private fun shiftPeriod(
@@ -283,4 +398,6 @@ private enum class JournalStatsScope(
     YEAR("Year", JournalPeriod.YEAR),
 }
 
-private val JournalMaxWidth = 960.dp
+private val JournalMaxWidth = 1140.dp
+private val JournalTwoColumnMinWidth = 880.dp
+private val JournalTitleScrollThreshold = 48.dp

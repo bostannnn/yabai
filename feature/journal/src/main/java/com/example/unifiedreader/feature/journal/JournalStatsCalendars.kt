@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.journal
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -8,7 +9,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -35,106 +36,77 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.unifiedreader.ui.components.AppPanelDefaults
 import com.example.unifiedreader.ui.components.AppWindowWidth
 import com.example.unifiedreader.ui.components.currentAppWindowWidth
 import java.util.Calendar
 import java.util.Locale
 
 /**
- * Reading days in Month: each day a square shaded in the accent by pages read (four steps,
- * scaled to the month's busiest day), today ringed, a dot on days something was finished. Beside
- * it (under it on phones) the longest run, the busiest day and the most finished in one day.
+ * Reading days in Month: each day a square shaded in the accent by its minutes of reading (four
+ * steps, scaled to the month's longest day) with the minutes written in it where it is big
+ * enough, today ringed, a dot on a day something was finished. A day without reading is only an
+ * outline, and a day still to come is fainter still.
  */
 @Composable
-internal fun JournalMonthReadingDays(
+internal fun JournalMonthReadingDaysPanel(
     overview: JournalPeriodOverview,
     nowEpochMillis: Long,
     onDaySelected: (JournalActivityDay) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val daysByKey = remember(overview) { overview.activityDays.associateBy(JournalActivityDay::localDayKey) }
     val maxValue = overview.activityDays.maxOfOrNull { day -> day.heatValue } ?: 0
-    val highlights = remember(overview) { journalMonthHighlights(overview.activityDays) }
     val compact = currentAppWindowWidth() == AppWindowWidth.Compact
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        JournalSectionHeader(title = "Reading days", summary = "${overview.monthDaysSummary()} · tap a day to see what you read")
-        BoxWithConstraints {
-            val gridWidth = if (compact) maxWidth else minOf(maxWidth * 0.6f, MonthCellMax * 7 + MonthCellGap * 6)
-            val cell = ((gridWidth - MonthCellGap * 6) / 7).coerceAtMost(MonthCellMax)
-            val grid = @Composable {
-                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    MonthGrid(
-                        monthStartEpochMillis = overview.periodStartEpochMillis,
-                        daysByKey = daysByKey,
-                        maxValue = maxValue,
-                        todayKey = localDateKey(nowEpochMillis),
-                        cell = cell,
-                        gap = MonthCellGap,
-                        corner = 10.dp,
-                        showNumbers = true,
-                        showFinished = true,
-                        onDaySelected = onDaySelected,
-                    )
-                    HeatLegend(showFinished = true)
-                }
-            }
-            val figures = monthFigures(highlights)
-            if (compact) {
-                Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                    grid()
-                    if (figures.isNotEmpty()) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                            figures.forEach { (value, label) ->
-                                JournalFigure(value = value, label = label, valueSize = 24, labelLines = 2, modifier = Modifier.weight(1f))
-                            }
-                        }
-                    }
-                }
-            } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(40.dp)) {
-                    grid()
-                    Column(
-                        modifier = Modifier.padding(top = 28.dp),
-                        verticalArrangement = Arrangement.spacedBy(22.dp),
-                    ) {
-                        figures.forEach { (value, label) -> JournalFigure(value = value, label = label, valueSize = 30) }
-                    }
-                }
-            }
+    JournalPanel(modifier = modifier) {
+        JournalSectionHeader(
+            title = "Reading days",
+            summary = if (compact) "Tap a day for what you read" else "Minutes each day · tap a day for what you read",
+        )
+        BoxWithConstraints(modifier = Modifier.padding(top = 14.dp)) {
+            val cell = ((maxWidth - MonthCellGap * 6) / 7).coerceAtMost(MonthCellMax)
+            MonthGrid(
+                monthStartEpochMillis = overview.periodStartEpochMillis,
+                daysByKey = daysByKey,
+                maxValue = maxValue,
+                todayKey = localDateKey(nowEpochMillis),
+                cell = cell,
+                gap = MonthCellGap,
+                corner = if (cell >= 48.dp) 12.dp else 10.dp,
+                showNumbers = true,
+                showMinutes = cell >= MinutesCellMin,
+                showFinished = true,
+                onDaySelected = onDaySelected,
+            )
         }
+        HeatLegend(showFinished = true, modifier = Modifier.padding(top = 14.dp))
     }
 }
 
-private fun monthFigures(highlights: JournalMonthHighlights): List<Pair<String, String>> = listOfNotNull(
-    highlights.longestRun?.let { run -> "${run.length} days" to "longest run, ${run.rangeLabel()}" },
-    highlights.busiestDay?.let { day -> day.pagesRead.counted("page") to "busiest day, ${day.shortLabel()}" },
-    highlights.mostFinishedDay?.let { day ->
-        day.shortLabel().substringBeforeLast(' ') to "${day.finishedCount} finished in one day"
-    },
-)
-
 /** Reading days in Year: the twelve months, four across, as squares without day numbers. */
 @Composable
-internal fun JournalYearReadingDays(
+internal fun JournalYearReadingDaysPanel(
     overview: JournalPeriodOverview,
     nowEpochMillis: Long,
     onDaySelected: (JournalActivityDay) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val daysByKey = remember(overview) { overview.activityDays.associateBy(JournalActivityDay::localDayKey) }
     val maxValue = overview.activityDays.maxOfOrNull { day -> day.heatValue } ?: 0
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        JournalSectionHeader(title = "Reading days", summary = overview.yearDaysSummary())
-        BoxWithConstraints {
+    JournalPanel(modifier = modifier) {
+        JournalSectionHeader(title = "Reading days", summary = "Tap a day for what you read")
+        BoxWithConstraints(modifier = Modifier.padding(top = 16.dp)) {
             val columns = journalYearMonthColumns(maxWidth.value)
             val monthWidth = (maxWidth - YearMonthGap * (columns - 1)) / columns
             val cell = ((monthWidth - YearCellGap * 6) / 7).coerceAtMost(YearCellMax)
-            Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
                 (Calendar.JANUARY..Calendar.DECEMBER).chunked(columns).forEach { months ->
                     Row(horizontalArrangement = Arrangement.spacedBy(YearMonthGap)) {
                         months.forEach { month ->
                             Column(modifier = Modifier.width(monthWidth), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(
-                                    text = shortMonthName(month),
-                                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp),
+                                    text = longMonthName(month),
+                                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.5.sp),
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -145,8 +117,9 @@ internal fun JournalYearReadingDays(
                                     todayKey = localDateKey(nowEpochMillis),
                                     cell = cell,
                                     gap = YearCellGap,
-                                    corner = 5.dp,
+                                    corner = 4.dp,
                                     showNumbers = false,
+                                    showMinutes = false,
                                     showFinished = false,
                                     onDaySelected = onDaySelected,
                                 )
@@ -154,17 +127,25 @@ internal fun JournalYearReadingDays(
                         }
                     }
                 }
-                HeatLegend(showFinished = false)
             }
         }
+        HeatLegend(showFinished = false, modifier = Modifier.padding(top = 18.dp))
     }
 }
 
 /** Months across in Year: four on a tablet, fewer as the space narrows. */
 internal fun journalYearMonthColumns(maxWidthDp: Float): Int = when {
-    maxWidthDp >= 560f -> 4
-    maxWidthDp >= 400f -> 3
+    maxWidthDp >= 520f -> 4
+    maxWidthDp >= 380f -> 3
     else -> 2
+}
+
+/** A day's minutes in its square: "22m", "1h 27", "2h". */
+internal fun formatJournalCellMinutes(millis: Long): String {
+    val minutes = ((millis + 59_999L) / 60_000L).coerceAtLeast(1L)
+    if (minutes < 60L) return "${minutes}m"
+    val rest = minutes % 60L
+    return if (rest == 0L) "${minutes / 60L}h" else "${minutes / 60L}h ${rest.toString().padStart(2, '0')}"
 }
 
 @Composable
@@ -177,6 +158,7 @@ private fun MonthGrid(
     gap: Dp,
     corner: Dp,
     showNumbers: Boolean,
+    showMinutes: Boolean,
     showFinished: Boolean,
     onDaySelected: (JournalActivityDay) -> Unit,
 ) {
@@ -202,15 +184,18 @@ private fun MonthGrid(
                     if (day == null) {
                         Spacer(modifier = Modifier.size(cell))
                     } else {
-                        val activity = daysByKey[day.localDayKey]
+                        val activity = daysByKey[day.localDayKey]?.takeIf { it.heatValue > 0 }
                         HeatCell(
                             dayOfMonth = day.dayOfMonth.takeIf { showNumbers },
+                            minutes = activity?.readingMillis?.takeIf { showMinutes && it > 0L }?.let(::formatJournalCellMinutes),
+                            cornerLayout = showMinutes,
                             level = activity?.let { journalHeatLevel(it.heatValue, maxValue) } ?: 0,
+                            future = day.localDayKey > todayKey,
                             finished = showFinished && (activity?.finishedCount ?: 0) > 0,
                             today = day.localDayKey == todayKey,
                             corner = corner,
-                            onClick = activity?.takeIf { it.heatValue > 0 }?.let { { onDaySelected(it) } },
-                            description = activity?.let { it.cellDescription() },
+                            onClick = activity?.let { { onDaySelected(it) } },
+                            description = activity?.cellDescription(),
                             modifier = Modifier.size(cell),
                         )
                     }
@@ -223,7 +208,10 @@ private fun MonthGrid(
 @Composable
 private fun HeatCell(
     dayOfMonth: Int?,
+    minutes: String?,
+    cornerLayout: Boolean,
     level: Int,
+    future: Boolean,
     finished: Boolean,
     today: Boolean,
     corner: Dp,
@@ -232,9 +220,10 @@ private fun HeatCell(
     modifier: Modifier = Modifier,
 ) {
     val scheme = MaterialTheme.colorScheme
-    val ring = scheme.primary
+    val ring = scheme.onSurface
     val dot = scheme.tertiary
     val shape = RoundedCornerShape(corner)
+    val outline = scheme.onSurface.copy(alpha = if (future) 0.04f else 0.10f)
     Box(
         modifier = modifier
             .drawWithContent {
@@ -251,58 +240,88 @@ private fun HeatCell(
                     )
                 }
                 if (finished) {
-                    val radius = 3.dp.toPx()
-                    drawCircle(color = dot, radius = radius, center = Offset(size.width - 5.dp.toPx() - radius, size.height - 5.dp.toPx() - radius))
+                    val radius = 3.5.dp.toPx()
+                    drawCircle(color = dot, radius = radius, center = Offset(size.width - 6.dp.toPx() - radius, 6.dp.toPx() + radius))
                 }
             }
             .clip(shape)
-            .background(heatColor(level))
+            .then(if (level > 0) Modifier.background(heatColor(level)) else Modifier.border(1.dp, outline, shape))
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .then(if (description != null) Modifier.semantics { contentDescription = description } else Modifier),
-        contentAlignment = Alignment.Center,
     ) {
-        dayOfMonth?.let { day ->
-            Text(
-                text = day.toString(),
-                style = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp, fontFeatureSettings = "tnum"),
-                fontWeight = FontWeight.SemiBold,
-                color = when (level) {
-                    0, 1 -> scheme.onSurfaceVariant
-                    2 -> scheme.onSurface
-                    else -> scheme.onPrimary
-                },
-            )
+        val textColor = when {
+            level >= 3 -> scheme.onPrimary
+            level > 0 -> scheme.onSurface
+            future -> scheme.onSurfaceVariant.copy(alpha = 0.5f)
+            else -> scheme.onSurfaceVariant
+        }
+        when {
+            dayOfMonth == null -> Unit
+            // The number in the corner and the minutes under it, in every square alike.
+            cornerLayout -> Column(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 7.dp, vertical = 6.dp),
+                verticalArrangement = Arrangement.SpaceBetween,
+            ) {
+                CellText(text = dayOfMonth.toString(), color = textColor.copy(alpha = 0.85f), size = 11.5f, weight = FontWeight.SemiBold)
+                minutes?.let { CellText(text = it, color = textColor, size = 12f, weight = FontWeight.Bold) }
+            }
+            else -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CellText(text = dayOfMonth.toString(), color = textColor, size = 13f, weight = FontWeight.SemiBold)
+            }
         }
     }
+}
+
+@Composable
+private fun CellText(
+    text: String,
+    color: Color,
+    size: Float,
+    weight: FontWeight,
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium.copy(fontSize = size.sp, lineHeight = (size + 2.5f).sp, fontFeatureSettings = "tnum"),
+        fontWeight = weight,
+        color = color,
+        maxLines = 1,
+        softWrap = false,
+    )
 }
 
 @Composable
 private fun heatColor(level: Int): Color {
-    val base = MaterialTheme.colorScheme.surfaceContainerHigh
+    val base = AppPanelDefaults.containerColor
     val accent = MaterialTheme.colorScheme.primary
     return when (level) {
         0 -> base
-        1 -> lerp(base, accent, 0.24f)
-        2 -> lerp(base, accent, 0.46f)
-        3 -> lerp(base, accent, 0.72f)
+        1 -> lerp(base, accent, 0.2f)
+        2 -> lerp(base, accent, 0.4f)
+        3 -> lerp(base, accent, 0.66f)
         else -> accent
     }
 }
 
-/** "Less ▢▢▢▢▢ More", and the finished dot where the calendar shows it. */
+/** "None ▢ ▢▢▢▢ More", and the finished dot where the calendar shows it. */
 @Composable
-private fun HeatLegend(showFinished: Boolean) {
+private fun HeatLegend(
+    showFinished: Boolean,
+    modifier: Modifier = Modifier,
+) {
     val textStyle = MaterialTheme.typography.labelMedium.copy(fontSize = 12.5.sp)
     val color = MaterialTheme.colorScheme.onSurfaceVariant
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(text = "Less", style = textStyle, color = color)
-        (0..4).forEach { level ->
-            Box(modifier = Modifier.size(14.dp).clip(RoundedCornerShape(4.dp)).background(heatColor(level)))
+    val swatch = RoundedCornerShape(4.dp)
+    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(modifier = Modifier.size(12.dp).border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f), swatch))
+        Text(text = "None", style = textStyle, color = color)
+        Spacer(modifier = Modifier.width(6.dp))
+        (1..4).forEach { level ->
+            Box(modifier = Modifier.size(12.dp).clip(swatch).background(heatColor(level)))
         }
         Text(text = "More", style = textStyle, color = color)
         if (showFinished) {
             Spacer(modifier = Modifier.width(14.dp))
-            Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(MaterialTheme.colorScheme.tertiary))
+            Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(MaterialTheme.colorScheme.tertiary))
             Text(text = "Finished something", style = textStyle, color = color)
         }
     }
@@ -310,7 +329,7 @@ private fun HeatLegend(showFinished: Boolean) {
 
 private fun JournalActivityDay.cellDescription(): String = listOfNotNull(
     longLabel(),
-    pagesRead.takeIf { it > 0 }?.counted("page"),
+    readingMillis.takeIf { it > 0L }?.let(::formatJournalMinutes),
     finishedCount.takeIf { it > 0 }?.let { "$it finished" },
 ).joinToString(", ")
 
@@ -355,8 +374,9 @@ private fun monthStartInYear(
     set(Calendar.DAY_OF_MONTH, 1)
 }.timeInMillis
 
-private val MonthCellMax = 44.dp
-private val MonthCellGap = 6.dp
-private val YearCellMax = 20.dp
-private val YearCellGap = 4.dp
-private val YearMonthGap = 24.dp
+private val MonthCellMax = 56.dp
+private val MonthCellGap = 5.dp
+private val MinutesCellMin = 48.dp
+private val YearCellMax = 18.dp
+private val YearCellGap = 3.dp
+private val YearMonthGap = 22.dp

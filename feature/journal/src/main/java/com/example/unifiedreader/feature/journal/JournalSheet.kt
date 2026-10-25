@@ -59,6 +59,9 @@ internal sealed interface JournalSheetPage {
 
     /** Every name of one kind, from its See all. */
     data class AllNames(val group: JournalMostReadGroup) : JournalSheetPage
+
+    /** The period's finished books, or only the ones waiting for a rating. */
+    data class Finished(val waitingOnly: Boolean) : JournalSheetPage
 }
 
 /**
@@ -130,6 +133,13 @@ internal fun JournalSheet(
                     group = page.group,
                     onOpenName = { row -> onOpenPage(JournalSheetPage.Name(page.group, row)) },
                 )
+                is JournalSheetPage.Finished -> finishedPage(
+                    title = if (page.waitingOnly) "Waiting for a rating" else "Finished in ${overview.periodName()}",
+                    summaries = if (page.waitingOnly) finishedItemsNeedingRating(overview) else overview.finishedItems,
+                    coverImageUrlProvider = coverImageUrlProvider,
+                    onCoverVisible = onCoverVisible,
+                    onOpenItem = { itemId -> onOpenPage(JournalSheetPage.Item(itemId)) },
+                )
                 is JournalSheetPage.Item -> item(key = "item:${page.itemId}") {
                     val summary = itemSummaries.firstOrNull { it.item.itemId == page.itemId }
                     if (summary == null) {
@@ -196,6 +206,26 @@ private fun LazyListScope.namePage(
 ) {
     val count = page.group.rows.firstOrNull { it.row.label == page.row.label }?.countLabel
     pageTitle(title = page.row.label, summary = listOfNotNull(page.group.title, count).joinToString(" · "))
+    items(summaries, key = { summary -> summary.item.itemId }) { summary ->
+        JournalSheetBookRow(
+            summary = summary,
+            line = summary.finishedAtEpochMillis?.let { "Finished ${formatShortDate(it)}" }.orEmpty(),
+            showRate = true,
+            coverImageUrlProvider = coverImageUrlProvider,
+            onCoverVisible = onCoverVisible,
+            onClick = { onOpenItem(summary.item.itemId) },
+        )
+    }
+}
+
+private fun LazyListScope.finishedPage(
+    title: String,
+    summaries: List<JournalItemSummary>,
+    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
+    onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
+    onOpenItem: (String) -> Unit,
+) {
+    pageTitle(title = title, summary = "${summaries.size}, newest first")
     items(summaries, key = { summary -> summary.item.itemId }) { summary ->
         JournalSheetBookRow(
             summary = summary,

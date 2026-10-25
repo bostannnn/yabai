@@ -4,7 +4,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -268,22 +266,40 @@ fun SettingsTopBar(
     }
 }
 
-/** The journal's bar: the menu and its name. Importing a file is the library's. */
+/**
+ * The journal's bar: the menu, and the name once the journal's own "Journal" has scrolled away.
+ * Like Settings, it has no glass until something scrolls under it. Importing a file is the
+ * library's.
+ */
 @Composable
 fun JournalTopBar(
     onDrawerClick: (() -> Unit)?,
+    titleOnScreen: Boolean = false,
+    scrolled: Boolean = true,
 ) {
-    ThemedTopBarContainer {
-        Box(
+    val titleShown by animateFloatAsState(
+        targetValue = if (titleOnScreen) 0f else 1f,
+        animationSpec = AppMotion.effects(),
+        label = "journalTopBarTitle",
+    )
+    ThemedTopBarContainer(surfaceVisible = scrolled || !titleOnScreen) {
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.Center,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            AppSectionHeader(
-                title = "Journal",
-                onDrawerClick = onDrawerClick,
+            if (onDrawerClick != null) {
+                DrawerMenuButton(onClick = onDrawerClick)
+            }
+            Text(
+                text = "Journal",
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .widthIn(max = 280.dp),
+                    .weight(1f, fill = false)
+                    .graphicsLayer { alpha = titleShown }
+                    .then(if (titleOnScreen) Modifier.clearAndSetSemantics {} else Modifier),
             )
         }
     }

@@ -133,6 +133,9 @@ fun UnifiedReaderScaffold(
     // it no glass either.
     var settingsTitleOnScreen by remember { mutableStateOf(true) }
     var settingsScrolled by remember { mutableStateOf(false) }
+    // The same for the journal's "Journal" at its top.
+    var journalTitleOnScreen by remember { mutableStateOf(true) }
+    var journalScrolled by remember { mutableStateOf(false) }
     // The journal's "Open in library" and a finished download: the book's page, once its source
     // has loaded it.
     var pendingBookPageItemId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -437,6 +440,10 @@ fun UnifiedReaderScaffold(
                                         viewModel.openLibrarySource(item.sourceType)
                                     },
                                     contentTopInset = AppTopBarDefaults.contentInset,
+                                    onTopBarStateChanged = { titleOnScreen, scrolled ->
+                                        journalTitleOnScreen = titleOnScreen
+                                        journalScrolled = scrolled
+                                    },
                                     modifier = Modifier.fillMaxSize(),
                                 )
                             }
@@ -532,6 +539,8 @@ fun UnifiedReaderScaffold(
 
                             TopLevelDestination.Journal -> JournalTopBar(
                                 onDrawerClick = openDrawer,
+                                titleOnScreen = journalTitleOnScreen,
+                                scrolled = journalScrolled,
                             )
 
                             TopLevelDestination.Settings -> SettingsTopBar(

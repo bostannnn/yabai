@@ -1,48 +1,67 @@
 package com.example.unifiedreader.feature.journal
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.components.AppWindowWidth
 import com.example.unifiedreader.ui.components.currentAppWindowWidth
-import java.text.NumberFormat
-import java.util.Calendar
-import java.util.Locale
-import kotlin.math.roundToInt
 
-/** A section's 17 sp heading and the one line under it, with an optional action at the end. */
+/** One of the journal's panels: the kit's raised panel with the journal's padding. */
+@Composable
+internal fun JournalPanel(
+    modifier: Modifier = Modifier,
+    contentPadding: Dp = JournalPanelPadding,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    AppPanel(modifier = modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(horizontal = contentPadding, vertical = JournalPanelVerticalPadding),
+            content = content,
+        )
+    }
+}
+
+/** The journal panels' side padding: 24 dp, 16 on phones. */
+internal val JournalPanelPadding: Dp
+    @Composable get() = if (currentAppWindowWidth() == AppWindowWidth.Compact) 16.dp else 24.dp
+
+private val JournalPanelVerticalPadding = 20.dp
+
+/** A panel's 17 sp heading and the one line under it, with an optional action at the end. */
 @Composable
 internal fun JournalSectionHeader(
     title: String,
@@ -71,24 +90,51 @@ internal fun JournalSectionHeader(
     }
 }
 
-/** Hours read, pages, finished and active days at 46 sp: four across, two by two on phones. */
+/**
+ * The period at a glance, one panel: reading time, the days you read, what was finished, and
+ * (Month) books against comics by time or (Year) the longest run. Four across with hairlines
+ * between them, two by two on phones.
+ */
 @Composable
-internal fun JournalFigures(
+internal fun JournalSummaryPanel(
     overview: JournalPeriodOverview,
+    summary: JournalSummary,
 ) {
-    val stats = overview.stats
-    val figures = listOf(
-        formatJournalDecimal(stats.readingTimeMillis / 3_600_000.0) to "hours read",
-        formatJournalCount(stats.pagesRead) to "pages",
-        (stats.booksFinished + stats.comicsFinished).toString() to "finished",
-        stats.activeDays.toString() to "active days",
-    )
-    val rows = if (currentAppWindowWidth() == AppWindowWidth.Compact) figures.chunked(2) else listOf(figures)
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        rows.forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                row.forEach { (value, label) ->
-                    JournalFigure(value = value, label = label, modifier = Modifier.weight(1f))
+    val month = overview.period == JournalPeriod.MONTH
+    val cells = buildList<@Composable (Modifier) -> Unit> {
+        if (summary.readingMillis > 0L) {
+            add { modifier ->
+                SummaryFigure(formatJournalReadingTime(summary.readingMillis), "Reading time", summary.paceLine(), modifier)
+            }
+        }
+        add { modifier -> SummaryFigure(summary.readingDays.counted("day"), "You read", summary.daysLine(overview.period), modifier) }
+        if (!month) {
+            summary.longestRun?.let { run ->
+                add { modifier -> SummaryFigure(run.length.counted("day"), "Longest run", run.rangeLabel(), modifier) }
+            }
+        }
+        add { modifier -> SummaryFigure(summary.finished.toString(), "Finished", summary.finishedLine(), modifier) }
+        if (month && summary.bookMillis + summary.comicMillis > 0L) {
+            add { modifier -> BooksAndComicsFigure(summary.bookMillis, summary.comicMillis, modifier) }
+        }
+    }
+    val compact = currentAppWindowWidth() == AppWindowWidth.Compact
+    val hairline = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+    JournalPanel(contentPadding = 0.dp) {
+        cells.chunked(if (compact) 2 else 4).forEachIndexed { rowIndex, row ->
+            if (rowIndex > 0) Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(hairline))
+            Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+                row.forEachIndexed { index, cell ->
+                    if (index > 0) Box(modifier = Modifier.width(1.dp).fillMaxHeight().background(hairline))
+                    cell(
+                        Modifier
+                            .weight(1f)
+                            .padding(horizontal = if (compact) 16.dp else 24.dp, vertical = if (compact) 12.dp else 2.dp),
+                    )
+                }
+                // A short last row keeps its cells the width of the others.
+                repeat((if (compact) 2 else 4) - row.size) {
+                    Box(modifier = Modifier.weight(1f))
                 }
             }
         }
@@ -96,279 +142,219 @@ internal fun JournalFigures(
 }
 
 @Composable
-internal fun JournalFigure(
+private fun SummaryFigure(
     value: String,
     label: String,
+    line: String?,
     modifier: Modifier = Modifier,
-    valueSize: Int = 46,
-    labelLines: Int = 1,
 ) {
-    Column(modifier = modifier) {
+    val compact = currentAppWindowWidth() == AppWindowWidth.Compact
+    Column(
+        modifier = modifier.semantics(mergeDescendants = true) {},
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
         Text(
-            text = value,
+            text = figureText(value),
             style = MaterialTheme.typography.displaySmall.copy(
-                fontSize = valueSize.sp,
-                lineHeight = (valueSize + 6).sp,
+                fontSize = if (compact) 26.sp else 30.sp,
+                lineHeight = if (compact) 32.sp else 36.sp,
                 fontFeatureSettings = "tnum",
-                letterSpacing = (-0.01).sp * valueSize,
+                letterSpacing = (-0.01).em,
             ),
             fontWeight = FontWeight.Bold,
             maxLines = 1,
         )
         Text(
             text = label,
-            style = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp),
+            style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp),
             fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = labelLines,
-            overflow = TextOverflow.Ellipsis,
+            maxLines = 1,
+        )
+        line?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+/** A figure with its units smaller than its numbers: "3 h 24 min", "9 days". */
+private fun figureText(value: String): AnnotatedString = buildAnnotatedString {
+    value.forEach { char ->
+        if (char.isLetter()) {
+            withStyle(SpanStyle(fontSize = 0.66.em)) { append(char) }
+        } else {
+            append(char)
+        }
+    }
+}
+
+/** Books against comics by reading time: a split bar and each side's time. */
+@Composable
+private fun BooksAndComicsFigure(
+    bookMillis: Long,
+    comicMillis: Long,
+    modifier: Modifier = Modifier,
+) {
+    val bookColor = MaterialTheme.colorScheme.primary
+    val comicColor = MaterialTheme.colorScheme.tertiary
+    Column(modifier = modifier.semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = "Books and comics",
+            style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp),
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+        Row(modifier = Modifier.fillMaxWidth().height(10.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+            if (bookMillis > 0L) {
+                Box(modifier = Modifier.weight(bookMillis.toFloat()).height(10.dp).clip(CircleShape).background(bookColor))
+            }
+            if (comicMillis > 0L) {
+                Box(modifier = Modifier.weight(comicMillis.toFloat()).height(10.dp).clip(CircleShape).background(comicColor))
+            }
+        }
+        // Side by side on a tablet, one under the other in a phone's half-width cell.
+        if (currentAppWindowWidth() == AppWindowWidth.Compact) {
+            Column {
+                if (bookMillis > 0L) MixLegend("Books", formatJournalMinutes(bookMillis))
+                if (comicMillis > 0L) MixLegend("Comics", formatJournalMinutes(comicMillis))
+            }
+        } else {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                if (bookMillis > 0L) MixLegend("Books", formatJournalMinutes(bookMillis))
+                if (comicMillis > 0L) MixLegend("Comics", formatJournalMinutes(comicMillis))
+            }
+        }
+    }
+}
+
+@Composable
+private fun MixLegend(
+    kind: String,
+    time: String,
+) {
+    Text(
+        text = buildAnnotatedString {
+            withStyle(SpanStyle(fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)) { append(kind) }
+            append(" $time")
+        },
+        style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp, fontFeatureSettings = "tnum"),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+    )
+}
+
+/**
+ * When you read (Month): the time per hour of the day as 24 small bars, the hours most of it
+ * falls in named in the heading's line and drawn in the warm accent.
+ */
+@Composable
+internal fun JournalWhenYouReadPanel(
+    buckets: List<JournalTimeBucket>,
+    modifier: Modifier = Modifier,
+) {
+    val maxMillis = buckets.maxOfOrNull(JournalTimeBucket::totalMillis)?.takeIf { it > 0L } ?: return
+    val window = journalReadingHours(buckets)
+    val inWindow = { hour: Int -> window != null && (hour - window.first + 24) % 24 < window.second }
+    JournalPanel(modifier = modifier) {
+        JournalSectionHeader(title = "When you read", summary = journalReadingHoursLabel(buckets))
+        BarChart(
+            values = buckets.map(JournalTimeBucket::totalMillis),
+            maxValue = maxMillis,
+            labels = buckets.map { bucket -> bucket.label.takeIf { bucket.key % 6 == 0 } },
+            highlighted = buckets.map { bucket -> inWindow(bucket.key) },
+            highlightColor = MaterialTheme.colorScheme.tertiary,
+            height = 72.dp,
+            gap = 4.dp,
+            description = "Reading by hour of the day. ${journalReadingHoursLabel(buckets)}",
+            modifier = Modifier.padding(top = 16.dp),
         )
     }
 }
 
 /**
- * Pages per day (per month in Year) as an area: a 2.5 dp accent line over a 16% fill, days
- * labelled every seven. The line under the heading names the busiest day, or the tapped one.
+ * Reading time by month (Year): twelve bars, the busiest month in the accent and named in the
+ * heading's line. Months still to come stay empty.
  */
 @Composable
-internal fun JournalPagesChart(
-    overview: JournalPeriodOverview,
+internal fun JournalTimeByMonthPanel(
+    buckets: List<JournalTimeBucket>,
+    modifier: Modifier = Modifier,
 ) {
-    val points = remember(overview) { overview.activityChartPoints() }
-    val usesPages = points.any { point -> point.pages > 0 }
-    if (points.none { point -> point.chartValue(usesPages) > 0 }) return
-    var selected by remember(points) { mutableStateOf<Int?>(null) }
-    val busiest = points.indices.maxByOrNull { index -> points[index].chartValue(usesPages) }
-    val month = overview.period == JournalPeriod.MONTH
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        JournalSectionHeader(
-            title = if (month) "Pages per day" else "Pages per month",
-            summary = selected?.let { index -> points[index].describe(usesPages) }
-                ?: busiest?.let { index -> points[index].describeBusiest(usesPages, month) },
+    val busiest = journalBusiestMonth(buckets) ?: return
+    val maxMillis = buckets.maxOf(JournalTimeBucket::totalMillis)
+    JournalPanel(modifier = modifier) {
+        JournalSectionHeader(title = "Reading time by month", summary = "Most in ${longMonthName(busiest)}")
+        BarChart(
+            values = buckets.map(JournalTimeBucket::totalMillis),
+            maxValue = maxMillis,
+            labels = buckets.map(JournalTimeBucket::label),
+            highlighted = buckets.map { bucket -> bucket.key == busiest },
+            highlightColor = MaterialTheme.colorScheme.primary,
+            height = 116.dp,
+            gap = 8.dp,
+            description = "Reading time by month, most in ${longMonthName(busiest)}",
+            modifier = Modifier.padding(top = 18.dp),
         )
-        val maxValue = points.maxOf { point -> point.chartValue(usesPages) }.coerceAtLeast(1)
-        val lineColor = MaterialTheme.colorScheme.primary
-        val fillColor = lineColor.copy(alpha = 0.16f)
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Canvas(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(PagesChartHeight)
-                    .pointerInput(points) {
-                        detectTapGestures { offset ->
-                            val step = if (points.size > 1) size.width / (points.size - 1).toFloat() else size.width.toFloat()
-                            val index = (offset.x / step).roundToInt().coerceIn(points.indices)
-                            selected = index.takeUnless { it == selected }
-                        }
-                    },
-            ) {
-                val stroke = 2.5.dp.toPx()
-                val top = stroke
-                val bottom = size.height - stroke / 2f
-                val step = if (points.size > 1) size.width / (points.size - 1).toFloat() else size.width
-                val offsets = points.mapIndexed { index, point ->
-                    Offset(
-                        x = if (points.size > 1) step * index else size.width / 2f,
-                        y = bottom - (bottom - top) * point.chartValue(usesPages) / maxValue.toFloat(),
+    }
+}
+
+/** Bars from a shared baseline; an empty slot keeps a 2 dp stub so the scale reads. */
+@Composable
+private fun BarChart(
+    values: List<Long>,
+    maxValue: Long,
+    labels: List<String?>,
+    highlighted: List<Boolean>,
+    highlightColor: Color,
+    height: Dp,
+    gap: Dp,
+    description: String,
+    modifier: Modifier = Modifier,
+) {
+    val barColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+    val stubColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+    Column(modifier = modifier.clearAndSetSemantics { contentDescription = description }) {
+        Row(
+            modifier = Modifier.fillMaxWidth().height(height),
+            horizontalArrangement = Arrangement.spacedBy(gap),
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            values.forEachIndexed { index, value ->
+                val fraction = (value.toFloat() / maxValue.toFloat()).coerceIn(0f, 1f)
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(if (value > 0L) (height * fraction).coerceAtLeast(3.dp) else 2.dp)
+                        .clip(RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp, bottomStart = 1.dp, bottomEnd = 1.dp))
+                        .background(
+                            when {
+                                value <= 0L -> stubColor
+                                highlighted[index] -> highlightColor
+                                else -> barColor
+                            },
+                        ),
+                )
+            }
+        }
+        Row(modifier = Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(gap)) {
+            labels.forEach { label ->
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = label.orEmpty(),
+                        // A label may be wider than its bar; it spills over the empty neighbours.
+                        modifier = Modifier.wrapContentWidth(unbounded = true),
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, fontFeatureSettings = "tnum"),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        softWrap = false,
+                        maxLines = 1,
                     )
                 }
-                val fill = smoothActivityPath(offsets).apply {
-                    lineTo(offsets.last().x, size.height)
-                    lineTo(offsets.first().x, size.height)
-                    close()
-                }
-                drawPath(path = fill, color = fillColor)
-                drawPath(path = smoothActivityPath(offsets), color = lineColor, style = Stroke(width = stroke, cap = StrokeCap.Round))
-                selected?.let { index ->
-                    drawCircle(color = lineColor, radius = 4.dp.toPx(), center = offsets[index])
-                }
-            }
-            ChartAxisLabels(
-                labels = points.mapIndexed { index, point ->
-                    point.label.takeIf { !month || index % 7 == 0 }
-                },
-            )
-        }
-    }
-}
-
-/** Labels centred under their points, the first and last kept inside the chart. */
-@Composable
-private fun ChartAxisLabels(
-    labels: List<String?>,
-) {
-    val color = MaterialTheme.colorScheme.onSurfaceVariant
-    Layout(
-        modifier = Modifier.fillMaxWidth(),
-        content = {
-            labels.forEach { label ->
-                Text(
-                    text = label.orEmpty(),
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp, fontFeatureSettings = "tnum"),
-                    color = color,
-                    maxLines = 1,
-                )
-            }
-        },
-    ) { measurables, constraints ->
-        val placeables = measurables.map { it.measure(constraints.copy(minWidth = 0)) }
-        val width = constraints.maxWidth
-        val height = placeables.maxOfOrNull { it.height } ?: 0
-        val step = if (labels.size > 1) width / (labels.size - 1).toFloat() else 0f
-        layout(width, height) {
-            placeables.forEachIndexed { index, placeable ->
-                val x = (step * index - placeable.width / 2f).roundToInt().coerceIn(0, (width - placeable.width).coerceAtLeast(0))
-                placeable.place(x, 0)
             }
         }
     }
 }
-
-/** Books and comics as one 12 dp split bar, with each side's pages and finishing pace. */
-@Composable
-internal fun JournalBooksAndComics(
-    overview: JournalPeriodOverview,
-) {
-    val stats = overview.stats
-    val bookPages = stats.bookPagesRead
-    val comicPages = stats.comicPagesRead
-    if (bookPages <= 0 && comicPages <= 0) return
-    val bookColor = MaterialTheme.colorScheme.primary
-    val comicColor = MaterialTheme.colorScheme.tertiary
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        JournalSectionHeader(title = "Books and comics", summary = null)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(3.dp),
-        ) {
-            if (bookPages > 0) {
-                Box(modifier = Modifier.weight(bookPages.toFloat()).height(12.dp).clip(CircleShape).background(bookColor))
-            }
-            if (comicPages > 0) {
-                Box(modifier = Modifier.weight(comicPages.toFloat()).height(12.dp).clip(CircleShape).background(comicColor))
-            }
-        }
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            if (bookPages > 0) {
-                MixLegendLine(
-                    color = bookColor,
-                    text = listOfNotNull("Books", bookPages.counted("page"), journalFinishPace(stats.booksFinished, stats.bookActiveDays))
-                        .joinToString(" · "),
-                )
-            }
-            if (comicPages > 0) {
-                MixLegendLine(
-                    color = comicColor,
-                    text = listOfNotNull("Comics", comicPages.counted("page"), journalFinishPace(stats.comicsFinished, stats.comicActiveDays))
-                        .joinToString(" · "),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun MixLegendLine(
-    color: Color,
-    text: String,
-) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.size(9.dp).clip(CircleShape).background(color))
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
-}
-
-private data class ActivityChartPoint(
-    val label: String,
-    /** "the 17th", "October": how the busiest point is named. */
-    val name: String,
-    /** "Thu 22 Oct", "March": how a tapped point is named. */
-    val shortName: String,
-    val pages: Int,
-    val finishedCount: Int,
-    val eventCount: Int,
-)
-
-private fun ActivityChartPoint.chartValue(usesPages: Boolean): Int = if (usesPages) pages else eventCount
-
-private fun ActivityChartPoint.amount(usesPages: Boolean): String = listOfNotNull(
-    if (usesPages) pages.counted("page") else eventCount.counted("session"),
-    finishedCount.takeIf { it > 0 }?.let { "$it finished" },
-).joinToString(", ")
-
-private fun ActivityChartPoint.describe(usesPages: Boolean): String = "$shortName: ${amount(usesPages)}"
-
-private fun ActivityChartPoint.describeBusiest(usesPages: Boolean, month: Boolean): String =
-    "Busiest ${if (month) "day" else "month"} was $name: ${amount(usesPages)}"
-
-private fun JournalPeriodOverview.activityChartPoints(): List<ActivityChartPoint> = when (period) {
-    JournalPeriod.MONTH -> {
-        val calendar = Calendar.getInstance(Locale.US).apply { timeInMillis = periodStartEpochMillis }
-        val year = calendar.get(Calendar.YEAR)
-        val month = calendar.get(Calendar.MONTH)
-        val days = activityDays.associateBy(JournalActivityDay::dayOfMonth)
-        (1..calendar.getActualMaximum(Calendar.DAY_OF_MONTH)).map { day ->
-            val activity = days[day]
-            ActivityChartPoint(
-                label = day.toString(),
-                name = "the ${ordinal(day)}",
-                shortName = (activity ?: JournalActivityDay(0, year, month, day, 0, 0, 0, 0)).shortLabel(),
-                pages = activity?.pagesRead ?: 0,
-                finishedCount = activity?.finishedCount ?: 0,
-                eventCount = activity?.eventCount ?: 0,
-            )
-        }
-    }
-    JournalPeriod.YEAR -> {
-        val byMonth = activityDays.groupBy(JournalActivityDay::month)
-        (0..11).map { month ->
-            val monthDays = byMonth[month].orEmpty()
-            ActivityChartPoint(
-                label = shortMonthName(month),
-                name = longMonthName(month),
-                shortName = longMonthName(month),
-                pages = monthDays.sumOf(JournalActivityDay::pagesRead),
-                finishedCount = monthDays.sumOf { day -> day.finishedCount },
-                eventCount = monthDays.sumOf(JournalActivityDay::eventCount),
-            )
-        }
-    }
-}
-
-private fun ordinal(day: Int): String = day.toString() + when {
-    day % 100 in 11..13 -> "th"
-    day % 10 == 1 -> "st"
-    day % 10 == 2 -> "nd"
-    day % 10 == 3 -> "rd"
-    else -> "th"
-}
-
-private fun smoothActivityPath(points: List<Offset>): Path {
-    val path = Path()
-    if (points.isEmpty()) return path
-    path.moveTo(points.first().x, points.first().y)
-    for (index in 0 until points.lastIndex) {
-        val current = points[index]
-        val next = points[index + 1]
-        path.quadraticTo(current.x, current.y, (current.x + next.x) / 2f, (current.y + next.y) / 2f)
-    }
-    val last = points.last()
-    path.quadraticTo(last.x, last.y, last.x, last.y)
-    return path
-}
-
-/** "1,204"; "12.5K" from ten thousand. */
-internal fun formatJournalCount(value: Int): String = when {
-    value >= 10_000 -> String.format(Locale.US, "%.1fK", value / 1_000.0).replace(".0K", "K")
-    else -> NumberFormat.getIntegerInstance(Locale.US).format(value)
-}
-
-private val PagesChartHeight = 140.dp

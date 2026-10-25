@@ -24,7 +24,8 @@ class JournalOverviewModelTest {
     }
 
     @Test
-    fun `a day with reading but no pages still shows`() {
+    fun `a day weighs its minutes, and a day with reading but no time still shows`() {
+        assertEquals(2, day(5, pages = 900, events = 1).copy(readingMillis = 90_000L).heatValue)
         assertEquals(1, day(5, pages = 0, events = 1).heatValue)
         assertEquals(0, day(5, pages = 0, events = 0).heatValue)
     }
@@ -45,18 +46,6 @@ class JournalOverviewModelTest {
         val run = longestReadingRun(days)!!
         assertEquals(3, run.length)
         assertEquals("30 Sep – 2 Oct", run.rangeLabel())
-    }
-
-    @Test
-    fun `month highlights leave out a one-day run and a single finish`() {
-        val highlights = journalMonthHighlights(listOf(day(17, pages = 24, finished = 1), day(20, pages = 25)))
-        assertNull(highlights.longestRun)
-        assertEquals(20, highlights.busiestDay!!.dayOfMonth)
-        assertNull(highlights.mostFinishedDay)
-
-        val busy = journalMonthHighlights(listOf(day(17, pages = 24, finished = 5), day(18, pages = 3)))
-        assertEquals(2, busy.longestRun!!.length)
-        assertEquals(17, busy.mostFinishedDay!!.dayOfMonth)
     }
 
     @Test
@@ -121,24 +110,9 @@ class JournalOverviewModelTest {
     }
 
     @Test
-    fun `finish pace reads naturally`() {
-        assertEquals("one finished every 2.5 days", journalFinishPace(finished = 2, activeDays = 5))
-        assertEquals("1 finished a day", journalFinishPace(finished = 3, activeDays = 3))
-        assertEquals("1.5 finished a day", journalFinishPace(finished = 3, activeDays = 2))
-        assertNull(journalFinishPace(finished = 0, activeDays = 4))
-    }
-
-    @Test
     fun `a period with nothing in it is empty`() {
         assertTrue(overview().isEmpty)
         assertFalse(overview(days = listOf(day(3))).isEmpty)
-    }
-
-    @Test
-    fun `summaries count the days`() {
-        assertEquals("2 of 31 days", overview(days = listOf(day(3), day(4))).monthDaysSummary())
-        val year = overview(period = JournalPeriod.YEAR, days = listOf(day(3), day(4), day(5), day(9, month = Calendar.JULY)))
-        assertEquals("4 days in 2026 · longest run 3 days, in October", year.yearDaysSummary())
     }
 
     @Test

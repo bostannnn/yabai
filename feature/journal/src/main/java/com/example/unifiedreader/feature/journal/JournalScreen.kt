@@ -30,6 +30,8 @@ fun JournalScreen(
     // Opens a book's page in the library, from its journal page.
     onOpenInLibrary: ((ReadableItem) -> Unit)? = null,
     contentTopInset: Dp = 0.dp,
+    // Whether "Journal" at the top still shows, and whether anything has scrolled under the bar.
+    onTopBarStateChanged: (titleOnScreen: Boolean, scrolled: Boolean) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
 ) {
     var deleteTarget by remember { mutableStateOf<JournalDeleteTarget?>(null) }
@@ -41,6 +43,7 @@ fun JournalScreen(
         onSaveJournalEntry = onSaveJournalEntry,
         onOpenInLibrary = onOpenInLibrary,
         contentTopInset = contentTopInset,
+        onTopBarStateChanged = onTopBarStateChanged,
         modifier = modifier,
     )
     val toasts = LocalAppToastState.current
