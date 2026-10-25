@@ -87,12 +87,14 @@ class GrimmoryDtosTest {
                 categories = listOf("Literary Fiction"),
                 tags = listOf("Speculative"),
                 language = "English",
+                publishedDate = "2021-05-04",
             ),
         ).toDomain(
             baseUrl = "https://grimmory.example",
         )
 
         requireNotNull(item)
+        assertEquals(2021, item.publishedYear)
         assertEquals(SourceType.GRIMMORY.remoteItemId("12"), item.id)
         assertEquals("12", item.remoteId)
         assertEquals(SourceType.GRIMMORY.remoteLibraryId("4"), item.libraryId)

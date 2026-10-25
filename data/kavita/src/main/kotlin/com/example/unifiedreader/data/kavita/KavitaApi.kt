@@ -100,6 +100,12 @@ interface KavitaApi {
         chapterId: Int,
     ): KavitaChapterDetailPlusDto = error("Fetching Kavita chapter details is not implemented.")
 
+    /** A series' own summary: Kavita keeps most descriptions on the series, not its chapters. */
+    suspend fun getSeriesSummary(
+        accessToken: String,
+        seriesId: String,
+    ): String? = error("Fetching a Kavita series summary is not implemented.")
+
     suspend fun updateProgress(
         accessToken: String,
         progress: KavitaProgressUpdate,
@@ -512,6 +518,23 @@ class KtorKavitaApi(
             return@authenticatedRequest KavitaChapterDetailPlusDto()
         }
         response.body()
+    }
+
+    override suspend fun getSeriesSummary(
+        accessToken: String,
+        seriesId: String,
+    ): String? = authenticatedRequest {
+        val response = httpClient.get("$normalizedBaseUrl/api/Series/metadata") {
+            bearerAuth(accessToken)
+            url {
+                parameters.append("seriesId", seriesId)
+            }
+        }
+        response.throwIfKavitaError()
+        if (response.status == HttpStatusCode.NoContent) {
+            return@authenticatedRequest null
+        }
+        response.body<KavitaSeriesMetadataDto>().summary?.takeIf(String::isNotBlank)
     }
 
     override suspend fun updateProgress(

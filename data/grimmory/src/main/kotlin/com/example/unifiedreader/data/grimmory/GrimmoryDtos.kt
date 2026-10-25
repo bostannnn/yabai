@@ -7,6 +7,7 @@ import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.publishedYearOf
 import com.example.unifiedreader.core.model.readableFormatFromTypeOrExtension
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
@@ -205,6 +206,7 @@ internal data class GrimmoryBookMetadataDto(
     val tags: List<String>? = null,
     val language: String? = null,
     val thumbnailUrl: String? = null,
+    val publishedDate: String? = null,
 )
 
 @Serializable
@@ -336,6 +338,7 @@ internal fun GrimmoryBookDto.toCatalogEntry(
         ),
         description = metadata?.description,
         addedAtEpochMillis = addedOn?.toEpochMillisOrNull(),
+        publishedYear = publishedYearOf(metadata?.publishedDate),
         bookMetadata = BookMetadata(
             author = metadata?.authors?.firstOrNull(String::isNotBlank),
             authors = metadata?.authors.toFacetNames(),

@@ -49,6 +49,7 @@ private const val READABLE_ITEM_LIBRARY_SELECT = """
             ELSE substr(description, 1, 512)
         END AS description,
         addedAtEpochMillis,
+        publishedYear,
         bookAuthor,
         bookAuthorsJson,
         bookSeriesName,
