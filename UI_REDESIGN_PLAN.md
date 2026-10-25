@@ -1625,12 +1625,54 @@ All unit tests pass (1505, both lines). Not yet on the tablet.
   didn't answer, Download again), a broken PDF, a format no reader takes.
 - [ ] Tablet.
 
-### 9.8 Kit drift sweep `[ ]` (kit-drift)
+### 9.8 Kit drift sweep `[~]` (kit-drift)
 
-- [ ] Last, after the steps above. `ButtonDefaults` overrides (selection bar, reading card, book
-      page, journal sheet, updater) move onto kit defaults; the Kavita lists dialog gets
-      `AppSearchField`; the comics canvas colour becomes a token; `FeatureMaterialImportRuleTest`
-      forbids `ButtonDefaults` outside the kit.
+Built 2026-10-25 in worktree `ui-redesign-docs-9-8-864070` (branch `claude/ui-redesign-docs-9-8-864070`, at main
+e19a46c7) while 9.7 was built in another session (the plan had this step last); checked on the emulator
+(`yabai_review_35` on 5560, debug build, the Local library) in Graphite and Paper. Then rebased onto 9.7 (main
+4f752fb1) and fast-forwarded to main; all unit tests pass there (1505, both lines). Not yet on the tablet.
+
+- No board: the review card's proposal was the design. Its one open choice was asked in chat and answered: the
+  comics canvas stays dark in every theme (over the theme's own canvas, which would put comics on white in the
+  light themes, as the PDF reader does).
+- [x] Button colours from the kit: `AppButtonDefaults` gained `tonalColors(container, content)` (a cover tint's
+      track), `textColors()` / `textColors(content)` and `destructiveTextColors()`. The selection bar's Select all
+      and Download, the reading card's Continue and Details, the book page's main button and its row of actions,
+      and the journal's Remove from journal use them, with `filledColors(container, content)` from 9.1. The colours
+      are the same as before.
+- [x] `AppSnackbar(actionLabel, onAction, actionContentColor)` draws its own action in the snackbar's action
+      colour (inverse primary), so "Updated to"'s What's new no longer sets it.
+- [x] The Kavita lists dialog is `AppListDialog` (kit): the dialog card's title, a header slot, a lazy list that
+      runs edge to edge and is 240 to 420 dp tall, then the pill actions. The search is an `AppSearchField` on
+      `AppSearchFieldDefaults.dialogContainerColor` (`surfaceContainerHighest`: the field's own
+      `surfaceContainerHigh` is the dialog's colour, so the pill vanished), Clear is tonal and Done filled; loading
+      and errors are a plain `AppDialog`. The rows are as before (a checkbox and "Title (12)"), now lined up with the
+      title, and the dialog is the card's 380 dp wide (was up to 560). `FilterDialogScaffold`, its viewport-height
+      helpers and `libraryAccentTextFieldShape` are gone; `LibraryFilterComponents.kt` (a hotspot) went from 295 to
+      187 lines.
+- [x] `readerCanvas` in `UnifiedReaderSemanticColors` (ui-theme): a dark theme's `surfaceContainerLowest`, a light
+      theme's `scrim`. Graphite #0B0D0F (was a fixed #0A0D11), OLED and High Contrast black, Blueprint #03111F,
+      Paper #1B1C1F, Sepia Reading and Detective File #1D160F, Panel Pop black. The comics reader paints it behind
+      and between pages, under a page that is loading (was #0B0F13), in scroll mode, and in the curl's rasterized
+      spreads (`ComicSpreadRasterizer.rasterize(backgroundColor)`; the curl cache is keyed on it). reader-comics
+      now depends on core:ui-theme (9.7 had added it too). The PDF reader keeps its own canvas
+      (`surfaceContainerLowest`).
+- [x] On 9.7: the comics opening and error screens took the old fixed canvas; they now use `comicReaderPageColors()`
+      (the canvas, 9.7's light text and number colours, a raised surface in the canvas's hue), so the opening fades
+      out over the same colour in every theme. The error screen's Back to library takes `tonalColors`.
+- [x] `FeatureMaterialImportRuleTest` forbids `ButtonDefaults` and `IconButtonDefaults` in app and feature code, as
+      an import or a reference (qualified too). It used to allow `ButtonDefaults` for its paddings, which nothing
+      outside the kit used.
+- Left as they are: the selection bar's fixed 40 dp button and 18 sp count (the card listed them under Today but
+  proposed nothing); the cover check's white ring on a black backdrop and the cover progress bar's black track,
+  which sit on the cover image, not on the theme.
+- Seen on the emulator: Star Courier #2 on the new canvas in Graphite (#0B0D0F read off the screen) and Paper
+  (#1B1C1F, under Paper's bars), the reading card; the Kavita lists dialog through a throwaway build with eight
+  made-up lists, in Paper and Graphite: a search with a match and one without, and a tap picking a list and closing.
+- Not seen: a real Kavita server's lists, the selection bar, the book page's server actions, "Updated to"'s
+  snackbar, the curl over the new canvas, the other themes' canvases (only Graphite's and Paper's were read off the
+  screen), and the rebased build: 9.7's comics opening on the token was not run on the emulator.
+- [ ] Tablet.
 
 ## Not yet designed
 
