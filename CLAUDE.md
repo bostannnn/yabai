@@ -14,10 +14,34 @@ Icons artifacts; a unit test enforces this. UI font: bundled Manrope; icons: Mat
   performance changes need measured proof. It also holds the DB-paging pattern and the
   library presentation-coherence rules.
 - `LIBRARY_DB_PAGING_PLAN.md` is the live handoff for the library paging/performance work.
+- `docs/design/system/` is the design source of truth; see "UI work" below.
 - `UI_REDESIGN_PLAN.md` tracks the visual redesign: what's done, what's left, and the design decisions.
 - `APP_REVIEW.md` is the live tracker for the 2026-10-18 app review: the prioritized fix list, what is
   fixed (with commits), what is next, and the product decisions. Its status section says where work stopped.
 - `CURRENT_STATUS.md`, `ROADMAP.md` and the other plan docs are historical (April-July 2026).
+
+## UI work (design system)
+
+`docs/design/system/` is binding for every screen: `project/layout.md` (the frame), `project/titles.md`,
+`project/tokens.json`, and a guideline plus a mock per kit component and screen. Its README links the
+browsable Design System artifact; the repo copy is the canonical one. When the app and the system disagree,
+the app is wrong.
+
+- A design decision changes the system first: edit `docs/design/system/` (component folders come from
+  `tools/gen_components.py` and `tools/gen_screens.py`), republish the changed files to the artifact, then
+  change the code.
+- Margins and gaps come from `AppLayout`: `appGutter()` (16 dp on phones, 24 from 600 dp), content at
+  `contentTopInset + AppLayout.contentTop`, `inset` 20 inside panels, sheets and rows. No literal dp for these.
+- No screen-name titles: the rail or drawer names the screen; the bar names only a page you opened.
+  `AppScreenTitle` is only for a title that is the content (a series, a list, a first-launch question).
+- Reuse the kit: `AppSideSheet` (one width) with `AppPanelHeader`, `AppGroupLabel` on pages and
+  `AppSheetLabel` in sheets, `AppSheetDivider`, `AppSettingsRow`, `AppBookRow`, `AppStatusPill`,
+  `AppProgressBar`, `AppButtonSpinner`. A missing piece goes into the kit and the system, not a feature file.
+- Enforced by rule tests in `core:ui-components` (run in CI): `FeatureMaterialImportRuleTest`,
+  `AppLayoutRuleTest`, `DesignSystemRuleTest`. The last one ratchets literal dp in paddings and corner radii per
+  file against `core/ui-components/src/test/design-baselines/`: a file may not gain any. After removing some,
+  lower the baselines with `./gradlew :core:ui-components:testDebugUnitTest -PupdateDesignBaselines`; never
+  raise them to make a test pass.
 
 ## Build and test
 

@@ -6,7 +6,8 @@ anything that changes the plan under "Decisions" or "Open questions".
 Status: `[x]` done · `[~]` done but not shipped (uncommitted, unmeasured, or not on the tablet) · `[ ]` not started
 
 Started 2026-10-17. Sections 0-7 are the first pass; section 8 is the second pass approved 2026-10-22;
-section 9 is the third pass picked 2026-10-24.
+section 9 is the third pass picked 2026-10-24; section 10 is the polish pass started 2026-10-25, built from
+the design system in `docs/design/system/` (the source of truth for every screen from then on).
 
 ## Decisions
 
@@ -1885,6 +1886,117 @@ landscape sizes, cards A to C, other headers and searches, the bar's states); th
   search and Back, the heading, and the card after reading an imported EPUB into chapter 4 (time left with
   a test session added). Series and Kavita lists were not seen (no server on the emulator); their parts are
   unit-tested. Not yet on the tablet.
+
+## 10. Polish pass: one frame for every screen `[~]`
+
+Asked for 2026-10-25: "margins should be normalized on all screens, UI elements should be reused", with the
+settings hub's "Settings" title (the library dropped "Kavita"/"Grimmory" in 9.11) and the settings two-pane
+misalignment as examples, and a design source of truth for later changes.
+
+**Source of truth:** the design system at https://claude.ai/artifact/RaAkZ8f5bEnCVbW86Co1iF, mirrored in
+[`docs/design/system/`](docs/design/system/README.md): tokens for eight themes, the type roles, the layout
+and titles rules, 17 kit components and 3 screen mocks (settings on Expanded and Compact, the library home
+on Medium, the journal on Expanded) with a spacing overlay. From now on a screen change starts there.
+
+Audit (0.22.1, emulator `yabai_tablet_35` on 5558 at 800 dp portrait, 1280 dp landscape and a 411 dp phone,
+plus a code sweep of every surface):
+
+- **Five screen margins.** Library, shelf browser and the top bar 16 at every width; settings 20; journal
+  16 on phones and 32 elsewhere; first launch 16 / 24. Content starts 80 (library), 84 (settings), 88
+  (journal) or 92 (shelf browser) below the status bar; bottoms are 16, 24 or 40.
+- **Settings on Expanded:** the open page starts level with the top of the hub's 44-tall "Settings" title,
+  78 above the hub's first group, so it reads as higher than the title.
+- **Screen names shown as titles:** "Settings" (hub title, then the bar after 24 of scroll, always in the
+  bar on Expanded beside the selected rail item), "Journal" (eyebrow, then the bar), the shelf browser's
+  bar repeating its selected tab ("In progress · 3 items"), the comics settings panel repeating the book
+  title the reader bar shows, the drawer's "Library" heading.
+- **Headings five ways:** settings group labels indented 4 past their panels (page intros too), the
+  library's heading flush; the 15 SemiBold group label copied twice (theme page, downloads); a 13 Bold
+  sheet label defined three times (filters, book page, What's new); two EPUB settings labels; the journal's
+  own panel title.
+- **Sheets:** widths 400 (downloads), 420 (filters), 440 (book page, journal day); corners 26 (side sheet)
+  vs 28 (bottom sheet, dialogs); headers: `AppPanelHeader` (downloads, reader panels) vs four hand-made
+  ones (filters at 24 sp with top 16, the facet page's back row, the journal day's icon row, the book
+  page's floating close).
+- **Hand-made copies of kit parts:** book rows (journal What you read, journal day, downloads), status
+  pills (source page, sync page), progress bars (update, first launch, downloads, EPUB contents), sheet
+  hairlines at 0.5 alpha (two copies; the kit's divider is 0.6), rows that re-implement `AppSettingsRow`
+  (sync queue, reading defaults, filter chips, first launch's choices), value rows (filter facets, EPUB
+  fonts), two chevron icons, two spinner sizes, literal 20 dp corners (first launch, downloads), a panel
+  footer copied between EPUB contents and comic pages, "No matches" text twice, bar buttons forced to 36.
+- **Off-scale values:** menu items 18 and the sort menu's segmented row 14 (labels and control don't line
+  up), menu corners 16 (the 2026-10-22 decision says 12), reading card inset 18 / 22 and corners 24,
+  journal panel inset 16 / 24, EPUB contents rows at 24 under a 20 header.
+
+### Decisions (2026-10-25)
+
+- Gutter: **16 on phones, 24 from 600 dp** (Medium and Expanded), the top bar's sides included (the user's
+  pick; 16 everywhere was the alternative).
+- Titles: no screen-name titles; the bar names only a page you opened (`titles.md`). Removed: the
+  "Settings" title, the "Journal" eyebrow, "Settings"/"Journal" in the bar after scrolling, the shelf
+  browser's bar title and count (its tabs keep both), the comics settings subtitle, the drawer's "Library".
+  Content titles stay: series and Kavita list names, the journal's period, first-launch questions.
+
+### Built 2026-10-25 (worktree `app-design-polish-ed0ea5`, branch `claude/app-design-polish-ed0ea5`, from main 512279ad)
+
+All unit tests pass (1548, both lines). Checked on the private emulator (`yabai_tablet_35` on 5558, debug
+build, the Local library) at 1280 dp landscape with the rail, 800 dp portrait and a 411 dp phone, in
+Graphite, and settings, filters and the journal in Paper. Not yet on the tablet.
+
+- [x] 10.1 `AppLayout` in core:ui-components (`gutterCompact` 16, `gutterWide` 24, `contentTop` 8,
+      `contentBottom` 24, `sectionGap` 24, `headingGap` 8, `gridGap` 16, `inset` 20, `dialogInset` 24,
+      `menuInset` 16, `sheetWidth` 400, `listPaneWidth` 320) and `appGutter()`. `AppTopBar`'s sides follow the
+      gutter (`AppTopBarDefaults.sideMargin` is gone). `AppLayoutRuleTest` checks the gutter, the sheet
+      width, and fails on a screen top written as `contentTopInset + N.dp`.
+- [x] 10.2 Titles as decided. Settings and the journal report only `onScrolledChanged` (the title-on-screen
+      protocol is gone); `SettingsTopBar(title: String?)` names only an opened page, `JournalTopBar` has no
+      name. See all's bar is `LibraryShelfBrowserTopBar(searchQuery, onSearchQueryChanged, onBack, scrolled,
+      actions)`: Back, "Search shelves", options on phones; Back clears a query first; glass from
+      `LibraryShelfBrowserViewState.scrolled`. The unused `LibraryBrowseSearchModeTopBar` is deleted.
+      The drawer's sources sit under `AppGroupLabel("Sources")`.
+- [x] 10.3 The library grid, shelf browser, settings, journal take the gutter, content top 84 and bottom 24.
+      Settings on Expanded: hub (320) and page a gutter apart, both at content top, the page capped at 800
+      and start-aligned. Group labels are the kit's `AppGroupLabel`, flush (were indented 4; the theme page
+      had a copy); page intros flush. Reading card inset 20 at every width (was 18 / 22), corners 20 (was
+      24); journal panels inset 20 (was 16 / 24). Bar buttons at the kit's size (several were forced to 36).
+      **Medium covers are 176 dp (was 180)**: with the 24 gutter, 180 dropped the grid from 6 to 5 columns
+      beside the rail in landscape (the emulator's 1280 dp and, by the numbers, the tablet's 1292 dp), which
+      stacked the reading card above the shelves, and from 4 to 3 at 800 dp portrait. 176 keeps 2 / 4 / 4 / 6
+      / 6 columns at 411 / 800 / 914 / 1192 / 1204 dp (`LibraryGridConfigurationTest`); saved 180s read as
+      Medium. Covers are 2 to 4 dp narrower.
+- [x] 10.4 `AppSideSheet` has one width (400; it takes none) and 28 corners: the book page and a journal
+      day were 440, filters 420. `AppPanelHeader(title: String?, ..., backContentDescription,
+      closeContentDescription)` heads filters, the facet page, a journal day and the book page (Back and
+      Close as the first row of the cover-tinted top, so the cover sits about 48 dp lower and the title
+      no longer leaves room for floating buttons). `AppSheetLabel` and `AppSheetDivider` replace the
+      filters' and the book page's copies (hairline alpha 0.5 became the kit's `AppDividerDefaults.alpha`
+      0.6). Downloads has two levels, so its sections take `AppGroupLabel` and its days `AppSheetLabel`.
+      The Finished card takes `AppDialogCardDefaults.padding` and the theme's radii.
+- [x] 10.5 New kit parts: `AppBookRow` + `AppBookRowLine` (journal What you read, a journal day, downloads),
+      `AppStatusPill` (source and sync pages), `AppProgressBar` (update dialog and its About row, first sync,
+      downloads, What you read, EPUB contents), `AppButtonSpinner` (18 dp, content colour; was 16 and 18).
+      Reader-core `ReaderPanelFooter` for the EPUB contents and comic pages footers. Menus: inset 16 (was 18;
+      the cover-size row 14) and 12 dp corners (was 16). Chevrons `NavigateNext` in the filter facets,
+      downloads, first launch and EPUB fonts. First launch's literal 20 dp corners are the panel default.
+      The sync queue row is an `AppSettingsRow`. EPUB contents rows put their text on the 20 inset. Deleted
+      the unused `EmptyJournalMessage`. Selection bar title is `titleMedium` (was 18 sp Bold).
+- [ ] Left from 10.5: "No matches" (facet page, Kavita lists dialog) is still local text;
+      `FilterPanelRow` (drag handle at the start beside a switch), first launch's `SourceStartChoice` and the
+      reading-defaults inline row are not `AppSettingsRow`s; `LibraryGridHeadingText` stays in the library
+      (the system calls it `AppSectionHeading`, not yet in the kit); the journal's panel titles and
+      `LibraryShelfTabPill` stay local.
+- [x] 10.6 Emulator pass as above. Not seen: a server source (series, Kavita lists, the source page's pill
+      and the sync queue), the book page's Back between books, a reader's contents and pages panels after
+      the footer change.
+- [x] Enforcement (2026-10-25): a "UI work (design system)" section in `CLAUDE.md`, and `DesignSystemRuleTest` in
+      core:ui-components: `AppScreenTitle` only in the series/list header and first launch; literal dp in
+      `padding`/`PaddingValues` (293 at the start) and `RoundedCornerShape` (40) ratchet per file against
+      `core/ui-components/src/test/design-baselines/` (`-PupdateDesignBaselines` rewrites them). No Claude Code
+      hook: the tests run in CI and locally with the suite.
+- [ ] Tablet.
+
+Not in this pass: the reader's bars and page frame (8.7, 9.6), covers, colours, and type sizes other than
+those listed.
 
 ## Not yet designed
 
