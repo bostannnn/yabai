@@ -12,6 +12,7 @@ import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageMetadata
 import com.example.unifiedreader.feature.reader.comics.ComicPagesUnavailableDiagnostic
+import com.example.unifiedreader.feature.reader.comics.ComicPagesUnavailableKind
 import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewOptions
 import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewResult
 import com.example.unifiedreader.feature.reader.comics.ComicPagePrefetchWindow
@@ -91,14 +92,15 @@ class DownloadedRemoteComicPageSource @Inject constructor(
         val storedUri = dataSource?.storedDocumentUri(item)
         val cachedEntryNames = archiveEntryCache.get(item.id)
         val archiveDiagnostic = archiveDiagnosticsByItemId[item.id]
-        val title = when {
-            unsupportedFormatMessage != null -> "Unsupported downloaded comic format"
-            dataSource == null -> "No download data source for this comic"
-            storedUri == null -> "Downloaded comic file was not found"
-            archiveDiagnostic?.allEntryCount == 0 -> "Downloaded comic archive has no entries"
-            cachedEntryNames != null && cachedEntryNames.isEmpty() -> "Downloaded comic archive has no readable pages"
-            item.pageCount == null -> "Downloaded comic pages are still being inspected"
-            else -> "Downloaded comic pages are not ready"
+        val (title, kind) = when {
+            unsupportedFormatMessage != null -> "Unsupported downloaded comic format" to ComicPagesUnavailableKind.Unsupported
+            dataSource == null -> "No download data source for this comic" to ComicPagesUnavailableKind.NotConnected
+            storedUri == null -> "Downloaded comic file was not found" to ComicPagesUnavailableKind.FileGone
+            archiveDiagnostic?.allEntryCount == 0 -> "Downloaded comic archive has no entries" to ComicPagesUnavailableKind.NoPages
+            cachedEntryNames != null && cachedEntryNames.isEmpty() ->
+                "Downloaded comic archive has no readable pages" to ComicPagesUnavailableKind.NoPages
+            item.pageCount == null -> "Downloaded comic pages are still being inspected" to ComicPagesUnavailableKind.Loading
+            else -> "Downloaded comic pages are not ready" to ComicPagesUnavailableKind.Loading
         }
         val detail = buildString {
             append("itemId=${item.id}, source=${item.sourceType}, format=${item.format}")
@@ -122,6 +124,7 @@ class DownloadedRemoteComicPageSource @Inject constructor(
         return ComicPagesUnavailableDiagnostic(
             title = title,
             detail = detail,
+            kind = kind,
         )
     }
 

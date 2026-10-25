@@ -57,19 +57,27 @@ import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.core.model.primaryAuthor
 import com.example.unifiedreader.feature.reader.core.ImmersiveReaderOverlay
 import com.example.unifiedreader.feature.reader.core.ReaderActiveSessionTracker
+import com.example.unifiedreader.feature.reader.core.ReaderDocumentState
+import com.example.unifiedreader.feature.reader.core.ReaderLocator
+import com.example.unifiedreader.feature.reader.core.ReaderOpenFailure
+import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
+import com.example.unifiedreader.feature.reader.core.ReaderOpenStatus
 import com.example.unifiedreader.feature.reader.core.ReaderPageNumber
 import com.example.unifiedreader.feature.reader.core.ReaderPageNumberPills
-import com.example.unifiedreader.feature.reader.preferences.InMemoryReaderPageNumberPreferencesStore
-import com.example.unifiedreader.feature.reader.preferences.ReaderPageNumberPreferencesStore
-import com.example.unifiedreader.feature.reader.core.ReaderLocator
-import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import com.example.unifiedreader.feature.reader.core.ReaderZoomLayout
 import com.example.unifiedreader.feature.reader.core.ReaderZoomViewportState
+import com.example.unifiedreader.feature.reader.core.ReportReaderOpening
 import com.example.unifiedreader.feature.reader.core.detectReaderZoomGestures
+import com.example.unifiedreader.feature.reader.core.openingStep
+import com.example.unifiedreader.feature.reader.core.readerFileMissingFailure
+import com.example.unifiedreader.feature.reader.core.readerOpenFailureOf
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
+import com.example.unifiedreader.feature.reader.core.rememberReaderDocument
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
+import com.example.unifiedreader.feature.reader.preferences.InMemoryReaderPageNumberPreferencesStore
+import com.example.unifiedreader.feature.reader.preferences.ReaderPageNumberPreferencesStore
 import com.example.unifiedreader.journal.JournalReadingSessionRecorder
 import com.example.unifiedreader.ui.components.AppCircularProgress
 import com.example.unifiedreader.ui.components.AppScreenBackHandler
@@ -106,45 +114,38 @@ fun PdfReaderScreen(
         ?: remember { mutableStateOf(true) }
     val savedProgressByItemId by sessionStore?.progressByItemIdFlow?.collectAsState()
         ?: remember { mutableStateOf(emptyMap()) }
-    val documentUriState by rememberDocumentUriState(
-        item = item,
-        documentUri = documentUri,
-        documentUriProvider = documentUriProvider,
-    )
+    // Try again asks for the file again.
+    var openAttempt by remember(item.id) { mutableIntStateOf(0) }
+    val documentState by rememberReaderDocument(item, documentUri, documentUriProvider, openAttempt)
     val documentInfo by produceState<PdfDocumentInfoState>(
         initialValue = PdfDocumentInfoState.Loading,
-        key1 = documentUriState.cacheKey,
+        key1 = documentState.cacheKey,
     ) {
-        value = when (val uriState = documentUriState) {
-            ReaderDocumentUriState.Loading -> PdfDocumentInfoState.Loading
-            is ReaderDocumentUriState.Error -> PdfDocumentInfoState.Error(uriState.message)
-            is ReaderDocumentUriState.Ready -> uriState.uri?.let { uri ->
-                withContext(Dispatchers.IO) {
-                    inspectPdfDocument(
-                        context = context.applicationContext,
-                        documentUri = uri,
-                    )
-                }
-            } ?: PdfDocumentInfoState.Empty
+        value = when (val document = documentState) {
+            ReaderDocumentState.Loading -> PdfDocumentInfoState.Loading
+            is ReaderDocumentState.Failed -> PdfDocumentInfoState.Error(document.failure)
+            is ReaderDocumentState.Ready -> withContext(Dispatchers.IO) {
+                inspectPdfDocument(context = context.applicationContext, item = item, documentUri = document.uri)
+            }
         }
     }
     val pageCount = (documentInfo as? PdfDocumentInfoState.Ready)?.pageCount ?: 0
-    var currentPageIndex by remember(item.id, documentUriState.cacheKey) {
+    var currentPageIndex by remember(item.id, documentState.cacheKey) {
         mutableIntStateOf(0)
     }
-    var renderLongEdgePx by remember(item.id, documentUriState.cacheKey, currentPageIndex) {
+    var renderLongEdgePx by remember(item.id, documentState.cacheKey, currentPageIndex) {
         mutableIntStateOf(PDF_RENDER_LONG_EDGE_PX)
     }
-    var initialRestoreCompleted by remember(item.id, documentUriState.cacheKey, openMode) {
+    var initialRestoreCompleted by remember(item.id, documentState.cacheKey, openMode) {
         mutableStateOf(false)
     }
-    var userNavigated by remember(item.id, documentUriState.cacheKey, openMode) {
+    var userNavigated by remember(item.id, documentState.cacheKey, openMode) {
         mutableStateOf(false)
     }
     val restoredProgress = savedProgressByItemId[item.id]
     LaunchedEffect(
         item.id,
-        documentUriState.cacheKey,
+        documentState.cacheKey,
         pageCount,
         openMode,
         sessionHydrated,
@@ -166,12 +167,12 @@ fun PdfReaderScreen(
     }
     val pageState by produceState<PdfPageRenderState>(
         initialValue = PdfPageRenderState.Loading,
-        documentUriState.cacheKey,
+        documentState.cacheKey,
         currentPageIndex,
         pageCount,
         renderLongEdgePx,
     ) {
-        val uri = (documentUriState as? ReaderDocumentUriState.Ready)?.uri
+        val uri = (documentState as? ReaderDocumentState.Ready)?.uri
         val targetPageIndex = currentPageIndex.coerceIn(0, (pageCount - 1).coerceAtLeast(0))
         val renderedState = when {
             uri == null -> PdfPageRenderState.Empty
@@ -194,6 +195,15 @@ fun PdfReaderScreen(
         }
         value = renderedState
     }
+    // The opening state stays until the first page is drawn.
+    var firstPageShown by remember(item.id) { mutableStateOf(false) }
+    LaunchedEffect(pageState) {
+        if (pageState is PdfPageRenderState.Ready) firstPageShown = true
+    }
+    ReportReaderOpening(
+        status = pdfOpenStatus(documentInfo, documentState, pageState, firstPageShown, item),
+        retry = { openAttempt++ },
+    )
     val tracker = remember(item.id, journalReadingSessionRecorder) {
         journalReadingSessionRecorder?.let { recorder ->
             ReaderActiveSessionTracker(
@@ -371,7 +381,7 @@ fun PdfReaderScreen(
                     title = item.title,
                     author = item.bookMetadata?.primaryAuthor(),
                     context = context.applicationContext,
-                    documentUriState = documentUriState,
+                    documentState = documentState,
                     pageCount = pageCount,
                     currentPageIndex = safePageIndex,
                     progress = currentPageProgress,
@@ -384,36 +394,6 @@ fun PdfReaderScreen(
                 )
             },
         )
-    }
-}
-
-@Composable
-private fun rememberDocumentUriState(
-    item: ReadableItem,
-    documentUri: Uri?,
-    documentUriProvider: (suspend (ReadableItem) -> Uri?)?,
-) = produceState<ReaderDocumentUriState>(
-    initialValue = if (documentUri != null || documentUriProvider == null) {
-        ReaderDocumentUriState.Ready(documentUri)
-    } else {
-        ReaderDocumentUriState.Loading
-    },
-    key1 = item.id,
-    key2 = documentUri?.toString(),
-    key3 = documentUriProvider,
-) {
-    if (documentUri != null || documentUriProvider == null) {
-        value = ReaderDocumentUriState.Ready(documentUri)
-    } else {
-        value = withContext(Dispatchers.IO) {
-            runCatching {
-                ReaderDocumentUriState.Ready(documentUriProvider(item))
-            }.getOrElse { throwable ->
-                ReaderDocumentUriState.Error(
-                    throwable.message ?: "Failed to prepare PDF content.",
-                )
-            }
-        }
     }
 }
 
@@ -621,20 +601,23 @@ private fun PdfStatus(
 
 private suspend fun inspectPdfDocument(
     context: Context,
+    item: ReadableItem,
     documentUri: Uri,
 ): PdfDocumentInfoState = runCatching {
     context.contentResolver.openFileDescriptor(documentUri, "r")?.use { descriptor ->
         PdfRenderer(descriptor).use { renderer ->
             val pageCount = renderer.pageCount
             if (pageCount <= 0) {
-                PdfDocumentInfoState.Error("This PDF has no pages.")
+                PdfDocumentInfoState.Error(ReaderOpenFailure.NoPdfPages)
             } else {
                 PdfDocumentInfoState.Ready(pageCount = pageCount)
             }
         }
-    } ?: PdfDocumentInfoState.Error("Unable to open this PDF.")
-}.getOrElse {
-    PdfDocumentInfoState.Error("Unable to open this PDF.")
+    } ?: PdfDocumentInfoState.Error(readerFileMissingFailure(item))
+}.getOrElse { error ->
+    // A file that can't be found is gone; one PdfRenderer refuses is damaged or locked.
+    val failure = readerOpenFailureOf(error, item).takeUnless { it == ReaderOpenFailure.Unknown } ?: ReaderOpenFailure.PdfUnreadable
+    PdfDocumentInfoState.Error(failure)
 }
 
 internal suspend fun renderPdfPage(
@@ -739,11 +722,24 @@ private fun pdfProgressLabel(
     "Preparing PDF"
 }
 
+/** Until the first page is drawn: the opening; a document or first page that can't be read: why. */
+private fun pdfOpenStatus(
+    info: PdfDocumentInfoState,
+    document: ReaderDocumentState,
+    page: PdfPageRenderState,
+    firstPageShown: Boolean,
+    item: ReadableItem,
+): ReaderOpenStatus = when {
+    info is PdfDocumentInfoState.Error -> ReaderOpenStatus.Failed(info.failure)
+    firstPageShown -> ReaderOpenStatus.Open
+    page is PdfPageRenderState.Error -> ReaderOpenStatus.Failed(ReaderOpenFailure.PdfUnreadable)
+    else -> ReaderOpenStatus.Opening(document.openingStep(item))
+}
+
 private sealed interface PdfDocumentInfoState {
-    data object Empty : PdfDocumentInfoState
     data object Loading : PdfDocumentInfoState
     data class Ready(val pageCount: Int) : PdfDocumentInfoState
-    data class Error(val message: String) : PdfDocumentInfoState
+    data class Error(val failure: ReaderOpenFailure) : PdfDocumentInfoState
 }
 
 internal sealed interface PdfPageRenderState {
@@ -766,26 +762,6 @@ internal sealed interface PdfPageRenderState {
     }
 
     data class Error(val message: String) : PdfPageRenderState {
-        override val cacheKey: String = "error:$message"
-    }
-}
-
-internal sealed interface ReaderDocumentUriState {
-    val cacheKey: String
-
-    data object Loading : ReaderDocumentUriState {
-        override val cacheKey: String = "loading"
-    }
-
-    data class Ready(
-        val uri: Uri?,
-    ) : ReaderDocumentUriState {
-        override val cacheKey: String = uri?.toString() ?: "empty"
-    }
-
-    data class Error(
-        val message: String,
-    ) : ReaderDocumentUriState {
         override val cacheKey: String = "error:$message"
     }
 }

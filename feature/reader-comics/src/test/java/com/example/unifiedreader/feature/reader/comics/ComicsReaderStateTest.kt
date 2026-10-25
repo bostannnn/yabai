@@ -5,6 +5,9 @@ import androidx.compose.runtime.saveable.SaverScope
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.feature.reader.core.ReaderOpenFailure
+import com.example.unifiedreader.feature.reader.core.ReaderOpenStatus
+import com.example.unifiedreader.feature.reader.core.ReaderOpeningStep
 import com.example.unifiedreader.feature.reader.core.curl.PageTurnStyle
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import org.junit.Assert.assertEquals
@@ -28,26 +31,26 @@ class ComicsReaderStateTest {
     }
 
     @Test
-    fun `empty reader message omits diagnostic internals`() {
-        val item = ReadableItem(
+    fun `pages still coming keep the opening, a missing file is a failure`() {
+        val downloaded = ReadableItem(
             id = "item-42",
             libraryId = "library-1",
             sourceType = SourceType.KAVITA,
             title = "Private Comic",
             format = FormatType.CBZ,
         )
-        val message = emptyComicReaderMessage(
-            item = item,
-            diagnostic = ComicPagesUnavailableDiagnostic(
-                title = "Downloaded comic file was not found",
-                detail = "itemId=item-42, remoteId=remote-9, storedUri=file:///private/path/book.cbz",
-            ),
-        )
+        val local = downloaded.copy(id = "local-1", sourceType = SourceType.LOCAL)
+        fun diagnostic(kind: ComicPagesUnavailableKind) = ComicPagesUnavailableDiagnostic(title = "t", detail = "d", kind = kind)
 
-        assertEquals("Downloaded comic file was not found\n\nPrivate Comic", message)
-        assertFalse(message.contains("itemId="))
-        assertFalse(message.contains("file:///private/path"))
-        assertFalse(message.contains("remote-9"))
+        assertEquals(ReaderOpenStatus.Opening(ReaderOpeningStep.Opening), diagnostic(ComicPagesUnavailableKind.Loading).openStatus(downloaded))
+        assertEquals(ReaderOpenStatus.Failed(ReaderOpenFailure.DownloadGone), diagnostic(ComicPagesUnavailableKind.FileGone).openStatus(downloaded))
+        assertEquals(ReaderOpenStatus.Failed(ReaderOpenFailure.LocalFileGone), diagnostic(ComicPagesUnavailableKind.FileGone).openStatus(local))
+        assertEquals(ReaderOpenStatus.Failed(ReaderOpenFailure.NoComicPages), diagnostic(ComicPagesUnavailableKind.NoPages).openStatus(downloaded))
+        assertEquals(
+            ReaderOpenStatus.Failed(ReaderOpenFailure.ServerNotConnected(SourceType.KAVITA)),
+            diagnostic(ComicPagesUnavailableKind.NotConnected).openStatus(downloaded),
+        )
+        assertEquals(ReaderOpenStatus.Failed(ReaderOpenFailure.Unknown), ComicPagesUnavailableDiagnostic("t", "d").openStatus(local))
     }
 
     @Test

@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import com.example.unifiedreader.core.model.ReadableItem
 import java.io.File
+import java.io.FileNotFoundException
 import java.io.FileOutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -19,6 +20,6 @@ internal suspend fun prepareImportedEpubFile(
         FileOutputStream(outputFile).use { output ->
             input.copyTo(output)
         }
-    } ?: error("Unable to open imported EPUB file.")
+    } ?: throw FileNotFoundException("The EPUB file at $documentUri can't be read.")
     outputFile
 }

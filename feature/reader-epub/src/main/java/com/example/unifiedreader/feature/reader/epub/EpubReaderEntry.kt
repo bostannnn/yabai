@@ -2,14 +2,9 @@ package com.example.unifiedreader.feature.reader.epub
 
 import android.content.res.Configuration
 import android.net.Uri
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -23,13 +18,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
@@ -43,29 +36,28 @@ import com.example.unifiedreader.core.model.primaryAuthor
 import com.example.unifiedreader.feature.reader.core.ImmersiveReaderOverlay
 import com.example.unifiedreader.feature.reader.core.ReaderActiveSessionTracker
 import com.example.unifiedreader.feature.reader.core.ReaderChapterPosition
+import com.example.unifiedreader.feature.reader.core.ReaderDocumentState
 import com.example.unifiedreader.feature.reader.core.ReaderLocator
+import com.example.unifiedreader.feature.reader.core.ReaderOpenFailure
+import com.example.unifiedreader.feature.reader.core.ReaderOpenStatus
+import com.example.unifiedreader.feature.reader.core.ReaderOpeningStep
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
+import com.example.unifiedreader.feature.reader.core.ReportReaderOpening
 import com.example.unifiedreader.feature.reader.core.findContextAncestor
+import com.example.unifiedreader.feature.reader.core.openingStep
 import com.example.unifiedreader.feature.reader.core.readerSessionChapterPreference
+import com.example.unifiedreader.feature.reader.core.rememberReaderDocument
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
 import com.example.unifiedreader.feature.reader.preferences.ReaderDisplayPreferences
 import com.example.unifiedreader.journal.JournalReadingSessionRecorder
-import com.example.unifiedreader.ui.components.AppCircularProgress
 import com.example.unifiedreader.ui.components.AppScreenBackHandler
-import com.example.unifiedreader.ui.components.AppTextButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.readium.r2.navigator.preferences.ReadingProgression
 import org.readium.r2.shared.publication.Link
 import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.publication.Publication
-import org.readium.r2.shared.util.asset.AssetRetriever
-import org.readium.r2.shared.util.format.FormatHints
-import org.readium.r2.shared.util.http.DefaultHttpClient
-import org.readium.r2.shared.util.mediatype.MediaType
-import org.readium.r2.streamer.PublicationOpener
-import org.readium.r2.streamer.parser.DefaultPublicationParser
 
 @Composable
 fun EpubReaderScreen(
@@ -96,11 +88,7 @@ fun EpubReaderScreen(
     val appBackgroundIsLight = MaterialTheme.colorScheme.background.luminance() >= 0.5f
     val viewportSpacing = currentEpubViewportSpacing(isLandscape)
     if (activity == null) {
-        EpubReaderMessage(
-            title = item.title,
-            body = "EPUB rendering requires a FragmentActivity host.",
-            onBack = onBack,
-        )
+        ReportReaderOpening(ReaderOpenStatus.Failed(ReaderOpenFailure.Unknown))
         return
     }
 
@@ -111,12 +99,7 @@ fun EpubReaderScreen(
     val sessionSnapshot = sessionByItemId[item.id]
     val pageColorPick by displayPreferences.pageColor.pickFlow.collectAsState()
     if (!hydrated || !pageColorPick.isLoaded) {
-        EpubReaderMessage(
-            title = item.title,
-            body = "Restoring EPUB state…",
-            onBack = onBack,
-            isLoading = true,
-        )
+        ReportReaderOpening(ReaderOpenStatus.Opening(ReaderOpeningStep.Opening))
         return
     }
     var initialRestoreLocked by rememberSaveable(item.id) { mutableStateOf(false) }
@@ -231,30 +214,9 @@ fun EpubReaderScreen(
             )
         }
     }
-    val documentUriState by produceState<ReaderDocumentUriState>(
-        initialValue = if (documentUri != null || documentUriProvider == null) {
-            ReaderDocumentUriState.Ready(documentUri)
-        } else {
-            ReaderDocumentUriState.Loading
-        },
-        key1 = item.id,
-        key2 = documentUri?.toString(),
-        key3 = documentUriProvider,
-    ) {
-        if (documentUri != null || documentUriProvider == null) {
-            value = ReaderDocumentUriState.Ready(documentUri)
-        } else {
-            value = withContext(Dispatchers.IO) {
-                runCatching {
-                    ReaderDocumentUriState.Ready(documentUriProvider(item))
-                }.getOrElse { throwable ->
-                    ReaderDocumentUriState.Error(
-                        throwable.message ?: "Failed to prepare EPUB content.",
-                    )
-                }
-            }
-        }
-    }
+    // Try again asks for the file again.
+    var openAttempt by remember(item.id) { mutableIntStateOf(0) }
+    val documentState by rememberReaderDocument(item, documentUri, documentUriProvider, openAttempt)
 
     LaunchedEffect(hydrated, restoredPreferences, defaultPageColor, isLandscape, useOrientationLayoutDefault) {
         if (!hydrated || restoredSessionState) return@LaunchedEffect
@@ -415,80 +377,27 @@ fun EpubReaderScreen(
     val publicationState by produceState<EpubPublicationState>(
         initialValue = EpubPublicationState.Loading,
         key1 = item.id,
-        key2 = documentUriState.cacheKey,
+        key2 = documentState.cacheKey,
     ) {
-        value = when (val uriState = documentUriState) {
-            ReaderDocumentUriState.Loading -> EpubPublicationState.Loading
-            is ReaderDocumentUriState.Error -> EpubPublicationState.Error(uriState.message)
-            // No file (the source is offline or signed out, or the cache was evicted): say so
-            // instead of opening a stand-in book whose position would be saved over this one's.
-            is ReaderDocumentUriState.Ready -> if (uriState.uri == null) {
-                EpubPublicationState.Error(EpubDocumentUnavailableMessage)
-            } else withContext(Dispatchers.IO) {
-            runCatching {
-                val publicationFile = prepareImportedEpubFile(
-                    context = context.applicationContext,
-                    item = item,
-                    documentUri = uriState.uri,
-                )
-                val httpClient = DefaultHttpClient()
-                val assetRetriever = AssetRetriever(
-                    context.applicationContext.contentResolver,
-                    httpClient,
-                )
-                val parser = DefaultPublicationParser(
-                    context = context.applicationContext,
-                    httpClient = httpClient,
-                    assetRetriever = assetRetriever,
-                    pdfFactory = null,
-                )
-                val asset = assetRetriever.retrieve(
-                    publicationFile,
-                    FormatHints(
-                        mediaTypes = listOf(MediaType.EPUB),
-                    ),
-                ).fold(
-                    onSuccess = { it },
-                    onFailure = { error ->
-                        throw IllegalStateException(error.toString())
-                    },
-                )
-                val publication = PublicationOpener(
-                    publicationParser = parser,
-                ).open(
-                    asset = asset,
-                    credentials = null,
-                    allowUserInteraction = true,
-                    onCreatePublication = {},
-                    warnings = null,
-                ).fold(
-                    onSuccess = { it },
-                    onFailure = { error ->
-                        throw IllegalStateException(error.toString())
-                    },
-                )
-                EpubPublicationState.Ready(publication)
-            }.getOrElse { throwable ->
-                EpubPublicationState.Error(
-                    throwable.message ?: "Failed to open EPUB publication.",
-                )
-            }
+        value = when (val document = documentState) {
+            ReaderDocumentState.Loading -> EpubPublicationState.Loading
+            is ReaderDocumentState.Failed -> EpubPublicationState.Error(document.failure)
+            is ReaderDocumentState.Ready -> withContext(Dispatchers.IO) {
+                openEpubPublication(context.applicationContext, item, document.uri)
             }
         }
     }
 
     when (val state = publicationState) {
-        EpubPublicationState.Loading -> EpubReaderMessage(
-            title = item.title,
-            body = "Opening EPUB with Readium…",
-            onBack = closeReader,
-            isLoading = true,
+        EpubPublicationState.Loading -> ReportReaderOpening(
+            status = ReaderOpenStatus.Opening(documentState.openingStep(item)),
+            colors = theme.colors,
         )
 
-        is EpubPublicationState.Error -> EpubReaderMessage(
-            title = item.title,
-            body = state.message,
-            onBack = closeReader,
+        is EpubPublicationState.Error -> ReportReaderOpening(
+            status = ReaderOpenStatus.Failed(state.failure),
+            colors = theme.colors,
+            retry = { openAttempt++ },
         )
 
         is EpubPublicationState.Ready -> {
@@ -555,17 +464,16 @@ fun EpubReaderScreen(
 
             val resolvedInitialLocator = when (val locatorState = initialLocatorState) {
                 EpubInitialLocatorState.Loading -> {
-                    EpubReaderMessage(
-                        title = item.title,
-                        body = "Restoring EPUB position…",
-                        onBack = closeReader,
-                        isLoading = true,
-                    )
-
+                    ReportReaderOpening(ReaderOpenStatus.Opening(ReaderOpeningStep.FindingPage), colors = theme.colors)
                     return
                 }
                 is EpubInitialLocatorState.Ready -> locatorState.locator
             }
+            // The opening state stays until the navigator has laid out its first page.
+            ReportReaderOpening(
+                status = if (initialRestoreLocked) ReaderOpenStatus.Open else ReaderOpenStatus.Opening(ReaderOpeningStep.FindingPage),
+                colors = theme.colors,
+            )
 
             ImmersiveReaderOverlay(
                 overlayState = overlayState,
@@ -816,45 +724,6 @@ fun EpubReaderScreen(
     }
 }
 
-@Composable
-private fun EpubReaderMessage(
-    title: String,
-    body: String,
-    onBack: () -> Unit,
-    isLoading: Boolean = false,
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(24.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            if (isLoading) {
-                AppCircularProgress()
-            }
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineSmall,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = body,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-            AppTextButton(onClick = onBack) {
-                Text(text = "Back")
-            }
-        }
-    }
-}
-
 internal enum class EpubTapAction {
     Previous,
     Next,
@@ -901,18 +770,6 @@ internal sealed interface EpubLabeledOption {
     val label: String
 }
 
-private sealed interface EpubPublicationState {
-    data object Loading : EpubPublicationState
-
-    data class Ready(
-        val publication: Publication,
-    ) : EpubPublicationState
-
-    data class Error(
-        val message: String,
-    ) : EpubPublicationState
-}
-
 private sealed interface EpubInitialLocatorState {
     data object Loading : EpubInitialLocatorState
 
@@ -942,26 +799,6 @@ private fun buildCurrentReaderLocator(
     percent = percent.coerceIn(0.0, 1.0),
 )
 
-private sealed interface ReaderDocumentUriState {
-    val cacheKey: String
-
-    data object Loading : ReaderDocumentUriState {
-        override val cacheKey: String = "loading"
-    }
-
-    data class Ready(
-        val uri: Uri?,
-    ) : ReaderDocumentUriState {
-        override val cacheKey: String = uri?.toString() ?: "fallback"
-    }
-
-    data class Error(
-        val message: String,
-    ) : ReaderDocumentUriState {
-        override val cacheKey: String = "error:$message"
-    }
-}
-
 internal sealed interface EpubNavigationRequest {
     val id: Int
 }
@@ -977,8 +814,6 @@ internal data class EpubTocNavigationRequest(
 ) : EpubNavigationRequest
 
 private const val EpubNavigationZoneFraction = 0.25f
-internal const val EpubDocumentUnavailableMessage =
-    "This book's file isn't available. Check the connection to its server, then open it again."
 
 private fun defaultEpubLayoutMode(
     isLandscape: Boolean,

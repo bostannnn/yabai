@@ -6,6 +6,7 @@ import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageMetadata
 import com.example.unifiedreader.feature.reader.comics.ComicPagesUnavailableDiagnostic
+import com.example.unifiedreader.feature.reader.comics.ComicPagesUnavailableKind
 import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewOptions
 import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewResult
 import com.example.unifiedreader.feature.reader.comics.ComicPagePrefetchWindow
@@ -59,6 +60,7 @@ class CompositeComicPageSource(
             ?: return ComicPagesUnavailableDiagnostic(
                 title = "No comic page source selected",
                 detail = "itemId=${item.id}, source=${item.sourceType}, format=${item.format}",
+                kind = ComicPagesUnavailableKind.NotConnected,
             )
         val selectedDiagnostic = selectedPageSource.pagesUnavailableDiagnostic(item)
         val downloadedDiagnostic = when {
@@ -70,6 +72,7 @@ class CompositeComicPageSource(
             selectedDiagnostic
         } else {
             ComicPagesUnavailableDiagnostic(
+                kind = selectedDiagnostic.kind,
                 title = selectedDiagnostic.title,
                 detail = "${selectedDiagnostic.detail}; selectedPageSource=${selectedPageSource.javaClass.simpleName}; " +
                     "downloadedLocalState=${downloadedDiagnostic.title}: ${downloadedDiagnostic.detail}",

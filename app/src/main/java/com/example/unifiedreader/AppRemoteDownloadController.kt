@@ -62,6 +62,31 @@ class AppRemoteDownloadController @Inject constructor(
         }
     }
 
+    /**
+     * "Download again" from a reader whose downloaded file is gone or broken: the old download's
+     * files go, then a fresh download is queued, with its toast.
+     */
+    fun onDownloadAgain(
+        stateProvider: () -> AppUiState,
+        updateState: AppUiStateUpdater,
+        scope: CoroutineScope,
+        item: ReadableItem,
+        canScheduleSource: (SourceType) -> Boolean,
+        onResult: (DownloadQueueActionResult) -> Unit,
+    ) {
+        scope.launch {
+            val result = libraryActionsCoordinator.deleteRemoteLocalFile(item, stateProvider().items)
+            updateState { state ->
+                state.withRemoteItemLocalState(
+                    downloadedRemoteItemIds = result.downloadedRemoteItemIds,
+                    locallyAvailableRemoteItemIds = result.locallyAvailableRemoteItemIds,
+                    isKnown = true,
+                )
+            }
+            onDownloadRemoteItem(stateProvider, updateState, scope, item, canScheduleSource, onResult)
+        }
+    }
+
     fun scheduleQueuedDownloads(
         scope: CoroutineScope,
         canScheduleSource: (SourceType) -> Boolean,

@@ -29,6 +29,9 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.unifiedreader.feature.library.LibraryViewMode
 import com.example.unifiedreader.feature.library.LocalLibraryCoverGeneration
+import com.example.unifiedreader.feature.library.VisibleResolvedLibraryCover
+import com.example.unifiedreader.feature.library.rememberLibraryCoverColors
+import com.example.unifiedreader.feature.reader.core.ReaderDownloadAgain
 import com.example.unifiedreader.feature.reader.core.ReaderHost
 import com.example.unifiedreader.feature.reader.core.ReaderNavigationActions
 import com.example.unifiedreader.feature.updates.AppUpdateActions
@@ -36,7 +39,6 @@ import com.example.unifiedreader.feature.updates.AppUpdateController
 import com.example.unifiedreader.feature.updates.AppUpdateHost
 import com.example.unifiedreader.feature.updates.AppUpdateState
 import com.example.unifiedreader.feature.updates.rememberAppUpdateActions
-import com.example.unifiedreader.feature.library.rememberLibraryCoverColors
 import com.example.unifiedreader.ui.components.AppBackground
 import com.example.unifiedreader.ui.components.AppScreenBack
 import com.example.unifiedreader.ui.components.AppScreenHost
@@ -175,6 +177,18 @@ fun UnifiedReaderAppContent(
                                         onRequestNextInSeries = viewModel::onReaderNextRequested,
                                         onRequestCompletion = viewModel::onReaderCompletionRequested,
                                         currentOpenMode = uiState.selectedReaderOpenMode,
+                                    ),
+                                    cover = { coverItem, modifier ->
+                                        VisibleResolvedLibraryCover(
+                                            item = coverItem,
+                                            coverImageUrlProvider = viewModel::coverImageUrlFor,
+                                            onCoverVisible = viewModel::ensureCoverCached,
+                                            modifier = modifier,
+                                        )
+                                    },
+                                    downloadAgain = ReaderDownloadAgain(
+                                        isDownloaded = { book -> book.id in uiState.downloadedRemoteItemIds },
+                                        start = viewModel::onDownloadAgain,
                                     ),
                                 )
                             }

@@ -581,27 +581,33 @@ class AppViewModel @Inject constructor(
         }
     }
 
-    fun onDownloadRemoteItem(item: ReadableItem) {
-        remoteDownloadController.onDownloadRemoteItem(
-            stateProvider = { uiState },
-            updateState = ::updateUiState,
-            scope = viewModelScope,
-            item = item,
-            canScheduleSource = remoteSourceConnectivityPolicy::canScheduleDownload,
-            onResult = ::showDownloadResult,
-        )
-    }
+    fun onDownloadRemoteItem(item: ReadableItem) = remoteDownloadController.onDownloadRemoteItem(
+        stateProvider = { uiState },
+        updateState = ::updateUiState,
+        scope = viewModelScope,
+        item = item,
+        canScheduleSource = remoteSourceConnectivityPolicy::canScheduleDownload,
+        onResult = ::showDownloadResult,
+    )
 
-    fun onDownloadRemoteItems(items: List<ReadableItem>) {
-        remoteDownloadController.onDownloadRemoteItems(
-            stateProvider = { uiState },
-            updateState = ::updateUiState,
-            scope = viewModelScope,
-            items = items,
-            canScheduleSource = remoteSourceConnectivityPolicy::canScheduleDownload,
-            onResult = ::showDownloadResult,
-        )
-    }
+    fun onDownloadRemoteItems(items: List<ReadableItem>) = remoteDownloadController.onDownloadRemoteItems(
+        stateProvider = { uiState },
+        updateState = ::updateUiState,
+        scope = viewModelScope,
+        items = items,
+        canScheduleSource = remoteSourceConnectivityPolicy::canScheduleDownload,
+        onResult = ::showDownloadResult,
+    )
+
+    /** "Download again" from a reader whose downloaded file is gone or broken. */
+    fun onDownloadAgain(item: ReadableItem) = remoteDownloadController.onDownloadAgain(
+        stateProvider = { uiState },
+        updateState = ::updateUiState,
+        scope = viewModelScope,
+        item = item,
+        canScheduleSource = remoteSourceConnectivityPolicy::canScheduleDownload,
+        onResult = ::showDownloadResult,
+    )
 
     private fun showDownloadResult(result: DownloadQueueActionResult) {
         toasts.show(AppToasts.download(result, onView = ::showDownloadsSheet))
@@ -653,24 +659,15 @@ class AppViewModel @Inject constructor(
         )
     }
 
-    fun retryDownload(entryId: String) {
-        remoteDownloadController.retryDownload(
-            scope = viewModelScope,
-            entryId = entryId,
-            canScheduleSource = remoteSourceConnectivityPolicy::canScheduleDownload,
-        )
-    }
+    fun retryDownload(entryId: String) = remoteDownloadController.retryDownload(
+        scope = viewModelScope,
+        entryId = entryId,
+        canScheduleSource = remoteSourceConnectivityPolicy::canScheduleDownload,
+    )
 
-    fun removeDownload(entryId: String) {
-        remoteDownloadController.removeDownload(
-            scope = viewModelScope,
-            entryId = entryId,
-        )
-    }
+    fun removeDownload(entryId: String) = remoteDownloadController.removeDownload(scope = viewModelScope, entryId = entryId)
 
-    fun clearCompletedDownloads() {
-        remoteDownloadController.clearCompletedDownloads(viewModelScope)
-    }
+    fun clearCompletedDownloads() = remoteDownloadController.clearCompletedDownloads(viewModelScope)
 
     fun openDownloadedEntry(entryId: String) {
         viewModelScope.launch {

@@ -1,29 +1,23 @@
 package com.example.unifiedreader.feature.reader.comics
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -32,18 +26,20 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.reader.core.ImmersiveReaderOverlay
 import com.example.unifiedreader.feature.reader.core.ReaderActiveSessionTracker
 import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
+import com.example.unifiedreader.feature.reader.core.ReaderOpenStatus
+import com.example.unifiedreader.feature.reader.core.ReaderOpeningStep
 import com.example.unifiedreader.feature.reader.core.ReaderPageNumber
 import com.example.unifiedreader.feature.reader.core.ReaderPageNumberPills
 import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
-import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
+import com.example.unifiedreader.feature.reader.core.ReportReaderOpening
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.InMemoryReaderPageNumberPreferencesStore
 import com.example.unifiedreader.feature.reader.preferences.ReaderPageNumberPreferencesStore
 import com.example.unifiedreader.journal.JournalReadingSessionRecorder
+import com.example.unifiedreader.ui.components.AppScreenBackHandler
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
-import com.example.unifiedreader.ui.components.AppScreenBackHandler
 
 @Composable
 fun ComicsReaderScreen(
@@ -58,9 +54,12 @@ fun ComicsReaderScreen(
     readerWorkCoordinator: ReaderWorkCoordinator? = null,
     onNextItemRequested: () -> Unit = {},
 ) {
+    // Try again asks the page source again.
+    var openAttempt by remember(item.id) { mutableIntStateOf(0) }
     val pages = rememberObservedComicPages(
         item = item,
         pageSource = pageSource,
+        attempt = openAttempt,
     )
     val progressHydrated by progressStore.isHydratedFlow.collectAsState()
     val preferencesHydrated by preferencesStore.isHydratedFlow.collectAsState()
@@ -72,10 +71,12 @@ fun ComicsReaderScreen(
         val pagesUnavailableDiagnostic = rememberComicPagesUnavailableDiagnostic(
             item = item,
             pageSource = pageSource,
+            attempt = openAttempt,
         )
-        EmptyComicsReader(
-            item = item,
-            diagnostic = pagesUnavailableDiagnostic,
+        ReportReaderOpening(
+            status = pagesUnavailableDiagnostic.openStatus(item),
+            colors = ComicReaderPageColors,
+            retry = { openAttempt++ },
         )
         return
     }
@@ -136,6 +137,21 @@ fun ComicsReaderScreen(
     var progressRestoreCompleted by remember(item.id) { mutableStateOf(false) }
     var preferencesRestoreCompleted by remember(item.id) { mutableStateOf(false) }
     var loadedVisiblePageIndexes by remember(item.id, pages) { mutableStateOf<Set<Int>>(emptySet()) }
+    // The opening state stays until the first page is drawn, or a few seconds at most (a page that
+    // fails to load shows its own error in place).
+    var firstPageShown by remember(item.id) { mutableStateOf(false) }
+    LaunchedEffect(item.id) {
+        delay(ComicOpeningTimeoutMillis)
+        firstPageShown = true
+    }
+    val currentPageLoaded = readerState.currentPage in loadedVisiblePageIndexes
+    LaunchedEffect(currentPageLoaded) {
+        if (currentPageLoaded) firstPageShown = true
+    }
+    ReportReaderOpening(
+        status = if (firstPageShown) ReaderOpenStatus.Open else ReaderOpenStatus.Opening(ReaderOpeningStep.Opening),
+        colors = ComicReaderPageColors,
+    )
     var previewLoadingArmed by remember(item.id) { mutableStateOf(false) }
     var completionMonitoringReady by rememberSaveable(item.id) { mutableStateOf(false) }
     var hasAutoRequestedCompletion by rememberSaveable(item.id) { mutableStateOf(false) }
@@ -563,35 +579,5 @@ fun ComicsReaderScreen(
     }
 }
 
-@Composable
-private fun EmptyComicsReader(
-    item: ReadableItem,
-    diagnostic: ComicPagesUnavailableDiagnostic,
-) {
-    val tokens = readerOverlayTokens()
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(tokens.colors.fallbackPage)
-            .padding(24.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = emptyComicReaderMessage(
-                item = item,
-                diagnostic = diagnostic,
-            ),
-            style = MaterialTheme.typography.bodyLarge,
-            color = tokens.colors.secondaryText,
-            textAlign = TextAlign.Center,
-        )
-
-    }
-}
-
-internal fun emptyComicReaderMessage(
-    item: ReadableItem,
-    diagnostic: ComicPagesUnavailableDiagnostic,
-): String = "${diagnostic.title}\n\n${item.title}"
-
 private const val InitialPreviewLoadingDelayMillis = 2_500L
+private const val ComicOpeningTimeoutMillis = 6_000L

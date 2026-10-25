@@ -279,9 +279,21 @@ interface ComicPageSource {
     }
 }
 
+/** What an empty page list means: the pages are still coming, or why there are none. */
+enum class ComicPagesUnavailableKind {
+    Loading,
+    FileGone,
+    NoPages,
+    Unsupported,
+    NotConnected,
+    Unavailable,
+}
+
+/** Why a comic has no pages yet, for the log ([title], [detail]) and the reader ([kind]). */
 data class ComicPagesUnavailableDiagnostic(
     val title: String,
     val detail: String,
+    val kind: ComicPagesUnavailableKind = ComicPagesUnavailableKind.Unavailable,
 )
 
 @Stable

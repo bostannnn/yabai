@@ -1,29 +1,19 @@
 package com.example.unifiedreader.feature.reader.core
 
 import android.app.Activity
-import android.content.Context
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.example.unifiedreader.core.model.ReadableItem
-import com.example.unifiedreader.ui.components.AppIconButton
-import com.example.unifiedreader.ui.components.AppIcons
 
 enum class ReaderChrome {
     Immersive,
@@ -50,6 +40,12 @@ interface ReaderScreenFactory {
     )
 }
 
+/**
+ * Shows [item] in the reader that takes its format. Until the book's first page is there the
+ * opening state covers it (the [cover], title and author), and when it can't open, or no reader
+ * takes the format, the error screen does; [downloadAgain] offers a fresh download for a server
+ * book whose download is broken.
+ */
 @Composable
 fun ReaderHost(
     item: ReadableItem,
@@ -57,9 +53,11 @@ fun ReaderHost(
     onBack: () -> Unit,
     navigationActions: ReaderNavigationActions = ReaderNavigationActions(),
     readerWorkCoordinator: ReaderWorkCoordinator? = null,
+    cover: (@Composable (ReadableItem, Modifier) -> Unit)? = null,
+    downloadAgain: ReaderDownloadAgain? = null,
 ) {
     val factory = factories.firstOrNull { it.supports(item) }
-    val chrome = factory?.chrome ?: ReaderChrome.Standard
+    val chrome = factory?.chrome ?: ReaderChrome.Immersive
     ReaderWindowEffect(isImmersive = chrome == ReaderChrome.Immersive)
     ReaderWorkEffect(
         item = item,
@@ -68,25 +66,46 @@ fun ReaderHost(
     val coordinatedNavigationActions = navigationActions.copy(
         readerWorkCoordinator = readerWorkCoordinator,
     )
-
-    when {
-        factory == null -> UnsupportedReader(item = item, onBack = onBack)
-        chrome == ReaderChrome.Immersive -> factory.Content(
-            item = item,
-            onBack = onBack,
-            navigationActions = coordinatedNavigationActions,
+    val opening = remember(item.id, factory) {
+        ReaderOpeningState(
+            initialStatus = if (factory == null) {
+                ReaderOpenStatus.Failed(ReaderOpenFailure.Unsupported(item.format))
+            } else {
+                ReaderOpenStatus.Opening(ReaderOpeningStep.Opening)
+            },
         )
-        else -> Column(modifier = Modifier.fillMaxSize()) {
-            ReaderTopBar(
-                title = item.title,
-                onBack = onBack,
-            )
-            factory.Content(
-                item = item,
-                onBack = onBack,
-                navigationActions = coordinatedNavigationActions,
-            )
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        CompositionLocalProvider(LocalReaderOpening provides opening) {
+            when {
+                factory == null -> Unit
+                chrome == ReaderChrome.Immersive -> factory.Content(
+                    item = item,
+                    onBack = onBack,
+                    navigationActions = coordinatedNavigationActions,
+                )
+                else -> Column(modifier = Modifier.fillMaxSize()) {
+                    ReaderTopBar(
+                        title = item.title,
+                        subtitle = null,
+                        onBack = onBack,
+                    )
+                    factory.Content(
+                        item = item,
+                        onBack = onBack,
+                        navigationActions = coordinatedNavigationActions,
+                    )
+                }
+            }
         }
+        ReaderOpeningLayer(
+            state = opening,
+            item = item,
+            cover = cover,
+            downloadAgain = downloadAgain,
+            onBack = onBack,
+        )
     }
 }
 
@@ -100,24 +119,6 @@ private fun ReaderWorkEffect(
         onDispose {
             lease?.close()
         }
-    }
-}
-
-@Composable
-private fun UnsupportedReader(
-    item: ReadableItem,
-    onBack: () -> Unit,
-) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        ReaderTopBar(
-            title = item.title,
-            onBack = onBack,
-        )
-        Text(
-            text = "No reader is registered for ${item.format.name}.",
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.padding(24.dp),
-        )
     }
 }
 
@@ -144,32 +145,4 @@ private fun ReaderWindowEffect(
             controller.show(WindowInsetsCompat.Type.systemBars())
         }
     }
-}
-
-@Composable
-private fun ReaderTopBar(
-    title: String,
-    onBack: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        AppIconButton(onClick = onBack) {
-            Icon(
-                imageVector = AppIcons.ArrowBack,
-                contentDescription = "Back to library",
-            )
-        }
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
-
 }

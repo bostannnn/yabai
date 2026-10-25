@@ -39,6 +39,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.unifiedreader.feature.reader.core.ReaderDocumentState
 import com.example.unifiedreader.feature.reader.core.ReaderBarButton
 import com.example.unifiedreader.feature.reader.core.ReaderChromeDefaults
 import com.example.unifiedreader.feature.reader.core.ReaderChromeFrame
@@ -61,7 +62,7 @@ internal fun PdfReaderChrome(
     title: String,
     author: String?,
     context: Context,
-    documentUriState: ReaderDocumentUriState,
+    documentState: ReaderDocumentState,
     pageCount: Int,
     currentPageIndex: Int,
     progress: Float,
@@ -102,7 +103,7 @@ internal fun PdfReaderChrome(
                     {
                         PdfPagePreviewStrip(
                             context = context,
-                            documentUriState = documentUriState,
+                            documentState = documentState,
                             pageCount = pageCount,
                             currentPageIndex = currentPageIndex,
                             thumbnailHeight = thumbnailHeight,
@@ -131,18 +132,18 @@ internal fun PdfReaderChrome(
 @Composable
 private fun PdfPagePreviewStrip(
     context: Context,
-    documentUriState: ReaderDocumentUriState,
+    documentState: ReaderDocumentState,
     pageCount: Int,
     currentPageIndex: Int,
     thumbnailHeight: Dp,
     onPageSelected: (Int) -> Unit,
 ) {
     if (pageCount <= 0) return
-    val documentUri = (documentUriState as? ReaderDocumentUriState.Ready)?.uri ?: return
+    val documentUri = (documentState as? ReaderDocumentState.Ready)?.uri ?: return
     val listState = rememberLazyListState()
     val safeCurrentPage = currentPageIndex.coerceIn(0, pageCount - 1)
     val pages = remember(pageCount) { List(pageCount) { it } }
-    val previewCache = remember(documentUriState.cacheKey) {
+    val previewCache = remember(documentState.cacheKey) {
         PdfPreviewBitmapCache(maxEntries = PDF_PREVIEW_CACHE_MAX_ENTRIES)
     }
 
@@ -152,7 +153,7 @@ private fun PdfPagePreviewStrip(
         }
     }
 
-    LaunchedEffect(documentUriState.cacheKey, safeCurrentPage, pageCount) {
+    LaunchedEffect(documentState.cacheKey, safeCurrentPage, pageCount) {
         listState.scrollToItem((safeCurrentPage - 2).coerceAtLeast(0))
     }
 
