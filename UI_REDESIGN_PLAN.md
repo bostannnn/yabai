@@ -1827,6 +1827,24 @@ Year, phone, and the screen as it was with numbered pins); the user said build i
     days" (finishes over the days comics were read) went with the pages split.
 - Checked on the private emulator (`yabai_settings_35` on 5556, the journal copied read-only from 5558's
   database) in landscape, Graphite and the light theme, and at phone width. Not yet on the tablet.
+- [x] Released as 0.21.0 (tag at main dedd4641). On the tablet the user missed what 9.10 had taken out and
+      asked for it back, each in its own panel: pages (the summary's figure with books and comics, Pages per
+      day / per month with the busiest named, counted without the jumps now), Ratings in every period (the
+      ratings of the books read in it, not only finished: "2 rated of 36 books you read"), Most read from
+      one finished book, and the Finished and Needs rating cover shelves in Month and Year (Year's "Rate the
+      N waiting" button became the Needs rating shelf). The Year summary has books against comics again,
+      and its longest run moved under the days you read; the summary is one row of five on a wide tablet,
+      three and two on a narrower one, two by two on phones.
+- [x] The first second on the tab said "0 Finished" over an empty What you read: until the full snapshot
+      arrives the screen draws from the light write-state, which has no books. The finished count comes
+      from the events then, What you read shows placeholder rows (`JournalSnapshot.booksLoading`), and
+      the snapshot is built on `Dispatchers.Default` (it ran on the main thread) and kept for two minutes
+      after the tab is left (`AppViewModel.journalFullSnapshotFlow` is a `StateFlow`). Measured on the
+      emulator with 36 library items: before, every visit rebuilt it on main (2-18 ms, books after
+      86-403 ms); after, one build on a worker and every return within two minutes has the books in its
+      first composition.
+- [x] The library: a series' stack rises 12 dp into the 16 dp gap under the chip row, which left 4 dp; the
+      row keeps that 12 dp below it (`LibrarySeriesStackRaise`).
 
 ## Not yet designed
 
