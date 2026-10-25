@@ -31,9 +31,9 @@ import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppTextButton
 
 /**
- * Ratings: what you thought of what you finished in the period, books and comics apart. A kind
- * with a few ratings gets five rows of bars, five stars at the top; one or two get a line. Not
- * shown while none of the period's books is rated.
+ * Ratings: your ratings of the books read in the period, books and comics apart. A kind with a
+ * few ratings gets five rows of bars, five stars at the top; one or two get a line. Not shown
+ * while none of the period's books is rated.
  */
 @Composable
 internal fun JournalRatingsPanel(
@@ -51,10 +51,11 @@ internal fun JournalRatingsPanel(
     // The kind with more ratings first: its bars carry the panel.
     val kinds = listOfNotNull(books?.let { "Books" to it }, comics?.let { "Comics" to it })
         .sortedByDescending { (_, summary) -> summary.count }
+    val read = (overview.activeItems + overview.finishedItems).distinctBy { summary -> summary.item.itemId }.size
     JournalPanel(modifier = modifier) {
         JournalSectionHeader(
             title = "Ratings",
-            summary = "${all.count} of ${overview.finishedItems.size} rated · ${formatJournalAverage(all.average)} average",
+            summary = "${all.count} rated of ${read.counted("book")} you read · ${formatJournalAverage(all.average)} average",
         )
         // A lone kind's line would only repeat the heading's.
         if (kinds.size == 1 && kinds.single().second.count < RatingBarsMinCount) return@JournalPanel

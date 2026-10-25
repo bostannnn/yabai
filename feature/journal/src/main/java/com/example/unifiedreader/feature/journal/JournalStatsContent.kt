@@ -55,8 +55,8 @@ import java.util.Locale
 
 /**
  * The journal: "Journal" over the period, its arrows and Month / Year, then the period in panels.
- * Month: the summary, what you read, reading days, when you read (and ratings and most read once
- * there is enough finished). Year: the summary, reading days, time by month, ratings, finished
+ * Month: the summary, what you read, ratings, reading days, pages per day, when you read. Year:
+ * the summary, reading days, time and pages by month, ratings. Then both: finished, needs rating
  * and most read. Two columns where the window is wide, one on phones; a panel with nothing in it
  * is left out, and a period with nothing at all shows one empty state. Days, books and names open
  * the journal's side sheet.
@@ -96,7 +96,8 @@ fun JournalStatsContent(
     val overview = remember(snapshot, period, selected) {
         computePeriodOverview(snapshot = snapshot, period = period, referenceEpochMillis = selected)
     }
-    val summary = remember(overview, now) { overview.summary(now) }
+    val loading = remember(snapshot) { snapshot.booksLoading }
+    val summary = remember(overview, now, loading) { overview.summary(now, loading) }
     val mostRead = remember(overview) {
         if (overview.showsMostRead) journalMostReadGroups(overview.topFacets, overview.mediaByItemId()) else emptyList()
     }
@@ -159,10 +160,12 @@ fun JournalStatsContent(
                 }
             }
             val ratings: @Composable () -> Unit = { JournalRatingsPanel(overview = overview) }
+            val pages: @Composable () -> Unit = { JournalPagesPanel(overview = overview) }
             if (period == JournalPeriod.MONTH) {
                 val whatYouRead: @Composable () -> Unit = {
                     JournalWhatYouReadPanel(
                         overview = overview,
+                        loading = loading,
                         coverImageUrlProvider = coverImageUrlProvider,
                         onCoverVisible = onCoverVisible,
                         onOpenItem = openItem,
@@ -172,8 +175,8 @@ fun JournalStatsContent(
                 columns(
                     key = "month",
                     wide = wide,
-                    start = listOf(whatYouRead),
-                    end = listOf(readingDays, whenYouRead, ratings),
+                    start = listOf(whatYouRead, ratings),
+                    end = listOf(readingDays, pages, whenYouRead),
                 )
             } else {
                 val timeByMonth: @Composable () -> Unit = { JournalTimeByMonthPanel(buckets = overview.averageReadingTimeBuckets) }
@@ -181,8 +184,11 @@ fun JournalStatsContent(
                     key = "year",
                     wide = wide,
                     start = listOf(readingDays),
-                    end = listOf(timeByMonth, ratings),
+                    end = listOf(timeByMonth, pages, ratings),
                 )
+            }
+            // Only rows with something in them, so an empty one leaves no gap.
+            if (overview.finishedItems.isNotEmpty()) {
                 section("finished") {
                     JournalFinishedPanel(
                         overview = overview,
@@ -190,7 +196,17 @@ fun JournalStatsContent(
                         onCoverVisible = onCoverVisible,
                         onOpenItem = openItem,
                         onSeeAll = { sheetPages = listOf(JournalSheetPage.Finished(waitingOnly = false)) },
-                        onRateWaiting = { sheetPages = listOf(JournalSheetPage.Finished(waitingOnly = true)) },
+                    )
+                }
+            }
+            if (finishedItemsNeedingRating(overview).isNotEmpty()) {
+                section("needs-rating") {
+                    JournalNeedsRatingPanel(
+                        overview = overview,
+                        coverImageUrlProvider = coverImageUrlProvider,
+                        onCoverVisible = onCoverVisible,
+                        onOpenItem = openItem,
+                        onSeeAll = { sheetPages = listOf(JournalSheetPage.Finished(waitingOnly = true)) },
                     )
                 }
             }

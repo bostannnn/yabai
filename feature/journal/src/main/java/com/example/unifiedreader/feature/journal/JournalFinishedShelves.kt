@@ -5,11 +5,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
@@ -31,18 +29,12 @@ import com.example.unifiedreader.feature.library.RatingBadge
 import com.example.unifiedreader.feature.library.ratingBadgeState
 import com.example.unifiedreader.ui.components.AppBadge
 import com.example.unifiedreader.ui.components.AppTextButton
-import com.example.unifiedreader.ui.components.AppTonalButton
-import com.example.unifiedreader.ui.components.AppWindowWidth
-import com.example.unifiedreader.ui.components.currentAppWindowWidth
 
 internal fun finishedItemsNeedingRating(
     overview: JournalPeriodOverview,
 ): List<JournalItemSummary> = overview.finishedItems.filter { summary -> summary.entry?.rating == null }
 
-/**
- * Finished (Year): one shelf of what was finished, newest first, a rated cover with its badge and
- * an unrated one with Rate under it. Rate the ones waiting, and See all, open lists in the sheet.
- */
+/** Finished: the period's finished books as a shelf of covers, newest first, a rated one with its badge. */
 @Composable
 internal fun JournalFinishedPanel(
     overview: JournalPeriodOverview,
@@ -50,60 +42,82 @@ internal fun JournalFinishedPanel(
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onOpenItem: (JournalItemSummary) -> Unit,
     onSeeAll: () -> Unit,
-    onRateWaiting: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val finished = overview.finishedItems
-    if (finished.isEmpty()) return
-    val waiting = finishedItemsNeedingRating(overview).size
-    val compact = currentAppWindowWidth() == AppWindowWidth.Compact
-    val actions = @Composable {
-        if (waiting > 0) {
-            AppTonalButton(onClick = onRateWaiting, modifier = Modifier.height(38.dp)) {
-                Text(text = "Rate the $waiting waiting")
-            }
-        }
-        if (finished.size > FinishedShelfCount || waiting > 0) {
-            AppTextButton(onClick = onSeeAll) { Text(text = "See all") }
-        }
-    }
-    // Beside the heading on a tablet, under it on a phone.
-    val trailing: (@Composable RowScope.() -> Unit)? = if (compact) {
-        null
+    JournalCoverShelfPanel(
+        title = "Finished",
+        summary = "${overview.finishedItems.size} in ${overview.periodName()}, newest first",
+        items = overview.finishedItems,
+        coverImageUrlProvider = coverImageUrlProvider,
+        onCoverVisible = onCoverVisible,
+        onOpenItem = onOpenItem,
+        onSeeAll = onSeeAll,
+        modifier = modifier,
+    )
+}
+
+/** Needs rating: the period's finished books without a rating, as a shelf of covers. */
+@Composable
+internal fun JournalNeedsRatingPanel(
+    overview: JournalPeriodOverview,
+    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
+    onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
+    onOpenItem: (JournalItemSummary) -> Unit,
+    onSeeAll: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val unrated = finishedItemsNeedingRating(overview)
+    JournalCoverShelfPanel(
+        title = "Needs rating",
+        summary = "${unrated.size} to rate",
+        items = unrated,
+        coverImageUrlProvider = coverImageUrlProvider,
+        onCoverVisible = onCoverVisible,
+        onOpenItem = onOpenItem,
+        onSeeAll = onSeeAll,
+        modifier = modifier,
+    )
+}
+
+/** A panel with a heading and a row of covers; past a dozen, See all lists them in the sheet. */
+@Composable
+private fun JournalCoverShelfPanel(
+    title: String,
+    summary: String,
+    items: List<JournalItemSummary>,
+    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
+    onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
+    onOpenItem: (JournalItemSummary) -> Unit,
+    onSeeAll: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // An empty shelf folds away rather than saying so.
+    if (items.isEmpty()) return
+    val seeAll: (@Composable RowScope.() -> Unit)? = if (items.size > CoverShelfCount) {
+        { AppTextButton(onClick = onSeeAll) { Text(text = "See all") } }
     } else {
-        { Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { actions() } }
+        null
     }
     JournalPanel(modifier = modifier) {
-        JournalSectionHeader(
-            title = "Finished",
-            summary = "${finished.size} in ${overview.periodName()}, newest first",
-            trailing = trailing,
-        )
-        if (compact) {
-            Row(
-                modifier = Modifier.padding(top = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) { actions() }
-        }
+        JournalSectionHeader(title = title, summary = summary, trailing = seeAll)
         LazyRow(
             modifier = Modifier.padding(top = 14.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             contentPadding = PaddingValues(end = 4.dp),
         ) {
-            items(finished.take(FinishedShelfCount), key = { summary -> summary.item.itemId }) { summary ->
-                FinishedItemCard(
+            items(items.take(CoverShelfCount), key = { summary -> summary.item.itemId }) { summary ->
+                CoverShelfItem(
                     summary = summary,
                     coverImageUrlProvider = coverImageUrlProvider,
                     onCoverVisible = onCoverVisible,
                     onOpen = { onOpenItem(summary) },
                 )
             }
-            if (finished.size > FinishedShelfCount) {
+            if (items.size > CoverShelfCount) {
                 item(key = "more") {
                     Box(
                         modifier = Modifier
-                            .width(FinishedCoverWidth)
+                            .width(CoverShelfWidth)
                             .aspectRatio(2f / 3f)
                             .clip(RoundedCornerShape(7.dp))
                             .clickable(onClick = onSeeAll),
@@ -111,7 +125,7 @@ internal fun JournalFinishedPanel(
                     ) {
                         AppBadge(color = MaterialTheme.colorScheme.surfaceContainerHigh) {
                             Text(
-                                text = "${finished.size - FinishedShelfCount} more",
+                                text = "${items.size - CoverShelfCount} more",
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.Bold,
@@ -125,7 +139,7 @@ internal fun JournalFinishedPanel(
 }
 
 @Composable
-private fun FinishedItemCard(
+private fun CoverShelfItem(
     summary: JournalItemSummary,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
@@ -133,7 +147,7 @@ private fun FinishedItemCard(
 ) {
     Column(
         modifier = Modifier
-            .width(FinishedCoverWidth)
+            .width(CoverShelfWidth)
             .clip(RoundedCornerShape(8.dp))
             .clickable(onClick = onOpen),
         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -165,28 +179,14 @@ private fun FinishedItemCard(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
-        if (summary.entry?.rating == null) {
-            AppBadge(
-                color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.16f),
-                contentColor = MaterialTheme.colorScheme.tertiary,
-            ) {
-                Text(
-                    text = "Rate",
-                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 2.dp),
-                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-        } else {
-            summary.item.displaySubtitle?.let { subtitle ->
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.5.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
+        summary.item.displaySubtitle?.let { subtitle ->
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.5.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
@@ -197,5 +197,5 @@ internal fun JournalPeriodOverview.periodName(): String = when (period) {
     JournalPeriod.YEAR -> yearLabel()
 }
 
-private val FinishedCoverWidth = 92.dp
-private const val FinishedShelfCount = 12
+private val CoverShelfWidth = 92.dp
+private const val CoverShelfCount = 12

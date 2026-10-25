@@ -140,12 +140,12 @@ internal fun journalYearMonthColumns(maxWidthDp: Float): Int = when {
     else -> 2
 }
 
-/** A day's minutes in its square: "22m", "1h 27", "2h". */
+/** A day's minutes in its square: "22m", "1h 27", "2h", and whole hours from ten: "10h". */
 internal fun formatJournalCellMinutes(millis: Long): String {
     val minutes = ((millis + 59_999L) / 60_000L).coerceAtLeast(1L)
     if (minutes < 60L) return "${minutes}m"
     val rest = minutes % 60L
-    return if (rest == 0L) "${minutes / 60L}h" else "${minutes / 60L}h ${rest.toString().padStart(2, '0')}"
+    return if (rest == 0L || minutes >= 600L) "${minutes / 60L}h" else "${minutes / 60L}h ${rest.toString().padStart(2, '0')}"
 }
 
 @Composable

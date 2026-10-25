@@ -31,7 +31,7 @@ class JournalStateComputer(
         val monthStats = computeStats(
             events = monthEvents,
             sessions = monthSessions,
-            entries = entries.ofItemsFinishedIn(monthEvents),
+            entries = entries.ofItemsReadIn(monthEvents, monthSessions),
             catalogItemsById = catalogItemsById,
             periodStart = monthStart,
             periodEnd = monthEnd,
@@ -39,7 +39,7 @@ class JournalStateComputer(
         val yearStats = computeStats(
             events = yearEvents,
             sessions = yearSessions,
-            entries = entries.ofItemsFinishedIn(yearEvents),
+            entries = entries.ofItemsReadIn(yearEvents, yearSessions),
             catalogItemsById = catalogItemsById,
             periodStart = yearStart,
             periodEnd = yearEnd,
@@ -122,7 +122,7 @@ private fun summaryItemRef(
 
 /**
  * A period's figures. [entries] are the journal entries whose ratings count: those of the books
- * finished in the period (see [ofItemsFinishedIn]).
+ * read in the period (see [ofItemsReadIn]).
  */
 fun computeStats(
     events: List<JournalReadingEvent>,
@@ -198,7 +198,7 @@ fun computePeriodOverview(
         stats = computeStats(
             events = periodEvents,
             sessions = periodSessions,
-            entries = finishedItems.mapNotNull(JournalItemSummary::entry),
+            entries = (activeItems + finishedItems).distinctBy { summary -> summary.item.itemId }.mapNotNull(JournalItemSummary::entry),
             catalogItemsById = snapshot.itemSummaries
                 .mapNotNull { summary -> summary.catalogItem?.let { item -> item.id to item } }
                 .toMap(),
@@ -531,17 +531,16 @@ internal fun List<JournalReadingSession>.overlappingPeriod(
 }
 
 /**
- * The entries of the books finished among [periodEvents]. A period's ratings are of what was
- * finished in it: an entry's own times change whenever it syncs, so they can't date a rating.
+ * The entries of the books read in a period, from its [periodEvents] and [periodSessions]. A
+ * period's ratings are of what was read in it: an entry's own times change whenever it syncs, so
+ * they can't date a rating.
  */
-internal fun List<ItemJournalEntry>.ofItemsFinishedIn(
+internal fun List<ItemJournalEntry>.ofItemsReadIn(
     periodEvents: List<JournalReadingEvent>,
+    periodSessions: List<JournalReadingSession>,
 ): List<ItemJournalEntry> {
-    val finishedItemIds = periodEvents
-        .filter { event -> event.eventType == JournalReadingEventType.FINISHED }
-        .map(JournalReadingEvent::itemId)
-        .toSet()
-    return filter { entry -> entry.itemId in finishedItemIds }
+    val readItemIds = (periodEvents.map(JournalReadingEvent::itemId) + periodSessions.map(JournalReadingSession::itemId)).toSet()
+    return filter { entry -> entry.itemId in readItemIds }
 }
 
 internal fun JournalReadingEvent.localDayKey(): Int {

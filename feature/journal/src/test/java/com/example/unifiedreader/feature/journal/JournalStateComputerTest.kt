@@ -64,30 +64,36 @@ class JournalStateComputerTest {
     }
 
     @Test
-    fun `a period's ratings are of the books finished in it`() {
+    fun `a period's ratings are of the books read in it`() {
         val oct10 = epochMillis(2026, Calendar.OCTOBER, 10)
         val sep10 = epochMillis(2026, Calendar.SEPTEMBER, 10)
         val finishedNow = testItem.copy(id = "finished-now")
         val finishedBefore = testItem.copy(id = "finished-before")
+        val rereadNow = testItem.copy(id = "reread-now")
         val snapshot = JournalStateComputer(nowEpochMillis = { oct10 }).snapshot(
             events = listOf(
                 startedEvent(item = finishedNow, id = "now", page = 100, percent = 1.0, type = JournalReadingEventType.FINISHED, occurredAtEpochMillis = oct10),
                 startedEvent(item = finishedBefore, id = "before", page = 100, percent = 1.0, type = JournalReadingEventType.FINISHED, occurredAtEpochMillis = sep10),
+                startedEvent(item = rereadNow, id = "reread-before", page = 100, percent = 1.0, type = JournalReadingEventType.FINISHED, occurredAtEpochMillis = sep10),
             ),
+            // Opened again in October: read in October too.
+            sessions = listOf(journalSession(item = rereadNow, startedAtEpochMillis = oct10, endedAtEpochMillis = oct10 + 10 * 60_000L)),
             entries = listOf(
                 journalEntry(item = finishedNow, rating = 8, updatedAtEpochMillis = oct10),
                 // A sync in October rewrote September's rating; it is still September's.
                 journalEntry(item = finishedBefore, rating = 4, updatedAtEpochMillis = oct10),
-                // Rated, never finished in the journal: no month's rating.
-                journalEntry(itemId = "never-finished", rating = 6, updatedAtEpochMillis = oct10),
+                journalEntry(item = rereadNow, rating = 6, updatedAtEpochMillis = sep10),
+                // Rated, never read in the journal: no month's rating.
+                journalEntry(itemId = "never-read", rating = 2, updatedAtEpochMillis = oct10),
             ),
         )
 
         val october = computePeriodOverview(snapshot, JournalPeriod.MONTH, oct10)
         val september = computePeriodOverview(snapshot, JournalPeriod.MONTH, sep10)
 
-        assertEquals(mapOf(8 to 1), october.stats.ratingCountsByMediaType[JournalMediaType.BOOK])
-        assertEquals(mapOf(4 to 1), september.stats.ratingCountsByMediaType[JournalMediaType.BOOK])
+        assertEquals(mapOf(8 to 1, 6 to 1), october.stats.ratingCountsByMediaType[JournalMediaType.BOOK])
+        assertEquals(mapOf(6 to 1, 4 to 1), september.stats.ratingCountsByMediaType[JournalMediaType.BOOK])
+        assertEquals(mapOf(8 to 1, 6 to 1), snapshot.monthStats.ratingCountsByMediaType[JournalMediaType.BOOK])
     }
 
     @Test
@@ -750,7 +756,7 @@ class JournalStateComputerTest {
 
         val overview = computePeriodOverview(snapshot, JournalPeriod.MONTH, april10)
 
-        // Never finished in the journal, so no month's rating either.
+        // Never read in the journal, so no month's rating either.
         assertNull(overview.stats.ratingCountsByMediaType[JournalMediaType.BOOK])
         assertEquals(
             listOf("Book genres", "Book authors", "Comic genres", "Comic tags", "Comic writers", "Comic pencillers"),

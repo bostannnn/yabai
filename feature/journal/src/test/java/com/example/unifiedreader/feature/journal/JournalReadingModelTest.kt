@@ -79,7 +79,9 @@ class JournalReadingModelTest {
 
         assertEquals(21, summary.longestRun!!.length)
         assertEquals("13 Apr – 3 May", summary.longestRun!!.rangeLabel())
-        assertEquals("Of 298 so far this year", summary.daysLine(JournalPeriod.YEAR))
+        assertEquals("Longest run 21 days, 13 Apr – 3 May", summary.daysLine(JournalPeriod.YEAR))
+        val scattered = overview(period = JournalPeriod.YEAR, days = listOf(day(3), day(20))).summary(epochMillis(2026, Calendar.OCTOBER, 25, 9))
+        assertEquals("Of 298 so far this year", scattered.daysLine(JournalPeriod.YEAR))
     }
 
     @Test
@@ -116,20 +118,51 @@ class JournalReadingModelTest {
         assertEquals("1h 27", formatJournalCellMinutes(87 * 60_000L))
         assertEquals("1h 05", formatJournalCellMinutes(65 * 60_000L))
         assertEquals("2h", formatJournalCellMinutes(120 * 60_000L))
+        assertEquals("10h", formatJournalCellMinutes(614 * 60_000L))
         assertEquals("3 h 24 min", formatJournalReadingTime(204 * 60_000L))
         assertEquals("61 h", formatJournalReadingTime(61 * 3_600_000L + 12 * 60_000L))
     }
 
     @Test
-    fun `most read waits for three finished and compares only counts that differ`() {
-        assertFalse(overview(finished = listOf(summary("a"))).showsMostRead)
-        assertTrue(overview(finished = listOf(summary("a"), summary("b"), summary("c"))).showsMostRead)
+    fun `most read shows from one finished book and compares only counts that differ`() {
+        assertFalse(overview().showsMostRead)
+        assertTrue(overview(finished = listOf(summary("a"))).showsMostRead)
 
         val section = JournalFacetSection("Authors", JournalMediaType.BOOK, JournalFacetType.AUTHOR, emptyList())
         val equal = JournalMostReadGroup("Authors", section, listOf(mostRead("Tartt", "b1"), mostRead("Rooney", "b2")))
         val differing = JournalMostReadGroup("Writers", section, listOf(mostRead("Moore", "c1", "c2"), mostRead("Tynion", "c3")))
         assertFalse(equal.barsCompare)
         assertTrue(differing.barsCompare)
+    }
+
+    @Test
+    fun `while the books load the summary counts finishes from the events`() {
+        val now = epochMillis(2026, Calendar.OCTOBER, 25, 9)
+        val loading = overview().copy(stats = JournalStats(booksFinished = 1, comicsFinished = 2, pagesRead = 1_441, bookPagesRead = 1_403, comicPagesRead = 38))
+            .summary(now, loading = true)
+        assertEquals(3, loading.finished)
+        assertNull(loading.finishedLine())
+        assertEquals("1,441", formatJournalCount(loading.pages))
+        assertEquals("Books 1,403 · comics 38", loading.pagesLine())
+        assertEquals("16.2K", formatJournalCount(16_200))
+
+        assertTrue(JournalSnapshot(events = listOf(event("a", now, JournalReadingEventType.STARTED))).booksLoading)
+        assertFalse(JournalSnapshot().booksLoading)
+        assertFalse(JournalSnapshot(events = listOf(event("a", now, JournalReadingEventType.STARTED)), itemSummaries = listOf(summary("a"))).booksLoading)
+    }
+
+    @Test
+    fun `pages go by day in a month and by month in a year`() {
+        val month = overview(days = listOf(day(19).copy(pagesRead = 133), day(20).copy(pagesRead = 20))).pagesBars()
+        assertEquals(31, month.size)
+        assertEquals(133, month[18].pages)
+        assertEquals("Mon 19 Oct", month[18].name)
+        assertEquals("1", month[0].label)
+
+        val year = overview(period = JournalPeriod.YEAR, days = listOf(day(19).copy(pagesRead = 133), day(3, month = Calendar.APRIL).copy(pagesRead = 7))).pagesBars()
+        assertEquals(12, year.size)
+        assertEquals(133, year[Calendar.OCTOBER].pages)
+        assertEquals("April", year[Calendar.APRIL].name)
     }
 
     @Test

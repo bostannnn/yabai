@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -91,16 +92,14 @@ internal fun JournalSectionHeader(
 }
 
 /**
- * The period at a glance, one panel: reading time, the days you read, what was finished, and
- * (Month) books against comics by time or (Year) the longest run. Four across with hairlines
- * between them, two by two on phones.
+ * The period at a glance, one panel: reading time, the days you read, pages, what was finished,
+ * and books against comics by time. In a row with hairlines between them, two by two on phones.
  */
 @Composable
 internal fun JournalSummaryPanel(
     overview: JournalPeriodOverview,
     summary: JournalSummary,
 ) {
-    val month = overview.period == JournalPeriod.MONTH
     val cells = buildList<@Composable (Modifier) -> Unit> {
         if (summary.readingMillis > 0L) {
             add { modifier ->
@@ -108,20 +107,25 @@ internal fun JournalSummaryPanel(
             }
         }
         add { modifier -> SummaryFigure(summary.readingDays.counted("day"), "You read", summary.daysLine(overview.period), modifier) }
-        if (!month) {
-            summary.longestRun?.let { run ->
-                add { modifier -> SummaryFigure(run.length.counted("day"), "Longest run", run.rangeLabel(), modifier) }
-            }
+        if (summary.pages > 0) {
+            add { modifier -> SummaryFigure(formatJournalCount(summary.pages), "Pages", summary.pagesLine(), modifier) }
         }
         add { modifier -> SummaryFigure(summary.finished.toString(), "Finished", summary.finishedLine(), modifier) }
-        if (month && summary.bookMillis + summary.comicMillis > 0L) {
+        if (summary.bookMillis + summary.comicMillis > 0L) {
             add { modifier -> BooksAndComicsFigure(summary.bookMillis, summary.comicMillis, modifier) }
         }
     }
-    val compact = currentAppWindowWidth() == AppWindowWidth.Compact
+    val width = currentAppWindowWidth()
+    val compact = width == AppWindowWidth.Compact
+    // All in a row on a wide tablet, three then two on a narrower one, two by two on phones.
+    val perRow = when (width) {
+        AppWindowWidth.Compact -> 2
+        AppWindowWidth.Medium -> 3
+        AppWindowWidth.Expanded -> cells.size
+    }
     val hairline = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
     JournalPanel(contentPadding = 0.dp) {
-        cells.chunked(if (compact) 2 else 4).forEachIndexed { rowIndex, row ->
+        cells.chunked(perRow).forEachIndexed { rowIndex, row ->
             if (rowIndex > 0) Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(hairline))
             Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
                 row.forEachIndexed { index, cell ->
@@ -129,11 +133,11 @@ internal fun JournalSummaryPanel(
                     cell(
                         Modifier
                             .weight(1f)
-                            .padding(horizontal = if (compact) 16.dp else 24.dp, vertical = if (compact) 12.dp else 2.dp),
+                            .padding(horizontal = if (compact) 16.dp else 20.dp, vertical = if (compact) 12.dp else 2.dp),
                     )
                 }
                 // A short last row keeps its cells the width of the others.
-                repeat((if (compact) 2 else 4) - row.size) {
+                repeat(perRow - row.size) {
                     Box(modifier = Modifier.weight(1f))
                 }
             }
@@ -217,17 +221,9 @@ private fun BooksAndComicsFigure(
                 Box(modifier = Modifier.weight(comicMillis.toFloat()).height(10.dp).clip(CircleShape).background(comicColor))
             }
         }
-        // Side by side on a tablet, one under the other in a phone's half-width cell.
-        if (currentAppWindowWidth() == AppWindowWidth.Compact) {
-            Column {
-                if (bookMillis > 0L) MixLegend("Books", formatJournalMinutes(bookMillis))
-                if (comicMillis > 0L) MixLegend("Comics", formatJournalMinutes(comicMillis))
-            }
-        } else {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                if (bookMillis > 0L) MixLegend("Books", formatJournalMinutes(bookMillis))
-                if (comicMillis > 0L) MixLegend("Comics", formatJournalMinutes(comicMillis))
-            }
+        Column {
+            if (bookMillis > 0L) MixLegend("Books", formatJournalMinutes(bookMillis))
+            if (comicMillis > 0L) MixLegend("Comics", formatJournalMinutes(comicMillis))
         }
     }
 }
@@ -271,6 +267,36 @@ internal fun JournalWhenYouReadPanel(
             height = 72.dp,
             gap = 4.dp,
             description = "Reading by hour of the day. ${journalReadingHoursLabel(buckets)}",
+            modifier = Modifier.padding(top = 16.dp),
+        )
+    }
+}
+
+/**
+ * Pages per day (Month) or per month (Year): bars from a shared baseline, the busiest one in the
+ * accent and named in the heading's line. Pages count from where the reading started, so a jump
+ * doesn't make a day.
+ */
+@Composable
+internal fun JournalPagesPanel(
+    overview: JournalPeriodOverview,
+    modifier: Modifier = Modifier,
+) {
+    val bars = remember(overview) { overview.pagesBars() }
+    val busiest = bars.maxByOrNull(JournalPagesBar::pages)?.takeIf { it.pages > 0 } ?: return
+    val month = overview.period == JournalPeriod.MONTH
+    val line = "Most ${if (month) "on" else "in"} ${busiest.name}: ${busiest.pages.counted("page")}"
+    JournalPanel(modifier = modifier) {
+        JournalSectionHeader(title = if (month) "Pages per day" else "Pages per month", summary = line)
+        BarChart(
+            values = bars.map { bar -> bar.pages.toLong() },
+            maxValue = busiest.pages.toLong(),
+            labels = bars.mapIndexed { index, bar -> bar.label.takeIf { !month || index % 7 == 0 } },
+            highlighted = bars.map { bar -> bar === busiest },
+            highlightColor = MaterialTheme.colorScheme.primary,
+            height = if (month) 96.dp else 116.dp,
+            gap = if (month) 3.dp else 8.dp,
+            description = "${if (month) "Pages per day" else "Pages per month"}. $line",
             modifier = Modifier.padding(top = 16.dp),
         )
     }

@@ -44,23 +44,26 @@ import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppTextButton
 import com.example.unifiedreader.ui.components.AppTonalButton
 import com.example.unifiedreader.ui.components.AppWindowWidth
+import com.example.unifiedreader.ui.components.appSkeletonPulse
 import com.example.unifiedreader.ui.components.currentAppWindowWidth
 
 /**
  * What you read (Month): the books and comics given time in the period, longest first, each with
  * its time, its days and a bar against the longest; a finished one says so and offers Rate. The
- * ones only opened for a moment fold into one line at the end.
+ * ones only opened for a moment fold into one line at the end. While the journal's books are
+ * still [loading], placeholder rows hold the panel's place.
  */
 @Composable
 internal fun JournalWhatYouReadPanel(
     overview: JournalPeriodOverview,
+    loading: Boolean,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onOpenItem: (JournalItemSummary) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val reading = remember(overview) { overview.whatYouRead() }
-    if (reading.read.isEmpty() && reading.opened.isEmpty()) return
+    if (!loading && reading.read.isEmpty() && reading.opened.isEmpty()) return
     val compact = currentAppWindowWidth() == AppWindowWidth.Compact
     var showAll by rememberSaveable(overview.periodStartEpochMillis) { mutableStateOf(false) }
     var showOpened by rememberSaveable(overview.periodStartEpochMillis) { mutableStateOf(false) }
@@ -71,6 +74,10 @@ internal fun JournalWhatYouReadPanel(
             title = "What you read",
             summary = if (compact) "Longest first" else "Longest first · tap one for its rating, review and sessions",
         )
+        if (loading) {
+            ReadItemPlaceholders(compact = compact)
+            return@JournalPanel
+        }
         Column(modifier = Modifier.padding(top = 6.dp)) {
             val shown = if (showAll) reading.read else reading.read.take(WhatYouReadRows)
             shown.forEachIndexed { index, item ->
@@ -220,6 +227,33 @@ private fun ReadItemRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                 )
+            }
+        }
+    }
+}
+
+/** Rows of blocks in the shape of the books to come, breathing together. */
+@Composable
+private fun ReadItemPlaceholders(compact: Boolean) {
+    val block = MaterialTheme.colorScheme.surfaceContainerHigh
+    Column(modifier = Modifier.padding(top = 6.dp).appSkeletonPulse()) {
+        listOf(0.62f, 0.48f, 0.55f, 0.4f).forEach { fraction ->
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 11.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(width = if (compact) 40.dp else 44.dp, height = if (compact) 60.dp else 66.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(block),
+                )
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(modifier = Modifier.fillMaxWidth(fraction).height(14.dp).clip(RoundedCornerShape(4.dp)).background(block))
+                    Box(modifier = Modifier.fillMaxWidth(fraction * 0.6f).height(11.dp).clip(RoundedCornerShape(4.dp)).background(block))
+                }
+                Box(modifier = Modifier.size(width = 64.dp, height = 14.dp).clip(RoundedCornerShape(4.dp)).background(block))
             }
         }
     }
