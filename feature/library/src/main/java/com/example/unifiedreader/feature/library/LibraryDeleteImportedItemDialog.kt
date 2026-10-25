@@ -33,7 +33,7 @@ fun LibraryDeleteImportedItemDialog(
                 )
             }
         },
-        title = { Text(text = "Remove local file?") },
+        title = { Text(text = "Remove from library?") },
         text = {
             Text(
                 text = "This removes ${item.libraryDisplayLabel()} from your library and clears local reading state.",
