@@ -241,6 +241,23 @@ internal fun libraryFilterMatchingCount(state: LibraryFilterState, counts: Libra
         .sum()
 }
 
+/**
+ * How many items the grid shows. The paged grid's own count is only the pages loaded so far, so
+ * unfiltered it is the view's total and filtered the matches the facet counts give.
+ */
+internal fun libraryShownItemCount(
+    isPaged: Boolean,
+    visibleCount: Int,
+    loadedCount: Int,
+    filterState: LibraryFilterState,
+    facetCounts: LibraryFilterFacetCounts,
+    totalCount: Int?,
+): Int = when {
+    !isPaged -> visibleCount
+    filterState.isEmpty -> totalCount ?: loadedCount
+    else -> libraryFilterMatchingCount(filterState, facetCounts) ?: loadedCount
+}
+
 /** "Showing 14 of 21", or "Showing all 21" while nothing is filtered out. */
 internal fun libraryFilterShowingLabel(shownCount: Int, totalCount: Int?): String = when {
     totalCount == null -> "Showing $shownCount"

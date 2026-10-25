@@ -58,9 +58,18 @@ internal fun buildProgressSummaries(
     item.id to summary.withChapter(sessionByItemId[item.id]?.chapterPosition)
 }
 
-/** The chapter the reader saved, while the book is not finished; how many it has, always. */
+/** The chapter the reader saved (number and title), while the book is not finished; how many it has and where they start, always. */
 private fun ItemProgressSummary.withChapter(position: ReaderChapterPosition?): ItemProgressSummary =
-    if (position == null) this else copy(chapter = position.index.takeUnless { isFinished }, chapterCount = position.count)
+    if (position == null) {
+        this
+    } else {
+        copy(
+            chapter = position.index.takeUnless { isFinished },
+            chapterCount = position.count,
+            chapterTitle = position.title.takeUnless { isFinished },
+            chapterStarts = position.starts,
+        )
+    }
 
 private fun buildItemProgressSummary(
     pageIndex: Int,

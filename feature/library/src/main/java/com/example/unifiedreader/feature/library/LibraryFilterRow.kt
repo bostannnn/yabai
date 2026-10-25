@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -38,11 +39,14 @@ import com.example.unifiedreader.ui.components.AppChipDefaults
 import com.example.unifiedreader.ui.components.AppIcons
 
 /**
- * The row above the grid: the Filters chip with the number of applied values, one chip per
- * applied value naming it (its × removes just that value), and the sort chip at the end.
+ * The row above the grid: on a source's home the [heading] ("All books 1,474"), then the Filters
+ * chip with the number of applied values, one chip per applied value naming it (its × removes
+ * just that value), and the sort chip at the end. With a heading the chips sit at the end with
+ * the sort chip; they scroll when they don't fit.
  */
 @Composable
 internal fun LibraryFilterRow(
+    heading: LibraryGridHeading? = null,
     filterPanels: List<LibraryFilterPanel>,
     filterState: LibraryFilterState,
     filterFacets: LibraryFilterFacets,
@@ -75,38 +79,44 @@ internal fun LibraryFilterRow(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier
-                .weight(1f)
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        if (heading != null) {
+            LibraryGridHeadingText(heading = heading, modifier = Modifier.padding(end = 12.dp))
+        }
+        Box(
+            modifier = Modifier.weight(1f),
+            contentAlignment = if (heading != null) Alignment.CenterEnd else Alignment.CenterStart,
         ) {
-            LibraryFiltersChip(
-                appliedCount = appliedFilters.size,
-                enabled = filtersEnabled,
-                onClick = { onOpenFilterPanel(null) },
-            )
-            if (readingListScopeState.shouldShow) {
-                val selectedOption = readingListScopeState.selectedOption
-                AppChip(
-                    selected = selectedOption != null,
-                    onClick = onOpenReadingListScope,
-                    label = {
-                        Text(
-                            text = selectedOption?.chipLabel() ?: "Kavita lists",
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    },
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                LibraryFiltersChip(
+                    appliedCount = appliedFilters.size,
+                    enabled = filtersEnabled,
+                    onClick = { onOpenFilterPanel(null) },
                 )
-            }
-            appliedFilters.forEach { filter ->
-                LibraryAppliedFilterChip(
-                    filter = filter,
-                    onClick = { onOpenFilterPanel(filter.panel) },
-                    onRemove = { onFilterStateChanged(filter.without) },
-                )
+                if (readingListScopeState.shouldShow) {
+                    val selectedOption = readingListScopeState.selectedOption
+                    AppChip(
+                        selected = selectedOption != null,
+                        onClick = onOpenReadingListScope,
+                        label = {
+                            Text(
+                                text = selectedOption?.chipLabel() ?: "Kavita lists",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        },
+                    )
+                }
+                appliedFilters.forEach { filter ->
+                    LibraryAppliedFilterChip(
+                        filter = filter,
+                        onClick = { onOpenFilterPanel(filter.panel) },
+                        onRemove = { onFilterStateChanged(filter.without) },
+                    )
+                }
             }
         }
         Spacer(modifier = Modifier.width(8.dp))
@@ -121,6 +131,41 @@ internal fun LibraryFilterRow(
             onGridCellSizeDpChanged = onGridCellSizeDpChanged,
             onFadeReadItemsChanged = onFadeReadItemsChanged,
         )
+    }
+}
+
+/** "All books" and, beside it in the secondary colour, "1,474"; 18 sp on phones, 20 elsewhere. */
+@Composable
+private fun LibraryGridHeadingText(
+    heading: LibraryGridHeading,
+    modifier: Modifier = Modifier,
+) {
+    val compact = isLibraryCompactWindow()
+    Row(
+        modifier = modifier.semantics(mergeDescendants = true) { heading() },
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = heading.title,
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontSize = if (compact) 18.sp else 20.sp,
+                lineHeight = if (compact) 24.sp else 26.sp,
+                fontWeight = FontWeight.Bold,
+            ),
+            maxLines = 1,
+        )
+        heading.count?.let { count ->
+            Text(
+                text = count,
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontSize = if (compact) 14.sp else 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                ),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+            )
+        }
     }
 }
 

@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.reader.epub
 
+import com.example.unifiedreader.feature.reader.core.ReaderChapterPosition
 import org.readium.r2.shared.publication.Link
 import org.readium.r2.shared.publication.Publication
 import org.readium.r2.shared.publication.services.positionsByReadingOrder
@@ -132,6 +133,27 @@ internal fun List<EpubTocEntry>.epubTocChapterPosition(
     val chapter = chapters.lastOrNull { it <= activeIndex } ?: return null
     if (activeIndex >= epubTocSubtreeEnd(chapter, size)) return null
     return EpubTocChapterPosition(index = chapters.indexOf(chapter) + 1, count = chapters.size)
+}
+
+/**
+ * The chapter at this place as the library keeps it: its number and the count, its title, and
+ * where every chapter starts (left empty unless all of them are known and rise).
+ */
+internal fun List<EpubTocEntry>.epubReaderChapterPosition(
+    currentProgress: Double,
+    currentHref: String?,
+): ReaderChapterPosition? {
+    val active = activeEpubTocEntry(currentProgress = currentProgress, currentHref = currentHref)
+    val position = epubTocChapterPosition(active) ?: return null
+    val starts = epubTocChapterIndices().map { index -> this[index].progression?.toFloat() }
+    return ReaderChapterPosition(
+        index = position.index,
+        count = position.count,
+        title = epubTocChapterEntry(active)?.title,
+        starts = starts.filterNotNull()
+            .takeIf { known -> known.size == starts.size && known.zipWithNext().all { (a, b) -> a < b } }
+            .orEmpty(),
+    )
 }
 
 /**

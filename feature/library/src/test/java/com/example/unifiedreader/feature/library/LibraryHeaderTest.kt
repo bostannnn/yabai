@@ -10,24 +10,6 @@ import org.junit.Test
 
 class LibraryHeaderTest {
     @Test
-    fun `source summary counts books, comics with series issues, and books in progress`() {
-        val items = listOf(
-            item("a", FormatType.EPUB),
-            item("b", FormatType.PDF),
-            item("c", FormatType.CBZ),
-            item("series", FormatType.CBZ, issueCount = 3),
-        )
-
-        assertEquals("2 books · 4 comics · 1 in progress", librarySourceSummary(items, inProgressCount = 1))
-    }
-
-    @Test
-    fun `source summary leaves out empty parts and says nothing for an empty source`() {
-        assertEquals("1 book", librarySourceSummary(listOf(item("a", FormatType.EPUB)), inProgressCount = 0))
-        assertNull(librarySourceSummary(emptyList(), inProgressCount = 0))
-    }
-
-    @Test
     fun `series summary counts issues read and in progress`() {
         val issues = listOf(item("1", FormatType.CBZ), item("2", FormatType.CBZ), item("3", FormatType.CBZ))
         val progress = mapOf(
@@ -59,21 +41,6 @@ class LibraryHeaderTest {
         )
         assertEquals(LibrarySeriesNext(issues[0], inProgress = false), librarySeriesNextIssue(issues, emptyMap()))
         assertNull(librarySeriesNextIssue(issues, issues.associate { it.id to finished() }))
-    }
-
-    @Test
-    fun `reading card position names the chapter, else the page, else the summary label`() {
-        assertEquals(
-            "Page 47 of 73",
-            libraryReadingCardPositionLabel(ItemProgressSummary(label = "Resume", fraction = 0.64f, currentPage = 47, pageCount = 73)),
-        )
-        assertEquals("Resume at 40%", libraryReadingCardPositionLabel(ItemProgressSummary(label = "Resume at 40%", fraction = 0.4f)))
-        assertEquals(
-            "Chapter 3 of 6",
-            libraryReadingCardPositionLabel(
-                ItemProgressSummary(label = "Resume", fraction = 0.64f, currentPage = 47, pageCount = 73, chapter = 3, chapterCount = 6),
-            ),
-        )
     }
 
     private fun finished() = ItemProgressSummary(label = "Finished", fraction = 1f, isFinished = true, lastReadAtEpochMillis = 1)

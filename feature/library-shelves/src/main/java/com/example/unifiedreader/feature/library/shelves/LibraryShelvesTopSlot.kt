@@ -3,6 +3,7 @@ package com.example.unifiedreader.feature.library.shelves
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.feature.library.ItemProgressSummary
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryGridMetrics
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
@@ -19,6 +20,8 @@ fun LibraryShelvesTopSlot(
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onItemSelected: (ReadableItem) -> Unit,
     onBrowseShelf: (LibraryShelfBrowserKind) -> Unit = {},
+    // How long the reading card's book has left at the reader's pace; null when unknown.
+    readingTimeLeftMillis: (ReadableItem, ItemProgressSummary) -> Long? = { _, _ -> null },
     modifier: Modifier = Modifier,
 ) {
     if (!shouldReserveSlot) return
@@ -42,6 +45,7 @@ fun LibraryShelvesTopSlot(
                 onCoverVisible = onCoverVisible,
                 onItemSelected = onItemSelected,
                 onBrowseShelf = onBrowseShelf,
+                readingTimeLeftMillis = readingTimeLeftMillis,
                 modifier = modifier,
             )
         }

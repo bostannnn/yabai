@@ -3,6 +3,7 @@ package com.example.unifiedreader.feature.reader.core
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SyncState
+import java.util.Locale
 import kotlinx.coroutines.flow.StateFlow
 
 data class ReaderProgressSnapshot(
@@ -23,21 +24,33 @@ data class ReaderSessionSnapshot(
     val preferences: Map<String, String> = emptyMap(),
 )
 
-/** Where the reader is among the book's chapters: chapter [index] (from 1) of [count]. */
+/**
+ * Where the reader is among the book's chapters: chapter [index] (from 1) of [count], its
+ * [title], and where each chapter starts as a share of the book ([starts], one per chapter,
+ * rising; empty when the book's positions don't say).
+ */
 data class ReaderChapterPosition(
     val index: Int,
     val count: Int,
+    val title: String? = null,
+    val starts: List<Float> = emptyList(),
 )
 
 /**
- * The session preference that keeps the [ReaderChapterPosition] the reader last saved, as
- * "index/count", so the library can name the chapter without opening the book. Empty when the
- * position is outside every chapter (a foreword) or the book has none.
+ * The session preferences that keep the [ReaderChapterPosition] the reader last saved, so the
+ * library can name the chapter without opening the book: "index/count", the title, and the
+ * starts as "0.0000,0.1250,…". Empty when the position is outside every chapter (a foreword) or
+ * the book has none.
  */
 const val ReaderSessionChapterKey = "reader.chapter"
+const val ReaderSessionChapterTitleKey = "reader.chapterTitle"
+const val ReaderSessionChapterStartsKey = "reader.chapterStarts"
 
-fun readerSessionChapterPreference(position: ReaderChapterPosition?): Pair<String, String> =
-    ReaderSessionChapterKey to (position?.let { "${it.index}/${it.count}" } ?: "")
+fun readerSessionChapterPreferences(position: ReaderChapterPosition?): Map<String, String> = mapOf(
+    ReaderSessionChapterKey to (position?.let { "${it.index}/${it.count}" } ?: ""),
+    ReaderSessionChapterTitleKey to position?.title.orEmpty(),
+    ReaderSessionChapterStartsKey to position?.starts.orEmpty().joinToString(",") { start -> "%.4f".format(Locale.US, start) },
+)
 
 val ReaderSessionSnapshot.chapterPosition: ReaderChapterPosition?
     get() {
@@ -45,7 +58,18 @@ val ReaderSessionSnapshot.chapterPosition: ReaderChapterPosition?
         if (parts.size != 2) return null
         val index = parts[0].toIntOrNull() ?: return null
         val count = parts[1].toIntOrNull() ?: return null
-        return ReaderChapterPosition(index, count).takeIf { count > 0 && index in 1..count }
+        if (count <= 0 || index !in 1..count) return null
+        val starts = preferences[ReaderSessionChapterStartsKey].orEmpty()
+            .split(',')
+            .mapNotNull(String::toFloatOrNull)
+            .takeIf { starts -> starts.size == count && starts.zipWithNext().all { (a, b) -> a < b } }
+            .orEmpty()
+        return ReaderChapterPosition(
+            index = index,
+            count = count,
+            title = preferences[ReaderSessionChapterTitleKey]?.takeIf(String::isNotBlank),
+            starts = starts,
+        )
     }
 
 data class ReaderLocator(

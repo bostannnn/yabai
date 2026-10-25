@@ -9,11 +9,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.unifiedreader.core.model.ReadableItem
-import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.ui.components.AppScreenTitle
 import com.example.unifiedreader.ui.components.AppWindowWidth
 import com.example.unifiedreader.ui.components.currentAppWindowWidth
@@ -24,16 +22,18 @@ internal const val LibraryHeaderItemKey = "header"
 @Composable
 fun isLibraryCompactWindow(): Boolean = currentAppWindowWidth() == AppWindowWidth.Compact
 
-/** The top of the library: the source (or series) name as a large title and a one-line summary. */
+/**
+ * The top of a series or a Kavita list: its name as a large title and, for a series, a one-line
+ * summary. The source's own home has none (its name is in the search field).
+ */
 data class LibraryHeader(
     val title: String,
     val summary: String? = null,
+    // A series keeps the summary's line while it is unknown; a Kavita list counts in its own top.
+    val hasSummaryLine: Boolean = true,
 )
 
-/**
- * The large title and its summary. It scrolls with the grid; once it has scrolled away the top
- * bar shows the name instead. [compact] (phones) sets the title at 32 sp instead of 40.
- */
+/** The large title and its summary; it scrolls with the grid. [compact] (phones) sets the title at 32 sp instead of 40. */
 @Composable
 internal fun LibraryHeaderBlock(
     header: LibraryHeader,
@@ -42,40 +42,18 @@ internal fun LibraryHeaderBlock(
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         AppScreenTitle(text = header.title, compact = compact)
-        // The line is kept while the summary is still unknown, so the grid does not move when it arrives.
-        Text(
-            text = header.summary ?: "\u00A0",
-            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 8.dp),
-        )
-    }
-}
-
-/**
- * "12 books · 9 comics · 7 in progress" for a source: books and comics counted from [items]
- * (a series container counts as its issues), and the number of books in progress. Parts that are
- * zero are left out; null when there is nothing to count.
- */
-fun librarySourceSummary(
-    items: List<ReadableItem>,
-    inProgressCount: Int,
-): String? {
-    var books = 0
-    var comics = 0
-    items.forEach { item ->
-        when (item.kind) {
-            ReadableItemKind.BOOK -> books += 1
-            ReadableItemKind.COMIC -> comics += item.issueCount ?: 1
+        if (header.hasSummaryLine) {
+            // The line is kept while the summary is still unknown, so the grid does not move when it arrives.
+            Text(
+                text = header.summary ?: "\u00A0",
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 8.dp),
+            )
         }
     }
-    return listOfNotNull(
-        countLabel(books, "book", "books"),
-        countLabel(comics, "comic", "comics"),
-        "$inProgressCount in progress".takeIf { inProgressCount > 0 },
-    ).joinToString(" · ").ifEmpty { null }
 }
 
 /** "3 issues · 1 read · 1 in progress" for the issues of one series. */

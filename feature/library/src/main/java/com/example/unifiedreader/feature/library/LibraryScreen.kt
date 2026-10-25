@@ -87,6 +87,10 @@ fun LibraryScreen(
     libraryTitlesById: Map<String, String> = emptyMap(),
     // How many items this view has before filters and search, for the filter sheet's "14 of 21".
     totalItemCount: Int? = null,
+    // A source's home: what its catalog holds, for the heading by the filters ("All books 1,474").
+    // Null in a series or a Kavita list. The counts stay out until [catalogCountKnown].
+    catalogKind: LibraryCatalogKind? = null,
+    catalogCountKnown: Boolean = true,
     searchQuery: String = "",
     sortMode: LibrarySortMode = defaultLibrarySortMode,
     gridCellSizeDp: Int = defaultLibraryGridCellSizeDp,
@@ -101,9 +105,10 @@ fun LibraryScreen(
     onCoverViewportScrollingChanged: (Boolean) -> Unit = {},
     // Drawn above the filter summary as a full-width grid row; receives the grid's column setup so it
     // can size its covers to match the grid's.
-    // The large title over everything else; while it shows, the top bar draws no name of its own.
+    // The large title over everything else: a series' name, or a Kavita list's.
     header: LibraryHeader? = null,
-    onHeaderOnScreenChanged: (Boolean) -> Unit = {},
+    // Whether the grid has scrolled under the top bar, which shows its glass only then.
+    onScrolledChanged: (Boolean) -> Unit = {},
     topContent: (@Composable (LibraryGridMetrics) -> Unit)? = null,
     // Extra top padding so the first row clears a floating top bar the content scrolls under.
     contentTopInset: Dp = 0.dp,
@@ -450,6 +455,18 @@ fun LibraryScreen(
         }
     }
 
+    // The paged grid's own item count is only the pages loaded so far.
+    val shownItemCount = {
+        libraryShownItemCount(
+            isPaged = isPaged,
+            visibleCount = visibleItems.size,
+            loadedCount = pagedItems?.itemCount ?: 0,
+            filterState = filterState,
+            facetCounts = filterFacets.counts,
+            totalCount = totalItemCount,
+        )
+    }
+
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val gridEndPadding = if (alphabetRailVisible) {
             libraryGridNavigationEndPaddingDp
@@ -528,8 +545,8 @@ fun LibraryScreen(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
                 start = libraryGridStartPaddingDp,
-                // Under a header the bar is see-through, so the title can sit right under its icons.
-                top = contentTopInset + if (header != null) 4.dp else 16.dp,
+                // At rest the bar is see-through, so the first row can sit right under its field.
+                top = contentTopInset + 4.dp,
                 end = gridEndPadding,
                 bottom = 16.dp,
             ),
@@ -561,6 +578,15 @@ fun LibraryScreen(
                 span = { GridItemSpan(maxLineSpan) },
             ) {
                 LibraryFilterRow(
+                    heading = catalogKind?.let { kind ->
+                        libraryGridHeading(
+                            kind = kind,
+                            searchActive = searchQuery.isNotBlank(),
+                            filtersActive = !filterState.isEmpty,
+                            shownCount = shownItemCount().takeIf { catalogCountKnown },
+                            totalCount = totalItemCount.takeIf { catalogCountKnown },
+                        )
+                    },
                     filterPanels = filterPanels,
                     filterState = filterState,
                     filterFacets = filterFacets,
@@ -638,16 +664,10 @@ fun LibraryScreen(
                 }
             }
         }
-        // The header counts as gone once half of it has scrolled under the bar. Item offsets start
-        // after the top padding, so at rest the header sits at 0.
-        val headerOnScreen by remember(gridState, header != null) {
-            derivedStateOf {
-                header != null && gridState.layoutInfo.visibleItemsInfo
-                    .firstOrNull { info -> info.key == LibraryHeaderItemKey }
-                    ?.let { info -> info.offset.y + info.size.height / 2 > 0 } == true
-            }
+        val scrolled by remember(gridState) {
+            derivedStateOf { gridState.firstVisibleItemIndex > 0 || gridState.firstVisibleItemScrollOffset > 0 }
         }
-        LaunchedEffect(headerOnScreen) { onHeaderOnScreenChanged(headerOnScreen) }
+        LaunchedEffect(scrolled) { onScrolledChanged(scrolled) }
         val showBackToTop by remember(
             gridState,
             leadingContentItemCount,
@@ -713,12 +733,7 @@ fun LibraryScreen(
             filterState = filterState,
             filterFacets = filterFacets,
             libraryTitlesById = libraryTitlesById,
-            // The paged grid's item count is only the pages loaded so far.
-            shownCount = when {
-                !isPaged -> visibleItems.size
-                filterState.isEmpty -> totalItemCount ?: pagedItems!!.itemCount
-                else -> libraryFilterMatchingCount(filterState, filterFacets.counts) ?: pagedItems!!.itemCount
-            },
+            shownCount = shownItemCount(),
             totalCount = totalItemCount,
             initialPanel = openFilterPanel,
             onFilterStateChanged = onFilterStateChanged,

@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.feature.library.ItemProgressSummary
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryGridMetrics
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
@@ -44,11 +45,16 @@ fun LibraryShelvesZone(
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onItemSelected: (ReadableItem) -> Unit,
     onBrowseShelf: (LibraryShelfBrowserKind) -> Unit = {},
+    // How long the reading card's book has left at the reader's pace; null when unknown.
+    readingTimeLeftMillis: (ReadableItem, ItemProgressSummary) -> Long? = { _, _ -> null },
     modifier: Modifier = Modifier,
 ) {
     if (!state.hasContent) return
 
     val reading = state.continueReading.firstOrNull()
+    val timeLeftMillis = remember(reading, readingTimeLeftMillis) {
+        reading?.let { shelfItem -> readingTimeLeftMillis(shelfItem.item, shelfItem.progress) }
+    }
     val tabs = remember(state) { libraryShelfTabCounts(state, readingCardItemId = reading?.item?.id) }
     var selectedTabName by rememberSaveable(browseContextKey) { mutableStateOf(LibraryShelfTab.InProgress.name) }
     val selectedTab = tabs.firstOrNull { (tab, _) -> tab.name == selectedTabName }?.first ?: tabs.firstOrNull()?.first
@@ -93,6 +99,7 @@ fun LibraryShelvesZone(
                     imageVariant = covers.imageVariant,
                     onContinue = { onItemSelected(shelfItem.item) },
                     actionContext = itemActionContext,
+                    timeLeftMillis = timeLeftMillis,
                     modifier = cardModifier,
                 )
             }

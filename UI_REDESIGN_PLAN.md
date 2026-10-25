@@ -1846,6 +1846,46 @@ Year, phone, and the screen as it was with numbered pins); the user said build i
 - [x] The library: a series' stack rises 12 dp into the 16 dp gap under the chip row, which left 4 dp; the
       row keeps that 12 dp below it (`LibrarySeriesStackRaise`).
 
+### 9.11 The library home's top `[~]` (2026-10-25)
+
+The user disliked three things on the home: the 40 sp source name ("Kavita", "Grimmory") says nothing new,
+search alone at the far right of the bar "looks off", and the reading card "looks empty and unfinished" (on
+800 dp portrait about 100 dp of nothing under the author, the right half bare). Mocked on a canvas against
+the emulator's home (https://claude.ai/artifact/RArxNhyu6wYEi7kCoSmES4: the proposal at tablet, phone and
+landscape sizes, cards A to C, other headers and searches, the bar's states); the user took the proposal.
+
+- [x] Bar (`LibraryTopBar.kt`, moved out of `UnifiedReaderTopBars.kt`, which went from 523 to 174 lines):
+      the menu button (back inside a series or a Kavita list), the search field filling the middle up to
+      640 dp, Downloads and "•••", at every width. The field names what it searches ("Search Kavita",
+      "Search Neon Ronin", a list's name) and holds the connection badge while the source is offline or
+      checking (online shows nothing; a tap on Offline retries); `AppSearchField` gained `trailingContent`.
+      There is no separate search mode any more; Back clears a query (and hides the keyboard) before it
+      leaves the screen. The glass shows once the grid has scrolled under the bar (`onScrolledChanged`
+      replaces the header-on-screen signal).
+- [x] Header: none on a source's home. A series keeps its name and summary; a Kavita list or collection now
+      gets its name as the large title (no summary line: its own top counts it), since the bar no longer
+      shows it. `librarySourceSummary` is gone.
+- [x] The grid's heading beside the filter chips (`LibraryGridHeading.kt`): "All books 1,474" ("All comics",
+      "All titles" for both), "Books 304 of 1,474" under filters, "Results 2" for a search; the count waits
+      for the catalog to load. Filters and sort sit at the end with it. The filter sheet and the heading
+      share one shown count (`libraryShownItemCount`).
+- [x] Reading card (A): the overline says when it was last read ("Continue reading · yesterday"); under the
+      author, where the reader is: "Chapter 4 of 6" over the chapter's name, the chapter alone while its
+      name is unknown or only numbers it ("Chapter 4", "Part II"), or the page for a comic or a PDF; the
+      progress line ("59% · Page 44 of 73") with "About 11 min left" when the journal knows the pace; the
+      bar broken at the chapters (or a short comic's pages, up to 30). Phones put the progress and bar
+      under the cover row. Text and model moved out of `LibraryReadingCard.kt` (384 to 309 lines) into
+      `LibraryReadingCardText.kt` and `LibraryReadingCardModel.kt`.
+- [x] Data: the EPUB reader saves the chapter's title and where every chapter starts beside `reader.chapter`
+      (`reader.chapterTitle`, `reader.chapterStarts`; session preferences, no Room change), and the progress
+      summary carries them. Time left is `JournalSnapshot.readingTimeLeftMillis` (core:model): the time of
+      the book's sessions that moved forward over the share they covered, from five minutes over 2%.
+- Checked on the private emulator (`yabai_settings_35` on 5556, the Local library copied read-only from
+  5558) at 800 dp portrait, 411 dp phone width and 1280 dp landscape: the bar at rest and scrolled, a
+  search and Back, the heading, and the card after reading an imported EPUB into chapter 4 (time left with
+  a test session added). Series and Kavita lists were not seen (no server on the emulator); their parts are
+  unit-tested. Not yet on the tablet.
+
 ## Not yet designed
 
 Section 9: each step above gets its mock when it starts. Before it, nothing was left: downloads, the

@@ -30,6 +30,9 @@ data class ItemProgressSummary(
     // The chapter a book was left in (from 1), when its reader recorded one.
     val chapter: Int? = null,
     val chapterCount: Int? = null,
+    val chapterTitle: String? = null,
+    // Where each chapter starts, as a share of the book; empty when the reader didn't say.
+    val chapterStarts: List<Float> = emptyList(),
 ) {
     /** Rounded, as the readers' own percentages are, so the card and the reader agree. */
     val percentLabel: String
