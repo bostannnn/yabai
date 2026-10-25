@@ -253,6 +253,11 @@ class RemoteDownloadQueueController(
         }
     }
 
+    /** The sources of downloads that haven't started: queued, or paused until their server answers. */
+    suspend fun waitingSourceTypes(): Set<SourceType> = store.getEntries()
+        .filter { entry -> entry.status in WaitingDownloadStatuses }
+        .mapTo(mutableSetOf(), DownloadEntry::sourceType)
+
     suspend fun ensureScheduled(
         canScheduleSource: (SourceType) -> Boolean = { true },
     ): Int {
@@ -292,6 +297,11 @@ private val SchedulableDownloadStatuses = setOf(
     DownloadEntryStatus.Queued,
     DownloadEntryStatus.PausedConnectivity,
     DownloadEntryStatus.Running,
+)
+
+private val WaitingDownloadStatuses = setOf(
+    DownloadEntryStatus.Queued,
+    DownloadEntryStatus.PausedConnectivity,
 )
 
 private val ConnectivityPausableDownloadStatuses = setOf(

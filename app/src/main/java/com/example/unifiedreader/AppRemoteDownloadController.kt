@@ -1,10 +1,12 @@
 package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.resolveRemoteDownloadActionItems
 import com.example.unifiedreader.feature.downloads.DownloadEntriesSnapshot
 import com.example.unifiedreader.feature.downloads.DownloadQueueActionResult
+import com.example.unifiedreader.feature.downloads.DownloadQueueOutcome
 import com.example.unifiedreader.feature.downloads.RemoteDownloadQueueController
 import com.example.unifiedreader.ui.components.AppToastMessage
 import javax.inject.Inject
@@ -16,7 +18,13 @@ class AppRemoteDownloadController @Inject constructor(
     private val libraryActionsCoordinator: AppLibraryActionsCoordinator,
     private val remoteDownloadQueueController: RemoteDownloadQueueController,
     private val readableItemLookup: ReadableItemLookup,
+    private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
+    private val remoteSourceConnectivityStartupCoordinator: RemoteSourceConnectivityStartupCoordinator,
 ) {
+    // Sources already checked for downloads that were waiting, so a check that leaves a source
+    // unknown (a failed sign-in) doesn't run again on every reachability change.
+    private val checkedForWaitingDownloads = mutableSetOf<SourceType>()
+
     fun observeEntries(): Flow<DownloadEntriesSnapshot> = remoteDownloadQueueController.observeEntries()
 
     fun onDownloadRemoteItem(
@@ -36,6 +44,7 @@ class AppRemoteDownloadController @Inject constructor(
                 canScheduleSource = canScheduleSource,
             )
             onResult(result)
+            if (result.outcome == DownloadQueueOutcome.Queued) checkSourceIfUnknown(item.sourceType)
         }
     }
 
@@ -59,6 +68,10 @@ class AppRemoteDownloadController @Inject constructor(
                 canScheduleSource = canScheduleSource,
             )
             onResult(result)
+            if (result.outcome == DownloadQueueOutcome.Queued) {
+                items.mapTo(mutableSetOf(), ReadableItem::sourceType)
+                    .forEach { sourceType -> checkSourceIfUnknown(sourceType) }
+            }
         }
     }
 
@@ -93,8 +106,25 @@ class AppRemoteDownloadController @Inject constructor(
     ) {
         scope.launch {
             remoteDownloadQueueController.ensureScheduled(canScheduleSource)
+            remoteDownloadQueueController.waitingSourceTypes()
+                .filter { sourceType -> isUnknown(sourceType) && checkedForWaitingDownloads.add(sourceType) }
+                .forEach { sourceType -> checkSourceIfUnknown(sourceType) }
         }
     }
+
+    /**
+     * A download starts only once its source is known to be online, and nothing checks a source
+     * at startup, so one queued before anything has reached that server this session would wait
+     * until a sync. Checking the source now starts it, or shows it waiting for the server; the
+     * reachability change reschedules the queue.
+     */
+    private suspend fun checkSourceIfUnknown(sourceType: SourceType) {
+        if (!isUnknown(sourceType)) return
+        remoteSourceConnectivityStartupCoordinator.retrySource(sourceType)
+    }
+
+    private fun isUnknown(sourceType: SourceType): Boolean =
+        remoteSourceConnectivityPolicy.reachabilityFor(sourceType) == SourceConnectivityState.Unknown
 
     fun cancelDownload(
         scope: CoroutineScope,

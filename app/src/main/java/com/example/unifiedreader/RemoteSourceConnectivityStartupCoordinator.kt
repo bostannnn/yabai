@@ -6,6 +6,7 @@ import com.example.unifiedreader.data.kavita.KAVITA_REFRESH_TOKEN_MISSING_MESSAG
 import com.example.unifiedreader.data.kavita.KavitaUnauthorizedException
 import com.example.unifiedreader.data.stump.StumpUnauthorizedException
 import javax.inject.Inject
+import javax.inject.Singleton
 import kotlin.jvm.JvmSuppressWildcards
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -40,6 +41,8 @@ sealed interface RemoteSourceConnectivityProbeResult {
     ) : RemoteSourceConnectivityProbeResult
 }
 
+// One for the app: the ViewModel and the download controller share its source errors.
+@Singleton
 class RemoteSourceConnectivityStartupCoordinator @Inject constructor(
     private val healthChecks: List<@JvmSuppressWildcards RemoteSourceHealthCheck>,
     private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
