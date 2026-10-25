@@ -1,6 +1,5 @@
 package com.example.unifiedreader
 
-import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.ui.components.AppScreenTransition
 import org.junit.Assert.assertEquals
@@ -31,28 +30,26 @@ class LibraryScreenTransitionTest {
     }
 
     @Test
-    fun `a Kavita list opens below its landing, which is below Kavita home`() {
-        val landing = kavitaRoot.copy(kavitaLibrarySection = KavitaLibrarySection.ReadingLists)
-        val list = landing.copy(
-            kavitaReadingLists = landing.kavitaReadingLists.copy(selectedReadingListId = "list-1"),
+    fun `a Kavita list opens one level below Kavita home`() {
+        val list = kavitaRoot.copy(
+            kavitaReadingLists = kavitaRoot.kavitaReadingLists.copy(selectedReadingListId = "list-1"),
         )
         val home = libraryScreenKey(kavitaRoot, shelvesOpen = false)
-        val landingKey = libraryScreenKey(landing, shelvesOpen = false)
         val listKey = libraryScreenKey(list, shelvesOpen = false)
 
-        assertEquals(listOf(0, 1, 2), listOf(home.depth, landingKey.depth, listKey.depth))
-        assertEquals(AppScreenTransition.Forward, libraryScreenTransition(landingKey, listKey))
-        assertEquals(AppScreenTransition.Backward, libraryScreenTransition(listKey, landingKey))
+        assertEquals(listOf(0, 1), listOf(home.depth, listKey.depth))
+        assertEquals(AppScreenTransition.Forward, libraryScreenTransition(home, listKey))
+        assertEquals(AppScreenTransition.Backward, libraryScreenTransition(listKey, home))
     }
 
     @Test
     fun `switching between peers fades through`() {
         val collections = libraryScreenKey(
-            kavitaRoot.copy(kavitaLibrarySection = KavitaLibrarySection.Collections),
+            kavitaRoot.copy(kavitaReadingLists = kavitaRoot.kavitaReadingLists.copy(selectedCollectionId = "kavita:collection:1")),
             shelvesOpen = false,
         )
         val readingLists = libraryScreenKey(
-            kavitaRoot.copy(kavitaLibrarySection = KavitaLibrarySection.ReadingLists),
+            kavitaRoot.copy(kavitaReadingLists = kavitaRoot.kavitaReadingLists.copy(selectedReadingListId = "list-1")),
             shelvesOpen = false,
         )
 

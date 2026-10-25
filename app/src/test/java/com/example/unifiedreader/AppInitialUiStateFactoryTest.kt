@@ -2,7 +2,6 @@ package com.example.unifiedreader
 
 import com.example.unifiedreader.core.common.AppDispatchers
 import com.example.unifiedreader.core.model.FormatType
-import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.library.LibraryDerivedStateComputer
@@ -43,7 +42,6 @@ class AppInitialUiStateFactoryTest {
                 AppActiveRouteSnapshot(
                     topLevel = TopLevelDestination.Library,
                     selectedSource = SourceType.STUMP,
-                    kavitaLibrarySection = KavitaLibrarySection.Home,
                 ),
             ),
         )
@@ -72,7 +70,6 @@ class AppInitialUiStateFactoryTest {
                 AppActiveRouteSnapshot(
                     topLevel = TopLevelDestination.Library,
                     selectedSource = SourceType.STUMP,
-                    kavitaLibrarySection = KavitaLibrarySection.Home,
                     readerItemId = staleFallbackItem.id,
                     readerFormat = FormatType.PDF,
                     readerFallbackItem = staleFallbackItem,

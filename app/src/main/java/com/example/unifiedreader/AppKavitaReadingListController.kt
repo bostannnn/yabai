@@ -1,7 +1,6 @@
 package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.CollectionSummary
-import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.ReadingListSummary
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.data.kavita.KavitaApi
@@ -79,7 +78,6 @@ class AppKavitaReadingListController @Inject constructor(
             }
             state.copy(
                 selectedKavitaSeriesKey = null,
-                kavitaLibrarySection = selectedScope?.sectionForSelection() ?: state.kavitaLibrarySection,
                 kavitaReadingLists = state.kavitaReadingLists.copy(
                     selectedReadingListId = (selectedScope as? KavitaScopeSelection.ReadingList)?.id,
                     loadingSelectedReadingListId = (selectedScope as? KavitaScopeSelection.ReadingList)
@@ -525,9 +523,4 @@ private sealed interface KavitaScopeSelection {
 private fun String.toKavitaScopeSelection(): KavitaScopeSelection = when {
     startsWith("kavita:collection:") -> KavitaScopeSelection.Collection(this)
     else -> KavitaScopeSelection.ReadingList(this)
-}
-
-private fun KavitaScopeSelection.sectionForSelection(): KavitaLibrarySection = when (this) {
-    is KavitaScopeSelection.Collection -> KavitaLibrarySection.Collections
-    is KavitaScopeSelection.ReadingList -> KavitaLibrarySection.ReadingLists
 }

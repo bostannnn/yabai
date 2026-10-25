@@ -2,7 +2,6 @@ package com.example.unifiedreader
 
 import android.util.Log
 import com.example.unifiedreader.core.model.FormatType
-import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.isKavitaSeriesContainer
@@ -57,11 +56,6 @@ class AppReaderCoordinator @Inject constructor(
             state.copy(
                 topLevel = TopLevelDestination.Library,
                 selectedSource = sourceType,
-                kavitaLibrarySection = if (sourceType == SourceType.KAVITA) {
-                    KavitaLibrarySection.Home
-                } else {
-                    state.kavitaLibrarySection
-                },
                 selectedItemId = null,
                 activeReader = null,
                 selectedReaderOpenMode = ReaderOpenMode.Default,
@@ -75,34 +69,6 @@ class AppReaderCoordinator @Inject constructor(
                     loadingSelectedCollectionId = null,
                     isLoadingSelectedItems = false,
                 ),
-            )
-        }
-    }
-
-    fun onKavitaLibrarySectionSelected(
-        section: KavitaLibrarySection,
-        updateState: AppUiStateUpdater,
-    ) {
-        readerSelectionRequestId++
-        updateState { state ->
-            state.copy(
-                topLevel = TopLevelDestination.Library,
-                selectedSource = SourceType.KAVITA,
-                kavitaLibrarySection = section,
-                selectedItemId = null,
-                activeReader = null,
-                selectedReaderOpenMode = ReaderOpenMode.Default,
-                selectedReaderItem = null,
-                selectedKavitaSeriesKey = null,
-                selectedStumpSeriesKey = null,
-                kavitaReadingLists = state.kavitaReadingLists.copy(
-                    selectedReadingListId = null,
-                    loadingSelectedReadingListId = null,
-                    selectedCollectionId = null,
-                    loadingSelectedCollectionId = null,
-                    isLoadingSelectedItems = false,
-                ),
-                readerCompletionState = null,
             )
         }
     }
@@ -399,10 +365,6 @@ class AppReaderCoordinator @Inject constructor(
                         isLoadingSelectedItems = false,
                         errorMessage = null,
                     ),
-                )
-                it.selectedSource == SourceType.KAVITA &&
-                    it.kavitaLibrarySection != KavitaLibrarySection.Home -> it.copy(
-                    kavitaLibrarySection = KavitaLibrarySection.Home,
                 )
                 it.selectedItemId != null -> it.copy(selectedItemId = null)
                 else -> it

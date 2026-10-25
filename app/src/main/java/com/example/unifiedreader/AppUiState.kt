@@ -9,7 +9,6 @@ import com.example.unifiedreader.core.model.LibraryFilterFacets
 import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
-import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.ReadingListItemRef
 import com.example.unifiedreader.core.model.ReadingListSummary
 import com.example.unifiedreader.core.model.ReadableItem
@@ -17,7 +16,6 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.belongsToKavitaSeries
 import com.example.unifiedreader.core.model.belongsToStumpSeries
-import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.core.model.kavitaSeriesContainerId
 import com.example.unifiedreader.core.model.kavitaSeriesGroupKey
 import com.example.unifiedreader.core.model.resolveLibraryFilterPanels
@@ -85,7 +83,6 @@ data class AppUiState(
     /** The servers connected when the app last knew; see [SourceNavigationState.lastConnectedSources]. */
     val lastConnectedSources: Set<SourceType>? = null,
     val selectedSource: SourceType = SourceType.KAVITA,
-    val kavitaLibrarySection: KavitaLibrarySection = KavitaLibrarySection.Home,
     val selectedItemId: String? = null,
     val activeReader: FormatType? = null,
     val selectedReaderOpenMode: ReaderOpenMode = ReaderOpenMode.Default,
@@ -204,12 +201,7 @@ data class AppUiState(
         }
 
     val selectedLibraryContextTitle: String?
-        get() = selectedSeriesTitle ?: selectedKavitaLibrarySectionTitle
-
-    val selectedKavitaLibrarySectionTitle: String?
-        get() = kavitaLibrarySection
-            .takeIf { selectedSource == SourceType.KAVITA && it != KavitaLibrarySection.Home }
-            ?.displayName()
+        get() = selectedSeriesTitle
 
     val selectedKavitaReadingListTitle: String?
         get() = kavitaReadingLists.selectedReadingListId?.let { readingListId ->
@@ -229,12 +221,6 @@ data class AppUiState(
 
     val isKavitaScopeActive: Boolean
         get() = isKavitaReadingListActive || isKavitaCollectionActive
-
-    val isKavitaVisualSectionActive: Boolean
-        get() = selectedSource == SourceType.KAVITA &&
-            kavitaLibrarySection != KavitaLibrarySection.Home &&
-            !isSeriesBrowseActive &&
-            !isKavitaScopeActive
 
     val selectedKavitaReadingListItemIds: List<String>
         get() = kavitaReadingLists.selectedReadingListId
@@ -257,8 +243,7 @@ data class AppUiState(
     val shouldReserveLibraryShelvesSlot: Boolean
         get() = selectedLibrarySearchQuery.isBlank() &&
             !isSeriesBrowseActive &&
-            !isKavitaScopeActive &&
-            !isKavitaVisualSectionActive
+            !isKavitaScopeActive
 
     val selectedSourceConnectivity: SourceConnectivityState
         get() = sourceConnectivityBySource[selectedSource] ?: SourceConnectivityState.Unknown

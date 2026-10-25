@@ -16,7 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.paging.PagingData
-import com.example.unifiedreader.core.model.KavitaLibrarySection
 import com.example.unifiedreader.core.model.LibraryAlphabetSection
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
@@ -24,8 +23,6 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
-import com.example.unifiedreader.feature.library.KavitaScopeLandingItem
-import com.example.unifiedreader.feature.library.KavitaScopeLandingScreen
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryGridMetrics
 import com.example.unifiedreader.feature.library.LibraryHeader
@@ -91,7 +88,6 @@ internal fun LibraryRoute(
     onConnectSource: (SourceType?) -> Unit,
     onRetrySourceConnection: () -> Unit,
     onReadingListSelected: (String?) -> Unit,
-    onKavitaSectionSelected: (KavitaLibrarySection) -> Unit,
     onSortModeChanged: (LibrarySortMode) -> Unit,
     onViewModeChanged: (LibraryViewMode) -> Unit,
     onGridCellSizeDpChanged: (Int) -> Unit,
@@ -198,34 +194,12 @@ internal fun LibraryRoute(
                         onItemSelected(item)
                     },
                 )
-            } else if (frame.uiState.isKavitaVisualSectionActive) {
-                KavitaScopeLandingScreen(
-                    contentTopInset = contentTopInset,
-                    section = frame.uiState.kavitaLibrarySection,
-                    items = frame.uiState.kavitaScopeLandingItems(),
-                    isLoading = !frame.uiState.isSelectedSourceHydrated || frame.uiState.kavitaReadingLists.isLoadingSummaries,
-                    errorMessage = frame.uiState.kavitaReadingLists.errorMessage,
-                    searchQuery = frame.uiState.selectedLibrarySearchQuery,
-                    gridCellSizeDp = frame.uiState.libraryGridCellSizeDp,
-                    browseContextKey = frame.browseContextKey,
-                    notConnected = !frame.uiState.hasStoredSessionFor(SourceType.KAVITA),
-                    unreachable = frame.uiState.selectedSourceConnectivity == SourceConnectivityState.Offline,
-                    onSectionSelected = onKavitaSectionSelected,
-                    onConnect = { onConnectSource(SourceType.KAVITA) },
-                    onRetry = onRetrySourceConnection,
-                    coverImageUrlProvider = coverImageUrlProvider,
-                    coverPrefetchKeyProvider = coverPrefetchKeyProvider,
-                    onCoverVisible = onCoverVisible,
-                    onCoverViewportScrollingChanged = onCoverViewportScrollingChanged,
-                    onItemSelected = onReadingListSelected,
-                )
             } else {
                 val header = remember(
                     frame.uiState.selectedSource,
                     frame.uiState.selectedLibrarySearchQuery.isBlank(),
                     frame.uiState.isSeriesBrowseActive,
                     frame.uiState.isKavitaScopeActive,
-                    frame.uiState.isKavitaVisualSectionActive,
                     frame.uiState.selectedLibraryContextTitle,
                     frame.uiState.sourceItems,
                     frame.uiState.visibleItems,
@@ -401,41 +375,9 @@ private fun AppUiState.hasStoredSessionFor(source: SourceType): Boolean = when (
     SourceType.GRIMMORY -> grimmoryConnection.hasStoredSession
 }
 
-private fun AppUiState.kavitaScopeLandingItems(): List<KavitaScopeLandingItem> = when (kavitaLibrarySection) {
-    KavitaLibrarySection.Collections -> kavitaReadingLists.collections.map { collection ->
-        KavitaScopeLandingItem(
-            id = collection.id,
-            title = collection.title,
-            itemCount = collection.itemCount,
-            summary = collection.summary,
-            coverUrl = collection.coverUrl,
-            sourceType = collection.sourceType,
-            remoteId = collection.remoteId,
-            coverCacheScope = "collection",
-        )
-    }
-
-    KavitaLibrarySection.ReadingLists -> kavitaReadingLists.summaries.map { summary ->
-        KavitaScopeLandingItem(
-            id = summary.id,
-            title = summary.title,
-            itemCount = summary.itemCount,
-            summary = summary.summary,
-            coverUrl = summary.coverUrl,
-            sourceType = summary.sourceType,
-            remoteId = summary.remoteId,
-            coverCacheScope = "reading-list",
-        )
-    }
-
-    KavitaLibrarySection.Home -> emptyList()
-}
-
 /** Which library screen is up. Each level of depth is one thing opened from the level above. */
 internal data class LibraryScreenKey(
     val source: SourceType,
-    /** The Kavita Collections or Reading lists landing, and everything opened from it. */
-    val kavitaSection: KavitaLibrarySection?,
     /** An open Kavita reading list or collection. */
     val scopeId: String?,
     val seriesKey: String?,
@@ -443,7 +385,7 @@ internal data class LibraryScreenKey(
     val shelves: Boolean,
 ) {
     val depth: Int
-        get() = listOfNotNull(kavitaSection, scopeId, seriesKey).size + if (shelves) 1 else 0
+        get() = listOfNotNull(scopeId, seriesKey).size + if (shelves) 1 else 0
 }
 
 internal fun libraryScreenKey(
@@ -454,7 +396,6 @@ internal fun libraryScreenKey(
     val kavita = source == SourceType.KAVITA
     return LibraryScreenKey(
         source = source,
-        kavitaSection = uiState.kavitaLibrarySection.takeIf { kavita && it != KavitaLibrarySection.Home },
         scopeId = if (kavita) {
             uiState.kavitaReadingLists.selectedReadingListId ?: uiState.kavitaReadingLists.selectedCollectionId
         } else {
@@ -514,4 +455,4 @@ private fun AppUiState.libraryHeader(): LibraryHeader? = when {
 
 /** Whether the library screen opens with a large title (see [libraryHeader]). */
 internal val AppUiState.showsLibraryHeader: Boolean
-    get() = selectedLibrarySearchQuery.isBlank() && !isKavitaScopeActive && !isKavitaVisualSectionActive
+    get() = selectedLibrarySearchQuery.isBlank() && !isKavitaScopeActive

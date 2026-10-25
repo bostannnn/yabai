@@ -290,11 +290,7 @@ fun UnifiedReaderScaffold(
         showAddSource = canAddNavigationSource(connectedServers),
         settingsBadge = waitingUpdateVersion,
         selectedDestination = when (uiState.topLevel) {
-            TopLevelDestination.Library -> if (uiState.selectedSource == SourceType.KAVITA) {
-                SourceNavigationDestination.KavitaSection(uiState.kavitaLibrarySection)
-            } else {
-                SourceNavigationDestination.Source(uiState.selectedSource)
-            }
+            TopLevelDestination.Library -> SourceNavigationDestination.Source(uiState.selectedSource)
             TopLevelDestination.Journal -> SourceNavigationDestination.Journal
             TopLevelDestination.Settings -> SourceNavigationDestination.Settings
         },
@@ -304,7 +300,6 @@ fun UnifiedReaderScaffold(
             }
             when (destination) {
                 is SourceNavigationDestination.Source -> viewModel.openLibrarySource(destination.sourceType)
-                is SourceNavigationDestination.KavitaSection -> viewModel.openKavitaLibrarySection(destination.section)
                 SourceNavigationDestination.AddSource -> onStartSource(SourceStartRequest(SourceStartMode.AddSource))
                 SourceNavigationDestination.Journal -> viewModel.onTopLevelSelected(TopLevelDestination.Journal)
                 SourceNavigationDestination.Settings -> {
@@ -400,7 +395,6 @@ fun UnifiedReaderScaffold(
                                 onConnectSource = { server -> onStartSource(SourceStartRequest(SourceStartMode.AddSource, server)) },
                                 onRetrySourceConnection = viewModel::retrySelectedSourceConnection,
                                 onReadingListSelected = viewModel::onKavitaReadingListSelected,
-                                onKavitaSectionSelected = viewModel::openKavitaLibrarySection,
                                 onSortModeChanged = viewModel::onLibrarySortModeChanged,
                                 onViewModeChanged = onLibraryViewModeChanged,
                                 onGridCellSizeDpChanged = viewModel::onLibraryGridCellSizeChanged,
