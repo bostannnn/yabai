@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -32,16 +31,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.reader.core.ReaderChromeDefaults
 import com.example.unifiedreader.feature.reader.core.ReaderPanel
+import com.example.unifiedreader.feature.reader.core.ReaderPanelFooter
 import com.example.unifiedreader.feature.reader.core.ReaderPanelSlot
 import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
-import com.example.unifiedreader.ui.components.AppDivider
 import com.example.unifiedreader.ui.components.AppFloatingPanelPlacement
 import com.example.unifiedreader.ui.components.AppPanelHeader
 import kotlinx.coroutines.Dispatchers
@@ -109,29 +107,10 @@ internal fun ComicPagesPanel(
                 )
             }
         }
-        AppDivider()
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = comicPagesPositionLabel(currentPageIndexes, pages.size),
-                style = MaterialTheme.typography.labelLarge,
-                color = tokens.colors.secondaryText,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            Text(
-                text = comicPercentLabel(progress),
-                style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"),
-                fontWeight = FontWeight.SemiBold,
-                color = tokens.colors.primaryText,
-                maxLines = 1,
-            )
-        }
+        ReaderPanelFooter(
+            position = comicPagesPositionLabel(currentPageIndexes, pages.size),
+            percent = comicPercentLabel(progress),
+        )
     }
 }
 

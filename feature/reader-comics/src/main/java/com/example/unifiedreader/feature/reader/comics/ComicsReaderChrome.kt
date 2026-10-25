@@ -143,7 +143,6 @@ internal fun ComicsReaderChrome(
         ComicsReaderPreferencesSheet(
             isOpen = openPanel == ComicsReaderPanel.Settings,
             slot = slot,
-            title = titles.title,
             readerMode = readerMode,
             readingDirection = readingDirection,
             pageFitMode = pageFitMode,

@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -45,10 +44,11 @@ import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.feature.navigation.navigationIcon
 import com.example.unifiedreader.ui.components.AppButton
 import com.example.unifiedreader.ui.components.AppDivider
+import com.example.unifiedreader.ui.components.AppDividerDefaults
 import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
-import com.example.unifiedreader.ui.components.AppLinearProgress
 import com.example.unifiedreader.ui.components.AppPanel
+import com.example.unifiedreader.ui.components.AppProgressBar
 import com.example.unifiedreader.ui.components.AppScreenBack
 import com.example.unifiedreader.ui.components.AppScreenBackHandler
 import com.example.unifiedreader.ui.components.AppScreenHost
@@ -58,7 +58,6 @@ import com.example.unifiedreader.ui.components.AppTextButton
 import com.example.unifiedreader.ui.components.AppTonalButton
 import com.example.unifiedreader.ui.components.AppWindowWidth
 import com.example.unifiedreader.ui.components.currentAppWindowWidth
-import com.example.unifiedreader.ui.components.appProgressFill
 
 /** The first launch (Not now under the choices) or "Add a server" (a back arrow instead). */
 enum class SourceStartMode {
@@ -143,9 +142,9 @@ private fun SourceStartChoices(
         AppScreenTitle(text = "Where are your books?")
         SourceStartLead(text = "yabai reads EPUB, PDF and comics (CBZ and CBR) from your own server or from this device.")
         Spacer(modifier = Modifier.height(30.dp))
-        AppPanel(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
+        AppPanel(modifier = Modifier.fillMaxWidth()) {
             servers.forEachIndexed { index, entry ->
-                if (index > 0) AppDivider(modifier = Modifier.padding(start = 76.dp))
+                if (index > 0) AppDivider(modifier = Modifier.padding(start = 76.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AppDividerDefaults.alpha))
                 SourceStartChoice(
                     icon = entry.sourceType.navigationIcon(),
                     title = entry.sourceType.displayName(),
@@ -153,7 +152,7 @@ private fun SourceStartChoices(
                     onClick = { onServerSelected(entry.sourceType) },
                 )
             }
-            if (servers.isNotEmpty()) AppDivider(modifier = Modifier.padding(start = 76.dp))
+            if (servers.isNotEmpty()) AppDivider(modifier = Modifier.padding(start = 76.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AppDividerDefaults.alpha))
             SourceStartChoice(
                 icon = SourceType.LOCAL.navigationIcon(),
                 title = "Files on this device",
@@ -216,7 +215,7 @@ private fun SourceStartChoice(
             )
         }
         Icon(
-            imageVector = AppIcons.KeyboardArrowRight,
+            imageVector = AppIcons.NavigateNext,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -252,7 +251,7 @@ private fun SourceConnectPage(
             AppScreenTitle(text = "Connect $name")
             SourceStartLead(text = "Use the address you open $name at in a browser, and your $name account.")
             Spacer(modifier = Modifier.height(24.dp))
-            AppPanel(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
+            AppPanel(modifier = Modifier.fillMaxWidth()) {
                 ServerConnectionForm(
                     state = connection.toFormState(),
                     onDisplayNameChanged = entry.actions.onDisplayNameChanged,
@@ -280,28 +279,17 @@ private fun SourceConnectPage(
         Spacer(modifier = Modifier.height(12.dp))
         ServerStatus(entry = entry)
         Spacer(modifier = Modifier.height(28.dp))
-        AppPanel(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
+        AppPanel(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(20.dp)) {
                 val sync = firstSyncState(connection, entry.lastSyncedAtEpochMillis)
                 Text(text = sync.title, style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp), fontWeight = FontWeight.SemiBold)
                 if (sync.running) {
-                    val fraction = connection.syncProgressFraction
-                    val barModifier = Modifier
-                        .padding(top = 14.dp)
-                        .fillMaxWidth()
-                        .height(6.dp)
-                        .clip(CircleShape)
-                    if (fraction != null) {
-                        Box(
-                            modifier = barModifier.appProgressFill(
-                                fraction = fraction,
-                                progressColor = MaterialTheme.colorScheme.primary,
-                                trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                            ),
-                        )
-                    } else {
-                        AppLinearProgress(modifier = barModifier, trackColor = MaterialTheme.colorScheme.surfaceContainerHighest)
-                    }
+                    AppProgressBar(
+                        fraction = connection.syncProgressFraction,
+                        modifier = Modifier
+                            .padding(top = 14.dp)
+                            .fillMaxWidth(),
+                    )
                 }
                 sync.detail?.let { detail ->
                     Text(

@@ -36,8 +36,10 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.ui.components.AppButton
 import com.example.unifiedreader.ui.components.AppButtonDefaults
 import com.example.unifiedreader.ui.components.AppIcons
+import com.example.unifiedreader.ui.components.AppLayout
 import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.theme.AppCoverColors
+import com.example.unifiedreader.ui.theme.UnifiedReaderDefaultPresentationTokens
 import java.time.ZoneId
 
 /**
@@ -143,8 +145,8 @@ fun LibraryReadingCard(
         contentColor = colors.content,
     ) {
         if (compact) {
-            Column(modifier = Modifier.padding(18.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+            Column(modifier = Modifier.padding(LibraryReadingCardDefaults.padding)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(LibraryReadingCardDefaults.padding)) {
                     cover(LibraryReadingCardDefaults.compactCoverWidth)
                     Box(
                         modifier = Modifier
@@ -234,8 +236,8 @@ internal class LibraryReadingCardColors(
 )
 
 object LibraryReadingCardDefaults {
-    val cornerRadius: Dp = 24.dp
-    val padding: Dp = 22.dp
+    val cornerRadius: Dp = UnifiedReaderDefaultPresentationTokens.cardCornerRadius
+    val padding: Dp = AppLayout.inset
     val compactCoverWidth: Dp = 96.dp
     val buttonHeight: Dp = 44.dp
     val buttonPadding: PaddingValues = PaddingValues(horizontal = 20.dp)

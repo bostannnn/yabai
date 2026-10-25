@@ -30,7 +30,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -44,9 +43,11 @@ import com.example.unifiedreader.ui.components.AppButton
 import com.example.unifiedreader.ui.components.AppEmptyState
 import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
+import com.example.unifiedreader.ui.components.AppLayout
 import com.example.unifiedreader.ui.components.AppSegment
 import com.example.unifiedreader.ui.components.AppSegmentedRow
 import com.example.unifiedreader.ui.components.AppWindowWidth
+import com.example.unifiedreader.ui.components.appGutter
 import com.example.unifiedreader.ui.components.currentAppWindowWidth
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -54,7 +55,7 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * The journal: "Journal" over the period, its arrows and Month / Year, then the period in panels.
+ * The journal: the period between its arrows and Month / Year, then the period in panels.
  * Month: the summary, what you read, ratings, reading days, pages per day, when you read. Year:
  * the summary, reading days, time and pages by month, ratings. Then both: finished, needs rating
  * and most read. Two columns where the window is wide, one on phones; a panel with nothing in it
@@ -70,8 +71,8 @@ fun JournalStatsContent(
     onSaveJournalEntry: (JournalItemRef, Int?, String) -> Unit,
     onOpenInLibrary: ((ReadableItem) -> Unit)? = null,
     contentTopInset: Dp = 0.dp,
-    // Whether "Journal" at the top still shows, and whether anything has scrolled under the bar.
-    onTopBarStateChanged: (titleOnScreen: Boolean, scrolled: Boolean) -> Unit = { _, _ -> },
+    // Whether anything has scrolled under the bar (it then needs its glass).
+    onScrolledChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val now = rememberJournalNowEpochMillis()
@@ -110,24 +111,25 @@ fun JournalStatsContent(
     val openDay = { day: JournalActivityDay -> sheetPages = listOf(JournalSheetPage.Day(day)) }
 
     val listState = rememberLazyListState()
-    val titleThreshold = with(LocalDensity.current) { JournalTitleScrollThreshold.roundToPx() }
-    val titleOnScreen by remember {
-        derivedStateOf { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < titleThreshold }
-    }
     val scrolled by remember { derivedStateOf { listState.canScrollBackward } }
-    val latestOnTopBarStateChanged by rememberUpdatedState(onTopBarStateChanged)
-    LaunchedEffect(titleOnScreen, scrolled) { latestOnTopBarStateChanged(titleOnScreen, scrolled) }
+    val latestOnScrolledChanged by rememberUpdatedState(onScrolledChanged)
+    LaunchedEffect(scrolled) { latestOnScrolledChanged(scrolled) }
 
     val compact = currentAppWindowWidth() == AppWindowWidth.Compact
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        val sidePadding = if (compact) 16.dp else 32.dp
+        val sidePadding = appGutter()
         val wide = (maxWidth - sidePadding * 2).coerceAtMost(JournalMaxWidth) >= JournalTwoColumnMinWidth
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(start = sidePadding, top = 12.dp + contentTopInset, end = sidePadding, bottom = 40.dp),
+            contentPadding = PaddingValues(
+                start = sidePadding,
+                top = contentTopInset + AppLayout.contentTop,
+                end = sidePadding,
+                bottom = AppLayout.contentBottom,
+            ),
         ) {
             section("header") {
                 JournalHeader(
@@ -272,8 +274,8 @@ private fun LazyListScope.columns(
 }
 
 /**
- * "Journal" over the period's name between its arrows, Month / Year at the end; on phones the
- * arrows follow the name and Month / Year takes its own line.
+ * The period's name between its arrows, Month / Year at the end; on phones the arrows follow the
+ * name and Month / Year takes its own line. No "Journal" above it: the rail or the drawer says it.
  */
 @Composable
 private fun JournalHeader(
@@ -320,43 +322,29 @@ private fun JournalHeader(
             maxLines = 1,
         )
     }
-    val eyebrow = @Composable {
-        Text(
-            text = "Journal",
-            style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp),
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
     if (compact) {
-        Column(modifier = Modifier.padding(horizontal = 2.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Column {
-                eyebrow()
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    periodTitle(Modifier.weight(1f))
-                    Row(modifier = Modifier.offset(x = 8.dp)) {
-                        previous()
-                        next()
-                    }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                periodTitle(Modifier.weight(1f))
+                Row(modifier = Modifier.offset(x = 8.dp)) {
+                    previous()
+                    next()
                 }
             }
             segmented(Modifier.fillMaxWidth())
         }
     } else {
-        Row(
-            modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 4.dp),
-            verticalAlignment = Alignment.Bottom,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                eyebrow()
-                // The arrow before the name sits out in the margin, so the name lines up with the panels.
-                Row(modifier = Modifier.offset(x = (-12).dp), verticalAlignment = Alignment.CenterVertically) {
-                    previous()
-                    periodTitle(Modifier)
-                    next()
-                }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // The arrow before the name sits out in the margin, so its glyph lines up with the panels.
+            Row(
+                modifier = Modifier.weight(1f).offset(x = (-12).dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                previous()
+                periodTitle(Modifier)
+                next()
             }
-            segmented(Modifier.width(240.dp).padding(bottom = 2.dp))
+            segmented(Modifier.width(240.dp))
         }
     }
 }
@@ -416,4 +404,3 @@ private enum class JournalStatsScope(
 
 private val JournalMaxWidth = 1140.dp
 private val JournalTwoColumnMinWidth = 880.dp
-private val JournalTitleScrollThreshold = 48.dp

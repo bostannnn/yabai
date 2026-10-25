@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import com.example.unifiedreader.ui.components.AppLayout
 import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.components.AppWindowWidth
 import com.example.unifiedreader.ui.components.currentAppWindowWidth
@@ -56,9 +57,8 @@ internal fun JournalPanel(
     }
 }
 
-/** The journal panels' side padding: 24 dp, 16 on phones. */
-internal val JournalPanelPadding: Dp
-    @Composable get() = if (currentAppWindowWidth() == AppWindowWidth.Compact) 16.dp else 24.dp
+/** The journal panels' side padding: the kit's panel inset at every width. */
+internal val JournalPanelPadding: Dp = AppLayout.inset
 
 private val JournalPanelVerticalPadding = 20.dp
 

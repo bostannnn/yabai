@@ -3,12 +3,9 @@ package com.example.unifiedreader.feature.reader.epub
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -35,13 +32,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.unifiedreader.feature.reader.core.ReaderChromeDefaults
 import com.example.unifiedreader.feature.reader.core.ReaderPanel
+import com.example.unifiedreader.feature.reader.core.ReaderPanelFooter
 import com.example.unifiedreader.feature.reader.core.ReaderPanelSlot
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
-import com.example.unifiedreader.ui.components.AppDivider
 import com.example.unifiedreader.ui.components.AppFloatingPanelPlacement
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppPanelHeader
-import com.example.unifiedreader.ui.components.appProgressFill
+import com.example.unifiedreader.ui.components.AppProgressBar
 import kotlin.math.roundToInt
 
 /**
@@ -124,40 +121,15 @@ internal fun EpubTableOfContentsSheet(
                 }
             }
         }
-        AppDivider()
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ReaderPanelFooter(
+            position = chapterPosition?.let { "Chapter ${it.index} of ${it.count}" }.orEmpty(),
+            percent = buildEpubPercentLabel(currentProgress),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = chapterPosition?.let { "Chapter ${it.index} of ${it.count}" }.orEmpty(),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = tokens.colors.secondaryText,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    text = buildEpubPercentLabel(currentProgress),
-                    style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"),
-                    fontWeight = FontWeight.SemiBold,
-                    color = tokens.colors.primaryText,
-                    maxLines = 1,
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(CircleShape)
-                    .appProgressFill(
-                        fraction = currentProgress.toFloat().coerceIn(0f, 1f),
-                        progressColor = tokens.colors.accent,
-                        trackColor = tokens.colors.track,
-                    ),
+            AppProgressBar(
+                fraction = currentProgress.toFloat().coerceIn(0f, 1f),
+                modifier = Modifier.fillMaxWidth(),
+                progressColor = tokens.colors.accent,
+                trackColor = tokens.colors.track,
             )
         }
     }
@@ -186,7 +158,7 @@ private fun EpubTableOfContentsRow(
             .clip(CircleShape)
             .background(if (selected) tokens.colors.selectedContainer else Color.Transparent)
             .clickable(onClick = onClick)
-            .padding(start = 14.dp + tocRowIndent(entry.depth), end = 14.dp, top = 6.dp, bottom = 6.dp),
+            .padding(start = 10.dp + tocRowIndent(entry.depth), end = 10.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {

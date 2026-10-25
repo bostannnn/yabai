@@ -2,6 +2,9 @@ package com.example.unifiedreader.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.withInfiniteAnimationFrameMillis
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -13,6 +16,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.MotionDurationScale
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -53,6 +57,33 @@ fun AppLinearProgress(
         color = color,
         trackColor = trackColor,
     )
+}
+
+/**
+ * A thin pill bar: [fraction] of the way in [progressColor] on [trackColor], or, while there is no
+ * [fraction], Material's moving bar on the same track. The update download, a first sync,
+ * downloads and the EPUB contents' footer all use it.
+ */
+@Composable
+fun AppProgressBar(
+    fraction: Float?,
+    modifier: Modifier = Modifier,
+    height: Dp = AppProgressBarDefaults.height,
+    progressColor: Color = MaterialTheme.colorScheme.primary,
+    trackColor: Color = MaterialTheme.colorScheme.surfaceContainerHighest,
+) {
+    val barModifier = modifier
+        .height(height)
+        .clip(CircleShape)
+    if (fraction != null) {
+        Box(modifier = barModifier.appProgressFill(fraction = fraction, progressColor = progressColor, trackColor = trackColor))
+    } else {
+        AppLinearProgress(modifier = barModifier, color = progressColor, trackColor = trackColor)
+    }
+}
+
+object AppProgressBarDefaults {
+    val height: Dp = 6.dp
 }
 
 /** Indeterminate circular progress. */

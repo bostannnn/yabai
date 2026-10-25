@@ -9,11 +9,11 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridItemScope
 import androidx.compose.foundation.lazy.grid.LazyGridLayoutInfo
 import androidx.compose.foundation.lazy.grid.LazyGridPrefetchScope
 import androidx.compose.foundation.lazy.grid.LazyGridPrefetchStrategy
 import androidx.compose.foundation.lazy.grid.LazyGridState
-import androidx.compose.foundation.lazy.grid.LazyGridItemScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.layout.NestedPrefetchScope
@@ -51,6 +51,8 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.library.menu.LibraryItemMenuButtonStyle
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
+import com.example.unifiedreader.ui.components.AppLayout
+import com.example.unifiedreader.ui.components.appGutter
 import com.example.unifiedreader.ui.theme.AppMotion
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -467,15 +469,17 @@ fun LibraryScreen(
         )
     }
 
+    val gutter = appGutter()
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val gridEndPadding = if (alphabetRailVisible) {
             libraryGridNavigationEndPaddingDp
         } else {
-            libraryGridEndPaddingDp
+            gutter
         }
-        val gridPresentation = remember(maxWidth, gridEndPadding, gridCellSizeDp) {
+        val gridPresentation = remember(maxWidth, gutter, gridEndPadding, gridCellSizeDp) {
             libraryGridPresentation(
                 maxWidth = maxWidth,
+                startPadding = gutter,
                 endPadding = gridEndPadding,
                 requestedGridCellSizeDp = gridCellSizeDp,
             )
@@ -544,13 +548,12 @@ fun LibraryScreen(
             state = gridState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
-                start = libraryGridStartPaddingDp,
-                // At rest the bar is see-through, so the first row can sit right under its field.
-                top = contentTopInset + 4.dp,
+                start = gutter,
+                top = contentTopInset + AppLayout.contentTop,
                 end = gridEndPadding,
-                bottom = 16.dp,
+                bottom = AppLayout.contentBottom,
             ),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(AppLayout.gridGap),
             horizontalArrangement = Arrangement.spacedBy(libraryGridHorizontalSpacingDp),
         ) {
             if (header != null) {
@@ -697,7 +700,7 @@ fun LibraryScreen(
                 },
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
-                    .padding(end = 8.dp, top = contentTopInset + 8.dp, bottom = 8.dp),
+                    .padding(end = 8.dp, top = contentTopInset + AppLayout.contentTop, bottom = 8.dp),
             )
         }
         AnimatedVisibility(
@@ -708,7 +711,7 @@ fun LibraryScreen(
                     end = if (alphabetRailVisible) {
                         libraryGridNavigationEndPaddingDp + 12.dp
                     } else {
-                        libraryGridEndPaddingDp
+                        gutter
                     },
                     bottom = 24.dp,
                 ),

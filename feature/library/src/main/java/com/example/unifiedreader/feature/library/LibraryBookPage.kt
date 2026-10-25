@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -56,10 +57,12 @@ import com.example.unifiedreader.ui.components.AppButton
 import com.example.unifiedreader.ui.components.AppButtonDefaults
 import com.example.unifiedreader.ui.components.AppChip
 import com.example.unifiedreader.ui.components.AppChoiceRow
-import com.example.unifiedreader.ui.components.AppDivider
-import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
+import com.example.unifiedreader.ui.components.AppLayout
+import com.example.unifiedreader.ui.components.AppPanelHeader
 import com.example.unifiedreader.ui.components.AppScreenBackHandler
+import com.example.unifiedreader.ui.components.AppSheetDivider
+import com.example.unifiedreader.ui.components.AppSheetLabel
 import com.example.unifiedreader.ui.components.AppSideSheet
 import com.example.unifiedreader.ui.components.AppTextButton
 import com.example.unifiedreader.ui.components.AppTonalButton
@@ -121,7 +124,7 @@ fun LibraryBookPage(
     var confirmRemove by remember(item.id) { mutableStateOf(false) }
     // A cover in the rows swaps the page's book; the new one starts at its top.
     val listState = remember(item.id) { LazyListState() }
-    AppSideSheet(onDismissRequest = onDismiss, width = LibraryBookPageWidth) {
+    AppSideSheet(onDismissRequest = onDismiss) {
         // Back steps to the previous book before it closes the sheet. Not the screen host's
         // gesture: the library under the sheet stays put.
         CompositionLocalProvider(LocalAppScreenBackGesture provides null) {
@@ -154,7 +157,7 @@ fun LibraryBookPage(
                 item(key = "reading") {
                     // AppChoiceRow pads itself 20 dp, in line with the heading and About.
                     Column(modifier = Modifier.padding(top = 8.dp)) {
-                        LibraryBookPageHeading(text = "Reading")
+                        AppSheetLabel(text = "Reading")
                         direction?.let { selected ->
                             AppChoiceRow(
                                 label = "Direction",
@@ -220,7 +223,7 @@ fun LibraryBookPage(
             if (removals.isNotEmpty()) {
                 item(key = "remove") {
                     Column(modifier = Modifier.padding(top = 12.dp)) {
-                        LibraryBookPageHairline()
+                        AppSheetDivider()
                         removals.forEach { action ->
                             LibraryBookPageRemoveRow(
                                 action = action,
@@ -267,124 +270,122 @@ private fun LibraryBookPageTop(
             .fillMaxWidth()
             .coverTint(tint),
     ) {
-        Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 20.dp)) {
-            Row(verticalAlignment = Alignment.Bottom) {
-                val coverShape = RoundedCornerShape(UnifiedReaderThemeTokens.presentation.coverCornerRadius)
-                LibraryCover(
-                    item = item,
-                    coverUrl = coverImageUrlProvider(item, LibraryCoverImageVariant.GridLarge),
-                    imageVariant = LibraryCoverImageVariant.GridLarge,
-                    modifier = Modifier
-                        .width(LibraryBookPageCoverWidth)
-                        .aspectRatio(LibraryCoverAspectRatio)
-                        .shadow(elevation = 10.dp, shape = coverShape, clip = false),
-                )
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 16.dp, end = 24.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Text(
-                        text = text.title,
-                        style = MaterialTheme.typography.headlineSmall.copy(
-                            fontSize = 26.sp,
-                            lineHeight = 30.sp,
-                            fontWeight = FontWeight.Bold,
-                        ),
-                        color = tint.content,
-                        maxLines = 4,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    text.seriesLine?.let { line ->
-                        Text(
-                            text = line,
-                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
-                            color = secondaryText,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    text.creators?.let { creators ->
-                        Text(
-                            text = creators,
-                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.5.sp),
-                            color = secondaryText,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(18.dp))
-            AppButton(
-                onClick = onOpen,
-                colors = AppButtonDefaults.filledColors(containerColor = tint.accent, contentColor = tint.onAccent),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(46.dp),
-            ) {
-                Icon(imageVector = AppIcons.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp))
-                Text(
-                    text = text.primaryAction,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(start = 8.dp),
+        Column(modifier = Modifier.padding(bottom = AppLayout.inset)) {
+            // Back and Close where every sheet has them; the book's title is the content under them.
+            CompositionLocalProvider(LocalContentColor provides tint.content) {
+                AppPanelHeader(
+                    title = null,
+                    onBack = onBack,
+                    onClose = onClose,
+                    backContentDescription = "Previous book",
+                    closeContentDescription = "Close book page",
                 )
             }
-            val actions = bookPageActions(item, progress, actionContext)
-            if (actions.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    actions.forEach { action -> LibraryBookPageTonalAction(action, tint) }
-                }
-            }
-            if (progress != null && text.progressLine != null) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = text.progressLine,
-                        style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.5.sp, fontWeight = FontWeight.Medium),
-                        color = secondaryText,
-                        modifier = Modifier.weight(1f),
+            Column(modifier = Modifier.padding(horizontal = AppLayout.inset)) {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    val coverShape = RoundedCornerShape(UnifiedReaderThemeTokens.presentation.coverCornerRadius)
+                    LibraryCover(
+                        item = item,
+                        coverUrl = coverImageUrlProvider(item, LibraryCoverImageVariant.GridLarge),
+                        imageVariant = LibraryCoverImageVariant.GridLarge,
+                        modifier = Modifier
+                            .width(LibraryBookPageCoverWidth)
+                            .aspectRatio(LibraryCoverAspectRatio)
+                            .shadow(elevation = 10.dp, shape = coverShape, clip = false),
                     )
-                    text.progressPages?.let { pages ->
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(start = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
                         Text(
-                            text = pages,
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.Medium,
-                                fontFeatureSettings = "tnum",
+                            text = text.title,
+                            style = MaterialTheme.typography.headlineSmall.copy(
+                                fontSize = 26.sp,
+                                lineHeight = 30.sp,
+                                fontWeight = FontWeight.Bold,
                             ),
-                            color = secondaryText,
+                            color = tint.content,
+                            maxLines = 4,
+                            overflow = TextOverflow.Ellipsis,
                         )
+                        text.seriesLine?.let { line ->
+                            Text(
+                                text = line,
+                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
+                                color = secondaryText,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        text.creators?.let { creators ->
+                            Text(
+                                text = creators,
+                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.5.sp),
+                                color = secondaryText,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                Box(
+                Spacer(modifier = Modifier.height(18.dp))
+                AppButton(
+                    onClick = onOpen,
+                    colors = AppButtonDefaults.filledColors(containerColor = tint.accent, contentColor = tint.onAccent),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(6.dp)
-                        .clip(CircleShape)
-                        .appProgressFill(
-                            fraction = progress.fraction,
-                            progressColor = tint.accent,
-                            trackColor = tint.track,
-                        ),
-                )
-            }
-        }
-        Row(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(8.dp),
-        ) {
-            onBack?.let { back ->
-                AppIconButton(onClick = back) {
-                    Icon(imageVector = AppIcons.ArrowBack, contentDescription = "Previous book", tint = tint.content)
+                        .height(46.dp),
+                ) {
+                    Icon(imageVector = AppIcons.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text(
+                        text = text.primaryAction,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
                 }
-            }
-            AppIconButton(onClick = onClose) {
-                Icon(imageVector = AppIcons.Close, contentDescription = "Close book page", tint = tint.content)
+                val actions = bookPageActions(item, progress, actionContext)
+                if (actions.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        actions.forEach { action -> LibraryBookPageTonalAction(action, tint) }
+                    }
+                }
+                if (progress != null && text.progressLine != null) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = text.progressLine,
+                            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.5.sp, fontWeight = FontWeight.Medium),
+                            color = secondaryText,
+                            modifier = Modifier.weight(1f),
+                        )
+                        text.progressPages?.let { pages ->
+                            Text(
+                                text = pages,
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    fontFeatureSettings = "tnum",
+                                ),
+                                color = secondaryText,
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(CircleShape)
+                            .appProgressFill(
+                                fraction = progress.fraction,
+                                progressColor = tint.accent,
+                                trackColor = tint.track,
+                            ),
+                    )
+                }
             }
         }
     }
@@ -486,13 +487,13 @@ private fun LibraryBookPageAbout(
     onFilterByTag: ((String) -> Unit)?,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        LibraryBookPageHairline()
-        LibraryBookPageHeading(text = "About")
+        AppSheetDivider()
+        AppSheetLabel(text = "About")
         if (descriptionLoading) {
             LibraryBookDescriptionPlaceholder()
         } else {
             text.description?.let { description ->
-                LibraryExpandableText(text = description, horizontalPadding = 20.dp)
+                LibraryExpandableText(text = description, horizontalPadding = AppLayout.inset)
             }
         }
         val allChips = (text.genres.map { genre -> genre to onFilterByGenre } + text.tags.map { tag -> tag to onFilterByTag })
@@ -505,7 +506,7 @@ private fun LibraryBookPageAbout(
             FlowRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 8.dp),
+                    .padding(start = AppLayout.inset, end = AppLayout.inset, top = 4.dp, bottom = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -529,7 +530,7 @@ private fun LibraryBookPageAbout(
             }
         }
         Column(
-            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 8.dp),
+            modifier = Modifier.padding(start = AppLayout.inset, end = AppLayout.inset, top = 8.dp, bottom = 8.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             text.facts.forEach { (label, value) ->
@@ -561,14 +562,14 @@ private fun LibraryBookPageRow(
     onSeeAll: (() -> Unit)? = null,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        LibraryBookPageHairline()
+        AppSheetDivider()
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(end = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            LibraryBookPageHeading(text = title, modifier = Modifier.weight(1f))
+            AppSheetLabel(text = title, modifier = Modifier.weight(1f))
             onSeeAll?.let { seeAll ->
                 AppTextButton(onClick = seeAll, modifier = Modifier.padding(top = 6.dp)) {
                     Text(text = "See all", fontWeight = FontWeight.SemiBold)
@@ -576,9 +577,9 @@ private fun LibraryBookPageRow(
             }
         }
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-            val coverWidth: Dp = (maxWidth - 40.dp - RelatedCoverGap * 3) / 4
+            val coverWidth: Dp = (maxWidth - AppLayout.inset * 2 - RelatedCoverGap * 3) / 4
             LazyRow(
-                contentPadding = PaddingValues(horizontal = 20.dp),
+                contentPadding = PaddingValues(horizontal = AppLayout.inset),
                 horizontalArrangement = Arrangement.spacedBy(RelatedCoverGap),
             ) {
                 items(books, key = ReadableItem::id) { book ->
@@ -598,29 +599,6 @@ private fun LibraryBookPageRow(
     }
 }
 
-@Composable
-private fun LibraryBookPageHeading(
-    text: String,
-    modifier: Modifier = Modifier,
-) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp, fontWeight = FontWeight.Bold),
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        modifier = modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 8.dp),
-    )
-}
-
-@Composable
-private fun LibraryBookPageHairline() {
-    AppDivider(
-        modifier = Modifier.padding(horizontal = 20.dp),
-        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-    )
-}
-
 /** The page reads the direction out in full; the reader's own control keeps "LTR". */
 private val ComicReadingDirection.pageLabel: String
     get() = when (this) {
@@ -628,7 +606,6 @@ private val ComicReadingDirection.pageLabel: String
         ComicReadingDirection.RTL -> "Right to left"
     }
 
-private val LibraryBookPageWidth = 440.dp
 private const val SecondaryTextAlpha = 0.74f
 private val LibraryBookPageCoverWidth = 118.dp
 private val LibraryBookPageChipHeight = 30.dp

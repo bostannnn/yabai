@@ -34,6 +34,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -56,8 +57,10 @@ import com.example.unifiedreader.feature.library.sanitizeLibraryGridCellSizeDp
 import com.example.unifiedreader.ui.components.AppBackground
 import com.example.unifiedreader.ui.components.AppButton
 import com.example.unifiedreader.ui.components.AppEmptyState
+import com.example.unifiedreader.ui.components.AppLayout
 import com.example.unifiedreader.ui.components.AppTonalButton
 import com.example.unifiedreader.ui.components.AppWindowWidth
+import com.example.unifiedreader.ui.components.appGutter
 import com.example.unifiedreader.ui.components.currentAppWindowWidth
 import com.example.unifiedreader.ui.theme.AppMotion
 
@@ -171,6 +174,10 @@ fun LibraryShelfItemsBrowser(
         gridState.scrollToItem(0)
         listState.scrollToItem(0)
     }
+    LaunchedEffect(viewState, showListView) {
+        snapshotFlow { if (showListView) listState.canScrollBackward else gridState.canScrollBackward }
+            .collect { scrolled -> viewState.scrolled = scrolled }
+    }
     ShelfBrowserVisibleCoverPrefetcher(
         browseContextKey = browseContextKey,
         showListView = showListView,
@@ -221,7 +228,7 @@ fun LibraryShelfItemsBrowser(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(top = 16.dp + contentTopInset, start = 16.dp, end = 16.dp),
+                    .padding(top = contentTopInset + AppLayout.contentTop, start = appGutter(), end = appGutter()),
             ) {
                 header()
                 ShelfBrowserEmptyState(
@@ -313,9 +320,14 @@ private fun ShelfBrowserGrid(
         columns = GridCells.Adaptive(gridCellSizeDp.dp),
         state = gridState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp + contentTopInset, bottom = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(if (compactGrid) 12.dp else 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(
+            start = appGutter(),
+            end = appGutter(),
+            top = contentTopInset + AppLayout.contentTop,
+            bottom = AppLayout.contentBottom,
+        ),
+        verticalArrangement = Arrangement.spacedBy(if (compactGrid) 12.dp else AppLayout.gridGap),
+        horizontalArrangement = Arrangement.spacedBy(AppLayout.gridGap),
     ) {
         item(key = ShelfBrowserHeaderKey, span = { GridItemSpan(maxLineSpan) }) { header() }
         items(
@@ -358,7 +370,12 @@ private fun ShelfBrowserList(
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         state = listState,
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp + contentTopInset, bottom = 16.dp),
+        contentPadding = PaddingValues(
+            start = appGutter(),
+            end = appGutter(),
+            top = contentTopInset + AppLayout.contentTop,
+            bottom = AppLayout.contentBottom,
+        ),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item(key = ShelfBrowserHeaderKey) { header() }

@@ -2,10 +2,13 @@ package com.example.unifiedreader.feature.library.shelves
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.example.unifiedreader.feature.library.LibraryBrowseOption
 import com.example.unifiedreader.feature.library.LibraryBrowseOptionSection
@@ -35,6 +38,10 @@ class LibraryShelfBrowserViewState internal constructor(
     }
 
     internal fun showsList(kind: LibraryShelfBrowserKind): Boolean = layouts[kind] == true
+
+    /** Whether the open shelf has scrolled under the bar, which then shows its glass. */
+    var scrolled: Boolean by mutableStateOf(false)
+        internal set
 
     internal fun setShowsList(kind: LibraryShelfBrowserKind, showList: Boolean) {
         layouts[kind] = showList

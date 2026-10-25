@@ -80,7 +80,6 @@ internal fun FilterChipsSettingsPage(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 4.dp)
                     .heightIn(min = 40.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,

@@ -1,31 +1,24 @@
 package com.example.unifiedreader.feature.library.shelves
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
-import com.example.unifiedreader.feature.library.LibraryBrowseSearchModeTopBar
 import com.example.unifiedreader.feature.library.LibraryBrowseTopBarContainer
+import com.example.unifiedreader.feature.library.LibraryBrowseTopBarSearchField
 import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
-import com.example.unifiedreader.ui.components.AppWindowWidth
-import com.example.unifiedreader.ui.components.currentAppWindowWidth
 
 /** See all's search: it stays while the tabs switch shelves, and clears when See all closes. */
 @Composable
@@ -39,85 +32,51 @@ fun rememberLibraryShelfBrowserSearchQuery(
     mutableStateOf("")
 }
 
+/**
+ * See all's bar, laid out like the library's: Back, the search field across the middle, and on a
+ * phone the shelf's options. It names no shelf: the tabs under it say which shelf is open and how
+ * much it holds. Back clears a query before it leaves. No glass until the shelf scrolls under it.
+ */
 @Composable
 fun LibraryShelfBrowserTopBar(
-    title: String,
-    count: Int,
     searchQuery: String,
     onSearchQueryChanged: (String) -> Unit,
     onBack: () -> Unit,
-    // Before search: the shelf's options on a phone, where See all's tabs row has no room for them.
+    scrolled: Boolean = false,
+    // The shelf's options on a phone, where See all's tabs row has no room for them.
     actions: (@Composable () -> Unit)? = null,
 ) {
-    var searchModeOpen by remember { mutableStateOf(searchQuery.isNotBlank()) }
-    LaunchedEffect(searchQuery) {
-        if (searchQuery.isNotBlank()) {
-            searchModeOpen = true
-        }
+    val focusManager = LocalFocusManager.current
+    BackHandler(enabled = searchQuery.isNotBlank()) {
+        onSearchQueryChanged("")
+        focusManager.clearFocus()
     }
-
-    LibraryBrowseTopBarContainer {
-        val compactToolbar = currentAppWindowWidth() == AppWindowWidth.Compact
-        if (searchModeOpen || searchQuery.isNotBlank()) {
-            LibraryBrowseSearchModeTopBar(
-                query = searchQuery,
-                onQueryChanged = onSearchQueryChanged,
-                compactToolbar = compactToolbar,
-                onClose = {
-                    searchModeOpen = false
-                    if (searchQuery.isNotEmpty()) {
-                        onSearchQueryChanged("")
-                    }
-                },
-            )
-        } else {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                AppIconButton(
-                    onClick = onBack,
-                    modifier = Modifier.size(36.dp),
-                ) {
-                    Icon(
-                        imageVector = AppIcons.ArrowBack,
-                        contentDescription = "Back",
-                    )
-                }
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(1.dp),
-                ) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        text = count.itemCountLabel(),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                actions?.invoke()
-                AppIconButton(onClick = { searchModeOpen = true }) {
-                    Icon(
-                        imageVector = AppIcons.Search,
-                        contentDescription = "Search shelf",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+    LibraryBrowseTopBarContainer(surfaceVisible = scrolled) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AppIconButton(onClick = onBack) {
+                Icon(
+                    imageVector = AppIcons.ArrowBack,
+                    contentDescription = "Back",
+                )
             }
+            Box(modifier = Modifier.weight(1f)) {
+                LibraryBrowseTopBarSearchField(
+                    query = searchQuery,
+                    onQueryChanged = onSearchQueryChanged,
+                    placeholder = "Search shelves",
+                    queryContentDescription = "Search shelves",
+                    modifier = Modifier
+                        .widthIn(max = ShelfBrowserSearchFieldMaxWidth)
+                        .fillMaxWidth(),
+                )
+            }
+            actions?.invoke()
         }
     }
 }
 
-private fun Int.itemCountLabel(): String = when (this) {
-    1 -> "1 item"
-    else -> "$this items"
-}
-
+private val ShelfBrowserSearchFieldMaxWidth = 640.dp

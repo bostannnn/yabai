@@ -43,7 +43,6 @@ fun DrawerOrderSettingsGroup(
             text = "The rail and the drawer list your sources in this order. The first opens when the app starts.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 4.dp),
         )
         AppSettingsGroup {
             // Rows render from this local copy so consecutive moves in one drag build on each

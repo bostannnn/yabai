@@ -160,7 +160,7 @@ fun LibraryBrowseOptionsMenu(
                 AppSegmentedRow(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 14.dp, end = 14.dp, bottom = 12.dp),
+                        .padding(start = AppMenuDefaults.horizontalPadding, end = AppMenuDefaults.horizontalPadding, bottom = 12.dp),
                 ) {
                     LibraryCoverSize.entries.forEach { size ->
                         AppSegment(

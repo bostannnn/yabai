@@ -145,12 +145,12 @@ fun LibrarySelectionTopBar(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AppIconButton(onClick = onClose, modifier = Modifier.size(40.dp)) {
+        AppIconButton(onClick = onClose) {
             Icon(imageVector = AppIcons.Close, contentDescription = "Cancel selection", tint = onSelected)
         }
         Text(
             text = "$selectedCount selected",
-            style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold),
+            style = MaterialTheme.typography.titleMedium,
             color = onSelected,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

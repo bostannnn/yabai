@@ -56,6 +56,7 @@ import com.example.unifiedreader.ui.components.AppButtonDefaults
 import com.example.unifiedreader.ui.components.AppDialogCardDefaults
 import com.example.unifiedreader.ui.components.AppDialogHost
 import com.example.unifiedreader.ui.components.AppIcons
+import com.example.unifiedreader.ui.components.AppLayout
 import com.example.unifiedreader.ui.components.AppSheet
 import com.example.unifiedreader.ui.components.AppTextField
 import com.example.unifiedreader.ui.components.AppTonalIconButton
@@ -64,6 +65,7 @@ import com.example.unifiedreader.ui.components.currentAppWindowWidth
 import com.example.unifiedreader.ui.theme.AppCoverAccentTheme
 import com.example.unifiedreader.ui.theme.AppCoverColors
 import com.example.unifiedreader.ui.theme.AppMotion
+import com.example.unifiedreader.ui.theme.UnifiedReaderDefaultPresentationTokens
 import com.example.unifiedreader.ui.theme.isAppThemeDark
 import kotlinx.coroutines.delay
 
@@ -170,7 +172,7 @@ private fun JournalFinishedContent(
                         .verticalScroll(rememberScrollState())
                         .padding(
                             if (phone) {
-                                PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 20.dp)
+                                PaddingValues(start = AppLayout.inset, end = AppLayout.inset, top = 4.dp, bottom = AppLayout.inset)
                             } else {
                                 PaddingValues(JournalFinishedDefaults.padding)
                             },
@@ -468,14 +470,14 @@ private const val CoverRiseDelayMillis = 60L
 
 object JournalFinishedDefaults {
     val cardWidth: Dp = 440.dp
-    val padding: Dp = 24.dp
+    val padding: Dp = AppDialogCardDefaults.padding
     val coverWidth: Dp = 112.dp
     val phoneCoverWidth: Dp = 88.dp
-    val coverCornerRadius: Dp = 6.dp
+    val coverCornerRadius: Dp = UnifiedReaderDefaultPresentationTokens.coverCornerRadius
 
     /** The cover rises this far into place as the screen opens. */
     val coverRise: Dp = 12.dp
     val nextCoverWidth: Dp = 56.dp
-    val nextCornerRadius: Dp = 20.dp
+    val nextCornerRadius: Dp = UnifiedReaderDefaultPresentationTokens.cardCornerRadius
     val buttonPadding: PaddingValues = PaddingValues(horizontal = 18.dp)
 }

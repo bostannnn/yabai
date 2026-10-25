@@ -19,3 +19,8 @@ fun AppDivider(
         color = color,
     )
 }
+
+object AppDividerDefaults {
+    /** Hairlines between rows and sections draw `outlineVariant` at this alpha. */
+    const val alpha: Float = 0.6f
+}

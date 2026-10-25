@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -33,13 +32,13 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
-import com.example.unifiedreader.ui.components.AppCircularProgress
+import com.example.unifiedreader.ui.components.AppButtonSpinner
 import com.example.unifiedreader.ui.components.AppDialogCard
 import com.example.unifiedreader.ui.components.AppDialogCardDefaults
 import com.example.unifiedreader.ui.components.AppDialogConfirmButton
 import com.example.unifiedreader.ui.components.AppDialogDismissButton
 import com.example.unifiedreader.ui.components.AppIcons
-import com.example.unifiedreader.ui.components.appProgressFill
+import com.example.unifiedreader.ui.components.AppProgressBar
 import kotlin.math.roundToInt
 
 /** The open updater dialog, if any. The app keeps it out of the readers. */
@@ -278,7 +277,7 @@ private fun ReleaseNotes(
 @Composable
 private fun DownloadProgress(status: AppUpdateStatus.Downloading) {
     Column(modifier = Modifier.padding(top = 20.dp)) {
-        UpdateProgressBar(fraction = status.fraction, height = 6)
+        AppProgressBar(fraction = status.fraction, modifier = Modifier.fillMaxWidth())
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -298,26 +297,6 @@ private fun DownloadProgress(status: AppUpdateStatus.Downloading) {
             )
         }
     }
-}
-
-/** A pill progress bar in the accent on the highest container colour. */
-@Composable
-internal fun UpdateProgressBar(
-    fraction: Float,
-    height: Int,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(height.dp)
-            .clip(CircleShape)
-            .appProgressFill(
-                fraction = fraction,
-                progressColor = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-            ),
-    )
 }
 
 /** The launcher icon, as Android draws it (with the device's icon shape). */
@@ -342,11 +321,7 @@ internal fun AppLauncherIcon(modifier: Modifier = Modifier) {
 /** A small spinner for busy pill buttons. */
 @Composable
 internal fun ButtonSpinner() {
-    AppCircularProgress(
-        modifier = Modifier.size(16.dp),
-        color = MaterialTheme.colorScheme.onSurface,
-        strokeWidth = 2.dp,
-    )
+    AppButtonSpinner()
 }
 
 /** Runs a dialog or row button. */

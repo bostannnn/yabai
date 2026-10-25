@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -96,10 +95,7 @@ fun LibraryTopBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             when {
-                contextTitle != null -> AppIconButton(
-                    onClick = onLeaveSeries,
-                    modifier = Modifier.size(36.dp),
-                ) {
+                contextTitle != null -> AppIconButton(onClick = onLeaveSeries) {
                     Icon(imageVector = AppIcons.ArrowBack, contentDescription = "Back to source library")
                 }
                 onDrawerClick != null -> DrawerMenuButton(onClick = onDrawerClick)

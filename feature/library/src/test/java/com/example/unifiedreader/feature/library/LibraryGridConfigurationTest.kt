@@ -21,25 +21,44 @@ class LibraryGridConfigurationTest {
         assertEquals(LibraryCoverSize.Medium, LibraryCoverSize.of(200))
         assertEquals(LibraryCoverSize.Small, LibraryCoverSize.of(140))
         assertEquals(LibraryCoverSize.Large, LibraryCoverSize.of(240))
-        assertEquals(listOf(140, 180, 240), supportedLibraryGridCellSizesDp)
+        assertEquals(listOf(140, 176, 240), supportedLibraryGridCellSizesDp)
     }
 
     @Test
     fun `grid size options keep only values that change the layout`() {
         val options = availableLibraryGridSizeOptions(
             maxWidth = 900.dp,
-            endPadding = libraryGridEndPaddingDp,
+            startPadding = 16.dp,
+            endPadding = 16.dp,
         )
 
-        assertEquals(listOf(140, 180, 240), options.map(LibraryGridSizeOption::cellSizeDp))
+        assertEquals(listOf(140, 176, 240), options.map(LibraryGridSizeOption::cellSizeDp))
         assertEquals(listOf(5, 4, 3), options.map(LibraryGridSizeOption::columnCount))
+    }
+
+    @Test
+    fun `medium covers keep their column counts with the tablet gutter`() {
+        fun mediumColumns(width: Int, gutter: Int): Int = libraryGridPresentation(
+            maxWidth = width.dp,
+            startPadding = gutter.dp,
+            endPadding = gutter.dp,
+            requestedGridCellSizeDp = defaultLibraryGridCellSizeDp,
+        ).selectedGridSize.columnCount
+
+        assertEquals(2, mediumColumns(width = 411, gutter = 16))
+        // 800 dp portrait, the tablet's 914 dp portrait, then beside the 88 dp rail: 1280 dp and the tablet's 1292 dp landscape.
+        assertEquals(4, mediumColumns(width = 800, gutter = 24))
+        assertEquals(4, mediumColumns(width = 914, gutter = 24))
+        assertEquals(6, mediumColumns(width = 1280 - 88, gutter = 24))
+        assertEquals(6, mediumColumns(width = 1292 - 88, gutter = 24))
     }
 
     @Test
     fun `compact layouts reduce scrolling prefetch`() {
         val presentation = libraryGridPresentation(
             maxWidth = 660.dp,
-            endPadding = libraryGridEndPaddingDp,
+            startPadding = 16.dp,
+            endPadding = 16.dp,
             requestedGridCellSizeDp = 140,
         )
 
@@ -59,11 +78,12 @@ class LibraryGridConfigurationTest {
     fun `wider layouts keep overflow button visible`() {
         val presentation = libraryGridPresentation(
             maxWidth = 900.dp,
-            endPadding = libraryGridEndPaddingDp,
+            startPadding = 16.dp,
+            endPadding = 16.dp,
             requestedGridCellSizeDp = 200,
         )
 
-        assertEquals(180, presentation.selectedGridSize.cellSizeDp)
+        assertEquals(176, presentation.selectedGridSize.cellSizeDp)
         assertEquals(4, presentation.scrollingPrefetchItemLimit)
     }
 

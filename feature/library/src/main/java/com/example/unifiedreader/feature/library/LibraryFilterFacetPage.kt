@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,10 +29,12 @@ import androidx.compose.ui.unit.sp
 import com.example.unifiedreader.core.model.LibraryFilterFacets
 import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibraryFilterState
-import com.example.unifiedreader.ui.components.AppIconButton
-import com.example.unifiedreader.ui.components.AppIcons
+import com.example.unifiedreader.ui.components.AppLayout
+import com.example.unifiedreader.ui.components.AppPanelHeader
 import com.example.unifiedreader.ui.components.AppRoundCheck
 import com.example.unifiedreader.ui.components.AppSearchField
+import com.example.unifiedreader.ui.components.AppSheetDivider
+import com.example.unifiedreader.ui.components.AppSheetLabel
 import com.example.unifiedreader.ui.components.AppTextButton
 
 /**
@@ -57,27 +58,11 @@ internal fun LibraryFilterFacetPage(
         libraryFacetValueCount(panel, filterState, filterFacets)
     }
     Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 8.dp, end = 8.dp, top = 12.dp, bottom = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        AppPanelHeader(
+            title = panel.label,
+            onBack = onBack,
+            backContentDescription = "Back to filters",
         ) {
-            AppIconButton(onClick = onBack) {
-                Icon(imageVector = AppIcons.ArrowBack, contentDescription = "Back to filters")
-            }
-            Text(
-                text = panel.label,
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    fontSize = 22.sp,
-                    lineHeight = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
             if (filterState.selectedValues(panel).isNotEmpty()) {
                 AppTextButton(onClick = { onFilterStateChanged(filterState.clearing(panel)) }) {
                     Text(text = "Clear", fontWeight = FontWeight.SemiBold)
@@ -91,7 +76,7 @@ internal fun LibraryFilterFacetPage(
             height = FacetSearchFieldHeight,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 6.dp),
+                .padding(horizontal = AppLayout.inset, vertical = 6.dp),
         )
         LazyColumn(
             modifier = Modifier.weight(1f),
@@ -112,9 +97,8 @@ internal fun LibraryFilterFacetPage(
             }
             groups.forEach { group ->
                 item(key = "group:${group.title}") {
-                    LibraryFilterSheetHeading(
+                    AppSheetLabel(
                         text = group.title,
-                        fontSize = 12.5.sp,
                         modifier = Modifier.animateItem(),
                     )
                 }
@@ -167,7 +151,7 @@ private fun FacetValueRow(
             }
             AppRoundCheck(checked = value.selected)
         }
-        LibraryFilterSheetHairline()
+        AppSheetDivider()
     }
 }
 

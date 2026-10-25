@@ -19,15 +19,13 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.flow.distinctUntilChanged
+import com.example.unifiedreader.ui.components.AppLayout
 import com.example.unifiedreader.ui.components.AppWindowWidth
+import com.example.unifiedreader.ui.components.appGutter
+import kotlinx.coroutines.flow.distinctUntilChanged
 
-internal const val SettingsScreenHorizontalPaddingDp = 20
-internal const val SettingsSidePaneWidthDp = 320
-internal const val SettingsSidePaneSpacingDp = 20
 internal const val SettingsServerFormTwoColumnBreakpointDp = 560
 internal const val SettingsInlineChoiceControlsBreakpointDp = 520
 
@@ -50,11 +48,10 @@ internal fun resolveSettingsAdaptiveLayout(widthDp: Int): SettingsAdaptiveLayout
 )
 
 /**
- * Tells the settings screen whether the column it is given has scrolled past [threshold], so the
- * top bar can stay see-through and untitled while the hub's own title shows.
+ * Tells the settings screen whether the column it is given has scrolled, so the top bar stays
+ * see-through until something is under it.
  */
 internal class SettingsScrollReporter(
-    val threshold: Dp,
     val onScrolledChanged: (Boolean) -> Unit,
 )
 
@@ -65,15 +62,14 @@ internal val LocalSettingsScrollReporter = staticCompositionLocalOf<SettingsScro
 internal fun SettingsPageContainer(
     contentTopInset: Dp,
     modifier: Modifier = Modifier,
-    horizontalPadding: Dp = SettingsScreenHorizontalPaddingDp.dp,
+    horizontalPadding: Dp = appGutter(),
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val scrollState = rememberScrollState()
     LocalSettingsScrollReporter.current?.let { reporter ->
-        val threshold = with(LocalDensity.current) { reporter.threshold.roundToPx() }
         val report by rememberUpdatedState(reporter.onScrolledChanged)
-        LaunchedEffect(scrollState, threshold) {
-            snapshotFlow { scrollState.value > threshold }.distinctUntilChanged().collect { report(it) }
+        LaunchedEffect(scrollState) {
+            snapshotFlow { scrollState.value > 0 }.distinctUntilChanged().collect { report(it) }
         }
         DisposableEffect(Unit) { onDispose { report(false) } }
     }
@@ -89,10 +85,10 @@ internal fun SettingsPageContainer(
                 .padding(
                     start = horizontalPadding,
                     end = horizontalPadding,
-                    top = contentTopInset + 8.dp,
-                    bottom = 24.dp,
+                    top = contentTopInset + AppLayout.contentTop,
+                    bottom = AppLayout.contentBottom,
                 ),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
+            verticalArrangement = Arrangement.spacedBy(AppLayout.sectionGap),
             content = content,
         )
     }

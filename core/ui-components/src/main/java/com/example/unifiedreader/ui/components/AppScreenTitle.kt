@@ -12,9 +12,9 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 
 /**
- * A screen's large title at the top of its content (the library's source, the settings hub):
- * 40 sp Bold, 32 on phones. It scrolls with the content; the top bar takes the name once it has
- * scrolled away.
+ * A large title that is the content itself (a series, a Kavita list, a first-launch question):
+ * 40 sp Bold, 32 on phones. Never a screen's own name: the rail or the drawer already says where
+ * you are, so Settings, the journal and a source's library have no title.
  */
 @Composable
 fun AppScreenTitle(

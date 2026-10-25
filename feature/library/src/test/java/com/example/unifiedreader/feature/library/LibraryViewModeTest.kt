@@ -6,7 +6,7 @@ import org.junit.Test
 class LibraryViewModeTest {
     @Test
     fun `grid cell size defaults to the balanced preset`() {
-        assertEquals(180, defaultLibraryGridCellSizeDp)
+        assertEquals(176, defaultLibraryGridCellSizeDp)
     }
 
     @Test

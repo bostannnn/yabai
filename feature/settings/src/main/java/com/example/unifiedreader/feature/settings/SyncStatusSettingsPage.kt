@@ -3,26 +3,23 @@ package com.example.unifiedreader.feature.settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.example.unifiedreader.ui.components.AppBadge
 import com.example.unifiedreader.ui.components.AppButton
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppSettingsDefaults
 import com.example.unifiedreader.ui.components.AppSettingsGroup
 import com.example.unifiedreader.ui.components.AppSettingsRow
 import com.example.unifiedreader.ui.components.AppSettingsRowDivider
+import com.example.unifiedreader.ui.components.AppStatusPill
 
 data class SyncSettingsUiState(
     val pendingCount: Int = 0,
@@ -99,22 +96,14 @@ private fun SyncQueueHeader(
     val scheme = MaterialTheme.colorScheme
     val failed = state.failedCount > 0
     Column(
-        modifier = Modifier.padding(horizontal = 4.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            AppBadge(
-                shape = CircleShape,
-                color = if (failed) scheme.errorContainer else scheme.surfaceContainerHighest,
+            AppStatusPill(
+                label = state.pillLabel(),
+                containerColor = if (failed) scheme.errorContainer else scheme.surfaceContainerHighest,
                 contentColor = if (failed) scheme.onErrorContainer else scheme.onSurface,
-            ) {
-                Text(
-                    text = state.pillLabel(),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
-                )
-            }
+            )
             state.lastAttemptLabel?.let { attempted ->
                 Text(
                     text = "Last tried $attempted",
@@ -167,34 +156,18 @@ private fun SyncSourceGroup(
 
 @Composable
 private fun SyncQueueRowItem(row: SyncQueueRow) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = AppSettingsDefaults.horizontalPadding, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    AppSettingsRow(
+        title = row.title,
+        supporting = row.line,
+        trailing = {
             Text(
-                text = row.title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                text = if (row.failed) "Failed" else "Waiting",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = if (row.failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Text(
-                text = row.line,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Text(
-            text = if (row.failed) "Failed" else "Waiting",
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-            color = if (row.failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
+        },
+    )
 }
 
 /** One row of a source's queue: a book's waiting uploads of one kind, counted together. */

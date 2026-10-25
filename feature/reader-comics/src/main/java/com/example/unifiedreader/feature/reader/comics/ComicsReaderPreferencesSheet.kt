@@ -26,7 +26,6 @@ import com.example.unifiedreader.ui.components.AppPanelHeader
 internal fun ComicsReaderPreferencesSheet(
     isOpen: Boolean,
     slot: ReaderPanelSlot,
-    title: String,
     readerMode: ComicReaderMode,
     readingDirection: ComicReadingDirection,
     pageFitMode: ComicPageFitMode,
@@ -56,9 +55,9 @@ internal fun ComicsReaderPreferencesSheet(
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 12.dp),
         ) {
+            // No subtitle: the reader's bar already names the book.
             AppPanelHeader(
                 title = "Reading settings",
-                subtitle = title,
                 onClose = onDismissRequest,
             )
             AppChoiceRow(

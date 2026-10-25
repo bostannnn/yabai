@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -25,9 +26,11 @@ import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import com.example.unifiedreader.feature.updates.AppUpdateActions
 import com.example.unifiedreader.feature.updates.AppUpdateState
+import com.example.unifiedreader.ui.components.AppLayout
 import com.example.unifiedreader.ui.components.AppScreenBack
 import com.example.unifiedreader.ui.components.AppScreenHost
 import com.example.unifiedreader.ui.components.AppScreenTransition
+import com.example.unifiedreader.ui.components.appGutter
 import com.example.unifiedreader.ui.components.currentAppWindowWidth
 
 internal const val DefaultKavitaServerUrl = "http://192.168.50.60:5000/"
@@ -63,19 +66,21 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     updateState: AppUpdateState = AppUpdateState(),
     updateActions: AppUpdateActions = AppUpdateActions(),
-    // For the top bar: whether the hub's own title shows (the bar then has no name), and whether
-    // anything has scrolled under the bar (it then needs its glass).
-    onTopBarStateChanged: (titleOnScreen: Boolean, scrolled: Boolean) -> Unit = { _, _ -> },
+    // For the top bar: whether anything has scrolled under it (it then needs its glass).
+    onScrolledChanged: (Boolean) -> Unit = {},
 ) {
     val usesSidePane = settingsUsesSidePane(currentAppWindowWidth())
-    var hubTitleScrolled by remember { mutableStateOf(false) }
+    var hubScrolled by remember { mutableStateOf(false) }
     var pageScrolled by remember { mutableStateOf(false) }
-    val hubScroll = remember { SettingsScrollReporter(threshold = HubTitleScrollThreshold) { hubTitleScrolled = it } }
-    val pageScroll = remember { SettingsScrollReporter(threshold = 0.dp) { pageScrolled = it } }
-    val titleOnScreen = (usesSidePane || page == null) && !hubTitleScrolled
-    val scrolled = hubTitleScrolled || if (usesSidePane) pageScrolled else page != null
-    val latestOnTopBarStateChanged by rememberUpdatedState(onTopBarStateChanged)
-    LaunchedEffect(titleOnScreen, scrolled) { latestOnTopBarStateChanged(titleOnScreen, scrolled) }
+    val hubScroll = remember { SettingsScrollReporter { hubScrolled = it } }
+    val pageScroll = remember { SettingsScrollReporter { pageScrolled = it } }
+    val scrolled = when {
+        usesSidePane -> hubScrolled || pageScrolled
+        page == null -> hubScrolled
+        else -> pageScrolled
+    }
+    val latestOnScrolledChanged by rememberUpdatedState(onScrolledChanged)
+    LaunchedEffect(scrolled) { latestOnScrolledChanged(scrolled) }
     val orderedSources = remember(sources, sourceOrder) {
         sources.sortedBy { entry -> sourceOrder.indexOf(entry.sourceType).takeIf { it >= 0 } ?: Int.MAX_VALUE }
     }
@@ -155,16 +160,19 @@ fun SettingsScreen(
 
     if (usesSidePane) {
         val shownPage = page ?: SettingsPage.Theme
+        // Both panes start at the content top, a gutter apart, so the hub's first group and the
+        // page's first line share one top edge.
+        val gutter = appGutter()
         Row(
             modifier = modifier
                 .fillMaxSize()
-                .padding(horizontal = SettingsScreenHorizontalPaddingDp.dp),
-            horizontalArrangement = Arrangement.spacedBy(SettingsSidePaneSpacingDp.dp),
+                .padding(horizontal = gutter),
+            horizontalArrangement = Arrangement.spacedBy(gutter),
         ) {
-            hub(shownPage, 0.dp, Modifier.width(SettingsSidePaneWidthDp.dp).fillMaxHeight())
+            hub(shownPage, 0.dp, Modifier.width(AppLayout.listPaneWidth).fillMaxHeight())
             AppScreenHost(
                 screen = shownPage,
-                modifier = Modifier.weight(1f).fillMaxHeight(),
+                modifier = Modifier.weight(1f).widthIn(max = SettingsPageMaxWidth).fillMaxHeight(),
                 // A license's notice steps back to the list beside the hub.
                 back = shownPage.parent?.let { parent -> AppScreenBack(target = parent) { onPageChanged(parent) } },
             ) { openPage ->
@@ -185,9 +193,9 @@ fun SettingsScreen(
             },
         ) { openPage ->
             if (openPage == null) {
-                hub(null, SettingsScreenHorizontalPaddingDp.dp, Modifier)
+                hub(null, appGutter(), Modifier)
             } else {
-                pageContent(openPage, SettingsScreenHorizontalPaddingDp.dp)
+                pageContent(openPage, appGutter())
             }
         }
     }
@@ -268,4 +276,3 @@ data class StumpConnectionUiState(
 }
 
 /** Half the hub's title has gone under the bar. */
-private val HubTitleScrollThreshold = 24.dp

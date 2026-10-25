@@ -1,6 +1,5 @@
 package com.example.unifiedreader.feature.downloads
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,8 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -27,9 +24,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -40,16 +34,21 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.ResolvedLibraryCover
+import com.example.unifiedreader.ui.components.AppBookRow
+import com.example.unifiedreader.ui.components.AppBookRowDefaults
+import com.example.unifiedreader.ui.components.AppBookRowLine
 import com.example.unifiedreader.ui.components.AppEmptyState
+import com.example.unifiedreader.ui.components.AppGroupLabel
 import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
-import com.example.unifiedreader.ui.components.AppLinearProgress
+import com.example.unifiedreader.ui.components.AppLayout
 import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.components.AppPanelHeader
+import com.example.unifiedreader.ui.components.AppProgressBar
+import com.example.unifiedreader.ui.components.AppSheetLabel
 import com.example.unifiedreader.ui.components.AppSideSheet
 import com.example.unifiedreader.ui.components.AppTextButton
 import com.example.unifiedreader.ui.components.AppTonalButton
-import com.example.unifiedreader.ui.components.appProgressFill
 
 /**
  * The Downloads sheet: what is downloading now (a raised block with the file it is on and a bar),
@@ -138,13 +137,7 @@ fun DownloadsSheet(
                 }
                 finishedDays.forEach { day ->
                     item(key = "day-${day.label}") {
-                        Text(
-                            text = day.label,
-                            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.5.sp),
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 2.dp),
-                        )
+                        AppSheetLabel(text = day.label)
                     }
                     items(day.entries, key = DownloadEntry::id) { entry ->
                         val item = rowContext.displayItem(entry)
@@ -161,7 +154,7 @@ fun DownloadsSheet(
                                 entry.opensDirectly ->
                                     DownloadRowButton(label = "Read", onClick = { onReadEntry(entry.id) })
                                 else -> Icon(
-                                    imageVector = AppIcons.KeyboardArrowRight,
+                                    imageVector = AppIcons.NavigateNext,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(horizontal = 8.dp),
@@ -193,17 +186,12 @@ private fun LazyListScope.sectionHeading(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 44.dp)
-                .padding(start = 20.dp, end = 8.dp, top = 10.dp),
+                .padding(start = AppLayout.inset, end = 8.dp, top = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = section.title,
-                style = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp, lineHeight = 20.sp),
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier
-                    .weight(1f)
-                    .semantics { heading() },
-            )
+            // Two levels in this sheet: a section over its days, so the section takes the page's
+            // group label and a day the sheet's label.
+            AppGroupLabel(text = section.title, modifier = Modifier.weight(1f))
             action?.invoke(this)
         }
     }
@@ -220,7 +208,6 @@ private fun DownloadRunningBlock(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(20.dp),
     ) {
         Row(
             modifier = Modifier.padding(14.dp),
@@ -264,26 +251,8 @@ private fun DownloadRunningBlock(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    val fraction = entry.fileProgressFraction()
-                    val barModifier = Modifier
-                        .weight(1f)
-                        .height(6.dp)
-                        .clip(CircleShape)
-                    if (fraction != null) {
-                        Box(
-                            modifier = barModifier.appProgressFill(
-                                fraction = fraction,
-                                progressColor = MaterialTheme.colorScheme.primary,
-                                trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                            ),
-                        )
-                    } else {
-                        // One file: the app counts files, not bytes, so the bar moves on its own.
-                        AppLinearProgress(
-                            modifier = barModifier,
-                            trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                        )
-                    }
+                    // One file: the app counts files, not bytes, so the bar moves on its own.
+                    AppProgressBar(fraction = entry.fileProgressFraction(), modifier = Modifier.weight(1f))
                     entry.fileProgressLabel()?.let { label ->
                         Text(
                             text = label,
@@ -308,30 +277,16 @@ private fun DownloadRow(
     onClick: (() -> Unit)? = null,
     trailing: @Composable RowScope.() -> Unit,
 ) {
-    // A flat row on the sheet; the ripple is clipped to the control radius.
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp)
-            .clip(MaterialTheme.shapes.medium)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .heightIn(min = 70.dp)
-            .padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        DownloadCover(item = item, entry = entry, context = context, width = 40.dp)
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = item?.libraryPrimaryText() ?: entry.selectedItemTitle,
-                style = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp, lineHeight = 20.sp),
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
+    // A flat row on the sheet: its text on the sheet's inset, the ripple a little wider.
+    AppBookRow(
+        title = item?.libraryPrimaryText() ?: entry.selectedItemTitle,
+        modifier = Modifier.padding(horizontal = 8.dp),
+        onClick = onClick,
+        contentPadding = PaddingValues(start = AppLayout.inset - 8.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+        cover = { DownloadCover(item = item, entry = entry, context = context, width = AppBookRowDefaults.coverWidth) },
+        supporting = {
+            AppBookRowLine(
                 text = line,
-                style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp, lineHeight = 18.sp),
                 color = if (lineIsError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                 // An error, or a stopped download beside its two buttons, wraps instead of losing its end.
                 maxLines = when {
@@ -339,9 +294,9 @@ private fun DownloadRow(
                     entry.status == DownloadEntryStatus.Canceled -> 2
                     else -> 1
                 },
-                overflow = TextOverflow.Ellipsis,
             )
-        }
+        },
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically, content = trailing)
     }
 }

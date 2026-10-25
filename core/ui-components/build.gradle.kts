@@ -37,11 +37,17 @@ dependencies {
     testImplementation(libs.junit4)
 }
 
-// FeatureMaterialImportRuleTest scans feature and app sources, so they are test inputs:
-// without this Gradle would keep a stale pass after a feature file changes.
+// The rule tests (FeatureMaterialImportRuleTest, AppLayoutRuleTest, DesignSystemRuleTest) scan
+// feature and app sources, so they and the design baselines are test inputs: without this Gradle
+// would keep a stale pass after a feature file changes. `-PupdateDesignBaselines` rewrites the
+// baselines instead of checking them.
+val updateDesignBaselines = providers.gradleProperty("updateDesignBaselines").isPresent
 tasks.withType<Test>().configureEach {
     inputs.files(
         fileTree(rootDir.resolve("app/src/main")) { include("**/*.kt") },
         fileTree(rootDir.resolve("feature")) { include("*/src/main/**/*.kt") },
+        fileTree(projectDir.resolve("src/test/design-baselines")),
     ).withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.property("updateDesignBaselines", updateDesignBaselines)
+    systemProperty("updateDesignBaselines", updateDesignBaselines.toString())
 }

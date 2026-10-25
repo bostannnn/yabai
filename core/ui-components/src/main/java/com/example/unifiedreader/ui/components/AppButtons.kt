@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
@@ -11,6 +12,7 @@ import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonColors
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
@@ -19,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.dp
 
 // Every button shrinks a little while pressed. A button on the default pill shape also rounds
 // toward a square; one given its own [Shape] keeps it.
@@ -215,5 +218,15 @@ fun AppTonalIconButton(
         colors = colors,
         interactionSource = interactionSource,
         content = content,
+    )
+}
+
+/** The spinner a button shows while its action runs: 18 dp, in the button's own content colour. */
+@Composable
+fun AppButtonSpinner(modifier: Modifier = Modifier) {
+    AppCircularProgress(
+        modifier = modifier.size(18.dp),
+        color = LocalContentColor.current,
+        strokeWidth = 2.dp,
     )
 }

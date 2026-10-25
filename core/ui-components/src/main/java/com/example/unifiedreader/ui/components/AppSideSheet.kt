@@ -64,7 +64,6 @@ interface AppSideSheetScope : ColumnScope {
 fun AppSideSheet(
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
-    width: Dp = AppSideSheetDefaults.width,
     content: @Composable AppSideSheetScope.() -> Unit,
 ) {
     val compact = currentAppWindowWidth() == AppWindowWidth.Compact
@@ -137,7 +136,7 @@ fun AppSideSheet(
             ) {
                 AppPanel(
                     modifier = modifier
-                        .width(width)
+                        .width(AppSideSheetDefaults.width)
                         .fillMaxHeight()
                         .graphicsLayer {
                             val progress = backProgress.value
@@ -176,7 +175,9 @@ private class AppSideSheetScopeImpl(
 }
 
 object AppSideSheetDefaults {
-    val width: Dp = 400.dp
+    /** One width for every side sheet (the book page, filters, downloads, a journal day). */
+    val width: Dp = AppLayout.sheetWidth
     val margin: Dp = 12.dp
-    val cornerRadius: Dp = 26.dp
+    /** The sheet radius dialogs and bottom sheets use too. */
+    val cornerRadius: Dp = 28.dp
 }

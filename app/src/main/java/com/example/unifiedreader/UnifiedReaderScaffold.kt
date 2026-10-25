@@ -129,12 +129,8 @@ fun UnifiedReaderScaffold(
         mutableStateOf<SettingsPage?>(null)
     }
     val settingsUsesSidePane = settingsUsesSidePane(currentAppWindowWidth())
-    // While the settings hub's own title shows the bar has no name, and with nothing scrolled under
-    // it no glass either.
-    var settingsTitleOnScreen by remember { mutableStateOf(true) }
+    // Whether anything has scrolled under the settings and journal bars (they then need their glass).
     var settingsScrolled by remember { mutableStateOf(false) }
-    // The same for the journal's "Journal" at its top.
-    var journalTitleOnScreen by remember { mutableStateOf(true) }
     var journalScrolled by remember { mutableStateOf(false) }
     // The journal's "Open in library" and a finished download: the book's page, once its source
     // has loaded it.
@@ -431,10 +427,7 @@ fun UnifiedReaderScaffold(
                                         viewModel.openLibrarySource(item.sourceType)
                                     },
                                     contentTopInset = AppTopBarDefaults.contentInset,
-                                    onTopBarStateChanged = { titleOnScreen, scrolled ->
-                                        journalTitleOnScreen = titleOnScreen
-                                        journalScrolled = scrolled
-                                    },
+                                    onScrolledChanged = { scrolled -> journalScrolled = scrolled },
                                     modifier = Modifier.fillMaxSize(),
                                 )
                             }
@@ -450,10 +443,7 @@ fun UnifiedReaderScaffold(
                                 stumpReaderModeLibraries = stumpReaderModeLibraries,
                                 updateState = updateState,
                                 updateActions = updateActions,
-                                onTopBarStateChanged = { titleOnScreen, scrolled ->
-                                    settingsTitleOnScreen = titleOnScreen
-                                    settingsScrolled = scrolled
-                                },
+                                onScrolledChanged = { scrolled -> settingsScrolled = scrolled },
                                 contentTopInset = AppTopBarDefaults.contentInset,
                                 modifier = Modifier.fillMaxSize(),
                             )
@@ -465,11 +455,10 @@ fun UnifiedReaderScaffold(
                         when (uiState.topLevel) {
                             TopLevelDestination.Library -> if (activeLibraryShelfBrowser != null) {
                                 LibraryShelfBrowserTopBar(
-                                    title = activeLibraryShelfBrowser.title,
-                                    count = activeLibraryShelfBrowser.count,
                                     searchQuery = activeLibraryShelfSearchQuery,
                                     onSearchQueryChanged = { query -> activeLibraryShelfSearchQuery = query },
                                     onBack = { activeLibraryShelfBrowserKind = null },
+                                    scrolled = libraryShelfBrowserViewState.scrolled,
                                     actions = if (currentAppWindowWidth() == AppWindowWidth.Compact) {
                                         {
                                             LibraryShelfBrowserOptionsButton(
@@ -529,19 +518,17 @@ fun UnifiedReaderScaffold(
 
                             TopLevelDestination.Journal -> JournalTopBar(
                                 onDrawerClick = openDrawer,
-                                titleOnScreen = journalTitleOnScreen,
                                 scrolled = journalScrolled,
                             )
 
                             TopLevelDestination.Settings -> SettingsTopBar(
-                                title = if (settingsUsesSidePane) "Settings" else settingsPage?.title ?: "Settings",
+                                title = if (settingsUsesSidePane) null else settingsPage?.title,
                                 onDrawerClick = openDrawer,
                                 onBack = if (settingsPage != null && !settingsUsesSidePane) {
                                     { settingsPage = settingsPage?.parent }
                                 } else {
                                     null
                                 },
-                                titleOnScreen = settingsTitleOnScreen,
                                 scrolled = settingsScrolled,
                             )
                         }
@@ -586,7 +573,7 @@ private fun SettingsRoute(
     stumpReaderModeLibraries: List<ReaderModeLibraryUiState>,
     updateState: AppUpdateState,
     updateActions: AppUpdateActions,
-    onTopBarStateChanged: (titleOnScreen: Boolean, scrolled: Boolean) -> Unit,
+    onScrolledChanged: (Boolean) -> Unit,
     contentTopInset: Dp = 0.dp,
     modifier: Modifier = Modifier,
 ) {
@@ -631,7 +618,7 @@ private fun SettingsRoute(
             contentTopInset = contentTopInset,
             updateState = updateState,
             updateActions = updateActions,
-            onTopBarStateChanged = onTopBarStateChanged,
+            onScrolledChanged = onScrolledChanged,
         )
     }
 }

@@ -3,10 +3,16 @@ package com.example.unifiedreader.feature.library
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.ui.components.AppLayout
 import kotlin.math.abs
 import kotlin.math.floor
 
-const val defaultLibraryGridCellSizeDp: Int = 180
+/**
+ * Medium covers. 176, not a round 180: with the 24 dp gutter from 600 dp the grid keeps the column
+ * counts it had at 16 (4 at 800 dp portrait, 6 beside the rail at 1280 dp and on the tablet in
+ * landscape, so the reading card still sits beside the shelves there).
+ */
+const val defaultLibraryGridCellSizeDp: Int = 176
 const val minLibraryGridCellSizeDp: Int = 140
 const val maxLibraryGridCellSizeDp: Int = 240
 
@@ -30,9 +36,9 @@ enum class LibraryCoverSize(
     }
 }
 
-internal val libraryGridHorizontalSpacingDp: Dp = 16.dp
-internal val libraryGridStartPaddingDp: Dp = 16.dp
-internal val libraryGridEndPaddingDp: Dp = 16.dp
+internal val libraryGridHorizontalSpacingDp: Dp = AppLayout.gridGap
+
+/** The grid's end padding while the alphabet rail shows: the rail takes the gutter's place. */
 internal val libraryGridNavigationEndPaddingDp: Dp = 44.dp
 
 const val LibraryCoverAspectRatio: Float = 2f / 3f
@@ -97,16 +103,19 @@ fun sanitizeLibraryGridCellSizeDp(
 
 internal fun libraryGridPresentation(
     maxWidth: Dp,
+    startPadding: Dp,
     endPadding: Dp,
     requestedGridCellSizeDp: Int,
 ): LibraryGridPresentation {
     val availableGridSizes = availableLibraryGridSizeOptions(
         maxWidth = maxWidth,
+        startPadding = startPadding,
         endPadding = endPadding,
     )
     val selectedGridSize = selectedLibraryGridSizeOption(
         options = availableGridSizes,
         maxWidth = maxWidth,
+        startPadding = startPadding,
         endPadding = endPadding,
         requestedGridCellSizeDp = requestedGridCellSizeDp,
     )
@@ -128,6 +137,7 @@ fun libraryGridCoverImageVariant(
 
 fun availableLibraryGridSizeOptions(
     maxWidth: Dp,
+    startPadding: Dp,
     endPadding: Dp,
 ): List<LibraryGridSizeOption> = supportedLibraryGridCellSizesDp
     .map { cellSizeDp ->
@@ -135,6 +145,7 @@ fun availableLibraryGridSizeOptions(
             cellSizeDp = cellSizeDp,
             columnCount = libraryGridColumnCount(
                 maxWidth = maxWidth,
+                startPadding = startPadding,
                 endPadding = endPadding,
                 minCellSizeDp = cellSizeDp,
             ),
@@ -150,12 +161,14 @@ fun availableLibraryGridSizeOptions(
 private fun selectedLibraryGridSizeOption(
     options: List<LibraryGridSizeOption>,
     maxWidth: Dp,
+    startPadding: Dp,
     endPadding: Dp,
     requestedGridCellSizeDp: Int,
 ): LibraryGridSizeOption {
     val sanitizedGridCellSizeDp = sanitizeLibraryGridCellSizeDp(requestedGridCellSizeDp)
     val requestedColumnCount = libraryGridColumnCount(
         maxWidth = maxWidth,
+        startPadding = startPadding,
         endPadding = endPadding,
         minCellSizeDp = sanitizedGridCellSizeDp,
     )
@@ -165,12 +178,13 @@ private fun selectedLibraryGridSizeOption(
 
 private fun libraryGridColumnCount(
     maxWidth: Dp,
+    startPadding: Dp,
     endPadding: Dp,
     minCellSizeDp: Int,
 ): Int {
     val availableWidthDp = (
         maxWidth.value -
-            libraryGridStartPaddingDp.value -
+            startPadding.value -
             endPadding.value
         ).coerceAtLeast(minLibraryGridCellSizeDp.toFloat())
     val minCellWidthDp = minCellSizeDp.toFloat()
@@ -182,5 +196,5 @@ private fun libraryGridColumnCount(
 
 private const val SmallCoverUpperBoundDp = 150
 private const val LargeCoverLowerBoundDp = 220
-private const val largeGridCoverCellSizeDp = 180
+private const val largeGridCoverCellSizeDp = defaultLibraryGridCellSizeDp
 private const val extraLargeGridCoverCellSizeDp = 200

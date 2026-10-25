@@ -157,8 +157,6 @@ class LibraryShelvesZoneActionsTest {
                     // The shell draws See all's bar over the browser.
                     Column {
                         LibraryShelfBrowserTopBar(
-                            title = shelvesState.browserState(kind).title,
-                            count = shelvesState.browserState(kind).count,
                             searchQuery = "",
                             onSearchQueryChanged = {},
                             onBack = { activeShelfKind = null },
@@ -193,9 +191,9 @@ class LibraryShelvesZoneActionsTest {
         composeRule.onNodeWithText("See all").assertExists().performClick()
 
         composeRule.onNodeWithContentDescription("Back").assertExists()
-        assertTrue(composeRule.onAllNodesWithText("Search shelf").fetchSemanticsNodes().isEmpty())
-        composeRule.onNodeWithContentDescription("Search shelf").assertExists()
-        composeRule.onNodeWithText("5 items").assertExists()
+        // The bar holds the search field and names no shelf: the tabs say which is open and its count.
+        assertTrue(composeRule.onAllNodesWithText("Search shelves").fetchSemanticsNodes().isNotEmpty())
+        assertTrue(composeRule.onAllNodesWithText("5 items").fetchSemanticsNodes().isEmpty())
 
         composeRule.onNodeWithContentDescription("Back").performClick()
 

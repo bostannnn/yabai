@@ -1,6 +1,5 @@
 package com.example.unifiedreader.feature.journal
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,7 +27,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
@@ -38,9 +36,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
+import com.example.unifiedreader.ui.components.AppBookRow
+import com.example.unifiedreader.ui.components.AppBookRowDefaults
+import com.example.unifiedreader.ui.components.AppBookRowLine
 import com.example.unifiedreader.ui.components.AppButtonDefaults
-import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
+import com.example.unifiedreader.ui.components.AppLayout
+import com.example.unifiedreader.ui.components.AppPanelHeader
 import com.example.unifiedreader.ui.components.AppScreenBackHandler
 import com.example.unifiedreader.ui.components.AppSideSheet
 import com.example.unifiedreader.ui.components.AppTextButton
@@ -84,35 +86,25 @@ internal fun JournalSheet(
     onDismiss: () -> Unit,
 ) {
     val page = pages.lastOrNull() ?: return
-    AppSideSheet(onDismissRequest = onDismiss, width = JournalSheetWidth) {
+    AppSideSheet(onDismissRequest = onDismiss) {
         // Plays the sheet's exit before it closes.
         val dismiss = { dismiss() }
         // Back steps to the page before; the journal under the sheet stays put.
         CompositionLocalProvider(LocalAppScreenBackGesture provides null) {
             AppScreenBackHandler(enabled = pages.size > 1) { onBack() }
         }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 8.dp, end = 8.dp, top = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (pages.size > 1) {
-                AppIconButton(onClick = onBack) {
-                    Icon(imageVector = AppIcons.ArrowBack, contentDescription = "Back")
-                }
-            }
-            Spacer(modifier = Modifier.weight(1f))
-            AppIconButton(onClick = { dismiss() }) {
-                Icon(imageVector = AppIcons.Close, contentDescription = "Close")
-            }
-        }
+        // Back and Close where every sheet has them; each page's title is its first content.
+        AppPanelHeader(
+            title = null,
+            onBack = if (pages.size > 1) onBack else null,
+            onClose = { dismiss() },
+        )
         // Each page starts at its top.
         val listState = remember(page) { LazyListState() }
         LazyColumn(
             state = listState,
             modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 28.dp),
+            contentPadding = PaddingValues(start = AppLayout.inset, end = AppLayout.inset, bottom = 28.dp),
         ) {
             when (page) {
                 is JournalSheetPage.Day -> dayPage(
@@ -260,43 +252,25 @@ private fun JournalSheetBookRow(
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     onClick: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        JournalCoverArt(
-            item = summary.item,
-            catalogItem = summary.catalogItem,
-            coverImageUrlProvider = coverImageUrlProvider,
-            onCoverVisible = onCoverVisible,
-            modifier = Modifier
-                .width(40.dp)
-                .aspectRatio(2f / 3f)
-                .clip(RoundedCornerShape(4.dp)),
-        )
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = summary.item.displayTitle,
-                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+    AppBookRow(
+        title = summary.item.displayTitle,
+        onClick = onClick,
+        cover = {
+            JournalCoverArt(
+                item = summary.item,
+                catalogItem = summary.catalogItem,
+                coverImageUrlProvider = coverImageUrlProvider,
+                onCoverVisible = onCoverVisible,
+                modifier = Modifier
+                    .width(AppBookRowDefaults.coverWidth)
+                    .aspectRatio(2f / 3f)
+                    .clip(RoundedCornerShape(4.dp)),
             )
-            if (line.isNotBlank()) {
-                Text(
-                    text = line,
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
+        },
+        supporting = {
+            if (line.isNotBlank()) AppBookRowLine(text = line)
+        },
+    ) {
         val rating = summary.entry?.rating
         when {
             rating != null -> JournalStars(rating = rating)
@@ -476,5 +450,4 @@ private fun itemActivityLine(summary: JournalItemSummary): String = listOfNotNul
 private fun formatSessionDay(epochMillis: Long): String =
     java.text.SimpleDateFormat("EEE d MMM", java.util.Locale.US).format(java.util.Date(epochMillis))
 
-private val JournalSheetWidth = 440.dp
 private const val MaxSessionsShown = 20

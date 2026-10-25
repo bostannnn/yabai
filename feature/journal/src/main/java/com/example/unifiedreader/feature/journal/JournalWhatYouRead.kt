@@ -6,13 +6,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -40,7 +40,9 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.ui.components.AppBadge
+import com.example.unifiedreader.ui.components.AppBookRow
 import com.example.unifiedreader.ui.components.AppIcons
+import com.example.unifiedreader.ui.components.AppProgressBar
 import com.example.unifiedreader.ui.components.AppTextButton
 import com.example.unifiedreader.ui.components.AppTonalButton
 import com.example.unifiedreader.ui.components.AppWindowWidth
@@ -129,32 +131,22 @@ private fun ReadItemRow(
     onOpen: () -> Unit,
 ) {
     val summary = item.summary
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .clickable(onClick = onOpen)
-            .padding(vertical = 11.dp),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        JournalCoverArt(
-            item = summary.item,
-            catalogItem = summary.catalogItem,
-            coverImageUrlProvider = coverImageUrlProvider,
-            onCoverVisible = onCoverVisible,
-            modifier = Modifier
-                .size(width = if (compact) 40.dp else 44.dp, height = if (compact) 60.dp else 66.dp)
-                .clip(RoundedCornerShape(6.dp)),
-        )
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = summary.item.displayTitle,
-                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.5.sp, lineHeight = 21.sp),
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+    AppBookRow(
+        title = summary.item.displayTitle,
+        onClick = onOpen,
+        contentPadding = PaddingValues(vertical = 11.dp),
+        cover = {
+            JournalCoverArt(
+                item = summary.item,
+                catalogItem = summary.catalogItem,
+                coverImageUrlProvider = coverImageUrlProvider,
+                onCoverVisible = onCoverVisible,
+                modifier = Modifier
+                    .size(width = if (compact) 40.dp else 44.dp, height = if (compact) 60.dp else 66.dp)
+                    .clip(RoundedCornerShape(6.dp)),
             )
+        },
+        supporting = {
             Row(
                 modifier = Modifier.padding(top = 2.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -186,24 +178,17 @@ private fun ReadItemRow(
                 }
             }
             if (longestMillis > 0L && item.readingMillis > 0L) {
-                Box(
+                AppProgressBar(
+                    fraction = item.readingMillis.toFloat() / longestMillis,
+                    height = 4.dp,
+                    trackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                     modifier = Modifier
                         .padding(top = 8.dp)
-                        .fillMaxWidth()
-                        .height(4.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(item.readingMillis.toFloat() / longestMillis)
-                            .height(4.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary),
-                    )
-                }
+                        .fillMaxWidth(),
+                )
             }
-        }
+        },
+    ) {
         Column(
             modifier = Modifier.widthIn(min = if (compact) 72.dp else 96.dp),
             horizontalAlignment = Alignment.End,

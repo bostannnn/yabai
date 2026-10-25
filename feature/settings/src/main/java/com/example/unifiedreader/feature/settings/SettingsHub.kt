@@ -22,11 +22,11 @@ import com.example.unifiedreader.feature.updates.AppUpdateAutoCheckRow
 import com.example.unifiedreader.feature.updates.AppUpdateState
 import com.example.unifiedreader.feature.updates.AppUpdateVersionRow
 import com.example.unifiedreader.ui.components.AppIcons
-import com.example.unifiedreader.ui.components.AppScreenTitle
 import com.example.unifiedreader.ui.components.AppSettingsDefaults
 import com.example.unifiedreader.ui.components.AppSettingsGroup
 import com.example.unifiedreader.ui.components.AppSettingsRow
 import com.example.unifiedreader.ui.components.AppSettingsRowDivider
+import com.example.unifiedreader.ui.components.appGutter
 
 /** The settings front page: grouped rows that show their current value and open a page. */
 @Composable
@@ -42,14 +42,13 @@ internal fun SettingsHub(
     onOpenPage: (SettingsPage) -> Unit,
     contentTopInset: Dp,
     modifier: Modifier = Modifier,
-    horizontalPadding: Dp = SettingsScreenHorizontalPaddingDp.dp,
+    horizontalPadding: Dp = appGutter(),
 ) {
     SettingsPageContainer(
         contentTopInset = contentTopInset,
         modifier = modifier,
         horizontalPadding = horizontalPadding,
     ) {
-        AppScreenTitle(text = "Settings")
         AppSettingsGroup(label = "Appearance") {
             AppSettingsRow(
                 title = "Theme",

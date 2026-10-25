@@ -343,7 +343,7 @@ private fun EpubFontRow(
             overflow = TextOverflow.Ellipsis,
         )
         Icon(
-            imageVector = AppIcons.KeyboardArrowRight,
+            imageVector = AppIcons.NavigateNext,
             contentDescription = null,
             tint = tokens.colors.tertiaryText,
         )

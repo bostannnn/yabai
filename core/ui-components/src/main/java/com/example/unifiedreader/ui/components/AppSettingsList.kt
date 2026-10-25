@@ -41,24 +41,33 @@ fun AppSettingsGroup(
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(AppLayout.headingGap),
     ) {
         if (label != null) {
-            // A plain heading in sentence case, not an uppercase caption.
-            Text(
-                text = label,
-                style = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp, lineHeight = 20.sp),
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier
-                    .padding(start = 4.dp)
-                    .semantics { heading() },
-            )
+            AppGroupLabel(text = label)
         }
         AppPanel(modifier = Modifier.fillMaxWidth()) {
             content()
         }
     }
+}
+
+/**
+ * The label above a group of rows or tiles on a page: 15 sp SemiBold in sentence case, flush with
+ * the edge of what it heads (not an uppercase caption, not indented).
+ */
+@Composable
+fun AppGroupLabel(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp, lineHeight = 20.sp),
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = modifier.semantics { heading() },
+    )
 }
 
 /**
@@ -183,7 +192,7 @@ fun AppSettingsRowDivider(
 ) {
     AppDivider(
         modifier = modifier.padding(start = inset),
-        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AppDividerDefaults.alpha),
     )
 }
 

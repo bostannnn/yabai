@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -32,7 +31,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.unifiedreader.core.model.LibraryFilterFacets
@@ -41,12 +39,14 @@ import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.ui.components.AppButton
 import com.example.unifiedreader.ui.components.AppCheckbox
 import com.example.unifiedreader.ui.components.AppChip
-import com.example.unifiedreader.ui.components.AppDivider
-import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
+import com.example.unifiedreader.ui.components.AppLayout
+import com.example.unifiedreader.ui.components.AppPanelHeader
 import com.example.unifiedreader.ui.components.AppScreenBack
 import com.example.unifiedreader.ui.components.AppScreenHost
 import com.example.unifiedreader.ui.components.AppScreenTransition
+import com.example.unifiedreader.ui.components.AppSheetDivider
+import com.example.unifiedreader.ui.components.AppSheetLabel
 import com.example.unifiedreader.ui.components.AppSideSheet
 import com.example.unifiedreader.ui.components.AppTextButton
 
@@ -75,7 +75,7 @@ internal fun LibraryFilterSheet(
     }
     // Kept out here so the overview comes back where it was left.
     val overviewListState = rememberLazyListState()
-    AppSideSheet(onDismissRequest = onDismiss, width = LibraryFilterSheetWidth) {
+    AppSideSheet(onDismissRequest = onDismiss) {
         AppScreenHost(
             screen = page,
             modifier = Modifier.weight(1f),
@@ -111,7 +111,7 @@ internal fun LibraryFilterSheet(
             onClick = { dismiss() },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 12.dp)
+                .padding(horizontal = AppLayout.inset, vertical = 12.dp)
                 .height(LibraryFilterSheetButtonHeight),
         ) {
             Text(text = libraryFilterShowButtonLabel(shownCount), fontWeight = FontWeight.SemiBold)
@@ -143,35 +143,16 @@ private fun LibraryFilterOverview(
     }
     val pagePanels = filterPanels.filter(LibraryFilterPanel::opensAsPage)
     Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 20.dp, end = 8.dp, top = 16.dp, bottom = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        AppPanelHeader(
+            title = "Filters",
+            subtitle = libraryFilterShowingLabel(shownCount, totalCount),
+            onClose = onClose,
+            closeContentDescription = "Close filters",
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Filters",
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontSize = 24.sp,
-                        lineHeight = 30.sp,
-                        fontWeight = FontWeight.Bold,
-                    ),
-                )
-                Text(
-                    text = libraryFilterShowingLabel(shownCount, totalCount),
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
             if (anyApplied) {
                 AppTextButton(onClick = onClearFilters) {
                     Text(text = "Clear all", fontWeight = FontWeight.SemiBold)
                 }
-            }
-            AppIconButton(onClick = onClose) {
-                Icon(imageVector = AppIcons.Close, contentDescription = "Close filters")
             }
         }
         LazyColumn(
@@ -182,12 +163,12 @@ private fun LibraryFilterOverview(
             chipGroups.forEachIndexed { index, (panel, options) ->
                 item(key = "chips:${panel.name}") {
                     Column(modifier = Modifier.fillMaxWidth()) {
-                        if (index > 0) LibraryFilterSheetHairline()
-                        LibraryFilterSheetHeading(text = panel.label)
+                        if (index > 0) AppSheetDivider()
+                        AppSheetLabel(text = panel.label)
                         FlowRow(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(start = 20.dp, end = 20.dp, bottom = 14.dp),
+                                .padding(start = AppLayout.inset, end = AppLayout.inset, bottom = 14.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
@@ -207,7 +188,7 @@ private fun LibraryFilterOverview(
             }
             pagePanels.forEachIndexed { index, panel ->
                 item(key = "page:${panel.name}") {
-                    if (index > 0 || chipGroups.isNotEmpty()) LibraryFilterSheetHairline()
+                    if (index > 0 || chipGroups.isNotEmpty()) AppSheetDivider()
                     LibraryFilterFacetRow(
                         label = panel.label,
                         summary = libraryFacetSelectionSummary(panel, filterState, libraryTitlesById),
@@ -217,7 +198,7 @@ private fun LibraryFilterOverview(
                 }
             }
             if (pagePanels.isNotEmpty()) {
-                item(key = "page-end") { LibraryFilterSheetHairline() }
+                item(key = "page-end") { AppSheetDivider() }
             }
         }
     }
@@ -236,7 +217,7 @@ private fun LibraryFilterFacetRow(
             .fillMaxWidth()
             .height(LibraryFilterSheetRowHeight)
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(start = 20.dp, end = 14.dp)
+            .padding(start = AppLayout.inset, end = 14.dp)
             .alpha(if (enabled) 1f else DisabledFacetRowAlpha),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -260,37 +241,12 @@ private fun LibraryFilterFacetRow(
             modifier = Modifier.weight(1f),
         )
         Icon(
-            imageVector = AppIcons.KeyboardArrowRight,
+            imageVector = AppIcons.NavigateNext,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier
-                .padding(start = 4.dp)
-                .size(20.dp),
+            modifier = Modifier.padding(start = 4.dp),
         )
     }
-}
-
-/** A group title inside the sheet: "Reading status", or a letter on a facet page. */
-@Composable
-internal fun LibraryFilterSheetHeading(
-    text: String,
-    modifier: Modifier = Modifier,
-    fontSize: TextUnit = 13.sp,
-) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelLarge.copy(fontSize = fontSize, fontWeight = FontWeight.Bold),
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 8.dp),
-    )
-}
-
-@Composable
-internal fun LibraryFilterSheetHairline() {
-    AppDivider(
-        modifier = Modifier.padding(horizontal = 20.dp),
-        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-    )
 }
 
 @Composable
@@ -343,7 +299,6 @@ internal fun LibraryFilterState.clearing(panel: LibraryFilterPanel): LibraryFilt
     LibraryFilterPanel.Language -> copy(languages = emptySet())
 }
 
-private val LibraryFilterSheetWidth = 420.dp
 internal val LibraryFilterSheetRowHeight = 52.dp
 private val LibraryFilterSheetButtonHeight = 46.dp
 private const val DisabledFacetRowAlpha = 0.38f

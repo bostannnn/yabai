@@ -37,7 +37,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** A popup menu anchored to its parent: `surfaceContainerHigh` with 16 dp corners. */
+/** A popup menu anchored to its parent: `surfaceContainerHigh` with 12 dp corners. */
 @Composable
 fun AppMenu(
     expanded: Boolean,
@@ -178,9 +178,12 @@ fun AppMenuSwitchItem(
 }
 
 object AppMenuDefaults {
-    val cornerRadius: Dp = 16.dp
+    /** The control radius, like text fields and list rows. */
+    val cornerRadius: Dp = 12.dp
     val itemHeight: Dp = 44.dp
-    val horizontalPadding: Dp = 18.dp
+
+    /** One inset for every item, heading and control in a menu, so they line up. */
+    val horizontalPadding: Dp = AppLayout.menuInset
     val itemPadding: PaddingValues = PaddingValues(horizontal = horizontalPadding)
 
     /** The column a choice's check sits in, so checked and unchecked labels line up. */

@@ -28,14 +28,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.example.unifiedreader.ui.components.AppGroupLabel
 import com.example.unifiedreader.ui.components.AppIcons
+import com.example.unifiedreader.ui.components.AppLayout
 import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
@@ -58,7 +56,6 @@ internal fun ThemeSettingsPage(
             text = themeMode.description,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 4.dp),
         )
         themeTileGroups(options).forEach { (label, groupOptions) ->
             ThemeTileGroup(
@@ -89,15 +86,8 @@ private fun ThemeTileGroup(
     onSelected: (ThemeMode) -> Unit,
 ) {
     if (options.isEmpty()) return
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp, lineHeight = 20.sp),
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier
-                .padding(start = 4.dp)
-                .semantics { heading() },
-        )
+    Column(verticalArrangement = Arrangement.spacedBy(AppLayout.headingGap)) {
+        AppGroupLabel(text = label)
         BoxWithConstraints {
             val columns = (maxWidth / ThemeTileMinWidth).toInt().coerceIn(2, 4)
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

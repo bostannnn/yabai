@@ -1,7 +1,5 @@
 package com.example.unifiedreader.feature.journal
 
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -30,8 +28,8 @@ fun JournalScreen(
     // Opens a book's page in the library, from its journal page.
     onOpenInLibrary: ((ReadableItem) -> Unit)? = null,
     contentTopInset: Dp = 0.dp,
-    // Whether "Journal" at the top still shows, and whether anything has scrolled under the bar.
-    onTopBarStateChanged: (titleOnScreen: Boolean, scrolled: Boolean) -> Unit = { _, _ -> },
+    // Whether anything has scrolled under the bar (it then needs its glass).
+    onScrolledChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var deleteTarget by remember { mutableStateOf<JournalDeleteTarget?>(null) }
@@ -43,7 +41,7 @@ fun JournalScreen(
         onSaveJournalEntry = onSaveJournalEntry,
         onOpenInLibrary = onOpenInLibrary,
         contentTopInset = contentTopInset,
-        onTopBarStateChanged = onTopBarStateChanged,
+        onScrolledChanged = onScrolledChanged,
         modifier = modifier,
     )
     val toasts = LocalAppToastState.current
@@ -60,18 +58,6 @@ fun JournalScreen(
             },
         )
     }
-}
-
-@Composable
-internal fun EmptyJournalMessage(
-    text: String,
-) {
-    Text(
-        text = text,
-        modifier = Modifier.padding(24.dp),
-        style = MaterialTheme.typography.bodyLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
 }
 
 @Composable

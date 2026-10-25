@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -25,7 +24,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.ui.components.AppButton
-import com.example.unifiedreader.ui.components.AppCircularProgress
+import com.example.unifiedreader.ui.components.AppButtonSpinner
 import com.example.unifiedreader.ui.components.AppLinearProgress
 import com.example.unifiedreader.ui.components.AppTextButton
 import com.example.unifiedreader.ui.components.AppTextField
@@ -250,14 +249,10 @@ private fun ServerConnectButtonLabel(
 
 @Composable
 internal fun SettingsButtonProgressIndicator() {
-    AppCircularProgress(
-        modifier = Modifier.size(SettingsButtonProgressIndicatorSize),
-        strokeWidth = 2.dp,
-    )
+    AppButtonSpinner()
 }
 
 internal val SettingsActionButtonMinHeight = 40.dp
-internal val SettingsButtonProgressIndicatorSize = 18.dp
 
 @Composable
 private fun ServerPasswordField(

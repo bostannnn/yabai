@@ -3,10 +3,6 @@ package com.example.unifiedreader.feature.settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -17,7 +13,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.SourceConnectivityState
@@ -25,10 +20,10 @@ import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.feature.navigation.navigationIcon
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
-import com.example.unifiedreader.ui.components.AppBadge
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppSettingsGroup
 import com.example.unifiedreader.ui.components.AppSettingsRow
+import com.example.unifiedreader.ui.components.AppStatusPill
 import com.example.unifiedreader.ui.components.AppTonalButton
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
@@ -118,22 +113,17 @@ internal fun ServerStatus(entry: SourceSettingsEntry) {
         else -> Triple("Connected", semantic.syncAccentContainer, semantic.onSyncAccentContainer)
     }
     Column(
-        modifier = Modifier.padding(horizontal = 4.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            AppBadge(shape = CircleShape, color = container, contentColor = content) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (entry.connectivity != SourceConnectivityState.Offline && entry.connectivity != SourceConnectivityState.Checking) {
-                        Icon(imageVector = AppIcons.Check, contentDescription = null, modifier = Modifier.size(16.dp))
-                    }
-                    Text(text = label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                }
-            }
+            AppStatusPill(
+                label = label,
+                containerColor = container,
+                contentColor = content,
+                icon = AppIcons.Check.takeIf {
+                    entry.connectivity != SourceConnectivityState.Offline && entry.connectivity != SourceConnectivityState.Checking
+                },
+            )
             Text(
                 text = listOfNotNull(
                     settingsHostLabel(connection.baseUrl).takeIf(String::isNotBlank),
@@ -158,6 +148,5 @@ internal fun SettingsPageLine(text: String) {
         text = text,
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = 4.dp),
     )
 }

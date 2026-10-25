@@ -37,7 +37,8 @@ import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
  * the glass with that solid color (the library's selection bar).
  *
  * While the bar is visible the status bar and the gap above the bar fade from the screen's
- * background, so content scrolling up under the bar doesn't show as a strip above it.
+ * background, so content scrolling up under the bar doesn't show as a strip above it. Its sides
+ * sit on the screen's gutter ([appGutter]), so the bar lines up with the content under it.
  */
 @Composable
 fun AppTopBar(
@@ -53,6 +54,7 @@ fun AppTopBar(
         label = "appTopBarSurface",
     )
     val background = MaterialTheme.colorScheme.background
+    val sideMargin = appGutter()
     val statusBarTop = WindowInsets.statusBars.getTop(LocalDensity.current).toFloat()
     Box(
         modifier = modifier
@@ -77,8 +79,8 @@ fun AppTopBar(
                 }
             }
             .padding(
-                start = AppTopBarDefaults.sideMargin,
-                end = AppTopBarDefaults.sideMargin,
+                start = sideMargin,
+                end = sideMargin,
                 top = AppTopBarDefaults.topMargin,
                 bottom = AppTopBarDefaults.bottomMargin,
             ),
@@ -113,7 +115,6 @@ fun AppTopBar(
 
 object AppTopBarDefaults {
     val height: Dp = 56.dp
-    val sideMargin: Dp = 16.dp
     val topMargin: Dp = 12.dp
     val bottomMargin: Dp = 8.dp
     val contentPadding: Dp = 8.dp
