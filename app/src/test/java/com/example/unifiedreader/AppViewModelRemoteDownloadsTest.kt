@@ -87,6 +87,34 @@ class AppViewModelRemoteDownloadsTest {
     }
 
     @Test
+    fun `download again marks the item downloaded while its first download is still listed`() {
+        val remoteBook = sampleItem(
+            id = "grimmory-epub",
+            title = "Remote Book",
+            format = FormatType.EPUB,
+        ).copy(
+            sourceType = SourceType.GRIMMORY,
+            libraryId = SourceType.GRIMMORY.remoteLibraryId("grimmory-books"),
+            remoteId = "grimmory-epub",
+        )
+        val viewModel = createViewModel(
+            sampleItems = listOf(remoteBook),
+            grimmoryContentRepository = FakeGrimmoryContentRepository(),
+        )
+        viewModel.onSourceSelected(SourceType.GRIMMORY)
+        viewModel.onDownloadRemoteItem(remoteBook)
+        waitForUiState { remoteBook.id in viewModel.uiState.downloadedRemoteItemIds }
+
+        // The reader's "Download again": the file goes and a second download brings it back,
+        // while the first one stays in the Downloads list with the same item.
+        viewModel.onDownloadAgain(remoteBook)
+        waitForUiState {
+            viewModel.downloadsSnapshot.entries.count { entry -> entry.status == DownloadEntryStatus.Completed } == 2 &&
+                remoteBook.id in viewModel.uiState.downloadedRemoteItemIds
+        }
+    }
+
+    @Test
     fun `download grimmory failure is recorded in downloads snapshot`() {
         val remoteBook = sampleItem(
             id = "grimmory-epub",
