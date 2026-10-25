@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.reader.epub
 
+import com.example.unifiedreader.feature.reader.core.ReaderChapterPosition
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -107,6 +108,37 @@ class EpubTableOfContentsModelTest {
                 tocEntry(id = "elsewhere", title = "x", href = "https://example.com/x.xhtml", progression = 0.9),
             ),
         )
+    }
+
+    @Test
+    fun theSavedChapterHasItsTitleAndWhereEveryChapterStarts() {
+        val entries = listOf(
+            tocEntry(id = "c1", title = "Arrival", href = "https://example.com/1.xhtml", progression = 0.0),
+            tocEntry(id = "c2", title = "Salt and Glass", href = "https://example.com/2.xhtml", progression = 0.3),
+            tocEntry(id = "c2a", title = "Part a", href = "https://example.com/2.xhtml", progression = 0.35, depth = 1),
+            tocEntry(id = "c3", title = "Low Tide", href = "https://example.com/3.xhtml", progression = 0.7),
+        )
+
+        assertEquals(
+            ReaderChapterPosition(index = 2, count = 3, title = "Salt and Glass", starts = listOf(0f, 0.3f, 0.7f)),
+            entries.epubReaderChapterPosition(currentProgress = 0.36, currentHref = null),
+        )
+        assertNull(emptyList<EpubTocEntry>().epubReaderChapterPosition(currentProgress = 0.5, currentHref = null))
+    }
+
+    @Test
+    fun theStartsAreLeftOutWhenAChapterHasNoPosition() {
+        val entries = listOf(
+            tocEntry(id = "c1", title = "One", href = "https://example.com/1.xhtml", progression = 0.0),
+            tocEntry(id = "c2", title = "Two", href = "https://example.com/2.xhtml", progression = null),
+            tocEntry(id = "c3", title = "Three", href = "https://example.com/3.xhtml", progression = 0.7),
+        )
+
+        val position = entries.epubReaderChapterPosition(currentProgress = 0.8, currentHref = null)
+
+        assertEquals(3, position?.index)
+        assertEquals("Three", position?.title)
+        assertEquals(emptyList<Float>(), position?.starts)
     }
 
     @Test

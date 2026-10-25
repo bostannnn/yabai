@@ -46,7 +46,7 @@ import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import com.example.unifiedreader.feature.reader.core.ReportReaderOpening
 import com.example.unifiedreader.feature.reader.core.findContextAncestor
 import com.example.unifiedreader.feature.reader.core.openingStep
-import com.example.unifiedreader.feature.reader.core.readerSessionChapterPreference
+import com.example.unifiedreader.feature.reader.core.readerSessionChapterPreferences
 import com.example.unifiedreader.feature.reader.core.rememberReaderDocument
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
 import com.example.unifiedreader.feature.reader.preferences.ReaderDisplayPreferences
@@ -296,7 +296,7 @@ fun EpubReaderScreen(
                 sessionStore.updateSession(
                     item = item,
                     pageCount = pageCount.takeIf { it > 0 },
-                    preferences = buildEpubPreferencesMap(readerPreferences) + readerSessionChapterPreference(currentChapter),
+                    preferences = buildEpubPreferencesMap(readerPreferences) + readerSessionChapterPreferences(currentChapter),
                 )
             }
         },
@@ -448,9 +448,7 @@ fun EpubReaderScreen(
             LaunchedEffect(bookProgress.tocEntries, currentHref, currentProgress) {
                 val entries = bookProgress.tocEntries
                 if (entries.isEmpty()) return@LaunchedEffect
-                currentChapter = entries
-                    .epubTocChapterPosition(entries.activeEpubTocEntry(currentProgress, currentHref))
-                    ?.let { ReaderChapterPosition(index = it.index, count = it.count) }
+                currentChapter = entries.epubReaderChapterPosition(currentProgress, currentHref)
             }
 
             LaunchedEffect(item.id, hydrated, restoredSessionState, readerPreferences, pageCount) {

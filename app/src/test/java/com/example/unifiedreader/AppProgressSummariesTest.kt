@@ -7,7 +7,7 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.reader.core.ReaderChapterPosition
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
-import com.example.unifiedreader.feature.reader.core.readerSessionChapterPreference
+import com.example.unifiedreader.feature.reader.core.readerSessionChapterPreferences
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -27,15 +27,21 @@ class AppProgressSummariesTest {
 
         assertEquals(3, summary.chapter)
         assertEquals(6, summary.chapterCount)
+        assertEquals("Low Tide", summary.chapterTitle)
+        assertEquals(chapterStarts, summary.chapterStarts)
     }
 
     @Test
-    fun `a finished book drops the chapter but keeps how many it has`() {
+    fun `a finished book drops the chapter but keeps how many it has and where they start`() {
         val summary = summaries(isFinished = true).getValue(book.id)
 
         assertNull(summary.chapter)
+        assertNull(summary.chapterTitle)
         assertEquals(6, summary.chapterCount)
+        assertEquals(chapterStarts, summary.chapterStarts)
     }
+
+    private val chapterStarts = listOf(0f, 0.1f, 0.24f, 0.38f, 0.61f, 0.8f)
 
     private fun summaries(isFinished: Boolean) = buildProgressSummaries(
         items = listOf(book),
@@ -52,7 +58,9 @@ class AppProgressSummariesTest {
             book.id to ReaderSessionSnapshot(
                 itemId = book.id,
                 pageCount = 73,
-                preferences = mapOf(readerSessionChapterPreference(ReaderChapterPosition(index = 3, count = 6))),
+                preferences = readerSessionChapterPreferences(
+                    ReaderChapterPosition(index = 3, count = 6, title = "Low Tide", starts = chapterStarts),
+                ),
             ),
         ),
         localPageCountProvider = { 0 },
