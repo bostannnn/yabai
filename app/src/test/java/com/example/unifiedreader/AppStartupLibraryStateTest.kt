@@ -30,7 +30,9 @@ class AppStartupLibraryStateTest {
         val viewModel = createViewModel(
             sampleItems = listOf(item),
             readableItemRepository = FakeReadableItemRepository(items = listOf(item)),
-            remoteCatalogReadiness = FakeRemoteCatalogReadiness(initialHydrated = false),
+            // Hydration runs off the test thread; left free to finish, it could mark the catalog
+            // hydrated before the state below is read (it did on CI).
+            remoteCatalogReadiness = FakeRemoteCatalogReadiness(initialHydrated = false, hydrateOnBootstrap = false),
             readerSessionStore = FakeReaderSessionStore(
                 initialProgress = mapOf(
                     item.id to ReaderProgressSnapshot(
