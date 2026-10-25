@@ -37,6 +37,7 @@ import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
  * The search field: a pill on [containerColor] with a search icon, a placeholder and, once
  * something is typed, a clear button. An accent edge marks an active query. Inside a dialog,
  * which is already `surfaceContainerHigh`, pass [AppSearchFieldDefaults.dialogContainerColor].
+ * [trailingContent] sits at the end, before the clear button (a status badge, say).
  */
 @Composable
 fun AppSearchField(
@@ -48,6 +49,7 @@ fun AppSearchField(
     containerColor: Color = AppSearchFieldDefaults.containerColor,
     autoFocus: Boolean = false,
     contentDescription: String = placeholder,
+    trailingContent: (@Composable () -> Unit)? = null,
 ) {
     val colors = MaterialTheme.colorScheme
     val accent = UnifiedReaderThemeTokens.colors.sourceAccent
@@ -105,6 +107,7 @@ fun AppSearchField(
                         }
                         innerTextField()
                     }
+                    trailingContent?.invoke()
                     if (active) {
                         AppIconButton(
                             onClick = { onQueryChange("") },

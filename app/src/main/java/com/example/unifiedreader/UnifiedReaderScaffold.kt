@@ -123,8 +123,8 @@ fun UnifiedReaderScaffold(
     var activeLibraryShelfBrowserKind by rememberSaveable(uiState.libraryBrowseContextKey) {
         mutableStateOf<LibraryShelfBrowserKind?>(null)
     }
-    // Which library screens (by browse context) still show their large title under the bar.
-    val libraryHeaderOnScreen = remember { mutableStateMapOf<String, Boolean>() }
+    // Which library screens (by browse context) have scrolled their grid under the bar.
+    val libraryScrolled = remember { mutableStateMapOf<String, Boolean>() }
     var settingsPage by rememberSaveable(stateSaver = SettingsPageSaver) {
         mutableStateOf<SettingsPage?>(null)
     }
@@ -391,8 +391,8 @@ fun UnifiedReaderScaffold(
                                 onSetReadStatus = viewModel::onSetReadStatus,
                                 onFilterStateChanged = viewModel::onLibraryFiltersChanged,
                                 onClearFilters = viewModel::clearLibraryFilters,
-                                onHeaderOnScreenChanged = { contextKey, onScreen ->
-                                    if (onScreen == null) libraryHeaderOnScreen.remove(contextKey) else libraryHeaderOnScreen[contextKey] = onScreen
+                                onScrolledChanged = { contextKey, scrolled ->
+                                    if (scrolled == null) libraryScrolled.remove(contextKey) else libraryScrolled[contextKey] = scrolled
                                 },
                                 onImportLocalFile = onImportLocalFileClick,
                                 onConnectSource = { server -> onStartSource(SourceStartRequest(SourceStartMode.AddSource, server)) },
@@ -493,7 +493,7 @@ fun UnifiedReaderScaffold(
                                     selectedSource = uiState.selectedSource,
                                     sourceConnectivity = uiState.selectedSourceConnectivity,
                                     searchQuery = uiState.selectedLibrarySearchQuery,
-                                    seriesTitle = uiState.selectedLibraryContextTitle,
+                                    contextTitle = uiState.selectedLibraryContextTitle,
                                     downloadSelectionState = LibraryDownloadSelectionTopBarState(
                                         isSelectionMode = isLibraryDownloadSelectionMode,
                                         selectedCount = selectedDownloadItemIdSet.size,
@@ -521,13 +521,12 @@ fun UnifiedReaderScaffold(
                                     onDownloadSelectedItems = ::downloadSelectedLibraryItems,
                                     onImportLocalFileClick = onImportLocalFileClick,
                                     onLeaveSeries = viewModel::onBackPressed,
-                                    // Until the screen reports, a library that opens at its top shows its title.
                                     showSelectionTip = librarySelectionTip.shouldShow,
-                                    headerOnScreen = libraryHeaderOnScreen[uiState.libraryBrowseContextKey]
-                                        ?: (
-                                            uiState.showsLibraryHeader &&
-                                                viewModel.libraryScrollPositionFor(uiState.libraryBrowseContextKey).index == 0
-                                            ),
+                                    // Until the screen reports, the saved scroll position says.
+                                    scrolled = libraryScrolled[uiState.libraryBrowseContextKey]
+                                        ?: viewModel.libraryScrollPositionFor(uiState.libraryBrowseContextKey).let { position ->
+                                            position.index > 0 || position.offset > 0
+                                        },
                                 )
                             }
 

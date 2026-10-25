@@ -199,15 +199,31 @@ internal fun libraryLastReadLabel(
     nowMillis: Long,
     zone: ZoneId,
 ): String? {
+    val day = libraryLastReadDay(lastReadAtEpochMillis, nowMillis, zone) ?: return null
+    return if (day.isDate) "read on ${day.text}" else "read ${day.text}"
+}
+
+/** When something was last read: "today", "yesterday", "3 days ago", else the date ([isDate]). */
+internal data class LibraryReadDay(
+    val text: String,
+    val isDate: Boolean = false,
+)
+
+/** "today", "yesterday", "3 days ago", or "12 Oct" (with the year when not this one); null when never read. */
+internal fun libraryLastReadDay(
+    lastReadAtEpochMillis: Long,
+    nowMillis: Long,
+    zone: ZoneId,
+): LibraryReadDay? {
     if (lastReadAtEpochMillis <= 0L) return null
     val read = Instant.ofEpochMilli(lastReadAtEpochMillis).atZone(zone).toLocalDate()
     val today = Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate()
     val days = ChronoUnit.DAYS.between(read, today)
     return when {
-        days <= 0L -> "read today"
-        days == 1L -> "read yesterday"
-        days < 7L -> "read $days days ago"
-        else -> "read on ${read.format(dateFormatter(read, today))}"
+        days <= 0L -> LibraryReadDay("today")
+        days == 1L -> LibraryReadDay("yesterday")
+        days < 7L -> LibraryReadDay("$days days ago")
+        else -> LibraryReadDay(read.format(dateFormatter(read, today)), isDate = true)
     }
 }
 

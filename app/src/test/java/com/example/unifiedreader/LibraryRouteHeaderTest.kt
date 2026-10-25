@@ -1,7 +1,10 @@
 package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.ReadingListSummary
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.feature.library.LibraryCatalogKind
+import com.example.unifiedreader.feature.library.LibraryHeader
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -13,24 +16,44 @@ class LibraryRouteHeaderTest {
     )
 
     @Test
-    fun `header leaves the counts out until the source's catalog has loaded`() {
-        // At a cold start the items are the grid's first rows, not the whole catalog.
+    fun `a source's home has no header and heads its grid by what the catalog holds`() {
         val state = AppUiState(selectedSource = SourceType.KAVITA, sourceItems = books)
 
-        val header = state.libraryHeader()
-
-        assertEquals("Kavita", header?.title)
-        assertNull(header?.summary)
+        assertNull(state.libraryHeader())
+        assertEquals(LibraryCatalogKind.Books, state.libraryCatalogKind())
     }
 
     @Test
-    fun `header counts the catalog once the source has loaded`() {
+    fun `a Kavita list is headed by its name, without a summary line`() {
         val state = AppUiState(
             selectedSource = SourceType.KAVITA,
             sourceItems = books,
-            hydratedSources = setOf(SourceType.KAVITA),
+            kavitaReadingLists = AppKavitaReadingListState(
+                summaries = listOf(
+                    ReadingListSummary(id = "list", sourceType = SourceType.KAVITA, remoteId = "1", title = "Want to Read"),
+                ),
+                selectedReadingListId = "list",
+            ),
         )
 
-        assertEquals("2 books", state.libraryHeader()?.summary)
+        assertEquals(LibraryHeader(title = "Want to Read", hasSummaryLine = false), state.libraryHeader())
+        assertNull(state.libraryCatalogKind())
+    }
+
+    @Test
+    fun `a search has no header`() {
+        val state = AppUiState(
+            selectedSource = SourceType.KAVITA,
+            sourceItems = books,
+            librarySearchQueriesBySource = mapOf(SourceType.KAVITA to "salt"),
+            kavitaReadingLists = AppKavitaReadingListState(
+                summaries = listOf(
+                    ReadingListSummary(id = "list", sourceType = SourceType.KAVITA, remoteId = "1", title = "Want to Read"),
+                ),
+                selectedReadingListId = "list",
+            ),
+        )
+
+        assertNull(state.libraryHeader())
     }
 }

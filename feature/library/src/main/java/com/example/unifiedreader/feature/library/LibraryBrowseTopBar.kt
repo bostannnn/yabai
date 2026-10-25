@@ -98,7 +98,7 @@ fun LibraryBrowseSearchModeTopBar(
     }
 }
 
-/** The library's search field, in the search bar and, on wide windows, in the resting bar. */
+/** The library's search field: the middle of the library's bar, and the shelf browser's search bar. */
 @Composable
 fun LibraryBrowseTopBarSearchField(
     query: String,
@@ -107,6 +107,7 @@ fun LibraryBrowseTopBarSearchField(
     autoFocus: Boolean = false,
     queryContentDescription: String = "Library search query",
     placeholder: String = "Search",
+    trailingContent: (@Composable () -> Unit)? = null,
 ) {
     AppSearchField(
         query = query,
@@ -116,6 +117,7 @@ fun LibraryBrowseTopBarSearchField(
         height = UnifiedReaderThemeTokens.presentation.searchHeight,
         autoFocus = autoFocus,
         contentDescription = queryContentDescription,
+        trailingContent = trailingContent,
     )
 }
 
