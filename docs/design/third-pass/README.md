@@ -96,3 +96,13 @@ and the note on the board is an example. Cards: `page-colours` (interactive: tap
 `follow-app` (A the app theme's own page, B Paper or Black), `settings-units`, `page-frame`, `chapter-line`,
 `footnote`, `go-to-note`, `phone`. Picked: all Do but `follow-app` Neither; answered in chat: no Follow app, and a
 book not set opens on the colour last picked in any book. Built as plan 9.6 records.
+
+## 9.7 Opening a book and reader errors, 2026-10-25
+
+`pages/opening.html` (live board: https://claude.ai/artifact/SoNFnTKYbb1HL7VQtEXRtk, picks in its store, collection
+`picks`) sets today's opening of a Sepia EPUB and a comic (`pages/img/opening/today-*.jpg`, frames from a
+`screenrecord` on `yabai_tablet_35` with main at e19a46c7) and the review's slow first open (`img/opening.jpg`)
+beside the opening state and the error screen drawn at dp size with 9.6's page colours. Today's error screens are
+drawn from the code. Cards: `opening-look` (A/B), `opening-words`, `handoff`, `error-screen`, `error-words`,
+`comics-loading`, `unsupported`, `download-again`, `phone`. Picked (pasted in chat; the board's store stayed empty):
+opening-look A, the rest Do. Built as plan 9.7 records.

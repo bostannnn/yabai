@@ -1567,11 +1567,63 @@ on a spread and at 412 dp phone width. All unit tests pass (1498, both lines). N
   scroll mode's chapter line, TalkBack.
 - [ ] Tablet.
 
-### 9.7 Opening a book and reader errors `[ ]` (opening, picked Maybe)
+### 9.7 Opening a book and reader errors `[~]` (opening, picked Maybe)
 
-- [ ] Mock first and decide there: one opening state in reader-core (the page colour, the cover,
-      title and author, a moving accent line, no developer words such as "Opening EPUB with
-      Readium…"), and errors on `AppEmptyState` with Try again and Back to library.
+Built 2026-10-25 in worktree `ui-redesign-step-9-807293` (branch `claude/ui-redesign-step-9-807293`, at main
+e19a46c7); checked on the emulator (`yabai_tablet_35` on 5558, debug build, the Local library) at 800 dp and 412 dp.
+All unit tests pass (1505, both lines). Not yet on the tablet.
+
+- [x] Mock first: board https://claude.ai/artifact/SoNFnTKYbb1HL7VQtEXRtk
+      (`docs/design/third-pass/pages/opening.html`, 2026-10-25). The picks didn't reach the board's store (the tab
+      kept them); pasted in chat with Copy picks: `opening-look` A, and `opening-words`, `handoff`, `error-screen`,
+      `error-words`, `comics-loading`, `unsupported`, `download-again` and `phone` Do, no notes.
+- Found while making the board (main with 9.6, debug build): opening a cached EPUB faded from the library through a
+  dark frame into about a second of blank page under the bars, whatever the page colour; a comic passed through a
+  dark frame with bars and a spinner. The comics reader showed its page source's diagnostic as centred text with no
+  Back, for "still loading" and real failures alike; the PDF reader put "Unable to open this PDF." where the page
+  would be.
+- [x] One opening for every reader (reader-core `ReaderOpeningLayer`, drawn by `ReaderHost` over the reader): the
+      colour the book opens on (an EPUB's page colour, the comics canvas, the app's background for PDF), the cover
+      at 132 x 198 dp (112 x 168 on phones; the host's `cover` slot, the library's `VisibleResolvedLibraryCover`),
+      `libraryPrimaryText` at 22 sp Bold over `librarySecondaryText` (the author, or a comic's issue), and a 120 dp
+      line of 3 dp whose brighter third slides across every 1.2 s. It takes no taps; Back still leaves.
+- [x] Words after 600 ms, under the line: "Getting it from Grimmory..." while a server book's file comes down inside
+      the reader, "Opening..." while it is read, "Finding your page..." while the EPUB reader restores your place
+      (`readerOpeningWords`). "Restoring EPUB state...", "Opening EPUB with Readium...", "Restoring EPUB position..."
+      and the spinners are gone. Kavita and Stump books are still downloaded before the reader opens (the
+      coordinator's `PrepareRemoteFile`), so their wait stays in the library as before.
+- [x] Readers report to the host (`ReportReaderOpening` through `LocalReaderOpening`): the EPUB reader stays
+      "opening" until the navigator reports its first location, the comics reader until the current page has drawn
+      (6 s at most, so a page that fails shows its own error), the PDF reader until its first page has rendered.
+      Then the layer fades out on the effects curve over the page and its bars: no dark frame, no blank page.
+- [x] One error screen: the reader's top bar (Back, the title) over the kit's `AppEmptyState` in the page's colours
+      ("Couldn't open this book", the reason, the books drawing), with Try again (filled, the page's text colour) and
+      Back to library (tonal). Readers say why with `ReaderOpenFailure`; the EPUB and PDF readers share
+      `rememberReaderDocument` (reader-core), which replaced their two copies of the URI loader, and
+      `readerOpenFailureOf` turns a missing file or network error into a reason.
+- [x] Reasons in plain words (`ReaderOpenFailure.reason()`): a server that didn't answer (named), a server that isn't
+      connected, a local file moved or deleted ("Import it again from where it is now", no Try again), a download
+      that is gone, a file that isn't a book yabai can read, an archive or PDF without pages, a damaged or locked PDF,
+      and "Something went wrong while opening it." for the rest. The diagnostics' detail stays in the log.
+- [x] Comics whose pages are still coming show the opening: `ComicPagesUnavailableDiagnostic.kind`
+      (`ComicPagesUnavailableKind`), set by the downloaded and cache-controller page sources; "still being
+      inspected" and "not ready" are Loading, the rest failures.
+- [x] A format no reader takes: "yabai can't open X files" over "It reads EPUB, PDF, CBZ and CBR.", with Back to
+      library only, on the app's background (`ReaderHost`'s old top bar and "No reader is registered for X" are gone).
+- [x] Download again: when a downloaded server book's file is gone or unreadable, the screen offers Download again
+      (filled) instead of Try again. `AppRemoteDownloadController.onDownloadAgain` deletes the broken files and queues
+      a fresh download (its 9.2 toast shows over the layer, which has its own toast host); the layer shows "Getting it
+      from Kavita..." until the item is downloaded again, then tries again (`ReaderDownloadAgain`).
+- Not as the mock: the opening's words sit in a fixed 36 dp line under the moving one, so nothing moves when they
+  appear.
+- Hotspots: `EpubReaderEntry.kt` 989 -> 823 lines (the Readium opening moved to `EpubPublicationOpener.kt`, the
+  message screen and URI loader went), `PdfReaderEntry.kt` 851 -> 828, `AppViewModel.kt` 3 lines shorter.
+- Seen on the emulator: a Sepia EPUB opening (cover, title, author, the line, then the page), a comic on the comics
+  canvas, a test PDF, the phone opening, and the error screen for a local EPUB whose file was deleted (Sepia, Back to
+  library only), with Back to library working.
+- Not seen: the words after 600 ms (every open on the emulator is faster), a server book (fetching, a server that
+  didn't answer, Download again), a broken PDF, a format no reader takes.
+- [ ] Tablet.
 
 ### 9.8 Kit drift sweep `[ ]` (kit-drift)
 

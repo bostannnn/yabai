@@ -1,0 +1,539 @@
+<meta charset="utf-8">
+<title>yabai Opening a Book</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Serif:ital,wght@0,400;0,700;1,400&display=swap">
+<style>
+/* Layout: a board of decision cards; each card shows the mock at real dp sizes (scaled to fit) beside its spec, with a pick row. Dark-first like the app's Graphite. */
+:root {
+  --bg: #121417;
+  --surface: #1b1e23;
+  --surface-2: #23272d;
+  --line: #2f343b;
+  --fg: #e8eaed;
+  --muted: #9aa3ad;
+  --accent: #e9a6c6;
+  --on-accent: #2a1020;
+  --maybe: #b8c7da;
+  --dont: #ef8a80;
+  --stage: #0b0c0e;
+  --ui: "Manrope", "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f5f4f2; --surface: #ffffff; --surface-2: #efeeeb; --line: #dddad5; --fg: #1c1d20; --muted: #5d636b;
+    --accent: #a23e72; --on-accent: #ffffff; --maybe: #4a5d78; --dont: #b3392e; --stage: #e4e2de; color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f5f4f2; --surface: #ffffff; --surface-2: #efeeeb; --line: #dddad5; --fg: #1c1d20; --muted: #5d636b;
+  --accent: #a23e72; --on-accent: #ffffff; --maybe: #4a5d78; --dont: #b3392e; --stage: #e4e2de; color-scheme: light;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--ui); font-size: 15px; line-height: 1.55; margin: 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 40px 96px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(32px, 5vw, 46px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }
+h3 { font-size: 19px; font-weight: 700; }
+p { margin: 0; }
+code { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 12.5px; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; overflow-wrap: anywhere; }
+.overline { font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; color: var(--muted); }
+.lede { max-width: 72ch; color: var(--muted); font-size: 16px; margin-top: 14px; }
+.lede strong { color: var(--fg); }
+
+.bar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; margin: 26px 0 8px; padding: 10px 14px;
+  border-radius: 999px; border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+}
+.tally { display: flex; gap: 14px; font-weight: 600; font-size: 14px; font-variant-numeric: tabular-nums; }
+.tally b { font-weight: 800; }
+.save-state { color: var(--muted); font-size: 13px; flex: 1 1 200px; min-width: 0; }
+.pill-btn { font: 600 13.5px var(--ui); border-radius: 999px; padding: 8px 16px; cursor: pointer; border: 1px solid var(--line); background: var(--surface-2); color: var(--fg); }
+button:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.today { margin-top: 34px; background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 22px; display: grid; gap: 18px; }
+.today figure { margin: 0; min-width: 0; }
+.today img { width: 100%; display: block; border-radius: 12px; border: 1px solid var(--line); }
+.today .shots { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+.today .shots figure { flex: 1 1 200px; }
+.today .shots figure.wide { flex: 2 1 380px; }
+figcaption { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+ul.spec { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+ul.spec li::marker { color: var(--muted); }
+
+.cards { margin-top: 30px; display: grid; gap: 22px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 22px; display: grid; gap: 18px; }
+.card-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.card-head h3 { flex: 1 1 340px; min-width: 0; }
+.tag { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
+.body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: start; }
+.body > .col { max-width: 84ch; }
+.stages { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; min-width: 0; }
+.stage { background: var(--stage); border-radius: 16px; padding: 14px; display: grid; gap: 8px; justify-items: center; min-width: 0; max-width: 100%; }
+.stage .cap { font-size: 12.5px; color: var(--muted); text-align: center; max-width: 42ch; }
+.stage .cap b { color: var(--fg); }
+.row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: flex-start; }
+.row figure { margin: 0; display: grid; gap: 4px; justify-items: center; }
+.row figcaption { margin: 0; font-size: 11.5px; text-align: center; max-width: 24ch; }
+.col { display: grid; gap: 12px; min-width: 0; }
+
+/* scaled device frame: outer box is the scaled size, inner is real dp */
+.scaled { position: relative; overflow: hidden; border-radius: 10px; flex: none; max-width: 100%; }
+.scaled > .dev { position: absolute; left: 0; top: 0; transform-origin: 0 0; overflow: hidden; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: center; }
+.controls .lbl { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+.seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; }
+.seg button { font: 600 13px var(--ui); border: 0; border-radius: 999px; padding: 6px 14px; background: transparent; color: var(--fg); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--surface-2); }
+.sw { all: unset; cursor: pointer; }
+.sw:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 12px; }
+
+.tokens-wrap { overflow-x: auto; }
+table.tokens { border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+table.tokens th, table.tokens td { text-align: left; padding: 5px 12px 5px 0; white-space: nowrap; }
+table.tokens th { color: var(--muted); font-weight: 600; font-size: 12px; }
+table.tokens code { background: transparent; padding: 0; }
+.chip { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: -2px; margin-right: 6px; box-shadow: inset 0 0 0 1px rgba(127,127,127,.35); }
+
+/* pick row */
+.pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 14px; border-top: 1px solid var(--line); }
+.pick .label { font-size: 13px; color: var(--muted); font-weight: 600; margin-right: 4px; }
+.pick button { font: 700 13.5px var(--ui); padding: 7px 16px; border-radius: 999px; cursor: pointer; border: 1px solid var(--line); background: transparent; color: var(--fg); }
+.pick button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.pick button[aria-pressed="true"][data-v="maybe"] { background: var(--maybe); color: var(--bg); border-color: var(--maybe); }
+.pick button[aria-pressed="true"][data-v="dont"], .pick button[aria-pressed="true"][data-v="neither"] { background: var(--dont); color: var(--bg); border-color: var(--dont); }
+.pick textarea { flex: 1 1 260px; min-width: 0; min-height: 38px; resize: vertical; font: 14px var(--ui); color: var(--fg); background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; }
+
+@media (max-width: 600px) {
+  .card, .today { padding: 16px; border-radius: 20px; }
+  .bar { border-radius: 20px; }
+  .stage { padding: 10px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .scaled > .dev { transition: transform .2s ease; }
+}
+
+/* the opening line: a brighter part slides along a faint track */
+.mover { position: absolute; top: 0; bottom: 0; width: 34%; left: -34%; border-radius: 2px; animation: mover 1.2s cubic-bezier(.4, 0, .2, 1) infinite; }
+@keyframes mover { to { left: 100%; } }
+@media (prefers-reduced-motion: reduce) { .mover { animation: none; left: 33%; } }
+table.words td { white-space: normal; vertical-align: top; padding: 8px 18px 8px 0; border-top: 1px solid var(--line); max-width: 46ch; }
+table.words td:first-child { color: var(--muted); }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="overline">yabai &#183; redesign plan 9.7 &#183; board &#183; 25 October 2026</p>
+    <h1 style="margin-top:10px">Opening a book, and when it can't open</h1>
+    <p class="lede">You marked this Maybe on the review, so this board decides it. Opening a book today goes through a dark frame into a blank page under the bars, and on a slow first open it says "Opening EPUB with Readium&#8230;". When a book can't open, each reader says it differently, often in developer words, and the comics and PDF readers offer no way forward. <strong>Card 1 picks the opening look</strong> (A or B); the rest are Do, Maybe or Don't. Screens are drawn at real sizes (1 px = 1 dp, scaled to fit) on the 800 dp tablet with 9.6's page colours. Picks save to this page.</p>
+  </header>
+
+  <div class="bar" role="region" aria-label="Your picks">
+    <div class="tally" aria-live="polite"><span><b id="n-picked">0</b> of <b id="n-total">9</b> picked</span></div>
+    <p class="save-state" id="save-state">Picks are kept in this browser until the page's store answers.</p>
+    <button class="pill-btn" id="copy-picks" type="button">Copy picks</button>
+  </div>
+  <textarea id="copy-fallback" aria-label="Picks as text" hidden style="width:100%;min-height:120px;margin-top:8px;font:13px ui-monospace,monospace;background:var(--surface-2);color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:10px"></textarea>
+
+  <section class="today" aria-label="Today">
+    <p class="overline">What's there today (main with 9.6, debug build, emulator, the Local library)</p>
+    <div class="shots">
+      <figure><img src="img/opening/today-epub-1.jpg" alt="The library with The Lantern Keepers' reading card"><figcaption>1. Continue on The Lantern Keepers (a Sepia book).</figcaption></figure>
+      <figure><img src="img/opening/today-epub-2.jpg" alt="A dark grey frame with the reader's bars"><figcaption>2. The reader fades in over a dark frame, whatever the page colour.</figcaption></figure>
+      <figure><img src="img/opening/today-epub-3.jpg" alt="A blank sepia page under the top bar and dock"><figcaption>3. About a second of blank page under the bars.</figcaption></figure>
+      <figure><img src="img/opening/today-epub-4.jpg" alt="The page of text under the bars"><figcaption>4. The text.</figcaption></figure>
+      <figure><img src="img/opening/today-comic-1.jpg" alt="A comic opening: a dark screen with bars and a small spinner"><figcaption>A comic: a dark frame with bars and a spinner, then the pages.</figcaption></figure>
+    </div>
+    <div class="shots">
+      <figure class="wide"><img src="img/opening.jpg" alt="The review's four frames of a slow first open: the library, a black screen saying Opening EPUB with Readium with a small spinner and Back, the bars over black, then the text"><figcaption>A slow first open (0.17.1, from the review): "Opening EPUB with Readium&#8230;" on black, then the bars over black, then the page.</figcaption></figure>
+    </div>
+    <ul class="spec">
+      <li>The EPUB reader shows <code>EpubReaderMessage</code> three times before the page ("Restoring EPUB state&#8230;", "Opening EPUB with Readium&#8230;", "Restoring EPUB position&#8230;"), on the app's background with a spinner and a Back text button. Its errors use the same screen with the reason and Back.</li>
+      <li>The comics reader shows its page source's diagnostic as centred text with the title under it, and no Back. The same text covers "still loading" ("Downloaded comic pages are still being inspected") and real failures ("Downloaded comic file was not found", "No download data source for this comic").</li>
+      <li>The PDF reader keeps its bars and puts "Unable to open this PDF." or "No PDF document available." where the page would be, with no retry.</li>
+      <li>A format no reader takes gets the old top bar and "No reader is registered for MOBI." (<code>ReaderHost.kt</code>).</li>
+      <li>I couldn't make an error happen on the emulator (a local book reads the app's own copy), so the error cards draw today's screens from the code.</li>
+    </ul>
+  </section>
+
+  <div class="cards">
+
+    <article class="card" data-card="opening-look" data-kind="ab" data-title="The opening look">
+      <div class="card-head"><h3>1 &#183; One opening for every reader: the book, or just the page</h3><span class="tag">pick A or B</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div class="row" id="m-open-a"></div><p class="cap"><b>A.</b> The page colour, the cover, the title and author, and a thin line that moves.</p></div>
+          <div class="stage"><div class="row" id="m-open-b"></div><p class="cap"><b>B.</b> Only the page colour, with the line moving along the top.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>One opening state in reader-core for the EPUB, comic and PDF readers, on the colour the book will open on: the book's page colour, or the comics canvas.</li>
+            <li>A: the cover at 132 &#215; 198 dp (from the library's cover cache), the title at 22 sp and the author under it, and a 120 dp line of 3 dp whose bright part slides across every 1.2 s. It tells you which book is coming, and on a slow open there is something to look at.</li>
+            <li>B: nothing in the middle; the line runs along the top edge, where the top bar will be. Quieter, and the page arrives in the same place it was waiting.</li>
+            <li>No bars and no system bars until the page is there. Back still leaves.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="opening-words" data-kind="dmd" data-title="Words while opening">
+      <div class="card-head"><h3>2 &#183; No words for a quick open, plain ones for a slow one</h3><span class="tag">reader-core</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div class="row" id="m-words"></div><p class="cap">After 600 ms, one line under the author (drawn as A).</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>Nothing is written for the first 600 ms, so a quick open is only the book and the line.</li>
+            <li>After that, one line that says what is happening: "Getting it from Kavita&#8230;" while a server book's file comes down, "Opening&#8230;" while the file is read, "Finding your page&#8230;" while the reader looks for your place.</li>
+            <li>Gone: "Restoring EPUB state&#8230;", "Opening EPUB with Readium&#8230;", "Restoring EPUB position&#8230;" and the spinner.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="handoff" data-kind="dmd" data-title="From opening to the page">
+      <div class="card-head"><h3>3 &#183; The opening fades into the page, with no dark frame</h3><span class="tag">reader-core</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div class="row" id="m-handoff"></div><p class="cap">Left to right: opening, half-way (about 100 ms), the page with its bars.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>The opening state stays until the first page has drawn its text, then cross-fades into it on the effects curve (210 ms). The blank page under the bars is gone.</li>
+            <li>Everything is on the book's page colour from the first frame, so a Paper or Sepia book never passes through dark.</li>
+            <li>The bars come in with the page and stay until you tap, as today.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="error-screen" data-kind="dmd" data-title="One error screen">
+      <div class="card-head"><h3>4 &#183; When a book can't open: one screen with a way forward</h3><span class="tag">AppEmptyState</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div class="row" id="m-err-today"></div><p class="cap"><b>Today</b>, drawn from the code: the EPUB reader, the comics reader, the PDF reader.</p></div>
+          <div class="stage"><div class="row" id="m-err-new"></div><p class="cap"><b>Proposed</b>: a server book that didn't answer (Black), and a local file that is gone (Sepia).</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>Every reader shows the same screen: the reader's top bar with Back and the title, then <code>AppEmptyState</code> in the middle on the book's page colour: the books drawing, "Couldn't open this book", the reason in a sentence, and the actions.</li>
+            <li>Try again (filled, in the page's text colour) runs the opening again; Back to library (tonal) leaves. A local file that is gone has no Try again: it gets Back to library only, and the reason says what to do.</li>
+            <li>Taps on the page area do nothing here (today a tap on the PDF error can turn pages that don't exist).</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="error-words" data-kind="dmd" data-title="Error reasons in plain words">
+      <div class="card-head"><h3>5 &#183; The reasons, in words a reader understands</h3><span class="tag">all readers</span></div>
+      <div class="body">
+        <div class="col">
+          <div class="tokens-wrap"><table class="tokens words">
+            <thead><tr><th scope="col">Today</th><th scope="col">Proposed reason</th></tr></thead>
+            <tbody>
+              <tr><td>This book's file isn't available. Check the connection to its server, then open it again.</td><td>Kavita didn't answer. Check that you're on the same network as your server, then try again.</td></tr>
+              <tr><td>Unable to open imported EPUB file. &#183; Failed to prepare EPUB content.</td><td>The file was moved or deleted. Import it again from where it is now.</td></tr>
+              <tr><td>Failed to open EPUB publication. &#183; Readium's own error text</td><td>This file isn't a book yabai can read. It may be damaged.</td></tr>
+              <tr><td>Downloaded comic file was not found</td><td>The downloaded file is gone. Download it again.</td></tr>
+              <tr><td>Downloaded comic archive has no entries &#183; &#8230;has no readable pages</td><td>This archive has no pages yabai can show.</td></tr>
+              <tr><td>No download data source for this comic &#183; No comic page source selected</td><td>This book's server isn't connected. Connect it in Settings, then try again.</td></tr>
+              <tr><td>Unable to open this PDF.</td><td>This PDF is damaged or locked with a password.</td></tr>
+              <tr><td>This PDF has no pages. &#183; No PDF document available.</td><td>This PDF has no pages.</td></tr>
+            </tbody>
+          </table></div>
+          <ul class="spec">
+            <li>The server's name is the book's own source (Kavita, Grimmory, Stump). The developer detail (ids, paths, byte counts) goes to the log, not the screen.</li>
+            <li>A reason the readers can't place falls back to "Something went wrong while opening it." and Try again.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="comics-loading" data-kind="dmd" data-title="Comic pages still loading">
+      <div class="card-head"><h3>6 &#183; A comic whose pages are still coming shows the opening, not an error</h3><span class="tag">reader-comics</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div class="row" id="m-comic"></div><p class="cap"><b>Today</b> "&#8230;still being inspected" as centred text; <b>proposed</b> the opening state on the comics canvas.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>"Downloaded comic pages are still being inspected" and "&#8230;are not ready" mean the pages are on their way: the opening state stays (with "Opening&#8230;" after 600 ms).</li>
+            <li>The other diagnostics are failures and get card 4's screen with card 5's words.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="unsupported" data-kind="dmd" data-title="A format yabai can't open">
+      <div class="card-head"><h3>7 &#183; A kind of file yabai can't open</h3><span class="tag">ReaderHost</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div class="row" id="m-unsupported"></div><p class="cap"><b>Today</b> the old top bar and "No reader is registered for MOBI."; <b>proposed</b> the same error screen.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>"yabai can't open MOBI files" over "It reads EPUB, PDF, CBZ and CBR.", with Back to library only.</li>
+            <li>On the app's background (there is no page colour for a book that can't open), with the reader's top bar.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="download-again" data-kind="dmd" data-title="Download again">
+      <div class="card-head"><h3>8 &#183; "Download again" for a server book whose download is broken</h3><span class="tag">app</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div id="m-download"></div><p class="cap">A downloaded Kavita comic whose file is gone.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>When a downloaded server book's file is gone or unreadable, the error screen offers Download again (filled) beside Back to library: it removes the broken download and starts a fresh one, with the download toast from 9.2; the book opens when it is done.</li>
+            <li>Without it, the way out is the book page's Remove download and then Download.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-card="phone" data-kind="dmd" data-title="Opening on a phone">
+      <div class="card-head"><h3>9 &#183; On a phone</h3><span class="tag">412 dp</span></div>
+      <div class="body">
+        <div class="stages">
+          <div class="stage"><div class="row" id="m-phone"></div><p class="cap">The opening (as A) and the error screen at 412 dp.</p></div>
+        </div>
+        <div class="col">
+          <ul class="spec">
+            <li>The same layout: the cover at 112 &#215; 168 dp, the actions side by side while they fit and stacked when they don't.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+  </div>
+</div>
+
+<script>
+(function () {
+  var UI = "font-family:var(--ui);";
+  var SERIF = "font-family:'Noto Serif', Georgia, serif;";
+  // 9.6's page colours, and today's comics canvas.
+  var PAL = {
+    paper: { name: "Paper", page: "#FAF7F0", text: "#1E1C19", number: "#8A857C", raised: "#F0ECE2" },
+    sepia: { name: "Sepia", page: "#F2E6CC", text: "#3B2E1C", number: "#857358", raised: "#E8DABB" },
+    black: { name: "Black", page: "#000000", text: "#C9C6BF", number: "#6F6D68", raised: "#17171A" },
+    comic: { name: "Comics canvas", page: "#0A0D11", text: "#E7EAEE", number: "#8A9099", raised: "#1A1F25" }
+  };
+  var APP = { bg: "#101214", fg: "#E7EAEE", fg2: "#C8D0D8", acc: "#B7C7D9", onAcc: "#223244" };
+  var LANTERN = { cover: "img/tiles/covers/The-Lantern-Keepers.jpg", title: "The Lantern Keepers", author: "Oona Fitch" };
+  var STAR = { cover: "img/tiles/covers/Star-Courier-002.jpg", title: "Star Courier #2", author: "Star Courier \u00b7 issue 2" };
+
+  function alpha(hex, a) { var n = parseInt(hex.slice(1), 16); return "rgba(" + (n >> 16) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")"; }
+  function set(id, html) { var el = document.getElementById(id); if (el) el.innerHTML = html; }
+  function device(w, h, scale, inner, extra) {
+    return '<div class="scaled" data-w="' + w + '" data-h="' + h + '" data-s="' + scale + '" style="width:' + Math.round(w * scale) + 'px;height:' + Math.round(h * scale) + 'px' + (extra || "") + '"><div class="dev" style="width:' + w + 'px;height:' + h + 'px;transform:scale(' + scale + ')">' + inner + "</div></div>";
+  }
+  function fitAll() {
+    Array.prototype.forEach.call(document.querySelectorAll(".scaled"), function (el) {
+      var host = el.closest(".stage") || el.parentElement;
+      var avail = host.clientWidth - (host.classList.contains("stage") ? parseFloat(getComputedStyle(host).paddingLeft) * 2 : 0);
+      var w = +el.dataset.w, h = +el.dataset.h, k = Math.min(+el.dataset.s, avail / w);
+      if (!(k > 0)) return;
+      el.style.width = Math.round(w * k) + "px"; el.style.height = Math.round(h * k) + "px";
+      el.firstElementChild.style.transform = "scale(" + k + ")";
+    });
+  }
+  function fig(inner, caption) { return "<figure>" + inner + (caption ? "<figcaption>" + caption + "</figcaption>" : "") + "</figure>"; }
+
+  // The moving line: a faint track with a brighter part sliding across.
+  function line(p, width, top) {
+    return '<div style="position:relative;width:' + width + 'px;height:3px;border-radius:2px;overflow:hidden;background:' + alpha(p.text, 0.12) + (top != null ? ";margin-top:" + top + "px" : "") + '"><div class="mover" style="background:' + alpha(p.text, 0.55) + '"></div></div>';
+  }
+  // o: {w, h, pal, look: "a"|"b", book, words}
+  function opening(o) {
+    var p = o.pal, b = o.book, phone = o.w < 500;
+    var h = '<div style="position:relative;width:' + o.w + "px;height:" + o.h + "px;background:" + p.page + ";" + UI + 'overflow:hidden">';
+    if (o.look === "b") {
+      h += '<div style="position:absolute;left:0;right:0;top:0">' + line(p, o.w) + "</div>";
+      if (o.words) h += '<div style="position:absolute;left:0;right:0;top:' + (o.h / 2 - 10) + 'px;text-align:center;font-size:13px;font-weight:500;color:' + p.number + '">' + o.words + "</div>";
+    } else {
+      var cw = phone ? 112 : 132, ch = phone ? 168 : 198;
+      h += '<div style="position:absolute;left:0;right:0;top:' + (o.h / 2 - ch / 2 - 70) + 'px;display:grid;justify-items:center;text-align:center;padding:0 32px">' +
+        '<img src="' + b.cover + '" alt="" style="width:' + cw + "px;height:" + ch + 'px;object-fit:cover;border-radius:6px;box-shadow:0 10px 24px rgba(0,0,0,.28)">' +
+        '<div style="margin-top:24px;font-size:22px;line-height:28px;font-weight:700;color:' + p.text + '">' + b.title + "</div>" +
+        '<div style="margin-top:4px;font-size:14px;color:' + p.number + '">' + b.author + "</div>" + line(p, 120, 22) +
+        (o.words ? '<div style="margin-top:14px;font-size:13px;font-weight:500;color:' + p.number + '">' + o.words + "</div>" : "") + "</div>";
+    }
+    return h + "</div>";
+  }
+  // The reader's bars over a page, for the hand-off and the PDF.
+  function readerBars(title, sub, w, h) {
+    var bar = "rgba(29,33,37,.92)";
+    return '<div style="position:absolute;left:16px;right:16px;top:12px;height:56px;border-radius:28px;background:' + bar + ';display:flex;align-items:center;padding:0 18px;' + UI + 'color:#E7EAEE"><span style="font-size:22px">\u2190</span><div style="flex:1;text-align:center"><div style="font-size:15px;font-weight:600">' + title + '</div><div style="font-size:12px;color:#C8D0D8">' + sub + '</div></div><span style="font-size:15px;font-weight:700">Aa</span></div>' +
+      '<div style="position:absolute;left:16px;right:16px;bottom:12px;height:56px;border-radius:28px;background:' + bar + ';display:flex;align-items:center;gap:14px;padding:0 18px;' + UI + 'color:#E7EAEE;font-size:13px"><span>\u2630</span><span>4%</span><div style="flex:1;height:6px;border-radius:3px;background:#4E5660"><div style="width:4%;height:100%;border-radius:3px;background:#B7C7D9"></div></div><span>p. 4 / 74</span></div>';
+  }
+  var S = "It was the kind of evening that seemed to go on longer than the clocks allowed, the light thinning but never quite giving up. In the mornings the fog came off the water in long pale sheets, and the town woke slowly underneath it. ";
+  function pageText(p, w, h, top) {
+    var t = ""; for (var i = 0; i < 16; i++) t += '<p style="margin:0;text-indent:1em">' + S + S + "</p>";
+    return '<div style="position:absolute;left:' + (w > 500 ? 120 : 24) + "px;right:" + (w > 500 ? 120 : 24) + "px;top:" + top + "px;bottom:" + top + "px;overflow:hidden;" + SERIF + "font-size:16px;line-height:24px;color:" + p.text + '">' + t + "</div>";
+  }
+  function page(p, w, h, withBars) {
+    return '<div style="position:relative;width:' + w + "px;height:" + h + "px;background:" + p.page + ';overflow:hidden">' + pageText(p, w, h, 56) + (withBars ? readerBars(LANTERN.title, "Chapter 1 \u00b7 " + LANTERN.author, w, h) : "") + "</div>";
+  }
+
+  // The empty-state drawing: three outlined books on a shelf.
+  function books(color, fill) {
+    return '<svg width="170" height="118" viewBox="0 0 170 118" aria-hidden="true"><g fill="' + fill + '" stroke="' + color + '" stroke-width="2.4" stroke-linejoin="round">' +
+      '<rect x="16" y="44" width="38" height="54" rx="5" transform="rotate(-7 35 98)"/><rect x="97" y="44" width="38" height="54" rx="5" transform="rotate(6 116 98)"/><rect x="66" y="36" width="38" height="54" rx="5"/></g>' +
+      '<line x1="21" y1="104" x2="149" y2="104" stroke="' + color + '" stroke-width="2.4" stroke-linecap="round"/></svg>';
+  }
+  function pill(label, filled, p) {
+    return '<span style="height:40px;border-radius:20px;padding:0 20px;display:inline-flex;align-items:center;font-size:14px;font-weight:600;white-space:nowrap;' +
+      (filled ? "background:" + p.text + ";color:" + p.page : "background:" + alpha(p.text, 0.1) + ";color:" + p.text) + '">' + label + "</span>";
+  }
+  function topBar(p, title) {
+    return '<div style="position:absolute;left:16px;right:16px;top:12px;height:56px;border-radius:28px;background:' + alpha(p.text, 0.08) + ';display:flex;align-items:center;gap:14px;padding:0 18px;' + UI + "color:" + p.text + '"><span style="font-size:22px">\u2190</span><span style="font-size:15px;font-weight:600">' + title + "</span></div>";
+  }
+  // o: {w, h, pal, title, reason, actions:[[label, filled]], bookTitle, stack}
+  function errorScreen(o) {
+    var p = o.pal;
+    var acts = o.actions.map(function (a) { return pill(a[0], a[1], p); }).join("");
+    return '<div style="position:relative;width:' + o.w + "px;height:" + o.h + "px;background:" + p.page + ";" + UI + 'overflow:hidden">' + topBar(p, o.bookTitle) +
+      '<div style="position:absolute;left:0;right:0;top:' + (o.h / 2 - 170) + 'px;display:grid;justify-items:center;text-align:center;padding:0 24px">' + books(p.number, p.page) +
+      '<div style="margin-top:24px;font-size:28px;line-height:34px;font-weight:700;color:' + p.text + '">' + o.title + "</div>" +
+      '<div style="margin-top:8px;max-width:360px;font-size:14.5px;line-height:21px;color:' + alpha(p.text, 0.72) + '">' + o.reason + "</div>" +
+      '<div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center' + (o.stack ? ";flex-direction:column;align-items:stretch;width:260px" : "") + '">' + acts + "</div></div></div>";
+  }
+
+  // ---------- today's screens, drawn from the code ----------
+  function todayEpub(w, h, body) {
+    return '<div style="width:' + w + "px;height:" + h + "px;background:" + APP.bg + ";" + UI + 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center">' +
+      '<div style="font-size:24px;line-height:32px;color:' + APP.fg + '">' + LANTERN.title + '</div><div style="font-size:16px;line-height:24px;color:' + APP.fg2 + ';max-width:520px">' + body + '</div><div style="font-size:14px;font-weight:600;color:' + APP.acc + ';padding:10px 12px">Back</div></div>';
+  }
+  function todayComic(w, h, title) {
+    return '<div style="width:' + w + "px;height:" + h + "px;background:" + PAL.comic.page + ";" + UI + 'display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;font-size:16px;line-height:24px;color:' + APP.fg2 + '">' + title + "<br><br>" + STAR.title + "</div>";
+  }
+  function todayPdf(w, h) {
+    return '<div style="position:relative;width:' + w + "px;height:" + h + "px;background:" + PAL.comic.page + ";" + UI + 'overflow:hidden"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:16px;color:' + APP.fg2 + '">Unable to open this PDF.</div>' + readerBars("Field Guide (PDF)", "", w, h).replace("4%", "0%").replace("p. 4 / 74", "") + "</div>";
+  }
+  function todayUnsupported(w, h) {
+    return '<div style="width:' + w + "px;height:" + h + "px;background:" + APP.bg + ";" + UI + 'color:' + APP.fg + '"><div style="display:flex;align-items:center;gap:8px;padding:12px 16px"><span style="font-size:24px;padding:8px">\u2190</span><span style="font-size:22px">The Wreck of the Hesper</span></div><div style="padding:24px;font-size:16px">No reader is registered for MOBI.</div></div>';
+  }
+
+  // 1 the look
+  var W = 800, H = 1280, SC = 0.27;
+  set("m-open-a", fig(device(W, H, SC, opening({ w: W, h: H, pal: PAL.sepia, look: "a", book: LANTERN })), "Sepia book") +
+    fig(device(W, H, SC, opening({ w: W, h: H, pal: PAL.black, look: "a", book: LANTERN })), "Black book") +
+    fig(device(W, H, SC, opening({ w: W, h: H, pal: PAL.comic, look: "a", book: STAR })), "A comic"));
+  set("m-open-b", fig(device(W, H, SC, opening({ w: W, h: H, pal: PAL.sepia, look: "b" })), "Sepia book") +
+    fig(device(W, H, SC, opening({ w: W, h: H, pal: PAL.black, look: "b" })), "Black book") +
+    fig(device(W, H, SC, opening({ w: W, h: H, pal: PAL.comic, look: "b" })), "A comic"));
+
+  // 2 words
+  set("m-words", fig(device(W, 820, 0.36, opening({ w: W, h: 820, pal: PAL.paper, look: "a", book: LANTERN, words: "Getting it from Kavita\u2026" })), "A server book coming down") +
+    fig(device(W, 820, 0.36, opening({ w: W, h: 820, pal: PAL.paper, look: "a", book: LANTERN, words: "Finding your page\u2026" })), "Looking for your place"));
+
+  // 3 hand-off
+  var half = '<div style="position:relative;width:' + W + "px;height:" + H + 'px">' + '<div style="position:absolute;inset:0;opacity:.5">' + opening({ w: W, h: H, pal: PAL.sepia, look: "a", book: LANTERN }) + '</div><div style="position:absolute;inset:0;opacity:.5">' + page(PAL.sepia, W, H, true) + "</div></div>";
+  set("m-handoff", fig(device(W, H, SC, opening({ w: W, h: H, pal: PAL.sepia, look: "a", book: LANTERN })), "Opening") +
+    fig(device(W, H, SC, half), "Half-way") + fig(device(W, H, SC, page(PAL.sepia, W, H, true)), "The page"));
+
+  // 4 error screen
+  set("m-err-today", fig(device(W, H, 0.22, todayEpub(W, H, "This book's file isn't available. Check the connection to its server, then open it again.")), "EPUB") +
+    fig(device(W, H, 0.22, todayComic(W, H, "Downloaded comic file was not found")), "Comics") +
+    fig(device(W, H, 0.22, todayPdf(W, H)), "PDF"));
+  set("m-err-new", fig(device(W, H, 0.3, errorScreen({ w: W, h: H, pal: PAL.black, bookTitle: LANTERN.title, title: "Couldn\u2019t open this book", reason: "Kavita didn\u2019t answer. Check that you\u2019re on the same network as your server, then try again.", actions: [["Try again", true], ["Back to library", false]] })), "Server didn't answer") +
+    fig(device(W, H, 0.3, errorScreen({ w: W, h: H, pal: PAL.sepia, bookTitle: "Ferry Notes", title: "Couldn\u2019t open this book", reason: "The file was moved or deleted. Import it again from where it is now.", actions: [["Back to library", false]] })), "Local file gone"));
+
+  // 6 comics loading
+  set("m-comic", fig(device(W, H, 0.26, todayComic(W, H, "Downloaded comic pages are still being inspected")), "Today") +
+    fig(device(W, H, 0.26, opening({ w: W, h: H, pal: PAL.comic, look: "a", book: STAR, words: "Opening\u2026" })), "Proposed"));
+
+  // 7 unsupported
+  set("m-unsupported", fig(device(W, H, 0.26, todayUnsupported(W, H)), "Today") +
+    fig(device(W, H, 0.26, errorScreen({ w: W, h: H, pal: { page: APP.bg, text: APP.fg, number: "#98A2AD" }, bookTitle: "The Wreck of the Hesper", title: "yabai can\u2019t open MOBI files", reason: "It reads EPUB, PDF, CBZ and CBR.", actions: [["Back to library", false]] })), "Proposed"));
+
+  // 8 download again
+  set("m-download", device(W, H, 0.32, errorScreen({ w: W, h: H, pal: PAL.comic, bookTitle: STAR.title, title: "Couldn\u2019t open this book", reason: "The downloaded file is gone. Download it again.", actions: [["Download again", true], ["Back to library", false]] })));
+
+  // 9 phone
+  set("m-phone", fig(device(412, 915, 0.42, opening({ w: 412, h: 915, pal: PAL.paper, look: "a", book: LANTERN, words: "Opening\u2026" })), "Opening") +
+    fig(device(412, 915, 0.42, errorScreen({ w: 412, h: 915, pal: PAL.paper, bookTitle: LANTERN.title, title: "Couldn\u2019t open this book", reason: "Kavita didn\u2019t answer. Check that you\u2019re on the same network as your server, then try again.", actions: [["Try again", true], ["Back to library", false]] })), "Error"));
+
+  window.addEventListener("resize", fitAll);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitAll);
+  fitAll();
+})();
+</script>
+
+<script>
+(function () {
+  // ---------- picks (same store layout as the earlier boards: collection "picks") ----------
+  var STORE_KEY = "yabai-opening-board-picks";
+  var cards = Array.prototype.slice.call(document.querySelectorAll("[data-card]"));
+  var LABELS = { "do": "Do", maybe: "Maybe", dont: "Don't", a: "A", b: "B", c: "C", neither: "Neither" };
+  var KINDS = { ab: ["a", "b", "neither"], abc: ["a", "b", "c", "neither"], dmd: ["do", "maybe", "dont"] };
+  var picks = {}; try { picks = JSON.parse(localStorage.getItem(STORE_KEY) || "{}") || {}; } catch (e) { picks = {}; }
+  var db = null, pending = {};
+  function saveLocal() { try { localStorage.setItem(STORE_KEY, JSON.stringify(picks)); } catch (e) {} }
+  function setState(t) { document.getElementById("save-state").textContent = t; }
+  function tally() { var n = 0; cards.forEach(function (c) { if ((picks[c.dataset.card] || {}).choice) n++; }); document.getElementById("n-picked").textContent = n; document.getElementById("n-total").textContent = cards.length; }
+  function paint(card) {
+    var p = picks[card.dataset.card] || {};
+    card.querySelectorAll(".pick button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.v === p.choice)); });
+    var ta = card.querySelector(".pick textarea"); if (ta && document.activeElement !== ta) ta.value = p.note || "";
+  }
+  function write(id) {
+    if (!db) { saveLocal(); return; }
+    var p = picks[id];
+    var run = function () {
+      return db.collection("picks").doc(id).set({ choice: p.choice || null, note: p.note || "", title: p.title || id, updatedAt: p.updatedAt || Date.now() })
+        .then(function () { p.synced = true; saveLocal(); setState("Saved to this page."); })
+        .catch(function (err) { setState(err && err.code === "invalid_argument" ? "This page is read-only for you; picks stay in this browser. Use Copy picks." : "Couldn't save just now; your pick is kept in this browser."); });
+    };
+    pending[id] = (pending[id] || Promise.resolve()).then(run, run);
+  }
+  function update(card, patch) {
+    var id = card.dataset.card;
+    picks[id] = Object.assign({}, picks[id], patch, { title: card.dataset.title, updatedAt: Date.now(), synced: false });
+    saveLocal(); paint(card); tally(); write(id);
+  }
+  cards.forEach(function (card) {
+    var opts = KINDS[card.dataset.kind] || KINDS.dmd;
+    var row = document.createElement("div"); row.className = "pick";
+    row.innerHTML = '<span class="label">Your pick</span>' + opts.map(function (v) { return '<button type="button" data-v="' + v + '" aria-pressed="false">' + LABELS[v] + "</button>"; }).join("") +
+      '<textarea id="note-' + card.dataset.card + '" rows="1" placeholder="Note (optional)" aria-label="Note for ' + card.dataset.title + '"></textarea>';
+    card.appendChild(row);
+    row.querySelectorAll("button").forEach(function (b) { b.addEventListener("click", function () { var cur = (picks[card.dataset.card] || {}).choice; update(card, { choice: cur === b.dataset.v ? null : b.dataset.v }); }); });
+    var ta = row.querySelector("textarea"), t = null;
+    ta.addEventListener("input", function () { clearTimeout(t); t = setTimeout(function () { update(card, { note: ta.value }); }, 700); });
+    ta.addEventListener("change", function () { clearTimeout(t); if ((picks[card.dataset.card] || {}).note !== ta.value) update(card, { note: ta.value }); });
+    paint(card);
+  });
+  tally();
+  document.getElementById("copy-picks").addEventListener("click", function () {
+    var lines = cards.map(function (c) { var p = picks[c.dataset.card] || {}; return c.querySelector("h3").textContent + ": " + (p.choice ? LABELS[p.choice] : "-") + (p.note ? " (" + p.note.trim() + ")" : ""); }).join("\n");
+    var btn = document.getElementById("copy-picks");
+    var fallback = function () { var ta = document.getElementById("copy-fallback"); ta.hidden = false; ta.value = lines; ta.focus(); ta.select(); btn.textContent = "Select and copy"; };
+    try { navigator.clipboard.writeText(lines).then(function () { btn.textContent = "Copied"; setTimeout(function () { btn.textContent = "Copy picks"; }, 1600); }, fallback); } catch (e) { fallback(); }
+  });
+  (async function () {
+    try { db = window.claude && window.claude.use ? await window.claude.use("db") : null; } catch (e) { db = null; }
+    if (!db) { setState("Picks are saved in this browser only. Use Copy picks to send them."); return; }
+    setState("Connected. Picks save to this page.");
+    var first = true;
+    db.collection("picks").onSnapshot(function (snap) {
+      snap.docs.forEach(function (d) { var remote = d.data() || {}, local = picks[d.id]; if (!local || (remote.updatedAt || 0) >= (local.updatedAt || 0)) picks[d.id] = Object.assign({}, remote, { synced: true }); });
+      if (first) { first = false; Object.keys(picks).forEach(function (id) { if (picks[id] && !picks[id].synced) write(id); }); }
+      saveLocal(); cards.forEach(paint); tally();
+    }, function () { setState("The page's store stopped answering; picks stay in this browser."); });
+  })();
+})();
+</script>
