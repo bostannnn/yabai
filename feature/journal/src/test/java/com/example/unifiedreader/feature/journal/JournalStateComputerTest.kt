@@ -15,6 +15,99 @@ import java.util.Locale
 
 class JournalStateComputerTest {
     @Test
+    fun `opening a book for the first time does not count its saved place as pages read`() {
+        // The tablet's 19 Oct: a book opened at position 958 and read for an hour, 20 pages on.
+        val oct19 = epochMillis(2026, Calendar.OCTOBER, 19)
+        val stats = computeStats(
+            events = listOf(startedEvent(page = 978, percent = 0.5, occurredAtEpochMillis = oct19 + 2 * 3_600_000L)),
+            sessions = listOf(
+                journalSession(
+                    startedAtEpochMillis = oct19 + 3_600_000L,
+                    endedAtEpochMillis = oct19 + 2 * 3_600_000L,
+                    fromPage = 958,
+                    toPage = 978,
+                ),
+            ),
+        )
+
+        assertEquals(20, stats.pagesRead)
+    }
+
+    @Test
+    fun `a jump is held to the pages the session's time allows`() {
+        val oct22 = epochMillis(2026, Calendar.OCTOBER, 22)
+        val minutes = 26L
+        val events = listOf(
+            startedEvent(
+                page = 238,
+                percent = 0.6,
+                type = JournalReadingEventType.CONTINUED,
+                fromPage = 1,
+                fromPercent = 0.0,
+                occurredAtEpochMillis = oct22 + minutes * 60_000L,
+            ),
+        )
+        val sessions = listOf(
+            journalSession(
+                startedAtEpochMillis = oct22,
+                endedAtEpochMillis = oct22 + minutes * 60_000L,
+                fromPage = 1,
+                toPage = 238,
+            ),
+        )
+        val allowed = journalPlausiblePages(JournalMediaType.BOOK, minutes * 60_000L)
+
+        assertEquals(allowed, computeStats(events, sessions).pagesRead)
+        assertEquals(allowed, computeActivityDays(events, sessions).single().pagesRead)
+        // Reading done without a session (another device) keeps its pages.
+        assertEquals(237, computeStats(events).pagesRead)
+    }
+
+    @Test
+    fun `a period's ratings are of the books finished in it`() {
+        val oct10 = epochMillis(2026, Calendar.OCTOBER, 10)
+        val sep10 = epochMillis(2026, Calendar.SEPTEMBER, 10)
+        val finishedNow = testItem.copy(id = "finished-now")
+        val finishedBefore = testItem.copy(id = "finished-before")
+        val snapshot = JournalStateComputer(nowEpochMillis = { oct10 }).snapshot(
+            events = listOf(
+                startedEvent(item = finishedNow, id = "now", page = 100, percent = 1.0, type = JournalReadingEventType.FINISHED, occurredAtEpochMillis = oct10),
+                startedEvent(item = finishedBefore, id = "before", page = 100, percent = 1.0, type = JournalReadingEventType.FINISHED, occurredAtEpochMillis = sep10),
+            ),
+            entries = listOf(
+                journalEntry(item = finishedNow, rating = 8, updatedAtEpochMillis = oct10),
+                // A sync in October rewrote September's rating; it is still September's.
+                journalEntry(item = finishedBefore, rating = 4, updatedAtEpochMillis = oct10),
+                // Rated, never finished in the journal: no month's rating.
+                journalEntry(itemId = "never-finished", rating = 6, updatedAtEpochMillis = oct10),
+            ),
+        )
+
+        val october = computePeriodOverview(snapshot, JournalPeriod.MONTH, oct10)
+        val september = computePeriodOverview(snapshot, JournalPeriod.MONTH, sep10)
+
+        assertEquals(mapOf(8 to 1), october.stats.ratingCountsByMediaType[JournalMediaType.BOOK])
+        assertEquals(mapOf(4 to 1), september.stats.ratingCountsByMediaType[JournalMediaType.BOOK])
+    }
+
+    @Test
+    fun `a day carries its reading time, a session past midnight split between its days`() {
+        val oct20 = epochMillis(2026, Calendar.OCTOBER, 20)
+        val days = computeActivityDays(
+            events = emptyList(),
+            sessions = listOf(
+                journalSession(
+                    startedAtEpochMillis = oct20 + 23 * 3_600_000L + 30 * 60_000L,
+                    endedAtEpochMillis = oct20 + 24 * 3_600_000L + 30 * 60_000L,
+                ),
+            ),
+        )
+
+        assertEquals(listOf(20, 21), days.map(JournalActivityDay::dayOfMonth))
+        assertEquals(listOf(30 * 60_000L, 30 * 60_000L), days.map(JournalActivityDay::readingMillis))
+    }
+
+    @Test
     fun `first reader progress creates started event`() {
         val event = buildJournalEvent(
             input = progressInput(page = 4, percent = 0.2),
@@ -129,7 +222,8 @@ class JournalStateComputerTest {
         val stats = computeStats(events)
 
         assertEquals(1, stats.booksFinished)
-        assertEquals(100, stats.pagesRead)
+        // The first event only says where the book was opened: 30 + 69 pages from there.
+        assertEquals(99, stats.pagesRead)
         assertEquals(1, stats.activeDays)
         assertEquals(mapOf(SourceType.GRIMMORY to 3), stats.sourceCounts)
     }
@@ -141,17 +235,35 @@ class JournalStateComputerTest {
         val snapshot = JournalStateComputer(
             nowEpochMillis = { januaryFirst2026 },
         ).snapshot(
-            events = emptyList(),
+            events = listOf(
+                startedEvent(
+                    item = testItem.copy(id = "current"),
+                    id = "current-finished",
+                    page = 100,
+                    percent = 1.0,
+                    type = JournalReadingEventType.FINISHED,
+                    occurredAtEpochMillis = januaryFirst2026,
+                ),
+                startedEvent(
+                    item = testItem.copy(id = "old"),
+                    id = "old-finished",
+                    page = 100,
+                    percent = 1.0,
+                    type = JournalReadingEventType.FINISHED,
+                    occurredAtEpochMillis = decemberFirst2025,
+                ),
+            ),
             entries = listOf(
                 journalEntry(
                     itemId = "current",
                     rating = 5,
                     updatedAtEpochMillis = januaryFirst2026,
                 ),
+                // Synced this month, finished last year: not this month's rating.
                 journalEntry(
                     itemId = "old",
                     rating = 3,
-                    updatedAtEpochMillis = decemberFirst2025,
+                    updatedAtEpochMillis = januaryFirst2026,
                 ),
             ),
         )
@@ -176,7 +288,16 @@ class JournalStateComputerTest {
             kind = ReadableItemKind.COMIC,
         )
         val snapshot = JournalStateComputer(nowEpochMillis = { now }).snapshot(
-            events = emptyList(),
+            events = listOf(kavitaPdf, grimmoryPdf).map { item ->
+                startedEvent(
+                    item = item,
+                    id = "${item.id}:finished",
+                    page = 100,
+                    percent = 1.0,
+                    type = JournalReadingEventType.FINISHED,
+                    occurredAtEpochMillis = now,
+                )
+            },
             entries = listOf(
                 journalEntry(item = kavitaPdf, rating = 7, updatedAtEpochMillis = now),
                 journalEntry(item = grimmoryPdf, rating = 9, updatedAtEpochMillis = now),
@@ -232,7 +353,7 @@ class JournalStateComputerTest {
                 journalSession(
                     item = sessionItem,
                     startedAtEpochMillis = 1_000L,
-                    endedAtEpochMillis = 2_000L,
+                    endedAtEpochMillis = 1_000L + 20 * 60_000L,
                     fromPage = 0,
                     toPage = 20,
                 ),
@@ -259,7 +380,7 @@ class JournalStateComputerTest {
             sessions = listOf(
                 journalSession(
                     startedAtEpochMillis = 1_000L,
-                    endedAtEpochMillis = 2_000L,
+                    endedAtEpochMillis = 1_000L + 20 * 60_000L,
                     fromPage = 0,
                     toPage = 20,
                 ),
@@ -295,7 +416,7 @@ class JournalStateComputerTest {
                 journalSession(
                     item = comic,
                     startedAtEpochMillis = 1_000L,
-                    endedAtEpochMillis = 2_000L,
+                    endedAtEpochMillis = 1_000L + 2 * 60_000L,
                     fromPage = 0,
                     toPage = 15,
                 ),
@@ -407,7 +528,7 @@ class JournalStateComputerTest {
         val sessions = listOf(
             journalSession(
                 startedAtEpochMillis = april11 + 20 * 60 * 60 * 1000L,
-                endedAtEpochMillis = april11 + 20 * 60 * 60 * 1000L + 60_000L,
+                endedAtEpochMillis = april11 + 20 * 60 * 60 * 1000L + 10 * 60_000L,
                 fromPage = 40,
                 toPage = 52,
             ),
@@ -418,8 +539,9 @@ class JournalStateComputerTest {
 
         assertEquals(2, stats.activeDays)
         assertEquals(stats.activeDays, days.size)
-        // The session's pages are already in the book's events, so its day adds no pages.
-        assertEquals(computeActivityDays(events).sumOf(JournalActivityDay::pagesRead), days.sumOf(JournalActivityDay::pagesRead))
+        // Opening the book at page 40 reads nothing; the next day's session reads 12.
+        assertEquals(listOf(0, 12), days.map(JournalActivityDay::pagesRead))
+        assertEquals(listOf(0L, 10 * 60_000L), days.map(JournalActivityDay::readingMillis))
     }
 
     @Test
@@ -628,7 +750,8 @@ class JournalStateComputerTest {
 
         val overview = computePeriodOverview(snapshot, JournalPeriod.MONTH, april10)
 
-        assertEquals(mapOf(8 to 1), overview.stats.ratingCountsByMediaType[JournalMediaType.BOOK])
+        // Never finished in the journal, so no month's rating either.
+        assertNull(overview.stats.ratingCountsByMediaType[JournalMediaType.BOOK])
         assertEquals(
             listOf("Book genres", "Book authors", "Comic genres", "Comic tags", "Comic writers", "Comic pencillers"),
             overview.topFacets.map(JournalFacetSection::title),
@@ -863,7 +986,7 @@ class JournalStateComputerTest {
             referenceEpochMillis = may2,
         )
 
-        assertEquals(41, aprilOverview.stats.pagesRead)
+        assertEquals(40, aprilOverview.stats.pagesRead)
         assertEquals(2, aprilOverview.stats.activeDays)
         assertEquals(0, aprilOverview.stats.booksFinished)
         assertEquals(listOf(10, 26), aprilOverview.activityDays.map(JournalActivityDay::dayOfMonth))

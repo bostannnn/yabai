@@ -149,6 +149,8 @@ data class JournalActivityDay(
     val eventCount: Int,
     val finishedBooks: Int,
     val finishedComics: Int,
+    /** Time in reading sessions that day. */
+    val readingMillis: Long = 0L,
 )
 
 data class JournalPeriodOverview(
@@ -197,12 +199,6 @@ data class JournalItemSummary(
 
     val isFinished: Boolean
         get() = finishedAtEpochMillis != null
-
-    val pagesRead: Int
-        get() = maxOf(
-            events.sumOf(JournalReadingEvent::positivePageDelta),
-            sessions.sumOf(JournalReadingSession::positivePageDelta),
-        )
 
     val totalReadingTimeMillis: Long
         get() = sessions.sumOf { session -> session.durationMillis.coerceAtLeast(0L) }
@@ -455,18 +451,6 @@ fun ItemJournalEntry.toItemRef(): JournalItemRef = JournalItemRef(
     itemKind = itemKind,
     format = format,
 )
-
-private fun JournalReadingEvent.positivePageDelta(): Int {
-    val from = fromPage ?: fromPercent?.let { percent -> pageCount?.let { (percent * it).toInt() } } ?: 0
-    val to = toPage ?: toPercent?.let { percent -> pageCount?.let { (percent * it).toInt() } } ?: return 0
-    return (to - from).coerceAtLeast(0)
-}
-
-private fun JournalReadingSession.positivePageDelta(): Int {
-    val from = fromPage ?: fromPercent?.let { percent -> pageCount?.let { (percent * it).toInt() } } ?: 0
-    val to = toPage ?: toPercent?.let { percent -> pageCount?.let { (percent * it).toInt() } } ?: return 0
-    return (to - from).coerceAtLeast(0)
-}
 
 private fun JournalReadingEvent.progressLabel(): String {
     val pageText = toPage?.let { page -> pageCount?.let { "$page / $it" } ?: page.toString() }

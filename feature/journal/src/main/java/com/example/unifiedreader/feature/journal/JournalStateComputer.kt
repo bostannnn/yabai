@@ -11,7 +11,6 @@ import com.example.unifiedreader.journal.classifyJournalMedia
 import com.example.unifiedreader.journal.journalMediaType
 import java.util.Calendar
 import java.util.Locale
-import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 
 class JournalStateComputer(
@@ -32,7 +31,7 @@ class JournalStateComputer(
         val monthStats = computeStats(
             events = monthEvents,
             sessions = monthSessions,
-            entries = entries.journalEntriesInPeriod(monthStart, monthEnd),
+            entries = entries.ofItemsFinishedIn(monthEvents),
             catalogItemsById = catalogItemsById,
             periodStart = monthStart,
             periodEnd = monthEnd,
@@ -40,7 +39,7 @@ class JournalStateComputer(
         val yearStats = computeStats(
             events = yearEvents,
             sessions = yearSessions,
-            entries = entries.journalEntriesInPeriod(yearStart, yearEnd),
+            entries = entries.ofItemsFinishedIn(yearEvents),
             catalogItemsById = catalogItemsById,
             periodStart = yearStart,
             periodEnd = yearEnd,
@@ -121,6 +120,10 @@ private fun summaryItemRef(
     )
 }
 
+/**
+ * A period's figures. [entries] are the journal entries whose ratings count: those of the books
+ * finished in the period (see [ofItemsFinishedIn]).
+ */
 fun computeStats(
     events: List<JournalReadingEvent>,
     sessions: List<JournalReadingSession> = emptyList(),
@@ -139,7 +142,7 @@ fun computeStats(
         .mapValues { (_, mediaSessions) ->
             mediaSessions.sumOf { session -> session.activeDurationWithin(periodStart, periodEnd) }
         }
-    val pagesReadByMedia = computePagesReadByMedia(events, sessions)
+    val pagesReadByMedia = computePagesReadByMedia(events, sessions, periodStart, periodEnd)
     val activeDays = (
         events.map(JournalReadingEvent::localDayKey) +
             sessions.flatMap { session -> session.activeDayKeys(periodStart, periodEnd) }
@@ -148,7 +151,7 @@ fun computeStats(
     return JournalStats(
         booksFinished = finishedEvents.count { event -> event.mediaType() == JournalMediaType.BOOK },
         comicsFinished = finishedEvents.count { event -> event.mediaType() == JournalMediaType.COMIC },
-        pagesRead = computePagesRead(events, sessions),
+        pagesRead = pagesReadByMedia.values.sum(),
         bookPagesRead = pagesReadByMedia[JournalMediaType.BOOK] ?: 0,
         comicPagesRead = pagesReadByMedia[JournalMediaType.COMIC] ?: 0,
         readingTimeMillis = readingTimeMillis,
@@ -178,7 +181,6 @@ fun computePeriodOverview(
     val (periodStart, periodEnd) = periodBounds(period, referenceEpochMillis)
     val periodEvents = snapshot.events.inPeriod(periodStart, periodEnd)
     val periodSessions = snapshot.sessions.overlappingPeriod(periodStart, periodEnd)
-    val periodEntries = snapshot.entries.journalEntriesInPeriod(periodStart, periodEnd)
     val readItemIds = (
         periodEvents.map(JournalReadingEvent::itemId) +
             periodSessions.map(JournalReadingSession::itemId)
@@ -196,7 +198,7 @@ fun computePeriodOverview(
         stats = computeStats(
             events = periodEvents,
             sessions = periodSessions,
-            entries = periodEntries,
+            entries = finishedItems.mapNotNull(JournalItemSummary::entry),
             catalogItemsById = snapshot.itemSummaries
                 .mapNotNull { summary -> summary.catalogItem?.let { item -> item.id to item } }
                 .toMap(),
@@ -236,30 +238,31 @@ fun computeActivityDays(
     periodEnd: Long? = null,
 ): List<JournalActivityDay> {
     val dayAccumulators = mutableMapOf<Int, JournalActivityDayAccumulator>()
-    events.groupBy(JournalReadingEvent::localDayKey).forEach { (dayKey, dayEvents) ->
-        val accumulator = dayAccumulators.getOrPut(dayKey) { JournalActivityDayAccumulator(dayKey) }
-        accumulator.pagesRead += dayEvents.sumOf(JournalReadingEvent::positivePageDelta)
-        accumulator.eventCount += dayEvents.size
-        accumulator.finishedBooks += dayEvents.count { event ->
-            event.eventType == JournalReadingEventType.FINISHED &&
-                event.mediaType() == JournalMediaType.BOOK
-        }
-        accumulator.finishedComics += dayEvents.count { event ->
-            event.eventType == JournalReadingEventType.FINISHED &&
-                event.mediaType() == JournalMediaType.COMIC
+    events.forEach { event ->
+        val accumulator = dayAccumulators.getOrPut(event.localDayKey()) { JournalActivityDayAccumulator(event.localDayKey()) }
+        accumulator.eventCount += 1
+        accumulator.item(event.itemId).events += event
+        if (event.eventType == JournalReadingEventType.FINISHED) {
+            when (event.mediaType()) {
+                JournalMediaType.BOOK -> accumulator.finishedBooks += 1
+                JournalMediaType.COMIC -> accumulator.finishedComics += 1
+            }
         }
     }
-    val eventItemIds = events.map(JournalReadingEvent::itemId).toSet()
     sessions.forEach { session ->
-        val activeDayKeys = session.activeDayKeys(periodStart, periodEnd)
-        if (activeDayKeys.isEmpty()) return@forEach
-        // An item with progress events counts its pages from them; its sessions still mark the days
-        // it was read, as the active-days figure counts them.
-        val pageDelta = if (session.itemId in eventItemIds) 0 else session.positivePageDelta()
-        activeDayKeys.forEachIndexed { index, dayKey ->
+        val dayPieces = session.activeMillisByDay(periodStart, periodEnd)
+        if (dayPieces.isEmpty()) return@forEach
+        // A session past midnight shares its pages between its days.
+        val pages = session.positivePageDelta()
+        dayPieces.forEachIndexed { index, (dayKey, millis) ->
             val accumulator = dayAccumulators.getOrPut(dayKey) { JournalActivityDayAccumulator(dayKey) }
-            accumulator.pagesRead += splitSessionPages(pageDelta, activeDayKeys.size, index)
             accumulator.eventCount += 1
+            accumulator.readingMillis += millis
+            accumulator.item(session.itemId).apply {
+                this.sessions += session
+                sessionPages += splitSessionPages(pages, dayPieces.size, index)
+                sessionMillis += millis
+            }
         }
     }
     return dayAccumulators.values
@@ -270,10 +273,11 @@ fun computeActivityDays(
                 year = calendar.get(Calendar.YEAR),
                 month = calendar.get(Calendar.MONTH),
                 dayOfMonth = calendar.get(Calendar.DAY_OF_MONTH),
-                pagesRead = accumulator.pagesRead,
+                pagesRead = accumulator.items.values.sumOf(JournalActivityDayItem::pagesRead),
                 eventCount = accumulator.eventCount,
                 finishedBooks = accumulator.finishedBooks,
                 finishedComics = accumulator.finishedComics,
+                readingMillis = accumulator.readingMillis,
             )
         }
         .sortedWith(compareBy<JournalActivityDay> { it.year }.thenBy { it.month }.thenBy { it.dayOfMonth })
@@ -282,16 +286,37 @@ fun computeActivityDays(
 private class JournalActivityDayAccumulator(
     val localDayKey: Int,
 ) {
-    var pagesRead: Int = 0
     var eventCount: Int = 0
     var finishedBooks: Int = 0
     var finishedComics: Int = 0
+    var readingMillis: Long = 0L
+    val items = mutableMapOf<String, JournalActivityDayItem>()
+
+    fun item(itemId: String): JournalActivityDayItem = items.getOrPut(itemId) { JournalActivityDayItem() }
 
     fun calendar(): Calendar = Calendar.getInstance(Locale.US).apply {
         clear()
         set(Calendar.YEAR, localDayKey / 1000)
         set(Calendar.DAY_OF_YEAR, localDayKey % 1000)
     }
+}
+
+/** One book on one day: its events and its share of the sessions that touch the day. */
+private class JournalActivityDayItem {
+    val events = mutableListOf<JournalReadingEvent>()
+    val sessions = mutableListOf<JournalReadingSession>()
+    var sessionPages: Int = 0
+    var sessionMillis: Long = 0L
+
+    // As [journalItemPages], with the sessions' pages and time cut to this day.
+    val pagesRead: Int
+        get() {
+            val eventPages = events.sumOf(JournalReadingEvent::positivePageDelta)
+            val heldEventPages = sessions.firstOrNull()?.let { session ->
+                eventPages.coerceAtMost(journalPlausiblePages(session.mediaType, sessionMillis))
+            } ?: eventPages
+            return maxOf(heldEventPages, sessionPages)
+        }
 }
 
 private fun splitSessionPages(
@@ -505,42 +530,18 @@ internal fun List<JournalReadingSession>.overlappingPeriod(
     session.startedAtEpochMillis < endExclusive && session.endedAtEpochMillis > startInclusive
 }
 
-internal fun List<ItemJournalEntry>.journalEntriesInPeriod(
-    startInclusive: Long,
-    endExclusive: Long,
-): List<ItemJournalEntry> = filter { entry ->
-    val journaledAt = entry.reviewedAtEpochMillis ?: entry.updatedAtEpochMillis
-    journaledAt in startInclusive until endExclusive
-}
-
-internal fun JournalReadingSession.positivePageDelta(): Int {
-    val fromPageValue = fromPage
-    val toPageValue = toPage
-    val explicitDelta = if (fromPageValue != null && toPageValue != null) {
-        (toPageValue - fromPageValue).coerceAtLeast(0)
-    } else {
-        null
-    }
-    if (explicitDelta != null && explicitDelta > 0) return explicitDelta
-    val count = pageCount ?: return 0
-    val from = fromPercent ?: 0.0
-    val to = toPercent ?: return 0
-    return ((to - from).coerceAtLeast(0.0) * count).roundToInt()
-}
-
-internal fun JournalReadingEvent.positivePageDelta(): Int {
-    val fromPageValue = fromPage
-    val toPageValue = toPage
-    val explicitDelta = if (fromPageValue != null && toPageValue != null) {
-        (toPageValue - fromPageValue).coerceAtLeast(0)
-    } else {
-        null
-    }
-    if (explicitDelta != null && explicitDelta > 0) return explicitDelta
-    val count = pageCount ?: return 0
-    val from = fromPercent ?: 0.0
-    val to = toPercent ?: return 0
-    return ((to - from).coerceAtLeast(0.0) * count).roundToInt()
+/**
+ * The entries of the books finished among [periodEvents]. A period's ratings are of what was
+ * finished in it: an entry's own times change whenever it syncs, so they can't date a rating.
+ */
+internal fun List<ItemJournalEntry>.ofItemsFinishedIn(
+    periodEvents: List<JournalReadingEvent>,
+): List<ItemJournalEntry> {
+    val finishedItemIds = periodEvents
+        .filter { event -> event.eventType == JournalReadingEventType.FINISHED }
+        .map(JournalReadingEvent::itemId)
+        .toSet()
+    return filter { entry -> entry.itemId in finishedItemIds }
 }
 
 internal fun JournalReadingEvent.localDayKey(): Int {
@@ -550,31 +551,27 @@ internal fun JournalReadingEvent.localDayKey(): Int {
     return calendar.get(Calendar.YEAR) * 1000 + calendar.get(Calendar.DAY_OF_YEAR)
 }
 
-private fun computePagesRead(
-    events: List<JournalReadingEvent>,
-    sessions: List<JournalReadingSession>,
-): Int {
-    return computePagesReadByMedia(events, sessions).values.sum()
-}
-
 private fun computePagesReadByMedia(
     events: List<JournalReadingEvent>,
     sessions: List<JournalReadingSession>,
+    periodStart: Long?,
+    periodEnd: Long?,
 ): Map<JournalMediaType, Int> {
-    val eventPagesByItem = events
-        .groupBy(JournalReadingEvent::itemId)
-        .mapValues { (_, itemEvents) -> itemEvents.sumOf(JournalReadingEvent::positivePageDelta) }
-    val sessionPagesByItem = sessions
-        .groupBy(JournalReadingSession::itemId)
-        .mapValues { (_, itemSessions) -> itemSessions.sumOf(JournalReadingSession::positivePageDelta) }
+    val eventsByItem = events.groupBy(JournalReadingEvent::itemId)
+    val sessionsByItem = sessions.groupBy(JournalReadingSession::itemId)
     val mediaByItem = events
         .associate { event -> event.itemId to event.mediaType() } +
         sessions.associate { session -> session.itemId to session.mediaType }
-    return (eventPagesByItem.keys + sessionPagesByItem.keys)
+    return (eventsByItem.keys + sessionsByItem.keys)
         .groupBy { itemId -> mediaByItem[itemId] ?: JournalMediaType.BOOK }
         .mapValues { (_, itemIds) ->
             itemIds.sumOf { itemId ->
-                maxOf(eventPagesByItem[itemId] ?: 0, sessionPagesByItem[itemId] ?: 0)
+                val itemSessions = sessionsByItem[itemId].orEmpty()
+                journalItemPages(
+                    events = eventsByItem[itemId].orEmpty(),
+                    sessions = itemSessions,
+                    sessionMillis = itemSessions.sumOf { session -> session.activeDurationWithin(periodStart, periodEnd) },
+                )
             }
         }
 }
@@ -599,7 +596,7 @@ private fun computeActiveDaysByMedia(
     return dayKeysByMedia.mapValues { (_, dayKeys) -> dayKeys.size }
 }
 
-private fun JournalReadingSession.activeDayKeys(
+internal fun JournalReadingSession.activeDayKeys(
     periodStart: Long?,
     periodEnd: Long?,
 ): List<Int> {
@@ -621,7 +618,25 @@ private fun JournalReadingSession.activeDayKeys(
     return keys
 }
 
-private fun JournalReadingSession.activeDurationWithin(
+/** The session's active time between its day boundaries: one (day key, time) per day it touches. */
+private fun JournalReadingSession.activeMillisByDay(
+    periodStart: Long?,
+    periodEnd: Long?,
+): List<Pair<Int, Long>> = activeDayKeys(periodStart, periodEnd).map { dayKey ->
+    val dayStart = Calendar.getInstance(Locale.US).apply {
+        clear()
+        set(Calendar.YEAR, dayKey / 1000)
+        set(Calendar.DAY_OF_YEAR, dayKey % 1000)
+    }
+    val start = dayStart.timeInMillis
+    dayStart.add(Calendar.DAY_OF_YEAR, 1)
+    dayKey to activeDurationWithin(
+        maxOf(start, periodStart ?: start),
+        minOf(dayStart.timeInMillis, periodEnd ?: dayStart.timeInMillis),
+    )
+}
+
+internal fun JournalReadingSession.activeDurationWithin(
     startInclusive: Long?,
     endExclusive: Long?,
 ): Long {
@@ -695,12 +710,6 @@ private fun daysInMonthBucket(yearStart: Long, month: Int): Int {
     }
     return calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
 }
-
-private fun JournalReadingEvent.mediaType(): JournalMediaType = classifyJournalMedia(
-    sourceType = sourceType,
-    itemKind = itemKind,
-    format = format,
-)
 
 private fun JournalItemRef.mediaType(): JournalMediaType = classifyJournalMedia(
     sourceType = sourceType,
