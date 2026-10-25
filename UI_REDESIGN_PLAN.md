@@ -1319,7 +1319,9 @@ EPUB page read 99%.
 - Not seen: Read next with a real next item (the emulator has no server series or list; the strip
   was checked through a throwaway build with a faked next item, whose Read next does nothing because
   the coordinator's state had no next id); the comics and PDF readers' Finished (same screen).
-- [ ] Tablet.
+- [x] Tablet (0.19.0, 2026-10-25, see "Tablet pass over 9.1-9.8"): on a throwaway Local comic read to its last
+      page (the card in its cover tint, a rating, a note that Back to library saved, the dock at 100%). Not
+      seen: Read next with a real next item, an EPUB's or a PDF's Finished, the phone sheet.
 
 ### 9.2 Toasts `[~]` (toasts)
 
@@ -1368,7 +1370,9 @@ emulator (`yabai_tablet_35` on 5558, Graphite, the Local library) at 800 dp port
   your journal, and a toast inside a book page's window (through a throwaway build). Not seen: the
   download, read-status, remove-download and sync toasts (server books only; their wording and
   mapping are unit-tested), and the toast over a book with the bars hidden.
-- [ ] Tablet.
+- [x] Tablet (0.19.0, 2026-10-25, see "Tablet pass over 9.1-9.8"): Added to Local over a just-imported comic,
+      "Downloading ..." in a book page's window, the removals, and Remove download's Undo (the files stayed).
+      Not seen: the sync and read-status toasts.
 
 ### 9.3 Splash and window background `[~]` (splash)
 
@@ -1418,7 +1422,9 @@ behind the app was the same light or dark grey.
   Settings; a rotation (no hold, no splash).
 - Not seen: Android 12 and older, Android 13's approximated System Dynamic colours, a server library's
   cold start, the 800 ms limit being reached.
-- [ ] Tablet: the look, and how often a cold start waits and for how long (`adb logcat -d -s LaunchSplash`).
+- [x] Tablet (0.19.0, 2026-10-25, see "Tablet pass over 9.1-9.8"): Graphite's splash, held 120 ms on the first
+      start after the install, then 81 and 0 ms; the 800 ms limit was never reached. Too short to catch the
+      splash itself with `screencap`.
 
 ### 9.4 Library tiles and the shelf browser `[~]` (shelf-browser, tile-meta)
 
@@ -1468,7 +1474,9 @@ library) at 800 dp and at phone width. All unit tests pass (1481, both lines). N
   baseline with "Just started", and phone width with the options icon in the bar.
 - Not seen: an emptied shelf's empty state (needs finishing the last book of a shelf while See all is
   open), Up next with a real series, and the switch animation frame by frame.
-- [ ] Tablet.
+- [x] Tablet (0.19.0, 2026-10-25, see "Tablet pass over 9.1-9.8"): the band and See all on Grimmory (In progress
+      4, Finished 4), the tabs with the sort pill following them, a search with no match, "Just started" on the
+      grid.
 
 ### 9.5 The book page's file facts and remove row, and the journal's "+" `[~]` (book-page-reading, journal-plus)
 
@@ -1497,7 +1505,8 @@ Local library). All unit tests pass (1484, both lines). Not yet on the tablet.
 - Seen on the emulator: Glass Meridian's page (Read again alone at the top; Format, Chapters 6,
   Added 21 Oct; the remove row and its dialog, cancelled), Star Courier #1 (Pages 8), the journal's bar.
 - Not seen: a server book's page with Download and Remove download (no server on the emulator).
-- [ ] Tablet.
+- [x] Tablet (0.19.0, 2026-10-25, see "Tablet pass over 9.1-9.8"): Format, Chapters, Language, Publisher and
+      Added on a Grimmory EPUB, Pages on a Local comic, both remove rows, the journal's bar without "+".
 
 ### 9.6 The reading page `[~]` (page-colours, page-frame, footnote)
 
@@ -1565,7 +1574,9 @@ on a spread and at 412 dp phone width. All unit tests pass (1498, both lines). N
   colour.
 - Not seen: Grey and Dusk on a real page (only as swatches), a long note that scrolls, a right-to-left book's heads,
   scroll mode's chapter line, TalkBack.
-- [ ] Tablet.
+- [x] Tablet (0.19.0, 2026-10-25, see "Tablet pass over 9.1-9.8"): Black, Sepia, Grey and Dusk on a real spread,
+      one colour edge to edge (read off the screen), the 56 dp strips, a number under each page, the book and
+      chapter heads (none on a chapter's first spread), the settings in words.
 
 ### 9.7 Opening a book and reader errors `[~]` (opening, picked Maybe)
 
@@ -1623,7 +1634,8 @@ All unit tests pass (1505, both lines). Not yet on the tablet.
   library only), with Back to library working.
 - Not seen: the words after 600 ms (every open on the emulator is faster), a server book (fetching, a server that
   didn't answer, Download again), a broken PDF, a format no reader takes.
-- [ ] Tablet.
+- [x] Tablet (0.19.0, 2026-10-25, see "Tablet pass over 9.1-9.8"): the opening over a Kavita comic and a
+      Grimmory EPUB, fading into the page. Not seen: the words after 600 ms, an error screen, a PDF.
 
 ### 9.8 Kit drift sweep `[~]` (kit-drift)
 
@@ -1672,7 +1684,62 @@ e19a46c7) while 9.7 was built in another session (the plan had this step last); 
 - Not seen: a real Kavita server's lists, the selection bar, the book page's server actions, "Updated to"'s
   snackbar, the curl over the new canvas, the other themes' canvases (only Graphite's and Paper's were read off the
   screen), and the rebased build: 9.7's comics opening on the token was not run on the emulator.
-- [ ] Tablet.
+- [x] Tablet (0.19.0, 2026-10-25, see "Tablet pass over 9.1-9.8"): the Graphite comics canvas (#0B0D0F read off
+      the screen) and the Kavita lists dialog over the real lists, with a search.
+
+### Tablet pass over 9.1-9.8 `[x]` (2026-10-25)
+
+Release 0.19.0 on the OnePlus tablet (`adb install -r` over 0.18.0, data kept; Graphite, landscape at
+1292 x 914 dp; Kavita, Grimmory and Local), driven over adb at the user's request. Each step's "Tablet" line
+says what was seen. 9.1 was tried on a throwaway Local comic (12 pages, imported for it, then removed from
+the library and the journal, and its file deleted from the tablet).
+
+Fixed after the pass, in worktree `ui-redesign-device-test-bb4877` (`5bd13688`, `eaf2c48a`, `58b520d2`,
+`53842350`, in the order below, the last two fixes together; on main, not pushed or released): all unit tests pass
+(1511, both lines), and each fix has a test that fails without it. A signed release of the fixes (still
+0.19.0, versionCode 19) is on the tablet, where the two download fixes and the shelf's date were checked
+(not the header's empty line or the dialog's title).
+
+- A download from Grimmory never started after a cold start. A download waits until its source is known
+  to be online, and nothing checks a source at startup, so until a sync the book stayed "Waiting" with no
+  WorkManager job, under a "Downloading ..." toast (APP_REVIEW listed it as seen, not fixed, on
+  2026-10-18). `AppRemoteDownloadController` now checks a source that is still unknown when a download is
+  queued for it, and once at start for downloads already waiting (`RemoteDownloadQueueController.
+  waitingSourceTypes`); the reachability change schedules them, or they show "Waiting for Grimmory" when
+  it doesn't answer. `RemoteSourceConnectivityStartupCoordinator` is a singleton now, so the controller
+  and the ViewModel share its source errors. On the tablet the waiting download finished right after the
+  next cold start.
+- Downloading a book again while its first download was still in the Downloads list never marked it
+  downloaded: the library refreshes the files on the device only when the set of finished item ids
+  changes, and the second download adds the same id. 9.7's Download again waits on that state, so its
+  opening would have said "Getting it from ..." for good. The signature is per entry now
+  (`DownloadEntriesSnapshot.completionSignature`, out of `AppViewModel`, which is a line shorter). Checked
+  on the tablet: Remove download, Download, and the page offers Remove download at once.
+- At a cold start the header said "240 books · 3 in progress" for about 1.4 s after the splash, then
+  "2065 books · 4 in progress": until the catalog has loaded, the items are the grid's first rows. The
+  header leaves its line empty until the source is hydrated.
+- The Finished shelf wrote older dates as "October 17" (Android's relative time falls back to the full
+  month after a week) beside "Added 19 Oct" on the book page and "22 Oct" in Downloads; it says "17 Oct"
+  now ("17 Oct 2025" in another year), and "3 days ago" within a week as before.
+- The remove dialog said "Remove local file?" under 9.5's "Remove from library" row and over the
+  "Removed ... from your library" toast; it says "Remove from library?" now, as the journal's three agree.
+
+Seen, left as they are:
+
+- The shelves are computed from the same first rows for those 1.4 s (In progress 3 then 4, Finished 1
+  then 4, a cover arriving in the strip). That needs the shelves from SQL (`LIBRARY_DB_PAGING_PLAN.md`).
+- Nested contents: in Темные аллеи the top bar and the new chapter line say "I" (the part, the counted
+  chapter, by design) on a page of "Баллада", and Contents marks "Степа", because the stories share one
+  file and an entry's anchor resolves to the start of its file. Before 9.6 only the bar said it.
+- A Kavita comic that isn't downloaded took 31 s for its first two pages (Kavita preparing the volume on
+  the first request; the server answers in 30 ms otherwise). The opening gave way after its 6 s as
+  designed.
+- A Finished tile for a book without an author or issue says "Finished" on its second line.
+- The testing left short reading sessions today in the journal and Grimmory's and Kavita's progress
+  (Goodbye, Eri, Девица Кристина, Темные аллеи, Серампорские ночи); Серампорские ночи, opened at its first
+  page by a mistap, now says "Just started". Девица Кристина was tried in Sepia, Grey and Dusk and set back
+  to Black, which is now its saved colour and the last pick. Its place (p. 134) and the Continue reading
+  card were kept.
 
 ## Not yet designed
 
