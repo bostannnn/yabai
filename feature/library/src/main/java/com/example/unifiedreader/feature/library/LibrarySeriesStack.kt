@@ -25,10 +25,13 @@ internal fun Modifier.librarySeriesStack(): Modifier {
     val edge = MaterialTheme.colorScheme.outlineVariant
     val radius = UnifiedReaderThemeTokens.presentation.coverCornerRadius
     return drawBehind {
-        drawStackEdge(inset = 14.dp, raise = 12.dp, fill = far, edge = edge, radius = radius)
+        drawStackEdge(inset = 14.dp, raise = LibrarySeriesStackRaise, fill = far, edge = edge, radius = radius)
         drawStackEdge(inset = 7.dp, raise = 6.dp, fill = near, edge = edge, radius = radius)
     }
 }
+
+/** How far a series tile's stack shows above its cover, into the gap over its row. */
+internal val LibrarySeriesStackRaise = 12.dp
 
 private fun DrawScope.drawStackEdge(
     inset: Dp,

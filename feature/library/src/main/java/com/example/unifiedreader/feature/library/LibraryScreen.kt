@@ -583,6 +583,8 @@ fun LibraryScreen(
                     onSortModeChanged = onSortModeChanged,
                     onGridCellSizeDpChanged = onGridCellSizeDpChanged,
                     onFadeReadItemsChanged = onFadeReadItemsChanged,
+                    // A series' stack rises into the gap under the chips; this keeps the row's gap clear of it.
+                    modifier = Modifier.padding(bottom = LibrarySeriesStackRaise),
                 )
             }
 
