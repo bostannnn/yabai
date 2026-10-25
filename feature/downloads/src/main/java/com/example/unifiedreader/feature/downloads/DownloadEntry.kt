@@ -92,6 +92,15 @@ data class DownloadEntriesSnapshot(
     val failedEntries: List<DownloadEntry>
         get() = entries.filter { entry -> entry.status == DownloadEntryStatus.Failed }
 
+    /**
+     * Which files each entry has brought down, for noticing when the files on the device change.
+     * Per entry, so downloading a book again while its first download is still listed is a change.
+     */
+    val completionSignature: Set<String>
+        get() = entries.flatMapTo(linkedSetOf()) { entry ->
+            entry.completedItemIds.map { itemId -> "${entry.id}:$itemId" }
+        }
+
     val completedEntries: List<DownloadEntry>
         get() = entries.filter { entry ->
             entry.status == DownloadEntryStatus.Completed || entry.status == DownloadEntryStatus.Canceled

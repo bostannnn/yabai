@@ -441,7 +441,7 @@ private class LibraryRouteFrame(
  * (its name and how far through it you are). None while searching or inside a Kavita list or
  * section, where the bar keeps the name.
  */
-private fun AppUiState.libraryHeader(): LibraryHeader? = when {
+internal fun AppUiState.libraryHeader(): LibraryHeader? = when {
     !showsLibraryHeader -> null
     isSeriesBrowseActive -> LibraryHeader(
         title = selectedLibraryContextTitle ?: selectedSource.displayName(),
@@ -449,7 +449,10 @@ private fun AppUiState.libraryHeader(): LibraryHeader? = when {
     )
     else -> LibraryHeader(
         title = selectedSource.displayName(),
-        summary = librarySourceSummary(sourceItems, inProgressCount = libraryShelvesState.continueReading.size),
+        // At a cold start the items are the first rows of the grid until the catalog has loaded,
+        // so the counts would be too low; the header keeps the line empty until then.
+        summary = librarySourceSummary(sourceItems, inProgressCount = libraryShelvesState.continueReading.size)
+            .takeIf { isSelectedSourceHydrated },
     )
 }
 

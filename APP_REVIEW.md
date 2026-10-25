@@ -70,6 +70,10 @@ Baseline: `testDebugUnitTest` passes, 1033 tests, 0 failures.
 - **Seen on the tablet, not fixed:** a download queued while its source is not Online is stored as Queued but
   never scheduled (`canScheduleDownload` requires Online), so the sheet shows "Queued" indefinitely with no
   WorkManager job until a startup or connectivity change runs `ensureScheduled`. Pre-existing; not from these fixes.
+  Fixed 2026-10-25 (`5bd13688`) in the 9.x tablet pass (UI_REDESIGN_PLAN.md, "Tablet pass over 9.1-9.8"): a source still
+  unknown is checked when a download is queued for it, and once at start for waiting downloads. A worker
+  started in a fresh background process still pauses on an unknown source (the item under "Downloads, import,
+  journal").
 - **New finding, fixed in the fifth session (#43, `695baee2`):** the Kavita journal push marks a dirty journal entry CLEAN without uploading it when its item is not in the batch it was given (`KavitaJournalSyncSupport.kt`, `if (item == null) markJournalEntrySyncState(CLEAN)`), and `RemoteArtifactSync` passes the request's items, which for a pending flush are a subset. The same pattern as #41, for journal ratings and reviews. Found while fixing #19; not verified beyond reading.
 - **New finding, not fixed:** CI (`ci.yml`) runs only `testDebugUnitTest`, which skips the plain-Kotlin
   modules (`core:model`, `data:grimmory`, `data:kavita`, `data:stump`): their 123 tests never run in CI.

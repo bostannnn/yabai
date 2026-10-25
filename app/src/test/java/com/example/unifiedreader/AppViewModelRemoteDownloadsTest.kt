@@ -58,6 +58,63 @@ class AppViewModelRemoteDownloadsTest {
     }
 
     @Test
+    fun `download from a source nothing has reached yet checks the source and starts`() {
+        val remoteBook = sampleItem(
+            id = "grimmory-epub",
+            title = "Remote Book",
+            format = FormatType.EPUB,
+        ).copy(
+            sourceType = SourceType.GRIMMORY,
+            libraryId = SourceType.GRIMMORY.remoteLibraryId("grimmory-books"),
+            remoteId = "grimmory-epub",
+        )
+        // A cold start: no sync has run, so Grimmory is neither online nor offline yet.
+        val healthCheck = CountingOnlineHealthCheck(SourceType.GRIMMORY)
+        val viewModel = createViewModel(
+            sampleItems = listOf(remoteBook),
+            remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
+            remoteSourceHealthChecks = listOf(healthCheck),
+        )
+        viewModel.onSourceSelected(SourceType.GRIMMORY)
+
+        viewModel.onDownloadRemoteItem(remoteBook)
+        waitForUiState {
+            remoteBook.id in viewModel.uiState.downloadedRemoteItemIds &&
+                viewModel.downloadsSnapshot.entries.map(DownloadEntry::status) == listOf(DownloadEntryStatus.Completed)
+        }
+
+        assertEquals(1, healthCheck.callCount)
+    }
+
+    @Test
+    fun `download again marks the item downloaded while its first download is still listed`() {
+        val remoteBook = sampleItem(
+            id = "grimmory-epub",
+            title = "Remote Book",
+            format = FormatType.EPUB,
+        ).copy(
+            sourceType = SourceType.GRIMMORY,
+            libraryId = SourceType.GRIMMORY.remoteLibraryId("grimmory-books"),
+            remoteId = "grimmory-epub",
+        )
+        val viewModel = createViewModel(
+            sampleItems = listOf(remoteBook),
+            grimmoryContentRepository = FakeGrimmoryContentRepository(),
+        )
+        viewModel.onSourceSelected(SourceType.GRIMMORY)
+        viewModel.onDownloadRemoteItem(remoteBook)
+        waitForUiState { remoteBook.id in viewModel.uiState.downloadedRemoteItemIds }
+
+        // The reader's "Download again": the file goes and a second download brings it back,
+        // while the first one stays in the Downloads list with the same item.
+        viewModel.onDownloadAgain(remoteBook)
+        waitForUiState {
+            viewModel.downloadsSnapshot.entries.count { entry -> entry.status == DownloadEntryStatus.Completed } == 2 &&
+                remoteBook.id in viewModel.uiState.downloadedRemoteItemIds
+        }
+    }
+
+    @Test
     fun `download grimmory failure is recorded in downloads snapshot`() {
         val remoteBook = sampleItem(
             id = "grimmory-epub",
@@ -646,5 +703,17 @@ class AppViewModelRemoteDownloadsTest {
             }
         }
         fail("Timed out waiting for AppViewModel state to settle.")
+    }
+}
+
+private class CountingOnlineHealthCheck(
+    override val sourceType: SourceType,
+) : RemoteSourceHealthCheck {
+    var callCount = 0
+        private set
+
+    override suspend fun check(): RemoteSourceHealthCheckResult {
+        callCount += 1
+        return RemoteSourceHealthCheckResult.Online
     }
 }

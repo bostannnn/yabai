@@ -309,6 +309,8 @@ internal fun createViewModel(
             libraryActionsCoordinator = libraryActionsCoordinator,
             remoteDownloadQueueController = remoteDownloadQueueController,
             readableItemLookup = readableItemLookup,
+            remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+            remoteSourceConnectivityStartupCoordinator = remoteSourceConnectivityStartupCoordinator,
         ),
         catalogStateCoordinator = catalogStateCoordinator,
         libraryActionsCoordinator = libraryActionsCoordinator,

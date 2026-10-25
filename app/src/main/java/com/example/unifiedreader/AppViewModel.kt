@@ -1031,8 +1031,7 @@ class AppViewModel @Inject constructor(
                         downloadingRemoteItemIds = snapshot.activeTrackedItemIds,
                     )
                 }
-                val availabilitySignature = snapshot.entries
-                    .flatMapTo(linkedSetOf()) { entry -> entry.completedItemIds }
+                val availabilitySignature = snapshot.completionSignature
                 if (lastDownloadedAvailabilitySignature != availabilitySignature) {
                     lastDownloadedAvailabilitySignature = availabilitySignature
                     catalogStateCoordinator.refreshDownloadedRemoteItemIdsAsync(
