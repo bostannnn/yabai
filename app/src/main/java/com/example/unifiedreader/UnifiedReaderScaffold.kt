@@ -415,16 +415,13 @@ fun UnifiedReaderScaffold(
                             )
 
                             TopLevelDestination.Journal -> {
-                                // Only compute the heavy full journal snapshot (stats/timelines/catalog
-                                // join) while the Journal tab is actually on screen; elsewhere uiState
-                                // carries just the lightweight write-state.
-                                // One flow for the tab's life: a new one would restart from the light
-                                // write-state snapshot, which has no books, and close an open sheet.
-                                val journalSnapshotFlow = remember(viewModel) { viewModel.journalFullSnapshotFlow }
-                                val journalSnapshot by journalSnapshotFlow
-                                    .collectAsStateWithLifecycle(initialValue = uiState.journalSnapshot)
+                                // The heavy full journal snapshot (stats/timelines/catalog join) is
+                                // built while the Journal tab is on screen and kept a little after;
+                                // until the first one, the lightweight write-state stands in (the
+                                // journal shows its books as loading).
+                                val journalSnapshot by viewModel.journalFullSnapshotFlow.collectAsStateWithLifecycle()
                                 JournalScreen(
-                                    snapshot = journalSnapshot,
+                                    snapshot = journalSnapshot ?: uiState.journalSnapshot,
                                     coverImageUrlProvider = viewModel::coverImageUrlFor,
                                     onCoverVisible = viewModel::ensureCoverCached,
                                     onDeleteItemJournal = viewModel::deleteItemJournal,

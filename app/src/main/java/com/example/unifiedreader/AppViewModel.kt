@@ -9,10 +9,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibrarySortMode
@@ -1053,16 +1055,18 @@ class AppViewModel @Inject constructor(
     }
 
     /**
-     * The full journal snapshot (stats/timelines/summaries + catalog join). This is expensive, so
-     * the shell only wires the lightweight [JournalRepository.observeWriteState] into [uiState];
-     * the Journal tab collects this flow lazily, i.e. only while it is on screen.
+     * The full journal snapshot (stats/timelines/summaries + catalog join), null until the first
+     * one is built. This is expensive, so the shell only wires the lightweight
+     * [JournalRepository.observeWriteState] into [uiState]; the Journal tab collects this while it
+     * is on screen, and the last snapshot is kept for [JournalSnapshotKeepAliveMillis] after, so
+     * coming back to the tab shows it at once instead of building it again.
      */
-    val journalFullSnapshotFlow: kotlinx.coroutines.flow.Flow<com.example.unifiedreader.journal.JournalSnapshot>
-        get() = journalRepository.observeSnapshot(
+    val journalFullSnapshotFlow: StateFlow<com.example.unifiedreader.journal.JournalSnapshot?> =
+        journalRepository.observeSnapshot(
             extraCatalogItems = androidx.compose.runtime.snapshotFlow { uiState.items }
                 .distinctUntilChanged()
                 .map { items -> items.filter { item -> item.sourceType == SourceType.LOCAL } },
-        )
+        ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(JournalSnapshotKeepAliveMillis), null)
 
     private fun updateUiState(
         transform: (AppUiState) -> AppUiState,
@@ -1126,3 +1130,6 @@ private fun AppUiState.withStartupSourceErrors(
     }
     return next
 }
+
+/** How long the journal tab's full snapshot is kept after the tab is left. */
+private const val JournalSnapshotKeepAliveMillis = 2 * 60_000L

@@ -11,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -42,6 +43,8 @@ class RoomJournalRepository(
             catalogItemsById = catalogItemsById,
         )
     }
+        // Matching the journal to the whole library is heavy: never on the collector's main thread.
+        .flowOn(Dispatchers.Default)
 
     override fun observeWriteState(): Flow<JournalSnapshot> = combine(
         journalDao.observeReadingEvents().map { entities -> entities.map { it.toDomain() } },
