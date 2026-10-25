@@ -24,7 +24,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -54,6 +53,7 @@ import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import com.example.unifiedreader.ui.components.AppButton
+import com.example.unifiedreader.ui.components.AppButtonDefaults
 import com.example.unifiedreader.ui.components.AppChip
 import com.example.unifiedreader.ui.components.AppChoiceRow
 import com.example.unifiedreader.ui.components.AppDivider
@@ -317,7 +317,7 @@ private fun LibraryBookPageTop(
             Spacer(modifier = Modifier.height(18.dp))
             AppButton(
                 onClick = onOpen,
-                colors = ButtonDefaults.buttonColors(containerColor = tint.accent, contentColor = tint.onAccent),
+                colors = AppButtonDefaults.filledColors(containerColor = tint.accent, contentColor = tint.onAccent),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(46.dp),
@@ -458,7 +458,7 @@ private fun RowScope.LibraryBookPageTonalAction(action: BookPageAction, tint: Ap
     AppTonalButton(
         onClick = action.onClick,
         enabled = action.enabled,
-        colors = ButtonDefaults.buttonColors(containerColor = tint.track, contentColor = tint.content),
+        colors = AppButtonDefaults.tonalColors(containerColor = tint.track, contentColor = tint.content),
         contentPadding = PaddingValues(horizontal = 12.dp),
         modifier = Modifier
             .weight(1f)

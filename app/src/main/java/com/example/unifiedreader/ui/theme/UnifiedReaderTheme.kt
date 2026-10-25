@@ -585,6 +585,8 @@ private fun ColorScheme.toSemanticColors(isDark: Boolean): UnifiedReaderSemantic
         readerChrome = scrim.copy(alpha = readerChromeAlpha),
         readerChromeElevated = surfaceContainerHighest.copy(alpha = readerChromeElevatedAlpha),
         readerScrim = scrim.copy(alpha = if (isDark) 0.74f else 0.46f),
+        // A dark theme's deepest surface; a light theme's scrim, so comics stay on dark there too.
+        readerCanvas = if (isDark) surfaceContainerLowest else scrim,
         readerAccent = primary,
         onReaderAccent = onPrimary,
         readerAccentContainer = primaryContainer,

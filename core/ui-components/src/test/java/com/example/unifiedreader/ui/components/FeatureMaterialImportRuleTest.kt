@@ -31,6 +31,7 @@ class FeatureMaterialImportRuleTest {
         "Checkbox", "TriStateCheckbox", "Switch", "Slider", "RangeSlider", "RadioButton",
         "Snackbar", "SnackbarHost", "NavigationDrawerItem", "NavigationDrawerItemDefaults",
         "SegmentedButtonDefaults", "SliderDefaults", "CheckboxDefaults", "SwitchDefaults",
+        "ButtonDefaults", "IconButtonDefaults",
     )
 
 
@@ -39,12 +40,11 @@ class FeatureMaterialImportRuleTest {
             setOf("androidx.compose.ui.window.Dialog", "androidx.compose.material3.*")
 
     /**
-     * Stock shapes and marks the kit replaced (pill controls, segments without a checkmark),
-     * caught as references because `ButtonDefaults` itself stays importable for its paddings.
+     * Stock shapes and marks the kit replaced (pill controls, segments without a checkmark), and
+     * button colours written in place of `AppButtonDefaults` (also caught when fully qualified).
      */
     private val forbiddenReferences = listOf(
-        "ButtonDefaults.shape", "ButtonDefaults.outlinedShape", "ButtonDefaults.textShape",
-        "ButtonDefaults.filledTonalShape", "ButtonDefaults.elevatedShape",
+        "ButtonDefaults", "IconButtonDefaults",
         "FilterChipDefaults.shape", "SegmentedButtonDefaults.Icon", "SegmentedButtonDefaults.ActiveIcon",
     ).associateWith { reference -> Regex("""\b${Regex.escape(reference)}\b""") }
 

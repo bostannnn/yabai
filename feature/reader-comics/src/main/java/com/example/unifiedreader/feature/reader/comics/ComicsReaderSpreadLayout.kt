@@ -43,6 +43,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
 import com.example.unifiedreader.ui.components.AppBackground
 import com.example.unifiedreader.ui.components.AppCircularProgress
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlinx.coroutines.async
@@ -187,7 +188,7 @@ private fun ComicSpreadSurface(
                 .fillMaxSize()
                 .clipToBounds()
                 .onSizeChanged { containerSize = it },
-            color = ComicReaderBackgroundColor,
+            color = UnifiedReaderThemeTokens.colors.readerCanvas,
         ) {
             Box(
                 modifier = Modifier.comicGestureModifier(
@@ -267,7 +268,7 @@ private fun SpreadContent(
                             Modifier
                         },
                     )
-                    .background(ComicPageBackgroundColor),
+                    .background(UnifiedReaderThemeTokens.colors.readerCanvas),
                 contentAlignment = Alignment.Center,
             ) {
                 PageResultContent(
@@ -345,7 +346,7 @@ private fun FitSpreadContent(
                                 Modifier
                             },
                         )
-                        .background(ComicPageBackgroundColor),
+                        .background(UnifiedReaderThemeTokens.colors.readerCanvas),
                     contentAlignment = Alignment.Center,
                 ) {
                     PageResultContent(

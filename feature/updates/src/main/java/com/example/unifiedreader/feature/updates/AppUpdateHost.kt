@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -25,7 +23,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.unifiedreader.ui.components.AppSnackbar
-import com.example.unifiedreader.ui.components.AppTextButton
 import kotlinx.coroutines.delay
 
 /** The updater's actions, bound to [controller] and to the activity for the screens it opens. */
@@ -112,20 +109,8 @@ fun BoxScope.AppUpdateHost(
             .windowInsetsPadding(WindowInsets.navigationBars)
             .padding(16.dp)
             .widthIn(max = 560.dp),
-        containerColor = MaterialTheme.colorScheme.inverseSurface,
-        contentColor = MaterialTheme.colorScheme.inverseOnSurface,
-        action = if (state.currentRelease != null) {
-            {
-                AppTextButton(
-                    onClick = actions.onShowWhatsNew,
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.inversePrimary),
-                ) {
-                    Text(text = "What's new")
-                }
-            }
-        } else {
-            null
-        },
+        actionLabel = if (state.currentRelease != null) "What's new" else null,
+        onAction = actions.onShowWhatsNew,
     ) {
         Text(text = "Updated to $updatedTo")
     }

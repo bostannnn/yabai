@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +39,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.core.model.librarySecondaryText
 import com.example.unifiedreader.ui.components.AppButton
+import com.example.unifiedreader.ui.components.AppButtonDefaults
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.components.appProgressFill
@@ -265,7 +265,7 @@ private fun LibraryReadingCardContinue(
     AppButton(
         onClick = onClick,
         modifier = modifier.height(LibraryReadingCardDefaults.buttonHeight),
-        colors = ButtonDefaults.buttonColors(containerColor = colors.accent, contentColor = colors.onAccent),
+        colors = AppButtonDefaults.filledColors(containerColor = colors.accent, contentColor = colors.onAccent),
         contentPadding = LibraryReadingCardDefaults.buttonPadding,
     ) {
         Icon(
@@ -288,7 +288,7 @@ private fun LibraryReadingCardDetails(
     AppButton(
         onClick = onClick,
         modifier = Modifier.height(LibraryReadingCardDefaults.buttonHeight),
-        colors = ButtonDefaults.buttonColors(containerColor = colors.track, contentColor = colors.content),
+        colors = AppButtonDefaults.tonalColors(containerColor = colors.track, contentColor = colors.content),
         contentPadding = LibraryReadingCardDefaults.buttonPadding,
     ) {
         Text(text = "Details", style = LibraryReadingCardDefaults.buttonTextStyle())

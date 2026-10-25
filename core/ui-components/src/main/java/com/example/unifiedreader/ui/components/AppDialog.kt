@@ -9,9 +9,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -191,6 +196,84 @@ fun AppDialogCard(
         content = content,
         actions = actions,
     )
+}
+
+/**
+ * An [AppDialogCard] around a list: the title, an optional [header] under it (a search field),
+ * then [content] as a lazy list that runs edge to edge and scrolls on its own, between
+ * [AppListDialogDefaults.minListHeight] and [AppListDialogDefaults.maxListHeight] tall, then the
+ * pill [actions]. Rows pad themselves to line up with the title, at [AppDialogCardDefaults.padding].
+ */
+@Composable
+fun AppListDialog(
+    onDismissRequest: () -> Unit,
+    title: String,
+    actions: @Composable RowScope.() -> Unit,
+    modifier: Modifier = Modifier,
+    header: (@Composable ColumnScope.() -> Unit)? = null,
+    listState: LazyListState = rememberLazyListState(),
+    properties: DialogProperties = DialogProperties(usePlatformDefaultWidth = false),
+    content: LazyListScope.() -> Unit,
+) {
+    Dialog(
+        onDismissRequest = onDismissRequest,
+        properties = properties,
+    ) {
+        AppPanel(
+            modifier = modifier
+                .padding(AppDialogCardDefaults.windowMargin)
+                .widthIn(max = AppDialogCardDefaults.maxWidth)
+                .fillMaxWidth(),
+            shape = AppDialogDefaults.shape,
+            color = AppDialogDefaults.containerColor,
+        ) {
+            Column {
+                Column(
+                    modifier = Modifier.padding(
+                        start = AppDialogCardDefaults.padding,
+                        end = AppDialogCardDefaults.padding,
+                        top = AppDialogCardDefaults.padding,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Text(
+                        text = title,
+                        style = AppDialogCardDefaults.titleStyle,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    header?.invoke(this)
+                }
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .heightIn(min = AppListDialogDefaults.minListHeight, max = AppListDialogDefaults.maxListHeight)
+                        .fillMaxWidth(),
+                    contentPadding = PaddingValues(vertical = 8.dp),
+                    content = content,
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            start = AppDialogCardDefaults.padding,
+                            end = AppDialogCardDefaults.padding,
+                            top = 8.dp,
+                            bottom = AppDialogCardDefaults.padding,
+                        ),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End),
+                    verticalAlignment = Alignment.CenterVertically,
+                    content = actions,
+                )
+            }
+        }
+    }
+}
+
+object AppListDialogDefaults {
+    /** Tall enough that the dialog keeps its size while a search narrows the list. */
+    val minListHeight: Dp = 240.dp
+    val maxListHeight: Dp = 420.dp
 }
 
 @Composable

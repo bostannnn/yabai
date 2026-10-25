@@ -13,9 +13,6 @@ import androidx.compose.ui.unit.IntSize
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-internal val ComicReaderBackgroundColor = Color(0xFF0A0D11)
-internal val ComicPageBackgroundColor = Color(0xFF0B0F13)
-
 private const val FallbackCompositePageDimension = 1_000
 private const val MinimumSpreadPageAspectRatio = 0.5f
 
@@ -25,6 +22,7 @@ internal object ComicSpreadRasterizer {
         pageImagesById: Map<String, ImageBitmap>,
         canvasSize: IntSize,
         pageFitMode: ComicPageFitMode,
+        backgroundColor: Color,
         stitchedSpreadOverlapPx: Int = 0,
     ): ImageBitmap {
         require(canvasSize.width > 0 && canvasSize.height > 0) {
@@ -51,12 +49,12 @@ internal object ComicSpreadRasterizer {
             isDither = true
         }
 
-        paint.color = ComicReaderBackgroundColor.toArgb()
+        paint.color = backgroundColor.toArgb()
         canvas.drawRect(0f, 0f, canvasSize.width.toFloat(), canvasSize.height.toFloat(), paint)
         layout.pages.forEach { placement ->
             canvas.save()
             canvas.clipRect(placement.clipBounds.toAndroidRect())
-            paint.color = ComicPageBackgroundColor.toArgb()
+            paint.color = backgroundColor.toArgb()
             canvas.drawRect(placement.pageBounds.toAndroidRect(), paint)
 
             val image = pageImagesById[placement.page.spec.id]?.asAndroidBitmap()

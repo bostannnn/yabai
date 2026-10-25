@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.contentDescription
@@ -33,8 +34,9 @@ import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 /**
- * The search field: a `surfaceContainerHigh` pill with a search icon, a placeholder and, once
- * something is typed, a clear button. An accent edge marks an active query.
+ * The search field: a pill on [containerColor] with a search icon, a placeholder and, once
+ * something is typed, a clear button. An accent edge marks an active query. Inside a dialog,
+ * which is already `surfaceContainerHigh`, pass [AppSearchFieldDefaults.dialogContainerColor].
  */
 @Composable
 fun AppSearchField(
@@ -43,6 +45,7 @@ fun AppSearchField(
     placeholder: String,
     modifier: Modifier = Modifier,
     height: Dp = AppSearchFieldDefaults.height,
+    containerColor: Color = AppSearchFieldDefaults.containerColor,
     autoFocus: Boolean = false,
     contentDescription: String = placeholder,
 ) {
@@ -71,7 +74,7 @@ fun AppSearchField(
             AppPanel(
                 modifier = Modifier.fillMaxSize(),
                 shape = CircleShape,
-                color = colors.surfaceContainerHigh,
+                color = containerColor,
                 border = if (active) BorderStroke(1.dp, accent) else null,
             ) {
                 Row(
@@ -123,4 +126,11 @@ fun AppSearchField(
 
 object AppSearchFieldDefaults {
     val height: Dp = 40.dp
+
+    val containerColor: Color
+        @Composable get() = MaterialTheme.colorScheme.surfaceContainerHigh
+
+    /** One step up from [AppDialogDefaults.containerColor], like the dialog's tonal buttons. */
+    val dialogContainerColor: Color
+        @Composable get() = MaterialTheme.colorScheme.surfaceContainerHighest
 }

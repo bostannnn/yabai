@@ -2,6 +2,7 @@ package com.example.unifiedreader.feature.reader.comics
 
 import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
@@ -155,6 +156,7 @@ class ComicSpreadRasterizerTest {
             pageImagesById = mapOf(page.spec.id to source.asImageBitmap()),
             canvasSize = IntSize(20, 10),
             pageFitMode = ComicPageFitMode.FitPage,
+            backgroundColor = TestCanvasColor,
         )
 
         assertEquals(20, rendered.width)
@@ -180,13 +182,16 @@ class ComicSpreadRasterizerTest {
             ),
             canvasSize = IntSize(500, 300),
             pageFitMode = ComicPageFitMode.FitPage,
+            backgroundColor = TestCanvasColor,
         ).asAndroidBitmap()
 
         assertEquals(500, rendered.width)
         assertEquals(300, rendered.height)
-        assertEquals(ComicReaderBackgroundColor.toArgb(), rendered.getPixel(0, 0))
+        assertEquals(TestCanvasColor.toArgb(), rendered.getPixel(0, 0))
     }
 }
+
+private val TestCanvasColor = Color(0xFF0A0D11)
 
 private fun sampleRasterPages(
     count: Int,

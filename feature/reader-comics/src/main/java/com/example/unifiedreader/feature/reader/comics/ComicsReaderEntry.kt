@@ -16,7 +16,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntSize
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -38,6 +37,7 @@ import com.example.unifiedreader.feature.reader.preferences.InMemoryReaderPageNu
 import com.example.unifiedreader.feature.reader.preferences.ReaderPageNumberPreferencesStore
 import com.example.unifiedreader.journal.JournalReadingSessionRecorder
 import com.example.unifiedreader.ui.components.AppScreenBackHandler
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 
@@ -75,7 +75,7 @@ fun ComicsReaderScreen(
         )
         ReportReaderOpening(
             status = pagesUnavailableDiagnostic.openStatus(item),
-            colors = ComicReaderPageColors,
+            colors = comicReaderPageColors(),
             retry = { openAttempt++ },
         )
         return
@@ -150,7 +150,7 @@ fun ComicsReaderScreen(
     }
     ReportReaderOpening(
         status = if (firstPageShown) ReaderOpenStatus.Open else ReaderOpenStatus.Opening(ReaderOpeningStep.Opening),
-        colors = ComicReaderPageColors,
+        colors = comicReaderPageColors(),
     )
     var previewLoadingArmed by remember(item.id) { mutableStateOf(false) }
     var completionMonitoringReady by rememberSaveable(item.id) { mutableStateOf(false) }
@@ -433,7 +433,7 @@ fun ComicsReaderScreen(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0A0D11)),
+            .background(UnifiedReaderThemeTokens.colors.readerCanvas),
     ) {
         val spreadModeForPlan = when (readerState.readerMode) {
             ComicReaderMode.Paged -> readerState.spreadMode

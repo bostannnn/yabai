@@ -302,7 +302,7 @@ private fun ReaderErrorContent(
                     }
                     AppTonalButton(
                         onClick = onBack,
-                        colors = AppButtonDefaults.filledColors(containerColor = colors.text.copy(alpha = 0.1f), contentColor = colors.text),
+                        colors = AppButtonDefaults.tonalColors(containerColor = colors.text.copy(alpha = 0.1f), contentColor = colors.text),
                     ) {
                         Text(text = "Back to library")
                     }

@@ -113,6 +113,11 @@ object AppButtonDefaults {
         contentColor = MaterialTheme.colorScheme.onSurface,
     )
 
+    /** [tonalColors] on a cover tint: the tint's track under its text colour. */
+    @Composable
+    fun tonalColors(containerColor: Color, contentColor: Color): ButtonColors =
+        ButtonDefaults.buttonColors(containerColor = containerColor, contentColor = contentColor)
+
     @Composable
     fun tonalIconColors(): IconButtonColors = IconButtonDefaults.filledTonalIconButtonColors(
         containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
@@ -130,6 +135,18 @@ object AppButtonDefaults {
         containerColor = MaterialTheme.colorScheme.error,
         contentColor = MaterialTheme.colorScheme.onError,
     )
+
+    @Composable
+    fun textColors(): ButtonColors = ButtonDefaults.textButtonColors()
+
+    /** An [AppTextButton] on a surface of its own (the selection bar, a snackbar). */
+    @Composable
+    fun textColors(contentColor: Color): ButtonColors = ButtonDefaults.textButtonColors(contentColor = contentColor)
+
+    /** [destructiveColors] for an [AppTextButton]. */
+    @Composable
+    fun destructiveTextColors(): ButtonColors =
+        ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
 }
 
 /** Low-emphasis text action, for dialogs and inline links. */
@@ -139,7 +156,7 @@ fun AppTextButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     shape: Shape? = null,
-    colors: ButtonColors = ButtonDefaults.textButtonColors(),
+    colors: ButtonColors = AppButtonDefaults.textColors(),
     contentPadding: PaddingValues = ButtonDefaults.TextButtonContentPadding,
     content: @Composable RowScope.() -> Unit,
 ) {

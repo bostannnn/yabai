@@ -2,6 +2,7 @@ package com.example.unifiedreader.feature.reader.comics
 
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.IntSize
 import com.example.unifiedreader.core.model.ReadableItem
@@ -13,8 +14,11 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
+/** Spreads rasterized for the curl, on [canvasColor] (the reader's `readerCanvas`). */
 @Stable
-internal class ComicPageCurlCompositeCache {
+internal class ComicPageCurlCompositeCache(
+    private val canvasColor: Color,
+) {
     private val composites = mutableStateMapOf<ComicPageCurlCompositeKey, ComicPageCurlComposite>()
 
     internal val cachedCompositeCount: Int
@@ -175,6 +179,7 @@ internal class ComicPageCurlCompositeCache {
                         pageImagesById = pageImagesById,
                         canvasSize = canvasSize,
                         pageFitMode = pageFitMode,
+                        backgroundColor = canvasColor,
                         stitchedSpreadOverlapPx = stitchedOverlap,
                     )
                 }

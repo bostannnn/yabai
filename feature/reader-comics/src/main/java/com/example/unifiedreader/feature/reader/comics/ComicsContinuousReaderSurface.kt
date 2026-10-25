@@ -18,9 +18,9 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -149,7 +149,7 @@ internal fun ComicsContinuousReaderSurface(
             modifier = Modifier
                 .fillMaxSize()
                 .then(endNavigationModifier)
-                .background(Color(0xFF0A0D11)),
+                .background(UnifiedReaderThemeTokens.colors.readerCanvas),
             contentPadding = PaddingValues(top = 12.dp, bottom = 88.dp),
             verticalArrangement = Arrangement.spacedBy(0.dp),
         ) {

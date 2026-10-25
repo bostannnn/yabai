@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.reader.comics
 
 import android.graphics.Bitmap
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.IntSize
 import com.example.unifiedreader.core.model.FormatType
@@ -29,7 +30,7 @@ class ComicPageCurlCompositeCacheTest {
             useDoublePageSpreads = false,
             pageMetadataById = emptyMap(),
         )
-        val cache = ComicPageCurlCompositeCache()
+        val cache = ComicPageCurlCompositeCache(canvasColor = Color.Black)
         val pageSource = TestCurlCachePageSource()
         val canvasSize = IntSize(120, 180)
 
@@ -74,7 +75,7 @@ class ComicPageCurlCompositeCacheTest {
             useDoublePageSpreads = false,
             pageMetadataById = emptyMap(),
         )
-        val cache = ComicPageCurlCompositeCache()
+        val cache = ComicPageCurlCompositeCache(canvasColor = Color.Black)
         val pageSource = TestCurlCachePageSource(failingPageIds = setOf(pages[1].id))
         val canvasSize = IntSize(120, 180)
 
@@ -101,7 +102,7 @@ class ComicPageCurlCompositeCacheTest {
             useDoublePageSpreads = false,
             pageMetadataById = emptyMap(),
         )
-        val cache = ComicPageCurlCompositeCache()
+        val cache = ComicPageCurlCompositeCache(canvasColor = Color.Black)
         val pageSource = SuspendingCurlCachePageSource()
         val canvasSize = IntSize(120, 180)
 

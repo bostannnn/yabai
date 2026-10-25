@@ -6,7 +6,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/** Colors the app uses by role, derived from the active theme's Material color scheme. */
+/**
+ * Colors the app uses by role, derived from the active theme's Material color scheme.
+ * [readerCanvas] is what a comic or a page spread sits on: dark in every theme.
+ */
 @Immutable
 data class UnifiedReaderSemanticColors(
     val appBackground: Color,
@@ -18,6 +21,7 @@ data class UnifiedReaderSemanticColors(
     val readerChrome: Color,
     val readerChromeElevated: Color,
     val readerScrim: Color,
+    val readerCanvas: Color,
     val readerAccent: Color,
     val onReaderAccent: Color,
     val readerAccentContainer: Color,
@@ -74,6 +78,7 @@ val LocalUnifiedReaderSemanticColors = staticCompositionLocalOf {
         readerChrome = Color(0xF2111418),
         readerChromeElevated = Color(0xFA171A1F),
         readerScrim = Color(0xB0000000),
+        readerCanvas = Color(0xFF0A0D11),
         readerAccent = Color(0xFF9DBBFF),
         onReaderAccent = Color(0xFF092052),
         readerAccentContainer = Color(0xFFD3E7EF),

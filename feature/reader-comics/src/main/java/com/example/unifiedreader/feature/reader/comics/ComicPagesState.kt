@@ -5,12 +5,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.reader.core.ReaderOpenFailure
 import com.example.unifiedreader.feature.reader.core.ReaderOpenStatus
 import com.example.unifiedreader.feature.reader.core.ReaderOpeningStep
 import com.example.unifiedreader.ui.theme.ReaderPageColors
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 @Composable
 internal fun rememberObservedComicPages(
@@ -56,10 +58,21 @@ internal fun ComicPagesUnavailableDiagnostic.openStatus(item: ReadableItem): Rea
     ComicPagesUnavailableKind.Unavailable -> ReaderOpenStatus.Failed(ReaderOpenFailure.Unknown)
 }
 
-/** The comics canvas as the opening and error screens use it. */
-internal val ComicReaderPageColors = ReaderPageColors(
-    page = ComicReaderBackgroundColor,
-    text = Color(0xFFE7EAEE),
-    number = Color(0xFF8A9099),
-    raised = Color(0xFF1A1F25),
-)
+/**
+ * The comics canvas as the opening and error screens use it. The canvas is dark in every theme,
+ * so the text stays light; the raised surface takes the canvas's hue.
+ */
+@Composable
+internal fun comicReaderPageColors(): ReaderPageColors {
+    val canvas = UnifiedReaderThemeTokens.colors.readerCanvas
+    return remember(canvas) {
+        ReaderPageColors(
+            page = canvas,
+            text = ComicReaderText,
+            number = Color(0xFF8A9099),
+            raised = lerp(canvas, ComicReaderText, 0.08f),
+        )
+    }
+}
+
+private val ComicReaderText = Color(0xFFE7EAEE)

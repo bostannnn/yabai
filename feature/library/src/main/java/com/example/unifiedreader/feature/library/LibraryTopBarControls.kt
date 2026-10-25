@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -31,6 +30,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.unifiedreader.ui.components.AppButton
+import com.example.unifiedreader.ui.components.AppButtonDefaults
 import com.example.unifiedreader.ui.components.AppCircularProgress
 import com.example.unifiedreader.ui.components.AppDivider
 import com.example.unifiedreader.ui.components.AppIconButton
@@ -159,14 +159,14 @@ fun LibrarySelectionTopBar(
         AppTextButton(
             onClick = onSelectAll,
             enabled = selectedCount < selectableCount,
-            colors = ButtonDefaults.textButtonColors(contentColor = onSelected),
+            colors = AppButtonDefaults.textColors(contentColor = onSelected),
         ) {
             Text(text = "Select all", fontWeight = FontWeight.SemiBold)
         }
         AppButton(
             onClick = onDownload,
             enabled = selectedCount > 0,
-            colors = ButtonDefaults.buttonColors(containerColor = onSelected, contentColor = selected),
+            colors = AppButtonDefaults.filledColors(containerColor = onSelected, contentColor = selected),
             contentPadding = PaddingValues(start = 14.dp, end = 18.dp),
             modifier = Modifier.height(40.dp),
         ) {

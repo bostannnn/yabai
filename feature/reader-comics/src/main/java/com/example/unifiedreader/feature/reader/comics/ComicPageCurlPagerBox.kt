@@ -23,6 +23,7 @@ import com.example.unifiedreader.feature.reader.core.curl.PageCurlTapTurnDuratio
 import com.example.unifiedreader.feature.reader.core.curl.PageCurlTapTurner
 import com.example.unifiedreader.feature.reader.core.curl.PageCurlTarget
 import com.example.unifiedreader.feature.reader.core.curl.pageCurlDragGesture
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import kotlinx.coroutines.delay
 
 @Composable
@@ -51,7 +52,8 @@ internal fun ComicPageCurlPagerBox(
     val coroutineScope = rememberCoroutineScope()
     var containerSize by remember(item.id) { mutableStateOf(IntSize.Zero) }
     val curlState = remember { PageCurlState() }
-    val curlCompositeCache = remember(item.id, pageSource) { ComicPageCurlCompositeCache() }
+    val canvasColor = UnifiedReaderThemeTokens.colors.readerCanvas
+    val curlCompositeCache = remember(item.id, pageSource, canvasColor) { ComicPageCurlCompositeCache(canvasColor) }
     var curlInteraction by remember(item.id) { mutableStateOf<ComicPageCurlInteraction?>(null) }
     val density = LocalDensity.current
     val stitchedSpreadOverlapPx = with(density) { ComicStitchedSpreadOverlap.roundToPx() }
