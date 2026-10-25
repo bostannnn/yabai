@@ -1741,6 +1741,54 @@ Seen, left as they are:
   to Black, which is now its saved colour and the last pick. Its place (p. 134) and the Continue reading
   card were kept.
 
+### 9.10 Journal readability `[~]` (2026-10-25)
+
+On the tablet the user found the 8.9 journal unreadable: "a lot of info just flying in the air without any
+reason". The sections sat flat on the background 36 dp apart, at four different widths, the busiest day was
+said three times, the books read in the month showed nowhere, and some figures were wrong. Mocked on a
+canvas over the tablet's own October and 2026 (https://claude.ai/artifact/9UVV9WtYNptMXQhpzWsybP: Month,
+Year, phone, and the screen as it was with numbered pins); the user said build it.
+
+- [x] Panels again (`JournalPanel`, the kit's raised `AppPanel`), in a column of at most 1140 dp: two
+      columns, seven twelfths and five, from 880 dp of content (a tablet in landscape), one under the other
+      below that. The header is "Journal" over the period between its arrows with Month / Year at the end
+      (arrows after the name and Month / Year on its own line on phones). The bar has no glass and no name
+      while that header shows, like Settings (`JournalTopBar(titleOnScreen, scrolled)`).
+- [x] Month: one summary panel (reading time with the time on a reading day, the days you read with the run
+      that reaches today or the longest run, finished with the one title or how many wait for a rating,
+      books against comics by time); What you read (`JournalWhatYouRead.kt`: the books given time in the
+      month, longest first, with their days and a bar against the longest, Finished and Rate in the row;
+      the ones under five minutes fold into "Opened for a minute or two: ..."; eight rows, then Show all);
+      Reading days with each day's minutes in its square, a day without reading only an outline and days
+      to come fainter; When you read as 24 small bars with the hours most of it falls in named ("Mostly
+      00:00–02:00", the shortest stretch holding 60%). The pages chart, the figures beside the calendar,
+      and the Finished and Needs rating shelves are gone from Month.
+- [x] Year: the summary (time, days of the year so far, the longest run by its dates, finished and how many
+      wait), the twelve months, reading time by month (12 bars, the busiest named), Ratings, one Finished
+      shelf (twelve covers, Rate under an unrated one, "Rate the N waiting" and See all open new sheet
+      pages, `JournalSheetPage.Finished`), Most read. "When you read" by month is gone: it repeated the
+      chart above it.
+- [x] Ratings and Most read only where they say something: Ratings once one of the period's finished books
+      is rated ("2 of 15 rated · 3.5 average"; a kind with fewer than three gets a line, not bars), Most
+      read from three finished books, its kinds three to five across on a tablet, bars only where a kind's
+      counts differ.
+- [x] Four data fixes, each with tests:
+  - Pages (`JournalPageCounting.kt`): a position counts from a start the journal knows, so the first time
+    a book is opened its saved place is not pages read (958 "pages" of Под тенью лилии on 19 Oct were that),
+    and where a book has sessions its pages are held to what the time allows (4 a minute for books, 30 for
+    comics, plus 3). Days take the larger of the events and the sessions per book instead of ignoring a
+    book's sessions when it has events.
+  - Ratings belong to the period the book was finished in (`ofItemsFinishedIn`), not to the entry's last
+    change: a sync had put 128 ratings in an October with one book finished. A rating with no finish in
+    the journal counts in no period.
+  - The calendar shades by minutes (`JournalActivityDay.readingMillis`, new, per day with sessions split at
+    midnight), not pages, so one jump no longer outweighs the month.
+  - "Longest run 21 days, in May" was a run from 13 Apr to 3 May: the run is named by its dates now. The
+    board blamed shading for the run not showing; that was wrong, it was the label. "One finished every 5
+    days" (finishes over the days comics were read) went with the pages split.
+- Checked on the private emulator (`yabai_settings_35` on 5556, the journal copied read-only from 5558's
+  database) in landscape, Graphite and the light theme, and at phone width. Not yet on the tablet.
+
 ## Not yet designed
 
 Section 9: each step above gets its mock when it starts. Before it, nothing was left: downloads, the
