@@ -80,6 +80,9 @@ class LibraryDerivedStateComputer @Inject constructor() {
             sourceItems = sourceItems,
             progressByItemId = displayProgressByItemId,
         )
+        val pageCountsByItemId = LibraryPerfLog.section("derived.pageCounts") {
+            buildPageCountsByItemId(input, sourceIndex, sourceItems, displayProgressByItemId)
+        }
         val displayRatingByItemId = buildDisplayRatingByItemId(
             input = input,
             sourceIndex = sourceIndex,
@@ -119,6 +122,7 @@ class LibraryDerivedStateComputer @Inject constructor() {
                         progressByItemId = displayProgressByItemId,
                     ),
                     readingStatusByItemId = readingStatusByItemId,
+                    pageCountsByItemId = pageCountsByItemId,
                     forceSeriesIssueOrder = input.isSeriesBrowseActive,
                     preserveInputOrder = input.orderedItemScope != null,
                 )
@@ -129,6 +133,7 @@ class LibraryDerivedStateComputer @Inject constructor() {
                 input = input,
                 sourceItems = sourceItems,
                 readingStatusByItemId = readingStatusByItemId,
+                pageCountsByItemId = pageCountsByItemId,
             )
         }
         return LibraryDerivedState(
@@ -164,12 +169,14 @@ class LibraryDerivedStateComputer @Inject constructor() {
             sourceItems = sourceItems,
             progressByItemId = displayProgressByItemId,
         )
+        val pageCountsByItemId = buildPageCountsByItemId(input, sourceIndex, sourceItems, displayProgressByItemId)
         return LibraryDerivedState(
             sourceItems = sourceItems,
             selectedLibraryFilterFacets = cachedFilterFacets(
                 input = input,
                 sourceItems = sourceItems,
                 readingStatusByItemId = readingStatusByItemId,
+                pageCountsByItemId = pageCountsByItemId,
             ),
             selectedSourceLibraryTitlesById = sourceIndex.selectedSourceLibraryTitlesById(input.selectedSource),
             displayProgressByItemId = displayProgressByItemId,
@@ -194,6 +201,7 @@ class LibraryDerivedStateComputer @Inject constructor() {
                         progressByItemId = displayProgressByItemId,
                     ),
                     readingStatusByItemId = readingStatusByItemId,
+                    pageCountsByItemId = pageCountsByItemId,
                     forceSeriesIssueOrder = input.isSeriesBrowseActive,
                     preserveInputOrder = input.orderedItemScope != null,
                 )
@@ -227,6 +235,7 @@ class LibraryDerivedStateComputer @Inject constructor() {
         input: LibraryDerivedStateInput,
         sourceItems: List<ReadableItem>,
         readingStatusByItemId: Map<String, LibraryReadingStatus>,
+        pageCountsByItemId: Map<String, List<Int>>,
     ): LibraryFilterFacets {
         val key = LibraryFilterFacetsCacheKey(
             sourceIndexKey = cachedSourceIndexKey ?: SourceIndexCacheKey(input.libraries, input.items),
@@ -239,6 +248,7 @@ class LibraryDerivedStateComputer @Inject constructor() {
             selectedLibraryFilters = input.selectedLibraryFilters,
             locallyAvailableRemoteItemIds = input.locallyAvailableRemoteItemIds,
             readingStatusByItemId = readingStatusByItemId,
+            pageCountsByItemId = pageCountsByItemId,
         )
         filterFacetsCache[key]?.let { return it }
         return buildContextualLibraryFilterFacets(
@@ -246,6 +256,7 @@ class LibraryDerivedStateComputer @Inject constructor() {
             filters = input.selectedLibraryFilters,
             downloadedRemoteItemIds = input.locallyAvailableRemoteItemIds,
             readingStatusProvider = { item -> readingStatusByItemId[item.id] },
+            pageCountsProvider = { item -> pageCountsByItemId[item.id].orEmpty() },
         ).also { facets -> filterFacetsCache[key] = facets }
     }
 
@@ -422,7 +433,7 @@ internal fun buildCompletedRootSeriesProgressByItemId(
     )
 }.toMap()
 
-private val LibraryDerivedStateInput.isSeriesBrowseActive: Boolean
+internal val LibraryDerivedStateInput.isSeriesBrowseActive: Boolean
     get() = when (selectedSource) {
         SourceType.KAVITA -> selectedKavitaSeriesKey != null
         SourceType.STUMP -> selectedStumpSeriesKey != null
@@ -469,6 +480,10 @@ private fun LibraryFilterState.keyFragment(): String = buildString {
     append(fileLocations.map { location -> location.name }.sorted().joinToString(","))
     append(";reading_statuses=")
     append(readingStatuses.map { status -> status.name }.sorted().joinToString(","))
+    pages?.let { range ->
+        append(";pages=${range.min ?: ""}-${range.max ?: ""}")
+        if (range.includeUnknown) append("+unknown")
+    }
     append(";authors=")
     append(authors.sortedWith(String.CASE_INSENSITIVE_ORDER).joinToString(",") { value -> value.keyComponent() })
     append(";series=")
@@ -559,6 +574,7 @@ private data class LibraryFilterFacetsCacheKey(
     val selectedLibraryFilters: LibraryFilterState,
     val locallyAvailableRemoteItemIds: Set<*>,
     val readingStatusByItemId: Map<*, *>,
+    val pageCountsByItemId: Map<*, *>,
 )
 
 private data class LibraryDerivedStateCacheKey(

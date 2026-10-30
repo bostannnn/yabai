@@ -10,10 +10,11 @@ import com.example.unifiedreader.core.model.authorFacetKey
 // What the filter sheet shows, apart from how it draws it: the open chip groups, the facet rows'
 // summaries and the facet pages' grouped values.
 
-/** Short choices stay open in the sheet as chips; the long lists open as a page of their own. */
+/** Short choices stay open in the sheet (as chips, or Pages' slider); the long lists open as a page of their own. */
 internal val LibraryFilterPanel.opensAsPage: Boolean
     get() = when (this) {
         LibraryFilterPanel.ReadingStatus,
+        LibraryFilterPanel.Pages,
         LibraryFilterPanel.Format,
         LibraryFilterPanel.Location -> false
         LibraryFilterPanel.Library,
@@ -32,6 +33,7 @@ internal val LibraryFilterPanel.pluralLabel: String
         LibraryFilterPanel.Library -> "libraries"
         LibraryFilterPanel.Location -> "locations"
         LibraryFilterPanel.ReadingStatus -> "statuses"
+        LibraryFilterPanel.Pages -> "page ranges"
         LibraryFilterPanel.Author -> "authors"
         LibraryFilterPanel.Series -> "series"
         LibraryFilterPanel.Publisher -> "publishers"
@@ -109,7 +111,8 @@ internal fun LibraryFilterState.selectedValues(panel: LibraryFilterPanel): Set<S
     LibraryFilterPanel.Language -> languages
     LibraryFilterPanel.Format,
     LibraryFilterPanel.Location,
-    LibraryFilterPanel.ReadingStatus -> emptySet()
+    LibraryFilterPanel.ReadingStatus,
+    LibraryFilterPanel.Pages -> emptySet()
 }
 
 /** The state with one value of a facet page's panel toggled. */
@@ -123,7 +126,8 @@ internal fun LibraryFilterState.toggling(panel: LibraryFilterPanel, value: Strin
     LibraryFilterPanel.Language -> copy(languages = languages.toggle(value))
     LibraryFilterPanel.Format,
     LibraryFilterPanel.Location,
-    LibraryFilterPanel.ReadingStatus -> this
+    LibraryFilterPanel.ReadingStatus,
+    LibraryFilterPanel.Pages -> this
 }
 
 private fun LibraryFilterFacets.values(panel: LibraryFilterPanel): List<String> = when (panel) {
@@ -136,7 +140,8 @@ private fun LibraryFilterFacets.values(panel: LibraryFilterPanel): List<String> 
     LibraryFilterPanel.Language -> languages
     LibraryFilterPanel.Format,
     LibraryFilterPanel.Location,
-    LibraryFilterPanel.ReadingStatus -> emptyList()
+    LibraryFilterPanel.ReadingStatus,
+    LibraryFilterPanel.Pages -> emptyList()
 }
 
 private fun LibraryFilterPanel.valueLabel(value: String, libraryTitlesById: Map<String, String>): String =

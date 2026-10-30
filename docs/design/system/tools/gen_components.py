@@ -84,6 +84,33 @@ def chev():
     return f'<span class="yb-chev">{ic("navigate_next")}</span>'
 
 
+# The Pages filter: the slider's stops (the last is "1,000+") and a library's spread over them, one bar per step.
+PAGE_STOPS = [0, 10, 20, 30, 40, 50, 75, 100, 150, 200, 250, 300, 400, 500, 750, 1000]
+PAGE_BARS = [30, 120, 610, 240, 40, 35, 28, 29, 70, 62, 48, 30, 10, 6, 2]
+
+
+def page_range(start, end, unknown=114):
+    """The Pages section's body for a range between stop indexes start and end."""
+    steps = len(PAGE_STOPS) - 1
+    top = max(PAGE_BARS) ** 0.5
+    bars = "".join(
+        f'<i class="{"is-in" if start <= i < end else ""}" style="height:{max(2, round(56 * c ** 0.5 / top))}px"></i>'
+        for i, c in enumerate(PAGE_BARS)
+    )
+    left, right = start / steps * 100, end / steps * 100
+    low = "" if start == 0 else f"{PAGE_STOPS[start]:,}"
+    high = "" if end == steps else f"{PAGE_STOPS[end]:,}"
+    return f"""<div class="yb-hist">{bars}</div>
+<div class="yb-range"><span class="yb-range-track"><b style="left:{left:.2f}%;right:{100 - right:.2f}%"></b></span><i style="left:{left:.2f}%"></i><i style="left:{right:.2f}%"></i></div>
+<div class="yb-range-axis"><span style="left:0">0</span><span style="left:{7 / steps * 100:.2f}%;transform:translateX(-50%)">100</span><span style="left:{11 / steps * 100:.2f}%;transform:translateX(-50%)">300</span><span style="right:0">1,000+</span></div>
+<div style="display:flex;gap:12px;margin-top:4px"><span class="yb-field"><span class="yb-field-label">From</span>{low}</span><span class="yb-field"><span class="yb-field-label">To</span>{high}</span></div>
+<div style="display:flex;align-items:center;gap:16px;min-height:52px"><span class="yb-row-text"><span class="yb-row-title" style="font-size:15px">Include unknown length</span><span class="yb-caption">{unknown} books have no page count</span></span><span class="yb-switch"></span></div>"""
+
+
+def page_label(value):
+    return f'<div style="display:flex;justify-content:space-between;align-items:baseline"><h3 class="yb-sheet-label">Pages</h3><span class="yb-range-value">{value}</span></div>'
+
+
 # ---------------------------------------------------------------- Navigation
 comp("AppTopBar", "Navigation", 300, """
 # AppTopBar
@@ -209,7 +236,7 @@ The one header for every sheet and panel: an optional Back, the title in `panel-
   <div class="yb-sheet" style="width:360px"><div class="yb-panel-header"><div class="yb-panel-header-text"><h2 class="yb-panel-title">Downloads</h2><span class="yb-panel-sub">1 downloading · 2 waiting</span></div><button class="yb-icon-btn">{ic("close")}</button></div></div>
 </div>""")
 
-comp("AppSideSheet", "Surfaces", 760, """
+comp("AppSideSheet", "Surfaces", 1080, """
 # AppSideSheet
 
 The sheet for anything opened over a screen: the book page, filters, downloads, a journal day. 400 wide, 12 from the window, `radius-sheet` 28, on `surface`, shadow 16. Under 600 it becomes `AppSheet` (bottom sheet) with the same header and body.
@@ -227,13 +254,15 @@ The sheet for anything opened over a screen: the book page, filters, downloads, 
       <div class="yb-divider is-full" style="margin:12px 0 0"></div>
       <div class="yb-sheet-section"><h3 class="yb-sheet-label">Reading status</h3><div class="yb-chip-row"><span class="yb-chip">Not started <span class="yb-count">7</span></span><span class="yb-chip">In progress <span class="yb-count">16</span></span><span class="yb-chip">Finished <span class="yb-count">12</span></span></div></div>
       <div class="yb-divider is-full" style="margin:12px 0 0"></div>
+      <div class="yb-sheet-section">{page_label("150–300")}{page_range(8, 11)}</div>
+      <div class="yb-divider is-full" style="margin:12px 0 0"></div>
     </div>
     <div style="margin-top:-8px">
       <div class="yb-row is-dense"><span class="yb-row-text"><span class="yb-row-title">Library</span></span><span class="yb-supporting">Any</span>{chev()}</div>
       <div class="yb-row is-dense"><span class="yb-row-text"><span class="yb-row-title">Author</span></span><span class="yb-supporting">Any</span>{chev()}</div>
       <div class="yb-row is-dense"><span class="yb-row-text"><span class="yb-row-title">Series</span></span><span class="yb-supporting">Any</span>{chev()}</div>
     </div>
-    <div style="height:120px"></div>
+    <div style="height:40px"></div>
     <div style="padding:20px"><button class="yb-btn is-filled" style="width:100%">Show 20 books</button></div>
   </div>
 </div>""", width=528)
@@ -337,6 +366,25 @@ Two or three choices in one pill: a `surface-container-low` track, 3 padding, 34
   <div class="yb-seg" style="width:240px"><span class="is-selected">Month</span><span>Year</span></div>
   <div class="yb-seg"><span>Small</span><span class="is-selected">Medium</span><span>Large</span></div>
 </div>""", width=468)
+
+comp("AppRangeSlider", "Actions", 640, """
+# AppRangeSlider
+
+A range on one track: AppSlider's 18 tall pill on `surface-container-highest`, `primary` between two slim 4 x 28 handles in `on-surface`. Above it, `AppHistogram` can show how the values spread: one bar per step, 56 tall at most, 2 apart, top corners 3, each as tall as the square root of its count so a few long books still show beside many short ones. Bars inside the range are `primary`, the rest `outline-variant`.
+
+- Kit: `AppRangeSlider(values, onValuesChange, valueRange, onValueChangeFinished)` and `AppHistogram(counts, highlighted)`. The histogram's bars are the slider's steps, so the two span the same width.
+- The caller snaps the handles to its stops and applies the range on release (`onValueChangeFinished`), not on every step.
+- The library filter sheet's Pages section: the label with the range at its end in `primary` ("150–300", "150+", "Up to 300", "Any"), the histogram, the slider, From and To fields (`AppTextField`, numbers; an empty field is no bound) and, while some books have no page count, an "Include unknown length" switch row saying how many (dimmed while the range is Any, when nothing is left out). Under the slider, 0, 100, 300 and 1,000+ mark the uneven scale. Stops: 0, 10, 20, 30, 40, 50, 75, 100, 150, 200, 250, 300, 400, 500, 750, 1,000+ (the last has no upper bound).
+- What counts as pages is what the book page shows: a comic's or a PDF's page count, an EPUB's printed pages (only Grimmory knows them). A series tile fits when one of its issues does.
+""", f"""
+<div class="yb yb-ground" style="padding:24px;width:400px">
+  <div class="yb-sheet" style="width:360px;padding:0 20px 12px">
+    <div class="yb-sheet-section" style="padding-top:14px">{page_label("150–300")}{page_range(8, 11)}</div>
+  </div>
+  <div class="yb-sheet" style="width:360px;padding:0 20px 12px;margin-top:16px">
+    <div class="yb-sheet-section" style="padding-top:14px">{page_label("Any")}{page_range(0, 15).replace('class=""', 'class="is-in"').replace('min-height:52px"', 'min-height:52px;opacity:.38"')}</div>
+  </div>
+</div>""", width=448)
 
 comp("AppSearchField", "Actions", 200, """
 # AppSearchField

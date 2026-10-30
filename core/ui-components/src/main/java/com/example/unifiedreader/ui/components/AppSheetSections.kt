@@ -1,5 +1,6 @@
 package com.example.unifiedreader.ui.components
 
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -21,6 +22,35 @@ import androidx.compose.ui.unit.sp
 fun AppSheetLabel(
     text: String,
     modifier: Modifier = Modifier,
+    // What the section is set to, at the label's end in the accent ("150–300").
+    value: String? = null,
+) {
+    val labelPadding = Modifier.padding(start = AppLayout.inset, end = AppLayout.inset, top = 14.dp, bottom = 8.dp)
+    if (value == null) {
+        AppSheetLabelText(text = text, modifier = modifier.then(labelPadding))
+        return
+    }
+    Row(modifier = modifier.then(labelPadding)) {
+        AppSheetLabelText(
+            text = text,
+            modifier = Modifier
+                .weight(1f)
+                .alignByBaseline(),
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.primary,
+            maxLines = 1,
+            modifier = Modifier.alignByBaseline(),
+        )
+    }
+}
+
+@Composable
+private fun AppSheetLabelText(
+    text: String,
+    modifier: Modifier,
 ) {
     Text(
         text = text,
@@ -28,9 +58,7 @@ fun AppSheetLabel(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
-        modifier = modifier
-            .padding(start = AppLayout.inset, end = AppLayout.inset, top = 14.dp, bottom = 8.dp)
-            .semantics { heading() },
+        modifier = modifier.semantics { heading() },
     )
 }
 

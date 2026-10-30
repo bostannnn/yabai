@@ -61,6 +61,7 @@ internal fun MutablePreferences.writeFilterState(
     writeEncodedValues(librariesFilterKey(sourceType), filters.libraries)
     writeEncodedValues(fileLocationsFilterKey(sourceType), filters.fileLocations.map(LibraryFileLocation::name))
     writeEncodedValues(readingStatusesFilterKey(sourceType), filters.readingStatuses.map(LibraryReadingStatus::name))
+    encodeLibraryPageRange(filters.pages)?.let { this[pagesFilterKey(sourceType)] = it } ?: remove(pagesFilterKey(sourceType))
     writeEncodedValues(authorsFilterKey(sourceType), filters.authors)
     writeEncodedValues(seriesFilterKey(sourceType), filters.series)
     writeEncodedValues(publishersFilterKey(sourceType), filters.publishers)
@@ -132,6 +133,7 @@ internal fun loadStartupLibraryBrowsePreferences(
                 readingStatuses = decodeEnumValues<LibraryReadingStatus>(
                     startupPreferences.getString(readingStatusesFilterStorageKey(sourceType), null),
                 ),
+                pages = decodeLibraryPageRange(startupPreferences.getString(pagesFilterStorageKey(sourceType), null)),
                 authors = decodeStringValues(startupPreferences.getString(authorsFilterStorageKey(sourceType), null)),
                 series = decodeStringValues(startupPreferences.getString(seriesFilterStorageKey(sourceType), null)),
                 publishers = decodeStringValues(startupPreferences.getString(publishersFilterStorageKey(sourceType), null)),
@@ -184,6 +186,8 @@ internal fun writeStartupLibraryBrowsePreferences(
             writeEncodedValues(librariesFilterStorageKey(sourceType), filters.libraries)
             writeEncodedValues(fileLocationsFilterStorageKey(sourceType), filters.fileLocations.map(LibraryFileLocation::name))
             writeEncodedValues(readingStatusesFilterStorageKey(sourceType), filters.readingStatuses.map(LibraryReadingStatus::name))
+            encodeLibraryPageRange(filters.pages)?.let { putString(pagesFilterStorageKey(sourceType), it) }
+                ?: remove(pagesFilterStorageKey(sourceType))
             writeEncodedValues(authorsFilterStorageKey(sourceType), filters.authors)
             writeEncodedValues(seriesFilterStorageKey(sourceType), filters.series)
             writeEncodedValues(publishersFilterStorageKey(sourceType), filters.publishers)
@@ -226,6 +230,7 @@ private fun Preferences.decodeFilterState(
     libraries = decodeStringValues(this[librariesFilterKey(sourceType)]),
     fileLocations = decodeEnumValues<LibraryFileLocation>(this[fileLocationsFilterKey(sourceType)]),
     readingStatuses = decodeEnumValues<LibraryReadingStatus>(this[readingStatusesFilterKey(sourceType)]),
+    pages = decodeLibraryPageRange(this[pagesFilterKey(sourceType)]),
     authors = decodeStringValues(this[authorsFilterKey(sourceType)]),
     series = decodeStringValues(this[seriesFilterKey(sourceType)]),
     publishers = decodeStringValues(this[publishersFilterKey(sourceType)]),
@@ -376,6 +381,10 @@ private fun readingStatusesFilterKey(
     sourceType: SourceType,
 ): Preferences.Key<String> = stringPreferencesKey(readingStatusesFilterStorageKey(sourceType))
 
+private fun pagesFilterKey(
+    sourceType: SourceType,
+): Preferences.Key<String> = stringPreferencesKey(pagesFilterStorageKey(sourceType))
+
 private fun authorsFilterKey(
     sourceType: SourceType,
 ): Preferences.Key<String> = stringPreferencesKey(authorsFilterStorageKey(sourceType))
@@ -427,6 +436,10 @@ private fun fileLocationsFilterStorageKey(
 private fun readingStatusesFilterStorageKey(
     sourceType: SourceType,
 ): String = "library_filter_reading_statuses_${sourceType.keySuffix()}"
+
+private fun pagesFilterStorageKey(
+    sourceType: SourceType,
+): String = "library_filter_pages_${sourceType.keySuffix()}"
 
 private fun authorsFilterStorageKey(
     sourceType: SourceType,

@@ -12,8 +12,8 @@ import com.example.unifiedreader.core.model.SourceType
  * Engaged for the Kavita root view in a rail-less sort (LAST_READ, DATE_ADDED), including
  * **content-filtered** views (format/library/author/series/publisher/genre/tag/language) which page
  * via `library_root_facets`. The rail-bearing sorts (Title/Author/Series), search, series browse,
- * Kavita scopes, and reading-status / file-location filters (runtime state not in the tables) still
- * render from the in-memory [AppUiState.visibleItems] path.
+ * Kavita scopes, and reading-status / file-location / page-range filters (runtime state not in the
+ * tables) still render from the in-memory [AppUiState.visibleItems] path.
  */
 internal object LibraryPagingFeature {
     const val ENABLED = true
@@ -26,7 +26,7 @@ internal object LibraryPagingFeature {
         val filters = state.selectedLibraryFilters
         return when (state.selectedLibrarySortMode) {
             // Rail-less sorts page unfiltered or with content filters (buildFilteredGridRootsQuery); the
-            // runtime filter dimensions (reading status, file location) aren't in the tables → in-memory.
+            // runtime filter dimensions (reading status, file location, pages) aren't in the tables → in-memory.
             LibrarySortMode.LAST_READ,
             LibrarySortMode.DATE_ADDED -> filters.isPageableFilter()
 
@@ -42,7 +42,8 @@ internal object LibraryPagingFeature {
     }
 
     // Content filters live in library_root_facets and page via buildFilteredGridRootsQuery; the
-    // runtime dimensions (reading status, file location) aren't in the tables, so those stay in-memory.
+    // runtime dimensions (reading status, file location, and pages, which a series takes from its
+    // issues) aren't in the tables, so those stay in-memory.
     private fun LibraryFilterState.isPageableFilter(): Boolean =
-        readingStatuses.isEmpty() && fileLocations.isEmpty()
+        readingStatuses.isEmpty() && fileLocations.isEmpty() && pages == null
 }

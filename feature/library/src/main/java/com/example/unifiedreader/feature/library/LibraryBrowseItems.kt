@@ -7,6 +7,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.applyLibraryFilters
 import com.example.unifiedreader.core.model.applyLibrarySearch
 import com.example.unifiedreader.core.model.applyLibrarySort
+import com.example.unifiedreader.core.model.ownPageCounts
 import java.math.BigDecimal
 import java.util.Locale
 
@@ -18,6 +19,8 @@ fun buildVisibleLibraryItems(
     downloadedRemoteItemIds: Set<String> = emptySet(),
     lastReadAtEpochMillisByItemId: Map<String, Long> = emptyMap(),
     readingStatusByItemId: Map<String, LibraryReadingStatus> = emptyMap(),
+    // A grid item's page counts (a series tile's are its issues'); an item missing here has its own.
+    pageCountsByItemId: Map<String, List<Int>> = emptyMap(),
     forceSeriesIssueOrder: Boolean = false,
     preserveInputOrder: Boolean = false,
 ): List<ReadableItem> {
@@ -26,6 +29,7 @@ fun buildVisibleLibraryItems(
         filters = filterState,
         downloadedRemoteItemIds = downloadedRemoteItemIds,
         readingStatusProvider = { item -> readingStatusByItemId[item.id] },
+        pageCountsProvider = { item -> pageCountsByItemId[item.id] ?: item.ownPageCounts() },
     )
     val searchedItems = applyLibrarySearch(
         items = filteredItems,

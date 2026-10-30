@@ -37,7 +37,8 @@ data class LibraryFilterFacetCounts(
             LibraryFilterPanel.Language -> languages
             LibraryFilterPanel.Format,
             LibraryFilterPanel.Location,
-            LibraryFilterPanel.ReadingStatus -> return 0
+            LibraryFilterPanel.ReadingStatus,
+            LibraryFilterPanel.Pages -> return 0
         }
         return counts[value.lowercase()] ?: 0
     }

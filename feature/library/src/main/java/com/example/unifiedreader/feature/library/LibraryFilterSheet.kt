@@ -135,11 +135,18 @@ private fun LibraryFilterOverview(
     onClose: () -> Unit,
 ) {
     val anyApplied = filterPanels.any { panel -> panel.selectedCount(filterState) > 0 }
+    // The open groups in panel order: chips, and Pages' slider while it has lengths to offer.
     val chipGroups = remember(filterPanels, filterState, filterFacets) {
         filterPanels
             .filterNot(LibraryFilterPanel::opensAsPage)
             .map { panel -> panel to libraryFilterChipOptions(panel, filterState, filterFacets) }
-            .filter { (_, options) -> options.isNotEmpty() }
+            .filter { (panel, options) ->
+                if (panel == LibraryFilterPanel.Pages) {
+                    panel.isEnabled(filterState, filterFacets, libraryTitlesById)
+                } else {
+                    options.isNotEmpty()
+                }
+            }
     }
     val pagePanels = filterPanels.filter(LibraryFilterPanel::opensAsPage)
     Column(modifier = Modifier.fillMaxSize()) {
@@ -161,6 +168,19 @@ private fun LibraryFilterOverview(
             contentPadding = PaddingValues(bottom = 8.dp),
         ) {
             chipGroups.forEachIndexed { index, (panel, options) ->
+                if (panel == LibraryFilterPanel.Pages) {
+                    item(key = "pages") {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            if (index > 0) AppSheetDivider()
+                            LibraryPagesFilterSection(
+                                range = filterState.pages,
+                                histogram = filterFacets.pages,
+                                onRangeChanged = { range -> onFilterStateChanged(filterState.copy(pages = range)) },
+                            )
+                        }
+                    }
+                    return@forEachIndexed
+                }
                 item(key = "chips:${panel.name}") {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         if (index > 0) AppSheetDivider()
@@ -291,6 +311,7 @@ internal fun LibraryFilterState.clearing(panel: LibraryFilterPanel): LibraryFilt
     LibraryFilterPanel.Library -> copy(libraries = emptySet())
     LibraryFilterPanel.Location -> copy(fileLocations = emptySet())
     LibraryFilterPanel.ReadingStatus -> copy(readingStatuses = emptySet())
+    LibraryFilterPanel.Pages -> copy(pages = null)
     LibraryFilterPanel.Author -> copy(authors = emptySet())
     LibraryFilterPanel.Series -> copy(series = emptySet())
     LibraryFilterPanel.Publisher -> copy(publishers = emptySet())

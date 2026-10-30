@@ -12,7 +12,7 @@ import com.example.unifiedreader.core.model.LibrarySortMode
  * [sortMode] — the same ordering the unfiltered paging sources use.
  *
  * Only content dimensions are handled (format, library, author, series, publisher, genre, tag,
- * language). Reading-status and file-location filters are runtime state (not in the tables), and
+ * language). Reading-status, file-location and page-range filters are runtime state (not in the tables), and
  * search is separate, so the caller must ensure those aren't active and keep the in-memory path when
  * they are. Filter values are passed as bound arguments; only the constant dimension names are
  * interpolated.

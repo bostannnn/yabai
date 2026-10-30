@@ -28,6 +28,9 @@ internal fun appliedLibraryFilters(
         LibraryFilterPanel.ReadingStatus -> state.readingStatuses.sortedBy { it.ordinal }.map { status ->
             LibraryAppliedFilter(panel, status.label, state.copy(readingStatuses = state.readingStatuses - status))
         }
+        LibraryFilterPanel.Pages -> listOfNotNull(
+            state.pages?.let { range -> LibraryAppliedFilter(panel, libraryPageRangeChipLabel(range), state.copy(pages = null)) },
+        )
         LibraryFilterPanel.Location -> state.fileLocations.sortedBy { it.ordinal }.map { location ->
             LibraryAppliedFilter(panel, location.label, state.copy(fileLocations = state.fileLocations - location))
         }

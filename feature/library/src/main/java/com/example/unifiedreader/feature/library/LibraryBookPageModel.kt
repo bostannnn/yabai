@@ -11,7 +11,6 @@ import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.core.model.normalizedAuthors
 import com.example.unifiedreader.core.model.ownIssueTitle
-import com.example.unifiedreader.core.model.printedPageCount
 import com.example.unifiedreader.core.model.supportsManualReadStatusAction
 import com.example.unifiedreader.core.model.volumeNumber
 import java.time.Instant
@@ -111,8 +110,7 @@ internal fun libraryBookPageText(
         add("Format" to item.format.name)
         // A comic or a PDF has its pages. An EPUB has its printed edition's when its server knows
         // them, and its chapters once its reader has counted them.
-        val pages = if (item.format == FormatType.EPUB) item.printedPageCount() else item.pageCount ?: progress?.pageCount
-        pages?.takeIf { it > 0 }?.let { count -> add("Pages" to count.toString()) }
+        libraryItemPageCount(item, progress)?.let { count -> add("Pages" to count.toString()) }
         if (item.format == FormatType.EPUB) {
             progress?.chapterCount?.takeIf { it > 0 }?.let { count -> add("Chapters" to count.toString()) }
         }

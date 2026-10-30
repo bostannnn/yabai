@@ -13,9 +13,9 @@
   "groups": [],
   "lastChange": {
     "by": "bostannnn",
-    "at": "2026-10-25T20:55:55Z",
+    "at": "2026-10-30T13:00:00Z",
     "via": "Claude Code",
-    "note": "Layout: the rule tests that enforce the frame (AppLayoutRuleTest, DesignSystemRuleTest)"
+    "note": "AppRangeSlider + AppHistogram, and the filter sheet's Pages section"
   },
   "layout": "files",
   "libraries": [],

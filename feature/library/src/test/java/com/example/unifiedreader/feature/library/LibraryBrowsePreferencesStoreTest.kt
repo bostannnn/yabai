@@ -11,6 +11,7 @@ import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.LibraryFileLocation
 import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibraryFilterState
+import com.example.unifiedreader.core.model.LibraryPageRange
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
 import java.io.File
@@ -52,6 +53,7 @@ class LibraryBrowsePreferencesStoreTest {
             formats = setOf(FormatType.EPUB),
             libraries = setOf("kavita:library:books"),
             fileLocations = setOf(LibraryFileLocation.LOCAL),
+            pages = LibraryPageRange(min = 150, max = 300, includeUnknown = true),
             authors = setOf("Ursula K. Le Guin"),
             series = setOf("Earthsea"),
             publishers = setOf("Parnassus"),
@@ -240,6 +242,7 @@ class LibraryBrowsePreferencesStoreTest {
             filtersBySource = mapOf(
                 SourceType.LOCAL to LibraryFilterState(
                     formats = setOf(FormatType.EPUB),
+                    pages = LibraryPageRange(max = 50),
                     authors = setOf("Ursula K. Le Guin"),
                 ),
             ),

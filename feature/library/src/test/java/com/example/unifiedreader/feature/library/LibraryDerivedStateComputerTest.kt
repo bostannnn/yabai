@@ -6,10 +6,12 @@ import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.LibraryFileLocation
 import com.example.unifiedreader.core.model.LibraryFilterState
+import com.example.unifiedreader.core.model.LibraryPageRange
 import com.example.unifiedreader.core.model.LibraryReadingStatus
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.libraryPageBarIndex
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
 import org.junit.Assert.assertEquals
@@ -326,6 +328,36 @@ class LibraryDerivedStateComputerTest {
         )
 
         assertEquals(listOf("Akira"), derivedState.visibleItems.map(ReadableItem::title))
+    }
+
+    @Test
+    fun `pages filter shows a root series when one of its issues fits and counts its lengths`() {
+        val libraryId = SourceType.KAVITA.remoteLibraryId("k-comics")
+        val single = issue(id = "k-1", sourceType = SourceType.KAVITA, libraryId = libraryId, seriesKey = "akira", title = "Akira 1")
+            .copy(pageCount = 24)
+        val omnibus = issue(id = "k-2", sourceType = SourceType.KAVITA, libraryId = libraryId, seriesKey = "akira", title = "Akira 2")
+            .copy(pageCount = 220)
+        val unknown = issue(id = "k-3", sourceType = SourceType.KAVITA, libraryId = libraryId, seriesKey = "blame", title = "Blame 1")
+        fun compute(range: LibraryPageRange) = computer.compute(
+            LibraryDerivedStateInput(
+                selectedSource = SourceType.KAVITA,
+                libraries = listOf(
+                    Library(id = libraryId, sourceType = SourceType.KAVITA, title = "Kavita Comics", contentType = LibraryContentType.COMICS),
+                ),
+                items = listOf(single, omnibus, unknown),
+                selectedLibraryFilters = LibraryFilterState(pages = range),
+            ),
+        )
+
+        val long = compute(LibraryPageRange(min = 150, max = 300))
+        val longer = compute(LibraryPageRange(min = 300, includeUnknown = true))
+
+        assertEquals(listOf("Akira"), long.visibleItems.map(ReadableItem::title))
+        assertEquals(listOf("Blame"), longer.visibleItems.map(ReadableItem::title))
+        val histogram = long.selectedLibraryFilterFacets.pages
+        assertEquals(1, histogram.bars[libraryPageBarIndex(24)])
+        assertEquals(1, histogram.bars[libraryPageBarIndex(220)])
+        assertEquals(1, histogram.unknown)
     }
 
     @Test

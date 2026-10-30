@@ -8,6 +8,8 @@ data class LibraryFilterState(
     val libraries: Set<String> = emptySet(),
     val fileLocations: Set<LibraryFileLocation> = emptySet(),
     val readingStatuses: Set<LibraryReadingStatus> = emptySet(),
+    // Null when the Pages filter leaves every length in.
+    val pages: LibraryPageRange? = null,
     val authors: Set<String> = emptySet(),
     val series: Set<String> = emptySet(),
     val publishers: Set<String> = emptySet(),
@@ -20,6 +22,7 @@ data class LibraryFilterState(
             libraries.isEmpty() &&
             fileLocations.isEmpty() &&
             readingStatuses.isEmpty() &&
+            pages == null &&
             authors.isEmpty() &&
             series.isEmpty() &&
             publishers.isEmpty() &&
@@ -37,6 +40,7 @@ fun LibraryFilterState.visibleInPanels(
         libraries = libraries.takeIf { LibraryFilterPanel.Library in panels }.orEmpty(),
         fileLocations = fileLocations.takeIf { LibraryFilterPanel.Location in panels }.orEmpty(),
         readingStatuses = readingStatuses.takeIf { LibraryFilterPanel.ReadingStatus in panels }.orEmpty(),
+        pages = pages.takeIf { LibraryFilterPanel.Pages in panels },
         authors = authors.takeIf { LibraryFilterPanel.Author in panels }.orEmpty(),
         series = series.takeIf { LibraryFilterPanel.Series in panels }.orEmpty(),
         publishers = publishers.takeIf { LibraryFilterPanel.Publisher in panels }.orEmpty(),
@@ -58,6 +62,8 @@ data class LibraryFilterFacets(
     val languages: List<String> = emptyList(),
     // Empty where nothing counted them (the SQL-assembled facets of the unfiltered paged view).
     val counts: LibraryFilterFacetCounts = LibraryFilterFacetCounts(),
+    // How long the items are, counted like [counts] with every filter but Pages applied.
+    val pages: LibraryPageHistogram = LibraryPageHistogram(),
 ) {
     val isEmpty: Boolean
         get() = formats.isEmpty() &&
@@ -96,6 +102,7 @@ fun applyLibraryFilters(
     filters: LibraryFilterState,
     downloadedRemoteItemIds: Set<String> = emptySet(),
     readingStatusProvider: (ReadableItem) -> LibraryReadingStatus? = { null },
+    pageCountsProvider: (ReadableItem) -> List<Int> = ReadableItem::ownPageCounts,
 ): List<ReadableItem> {
     if (filters.isEmpty) return items
     return items.filter { item ->
@@ -104,6 +111,7 @@ fun applyLibraryFilters(
             filters.libraries.matches(item.libraryId) &&
             filters.fileLocations.matches(item.fileLocation(downloadedRemoteItemIds)) &&
             filters.readingStatuses.matches(readingStatusProvider(item)) &&
+            (filters.pages?.matches(pageCountsProvider(item)) ?: true) &&
             filters.authors.matchesAny(facetMetadata.authors) &&
             filters.series.matchesAny(facetMetadata.series) &&
             filters.publishers.matchesAny(facetMetadata.publishers) &&
@@ -218,6 +226,7 @@ fun buildContextualLibraryFilterFacets(
     filters: LibraryFilterState,
     downloadedRemoteItemIds: Set<String> = emptySet(),
     readingStatusProvider: (ReadableItem) -> LibraryReadingStatus? = { null },
+    pageCountsProvider: (ReadableItem) -> List<Int> = ReadableItem::ownPageCounts,
 ): LibraryFilterFacets {
     // Each dimension's values (and their counts) come from the items every *other* filter leaves.
     fun itemsWithout(dimensionCleared: LibraryFilterState): List<ReadableItem> = applyLibraryFilters(
@@ -225,6 +234,7 @@ fun buildContextualLibraryFilterFacets(
         filters = dimensionCleared,
         downloadedRemoteItemIds = downloadedRemoteItemIds,
         readingStatusProvider = readingStatusProvider,
+        pageCountsProvider = pageCountsProvider,
     )
     val fileLocationOf = { item: ReadableItem -> item.fileLocation(downloadedRemoteItemIds) }
     val formatItems = itemsWithout(filters.copy(formats = emptySet()))
@@ -266,6 +276,7 @@ fun buildContextualLibraryFilterFacets(
             tags = tags.counts,
             languages = languages.counts,
         ),
+        pages = buildLibraryPageHistogram(itemsWithout(filters.copy(pages = null)), pageCountsProvider),
     )
 }
 
@@ -300,6 +311,9 @@ fun assembleLibraryFilterFacets(
     tags = tags.distinctByTextOrder(),
     languages = languages.distinctByTextOrder(),
 )
+
+/** An item's own length as a page-count list: one count, or none when unknown. */
+fun ReadableItem.ownPageCounts(): List<Int> = listOfNotNull(libraryPageCount())
 
 private fun <T> Set<T>.matches(value: T?): Boolean = isEmpty() || value in this
 private fun Set<String>.matchesAny(values: List<String>): Boolean = isEmpty() || values.any(this::contains)
