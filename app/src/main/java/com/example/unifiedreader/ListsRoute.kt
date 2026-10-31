@@ -27,6 +27,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.unifiedreader.core.model.LibraryTagKind
+import com.example.unifiedreader.core.model.LibraryTagSorting
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
@@ -73,6 +75,8 @@ internal fun ListsRoute(
     modifier: Modifier = Modifier,
     // A Kavita collection's series opens in its library.
     onOpenSeries: (ReadableItem) -> Unit = {},
+    // Where you sorted each tag, for the smart list editor's Tag rule.
+    tagKindOf: (String) -> LibraryTagKind = { LibraryTagKind.THEME },
 ) {
     val stored by listsViewModel.lists.collectAsStateWithLifecycle()
     val itemsById = remember(uiState.items) { uiState.items.associateBy(ReadableItem::id) }
@@ -140,6 +144,7 @@ internal fun ListsRoute(
                     .filter { shelf -> shelf.sourceType == SourceType.GRIMMORY && shelf.kind == UserListKind.ServerShelf && shelf.sourceType in connected }
                     .map { shelf -> shelf.remote.name }
             },
+            tagKindOf = tagKindOf,
         )
         openList != null && draft != null && draft.listId == openList.id -> UserListEditor(
             draft = draft,
@@ -413,3 +418,10 @@ private fun NewListMenuButton(onList: () -> Unit, onSmartList: () -> Unit, onImp
 /** Where else a smart list can be kept: Grimmory, as a magic shelf, while it is connected. */
 internal fun magicShelfServers(connected: Set<SourceType>, listsViewModel: AppListsViewModel): List<SourceType> =
     listOf(SourceType.GRIMMORY).filter { source -> source in connected && listsViewModel.keepsRuledLists(source) }
+
+/**
+ * Where you sorted [tag]: the first source that puts it under Set in or When, else About (a tag
+ * nobody has sorted is About, as on Browse).
+ */
+internal fun Map<SourceType, LibraryTagSorting>.tagKindOf(tag: String): LibraryTagKind =
+    values.map { sorting -> sorting.kindOf(tag) }.firstOrNull { kind -> kind != LibraryTagKind.THEME } ?: LibraryTagKind.THEME

@@ -34,7 +34,6 @@ import com.example.unifiedreader.core.model.ListRuleValues
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.label
-import com.example.unifiedreader.core.model.libraryTagKind
 import com.example.unifiedreader.core.model.matches
 import com.example.unifiedreader.core.model.namesOf
 import com.example.unifiedreader.core.model.operators
@@ -104,6 +103,8 @@ internal fun ListRuleValueSheet(
     onBack: (() -> Unit)?,
     onSave: (ListRule) -> Unit,
     onDismiss: () -> Unit,
+    // Where you sorted each tag (Set in, When, About), as Browse shows them.
+    tagKindOf: (String) -> LibraryTagKind = { LibraryTagKind.THEME },
 ) {
     var rule by remember(field) { mutableStateOf(initial ?: newRule(field)) }
     val matching = remember(rule, pool, context) { if (rule.isComplete) pool.count { rule.matches(it, context) } else null }
@@ -132,6 +133,7 @@ internal fun ListRuleValueSheet(
                     pool = pool,
                     context = context,
                     shelfNames = shelfNames,
+                    tagKindOf = tagKindOf,
                     onChange = { rule = it },
                 )
                 ListRuleValues.Number, ListRuleValues.Year -> NumberValues(rule = rule, onChange = { rule = it })
@@ -221,6 +223,7 @@ private fun NamesValues(
     pool: List<ReadableItem>,
     context: ListRuleContext,
     shelfNames: List<String>,
+    tagKindOf: (String) -> LibraryTagKind,
     onChange: (ListRule) -> Unit,
 ) {
     var query by rememberSaveable(field) { mutableStateOf("") }
@@ -239,7 +242,7 @@ private fun NamesValues(
     val trimmed = query.trim()
     val shown = if (trimmed.isEmpty()) values else values.filter { (value, _) -> field.valueLabel(value).contains(trimmed, ignoreCase = true) }
     val sections: List<Pair<String?, List<Pair<String, Int>>>> = if (field == ListRuleField.Tag) {
-        LibraryTagKind.entries.map { kind -> kind.label() to shown.filter { libraryTagKind(it.first) == kind } }.filter { it.second.isNotEmpty() }
+        LibraryTagKind.entries.map { kind -> kind.label() to shown.filter { tagKindOf(it.first) == kind } }.filter { it.second.isNotEmpty() }
     } else {
         listOf(null to shown)
     }

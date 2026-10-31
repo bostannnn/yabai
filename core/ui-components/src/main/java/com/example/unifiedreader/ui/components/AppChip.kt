@@ -1,6 +1,8 @@
 package com.example.unifiedreader.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -20,6 +22,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -29,7 +36,8 @@ import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 /**
  * A selectable pill for filters and sort options: 36 dp, a hairline edge, filled with the
  * selected container and no edge while [selected]. An optional [count] follows the label. It
- * shrinks a little while pressed.
+ * shrinks a little while pressed. With [onLongClick], holding it runs that instead of [onClick]
+ * (Browse's tag chips open the tag's sort sheet); [onLongClickLabel] names it for TalkBack.
  */
 @Composable
 fun AppChip(
@@ -44,8 +52,11 @@ fun AppChip(
     shape: Shape = CircleShape,
     colors: SelectableChipColors = AppChipDefaults.colors(),
     border: BorderStroke? = AppChipDefaults.border(enabled = enabled, selected = selected),
+    onLongClick: (() -> Unit)? = null,
+    onLongClickLabel: String? = null,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
+    val longPress = if (onLongClick != null && enabled) Modifier.appChipLongPress(onLongClick, onLongClickLabel) else Modifier
     FilterChip(
         selected = selected,
         onClick = onClick,
@@ -72,6 +83,7 @@ fun AppChip(
             }
         },
         modifier = modifier
+            .then(longPress)
             .appPressScale(interactionSource)
             .height(AppChipDefaults.height),
         enabled = enabled,
@@ -117,3 +129,33 @@ object AppChipDefaults {
         )
     }
 }
+
+/**
+ * Watches a press before the chip does: held past the long-press timeout without moving, it runs
+ * [onLongClick] and swallows the rest of the gesture, so the chip's own click never fires.
+ */
+private fun Modifier.appChipLongPress(onLongClick: () -> Unit, label: String?): Modifier = this
+    .semantics { onLongClick(label = label) { onLongClick(); true } }
+    .pointerInput(onLongClick) {
+        awaitEachGesture {
+            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            // Lifted or moved before the timeout: a tap or a scroll, left to the chip and its list.
+            val released = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+                var moved = 0f
+                var ended = false
+                while (!ended) {
+                    val change = awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull()
+                    moved += change?.positionChange()?.getDistance() ?: 0f
+                    ended = change == null || !change.pressed || moved > viewConfiguration.touchSlop
+                }
+                true
+            }
+            if (released == null) {
+                onLongClick()
+                do {
+                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                    event.changes.forEach { change -> change.consume() }
+                } while (event.changes.any { change -> change.pressed })
+            }
+        }
+    }

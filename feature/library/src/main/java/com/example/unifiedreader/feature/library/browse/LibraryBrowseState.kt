@@ -108,12 +108,23 @@ internal class LibraryBrowseRowStore(context: Context) {
             .apply()
     }
 
+    /** Whether Not now hid the Places and times panel on [source]'s Browse. */
+    suspend fun readPlacesPromptDismissed(source: SourceType): Boolean = withContext(Dispatchers.IO) {
+        preferences.getBoolean(placesPromptKey(source), false)
+    }
+
+    fun writePlacesPromptDismissed(source: SourceType) {
+        preferences.edit().putBoolean(placesPromptKey(source), true).apply()
+    }
+
     private fun decode(value: String?): Set<LibraryBrowseRow> =
         value.orEmpty().split(',').mapNotNullTo(mutableSetOf()) { name -> LibraryBrowseRow.entries.firstOrNull { it.name == name } }
 
     private fun hiddenKey(source: SourceType) = "library_browse_hidden_rows_${source.name.lowercase()}"
 
     private fun addedKey(source: SourceType) = "library_browse_added_rows_${source.name.lowercase()}"
+
+    private fun placesPromptKey(source: SourceType) = "library_browse_places_prompt_dismissed_${source.name.lowercase()}"
 
     private companion object {
         const val PreferencesName = "library_browse"
@@ -137,9 +148,23 @@ internal class LibraryBrowseRowsHolder(
         private set
     private var changedBeforeLoad = false
 
+    /** Whether Not now hid the Places and times panel; read with the rows, so the panel never flashes. */
+    var placesPromptDismissed by mutableStateOf(false)
+        private set
+    var loaded by mutableStateOf(false)
+        private set
+
     suspend fun load() {
         val saved = store.read(source)
+        val dismissed = store.readPlacesPromptDismissed(source)
         if (!changedBeforeLoad) settings = saved
+        placesPromptDismissed = placesPromptDismissed || dismissed
+        loaded = true
+    }
+
+    fun dismissPlacesPrompt() {
+        placesPromptDismissed = true
+        store.writePlacesPromptDismissed(source)
     }
 
     fun set(row: LibraryBrowseRow, show: Boolean) {

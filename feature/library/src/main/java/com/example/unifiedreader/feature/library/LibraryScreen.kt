@@ -51,7 +51,9 @@ import com.example.unifiedreader.core.model.LibrarySearchTagSuggestion
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.LibraryTagSorting
 import com.example.unifiedreader.core.model.librarySearchTagSuggestions
+import com.example.unifiedreader.feature.library.tags.LocalLibraryTagSorting
 import com.example.unifiedreader.feature.library.menu.LibraryItemMenuButtonStyle
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
@@ -319,12 +321,19 @@ fun LibraryScreen(
     } else {
         null
     }
-    // The tags a search names, counted over the whole source, off the main thread.
-    val searchTagSuggestions by produceState(emptyList<LibrarySearchTagSuggestion>(), searchQuery, searchPool, onBrowseTag != null) {
+    // The tags a search names, counted over the whole source and in the rows you sorted them into, off the main thread.
+    val tagSorting = LocalLibraryTagSorting.current.sortingFor(selectedSource) ?: LibraryTagSorting()
+    val searchTagSuggestions by produceState(
+        emptyList<LibrarySearchTagSuggestion>(),
+        searchQuery,
+        searchPool,
+        onBrowseTag != null,
+        tagSorting,
+    ) {
         value = if (onBrowseTag == null || searchQuery.isBlank()) {
             emptyList()
         } else {
-            withContext(Dispatchers.Default) { librarySearchTagSuggestions(searchPool, searchQuery) }
+            withContext(Dispatchers.Default) { librarySearchTagSuggestions(searchPool, searchQuery, tagSorting) }
         }
     }
     val leadingContentItemCount = 1 +

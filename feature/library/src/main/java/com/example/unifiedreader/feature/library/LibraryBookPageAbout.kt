@@ -25,8 +25,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.unifiedreader.core.model.LibraryBrowseChip
 import com.example.unifiedreader.core.model.LibraryBrowseRow
+import com.example.unifiedreader.core.model.LibraryTagField
 import com.example.unifiedreader.core.model.LibraryTagKind
-import com.example.unifiedreader.core.model.libraryTagKind
+import com.example.unifiedreader.core.model.LibraryTagSorting
+import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.libraryTagKey
+import com.example.unifiedreader.feature.library.tags.LibraryTagSortSheet
+import com.example.unifiedreader.feature.library.tags.LibraryTagSortTarget
+import com.example.unifiedreader.feature.library.tags.LocalLibraryTagSorting
 import com.example.unifiedreader.ui.components.AppChip
 import com.example.unifiedreader.ui.components.AppLayout
 import com.example.unifiedreader.ui.components.AppSheetDivider
@@ -35,15 +41,18 @@ import com.example.unifiedreader.ui.components.AppTextButton
 
 /**
  * The book page's About: the description, its tags and genres in rows (Set in, When, About,
- * Genre, as Browse names them; a tag opens Browse with it picked when [onBrowse] is given), then
- * the facts.
+ * Genre, as Browse names them and where you sorted them; a tag opens Browse with it picked when
+ * [onBrowse] is given, and its sort sheet on a long press), then the facts.
  */
 @Composable
 internal fun LibraryBookPageAbout(
     text: LibraryBookPageText,
+    source: SourceType,
     descriptionLoading: Boolean,
     onBrowse: ((LibraryBrowseChip) -> Unit)?,
 ) {
+    val sorting = LocalLibraryTagSorting.current.sortingFor(source) ?: LibraryTagSorting()
+    var sortTarget by remember(source) { mutableStateOf<LibraryTagSortTarget?>(null) }
     Column(modifier = Modifier.fillMaxWidth()) {
         AppSheetDivider()
         AppSheetLabel(text = "About")
@@ -54,14 +63,25 @@ internal fun LibraryBookPageAbout(
                 LibraryExpandableText(text = description, horizontalPadding = AppLayout.inset)
             }
         }
-        val tagRows = remember(text.genres, text.tags) { libraryBookPageTagRows(text.genres, text.tags) }
+        val tagRows = remember(text.genres, text.tags, text.locations, sorting) {
+            libraryBookPageTagRows(text.genres, text.tags, text.locations, sorting)
+        }
         if (tagRows.isNotEmpty()) {
             Column(
                 modifier = Modifier.padding(start = AppLayout.inset, end = AppLayout.inset, top = AppLayout.headingGap),
                 verticalArrangement = Arrangement.spacedBy(AppLayout.headingGap),
             ) {
                 tagRows.forEach { (row, values) ->
-                    LibraryBookPageTagRow(row = row, values = values, onBrowse = onBrowse)
+                    LibraryBookPageTagRow(
+                        row = row,
+                        values = values,
+                        onBrowse = onBrowse,
+                        onSort = if (row == LibraryBrowseRow.GENRE) {
+                            null
+                        } else {
+                            { value -> sortTarget = libraryBookPageSortTarget(source, row, value, text) }
+                        },
+                    )
                 }
             }
         }
@@ -81,20 +101,43 @@ internal fun LibraryBookPageAbout(
             }
         }
     }
+    sortTarget?.let { target ->
+        LibraryTagSortSheet(target = target, onDismiss = { sortTarget = null }, onBrowse = onBrowse)
+    }
 }
 
-/** A book's tags by Browse's rows, then its genres; rows it has nothing in are left out. */
+/**
+ * A book's tags by the Browse rows [sorting] puts them in (a tag nobody sorted is About; a
+ * Location is Set in), then its genres; rows it has nothing in are left out.
+ */
 internal fun libraryBookPageTagRows(
     genres: List<String>,
     tags: List<String>,
+    locations: List<String>,
+    sorting: LibraryTagSorting,
 ): List<Pair<LibraryBrowseRow, List<String>>> {
-    val distinctTags = tags.distinctBy(String::lowercase)
+    val distinctTags = tags.distinctBy(::libraryTagKey)
+    val places = (distinctTags.filter { sorting.kindOf(it) == LibraryTagKind.PLACE } + locations).distinctBy(::libraryTagKey)
     return listOf(
-        LibraryBrowseRow.SET_IN to distinctTags.filter { libraryTagKind(it) == LibraryTagKind.PLACE },
-        LibraryBrowseRow.WHEN to distinctTags.filter { libraryTagKind(it) == LibraryTagKind.ERA },
-        LibraryBrowseRow.ABOUT to distinctTags.filter { libraryTagKind(it) == LibraryTagKind.THEME },
+        LibraryBrowseRow.SET_IN to places,
+        LibraryBrowseRow.WHEN to distinctTags.filter { sorting.kindOf(it) == LibraryTagKind.ERA },
+        LibraryBrowseRow.ABOUT to distinctTags.filter { sorting.kindOf(it) == LibraryTagKind.THEME },
         LibraryBrowseRow.GENRE to genres.distinctBy(String::lowercase),
     ).filter { (_, values) -> values.isNotEmpty() }
+}
+
+/** A Set in value that is no tag of the book but one of its Locations is that Location. */
+private fun libraryBookPageSortTarget(
+    source: SourceType,
+    row: LibraryBrowseRow,
+    value: String,
+    text: LibraryBookPageText,
+): LibraryTagSortTarget {
+    val key = libraryTagKey(value)
+    val location = row == LibraryBrowseRow.SET_IN &&
+        text.tags.none { libraryTagKey(it) == key } &&
+        text.locations.any { libraryTagKey(it) == key }
+    return LibraryTagSortTarget(source, if (location) LibraryTagField.LOCATION else LibraryTagField.TAG, value)
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -103,6 +146,7 @@ private fun LibraryBookPageTagRow(
     row: LibraryBrowseRow,
     values: List<String>,
     onBrowse: ((LibraryBrowseChip) -> Unit)?,
+    onSort: ((String) -> Unit)?,
 ) {
     var unfolded by rememberSaveable(row, values) { mutableStateOf(false) }
     val shown = if (unfolded) values else values.take(FoldedTagCount)
@@ -120,6 +164,8 @@ private fun LibraryBookPageTagRow(
                     enabled = onBrowse != null,
                     modifier = Modifier.height(LibraryBookPageChipHeight),
                     label = { Text(text = value, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    onLongClick = onSort?.let { sort -> { sort(value) } },
+                    onLongClickLabel = "Sort this tag",
                 )
             }
             val hidden = values.size - shown.size

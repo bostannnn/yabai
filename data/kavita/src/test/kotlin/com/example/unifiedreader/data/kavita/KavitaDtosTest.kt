@@ -48,6 +48,7 @@ class KavitaDtosTest {
                             releaseDate = "2012-03-14T00:00:00",
                             writers = listOf(KavitaPersonDto(name = "Brian K. Vaughan")),
                             pencillers = listOf(KavitaPersonDto(name = "Fiona Staples")),
+                            locations = listOf(KavitaPersonDto(name = "Landfall"), KavitaPersonDto(name = "Wreath")),
                         ),
                     ),
                 ),
@@ -73,6 +74,7 @@ class KavitaDtosTest {
         assertEquals(listOf("Sci-Fi"), entry.item.comicMetadata?.genres)
         assertEquals(listOf("Space Opera"), entry.item.comicMetadata?.tags)
         assertEquals(listOf("English"), entry.item.comicMetadata?.languages)
+        assertEquals(listOf("Landfall", "Wreath"), entry.item.comicMetadata?.locations)
         assertEquals(1775729730000L, entry.item.addedAtEpochMillis)
         assertEquals(2012, entry.item.publishedYear)
         assertEquals(9, entry.progress?.page)

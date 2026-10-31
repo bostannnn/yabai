@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.core.model.LibraryTagKind
 import com.example.unifiedreader.core.model.ListRule
 import com.example.unifiedreader.core.model.ListRuleField
 import com.example.unifiedreader.core.model.ListRuleGroup
@@ -124,6 +125,8 @@ fun SmartListEditor(
     modifier: Modifier = Modifier,
     // Grimmory's shelves by name, for the Grimmory shelf rule; empty hides it.
     shelfNames: List<String> = emptyList(),
+    // Where you sorted each tag, so the Tag rule groups them as Browse does.
+    tagKindOf: (String) -> LibraryTagKind = { LibraryTagKind.THEME },
 ) {
     val pool = remember(items, draft.onServer) { smartListPool(items, draft.onServer) }
     val context = remember(progressByItemId, onDevice) { listRuleContext(progressByItemId, onDevice, System.currentTimeMillis()) }
@@ -277,6 +280,7 @@ fun SmartListEditor(
                 pool = pool,
                 context = context,
                 shelfNames = shelfNames,
+                tagKindOf = tagKindOf,
                 onBack = if (existing == null) ({ pickedField = null }) else null,
                 onSave = { rule ->
                     setRules { rules -> rules.withRule(current, rule) }

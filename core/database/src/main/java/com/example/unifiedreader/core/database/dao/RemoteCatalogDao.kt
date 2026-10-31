@@ -66,7 +66,8 @@ private const val READABLE_ITEM_LIBRARY_SELECT = """
         comicPublishersJson,
         comicGenresJson,
         comicTagsJson,
-        comicLanguagesJson
+        comicLanguagesJson,
+        comicLocationsJson
     FROM readable_items
 """
 private const val SQLITE_BIND_SAFE_CHUNK_SIZE = 900

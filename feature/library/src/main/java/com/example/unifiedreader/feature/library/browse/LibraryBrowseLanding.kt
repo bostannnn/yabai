@@ -76,6 +76,7 @@ internal fun LibraryBrowseLanding(
     contentTopInset: Dp,
     onPick: (LibraryBrowseChip) -> Unit,
     onScrolledChanged: (Boolean) -> Unit,
+    prompts: LibraryBrowseLandingPrompts = LibraryBrowseLandingPrompts(),
 ) {
     val listState = rememberLazyListState()
     val latestOnScrolledChanged by rememberUpdatedState(onScrolledChanged)
@@ -97,6 +98,13 @@ internal fun LibraryBrowseLanding(
         ),
         verticalArrangement = Arrangement.spacedBy(AppLayout.sectionGap),
     ) {
+        val checkGuesses = view.tagPrompt as? LibraryBrowseTagPrompt.CheckGuesses
+        val onCheckGuesses = prompts.onCheckGuesses
+        if (checkGuesses != null && onCheckGuesses != null) {
+            item(key = "check-guesses") {
+                LibraryBrowseCheckGuessesPanel(prompt = checkGuesses, onCheck = onCheckGuesses, onNotNow = prompts.onNotNow)
+            }
+        }
         shownRows.forEach { row ->
             val facets = view.result.facets[row].orEmpty()
             item(key = row.name) {
@@ -104,12 +112,17 @@ internal fun LibraryBrowseLanding(
                     LibraryGridHeadingText(
                         heading = LibraryGridHeading(title = row.label, count = bookCountLabel(view.coverage[row] ?: 0)),
                     )
+                    val newTags = view.tagPrompt as? LibraryBrowseTagPrompt.NewTags
+                    if (row == LibraryBrowseRow.ABOUT && newTags != null) {
+                        LibraryBrowseNewTagsLine(prompt = newTags, onSort = prompts.onSortNewTags)
+                    }
                     when (row) {
-                        LibraryBrowseRow.SET_IN -> LibraryBrowsePlaces(groups = view.places, onPick = onPick)
+                        LibraryBrowseRow.SET_IN -> LibraryBrowsePlaces(groups = view.places, onPick = onPick, onSortTag = prompts.onSortTag)
                         LibraryBrowseRow.WHEN -> LibraryBrowseTimeline(
                             bars = view.timeline,
                             periods = libraryEraPeriods(facets),
                             onPick = onPick,
+                            onSortTag = prompts.onSortTag,
                         )
                         else -> LibraryBrowseChipFlow(
                             row = row,
@@ -118,6 +131,7 @@ internal fun LibraryBrowseLanding(
                             onToggle = onPick,
                             foldedCount = LandingFoldedChipCount,
                             moreLabel = { "All ${facets.size}" },
+                            onSortTag = prompts.onSortTag,
                         )
                     }
                 }
@@ -135,6 +149,7 @@ internal fun LibraryBrowseLanding(
 private fun LibraryBrowsePlaces(
     groups: List<LibraryPlaceGroup>,
     onPick: (LibraryBrowseChip) -> Unit,
+    onSortTag: ((LibraryBrowseChip) -> Unit)?,
 ) {
     val columns = when (currentAppWindowWidth()) {
         AppWindowWidth.Compact -> 1
@@ -148,7 +163,7 @@ private fun LibraryBrowsePlaces(
                 verticalArrangement = Arrangement.spacedBy(AppLayout.gridGap),
             ) {
                 groups.filterIndexed { index, _ -> index % columns == column }.forEach { group ->
-                    LibraryBrowsePlacePanel(group = group, onPick = onPick)
+                    LibraryBrowsePlacePanel(group = group, onPick = onPick, onSortTag = onSortTag)
                 }
             }
         }
@@ -159,6 +174,7 @@ private fun LibraryBrowsePlaces(
 private fun LibraryBrowsePlacePanel(
     group: LibraryPlaceGroup,
     onPick: (LibraryBrowseChip) -> Unit,
+    onSortTag: ((LibraryBrowseChip) -> Unit)?,
 ) {
     AppPanel(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -180,6 +196,7 @@ private fun LibraryBrowsePlacePanel(
                 onToggle = onPick,
                 foldedCount = RegionFoldedChipCount,
                 stateKey = group.region.name,
+                onSortTag = onSortTag,
             )
         }
     }
@@ -196,6 +213,7 @@ private fun LibraryBrowseTimeline(
     bars: List<LibraryEraBar>,
     periods: List<LibraryBrowseFacet>,
     onPick: (LibraryBrowseChip) -> Unit,
+    onSortTag: ((LibraryBrowseChip) -> Unit)?,
 ) {
     AppPanel(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -233,6 +251,7 @@ private fun LibraryBrowseTimeline(
                     onToggle = onPick,
                     foldedCount = PeriodFoldedChipCount,
                     stateKey = "periods",
+                    onSortTag = onSortTag,
                 )
             }
         }
@@ -320,3 +339,11 @@ private val TimelineLabelGap = 4.dp
 private const val LandingFoldedChipCount = 20
 private const val RegionFoldedChipCount = 6
 private const val PeriodFoldedChipCount = 10
+
+/** What the landing page can do about unsorted tags: open Settings › Tags, hide the panel, sort a held chip. */
+internal class LibraryBrowseLandingPrompts(
+    val onCheckGuesses: (() -> Unit)? = null,
+    val onNotNow: () -> Unit = {},
+    val onSortNewTags: (() -> Unit)? = null,
+    val onSortTag: ((LibraryBrowseChip) -> Unit)? = null,
+)

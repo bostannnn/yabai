@@ -38,6 +38,8 @@ internal data class LibraryBookPageText(
     val description: String?,
     val genres: List<String>,
     val tags: List<String>,
+    /** Where a comic is set, as its server lists it (Kavita's Locations). */
+    val locations: List<String> = emptyList(),
     /** Label to value: Format, Pages, Chapters, Language, Publisher, Published, Added. */
     val facts: List<Pair<String, String>>,
 )
@@ -145,6 +147,7 @@ internal fun libraryBookPageText(
         description = description?.let(::plainTextDescription)?.ifEmpty { null },
         genres = facets.genres,
         tags = facets.tags,
+        locations = facets.locations,
         facts = facts,
     )
 }

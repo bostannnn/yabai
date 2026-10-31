@@ -46,7 +46,10 @@ class LibrarySearchMatchesTest {
             lustCaution.copy(id = "3", bookMetadata = BookMetadata(tags = listOf("Japan"))),
         )
 
-        val suggestions = librarySearchTagSuggestions(items, "japan")
+        val sorting = LibraryTagSorting().with(
+            listOf(LibraryTagSortChange(LibraryTagField.TAG, "Japan", LibraryTagChoice(LibraryTagKind.PLACE, LibraryPlaceRegion.ASIA))),
+        )
+        val suggestions = librarySearchTagSuggestions(items, "japan", sorting)
 
         assertEquals(
             listOf(
@@ -55,6 +58,6 @@ class LibrarySearchMatchesTest {
             ),
             suggestions,
         )
-        assertEquals(emptyList<LibrarySearchTagSuggestion>(), librarySearchTagSuggestions(items, "j"))
+        assertEquals(emptyList<LibrarySearchTagSuggestion>(), librarySearchTagSuggestions(items, "j", sorting))
     }
 }

@@ -122,6 +122,8 @@ internal data class KavitaChapterDto(
     val publishers: List<KavitaPersonDto>? = null,
     val genres: List<KavitaGenreTagDto>? = null,
     val tags: List<KavitaTagDto>? = null,
+    // Where the comic is set (ComicInfo's Locations); Kavita keeps them as people.
+    val locations: List<KavitaPersonDto>? = null,
     val language: String? = null,
     val files: List<KavitaChapterFileDto>? = null,
 )
@@ -424,6 +426,7 @@ internal fun KavitaChapterDto.toCatalogEntry(
             genres = chapterGenres(series),
             tags = chapterTags(series),
             languages = chapterLanguages(series),
+            locations = locations.toPersonNames(),
         ),
     )
     val progress = toReadingProgress(

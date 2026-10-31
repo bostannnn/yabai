@@ -52,6 +52,7 @@ object AppIcons {
     val Remove: ImageVector @Composable get() = icon(R.drawable.ic_remove)
     val Search: ImageVector @Composable get() = icon(R.drawable.ic_search)
     val SelectAll: ImageVector @Composable get() = icon(R.drawable.ic_select_all)
+    val Sell: ImageVector @Composable get() = icon(R.drawable.ic_sell)
     val Settings: ImageVector @Composable get() = icon(R.drawable.ic_settings)
     val Star: ImageVector @Composable get() = icon(R.drawable.ic_star_filled)
     val StarBorder: ImageVector @Composable get() = icon(R.drawable.ic_star)

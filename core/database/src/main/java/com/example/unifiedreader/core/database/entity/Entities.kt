@@ -87,6 +87,7 @@ data class ReadableItemEntity(
     val comicGenresJson: String?,
     val comicTagsJson: String?,
     val comicLanguagesJson: String?,
+    @ColumnInfo(defaultValue = "NULL") val comicLocationsJson: String? = null,
     val updatedAtEpochMillis: Long,
 )
 
@@ -124,6 +125,7 @@ data class ReadableItemLibraryEntity(
     val comicGenresJson: String?,
     val comicTagsJson: String?,
     val comicLanguagesJson: String?,
+    val comicLocationsJson: String? = null,
 )
 
 /**

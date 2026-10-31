@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.unifiedreader.core.model.LibraryTagKind
 import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.ReadableItem
@@ -61,6 +62,8 @@ import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirectio
 import com.example.unifiedreader.feature.settings.ServerConnectionAction
 import com.example.unifiedreader.feature.settings.SettingsPage
 import com.example.unifiedreader.feature.settings.SettingsPageSaver
+import com.example.unifiedreader.feature.settings.SettingsTagsPage
+import com.example.unifiedreader.feature.library.tags.LocalLibraryTagSorting
 import com.example.unifiedreader.feature.settings.SettingsScreen
 import com.example.unifiedreader.feature.settings.SourceStartMode
 import com.example.unifiedreader.feature.settings.SyncSettingsItemRow
@@ -104,6 +107,8 @@ fun UnifiedReaderScaffold(
     onStartSource: (SourceStartRequest) -> Unit = {},
     // The user's lists; without it there is no Lists screen and no Add to list.
     listsViewModel: AppListsViewModel? = null,
+    // Where you put each tag in Browse; without it every tag is in About and Settings has no Tags.
+    tagsViewModel: AppLibraryTagsViewModel? = null,
 ) {
     val themeColors = UnifiedReaderThemeTokens.colors
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -144,6 +149,17 @@ fun UnifiedReaderScaffold(
         mutableStateOf<SettingsPage?>(null)
     }
     val settingsUsesSidePane = settingsUsesSidePane(currentAppWindowWidth())
+    // Settings › Tags opens on the library's source, or on the one Browse sent you from.
+    var tagsSettingsSource by rememberSaveable { mutableStateOf(uiState.selectedSource) }
+    val tagSorting = rememberLibraryTagSortingContext(
+        tagsViewModel = tagsViewModel,
+        items = uiState.items,
+        coverImageUrlProvider = remember(viewModel) { viewModel::coverImageUrlFor },
+    ) { source ->
+        tagsSettingsSource = source
+        settingsPage = SettingsPage.Tags
+        viewModel.onTopLevelSelected(TopLevelDestination.Settings)
+    }
     // Whether anything has scrolled under the settings and journal bars (they then need their glass).
     var settingsScrolled by remember { mutableStateOf(false) }
     var journalScrolled by remember { mutableStateOf(false) }
@@ -303,7 +319,7 @@ fun UnifiedReaderScaffold(
 
     // One glass state for the whole shell: the drawer and the top bar both blur the content.
     val glassState = rememberAppGlassState()
-    CompositionLocalProvider(LocalAppGlassState provides glassState) {
+    CompositionLocalProvider(LocalAppGlassState provides glassState, LocalLibraryTagSorting provides tagSorting) {
     val waitingUpdateVersion = updateState.newerRelease?.version?.toString()
     // The rail and the drawer list the connected servers; the set is kept for the next launch.
     val connectedServers = uiState.navigationConnectedServers
@@ -469,6 +485,11 @@ fun UnifiedReaderScaffold(
                                         viewModel.openLibrarySource(series.sourceType)
                                         viewModel.onItemSelected(series)
                                     },
+                                    tagKindOf = remember(tagSorting.sortingBySource) {
+                                        val sortings = tagSorting.sortingBySource.orEmpty()
+                                        val kindOf: (String) -> LibraryTagKind = { tag -> sortings.tagKindOf(tag) }
+                                        kindOf
+                                    },
                                 )
                             }
 
@@ -500,7 +521,13 @@ fun UnifiedReaderScaffold(
                                 uiState = uiState,
                                 viewModel = viewModel,
                                 page = settingsPage,
-                                onPageChanged = { page -> settingsPage = page },
+                                onPageChanged = { page ->
+                                    if (page == SettingsPage.Tags && settingsPage != page) tagsSettingsSource = uiState.selectedSource
+                                    settingsPage = page
+                                },
+                                tagsPage = tagsViewModel?.let {
+                                    rememberSettingsTagsPage(tagSorting, tagsSettingsSource) { source -> tagsSettingsSource = source }
+                                },
                                 kavitaReadingDirectionLibraries = kavitaReadingDirectionLibraries,
                                 stumpReadingDirectionLibraries = stumpReadingDirectionLibraries,
                                 kavitaReaderModeLibraries = kavitaReaderModeLibraries,
@@ -694,6 +721,7 @@ private fun SettingsRoute(
     onScrolledChanged: (Boolean) -> Unit,
     contentTopInset: Dp = 0.dp,
     modifier: Modifier = Modifier,
+    tagsPage: SettingsTagsPage? = null,
 ) {
     val context = LocalContext.current
     val versionName = remember(context) {
@@ -737,6 +765,7 @@ private fun SettingsRoute(
             updateState = updateState,
             updateActions = updateActions,
             onScrolledChanged = onScrolledChanged,
+            tagsPage = tagsPage,
         )
     }
 }

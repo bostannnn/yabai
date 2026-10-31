@@ -342,6 +342,40 @@ class UnifiedReaderDatabaseMigrationTest {
     }
 
     @Test
+    fun `migration 33 to 34 keeps the catalog, adds comic locations and an empty tag sorting`() {
+        createTestDatabase(
+            name = "migration-33-34-${System.nanoTime()}",
+            version = 34,
+        ) { database ->
+            createVersion27Schema(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_27_28.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_28_29.migrate(database)
+            MIGRATION_29_30.migrate(database)
+            MIGRATION_30_31.migrate(database)
+            MIGRATION_31_32.migrate(database)
+            MIGRATION_32_33.migrate(database)
+            database.execSQL(
+                "INSERT INTO readable_items (id, sourceType, libraryId, isLocalImport, title, format, kind, updatedAtEpochMillis) " +
+                    "VALUES ('kavita:1', 'KAVITA', 'kavita:lib', 0, 'Issue 1', 'CBZ', 'COMIC', 1)",
+            )
+        }.use { database ->
+            MIGRATION_33_34.migrate(database)
+
+            assertTrue(tableExists(database, "library_tag_choices"))
+            assertTrue(columnExists(database, "readable_items", "comicLocationsJson"))
+            database.query("SELECT title, comicLocationsJson FROM readable_items WHERE id = 'kavita:1'").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals("Issue 1", cursor.getString(0))
+                assertTrue(cursor.isNull(1))
+            }
+            database.query("SELECT COUNT(*) FROM library_tag_choices").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals(0, cursor.getInt(0))
+            }
+        }
+    }
+
+    @Test
     fun `migration 34 to 35 keeps server lists and gives them rules`() {
         createTestDatabase(
             name = "migration-34-35-${System.nanoTime()}",
@@ -354,6 +388,7 @@ class UnifiedReaderDatabaseMigrationTest {
             MIGRATION_30_31.migrate(database)
             MIGRATION_31_32.migrate(database)
             MIGRATION_32_33.migrate(database)
+            MIGRATION_33_34.migrate(database)
             database.execSQL(
                 "INSERT INTO server_lists (id, sourceType, kind, remoteId, name, icon, iconType, isPublic, isOwned, " +
                     "remoteSortField, remoteItemCount, orderMode, hideFinished, syncedAtEpochMillis) VALUES " +
@@ -1499,6 +1534,7 @@ private fun openRoomDatabase(
         MIGRATION_30_31,
         MIGRATION_31_32,
         MIGRATION_32_33,
+        MIGRATION_33_34,
         MIGRATION_34_35,
     )
     .build()

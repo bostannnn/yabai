@@ -187,6 +187,7 @@ fun LibraryBookPage(
             item(key = "about") {
                 LibraryBookPageAbout(
                     text = text,
+                    source = item.sourceType,
                     descriptionLoading = description.loading,
                     onBrowse = onBrowse?.let { browse -> { chip: LibraryBrowseChip -> browse(chip); dismiss() } },
                 )

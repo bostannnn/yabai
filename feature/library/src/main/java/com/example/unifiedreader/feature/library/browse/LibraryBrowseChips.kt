@@ -63,14 +63,18 @@ internal fun LibraryBrowseChipGroup(
     picked: List<LibraryBrowseChip>,
     onToggle: (LibraryBrowseChip) -> Unit,
     modifier: Modifier = Modifier,
+    onSortTag: ((LibraryBrowseChip) -> Unit)? = null,
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(AppLayout.headingGap)) {
         AppGroupLabel(text = row.label)
-        LibraryBrowseChipFlow(row = row, facets = facets, picked = picked, onToggle = onToggle)
+        LibraryBrowseChipFlow(row = row, facets = facets, picked = picked, onToggle = onToggle, onSortTag = onSortTag)
     }
 }
 
-/** A row's chips with counts; the picked ones selected. "N more" unfolds the rest. */
+/**
+ * A row's chips with counts; the picked ones selected. "N more" unfolds the rest. A tag row's chip
+ * opens the tag's sort sheet on a long press when [onSortTag] is given.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun LibraryBrowseChipFlow(
@@ -82,7 +86,9 @@ internal fun LibraryBrowseChipFlow(
     moreLabel: (Int) -> String = { hidden -> "$hidden more" },
     // Tells apart two flows of one row (Set in's regions), so each unfolds on its own.
     stateKey: String = "",
+    onSortTag: ((LibraryBrowseChip) -> Unit)? = null,
 ) {
+    val sortTag = onSortTag?.takeIf { row.holdsTags }
     var unfolded by rememberSaveable(row, stateKey) { mutableStateOf(false) }
     val shown = if (unfolded) facets else facets.take(foldedCount)
     FlowRow(
@@ -96,6 +102,8 @@ internal fun LibraryBrowseChipFlow(
                 onClick = { onToggle(chip) },
                 count = facet.count,
                 label = { Text(text = facet.value, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                onLongClick = sortTag?.let { sort -> { sort(chip) } },
+                onLongClickLabel = "Sort this tag",
             )
         }
         val hidden = facets.size - shown.size
@@ -209,6 +217,7 @@ internal fun LibraryBrowseRowTabs(
                         facets = view.result.facets[chosen].orEmpty(),
                         picked = view.picked,
                         onToggle = actions.onToggle,
+                        onSortTag = actions.onSortTag,
                     )
                 }
             }
