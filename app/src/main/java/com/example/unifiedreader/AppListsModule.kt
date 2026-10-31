@@ -72,6 +72,9 @@ class AppListsViewModel @Inject constructor(
      */
     var catalog: Map<String, ReadableItem> = emptyMap()
 
+    /** Books Keep the next 3 downloaded has queued in this run of the app, so each is asked for once. */
+    val keepDownloadedAsked: MutableSet<String> = HashSet()
+
     val lists: StateFlow<List<UserList>> = store.lists.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
@@ -157,6 +160,10 @@ class AppListsViewModel @Inject constructor(
                 store.setHideFinished(list.id, hideFinished)
             }
         }
+    }
+
+    fun setKeepNextDownloaded(list: UserList, keep: Boolean) {
+        viewModelScope.launch { store.setKeepNextDownloaded(list.id, keep) }
     }
 
     fun markOpened(listId: String) {

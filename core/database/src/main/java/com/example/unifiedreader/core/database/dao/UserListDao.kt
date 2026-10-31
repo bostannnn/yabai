@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import com.example.unifiedreader.core.database.entity.FinishedListEntity
 import com.example.unifiedreader.core.database.entity.UserListEntity
 import com.example.unifiedreader.core.database.entity.UserListEntryEntity
 import kotlinx.coroutines.flow.Flow
@@ -43,6 +44,15 @@ abstract class UserListDao {
 
     @Query("UPDATE user_lists SET lastOpenedAtEpochMillis = :atEpochMillis WHERE id = :listId")
     abstract fun markOpened(listId: String, atEpochMillis: Long)
+
+    @Query("SELECT * FROM finished_lists ORDER BY finishedAtEpochMillis DESC")
+    abstract fun observeFinishedLists(): Flow<List<FinishedListEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract fun insertFinishedList(finished: FinishedListEntity)
+
+    @Query("DELETE FROM finished_lists WHERE id = :id")
+    abstract fun deleteFinishedList(id: String)
 
     /** A list and its books go together. */
     @Transaction

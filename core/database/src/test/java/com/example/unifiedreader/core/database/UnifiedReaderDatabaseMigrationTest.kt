@@ -312,6 +312,36 @@ class UnifiedReaderDatabaseMigrationTest {
     }
 
     @Test
+    fun `migration 32 to 33 keeps lists, lets them keep books downloaded and adds finished lists`() {
+        createTestDatabase(
+            name = "migration-32-33-${System.nanoTime()}",
+            version = 33,
+        ) { database ->
+            createVersion27Schema(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_27_28.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_28_29.migrate(database)
+            MIGRATION_29_30.migrate(database)
+            MIGRATION_30_31.migrate(database)
+            MIGRATION_31_32.migrate(database)
+            database.execSQL(
+                "INSERT INTO user_lists (id, name, description, kind, orderMode, hideFinished, createdAtEpochMillis, " +
+                    "updatedAtEpochMillis, lastOpenedAtEpochMillis) VALUES ('list:a', 'The Long Eclipse', NULL, 'User', " +
+                    "'Custom', 0, 1, 1, 0)",
+            )
+        }.use { database ->
+            MIGRATION_32_33.migrate(database)
+
+            assertTrue(tableExists(database, "finished_lists"))
+            database.query("SELECT name, keepNextDownloaded, smartFilter FROM user_lists WHERE id = 'list:a'").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals("The Long Eclipse", cursor.getString(0))
+                assertEquals(0, cursor.getInt(1))
+                assertTrue(cursor.isNull(2))
+            }
+        }
+    }
+
+    @Test
     fun `room migrates 4 to 5 and validates reader session state schema`() {
         val databaseName = "migration-4-5-${System.nanoTime()}"
         createTestDatabase(
@@ -1439,6 +1469,7 @@ private fun openRoomDatabase(
         MIGRATION_29_30,
         MIGRATION_30_31,
         MIGRATION_31_32,
+        MIGRATION_32_33,
     )
     .build()
 

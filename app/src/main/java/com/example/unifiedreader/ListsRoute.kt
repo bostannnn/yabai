@@ -34,6 +34,8 @@ import com.example.unifiedreader.feature.lists.UserListEditor
 import com.example.unifiedreader.feature.lists.UserListKind
 import com.example.unifiedreader.feature.lists.UserListPage
 import com.example.unifiedreader.feature.lists.books
+import com.example.unifiedreader.feature.lists.keepDownloadedLine
+import com.example.unifiedreader.feature.lists.nextToKeepDownloaded
 import com.example.unifiedreader.feature.lists.orderedForScreen
 import com.example.unifiedreader.feature.lists.readingOrderUnderWay
 import com.example.unifiedreader.feature.lists.sortedEntries
@@ -139,6 +141,16 @@ internal fun ListsRoute(
                 contentTopInset = contentTopInset,
                 onScrolledChanged = { scrolled -> state.scrolled = scrolled },
                 modifier = modifier,
+                keepDownloadedLine = if (openList.server == null && openList.kind != UserListKind.Stalled) {
+                    keepDownloadedLine(
+                        next = remember(openList, itemsById, progress) { openList.nextToKeepDownloaded(itemsById, progress) },
+                        onDevice = uiState.locallyAvailableRemoteItemIds,
+                        keeping = openList.keepNextDownloaded,
+                    )
+                } else {
+                    null
+                },
+                onSetKeepDownloaded = { keep -> listsViewModel.setKeepNextDownloaded(openList, keep) },
             )
         }
         else -> {

@@ -584,6 +584,9 @@ fun UnifiedReaderScaffold(
                         }
                     }
                 }
+                if (listsViewModel != null) {
+                    KeepListBooksDownloaded(listsViewModel, uiState, onQueue = viewModel::onKeepDownloaded)
+                }
                 val addToList = addToListItems
                 if (addToList != null && listsViewModel != null) {
                     AddToListHost(

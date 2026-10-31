@@ -55,7 +55,9 @@ import com.example.unifiedreader.ui.components.AppMenuChoiceItem
 import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.components.AppScreenTitle
 import com.example.unifiedreader.ui.components.AppSectionHeading
+import com.example.unifiedreader.ui.components.AppSettingsRow
 import com.example.unifiedreader.ui.components.AppSettingsRowDivider
+import com.example.unifiedreader.ui.components.AppSwitch
 import com.example.unifiedreader.ui.components.AppTonalButton
 import com.example.unifiedreader.ui.components.appGutter
 
@@ -76,6 +78,9 @@ fun UserListPage(
     contentTopInset: Dp,
     onScrolledChanged: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    // Keep the next 3 downloaded: its line, or null where the list can't keep books downloaded.
+    keepDownloadedLine: String? = null,
+    onSetKeepDownloaded: (Boolean) -> Unit = {},
 ) {
     val listState = rememberLazyListState()
     val scrolled by remember {
@@ -109,6 +114,22 @@ fun UserListPage(
                 onOpenBook = onOpenBook,
                 onEdit = onEdit,
             )
+        }
+        if (keepDownloadedLine != null) {
+            item(key = "keep-downloaded") {
+                AppPanel(modifier = Modifier.fillMaxWidth()) {
+                    AppSettingsRow(
+                        title = "Keep the next $KeepDownloadedCount downloaded",
+                        supporting = keepDownloadedLine,
+                        icon = AppIcons.Download,
+                        onClick = { onSetKeepDownloaded(!list.keepNextDownloaded) },
+                        showChevron = false,
+                        trailing = {
+                            AppSwitch(checked = list.keepNextDownloaded, onCheckedChange = onSetKeepDownloaded)
+                        },
+                    )
+                }
+            }
         }
         item(key = "books") {
             Column(verticalArrangement = Arrangement.spacedBy(AppLayout.headingGap)) {

@@ -29,6 +29,8 @@ interface UserListStore {
 
     suspend fun setHideFinished(listId: String, hideFinished: Boolean)
 
+    suspend fun setKeepNextDownloaded(listId: String, keep: Boolean)
+
     /** Adds [items] at the end; a book already in the list stays where it is. */
     suspend fun addItems(listId: String, items: List<ReadableItem>)
 
@@ -86,6 +88,10 @@ class RoomUserListStore(
 
     override suspend fun setHideFinished(listId: String, hideFinished: Boolean) = updateList(listId) {
         it.copy(hideFinished = hideFinished)
+    }
+
+    override suspend fun setKeepNextDownloaded(listId: String, keep: Boolean) = updateList(listId) {
+        it.copy(keepNextDownloaded = keep)
     }
 
     override suspend fun addItems(listId: String, items: List<ReadableItem>) = io {
@@ -159,6 +165,7 @@ internal fun UserListEntity.toModel(entries: List<UserListEntryEntity>): UserLis
     updatedAtEpochMillis = updatedAtEpochMillis,
     lastOpenedAtEpochMillis = lastOpenedAtEpochMillis,
     entries = entries.sortedBy(UserListEntryEntity::position).mapNotNull { it.toModel() },
+    keepNextDownloaded = keepNextDownloaded,
 )
 
 private fun UserListEntryEntity.toModel(): UserListEntry? {

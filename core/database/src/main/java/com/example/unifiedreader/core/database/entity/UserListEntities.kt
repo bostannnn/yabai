@@ -1,14 +1,16 @@
 package com.example.unifiedreader.core.database.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
- * A list the user keeps on this device: Want to read (built in) or one they made. Its books are
- * [UserListEntryEntity] rows. [kind] and [orderMode] hold enum names from `feature:lists`;
+ * A list the user keeps on this device: Want to read (built in), one they made, or a smart list.
+ * Its books are [UserListEntryEntity] rows; a smart list has none and holds what [smartFilter]
+ * picks out. [kind] and [orderMode] hold enum names from `feature:lists`;
  * [lastOpenedAtEpochMillis] is the last time a book was opened from the list (0: never), which
- * makes it the reading order under way.
+ * makes it the reading order under way. [keepNextDownloaded] keeps its next three books downloaded.
  */
 @Entity(tableName = "user_lists")
 data class UserListEntity(
@@ -21,6 +23,26 @@ data class UserListEntity(
     val createdAtEpochMillis: Long,
     val updatedAtEpochMillis: Long,
     val lastOpenedAtEpochMillis: Long,
+    @ColumnInfo(defaultValue = "0") val keepNextDownloaded: Boolean = false,
+    /** A smart list's saved filter, as `feature:lists` writes it; null for every other list. */
+    val smartFilter: String? = null,
+)
+
+/**
+ * A list read to the end, as the journal keeps it: it stays when the list is deleted. [itemIds]
+ * are its books in the list's order, one per line, for the row of covers.
+ */
+@Entity(tableName = "finished_lists")
+data class FinishedListEntity(
+    @PrimaryKey val id: String,
+    val listId: String,
+    val name: String,
+    val startedAtEpochMillis: Long,
+    val finishedAtEpochMillis: Long,
+    val bookCount: Int,
+    val seriesCount: Int,
+    val readMillis: Long,
+    val itemIds: String,
 )
 
 /**

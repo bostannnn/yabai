@@ -16,6 +16,7 @@ import com.example.unifiedreader.core.database.dao.RemoteCatalogDao
 import com.example.unifiedreader.core.database.dao.ServerListDao
 import com.example.unifiedreader.core.database.dao.UserListDao
 import com.example.unifiedreader.core.database.entity.DownloadQueueEntryEntity
+import com.example.unifiedreader.core.database.entity.FinishedListEntity
 import com.example.unifiedreader.core.database.entity.ImportedComicArchiveEntity
 import com.example.unifiedreader.core.database.entity.ItemDetailsEntity
 import com.example.unifiedreader.core.database.entity.ItemJournalEntryEntity
@@ -56,8 +57,9 @@ import com.example.unifiedreader.core.database.entity.UserListEntryEntity
         UserListEntryEntity::class,
         ServerListEntity::class,
         ServerListItemEntity::class,
+        FinishedListEntity::class,
     ],
-    version = 32,
+    version = 33,
     exportSchema = false,
 )
 abstract class UnifiedReaderDatabase : RoomDatabase() {
@@ -996,6 +998,7 @@ object UnifiedReaderDatabaseFactory {
             MIGRATION_29_30,
             MIGRATION_30_31,
             MIGRATION_31_32,
+            MIGRATION_32_33,
         )
         .build()
 }

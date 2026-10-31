@@ -599,6 +599,15 @@ class AppViewModel @Inject constructor(
         onResult = ::showDownloadResult,
     )
 
+    /** Downloads queued by a list that keeps its next books downloaded: no toast, it happens on its own. */
+    fun onKeepDownloaded(items: List<ReadableItem>) = remoteDownloadController.onDownloadRemoteItems(
+        stateProvider = { uiState },
+        updateState = ::updateUiState,
+        scope = viewModelScope,
+        items = items,
+        canScheduleSource = remoteSourceConnectivityPolicy::canScheduleDownload,
+    )
+
     /** "Download again" from a reader whose downloaded file is gone or broken. */
     fun onDownloadAgain(item: ReadableItem) = remoteDownloadController.onDownloadAgain(
         stateProvider = { uiState },

@@ -61,6 +61,8 @@ data class UserList(
     val entries: List<UserListEntry>,
     /** Where a server's shelf lives; null for a list on this device. */
     val server: ServerListRef? = null,
+    /** Its next three unread server books are kept downloaded. */
+    val keepNextDownloaded: Boolean = false,
 ) {
     val isReadingOrder: Boolean
         get() = order == UserListOrder.Custom
