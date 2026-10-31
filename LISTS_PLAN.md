@@ -60,21 +60,56 @@ The user picked this first. Plain shelves only (magic shelves come only over OPD
   `BookController.addBookToShelf`, `ShelvesAssignmentRequest`: both sets must be sent; only your own shelves can
   be assigned; update replaces name, icon, iconType and publicShelf, so a rename sends the old icon back).
 
-## Version 2, still to do
+## Version 2, the rest (built 2026-10-31)
 
-- Kavita reading lists editable and synced (create, rename, add, move, remove, delete: `api/ReadingList/*`), and
-  their items kept in Room instead of memory. Lists other users promoted stay read-only (parse `ownerUserName`).
-  `server_lists` / `server_list_items` were made general for this (a `kind`, positions).
-- Want to read mirrored to Kavita's Want to read for Kavita series (`api/want-to-read/add-series`).
-- The library home's reading card follows the reading order you are in the middle of.
-- Keep the next 3 downloaded, per list; smart lists saved from filters; a finished-list card kept by the journal;
-  `.cbl` import; "In your lists" on the book page.
+Asked for as "finish what is yet to be done". Each piece is its own commit; Room is now **v33**.
+
+- **In your lists** on the book page (`LibraryBookPageLists`, fed through `LibraryItemActionContext.listsContaining`):
+  Want to read, your lists, shelves and Kavita reading lists holding the book (never Stalled or a smart list),
+  "Number 6 of 14 · Read next follows this list" in an order; a tap opens the list on Lists.
+- **Want to read on Kavita** (`ServerWantToRead`, `KavitaWantToReadAdapter`, `api/want-to-read/add-series` and
+  `remove-series`): ticking a Kavita book adds its series; unticking takes the series off once no other book of it
+  is left in Want to read. One way only (the app's list drives Kavita's). A failure toasts; the app's list changes.
+- **Keep the next 3 downloaded** (`user_lists.keepNextDownloaded`, `ListDownloads.kt`, `KeepListBooksDownloaded`
+  in app): a switch on your lists and Want to read; the next three unread server books are queued a second after
+  the lists, library or reading change, each once per run (`AppViewModel.onKeepDownloaded`, no toast). Finished
+  books are not removed (the canvas left that open; removing downloads stays the user's call).
+- **The home card follows the order** (`homeReadingOrder`, `LibraryReadingOrderCard` in the action context,
+  `LibraryShelvesZone`): when the book read last was finished and is in the order under way, and the order's next
+  book is this library's. "Next in X · 7 of 14", "Then A, B", Read/Continue and Open list. A book in two orders
+  follows the one under way (opened most recently with something unread).
+- **A list finished** (`FinishedLists.kt`, `finished_lists` table, `ListFinishedOverFinished` in app,
+  `JournalListFinishedDialog` and `JournalFinishedListsPanel` in feature:journal): finishing the last unread book of
+  a reading order opened from it shows the card over Finished once for the list as it is (same book count); the
+  journal's month shows "Lists finished" rows, kept after the list is deleted. Time read sums the journal sessions;
+  "started" is the first session (else the list's creation).
+- **`.cbl` import** (`CblImport.kt`, `AppCblImport.kt`): New list's "Import a reading order (.cbl)"; matched by
+  normalised series name and issue number (any source; a year or volume that agrees breaks ties); an issue not
+  found keeps a placeholder row ("Not in your library", id `cbl:<series>#<number>`). Toast: "Imported 4 of 5 …".
+- **Kavita reading lists as list pages** (`KavitaListsApi`, `KavitaReadingListClientAdapter`, the shelf store
+  generalised: `ServerShelfClient.isOrdered`, `fetchItems`, `move`; `ServerListStores` holds one store per server):
+  kept in `server_lists` (kind `ServerReadingList`); a refresh reads the lists only and a list's issues when its
+  count changed or its page opens. Numbered, Read next follows one opened from Lists (promoted ones too). Your own:
+  rename (the update replaces summary, promoted, dates and tags, so they are read and sent back), reorder (moves
+  computed around issues the library doesn't hold, `fullOrder`), remove, delete; Add to list for Kavita issues;
+  New list "On Kavita". Ownership: `ownerUserName` vs the session's username (a promoted list without an owner
+  name counts as someone else's). The library's own Kavita lists chip still reads the old in-memory controller.
+- **Smart lists** (`SmartLists.kt`, `user_lists.smartFilter`, Save as list in `LibraryFilterSheet`,
+  `SaveFiltersAsListDialog` in app): the list keeps the library's `LibraryFilterState` (line-per-filter text); its
+  books are `applyLibraryFilters` over that library's books and issues (not series) now; Date added / Title; the
+  editor renames or deletes; the toast's Open goes to it.
+- **Read next after the app is stopped**: `KeepReaderListContext` saves the list context with the screen's saved
+  state and puts it back when the same book reopens first after a restart.
 
 ## Ownership
 
 - `core:database`: entities, `UserListDao`, `MIGRATION_30_31`; `ServerListEntity`, `ServerListItemEntity`,
-  `ServerListDao`, `MIGRATION_31_32` (lists kept on a server).
+  `ServerListDao`, `MIGRATION_31_32` (lists kept on a server); `FinishedListEntity`, `MIGRATION_32_33`
+  (keep downloaded, smart filters, finished lists).
 - `data:grimmory`: `GrimmoryShelvesApi.kt` (DTOs, `KtorGrimmoryShelvesApi`), reached as `GrimmoryApi.shelves`.
+- `data:kavita`: `KavitaListsApi.kt` (reading lists and Want to read), reached as `KavitaApi.lists`.
+- `feature:journal`: `JournalFinishedLists.kt` (the list-finished card and the period's finished lists).
+- `feature:library`: In your lists on the book page, the reading card's order variant, Save as list in Filters.
 - `feature:lists` (new): models, `UserListStore` (Room), the pure parts (entries resolved against the catalog,
   Stalled, next in list, order), and the screens and sheets. `ServerShelves.kt`: `ServerShelfClient` (what a
   source implements), `RoomServerShelfStore` (Room, cooldown refresh, server-first changes), `toUserList`.
@@ -135,3 +170,14 @@ The user picked this first. Plain shelves only (magic shelves come only over OPD
   offline are not queued; when Grimmory was first connected the shelf list was asked for twice, likely a 401 and
   token refresh while the new session was being saved (harmless).
 - The tablet needs Room v32 now: a release with lists must carry both `MIGRATION_30_31` and `MIGRATION_31_32`.
+- 2026-10-31, the rest of version 2 (commits 2b5a75cb..a1be193a on the same branch, not merged, pushed or
+  released): design system first (`ListsScreen` and `LibraryHome` guidelines and mocks, published as version 24,
+  merged onto another session's Browse/Pages/Search changes there). Full suite passed at 1637 tests after the Kavita
+  commit; the module suites passed after the last two. Checked on the emulator (5556, debug, 32→33 migration over the
+  earlier build): In your lists and opening a list from it; the Local home card following Crossover; the
+  list-finished card (4 books, 2 series, 4 h 36, 15 days) and Lists finished in the journal; Save as list, the
+  smart list's tile, page and editor, the toast's Open; `.cbl` import (4 of 5 matched, "003" as 3, a greyed
+  placeholder); Keep the next 3 on local-only and Grimmory lists (queued the two Grimmory books, skipped the local).
+- Not checked: anything against a real Kavita (reading lists, Want to read on Kavita) or the real Grimmory; the
+  Expanded rail; drag to reorder; the restart fix (needs the app killed with a book open). Local books still can't be
+  multi-selected in the library (a library selection change, not lists).

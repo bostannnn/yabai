@@ -187,6 +187,7 @@ A source's library: the bar with its search field, the reading card, the shelf t
 - All books is `AppSectionHeading`, on the gutter line, with Filters and sort at its end.
 - The reading card's inside inset is `inset` 20 at every width and its corners `radius-container` 20.
 - No source name anywhere on the screen: the search field says it.
+- **The card follows a reading order** when the book you read last was finished and is in the reading order under way, and that order's next book is from this library: its overline is "Next in The Long Eclipse · 7 of 14", one line under the progress names the two after it ("Then Neon Ronin #13, The Long Eclipse #3"), and its buttons are Read (or Continue) and Open list.
 """, f"""
 <div class="yb" style="padding:16px">
   {TOGGLE}
@@ -352,7 +353,28 @@ new_list = f"""
   <div class="yb-dialog-actions"><button class="yb-btn is-text">Cancel</button><button class="yb-btn is-filled">Create</button></div>
 </div>"""
 
-comp("ListsScreen", "Screens", 2100, """
+in_your_lists = f"""
+<div class="yb-sheet" style="height:auto;padding-bottom:12px">
+  <div class="yb-panel-header"><div class="yb-panel-header-text"><h2 class="yb-panel-title">Neon Ronin #12</h2><span class="yb-panel-sub">Neon Ronin · 12 of 20</span></div><button class="yb-icon-btn">{ic("close")}</button></div>
+  <div class="yb-sheet-section"><h3 class="yb-sheet-label">In your lists</h3></div>
+  {row("The Long Eclipse", "Number 6 of 14 · Read next follows this list", dense=True)}
+  {row("Want to read", "9 books", dense=True)}
+</div>"""
+
+keep_row = f"""
+<div class="yb-panel" style="width:560px">{row("Keep the next 3 downloaded", "Neon Ronin #12 and Harbor Lights #7 are ready; The Long Eclipse #3 is on its way.", icon="download", trailing="switch-on")}</div>"""
+
+list_finished = f"""
+<div class="yb-dialog" style="width:400px;gap:16px">
+  <div style="display:flex;gap:16px;align-items:flex-end">{list_cover([0, 5, 4, 3], width=96)}<div style="display:flex;flex-direction:column;gap:4px;min-width:0"><span class="yb-overline">List finished</span><h2 class="yb-dialog-title" style="margin:0">The Long Eclipse</h2><span class="yb-supporting">Started 19 Oct · finished today</span></div></div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">{"".join(f'<div class="yb-panel" style="padding:12px 10px;display:flex;flex-direction:column;gap:2px"><b style="font:700 20px/24px var(--font-sans)">{v}</b><span class="yb-caption">{k}</span></div>' for v, k in [("14", "books"), ("4", "series"), ("9 h 20", "read"), ("12", "days")])}</div>
+  <div style="display:grid;grid-template-columns:repeat(14,1fr);gap:3px">{"".join(f'<span style="aspect-ratio:2/3;border-radius:3px;background:{c}"></span>' for c in ["#5c3d1e", "#1f3b57", "#4a2c5e", "#5c3d1e", "#4a2c5e", "#1f3b57", "#0f4c5c", "#5c3d1e", "#1f3b57", "#2a2a2a", "#4a2c5e", "#5c3d1e", "#5c3d1e", "#0f4c5c"])}</div>
+  <span class="yb-supporting" style="color:var(--on-surface-variant)">It goes in your journal for October.</span>
+  <div class="yb-dialog-actions"><button class="yb-btn is-text" style="color:var(--error)">Delete the list</button><span class="yb-spacer"></span><button class="yb-btn is-filled">Done</button></div>
+</div>"""
+
+
+comp("ListsScreen", "Screens", 2900, """
 # Lists
 
 Every list in one place, beside the sources in the rail and the drawer: the reading order you are in the middle of, then your lists, then each server's lists.
@@ -365,13 +387,22 @@ Every list in one place, beside the sources in the rail and the drawer: the read
 - A list's page: `AppListCover` 132, the name in `display-title`, its description and "14 books · 6 read", Continue, Edit, the Order chip (Your order / Date added / Title) and Hide finished; the books are `AppBookRow`s in an `AppPanel`, numbered in Your order.
 - **A shelf's page** is the same page. A Grimmory shelf has no order of its own, so the Order chip offers Date added (to Grimmory) and Title, and a shelf is never a reading order. Edit renames it, removes books and deletes the shelf, each saved on Grimmory with Done; there is no description and no dragging. Someone else's public shelf has no Edit.
 - **Add to list** (`AppSideSheet`, `AppPanelHeader` "Add to list" and the book): Want to read, then Your lists under an `AppSheetLabel`, then Grimmory shelves (yours only) when every book being added is a Grimmory book, each an `AppSettingsRow` with `AppCheckbox`; New list; one caption line saying where each kind lives. A tap saves at once; for a shelf that is on the server, and a failure says so in a toast and leaves the box as it was.
-- **New list** (`AppDialogCard`): the name, then where to keep it, an `AppSegmentedRow` "On this device" / "On Grimmory" with one line under it saying what that means. The choice shows only while Grimmory is connected and every book going in is a Grimmory book.
+- **New list** (`AppDialogCard`): the name, then where to keep it, an `AppSegmentedRow` "On this device" / "On Grimmory" / "On Kavita" (each only while that server is connected and, from Add to list, every book going in is that server's) with one line under it saying what that means. Under it a text button, "Import a reading order (.cbl)", for a list on this device.
+- **Kavita reading lists** open as a list page, numbered in Kavita's order (Read next follows it). Yours can be renamed, reordered (drag or the row's menu), have books removed and be deleted, each saved on Kavita with Done; one someone else promoted is read-only. Add to list shows your Kavita reading lists for a Kavita issue. They are kept on the device and read again when Lists opens, like shelves.
+- **In your lists** on the book page, after Reading: an `AppSheetLabel` and one `AppSettingsRow` with a chevron per list holding the book (Want to read, your lists, shelves and Kavita reading lists; never Stalled). Its line says where the book is: "Number 6 of 14 · Read next follows this list" in an order, else the list's size. A tap closes the page and opens the list.
+- **Want to read on Kavita**: ticking a Kavita book into Want to read also puts its series on Kavita's Want to read; unticking takes the series off once no other book of it is left in Want to read. The row's line says "Also on Kavita's Want to read" for a Kavita book. The list on this device changes either way; a failure on Kavita says so in a toast.
+- **Keep the next 3 downloaded**: on the page of one of your lists, an `AppPanel` holding one `AppSettingsRow` (`download` icon, a switch). On, the next three unread server books in the list's order are queued for download whenever the list or your reading changes; its line says which are ready and which are on their way. Finished books are not removed: removing downloads stays your call.
+- **Smart lists**: the Filters sheet gets Save as list (`AppTonalButton`) beside Show; it asks for a name and keeps that library's filters, so the list changes with the library. Its tile has the `tune` badge, "Updates itself · 23"; its page has Date added and Title, no Your order, and its editor only renames or deletes it.
+- **A list finished**: reading the last unread book of a list in Your order opens the list-finished card over Finished (`AppDialogCard`): the mosaic, "List finished", the name, "Started 19 Oct · finished today", four figures (books, series, time read, days) in `AppPanel` tiles, the covers in a row, "It goes in your journal for October", then Delete the list and Done. The journal's month shows it as a card among the books.
+- **Import a reading order (.cbl)**: the books are matched to comics in your library by series and number, from any source; one that isn't there keeps a greyed row ("Not in your library") so the order stays whole. A toast says how many were found.
 """, f"""
 <div class="yb" style="padding:16px">
   {TOGGLE}
   <div id="screens"><div class="yb-caption" style="margin-bottom:8px">Expanded, 1280 wide, the whole page</div>{lists}</div>
   <div class="yb-caption" style="margin:24px 0 8px">Add to list for a Grimmory book, and New list kept on Grimmory</div>
   <div class="yb-ground" style="display:flex;gap:40px;align-items:flex-start;padding:24px">{add_to_list}{new_list}</div>
+  <div class="yb-caption" style="margin:24px 0 8px">In your lists on a book page, Keep the next 3 downloaded on a list page, and a list finished</div>
+  <div class="yb-ground" style="display:flex;gap:40px;align-items:flex-start;flex-wrap:wrap;padding:24px">{in_your_lists}<div style="display:flex;flex-direction:column;gap:24px">{keep_row}{list_finished}</div></div>
 </div>""", width=1312, page=True, script=TOGGLE_SCRIPT)
 
 print("screens written")
