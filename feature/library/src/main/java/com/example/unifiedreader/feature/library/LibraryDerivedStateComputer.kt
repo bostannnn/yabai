@@ -10,7 +10,6 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.buildContextualLibraryFilterFacets
 import com.example.unifiedreader.core.model.isKavitaSeriesContainer
 import com.example.unifiedreader.core.model.isStumpSeriesContainer
-import com.example.unifiedreader.core.model.kavitaCatalogSeriesKey
 import com.example.unifiedreader.core.model.kavitaSeriesContainerId
 import com.example.unifiedreader.core.model.stumpSeriesContainerId
 import java.util.Base64
@@ -48,8 +47,6 @@ class LibraryDerivedStateComputer @Inject constructor() {
             selectedSource = input.selectedSource,
             selectedKavitaSeriesKey = input.selectedKavitaSeriesKey,
             selectedStumpSeriesKey = input.selectedStumpSeriesKey,
-            selectedKavitaCollectionId = input.selectedKavitaCollectionId,
-            selectedKavitaCollectionSeriesKeys = input.selectedKavitaCollectionSeriesKeys,
             orderedItemScope = input.orderedItemScope,
             selectedLibraryFilters = input.selectedLibraryFilters,
             selectedLibrarySearchQuery = input.selectedLibrarySearchQuery,
@@ -244,8 +241,6 @@ class LibraryDerivedStateComputer @Inject constructor() {
             selectedSource = input.selectedSource,
             selectedKavitaSeriesKey = input.selectedKavitaSeriesKey,
             selectedStumpSeriesKey = input.selectedStumpSeriesKey,
-            selectedKavitaCollectionId = input.selectedKavitaCollectionId,
-            selectedKavitaCollectionSeriesKeys = input.selectedKavitaCollectionSeriesKeys,
             orderedItemScope = input.orderedItemScope,
             selectedLibraryFilters = input.selectedLibraryFilters,
             locallyAvailableRemoteItemIds = input.locallyAvailableRemoteItemIds,
@@ -307,19 +302,6 @@ private fun LibrarySourceIndex.sourceItems(
             .mapNotNull(::itemById)
             .filter { item -> item.sourceType == input.selectedSource }
             .distinctBy(ReadableItem::id)
-    }
-    if (
-        input.selectedSource == SourceType.KAVITA &&
-        input.selectedKavitaSeriesKey == null &&
-        input.selectedKavitaCollectionId != null
-    ) {
-        return sourceItems(
-            selectedSource = SourceType.KAVITA,
-            selectedKavitaSeriesKey = null,
-            selectedStumpSeriesKey = null,
-        ).filter { item ->
-            item.kavitaCatalogSeriesKey() in input.selectedKavitaCollectionSeriesKeys
-        }
     }
     return sourceItems(
         selectedSource = input.selectedSource,
@@ -450,8 +432,6 @@ private fun buildLibraryBrowseContextKey(
         "kavita:series:${seriesKey.keyComponent()}:${libraryBrowseStateKeySuffix(input)}"
     } ?: input.orderedItemScope?.let { scope ->
         "kavita:ordered:${scope.key.keyComponent()}:${libraryBrowseStateKeySuffix(input)}"
-    } ?: input.selectedKavitaCollectionId?.let { collectionId ->
-        "kavita:collection:${collectionId.keyComponent()}:${libraryBrowseStateKeySuffix(input)}"
     } ?: "kavita:root:${libraryBrowseStateKeySuffix(input)}"
 
     SourceType.STUMP -> input.selectedStumpSeriesKey?.let { seriesKey ->
@@ -562,7 +542,7 @@ private data class SourceIndexCacheKey(
 }
 
 // Keyed by everything the filter facets actually depend on: the item set (source index + series /
-// collection / ordered scope), the current filters, local availability, and read status — but NOT
+// ordered scope), the current filters, local availability, and read status — but NOT
 // raw reading progress. Small collections are compared by content so a rebuilt-but-equal map does
 // not evict the cache.
 private data class LibraryFilterFacetsCacheKey(
@@ -570,8 +550,6 @@ private data class LibraryFilterFacetsCacheKey(
     val selectedSource: SourceType,
     val selectedKavitaSeriesKey: String?,
     val selectedStumpSeriesKey: String?,
-    val selectedKavitaCollectionId: String?,
-    val selectedKavitaCollectionSeriesKeys: Set<String>,
     val orderedItemScope: LibraryOrderedItemScope?,
     val selectedLibraryFilters: LibraryFilterState,
     val locallyAvailableRemoteItemIds: Set<*>,
@@ -584,8 +562,6 @@ private data class LibraryDerivedStateCacheKey(
     val selectedSource: SourceType,
     val selectedKavitaSeriesKey: String?,
     val selectedStumpSeriesKey: String?,
-    val selectedKavitaCollectionId: String?,
-    val selectedKavitaCollectionSeriesKeys: Set<String>,
     val orderedItemScope: LibraryOrderedItemScope?,
     val selectedLibraryFilters: LibraryFilterState,
     val selectedLibrarySearchQuery: String,
@@ -604,8 +580,6 @@ private data class LibraryDerivedStateCacheKey(
         selectedSource: SourceType,
         selectedKavitaSeriesKey: String?,
         selectedStumpSeriesKey: String?,
-        selectedKavitaCollectionId: String?,
-        selectedKavitaCollectionSeriesKeys: Set<String>,
         orderedItemScope: LibraryOrderedItemScope?,
         selectedLibraryFilters: LibraryFilterState,
         selectedLibrarySearchQuery: String,
@@ -621,8 +595,6 @@ private data class LibraryDerivedStateCacheKey(
         selectedSource = selectedSource,
         selectedKavitaSeriesKey = selectedKavitaSeriesKey,
         selectedStumpSeriesKey = selectedStumpSeriesKey,
-        selectedKavitaCollectionId = selectedKavitaCollectionId,
-        selectedKavitaCollectionSeriesKeys = selectedKavitaCollectionSeriesKeys,
         orderedItemScope = orderedItemScope,
         selectedLibraryFilters = selectedLibraryFilters,
         selectedLibrarySearchQuery = selectedLibrarySearchQuery,

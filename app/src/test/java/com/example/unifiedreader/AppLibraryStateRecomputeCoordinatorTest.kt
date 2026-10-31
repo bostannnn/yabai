@@ -6,10 +6,8 @@ import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.ReadableItem
-import com.example.unifiedreader.core.model.ReadingListItemRef
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.remoteLibraryId
-import com.example.unifiedreader.core.model.remoteReadingListId
 import com.example.unifiedreader.feature.library.LibraryDerivedStateComputer
 import com.example.unifiedreader.feature.library.LibrarySeriesContinuationResolver
 import com.example.unifiedreader.feature.library.ItemProgressSummary
@@ -627,86 +625,6 @@ class AppLibraryStateRecomputeCoordinatorTest {
         assertTrue(publishedStates.all { state -> !state.shouldReserveLibraryShelvesSlot })
         assertTrue(publishedStates.all { state -> !state.libraryShelvesState.hasContent })
         assertTrue(publishedStates.none { state -> state.libraryShelvesState.isLoading })
-    }
-
-    @Test
-    fun `selected Kavita reading list loading does not publish empty scope as ready content`() = runTest {
-        val coordinator = createCoordinator(StandardTestDispatcher(testScheduler))
-        val firstItem = sampleItem(id = "book-1", title = "First Book", format = FormatType.EPUB)
-        val secondItem = sampleItem(id = "book-2", title = "Second Book", format = FormatType.EPUB)
-        val readingListId = SourceType.KAVITA.remoteReadingListId("reading-list-1")
-        val initialState = coordinator.initialize(
-            sampleLibraryState().copy(
-                items = listOf(firstItem, secondItem),
-            ),
-        )
-        val loadingStates = mutableListOf<AppUiState>()
-
-        coordinator.updateState(
-            currentState = initialState,
-            transform = { state ->
-                state.copy(
-                    kavitaReadingLists = state.kavitaReadingLists.copy(
-                        selectedReadingListId = readingListId,
-                        loadingSelectedReadingListId = readingListId,
-                        isLoadingSelectedItems = true,
-                    ),
-                )
-            },
-            scope = this,
-            publishState = loadingStates::add,
-        )
-
-        advanceUntilIdle()
-
-        assertTrue(loadingStates.isNotEmpty())
-        assertTrue(loadingStates.all { state -> !state.shouldReserveLibraryShelvesSlot })
-        assertTrue(loadingStates.all { state -> state.kavitaReadingLists.isLoadingSelectedItems })
-        assertTrue(loadingStates.all { state -> state.visibleItems.isEmpty() })
-        assertTrue(
-            loadingStates.none { state ->
-                !state.kavitaReadingLists.isLoadingSelectedItems &&
-                    state.visibleItems.isEmpty()
-            },
-        )
-
-        val readyStates = mutableListOf<AppUiState>()
-        coordinator.updateState(
-            currentState = loadingStates.last(),
-            transform = { state ->
-                state.copy(
-                    kavitaReadingLists = state.kavitaReadingLists.copy(
-                        itemsByReadingListId = mapOf(
-                            readingListId to listOf(
-                                ReadingListItemRef(
-                                    readingListId = readingListId,
-                                    sourceType = SourceType.KAVITA,
-                                    itemId = firstItem.id,
-                                    order = 0,
-                                ),
-                            ),
-                        ),
-                        loadingSelectedReadingListId = null,
-                        isLoadingSelectedItems = false,
-                    ),
-                )
-            },
-            scope = this,
-            publishState = readyStates::add,
-        )
-
-        assertTrue(
-            readyStates.none { state ->
-                !state.kavitaReadingLists.isLoadingSelectedItems &&
-                    state.visibleItems.isEmpty()
-            },
-        )
-        assertEquals(listOf(firstItem.id), readyStates.first().visibleItems.map { item -> item.id })
-
-        advanceUntilIdle()
-
-        assertFalse(readyStates.last().kavitaReadingLists.isLoadingSelectedItems)
-        assertEquals(listOf(firstItem.id), readyStates.last().visibleItems.map { item -> item.id })
     }
 
     @Test

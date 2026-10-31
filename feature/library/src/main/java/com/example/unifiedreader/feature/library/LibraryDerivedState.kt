@@ -21,8 +21,6 @@ data class LibraryDerivedStateInput(
     val downloadingRemoteItemIds: Set<String> = emptySet(),
     val selectedKavitaSeriesKey: String? = null,
     val selectedStumpSeriesKey: String? = null,
-    val selectedKavitaCollectionId: String? = null,
-    val selectedKavitaCollectionSeriesKeys: Set<String> = emptySet(),
     val orderedItemScope: LibraryOrderedItemScope? = null,
     // When true, the grid is served by Room paging, so the in-memory last-read/date-added sort for
     // `visibleItems` is redundant (Room already sorts the window). The computer then leaves

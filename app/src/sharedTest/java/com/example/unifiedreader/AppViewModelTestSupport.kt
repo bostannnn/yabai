@@ -159,11 +159,6 @@ internal fun createViewModel(
         visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
         appDispatchers = appDispatchers,
     )
-    val kavitaReadingListController = AppKavitaReadingListController(
-        kavitaApiFactory = KavitaApiFactory { FakeReadingListKavitaApi() },
-        kavitaCredentialStore = kavitaCredentialStore,
-        remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
-    )
     val downloadQueueStore = TestDownloadQueueStore()
     val downloadScheduler = ImmediateDownloadWorkScheduler()
     val completionSideEffects: List<DownloadCompletionSideEffect> = listOf(
@@ -374,7 +369,6 @@ internal fun createViewModel(
                     kavitaCredentialStore = kavitaCredentialStore,
                     remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
                 ),
-                kavitaReadingListController = kavitaReadingListController,
                 kavitaCredentialStore = kavitaCredentialStore,
                 comicPageSourceCacheController = comicPageSourceCacheController,
                 remoteLibraryCacheStore = remoteLibraryCacheStore,
@@ -404,7 +398,6 @@ internal fun createViewModel(
                 sourceSyncTimes = sourceSyncTimes,
             ),
         ),
-        kavitaReadingListController = kavitaReadingListController,
         remoteSourceConnectivityStartupCoordinator = remoteSourceConnectivityStartupCoordinator,
         remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
         appNetworkChangeCoordinator = AppNetworkChangeCoordinator(
@@ -976,76 +969,6 @@ class FakeKavitaCoverRepository : KavitaCoverDataSource {
         clearCachedCoversCalls += 1
         coverUri = null
     }
-}
-
-private class FakeReadingListKavitaApi : com.example.unifiedreader.data.kavita.KavitaApi {
-    override suspend fun login(
-        username: String,
-        password: String,
-    ): com.example.unifiedreader.data.kavita.KavitaSession = error("Not needed in test.")
-
-    override suspend fun refreshSession(
-        refreshToken: String,
-        accessToken: String?,
-        apiKey: String?,
-    ): com.example.unifiedreader.data.kavita.KavitaSession = error("Not needed in test.")
-
-    override suspend fun getLibraries(
-        accessToken: String,
-    ): List<Library> = emptyList()
-
-    override suspend fun getSeries(
-        accessToken: String,
-        apiKey: String?,
-    ): List<com.example.unifiedreader.data.kavita.KavitaSeriesEntry> = emptyList()
-
-    override suspend fun getSeriesDetail(
-        accessToken: String,
-        series: com.example.unifiedreader.data.kavita.KavitaSeriesEntry,
-    ): List<com.example.unifiedreader.data.kavita.KavitaChapterCatalogEntry> = emptyList()
-
-    override suspend fun getProgress(
-        accessToken: String,
-        chapterId: String,
-    ): com.example.unifiedreader.data.kavita.KavitaProgressDto = error("Not needed in test.")
-
-    override suspend fun getChapterInfo(
-        accessToken: String,
-        chapterId: String,
-        includeDimensions: Boolean,
-    ): com.example.unifiedreader.data.kavita.KavitaChapterInfoDto = error("Not needed in test.")
-
-    override suspend fun updateProgress(
-        accessToken: String,
-        progress: com.example.unifiedreader.data.kavita.KavitaProgressUpdate,
-    ) = Unit
-
-    override suspend fun downloadPageImage(
-        accessToken: String,
-        chapterId: String,
-        pageIndex: Int,
-        apiKey: String?,
-    ): ByteArray = error("Not needed in test.")
-
-    override suspend fun downloadPageThumbnail(
-        accessToken: String,
-        chapterId: String,
-        pageNumber: Int,
-        apiKey: String?,
-    ): ByteArray = error("Not needed in test.")
-
-    override suspend fun downloadCover(
-        accessToken: String,
-        coverUrl: String,
-        apiKey: String?,
-    ): ByteArray = error("Not needed in test.")
-
-    override suspend fun downloadChapter(
-        accessToken: String,
-        chapterId: String,
-        apiKey: String?,
-        destination: java.io.File,
-    ) = Unit
 }
 
 class FakeRemoteLibraryCacheStore : RemoteLibraryCacheStore {

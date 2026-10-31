@@ -13,8 +13,6 @@ internal fun AppUiState.toActiveRouteSnapshot(): AppActiveRouteSnapshot {
         selectedSource = readerItem?.sourceType ?: selectedSource,
         selectedKavitaSeriesKey = selectedKavitaSeriesKey,
         selectedStumpSeriesKey = selectedStumpSeriesKey,
-        selectedKavitaReadingListId = kavitaReadingLists.selectedReadingListId,
-        selectedKavitaCollectionId = kavitaReadingLists.selectedCollectionId,
         readerItemId = readerItem?.id,
         readerFormat = readerItem?.format ?: activeReader,
         // Always kept, not only for items outside the catalog: after process death the catalog
@@ -56,17 +54,6 @@ internal fun AppUiState.withActiveRouteSnapshot(
         hydratedSources = hydratedSources,
         belongsToSeries = ReadableItem::belongsToStumpSeries,
     )
-    val selectedReadingListId = snapshot.selectedKavitaReadingListId
-        ?.takeIf {
-            selectedSource == SourceType.KAVITA &&
-                selectedKavitaSeriesKey == null &&
-                snapshot.selectedKavitaCollectionId == null
-        }
-    val selectedCollectionId = snapshot.selectedKavitaCollectionId
-        ?.takeIf {
-            selectedSource == SourceType.KAVITA &&
-                selectedKavitaSeriesKey == null
-        }
     return copy(
         topLevel = if (shouldRestoreReader) {
             TopLevelDestination.Library
@@ -82,14 +69,6 @@ internal fun AppUiState.withActiveRouteSnapshot(
             ?.takeIf { item -> items.none { catalogItem -> catalogItem.id == item.id } },
         selectedKavitaSeriesKey = selectedKavitaSeriesKey,
         selectedStumpSeriesKey = selectedStumpSeriesKey,
-        kavitaReadingLists = kavitaReadingLists.copy(
-            selectedReadingListId = selectedReadingListId,
-            loadingSelectedReadingListId = selectedReadingListId,
-            selectedCollectionId = selectedCollectionId,
-            loadingSelectedCollectionId = selectedCollectionId,
-            isLoadingSelectedItems = selectedReadingListId != null || selectedCollectionId != null,
-            errorMessage = null,
-        ),
         readerCompletionState = null,
     )
 }

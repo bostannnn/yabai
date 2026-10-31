@@ -62,13 +62,6 @@ class AppReaderCoordinator @Inject constructor(
                 selectedReaderItem = null,
                 selectedKavitaSeriesKey = null,
                 selectedStumpSeriesKey = null,
-                kavitaReadingLists = state.kavitaReadingLists.copy(
-                    selectedReadingListId = null,
-                    loadingSelectedReadingListId = null,
-                    selectedCollectionId = null,
-                    loadingSelectedCollectionId = null,
-                    isLoadingSelectedItems = false,
-                ),
             )
         }
     }
@@ -89,13 +82,6 @@ class AppReaderCoordinator @Inject constructor(
                 state.copy(
                     selectedKavitaSeriesKey = item.remoteId,
                     selectedStumpSeriesKey = null,
-                    kavitaReadingLists = state.kavitaReadingLists.copy(
-                        selectedReadingListId = null,
-                        loadingSelectedReadingListId = null,
-                        loadingSelectedCollectionId = null,
-                        isLoadingSelectedItems = false,
-                        errorMessage = null,
-                    ),
                     selectedItemId = null,
                     activeReader = null,
                     selectedReaderOpenMode = ReaderOpenMode.Default,
@@ -111,14 +97,6 @@ class AppReaderCoordinator @Inject constructor(
                 state.copy(
                     selectedStumpSeriesKey = item.remoteId,
                     selectedKavitaSeriesKey = null,
-                    kavitaReadingLists = state.kavitaReadingLists.copy(
-                        selectedReadingListId = null,
-                        loadingSelectedReadingListId = null,
-                        selectedCollectionId = null,
-                        loadingSelectedCollectionId = null,
-                        isLoadingSelectedItems = false,
-                        errorMessage = null,
-                    ),
                     selectedItemId = null,
                     activeReader = null,
                     selectedReaderOpenMode = ReaderOpenMode.Default,
@@ -354,17 +332,6 @@ class AppReaderCoordinator @Inject constructor(
                 )
                 it.selectedStumpSeriesKey != null -> it.copy(
                     selectedStumpSeriesKey = null,
-                )
-                it.kavitaReadingLists.selectedReadingListId != null ||
-                    it.kavitaReadingLists.selectedCollectionId != null -> it.copy(
-                    kavitaReadingLists = it.kavitaReadingLists.copy(
-                        selectedReadingListId = null,
-                        loadingSelectedReadingListId = null,
-                        selectedCollectionId = null,
-                        loadingSelectedCollectionId = null,
-                        isLoadingSelectedItems = false,
-                        errorMessage = null,
-                    ),
                 )
                 it.selectedItemId != null -> it.copy(selectedItemId = null)
                 else -> it

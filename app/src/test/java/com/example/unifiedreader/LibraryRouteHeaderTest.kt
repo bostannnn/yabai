@@ -1,7 +1,6 @@
 package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.FormatType
-import com.example.unifiedreader.core.model.ReadingListSummary
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.library.LibraryCatalogKind
 import com.example.unifiedreader.feature.library.LibraryHeader
@@ -24,34 +23,11 @@ class LibraryRouteHeaderTest {
     }
 
     @Test
-    fun `a Kavita list is headed by its name, without a summary line`() {
-        val state = AppUiState(
-            selectedSource = SourceType.KAVITA,
-            sourceItems = books,
-            kavitaReadingLists = AppKavitaReadingListState(
-                summaries = listOf(
-                    ReadingListSummary(id = "list", sourceType = SourceType.KAVITA, remoteId = "1", title = "Want to Read"),
-                ),
-                selectedReadingListId = "list",
-            ),
-        )
-
-        assertEquals(LibraryHeader(title = "Want to Read", hasSummaryLine = false), state.libraryHeader())
-        assertNull(state.libraryCatalogKind())
-    }
-
-    @Test
     fun `a search has no header`() {
         val state = AppUiState(
             selectedSource = SourceType.KAVITA,
             sourceItems = books,
             librarySearchQueriesBySource = mapOf(SourceType.KAVITA to "salt"),
-            kavitaReadingLists = AppKavitaReadingListState(
-                summaries = listOf(
-                    ReadingListSummary(id = "list", sourceType = SourceType.KAVITA, remoteId = "1", title = "Want to Read"),
-                ),
-                selectedReadingListId = "list",
-            ),
         )
 
         assertNull(state.libraryHeader())

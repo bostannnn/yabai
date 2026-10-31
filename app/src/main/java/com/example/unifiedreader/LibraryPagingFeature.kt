@@ -21,7 +21,7 @@ internal object LibraryPagingFeature {
     fun isPageable(state: AppUiState): Boolean {
         if (!ENABLED) return false
         if (state.selectedSource != SourceType.KAVITA) return false
-        if (state.isSeriesBrowseActive || state.isKavitaScopeActive) return false
+        if (state.isSeriesBrowseActive) return false
         if (state.selectedLibrarySearchQuery.isNotBlank()) return false
         val filters = state.selectedLibraryFilters
         return when (state.selectedLibrarySortMode) {

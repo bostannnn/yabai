@@ -10,7 +10,6 @@ import kotlinx.coroutines.launch
 
 class AppKavitaRemoteSourceController @Inject constructor(
     private val kavitaCoordinator: AppKavitaCoordinator,
-    private val kavitaReadingListController: AppKavitaReadingListController,
     private val kavitaCredentialStore: KavitaCredentialStore,
     private val comicPageSourceCacheController: ComicPageSourceCacheController,
     private val remoteLibraryCacheStore: RemoteLibraryCacheStore,
@@ -290,19 +289,12 @@ class AppKavitaRemoteSourceController @Inject constructor(
                             selectedItemId = null,
                             activeReader = null,
                             selectedKavitaSeriesKey = null,
-                            kavitaReadingLists = state.kavitaReadingLists.copy(
-                                errorMessage = null,
-                            ),
                             kavitaConnection = result.connection.copy(
                                 activeAction = null,
                                 availableLibraries = result.availableLibraries,
                             ),
                         )
                     }
-                    kavitaReadingListController.refreshAfterKavitaSync(
-                        stateProvider = stateProvider,
-                        updateState = updateState,
-                    )
                 }
                 is KavitaSyncExecutionResult.Failure -> {
                     updateState { state ->
@@ -359,12 +351,8 @@ class AppKavitaRemoteSourceController @Inject constructor(
                             activeAction = null,
                             availableLibraries = result.availableLibraries,
                         )
-                        val syncedReadingLists = state.kavitaReadingLists.copy(
-                            errorMessage = null,
-                        )
                         if (preserveLibraryContext) {
                             state.copy(
-                                kavitaReadingLists = syncedReadingLists,
                                 kavitaConnection = syncedConnection,
                             )
                         } else {
@@ -374,15 +362,10 @@ class AppKavitaRemoteSourceController @Inject constructor(
                                 selectedItemId = null,
                                 activeReader = null,
                                 selectedKavitaSeriesKey = null,
-                                kavitaReadingLists = syncedReadingLists,
                                 kavitaConnection = syncedConnection,
                             )
                         }
                     }
-                    kavitaReadingListController.refreshAfterKavitaSync(
-                        stateProvider = stateProvider,
-                        updateState = updateState,
-                    )
                 }
                 is KavitaSyncExecutionResult.Failure -> {
                     updateState { state ->

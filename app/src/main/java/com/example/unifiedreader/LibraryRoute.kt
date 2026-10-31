@@ -31,7 +31,6 @@ import com.example.unifiedreader.feature.library.LibraryHeader
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
 import com.example.unifiedreader.feature.library.LibraryItemListMembership
 import com.example.unifiedreader.feature.library.LibraryReadingOrderCard
-import com.example.unifiedreader.feature.library.LibraryListScopeTopContent
 import com.example.unifiedreader.feature.library.LibraryScreen
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
 import com.example.unifiedreader.feature.library.LibrarySeriesReadingCard
@@ -240,7 +239,6 @@ internal fun LibraryRoute(
                 val header = remember(
                     frame.uiState.selectedLibrarySearchQuery.isBlank(),
                     frame.uiState.isSeriesBrowseActive,
-                    frame.uiState.isKavitaScopeActive,
                     frame.uiState.selectedLibraryContextTitle,
                     frame.uiState.visibleItems,
                     frame.uiState.displayProgressByItemId,
@@ -254,7 +252,6 @@ internal fun LibraryRoute(
                 }
                 val catalogKind = remember(
                     frame.uiState.isSeriesBrowseActive,
-                    frame.uiState.isKavitaScopeActive,
                     frame.uiState.sourceItems,
                 ) { frame.uiState.libraryCatalogKind() }
                 val seriesNext = remember(
@@ -268,12 +265,6 @@ internal fun LibraryRoute(
                         null
                     }
                 }
-                val listTop = remember(
-                    frame.uiState.isSeriesBrowseActive,
-                    frame.uiState.kavitaReadingLists,
-                    frame.uiState.visibleItems,
-                    frame.uiState.displayProgressByItemId,
-                ) { frame.uiState.kavitaListScopeTop() }
                 DisposableEffect(frame.browseContextKey) {
                     onDispose { onScrolledChanged(frame.browseContextKey, null) }
                 }
@@ -295,7 +286,6 @@ internal fun LibraryRoute(
                     deletableDownloadedItemIds = frame.uiState.remoteDownloadActionAvailability.deletableDownloadedItemIds,
                     downloadingItemIds = frame.uiState.remoteDownloadActionAvailability.activeDownloadingItemIds,
                     isLoadingSource = !frame.uiState.isSelectedSourceHydrated ||
-                        (frame.uiState.selectedSource == SourceType.KAVITA && frame.uiState.kavitaReadingLists.isLoadingSelectedItems) ||
                         frame.uiState.isSelectedLibraryLocalAvailabilityPending,
                     filterState = frame.uiState.selectedLibraryFilters,
                     filterPanels = frame.uiState.selectedLibraryFilterPanels,
@@ -309,9 +299,7 @@ internal fun LibraryRoute(
                     sortMode = frame.uiState.selectedLibrarySortMode,
                     gridCellSizeDp = frame.uiState.libraryGridCellSizeDp,
                     showSortControl = frame.showSortControl,
-                    preferIssueLabels = frame.uiState.isSeriesBrowseActive || frame.uiState.isKavitaReadingListActive,
-                    includeSeriesInIssueLabels = frame.uiState.isKavitaReadingListActive,
-                    lockedSortLabel = "List order".takeIf { frame.uiState.isKavitaReadingListActive },
+                    preferIssueLabels = frame.uiState.isSeriesBrowseActive,
                     coverImageUrlProvider = coverImageUrlProvider,
                     coverPrefetchKeyProvider = coverPrefetchKeyProvider,
                     onCoverVisible = onCoverVisible,
@@ -349,18 +337,6 @@ internal fun LibraryRoute(
                                 timeLeftMillis = seriesNextTimeLeftMillis,
                             )
                         }
-                    } else if (listTop != null) {
-                        @Composable { gridMetrics: LibraryGridMetrics ->
-                            LibraryListScopeTopContent(
-                                top = listTop,
-                                progressByItemId = frame.uiState.displayProgressByItemId,
-                                gridMetrics = gridMetrics,
-                                coverImageUrlProvider = coverImageUrlProvider,
-                                onCoverVisible = onCoverVisible,
-                                onItemSelected = onItemSelected,
-                                actionContext = itemActionContext,
-                            )
-                        }
                     } else {
                         null
                     },
@@ -392,10 +368,10 @@ internal fun LibraryRoute(
                     onSeriesReaderModeSelected = onSeriesReaderModeSelected,
                     onOpenItemPage = { item -> bookPageStack = listOf(item.id) },
                     onOpenBrowse = { onBrowseRequestChanged(LibraryBrowseRequest()) }
-                        .takeUnless { frame.uiState.isSeriesBrowseActive || frame.uiState.isKavitaScopeActive },
+                        .takeUnless { frame.uiState.isSeriesBrowseActive },
                     searchPool = frame.uiState.sourceItems,
                     onBrowseTag = { chip: LibraryBrowseChip -> onBrowseRequestChanged(LibraryBrowseRequest(picked = listOf(chip))) }
-                        .takeUnless { frame.uiState.isSeriesBrowseActive || frame.uiState.isKavitaScopeActive },
+                        .takeUnless { frame.uiState.isSeriesBrowseActive },
                     onDownloadItem = onDownloadRemoteItem,
                     onDeleteDownloadedItem = onDeleteRemoteLocalFile,
                     onSetReadStatus = onSetReadStatus,
@@ -444,8 +420,6 @@ private fun AppUiState.hasStoredSessionFor(source: SourceType): Boolean = when (
 /** Which library screen is up. Each level of depth is one thing opened from the level above. */
 internal data class LibraryScreenKey(
     val source: SourceType,
-    /** An open Kavita reading list or collection. */
-    val scopeId: String?,
     val seriesKey: String?,
     /** See all, whichever shelf its tabs show. */
     val shelves: Boolean,
@@ -453,7 +427,7 @@ internal data class LibraryScreenKey(
     val browse: Boolean = false,
 ) {
     val depth: Int
-        get() = listOfNotNull(scopeId, seriesKey).size + (if (shelves) 1 else 0) + (if (browse) 1 else 0)
+        get() = listOfNotNull(seriesKey).size + (if (shelves) 1 else 0) + (if (browse) 1 else 0)
 }
 
 internal fun libraryScreenKey(
@@ -462,14 +436,8 @@ internal fun libraryScreenKey(
     browseOpen: Boolean = false,
 ): LibraryScreenKey {
     val source = uiState.selectedSource
-    val kavita = source == SourceType.KAVITA
     return LibraryScreenKey(
         source = source,
-        scopeId = if (kavita) {
-            uiState.kavitaReadingLists.selectedReadingListId ?: uiState.kavitaReadingLists.selectedCollectionId
-        } else {
-            null
-        },
         seriesKey = when (source) {
             SourceType.KAVITA -> uiState.selectedKavitaSeriesKey
             SourceType.STUMP -> uiState.selectedStumpSeriesKey
@@ -508,9 +476,8 @@ private class LibraryRouteFrame(
 )
 
 /**
- * The large title over a series (its name and how far through it you are) and over a Kavita list
- * or collection (its name; its own top counts it). None on a source's home, where the search field
- * names the source, and none while searching.
+ * The large title over a series (its name and how far through it you are). None on a source's
+ * home, where the search field names the source, and none while searching.
  */
 internal fun AppUiState.libraryHeader(): LibraryHeader? {
     if (selectedLibrarySearchQuery.isNotBlank()) return null
@@ -520,14 +487,13 @@ internal fun AppUiState.libraryHeader(): LibraryHeader? {
             title = title,
             summary = librarySeriesSummary(visibleItems, displayProgressByItemId),
         )
-        isKavitaScopeActive -> LibraryHeader(title = title, hasSummaryLine = false)
         else -> null
     }
 }
 
 /**
  * What the source's catalog holds, for the heading over its grid ("All books 1,474"); null in a
- * series or a Kavita list, whose header names them.
+ * series, whose header names it.
  */
 internal fun AppUiState.libraryCatalogKind(): LibraryCatalogKind? =
-    if (isSeriesBrowseActive || isKavitaScopeActive) null else libraryCatalogKind(sourceItems)
+    if (isSeriesBrowseActive) null else libraryCatalogKind(sourceItems)

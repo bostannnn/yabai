@@ -22,7 +22,6 @@
 9 feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryFilterSheet.kt
 2 feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryGridCoverCard.kt
 1 feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryHeader.kt
-3 feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryListScopeTop.kt
 4 feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryNavigationControls.kt
 2 feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryRatingBadge.kt
 6 feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryReadingCard.kt

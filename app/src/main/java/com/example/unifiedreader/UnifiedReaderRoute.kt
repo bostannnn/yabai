@@ -142,8 +142,7 @@ fun UnifiedReaderAppContent(
         // Leaving the reader is handled by the screen host below, with the predictive gesture.
         BackHandler(
             enabled = uiState.selectedKavitaSeriesKey != null ||
-                uiState.selectedStumpSeriesKey != null ||
-                uiState.isKavitaScopeActive,
+                uiState.selectedStumpSeriesKey != null,
             onBack = viewModel::onBackPressed,
         )
         // One toast state for the app: the shell, a book and every sheet show it where they are.

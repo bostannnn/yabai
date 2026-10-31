@@ -161,9 +161,14 @@ system first (`ListsScreen`, `AppListCover`, `AppMenu`, `AppChip`; Design System
 - **Stores**: one `RoomServerShelfStore` per server and kind (`ServerShelfClient.kind`,
   `ServerListDao.replaceKind`, `ServerListStores.forList/forKind/forNewList`), so a server's kinds refresh
   without wiping each other.
-- **The Kavita lists chip is gone** from the library home with its dialog and `LibraryReadingListScopeState`.
-  `AppKavitaReadingListController` (the old in-memory scope, and Read next for a list picked there) is
-  left in place with nothing selecting it any more: removing it is a follow-up.
+- **The Kavita lists chip is gone** from the library home with its dialog and `LibraryReadingListScopeState`,
+  and so is everything behind it: `AppKavitaReadingListController`, `AppKavitaReadingListState`
+  (`AppUiState.kavitaReadingLists`), `KavitaListScopeTop` and feature:library's `LibraryListScopeTop`, the
+  collection scope in `LibraryDerivedStateInput`, the picked list kept in the saved route (its old keys are
+  cleared on the next save, so an upgrade never lands in a list with no way out), Read next by a picked
+  Kavita list, and `KavitaApi`'s `getReadingLists`, `getReadingListItems`, `getCollections` and
+  `getCollectionSeries` with their DTOs and the core:model types `ReadingListSummary`, `ReadingListItemRef`,
+  `CollectionSummary`, `CollectionSeriesRef`. Lists reads Kavita through `KavitaApi.lists` only.
 
 Status: built in worktree `lists-design-improvements-37bfbc` (branch `claude/lists-design-improvements-37bfbc`,
 from main at 0.26.0). Tests: `ListRulesTest` (7), `ListsSectionsTest` (4), `SmartListsTest` (+2),

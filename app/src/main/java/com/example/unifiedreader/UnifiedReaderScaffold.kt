@@ -428,7 +428,7 @@ fun UnifiedReaderScaffold(
                                 onViewModeChanged = onLibraryViewModeChanged,
                                 onGridCellSizeDpChanged = viewModel::onLibraryGridCellSizeChanged,
                                 onFadeReadItemsChanged = viewModel::onLibraryFadeReadItemsChanged,
-                                showSortControl = !uiState.isSeriesBrowseActive && !uiState.isKavitaReadingListActive,
+                                showSortControl = !uiState.isSeriesBrowseActive,
                                 activeShelfBrowserKind = activeLibraryShelfBrowserKind,
                                 onActiveShelfBrowserKindChanged = { activeLibraryShelfBrowserKind = it },
                                 shelfSearchQuery = activeLibraryShelfSearchQuery,

@@ -19,8 +19,6 @@ data class AppActiveRouteSnapshot(
     val selectedSource: SourceType,
     val selectedKavitaSeriesKey: String? = null,
     val selectedStumpSeriesKey: String? = null,
-    val selectedKavitaReadingListId: String? = null,
-    val selectedKavitaCollectionId: String? = null,
     val readerItemId: String? = null,
     val readerFormat: FormatType? = null,
     val readerFallbackItem: ReadableItem? = null,
@@ -65,8 +63,6 @@ class SharedPreferencesAppActiveRouteStore @Inject constructor(
             selectedSource = selectedSource,
             selectedKavitaSeriesKey = preferences.getString(KEY_SELECTED_KAVITA_SERIES_KEY, null),
             selectedStumpSeriesKey = preferences.getString(KEY_SELECTED_STUMP_SERIES_KEY, null),
-            selectedKavitaReadingListId = preferences.getString(KEY_SELECTED_KAVITA_READING_LIST_ID, null),
-            selectedKavitaCollectionId = preferences.getString(KEY_SELECTED_KAVITA_COLLECTION_ID, null),
             readerItemId = preferences.getString(KEY_READER_ITEM_ID, null),
             readerFormat = readerFormat,
             readerFallbackItem = preferences.getString(KEY_READER_FALLBACK_ITEM, null).toReadableItemOrNull(),
@@ -83,8 +79,9 @@ class SharedPreferencesAppActiveRouteStore @Inject constructor(
         .remove(KEY_KAVITA_LIBRARY_SECTION)
         .putNullableString(KEY_SELECTED_KAVITA_SERIES_KEY, snapshot.selectedKavitaSeriesKey)
         .putNullableString(KEY_SELECTED_STUMP_SERIES_KEY, snapshot.selectedStumpSeriesKey)
-        .putNullableString(KEY_SELECTED_KAVITA_READING_LIST_ID, snapshot.selectedKavitaReadingListId)
-        .putNullableString(KEY_SELECTED_KAVITA_COLLECTION_ID, snapshot.selectedKavitaCollectionId)
+        // A Kavita list picked in the library was kept before lists moved to Lists; cleared with any save.
+        .remove(KEY_SELECTED_KAVITA_READING_LIST_ID)
+        .remove(KEY_SELECTED_KAVITA_COLLECTION_ID)
         .putNullableString(KEY_READER_ITEM_ID, snapshot.readerItemId)
         .putNullableString(KEY_READER_FORMAT, snapshot.readerFormat?.name)
         .putNullableString(KEY_READER_FALLBACK_ITEM, snapshot.readerFallbackItem?.toPersistedJson())

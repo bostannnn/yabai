@@ -18,28 +18,18 @@ internal fun AppUiState.toLibraryDerivedStateInput(): LibraryDerivedStateInput =
     downloadingRemoteItemIds = downloadingRemoteItemIds,
     selectedKavitaSeriesKey = selectedKavitaSeriesKey,
     selectedStumpSeriesKey = selectedStumpSeriesKey,
-    selectedKavitaCollectionId = kavitaReadingLists.selectedCollectionId,
-    selectedKavitaCollectionSeriesKeys = selectedKavitaCollectionSeriesKeys,
     // When the grid pages from Room AND there's no filter, skip the redundant in-memory sort for
     // `visibleItems` (M2). A filtered paged view still pages its grid from Room, but keeps `visibleItems`
     // as the filtered in-memory set (computed async) so its consumers stay correct.
     pagedGridActive = LibraryPagingFeature.isPageable(this) && selectedLibraryFilters.isEmpty,
-    orderedItemScope = selectedKavitaReadingListItemIds
-        .takeIf { isKavitaReadingListActive }
-        ?.let { itemIds ->
+    orderedItemScope = coldStartOrderedItemIdsBySource[selectedSource]
+        ?.takeIf { orderedItemIds -> !isSelectedSourceHydrated && orderedItemIds.isNotEmpty() }
+        ?.let { orderedItemIds ->
             LibraryOrderedItemScope(
-                key = kavitaReadingLists.selectedReadingListId.orEmpty(),
-                itemIds = itemIds,
+                key = "coldstart:${selectedSource.name}",
+                itemIds = orderedItemIds,
             )
-        }
-        ?: coldStartOrderedItemIdsBySource[selectedSource]
-            ?.takeIf { orderedItemIds -> !isSelectedSourceHydrated && orderedItemIds.isNotEmpty() }
-            ?.let { orderedItemIds ->
-                LibraryOrderedItemScope(
-                    key = "coldstart:${selectedSource.name}",
-                    itemIds = orderedItemIds,
-                )
-            },
+        },
 )
 
 /** Per-item ratings drawn from the journal — the rating badge source for both the in-memory recompute

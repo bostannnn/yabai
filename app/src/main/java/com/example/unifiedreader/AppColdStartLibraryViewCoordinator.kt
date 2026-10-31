@@ -106,7 +106,7 @@ private fun AppUiState.captureRequest(): CaptureRequest? {
     // TODO(paging): the paged branch reads its order from SQL, so it no longer needs the in-memory
     // catalog; drop this hydration gate for it once hydration is retired for paged sources (Phase 3).
     if (!isSelectedSourceHydrated) return null
-    if (isSeriesBrowseActive || isKavitaScopeActive) return null
+    if (isSeriesBrowseActive) return null
     return if (LibraryPagingFeature.isPageable(this)) {
         CaptureRequest.FromPagedRoots(
             source = selectedSource,

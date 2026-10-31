@@ -30,30 +30,11 @@ class LibraryScreenTransitionTest {
     }
 
     @Test
-    fun `a Kavita list opens one level below Kavita home`() {
-        val list = kavitaRoot.copy(
-            kavitaReadingLists = kavitaRoot.kavitaReadingLists.copy(selectedReadingListId = "list-1"),
-        )
-        val home = libraryScreenKey(kavitaRoot, shelvesOpen = false)
-        val listKey = libraryScreenKey(list, shelvesOpen = false)
-
-        assertEquals(listOf(0, 1), listOf(home.depth, listKey.depth))
-        assertEquals(AppScreenTransition.Forward, libraryScreenTransition(home, listKey))
-        assertEquals(AppScreenTransition.Backward, libraryScreenTransition(listKey, home))
-    }
-
-    @Test
     fun `switching between peers fades through`() {
-        val collections = libraryScreenKey(
-            kavitaRoot.copy(kavitaReadingLists = kavitaRoot.kavitaReadingLists.copy(selectedCollectionId = "kavita:collection:1")),
-            shelvesOpen = false,
-        )
-        val readingLists = libraryScreenKey(
-            kavitaRoot.copy(kavitaReadingLists = kavitaRoot.kavitaReadingLists.copy(selectedReadingListId = "list-1")),
-            shelvesOpen = false,
-        )
+        val oneSeries = libraryScreenKey(kavitaRoot.copy(selectedKavitaSeriesKey = "lib::1"), shelvesOpen = false)
+        val anotherSeries = libraryScreenKey(kavitaRoot.copy(selectedKavitaSeriesKey = "lib::2"), shelvesOpen = false)
 
-        assertEquals(AppScreenTransition.FadeThrough, libraryScreenTransition(collections, readingLists))
+        assertEquals(AppScreenTransition.FadeThrough, libraryScreenTransition(oneSeries, anotherSeries))
     }
 
     @Test
