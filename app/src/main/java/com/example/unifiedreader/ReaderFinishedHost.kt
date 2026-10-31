@@ -9,6 +9,7 @@ import com.example.unifiedreader.feature.journal.JournalFinishedNext
 import com.example.unifiedreader.feature.journal.JournalFinishedScreen
 import com.example.unifiedreader.feature.journal.rememberJournalReviewState
 import com.example.unifiedreader.feature.journal.shouldSaveJournalReview
+import com.example.unifiedreader.feature.library.libraryBookTitle
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.VisibleResolvedLibraryCover
 import com.example.unifiedreader.feature.library.animateCoverColors
@@ -91,6 +92,7 @@ internal fun ReaderFinishedHost(
                 reviewText = reviewState.reviewText,
             )
         },
+        backLabel = if (uiState.readerListContext?.itemIds?.contains(item.id) == true) "Back to the list" else "Back to library",
         onBackToLibrary = {
             saveReviewIfNeeded()
             // Leaving clears the completion too; the reader saves its place as it closes.
@@ -103,10 +105,18 @@ internal fun ReaderFinishedHost(
         next = nextItem?.let { next ->
             val series = next.libraryPrimaryText()
             val name = next.librarySecondaryText()
+            // Chosen by the list the book was opened from: say so, and where in it.
+            val list = uiState.readerListContext?.takeIf { context ->
+                item.id in context.itemIds && next.id in context.itemIds
+            }
             JournalFinishedNext(
                 item = next,
-                title = name ?: series,
-                label = if (name != null) "Up next in $series" else "Up next",
+                title = if (list != null) next.libraryBookTitle() else name ?: series,
+                label = when {
+                    list != null -> "${list.title} \u00b7 ${list.itemIds.indexOf(next.id) + 1} of ${list.itemIds.size}"
+                    name != null -> "Up next in $series"
+                    else -> "Up next"
+                },
                 onRead = {
                     saveReviewIfNeeded()
                     viewModel.startReaderCompletionNextItem()

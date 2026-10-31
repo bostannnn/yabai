@@ -42,6 +42,9 @@ sealed interface SourceNavigationDestination {
     data object Settings : SourceNavigationDestination
     data object Journal : SourceNavigationDestination
 
+    /** The user's lists and reading orders, from every source. */
+    data object Lists : SourceNavigationDestination
+
     /** "Add a server": the choices the first launch offers. */
     data object AddSource : SourceNavigationDestination
 }
@@ -119,6 +122,18 @@ fun SourceNavigationDrawer(
                         }
                     }
                     AppDivider(modifier = Modifier.padding(vertical = 12.dp))
+                    AppDrawerItem(
+                        label = { Text(text = "Lists") },
+                        selected = selectedDestination == SourceNavigationDestination.Lists,
+                        onClick = { onDestinationSelected(SourceNavigationDestination.Lists) },
+                        icon = {
+                            Icon(
+                                imageVector = AppIcons.Checklist,
+                                contentDescription = null,
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                     AppDrawerItem(
                         label = { Text(text = "Journal") },
                         selected = selectedDestination == SourceNavigationDestination.Journal,

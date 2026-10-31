@@ -40,6 +40,7 @@ include(
     ":feature:reader-epub",
     ":feature:downloads",
     ":feature:journal",
+    ":feature:lists",
     ":feature:library-shelves",
     ":feature:navigation",
     ":feature:settings",

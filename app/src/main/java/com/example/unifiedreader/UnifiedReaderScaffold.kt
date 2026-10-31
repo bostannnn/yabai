@@ -35,6 +35,7 @@ import com.example.unifiedreader.core.model.resolveLibraryFilterPanels
 import com.example.unifiedreader.data.repository.RemoteSyncArtifact
 import com.example.unifiedreader.feature.downloads.DownloadsSheet
 import com.example.unifiedreader.feature.journal.JournalScreen
+import com.example.unifiedreader.feature.lists.rememberListsRouteState
 import com.example.unifiedreader.feature.library.LibraryViewMode
 import com.example.unifiedreader.feature.library.libraryDownloadSelectableItems
 import com.example.unifiedreader.feature.library.rememberLibrarySelectionTip
@@ -95,6 +96,8 @@ fun UnifiedReaderScaffold(
     updateActions: AppUpdateActions = AppUpdateActions(),
     // "Add a server" and Connect on an empty library open the start flow.
     onStartSource: (SourceStartRequest) -> Unit = {},
+    // The user's lists; without it there is no Lists screen and no Add to list.
+    listsViewModel: AppListsViewModel? = null,
 ) {
     val themeColors = UnifiedReaderThemeTokens.colors
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -132,6 +135,10 @@ fun UnifiedReaderScaffold(
     // Whether anything has scrolled under the settings and journal bars (they then need their glass).
     var settingsScrolled by remember { mutableStateOf(false) }
     var journalScrolled by remember { mutableStateOf(false) }
+    val listsState = listsViewModel?.routeState ?: rememberListsRouteState()
+    // Add to list for a book's page (the page stays under the sheet) or for a selection.
+    var addToListItems by remember { mutableStateOf<List<ReadableItem>?>(null) }
+    var addToListFromBookPage by remember { mutableStateOf(false) }
     // The journal's "Open in library" and a finished download: the book's page, once its source
     // has loaded it.
     var pendingBookPageItemId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -290,6 +297,7 @@ fun UnifiedReaderScaffold(
         settingsBadge = waitingUpdateVersion,
         selectedDestination = when (uiState.topLevel) {
             TopLevelDestination.Library -> SourceNavigationDestination.Source(uiState.selectedSource)
+            TopLevelDestination.Lists -> SourceNavigationDestination.Lists
             TopLevelDestination.Journal -> SourceNavigationDestination.Journal
             TopLevelDestination.Settings -> SourceNavigationDestination.Settings
         },
@@ -300,6 +308,7 @@ fun UnifiedReaderScaffold(
             when (destination) {
                 is SourceNavigationDestination.Source -> viewModel.openLibrarySource(destination.sourceType)
                 SourceNavigationDestination.AddSource -> onStartSource(SourceStartRequest(SourceStartMode.AddSource))
+                SourceNavigationDestination.Lists -> viewModel.onTopLevelSelected(TopLevelDestination.Lists)
                 SourceNavigationDestination.Journal -> viewModel.onTopLevelSelected(TopLevelDestination.Journal)
                 SourceNavigationDestination.Settings -> {
                     // Picking Settings in the drawer always lands on the hub, even if a page was open.
@@ -404,11 +413,28 @@ fun UnifiedReaderScaffold(
                                 shelfSearchQuery = activeLibraryShelfSearchQuery,
                                 onShelfSearchQueryChanged = { query -> activeLibraryShelfSearchQuery = query },
                                 shelfBrowserViewState = libraryShelfBrowserViewState,
+                                onAddToList = listsViewModel?.let {
+                                    { item ->
+                                        addToListFromBookPage = true
+                                        addToListItems = listOf(item)
+                                    }
+                                },
                                 bookPageRequest = pendingBookPageItemId,
                                 onBookPageRequestHandled = { pendingBookPageItemId = null },
                                 contentTopInset = AppTopBarDefaults.contentInset,
                                 modifier = Modifier.fillMaxSize(),
                             )
+
+                            TopLevelDestination.Lists -> if (listsViewModel != null) {
+                                ListsRoute(
+                                    state = listsState,
+                                    uiState = uiState,
+                                    viewModel = viewModel,
+                                    listsViewModel = listsViewModel,
+                                    contentTopInset = AppTopBarDefaults.contentInset,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            }
 
                             TopLevelDestination.Journal -> {
                                 // The heavy full journal snapshot (stats/timelines/catalog join) is
@@ -505,6 +531,17 @@ fun UnifiedReaderScaffold(
                                     onDownloadSelectionModeChanged = ::updateLibraryDownloadSelectionMode,
                                     onSelectAllDownloadItems = ::selectAllLibraryDownloadItems,
                                     onDownloadSelectedItems = ::downloadSelectedLibraryItems,
+                                    onAddSelectedToList = listsViewModel?.let {
+                                        {
+                                            val selectedItems = effectiveSelectableDownloadItems
+                                                .filter { item -> item.id in selectedDownloadItemIdSet }
+                                            if (selectedItems.isNotEmpty()) {
+                                                addToListFromBookPage = false
+                                                addToListItems = selectedItems
+                                                updateLibraryDownloadSelectionMode(false)
+                                            }
+                                        }
+                                    },
                                     onImportLocalFileClick = onImportLocalFileClick,
                                     onLeaveSeries = viewModel::onBackPressed,
                                     showSelectionTip = librarySelectionTip.shouldShow,
@@ -513,6 +550,14 @@ fun UnifiedReaderScaffold(
                                         ?: viewModel.libraryScrollPositionFor(uiState.libraryBrowseContextKey).let { position ->
                                             position.index > 0 || position.offset > 0
                                         },
+                                )
+                            }
+
+                            TopLevelDestination.Lists -> if (listsViewModel != null) {
+                                ListsTopBar(
+                                    state = listsState,
+                                    listsViewModel = listsViewModel,
+                                    onDrawerClick = openDrawer,
                                 )
                             }
 
@@ -533,6 +578,19 @@ fun UnifiedReaderScaffold(
                             )
                         }
                     }
+                }
+                val addToList = addToListItems
+                if (addToList != null && listsViewModel != null) {
+                    AddToListHost(
+                        items = addToList,
+                        listsViewModel = listsViewModel,
+                        onDismiss = { addToListItems = null },
+                        onBack = if (addToListFromBookPage) {
+                            { addToListItems = null }
+                        } else {
+                            null
+                        },
+                    )
                 }
                 if (viewModel.isDownloadsSheetVisible) {
                     DownloadsSheet(

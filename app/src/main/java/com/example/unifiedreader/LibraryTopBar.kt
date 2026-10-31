@@ -60,6 +60,7 @@ fun LibraryTopBar(
     onDownloadSelectionModeChanged: (Boolean) -> Unit = {},
     onSelectAllDownloadItems: () -> Unit = {},
     onDownloadSelectedItems: () -> Unit = {},
+    onAddSelectedToList: (() -> Unit)? = null,
     onImportLocalFileClick: () -> Unit,
     onLeaveSeries: () -> Unit,
     // Whether the grid has scrolled under the bar.
@@ -85,6 +86,7 @@ fun LibraryTopBar(
                 onClose = { onDownloadSelectionModeChanged(false) },
                 onSelectAll = onSelectAllDownloadItems,
                 onDownload = onDownloadSelectedItems,
+                onAddToList = onAddSelectedToList,
                 modifier = Modifier.fillMaxWidth(),
             )
             return@ThemedTopBarContainer

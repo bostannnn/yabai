@@ -101,6 +101,8 @@ internal fun LibraryRoute(
     onShelfSearchQueryChanged: (String) -> Unit = {},
     shelfBrowserViewState: LibraryShelfBrowserViewState? = null,
     // A book page asked for from elsewhere (the journal), opened once the book is in this library.
+    // The book page's Add to list; null where there are no lists.
+    onAddToList: ((ReadableItem) -> Unit)? = null,
     bookPageRequest: String? = null,
     onBookPageRequestHandled: () -> Unit = {},
     contentTopInset: Dp = 0.dp,
@@ -134,6 +136,7 @@ internal fun LibraryRoute(
         onDeleteDownloadedItem = onDeleteRemoteLocalFile,
         onSetReadStatus = onSetReadStatus,
         onOpenItemPage = { item -> bookPageStack = listOf(item.id) },
+        onAddToList = onAddToList,
     )
     // One screen for See all whichever shelf it shows: its tabs switch in place.
     val screen = libraryScreenKey(uiState, shelvesOpen = activeShelfBrowserKind != null)

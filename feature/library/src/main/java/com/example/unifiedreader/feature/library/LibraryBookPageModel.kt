@@ -45,6 +45,26 @@ internal data class LibraryBookPageText(
 internal val ReadableItem.isSeriesContainer: Boolean
     get() = isKavitaSeriesContainer() || isStumpSeriesContainer()
 
+/**
+ * A book's own title, as its page and a list's rows show it: a book's title; an issue's own title,
+ * else "Neon Ronin #2"; a Kavita volume reads as its series.
+ */
+fun ReadableItem.libraryBookTitle(): String {
+    val comic = comicMetadata
+    val series = facetMetadata().series.firstOrNull()
+    val issueNumber = comic?.issueNumber?.trim()?.takeIf(String::isNotEmpty)
+    val volumeNumber = comic?.volumeNumber()
+    val issueTitle = comic?.ownIssueTitle()
+        ?.takeUnless { title -> title.equals(series, ignoreCase = true) }
+    return when {
+        kind != ReadableItemKind.COMIC || isSeriesContainer -> title
+        issueTitle != null -> issueTitle
+        series != null && volumeNumber != null -> series
+        series != null && issueNumber != null -> "$series #$issueNumber"
+        else -> libraryDisplayLabel()
+    }
+}
+
 internal fun libraryBookPageText(
     item: ReadableItem,
     progress: ItemProgressSummary?,
@@ -62,13 +82,7 @@ internal fun libraryBookPageText(
     val volumeNumber = comic?.volumeNumber()
     val issueTitle = comic?.ownIssueTitle()
         ?.takeUnless { title -> title.equals(series, ignoreCase = true) }
-    val title = when {
-        item.kind != ReadableItemKind.COMIC || item.isSeriesContainer -> item.title
-        issueTitle != null -> issueTitle
-        series != null && volumeNumber != null -> series
-        series != null && issueNumber != null -> "$series #$issueNumber"
-        else -> item.libraryDisplayLabel()
-    }
+    val title = item.libraryBookTitle()
     val seriesLine = when {
         item.isSeriesContainer -> item.issueCount?.let { count -> if (count == 1) "1 issue" else "$count issues" }
         series == null -> null

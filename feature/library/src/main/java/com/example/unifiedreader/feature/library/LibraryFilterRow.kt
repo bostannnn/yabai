@@ -35,6 +35,7 @@ import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.ui.components.AppBadge
 import com.example.unifiedreader.ui.components.AppChip
+import com.example.unifiedreader.ui.components.AppSectionHeading
 import com.example.unifiedreader.ui.components.AppChipDefaults
 import com.example.unifiedreader.ui.components.AppIcons
 
@@ -80,7 +81,7 @@ internal fun LibraryFilterRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (heading != null) {
-            LibraryGridHeadingText(heading = heading, modifier = Modifier.padding(end = 12.dp))
+            AppSectionHeading(text = heading.title, count = heading.count, modifier = Modifier.padding(end = 12.dp))
         }
         Box(
             modifier = Modifier.weight(1f),
@@ -135,40 +136,6 @@ internal fun LibraryFilterRow(
 }
 
 /** "All books" and, beside it in the secondary colour, "1,474"; 18 sp on phones, 20 elsewhere. */
-@Composable
-private fun LibraryGridHeadingText(
-    heading: LibraryGridHeading,
-    modifier: Modifier = Modifier,
-) {
-    val compact = isLibraryCompactWindow()
-    Row(
-        modifier = modifier.semantics(mergeDescendants = true) { heading() },
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = heading.title,
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontSize = if (compact) 18.sp else 20.sp,
-                lineHeight = if (compact) 24.sp else 26.sp,
-                fontWeight = FontWeight.Bold,
-            ),
-            maxLines = 1,
-        )
-        heading.count?.let { count ->
-            Text(
-                text = count,
-                style = MaterialTheme.typography.labelLarge.copy(
-                    fontSize = if (compact) 14.sp else 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                ),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-            )
-        }
-    }
-}
-
 /** "Filters", with a 20 dp accent badge counting the applied values. */
 @Composable
 private fun LibraryFiltersChip(

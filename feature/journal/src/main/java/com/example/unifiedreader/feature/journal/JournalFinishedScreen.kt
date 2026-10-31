@@ -94,6 +94,8 @@ fun JournalFinishedScreen(
     coverContent: @Composable (ReadableItem, Modifier) -> Unit,
     onRatingSelected: (Int?) -> Unit,
     onBackToLibrary: () -> Unit,
+    // "Back to the list" when the book was opened from one.
+    backLabel: String = "Back to library",
     onDismiss: () -> Unit,
     next: JournalFinishedNext? = null,
 ) {
@@ -107,6 +109,7 @@ fun JournalFinishedScreen(
             coverContent = coverContent,
             onRatingSelected = onRatingSelected,
             onBackToLibrary = onBackToLibrary,
+            backLabel = backLabel,
             onDismiss = onDismiss,
             next = next,
             phone = phone,
@@ -154,6 +157,8 @@ private fun JournalFinishedContent(
     coverContent: @Composable (ReadableItem, Modifier) -> Unit,
     onRatingSelected: (Int?) -> Unit,
     onBackToLibrary: () -> Unit,
+    // "Back to the list" when the book was opened from one.
+    backLabel: String = "Back to library",
     onDismiss: () -> Unit,
     next: JournalFinishedNext?,
     phone: Boolean,
@@ -213,6 +218,7 @@ private fun JournalFinishedContent(
                         next = next,
                         phone = phone,
                         onBackToLibrary = onBackToLibrary,
+                        backLabel = backLabel,
                     )
                 }
                 if (!phone) {
@@ -417,6 +423,8 @@ private fun JournalFinishedActions(
     next: JournalFinishedNext?,
     phone: Boolean,
     onBackToLibrary: () -> Unit,
+    // "Back to the list" when the book was opened from one.
+    backLabel: String = "Back to library",
 ) {
     val backColors = if (next != null) {
         AppButtonDefaults.filledColors(containerColor = tonal, contentColor = colors.content)
@@ -435,7 +443,7 @@ private fun JournalFinishedActions(
                 .height(AppDialogCardDefaults.buttonHeight)
                 .then(if (phone) Modifier.weight(1f) else Modifier),
         ) {
-            Text(text = "Back to library", style = AppDialogCardDefaults.buttonTextStyle)
+            Text(text = backLabel, style = AppDialogCardDefaults.buttonTextStyle)
         }
         if (phone && next != null) {
             JournalFinishedReadNext(colors = colors, onClick = next.onRead, modifier = Modifier.weight(1f))

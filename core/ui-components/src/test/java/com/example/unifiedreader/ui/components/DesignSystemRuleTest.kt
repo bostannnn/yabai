@@ -128,9 +128,10 @@ class DesignSystemRuleTest {
 
         val AppScreenTitleCall = Regex("""\bAppScreenTitle\(""")
 
-        /** The series and Kavita list header, and first launch's questions. */
+        /** The series and Kavita list header, a list's name on its page, and first launch's questions. */
         val AppScreenTitleAllowed = listOf(
             "feature/library/LibraryHeader.kt",
+            "feature/lists/UserListPage.kt",
             "feature/settings/SourceStartFlow.kt",
         )
 

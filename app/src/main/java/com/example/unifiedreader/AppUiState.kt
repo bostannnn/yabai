@@ -54,6 +54,7 @@ internal data class AppCatalogSnapshot(
 
 enum class TopLevelDestination {
     Library,
+    Lists,
     Journal,
     Settings,
 }
@@ -61,6 +62,16 @@ enum class TopLevelDestination {
 data class AppReaderCompletionState(
     val itemId: String,
     val nextItemId: String?,
+)
+
+/**
+ * The list a book was opened from, in [itemIds]' order: while it holds the open book, Read next
+ * follows the list instead of the series. Opening a book from anywhere else clears it.
+ */
+data class AppReaderListContext(
+    val listId: String,
+    val title: String,
+    val itemIds: List<String>,
 )
 
 data class AppKavitaReadingListState(
@@ -133,6 +144,7 @@ data class AppUiState(
     val pendingRemoteSyncSummary: AppPendingRemoteSyncSummary = AppPendingRemoteSyncSummary(),
     val sourceConnectivityBySource: Map<SourceType, SourceConnectivityState> = emptyMap(),
     val readerCompletionState: AppReaderCompletionState? = null,
+    val readerListContext: AppReaderListContext? = null,
 ) {
     val selectedLibraryFilters: LibraryFilterState
         get() = libraryFiltersBySource[selectedSource] ?: LibraryFilterState()

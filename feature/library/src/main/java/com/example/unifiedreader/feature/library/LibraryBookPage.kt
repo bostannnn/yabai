@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalLayoutApi::class)
+
 package com.example.unifiedreader.feature.library
 
 import androidx.compose.foundation.clickable
@@ -348,7 +350,11 @@ private fun LibraryBookPageTop(
                 val actions = bookPageActions(item, progress, actionContext)
                 if (actions.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(10.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    // Three pills (Mark finished, Download, Add to list) can be wider than the sheet.
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
                         actions.forEach { action -> LibraryBookPageTonalAction(action, tint) }
                     }
                 }
@@ -398,7 +404,7 @@ private class BookPageAction(
     val onClick: () -> Unit,
 )
 
-/** Mark finished or unread, and Download; removing a file is the row at the page's end. */
+/** Mark finished or unread, Download, and Add to list; removing a file is the row at the page's end. */
 @Composable
 private fun bookPageActions(
     item: ReadableItem,
@@ -422,7 +428,10 @@ private fun bookPageActions(
             LibraryBookFileAction.RemoveDownload -> null
         }
     }
-    return listOfNotNull(read) + files
+    val addToList = actionContext.onAddToList?.let { onAddToList ->
+        BookPageAction(label = "Add to list", icon = AppIcons.Checklist) { onAddToList(item) }
+    }
+    return listOfNotNull(read) + files + listOfNotNull(addToList)
 }
 
 /**

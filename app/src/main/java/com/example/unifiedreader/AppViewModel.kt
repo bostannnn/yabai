@@ -283,6 +283,12 @@ class AppViewModel @Inject constructor(
     }
 
     fun onItemSelected(item: ReadableItem) {
+        onListItemSelected(item, listContext = null)
+    }
+
+    /** A book opened from a list: with a [listContext], Read next follows the list instead of the series. */
+    fun onListItemSelected(item: ReadableItem, listContext: AppReaderListContext?) {
+        updateUiState { state -> state.copy(readerListContext = listContext) }
         readerCoordinator.onItemSelected(
             item = item,
             updateState = ::updateUiState,

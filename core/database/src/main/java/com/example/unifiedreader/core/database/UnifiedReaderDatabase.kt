@@ -13,6 +13,7 @@ import com.example.unifiedreader.core.database.dao.JournalDao
 import com.example.unifiedreader.core.database.dao.ReadingProgressDao
 import com.example.unifiedreader.core.database.dao.ReaderSessionStateDao
 import com.example.unifiedreader.core.database.dao.RemoteCatalogDao
+import com.example.unifiedreader.core.database.dao.UserListDao
 import com.example.unifiedreader.core.database.entity.DownloadQueueEntryEntity
 import com.example.unifiedreader.core.database.entity.ImportedComicArchiveEntity
 import com.example.unifiedreader.core.database.entity.ItemDetailsEntity
@@ -28,6 +29,8 @@ import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEnti
 import com.example.unifiedreader.core.database.entity.RemoteLibraryCacheEntity
 import com.example.unifiedreader.core.database.entity.ReaderSessionStateEntity
 import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
+import com.example.unifiedreader.core.database.entity.UserListEntity
+import com.example.unifiedreader.core.database.entity.UserListEntryEntity
 
 @Database(
     entities = [
@@ -46,8 +49,10 @@ import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
         LibraryRootFacetEntity::class,
         LibraryRootMemberEntity::class,
         ItemDetailsEntity::class,
+        UserListEntity::class,
+        UserListEntryEntity::class,
     ],
-    version = 30,
+    version = 31,
     exportSchema = false,
 )
 abstract class UnifiedReaderDatabase : RoomDatabase() {
@@ -58,6 +63,7 @@ abstract class UnifiedReaderDatabase : RoomDatabase() {
     abstract fun readingProgressDao(): ReadingProgressDao
     abstract fun readerSessionStateDao(): ReaderSessionStateDao
     abstract fun remoteCatalogDao(): RemoteCatalogDao
+    abstract fun userListDao(): UserListDao
 }
 
 object UnifiedReaderDatabaseMigrations {
@@ -982,6 +988,7 @@ object UnifiedReaderDatabaseFactory {
             UnifiedReaderDatabaseMigrations.MIGRATION_27_28,
             UnifiedReaderDatabaseMigrations.MIGRATION_28_29,
             MIGRATION_29_30,
+            MIGRATION_30_31,
         )
         .build()
 }

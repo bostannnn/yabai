@@ -391,11 +391,11 @@ class AppReaderCoordinator @Inject constructor(
         refreshProgress()
         val state = stateProvider()
         val currentItem = state.selectedItem ?: return
-        val orderedItemIds = state.selectedKavitaReadingListItemIds
+        val orderedItemIds = state.readerCompletionOrder(currentItem.id)
         scope.launch {
             val nextItem = nextItemResolver.nextUnreadAfter(
                 currentItem = currentItem,
-                items = nextItemCandidates(currentItem, orderedItemIds),
+                items = nextItemCandidates(currentItem, orderedItemIds, fallbackItems = state.items),
                 orderedItemIds = orderedItemIds,
             ) ?: return@launch
             onItemSelected(
@@ -419,11 +419,11 @@ class AppReaderCoordinator @Inject constructor(
         val state = stateProvider()
         if (state.readerCompletionState != null) return
         val currentItem = state.selectedItem ?: return
-        val orderedItemIds = state.selectedKavitaReadingListItemIds
+        val orderedItemIds = state.readerCompletionOrder(currentItem.id)
         scope.launch {
             val nextItem = nextItemResolver.nextUnreadAfter(
                 currentItem = currentItem,
-                items = nextItemCandidates(currentItem, orderedItemIds),
+                items = nextItemCandidates(currentItem, orderedItemIds, fallbackItems = state.items),
                 orderedItemIds = orderedItemIds,
             )
             updateState {
@@ -442,15 +442,17 @@ class AppReaderCoordinator @Inject constructor(
     }
 
     /**
-     * The bounded set of items the next-item resolver needs: the reading list's items when a Kavita
-     * reading list is active, otherwise the current item's series issues. Resolved from SQL so this
-     * no longer scans the whole in-memory catalog on the main thread.
+     * The bounded set of items the next-item resolver needs: the list's items when the book came
+     * from a list (one of the user's, or a Kavita reading list), otherwise the current item's series
+     * issues. Resolved from SQL; imported files are not in the catalog tables, so a list's local
+     * files come from [fallbackItems].
      */
     private suspend fun nextItemCandidates(
         currentItem: ReadableItem,
         orderedItemIds: List<String>,
+        fallbackItems: List<ReadableItem>,
     ): List<ReadableItem> = if (orderedItemIds.isNotEmpty()) {
-        readableItemLookup.getItemsByIds(orderedItemIds)
+        listCompletionCandidates(readableItemLookup.getItemsByIds(orderedItemIds), fallbackItems, orderedItemIds)
     } else {
         readableItemLookup.getSeriesMemberItems(currentItem)
     }
@@ -471,7 +473,9 @@ class AppReaderCoordinator @Inject constructor(
         val state = stateProvider()
         val nextItemId = state.readerCompletionState?.nextItemId ?: return
         scope.launch {
-            val nextItem = readableItemLookup.getItemById(nextItemId) ?: return@launch
+            val nextItem = readableItemLookup.getItemById(nextItemId)
+                ?: state.items.firstOrNull { item -> item.id == nextItemId }
+                ?: return@launch
             updateState { it.copy(readerCompletionState = null) }
             onItemSelected(
                 item = nextItem,

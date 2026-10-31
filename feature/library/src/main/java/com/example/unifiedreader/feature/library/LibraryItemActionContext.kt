@@ -19,6 +19,8 @@ data class LibraryItemActionContext(
     val onSetReadStatus: (ReadableItem, Boolean) -> Unit = { _, _ -> },
     // The "•••" under a cover and the reading card's Details open the item's book page.
     val onOpenItemPage: (ReadableItem) -> Unit = {},
+    // The book page's Add to list; null where lists aren't offered.
+    val onAddToList: ((ReadableItem) -> Unit)? = null,
 )
 
 fun LibraryItemActionContext.isDownloaded(

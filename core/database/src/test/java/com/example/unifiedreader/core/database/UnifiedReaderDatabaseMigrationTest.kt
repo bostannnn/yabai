@@ -229,6 +229,47 @@ class UnifiedReaderDatabaseMigrationTest {
     }
 
     @Test
+    fun `migration 30 to 31 creates the user lists tables and keeps the catalog`() {
+        createTestDatabase(
+            name = "migration-30-31-${System.nanoTime()}",
+            version = 31,
+        ) { database ->
+            createVersion27Schema(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_27_28.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_28_29.migrate(database)
+            MIGRATION_29_30.migrate(database)
+            database.execSQL(
+                "INSERT INTO readable_items (id, sourceType, libraryId, isLocalImport, title, format, kind, " +
+                    "updatedAtEpochMillis) VALUES ('kavita:item:7', 'KAVITA', 'libA', 0, 'Issue 7', 'CBZ', 'COMIC', 1)",
+            )
+        }.use { database ->
+            MIGRATION_30_31.migrate(database)
+
+            assertTrue(tableExists(database, "user_lists"))
+            assertTrue(tableExists(database, "user_list_entries"))
+            assertTrue(indexExists(database, "index_user_list_entries_itemId"))
+            database.execSQL(
+                "INSERT INTO user_lists (id, name, description, kind, orderMode, hideFinished, createdAtEpochMillis, " +
+                    "updatedAtEpochMillis, lastOpenedAtEpochMillis) VALUES ('list:a', 'The Long Eclipse', NULL, 'USER', " +
+                    "'CUSTOM', 0, 1, 1, 0)",
+            )
+            database.execSQL(
+                "INSERT INTO user_list_entries (listId, itemId, position, addedAtEpochMillis, sourceType, libraryId, " +
+                    "itemTitle, itemPrimaryText, itemSecondaryText, coverUrl, itemKind, format) VALUES ('list:a', " +
+                    "'kavita:item:7', 0, 2, 'KAVITA', 'libA', 'Issue 7', NULL, NULL, NULL, 'COMIC', 'CBZ')",
+            )
+            database.query("SELECT COUNT(*) FROM user_list_entries WHERE listId = 'list:a'").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals(1, cursor.getInt(0))
+            }
+            database.query("SELECT title FROM readable_items WHERE id = 'kavita:item:7'").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals("Issue 7", cursor.getString(0))
+            }
+        }
+    }
+
+    @Test
     fun `room migrates 4 to 5 and validates reader session state schema`() {
         val databaseName = "migration-4-5-${System.nanoTime()}"
         createTestDatabase(
@@ -1354,6 +1395,7 @@ private fun openRoomDatabase(
         UnifiedReaderDatabaseMigrations.MIGRATION_27_28,
         UnifiedReaderDatabaseMigrations.MIGRATION_28_29,
         MIGRATION_29_30,
+        MIGRATION_30_31,
     )
     .build()
 

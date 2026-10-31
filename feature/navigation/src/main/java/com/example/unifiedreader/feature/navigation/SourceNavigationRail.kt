@@ -22,7 +22,7 @@ fun sourceNavigationUsesRail(): Boolean =
 
 /**
  * The drawer's destinations as a rail: the sources in the drawer order (the connected servers
- * and Local), "Add" while a server is not connected, then Journal and Settings at the bottom.
+ * and Local), "Add" while a server is not connected, then Lists, Journal and Settings at the bottom.
  */
 @Composable
 fun SourceNavigationRail(
@@ -38,6 +38,12 @@ fun SourceNavigationRail(
     AppNavigationRail(
         modifier = modifier,
         footer = {
+            AppNavigationRailItem(
+                label = "Lists",
+                icon = AppIcons.Checklist,
+                selected = selectedDestination == SourceNavigationDestination.Lists,
+                onClick = { onDestinationSelected(SourceNavigationDestination.Lists) },
+            )
             AppNavigationRailItem(
                 label = "Journal",
                 icon = AppIcons.History,

@@ -53,6 +53,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 fun UnifiedReaderRoute() {
     val viewModel: AppViewModel = hiltViewModel()
     val updates: AppUpdatesViewModel = hiltViewModel()
+    val lists: AppListsViewModel = hiltViewModel()
     val context = LocalContext.current
     val localFileImportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
@@ -74,6 +75,7 @@ fun UnifiedReaderRoute() {
             )
         },
         updateController = updates.controller,
+        listsViewModel = lists,
     )
 }
 
@@ -82,6 +84,7 @@ fun UnifiedReaderAppContent(
     viewModel: AppViewModel,
     onImportLocalFileClick: () -> Unit,
     updateController: AppUpdateController? = null,
+    listsViewModel: AppListsViewModel? = null,
 ) {
     val uiState = viewModel.uiState
     val updateStateFlow = remember(updateController) {
@@ -204,6 +207,7 @@ fun UnifiedReaderAppContent(
                                     updateState = updateState,
                                     updateActions = updateActions,
                                     onStartSource = { request -> sourceStartRequest = request },
+                                    listsViewModel = listsViewModel,
                                 )
                             }
                         }
