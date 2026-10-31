@@ -174,7 +174,10 @@ Status: built in worktree `lists-design-improvements-37bfbc` (branch `claude/lis
 from main at 0.26.0). Tests: `ListRulesTest` (7), `ListsSectionsTest` (4), `SmartListsTest` (+2),
 `RuledServerListStoreTest` (2), the 34→35 migration, `GrimmoryMagicShelvesApiTest` (8),
 `GrimmoryMagicShelfRulesTest` (9), `KavitaCollectionsApiTest` (8). Never tried against the real Grimmory
-or Kavita.
+or Kavita. Main's tag sorting (384b3fc8, Room v34) was merged in (de65a77d): the lists migration is now 34 to 35, and
+the Tag rule groups tags under Set in, When and About by where you sorted them (unsorted ones are About).
+The shared emulator still holds this branch's earlier debug build at the old numbering (its v34 has the
+lists column but not the tag tables), so a newer build opens there only after the app's data is cleared.
 
 ## Ownership
 
