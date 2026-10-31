@@ -169,6 +169,10 @@ interface GrimmoryApi {
         bookType: String? = null,
     ): Unit = error("Downloading Grimmory book content is not implemented.")
 
+    /** Grimmory's plain shelves, at the same server and session. */
+    val shelves: GrimmoryShelvesApi
+        get() = error("Grimmory shelves are not implemented.")
+
     suspend fun downloadBookCover(
         accessToken: String,
         bookId: String,
@@ -239,6 +243,8 @@ class KtorGrimmoryApi(
     baseUrl: String,
 ) : GrimmoryApi {
     private val normalizedBaseUrl = baseUrl.trimEnd('/')
+
+    override val shelves: GrimmoryShelvesApi = KtorGrimmoryShelvesApi(httpClient, normalizedBaseUrl)
 
     override suspend fun login(
         username: String,
@@ -714,7 +720,7 @@ private fun String.toGrimmoryErrorMessage(
     takeIf(String::isNotBlank) ?: statusDescription
 }
 
-private suspend fun <T> authenticatedRequest(
+internal suspend fun <T> authenticatedRequest(
     block: suspend () -> T,
 ): T = try {
     block()
@@ -725,7 +731,7 @@ private suspend fun <T> authenticatedRequest(
     throw exception
 }
 
-private suspend fun HttpResponse.throwIfGrimmoryError() {
+internal suspend fun HttpResponse.throwIfGrimmoryError() {
     if (status == HttpStatusCode.Unauthorized) {
         throw GrimmoryUnauthorizedException()
     }

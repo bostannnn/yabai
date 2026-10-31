@@ -42,6 +42,7 @@ import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadingListSummary
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.feature.library.ItemProgressSummary
 import com.example.unifiedreader.feature.library.libraryBookTitle
 import com.example.unifiedreader.ui.components.AppButton
@@ -61,14 +62,16 @@ typealias ListCover = @Composable (item: ReadableItem, modifier: Modifier) -> Un
 
 /**
  * Every list in one place: the reading order under way as a card, Your lists (Want to read,
- * Stalled, then the user's), then Kavita's reading lists. [lists] come in the screen's order
- * ([orderedForScreen]); [searchQuery] narrows them by name or by a book in them.
+ * Stalled, then the user's), then Kavita's reading lists, then a server's shelves ([shelves], by
+ * name). [lists] come in the screen's order ([orderedForScreen]); [searchQuery] narrows them all
+ * by name or by a book in them.
  */
 @Composable
 fun ListsScreen(
     lists: List<UserList>,
     underWay: UserListUnderWay?,
     kavitaLists: List<ReadingListSummary>,
+    shelves: List<UserList>,
     itemsById: Map<String, ReadableItem>,
     progressByItemId: Map<String, ItemProgressSummary>,
     searchQuery: String,
@@ -87,6 +90,9 @@ fun ListsScreen(
     }
     val shownKavitaLists = remember(kavitaLists, query) {
         if (query.isEmpty()) kavitaLists else kavitaLists.filter { it.title.contains(query, ignoreCase = true) }
+    }
+    val shownShelves = remember(shelves, query) {
+        if (query.isEmpty()) shelves else shelves.filter { shelf -> shelf.matches(query) }
     }
     val gridState = rememberLazyGridState()
     val scrolled by remember {
@@ -124,16 +130,7 @@ fun ListsScreen(
             AppSectionHeading(text = "Your lists", count = shownLists.size.toString())
         }
         items(shownLists, key = { list -> "list:${list.id}" }) { list ->
-            UserListTile(
-                name = list.name,
-                caption = list.tileCaption(progressByItemId),
-                coverItems = list.sortedEntries().take(4).map { entry ->
-                    itemsById[entry.itemId] ?: entry.asReadableItem()
-                },
-                updatesItself = list.kind == UserListKind.Stalled,
-                cover = cover,
-                onClick = { onOpenList(list) },
-            )
+            UserListTile(list = list, itemsById = itemsById, progressByItemId = progressByItemId, cover = cover, onClick = { onOpenList(list) })
         }
         if (shownKavitaLists.isNotEmpty()) {
             item(key = "heading:kavita", span = { GridItemSpan(maxLineSpan) }) {
@@ -147,7 +144,20 @@ fun ListsScreen(
                 KavitaListTile(summary = summary, cover = cover, onClick = { onOpenKavitaList(summary) })
             }
         }
-        if (query.isNotEmpty() && shownLists.isEmpty() && shownKavitaLists.isEmpty()) {
+        val shelfSource = shownShelves.firstOrNull()?.server?.sourceType
+        if (shelfSource != null) {
+            item(key = "heading:shelves", span = { GridItemSpan(maxLineSpan) }) {
+                AppSectionHeading(
+                    text = "${shelfSource.displayName()} shelves",
+                    count = shownShelves.size.toString(),
+                    modifier = Modifier.padding(top = sectionTop),
+                )
+            }
+            items(shownShelves, key = { shelf -> "shelf:${shelf.id}" }) { shelf ->
+                UserListTile(list = shelf, itemsById = itemsById, progressByItemId = progressByItemId, cover = cover, onClick = { onOpenList(shelf) })
+            }
+        }
+        if (query.isNotEmpty() && shownLists.isEmpty() && shownKavitaLists.isEmpty() && shownShelves.isEmpty()) {
             item(key = "no-match", span = { GridItemSpan(maxLineSpan) }) {
                 Text(
                     text = "No list or book in a list matches “$query”.",
@@ -223,17 +233,17 @@ private fun ListUnderWayCard(
 
 @Composable
 private fun UserListTile(
-    name: String,
-    caption: String,
-    coverItems: List<ReadableItem>,
-    updatesItself: Boolean,
+    list: UserList,
+    itemsById: Map<String, ReadableItem>,
+    progressByItemId: Map<String, ItemProgressSummary>,
     cover: ListCover,
     onClick: () -> Unit,
 ) {
-    ListTileFrame(name = name, caption = caption, onClick = onClick) {
+    val coverItems = list.sortedEntries().take(4).map { entry -> itemsById[entry.itemId] ?: entry.asReadableItem() }
+    ListTileFrame(name = list.name, caption = list.tileCaption(progressByItemId), onClick = onClick) {
         Box {
             AppListCover(count = coverItems.size) { index, cellModifier -> cover(coverItems[index], cellModifier) }
-            if (updatesItself) {
+            if (list.kind == UserListKind.Stalled) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)

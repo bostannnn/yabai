@@ -56,6 +56,9 @@ import com.example.unifiedreader.ui.components.rememberAppReorderState
  * The list page in edit mode: name, description, the order, and the books to drag, move with a
  * row's menu (so it works without dragging and with TalkBack) or remove. Nothing is saved until
  * the bar's Done; moving a book switches the list to Your order.
+ *
+ * A server's shelf ([serverName] is its server) has no description and no order of its own: its
+ * editor renames it, sets the order kept here and removes books, all saved on the server with Done.
  */
 @Composable
 fun UserListEditor(
@@ -68,7 +71,10 @@ fun UserListEditor(
     onDelete: () -> Unit,
     contentTopInset: Dp,
     modifier: Modifier = Modifier,
+    orders: List<UserListOrder> = UserListOrder.entries,
+    serverName: String? = null,
 ) {
+    val isShelf = serverName != null
     // The rows render from the draft held in the route's state; a drag that reports several moves
     // in one frame reads the latest draft through [currentDraft].
     var currentDraft by remember(draft.listId) { mutableStateOf(draft) }
@@ -96,14 +102,16 @@ fun UserListEditor(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
-            AppTextField(
-                value = draft.description,
-                onValueChange = { description -> update { it.copy(description = description) } },
-                label = { Text("Description") },
-                modifier = Modifier.fillMaxWidth(),
-            )
+            if (!isShelf) {
+                AppTextField(
+                    value = draft.description,
+                    onValueChange = { description -> update { it.copy(description = description) } },
+                    label = { Text("Description") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
             AppSegmentedRow(modifier = Modifier.fillMaxWidth()) {
-                UserListOrder.entries.forEach { option ->
+                orders.forEach { option ->
                     AppSegment(
                         selected = option == draft.order,
                         onClick = { update { it.copy(order = option) } },
@@ -112,10 +120,10 @@ fun UserListEditor(
                 }
             }
             Text(
-                text = if (draft.order == UserListOrder.Custom) {
-                    "Numbered, and Read next follows the list when you open a book from it."
-                } else {
-                    "Read next follows each book's series."
+                text = when {
+                    isShelf -> "$serverName keeps no order for a shelf, so this one is kept on this tablet. Read next follows each book's series."
+                    draft.order == UserListOrder.Custom -> "Numbered, and Read next follows the list when you open a book from it."
+                    else -> "Read next follows each book's series."
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -133,12 +141,13 @@ fun UserListEditor(
                             Column(modifier = Modifier.appReorderableItem(reorderState, index)) {
                                 if (index > 0) AppSettingsRowDivider()
                                 EditorBookRow(
-                                    number = index + 1,
+                                    number = (index + 1).takeUnless { isShelf },
                                     title = itemsById[itemId]?.libraryBookTitle() ?: entry?.title ?: itemId,
                                     line = entry?.let { it.secondaryText ?: it.primaryText?.takeIf { text -> text != it.title } }.orEmpty(),
                                     item = item,
                                     isFirst = index == 0,
                                     isLast = index == draft.itemIds.lastIndex,
+                                    canMove = !isShelf,
                                     cover = cover,
                                     handleModifier = Modifier.appReorderHandle(reorderState, index),
                                     onMoveUp = { move(index, index - 1) },
@@ -162,7 +171,7 @@ fun UserListEditor(
 
         if (canDelete) {
             AppTextButton(onClick = { confirmDelete = true }) {
-                Text(text = "Delete list", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                Text(text = if (isShelf) "Delete shelf" else "Delete list", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -170,7 +179,11 @@ fun UserListEditor(
         AppDialogCard(
             onDismissRequest = { confirmDelete = false },
             title = "Delete “${draft.name}”?",
-            subtitle = "The list goes; its books stay in your library.",
+            subtitle = if (isShelf) {
+                "The shelf goes from $serverName too; its books stay in your library."
+            } else {
+                "The list goes; its books stay in your library."
+            },
             actions = {
                 AppDialogDismissButton(text = "Cancel", onClick = { confirmDelete = false })
                 AppDialogConfirmButton(
@@ -188,12 +201,13 @@ fun UserListEditor(
 
 @Composable
 private fun EditorBookRow(
-    number: Int,
+    number: Int?,
     title: String,
     line: String,
     item: ReadableItem?,
     isFirst: Boolean,
     isLast: Boolean,
+    canMove: Boolean,
     cover: ListCover,
     handleModifier: Modifier,
     onMoveUp: () -> Unit,
@@ -214,10 +228,11 @@ private fun EditorBookRow(
             AppIconButton(onClick = onRemove) {
                 Icon(imageVector = AppIcons.Remove, contentDescription = "Remove $title", tint = MaterialTheme.colorScheme.error)
             }
-            AppBookRowNumber(number)
+            number?.let { AppBookRowNumber(it) }
         },
         supporting = { if (line.isNotEmpty()) AppBookRowLine(text = line) },
         trailing = {
+            if (!canMove) return@AppBookRow
             Box {
                 AppIconButton(onClick = { menuOpen = true }) {
                     Icon(imageVector = AppIcons.MoreVert, contentDescription = "Move $title")

@@ -10,6 +10,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.feature.library.libraryBookTitle
 import com.example.unifiedreader.ui.components.AppCheckbox
 import com.example.unifiedreader.ui.components.AppIcons
@@ -21,9 +22,10 @@ import com.example.unifiedreader.ui.components.AppSheetLabel
 import com.example.unifiedreader.ui.components.AppSideSheet
 
 /**
- * Adds [items] to the user's lists: Want to read, then their own lists, each with a checkbox (on
- * when every one of [items] is in it), and New list. A tap saves at once: on adds what is missing,
- * off takes them out. Opened from a book's page ([onBack] returns to it) or from a selection.
+ * Adds [items] to the user's lists: Want to read, then their own lists, then a server's [shelves]
+ * (given only when every one of [items] is that server's), each with a checkbox (on when every one
+ * of [items] is in it), and New list. A tap saves at once: on adds what is missing, off takes them
+ * out. Opened from a book's page ([onBack] returns to it) or from a selection.
  */
 @Composable
 fun AddToListSheet(
@@ -33,7 +35,10 @@ fun AddToListSheet(
     onNewList: () -> Unit,
     onDismiss: () -> Unit,
     onBack: (() -> Unit)? = null,
+    shelves: List<UserList> = emptyList(),
 ) {
+    val ownShelves = shelves.filter(UserList::isEditable)
+    val shelfSource = ownShelves.firstOrNull()?.server?.sourceType?.displayName()
     val editable = lists.filter(UserList::isEditable)
     val wantToRead = editable.filter { it.kind == UserListKind.WantToRead }
     val own = editable.filter { it.kind == UserListKind.User }
@@ -49,6 +54,11 @@ fun AddToListSheet(
             AppSheetDivider()
             AppSheetLabel(text = "Your lists")
             own.forEach { list -> ListCheckRow(list, items, onSetInList) }
+            if (shelfSource != null) {
+                AppSheetDivider()
+                AppSheetLabel(text = "$shelfSource shelves")
+                ownShelves.forEach { shelf -> ListCheckRow(shelf, items, onSetInList) }
+            }
             AppSettingsRow(
                 title = "New list",
                 icon = AppIcons.Add,
@@ -56,7 +66,11 @@ fun AddToListSheet(
                 showChevron = false,
             )
             Text(
-                text = "Your lists are kept on this tablet and can mix books from every source.",
+                text = if (shelfSource != null) {
+                    "Your lists stay on this tablet and can mix books from every source. $shelfSource shelves hold only $shelfSource books and are kept on the server."
+                } else {
+                    "Your lists are kept on this tablet and can mix books from every source."
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(AppLayout.inset),

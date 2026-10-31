@@ -8,11 +8,15 @@ import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.core.model.librarySecondaryText
 import java.util.UUID
 
-/** What a list is: one the user made, the built-in Want to read, or Stalled, which works itself out. */
+/**
+ * What a list is: one the user made, the built-in Want to read, Stalled, which works itself out,
+ * or a shelf kept on a server (a Grimmory shelf), which holds only that server's books.
+ */
 enum class UserListKind {
     User,
     WantToRead,
     Stalled,
+    ServerShelf,
 }
 
 /**
@@ -55,16 +59,34 @@ data class UserList(
     val updatedAtEpochMillis: Long,
     val lastOpenedAtEpochMillis: Long,
     val entries: List<UserListEntry>,
+    /** Where a server's shelf lives; null for a list on this device. */
+    val server: ServerListRef? = null,
 ) {
     val isReadingOrder: Boolean
         get() = order == UserListOrder.Custom
 
-    /** Stalled is worked out from your reading; nothing is added to it or moved in it. */
+    /**
+     * Stalled is worked out from your reading, and someone else's public shelf is theirs: nothing
+     * is added to either or changed in them.
+     */
     val isEditable: Boolean
-        get() = kind != UserListKind.Stalled
+        get() = kind != UserListKind.Stalled && server?.isOwned != false
+
+    /** The orders the list can take. A server's shelf keeps no order of its own, so it has no Your order. */
+    val orders: List<UserListOrder>
+        get() = if (kind == UserListKind.ServerShelf) ShelfOrders else UserListOrder.entries
 
     fun contains(itemId: String): Boolean = entries.any { entry -> entry.itemId == itemId }
 }
+
+/** A shelf's place on its server: which source, its id there, and whether this user made it. */
+data class ServerListRef(
+    val sourceType: SourceType,
+    val remoteId: String,
+    val isOwned: Boolean,
+)
+
+private val ShelfOrders = listOf(UserListOrder.DateAdded, UserListOrder.Title)
 
 object UserListIds {
     const val WantToRead = "list:want-to-read"
@@ -111,12 +133,17 @@ data class UserListDraft(
     /** The books in the list's own order, without the removed ones. */
     val itemIds: List<String>,
     val removedItemIds: Set<String> = emptySet(),
+    /** A server's shelf: Done saves its name and removals on the server, and it has no description or order of its own. */
+    val isServerShelf: Boolean = false,
 )
 
+/** The editor's starting point: the books in the list's own order, or, for a shelf, which has none, as the page shows them. */
 fun UserList.toDraft(): UserListDraft = UserListDraft(
     listId = id,
     name = name,
     description = description.orEmpty(),
     order = order,
-    itemIds = entries.sortedBy(UserListEntry::position).map(UserListEntry::itemId),
+    itemIds = (if (kind == UserListKind.ServerShelf) sortedEntries() else entries.sortedBy(UserListEntry::position))
+        .map(UserListEntry::itemId),
+    isServerShelf = kind == UserListKind.ServerShelf,
 )

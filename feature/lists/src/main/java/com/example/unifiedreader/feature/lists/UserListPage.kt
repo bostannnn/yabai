@@ -115,7 +115,7 @@ fun UserListPage(
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     AppSectionHeading(text = "Books", count = shown.size.toString(), modifier = Modifier.weight(1f))
                     if (list.isEditable) {
-                        UserListOrderChip(order = list.order, onSetOrder = onSetOrder)
+                        UserListOrderChip(order = list.order, options = list.orders, onSetOrder = onSetOrder)
                     }
                     AppChip(
                         selected = list.hideFinished,
@@ -128,6 +128,7 @@ fun UserListPage(
                         text = when {
                             books.isNotEmpty() -> "Every book here is finished."
                             list.kind == UserListKind.Stalled -> "Nothing has stalled: every book you started was opened in the last three weeks."
+                            list.kind == UserListKind.ServerShelf -> "Nothing on this shelf yet. Add a ${list.server?.sourceType?.displayName()} book from its page with Add to list."
                             else -> "Nothing here yet. Add a book from its page with Add to list, or select covers in the library."
                         },
                         style = MaterialTheme.typography.bodyMedium,
@@ -214,6 +215,7 @@ private fun UserListHeader(
 @Composable
 private fun UserListOrderChip(
     order: UserListOrder,
+    options: List<UserListOrder>,
     onSetOrder: (UserListOrder) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -225,7 +227,7 @@ private fun UserListOrderChip(
             leadingIcon = { Icon(imageVector = AppIcons.SwapVert, contentDescription = null, modifier = Modifier.size(18.dp)) },
         )
         AppMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            UserListOrder.entries.forEach { option ->
+            options.forEach { option ->
                 AppMenuChoiceItem(
                     text = option.label,
                     selected = option == order,
@@ -285,10 +287,14 @@ private fun UserListBookRow(
     )
 }
 
-/** "Your list · Kavita and Local", "Built in", "Updates itself · every source". */
+/** "Your list · Kavita and Local", "Built in", "Updates itself · every source", "Grimmory shelf · on the server". */
 private fun UserList.headerCaption(books: List<UserListBook>): String = when (kind) {
     UserListKind.Stalled -> "Updates itself · every source"
     UserListKind.WantToRead -> "Built in · on this tablet"
+    UserListKind.ServerShelf -> {
+        val source = server?.sourceType?.displayName().orEmpty()
+        if (isEditable) "$source shelf · on the server" else "$source shelf · someone else's, read-only"
+    }
     UserListKind.User -> {
         val sources = books.map { it.entry.sourceType.displayName() }.distinct()
         when (sources.size) {

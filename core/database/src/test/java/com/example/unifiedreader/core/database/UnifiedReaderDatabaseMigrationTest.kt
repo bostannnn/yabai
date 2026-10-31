@@ -270,6 +270,48 @@ class UnifiedReaderDatabaseMigrationTest {
     }
 
     @Test
+    fun `migration 31 to 32 creates the server lists tables and keeps the user's lists`() {
+        createTestDatabase(
+            name = "migration-31-32-${System.nanoTime()}",
+            version = 32,
+        ) { database ->
+            createVersion27Schema(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_27_28.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_28_29.migrate(database)
+            MIGRATION_29_30.migrate(database)
+            MIGRATION_30_31.migrate(database)
+            database.execSQL(
+                "INSERT INTO user_lists (id, name, description, kind, orderMode, hideFinished, createdAtEpochMillis, " +
+                    "updatedAtEpochMillis, lastOpenedAtEpochMillis) VALUES ('list:a', 'The Long Eclipse', NULL, 'User', " +
+                    "'Custom', 0, 1, 1, 0)",
+            )
+        }.use { database ->
+            MIGRATION_31_32.migrate(database)
+
+            assertTrue(tableExists(database, "server_lists"))
+            assertTrue(tableExists(database, "server_list_items"))
+            assertTrue(indexExists(database, "index_server_list_items_itemId"))
+            database.execSQL(
+                "INSERT INTO server_lists (id, sourceType, kind, remoteId, name, icon, iconType, isPublic, isOwned, " +
+                    "remoteSortField, remoteItemCount, orderMode, hideFinished, syncedAtEpochMillis) VALUES " +
+                    "('grimmory:shelf:3', 'GRIMMORY', 'GrimmoryShelf', '3', 'Book club', NULL, NULL, 0, 1, 'title', 1, " +
+                    "'Title', 0, 5)",
+            )
+            database.execSQL(
+                "INSERT INTO server_list_items (listId, itemId, position) VALUES ('grimmory:shelf:3', 'grimmory:item:12', 0)",
+            )
+            database.query("SELECT COUNT(*) FROM server_list_items WHERE listId = 'grimmory:shelf:3'").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals(1, cursor.getInt(0))
+            }
+            database.query("SELECT name FROM user_lists WHERE id = 'list:a'").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals("The Long Eclipse", cursor.getString(0))
+            }
+        }
+    }
+
+    @Test
     fun `room migrates 4 to 5 and validates reader session state schema`() {
         val databaseName = "migration-4-5-${System.nanoTime()}"
         createTestDatabase(
@@ -1396,6 +1438,7 @@ private fun openRoomDatabase(
         UnifiedReaderDatabaseMigrations.MIGRATION_28_29,
         MIGRATION_29_30,
         MIGRATION_30_31,
+        MIGRATION_31_32,
     )
     .build()
 

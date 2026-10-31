@@ -127,11 +127,13 @@ fun bookCountLabel(count: Int): String = when (count) {
     else -> "$count books"
 }
 
-/** A list tile's line: "Your order · 6 of 14", "9 books", "Updates itself · 4". */
+/** A list tile's line: "Your order · 6 of 14", "9 books", "Updates itself · 4", "5 books · by title". */
 fun UserList.tileCaption(progressByItemId: Map<String, ItemProgressSummary>): String {
     val count = entries.size
     return when {
         kind == UserListKind.Stalled -> if (count == 0) "Nothing stalled" else "Updates itself · $count"
+        kind == UserListKind.ServerShelf && count > 0 ->
+            "${bookCountLabel(count)} · ${if (order == UserListOrder.Title) "by title" else "date added"}"
         isReadingOrder && count > 0 -> {
             val read = entries.count { entry -> progressByItemId[entry.itemId]?.isFinished == true }
             if (read > 0) "Your order · $read of $count" else "Your order · ${bookCountLabel(count)}"

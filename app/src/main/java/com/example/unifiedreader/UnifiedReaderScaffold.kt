@@ -583,6 +583,8 @@ fun UnifiedReaderScaffold(
                 if (addToList != null && listsViewModel != null) {
                     AddToListHost(
                         items = addToList,
+                        libraryItems = uiState.items,
+                        grimmoryConnected = uiState.grimmoryConnection.hasStoredSession,
                         listsViewModel = listsViewModel,
                         onDismiss = { addToListItems = null },
                         onBack = if (addToListFromBookPage) {

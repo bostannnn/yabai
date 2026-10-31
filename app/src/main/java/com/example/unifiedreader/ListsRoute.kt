@@ -10,10 +10,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -23,10 +20,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.feature.library.LibraryBrowseTopBarSearchField
 import com.example.unifiedreader.feature.library.VisibleResolvedLibraryCover
-import com.example.unifiedreader.feature.library.libraryBookTitle
-import com.example.unifiedreader.feature.lists.AddToListSheet
 import com.example.unifiedreader.feature.lists.ListCover
 import com.example.unifiedreader.feature.lists.ListsRouteState
 import com.example.unifiedreader.feature.lists.ListsScreen
@@ -42,13 +38,17 @@ import com.example.unifiedreader.feature.lists.readingOrderUnderWay
 import com.example.unifiedreader.feature.lists.sortedEntries
 import com.example.unifiedreader.feature.lists.stalledList
 import com.example.unifiedreader.feature.lists.toDraft
+import com.example.unifiedreader.feature.lists.toUserList
 import com.example.unifiedreader.ui.components.AppButton
 import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
+import kotlinx.coroutines.delay
 
 /**
  * The Lists destination: every list, one list, or one list being edited, as [state] says. A book
- * opened from a list in Your order carries the list along, so Read next follows it.
+ * opened from a list in Your order carries the list along, so Read next follows it. Grimmory's
+ * shelves show while Grimmory is connected, and are read again from the server when Lists opens
+ * (the store keeps that to once every few minutes).
  */
 @Composable
 internal fun ListsRoute(
@@ -66,17 +66,31 @@ internal fun ListsRoute(
         stalledList(uiState.items, progress, nowEpochMillis = System.currentTimeMillis())
     }
     val lists = remember(stored, stalled) { orderedForScreen(stored, stalled) }
+    val storedShelves by listsViewModel.shelves.collectAsStateWithLifecycle()
+    val grimmoryConnected = uiState.grimmoryConnection.hasStoredSession
+    val shelves = remember(storedShelves, itemsById, grimmoryConnected) {
+        if (grimmoryConnected) storedShelves.orEmpty().map { shelf -> shelf.toUserList(itemsById) } else emptyList()
+    }
+    LaunchedEffect(grimmoryConnected) { if (grimmoryConnected) listsViewModel.refreshShelves() }
+    val onShelfFailure = rememberShelfFailureToast()
     val cover = rememberListCover(viewModel)
-    val openList = state.openListId?.let { id -> lists.firstOrNull { list -> list.id == id } }
-    // A list deleted (or never loaded) closes; wait for the first load before deciding.
-    LaunchedEffect(state.openListId, stored) {
-        if (state.openListId != null && stored.isNotEmpty() && openList == null) state.back()
+    val openList = state.openListId?.let { id ->
+        lists.firstOrNull { list -> list.id == id } ?: shelves.firstOrNull { shelf -> shelf.id == id }
+    }
+    // A list deleted (or never loaded) closes. Wait for the first load, and a moment more, since a
+    // list just made is opened before the database hands it back.
+    val loaded = stored.isNotEmpty() && storedShelves != null
+    LaunchedEffect(state.openListId, openList == null, loaded) {
+        if (state.openListId != null && openList == null && loaded) {
+            delay(500)
+            state.back()
+        }
     }
     BackHandler(enabled = state.openListId != null) { state.back() }
 
     fun openBook(list: UserList, book: UserListBook) {
         val item = book.item ?: return
-        if (list.kind != UserListKind.Stalled) listsViewModel.markOpened(list.id)
+        if (list.kind == UserListKind.User || list.kind == UserListKind.WantToRead) listsViewModel.markOpened(list.id)
         viewModel.onListItemSelected(
             item = item,
             listContext = if (list.isReadingOrder && list.isEditable) {
@@ -98,15 +112,17 @@ internal fun ListsRoute(
             onDraftChange = { state.editDraft = it },
             entriesById = remember(openList) { openList.entries.associateBy { entry -> entry.itemId } },
             itemsById = itemsById,
-            canDelete = openList.kind == UserListKind.User,
+            canDelete = openList.kind == UserListKind.User || openList.kind == UserListKind.ServerShelf,
             cover = cover,
             onDelete = {
-                listsViewModel.deleteList(openList.id)
+                listsViewModel.deleteList(openList, onFailure = onShelfFailure)
                 state.editDraft = null
                 state.back()
             },
             contentTopInset = contentTopInset,
             modifier = modifier,
+            orders = openList.orders,
+            serverName = openList.server?.sourceType?.displayName(),
         )
         openList != null -> {
             val books = remember(openList, itemsById, progress) { openList.books(itemsById, progress) }
@@ -115,8 +131,8 @@ internal fun ListsRoute(
                 books = books,
                 cover = cover,
                 onOpenBook = { book -> openBook(openList, book) },
-                onSetOrder = { order -> listsViewModel.setOrder(openList.id, order) },
-                onSetHideFinished = { hide -> listsViewModel.setHideFinished(openList.id, hide) },
+                onSetOrder = { order -> listsViewModel.setOrder(openList, order) },
+                onSetHideFinished = { hide -> listsViewModel.setHideFinished(openList, hide) },
                 onEdit = { state.editDraft = openList.toDraft() },
                 contentTopInset = contentTopInset,
                 onScrolledChanged = { scrolled -> state.scrolled = scrolled },
@@ -129,6 +145,7 @@ internal fun ListsRoute(
                 lists = lists,
                 underWay = underWay,
                 kavitaLists = uiState.kavitaReadingLists.summaries.takeIf { uiState.kavitaConnection.hasStoredSession }.orEmpty(),
+                shelves = shelves,
                 itemsById = itemsById,
                 progressByItemId = progress,
                 searchQuery = state.searchQuery,
@@ -148,11 +165,16 @@ internal fun ListsRoute(
     }
     if (state.isNewListOpen) {
         NewListDialog(
-            onCreate = { name ->
+            onCreate = { name, onServer ->
                 state.isNewListOpen = false
-                listsViewModel.createList(name, items = emptyList()) { id -> state.openList(id) }
+                if (onServer) {
+                    listsViewModel.createShelf(name, items = emptyList(), onCreated = state::openList, onFailure = onShelfFailure)
+                } else {
+                    listsViewModel.createList(name, items = emptyList()) { id -> state.openList(id) }
+                }
             },
             onDismiss = { state.isNewListOpen = false },
+            serverName = SourceType.GRIMMORY.displayName().takeIf { grimmoryConnected },
         )
     }
 }
@@ -167,6 +189,7 @@ internal fun ListsTopBar(
     listsViewModel: AppListsViewModel,
     onDrawerClick: (() -> Unit)?,
 ) {
+    val onShelfFailure = rememberShelfFailureToast()
     ThemedTopBarContainer(surfaceVisible = state.scrolled) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -180,7 +203,7 @@ internal fun ListsTopBar(
                         Icon(imageVector = AppIcons.Close, contentDescription = "Cancel editing")
                     }
                     Text(
-                        text = "Edit list",
+                        text = if (draft.isServerShelf) "Edit shelf" else "Edit list",
                         style = MaterialTheme.typography.titleMedium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -188,7 +211,7 @@ internal fun ListsTopBar(
                     )
                     AppButton(
                         onClick = {
-                            listsViewModel.applyDraft(draft)
+                            listsViewModel.applyDraft(draft, onFailure = onShelfFailure)
                             state.editDraft = null
                         },
                         enabled = draft.name.isNotBlank(),
@@ -216,40 +239,6 @@ internal fun ListsTopBar(
                 }
             }
         }
-    }
-}
-
-/**
- * Add to list for [items] (a book's page, or a selection in the library), with New list, which
- * puts them into the list it makes.
- */
-@Composable
-internal fun AddToListHost(
-    items: List<ReadableItem>,
-    listsViewModel: AppListsViewModel,
-    onDismiss: () -> Unit,
-    onBack: (() -> Unit)?,
-) {
-    val lists by listsViewModel.lists.collectAsStateWithLifecycle()
-    var isNewListOpen by rememberSaveable { mutableStateOf(false) }
-    AddToListSheet(
-        items = items,
-        lists = lists,
-        onSetInList = { list, inList -> listsViewModel.setInList(list, items, inList) },
-        onNewList = { isNewListOpen = true },
-        onDismiss = onDismiss,
-        onBack = onBack,
-    )
-    if (isNewListOpen) {
-        NewListDialog(
-            subtitle = items.singleOrNull()?.let { item -> "${item.libraryBookTitle()} goes into it, in your order." }
-                ?: "${items.size} books go into it, in your order.",
-            onCreate = { name ->
-                isNewListOpen = false
-                listsViewModel.createList(name, items)
-            },
-            onDismiss = { isNewListOpen = false },
-        )
     }
 }
 
