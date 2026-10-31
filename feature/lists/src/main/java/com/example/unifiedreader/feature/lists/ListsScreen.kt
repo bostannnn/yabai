@@ -38,9 +38,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
-import com.example.unifiedreader.core.model.ReadingListSummary
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.feature.library.ItemProgressSummary
@@ -62,16 +60,15 @@ typealias ListCover = @Composable (item: ReadableItem, modifier: Modifier) -> Un
 
 /**
  * Every list in one place: the reading order under way as a card, Your lists (Want to read,
- * Stalled, then the user's), then Kavita's reading lists, then a server's shelves ([shelves], by
- * name). [lists] come in the screen's order ([orderedForScreen]); [searchQuery] narrows them all
- * by name or by a book in them.
+ * Stalled, then the user's), then each server's lists ([serverLists]: Kavita's reading lists, then
+ * Grimmory's shelves, each by name). [lists] come in the screen's order ([orderedForScreen]);
+ * [searchQuery] narrows them all by name or by a book in them.
  */
 @Composable
 fun ListsScreen(
     lists: List<UserList>,
     underWay: UserListUnderWay?,
-    kavitaLists: List<ReadingListSummary>,
-    shelves: List<UserList>,
+    serverLists: List<UserList>,
     itemsById: Map<String, ReadableItem>,
     progressByItemId: Map<String, ItemProgressSummary>,
     searchQuery: String,
@@ -79,7 +76,6 @@ fun ListsScreen(
     cover: ListCover,
     onOpenList: (UserList) -> Unit,
     onContinue: (UserListUnderWay) -> Unit,
-    onOpenKavitaList: (ReadingListSummary) -> Unit,
     contentTopInset: Dp,
     onScrolledChanged: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
@@ -88,11 +84,14 @@ fun ListsScreen(
     val shownLists = remember(lists, query) {
         if (query.isEmpty()) lists else lists.filter { list -> list.matches(query) }
     }
-    val shownKavitaLists = remember(kavitaLists, query) {
-        if (query.isEmpty()) kavitaLists else kavitaLists.filter { it.title.contains(query, ignoreCase = true) }
-    }
-    val shownShelves = remember(shelves, query) {
-        if (query.isEmpty()) shelves else shelves.filter { shelf -> shelf.matches(query) }
+    // A section per server and kind: Kavita's reading lists, then Grimmory's shelves.
+    val serverSections = remember(serverLists, query) {
+        serverLists
+            .filter { list -> query.isEmpty() || list.matches(query) }
+            .groupBy { list -> list.kind to list.server?.sourceType }
+            .entries
+            .sortedBy { (key, _) -> if (key.first == UserListKind.ServerReadingList) 0 else 1 }
+            .map { (key, lists) -> serverSectionTitle(key.first, key.second) to lists }
     }
     val gridState = rememberLazyGridState()
     val scrolled by remember {
@@ -132,32 +131,19 @@ fun ListsScreen(
         items(shownLists, key = { list -> "list:${list.id}" }) { list ->
             UserListTile(list = list, itemsById = itemsById, progressByItemId = progressByItemId, cover = cover, onClick = { onOpenList(list) })
         }
-        if (shownKavitaLists.isNotEmpty()) {
-            item(key = "heading:kavita", span = { GridItemSpan(maxLineSpan) }) {
+        serverSections.forEach { (title, sectionLists) ->
+            item(key = "heading:$title", span = { GridItemSpan(maxLineSpan) }) {
                 AppSectionHeading(
-                    text = "Kavita reading lists",
-                    count = shownKavitaLists.size.toString(),
+                    text = title,
+                    count = sectionLists.size.toString(),
                     modifier = Modifier.padding(top = sectionTop),
                 )
             }
-            items(shownKavitaLists, key = { summary -> "kavita:${summary.id}" }) { summary ->
-                KavitaListTile(summary = summary, cover = cover, onClick = { onOpenKavitaList(summary) })
+            items(sectionLists, key = { list -> "server:${list.id}" }) { list ->
+                UserListTile(list = list, itemsById = itemsById, progressByItemId = progressByItemId, cover = cover, onClick = { onOpenList(list) })
             }
         }
-        val shelfSource = shownShelves.firstOrNull()?.server?.sourceType
-        if (shelfSource != null) {
-            item(key = "heading:shelves", span = { GridItemSpan(maxLineSpan) }) {
-                AppSectionHeading(
-                    text = "${shelfSource.displayName()} shelves",
-                    count = shownShelves.size.toString(),
-                    modifier = Modifier.padding(top = sectionTop),
-                )
-            }
-            items(shownShelves, key = { shelf -> "shelf:${shelf.id}" }) { shelf ->
-                UserListTile(list = shelf, itemsById = itemsById, progressByItemId = progressByItemId, cover = cover, onClick = { onOpenList(shelf) })
-            }
-        }
-        if (query.isNotEmpty() && shownLists.isEmpty() && shownKavitaLists.isEmpty() && shownShelves.isEmpty()) {
+        if (query.isNotEmpty() && shownLists.isEmpty() && serverSections.isEmpty()) {
             item(key = "no-match", span = { GridItemSpan(maxLineSpan) }) {
                 Text(
                     text = "No list or book in a list matches “$query”.",
@@ -260,32 +246,6 @@ private fun UserListTile(
     }
 }
 
-/** A Kavita reading list: its own cover (Kavita draws a collage) and its issue count. */
-@Composable
-private fun KavitaListTile(
-    summary: ReadingListSummary,
-    cover: ListCover,
-    onClick: () -> Unit,
-) {
-    val coverItem = remember(summary) {
-        ReadableItem(
-            id = summary.id,
-            sourceType = SourceType.KAVITA,
-            libraryId = summary.id,
-            title = summary.title,
-            format = FormatType.CBZ,
-            coverUrl = summary.coverUrl,
-        )
-    }
-    ListTileFrame(
-        name = summary.title,
-        caption = if (summary.itemCount == 1) "1 issue" else "${summary.itemCount} issues",
-        onClick = onClick,
-    ) {
-        cover(coverItem, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
-    }
-}
-
 @Composable
 private fun ListTileFrame(
     name: String,
@@ -325,3 +285,9 @@ private fun UserList.matches(query: String): Boolean =
             entry.title.contains(query, ignoreCase = true) ||
                 entry.primaryText?.contains(query, ignoreCase = true) == true
         }
+
+/** "Kavita reading lists", "Grimmory shelves". */
+private fun serverSectionTitle(kind: UserListKind, sourceType: SourceType?): String {
+    val source = sourceType?.displayName().orEmpty()
+    return if (kind == UserListKind.ServerReadingList) "$source reading lists" else "$source shelves"
+}

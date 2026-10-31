@@ -73,8 +73,16 @@ fun UserListEditor(
     modifier: Modifier = Modifier,
     orders: List<UserListOrder> = UserListOrder.entries,
     serverName: String? = null,
+    // Whether its books can be moved: a server's reading list can, a shelf (no order of its own) can't.
+    canReorder: Boolean = serverName == null,
 ) {
-    val isShelf = serverName != null
+    val onServer = serverName != null
+    val isShelf = onServer && !canReorder
+    val noun = when {
+        isShelf -> "shelf"
+        onServer -> "reading list"
+        else -> "list"
+    }
     // The rows render from the draft held in the route's state; a drag that reports several moves
     // in one frame reads the latest draft through [currentDraft].
     var currentDraft by remember(draft.listId) { mutableStateOf(draft) }
@@ -102,7 +110,7 @@ fun UserListEditor(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
-            if (!isShelf) {
+            if (!onServer) {
                 AppTextField(
                     value = draft.description,
                     onValueChange = { description -> update { it.copy(description = description) } },
@@ -110,18 +118,21 @@ fun UserListEditor(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            AppSegmentedRow(modifier = Modifier.fillMaxWidth()) {
-                orders.forEach { option ->
-                    AppSegment(
-                        selected = option == draft.order,
-                        onClick = { update { it.copy(order = option) } },
-                        label = { Text(option.label) },
-                    )
+            if (orders.size > 1) {
+                AppSegmentedRow(modifier = Modifier.fillMaxWidth()) {
+                    orders.forEach { option ->
+                        AppSegment(
+                            selected = option == draft.order,
+                            onClick = { update { it.copy(order = option) } },
+                            label = { Text(option.label) },
+                        )
+                    }
                 }
             }
             Text(
                 text = when {
                     isShelf -> "$serverName keeps no order for a shelf, so this one is kept on this tablet. Read next follows each book's series."
+                    onServer -> "In $serverName's order, saved there with Done. Read next follows it when you open a book from it."
                     draft.order == UserListOrder.Custom -> "Numbered, and Read next follows the list when you open a book from it."
                     else -> "Read next follows each book's series."
                 },
@@ -141,13 +152,13 @@ fun UserListEditor(
                             Column(modifier = Modifier.appReorderableItem(reorderState, index)) {
                                 if (index > 0) AppSettingsRowDivider()
                                 EditorBookRow(
-                                    number = (index + 1).takeUnless { isShelf },
+                                    number = (index + 1).takeIf { canReorder },
                                     title = itemsById[itemId]?.libraryBookTitle() ?: entry?.title ?: itemId,
                                     line = entry?.let { it.secondaryText ?: it.primaryText?.takeIf { text -> text != it.title } }.orEmpty(),
                                     item = item,
                                     isFirst = index == 0,
                                     isLast = index == draft.itemIds.lastIndex,
-                                    canMove = !isShelf,
+                                    canMove = canReorder,
                                     cover = cover,
                                     handleModifier = Modifier.appReorderHandle(reorderState, index),
                                     onMoveUp = { move(index, index - 1) },
@@ -171,7 +182,7 @@ fun UserListEditor(
 
         if (canDelete) {
             AppTextButton(onClick = { confirmDelete = true }) {
-                Text(text = if (isShelf) "Delete shelf" else "Delete list", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                Text(text = "Delete $noun", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -179,8 +190,8 @@ fun UserListEditor(
         AppDialogCard(
             onDismissRequest = { confirmDelete = false },
             title = "Delete “${draft.name}”?",
-            subtitle = if (isShelf) {
-                "The shelf goes from $serverName too; its books stay in your library."
+            subtitle = if (onServer) {
+                "The $noun goes from $serverName too; its books stay in your library."
             } else {
                 "The list goes; its books stay in your library."
             },

@@ -194,6 +194,49 @@ class ServerShelfStoreTest {
     }
 
     @Test
+    fun `an ordered list read without its books keeps them, and reads them again when its count changed`() = runTest {
+        val orderedClient = FakeShelfClient(isOrdered = true)
+        val store = RoomServerShelfStore(dao = dao, client = orderedClient, ioDispatcher = StandardTestDispatcher(testScheduler), now = { clock })
+        orderedClient.itemsByShelf["4"] = mutableListOf("k:1", "k:2")
+        orderedClient.shelves = listOf(RemoteShelfContents(RemoteShelf(remoteId = "4", name = "Eclipse War", itemCount = 2), itemIds = null))
+
+        store.refresh()
+        val list = store.shelves.first().single()
+        assertEquals(listOf("k:1", "k:2"), list.itemIds)
+        assertTrue(list.isOrdered)
+        assertEquals(UserListOrder.Custom, list.order)
+        assertEquals(1, orderedClient.itemFetches)
+
+        store.refresh(force = true)
+        assertEquals(1, orderedClient.itemFetches)
+
+        orderedClient.itemsByShelf["4"]!!.add("k:3")
+        orderedClient.shelves = listOf(RemoteShelfContents(RemoteShelf(remoteId = "4", name = "Eclipse War", itemCount = 3), itemIds = null))
+        store.refresh(force = true)
+        assertEquals(listOf("k:1", "k:2", "k:3"), store.shelves.first().single().itemIds)
+    }
+
+    @Test
+    fun `reordering an ordered list moves each book on the server, around books the library doesn't hold`() = runTest {
+        val orderedClient = FakeShelfClient(isOrdered = true)
+        val store = RoomServerShelfStore(dao = dao, client = orderedClient, ioDispatcher = StandardTestDispatcher(testScheduler), now = { clock })
+        orderedClient.itemsByShelf["4"] = mutableListOf("a", "hidden", "b", "c")
+        orderedClient.shelves = listOf(RemoteShelfContents(RemoteShelf(remoteId = "4", name = "Eclipse War", itemCount = 4), itemIds = null))
+        store.refresh()
+        val id = serverShelfId(SourceType.GRIMMORY, "4")
+
+        store.reorder(id, listOf("c", "a", "b"))
+
+        assertEquals(listOf("c", "hidden", "a", "b"), store.shelves.first().single().itemIds)
+        assertEquals(listOf("c", "hidden", "a", "b"), orderedClient.itemsByShelf["4"])
+    }
+
+    @Test
+    fun `the full order fills the named books' places and leaves the others`() {
+        assertEquals(listOf("c", "x", "a", "b"), fullOrder(listOf("a", "x", "b", "c"), listOf("c", "a", "b")))
+    }
+
+    @Test
     fun `a new shelf's order follows the server's sort when it says date added`() {
         assertEquals(UserListOrder.DateAdded, initialShelfOrder("addedOn"))
         assertEquals(UserListOrder.Title, initialShelfOrder("title"))
@@ -230,8 +273,11 @@ class ServerShelfStoreTest {
     )
 }
 
-private class FakeShelfClient : ServerShelfClient {
+private class FakeShelfClient(override val isOrdered: Boolean = false) : ServerShelfClient {
     override val sourceType = SourceType.GRIMMORY
+    var itemsByShelf: MutableMap<String, MutableList<String>> = mutableMapOf()
+    var itemFetches = 0
+    val moves = mutableListOf<Triple<String, Int, Int>>()
     var shelves: List<RemoteShelfContents> = emptyList()
     var connected = true
     var failFetch = false
@@ -263,6 +309,17 @@ private class FakeShelfClient : ServerShelfClient {
     override suspend fun deleteShelf(remoteId: String) {
         if (failWrites) error("Refused.")
         deleted += remoteId
+    }
+
+    override suspend fun fetchItems(remoteId: String): List<String> {
+        itemFetches++
+        return itemsByShelf[remoteId].orEmpty().toList()
+    }
+
+    override suspend fun move(remoteId: String, itemId: String, fromPosition: Int, toPosition: Int) {
+        if (failWrites) error("Refused.")
+        moves += Triple(itemId, fromPosition, toPosition)
+        itemsByShelf[remoteId]?.let { items -> items.remove(itemId); items.add(toPosition, itemId) }
     }
 
     override suspend fun setOnShelf(remoteId: String, itemIds: List<String>, onShelf: Boolean) {

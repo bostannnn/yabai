@@ -14,7 +14,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
-/** A shelf as its server keeps it: a collection with no order of its own. */
+/** A list as its server keeps it: a shelf with no order of its own (Grimmory), or a reading list in order (Kavita). */
 data class RemoteShelf(
     val remoteId: String,
     val name: String,
@@ -28,10 +28,10 @@ data class RemoteShelf(
     val itemCount: Int = 0,
 )
 
-/** A shelf a refresh read, with its books as the app's item ids. */
+/** A list a refresh read, with its books as the app's item ids; null when they weren't read with it. */
 data class RemoteShelfContents(
     val shelf: RemoteShelf,
-    val itemIds: List<String>,
+    val itemIds: List<String>?,
 )
 
 /**
@@ -40,6 +40,10 @@ data class RemoteShelfContents(
  */
 interface ServerShelfClient {
     val sourceType: SourceType
+
+    /** Whether the server keeps its lists in an order (Kavita's reading lists), which the app shows and can change. */
+    val isOrdered: Boolean
+        get() = false
 
     /** Every shelf this user can see, with its books; null while the source is not connected. */
     suspend fun fetchShelves(): List<RemoteShelfContents>?
@@ -52,6 +56,13 @@ interface ServerShelfClient {
 
     /** Puts this source's books ([itemIds], the app's ids for them) on the shelf, or takes them off it. */
     suspend fun setOnShelf(remoteId: String, itemIds: List<String>, onShelf: Boolean)
+
+    /** One list's books in its order, for a list whose books [fetchShelves] left out or that is being opened. */
+    suspend fun fetchItems(remoteId: String): List<String>
+
+    /** Moves a book of an ordered list from [fromPosition] to [toPosition] (0 first). */
+    suspend fun move(remoteId: String, itemId: String, fromPosition: Int, toPosition: Int): Unit =
+        error("This server keeps no order for its lists.")
 }
 
 /** A server's shelf as this device keeps it: the server's copy plus the order and Hide finished chosen here. */
@@ -62,6 +73,8 @@ data class ServerShelf(
     val order: UserListOrder,
     val hideFinished: Boolean,
     val itemIds: List<String>,
+    /** A reading list in the server's order (Kavita's), not a shelf. */
+    val isOrdered: Boolean = false,
 )
 
 /**
@@ -93,6 +106,12 @@ interface ServerShelfStore {
     /** Takes books off the shelf by their item ids (the editor's removals). */
     suspend fun removeFromShelf(listId: String, itemIds: Collection<String>)
 
+    /** Puts an ordered list's books in [orderedItemIds]' order on the server; books not named keep their places. */
+    suspend fun reorder(listId: String, orderedItemIds: List<String>)
+
+    /** Reads one list's books again, unless that was done under the cooldown ago ([force] skips that). */
+    suspend fun refreshList(listId: String, force: Boolean = false)
+
     suspend fun setOrder(listId: String, order: UserListOrder)
 
     suspend fun setHideFinished(listId: String, hideFinished: Boolean)
@@ -112,6 +131,7 @@ class RoomServerShelfStore(
 
     private val refreshLock = Mutex()
     private var lastRefreshAttemptAt: Long? = null
+    private val listRefreshedAt = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
     override val shelves: Flow<List<ServerShelf>> =
         combine(dao.observeLists(), dao.observeItems()) { lists, items ->
@@ -129,24 +149,56 @@ class RoomServerShelfStore(
         // A failed try waits out the cooldown too, so an offline server isn't asked on every visit.
         lastRefreshAttemptAt = at
         val contents = client.fetchShelves() ?: return@withLock
+        val kept = io { dao.getLists(sourceType.name).associateBy(ServerListEntity::id) }
+        // A list read without its books keeps the ones held here, unless its count says they changed.
+        val itemsByList = contents.associate { (shelf, itemIds) ->
+            val id = serverShelfId(sourceType, shelf.remoteId)
+            id to (itemIds ?: io { dao.getItems(id) }.map(ServerListItemEntity::itemId).takeIf { held ->
+                kept[id] != null && held.size == shelf.itemCount
+            } ?: client.fetchItems(shelf.remoteId).also { listRefreshedAt[id] = at })
+        }
         io {
-            val kept = dao.getLists(sourceType.name).associateBy(ServerListEntity::id)
             val lists = contents.map { (shelf, _) ->
                 val id = serverShelfId(sourceType, shelf.remoteId)
-                shelf.toEntity(id, sourceType, kept[id], at)
+                shelf.toEntity(id, sourceType, client.isOrdered, kept[id], at)
             }
-            val items = contents.flatMap { (shelf, itemIds) ->
-                val id = serverShelfId(sourceType, shelf.remoteId)
+            val items = itemsByList.flatMap { (id, itemIds) ->
                 itemIds.distinct().mapIndexed { index, itemId -> ServerListItemEntity(id, itemId, index) }
             }
             dao.replaceSource(sourceType.name, lists, items)
         }
     }
 
+    override suspend fun refreshList(listId: String, force: Boolean) {
+        val at = now()
+        val last = listRefreshedAt[listId]
+        if (!force && last != null && at - last < refreshCooldownMillis) return
+        listRefreshedAt[listId] = at
+        val list = io { dao.getList(listId) } ?: return
+        val itemIds = client.fetchItems(list.remoteId)
+        io { dao.replaceItems(listId, itemIds.distinct()) }
+    }
+
+    override suspend fun reorder(listId: String, orderedItemIds: List<String>) {
+        if (!client.isOrdered) return
+        val list = io { dao.getList(listId) } ?: return
+        val current = io { dao.getItems(listId) }.map(ServerListItemEntity::itemId).toMutableList()
+        val target = fullOrder(current, orderedItemIds)
+        target.forEachIndexed { index, itemId ->
+            if (current[index] == itemId) return@forEachIndexed
+            val from = current.indexOf(itemId)
+            client.move(list.remoteId, itemId, fromPosition = from, toPosition = index)
+            current.removeAt(from)
+            current.add(index, itemId)
+            // Kept as each move lands, so a failure part way leaves what the server holds.
+            io { dao.replaceItems(listId, current.toList()) }
+        }
+    }
+
     override suspend fun createShelf(name: String, items: List<ReadableItem>): String {
         val shelf = client.createShelf(name.trim())
         val id = serverShelfId(sourceType, shelf.remoteId)
-        io { dao.upsertList(shelf.toEntity(id, sourceType, kept = null, atEpochMillis = now())) }
+        io { dao.upsertList(shelf.toEntity(id, sourceType, client.isOrdered, kept = null, atEpochMillis = now())) }
         // The shelf is kept before its books go on it, so a failure there still leaves it listed.
         setInShelf(id, items, inShelf = true)
         return id
@@ -196,7 +248,7 @@ class RoomServerShelfStore(
     private suspend fun <T> io(block: () -> T): T = withContext(ioDispatcher) { block() }
 }
 
-/** "grimmory:shelf:3": a shelf's id here, from its source and its id on the server. */
+/** "grimmory:shelf:3", "kavita:shelf:4": a server list's id here, from its source and its id on the server. */
 fun serverShelfId(sourceType: SourceType, remoteId: String): String = "${sourceType.name.lowercase()}:shelf:$remoteId"
 
 /** The shelf as a list: its books are the library's items on it, so a book that left the library leaves it too. */
@@ -204,7 +256,7 @@ fun ServerShelf.toUserList(itemsById: Map<String, ReadableItem>): UserList = Use
     id = id,
     name = remote.name,
     description = null,
-    kind = UserListKind.ServerShelf,
+    kind = if (isOrdered) UserListKind.ServerReadingList else UserListKind.ServerShelf,
     order = order,
     hideFinished = hideFinished,
     createdAtEpochMillis = 0L,
@@ -231,13 +283,14 @@ internal fun initialShelfOrder(sortField: String?): UserListOrder =
 private fun RemoteShelf.toEntity(
     id: String,
     sourceType: SourceType,
+    isOrdered: Boolean,
     kept: ServerListEntity?,
     atEpochMillis: Long,
 ): ServerListEntity =
     ServerListEntity(
         id = id,
         sourceType = sourceType.name,
-        kind = UserListKind.ServerShelf.name,
+        kind = (if (isOrdered) UserListKind.ServerReadingList else UserListKind.ServerShelf).name,
         remoteId = remoteId,
         name = name,
         icon = icon,
@@ -246,7 +299,7 @@ private fun RemoteShelf.toEntity(
         isOwned = isOwned,
         remoteSortField = sortField,
         remoteItemCount = itemCount,
-        orderMode = kept?.orderMode ?: initialShelfOrder(sortField).name,
+        orderMode = if (isOrdered) UserListOrder.Custom.name else kept?.orderMode ?: initialShelfOrder(sortField).name,
         hideFinished = kept?.hideFinished ?: false,
         syncedAtEpochMillis = atEpochMillis,
     )
@@ -262,12 +315,38 @@ private fun ServerListEntity.toRemote(): RemoteShelf = RemoteShelf(
     itemCount = remoteItemCount,
 )
 
-private fun ServerListEntity.toModel(items: List<ServerListItemEntity>): ServerShelf = ServerShelf(
-    id = id,
-    sourceType = SourceType.entries.firstOrNull { it.name == sourceType } ?: SourceType.GRIMMORY,
-    remote = toRemote(),
-    order = UserListOrder.entries.firstOrNull { it.name == orderMode }?.takeIf { it != UserListOrder.Custom }
-        ?: UserListOrder.Title,
-    hideFinished = hideFinished,
-    itemIds = items.sortedBy(ServerListItemEntity::position).map(ServerListItemEntity::itemId),
-)
+private fun ServerListEntity.toModel(items: List<ServerListItemEntity>): ServerShelf {
+    val ordered = kind == UserListKind.ServerReadingList.name
+    return ServerShelf(
+        id = id,
+        sourceType = SourceType.entries.firstOrNull { it.name == sourceType } ?: SourceType.GRIMMORY,
+        remote = toRemote(),
+        order = if (ordered) {
+            UserListOrder.Custom
+        } else {
+            UserListOrder.entries.firstOrNull { it.name == orderMode }?.takeIf { it != UserListOrder.Custom } ?: UserListOrder.Title
+        },
+        hideFinished = hideFinished,
+        itemIds = items.sortedBy(ServerListItemEntity::position).map(ServerListItemEntity::itemId),
+        isOrdered = ordered,
+    )
+}
+
+/**
+ * The whole list in the order wanted: the books named in [ordered] fill the places books named
+ * there held, in that order; a book not named (one the library doesn't hold) keeps its place.
+ */
+internal fun fullOrder(current: List<String>, ordered: List<String>): List<String> {
+    val named = ordered.filter { it in current }.distinct()
+    val namedSet = named.toHashSet()
+    val queue = ArrayDeque(named)
+    return current.map { itemId -> if (itemId in namedSet) queue.removeFirst() else itemId }
+}
+
+/** One store per server that keeps lists: Kavita's reading lists, Grimmory's shelves. */
+class ServerListStores(val all: List<ServerShelfStore>) {
+    fun forSource(sourceType: SourceType?): ServerShelfStore? = all.firstOrNull { store -> store.sourceType == sourceType }
+
+    /** Every server's lists together. */
+    val lists: Flow<List<ServerShelf>> = combine(all.map(ServerShelfStore::shelves)) { perServer -> perServer.flatMap { it } }
+}

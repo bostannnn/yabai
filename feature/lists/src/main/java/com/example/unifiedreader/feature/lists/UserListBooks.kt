@@ -136,6 +136,11 @@ fun UserList.tileCaption(progressByItemId: Map<String, ItemProgressSummary>): St
         kind == UserListKind.Stalled -> if (count == 0) "Nothing stalled" else "Updates itself · $count"
         kind == UserListKind.ServerShelf && count > 0 ->
             "${bookCountLabel(count)} · ${if (order == UserListOrder.Title) "by title" else "date added"}"
+        kind == UserListKind.ServerReadingList -> {
+            val read = entries.count { entry -> progressByItemId[entry.itemId]?.isFinished == true }
+            val issues = if (count == 1) "1 issue" else "$count issues"
+            if (read > 0) "$issues · $read read" else issues
+        }
         isReadingOrder && count > 0 -> {
             val read = entries.count { entry -> progressByItemId[entry.itemId]?.isFinished == true }
             if (read > 0) "Your order · $read of $count" else "Your order · ${bookCountLabel(count)}"

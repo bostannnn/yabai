@@ -22,10 +22,11 @@ import com.example.unifiedreader.ui.components.AppSheetLabel
 import com.example.unifiedreader.ui.components.AppSideSheet
 
 /**
- * Adds [items] to the user's lists: Want to read, then their own lists, then a server's [shelves]
- * (given only when every one of [items] is that server's), each with a checkbox (on when every one
- * of [items] is in it), and New list. A tap saves at once: on adds what is missing, off takes them
- * out. Opened from a book's page ([onBack] returns to it) or from a selection.
+ * Adds [items] to the user's lists: Want to read, then their own lists, then a server's lists
+ * ([serverLists], given only when every one of [items] is that server's: Kavita reading lists,
+ * Grimmory shelves), each with a checkbox (on when every one of [items] is in it), and New list. A
+ * tap saves at once: on adds what is missing, off takes them out. Opened from a book's page
+ * ([onBack] returns to it) or from a selection.
  */
 @Composable
 fun AddToListSheet(
@@ -35,12 +36,15 @@ fun AddToListSheet(
     onNewList: () -> Unit,
     onDismiss: () -> Unit,
     onBack: (() -> Unit)? = null,
-    shelves: List<UserList> = emptyList(),
+    serverLists: List<UserList> = emptyList(),
     // Said under Want to read when ticking it also changes a server's Want to read.
     wantToReadNote: String? = null,
 ) {
-    val ownShelves = shelves.filter(UserList::isEditable)
-    val shelfSource = ownShelves.firstOrNull()?.server?.sourceType?.displayName()
+    val ownServerLists = serverLists.filter(UserList::isEditable)
+    val serverSections = ownServerLists
+        .groupBy { list -> list.kind to list.server?.sourceType?.displayName().orEmpty() }
+        .map { (key, lists) -> (if (key.first == UserListKind.ServerShelf) "${key.second} shelves" else "${key.second} reading lists") to lists }
+    val serverNames = ownServerLists.mapNotNull { it.server?.sourceType?.displayName() }.distinct()
     val editable = lists.filter(UserList::isEditable)
     val wantToRead = editable.filter { it.kind == UserListKind.WantToRead }
     val own = editable.filter { it.kind == UserListKind.User }
@@ -56,10 +60,10 @@ fun AddToListSheet(
             AppSheetDivider()
             AppSheetLabel(text = "Your lists")
             own.forEach { list -> ListCheckRow(list, items, onSetInList) }
-            if (shelfSource != null) {
+            serverSections.forEach { (title, lists) ->
                 AppSheetDivider()
-                AppSheetLabel(text = "$shelfSource shelves")
-                ownShelves.forEach { shelf -> ListCheckRow(shelf, items, onSetInList) }
+                AppSheetLabel(text = title)
+                lists.forEach { list -> ListCheckRow(list, items, onSetInList) }
             }
             AppSettingsRow(
                 title = "New list",
@@ -68,8 +72,9 @@ fun AddToListSheet(
                 showChevron = false,
             )
             Text(
-                text = if (shelfSource != null) {
-                    "Your lists stay on this tablet and can mix books from every source. $shelfSource shelves hold only $shelfSource books and are kept on the server."
+                text = if (serverNames.isNotEmpty()) {
+                    val name = serverNames.single()
+                    "Your lists stay on this tablet and can mix books from every source. $name's lists hold only $name books and are kept on the server."
                 } else {
                     "Your lists are kept on this tablet and can mix books from every source."
                 },

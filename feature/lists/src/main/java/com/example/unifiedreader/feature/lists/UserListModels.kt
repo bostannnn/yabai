@@ -17,6 +17,7 @@ enum class UserListKind {
     WantToRead,
     Stalled,
     ServerShelf,
+    ServerReadingList,
 }
 
 /**
@@ -74,9 +75,16 @@ data class UserList(
     val isEditable: Boolean
         get() = kind != UserListKind.Stalled && server?.isOwned != false
 
-    /** The orders the list can take. A server's shelf keeps no order of its own, so it has no Your order. */
+    /**
+     * The orders the list can take. A server's shelf keeps no order of its own, so it has no Your
+     * order; a server's reading list has only its own.
+     */
     val orders: List<UserListOrder>
-        get() = if (kind == UserListKind.ServerShelf) ShelfOrders else UserListOrder.entries
+        get() = when (kind) {
+            UserListKind.ServerShelf -> ShelfOrders
+            UserListKind.ServerReadingList -> listOf(UserListOrder.Custom)
+            else -> UserListOrder.entries
+        }
 
     fun contains(itemId: String): Boolean = entries.any { entry -> entry.itemId == itemId }
 }
@@ -135,9 +143,13 @@ data class UserListDraft(
     /** The books in the list's own order, without the removed ones. */
     val itemIds: List<String>,
     val removedItemIds: Set<String> = emptySet(),
-    /** A server's shelf: Done saves its name and removals on the server, and it has no description or order of its own. */
-    val isServerShelf: Boolean = false,
-)
+    /** What the list is: a server's shelf or reading list saves its name, removals and order on the server with Done. */
+    val kind: UserListKind = UserListKind.User,
+) {
+    val isServerShelf: Boolean get() = kind == UserListKind.ServerShelf
+
+    val isOnServer: Boolean get() = kind == UserListKind.ServerShelf || kind == UserListKind.ServerReadingList
+}
 
 /** The editor's starting point: the books in the list's own order, or, for a shelf, which has none, as the page shows them. */
 fun UserList.toDraft(): UserListDraft = UserListDraft(
@@ -147,5 +159,5 @@ fun UserList.toDraft(): UserListDraft = UserListDraft(
     order = order,
     itemIds = (if (kind == UserListKind.ServerShelf) sortedEntries() else entries.sortedBy(UserListEntry::position))
         .map(UserListEntry::itemId),
-    isServerShelf = kind == UserListKind.ServerShelf,
+    kind = kind,
 )

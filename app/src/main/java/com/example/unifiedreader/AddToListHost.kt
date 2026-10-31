@@ -11,7 +11,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
-import com.example.unifiedreader.core.model.displayName
+import com.example.unifiedreader.core.model.isKavitaSeriesContainer
 import com.example.unifiedreader.feature.library.libraryBookTitle
 import com.example.unifiedreader.feature.lists.AddToListSheet
 import com.example.unifiedreader.feature.lists.NewListDialog
@@ -38,19 +38,25 @@ internal fun AddToListHost(
 ) {
     val lists by listsViewModel.lists.collectAsStateWithLifecycle()
     val storedShelves by listsViewModel.shelves.collectAsStateWithLifecycle()
-    val shelvesFit = grimmoryConnected && items.isNotEmpty() && items.all { item -> item.sourceType == SourceType.GRIMMORY }
-    LaunchedEffect(shelvesFit) { if (shelvesFit) listsViewModel.refreshShelves() }
+    // A server's lists show when every book going in is that server's (Kavita's: issues, not whole series).
+    val server = when {
+        items.isEmpty() -> null
+        grimmoryConnected && items.all { item -> item.sourceType == SourceType.GRIMMORY } -> SourceType.GRIMMORY
+        kavitaConnected && items.all { item -> item.sourceType == SourceType.KAVITA && !item.isKavitaSeriesContainer() } -> SourceType.KAVITA
+        else -> null
+    }
+    LaunchedEffect(server) { if (server != null) listsViewModel.refreshShelves() }
     val itemsById = remember(libraryItems) { libraryItems.associateBy(ReadableItem::id) }
     SideEffect { listsViewModel.catalog = itemsById }
-    val shelves = remember(storedShelves, itemsById, shelvesFit) {
-        if (shelvesFit) storedShelves.orEmpty().map { shelf -> shelf.toUserList(itemsById) } else emptyList()
+    val shelves = remember(storedShelves, itemsById, server) {
+        storedShelves.orEmpty().filter { shelf -> shelf.sourceType == server }.map { shelf -> shelf.toUserList(itemsById) }
     }
     val onShelfFailure = rememberShelfFailureToast()
     var isNewListOpen by rememberSaveable { mutableStateOf(false) }
     AddToListSheet(
         items = items,
         lists = lists,
-        shelves = shelves,
+        serverLists = shelves,
         wantToReadNote = "Also on Kavita's Want to read".takeIf {
             kavitaConnected && items.any { item -> item.sourceType == SourceType.KAVITA }
         },
@@ -62,17 +68,17 @@ internal fun AddToListHost(
     if (isNewListOpen) {
         val goesIn = items.singleOrNull()?.let { item -> "${item.libraryBookTitle()} goes into it" } ?: "${items.size} books go into it"
         NewListDialog(
-            subtitle = if (shelvesFit) "$goesIn." else "$goesIn, in your order.",
-            onCreate = { name, onServer ->
+            subtitle = if (server != null) "$goesIn." else "$goesIn, in your order.",
+            onCreate = { name, chosen ->
                 isNewListOpen = false
-                if (onServer) {
-                    listsViewModel.createShelf(name, items, onFailure = onShelfFailure)
+                if (chosen != null) {
+                    listsViewModel.createServerList(chosen.sourceType, name, items, onFailure = onShelfFailure)
                 } else {
                     listsViewModel.createList(name, items)
                 }
             },
             onDismiss = { isNewListOpen = false },
-            serverName = SourceType.GRIMMORY.displayName().takeIf { shelvesFit },
+            servers = newListServers(setOfNotNull(server)),
         )
     }
 }

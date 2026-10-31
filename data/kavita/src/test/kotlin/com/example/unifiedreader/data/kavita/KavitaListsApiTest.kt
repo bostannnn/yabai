@@ -52,6 +52,51 @@ class KavitaListsApiTest {
         assertEquals(0, requests.size)
     }
 
+    @Test
+    fun `reading lists say whose they are, and their issues come in order`() = runBlocking {
+        val lists = api {
+            respondJson("""[{"id":4,"title":"Eclipse War","itemCount":22,"promoted":true,"ownerUserName":"admin","coverImage":"x"},{"title":"no id"}]""")
+        }.getReadingLists("token")
+        assertEquals(listOf(KavitaReadingList("4", "Eclipse War", 22, promoted = true, ownerUserName = "admin")), lists)
+
+        val entries = api { respondJson("""[{"id":31,"order":1,"chapterId":700},{"id":30,"order":0,"chapterId":699}]""") }
+            .getReadingListEntries("token", "4")
+        assertEquals(listOf("699", "700"), entries.map(KavitaReadingListEntry::chapterId))
+        assertEquals("http://kavita.example/api/ReadingList/items?readingListId=4", requests.last().first.url.toString())
+    }
+
+    @Test
+    fun `renaming sends back everything else the list keeps`() = runBlocking {
+        api { request ->
+            if (request.url.encodedPath.endsWith("/update")) {
+                respondJson("{}")
+            } else {
+                respondJson("""{"id":4,"title":"Old","summary":"Story arc","promoted":true,"coverImageLocked":true,"startingYear":2016,"tags":[{"id":1,"title":"Events"}]}""")
+            }
+        }.renameReadingList("token", "4", "Eclipse War")
+
+        val update = requests.single { it.first.url.encodedPath.endsWith("/update") }
+        assertEquals(
+            Json.parseToJsonElement(
+                """{"readingListId":4,"title":"Eclipse War","summary":"Story arc","promoted":true,"coverImageLocked":true,""" +
+                    """"startingMonth":0,"startingYear":2016,"endingMonth":0,"endingYear":0,"tags":["Events"]}""",
+            ),
+            Json.parseToJsonElement(update.second),
+        )
+    }
+
+    @Test
+    fun `moving and removing name the list's own id for the issue`() = runBlocking {
+        api().moveReadingListEntry("token", "4", entryId = "31", fromPosition = 5, toPosition = 0)
+        api().removeReadingListEntry("token", "4", entryId = "30")
+
+        assertEquals(
+            Json.parseToJsonElement("""{"readingListId":4,"readingListItemId":31,"fromPosition":5,"toPosition":0}"""),
+            Json.parseToJsonElement(requests[0].second),
+        )
+        assertEquals("http://kavita.example/api/ReadingList/delete-item", requests[1].first.url.toString())
+    }
+
     private fun MockRequestHandleScope.respondJson(content: String, status: HttpStatusCode = HttpStatusCode.OK) = respond(
         content = content,
         status = status,

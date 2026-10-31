@@ -135,7 +135,7 @@ fun UserListPage(
             Column(verticalArrangement = Arrangement.spacedBy(AppLayout.headingGap)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     AppSectionHeading(text = "Books", count = shown.size.toString(), modifier = Modifier.weight(1f))
-                    if (list.isEditable) {
+                    if (list.isEditable && list.orders.size > 1) {
                         UserListOrderChip(order = list.order, options = list.orders, onSetOrder = onSetOrder)
                     }
                     AppChip(
@@ -150,6 +150,7 @@ fun UserListPage(
                             books.isNotEmpty() -> "Every book here is finished."
                             list.kind == UserListKind.Stalled -> "Nothing has stalled: every book you started was opened in the last three weeks."
                             list.kind == UserListKind.ServerShelf -> "Nothing on this shelf yet. Add a ${list.server?.sourceType?.displayName()} book from its page with Add to list."
+                            list.kind == UserListKind.ServerReadingList -> "Nothing here yet, or nothing your library holds. Add a ${list.server?.sourceType?.displayName()} issue from its page with Add to list."
                             else -> "Nothing here yet. Add a book from its page with Add to list, or select covers in the library."
                         },
                         style = MaterialTheme.typography.bodyMedium,
@@ -312,9 +313,9 @@ private fun UserListBookRow(
 private fun UserList.headerCaption(books: List<UserListBook>): String = when (kind) {
     UserListKind.Stalled -> "Updates itself · every source"
     UserListKind.WantToRead -> "Built in · on this tablet"
-    UserListKind.ServerShelf -> {
-        val source = server?.sourceType?.displayName().orEmpty()
-        if (isEditable) "$source shelf · on the server" else "$source shelf · someone else's, read-only"
+    UserListKind.ServerShelf, UserListKind.ServerReadingList -> {
+        val what = "${server?.sourceType?.displayName().orEmpty()} ${if (kind == UserListKind.ServerShelf) "shelf" else "reading list"}"
+        if (isEditable) "$what · on the server" else "$what · someone else's, read-only"
     }
     UserListKind.User -> {
         val sources = books.map { it.entry.sourceType.displayName() }.distinct()

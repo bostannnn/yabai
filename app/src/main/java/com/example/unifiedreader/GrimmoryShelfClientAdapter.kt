@@ -33,6 +33,10 @@ class GrimmoryShelfClientAdapter @Inject constructor(
         }
     }
 
+    override suspend fun fetchItems(remoteId: String): List<String> = withShelves { shelves, token ->
+        shelves.getShelfBookIds(token, remoteId).map { bookId -> sourceType.remoteItemId(bookId) }
+    }
+
     override suspend fun createShelf(name: String): RemoteShelf = withShelves { shelves, token ->
         shelves.createShelf(token, name).toRemote(isOwned = true)
     }

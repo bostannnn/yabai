@@ -28,6 +28,7 @@ import com.example.unifiedreader.feature.lists.ListCover
 import com.example.unifiedreader.feature.lists.ListsRouteState
 import com.example.unifiedreader.feature.lists.ListsScreen
 import com.example.unifiedreader.feature.lists.NewListDialog
+import com.example.unifiedreader.feature.lists.NewListServer
 import com.example.unifiedreader.feature.lists.UserList
 import com.example.unifiedreader.feature.lists.UserListBook
 import com.example.unifiedreader.feature.lists.UserListEditor
@@ -71,11 +72,11 @@ internal fun ListsRoute(
     }
     val lists = remember(stored, stalled) { orderedForScreen(stored, stalled) }
     val storedShelves by listsViewModel.shelves.collectAsStateWithLifecycle()
-    val grimmoryConnected = uiState.grimmoryConnection.hasStoredSession
-    val shelves = remember(storedShelves, itemsById, grimmoryConnected) {
-        if (grimmoryConnected) storedShelves.orEmpty().map { shelf -> shelf.toUserList(itemsById) } else emptyList()
+    val connected = connectedListServers(uiState)
+    val shelves = remember(storedShelves, itemsById, connected) {
+        storedShelves.orEmpty().filter { shelf -> shelf.sourceType in connected }.map { shelf -> shelf.toUserList(itemsById) }
     }
-    LaunchedEffect(grimmoryConnected) { if (grimmoryConnected) listsViewModel.refreshShelves() }
+    LaunchedEffect(connected) { if (connected.isNotEmpty()) listsViewModel.refreshShelves() }
     val onShelfFailure = rememberShelfFailureToast()
     val cover = rememberListCover(viewModel)
     val openList = state.openListId?.let { id ->
@@ -91,6 +92,8 @@ internal fun ListsRoute(
         }
     }
     BackHandler(enabled = state.openListId != null) { state.back() }
+    // A server's list reads its books again as its page opens.
+    LaunchedEffect(openList?.id) { openList?.takeIf { it.server != null }?.let(listsViewModel::refreshList) }
 
     fun openBook(list: UserList, book: UserListBook) {
         openBookFromList(viewModel, listsViewModel, list, book.item ?: return)
@@ -103,7 +106,7 @@ internal fun ListsRoute(
             onDraftChange = { state.editDraft = it },
             entriesById = remember(openList) { openList.entries.associateBy { entry -> entry.itemId } },
             itemsById = itemsById,
-            canDelete = openList.kind == UserListKind.User || openList.kind == UserListKind.ServerShelf,
+            canDelete = openList.kind == UserListKind.User || openList.server != null,
             cover = cover,
             onDelete = {
                 listsViewModel.deleteList(openList, onFailure = onShelfFailure)
@@ -114,6 +117,7 @@ internal fun ListsRoute(
             modifier = modifier,
             orders = openList.orders,
             serverName = openList.server?.sourceType?.displayName(),
+            canReorder = openList.kind != UserListKind.ServerShelf,
         )
         openList != null -> {
             val books = remember(openList, itemsById, progress) { openList.books(itemsById, progress) }
@@ -145,8 +149,7 @@ internal fun ListsRoute(
             ListsScreen(
                 lists = lists,
                 underWay = underWay,
-                kavitaLists = uiState.kavitaReadingLists.summaries.takeIf { uiState.kavitaConnection.hasStoredSession }.orEmpty(),
-                shelves = shelves,
+                serverLists = shelves,
                 itemsById = itemsById,
                 progressByItemId = progress,
                 searchQuery = state.searchQuery,
@@ -154,10 +157,6 @@ internal fun ListsRoute(
                 cover = cover,
                 onOpenList = { list -> state.openList(list.id) },
                 onContinue = { under -> openBook(under.list, under.next) },
-                onOpenKavitaList = { summary ->
-                    viewModel.openLibrarySource(SourceType.KAVITA)
-                    viewModel.onKavitaReadingListSelected(summary.id)
-                },
                 contentTopInset = contentTopInset,
                 onScrolledChanged = { scrolled -> state.scrolled = scrolled },
                 modifier = modifier,
@@ -171,16 +170,16 @@ internal fun ListsRoute(
                 state.isNewListOpen = false
                 importCbl()
             },
-            onCreate = { name, onServer ->
+            onCreate = { name, server ->
                 state.isNewListOpen = false
-                if (onServer) {
-                    listsViewModel.createShelf(name, items = emptyList(), onCreated = state::openList, onFailure = onShelfFailure)
+                if (server != null) {
+                    listsViewModel.createServerList(server.sourceType, name, items = emptyList(), onCreated = state::openList, onFailure = onShelfFailure)
                 } else {
                     listsViewModel.createList(name, items = emptyList()) { id -> state.openList(id) }
                 }
             },
             onDismiss = { state.isNewListOpen = false },
-            serverName = SourceType.GRIMMORY.displayName().takeIf { grimmoryConnected },
+            servers = newListServers(connected),
         )
     }
 }
@@ -209,7 +208,11 @@ internal fun ListsTopBar(
                         Icon(imageVector = AppIcons.Close, contentDescription = "Cancel editing")
                     }
                     Text(
-                        text = if (draft.isServerShelf) "Edit shelf" else "Edit list",
+                        text = when (draft.kind) {
+                            UserListKind.ServerShelf -> "Edit shelf"
+                            UserListKind.ServerReadingList -> "Edit reading list"
+                            else -> "Edit list"
+                        },
                         style = MaterialTheme.typography.titleMedium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -274,7 +277,7 @@ internal fun openBookFromList(
     if (list.kind == UserListKind.User || list.kind == UserListKind.WantToRead) listsViewModel.markOpened(list.id)
     viewModel.onListItemSelected(
         item = item,
-        listContext = if (list.isReadingOrder && list.isEditable) {
+        listContext = if (list.isReadingOrder) {
             AppReaderListContext(
                 listId = list.id,
                 title = list.name,
@@ -284,4 +287,16 @@ internal fun openBookFromList(
             null
         },
     )
+}
+
+/** The servers whose lists show: Kavita's reading lists and Grimmory's shelves, while each is connected. */
+internal fun connectedListServers(uiState: AppUiState): Set<SourceType> = buildSet {
+    if (uiState.kavitaConnection.hasStoredSession) add(SourceType.KAVITA)
+    if (uiState.grimmoryConnection.hasStoredSession) add(SourceType.GRIMMORY)
+}
+
+/** Where New list can keep a list besides this device: a Kavita reading list, a Grimmory shelf. */
+internal fun newListServers(sources: Set<SourceType>): List<NewListServer> = buildList {
+    if (SourceType.KAVITA in sources) add(NewListServer.readingList(SourceType.KAVITA))
+    if (SourceType.GRIMMORY in sources) add(NewListServer.shelf(SourceType.GRIMMORY))
 }

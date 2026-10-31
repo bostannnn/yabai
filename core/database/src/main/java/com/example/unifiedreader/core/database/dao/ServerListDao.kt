@@ -70,6 +70,13 @@ abstract class ServerListDao {
         upsertItems(items)
     }
 
+    /** One list's books, replaced by [itemIds] in that order. */
+    @Transaction
+    open fun replaceItems(listId: String, itemIds: List<String>) {
+        deleteAllItems(listId)
+        upsertItems(itemIds.mapIndexed { index, itemId -> ServerListItemEntity(listId, itemId, index) })
+    }
+
     /** Adds books after the ones already there; a book already in the list stays where it is. */
     @Transaction
     open fun addItems(listId: String, itemIds: List<String>) {

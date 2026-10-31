@@ -17,11 +17,10 @@ internal fun rememberBookListMemberships(
 ): (ReadableItem) -> List<LibraryItemListMembership> {
     val stored by listsViewModel.lists.collectAsStateWithLifecycle()
     val storedShelves by listsViewModel.shelves.collectAsStateWithLifecycle()
-    val grimmoryConnected = uiState.grimmoryConnection.hasStoredSession
+    val connected = connectedListServers(uiState)
     val itemsById = remember(uiState.items) { uiState.items.associateBy(ReadableItem::id) }
-    val lists = remember(stored, storedShelves, itemsById, grimmoryConnected) {
-        val shelves = if (grimmoryConnected) storedShelves.orEmpty().map { shelf -> shelf.toUserList(itemsById) } else emptyList()
-        stored + shelves
+    val lists = remember(stored, storedShelves, itemsById, connected) {
+        stored + storedShelves.orEmpty().filter { shelf -> shelf.sourceType in connected }.map { shelf -> shelf.toUserList(itemsById) }
     }
     return remember(lists) { { item -> bookListMemberships(item.id, lists) } }
 }

@@ -4,11 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.unifiedreader.core.database.UnifiedReaderDatabase
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.feature.lists.FinishedList
 import com.example.unifiedreader.feature.lists.ListsRouteState
 import com.example.unifiedreader.feature.lists.RoomServerShelfStore
 import com.example.unifiedreader.feature.lists.RoomUserListStore
+import com.example.unifiedreader.feature.lists.ServerListStores
 import com.example.unifiedreader.feature.lists.ServerShelf
 import com.example.unifiedreader.feature.lists.ServerShelfStore
 import com.example.unifiedreader.feature.lists.ServerWantToRead
@@ -44,24 +46,30 @@ object AppListsModule {
 
     @Provides
     @Singleton
-    fun provideServerShelfStore(
+    fun provideServerListStores(
         database: UnifiedReaderDatabase,
-        client: GrimmoryShelfClientAdapter,
-    ): ServerShelfStore = RoomServerShelfStore(dao = database.serverListDao(), client = client)
+        grimmoryShelves: GrimmoryShelfClientAdapter,
+        kavitaReadingLists: KavitaReadingListClientAdapter,
+    ): ServerListStores = ServerListStores(
+        listOf(
+            RoomServerShelfStore(dao = database.serverListDao(), client = kavitaReadingLists),
+            RoomServerShelfStore(dao = database.serverListDao(), client = grimmoryShelves),
+        ),
+    )
 
     @Provides
     fun provideServerWantToRead(adapter: KavitaWantToReadAdapter): ServerWantToRead = adapter
 }
 
 /**
- * Hands the lists and shelves to the composition and runs their changes. They are read only while
- * a screen or sheet that shows them is on screen (and five seconds after). A change to a shelf goes
- * to its server; when that fails, [onFailure] gets what the toast should say.
+ * Hands the lists and the servers' lists to the composition and runs their changes. They are read
+ * only while a screen or sheet that shows them is on screen (and five seconds after). A change to a
+ * server's list goes to its server; when that fails, [onFailure] gets what the toast should say.
  */
 @HiltViewModel
 class AppListsViewModel @Inject constructor(
     private val store: UserListStore,
-    private val shelfStore: ServerShelfStore,
+    private val serverLists: ServerListStores,
     private val serverWantToRead: ServerWantToRead,
 ) : ViewModel() {
     /** Where the Lists screen is; kept here so it is still there after a book from a list closes. */
@@ -82,8 +90,8 @@ class AppListsViewModel @Inject constructor(
         initialValue = emptyList(),
     )
 
-    /** The shelves as last read from the server; null until the database has answered. */
-    val shelves: StateFlow<List<ServerShelf>?> = shelfStore.shelves.stateIn(
+    /** The servers' lists as last read (Kavita's reading lists, Grimmory's shelves); null until the database has answered. */
+    val shelves: StateFlow<List<ServerShelf>?> = serverLists.lists.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
         initialValue = null,
@@ -100,22 +108,32 @@ class AppListsViewModel @Inject constructor(
         viewModelScope.launch { store.recordFinished(finished) }
     }
 
-    /** Reads the shelves again unless that was done a few minutes ago; a failure keeps the last copy. */
+    /** Reads every server's lists again unless that was done a few minutes ago; a failure keeps the last copy. */
     fun refreshShelves() {
+        serverLists.all.forEach { store -> quietly { store.refresh() } }
+    }
+
+    /** Reads one server list's books again as its page opens (at most every few minutes). */
+    fun refreshList(list: UserList) {
+        val store = serverLists.forSource(list.server?.sourceType) ?: return
+        quietly { store.refreshList(list.id) }
+    }
+
+    private fun quietly(read: suspend () -> Unit) {
         viewModelScope.launch {
             try {
-                shelfStore.refresh()
+                read()
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (_: Exception) {
-                // Offline or refused: the shelves kept from the last refresh still show.
+                // Offline or refused: what was kept from the last read still shows.
             }
         }
     }
 
     fun setInList(list: UserList, items: List<ReadableItem>, inList: Boolean, onFailure: (String) -> Unit = {}) {
-        if (list.kind == UserListKind.ServerShelf) {
-            onShelf(onFailure) { shelfStore.setInShelf(list.id, items, inList) }
+        serverLists.forSource(list.server?.sourceType)?.let { store ->
+            onServer(store, onFailure) { store.setInShelf(list.id, items, inList) }
             return
         }
         viewModelScope.launch {
@@ -151,26 +169,28 @@ class AppListsViewModel @Inject constructor(
         viewModelScope.launch { onCreated(store.createList(name, items)) }
     }
 
-    fun createShelf(
+    /** Makes a list on [sourceType]'s server (a Kavita reading list, a Grimmory shelf) with [items] in it. */
+    fun createServerList(
+        sourceType: SourceType,
         name: String,
         items: List<ReadableItem>,
         onCreated: (String) -> Unit = {},
         onFailure: (String) -> Unit = {},
-    ) = onShelf(onFailure) { onCreated(shelfStore.createShelf(name, items)) }
+    ) {
+        val store = serverLists.forSource(sourceType) ?: return
+        onServer(store, onFailure) { onCreated(store.createShelf(name, items)) }
+    }
 
     fun setOrder(list: UserList, order: UserListOrder) {
         viewModelScope.launch {
-            if (list.kind == UserListKind.ServerShelf) shelfStore.setOrder(list.id, order) else store.setOrder(list.id, order)
+            serverLists.forSource(list.server?.sourceType)?.setOrder(list.id, order) ?: store.setOrder(list.id, order)
         }
     }
 
     fun setHideFinished(list: UserList, hideFinished: Boolean) {
         viewModelScope.launch {
-            if (list.kind == UserListKind.ServerShelf) {
-                shelfStore.setHideFinished(list.id, hideFinished)
-            } else {
-                store.setHideFinished(list.id, hideFinished)
-            }
+            serverLists.forSource(list.server?.sourceType)?.setHideFinished(list.id, hideFinished)
+                ?: store.setHideFinished(list.id, hideFinished)
         }
     }
 
@@ -187,11 +207,13 @@ class AppListsViewModel @Inject constructor(
      * its name and removals on the server, and its order here.
      */
     fun applyDraft(draft: UserListDraft, onFailure: (String) -> Unit = {}) {
-        if (draft.isServerShelf) {
-            onShelf(onFailure) {
-                shelfStore.setOrder(draft.listId, draft.order)
-                shelfStore.rename(draft.listId, draft.name)
-                shelfStore.removeFromShelf(draft.listId, draft.removedItemIds)
+        if (draft.isOnServer) {
+            val source = shelves.value?.firstOrNull { it.id == draft.listId }?.sourceType
+            val serverStore = serverLists.forSource(source) ?: return
+            onServer(serverStore, onFailure) {
+                serverStore.rename(draft.listId, draft.name)
+                serverStore.removeFromShelf(draft.listId, draft.removedItemIds)
+                if (draft.isServerShelf) serverStore.setOrder(draft.listId, draft.order) else serverStore.reorder(draft.listId, draft.itemIds)
             }
             return
         }
@@ -208,21 +230,21 @@ class AppListsViewModel @Inject constructor(
     }
 
     fun deleteList(list: UserList, onFailure: (String) -> Unit = {}) {
-        if (list.kind == UserListKind.ServerShelf) {
-            onShelf(onFailure) { shelfStore.delete(list.id) }
+        serverLists.forSource(list.server?.sourceType)?.let { serverStore ->
+            onServer(serverStore, onFailure) { serverStore.delete(list.id) }
             return
         }
         viewModelScope.launch { store.deleteList(list.id) }
     }
 
-    private fun onShelf(onFailure: (String) -> Unit, change: suspend () -> Unit) {
+    private fun onServer(serverStore: ServerShelfStore, onFailure: (String) -> Unit, change: suspend () -> Unit) {
         viewModelScope.launch {
             try {
                 change()
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (error: Exception) {
-                onFailure(shelfChangeFailedMessage(shelfStore.sourceType.displayName(), error))
+                onFailure(shelfChangeFailedMessage(serverStore.sourceType.displayName(), error))
             }
         }
     }
