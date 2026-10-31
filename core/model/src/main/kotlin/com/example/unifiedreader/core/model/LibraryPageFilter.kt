@@ -12,12 +12,8 @@ data class LibraryPageRange(
     operator fun contains(pageCount: Int): Boolean =
         (min == null || pageCount >= min) && (max == null || pageCount <= max)
 
-    /**
-     * Whether an item with these [pageCounts] fits: one of them is in the range (a series tile
-     * carries its issues' counts), or it has none and [includeUnknown] keeps it.
-     */
-    fun matches(pageCounts: List<Int>): Boolean =
-        if (pageCounts.isEmpty()) includeUnknown else pageCounts.any { count -> count in this }
+    /** Whether an item this long fits; one whose length is unknown (null) fits when [includeUnknown] keeps it. */
+    fun matches(pageCount: Int?): Boolean = if (pageCount == null) includeUnknown else pageCount in this
 }
 
 /**
@@ -36,8 +32,7 @@ val LibraryPageStops: List<Int> = listOf(0, 10, 20, 30, 40, 50, 75, 100, 150, 20
 /**
  * How long a view's items are, for the Pages filter: [bars] counts the items with a page count
  * between each pair of neighbouring [LibraryPageStops] (the last bar holds everything from its
- * stop up), [unknown] the items with none. An item with several counts (a series' issues) counts
- * once in every bar one of them falls in.
+ * stop up), [unknown] the items with none.
  */
 data class LibraryPageHistogram(
     val bars: List<Int> = emptyList(),
@@ -50,20 +45,13 @@ data class LibraryPageHistogram(
 
 fun buildLibraryPageHistogram(
     items: List<ReadableItem>,
-    pageCountsOf: (ReadableItem) -> List<Int>,
+    pageCountOf: (ReadableItem) -> Int?,
 ): LibraryPageHistogram {
     val bars = IntArray(LibraryPageStops.size - 1)
-    val barsOfItem = BooleanArray(bars.size)
     var unknown = 0
     items.forEach { item ->
-        val pageCounts = pageCountsOf(item)
-        if (pageCounts.isEmpty()) {
-            unknown++
-            return@forEach
-        }
-        barsOfItem.fill(false)
-        pageCounts.forEach { count -> barsOfItem[libraryPageBarIndex(count)] = true }
-        barsOfItem.forEachIndexed { index, hit -> if (hit) bars[index]++ }
+        val pageCount = pageCountOf(item)
+        if (pageCount == null) unknown++ else bars[libraryPageBarIndex(pageCount)]++
     }
     return LibraryPageHistogram(bars = bars.toList(), unknown = unknown)
 }

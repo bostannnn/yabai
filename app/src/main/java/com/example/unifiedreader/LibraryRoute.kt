@@ -248,6 +248,7 @@ internal fun LibraryRoute(
                     viewMode = frame.viewMode,
                     progressByItemId = frame.uiState.displayProgressByItemId,
                     ratingByItemId = frame.uiState.displayRatingByItemId,
+                    pageCountByItemId = frame.uiState.displayPageCountByItemId,
                     fadeReadItems = frame.uiState.libraryFadeReadItems,
                     locallyAvailableItemIds = frame.uiState.locallyAvailableRemoteItemIds,
                     downloadableItemIds = frame.uiState.remoteDownloadActionAvailability.downloadableItemIds,

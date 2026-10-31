@@ -189,13 +189,15 @@ internal val LibrarySortMode.label: String
         LibrarySortMode.TITLE -> "Title"
         LibrarySortMode.SERIES -> "Series"
         LibrarySortMode.ISSUE_COUNT -> "Number of issues"
+        LibrarySortMode.PAGES -> "Pages"
     }
 
 internal val LibrarySortMode.usesAlphabetRail: Boolean
     get() = when (this) {
         LibrarySortMode.AUTHOR,
         LibrarySortMode.TITLE,
-        LibrarySortMode.SERIES -> true
+        LibrarySortMode.SERIES,
+        LibrarySortMode.PAGES -> true
         LibrarySortMode.DATE_ADDED,
         LibrarySortMode.LAST_READ,
         LibrarySortMode.ISSUE_COUNT -> false

@@ -7,3 +7,5 @@ A source's library: the bar with its search field, the reading card, the shelf t
 - All books is `AppSectionHeading`, on the gutter line, with Filters and sort at its end.
 - The reading card's inside inset is `inset` 20 at every width and its corners `radius-container` 20.
 - No source name anywhere on the screen: the search field says it.
+- **The jump rail** runs down the right edge for a sort that groups: the letters for Title, Author and Series, and for Pages the page ranges the filter's slider stops at (0, 10, 20, 30, 40, 50, 75, 100, 150, 200, 250, 300, 400, 500, 750, 1k), each where its range starts (150 holds 150 to 199), then `?` for books with no page count. Only sections with books show.
+- **Sorted by Pages** (shortest first, unknown lengths last), the line under each cover gives its length instead of its progress: "212 pages", a series "212 pages · 8 issues". A series' length is all its issues together, for the sort and the Pages filter alike.

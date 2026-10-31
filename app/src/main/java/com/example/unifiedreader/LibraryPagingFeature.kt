@@ -37,7 +37,9 @@ internal object LibraryPagingFeature {
             LibrarySortMode.AUTHOR,
             LibrarySortMode.SERIES -> filters.isEmpty
 
-            LibrarySortMode.ISSUE_COUNT -> false
+            // Lengths (a series' is its issues') aren't in the root tables.
+            LibrarySortMode.ISSUE_COUNT,
+            LibrarySortMode.PAGES -> false
         }
     }
 

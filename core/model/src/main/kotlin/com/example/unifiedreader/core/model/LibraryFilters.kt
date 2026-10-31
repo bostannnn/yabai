@@ -95,6 +95,8 @@ enum class LibrarySortMode {
     TITLE,
     SERIES,
     ISSUE_COUNT,
+    // Shortest first; a series is all its issues together, unknown lengths last.
+    PAGES,
 }
 
 fun applyLibraryFilters(
@@ -102,7 +104,7 @@ fun applyLibraryFilters(
     filters: LibraryFilterState,
     downloadedRemoteItemIds: Set<String> = emptySet(),
     readingStatusProvider: (ReadableItem) -> LibraryReadingStatus? = { null },
-    pageCountsProvider: (ReadableItem) -> List<Int> = ReadableItem::ownPageCounts,
+    pageCountProvider: (ReadableItem) -> Int? = ReadableItem::libraryPageCount,
 ): List<ReadableItem> {
     if (filters.isEmpty) return items
     return items.filter { item ->
@@ -111,7 +113,7 @@ fun applyLibraryFilters(
             filters.libraries.matches(item.libraryId) &&
             filters.fileLocations.matches(item.fileLocation(downloadedRemoteItemIds)) &&
             filters.readingStatuses.matches(readingStatusProvider(item)) &&
-            (filters.pages?.matches(pageCountsProvider(item)) ?: true) &&
+            (filters.pages?.matches(pageCountProvider(item)) ?: true) &&
             filters.authors.matchesAny(facetMetadata.authors) &&
             filters.series.matchesAny(facetMetadata.series) &&
             filters.publishers.matchesAny(facetMetadata.publishers) &&
@@ -169,16 +171,19 @@ fun applyLibrarySort(
     items: List<ReadableItem>,
     sortMode: LibrarySortMode,
     lastReadAtEpochMillisByItemId: Map<String, Long> = emptyMap(),
+    // An item's length for the Pages sort (a series tile's is all its issues together).
+    pageCountOf: (ReadableItem) -> Int? = ReadableItem::libraryPageCount,
 ): List<ReadableItem> {
     return items
         .withIndex()
-        .sortedWith(sortComparator(sortMode, lastReadAtEpochMillisByItemId))
+        .sortedWith(sortComparator(sortMode, lastReadAtEpochMillisByItemId, pageCountOf))
         .map { it.value }
 }
 
 private fun sortComparator(
     sortMode: LibrarySortMode,
     lastReadAtEpochMillisByItemId: Map<String, Long>,
+    pageCountOf: (ReadableItem) -> Int?,
 ): Comparator<IndexedValue<ReadableItem>> = when (sortMode) {
     LibrarySortMode.DATE_ADDED -> compareByDescending<IndexedValue<ReadableItem>> {
         it.value.addedAtEpochMillis ?: Long.MIN_VALUE
@@ -194,6 +199,10 @@ private fun sortComparator(
     LibrarySortMode.ISSUE_COUNT -> compareByDescending<IndexedValue<ReadableItem>> {
         it.value.issueCount ?: Int.MIN_VALUE
     }
+        .thenBy(String.CASE_INSENSITIVE_ORDER) { it.value.title }
+        .thenBy { it.index }
+
+    LibrarySortMode.PAGES -> compareBy<IndexedValue<ReadableItem>, Int?>(nullsLast()) { pageCountOf(it.value) }
         .thenBy(String.CASE_INSENSITIVE_ORDER) { it.value.title }
         .thenBy { it.index }
 
@@ -226,7 +235,7 @@ fun buildContextualLibraryFilterFacets(
     filters: LibraryFilterState,
     downloadedRemoteItemIds: Set<String> = emptySet(),
     readingStatusProvider: (ReadableItem) -> LibraryReadingStatus? = { null },
-    pageCountsProvider: (ReadableItem) -> List<Int> = ReadableItem::ownPageCounts,
+    pageCountProvider: (ReadableItem) -> Int? = ReadableItem::libraryPageCount,
 ): LibraryFilterFacets {
     // Each dimension's values (and their counts) come from the items every *other* filter leaves.
     fun itemsWithout(dimensionCleared: LibraryFilterState): List<ReadableItem> = applyLibraryFilters(
@@ -234,7 +243,7 @@ fun buildContextualLibraryFilterFacets(
         filters = dimensionCleared,
         downloadedRemoteItemIds = downloadedRemoteItemIds,
         readingStatusProvider = readingStatusProvider,
-        pageCountsProvider = pageCountsProvider,
+        pageCountProvider = pageCountProvider,
     )
     val fileLocationOf = { item: ReadableItem -> item.fileLocation(downloadedRemoteItemIds) }
     val formatItems = itemsWithout(filters.copy(formats = emptySet()))
@@ -276,7 +285,7 @@ fun buildContextualLibraryFilterFacets(
             tags = tags.counts,
             languages = languages.counts,
         ),
-        pages = buildLibraryPageHistogram(itemsWithout(filters.copy(pages = null)), pageCountsProvider),
+        pages = buildLibraryPageHistogram(itemsWithout(filters.copy(pages = null)), pageCountProvider),
     )
 }
 
@@ -311,9 +320,6 @@ fun assembleLibraryFilterFacets(
     tags = tags.distinctByTextOrder(),
     languages = languages.distinctByTextOrder(),
 )
-
-/** An item's own length as a page-count list: one count, or none when unknown. */
-fun ReadableItem.ownPageCounts(): List<Int> = listOfNotNull(libraryPageCount())
 
 private fun <T> Set<T>.matches(value: T?): Boolean = isEmpty() || value in this
 private fun Set<String>.matchesAny(values: List<String>): Boolean = isEmpty() || values.any(this::contains)
@@ -403,7 +409,8 @@ fun ReadableItem.libraryAlphabetKey(
     LibrarySortMode.AUTHOR -> facetMetadata().authors.firstOrNull()?.authorFacetKey() ?: libraryDisplayLabel()
     LibrarySortMode.TITLE -> title.trim().takeIf(String::isNotEmpty)
     LibrarySortMode.SERIES -> facetMetadata().series.firstOrNull() ?: libraryPrimaryText()
-    LibrarySortMode.ISSUE_COUNT -> null
+    LibrarySortMode.ISSUE_COUNT,
+    LibrarySortMode.PAGES -> null
 }
 
 private fun ReadableItem.librarySortKey(
@@ -427,7 +434,8 @@ fun ReadableItem.librarySortIndexKey(
 
     LibrarySortMode.DATE_ADDED,
     LibrarySortMode.LAST_READ,
-    LibrarySortMode.ISSUE_COUNT -> null
+    LibrarySortMode.ISSUE_COUNT,
+    LibrarySortMode.PAGES -> null
 }
 
 private inline fun <reified T : Enum<T>> List<T>.distinctByEnumOrder(): List<T> =

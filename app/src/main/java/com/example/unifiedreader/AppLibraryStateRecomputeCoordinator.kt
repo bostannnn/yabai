@@ -315,6 +315,7 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
         selectedSourceLibraryTitlesById = currentState.selectedSourceLibraryTitlesById,
         displayProgressByItemId = currentState.displayProgressByItemId,
         displayRatingByItemId = currentState.displayRatingByItemId,
+        displayPageCountByItemId = currentState.displayPageCountByItemId,
         remoteDownloadActionAvailability = currentState.remoteDownloadActionAvailability,
         visibleItems = currentState.visibleItems,
         libraryBrowseContextKey = currentState.libraryBrowseContextKey,

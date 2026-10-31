@@ -77,6 +77,8 @@ fun LibraryScreen(
     viewMode: LibraryViewMode,
     progressByItemId: Map<String, ItemProgressSummary> = emptyMap(),
     ratingByItemId: Map<String, LibraryRatingBadgeState> = emptyMap(),
+    // Each item's length in pages (a series tile's is all its issues), for the Pages sort.
+    pageCountByItemId: Map<String, Int> = emptyMap(),
     fadeReadItems: Boolean = false,
     locallyAvailableItemIds: Set<String> = emptySet(),
     downloadableItemIds: Set<String> = emptySet(),
@@ -223,14 +225,14 @@ fun LibraryScreen(
         onSetReadStatus = onSetReadStatus,
         onOpenItemPage = onOpenItemPage,
     )
-    val availableSortModes = remember(renderedItems, sortMode) {
-        librarySortModesAvailableFor(items = renderedItems, selectedSortMode = sortMode)
+    val availableSortModes = remember(renderedItems, sortMode, pageCountByItemId) {
+        librarySortModesAvailableFor(items = renderedItems, selectedSortMode = sortMode, pageCountByItemId = pageCountByItemId)
     }
-    val itemAlphabetSections = remember(items, sortMode) {
+    val itemAlphabetSections = remember(items, sortMode, pageCountByItemId) {
         if (!sortMode.usesAlphabetRail) {
             emptyList()
         } else {
-            items.map { item -> item.sortFilterLetter(sortMode) }
+            items.map { item -> item.librarySortSection(sortMode, pageCountByItemId.pageCountOf(item)) }
         }
     }
     // On the paged path the ordered set isn't in memory, so the rail comes from SQL (present letters +
@@ -248,8 +250,8 @@ fun LibraryScreen(
     // Rail buttons + per-section scroll offsets. Both variants are computed unconditionally (remember
     // must not be called inside a branch — `isPaged` can flip when a runtime filter is applied) and the
     // paged one is selected when the grid is served by Room.
-    val inMemorySortLetters = remember(itemAlphabetSections) {
-        alphabetNavigationSections(itemAlphabetSections.filterNotNull())
+    val inMemorySortLetters = remember(itemAlphabetSections, sortMode) {
+        librarySortRailSections(itemAlphabetSections.filterNotNull(), sortMode)
     }
     val inMemorySectionStarts = remember(itemAlphabetSections) { alphabetSectionStarts(itemAlphabetSections) }
     val pagedSortLetters = remember(pagedAlphabetSections) { pagedAlphabetSections.map(LibraryAlphabetSection::letter) }
@@ -510,6 +512,12 @@ fun LibraryScreen(
                 imageVariant = gridCoverImageVariant,
                 coverImageUrlProvider = coverImageUrlProvider,
                 seriesIssueCount = item.issueCount,
+                // A series or a Kavita list keeps its own order, so its captions stay as they are.
+                lengthLabel = if (sortMode == LibrarySortMode.PAGES && showSortControl) {
+                    libraryLengthLabel(pageCountByItemId.pageCountOf(item), item.issueCount)
+                } else {
+                    null
+                },
                 title = when {
                     preferIssueLabels && includeSeriesInIssueLabels -> itemMixedIssueBrowsePrimaryText(item)
                     preferIssueLabels -> itemSeriesBrowsePrimaryText(item)
@@ -756,10 +764,16 @@ fun LibraryScreen(
 private fun librarySortModesAvailableFor(
     items: List<ReadableItem>,
     selectedSortMode: LibrarySortMode,
+    pageCountByItemId: Map<String, Int>,
 ): List<LibrarySortMode> {
     val hasIssueCounts = items.any { item -> item.issueCount != null }
+    val hasPageCounts = items.any { item -> pageCountByItemId.pageCountOf(item) != null }
     return LibrarySortMode.entries.filter { mode ->
-        mode != LibrarySortMode.ISSUE_COUNT || hasIssueCounts || selectedSortMode == LibrarySortMode.ISSUE_COUNT
+        when (mode) {
+            LibrarySortMode.ISSUE_COUNT -> hasIssueCounts || selectedSortMode == mode
+            LibrarySortMode.PAGES -> hasPageCounts || selectedSortMode == mode
+            else -> true
+        }
     }
 }
 
