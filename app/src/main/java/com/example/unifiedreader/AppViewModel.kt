@@ -299,6 +299,13 @@ class AppViewModel @Inject constructor(
         )
     }
 
+    /** The list a book was opened from, put back after the app was stopped while that book was open. */
+    fun restoreReaderListContext(listContext: AppReaderListContext) {
+        updateUiState { state ->
+            if (state.readerListContext == null && state.selectedItemId in listContext.itemIds) state.copy(readerListContext = listContext) else state
+        }
+    }
+
     fun onLibraryDirectionSelected(
         libraryId: String,
         direction: ComicReadingDirection,

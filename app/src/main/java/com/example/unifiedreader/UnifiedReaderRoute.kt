@@ -230,6 +230,7 @@ fun UnifiedReaderAppContent(
                         viewModel = viewModel,
                         listsViewModel = listsViewModel,
                     )
+                    KeepReaderListContext(uiState = uiState, viewModel = viewModel)
                     if (updateController != null) {
                         AppUpdateHost(
                             controller = updateController,
