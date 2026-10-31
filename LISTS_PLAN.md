@@ -33,7 +33,7 @@ and Grimmory shelves staying separate (each holds only its own source's books); 
 
 ## Version 2, first piece: Grimmory shelves (built 2026-10-31)
 
-The user picked this first. Plain shelves only (magic shelves come only over OPDS).
+The user picked this first. Plain shelves only (magic shelves came in the third pass; the "OPDS only" note once here was wrong: Grimmory has REST endpoints for them).
 
 - **Lists screen**: a "Grimmory shelves" section after Kavita reading lists, while Grimmory is connected: your
   shelves and the public ones, by name, tiles like Your lists with "5 books · by title". Search finds them too.
@@ -100,6 +100,76 @@ Asked for as "finish what is yet to be done". Each piece is its own commit; Room
   editor renames or deletes; the toast's Open goes to it.
 - **Read next after the app is stopped**: `KeepReaderListContext` saves the list context with the screen's saved
   state and puts it back when the same book reopens first after a restart.
+
+## Third pass: fixes, smart lists from rules, magic shelves, collections (built 2026-10-31)
+
+After 0.26.0 the user asked for a design pass ("where are errors, especially in the + menu"), for the
+Kavita lists chip to go from the Kavita home, and for "magic shelves, or local lists built from metadata",
+then: keep plain and magic shelves "with a filter", option A (collections move to Lists), and "create magic
+shelves on device from metadata available on device and save them in Grimmory". Mocked as "Third pass" on
+the canvas (boards P3*, notes q1-q3); the user took every proposed answer on the six open choices. Design
+system first (`ListsScreen`, `AppListCover`, `AppMenu`, `AppChip`; Design System artifact version 30).
+
+- **Lists screen**: a filter row at the content top (All, Your lists, Smart, then Kavita and Grimmory while
+  they have lists; `ListsFilter`, kept in the route's saved state), and one section per place
+  (`listsSections`): Your lists (Want to read, Stalled only while it holds a book, yours and your smart
+  lists), Kavita (reading lists, then collections), Grimmory (magic shelves, then shelves), each by name.
+  Smart shows what updates itself wherever it lives. Tile captions name the kind ("Reading list · 32
+  issues", "Collection · 9 series", "Magic shelf · 44 books", "Shelf · 55 books"; "2 of 5 read" for a
+  reading order). The under-way card says "Reading order · book 3 of 5".
+- **New** is a menu (`AppMenuItem` gained a `supporting` line): List, Smart list, Import a reading order.
+  **New list** asks the name first (focused), then "Keep it" rows with their lines always shown
+  (`AppSettingsRow` + `AppRoundCheck`; `AppSettingsRow` and `AppSheetLabel` gained `horizontalInset` for
+  rows inside a dialog card); the import button left it. Copy says "this device", never "tablet".
+- **Add to list**: one label per section, New list last after a divider, no footnote; smart lists, magic
+  shelves and collections are not offered.
+- **Book page**: Mark finished, Download and Add to list are three equal tonal tiles (icon over label),
+  so they never truncate. In your lists now names smart lists and magic shelves too (never Stalled).
+- **`AppListCover`**: one to three books show the first cover whole; four or more the mosaic.
+- **Rules** (`core:model` `ListRules.kt`): `ListRules` (all/any, rules, groups one level deep),
+  `ListRule` (field, operator, values, low/high, time unit), `ListRuleField` (Author, Series, Genre, Tag,
+  Mood, Language, Publisher, Pages, Published year, Status, Last read, Added, Format, Grimmory shelf,
+  Downloaded and Source on this device only, and Library for lists saved from filters), matching (case,
+  width and ё aside, like the library's filters), pills and summaries, a line-text encoding, and
+  `LibraryFilterState.toListRules` (Filters › Save as list, and smart lists saved before rules, which
+  read back as rules with their source as a rule). No personal rating: the device keeps ratings only in
+  the journal, and Grimmory's are not synced.
+- **Smart lists on this device** mix every source (`withSmartBooks`, `smartListEntries`), keep their rules
+  and How many (10, 25, 50 or every match) in `user_lists.smartFilter` (`SmartListSpec`), and sort by Date
+  added, Title or Published (new `UserListOrder.Published`; `UserListEntry.publishedYear` for it).
+- **The smart list editor** (`SmartListEditor`, `SmartListRuleSheets`, state `ListsRouteState.smartDraft`):
+  name, Keep it (On this device / On Grimmory, set when made), rules with all/any and groups, Sort by and
+  How many, the matches beside the form on Expanded (count, nine covers, "and N more"). Add a rule lists
+  the fields by section (Downloaded and Source greyed for a magic shelf); a rule's sheet picks how it asks,
+  then values with counts from the books (tags under Set in, When, About), numbers, years or a span, and
+  says how many books it matches beside Save rule. A list's page shows its rules as pills and Edit rules.
+- **Grimmory magic shelves** (`GrimmoryMagicShelvesApi`, `GrimmoryMagicShelfRules` in data:grimmory,
+  `GrimmoryMagicShelfClientAdapter` in app): `GET/POST/DELETE /api/magic-shelves` (an update replaces the
+  whole shelf, so icon and isPublic go back as read; `filterJson` is a JSON string), books from
+  `GET /api/v1/app/books/ids?magicShelfId=N` (Grimmory picks them). Rules convert both ways; a shelf whose
+  rules the app can't read still shows, with "change them in Grimmory's web app" and no Edit. Grimmory
+  names no owner for a public magic shelf, so every one counts as yours; the server refuses changes to
+  someone else's and the toast says so. Kept in `server_lists` (kind `ServerMagicShelf`, id
+  `grimmory:magic:N`) with the rules in the new `rules` column (**Room v34**, `MIGRATION_33_34`).
+- **Kavita collections** (`KavitaCollectionsApi` in data:kavita, reached as `KavitaApi.lists`;
+  `KavitaCollectionClientAdapter`): `GET api/Collection?ownedOnly=false`, `GET
+  api/Series/series-by-collection`, rename (`POST api/Collection/update`, sending summary, cover lock and
+  promoted back), remove series (`POST api/Collection/update-series`; removing the last deletes the
+  collection on Kavita), delete. Kept as kind `ServerCollection` (`kavita:collection:N`), its items the
+  app's series ids, rows that open the series in the Kavita library. Yours are editable; promoted by
+  someone else or Kavita+-synced ones are read-only.
+- **Stores**: one `RoomServerShelfStore` per server and kind (`ServerShelfClient.kind`,
+  `ServerListDao.replaceKind`, `ServerListStores.forList/forKind/forNewList`), so a server's kinds refresh
+  without wiping each other.
+- **The Kavita lists chip is gone** from the library home with its dialog and `LibraryReadingListScopeState`.
+  `AppKavitaReadingListController` (the old in-memory scope, and Read next for a list picked there) is
+  left in place with nothing selecting it any more: removing it is a follow-up.
+
+Status: built in worktree `lists-design-improvements-37bfbc` (branch `claude/lists-design-improvements-37bfbc`,
+from main at 0.26.0). Tests: `ListRulesTest` (7), `ListsSectionsTest` (4), `SmartListsTest` (+2),
+`RuledServerListStoreTest` (2), the 33→34 migration, `GrimmoryMagicShelvesApiTest` (8),
+`GrimmoryMagicShelfRulesTest` (9), `KavitaCollectionsApiTest` (8). Never tried against the real Grimmory
+or Kavita.
 
 ## Ownership
 
