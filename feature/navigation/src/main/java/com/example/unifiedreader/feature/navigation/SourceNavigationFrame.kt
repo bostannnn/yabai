@@ -9,13 +9,13 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.DrawerValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.ui.components.appSystemBars
 
 /**
  * The app's navigation around [content]: the rail beside it where [sourceNavigationUsesRail],
@@ -66,7 +66,7 @@ fun SourceNavigationFrame(
                     // The rail already keeps clear of the start edge's cutout and bars.
                     .then(
                         if (railShown) {
-                            Modifier.consumeWindowInsets(WindowInsets.safeDrawing.only(WindowInsetsSides.Start))
+                            Modifier.consumeWindowInsets(WindowInsets.appSystemBars.only(WindowInsetsSides.Start))
                         } else {
                             Modifier
                         },

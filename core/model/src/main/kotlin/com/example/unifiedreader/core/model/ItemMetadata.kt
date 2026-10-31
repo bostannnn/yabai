@@ -10,6 +10,10 @@ data class BookMetadata(
     val genres: List<String> = emptyList(),
     val tags: List<String> = emptyList(),
     val languages: List<String> = emptyList(),
+    /** Moods as the server gives them ("tense", "reflective"); Grimmory takes them from Hardcover. */
+    val moods: List<String> = emptyList(),
+    /** The server shelves this book is on, by name (Grimmory shelves). */
+    val shelves: List<String> = emptyList(),
 )
 
 data class ComicMetadata(
@@ -34,6 +38,8 @@ data class ReadableItemFacetMetadata(
     val genres: List<String> = emptyList(),
     val tags: List<String> = emptyList(),
     val languages: List<String> = emptyList(),
+    val moods: List<String> = emptyList(),
+    val shelves: List<String> = emptyList(),
 )
 
 fun BookMetadata.primaryAuthor(): String? = normalizedMetadataValues(
@@ -66,6 +72,8 @@ fun ReadableItem.facetMetadata(): ReadableItemFacetMetadata = ReadableItemFacetM
     languages = normalizedMetadataValues(
         bookMetadata?.languages.orEmpty() + comicMetadata?.languages.orEmpty(),
     ),
+    moods = normalizedMetadataValues(bookMetadata?.moods.orEmpty()),
+    shelves = normalizedMetadataValues(bookMetadata?.shelves.orEmpty()),
 )
 
 fun Iterable<ReadableItem>.aggregateFacetMetadata(): ReadableItemFacetMetadata = ReadableItemFacetMetadata(

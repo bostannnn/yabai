@@ -331,7 +331,7 @@ class LibraryDerivedStateComputerTest {
     }
 
     @Test
-    fun `pages filter shows a root series when one of its issues fits and counts its lengths`() {
+    fun `a root series is as long as all its issues for the pages filter, sort and counts`() {
         val libraryId = SourceType.KAVITA.remoteLibraryId("k-comics")
         val single = issue(id = "k-1", sourceType = SourceType.KAVITA, libraryId = libraryId, seriesKey = "akira", title = "Akira 1")
             .copy(pageCount = 24)
@@ -349,14 +349,17 @@ class LibraryDerivedStateComputerTest {
             ),
         )
 
-        val long = compute(LibraryPageRange(min = 150, max = 300))
+        // Akira is 24 + 220 = 244 pages: neither issue alone is in 240-300, the series is.
+        val total = compute(LibraryPageRange(min = 240, max = 300))
         val longer = compute(LibraryPageRange(min = 300, includeUnknown = true))
 
-        assertEquals(listOf("Akira"), long.visibleItems.map(ReadableItem::title))
+        assertEquals(listOf("Akira"), total.visibleItems.map(ReadableItem::title))
         assertEquals(listOf("Blame"), longer.visibleItems.map(ReadableItem::title))
-        val histogram = long.selectedLibraryFilterFacets.pages
-        assertEquals(1, histogram.bars[libraryPageBarIndex(24)])
-        assertEquals(1, histogram.bars[libraryPageBarIndex(220)])
+        val akiraId = total.visibleItems.single().id
+        assertEquals(mapOf(akiraId to 244), total.pageCountByItemId)
+        val histogram = total.selectedLibraryFilterFacets.pages
+        assertEquals(1, histogram.bars[libraryPageBarIndex(244)])
+        assertEquals(1, histogram.bars.sum())
         assertEquals(1, histogram.unknown)
     }
 

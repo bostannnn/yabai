@@ -36,7 +36,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,13 +50,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.unifiedreader.core.model.LibraryBrowseChip
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import com.example.unifiedreader.ui.components.AppButton
 import com.example.unifiedreader.ui.components.AppButtonDefaults
-import com.example.unifiedreader.ui.components.AppChip
 import com.example.unifiedreader.ui.components.AppChoiceRow
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppLayout
@@ -81,7 +80,7 @@ import kotlinx.coroutines.withContext
  * rows of more in its series, more by its author and similar books, and at the end the quiet
  * row that removes it. [relatedPool] is
  * where those rows come from (the books of its source); a cover there shows that book's page.
- * A genre or tag filters the library when [onFilterByGenre] / [onFilterByTag] are given.
+ * A tag or genre opens Browse with it picked when [onBrowse] is given.
  * [onBack], when given, returns to the book this page was opened from (Back, or the arrow).
  */
 @Composable
@@ -95,8 +94,7 @@ fun LibraryBookPage(
     onDeleteImported: (ReadableItem) -> Unit,
     onDismiss: () -> Unit,
     onBack: (() -> Unit)? = null,
-    onFilterByGenre: ((String) -> Unit)? = null,
-    onFilterByTag: ((String) -> Unit)? = null,
+    onBrowse: ((LibraryBrowseChip) -> Unit)? = null,
     // "See all" on the series row; given the page's book.
     onSeeAllInSeries: ((ReadableItem) -> Unit)? = null,
 ) {
@@ -194,8 +192,7 @@ fun LibraryBookPage(
                 LibraryBookPageAbout(
                     text = text,
                     descriptionLoading = description.loading,
-                    onFilterByGenre = onFilterByGenre?.let { filter -> { genre: String -> filter(genre); dismiss() } },
-                    onFilterByTag = onFilterByTag?.let { filter -> { tag: String -> filter(tag); dismiss() } },
+                    onBrowse = onBrowse?.let { browse -> { chip: LibraryBrowseChip -> browse(chip); dismiss() } },
                 )
             }
             related.seriesName?.takeIf { related.moreInSeries.isNotEmpty() }?.let { series ->
@@ -496,80 +493,6 @@ private fun RowScope.LibraryBookPageTonalAction(action: BookPageAction, tint: Ap
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun LibraryBookPageAbout(
-    text: LibraryBookPageText,
-    descriptionLoading: Boolean,
-    onFilterByGenre: ((String) -> Unit)?,
-    onFilterByTag: ((String) -> Unit)?,
-) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        AppSheetDivider()
-        AppSheetLabel(text = "About")
-        if (descriptionLoading) {
-            LibraryBookDescriptionPlaceholder()
-        } else {
-            text.description?.let { description ->
-                LibraryExpandableText(text = description, horizontalPadding = AppLayout.inset)
-            }
-        }
-        val allChips = (text.genres.map { genre -> genre to onFilterByGenre } + text.tags.map { tag -> tag to onFilterByTag })
-            .distinctBy { (value, _) -> value.lowercase() }
-        var showAllChips by rememberSaveable(text.genres, text.tags) { mutableStateOf(false) }
-        // Genres come first, so a folded list keeps them and cuts the long tail of tags.
-        val chips = if (showAllChips) allChips else allChips.take(BookPageFoldedChipCount)
-        val hiddenChips = allChips.size - chips.size
-        if (chips.isNotEmpty()) {
-            FlowRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = AppLayout.inset, end = AppLayout.inset, top = 4.dp, bottom = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                chips.forEach { (value, filter) ->
-                    AppChip(
-                        selected = false,
-                        onClick = { filter?.invoke(value) },
-                        enabled = filter != null,
-                        modifier = Modifier.height(LibraryBookPageChipHeight),
-                        label = { Text(text = value, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                    )
-                }
-                if (hiddenChips > 0) {
-                    AppTextButton(
-                        onClick = { showAllChips = true },
-                        modifier = Modifier.height(LibraryBookPageChipHeight),
-                    ) {
-                        Text(text = "+$hiddenChips more", fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            }
-        }
-        Column(
-            modifier = Modifier.padding(start = AppLayout.inset, end = AppLayout.inset, top = 8.dp, bottom = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            text.facts.forEach { (label, value) ->
-                Row {
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.5.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.width(LibraryBookPageFactLabelWidth),
-                    )
-                    Text(
-                        text = value,
-                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.5.sp),
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
-        }
-    }
-}
-
 /** A row of covers, four across with 12 dp between them; a cover shows that book's page. */
 @Composable
 private fun LibraryBookPageRow(
@@ -626,9 +549,5 @@ private val ComicReadingDirection.pageLabel: String
 
 private const val SecondaryTextAlpha = 0.74f
 private val LibraryBookPageCoverWidth = 118.dp
-private val LibraryBookPageChipHeight = 30.dp
 
-/** Genre and tag chips shown before "+N more". */
-private const val BookPageFoldedChipCount = 10
-private val LibraryBookPageFactLabelWidth = 110.dp
 private val RelatedCoverGap = 12.dp

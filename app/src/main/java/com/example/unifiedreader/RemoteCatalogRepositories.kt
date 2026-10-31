@@ -331,7 +331,8 @@ class RoomRemoteCatalogRepository(
                 LibrarySortMode.AUTHOR -> remoteCatalogDao.pagingGridRootsByAuthor(source.name)
                 LibrarySortMode.SERIES -> remoteCatalogDao.pagingGridRootsBySeries(source.name)
                 LibrarySortMode.TITLE,
-                LibrarySortMode.ISSUE_COUNT -> remoteCatalogDao.pagingGridRootsByTitle(source.name)
+                LibrarySortMode.ISSUE_COUNT,
+                LibrarySortMode.PAGES -> remoteCatalogDao.pagingGridRootsByTitle(source.name)
             }
         } else {
             remoteCatalogDao.pagingGridRootsFiltered(
@@ -349,7 +350,8 @@ class RoomRemoteCatalogRepository(
         LibrarySortMode.SERIES -> remoteCatalogDao.observeSeriesAlphabetBuckets(source.name)
         LibrarySortMode.DATE_ADDED,
         LibrarySortMode.LAST_READ,
-        LibrarySortMode.ISSUE_COUNT -> flowOf(emptyList())
+        LibrarySortMode.ISSUE_COUNT,
+        LibrarySortMode.PAGES -> flowOf(emptyList())
     }.map(::assembleLibraryAlphabetSections).flowOn(ioDispatcher)
 
     override suspend fun orderedGridRootIds(
@@ -561,7 +563,8 @@ private fun LibrarySortMode.isRailSort(): Boolean = when (this) {
 
     LibrarySortMode.DATE_ADDED,
     LibrarySortMode.LAST_READ,
-    LibrarySortMode.ISSUE_COUNT -> false
+    LibrarySortMode.ISSUE_COUNT,
+    LibrarySortMode.PAGES -> false
 }
 
 private const val LOG_TAG = "RemoteCatalogRepo"

@@ -21,16 +21,9 @@ class LibraryPageFilterTest {
 
     @Test
     fun `an item without a page count fits only when unknown lengths are kept`() {
-        assertFalse(LibraryPageRange(min = 10).matches(emptyList()))
-        assertTrue(LibraryPageRange(min = 10, includeUnknown = true).matches(emptyList()))
-    }
-
-    @Test
-    fun `an item with several counts fits when one of them is in range`() {
-        val range = LibraryPageRange(min = 150, max = 300)
-
-        assertTrue(range.matches(listOf(24, 26, 210)))
-        assertFalse(range.matches(listOf(24, 26)))
+        assertFalse(LibraryPageRange(min = 10).matches(null))
+        assertTrue(LibraryPageRange(min = 10, includeUnknown = true).matches(null))
+        assertTrue(LibraryPageRange(min = 10).matches(10))
     }
 
     @Test
@@ -66,37 +59,53 @@ class LibraryPageFilterTest {
     }
 
     @Test
-    fun `a page counts provider decides a series tile's lengths`() {
+    fun `a page count provider decides a series tile's length`() {
         val series = item("series", FormatType.CBZ, pageCount = null)
 
         val kept = applyLibraryFilters(
             items = listOf(series),
             filters = LibraryFilterState(pages = LibraryPageRange(min = 150)),
-            pageCountsProvider = { listOf(24, 180) },
+            pageCountProvider = { 24 + 180 },
         )
 
         assertEquals(listOf(series), kept)
     }
 
     @Test
-    fun `the histogram counts each item once per bar it reaches and the unknown ones apart`() {
+    fun `the pages sort puts the shortest first, ties by title and unknown lengths last`() {
+        val unknown = item("Unknown", FormatType.EPUB, pageCount = null)
+        val long = item("Long", FormatType.CBZ, pageCount = 400)
+        val shortB = item("Beta", FormatType.CBZ, pageCount = 24)
+        val shortA = item("alpha", FormatType.CBZ, pageCount = 24)
+        val series = item("Series", FormatType.CBZ, pageCount = null)
+
+        val sorted = applyLibrarySort(
+            items = listOf(unknown, long, shortB, series, shortA),
+            sortMode = LibrarySortMode.PAGES,
+            pageCountOf = { item -> if (item == series) 212 else item.libraryPageCount() },
+        )
+
+        assertEquals(listOf(shortA, shortB, series, long, unknown), sorted)
+    }
+
+    @Test
+    fun `the histogram counts each item in the bar its length falls in and the unknown ones apart`() {
         val short = item("short", FormatType.CBZ, pageCount = 24)
         val long = item("long", FormatType.CBZ, pageCount = 2_400)
         val series = item("series", FormatType.CBZ, pageCount = null)
         val unknown = item("unknown", FormatType.EPUB, pageCount = null)
-        val countsById = mapOf(series.id to listOf(22, 28, 210))
 
         val histogram = buildLibraryPageHistogram(listOf(short, long, series, unknown)) { item ->
-            countsById[item.id] ?: item.ownPageCounts()
+            if (item == series) 22 + 28 + 210 else item.libraryPageCount()
         }
 
         val bars = histogram.bars
         assertEquals(LibraryPageStops.size - 1, bars.size)
-        assertEquals(2, bars[libraryPageBarIndex(24)])
-        assertEquals(1, bars[libraryPageBarIndex(210)])
+        assertEquals(1, bars[libraryPageBarIndex(24)])
+        assertEquals(1, bars[libraryPageBarIndex(260)])
         // Everything from the last stop up lands in the last bar.
         assertEquals(1, bars.last())
-        assertEquals(4, bars.sum())
+        assertEquals(3, bars.sum())
         assertEquals(1, histogram.unknown)
         assertTrue(histogram.hasKnownLengths)
     }

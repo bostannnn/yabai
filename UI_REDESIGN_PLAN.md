@@ -1998,6 +1998,61 @@ Graphite, and settings, filters and the journal in Paper. Not yet on the tablet.
 Not in this pass: the reader's bars and page frame (8.7, 9.6), covers, colours, and type sizes other than
 those listed.
 
+## Browse and search `[~]` (2026-10-31)
+
+Asked 2026-10-31: "I forget which books I already have, what I want to read"; read about Lust, Caution online
+and found it already in the library, never opened. The user's Grimmory (exported that day): 2,094 books, 88
+ever opened, 2,092 with a description, 264 tags, 35 shelves, 874 books on none. Rejected after two rounds of
+ideas: rows from ratings and history, want to read, surprise me, share-to-yabai, a swipe triage, other
+editions. Kept and mocked on https://claude.ai/artifact/UXB8pteasc8jXzYgHxGBRp (13 boards): a tag browser
+(places, eras and themes, shelves as saved views, rows that follow the metadata) and search that says why.
+"Build it": the proposed option of every sticky.
+
+Built in worktree `book-discovery-features-aa8ff2` (branch `claude/book-discovery-features-aa8ff2`, from main
+e2c2c0fb):
+
+- [x] Design system first: the `LibraryBrowse` screen, Browse on `LibraryHome`'s All books row, and
+      `AppSearchField`'s tag row and result rows; published to the artifact.
+- [x] core:model: `LibraryTagKinds.kt` (`libraryTagKind`: place names that ship with the app, eras by shape
+      or name, the rest themes; regions; timeline slots), `LibraryBrowse.kt` (rows, chips that narrow, counts
+      among what is left, the timeline and place groups), `LibrarySearchMatches.kt` (the sentence or tag that
+      matched, the tags a search names). `BookMetadata` gained `moods` and `shelves`, filled by nothing yet.
+- [x] data:grimmory: the book list comes with descriptions (`withDescription=true`, about 3 MB for 2,094
+      books), so search reads them and the book page has one at once. Grimmory syncs only from its Sync
+      button, so that is once per sync.
+- [x] feature:library `browse/`: the page (landing: Set in by region, When as a timeline with its periods,
+      the other rows as chips; picked: the 320 pane beside the grid on Expanded, rows as tabs elsewhere), its
+      bar, and the Rows sheet (Shown, Off, Waiting for metadata; per source in the `library_browse`
+      preferences, storing what you hid and what you added, so a new field's row turns up by itself).
+      The book page's About moved to `LibraryBookPageAbout.kt`: tags in Set in, When, About and Genre rows,
+      and a tap opens Browse with it (it filtered the grid before). Browse leads the All books row's chips.
+      Search shows its results as rows with the matching sentence marked, and the tags it names as Browse
+      chips above them (not a panel over the results, so nothing is hidden).
+- [x] app: Browse's state, bar and Back in the scaffold (like See all), its branch in the route, the book
+      page host's `onBrowse`.
+- [x] Tests: core:model `LibraryBrowseTest`, `LibrarySearchMatchesTest`; instrumented
+      `LibraryBrowsePageTest` and the updated `LibraryBookPageTest`, run on `yabai_review_35` (5560). All unit
+      tests pass (1,592 across both lines).
+- [x] Polish pass (2026-10-31), seen in the whole app on a private emulator clone with the user's 2,094
+      Grimmory books served by a local stand-in for the server: tablet portrait and landscape, and a phone.
+      Fixed: the kit gained `AppTabPill` (the shelf tabs moved into it) and Browse's rows use it on narrow
+      windows, so the tabs no longer look like the chips under them; counts on chips and tabs have a
+      separator ("2,083", `appCount`); the regions stack in columns (equal heights clipped Europe's "33
+      more"); the timeline's bars are at least 40 wide and scroll with a fading edge where they don't fit;
+      a search hit on a tag or genre is one line named as Browse names it ("Set in **Japan**"); Rows counts
+      its fields once per library instead of on every chip. The design system has all of it. Library
+      instrumented tests pass (19); `LibraryShelvesZoneActionsTest` fails 3 of 5 with or without this
+      branch's shelf changes (it looks for "CONTINUE READING", a "Back" button and an issue title), left
+      for its own fix.
+- [ ] Shelves: Your shelves' data, Save as shelf (a Grimmory magic shelf), the missing books with Add, and
+      Fill by tag. They wait for the Lists branch (`app-improvement-suggestions-5f047f`), which builds
+      Grimmory's shelf reading and writing and Room v31 and v32.
+- [ ] Moods: one `readable_items` column and the Grimmory field, after that branch's migrations. Until then
+      Mood waits in Rows.
+- [ ] Later: search by meaning (an on-device multilingual model), Find a tag in Browse's bar, reordering rows,
+      the landing's "Added in October" chip.
+- [ ] Tablet.
+
 ## Not yet designed
 
 Section 9: each step above gets its mock when it starts. Before it, nothing was left: downloads, the

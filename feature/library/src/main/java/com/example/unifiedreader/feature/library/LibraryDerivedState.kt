@@ -38,6 +38,8 @@ data class LibraryDerivedState(
     val selectedSourceLibraryTitlesById: Map<String, String> = emptyMap(),
     val displayProgressByItemId: Map<String, ItemProgressSummary> = emptyMap(),
     val displayRatingByItemId: Map<String, LibraryRatingBadgeState> = emptyMap(),
+    // Each grid item's length in pages (a series tile's is all its issues); unknown ones are left out.
+    val pageCountByItemId: Map<String, Int> = emptyMap(),
     val remoteDownloadActionAvailability: RemoteDownloadActionAvailability = RemoteDownloadActionAvailability(),
     val visibleItems: List<ReadableItem> = emptyList(),
     val libraryBrowseContextKey: String = "",

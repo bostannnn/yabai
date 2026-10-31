@@ -33,6 +33,8 @@ internal fun GridCoverCard(
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     // A series tile (Kavita or Stump): its issue count draws the stack and fills the meta line.
     seriesIssueCount: Int? = null,
+    // The tile's length while the grid is sorted by pages; it takes the meta line's place.
+    lengthLabel: String? = null,
     title: String = itemPrimaryText(item),
     isSelectionMode: Boolean = false,
     isSelected: Boolean = false,
@@ -45,7 +47,7 @@ internal fun GridCoverCard(
     val progressLabel = progress?.tileLabel
     val progressBarFraction = progress?.tileBarFraction
     val seriesLabel = seriesIssueCount?.let { count -> if (count == 1) "1 issue" else "$count issues" }
-    val metaLabel = listOfNotNull(seriesLabel, progressLabel).joinToString(" · ").ifEmpty { null }
+    val metaLabel = lengthLabel ?: listOfNotNull(seriesLabel, progressLabel).joinToString(" · ").ifEmpty { null }
     // A picked cover steps back a little inside an accent ring.
     val picked = isSelectionMode && isSelected
     val coverScale by animateFloatAsState(

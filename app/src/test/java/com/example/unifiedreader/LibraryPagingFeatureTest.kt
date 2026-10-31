@@ -23,9 +23,17 @@ class LibraryPagingFeatureTest {
         assertFalse(LibraryPagingFeature.isPageable(kavitaState(LibraryFilterState(pages = LibraryPageRange(min = 150)))))
     }
 
-    private fun kavitaState(filters: LibraryFilterState) = AppUiState(
+    @Test
+    fun `the pages sort keeps the in-memory grid`() {
+        assertFalse(LibraryPagingFeature.isPageable(kavitaState(LibraryFilterState(), LibrarySortMode.PAGES)))
+    }
+
+    private fun kavitaState(
+        filters: LibraryFilterState,
+        sortMode: LibrarySortMode = LibrarySortMode.LAST_READ,
+    ) = AppUiState(
         selectedSource = SourceType.KAVITA,
         libraryFiltersBySource = mapOf(SourceType.KAVITA to filters),
-        librarySortsBySource = mapOf(SourceType.KAVITA to LibrarySortMode.LAST_READ),
+        librarySortsBySource = mapOf(SourceType.KAVITA to sortMode),
     )
 }

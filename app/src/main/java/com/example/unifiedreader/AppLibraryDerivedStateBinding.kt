@@ -57,6 +57,7 @@ internal fun AppUiState.withLibraryDerivedState(
     selectedSourceLibraryTitlesById = derivedState.selectedSourceLibraryTitlesById,
     displayProgressByItemId = derivedState.displayProgressByItemId,
     displayRatingByItemId = derivedState.displayRatingByItemId,
+    displayPageCountByItemId = derivedState.pageCountByItemId,
     remoteDownloadActionAvailability = derivedState.remoteDownloadActionAvailability,
     visibleItems = derivedState.visibleItems,
     libraryBrowseContextKey = derivedState.libraryBrowseContextKey,

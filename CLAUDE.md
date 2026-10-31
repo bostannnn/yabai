@@ -114,9 +114,12 @@ Keystore `~/yabai.jks`, alias `key0`. The release cert SHA-256 must be
 ## Device
 
 - SDK `~/Library/Android/sdk_new`; adb is `~/Library/Android/sdk_new/platform-tools/adb`
-  (not on PATH). Emulator AVD `yabai_tablet_35` (Android 15, 1200x1920 tablet; RuntimeShader works):
-  `ANDROID_SDK_ROOT=~/Library/Android/sdk_new ~/Library/Android/sdk_new/emulator/emulator -avd yabai_tablet_35 -no-snapshot -no-boot-anim -no-audio -gpu host`.
+  (not on PATH). Emulator AVD `yabai_settings_35` (Android 15, 1200x1920 tablet; RuntimeShader works):
+  `ANDROID_SDK_ROOT=~/Library/Android/sdk_new ~/Library/Android/sdk_new/emulator/emulator -avd yabai_settings_35 -port 5556 -no-snapshot -no-boot-anim -no-audio -gpu host`.
   Debug builds are fine there; judging feel and performance still needs the user's tablet.
+  It is the only AVD and sessions share it: check `adb -s emulator-5556 shell dumpsys package com.example.unifiedreader | grep lastUpdateTime`
+  before installing over someone else's build. A second one is a copy of its `config.ini` and `.ini` under a new name
+  (booted with `-wipe-data`), and needs about 7.3 GB free disk for its 6 GB data partition.
 - The installed app is a release build. Update it with `adb install -r` of a **signed release**
   APK, which keeps its data. A debug build has a different signature and would need an
   uninstall, which wipes the library and journal: never uninstall.

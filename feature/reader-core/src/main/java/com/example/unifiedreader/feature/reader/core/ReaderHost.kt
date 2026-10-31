@@ -3,17 +3,21 @@ package com.example.unifiedreader.feature.reader.core
 import android.app.Activity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
-import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.ui.components.LocalAppScreenLeaving
+import com.example.unifiedreader.ui.components.appSystemBars
 
 enum class ReaderChrome {
     Immersive,
@@ -85,7 +89,11 @@ fun ReaderHost(
                     onBack = onBack,
                     navigationActions = coordinatedNavigationActions,
                 )
-                else -> Column(modifier = Modifier.fillMaxSize()) {
+                else -> Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .windowInsetsPadding(WindowInsets.appSystemBars),
+                ) {
                     ReaderTopBar(
                         title = item.title,
                         subtitle = null,
@@ -122,26 +130,33 @@ private fun ReaderWorkEffect(
     }
 }
 
+/**
+ * Hides the system bars while an immersive reader is open. They come back as soon as the reader
+ * starts to leave ([LocalAppScreenLeaving]: Back, or a back gesture let go), so they slide in with
+ * the change to the library instead of after it. The window stays edge to edge throughout; the
+ * library is laid out for the bars even while they are hidden ([appSystemBars]), so it doesn't
+ * move when they return.
+ */
 @Composable
 private fun ReaderWindowEffect(
     isImmersive: Boolean,
 ) {
     val view = LocalView.current
     val activity = view.context.findContextAncestor<Activity>() ?: return
+    val hideBars = isImmersive && !LocalAppScreenLeaving.current
+    val controller = remember(activity, view) { WindowInsetsControllerCompat(activity.window, view) }
 
-    DisposableEffect(activity, isImmersive) {
-        val window = activity.window
-        WindowCompat.setDecorFitsSystemWindows(window, !isImmersive)
-        val controller = WindowInsetsControllerCompat(window, view)
+    DisposableEffect(controller) {
         controller.systemBarsBehavior =
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        if (isImmersive) {
-            controller.hide(WindowInsetsCompat.Type.systemBars())
-        } else {
+        onDispose {
             controller.show(WindowInsetsCompat.Type.systemBars())
         }
-        onDispose {
-            WindowCompat.setDecorFitsSystemWindows(window, true)
+    }
+    LaunchedEffect(controller, hideBars) {
+        if (hideBars) {
+            controller.hide(WindowInsetsCompat.Type.systemBars())
+        } else {
             controller.show(WindowInsetsCompat.Type.systemBars())
         }
     }

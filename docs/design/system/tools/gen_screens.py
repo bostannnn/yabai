@@ -168,7 +168,7 @@ library = f"""
           <div style="display:flex;gap:16px">{strip_tiles}</div>
         </div>
         <div style="display:flex;flex-direction:column;gap:8px">
-          <div style="display:flex;align-items:center;gap:8px"><h2 class="yb-section-heading" style="flex:1">All books <span class="yb-count">1,474</span></h2><span class="yb-chip">{ic("filter_list")}Filters</span><span class="yb-chip">{ic("tune")}Last read</span></div>
+          <div style="display:flex;align-items:center;gap:8px"><h2 class="yb-section-heading" style="flex:1">All books <span class="yb-count">1,474</span></h2><span class="yb-chip">{ic("collections_bookmark")}Browse</span><span class="yb-chip">{ic("filter_list")}Filters</span><span class="yb-chip">{ic("tune")}Last read</span></div>
           <div style="display:grid;grid-template-columns:repeat({cols},1fr);gap:16px">{grid_tiles}</div>
         </div>
       </div>
@@ -184,15 +184,80 @@ A source's library: the bar with its search field, the reading card, the shelf t
 
 - **Gutter 24** from Medium (16 on phones): the bar's glass, the reading card, the tabs, the heading and the grid share both edges.
 - Content top 84, bottom 24. The grid's gap is 16.
-- All books is `AppSectionHeading`, on the gutter line, with Filters and sort at its end.
+- All books is `AppSectionHeading`, on the gutter line, with Browse, Filters and sort at its end. Browse opens the Browse page (see Browse); Filters stays for the grid's own filters.
 - The reading card's inside inset is `inset` 20 at every width and its corners `radius-container` 20.
 - No source name anywhere on the screen: the search field says it.
+- **The jump rail** runs down the right edge for a sort that groups: the letters for Title, Author and Series, and for Pages the page ranges the filter's slider stops at (0, 10, 20, 30, 40, 50, 75, 100, 150, 200, 250, 300, 400, 500, 750, 1k), each where its range starts (150 holds 150 to 199), then `?` for books with no page count. Only sections with books show.
+- **Sorted by Pages** (shortest first, unknown lengths last), the line under each cover gives its length instead of its progress: "212 pages", a series "212 pages · 8 issues". A series' length is all its issues together, for the sort and the Pages filter alike.
 - **The card follows a reading order** when the book you read last was finished and is in the reading order under way, and that order's next book is from this library: its overline is "Next in The Long Eclipse · 7 of 14", one line under the progress names the two after it ("Then Neon Ronin #13, The Long Eclipse #3"), and its buttons are Read (or Continue) and Open list.
 """, f"""
 <div class="yb" style="padding:16px">
   {TOGGLE}
   <div id="screens"><div class="yb-caption" style="margin-bottom:8px">Medium, 800 wide (the emulator's portrait)</div>{library}</div>
 </div>""", width=832, page=True, script=TOGGLE_SCRIPT)
+
+# ------------------------------------------------------------------ Browse (Expanded landscape)
+BW, BH = 1280, 800
+
+
+def chips(values, selected=()):
+    return "".join(
+        f'<span class="yb-chip{" is-selected" if v in selected else ""}">{v} <span class="yb-count">{n}</span></span>'
+        for v, n in values
+    )
+
+
+browse_groups = "".join(
+    f'<div style="display:flex;flex-direction:column;gap:8px"><h3 class="yb-group-label">{label}</h3><div class="yb-chip-row">{chips(values, selected)}</div></div>'
+    for label, values, selected in [
+        ("Set in", [("United Kingdom", 24), ("London", 15), ("United States", 7), ("Germany", 6)], ()),
+        ("When", [("Cold War", 29), ("21st century", 16), ("World War II", 7), ("1950s", 5)], ()),
+        ("About", [("Espionage", 59), ("Conspiracy", 7), ("Terrorism", 7), ("War", 4)], ("Espionage",)),
+        ("Genre", [("Thriller & Suspense", 44), ("Humor & Satire", 14), ("History", 9)], ()),
+        ("Your shelves", [("Spy Fiction", 24), ("European Fiction", 2)], ()),
+        ("Your reading", [("Not started", 59)], ()),
+    ]
+)
+browse_tiles = "".join(
+    f'<div style="display:flex;flex-direction:column;gap:6px;min-width:0">{cover(i)}<div class="yb-book-title" style="font-size:14px">{t}</div></div>'
+    for i, t in enumerate(["The Lantern Keepers", "Дом у реки", "Quiet Engines", "Moths of Lisbon", "Glass Meridian", "Star Courier #2", "The Salt Orchard", "Paper Cranes", "The Lantern Keepers", "Дом у реки"])
+)
+browse = f"""
+<div class="yb-device" style="width:{BW}px;height:{BH}px">
+  {statusbar()}
+  <div class="yb-device-body">
+    {rail("Grimmory")}
+    <div class="yb-pane" style="--yb-gutter:24px">
+      <div class="yb-bar"><button class="yb-icon-btn">{ic("arrow_back")}</button><span class="yb-bar-title">Browse</span><button class="yb-icon-btn">{ic("search")}</button><button class="yb-icon-btn">{ic("more_vert")}</button></div>
+      <div style="position:absolute;left:24px;top:84px;width:320px;bottom:0;display:flex;flex-direction:column;gap:18px;overflow:hidden">{browse_groups}</div>
+      <div style="position:absolute;left:368px;right:24px;top:84px;bottom:0;display:flex;flex-direction:column;gap:16px;overflow:hidden">
+        <div style="display:flex;gap:8px;align-items:center"><span class="yb-chip is-selected"><span style="opacity:.72;font-weight:500">About</span> Espionage{ic("close", 18)}</span><button class="yb-btn is-text">Clear</button></div>
+        <div style="display:flex;align-items:center;gap:8px"><h2 class="yb-section-heading" style="flex:1">59 books</h2><button class="yb-btn is-tonal">{ic("add")}Save as shelf</button></div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:16px">{browse_tiles}</div>
+      </div>
+      <div class="yb-spec">{g(24)}{g(344, "320 pane")}{g(368, "24")}{h(84)}<span class="t" style="left:560px;top:90px">84 content top</span></div>
+    </div>
+  </div>
+</div>"""
+
+comp("LibraryBrowse", "Screens", 900, """
+# Browse
+
+A source's books by what they are about: chips in rows, every chip narrowing the books, every count saying how many are left.
+
+- **Opening it.** The Browse chip, first in the All books row before Filters; a tag on the book page (Browse opens with that chip picked, where the tag used to filter the grid); a tag in the search suggestions. Back returns to where you came from. The bar shows Back, "Browse", Find and •••, and turns to glass only once content scrolls under it.
+- **Rows, in this order:** Set in (place tags), When (era tags), About (the other tags), Genre (categories), Mood (moods), Your shelves (the server's shelves), Your reading (Not started, In progress, Finished). Author, Series, Publisher and Language are there to switch on.
+- **A row is a field of the books** and shows only once some book has it, so new metadata from the server (moods, say) turns up as a new row by itself. Rows (••• in the bar) is an `AppSideSheet` of `AppSettingsRow`s with switches: Shown, Off, and Waiting for metadata. It remembers what you hid, not what you showed.
+- **Tags sort themselves** with `libraryTagKind` (core:model): place names the app knows, then eras by their shape (a decade, a century) or a named period; everything else is About.
+- **Nothing picked: the landing page.** Set in as region panels (`AppPanel`, inset 20: Americas, Europe, Russia and around, Asia, Middle East and Africa, Oceania) in three columns on Expanded, two on Medium, one on phones, 16 apart; each column stacks its panels at their own height, so a long region leaves no gap beside a short one. When as a timeline (one bar per decade or century, at least 40 wide, as tall as the square root of its count, the count above and the label below in two lines; where the bars don't fit, the timeline scrolls sideways and fades at an edge with more; a period like World War II or the 20th century is a chip under it). Then About, Genre, Your shelves and Your reading as chip rows, each ending in an "All N" text button.
+- **Something picked, Expanded:** the chip pane is the 320 list pane on the gutter, each row an `AppGroupLabel` over its chips, the picked chips selected. The results follow a gutter later: the picked chips (selected `AppChip`, the row's name dimmed, a close icon) and Clear, the count as `AppSectionHeading`, then the cover grid at the library's cover size. Medium and Compact: one column, the picked chips on top, the rows as `AppTabPill`s with the chosen row's chips under them, then the grid.
+- Every chip narrows, across rows and within one. A chip that would leave nothing doesn't show. Counts are digits.
+- Save as shelf keeps the chips, not the books (a Grimmory magic shelf).
+""", f"""
+<div class="yb" style="padding:16px">
+  {TOGGLE}
+  <div id="screens"><div class="yb-caption" style="margin-bottom:8px">Expanded, 1280 × 800: one chip picked</div>{browse}</div>
+</div>""", width=1312, page=True, script=TOGGLE_SCRIPT)
 
 # ------------------------------------------------------------------ Journal (Expanded landscape)
 def stat(num, unit, label, line):

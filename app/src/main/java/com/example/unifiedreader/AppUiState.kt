@@ -130,6 +130,7 @@ data class AppUiState(
     val selectedSourceLibraryTitlesById: Map<String, String> = emptyMap(),
     val displayProgressByItemId: Map<String, ItemProgressSummary> = emptyMap(),
     val displayRatingByItemId: Map<String, LibraryRatingBadgeState> = emptyMap(),
+    val displayPageCountByItemId: Map<String, Int> = emptyMap(),
     val remoteDownloadActionAvailability: RemoteDownloadActionAvailability = RemoteDownloadActionAvailability(),
     val visibleItems: List<ReadableItem> = emptyList(),
     val libraryBrowseContextKey: String = "",

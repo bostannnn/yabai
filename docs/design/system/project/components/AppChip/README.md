@@ -4,4 +4,4 @@ A selectable pill for filters and sort: 36 tall, a hairline `outline-variant` ed
 
 - Kit: `AppChip(selected, onClick, label, count, leadingIcon)`.
 - The library's Filters and sort pills, the filter sheet's values, Kavita lists.
-- Counts are numbers only ("20", not "(20)").
+- Counts are digits with a separator ("1,474"; `appCount`), not in brackets.

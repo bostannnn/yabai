@@ -370,7 +370,7 @@ A selectable pill for filters and sort: 36 tall, a hairline `outline-variant` ed
 
 - Kit: `AppChip(selected, onClick, label, count, leadingIcon)`.
 - The library's Filters and sort pills, the filter sheet's values, Kavita lists.
-- Counts are numbers only ("20", not "(20)").
+- Counts are digits with a separator ("1,474"; `appCount`), not in brackets.
 """, f"""
 <div class="yb yb-ground" style="padding:24px;display:flex;gap:8px;flex-wrap:wrap">
   <span class="yb-chip">{ic("filter_list")}Filters</span>
@@ -379,6 +379,19 @@ A selectable pill for filters and sort: 36 tall, a hairline `outline-variant` ed
   <span class="yb-chip">EPUB <span class="yb-count">14</span></span>
   <span class="yb-chip is-selected">CBZ <span class="yb-count">20</span></span>
 </div>""")
+
+comp("AppTabPill", "Actions", 160, """
+# AppTabPill
+
+A tab as a pill: 34 tall, 14 inside, text only until selected, then on `surface-container-high` with `on-surface` text. An optional count follows at 80%. Quieter than an `AppChip`, so a row of tabs reads as "which list" and chips under it as "which value".
+
+- Kit: `AppTabPill(label, selected, onClick, count)`; 4 apart in a row that scrolls when it doesn't fit.
+- The library home's shelf tabs (In progress, Up next, Finished) and See all's; Browse's rows on Medium and Compact windows.
+""", f"""
+<div class="yb yb-ground" style="padding:24px;display:flex;flex-direction:column;gap:16px;width:520px">
+  <div class="yb-tabs"><span class="yb-tab is-selected">In progress <span class="yb-count">7</span></span><span class="yb-tab">Up next <span class="yb-count">3</span></span><span class="yb-tab">Finished <span class="yb-count">4</span></span></div>
+  <div style="display:flex;flex-direction:column;gap:8px"><div class="yb-tabs"><span class="yb-tab is-selected">Set in</span><span class="yb-tab">When</span><span class="yb-tab">About</span><span class="yb-tab">Genre</span></div><div class="yb-chip-row"><span class="yb-chip is-selected">Japan <span class="yb-count">96</span></span><span class="yb-chip">Tokyo <span class="yb-count">16</span></span><span class="yb-chip">Kyoto <span class="yb-count">2</span></span></div></div>
+</div>""", width=568)
 
 comp("AppSegmentedRow", "Actions", 200, """
 # AppSegmentedRow
@@ -402,7 +415,7 @@ A range on one track: AppSlider's 18 tall pill on `surface-container-highest`, `
 - Kit: `AppRangeSlider(values, onValuesChange, valueRange, onValueChangeFinished)` and `AppHistogram(counts, highlighted)`. The histogram's bars are the slider's steps, so the two span the same width.
 - The caller snaps the handles to its stops and applies the range on release (`onValueChangeFinished`), not on every step.
 - The library filter sheet's Pages section: the label with the range at its end in `primary` ("150–300", "150+", "Up to 300", "Any"), the histogram, the slider, From and To fields (`AppTextField`, numbers; an empty field is no bound) and, while some books have no page count, an "Include unknown length" switch row saying how many (dimmed while the range is Any, when nothing is left out). Under the slider, 0, 100, 300 and 1,000+ mark the uneven scale. Stops: 0, 10, 20, 30, 40, 50, 75, 100, 150, 200, 250, 300, 400, 500, 750, 1,000+ (the last has no upper bound).
-- What counts as pages is what the book page shows: a comic's or a PDF's page count, an EPUB's printed pages (only Grimmory knows them). A series tile fits when one of its issues does.
+- What counts as pages is what the book page shows: a comic's or a PDF's page count, an EPUB's printed pages (only Grimmory knows them). A series tile's length is all its issues together, as the Pages sort counts it.
 """, f"""
 <div class="yb yb-ground" style="padding:24px;width:400px">
   <div class="yb-sheet" style="width:360px;padding:0 20px 12px">
@@ -421,6 +434,8 @@ The search pill: 40 tall, `surface-container-high`, a search icon, a placeholder
 - Kit: `AppSearchField(query, onQueryChange, placeholder, containerColor, trailingContent)`.
 - In the library bar it fills the middle up to 640. The placeholder says the place: "Search Kavita", "Search Neon Ronin", "Search shelves".
 - On a dialog, pass `AppSearchFieldDefaults.dialogContainerColor`.
+- **The tags a search names** (the library's search): above the results, a row that starts with "Browse" in `on-surface-variant` and holds an `AppChip` for each tag, genre, mood or shelf the words name, its Browse row quieter and its count after it ("Set in Japan 96"), whole names first. Picking one opens Browse with it. The row sits above the results, not in a panel over them, so it never hides what you searched for.
+- **Results** while searching are `AppBookRow`s that say why they matched when it isn't the title or a name: the sentence of the description that holds the words, marked with `primary-container`, two lines at most (a long one cut around the first word), with "In the description" under it; or, for a tag or genre, one line named as Browse names it ("Set in **Japan**", "Genre **Historical Fiction**").
 """, f"""
 <div class="yb yb-ground" style="padding:24px;display:flex;flex-direction:column;gap:12px;width:480px">
   <div class="yb-search">{ic("search")}<span>Search Kavita</span></div>

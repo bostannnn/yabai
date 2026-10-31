@@ -19,28 +19,33 @@ internal fun libraryItemPageCount(
     ?: progress?.pageCount?.takeIf { count -> count > 0 && item.format != FormatType.EPUB }
 
 /**
- * Each grid item's page counts for the Pages filter: a series tile's are its issues' (so it fits
- * when one issue does), anything else's its own. Empty where no length is known.
+ * Each grid item's length for the Pages filter, the Pages sort and the tile's caption: a series
+ * tile's is all its issues together, anything else's its own. Items whose length is unknown are
+ * left out.
  */
-internal fun buildPageCountsByItemId(
+internal fun buildPageCountByItemId(
     input: LibraryDerivedStateInput,
     sourceIndex: LibrarySourceIndex,
     sourceItems: List<ReadableItem>,
     progressByItemId: Map<String, ItemProgressSummary>,
-): Map<String, List<Int>> = sourceItems.associate { item ->
-    val issues = if (input.isSeriesBrowseActive) {
-        null
-    } else {
-        when {
-            item.isKavitaSeriesContainer() -> item.remoteId?.let(sourceIndex.issueGroupsFor(SourceType.KAVITA)::get)
-            item.isStumpSeriesContainer() -> item.remoteId?.let(sourceIndex.issueGroupsFor(SourceType.STUMP)::get)
-            else -> null
+): Map<String, Int> = buildMap {
+    sourceItems.forEach { item ->
+        val issues = if (input.isSeriesBrowseActive) {
+            null
+        } else {
+            when {
+                item.isKavitaSeriesContainer() -> item.remoteId?.let(sourceIndex.issueGroupsFor(SourceType.KAVITA)::get)
+                item.isStumpSeriesContainer() -> item.remoteId?.let(sourceIndex.issueGroupsFor(SourceType.STUMP)::get)
+                else -> null
+            }
         }
+        val pageCount = if (issues.isNullOrEmpty()) {
+            libraryItemPageCount(item, progressByItemId[item.id])
+        } else {
+            issues.mapNotNull { issue -> libraryItemPageCount(issue, progressByItemId[issue.id]) }
+                .takeIf(List<Int>::isNotEmpty)
+                ?.sum()
+        }
+        pageCount?.let { put(item.id, it) }
     }
-    val pageCounts = issues
-        ?.takeIf(List<ReadableItem>::isNotEmpty)
-        ?.mapNotNull { issue -> libraryItemPageCount(issue, progressByItemId[issue.id]) }
-        ?.distinct()
-        ?: listOfNotNull(libraryItemPageCount(item, progressByItemId[item.id]))
-    item.id to pageCounts
 }

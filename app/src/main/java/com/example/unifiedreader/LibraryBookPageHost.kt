@@ -3,6 +3,7 @@ package com.example.unifiedreader
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import com.example.unifiedreader.core.model.LibraryBrowseChip
 import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.ReadableItem
@@ -31,6 +32,7 @@ internal fun LibraryBookPageHost(
     onBack: (() -> Unit)?,
     onDeleteImportedItem: (ReadableItem) -> Unit,
     onFilterStateChanged: (LibraryFilterState) -> Unit,
+    onBrowse: (LibraryBrowseChip) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val item = remember(itemId, uiState.items, uiState.sourceItems, uiState.libraryShelvesState) {
@@ -65,10 +67,7 @@ internal fun LibraryBookPageHost(
         onBack = onBack,
         onDeleteImported = onDeleteImportedItem,
         onDismiss = onDismiss,
-        onFilterByGenre = { genre: String -> onFilterStateChanged(filters.copy(genres = setOf(genre))) }
-            .takeIf { LibraryFilterPanel.Genre in panels },
-        onFilterByTag = { tag: String -> onFilterStateChanged(filters.copy(tags = setOf(tag))) }
-            .takeIf { LibraryFilterPanel.Tag in panels },
+        onBrowse = onBrowse,
         // On Kavita and Stump the series is a screen of its own; elsewhere it is a filter.
         onSeeAllInSeries = when {
             seriesContainer != null -> { _: ReadableItem -> onItemSelected(seriesContainer) }
